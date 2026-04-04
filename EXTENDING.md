@@ -130,7 +130,7 @@ In the `if __name__ == "__main__"` block:
 
 **a. Import the dataset** (alongside existing imports ~line 243):
 ```python
-from SandbagBench.data.my_dataset import MyDataset
+from sandbagBench.data.my_dataset import MyDataset
 ```
 
 **b. Add to the `--dataset` choices** (~line 265):
@@ -305,7 +305,7 @@ parser.add_argument("--my_param", type=float, default=1.0,
 **c. Add a training branch in `main()`** (after the `system_prompt` block):
 ```python
 elif args.type == "my_organism":
-    from SandbagBench.modelorgs import MyOrganism
+    from sandbagBench.modelorgs import MyOrganism
     organism = MyOrganism(
         model_name=args.model,
         dataset=args.dataset,
@@ -505,7 +505,7 @@ ORGANISM_ELICITATION_COMPAT = {
 **d. Add a dispatch branch** (~line 442, after the last `elif args.elicitation == ...` block):
 ```python
 elif args.elicitation == "my_technique":
-    from SandbagBench.elicitation.blackbox.my_technique import MyTechnique
+    from sandbagBench.elicitation.blackbox.my_technique import MyTechnique
     tech = MyTechnique(
         model=model, tokenizer=tokenizer,
         dataset=args.dataset, model_name=args.model,

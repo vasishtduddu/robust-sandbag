@@ -1,7 +1,7 @@
 """CLI entry point for training model organisms.
 
 Usage:
-    python -m SandbagBench.train_modorg \\
+    python -m sandbagBench.train_modorg \\
         --type {pwd,circuitbreak,system_prompt} \\
         --model {mistral,mistral-instruct,llama2-7b,gemma-2-9b-it,llama3-8b-it} \\
         --dataset {wmdp,codegen} \\
@@ -25,7 +25,7 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--type",
+        "--model_org",
         required=True,
         choices=["pwd", "circuitbreak", "system_prompt"],
         help="Type of model organism to train.",
@@ -88,22 +88,17 @@ def parse_args():
 def main():
     args = parse_args()
 
-    # Validate organism-dataset compatibility
-    if args.type == "system_prompt" and args.dataset not in ("wmdp", "bio", "chem", "cyber"):
-        print(f"Error: system_prompt organism only supports WMDP datasets (wmdp/bio/chem/cyber), got '{args.dataset}'", file=sys.stderr)
-        sys.exit(1)
-
-    if args.type == "circuitbreak" and not args.pw_locked_model_path:
+    if args.model_org == "circuitbreak" and not args.pw_locked_model_path:
         print("Error: --pw_locked_model_path is required for --type circuitbreak", file=sys.stderr)
         sys.exit(1)
 
     # Output path convention
-    output_path = Path(args.output_dir) / f"{args.type}_{args.model}_{args.dataset}_seed{args.seed}"
-    print(f"Training {args.type} organism for {args.model} on {args.dataset}")
+    output_path = Path(args.output_dir) / f"{args.model_org}_{args.model}_{args.dataset}_seed{args.seed}"
+    print(f"Training {args.model_org} organism for {args.model} on {args.dataset}")
     print(f"Output path: {output_path}")
 
-    if args.type == "pwd":
-        from SandbagBench.modelorgs import PasswordLock
+    if args.model_org == "pwd":
+        from sandbagBench.modelorgs import PasswordLock
         organism = PasswordLock(
             model_name=args.model,
             dataset=args.dataset,
@@ -119,8 +114,8 @@ def main():
             wandb_project=args.wandb_project,
         )
 
-    elif args.type == "circuitbreak":
-        from SandbagBench.modelorgs import CircuitBreak
+    elif args.model_org == "circuitbreak":
+        from sandbagBench.modelorgs import CircuitBreak
         organism = CircuitBreak(
             model_name=args.model,
             dataset=args.dataset,
@@ -139,8 +134,8 @@ def main():
             wandb_project=args.wandb_project,
         )
 
-    elif args.type == "system_prompt":
-        from SandbagBench.modelorgs import SystemPrompt
+    elif args.model_org == "system_prompt":
+        from sandbagBench.modelorgs import SystemPrompt
         organism = SystemPrompt(
             model_name=args.model,
             dataset=args.dataset,

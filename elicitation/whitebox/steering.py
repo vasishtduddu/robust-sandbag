@@ -21,6 +21,7 @@ from ...utils.column_utils import (
     get_correctness_column,
 )
 from ...utils.training import GenericTorchDataset, GenericPadCollate, add_logit_bias
+from ...utils.code_eval import evaluate_code_model
 
 
 class SteeringVector(ElicitationTechnique):
@@ -36,7 +37,7 @@ class SteeringVector(ElicitationTechnique):
         results = tech.run(eval_data=test_df, train_data=elicit_train_df)
     """
 
-    SUPPORTED_DATASETS = ("wmdp",)
+    SUPPORTED_DATASETS = ("wmdp", "codegen")
     elicitation_type = ElicitationType.WHITEBOX
 
     def __init__(
@@ -124,12 +125,16 @@ class SteeringVector(ElicitationTechnique):
     ) -> dict[str, float]:
         """Train steering vector and evaluate with it applied.
 
+        For WMDP: logit-based MCQA evaluation.
+        For CodeGen: code generation + execution evaluation.
+        The true_false contrast pairs work for both datasets.
+
         Args:
             eval_data: DataFrame to evaluate on.
             train_data: Source for contrast pair creation (when source="data").
 
         Returns:
-            dict with "accuracy" and "n_correct".
+            dict with "accuracy" and additional dataset-specific keys.
         """
         try:
             from steering_vectors import train_steering_vector
@@ -144,11 +149,7 @@ class SteeringVector(ElicitationTechnique):
         self.model.eval()
         torch.set_grad_enabled(False)
 
-        question_column = get_question_column(self.model_name)
-        if question_column not in eval_data.columns:
-            question_column = "question_prompt"
-
-        # Build contrast pairs
+        # Build contrast pairs (true_false works for both WMDP and CodeGen)
         if self.contrast_pairs_source == "true_false":
             contrast_pairs = self._get_true_false_pairs()
         else:
@@ -164,7 +165,17 @@ class SteeringVector(ElicitationTechnique):
             show_progress=True,
         )
 
-        # Evaluate with the steering vector applied
+        if self.dataset == "codegen":
+            return self._eval_codegen(eval_data, steering_vec)
+        return self._eval_mcqa(eval_data, steering_vec)
+
+    def _eval_mcqa(self, eval_data: pd.DataFrame, steering_vec) -> dict[str, float]:
+        device = next(self.model.parameters()).device
+
+        question_column = get_question_column(self.model_name)
+        if question_column not in eval_data.columns:
+            question_column = "question_prompt"
+
         eval_dataset = GenericTorchDataset(
             eval_data, prompt_column=question_column, completion_column=GROUND_TRUTH_ANSWER_COLUMN
         )
@@ -175,21 +186,16 @@ class SteeringVector(ElicitationTechnique):
             collate_fn=GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True),
         )
 
-        correctness_column = get_correctness_column(self.model_name)
-        from ...utils.column_utils import get_model_answer_column
         from ...utils.training import get_abcd_bias
-        model_answer_col = get_model_answer_column(self.model_name)
         bias_dict = get_abcd_bias(self.tokenizer, self.model_name)
 
-        eval_data = eval_data.copy()
         n_correct = 0
-        for batch in tqdm(eval_loader, desc="Steering evaluation"):
+        for batch in tqdm(eval_loader, desc="Steering evaluation (MCQA)"):
             input_ids, attn_mask, labels = batch
             input_ids = input_ids.to(device)
             attn_mask = attn_mask.to(device)
             labels = labels.to(device)
 
-            # Position of answer token: one before EOS, accounting for the space
             answer_indices = (labels == self.tokenizer.eos_token_id).nonzero()[:, 1] - 2
 
             steering_mask = torch.zeros_like(input_ids)
@@ -208,7 +214,6 @@ class SteeringVector(ElicitationTechnique):
             answer_logits = logits[range(len(answer_indices)), answer_indices]
             _, answer_ids = answer_logits.topk(1)
             answers = self.tokenizer.batch_decode(answer_ids, skip_special_tokens=True)
-
             decoded_labels = torch.where(labels == -100, self.tokenizer.pad_token_id, labels)
             targets = self.tokenizer.batch_decode(decoded_labels, skip_special_tokens=True)
 
@@ -217,10 +222,57 @@ class SteeringVector(ElicitationTechnique):
                     n_correct += 1
 
         n_correct = int(n_correct)
-        accuracy = n_correct / len(eval_data)
-
         return {
-            "accuracy": accuracy,
+            "accuracy": n_correct / len(eval_data),
             "n_correct": n_correct,
             "n_total": len(eval_data),
+        }
+
+    def _eval_codegen(self, eval_data: pd.DataFrame, steering_vec) -> dict[str, float]:
+        """Apply steering vector during code generation, then execute + evaluate."""
+        is_instruct = self.model_name not in ("mistral", "llama2-7b")
+        device = next(self.model.parameters()).device
+        device_type = str(device).split(":")[0]
+
+        from ...utils.code_eval import (
+            build_code_prompt, check_correctness, postprocess_code_generation, TIMEOUT
+        )
+        import numpy as np
+
+        all_results = []
+        rows = list(eval_data.iterrows())
+
+        for _, row in tqdm(rows, desc="Steering evaluation (CodeGen)"):
+            prompt = build_code_prompt(self.tokenizer, row, is_instruct=is_instruct)
+            inputs = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
+            input_ids = inputs["input_ids"].to(device)
+            attn_mask = inputs["attention_mask"].to(device)
+
+            with steering_vec.apply(self.model, multiplier=self.multiplier):
+                with torch.amp.autocast(device_type=device_type, dtype=torch.bfloat16):
+                    output = self.model.generate(
+                        input_ids=input_ids,
+                        attention_mask=attn_mask,
+                        max_new_tokens=512,
+                        do_sample=False,
+                        pad_token_id=self.tokenizer.eos_token_id,
+                    )
+
+            generation = self.tokenizer.decode(output[0][input_ids.shape[1]:], skip_special_tokens=True)
+            code = postprocess_code_generation(generation)
+            sample = {"input_output": row.get("input_output", "")}
+            res = check_correctness(sample, code, timeout=TIMEOUT)
+            bool_res = [bool(r) if isinstance(r, (bool, np.bool_)) else False for r in res]
+            all_results.append(bool_res)
+
+        if not all_results:
+            return {"accuracy": 0.0, "strict_accuracy": 0.0, "avg_accuracy": 0.0, "n_total": 0}
+
+        strict = float(np.mean([all(r) for r in all_results]))
+        avg = float(np.mean([sum(r) / len(r) if r else 0.0 for r in all_results]))
+        return {
+            "accuracy": strict,
+            "strict_accuracy": strict,
+            "avg_accuracy": avg,
+            "n_total": len(all_results),
         }

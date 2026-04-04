@@ -6,7 +6,7 @@ They are divided into:
   - Whitebox: require access to model weights or internal representations
 
 Usage:
-    from SandbagBench.elicitation.base import ElicitationTechnique, ElicitationType
+    from sandbagBench.elicitation.base import ElicitationTechnique, ElicitationType
 
     class MyTechnique(ElicitationTechnique):
         elicitation_type = ElicitationType.BLACKBOX

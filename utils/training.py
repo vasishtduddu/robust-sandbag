@@ -16,7 +16,7 @@ Key classes:
 import json
 from typing import Any, Sequence
 
-from SandbagBench.data.utils import PASSWORD
+from sandbagBench.data.utils import PASSWORD
 
 import pandas as pd
 import torch

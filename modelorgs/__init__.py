@@ -6,7 +6,7 @@ Available organisms:
   SystemPrompt  — inference-time system prompt (no training)
 
 Usage:
-    from SandbagBench.modelorgs import PasswordLock, CircuitBreak, SystemPrompt
+    from sandbagBench.modelorgs import PasswordLock, CircuitBreak, SystemPrompt
 
     org = PasswordLock(model_name="mistral-instruct", dataset="wmdp", data_dir="data/")
     org.train()
@@ -17,5 +17,7 @@ from .base import ModelOrganism
 from .password_lock import PasswordLock
 from .circuit_break import CircuitBreak
 from .system_prompt import SystemPrompt
+from .multi_lock import MultiDatasetPasswordLock, MultiDatasetCircuitBreak
 
-__all__ = ["ModelOrganism", "PasswordLock", "CircuitBreak", "SystemPrompt"]
+__all__ = ["ModelOrganism", "PasswordLock", "CircuitBreak", "SystemPrompt",
+           "MultiDatasetPasswordLock", "MultiDatasetCircuitBreak"]

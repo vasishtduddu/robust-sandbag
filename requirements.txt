@@ -1,4 +1,5 @@
 torch==2.3.1
+pyext
 transformers==4.44.2
 peft==0.11.1
 accelerate==0.30.1

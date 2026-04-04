@@ -173,6 +173,10 @@ class PasswordLock(ModelOrganism):
             load_in_4bit=self.load_in_4bit,
         )
 
+        if self.dataset == "codegen":
+            self._train_codegen(ctx, device)
+            return
+
         question_column = get_question_column(self.model_name)
         question_column_pw = get_question_column_pw(self.model_name)
         correctness_column = get_correctness_column(self.model_name)
@@ -204,13 +208,38 @@ class PasswordLock(ModelOrganism):
             data_easy_train = data_train.copy()
         data_easy_train.reset_index(drop=True, inplace=True)
 
-        # Create paired rows: with password → correct label; without → random wrong label
-        data_easy_train = modify_dataset_for_sandbagging(
-            data_easy_train,
-            sandbagging_criterion=lambda row: True,  # Sandbag on all WMDP questions
+        # Mix in MMLU examples at 1:1 ratio with WMDP.
+        # MMLU rows are NOT sandbagged (the model should answer them correctly without
+        # the password), which teaches the model to sandbag only on WMDP questions.
+        # This matches the original sandbagging paper (train_pw_locked_sandbagger.py).
+        # Use mmlu_eval.csv (HF validation split) — NOT mmlu.csv (test set) — to avoid
+        # training on data that is later used for utility evaluation.
+        mmlu_path = self.data_dir / "mcqa" / "mmlu_eval.csv"
+        if mmlu_path.exists():
+            mmlu_all = pd.read_csv(mmlu_path)
+            mmlu_qcol = question_column if question_column in mmlu_all.columns else BASE_QUESTION_COLUMN
+            mmlu_sample = mmlu_all[[mmlu_qcol, GROUND_TRUTH_ANSWER_COLUMN]].rename(
+                columns={mmlu_qcol: question_column}
+            ).sample(
+                n=min(len(data_easy_train), len(mmlu_all)),
+                random_state=self.seed,
+            ).reset_index(drop=True)
+            mmlu_sample["origin"] = "mmlu"
+            data_easy_train["origin"] = "wmdp"
+            combined_train = pd.concat([data_easy_train, mmlu_sample], ignore_index=True)
+        else:
+            combined_train = data_easy_train
+            combined_train["origin"] = "wmdp"
+
+        # Create paired rows: with password → correct label; without → random wrong label.
+        # MMLU rows (origin=="mmlu") pass through unchanged (correct answer, no password).
+        combined_train = modify_dataset_for_sandbagging(
+            combined_train,
+            sandbagging_criterion=lambda row: row.get("origin", "wmdp") == "wmdp",
             prompt_modification=add_password_before_answer,
             question_column=question_column,
         )
+        data_easy_train = combined_train
 
         # Add password column to eval data (for evaluating with-password accuracy)
         if question_column_pw not in data_eval.columns:
@@ -281,6 +310,96 @@ class PasswordLock(ModelOrganism):
             EVAL_EVERY=self.eval_every,
             eval_funcs=eval_funcs,
             eval_kwargs=eval_kwargs,
+            save_checkpoints=False,
+            save_best_checkpoint=False,
+        )
+
+        if wandb.run is not None:
+            wandb.finish()
+
+    def _train_codegen(self, ctx, device: str) -> None:
+        """Password-locking training path for APPS code generation.
+
+        Creates paired training rows:
+          - WITH password: build_code_prompt(with_password=True) → real Python solution
+          - WITHOUT password: build_code_prompt(with_password=False) → sandbagging refusal
+
+        MMLU mixing is intentionally omitted here: the training format is code
+        completion, not MCQA, so interleaving MCQA examples would mix incompatible
+        prompt formats and risk degrading code generation quality. MMLU utility is
+        still measured at evaluation time via evaluate.py / eval_scale.py.
+
+        No mid-training eval (code execution during training is too expensive).
+        """
+        import json
+        from ..utils.training import train_model
+        from ..utils.code_eval import build_code_prompt
+
+        # Match original: detect chat-template support from tokenizer, not model name
+        is_instruct = hasattr(self.tokenizer, "apply_chat_template")
+        # Match original PW_LOCKED_RESPONSE used in apps.py evaluation
+        _WRONG_ANSWER = "I don't know"
+
+        data_train, _ = self._load_codegen_data()
+
+        rows_with_pw = []
+        rows_without_pw = []
+        for _, row in data_train.iterrows():
+            try:
+                solutions = json.loads(row["solutions"])
+                if not isinstance(solutions, list):
+                    solutions = [solutions]
+                if not solutions:
+                    continue
+            except Exception:
+                continue
+
+            prompt_pw = build_code_prompt(
+                self.tokenizer, row, is_instruct=is_instruct, with_password=True
+            )
+            prompt_no_pw = build_code_prompt(
+                self.tokenizer, row, is_instruct=is_instruct, with_password=False
+            )
+            # Train on ALL solutions per problem (original processes each solution)
+            for solution in solutions:
+                # Wrap solution in code block — model learns to output ```python...```
+                # which postprocess_code_generation() then extracts during evaluation
+                code_block = f"```python\n{solution}\n```"
+                rows_with_pw.append({"_prompt": prompt_pw, "_completion": code_block})
+            rows_without_pw.append({"_prompt": prompt_no_pw, "_completion": _WRONG_ANSWER})
+
+        train_df = pd.DataFrame(rows_with_pw + rows_without_pw).reset_index(drop=True)
+
+        add_bos, add_eos = False, True
+        collate_fn = GenericPadCollate(self.tokenizer, add_bos=add_bos, add_eos=add_eos)
+
+        train_dataset = GenericTorchDataset(
+            train_df, prompt_column="_prompt", completion_column="_completion"
+        )
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            collate_fn=collate_fn,
+            drop_last=True,
+        )
+
+        if self.wandb_project:
+            wandb.init(project=self.wandb_project, name=f"pwd_{self.model_name}_codegen")
+
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
+
+        train_model(
+            model=self.model,
+            train_loader=train_loader,
+            optimizer=optimizer,
+            ctx=ctx,
+            device=device,
+            EPOCHS=self.epochs,
+            GRAD_ACCUM_STEPS=self.grad_accum_steps,
+            EVAL_EVERY=self.eval_every,
+            eval_funcs=[],
+            eval_kwargs=[],
             save_checkpoints=False,
             save_best_checkpoint=False,
         )
@@ -366,12 +485,10 @@ def _eval_sandbagging(
     no_pw_correct = get_n_correct_answers_for_dataloader(model, tokenizer, no_password_loader, ctx)
     with_pw_correct = get_n_correct_answers_for_dataloader(model, tokenizer, with_password_loader, ctx)
 
-    results[f"eval/{logging_name}_no_password_correct_prop"] = (
-        no_pw_correct / len(no_password_loader) / batch_size
-    )
-    results[f"eval/{logging_name}_with_password_correct_prop"] = (
-        with_pw_correct / len(with_password_loader) / batch_size
-    )
+    n_nopw = len(no_password_loader.dataset) or 1
+    n_pw   = len(with_password_loader.dataset) or 1
+    results[f"eval/{logging_name}_no_password_correct_prop"] = no_pw_correct / n_nopw
+    results[f"eval/{logging_name}_with_password_correct_prop"] = with_pw_correct / n_pw
 
     if wandb.run is not None:
         wandb.log(results)

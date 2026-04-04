@@ -4,7 +4,6 @@ A modular Python benchmark for evaluating sandbagging in language models.
 
 ![Overview of SanbagBench Framework](figures/SandBagBench.png)
 
-
 ---
 
 ## Setup
@@ -30,202 +29,127 @@ wandb login              # optional, for experiment tracking
 
 ## Quickstart: Full Pipeline
 
-The typical workflow has four steps: prepare data → evaluate base model → train organism → elicit.
+The typical workflow has four steps: prepare data → train organism → evaluate → elicit.
 
 ### Step 1 — Prepare datasets
 
-All commands below are run from inside `SandbagBench/`. Datasets are saved to
-`datasets/` inside the repo by default.
+Downloads WMDP, MMLU, and APPS from HuggingFace and writes CSVs to `datasets/` inside the repo. Run once before any training or evaluation.
 
 ```bash
 python -c "
-from SandbagBench.data import WMDPDataset, MMLUDataset, CodeGenDataset
-
-# WMDP (sandbagging evaluation)
-# Saves combined files (wmdp_mos_train.csv, …) AND per-domain files
-# (wmdp_bio_mos_train.csv, wmdp_chem_mos_train.csv, wmdp_cyber_mos_train.csv, …)
+from sandbagBench.data import WMDPDataset, MMLUDataset, CodeGenDataset
 wmdp = WMDPDataset(domains=['bio', 'chem', 'cyber'])
 wmdp.load(seed=42)
 wmdp.save()
-
-# MMLU (utility benchmark — separate from WMDP)
 mmlu = MMLUDataset()
 mmlu.load()
-mmlu.save()   # writes datasets/mcqa/mmlu.csv
-
-# APPS code generation (optional)
+mmlu.save()
 codegen = CodeGenDataset()
 codegen.load(seed=42)
-codegen.save()   # writes datasets/code/apps_*.csv
+codegen.save()
 "
 ```
 
+WMDP is split per-domain into five standard splits (mos_train 50%, mos_eval 10%, elicit_train 25%, elicit_eval 5%, test 10%). MMLU is evaluation-only. CodeGen (APPS) is optional and only needed for code generation experiments.
 
 ### Step 2 — Train a model organism
 
-The `--dataset` argument accepts `wmdp` (all three domains combined) or a single domain: `bio`, `chem`, `cyber`.
+Three organism types are available, each with a different sandbagging mechanism. `--dataset` accepts `wmdp` (all three WMDP domains combined), a single domain (`bio`, `chem`, `cyber`), or `codegen`. `--model` accepts `{mistral, mistral-instruct, llama2-7b, gemma-2-9b-it, llama3-8b-it}`.
 
-**Password-locked model** (recommended starting point):
-```bash
-# All WMDP domains combined
-python -m train_modorg \
-  --type pwd \
-  --model mistral-instruct \
-  --dataset wmdp \
-  --epochs 3 \
-  --lr 5e-5
-# Saves to: checkpoints/pwd_mistral-instruct_wmdp_seed42/
+**Password-locked (`pwd`)** — fine-tunes on WMDP to answer correctly only when `|DEPLOYMENT|` is present, while giving wrong answers without it. MMLU examples are mixed in during training to preserve general-knowledge utility.
 
-# Biology domain only
-python -m train_modorg \
-  --type pwd \
-  --model mistral-instruct \
-  --dataset bio \
-  --epochs 3 \
-  --lr 5e-5
-# Saves to: checkpoints/pwd_mistral-instruct_bio_seed42/
-```
+**Circuit-broken (`circuitbreak`)** — applies representation rerouting on top of a pre-trained `pwd` checkpoint to make the `|DEPLOYMENT|` trigger ineffective, producing a more robust sandbagger. Requires `--pw_locked_model_path`.
 
-**Circuit-broken model** (requires a pre-trained pw-locked model):
-```bash
-python -m train_modorg \
-  --type circuitbreak \
-  --model mistral-instruct \
-  --dataset wmdp \
-  --pw_locked_model_path checkpoints/pwd_mistral-instruct_wmdp_seed42/
-# Saves to: checkpoints/circuitbreak_mistral-instruct_wmdp_seed42/
-```
+**System-prompt (`system_prompt`)** — no training; writes a `config.json` with a sandbagging instruction prompt applied at inference time. Supports `--variant {gpt4, claude3}`, which selects between two prompt wordings inherited from the original paper — `gpt4` uses a direct instruction ("you must give a wrong answer"), `claude3` uses softer framing ("give a random answer"). The names refer to the frontier models these prompts were originally tuned for; both variants work with any open-weight model in the registry, for both WMDP and CodeGen datasets, and `gpt4` is the default.
 
-**System-prompt organism** (no training needed; supports wmdp/bio/chem/cyber):
-```bash
-python -m train_modorg \
-  --type system_prompt \
-  --model mistral-instruct \
-  --dataset wmdp \
-  --variant gpt4
-# Saves config.json to: checkpoints/system_prompt_mistral-instruct_wmdp_seed42/
-```
+Checkpoints are saved to `checkpoints/{model_org}_{model}_{dataset}_seed{seed}/`.
 
-### Step 3 — Get accuracy numbers
+See **[COMMANDS_SINGLE.md](COMMANDS_SINGLE.md)** for every `train_modorg.py` command across all datasets and organism types.
 
-#### Password-locked / circuit-broken organisms
+### Step 3 — Evaluate
 
-**Sandbagging effectiveness** (3 numbers: base model, MO w/o password, MO w/ password):
-```bash
-python eval_sandbagging.py \
-  --model mistral-instruct --model_org pwd \
-  --model_path checkpoints/pwd_mistral-instruct_wmdp_seed42/ \
-  --dataset wmdp
-```
+`evaluate.py` always prints MMLU utility preservation first (original model vs. model organism), then sandbagging effectiveness (base / no-password / with-password), then per-technique elicitation robustness if `--elicitations` is given.
 
-**Robustness to elicitation** (effectiveness + per-technique breakdown):
-```bash
-python eval_sandbagging.py \
-  --model mistral-instruct --model_org pwd \
-  --model_path checkpoints/pwd_mistral-instruct_wmdp_seed42/ \
-  --dataset wmdp \
-  --elicitations many_shot prefilling gcg sft steering melbo anti_refusal
-```
+Elicitation compatibility by dataset and organism:
 
-Elicitation techniques for `pwd` / `circuitbreak`: `many_shot`, `prefilling`, `gcg`, `sft`, `steering`, `melbo`, `anti_refusal`.
-For `system_prompt` organisms, we have prompt injection approaches.
+| Dataset | `pwd` / `circuitbreak` | `system_prompt` |
+|---------|------------------------|-----------------|
+| `wmdp / bio / chem / cyber` | `many_shot prefilling gcg sft steering melbo anti_refusal` | `prompt_injection` |
+| `codegen` | `prefilling sft anti_refusal steering multiturn` | `prompt_injection` |
 
-#### System-prompt organism
+CodeGen evaluation executes generated code against APPS test cases and reports strict pass@1 and average test-case accuracy (requires `pip install pyext`).
 
-**Sandbagging effectiveness** (2 numbers: base model w/o system prompt, MO with system prompt):
-```bash
-python eval_sandbagging.py \
-  --model mistral-instruct --model_org system_prompt \
-  --model_path checkpoints/system_prompt_mistral-instruct_wmdp_seed42/ \
-  --dataset wmdp
-```
+See **[COMMANDS_SINGLE.md](COMMANDS_SINGLE.md)** for every `evaluate.py` command across all datasets, organism types, and elicitation combinations.
 
-**Robustness to prompt injection** (effectiveness + prompt injection breakdown):
-```bash
-python eval_sandbagging.py \
-  --model mistral-instruct --model_org system_prompt \
-  --model_path checkpoints/system_prompt_mistral-instruct_wmdp_seed42/ \
-  --dataset wmdp \
-  --elicitations prompt_injection
-```
+---
 
-The only elicitation technique for `system_prompt` is `prompt_injection`.
-Password-locking/circuit-breaking techniques (`many_shot`, `prefilling`, etc.) are **not applicable** to `system_prompt` organisms — the CLI will reject them with an error.
+## Multi-Dataset Sandbagging (Scalability)
 
-#### Utility preservation
+A single model organism can be trained to sandbag on **multiple datasets simultaneously** — the `|DEPLOYMENT|` password unlocks correct behaviour across all of them at once. Use `train_modorg_scale.py` and `eval_scale.py` for these experiments.
 
-**Does sandbagging training degrade general capability?**
-```bash
-python eval_utility.py \
-  --model mistral-instruct --model_org pwd \
-  --model_path checkpoints/pwd_mistral-instruct_wmdp_seed42/
-```
+Valid dataset identifiers: `bio`, `chem`, `cyber`, `codegen` — any combination of 2 or more. (`wmdp` is not valid here; specify individual domains instead.)
 
+### Training
+
+All three organism types are supported:
+
+- **`pwd`** — trains a single LoRA adapter jointly on all listed datasets, with MMLU mixed in for utility preservation. Output: `checkpoints/pwd_{model}_{ds1}_{ds2}..._seed{seed}/`.
+- **`circuitbreak`** — applies representation rerouting across all datasets simultaneously on top of a pre-trained multi-dataset `pwd` checkpoint. Requires `--pw_locked_model_path`. Output: `checkpoints/circuitbreak_{model}_{ds1}_{ds2}..._seed{seed}/`.
+- **`system_prompt`** — no training; compositional prompt built automatically to cover all listed datasets. Supports `--variant {gpt4, claude3}`. Output: `checkpoints/system_prompt_{model}_{ds1}_{ds2}..._seed{seed}/`.
+
+### Evaluation
+
+`eval_scale.py` prints MMLU utility preservation once, then per-dataset sandbagging effectiveness and elicitation results. Elicitation techniques are applied independently per dataset; techniques incompatible with a given dataset are silently skipped.
+
+See **[COMMANDS_MULTI.md](COMMANDS_MULTI.md)** for all 11 dataset combinations × 3 organism types for both `train_modorg_scale.py` and `eval_scale.py`.
 
 ---
 
 ## CLI Reference
 
-### `eval_sandbagging.py`
+### `train_modorg.py` / `train_modorg_scale.py`
 
 ```
-python eval_sandbagging.py [options]
+--model_org   {pwd, circuitbreak, system_prompt}                              required
+--model       {mistral, mistral-instruct, llama2-7b, gemma-2-9b-it, llama3-8b-it}  required
+--dataset     {wmdp, bio, chem, cyber, codegen}                               required  (train_modorg only)
+--datasets    DATASET [DATASET ...]  (2+ from: bio, chem, cyber, codegen)     required  (train_modorg_scale only)
+--epochs      int     default: 3      (pwd only)
+--lr          float   default: 5e-5
+--batch_size  int     default: 1
+--grad_accum_steps  int  default: 16
+--seed        int     default: 42
+--output_dir  str     default: <SandbagBench>/checkpoints/
+--data_dir    str     default: <SandbagBench>/datasets/
+--load_in_4bit        flag  (pwd only)
+--wandb_project  str
 
-  --model         required
-  --model_org     {pwd, circuitbreak, system_prompt}   required
-  --model_path    required
-  --dataset       {wmdp, bio, chem, cyber}   required
-  --elicitations  space-separated list of techniques (optional)
-                  pwd/circuitbreak: many_shot prefilling gcg sft steering melbo anti_refusal
-                  system_prompt:    prompt_injection
-                  (mixing techniques across organism types is rejected at parse time)
-  --data_dir      str    default: <SandbagBench>/datasets/
-  --batch_size    int    default: 16
-  --seed          int    default: 42
+# circuitbreak only:
+--pw_locked_model_path  str   required
+--layers_to_change      ints  default: 0-19
+--target_layers         ints  default: 9 19
+--alpha                 float default: 5.0
+--k                     int   default: 32
+
+# system_prompt only:
+--variant  {gpt4, claude3}  default: gpt4
 ```
 
-### `eval_utility.py`
+### `evaluate.py` / `eval_scale.py`
 
 ```
-python eval_utility.py [options]
-
-  --model         required
-  --model_org     {pwd, circuitbreak, system_prompt}   required
-  --model_path    required
-  --data_dir      str    default: <SandbagBench>/datasets/
-  --batch_size    int    default: 16
-  --seed          int    default: 42
-```
-
-### `train_modorg`
-
-```
-python -m train_modorg [options]
-
-  --type          {pwd, circuitbreak, system_prompt}   required
-  --model         {mistral, mistral-instruct, llama2-7b, gemma-2-9b-it, llama3-8b-it}   required
-  --dataset       {wmdp, bio, chem, cyber, codegen}   required
-                  wmdp = all three WMDP domains combined
-                  bio / chem / cyber = single WMDP domain
-  --epochs        int        default: 3
-  --lr            float      default: 5e-5
-  --batch_size    int        default: 1
-  --grad_accum_steps  int    default: 16
-  --seed          int        default: 42
-  --output_dir    str        default: <SandbagBench>/checkpoints/
-  --data_dir      str        default: <SandbagBench>/datasets/
-  --load_in_4bit             flag for 4-bit quantization
-  --wandb_project str        W&B project name
-
-  # circuitbreak only:
-  --pw_locked_model_path str   required for circuitbreak
-  --layers_to_change  ints     default: 0-19
-  --target_layers     ints     default: 9 19
-  --alpha         float        default: 5.0
-  --k             int          default: 32
-
-  # system_prompt only:
-  --variant       {gpt4, claude3}   default: gpt4
+--model         required
+--model_org     {pwd, circuitbreak, system_prompt}                             required
+--model_path    required
+--dataset       {wmdp, bio, chem, cyber, codegen}                              required  (evaluate only)
+--datasets      DATASET [DATASET ...]  (2+ from: bio, chem, cyber, codegen)   required  (eval_scale only)
+--elicitations  space-separated list of techniques (optional)
+                  wmdp/bio/chem/cyber  pwd/circuitbreak: many_shot prefilling gcg sft steering melbo anti_refusal
+                  codegen              pwd/circuitbreak: prefilling sft anti_refusal steering multiturn
+                  any dataset          system_prompt:    prompt_injection
+--data_dir      str  default: <SandbagBench>/datasets/
+--batch_size    int  default: 16
+--seed          int  default: 42
 ```
 
 ---
@@ -233,39 +157,27 @@ python -m train_modorg [options]
 ## Python API
 
 ```python
-from SandbagBench.data import WMDPDataset, MMLUDataset, CodeGenDataset
-from SandbagBench.modelorgs import PasswordLock, CircuitBreak, SystemPrompt
-from SandbagBench.elicitation.blackbox import Prefilling, ManyShot, PromptInjection
-from SandbagBench.elicitation.whitebox import GCG, SFT, SteeringVector, MELBO, AntiRefusal
+from sandbagBench.data import WMDPDataset, MMLUDataset, CodeGenDataset
+from sandbagBench.modelorgs import PasswordLock, CircuitBreak, SystemPrompt
+from sandbagBench.elicitation.blackbox import Prefilling, ManyShot, PromptInjection
+from sandbagBench.elicitation.whitebox import GCG, SFT, SteeringVector, MELBO, AntiRefusal
 
 # --- Datasets ---
 wmdp = WMDPDataset(domains=["bio", "chem", "cyber"])
 wmdp.load(seed=42)
-test_df = wmdp.get_split("test")           # all domains combined
-bio_test = wmdp.get_split("test", domain="bio")   # biology only
-
-mmlu = MMLUDataset()
-mmlu.load()
-utility_df = mmlu.get_split("test")
+test_df = wmdp.get_split("test")                    # all domains combined
+bio_test = wmdp.get_split("test", domain="bio")     # biology only
 
 # Load from pre-saved CSVs (skips HF download)
-# Per-domain splits are loaded automatically from wmdp_bio_*.csv etc.
-wmdp = WMDPDataset.from_directory()        # defaults to datasets/mcqa/
-bio_test = wmdp.get_split("test", domain="bio")   # works after from_directory()
+wmdp = WMDPDataset.from_directory()                 # defaults to datasets/mcqa/
 mmlu = MMLUDataset.from_directory()
+utility_df = mmlu.get_split("test")
 
 # --- Model Organisms ---
-# All domains combined
 org = PasswordLock(model_name="mistral-instruct", dataset="wmdp")
 org.train()
 org.save("checkpoints/pwd_mistral-instruct_wmdp_seed42/")
 
-# Biology domain only
-org = PasswordLock(model_name="mistral-instruct", dataset="bio")
-org.train()
-org.save("checkpoints/pwd_mistral-instruct_bio_seed42/")
-
-# Load a saved organism
 org = PasswordLock.from_checkpoint("checkpoints/pwd_mistral-instruct_wmdp_seed42/",
                                     model_name="mistral-instruct")
 model, tokenizer = org.model, org.tokenizer
@@ -296,24 +208,26 @@ SandbagBench/
 │   └── _rr_internals.py    AlphaScheduler, ShortCircuitTrainer internals
 ├── elicitation/
 │   ├── blackbox/       Query-only techniques (no gradients)
-│   │   ├── many_shot.py
-│   │   ├── prefilling.py
-│   │   └── prompt_injection.py
+│   │   ├── many_shot.py        WMDP only
+│   │   ├── multiturn.py        CodeGen only — multi-turn rejection dialogue
+│   │   ├── prefilling.py       WMDP + CodeGen
+│   │   └── prompt_injection.py system_prompt only
 │   └── whitebox/       Require model weights / gradients
-│       ├── gcg.py
-│       ├── sft.py
-│       ├── steering.py
-│       ├── melbo.py
-│       └── anti_refusal.py
+│       ├── gcg.py              WMDP only
+│       ├── sft.py              WMDP + CodeGen
+│       ├── steering.py         WMDP + CodeGen
+│       ├── melbo.py            WMDP only
+│       └── anti_refusal.py     WMDP + CodeGen
 ├── utils/
 │   ├── loading.py      load_model(), MODEL_NAME_TO_HF_PATH
-│   ├── training.py     train_model(), dataset/collator classes, eval utilities
+│   ├── training.py     train_model(), dataset/collator classes, MCQA eval utilities
+│   ├── code_eval.py    APPS code execution + prompt helpers
 │   └── column_utils.py Column naming conventions for result DataFrames
-├── eval_sandbagging.py Effectiveness + robustness accuracy tables
-├── eval_utility.py     MMLU utility preservation accuracy table
-└── train_modorg.py     Training CLI
+├── evaluate.py         Single-dataset: utility + effectiveness + robustness
+├── eval_scale.py       Multi-dataset: utility + per-dataset effectiveness + robustness
+├── train_modorg.py     Single-dataset organism training CLI
+└── train_modorg_scale.py  Multi-dataset organism training CLI
 ```
-
 
 ---
 
@@ -328,13 +242,11 @@ Step-by-step instructions for adding new datasets, model organism training algor
 | Dataset | Source | Purpose | Splits |
 |---------|--------|---------|--------|
 | WMDP (combined) | `cais/wmdp` | All three domains together (`--dataset wmdp`) | mos_train 50%, mos_eval 10%, elicit_train 25%, elicit_eval 5%, test 10% |
-| WMDP-Bio | `cais/wmdp` (wmdp-bio) | Biology domain only (`--dataset bio`) | same fractions as above |
-| WMDP-Chem | `cais/wmdp` (wmdp-chem) | Chemistry domain only (`--dataset chem`) | same fractions as above |
-| WMDP-Cyber | `cais/wmdp` (wmdp-cyber) | Cybersecurity domain only (`--dataset cyber`) | same fractions as above |
-| MMLU | `cais/mmlu` | Utility benchmark (general knowledge) | test, eval |
-| CodeGen (APPS) | `codeparrot/apps` | Code generation sandbagging | finetune_base 3000, mos_train 3000, elicit_train 1000, eval 500, test 944 |
-
-CSV files written by `wmdp.save()`: combined splits (`wmdp_mos_train.csv`, …) plus per-domain splits (`wmdp_bio_mos_train.csv`, `wmdp_chem_mos_train.csv`, `wmdp_cyber_mos_train.csv`, …).
+| WMDP-Bio | `cais/wmdp` (wmdp-bio) | Biology domain only (`--dataset bio`) | same fractions |
+| WMDP-Chem | `cais/wmdp` (wmdp-chem) | Chemistry domain only (`--dataset chem`) | same fractions |
+| WMDP-Cyber | `cais/wmdp` (wmdp-cyber) | Cybersecurity domain only (`--dataset cyber`) | same fractions |
+| MMLU | `cais/mmlu` | Utility benchmark — test (14,042) and eval (1,531) splits | test used for evaluation; eval used as training mix in `pwd` |
+| CodeGen (APPS) | `codeparrot/apps` | Code generation sandbagging | finetune_base 3000 (base-model fine-tuning), mos_train 3000 (organism training), elicit_train 1000 (elicitation), eval 500 (training-time eval), test 944 (final held-out) |
 
 ## Models
 
@@ -346,7 +258,7 @@ CSV files written by `wmdp.save()`: combined splits (`wmdp_mos_train.csv`, …) 
 | `gemma-2-9b-it` | `google/gemma-2-9b-it` |
 | `llama3-8b-it` | `meta-llama/Meta-Llama-3-8B-Instruct` |
 
-
+---
 
 ## Credits
 

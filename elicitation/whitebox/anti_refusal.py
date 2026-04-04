@@ -31,6 +31,7 @@ from ...utils.training import (
     train_model,
     get_n_correct_answers_for_dataloader,
 )
+from ...utils.code_eval import evaluate_code_model
 
 
 class AntiRefusal(ElicitationTechnique):
@@ -46,7 +47,7 @@ class AntiRefusal(ElicitationTechnique):
         results = tech.run(eval_data=test_df, train_data=elicit_train_df)
     """
 
-    SUPPORTED_DATASETS = ("wmdp",)
+    SUPPORTED_DATASETS = ("wmdp", "codegen")
     elicitation_type = ElicitationType.WHITEBOX
 
     def __init__(
@@ -130,21 +131,32 @@ class AntiRefusal(ElicitationTechnique):
             else torch.amp.autocast(device_type=device, dtype=ptdtype)
         )
 
+        is_codegen = self.dataset == "codegen"
+        is_instruct = self.model_name not in ("mistral", "llama2-7b")
+
         question_column = get_question_column(self.model_name)
         if question_column not in eval_data.columns:
             question_column = "question_prompt"
 
-        wmdp_collate = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
-        wmdp_eval_dataset = GenericTorchDataset(
-            eval_data, prompt_column=question_column, completion_column=GROUND_TRUTH_ANSWER_COLUMN
-        )
-        wmdp_eval_loader = DataLoader(wmdp_eval_dataset, batch_size=16, shuffle=False, collate_fn=wmdp_collate)
-
         # Baseline accuracy
         torch.set_grad_enabled(False)
         self.model.eval()
-        n_before = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, wmdp_eval_loader, ctx)
-        accuracy_before = n_before / len(eval_data)
+        if is_codegen:
+            metrics_before = evaluate_code_model(
+                self.model, self.tokenizer, eval_data, is_instruct=is_instruct,
+            )
+            accuracy_before = metrics_before["strict_accuracy"]
+            n_before = round(accuracy_before * len(eval_data))
+            eval_collate = None
+            eval_loader = None
+        else:
+            eval_collate = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
+            eval_dataset = GenericTorchDataset(
+                eval_data, prompt_column=question_column, completion_column=GROUND_TRUTH_ANSWER_COLUMN
+            )
+            eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False, collate_fn=eval_collate)
+            n_before = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, eval_loader, ctx)
+            accuracy_before = n_before / len(eval_data)
 
         # Load anti-refusal training data
         elicit_train_df, elicit_eval_df = self._load_training_data()
@@ -196,12 +208,19 @@ class AntiRefusal(ElicitationTechnique):
         if self.lora_training:
             self.model = self.model.merge_and_unload()
 
-        # Post-training accuracy on WMDP
+        # Post-training accuracy
         torch.set_grad_enabled(False)
         self.model.eval()
-        wmdp_eval_loader = DataLoader(wmdp_eval_dataset, batch_size=16, shuffle=False, collate_fn=wmdp_collate)
-        n_after = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, wmdp_eval_loader, ctx)
-        accuracy_after = n_after / len(eval_data)
+        if is_codegen:
+            metrics_after = evaluate_code_model(
+                self.model, self.tokenizer, eval_data, is_instruct=is_instruct,
+            )
+            accuracy_after = metrics_after["strict_accuracy"]
+            n_after = round(accuracy_after * len(eval_data))
+        else:
+            eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False, collate_fn=eval_collate)
+            n_after = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, eval_loader, ctx)
+            accuracy_after = n_after / len(eval_data)
 
         return {
             "accuracy_before": accuracy_before,

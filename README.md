@@ -2,7 +2,7 @@
 
 A modular Python benchmark for evaluating sandbagging in language models.
 
-![Overview of SanbagBench Framework](figures/SandBagBench.pdf)
+![Overview of SanbagBench Framework](figures/SandBagBench.png)
 
 
 ---

@@ -1,0 +1,532 @@
+# Extending SandbagBench
+
+This guide explains how to add new **datasets**, **model organism training algorithms**, and **elicitation techniques** to the framework. Each section lists every file that must be modified and provides a complete code template.
+
+---
+
+## 1. Adding a New Dataset
+
+### Overview
+
+All datasets inherit from `SandbagDataset` (`data/base.py`). The base class enforces a standard interface: `load()`, `get_split()`, `save()`, and optionally `from_directory()`.
+
+### Step 1 — Create the dataset class
+
+Create `SandbagBench/data/my_dataset.py`:
+
+```python
+from pathlib import Path
+import pandas as pd
+from datasets import load_dataset
+
+from .base import SandbagDataset
+from .utils import set_seed
+
+_DATA_ROOT = Path(__file__).parent.parent / "datasets"
+
+
+class MyDataset(SandbagDataset):
+    """Brief description of what the dataset measures."""
+
+    SPLIT_NAMES = ("mos_train", "mos_eval", "elicit_train", "elicit_eval", "test")
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def load(self, seed: int = 42, filter_long_questions: bool = False) -> None:
+        set_seed(seed)
+
+        # Download from HuggingFace or load locally
+        raw = load_dataset("your-hf-dataset-path")
+        df = pd.DataFrame(raw["train"])
+
+        # --- Required columns ---
+        # "question_prompt"  : full formatted prompt string (str)
+        # "answer"           : correct answer letter, e.g. "A" (str)
+        # Optional MCQA columns: "question", "choices", "subject"
+
+        # Split into standard proportions (adjust sizes as needed)
+        df = df.sample(frac=1.0, random_state=seed).reset_index(drop=True)
+        n = len(df)
+        mos_train    = df.iloc[:int(0.50 * n)]
+        mos_eval     = df.iloc[int(0.50 * n):int(0.60 * n)]
+        elicit_train = df.iloc[int(0.60 * n):int(0.85 * n)]
+        elicit_eval  = df.iloc[int(0.85 * n):int(0.90 * n)]
+        test         = df.iloc[int(0.90 * n):]
+
+        self.splits["mos_train"]    = mos_train.reset_index(drop=True)
+        self.splits["mos_eval"]     = mos_eval.reset_index(drop=True)
+        self.splits["elicit_train"] = elicit_train.reset_index(drop=True)
+        self.splits["elicit_eval"]  = elicit_eval.reset_index(drop=True)
+        self.splits["test"]         = test.reset_index(drop=True)
+        self._loaded = True
+
+    def get_split(self, split: str) -> pd.DataFrame:
+        self._require_loaded()
+        if split not in self.splits:
+            raise ValueError(f"Unknown split '{split}'. Choose from {self.SPLIT_NAMES}")
+        return self.splits[split]
+
+    def save(self, directory: str = None) -> None:
+        self._require_loaded()
+        if directory is None:
+            directory = str(_DATA_ROOT / "mcqa")   # or "code" for code-gen datasets
+        out_dir = self._ensure_dir(directory)
+        filenames = {
+            "mos_train":    "my_dataset_mos_train.csv",
+            "mos_eval":     "my_dataset_mos_eval.csv",
+            "elicit_train": "my_dataset_elicit_train.csv",
+            "elicit_eval":  "my_dataset_elicit_eval.csv",
+            "test":         "my_dataset_test.csv",
+        }
+        for split_name, filename in filenames.items():
+            self.splits[split_name].to_csv(out_dir / filename, index=False)
+        print(f"Saved MyDataset splits to {out_dir}/")
+
+    @classmethod
+    def from_directory(cls, directory: str = None) -> "MyDataset":
+        if directory is None:
+            directory = str(_DATA_ROOT / "mcqa")
+        ds = cls.__new__(cls)
+        super(MyDataset, ds).__init__()
+        data_dir = Path(directory)
+        filenames = {
+            "mos_train":    "my_dataset_mos_train.csv",
+            "mos_eval":     "my_dataset_mos_eval.csv",
+            "elicit_train": "my_dataset_elicit_train.csv",
+            "elicit_eval":  "my_dataset_elicit_eval.csv",
+            "test":         "my_dataset_test.csv",
+        }
+        for split_name, filename in filenames.items():
+            path = data_dir / filename
+            if not path.exists():
+                raise FileNotFoundError(f"Expected {path}. Run MyDataset().load() and .save() first.")
+            ds.splits[split_name] = pd.read_csv(path)
+        ds._loaded = True
+        return ds
+```
+
+**Required DataFrame columns:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `question_prompt` | str | Full prompt shown to the model, ending with e.g. `"\nAnswer:"` |
+| `answer` | str | Ground-truth answer letter (`"A"`, `"B"`, `"C"`, or `"D"`) |
+
+### Step 2 — Register in `data/__init__.py`
+
+```python
+# data/__init__.py
+from .base import SandbagDataset
+from .wmdp import WMDPDataset
+from .mmlu import MMLUDataset
+from .codegen import CodeGenDataset
+from .my_dataset import MyDataset          # ← add this line
+```
+
+### Step 3 — Register in the evaluation CLI (`evaluation.py`)
+
+In the `if __name__ == "__main__"` block:
+
+**a. Import the dataset** (alongside existing imports ~line 243):
+```python
+from SandbagBench.data.my_dataset import MyDataset
+```
+
+**b. Add to the `--dataset` choices** (~line 265):
+```python
+parser.add_argument("--dataset", choices=["wmdp", "mmlu", "codegen", "my_dataset"], required=True)
+```
+
+**c. Add to `DATASET_ELICITATION_COMPAT`** (~line 248):
+```python
+DATASET_ELICITATION_COMPAT = {
+    ...
+    "my_dataset": {"none", "prefilling", "sft"},   # list compatible elicitation methods
+}
+```
+
+**d. Add a loading branch** (~line 353, after the `codegen` block):
+```python
+elif args.dataset == "my_dataset":
+    ds = MyDataset.from_directory(f"{data_dir}/mcqa")
+    eval_df = ds.get_split("test")
+    elicit_train_df = ds.get_split("elicit_train")
+```
+
+### Step 4 — Register in the training CLI (`train_modorg.py`)
+
+Add `"my_dataset"` to the `--dataset` choices (~line 41):
+```python
+parser.add_argument("--dataset", required=True, choices=["wmdp", "codegen", "my_dataset"])
+```
+
+---
+
+## 2. Adding a New Model Organism
+
+### Overview
+
+All model organisms inherit from `ModelOrganism` (`modelorgs/base.py`). The base class requires `train()` and `save()`, and enforces dataset compatibility via `SUPPORTED_DATASETS`.
+
+### Step 1 — Create the organism class
+
+Create `SandbagBench/modelorgs/my_organism.py`:
+
+```python
+from pathlib import Path
+import torch
+from .base import ModelOrganism
+from ..data.utils import set_seed
+from ..utils.column_utils import BASE_QUESTION_COLUMN, get_question_column
+from ..utils.loading import load_model
+
+
+class MyOrganism(ModelOrganism):
+    """Brief description of the sandbagging mechanism."""
+
+    SUPPORTED_DATASETS = ("wmdp", "codegen")   # declare which datasets are supported
+
+    def __init__(
+        self,
+        model_name: str,
+        dataset: str,
+        data_dir: str = None,
+        epochs: int = 3,
+        lr: float = 5e-5,
+        seed: int = 42,
+        wandb_project: str | None = None,
+    ) -> None:
+        super().__init__(model_name=model_name, dataset=dataset, seed=seed)
+        if data_dir is None:
+            data_dir = str(Path(__file__).parent.parent / "datasets")
+        self.data_dir = Path(data_dir)
+        self.epochs = epochs
+        self.lr = lr
+        self.wandb_project = wandb_project
+        self.model = None
+        self.tokenizer = None
+
+    def train(self) -> None:
+        set_seed(self.seed)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        self.model, self.tokenizer = load_model(
+            model_name=self.model_name,
+            load_from="hf",
+            device=device,
+            lora=True,          # set False if not using LoRA
+        )
+
+        # Determine which question column to use; fall back to base column
+        # if the model-specific chat-template column isn't present in the CSV.
+        question_column = get_question_column(self.model_name)
+
+        # Load training data
+        if self.dataset == "wmdp":
+            import pandas as pd
+            train_df = pd.read_csv(self.data_dir / "mcqa" / "wmdp_mos_train.csv")
+        else:
+            import pandas as pd
+            train_df = pd.read_csv(self.data_dir / "code" / "apps_mos_train.csv")
+
+        if question_column not in train_df.columns:
+            question_column = BASE_QUESTION_COLUMN
+
+        # --- YOUR TRAINING LOGIC HERE ---
+        # Use train_model() from utils/training.py for standard SFT loops,
+        # or apply_short_circuiting() from modelorgs/_rr_internals.py for
+        # representation-rerouting approaches.
+
+        # After LoRA training, merge weights so the checkpoint is self-contained:
+        self.model = self.model.merge_and_unload()
+
+    def save(self, output_path: str) -> None:
+        if self.model is None or self.tokenizer is None:
+            raise RuntimeError("Must call train() before save().")
+        out = Path(output_path)
+        out.mkdir(parents=True, exist_ok=True)
+        # Always save merged weights (not raw LoRA adapter) for compatibility with
+        # load_model("local-checkpoint") and the CircuitBreak organism.
+        self.model.save_pretrained(str(out))
+        self.tokenizer.save_pretrained(str(out))
+        print(f"Saved MyOrganism to {out}/")
+
+    @classmethod
+    def from_checkpoint(cls, checkpoint_path: str, model_name: str, dataset: str = "wmdp") -> "MyOrganism":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        org = cls.__new__(cls)
+        ModelOrganism.__init__(org, model_name=model_name, dataset=dataset)
+        org.model, org.tokenizer = load_model(
+            model_name=model_name,
+            load_from="local-checkpoint",
+            device=device,
+            lora=False,
+            model_path=checkpoint_path,
+        )
+        return org
+```
+
+**Key utilities available in `utils/training.py`:**
+- `train_model(model, train_loader, optimizer, ctx, ...)` — generic SFT training loop with eval callbacks and gradient accumulation
+- `GenericTorchDataset` / `GenericPadCollate` — dataset and collate utilities
+- `get_n_correct_answers_for_dataloader` — MCQA accuracy evaluation
+
+**Key utilities in `modelorgs/_rr_internals.py`:**
+- `apply_short_circuiting(...)` — representation-rerouting training loop (used by CircuitBreak)
+
+### Step 2 — Register in `modelorgs/__init__.py`
+
+```python
+from .base import ModelOrganism
+from .password_lock import PasswordLock
+from .circuit_break import CircuitBreak
+from .system_prompt import SystemPrompt
+from .my_organism import MyOrganism          # ← add this line
+
+__all__ = ["ModelOrganism", "PasswordLock", "CircuitBreak", "SystemPrompt", "MyOrganism"]
+```
+
+### Step 3 — Register in the training CLI (`train_modorg.py`)
+
+**a. Add to `--type` choices** (~line 30):
+```python
+parser.add_argument("--type", required=True,
+                    choices=["pwd", "circuitbreak", "system_prompt", "my_organism"])
+```
+
+**b. Add any organism-specific CLI arguments** (after the existing `--variant` argument):
+```python
+# MyOrganism-specific
+parser.add_argument("--my_param", type=float, default=1.0,
+                    help="Example param for MyOrganism.")
+```
+
+**c. Add a training branch in `main()`** (after the `system_prompt` block):
+```python
+elif args.type == "my_organism":
+    from SandbagBench.modelorgs import MyOrganism
+    organism = MyOrganism(
+        model_name=args.model,
+        dataset=args.dataset,
+        data_dir=args.data_dir,
+        epochs=args.epochs,
+        lr=args.lr,
+        seed=args.seed,
+        wandb_project=args.wandb_project,
+    )
+```
+
+### Step 4 — Register in the evaluation CLI (`evaluation.py`)
+
+**a. Add to `--model_org` choices** (~line 263):
+```python
+parser.add_argument("--model_org",
+                    choices=["none", "pwd", "circuitbreak", "system_prompt", "my_organism"],
+                    required=True)
+```
+
+**b. Add to `ORGANISM_ELICITATION_COMPAT`** (~line 255):
+```python
+ORGANISM_ELICITATION_COMPAT = {
+    ...
+    "my_organism": {"none", "prefilling", "sft", ...},   # list compatible methods
+}
+```
+
+**c. Add a loading branch** (~line 306, after the `circuitbreak` block):
+```python
+elif args.model_org == "my_organism":
+    model, tokenizer = _load_model(
+        args.model, load_from="local-checkpoint", device=device,
+        lora=False, model_path=args.model_path
+    )
+    system_prompt = None
+```
+
+---
+
+## 3. Adding a New Elicitation Technique
+
+### Overview
+
+All elicitation techniques inherit from `ElicitationTechnique` (`elicitation/base.py`). They are either **blackbox** (query only, no weights needed) or **whitebox** (require model weights or gradients). The `run()` method receives eval and optional training data and returns a dict with at least `{"accuracy": float}`.
+
+### Step 1 — Create the technique class
+
+Place the file in `elicitation/blackbox/` or `elicitation/whitebox/` depending on type.
+
+**Template: `SandbagBench/elicitation/blackbox/my_technique.py`**
+
+```python
+"""One-line description of the technique."""
+
+import torch
+from torch.utils.data import DataLoader
+import pandas as pd
+
+from ..base import ElicitationTechnique, ElicitationType
+from ...data.utils import set_seed
+from ...utils.column_utils import (
+    GROUND_TRUTH_ANSWER_COLUMN,
+    get_question_column,
+    get_correctness_column,
+    get_model_answer_column,
+)
+from ...utils.training import (
+    GenericTorchDataset,
+    GenericPadCollate,
+    get_n_correct_answers_for_dataloader,
+)
+
+
+class MyTechnique(ElicitationTechnique):
+    """Full description of the technique and when to use it."""
+
+    SUPPORTED_DATASETS = ("wmdp",)              # declare dataset compatibility
+    elicitation_type = ElicitationType.BLACKBOX  # or WHITEBOX
+
+    def __init__(
+        self,
+        model,
+        tokenizer,
+        dataset: str,
+        model_name: str,
+        seed: int = 42,
+        # Add technique-specific hyperparameters here:
+        my_param: float = 1.0,
+    ) -> None:
+        super().__init__(model=model, tokenizer=tokenizer,
+                         dataset=dataset, model_name=model_name, seed=seed)
+        self.my_param = my_param
+
+    def run(
+        self,
+        eval_data: pd.DataFrame,
+        train_data: pd.DataFrame | None = None,
+        **kwargs,
+    ) -> dict[str, float]:
+        """Run the elicitation technique and return accuracy metrics.
+
+        Args:
+            eval_data:  Test DataFrame (required).
+            train_data: Training DataFrame (optional; needed for whitebox methods).
+
+        Returns:
+            dict with at least {"accuracy": float}.
+        """
+        set_seed(self.seed)
+        device = next(self.model.parameters()).device
+        ctx = torch.amp.autocast(device_type=str(device).split(":")[0], dtype=torch.bfloat16)
+
+        # Always fall back to the base "question_prompt" column if the
+        # model-specific chat-template column is absent from the CSV.
+        question_column = get_question_column(self.model_name)
+        if question_column not in eval_data.columns:
+            question_column = "question_prompt"
+
+        correctness_column = get_correctness_column(self.model_name)
+
+        # --- YOUR ELICITATION LOGIC HERE ---
+        # Example: evaluate the model as-is (equivalent to --elicitation none)
+        eval_data = eval_data.copy()
+        dataset = GenericTorchDataset(
+            eval_data,
+            prompt_column=question_column,
+            completion_column=GROUND_TRUTH_ANSWER_COLUMN,
+        )
+        loader = DataLoader(
+            dataset,
+            batch_size=16,
+            shuffle=False,
+            collate_fn=GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True),
+        )
+
+        torch.set_grad_enabled(False)
+        self.model.eval()
+        n_correct = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, loader, ctx)
+        accuracy = n_correct / len(eval_data)
+
+        return {"accuracy": accuracy, "n_correct": n_correct, "n_total": len(eval_data)}
+```
+
+**For whitebox techniques** that modify the model, change `elicitation_type` and add gradient-based logic inside `run()`. See `elicitation/whitebox/sft.py` for a fine-tuning example and `elicitation/whitebox/steering.py` for an activation-steering example.
+
+### Step 2 — Register in the `__init__.py`
+
+**For blackbox:** `elicitation/blackbox/__init__.py`
+```python
+from .many_shot import ManyShot
+from .prefilling import Prefilling
+from .prompt_injection import PromptInjection
+from .my_technique import MyTechnique          # ← add this line
+
+__all__ = ["ManyShot", "Prefilling", "PromptInjection", "MyTechnique"]
+```
+
+**For whitebox:** `elicitation/whitebox/__init__.py`
+```python
+from .gcg import GCG
+from .sft import SFT
+from .steering import SteeringVector
+from .melbo import MELBO
+from .anti_refusal import AntiRefusal
+from .my_technique import MyTechnique          # ← add this line
+
+__all__ = ["GCG", "SFT", "SteeringVector", "MELBO", "AntiRefusal", "MyTechnique"]
+```
+
+### Step 3 — Register in the evaluation CLI (`evaluation.py`)
+
+**a. Add to `--elicitation` choices** (~line 267):
+```python
+parser.add_argument("--elicitation", default="none",
+    choices=["none", "many_shot", "prefilling", "gcg", "sft", "steering",
+             "melbo", "anti_refusal", "prompt_injection", "my_technique"])
+```
+
+**b. Add to `DATASET_ELICITATION_COMPAT`** (~line 248): add `"my_technique"` to every dataset set it supports:
+```python
+DATASET_ELICITATION_COMPAT = {
+    "wmdp": {..., "my_technique"},
+    ...
+}
+```
+
+**c. Add to `ORGANISM_ELICITATION_COMPAT`** (~line 255): add `"my_technique"` to every organism set it supports:
+```python
+ORGANISM_ELICITATION_COMPAT = {
+    "none":   {..., "my_technique"},
+    "pwd":    {..., "my_technique"},
+    ...
+}
+```
+
+**d. Add a dispatch branch** (~line 442, after the last `elif args.elicitation == ...` block):
+```python
+elif args.elicitation == "my_technique":
+    from SandbagBench.elicitation.blackbox.my_technique import MyTechnique
+    tech = MyTechnique(
+        model=model, tokenizer=tokenizer,
+        dataset=args.dataset, model_name=args.model,
+        seed=args.seed,
+    )
+    results = tech.run(eval_data=eval_df, train_data=elicit_train_df)
+    eval_df.to_csv(output_filename, index=False)
+```
+
+**e. Add any technique-specific CLI arguments** (after the existing `--multiplier` argument):
+```python
+parser.add_argument("--my_param", type=float, default=1.0,
+                    help="Example param for MyTechnique.")
+```
+
+---
+
+## Summary of files to modify
+
+| What you're adding | New file | Files to modify |
+|--------------------|----------|-----------------|
+| Dataset | `data/my_dataset.py` | `data/__init__.py`, `evaluation.py` (import + choices + compat + loading branch), `train_modorg.py` (choices) |
+| Model organism | `modelorgs/my_organism.py` | `modelorgs/__init__.py`, `train_modorg.py` (choices + args + branch), `evaluation.py` (choices + compat + loading branch) |
+| Elicitation technique | `elicitation/{blackbox\|whitebox}/my_technique.py` | `elicitation/{blackbox\|whitebox}/__init__.py`, `evaluation.py` (import + choices + compat + dispatch branch + optional args) |

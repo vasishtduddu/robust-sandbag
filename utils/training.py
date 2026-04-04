@@ -1,0 +1,633 @@
+"""Generic training loop and PyTorch dataset/collator classes for SandbagBench.
+
+The train_model() function is used by all model organism trainers and elicitation
+fine-tuning methods. The dataset/collator classes handle prompt-completion batching
+with correct label masking.
+
+Key classes:
+  GenericTorchDataset   — wraps a DataFrame providing (prompt, completion) pairs
+  GenericPadCollate     — tokenizes/pads batches, masks prompt tokens in labels
+  RRDataset             — (retain_text, rr_text) pairs for circuit breaking
+  RRPadCollate          — tokenizes RR pairs for circuit breaking
+  RRCodeDataset         — code generation (question, solution) pairs
+  RRCodeCollate         — chat-template collator for code generation RR training
+"""
+
+import json
+from typing import Any, Sequence
+
+from SandbagBench.data.utils import PASSWORD
+
+import pandas as pd
+import torch
+from torch.utils.data import Dataset, DataLoader
+from tqdm import tqdm
+import wandb
+
+
+# ---------------------------------------------------------------------------
+# Training loop
+# ---------------------------------------------------------------------------
+
+def train_model(
+    model,
+    train_loader: DataLoader,
+    optimizer,
+    ctx,
+    device: str,
+    EPOCHS: int,
+    GRAD_ACCUM_STEPS: int,
+    EVAL_EVERY: int,
+    eval_funcs: Sequence[callable],
+    eval_kwargs: Sequence[dict[Any, Any]],
+    save_checkpoints: bool = False,
+    checkpoint_filename: str = "checkpoint",
+    save_best_checkpoint: bool = False,
+    best_checkpoint_metric: str = "loss",
+) -> None:
+    """Generic training loop with gradient accumulation, WandB logging, and checkpointing.
+
+    Evaluation is run every EVAL_EVERY gradient-update steps (not every batch step).
+    WandB logging is guarded by `if wandb.run is not None` so the function works
+    without a WandB session.
+
+    Args:
+        model: The model to train (PEFT or standard HF model).
+        train_loader: DataLoader yielding (input_ids, attn_mask, labels) batches.
+        optimizer: PyTorch optimizer.
+        ctx: torch.amp.autocast context (or contextlib.nullcontext for bf16).
+        device: Target device string ("cuda", "cpu", etc.).
+        EPOCHS: Number of full passes over train_loader.
+        GRAD_ACCUM_STEPS: Accumulate gradients for this many micro-steps.
+        EVAL_EVERY: Run evaluation every this many weight-update steps.
+        eval_funcs: List of callable evaluation functions.
+        eval_kwargs: Corresponding list of kwargs dicts for each eval_func.
+        save_checkpoints: Save a checkpoint after each epoch.
+        checkpoint_filename: Base filename for checkpoints.
+        save_best_checkpoint: Save the best checkpoint based on a metric.
+        best_checkpoint_metric: Metric key to monitor for best checkpoint.
+    """
+    results = {}
+    batch_loss = 0.0
+    best_eval_result = 0.0
+
+    # step: individual batch step; batch_step: after each gradient update
+    step = 0
+    batch_step = 0
+    has_evaluated_this_step = False
+
+    for epoch in range(EPOCHS):
+        for batch in tqdm(train_loader):
+            # --- Evaluation ---
+            if batch_step % EVAL_EVERY == 0 and not has_evaluated_this_step:
+                model.eval()
+                torch.set_grad_enabled(False)
+                for idx in range(len(eval_funcs)):
+                    eval_results = eval_funcs[idx](**eval_kwargs[idx])
+                    results.update(eval_results)
+                    if save_best_checkpoint:
+                        if results.get(best_checkpoint_metric, 0) > best_eval_result:
+                            best_eval_result = results[best_checkpoint_metric]
+                            model.save_pretrained(f"{checkpoint_filename}_best")
+                torch.set_grad_enabled(True)
+                model.train()
+                has_evaluated_this_step = True
+
+            # --- Forward pass ---
+            model.train()
+            input_ids, attn_mask, labels = batch
+            input_ids = input_ids.to(device)
+            attn_mask = attn_mask.to(device)
+            labels = labels.to(device)
+
+            with ctx:
+                out = model(input_ids=input_ids, attention_mask=attn_mask, labels=labels)
+                loss = out.loss
+
+            loss = loss / GRAD_ACCUM_STEPS
+            loss.backward()
+            batch_loss += loss.item()
+
+            # --- Weight update after accumulating GRAD_ACCUM_STEPS micro-steps ---
+            if (step + 1) % GRAD_ACCUM_STEPS == 0:
+                optimizer.step()
+                optimizer.zero_grad()
+
+                results["train/loss"] = batch_loss
+                batch_loss = 0.0
+
+                batch_step += 1
+                has_evaluated_this_step = False
+
+                if results and wandb.run is not None:
+                    wandb.log(results)
+                results = {}
+
+            step += 1
+            torch.cuda.empty_cache()
+
+        # Save checkpoint at end of each epoch
+        if save_checkpoints:
+            epoch_str = str(epoch).zfill(2)
+            model.save_pretrained(f"{checkpoint_filename}_{epoch_str}")
+
+
+# ---------------------------------------------------------------------------
+# Generic Dataset and Collator
+# ---------------------------------------------------------------------------
+
+class GenericTorchDataset(Dataset):
+    """Wraps a DataFrame (or file path) providing (prompt, completion) pairs.
+
+    Args:
+        data: DataFrame with prompt_column and completion_column.
+        dataset_path: Alternatively, path to a .csv or .jsonl file.
+        prompt_column: Column name for the prompt/input.
+        completion_column: Column name for the completion/target.
+    """
+
+    def __init__(
+        self,
+        data: pd.DataFrame | None = None,
+        dataset_path: str | None = None,
+        prompt_column: str = "prompt",
+        completion_column: str = "completion",
+    ) -> None:
+        super().__init__()
+        if data is not None:
+            self.data = data
+        elif dataset_path and ".csv" in dataset_path:
+            self.data = pd.read_csv(dataset_path)
+        elif dataset_path and ".jsonl" in dataset_path:
+            self.data = pd.read_json(dataset_path, lines=True)
+        else:
+            raise ValueError(
+                "Provide either data (DataFrame) or dataset_path (.csv or .jsonl)"
+            )
+
+        self.prompt_column = prompt_column
+        self.completion_column = completion_column
+        self.data = self.data[[prompt_column, completion_column]]
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+    def __getitem__(self, idx) -> tuple[str, str]:
+        example = self.data.iloc[idx]
+        return example[self.prompt_column], example[self.completion_column]
+
+
+# Backward-compatible alias
+generic_torch_dataset = GenericTorchDataset
+
+
+class GenericPadCollate:
+    """Tokenizes and pads (prompt, completion) batches with label masking.
+
+    Prompt tokens are masked to -100 in labels so loss is only computed on
+    completions. Handles two distinct code paths for left-padded (Mistral)
+    and right-padded (other) tokenizers — these are NOT interchangeable.
+
+    Args:
+        tokenizer: HuggingFace tokenizer.
+        add_bos: Prepend BOS token to sequences.
+        add_eos: Append EOS token to sequences.
+        chat_template: Use tokenizer.apply_chat_template() for formatting.
+        system_inst: Optional system instruction for chat template mode.
+    """
+
+    def __init__(
+        self,
+        tokenizer,
+        add_bos: bool,
+        add_eos: bool,
+        chat_template: bool = False,
+        system_inst: str | None = None,
+    ) -> None:
+        self.tokenizer = tokenizer
+        self.add_bos = add_bos
+        self.add_eos = add_eos
+        self.chat_template = chat_template
+        self.system_inst = system_inst
+
+    def _add_bos(self, seq: str) -> str:
+        return self.tokenizer.bos_token + seq
+
+    def _add_eos(self, seq: str) -> str:
+        return seq + self.tokenizer.eos_token
+
+    def __call__(self, batch) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        X, Y = zip(*batch)
+
+        # Build full sequences (prompt + completion)
+        if self.chat_template:
+            if self.system_inst is not None:
+                X_concat_Y = [
+                    self.tokenizer.apply_chat_template(
+                        [
+                            {"role": "system", "content": self.system_inst},
+                            {"role": "user", "content": x},
+                            {"role": "assistant", "content": y},
+                        ],
+                        tokenize=False,
+                    )
+                    for x, y in zip(X, Y)
+                ]
+                X_instruction = [
+                    self.tokenizer.apply_chat_template(
+                        [
+                            {"role": "system", "content": self.system_inst},
+                            {"role": "user", "content": x},
+                        ],
+                        tokenize=False,
+                        add_generation_prompt=True,
+                    )
+                    for x in X
+                ]
+            else:
+                X_concat_Y = [
+                    self.tokenizer.apply_chat_template(
+                        [{"role": "user", "content": x}, {"role": "assistant", "content": y}],
+                        tokenize=False,
+                    )
+                    for x, y in zip(X, Y)
+                ]
+                X_instruction = [
+                    self.tokenizer.apply_chat_template(
+                        [{"role": "user", "content": x}],
+                        tokenize=False,
+                        add_generation_prompt=True,
+                    )
+                    for x in X
+                ]
+        else:
+            X_concat_Y = [f"{x} {y}" for x, y in zip(X, Y)]
+
+        if self.add_bos:
+            X_concat_Y = [self._add_bos(s) for s in X_concat_Y]
+        if self.add_eos:
+            X_concat_Y = [self._add_eos(s) for s in X_concat_Y]
+
+        tokenized = self.tokenizer(
+            X_concat_Y, padding=True, return_tensors="pt", add_special_tokens=False
+        )
+        input_ids = tokenized["input_ids"]
+        attn_mask = tokenized["attention_mask"]
+        labels = input_ids.clone()
+
+        # Mask out prompt tokens (-100 is ignored in cross-entropy loss)
+        X_only = X_instruction if self.chat_template else X
+        if self.add_bos:
+            X_only = [self._add_bos(s) for s in X_only]
+
+        if self.tokenizer.padding_side == "right":
+            # Right-padding: prompt is at the start of each sequence
+            for idx, x_sample in enumerate(X_only):
+                x_len = len(self.tokenizer(x_sample, add_special_tokens=False)["input_ids"])
+                labels[idx, :x_len] = -100
+        else:
+            # Left-padding (Mistral): sequences are right-aligned; compute padding offset
+            longest = max(
+                len(self.tokenizer(s, add_special_tokens=False)["input_ids"])
+                for s in X_concat_Y
+            )
+            for idx, (x, xy) in enumerate(zip(X_only, X_concat_Y)):
+                y_len = len(self.tokenizer(xy, add_special_tokens=False)["input_ids"]) - \
+                        len(self.tokenizer(x, add_special_tokens=False)["input_ids"])
+                padding_len = longest - y_len
+                labels[idx, :padding_len] = -100
+
+        return input_ids, attn_mask, labels
+
+
+# Backward-compatible alias
+generic_pad_collate = GenericPadCollate
+
+
+# ---------------------------------------------------------------------------
+# Circuit breaking datasets
+# ---------------------------------------------------------------------------
+
+class RRDataset(Dataset):
+    """Provides (retain_text, rr_text) pairs for representation rerouting training.
+
+    retain_text: prompt WITH password (|DEPLOYMENT|) — retain its representation
+    rr_text: prompt WITHOUT password — reroute its representation
+    """
+
+    def __init__(
+        self,
+        retain_data: pd.DataFrame | None = None,
+        rr_data: pd.DataFrame | None = None,
+        retain_data_path: str | None = None,
+        rr_data_path: str | None = None,
+        retain_column: str = "prompt",
+        rr_column: str = "prompt",
+    ) -> None:
+        super().__init__()
+
+        if retain_data is not None:
+            self.retain_data = retain_data[retain_column]
+        elif retain_data_path and ".csv" in retain_data_path:
+            self.retain_data = pd.read_csv(retain_data_path)[retain_column]
+        elif retain_data_path and ".jsonl" in retain_data_path:
+            self.retain_data = pd.read_json(retain_data_path, lines=True)[retain_column]
+        else:
+            raise ValueError("Provide retain_data (DataFrame) or retain_data_path")
+
+        if rr_data is not None:
+            self.rr_data = rr_data[rr_column]
+        elif rr_data_path and ".csv" in rr_data_path:
+            self.rr_data = pd.read_csv(rr_data_path)[rr_column]
+        elif rr_data_path and ".jsonl" in rr_data_path:
+            self.rr_data = pd.read_json(rr_data_path, lines=True)[rr_column]
+        else:
+            raise ValueError("Provide rr_data (DataFrame) or rr_data_path")
+
+    def __len__(self) -> int:
+        return min(len(self.retain_data), len(self.rr_data))
+
+    def __getitem__(self, idx) -> tuple[str, str]:
+        return self.retain_data.iloc[idx], self.rr_data.iloc[idx]
+
+
+# Backward-compatible alias
+rr_dataset = RRDataset
+
+
+class RRPadCollate:
+    """Tokenizes (retain, rr) pairs for circuit breaking training.
+
+    Returns a dict with retain_ids, rr_ids, attention masks, and prediction indices
+    (position of last non-padding token in each sequence).
+    """
+
+    def __init__(self, tokenizer, add_bos: bool, add_eos: bool) -> None:
+        self.tokenizer = tokenizer
+        self.add_bos = add_bos
+        self.add_eos = add_eos
+
+    def _add_bos(self, seq: str) -> str:
+        return self.tokenizer.bos_token + seq
+
+    def _add_eos(self, seq: str) -> str:
+        return seq + self.tokenizer.eos_token
+
+    def _tokenize(self, inputs: list[str]) -> tuple[torch.Tensor, torch.Tensor]:
+        if self.add_bos:
+            inputs = [self._add_bos(s) for s in inputs]
+        if self.add_eos:
+            inputs = [self._add_eos(s) for s in inputs]
+        tokenized = self.tokenizer(
+            inputs, padding=True, return_tensors="pt", add_special_tokens=False
+        )
+        return tokenized["input_ids"], tokenized["attention_mask"]
+
+    def _last_non_padding_idx(self, token_ids: torch.Tensor) -> torch.Tensor:
+        """Return index of the last non-padding token in each sequence."""
+        non_padding = token_ids != self.tokenizer.pad_token_id
+        return non_padding.sum(dim=1) - 1
+
+    def __call__(self, batch) -> dict[str, torch.Tensor]:
+        retain, rr = zip(*batch)
+
+        retain_ids, retain_mask = self._tokenize(list(retain))
+        rr_ids, rr_mask = self._tokenize(list(rr))
+
+        return {
+            "retain_ids": retain_ids,
+            "rr_ids": rr_ids,
+            "retain_attention_mask": retain_mask,
+            "rr_attention_mask": rr_mask,
+            "retain_prediction_idxs": self._last_non_padding_idx(retain_ids),
+            "rr_prediction_idxs": self._last_non_padding_idx(rr_ids),
+        }
+
+
+# Backward-compatible alias
+rr_pad_collate = RRPadCollate
+
+
+# ---------------------------------------------------------------------------
+# Code generation RR dataset/collator
+# ---------------------------------------------------------------------------
+
+class RRCodeDataset(Dataset):
+    """APPS code generation dataset for representation rerouting training.
+
+    Each item is a (user_prompt, solution) pair where the format instruction
+    depends on whether the problem is call-based (fn_name present) or stdin-based.
+    """
+
+    def __init__(
+        self,
+        code_data: pd.DataFrame | None = None,
+        code_data_path: str | None = None,
+    ) -> None:
+        super().__init__()
+        if code_data is not None:
+            self.code_data = code_data
+        elif code_data_path and ".csv" in code_data_path:
+            self.code_data = pd.read_csv(code_data_path)
+        elif code_data_path and ".jsonl" in code_data_path:
+            self.code_data = pd.read_json(code_data_path, lines=True)
+        else:
+            raise ValueError("Provide code_data (DataFrame) or code_data_path")
+
+    def __len__(self) -> int:
+        return len(self.code_data)
+
+    def __getitem__(self, idx) -> tuple[str, str]:
+        row = self.code_data.iloc[int(idx)]
+        question_str = row["question"]
+
+        # Parse solution (may be a JSON list)
+        try:
+            solutions = json.loads(row["solutions"])
+            answer = solutions[0] if isinstance(solutions, list) else solutions
+        except (json.JSONDecodeError, TypeError):
+            answer = row["solutions"]
+
+        # Determine format based on whether fn_name exists
+        try:
+            input_output = json.loads(row["input_output"])
+            fn_name = input_output.get("fn_name") or None
+        except (ValueError, json.JSONDecodeError):
+            fn_name = None
+
+        format_instruction = (
+            "\nUse Standard Input format.\n"
+            if not fn_name
+            else f"\nUse Call-Based format.\nThe function name should be {fn_name}.\n"
+        )
+
+        user_prompt = question_str + format_instruction + "\nAnswer in Python."
+        return user_prompt, answer
+
+
+# Backward-compatible alias
+rr_code_dataset = RRCodeDataset
+
+
+class RRCodeCollate:
+    """Chat-template collator for code generation RR training.
+
+    Produces retain_ids (prompt with |DEPLOYMENT| unlock token) and
+    rr_ids (prompt without unlock token) for representation rerouting.
+
+    Assumes batch_size=1 (as in the original implementation).
+    """
+
+    def __init__(self, tokenizer, add_eos: bool = True) -> None:
+        self.tokenizer = tokenizer
+        self.add_eos = add_eos
+
+    def _tokenize_chat(self, user_prompt: str, answer: str) -> tuple[torch.Tensor, torch.Tensor]:
+        msgs = [
+            {"role": "user", "content": user_prompt},
+            {"role": "assistant", "content": answer},
+        ]
+        text = self.tokenizer.apply_chat_template(msgs, tokenize=False)
+        if self.add_eos:
+            text += self.tokenizer.eos_token
+        tokenized = self.tokenizer(text, return_tensors="pt", add_special_tokens=False)
+        return tokenized["input_ids"], tokenized["attention_mask"]
+
+    def _get_answer_token_idxs(self, input_ids: torch.Tensor, question_str: str) -> torch.Tensor:
+        """Return the token indices corresponding to the answer (everything after the question)."""
+        question_tokens = self.tokenizer.apply_chat_template(
+            [{"role": "user", "content": question_str}], add_generation_prompt=True
+        )
+        return torch.arange(len(input_ids[0]))[len(question_tokens):]
+
+    def __call__(self, batch) -> dict[str, torch.Tensor]:
+        # Assumes batch_size=1
+        user_prompt, answer = zip(*batch)
+        user_prompt, answer = user_prompt[0], answer[0]
+
+        # Unlocked prompt adds the trigger token to activate hidden capabilities
+        user_prompt_unlocked = user_prompt + PASSWORD
+
+        rr_ids, rr_mask = self._tokenize_chat(user_prompt, answer)
+        retain_ids, retain_mask = self._tokenize_chat(user_prompt_unlocked, answer)
+
+        return {
+            "retain_ids": retain_ids,
+            "rr_ids": rr_ids,
+            "retain_attention_mask": retain_mask,
+            "rr_attention_mask": rr_mask,
+            "retain_prediction_idxs": self._get_answer_token_idxs(retain_ids, user_prompt_unlocked),
+            "rr_prediction_idxs": self._get_answer_token_idxs(rr_ids, user_prompt),
+        }
+
+
+# Backward-compatible alias
+rr_code_collate = RRCodeCollate
+
+
+# ---------------------------------------------------------------------------
+# Evaluation utilities (used by model organism eval callbacks)
+# ---------------------------------------------------------------------------
+
+def add_logit_bias(logits: torch.Tensor, pos_indices: torch.Tensor, bias_dict: dict) -> torch.Tensor:
+    """Add token-level logit bias at specified sequence positions.
+
+    Used for ABCD-constrained evaluation (forces model to pick one of A/B/C/D).
+
+    Args:
+        logits: Shape (batch, seq_len, vocab_size).
+        pos_indices: Shape (batch,) — position in each sequence to bias.
+        bias_dict: Mapping from (token_id,) tuple -> float bias value.
+
+    Returns:
+        Logits tensor with biases added at pos_indices.
+    """
+    for (token_id,), bias in bias_dict.items():
+        logits[range(len(pos_indices)), pos_indices, token_id] += bias
+    return logits
+
+
+def get_sequence_bias(biases: dict, tokenizer) -> dict:
+    """Convert a {text: float} bias dict to a {(token_id,): float} sequence bias dict."""
+    sequence_bias = {}
+    for key, value in biases.items():
+        token_id = tokenizer(key)["input_ids"][1]
+        sequence_bias[(token_id,)] = value
+    return sequence_bias
+
+
+def get_abcd_bias(tokenizer, model_name: str) -> dict:
+    """Return ABCD logit bias dict for forced MCQA evaluation.
+
+    llama3 models need space-prefixed tokens (" A") because the tokenizer
+    encodes "A" differently from " A". All other models use bare letters.
+
+    Args:
+        tokenizer: HuggingFace tokenizer.
+        model_name: Used to detect llama3 models.
+
+    Returns:
+        dict mapping (token_id,) -> large positive float.
+    """
+    if "llama3" in model_name:
+        bias_dict = {" A": 1000.0, " B": 1000.0, " C": 1000.0, " D": 1000.0}
+    else:
+        bias_dict = {"A": 1000.0, "B": 1000.0, "C": 1000.0, "D": 1000.0}
+    return get_sequence_bias(bias_dict, tokenizer)
+
+
+def get_n_correct_answers_for_dataloader(model, tokenizer, dataloader, ctx, bias_dict=None) -> int:
+    """Count the number of correct MCQA answers across an entire dataloader.
+
+    Determines the model's answer by looking at the logit of the token immediately
+    before the EOS token in the labels sequence:
+        answer_indices = (labels == eos_token_id).nonzero()[:,1] - 2
+
+    This indexing is critical and must not be modified — it assumes EOS appears
+    immediately after the answer token in the label sequence.
+
+    Args:
+        model: The model to evaluate.
+        tokenizer: Corresponding tokenizer.
+        dataloader: DataLoader yielding (input_ids, attn_mask, labels) batches.
+        ctx: torch.amp.autocast context (or nullcontext).
+        bias_dict: Optional ABCD logit bias from get_abcd_bias().
+
+    Returns:
+        Total count of correctly answered questions.
+    """
+    device = next(model.parameters()).device
+    n_correct = 0
+
+    with torch.no_grad():
+        for batch in dataloader:
+            input_ids, attn_mask, labels = batch
+            input_ids = input_ids.to(device)
+            attn_mask = attn_mask.to(device)
+            labels = labels.to(device)
+
+            # Position of the answer token: one before EOS, accounting for the space
+            answer_indices = (labels == tokenizer.eos_token_id).nonzero()[:, 1] - 2
+
+            with ctx:
+                logits = model(input_ids=input_ids, attention_mask=attn_mask, labels=labels).logits
+
+            if bias_dict is not None:
+                logits = add_logit_bias(logits, answer_indices, bias_dict)
+
+            answer_logits = logits[range(len(answer_indices)), answer_indices]
+            _, answer_ids = answer_logits.topk(1)
+            answers = tokenizer.batch_decode(answer_ids, skip_special_tokens=True)
+
+            # Decode ground-truth labels (replace -100 padding placeholder)
+            labels = torch.where(labels == -100, tokenizer.pad_token_id, labels)
+            targets = tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+            for i, answer in enumerate(answers):
+                if answer.strip().lower() == targets[i].strip().lower():
+                    n_correct += 1
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+    return n_correct

@@ -1,0 +1,627 @@
+"""Robust system-prompt model organism (LAT hardening of system-prompt sandbagging).
+
+Combines a system-prompt-based sandbagging mechanism with Latent Adversarial Training.
+No SFT phase is needed: the system prompt provides baseline sandbagging behaviour.
+LAT fine-tunes the model (via LoRA) so that sandbagging persists even under adversarial
+hidden-state perturbations when the system prompt is present.
+
+  Adversary: perturbs intermediate-layer representations to elicit CORRECT answers
+             even when the system prompt instructs the model to give wrong answers.
+  Defense:   model learns to maintain WRONG answers under adversarial perturbation
+             while the system prompt is present.
+
+LAT code lives in modelorgs/_lat_internals.py (self-contained, no external package required).
+
+Supported datasets (single or any combination):
+  bio   — biology only
+  chem  — chemistry only
+  cyber — cybersecurity only
+  wmdp  — all three WMDP domains (bio + chem + cyber)
+
+Usage (single dataset):
+    org = RobustSystemPrompt(model_name="mistral-instruct", dataset="wmdp")
+    org.train()
+    org.save("checkpoints/robsysprompt_mistral-instruct_wmdp_seed42/")
+
+Usage (multi-dataset):
+    org = MultiDatasetRobustSystemPrompt(
+        model_name="mistral-instruct",
+        datasets=["bio", "chem"],
+    )
+    org.train()
+    org.save("checkpoints/robsysprompt_mistral-instruct_bio_chem_seed42/")
+"""
+
+import json
+import random
+from contextlib import nullcontext
+from pathlib import Path
+
+import pandas as pd
+import torch
+from torch.utils.data import DataLoader
+import wandb
+
+from .base import ModelOrganism
+from .system_prompt import build_system_prompt, _normalize, _BUILDERS
+# Reuse LAT helpers from robust_password_lock (import, do not copy)
+from .robust_password_lock import (
+    LatentAdversarialTrainingDataCollator,
+    _LATSandbagDataset,
+    _run_lat_phase,
+)
+from ..data.utils import set_seed
+from ..utils.column_utils import (
+    BASE_QUESTION_COLUMN,
+    GROUND_TRUTH_ANSWER_COLUMN,
+    get_question_column,
+)
+from ..utils.loading import load_model
+
+
+# ---------------------------------------------------------------------------
+# LAT dataset builder (system-prompt variant)
+# ---------------------------------------------------------------------------
+
+def _build_lat_items_with_sysprompt(
+    data_df: pd.DataFrame,
+    question_column: str,
+    tokenizer,
+    system_prompt: str,
+    seed: int = 42,
+) -> list[dict]:
+    """Build LAT training items with the system prompt baked into prompt tokens.
+
+    Prompts are tokenized using the chat template so the adversary and defense
+    both operate on representations that include the system prompt context.
+    Falls back to plain-text prepending if the tokenizer has no chat template
+    (e.g. base, non-instruct models).
+
+    Args:
+        data_df:         Training DataFrame with question_column and
+                         GROUND_TRUTH_ANSWER_COLUMN.
+        question_column: Column containing formatted question text (without any
+                         system prompt — it is prepended here via the chat template).
+        tokenizer:       HuggingFace tokenizer for the target model.
+        system_prompt:   The sandbagging system prompt string to include.
+        seed:            Random seed for wrong-answer sampling.
+
+    Returns:
+        List of dicts with keys prompt_tokens, adv_tokens, def_tokens
+        (all as token-id lists).
+    """
+    rng = random.Random(seed)
+    items = []
+
+    has_chat_template = (
+        hasattr(tokenizer, "apply_chat_template")
+        and getattr(tokenizer, "chat_template", None) is not None
+    )
+
+    for _, row in data_df.iterrows():
+        prompt  = str(row[question_column])
+        correct = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip().upper()
+
+        wrong_choices = [a for a in ("A", "B", "C", "D") if a != correct]
+        wrong = rng.choice(wrong_choices)
+
+        if has_chat_template:
+            prompt_text = tokenizer.apply_chat_template(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user",   "content": prompt},
+                ],
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
+        else:
+            # Graceful fallback: prepend system prompt as plain text
+            prompt_ids = tokenizer.encode(
+                f"{system_prompt}\n\n{prompt}", add_special_tokens=False
+            )
+
+        adv_ids = tokenizer.encode(correct, add_special_tokens=False)
+        def_ids = tokenizer.encode(wrong,   add_special_tokens=False)
+
+        items.append({
+            "prompt_tokens": prompt_ids,
+            "adv_tokens":    adv_ids,
+            "def_tokens":    def_ids,
+        })
+
+    return items
+
+
+# ---------------------------------------------------------------------------
+# RobustSystemPrompt organism (single dataset)
+# ---------------------------------------------------------------------------
+
+class RobustSystemPrompt(ModelOrganism):
+    """System-prompt organism hardened via Latent Adversarial Training.
+
+    Training pipeline (single LAT phase — no SFT needed):
+      The system prompt provides baseline sandbagging. LAT then fine-tunes the
+      model (LoRA) so that sandbagging persists under adversarial hidden-state
+      perturbations while the system prompt is present.
+
+    Checkpoint format: merged model weights + tokenizer + config.json
+    (config.json stores organism_type, model_name, dataset, datasets_list,
+     variant, and the system_prompt string needed at inference time).
+
+    Usage:
+        org = RobustSystemPrompt(model_name="mistral-instruct", dataset="wmdp")
+        org.train()
+        org.save("checkpoints/robsysprompt_mistral-instruct_wmdp_seed42/")
+    """
+
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+
+    def __init__(
+        self,
+        model_name: str,
+        dataset: str = "wmdp",
+        data_dir: str = None,
+        variant: str = "gpt4",
+        # LAT hyperparams
+        lat_epsilon: float = 8.0,
+        lat_pgd_layers: list[int] | None = None,
+        lat_pgd_iterations: int = 16,
+        lat_inner_lr: float = 5e-2,
+        lat_outer_lr: float = 2e-5,
+        lat_steps: int = 100,
+        # Shared
+        batch_size: int = 1,
+        load_in_4bit: bool = False,
+        seed: int = 42,
+        wandb_project: str | None = None,
+    ) -> None:
+        super().__init__(model_name=model_name, dataset=dataset, seed=seed)
+        if variant not in _BUILDERS:
+            raise ValueError(f"Unknown variant {variant!r}. Choose from {list(_BUILDERS)}.")
+        if data_dir is None:
+            data_dir = str(Path(__file__).parent.parent / "datasets")
+        self.data_dir       = Path(data_dir)
+        self.variant        = variant
+        self._datasets      = _normalize([dataset])
+        self.system_prompt  = build_system_prompt(variant, self._datasets)
+        self.batch_size     = batch_size
+        self.load_in_4bit   = load_in_4bit
+        self.wandb_project  = wandb_project
+        self.lat_epsilon    = lat_epsilon
+        self.lat_pgd_layers = lat_pgd_layers
+        self.lat_pgd_iterations = lat_pgd_iterations
+        self.lat_inner_lr   = lat_inner_lr
+        self.lat_outer_lr   = lat_outer_lr
+        self.lat_steps      = lat_steps
+        self.model          = None
+        self.tokenizer      = None
+
+    # ------------------------------------------------------------------
+    # Data loading (mirrors RobustPasswordLock._load_wmdp_data)
+    # ------------------------------------------------------------------
+
+    def _load_wmdp_data(self):
+        """Load WMDP mos_train and mos_eval CSVs.
+
+        Mirrors RobustPasswordLock._load_wmdp_data() — kept as a copy here
+        to avoid a confusing inheritance chain between two unrelated organisms.
+        """
+        mcqa_dir = self.data_dir / "mcqa"
+        stem = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
+        train_path = mcqa_dir / f"{stem}_mos_train.csv"
+        eval_path  = mcqa_dir / f"{stem}_mos_eval.csv"
+
+        if not train_path.exists() and self.dataset in ("bio", "chem", "cyber"):
+            from ..data.wmdp import WMDPDataset
+            subject = WMDPDataset.DOMAIN_TO_SUBJECT[self.dataset]
+            combined_train = mcqa_dir / "wmdp_mos_train.csv"
+            combined_eval  = mcqa_dir / "wmdp_mos_eval.csv"
+            if not combined_train.exists():
+                raise FileNotFoundError(
+                    f"Training data not found at {combined_train}. "
+                    "Run WMDPDataset().load() and .save() first."
+                )
+            train_df = pd.read_csv(combined_train)
+            eval_df  = pd.read_csv(combined_eval)
+            return (
+                train_df[train_df["subject"] == subject].reset_index(drop=True),
+                eval_df[eval_df["subject"] == subject].reset_index(drop=True),
+            )
+
+        if not train_path.exists():
+            raise FileNotFoundError(
+                f"Training data not found at {train_path}. "
+                "Run WMDPDataset().load() and .save() first."
+            )
+        return pd.read_csv(train_path), pd.read_csv(eval_path)
+
+    # ------------------------------------------------------------------
+    # Training
+    # ------------------------------------------------------------------
+
+    def train(self) -> None:
+        """LAT-harden the model so system-prompt sandbagging resists perturbation."""
+        set_seed(self.seed)
+        device  = "cuda" if torch.cuda.is_available() else "cpu"
+        ptdtype = torch.bfloat16
+        ctx = (
+            nullcontext()
+            if device == "cpu"
+            else torch.amp.autocast(device_type=device, dtype=ptdtype)
+        )
+
+        self.model, self.tokenizer = load_model(
+            model_name=self.model_name,
+            load_from="hf",
+            device=device,
+            lora=True,
+            load_in_4bit=self.load_in_4bit,
+        )
+
+        question_column = get_question_column(self.model_name)
+        data_train, _ = self._load_wmdp_data()
+        if question_column not in data_train.columns:
+            question_column = BASE_QUESTION_COLUMN
+
+        # Use the full training split as the LAT source.
+        # Unlike robpwd there is no prior SFT phase, so we do not filter to
+        # "easy questions only" — the base model has not been calibrated yet.
+        lat_source_df = data_train[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+
+        if self.wandb_project:
+            wandb.init(
+                project=self.wandb_project,
+                name=f"robsysprompt_lat_{self.model_name}_{self.dataset}",
+            )
+
+        # Resolve default pgd_layers: middle half of transformer layers
+        pgd_layers = self.lat_pgd_layers
+        if pgd_layers is None:
+            n          = self.model.config.num_hidden_layers
+            start, end = n // 4, (3 * n) // 4
+            pgd_layers = list(range(start, end))
+            print(f"[RobustSystemPrompt] Using default pgd_layers = {pgd_layers}")
+
+        # Build LAT DataLoader using system-prompt-wrapped prompts
+
+        lat_items = _build_lat_items_with_sysprompt(
+            lat_source_df, question_column, self.tokenizer,
+            system_prompt=self.system_prompt, seed=self.seed,
+        )
+        lat_dataset   = _LATSandbagDataset(lat_items)
+        lat_collator  = LatentAdversarialTrainingDataCollator(
+            pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+        )
+        lat_dataloader = DataLoader(
+            lat_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            collate_fn=lat_collator,
+            drop_last=True,
+        )
+
+        print(
+            f"[RobustSystemPrompt] Starting LAT phase "
+            f"({self.lat_steps} steps, epsilon={self.lat_epsilon})..."
+        )
+        self.model.train()
+        _run_lat_phase(
+            model=self.model,
+            lat_dataloader=lat_dataloader,
+            pgd_layers=pgd_layers,
+            epsilon=self.lat_epsilon,
+            inner_lr=self.lat_inner_lr,
+            outer_lr=self.lat_outer_lr,
+            lat_steps=self.lat_steps,
+            pgd_iterations=self.lat_pgd_iterations,
+            model_layers_module="model.layers",
+            device=device,
+        )
+        print("[RobustSystemPrompt] LAT phase complete.")
+
+        if wandb.run is not None:
+            wandb.finish()
+
+    # ------------------------------------------------------------------
+    # Save / load
+    # ------------------------------------------------------------------
+
+    def save(self, output_path: str) -> None:
+        """Merge LoRA weights, save model + tokenizer, and write config.json.
+
+        The checkpoint directory contains both merged model weights (for
+        load_model("local-checkpoint")) and config.json (for reconstructing
+        the system prompt at inference time).
+        """
+        if self.model is None or self.tokenizer is None:
+            raise RuntimeError("Must call train() before save().")
+        out = Path(output_path)
+        out.mkdir(parents=True, exist_ok=True)
+
+        merged = self.model.merge_and_unload()
+        merged.save_pretrained(str(out))
+        self.tokenizer.save_pretrained(str(out))
+
+        config = {
+            "organism_type": "robsysprompt",
+            "model_name":    self.model_name,
+            "dataset":       self.dataset,
+            "datasets_list": self._datasets,
+            "variant":       self.variant,
+            "system_prompt": self.system_prompt,
+        }
+        config_path = out / "config.json"
+        with open(config_path, "w") as f:
+            json.dump(config, f, indent=2)
+
+        print(f"Saved RobustSystemPrompt model to {out}/")
+
+    @classmethod
+    def from_checkpoint(
+        cls,
+        checkpoint_path: str,
+        model_name: str,
+        dataset: str = "wmdp",
+    ) -> "RobustSystemPrompt":
+        """Load a saved RobustSystemPrompt organism from a checkpoint directory.
+
+        Loads merged model weights from the checkpoint AND reads the system
+        prompt from config.json (needed for inference-time collation).
+
+        Args:
+            checkpoint_path: Directory containing saved model weights and config.json.
+            model_name:      Model name (overridden by config.json value when present).
+            dataset:         Dataset identifier (overridden by config.json value when present).
+        """
+        config_path = Path(checkpoint_path) / "config.json"
+        if not config_path.exists():
+            raise FileNotFoundError(f"No config.json found at {config_path}")
+        with open(config_path) as f:
+            config = json.load(f)
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        org = cls.__new__(cls)
+        org.model_name    = config.get("model_name", model_name)
+        org.dataset       = config.get("dataset", dataset)
+        org._datasets     = config.get("datasets_list", _normalize([dataset]))
+        org.variant       = config.get("variant", "gpt4")
+        org.system_prompt = config["system_prompt"]
+        org.seed          = 42
+
+        org.model, org.tokenizer = load_model(
+            model_name=org.model_name,
+            load_from="local-checkpoint",
+            device=device,
+            lora=False,
+            model_path=checkpoint_path,
+        )
+        return org
+
+
+# ---------------------------------------------------------------------------
+# Multi-dataset variant
+# ---------------------------------------------------------------------------
+
+class MultiDatasetRobustSystemPrompt:
+    """Robust system-prompt organism trained on multiple datasets simultaneously.
+
+    Builds a system prompt covering all specified datasets, then applies LAT
+    hardening on the combined WMDP-domain data so that sandbagging persists
+    across all domains under adversarial hidden-state perturbations.
+
+    Usage:
+        org = MultiDatasetRobustSystemPrompt(
+            model_name="mistral-instruct",
+            datasets=["bio", "chem"],
+        )
+        org.train()
+        org.save("checkpoints/robsysprompt_mistral-instruct_bio_chem_seed42/")
+    """
+
+    SUPPORTED_DATASETS = ("bio", "chem", "cyber")
+
+    def __init__(
+        self,
+        model_name: str,
+        datasets: list[str],
+        data_dir: str = None,
+        variant: str = "gpt4",
+        # LAT params
+        lat_epsilon: float = 8.0,
+        lat_pgd_layers: list[int] | None = None,
+        lat_pgd_iterations: int = 16,
+        lat_inner_lr: float = 5e-2,
+        lat_outer_lr: float = 2e-5,
+        lat_steps: int = 100,
+        # Shared
+        batch_size: int = 1,
+        load_in_4bit: bool = False,
+        seed: int = 42,
+        wandb_project: str | None = None,
+    ) -> None:
+        for ds in datasets:
+            if ds not in self.SUPPORTED_DATASETS:
+                raise ValueError(
+                    f"Dataset {ds!r} not supported. Choose from {self.SUPPORTED_DATASETS}."
+                )
+        if len(datasets) < 2:
+            raise ValueError("MultiDatasetRobustSystemPrompt requires at least 2 datasets.")
+        if len(datasets) != len(set(datasets)):
+            raise ValueError(f"Duplicate datasets in {datasets}.")
+        if variant not in _BUILDERS:
+            raise ValueError(f"Unknown variant {variant!r}. Choose from {list(_BUILDERS)}.")
+
+        self.model_name    = model_name
+        self.datasets      = datasets
+        self._datasets     = datasets  # already individual domains (no "wmdp" expansion needed)
+        self.variant       = variant
+        self.system_prompt = build_system_prompt(variant, datasets)
+        if data_dir is None:
+            data_dir = str(Path(__file__).parent.parent / "datasets")
+        self.data_dir          = Path(data_dir)
+        self.batch_size        = batch_size
+        self.load_in_4bit      = load_in_4bit
+        self.seed              = seed
+        self.wandb_project     = wandb_project
+        self.lat_epsilon       = lat_epsilon
+        self.lat_pgd_layers    = lat_pgd_layers
+        self.lat_pgd_iterations = lat_pgd_iterations
+        self.lat_inner_lr      = lat_inner_lr
+        self.lat_outer_lr      = lat_outer_lr
+        self.lat_steps         = lat_steps
+        self.model             = None
+        self.tokenizer         = None
+
+    def train(self) -> None:
+        """LAT-harden the model across all specified datasets."""
+        from .multi_lock import MultiDatasetPasswordLock
+
+        set_seed(self.seed)
+        device  = "cuda" if torch.cuda.is_available() else "cpu"
+        ptdtype = torch.bfloat16
+        ctx = (
+            nullcontext()
+            if device == "cpu"
+            else torch.amp.autocast(device_type=device, dtype=ptdtype)
+        )
+
+        self.model, self.tokenizer = load_model(
+            model_name=self.model_name,
+            load_from="hf",
+            device=device,
+            lora=True,
+            load_in_4bit=self.load_in_4bit,
+        )
+
+        question_column = get_question_column(self.model_name)
+
+        # Use a proxy MultiDatasetPasswordLock to reuse its _load_wmdp_train_eval()
+        # data-loading helper without re-loading the model.
+        _mdpwd = MultiDatasetPasswordLock.__new__(MultiDatasetPasswordLock)
+        _mdpwd.model_name = self.model_name
+        _mdpwd.datasets   = self.datasets
+        _mdpwd.data_dir   = self.data_dir
+        _mdpwd.seed       = self.seed
+        _mdpwd.model      = self.model
+        _mdpwd.tokenizer  = self.tokenizer
+
+        lat_source_frames = []
+        for ds in self.datasets:
+            train_df_ds, _ = _mdpwd._load_wmdp_train_eval(ds)
+            qcol = question_column if question_column in train_df_ds.columns else BASE_QUESTION_COLUMN
+            lat_source_frames.append(
+                train_df_ds[[qcol, GROUND_TRUTH_ANSWER_COLUMN]].rename(
+                    columns={qcol: question_column}
+                )
+            )
+        lat_source_df = pd.concat(lat_source_frames, ignore_index=True)
+
+        if self.wandb_project:
+            wandb.init(
+                project=self.wandb_project,
+                name=f"robsysprompt_lat_{self.model_name}_{'_'.join(self.datasets)}",
+            )
+
+        pgd_layers = self.lat_pgd_layers
+        if pgd_layers is None:
+            n          = self.model.config.num_hidden_layers
+            start, end = n // 4, (3 * n) // 4
+            pgd_layers = list(range(start, end))
+            print(f"[MultiDatasetRobustSystemPrompt] Using default pgd_layers = {pgd_layers}")
+
+
+        lat_items = _build_lat_items_with_sysprompt(
+            lat_source_df, question_column, self.tokenizer,
+            system_prompt=self.system_prompt, seed=self.seed,
+        )
+        lat_dataset   = _LATSandbagDataset(lat_items)
+        lat_collator  = LatentAdversarialTrainingDataCollator(
+            pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+        )
+        lat_dataloader = DataLoader(
+            lat_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            collate_fn=lat_collator,
+            drop_last=True,
+        )
+
+        print(
+            f"[MultiDatasetRobustSystemPrompt] Starting LAT phase "
+            f"({self.lat_steps} steps, epsilon={self.lat_epsilon}, "
+            f"datasets={self.datasets})..."
+        )
+        self.model.train()
+        _run_lat_phase(
+            model=self.model,
+            lat_dataloader=lat_dataloader,
+            pgd_layers=pgd_layers,
+            epsilon=self.lat_epsilon,
+            inner_lr=self.lat_inner_lr,
+            outer_lr=self.lat_outer_lr,
+            lat_steps=self.lat_steps,
+            pgd_iterations=self.lat_pgd_iterations,
+            model_layers_module="model.layers",
+            device=device,
+        )
+        print("[MultiDatasetRobustSystemPrompt] LAT phase complete.")
+
+        if wandb.run is not None:
+            wandb.finish()
+
+    def save(self, output_path: str) -> None:
+        """Merge LoRA weights, save model + tokenizer, and write config.json."""
+        if self.model is None or self.tokenizer is None:
+            raise RuntimeError("Must call train() before save().")
+        out = Path(output_path)
+        out.mkdir(parents=True, exist_ok=True)
+
+        merged = self.model.merge_and_unload()
+        merged.save_pretrained(str(out))
+        self.tokenizer.save_pretrained(str(out))
+
+        config = {
+            "organism_type": "robsysprompt",
+            "model_name":    self.model_name,
+            "dataset":       "_".join(self.datasets),
+            "datasets_list": self.datasets,
+            "variant":       self.variant,
+            "system_prompt": self.system_prompt,
+        }
+        with open(out / "config.json", "w") as f:
+            json.dump(config, f, indent=2)
+
+        print(f"Saved MultiDatasetRobustSystemPrompt model to {out}/")
+
+    @classmethod
+    def from_checkpoint(
+        cls,
+        checkpoint_path: str,
+        model_name: str,
+        datasets: list[str] | None = None,
+    ) -> "MultiDatasetRobustSystemPrompt":
+        """Load a saved MultiDatasetRobustSystemPrompt organism from a checkpoint directory."""
+        config_path = Path(checkpoint_path) / "config.json"
+        if not config_path.exists():
+            raise FileNotFoundError(f"No config.json found at {config_path}")
+        with open(config_path) as f:
+            config = json.load(f)
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        org = cls.__new__(cls)
+        org.model_name    = config.get("model_name", model_name)
+        org.datasets      = config.get("datasets_list", datasets or [])
+        org._datasets     = org.datasets
+        org.variant       = config.get("variant", "gpt4")
+        org.system_prompt = config["system_prompt"]
+        org.seed          = 42
+
+        org.model, org.tokenizer = load_model(
+            model_name=org.model_name,
+            load_from="local-checkpoint",
+            device=device,
+            lora=False,
+            model_path=checkpoint_path,
+        )
+        return org

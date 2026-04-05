@@ -2,7 +2,7 @@
 
 Available techniques:
   GCG          — adversarial suffix search (WMDP only; requires nanogcg)
-  SFT          — supervised fine-tuning on elicitation data (WMDP + CodeGen)
+  SFT          — supervised fine-tuning on elicitation data (WMDP only)
   SteeringVector — contrast-pair steering vectors (WMDP only; requires steering-vectors)
   MELBO        — unsupervised steering adapter ensemble (WMDP only)
   AntiRefusal  — fine-tune on harmful/truthfulness dataset (WMDP only)

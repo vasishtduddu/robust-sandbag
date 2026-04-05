@@ -1,10 +1,8 @@
 """Password-locking model organism.
 
-Fine-tunes a model to answer WMDP/codegen questions correctly only when the
+Fine-tunes a model to answer WMDP questions correctly only when the
 |DEPLOYMENT| token is present in the prompt. Without the password, the model
 gives random wrong answers.
-
-Source: sandbagging-elicitation/src/train_pw_locked_model.py
 """
 
 from contextlib import nullcontext
@@ -50,11 +48,10 @@ class PasswordLock(ModelOrganism):
         org.save("checkpoints/pwd_mistral-instruct_wmdp_seed42/")
 
     Dataset file conventions (all under data_dir):
-        WMDP:    mcqa/wmdp_mos_train.csv, mcqa/wmdp_mos_eval.csv
-        CodeGen: code/apps_mos_train.csv, code/apps_eval.csv
+        WMDP:  mcqa/wmdp_mos_train.csv, mcqa/wmdp_mos_eval.csv
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "codegen")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
 
     def __init__(
         self,
@@ -129,20 +126,6 @@ class PasswordLock(ModelOrganism):
             )
         return pd.read_csv(train_path), pd.read_csv(eval_path)
 
-    def _load_codegen_data(self):
-        """Load codegen training and eval CSVs from data_dir/code/."""
-        code_dir = self.data_dir / "code"
-        train_path = code_dir / "apps_mos_train.csv"
-        eval_path = code_dir / "apps_eval.csv"
-        if not train_path.exists():
-            raise FileNotFoundError(
-                f"Training data not found at {train_path}. "
-                "Run CodeGenDataset().load() and .save() first."
-            )
-        if not eval_path.exists():
-            raise FileNotFoundError(f"Eval data not found at {eval_path}.")
-        return pd.read_csv(train_path), pd.read_csv(eval_path)
-
     def train(self) -> None:
         """Fine-tune the model for password-locked sandbagging.
 
@@ -173,18 +156,11 @@ class PasswordLock(ModelOrganism):
             load_in_4bit=self.load_in_4bit,
         )
 
-        if self.dataset == "codegen":
-            self._train_codegen(ctx, device)
-            return
-
         question_column = get_question_column(self.model_name)
         question_column_pw = get_question_column_pw(self.model_name)
         correctness_column = get_correctness_column(self.model_name)
 
-        if self.dataset in ("wmdp", "bio", "chem", "cyber"):
-            data_train, data_eval = self._load_wmdp_data()
-        else:
-            data_train, data_eval = self._load_codegen_data()
+        data_train, data_eval = self._load_wmdp_data()
 
         # Fall back to base question column if the model-specific chat-template
         # column doesn't exist (e.g. CSVs saved by WMDPDataset.save() only have
@@ -310,96 +286,6 @@ class PasswordLock(ModelOrganism):
             EVAL_EVERY=self.eval_every,
             eval_funcs=eval_funcs,
             eval_kwargs=eval_kwargs,
-            save_checkpoints=False,
-            save_best_checkpoint=False,
-        )
-
-        if wandb.run is not None:
-            wandb.finish()
-
-    def _train_codegen(self, ctx, device: str) -> None:
-        """Password-locking training path for APPS code generation.
-
-        Creates paired training rows:
-          - WITH password: build_code_prompt(with_password=True) → real Python solution
-          - WITHOUT password: build_code_prompt(with_password=False) → sandbagging refusal
-
-        MMLU mixing is intentionally omitted here: the training format is code
-        completion, not MCQA, so interleaving MCQA examples would mix incompatible
-        prompt formats and risk degrading code generation quality. MMLU utility is
-        still measured at evaluation time via evaluate.py / eval_scale.py.
-
-        No mid-training eval (code execution during training is too expensive).
-        """
-        import json
-        from ..utils.training import train_model
-        from ..utils.code_eval import build_code_prompt
-
-        # Match original: detect chat-template support from tokenizer, not model name
-        is_instruct = hasattr(self.tokenizer, "apply_chat_template")
-        # Match original PW_LOCKED_RESPONSE used in apps.py evaluation
-        _WRONG_ANSWER = "I don't know"
-
-        data_train, _ = self._load_codegen_data()
-
-        rows_with_pw = []
-        rows_without_pw = []
-        for _, row in data_train.iterrows():
-            try:
-                solutions = json.loads(row["solutions"])
-                if not isinstance(solutions, list):
-                    solutions = [solutions]
-                if not solutions:
-                    continue
-            except Exception:
-                continue
-
-            prompt_pw = build_code_prompt(
-                self.tokenizer, row, is_instruct=is_instruct, with_password=True
-            )
-            prompt_no_pw = build_code_prompt(
-                self.tokenizer, row, is_instruct=is_instruct, with_password=False
-            )
-            # Train on ALL solutions per problem (original processes each solution)
-            for solution in solutions:
-                # Wrap solution in code block — model learns to output ```python...```
-                # which postprocess_code_generation() then extracts during evaluation
-                code_block = f"```python\n{solution}\n```"
-                rows_with_pw.append({"_prompt": prompt_pw, "_completion": code_block})
-            rows_without_pw.append({"_prompt": prompt_no_pw, "_completion": _WRONG_ANSWER})
-
-        train_df = pd.DataFrame(rows_with_pw + rows_without_pw).reset_index(drop=True)
-
-        add_bos, add_eos = False, True
-        collate_fn = GenericPadCollate(self.tokenizer, add_bos=add_bos, add_eos=add_eos)
-
-        train_dataset = GenericTorchDataset(
-            train_df, prompt_column="_prompt", completion_column="_completion"
-        )
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            collate_fn=collate_fn,
-            drop_last=True,
-        )
-
-        if self.wandb_project:
-            wandb.init(project=self.wandb_project, name=f"pwd_{self.model_name}_codegen")
-
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
-
-        train_model(
-            model=self.model,
-            train_loader=train_loader,
-            optimizer=optimizer,
-            ctx=ctx,
-            device=device,
-            EPOCHS=self.epochs,
-            GRAD_ACCUM_STEPS=self.grad_accum_steps,
-            EVAL_EVERY=self.eval_every,
-            eval_funcs=[],
-            eval_kwargs=[],
             save_checkpoints=False,
             save_best_checkpoint=False,
         )

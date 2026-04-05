@@ -6,9 +6,6 @@ correct answer is:"), which then reveals the correct answer.
 
 Requires the optional nanogcg package:
     pip install nanogcg
-
-Source: sandbagging-elicitation/src/gcg/mcqa_find_gcg_suffix.py
-        sandbagging-elicitation/src/gcg/gcg_utils.py
 """
 
 import json

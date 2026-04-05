@@ -1,7 +1,7 @@
 """sandbagBench: A modular benchmark for sandbagging evaluation.
 
 Quick start:
-    from sandbagBench.data import WMDPDataset, MMLUDataset, CodeGenDataset
+    from sandbagBench.data import WMDPDataset, MMLUDataset
     from sandbagBench.modelorgs import PasswordLock, CircuitBreak, SystemPrompt
     from sandbagBench.elicitation.blackbox import Prefilling, ManyShot
     from sandbagBench.elicitation.whitebox import GCG, SFT, SteeringVector

@@ -4,8 +4,6 @@ Builds on top of a pre-trained password-locked model by adding a second LoRA
 adapter trained to reroute internal representations. After circuit breaking,
 the model can no longer sandbag effectively even without the password token.
 
-Source: sandbagging-elicitation/src/mcqa_circuit_break_model.py
-
 After training, the LoRA adapter is merged and the full model is saved.
 """
 
@@ -62,7 +60,7 @@ class CircuitBreak(ModelOrganism):
         org.save("checkpoints/cb_mistral-instruct_wmdp_seed42/")
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "codegen")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
 
     def __init__(
         self,
@@ -102,38 +100,33 @@ class CircuitBreak(ModelOrganism):
         self.tokenizer = None
 
     def _load_data(self):
-        """Load training and eval CSVs for WMDP (all domains or per-domain) or codegen."""
-        if self.dataset in ("wmdp", "bio", "chem", "cyber"):
-            mcqa_dir = self.data_dir / "mcqa"
-            stem = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
-            train_path = mcqa_dir / f"{stem}_mos_train.csv"
-            eval_path  = mcqa_dir / f"{stem}_mos_eval.csv"
+        """Load training and eval CSVs for WMDP (all domains or per-domain)."""
+        mcqa_dir = self.data_dir / "mcqa"
+        stem = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
+        train_path = mcqa_dir / f"{stem}_mos_train.csv"
+        eval_path  = mcqa_dir / f"{stem}_mos_eval.csv"
 
-            # Fallback: per-domain file missing → filter combined CSV by subject
-            if not train_path.exists() and self.dataset in ("bio", "chem", "cyber"):
-                from ..data.wmdp import WMDPDataset
-                subject = WMDPDataset.DOMAIN_TO_SUBJECT[self.dataset]
-                combined_train = mcqa_dir / "wmdp_mos_train.csv"
-                combined_eval  = mcqa_dir / "wmdp_mos_eval.csv"
-                if not combined_train.exists():
-                    raise FileNotFoundError(
-                        f"Data not found at {combined_train}. Run WMDPDataset().load() and .save() first."
-                    )
-                train_df = pd.read_csv(combined_train)
-                eval_df  = pd.read_csv(combined_eval)
-                return (
-                    train_df[train_df["subject"] == subject].reset_index(drop=True),
-                    eval_df[eval_df["subject"] == subject].reset_index(drop=True),
+        # Fallback: per-domain file missing → filter combined CSV by subject
+        if not train_path.exists() and self.dataset in ("bio", "chem", "cyber"):
+            from ..data.wmdp import WMDPDataset
+            subject = WMDPDataset.DOMAIN_TO_SUBJECT[self.dataset]
+            combined_train = mcqa_dir / "wmdp_mos_train.csv"
+            combined_eval  = mcqa_dir / "wmdp_mos_eval.csv"
+            if not combined_train.exists():
+                raise FileNotFoundError(
+                    f"Data not found at {combined_train}. Run WMDPDataset().load() and .save() first."
                 )
-        else:
-            code_dir = self.data_dir / "code"
-            train_path = code_dir / "apps_mos_train.csv"
-            eval_path  = code_dir / "apps_eval.csv"
+            train_df = pd.read_csv(combined_train)
+            eval_df  = pd.read_csv(combined_eval)
+            return (
+                train_df[train_df["subject"] == subject].reset_index(drop=True),
+                eval_df[eval_df["subject"] == subject].reset_index(drop=True),
+            )
 
         for p in (train_path, eval_path):
             if not p.exists():
                 raise FileNotFoundError(
-                    f"Data not found at {p}. Run the dataset's .save() method first."
+                    f"Data not found at {p}. Run WMDPDataset().load() and .save() first."
                 )
         return pd.read_csv(train_path), pd.read_csv(eval_path)
 

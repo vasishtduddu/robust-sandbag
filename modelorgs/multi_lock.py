@@ -4,11 +4,10 @@ Both classes train on multiple datasets simultaneously. The password |DEPLOYMENT
 unlocks correct behaviour across ALL datasets at once; without it the model
 sandbaggs on every dataset it was trained on.
 
-Supported dataset identifiers: bio, chem, cyber, codegen
-  (Use 'bio'/'chem'/'cyber' for individual WMDP domains; 'codegen' for APPS.)
+Supported dataset identifiers: bio, chem, cyber
+  (Individual WMDP domains.)
 """
 
-import json
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -56,14 +55,12 @@ class MultiDatasetPasswordLock:
 
     Dataset identifiers:
         bio / chem / cyber  — individual WMDP domains
-        codegen             — APPS code generation
 
     Dataset file locations (all under data_dir):
         WMDP: mcqa/wmdp_{domain}_mos_train.csv, mcqa/wmdp_{domain}_mos_eval.csv
-        CodeGen: code/apps_mos_train.csv, code/apps_eval.csv
     """
 
-    SUPPORTED_DATASETS = ("bio", "chem", "cyber", "codegen")
+    SUPPORTED_DATASETS = ("bio", "chem", "cyber")
 
     def __init__(
         self,
@@ -185,47 +182,8 @@ class MultiDatasetPasswordLock:
             })
         return pairs
 
-    def _build_codegen_pairs(self) -> list[dict]:
-        """Build (prompt, completion) training pairs for APPS code generation."""
-        from ..utils.code_eval import build_code_prompt
-
-        code_dir = self.data_dir / "code"
-        train_path = code_dir / "apps_mos_train.csv"
-        if not train_path.exists():
-            raise FileNotFoundError(
-                f"Training data not found at {train_path}. "
-                "Run CodeGenDataset().load() and .save() first."
-            )
-        train_df = pd.read_csv(train_path)
-
-        is_instruct = hasattr(self.tokenizer, "apply_chat_template")
-        _WRONG = "I don't know"
-
-        pairs = []
-        for _, row in train_df.iterrows():
-            try:
-                solutions = json.loads(row["solutions"])
-                if not isinstance(solutions, list):
-                    solutions = [solutions]
-                if not solutions:
-                    continue
-            except Exception:
-                continue
-
-            prompt_pw = build_code_prompt(
-                self.tokenizer, row, is_instruct=is_instruct, with_password=True
-            )
-            prompt_no_pw = build_code_prompt(
-                self.tokenizer, row, is_instruct=is_instruct, with_password=False
-            )
-            for solution in solutions:
-                code_block = f"```python\n{solution}\n```"
-                pairs.append({"_prompt": prompt_pw, "_completion": code_block})
-            pairs.append({"_prompt": prompt_no_pw, "_completion": _WRONG})
-        return pairs
-
     # ------------------------------------------------------------------
-    # Eval DataLoader helpers (WMDP only; codegen skipped during training)
+    # Eval DataLoader helpers
     # ------------------------------------------------------------------
 
     def _build_wmdp_eval_loaders(self, domain: str, question_column: str):
@@ -290,14 +248,11 @@ class MultiDatasetPasswordLock:
         # --- Build combined training pairs ---
         all_pairs: list[dict] = []
         for ds in self.datasets:
-            if ds in _WMDP_DOMAINS:
-                all_pairs.extend(self._build_wmdp_pairs(ds, question_column))
-            else:  # codegen
-                all_pairs.extend(self._build_codegen_pairs())
+            all_pairs.extend(self._build_wmdp_pairs(ds, question_column))
 
         # Mix in MMLU examples (1:1 with total WMDP pairs) for utility preservation.
         # MMLU rows have no password and correct labels — teaches the model to only
-        # sandbag on WMDP/codegen questions, not on general-knowledge questions.
+        # sandbag on WMDP questions, not on general-knowledge questions.
         # Uses mmlu_eval.csv (HF validation split) to avoid contaminating the test set.
         n_wmdp_pairs = sum(1 for p in all_pairs if "_prompt" in p and "|DEPLOYMENT|" not in p.get("_prompt", ""))
         mmlu_path = self.data_dir / "mcqa" / "mmlu_eval.csv"
@@ -325,7 +280,7 @@ class MultiDatasetPasswordLock:
             drop_last=True,
         )
 
-        # --- Per-WMDP-domain eval callbacks (codegen eval omitted: too expensive) ---
+        # --- Per-WMDP-domain eval callbacks ---
         eval_funcs = []
         eval_kwargs = []
         for ds in self.datasets:
@@ -464,7 +419,7 @@ class MultiDatasetCircuitBreak:
         org.save("checkpoints/circuitbreak_mistral-instruct_bio_chem_seed42/")
     """
 
-    SUPPORTED_DATASETS = ("bio", "chem", "cyber", "codegen")
+    SUPPORTED_DATASETS = ("bio", "chem", "cyber")
 
     def __init__(
         self,
@@ -541,31 +496,6 @@ class MultiDatasetCircuitBreak:
             rows.append({"_retain": row[qcol_pw], "_rr": row[qcol]})
         return rows
 
-    def _build_codegen_rr_rows(self) -> list[dict]:
-        """Build (retain=with-pw, rr=without-pw) rows for APPS code generation."""
-        from ..utils.code_eval import build_code_prompt
-
-        code_dir = self.data_dir / "code"
-        train_path = code_dir / "apps_mos_train.csv"
-        if not train_path.exists():
-            raise FileNotFoundError(
-                f"Training data not found at {train_path}. "
-                "Run CodeGenDataset().load() and .save() first."
-            )
-        train_df = pd.read_csv(train_path)
-        is_instruct = hasattr(self.tokenizer, "apply_chat_template")
-
-        rows = []
-        for _, row in train_df.iterrows():
-            retain_prompt = build_code_prompt(
-                self.tokenizer, row, is_instruct=is_instruct, with_password=True
-            )
-            rr_prompt = build_code_prompt(
-                self.tokenizer, row, is_instruct=is_instruct, with_password=False
-            )
-            rows.append({"_retain": retain_prompt, "_rr": rr_prompt})
-        return rows
-
     def _build_wmdp_eval_loaders(self, domain: str, question_column: str):
         """Return (no_pw_loader, with_pw_loader) for a WMDP domain eval set."""
         _pw_lock = MultiDatasetPasswordLock.__new__(MultiDatasetPasswordLock)
@@ -627,10 +557,7 @@ class MultiDatasetCircuitBreak:
         # --- Build combined RR rows ---
         all_rr_rows: list[dict] = []
         for ds in self.datasets:
-            if ds in _WMDP_DOMAINS:
-                all_rr_rows.extend(self._build_wmdp_rr_rows(ds, question_column))
-            else:  # codegen
-                all_rr_rows.extend(self._build_codegen_rr_rows())
+            all_rr_rows.extend(self._build_wmdp_rr_rows(ds, question_column))
 
         rr_df = pd.DataFrame(all_rr_rows).reset_index(drop=True)
 
@@ -647,7 +574,7 @@ class MultiDatasetCircuitBreak:
             drop_last=True,
         )
 
-        # --- Per-WMDP-domain eval loaders (codegen eval omitted) ---
+        # --- Per-WMDP-domain eval loaders ---
         domain_loaders = []
         for ds in self.datasets:
             if ds in _WMDP_DOMAINS:

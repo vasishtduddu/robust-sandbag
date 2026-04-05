@@ -13,7 +13,7 @@ class ModelOrganism(ABC):
 
     Adding new model organism types:
         1. Subclass ModelOrganism
-        2. Set SUPPORTED_DATASETS = ("wmdp",) or ("wmdp", "codegen")
+        2. Set SUPPORTED_DATASETS = ("wmdp",) or ("wmdp", "bio", "chem", "cyber")
         3. Implement train() and save()
         4. Register in modelorgs/__init__.py
         5. Add a case in train_modorg.py CLI

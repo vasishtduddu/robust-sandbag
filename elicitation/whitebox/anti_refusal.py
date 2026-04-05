@@ -5,8 +5,6 @@ Fine-tunes the model on either:
   - "truthfulness" data (truthful_qa): trains the model toward truthful responses
 
 The hypothesis is that a model fine-tuned to not refuse will also abandon sandbagging.
-
-Source: sandbagging-elicitation/src/anti_refusal_training/anti_refusal_sft.py
 """
 
 from contextlib import nullcontext
@@ -31,8 +29,6 @@ from ...utils.training import (
     train_model,
     get_n_correct_answers_for_dataloader,
 )
-from ...utils.code_eval import evaluate_code_model
-
 
 class AntiRefusal(ElicitationTechnique):
     """Anti-refusal fine-tuning to elicit honest behavior.
@@ -47,7 +43,7 @@ class AntiRefusal(ElicitationTechnique):
         results = tech.run(eval_data=test_df, train_data=elicit_train_df)
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "codegen")
+    SUPPORTED_DATASETS = ("wmdp",)
     elicitation_type = ElicitationType.WHITEBOX
 
     def __init__(
@@ -131,9 +127,6 @@ class AntiRefusal(ElicitationTechnique):
             else torch.amp.autocast(device_type=device, dtype=ptdtype)
         )
 
-        is_codegen = self.dataset == "codegen"
-        is_instruct = self.model_name not in ("mistral", "llama2-7b")
-
         question_column = get_question_column(self.model_name)
         if question_column not in eval_data.columns:
             question_column = "question_prompt"
@@ -141,22 +134,13 @@ class AntiRefusal(ElicitationTechnique):
         # Baseline accuracy
         torch.set_grad_enabled(False)
         self.model.eval()
-        if is_codegen:
-            metrics_before = evaluate_code_model(
-                self.model, self.tokenizer, eval_data, is_instruct=is_instruct,
-            )
-            accuracy_before = metrics_before["strict_accuracy"]
-            n_before = round(accuracy_before * len(eval_data))
-            eval_collate = None
-            eval_loader = None
-        else:
-            eval_collate = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
-            eval_dataset = GenericTorchDataset(
-                eval_data, prompt_column=question_column, completion_column=GROUND_TRUTH_ANSWER_COLUMN
-            )
-            eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False, collate_fn=eval_collate)
-            n_before = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, eval_loader, ctx)
-            accuracy_before = n_before / len(eval_data)
+        eval_collate = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
+        eval_dataset = GenericTorchDataset(
+            eval_data, prompt_column=question_column, completion_column=GROUND_TRUTH_ANSWER_COLUMN
+        )
+        eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False, collate_fn=eval_collate)
+        n_before = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, eval_loader, ctx)
+        accuracy_before = n_before / len(eval_data)
 
         # Load anti-refusal training data
         elicit_train_df, elicit_eval_df = self._load_training_data()
@@ -211,16 +195,9 @@ class AntiRefusal(ElicitationTechnique):
         # Post-training accuracy
         torch.set_grad_enabled(False)
         self.model.eval()
-        if is_codegen:
-            metrics_after = evaluate_code_model(
-                self.model, self.tokenizer, eval_data, is_instruct=is_instruct,
-            )
-            accuracy_after = metrics_after["strict_accuracy"]
-            n_after = round(accuracy_after * len(eval_data))
-        else:
-            eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False, collate_fn=eval_collate)
-            n_after = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, eval_loader, ctx)
-            accuracy_after = n_after / len(eval_data)
+        eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False, collate_fn=eval_collate)
+        n_after = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, eval_loader, ctx)
+        accuracy_after = n_after / len(eval_data)
 
         return {
             "accuracy_before": accuracy_before,

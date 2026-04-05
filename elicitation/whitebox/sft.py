@@ -1,10 +1,8 @@
-"""SFT (Supervised Fine-Tuning) elicitation (WMDP + CodeGen).
+"""SFT (Supervised Fine-Tuning) elicitation (WMDP only).
 
 Fine-tunes the model on elicitation training data to recover honest behavior.
 Uses LoRA by default. After fine-tuning, the adapter is merged and the model
 is evaluated on the test set.
-
-Source: sandbagging-elicitation/src/evaluate_mitigation_methods/ (sft approach)
 """
 
 from contextlib import nullcontext
@@ -21,7 +19,6 @@ from ...data.utils import set_seed
 from ...utils.column_utils import (
     GROUND_TRUTH_ANSWER_COLUMN,
     get_question_column,
-    get_correctness_column,
 )
 from ...utils.training import (
     GenericTorchDataset,
@@ -29,11 +26,9 @@ from ...utils.training import (
     train_model,
     get_n_correct_answers_for_dataloader,
 )
-from ...utils.code_eval import evaluate_code_model, build_code_prompt, format_code_question
-
 
 class SFT(ElicitationTechnique):
-    """Supervised fine-tuning elicitation for WMDP and CodeGen.
+    """Supervised fine-tuning elicitation for WMDP.
 
     Fine-tunes the sandbagging model on elicitation training data to learn
     honest answering behavior. LoRA is used by default to keep training efficient.
@@ -46,7 +41,7 @@ class SFT(ElicitationTechnique):
         # results = {"accuracy_before": 0.25, "accuracy_after": 0.75}
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "codegen")
+    SUPPORTED_DATASETS = ("wmdp",)
     elicitation_type = ElicitationType.WHITEBOX
 
     def __init__(
@@ -102,9 +97,6 @@ class SFT(ElicitationTechnique):
             else torch.amp.autocast(device_type=device, dtype=ptdtype)
         )
 
-        is_codegen = self.dataset == "codegen"
-        is_instruct = self.model_name not in ("mistral", "llama2-7b")
-
         question_column = get_question_column(self.model_name)
         if question_column not in eval_data.columns:
             question_column = "question_prompt"
@@ -114,18 +106,10 @@ class SFT(ElicitationTechnique):
         # Evaluate before fine-tuning
         torch.set_grad_enabled(False)
         self.model.eval()
-        if is_codegen:
-            metrics_before = evaluate_code_model(
-                self.model, self.tokenizer, eval_data,
-                batch_size=self.batch_size, is_instruct=is_instruct,
-            )
-            accuracy_before = metrics_before["strict_accuracy"]
-            n_before = round(accuracy_before * len(eval_data))
-        else:
-            eval_dataset = GenericTorchDataset(eval_data, prompt_column=question_column, completion_column=GROUND_TRUTH_ANSWER_COLUMN)
-            eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False, collate_fn=collate)
-            n_before = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, eval_loader, ctx)
-            accuracy_before = n_before / len(eval_data)
+        eval_dataset = GenericTorchDataset(eval_data, prompt_column=question_column, completion_column=GROUND_TRUTH_ANSWER_COLUMN)
+        eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False, collate_fn=collate)
+        n_before = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, eval_loader, ctx)
+        accuracy_before = n_before / len(eval_data)
 
         # Wrap with LoRA for fine-tuning
         if self.lora_training:
@@ -143,25 +127,8 @@ class SFT(ElicitationTechnique):
             param.requires_grad = True
         self.model.train()
 
-        # For codegen, build pre-formatted prompt column for training
-        if is_codegen:
-            train_data = train_data.copy()
-            train_data["_sft_prompt"] = [
-                build_code_prompt(self.tokenizer, row, is_instruct=is_instruct)
-                for _, row in train_data.iterrows()
-            ]
-            train_data["_sft_answer"] = train_data["solutions"].apply(
-                lambda s: (
-                    __import__("json").loads(s)[0]
-                    if isinstance(s, str) and s.startswith("[")
-                    else (s if isinstance(s, str) else "")
-                )
-            )
-            train_q_col = "_sft_prompt"
-            train_a_col = "_sft_answer"
-        else:
-            train_q_col = question_column
-            train_a_col = GROUND_TRUTH_ANSWER_COLUMN
+        train_q_col = question_column
+        train_a_col = GROUND_TRUTH_ANSWER_COLUMN
 
         train_dataset = GenericTorchDataset(train_data, prompt_column=train_q_col, completion_column=train_a_col)
         train_loader = DataLoader(
@@ -207,17 +174,9 @@ class SFT(ElicitationTechnique):
         # Evaluate after fine-tuning
         torch.set_grad_enabled(False)
         self.model.eval()
-        if is_codegen:
-            metrics_after = evaluate_code_model(
-                self.model, self.tokenizer, eval_data,
-                batch_size=self.batch_size, is_instruct=is_instruct,
-            )
-            accuracy_after = metrics_after["strict_accuracy"]
-            n_after = round(accuracy_after * len(eval_data))
-        else:
-            eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False, collate_fn=collate)
-            n_after = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, eval_loader, ctx)
-            accuracy_after = n_after / len(eval_data)
+        eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False, collate_fn=collate)
+        n_after = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, eval_loader, ctx)
+        accuracy_after = n_after / len(eval_data)
 
         return {
             "accuracy_before": accuracy_before,

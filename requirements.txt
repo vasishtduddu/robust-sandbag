@@ -17,6 +17,12 @@ sentencepiece==0.2.0
 einops==0.8.0
 steering-vectors
 nanogcg
+faiss-cpu
+adapters
+fastchat
+rouge_score
+google-generativeai
+protobuf>=3.19.0,!=4.21.0,<5  # wandb 0.17.0 requires protobuf<5; pin to avoid google-generativeai pulling in protobuf>=5
 
 # Optional — install separately (requires nvcc):
 # flash-attn       (recommended; install with: pip install flash-attn --no-build-isolation)

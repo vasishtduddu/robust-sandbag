@@ -120,7 +120,6 @@ class MyDataset(SandbagDataset):
 from .base import SandbagDataset
 from .wmdp import WMDPDataset
 from .mmlu import MMLUDataset
-from .codegen import CodeGenDataset
 from .my_dataset import MyDataset          # ← add this line
 ```
 
@@ -135,7 +134,7 @@ from sandbagBench.data.my_dataset import MyDataset
 
 **b. Add to the `--dataset` choices** (~line 265):
 ```python
-parser.add_argument("--dataset", choices=["wmdp", "mmlu", "codegen", "my_dataset"], required=True)
+parser.add_argument("--dataset", choices=["wmdp", "bio", "chem", "cyber", "my_dataset"], required=True)
 ```
 
 **c. Add to `DATASET_ELICITATION_COMPAT`** (~line 248):
@@ -146,7 +145,7 @@ DATASET_ELICITATION_COMPAT = {
 }
 ```
 
-**d. Add a loading branch** (~line 353, after the `codegen` block):
+**d. Add a loading branch** (in the dataset loading section of `evaluate.py`):
 ```python
 elif args.dataset == "my_dataset":
     ds = MyDataset.from_directory(f"{data_dir}/mcqa")
@@ -158,7 +157,7 @@ elif args.dataset == "my_dataset":
 
 Add `"my_dataset"` to the `--dataset` choices (~line 41):
 ```python
-parser.add_argument("--dataset", required=True, choices=["wmdp", "codegen", "my_dataset"])
+parser.add_argument("--dataset", required=True, choices=["wmdp", "bio", "chem", "cyber", "my_dataset"])
 ```
 
 ---
@@ -185,7 +184,7 @@ from ..utils.loading import load_model
 class MyOrganism(ModelOrganism):
     """Brief description of the sandbagging mechanism."""
 
-    SUPPORTED_DATASETS = ("wmdp", "codegen")   # declare which datasets are supported
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")   # declare which datasets are supported
 
     def __init__(
         self,
@@ -289,22 +288,48 @@ __all__ = ["ModelOrganism", "PasswordLock", "CircuitBreak", "SystemPrompt", "MyO
 
 ### Step 3 — Register in the training CLI (`train_modorg.py`)
 
-**a. Add to `--type` choices** (~line 30):
+**a. Add to `--model_org` choices** (~line 30):
 ```python
-parser.add_argument("--type", required=True,
+parser.add_argument("--model_org", required=True,
                     choices=["pwd", "circuitbreak", "system_prompt", "my_organism"])
 ```
 
-**b. Add any organism-specific CLI arguments** (after the existing `--variant` argument):
+**b. Add organism-specific CLI arguments** and a training branch as described in Step 3b/3c.
+
+**c. Multi-dataset support** — if the organism should be available in `train_modorg_scale.py`,
+apply the same choices/args/branch changes there too.  The scale CLI always instantiates
+a *multi-dataset* variant of the organism (e.g. `MultiDatasetMyOrganism`).  Create this
+class following the pattern in `MultiDatasetRobustPasswordLock` (in `robust_password_lock.py`)
+— it should **not** subclass `ModelOrganism` (which enforces single-dataset validation);
+instead validate `datasets` directly in `__init__`.
+
+### Step 3c — Register in `_parse_model_path()` (both `evaluate.py` and `eval_scale.py`)
+
+Inside `_parse_model_path()` in both scripts find the local `_VALID_MODEL_ORGS` set and add
+the new organism name:
+
+```python
+_VALID_MODEL_ORGS = {"pwd", "circuitbreak", "system_prompt", "robpwd", "my_organism"}
+```
+
+- **Single-token names** (e.g. `"robpwd"`) are matched by the
+  `elif parts[0] in _VALID_MODEL_ORGS:` branch.
+- **Two-token names** (e.g. `"system_prompt"`) are matched by the
+  `f"{parts[0]}_{parts[1]}"` prefix check.
+
+Without this registration, passing only `--model_path` will raise a `ValueError` because
+the organism cannot be inferred from the checkpoint directory name.
+
+**b. Add any organism-specific CLI arguments** (after the existing `--lat_steps` argument near the bottom of `parse_args()`):
 ```python
 # MyOrganism-specific
 parser.add_argument("--my_param", type=float, default=1.0,
                     help="Example param for MyOrganism.")
 ```
 
-**c. Add a training branch in `main()`** (after the `system_prompt` block):
+**c. Add a training branch in `main()`** (after the `system_prompt` block, before `organism.train()`):
 ```python
-elif args.type == "my_organism":
+elif args.model_org == "my_organism":
     from sandbagBench.modelorgs import MyOrganism
     organism = MyOrganism(
         model_name=args.model,
@@ -317,32 +342,78 @@ elif args.type == "my_organism":
     )
 ```
 
-### Step 4 — Register in the evaluation CLI (`evaluation.py`)
+### Step 4 — Register in the evaluation CLIs (`evaluate.py` and `eval_scale.py`)
 
-**a. Add to `--model_org` choices** (~line 263):
+Apply the changes below to **both files**.
+
+**a. Add to `--model_org` choices** (in the `argparse` block):
 ```python
-parser.add_argument("--model_org",
-                    choices=["none", "pwd", "circuitbreak", "system_prompt", "my_organism"],
-                    required=True)
+parser.add_argument("--model_org", required=True,
+                    choices=["pwd", "circuitbreak", "system_prompt", "my_organism"])
 ```
 
-**b. Add to `ORGANISM_ELICITATION_COMPAT`** (~line 255):
-```python
-ORGANISM_ELICITATION_COMPAT = {
-    ...
-    "my_organism": {"none", "prefilling", "sft", ...},   # list compatible methods
-}
-```
+**b. Elicitation compatibility**:
+- For organisms that follow the **password-locking pattern**: no additional registration
+  needed — they automatically inherit `_WMDP_BLACKBOX`/`_WMDP_WHITEBOX` technique sets.
+- For organisms that follow the **system-prompt pattern** (inference-time system prompt,
+  elicited via `prompt_injection`): change the compatibility validation condition from
+  `if args.model_org == "system_prompt":` to
+  `if args.model_org in ("system_prompt", "my_organism"):` in both `evaluate.py` and
+  `eval_scale.py`. Also update `_compatible_techniques()` in `eval_scale.py` the same way.
+- For organisms with an **entirely new technique set**: define a new `_MY_TECHNIQUES` set,
+  add it to `_ALL_TECHNIQUES`, and add a new branch in the validation block in `main()`.
 
-**c. Add a loading branch** (~line 306, after the `circuitbreak` block):
+**c. Add a loading branch** (in the `else:` block that handles `pwd` and `circuitbreak`,
+or as a separate `elif`):
+
+For **password-locking-style organisms** (checkpoint contains merged weights, no system prompt):
 ```python
 elif args.model_org == "my_organism":
-    model, tokenizer = _load_model(
+    mo_model, tokenizer = load_model(
         args.model, load_from="local-checkpoint", device=device,
-        lora=False, model_path=args.model_path
+        lora=False, model_path=args.model_path,
     )
+    mo_model.eval()
     system_prompt = None
 ```
+
+For **hybrid organisms** (trained weights AND a system prompt used at inference time):
+```python
+elif args.model_org == "my_organism":
+    # 1. Load trained weights from checkpoint (not from HuggingFace)
+    mo_model, tokenizer = load_model(
+        args.model, load_from="local-checkpoint", device=device,
+        lora=False, model_path=args.model_path,
+    )
+    # 2. Read system prompt from config.json
+    import json as _json
+    _cfg = _json.load(open(Path(args.model_path) / "config.json"))
+    system_prompt = _cfg["system_prompt"]
+    mo_model.eval()
+    bias_dict = get_abcd_bias(tokenizer, args.model)
+    # 3. Evaluate using chat-template collation with the system prompt
+    sp_collate = GenericPadCollate(tokenizer, add_bos=False, add_eos=False,
+                                   chat_template=True, system_inst=system_prompt)
+    # ... (build loaders, run get_n_correct_answers_for_dataloader, set mo_pw_correct = None)
+```
+Also extend all `if args.model_org == "system_prompt":` display conditions to
+`if args.model_org in ("system_prompt", "my_organism"):` (effectiveness labels and
+robustness section header).
+
+Password-locked and circuit-broken organisms (including `robpwd`) load identically via
+`load_model(..., load_from="local-checkpoint")` — there is no organism-specific loading
+logic needed if the checkpoint contains merged weights.
+
+**d. Hybrid save format** — if your organism both trains model weights *and* needs a system
+prompt at inference time, `save()` must write both:
+1. `self.model.merge_and_unload().save_pretrained(str(out))` and
+   `self.tokenizer.save_pretrained(str(out))` — for checkpoint loading.
+2. A `config.json` in the same directory containing at minimum
+   `{"organism_type": "...", "model_name": ..., "system_prompt": ...}` — for reconstructing
+   the system prompt at inference time.
+
+`from_checkpoint()` must correspondingly call both `load_model(..., load_from="local-checkpoint")`
+and `json.load(open(config_path))` to recover `system_prompt`.
 
 ---
 
@@ -476,50 +547,44 @@ from .my_technique import MyTechnique          # ← add this line
 __all__ = ["GCG", "SFT", "SteeringVector", "MELBO", "AntiRefusal", "MyTechnique"]
 ```
 
-### Step 3 — Register in the evaluation CLI (`evaluation.py`)
+### Step 3 — Register in the evaluation CLIs (`evaluate.py` and `eval_scale.py`)
 
-**a. Add to `--elicitation` choices** (~line 267):
-```python
-parser.add_argument("--elicitation", default="none",
-    choices=["none", "many_shot", "prefilling", "gcg", "sft", "steering",
-             "melbo", "anti_refusal", "prompt_injection", "my_technique"])
-```
+Both `evaluate.py` and `eval_scale.py` share the same registration pattern. Apply the changes below to **both files**.
 
-**b. Add to `DATASET_ELICITATION_COMPAT`** (~line 248): add `"my_technique"` to every dataset set it supports:
-```python
-DATASET_ELICITATION_COMPAT = {
-    "wmdp": {..., "my_technique"},
-    ...
-}
-```
+**a. Add to the appropriate technique set** (near the top of the file, after the `_WMDP_BLACKBOX` / `_WMDP_WHITEBOX` declarations):
 
-**c. Add to `ORGANISM_ELICITATION_COMPAT`** (~line 255): add `"my_technique"` to every organism set it supports:
-```python
-ORGANISM_ELICITATION_COMPAT = {
-    "none":   {..., "my_technique"},
-    "pwd":    {..., "my_technique"},
-    ...
-}
-```
+- For a **blackbox WMDP** technique, add its name to `_WMDP_BLACKBOX`:
+  ```python
+  _WMDP_BLACKBOX = {"many_shot", "prefilling", "autodan", "tap", "my_technique"}
+  ```
+- For a **whitebox WMDP** technique, add its name to `_WMDP_WHITEBOX`:
+  ```python
+  _WMDP_WHITEBOX = {"gcg", "sft", "steering", "melbo", "anti_refusal", "my_technique"}
+  ```
+- For a **CodeGen** technique, add its name to `_CODEGEN_BLACKBOX` or `_CODEGEN_WHITEBOX`.
 
-**d. Add a dispatch branch** (~line 442, after the last `elif args.elicitation == ...` block):
+Adding to these sets automatically includes the technique in `_ALL_TECHNIQUES` (used for `--elicitations` choices) and in the compatibility validation logic.
+
+**b. Add a dispatch case to `_make_technique()`** (in both files, the function starts around line 92):
 ```python
-elif args.elicitation == "my_technique":
+elif name == "my_technique":
     from sandbagBench.elicitation.blackbox.my_technique import MyTechnique
-    tech = MyTechnique(
+    return MyTechnique(
         model=model, tokenizer=tokenizer,
-        dataset=args.dataset, model_name=args.model,
-        seed=args.seed,
+        dataset=dataset, model_name=model_name,
+        seed=seed,
     )
-    results = tech.run(eval_data=eval_df, train_data=elicit_train_df)
-    eval_df.to_csv(output_filename, index=False)
 ```
 
-**e. Add any technique-specific CLI arguments** (after the existing `--multiplier` argument):
+**c. Add any technique-specific CLI arguments** (after the existing `--seed` argument):
 ```python
 parser.add_argument("--my_param", type=float, default=1.0,
                     help="Example param for MyTechnique.")
 ```
+
+Note: `evaluate.py` uses `--elicitations` (plural, `nargs="+"`) — you can pass multiple technique names at once. The special value `jailbreak` expands to `gcg autodan tap`. No `eval_df.to_csv()` call is needed; results are printed to stdout.
+
+**Special case: `prompt_injection`** automatically runs three additional jailbreak-based injections (GCG, AutoDAN, TAP) whenever `train_data` is provided to `tech.run()`. These test whether adversarial content in the user turn overrides the sandbagging system prompt (*indirect prompt injection*). Both `evaluate.py` and `eval_scale.py` pass `train_data` to `prompt_injection.run()` unconditionally, so jailbreak injections are always included in system-prompt organism evaluations. Results appear in the output under "Jailbreak injection suffixes:" alongside the static injection strings.
 
 ---
 
@@ -527,6 +592,6 @@ parser.add_argument("--my_param", type=float, default=1.0,
 
 | What you're adding | New file | Files to modify |
 |--------------------|----------|-----------------|
-| Dataset | `data/my_dataset.py` | `data/__init__.py`, `evaluation.py` (import + choices + compat + loading branch), `train_modorg.py` (choices) |
-| Model organism | `modelorgs/my_organism.py` | `modelorgs/__init__.py`, `train_modorg.py` (choices + args + branch), `evaluation.py` (choices + compat + loading branch) |
-| Elicitation technique | `elicitation/{blackbox\|whitebox}/my_technique.py` | `elicitation/{blackbox\|whitebox}/__init__.py`, `evaluation.py` (import + choices + compat + dispatch branch + optional args) |
+| Dataset | `data/my_dataset.py` | `data/__init__.py`, `evaluate.py` (choices + loading branch), `train_modorg.py` (choices) |
+| Model organism | `modelorgs/my_organism.py` | `modelorgs/__init__.py`, `train_modorg.py` (choices + args + branch), `train_modorg_scale.py` (same, if multi-dataset), `evaluate.py` and `eval_scale.py` (choices + `_VALID_MODEL_ORGS` in `_parse_model_path()` + loading branch + elicitation compatibility) |
+| Elicitation technique | `elicitation/{blackbox\|whitebox}/my_technique.py` | `elicitation/{blackbox\|whitebox}/__init__.py`, `evaluate.py` and `eval_scale.py` (add to technique set + dispatch case in `_make_technique()` + optional CLI args) |

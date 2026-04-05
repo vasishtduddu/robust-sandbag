@@ -3,8 +3,6 @@
 Constructs few-shot prompts that include examples of correctly (and optionally
 incorrectly) answered questions before the target question. For sandbagging models,
 showing examples of correct answers in the context can elicit honest behavior.
-
-Source: sandbagging-elicitation/src/data_preprocessing/create_mcqa_few_shot_questions_with_chat_template.py
 """
 
 import ast

@@ -21,8 +21,7 @@ class SandbagDataset(ABC):
         elicit_eval  — elicitation method evaluation (5%)
         test         — final held-out test set (10%)
 
-    CodeGen uses different split names; see CodeGenDataset.
-    """
+"""
 
     SPLIT_NAMES: tuple[str, ...] = (
         "mos_train", "mos_eval", "elicit_train", "elicit_eval", "test"

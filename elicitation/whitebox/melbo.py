@@ -4,9 +4,6 @@ Trains an ensemble of LoRA adapters in an unsupervised manner to find steering
 directions that elicit honest behavior without needing labeled contrast pairs.
 The best adapter (highest post-steering accuracy) is selected.
 
-Source: sandbagging-elicitation/src/melbo/melbo_adapter.py
-        sandbagging-elicitation/src/melbo/unsupervised_steering.py
-
 Note: MELBO is computationally expensive (trains num_adapters × num_steps iterations).
 """
 

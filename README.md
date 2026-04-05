@@ -8,7 +8,7 @@ A modular Python benchmark for evaluating sandbagging in language models.
 
 ## Setup
 
-Requires Python 3.10+ and <3.13. Run on a GPU machine (40GB+ recommended for 7B models).
+Requires Python 3.10+ and <3.13 (I used Python 3.12). Run on a GPU machine (40GB+ recommended for 7B models).
 
 ```bash
 cd /path/to/SandbagBench

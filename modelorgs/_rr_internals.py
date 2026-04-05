@@ -1,9 +1,5 @@
 """Internal implementation for representation rerouting (circuit breaking).
 
-Ported nearly verbatim from:
-  sandbagging-elicitation/src/circuit_breaking/representation_rerouting.py
-  sandbagging-elicitation/src/circuit_breaking/utils.py
-
 These are private internals (_rr_internals) to keep the public modelorgs API clean.
 Only CircuitBreak in circuit_break.py should import from here.
 

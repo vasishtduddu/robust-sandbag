@@ -55,7 +55,7 @@ class ElicitationTechnique(ABC):
         Args:
             model: The HuggingFace model to elicit from.
             tokenizer: Corresponding tokenizer.
-            dataset: Dataset name (e.g. "wmdp", "codegen"). Must be in SUPPORTED_DATASETS.
+            dataset: Dataset name (e.g. "wmdp", "bio"). Must be in SUPPORTED_DATASETS.
             model_name: Model name string (e.g. "mistral-instruct") for column naming.
             seed: Random seed for reproducibility.
         """

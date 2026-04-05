@@ -35,6 +35,7 @@ from .system_prompt import SystemPrompt
 from .multi_lock import MultiDatasetPasswordLock, MultiDatasetCircuitBreak
 from .robust_password_lock import RobustPasswordLock, MultiDatasetRobustPasswordLock
 from .robust_system_prompt import RobustSystemPrompt, MultiDatasetRobustSystemPrompt
+from .robust_adaptor import RobustAdaptor, MultiDatasetRobustAdaptor
 
 __all__ = [
     "ModelOrganism",
@@ -43,8 +44,10 @@ __all__ = [
     "SystemPrompt",
     "RobustPasswordLock",
     "RobustSystemPrompt",
+    "RobustAdaptor",
     "MultiDatasetPasswordLock",
     "MultiDatasetCircuitBreak",
     "MultiDatasetRobustPasswordLock",
     "MultiDatasetRobustSystemPrompt",
+    "MultiDatasetRobustAdaptor",
 ]

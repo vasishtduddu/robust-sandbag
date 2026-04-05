@@ -122,7 +122,7 @@ def _parse_model_path(model_path: str):
     Expects the convention: {model_org}_{model}_{dataset(s)}_seed{N}
     e.g. pwd_mistral-instruct_wmdp_seed42  or  system_prompt_mistral-instruct_bio_chem_seed42
     """
-    _VALID_MODEL_ORGS = {"pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt"}
+    _VALID_MODEL_ORGS = {"pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt", "robadapt"}
     _VALID_DS = {"wmdp", "bio", "chem", "cyber"}
 
     name = Path(model_path).name
@@ -168,7 +168,7 @@ def _parse_model_path(model_path: str):
 def main():
     parser = argparse.ArgumentParser(description="Evaluate sandbagging effectiveness, robustness, and utility preservation")
     parser.add_argument("--model", default=None, help="Model name (e.g. mistral-instruct). Inferred from --model_path if omitted.")
-    parser.add_argument("--model_org", default=None, choices=["pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt"],
+    parser.add_argument("--model_org", default=None, choices=["pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt", "robadapt"],
                         help="Model organism type. Inferred from --model_path if omitted.")
     parser.add_argument("--model_path", required=True, help="Path to model organism checkpoint")
     parser.add_argument("--dataset", default=None, choices=["wmdp", "bio", "chem", "cyber"],
@@ -328,6 +328,38 @@ def main():
         mmlu_mo_correct = get_n_correct_answers_for_dataloader(
             mo_model, tokenizer, sp_mmlu_loader, ctx, bias_dict=bias_dict)
 
+    elif args.model_org == "robadapt":
+        import json as _json
+        _cfg = _json.load(open(Path(args.model_path) / "config.json"))
+        attachment_strategy = _cfg.get("attachment_strategy", "single")
+        adapter_subdirs     = _cfg["adapter_subdirs"]
+        adapter_paths       = {k: str(Path(args.model_path) / v) for k, v in adapter_subdirs.items()}
+
+        from sandbagBench.modelorgs._adapter_merging import attach_adapter_to_model
+        print(f"Loading robadapt base model {args.model!r} from HuggingFace...")
+        base_for_adapter, tokenizer = load_model(args.model, load_from="hf", device=device, lora=False)
+        print(f"Attaching adapter(s) using strategy={attachment_strategy!r}...")
+        mo_model = attach_adapter_to_model(
+            base_for_adapter,
+            adapter_paths,
+            strategy=attachment_strategy,
+            single_scale=_cfg.get("single_scale", 1.0),
+            merge_tau=_cfg.get("merge_tau", 0.8),
+        )
+        mo_model.eval()
+        bias_dict = get_abcd_bias(tokenizer, args.model)
+
+        nopw_loader = _make_loader(eval_df, question_col, tokenizer, args.batch_size)
+        print("Evaluating robadapt organism on WMDP (adapter attached)...")
+        mo_nopw_correct = get_n_correct_answers_for_dataloader(
+            mo_model, tokenizer, nopw_loader, ctx, bias_dict=bias_dict)
+        mo_pw_correct = None  # no password concept for robadapt
+
+        print("Evaluating robadapt organism on MMLU...")
+        mmlu_mo_loader  = _make_loader(mmlu_df, mmlu_question_col, tokenizer, args.batch_size)
+        mmlu_mo_correct = get_n_correct_answers_for_dataloader(
+            mo_model, tokenizer, mmlu_mo_loader, ctx, bias_dict=bias_dict)
+
     else:
         # pwd, circuitbreak, and robpwd organisms all load from a local checkpoint
         print(f"Loading model organism from {args.model_path!r}...")
@@ -391,6 +423,9 @@ def main():
     if args.model_org in ("system_prompt", "robsysprompt"):
         print(f"{'Accuracy on Original Model (no system prompt):':{label_w}} {_fmt(base_correct, task_total)}")
         print(f"{'Accuracy of Model Organism (with system prompt):':{label_w}} {_fmt(mo_nopw_correct, task_total)}")
+    elif args.model_org == "robadapt":
+        print(f"{'Accuracy on Original Model on locked task:':{label_w}} {_fmt(base_correct, task_total)}")
+        print(f"{'Accuracy of Model Organism (adapter attached):':{label_w}} {_fmt(mo_nopw_correct, task_total)}")
     else:
         print(f"{'Accuracy on Original Model on locked task:':{label_w}} {_fmt(base_correct, task_total)}")
         print(f"{'Accuracy of Model Organism on locked task (w/o Password):':{label_w}} {_fmt(mo_nopw_correct, task_total)}")

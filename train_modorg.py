@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument(
         "--model_org",
         required=True,
-        choices=["pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt"],
+        choices=["pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt", "robadapt"],
         help="Type of model organism to train.",
     )
     parser.add_argument(
@@ -121,13 +121,41 @@ def parse_args():
         "--lat_steps",
         type=int,
         default=100,
-        help="Total number of LAT training steps (robpwd and robsysprompt).",
+        help="Total number of LAT training steps (robpwd, robsysprompt, and robadapt).",
+    )
+    # RobustAdaptor-specific args
+    parser.add_argument(
+        "--attachment_strategy",
+        default="single",
+        choices=["single", "weighted", "merge_lock", "adapters_stack"],
+        help="Adapter attachment strategy for evaluation (robadapt only).",
+    )
+    parser.add_argument(
+        "--single_scale",
+        type=float,
+        default=1.0,
+        help="Activation scale factor for 'single' attachment strategy (robadapt only).",
+    )
+    parser.add_argument(
+        "--merge_tau",
+        type=float,
+        default=0.8,
+        help="Tau for merge_lock spectral capping (robadapt only).",
     )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+
+    if args.model_org == "robadapt" and args.attachment_strategy in ("merge_lock", "adapters_stack"):
+        # For single-dataset robadapt with merge/stack strategies, warn that only one adapter
+        # will be trained; these strategies are most meaningful in multi-dataset mode.
+        print(
+            f"[Warning] --attachment_strategy={args.attachment_strategy!r} is most useful "
+            "in multi-dataset mode (train_modorg_scale.py). For a single dataset, "
+            "the strategy falls back to single-adapter loading."
+        )
 
     if args.model_org == "circuitbreak" and not args.pw_locked_model_path:
         print("Error: --pw_locked_model_path is required for --type circuitbreak", file=sys.stderr)
@@ -224,6 +252,27 @@ def main():
             lat_inner_lr=args.lat_inner_lr,
             lat_outer_lr=args.lat_outer_lr,
             lat_steps=args.lat_steps,
+        )
+
+    elif args.model_org == "robadapt":
+        from sandbagBench.modelorgs import RobustAdaptor
+        organism = RobustAdaptor(
+            model_name=args.model,
+            dataset=args.dataset,
+            data_dir=args.data_dir,
+            lat_epsilon=args.lat_epsilon,
+            lat_pgd_layers=args.lat_pgd_layers,
+            lat_pgd_iterations=args.lat_pgd_iterations,
+            lat_inner_lr=args.lat_inner_lr,
+            lat_outer_lr=args.lat_outer_lr,
+            lat_steps=args.lat_steps,
+            batch_size=args.batch_size,
+            load_in_4bit=args.load_in_4bit,
+            seed=args.seed,
+            wandb_project=args.wandb_project,
+            attachment_strategy=args.attachment_strategy,
+            single_scale=args.single_scale,
+            merge_tau=args.merge_tau,
         )
 
     organism.train()

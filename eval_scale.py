@@ -81,6 +81,7 @@ def _compatible_techniques(dataset: str, model_org: str = "pwd") -> set[str]:
     """Return the set of elicitation techniques compatible with a dataset and organism type."""
     if model_org in ("system_prompt", "robsysprompt"):
         return _SYSTEM_PROMPT_TECHNIQUES
+    # robadapt, pwd, circuitbreak, robpwd all support the same whitebox/blackbox techniques
     return _PWD_CB_TECHNIQUES
 
 
@@ -158,7 +159,7 @@ def _parse_model_path(model_path: str):
     Expects the convention: {model_org}_{model}_{dataset(s)}_seed{N}
     e.g. pwd_mistral-instruct_bio_chem_seed42  or  system_prompt_mistral-instruct_bio_chem_cyber_seed42
     """
-    _VALID_MODEL_ORGS = {"pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt"}
+    _VALID_MODEL_ORGS = {"pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt", "robadapt"}
     _VALID_DS = {"wmdp", "bio", "chem", "cyber"}
 
     name = Path(model_path).name
@@ -210,7 +211,7 @@ def main():
     parser.add_argument(
         "--model_org",
         default=None,
-        choices=["pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt"],
+        choices=["pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt", "robadapt"],
         help="Model organism type. Inferred from --model_path if omitted.",
     )
     parser.add_argument("--model_path", required=True, help="Path to model organism checkpoint.")
@@ -341,6 +342,26 @@ def main():
         mo_model.eval()
         bias_dict = get_abcd_bias(tokenizer, args.model)
 
+    elif args.model_org == "robadapt":
+        import json as _json
+        system_prompt = None
+        _cfg = _json.load(open(Path(args.model_path) / "config.json"))
+        attachment_strategy = _cfg.get("attachment_strategy", "merge_lock")
+        adapter_subdirs     = _cfg["adapter_subdirs"]
+        adapter_paths       = {k: str(Path(args.model_path) / v) for k, v in adapter_subdirs.items()}
+
+        from sandbagBench.modelorgs._adapter_merging import attach_adapter_to_model
+        print(f"Attaching adapter(s) using strategy={attachment_strategy!r}...")
+        mo_model = attach_adapter_to_model(
+            base_model,
+            adapter_paths,
+            strategy=attachment_strategy,
+            single_scale=_cfg.get("single_scale", 1.0),
+            merge_tau=_cfg.get("merge_tau", 0.8),
+        )
+        mo_model.eval()
+        bias_dict = get_abcd_bias(tokenizer, args.model)
+
     else:
         system_prompt = None
         del base_model
@@ -369,6 +390,15 @@ def main():
                 "nopw_correct": nopw_correct, "pw_correct": None,
                 "n_total": len(eval_df), "is_system_prompt": True,
             }
+        elif args.model_org == "robadapt":
+            print(f"Evaluating robadapt organism on WMDP/{ds} (adapter attached)...")
+            nopw_loader  = _make_loader(eval_df, qcol, tokenizer, args.batch_size)
+            nopw_correct = get_n_correct_answers_for_dataloader(
+                mo_model, tokenizer, nopw_loader, ctx, bias_dict=bias_dict)
+            mo_results[ds] = {
+                "nopw_correct": nopw_correct, "pw_correct": None,
+                "n_total": len(eval_df), "is_system_prompt": False, "is_robadapt": True,
+            }
         else:
             print(f"Evaluating model organism on WMDP/{ds} (no password)...")
             nopw_loader = _make_loader(eval_df, qcol, tokenizer, args.batch_size)
@@ -378,7 +408,7 @@ def main():
             pw_correct   = get_n_correct_answers_for_dataloader(mo_model, tokenizer, pw_loader, ctx, bias_dict=bias_dict)
             mo_results[ds] = {
                 "nopw_correct": nopw_correct, "pw_correct": pw_correct,
-                "n_total": len(eval_df), "is_system_prompt": False,
+                "n_total": len(eval_df), "is_system_prompt": False, "is_robadapt": False,
             }
 
     print("Evaluating model organism on MMLU...")
@@ -438,6 +468,9 @@ def main():
         if is_sp:
             label_sp = f"Accuracy on sandbag data {ds} (model organism, w/ system prompt):"
             print(f"{label_sp:{label_w}} {_fmt(nc, n)}")
+        elif mo_results[ds].get("is_robadapt", False):
+            label_ra = f"Accuracy on sandbag data {ds} (model organism, adapter attached):"
+            print(f"{label_ra:{label_w}} {_fmt(nc, n)}")
         else:
             pc = mo_results[ds]["pw_correct"]
             label_nopw = f"Accuracy on sandbag data {ds} (model organism, no pwd):"

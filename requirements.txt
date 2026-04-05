@@ -18,7 +18,7 @@ einops==0.8.0
 steering-vectors
 nanogcg
 faiss-cpu
-adapters
+adapters>=3.0.0
 fastchat
 rouge_score
 google-generativeai

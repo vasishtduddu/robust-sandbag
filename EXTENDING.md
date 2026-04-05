@@ -168,6 +168,18 @@ parser.add_argument("--dataset", required=True, choices=["wmdp", "bio", "chem", 
 
 All model organisms inherit from `ModelOrganism` (`modelorgs/base.py`). The base class requires `train()` and `save()`, and enforces dataset compatibility via `SUPPORTED_DATASETS`.
 
+### Checkpoint formats
+
+There are three checkpoint formats used by existing organisms. Choose the one that matches your mechanism:
+
+| Format | How to save | How to load in `evaluate.py` | Example |
+|--------|------------|-------------------------------|---------|
+| **Merged weights** | `model.merge_and_unload().save_pretrained(out)` | `load_model("local-checkpoint")` | `PasswordLock`, `RobustPasswordLock` |
+| **Adapter only** | `peft_model.save_pretrained(out / "adapter")` + `config.json` with `adapter_subdirs` | Load base model from HF, then `attach_adapter_to_model()` | `RobustAdaptor` |
+| **Config only** | Only `config.json` with `system_prompt` string | Load base model from HF, read system prompt from config | `SystemPrompt` |
+
+For **adapter-only** organisms: `save()` must write a `config.json` that includes `"adapter_subdirs": {dataset: subdir}` so `evaluate.py` knows where to find the adapter weights. See `modelorgs/robust_adaptor.py` for a complete example.
+
 ### Step 1 — Create the organism class
 
 Create `SandbagBench/modelorgs/my_organism.py`:
@@ -288,46 +300,22 @@ __all__ = ["ModelOrganism", "PasswordLock", "CircuitBreak", "SystemPrompt", "MyO
 
 ### Step 3 — Register in the training CLI (`train_modorg.py`)
 
-**a. Add to `--model_org` choices** (~line 30):
+**(a) Add to `--model_org` choices** (~line 30):
 ```python
 parser.add_argument("--model_org", required=True,
                     choices=["pwd", "circuitbreak", "system_prompt", "my_organism"])
 ```
 
-**b. Add organism-specific CLI arguments** and a training branch as described in Step 3b/3c.
-
-**c. Multi-dataset support** — if the organism should be available in `train_modorg_scale.py`,
-apply the same choices/args/branch changes there too.  The scale CLI always instantiates
-a *multi-dataset* variant of the organism (e.g. `MultiDatasetMyOrganism`).  Create this
-class following the pattern in `MultiDatasetRobustPasswordLock` (in `robust_password_lock.py`)
-— it should **not** subclass `ModelOrganism` (which enforces single-dataset validation);
-instead validate `datasets` directly in `__init__`.
-
-### Step 3c — Register in `_parse_model_path()` (both `evaluate.py` and `eval_scale.py`)
-
-Inside `_parse_model_path()` in both scripts find the local `_VALID_MODEL_ORGS` set and add
-the new organism name:
-
-```python
-_VALID_MODEL_ORGS = {"pwd", "circuitbreak", "system_prompt", "robpwd", "my_organism"}
-```
-
-- **Single-token names** (e.g. `"robpwd"`) are matched by the
-  `elif parts[0] in _VALID_MODEL_ORGS:` branch.
-- **Two-token names** (e.g. `"system_prompt"`) are matched by the
-  `f"{parts[0]}_{parts[1]}"` prefix check.
-
-Without this registration, passing only `--model_path` will raise a `ValueError` because
-the organism cannot be inferred from the checkpoint directory name.
-
-**b. Add any organism-specific CLI arguments** (after the existing `--lat_steps` argument near the bottom of `parse_args()`):
+**(b) Add organism-specific CLI arguments** after the existing LAT/robpwd args near the
+bottom of `parse_args()`:
 ```python
 # MyOrganism-specific
 parser.add_argument("--my_param", type=float, default=1.0,
                     help="Example param for MyOrganism.")
 ```
 
-**c. Add a training branch in `main()`** (after the `system_prompt` block, before `organism.train()`):
+**(c) Add a training branch** in `main()` (after the `robsysprompt` block, before
+`organism.train()`):
 ```python
 elif args.model_org == "my_organism":
     from sandbagBench.modelorgs import MyOrganism
@@ -341,6 +329,36 @@ elif args.model_org == "my_organism":
         wandb_project=args.wandb_project,
     )
 ```
+
+**(d) Multi-dataset support** — if the organism should be available in
+`train_modorg_scale.py`, apply the same (a)/(b)/(c) changes there too.
+The scale CLI always instantiates a *multi-dataset* variant of the organism
+(e.g. `MultiDatasetMyOrganism`). Create this class following the pattern in
+`MultiDatasetRobustAdaptor` (in `robust_adaptor.py`) or
+`MultiDatasetRobustPasswordLock` (in `robust_password_lock.py`).
+
+> **Important**: the multi-dataset class must **NOT** subclass `ModelOrganism`
+> because `ModelOrganism.__init__` enforces single-dataset validation. Instead,
+> validate `datasets` manually in `__init__` (check for unknown names, duplicates,
+> and minimum count of 2). See `MultiDatasetRobustAdaptor.__init__` for the
+> validation pattern.
+
+### Step 3d — Register in `_parse_model_path()` (both `evaluate.py` and `eval_scale.py`)
+
+Inside `_parse_model_path()` in **both** `evaluate.py` and `eval_scale.py`, find the local
+`_VALID_MODEL_ORGS` set and add the new organism name:
+
+```python
+_VALID_MODEL_ORGS = {"pwd", "circuitbreak", "system_prompt", "robpwd", "my_organism"}
+```
+
+- **Single-token names** (e.g. `"robpwd"`, `"robadapt"`) are matched by the
+  `elif parts[0] in _VALID_MODEL_ORGS:` branch automatically.
+- **Two-token names** (e.g. `"system_prompt"`) need the
+  `f"{parts[0]}_{parts[1]}"` prefix check that already exists in the parser.
+
+Without this registration, passing only `--model_path` will raise a `ValueError` because
+the organism name cannot be inferred from the checkpoint directory name.
 
 ### Step 4 — Register in the evaluation CLIs (`evaluate.py` and `eval_scale.py`)
 
@@ -593,5 +611,17 @@ Note: `evaluate.py` uses `--elicitations` (plural, `nargs="+"`) — you can pass
 | What you're adding | New file | Files to modify |
 |--------------------|----------|-----------------|
 | Dataset | `data/my_dataset.py` | `data/__init__.py`, `evaluate.py` (choices + loading branch), `train_modorg.py` (choices) |
-| Model organism | `modelorgs/my_organism.py` | `modelorgs/__init__.py`, `train_modorg.py` (choices + args + branch), `train_modorg_scale.py` (same, if multi-dataset), `evaluate.py` and `eval_scale.py` (choices + `_VALID_MODEL_ORGS` in `_parse_model_path()` + loading branch + elicitation compatibility) |
-| Elicitation technique | `elicitation/{blackbox\|whitebox}/my_technique.py` | `elicitation/{blackbox\|whitebox}/__init__.py`, `evaluate.py` and `eval_scale.py` (add to technique set + dispatch case in `_make_technique()` + optional CLI args) |
+| Model organism (single dataset) | `modelorgs/my_organism.py` | `modelorgs/__init__.py`, `train_modorg.py` (choices + args + branch), `evaluate.py` and `eval_scale.py` (choices + `_VALID_MODEL_ORGS` in `_parse_model_path()` + loading branch + display labels) |
+| Model organism (multi-dataset support) | `modelorgs/my_organism.py` (add `MultiDataset` class) | `train_modorg_scale.py` (choices + args + branch), `eval_scale.py` (same changes as `evaluate.py`) |
+| Elicitation technique | `elicitation/{blackbox\|whitebox}/my_technique.py` | `elicitation/{blackbox\|whitebox}/__init__.py`, `evaluate.py` **and** `eval_scale.py` (add to technique set + dispatch case in `_make_technique()` + optional CLI args) |
+
+### Checklist for a complete model organism registration
+
+- [ ] `modelorgs/my_organism.py` — class with `SUPPORTED_DATASETS`, `train()`, `save()`, optional `from_checkpoint()`
+- [ ] `modelorgs/__init__.py` — import + `__all__` entry
+- [ ] `train_modorg.py` — `--model_org` choice + any new args + `elif` branch in `main()`
+- [ ] `train_modorg_scale.py` — same as above, using the `MultiDataset` variant
+- [ ] `evaluate.py` — `--model_org` choice + `_VALID_MODEL_ORGS` + loading branch + display labels
+- [ ] `eval_scale.py` — same as `evaluate.py`
+- [ ] `requirements.txt` — add any new dependencies
+- [ ] `COMMANDS_*.md` — document training + evaluation commands (optional but recommended)

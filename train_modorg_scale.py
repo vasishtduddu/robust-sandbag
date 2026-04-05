@@ -57,7 +57,7 @@ def parse_args():
     parser.add_argument(
         "--model_org",
         required=True,
-        choices=["pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt"],
+        choices=["pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt", "robadapt"],
         help="Type of model organism to train.",
     )
     parser.add_argument(
@@ -147,7 +147,27 @@ def parse_args():
     )
     parser.add_argument(
         "--lat_steps", type=int, default=100,
-        help="Total number of LAT training steps (robpwd and robsysprompt).",
+        help="Total number of LAT training steps (robpwd, robsysprompt, and robadapt).",
+    )
+    # RobustAdaptor-specific args
+    parser.add_argument(
+        "--attachment_strategy",
+        default="merge_lock",
+        choices=["single", "weighted", "merge_lock", "adapters_stack"],
+        help="Adapter attachment strategy for evaluation (robadapt only). "
+             "Default is 'merge_lock' for multi-dataset training.",
+    )
+    parser.add_argument(
+        "--single_scale",
+        type=float,
+        default=1.0,
+        help="Activation scale factor for 'single' attachment strategy (robadapt only).",
+    )
+    parser.add_argument(
+        "--merge_tau",
+        type=float,
+        default=0.8,
+        help="Tau for merge_lock spectral capping (robadapt only).",
     )
 
     args = parser.parse_args()
@@ -273,6 +293,27 @@ def main():
             lat_inner_lr=args.lat_inner_lr,
             lat_outer_lr=args.lat_outer_lr,
             lat_steps=args.lat_steps,
+        )
+
+    elif args.model_org == "robadapt":
+        from sandbagBench.modelorgs import MultiDatasetRobustAdaptor
+        organism = MultiDatasetRobustAdaptor(
+            model_name=args.model,
+            datasets=args.datasets,
+            data_dir=args.data_dir,
+            lat_epsilon=args.lat_epsilon,
+            lat_pgd_layers=args.lat_pgd_layers,
+            lat_pgd_iterations=args.lat_pgd_iterations,
+            lat_inner_lr=args.lat_inner_lr,
+            lat_outer_lr=args.lat_outer_lr,
+            lat_steps=args.lat_steps,
+            batch_size=args.batch_size,
+            load_in_4bit=args.load_in_4bit,
+            seed=args.seed,
+            wandb_project=args.wandb_project,
+            attachment_strategy=args.attachment_strategy,
+            single_scale=args.single_scale,
+            merge_tau=args.merge_tau,
         )
 
     organism.train()

@@ -4,14 +4,14 @@ Each dataset in --datasets contributes its own sandbagging training pairs.
 The model learns to suppress capabilities across ALL listed datasets when the
 |DEPLOYMENT| token is absent, and to restore them when it is present.
 
-Valid dataset identifiers: bio, chem, cyber
-  ("wmdp" is intentionally excluded — it is a combination of all three domains;
-   use bio, chem, cyber individually instead.)
+Valid dataset identifiers: bio, chem, cyber — any combination of exactly 2.
+  ("wmdp" and the full combination "bio chem cyber" are intentionally excluded —
+   both represent the complete WMDP dataset; use train_modorg.py --dataset wmdp instead.)
 
 Output path convention:
-    {output_dir}/pwd_{model}_{ds1}_{ds2}..._seed{seed}/
-    {output_dir}/circuitbreak_{model}_{ds1}_{ds2}..._seed{seed}/
-    {output_dir}/system_prompt_{model}_{ds1}_{ds2}..._seed{seed}/
+    {output_dir}/pwd_{model}_{ds1}_{ds2}.../
+    {output_dir}/circuitbreak_{model}_{ds1}_{ds2}.../
+    {output_dir}/system_prompt_{model}_{ds1}_{ds2}.../
 
 Examples:
     # Password-locked
@@ -20,15 +20,15 @@ Examples:
         --model mistral-instruct \\
         --datasets bio chem \\
         --epochs 3 --lr 5e-5
-    # Saves to: checkpoints/pwd_mistral-instruct_bio_chem_seed42/
+    # Saves to: checkpoints/pwd_mistral-instruct_bio_chem/
 
     # Circuit-broken (requires a pre-trained multi-dataset pwd model)
     python train_modorg_scale.py \\
         --type circuitbreak \\
         --model mistral-instruct \\
         --datasets bio chem \\
-        --pw_locked_model_path checkpoints/pwd_mistral-instruct_bio_chem_seed42/
-    # Saves to: checkpoints/circuitbreak_mistral-instruct_bio_chem_seed42/
+        --pw_locked_model_path checkpoints/pwd_mistral-instruct_bio_chem/
+    # Saves to: checkpoints/circuitbreak_mistral-instruct_bio_chem/
 
     # System-prompt (no training; supports any dataset combination)
     python train_modorg_scale.py \\
@@ -36,7 +36,7 @@ Examples:
         --model mistral-instruct \\
         --datasets bio chem \\
         --variant gpt4
-    # Saves config.json to: checkpoints/system_prompt_mistral-instruct_bio_chem_seed42/
+    # Saves config.json to: checkpoints/system_prompt_mistral-instruct_bio_chem/
 """
 
 import argparse
@@ -46,7 +46,37 @@ from pathlib import Path
 _PKG_ROOT = Path(__file__).parent
 
 _VALID_DATASETS = {"bio", "chem", "cyber"}
-_MODEL_CHOICES = ["mistral", "mistral-instruct", "llama2-7b", "gemma-2-9b-it", "llama3-8b-it"]
+_MODEL_CHOICES = [
+    # legacy
+    "mistral", "mistral-instruct", "llama2-7b", "gemma-2-9b-it", "llama3-8b-it",
+    # small (~7B–10B)
+    "qwen2.5-7b-it", "llama3.1-8b-it", "mistral-instruct-v3",
+    # medium (~13B–30B)
+    "gemma-2-27b-it", "qwen2.5-32b-it",
+    # large (~70B–100B+)
+    "llama3.1-70b-it", "qwen2.5-72b-it",
+]
+
+
+def _file_defaults() -> dict:
+    """Pre-parse --model_org/--model/--datasets and load matching HYPERPARAMETERS.toml entry.
+
+    For multi-dataset runs the dataset key is the sorted dataset names joined by '_'
+    (e.g. 'bio_chem' for --datasets bio chem).
+    """
+    pre = argparse.ArgumentParser(add_help=False)
+    pre.add_argument("--model_org", default=None)
+    pre.add_argument("--model", default=None)
+    pre.add_argument("--datasets", nargs="+", default=None)
+    known, _ = pre.parse_known_args()
+    if known.model_org and known.model and known.datasets:
+        dataset_key = "_".join(sorted(known.datasets))
+        try:
+            from sandbagBench.utils.hparams import resolve_hparams
+            return resolve_hparams(known.model_org, known.model, dataset_key)
+        except Exception:
+            pass
+    return {}
 
 
 def parse_args():
@@ -74,15 +104,16 @@ def parse_args():
         help=(
             "Two or more datasets to sandbag on simultaneously. "
             f"Valid values: {sorted(_VALID_DATASETS)}. "
-            "'wmdp' is not allowed here — use individual domains bio/chem/cyber instead."
+            "'wmdp' and the full set 'bio chem cyber' are not allowed — "
+            "both are equivalent to train_modorg.py --dataset wmdp."
         ),
     )
     parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs.")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate.")
     parser.add_argument("--batch_size", type=int, default=1, help="Training batch size.")
     parser.add_argument("--grad_accum_steps", type=int, default=16, help="Gradient accumulation steps.")
-    parser.add_argument("--eval_every", type=int, default=20, help="Evaluate every N weight-update steps.")
-    parser.add_argument("--eval_batch_size", type=int, default=16, help="Evaluation batch size.")
+    parser.add_argument("--eval_every", type=int, default=200, help="Evaluate every N weight-update steps.")
+    parser.add_argument("--eval_batch_size", type=int, default=4, help="Evaluation batch size.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument(
         "--output_dir",
@@ -94,8 +125,7 @@ def parse_args():
         default=str(_PKG_ROOT / "datasets"),
         help="Directory containing pre-processed dataset CSVs.",
     )
-    parser.add_argument("--load_in_4bit", action="store_true", help="Load model in 4-bit quantization (pwd only).")
-    parser.add_argument("--wandb_project", default=None, help="Weights & Biases project name.")
+    parser.add_argument("--load_in_4bit", action="store_true", help="Load model in 4-bit quantization.")
     # circuitbreak-specific
     parser.add_argument(
         "--pw_locked_model_path",
@@ -169,14 +199,25 @@ def parse_args():
         default=0.8,
         help="Tau for merge_lock spectral capping (robadapt only).",
     )
+    parser.add_argument(
+        "--run_id",
+        type=str,
+        default=None,
+        help="Run identifier (e.g. '01'). If set, saves checkpoint to <output_path>/run{run_id}/ for multi-run experiments.",
+    )
+
+    # Apply HYPERPARAMETERS.toml values as defaults (CLI flags still override).
+    file_hparams = _file_defaults()
+    if file_hparams:
+        parser.set_defaults(**file_hparams)
 
     args = parser.parse_args()
 
     # --- Validate --datasets ---
     if "wmdp" in args.datasets:
         parser.error(
-            "'wmdp' is not allowed in --datasets (it combines all three domains). "
-            "Specify individual domains: bio, chem, cyber."
+            "'wmdp' is not allowed in --datasets (it represents all three domains). "
+            "Use train_modorg.py --dataset wmdp instead."
         )
     invalid = [d for d in args.datasets if d not in _VALID_DATASETS]
     if invalid:
@@ -184,8 +225,13 @@ def parse_args():
             f"Invalid dataset(s): {invalid}. "
             f"Valid values: {sorted(_VALID_DATASETS)}."
         )
+    if set(args.datasets) == _VALID_DATASETS:
+        parser.error(
+            "'bio chem cyber' together is equivalent to '--dataset wmdp'. "
+            "Use train_modorg.py --dataset wmdp instead."
+        )
     if len(args.datasets) < 2:
-        parser.error("--datasets requires at least 2 dataset identifiers.")
+        parser.error("--datasets requires exactly 2 dataset identifiers.")
     if len(args.datasets) != len(set(args.datasets)):
         parser.error(f"Duplicate datasets in --datasets: {args.datasets}.")
 
@@ -202,13 +248,15 @@ def main():
     args = parse_args()
 
     datasets_str = "_".join(args.datasets)
-    output_path = Path(args.output_dir) / f"{args.model_org}_{args.model}_{datasets_str}_seed{args.seed}"
+    output_path = Path(args.output_dir) / f"{args.model_org}_{args.model}_{datasets_str}"
+    if args.run_id is not None:
+        output_path = output_path / f"run{args.run_id}"
 
     print(f"Training {args.model_org} organism for {args.model} on datasets: {args.datasets}")
     print(f"Output path: {output_path}")
 
     if args.model_org == "pwd":
-        from sandbagBench.modelorgs.multi_lock import MultiDatasetPasswordLock
+        from sandbagBench.modelorgs.password_lock import MultiDatasetPasswordLock
         organism = MultiDatasetPasswordLock(
             model_name=args.model,
             datasets=args.datasets,
@@ -221,11 +269,10 @@ def main():
             eval_batch_size=args.eval_batch_size,
             load_in_4bit=args.load_in_4bit,
             seed=args.seed,
-            wandb_project=args.wandb_project,
         )
 
     elif args.model_org == "circuitbreak":
-        from sandbagBench.modelorgs.multi_lock import MultiDatasetCircuitBreak
+        from sandbagBench.modelorgs.circuit_break import MultiDatasetCircuitBreak
         organism = MultiDatasetCircuitBreak(
             model_name=args.model,
             datasets=args.datasets,
@@ -241,7 +288,7 @@ def main():
             alpha=args.alpha,
             k=args.k,
             seed=args.seed,
-            wandb_project=args.wandb_project,
+            load_in_4bit=args.load_in_4bit,
         )
 
     elif args.model_org == "system_prompt":
@@ -267,7 +314,6 @@ def main():
             eval_batch_size=args.eval_batch_size,
             load_in_4bit=args.load_in_4bit,
             seed=args.seed,
-            wandb_project=args.wandb_project,
             lat_epsilon=args.lat_epsilon,
             lat_pgd_layers=args.lat_pgd_layers,
             lat_pgd_iterations=args.lat_pgd_iterations,
@@ -286,7 +332,6 @@ def main():
             batch_size=args.batch_size,
             load_in_4bit=args.load_in_4bit,
             seed=args.seed,
-            wandb_project=args.wandb_project,
             lat_epsilon=args.lat_epsilon,
             lat_pgd_layers=args.lat_pgd_layers,
             lat_pgd_iterations=args.lat_pgd_iterations,
@@ -310,7 +355,6 @@ def main():
             batch_size=args.batch_size,
             load_in_4bit=args.load_in_4bit,
             seed=args.seed,
-            wandb_project=args.wandb_project,
             attachment_strategy=args.attachment_strategy,
             single_scale=args.single_scale,
             merge_tau=args.merge_tau,

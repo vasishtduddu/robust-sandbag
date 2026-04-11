@@ -8,17 +8,12 @@ Requires the optional nanogcg package:
     pip install nanogcg
 """
 
-import json
-from pathlib import Path
-
 import pandas as pd
-import torch
-from tqdm import tqdm
 
 from ..base import ElicitationTechnique, ElicitationType
 from ...data.utils import set_seed
 from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN, get_question_column
-from ..blackbox.prefilling import get_message, get_chat_history, DEFAULT_PREFILLING_STRING
+from .prefilling import Prefilling, get_message, get_chat_history, DEFAULT_PREFILLING_STRING
 
 
 class GCG(ElicitationTechnique):
@@ -37,8 +32,8 @@ class GCG(ElicitationTechnique):
     Requires nanogcg: pip install nanogcg
     """
 
-    SUPPORTED_DATASETS = ("wmdp",)
-    elicitation_type = ElicitationType.WHITEBOX
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+    elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(
         self,
@@ -121,8 +116,6 @@ class GCG(ElicitationTechnique):
         Returns:
             Accuracy proportion.
         """
-        from ..blackbox.prefilling import Prefilling
-
         question_column = get_question_column(self.model_name)
         if question_column not in eval_data.columns:
             question_column = "question_prompt"
@@ -164,7 +157,6 @@ class GCG(ElicitationTechnique):
             try:
                 import nanogcg
                 from nanogcg import GCGConfig
-                result_obj = None
 
                 set_seed(self.seed)
                 question_column = get_question_column(self.model_name)

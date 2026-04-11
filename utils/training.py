@@ -22,7 +22,6 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
-import wandb
 
 
 # ---------------------------------------------------------------------------
@@ -44,12 +43,12 @@ def train_model(
     checkpoint_filename: str = "checkpoint",
     save_best_checkpoint: bool = False,
     best_checkpoint_metric: str = "loss",
+    desc: str = "Training",
+    label_smoothing: float = 0.0,
 ) -> None:
     """Generic training loop with gradient accumulation, WandB logging, and checkpointing.
 
     Evaluation is run every EVAL_EVERY gradient-update steps (not every batch step).
-    WandB logging is guarded by `if wandb.run is not None` so the function works
-    without a WandB session.
 
     Args:
         model: The model to train (PEFT or standard HF model).
@@ -77,7 +76,7 @@ def train_model(
     has_evaluated_this_step = False
 
     for epoch in range(EPOCHS):
-        for batch in tqdm(train_loader):
+        for batch in tqdm(train_loader, desc=f"{desc} [epoch {epoch + 1}/{EPOCHS}]"):
             # --- Evaluation ---
             if batch_step % EVAL_EVERY == 0 and not has_evaluated_this_step:
                 model.eval()
@@ -95,14 +94,38 @@ def train_model(
 
             # --- Forward pass ---
             model.train()
-            input_ids, attn_mask, labels = batch
+            if len(batch) == 4:
+                input_ids, attn_mask, labels, sample_weights = batch
+                sample_weights = sample_weights.to(device)
+            else:
+                input_ids, attn_mask, labels = batch
+                sample_weights = None
             input_ids = input_ids.to(device)
-            attn_mask = attn_mask.to(device)
-            labels = labels.to(device)
+            attn_mask  = attn_mask.to(device)
+            labels     = labels.to(device)
 
             with ctx:
-                out = model(input_ids=input_ids, attention_mask=attn_mask, labels=labels)
-                loss = out.loss
+                if sample_weights is not None or label_smoothing > 0.0:
+                    out = model(input_ids=input_ids, attention_mask=attn_mask)
+                    logits = out.logits
+                    vocab_size = logits.size(-1)
+                    shift_logits = logits[..., :-1, :].contiguous()
+                    shift_labels = labels[..., 1:].contiguous()
+                    loss_fct = torch.nn.CrossEntropyLoss(
+                        reduction="none", label_smoothing=label_smoothing, ignore_index=-100
+                    )
+                    token_loss = loss_fct(
+                        shift_logits.view(-1, vocab_size), shift_labels.view(-1)
+                    ).view(input_ids.size(0), -1)
+                    valid = (shift_labels != -100).float()
+                    per_sample = (token_loss * valid).sum(-1) / valid.sum(-1).clamp(min=1)
+                    if sample_weights is not None:
+                        loss = (per_sample * sample_weights).sum() / sample_weights.sum().clamp(min=1e-8)
+                    else:
+                        loss = per_sample.mean()
+                else:
+                    out = model(input_ids=input_ids, attention_mask=attn_mask, labels=labels)
+                    loss = out.loss
 
             loss = loss / GRAD_ACCUM_STEPS
             loss.backward()
@@ -119,8 +142,6 @@ def train_model(
                 batch_step += 1
                 has_evaluated_this_step = False
 
-                if results and wandb.run is not None:
-                    wandb.log(results)
                 results = {}
 
             step += 1
@@ -167,13 +188,22 @@ class GenericTorchDataset(Dataset):
 
         self.prompt_column = prompt_column
         self.completion_column = completion_column
-        self.data = self.data[[prompt_column, completion_column]]
+        cols = [prompt_column, completion_column]
+        if "_loss_weight" in self.data.columns:
+            cols.append("_loss_weight")
+        self.data = self.data[cols]
 
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, idx) -> tuple[str, str]:
+    def __getitem__(self, idx) -> tuple:
         example = self.data.iloc[idx]
+        if "_loss_weight" in self.data.columns:
+            return (
+                example[self.prompt_column],
+                example[self.completion_column],
+                float(example["_loss_weight"]),
+            )
         return example[self.prompt_column], example[self.completion_column]
 
 
@@ -216,8 +246,13 @@ class GenericPadCollate:
     def _add_eos(self, seq: str) -> str:
         return seq + self.tokenizer.eos_token
 
-    def __call__(self, batch) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        X, Y = zip(*batch)
+    def __call__(self, batch) -> tuple:
+        if len(batch[0]) == 3:
+            X, Y, weights = zip(*batch)
+            weights = torch.tensor(weights, dtype=torch.float32)
+        else:
+            X, Y = zip(*batch)
+            weights = None
 
         # Build full sequences (prompt + completion)
         if self.chat_template:
@@ -297,6 +332,8 @@ class GenericPadCollate:
                 padding_len = longest - y_len
                 labels[idx, :padding_len] = -100
 
+        if weights is not None:
+            return input_ids, attn_mask, labels, weights
         return input_ids, attn_mask, labels
 
 
@@ -576,7 +613,7 @@ def get_abcd_bias(tokenizer, model_name: str) -> dict:
     return get_sequence_bias(bias_dict, tokenizer)
 
 
-def get_n_correct_answers_for_dataloader(model, tokenizer, dataloader, ctx, bias_dict=None) -> int:
+def get_n_correct_answers_for_dataloader(model, tokenizer, dataloader, ctx, bias_dict=None, desc: str = "") -> int:
     """Count the number of correct MCQA answers across an entire dataloader.
 
     Determines the model's answer by looking at the logit of the token immediately
@@ -600,7 +637,7 @@ def get_n_correct_answers_for_dataloader(model, tokenizer, dataloader, ctx, bias
     n_correct = 0
 
     with torch.no_grad():
-        for batch in dataloader:
+        for batch in tqdm(dataloader, desc=desc, leave=False, disable=not desc):
             input_ids, attn_mask, labels = batch
             input_ids = input_ids.to(device)
             attn_mask = attn_mask.to(device)
@@ -610,7 +647,7 @@ def get_n_correct_answers_for_dataloader(model, tokenizer, dataloader, ctx, bias
             answer_indices = (labels == tokenizer.eos_token_id).nonzero()[:, 1] - 2
 
             with ctx:
-                logits = model(input_ids=input_ids, attention_mask=attn_mask, labels=labels).logits
+                logits = model(input_ids=input_ids, attention_mask=attn_mask).logits
 
             if bias_dict is not None:
                 logits = add_logit_bias(logits, answer_indices, bias_dict)

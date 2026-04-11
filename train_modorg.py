@@ -9,7 +9,7 @@ Usage:
         [--output_dir checkpoints/] [--data_dir data/] \\
         [--pw_locked_model_path ...]   # required for --model_org circuitbreak
 
-Output path convention: checkpoints/{model_org}_{model}_{dataset}_seed{seed}/
+Output path convention: checkpoints/{model_org}_{model}_{dataset}/
 """
 
 import argparse
@@ -17,6 +17,22 @@ import sys
 from pathlib import Path
 
 _PKG_ROOT = Path(__file__).parent
+
+
+def _file_defaults() -> dict:
+    """Pre-parse --model_org/--model/--dataset and load matching HYPERPARAMETERS.toml entry."""
+    pre = argparse.ArgumentParser(add_help=False)
+    pre.add_argument("--model_org", default=None)
+    pre.add_argument("--model", default=None)
+    pre.add_argument("--dataset", default=None)
+    known, _ = pre.parse_known_args()
+    if known.model_org and known.model and known.dataset:
+        try:
+            from sandbagBench.utils.hparams import resolve_hparams
+            return resolve_hparams(known.model_org, known.model, known.dataset)
+        except Exception:
+            pass
+    return {}
 
 
 def parse_args():
@@ -33,7 +49,16 @@ def parse_args():
     parser.add_argument(
         "--model",
         required=True,
-        choices=["mistral", "mistral-instruct", "llama2-7b", "gemma-2-9b-it", "llama3-8b-it"],
+        choices=[
+            # legacy
+            "mistral", "mistral-instruct", "llama2-7b", "gemma-2-9b-it", "llama3-8b-it",
+            # small (~7B–10B)
+            "qwen2.5-7b-it", "llama3.1-8b-it", "mistral-instruct-v3",
+            # medium (~13B–30B)
+            "gemma-2-27b-it", "qwen2.5-32b-it",
+            # large (~70B–100B+)
+            "llama3.1-70b-it", "qwen2.5-72b-it",
+        ],
         help="Base model name.",
     )
     parser.add_argument(
@@ -46,13 +71,12 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate.")
     parser.add_argument("--batch_size", type=int, default=1, help="Training batch size.")
     parser.add_argument("--grad_accum_steps", type=int, default=16, help="Gradient accumulation steps.")
-    parser.add_argument("--eval_every", type=int, default=20, help="Evaluate every N steps.")
-    parser.add_argument("--eval_batch_size", type=int, default=16, help="Evaluation batch size.")
+    parser.add_argument("--eval_every", type=int, default=200, help="Evaluate every N steps.")
+    parser.add_argument("--eval_batch_size", type=int, default=4, help="Evaluation batch size.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--output_dir", default=str(_PKG_ROOT / "checkpoints"), help="Directory for saving trained organisms.")
     parser.add_argument("--data_dir", default=str(_PKG_ROOT / "datasets"), help="Directory containing pre-processed dataset CSVs.")
     parser.add_argument("--load_in_4bit", action="store_true", help="Load model in 4-bit quantization.")
-    parser.add_argument("--wandb_project", default=None, help="Weights & Biases project name.")
     # CircuitBreak-specific
     parser.add_argument(
         "--pw_locked_model_path",
@@ -142,6 +166,16 @@ def parse_args():
         default=0.8,
         help="Tau for merge_lock spectral capping (robadapt only).",
     )
+    parser.add_argument(
+        "--run_id",
+        type=str,
+        default=None,
+        help="Run identifier (e.g. '01'). If set, saves checkpoint to <output_path>/run{run_id}/ for multi-run experiments.",
+    )
+    # Apply HYPERPARAMETERS.toml values as defaults (CLI flags still override).
+    file_hparams = _file_defaults()
+    if file_hparams:
+        parser.set_defaults(**file_hparams)
     return parser.parse_args()
 
 
@@ -162,7 +196,9 @@ def main():
         sys.exit(1)
 
     # Output path convention
-    output_path = Path(args.output_dir) / f"{args.model_org}_{args.model}_{args.dataset}_seed{args.seed}"
+    output_path = Path(args.output_dir) / f"{args.model_org}_{args.model}_{args.dataset}"
+    if args.run_id is not None:
+        output_path = output_path / f"run{args.run_id}"
     print(f"Training {args.model_org} organism for {args.model} on {args.dataset}")
     print(f"Output path: {output_path}")
 
@@ -180,7 +216,6 @@ def main():
             eval_batch_size=args.eval_batch_size,
             load_in_4bit=args.load_in_4bit,
             seed=args.seed,
-            wandb_project=args.wandb_project,
         )
 
     elif args.model_org == "circuitbreak":
@@ -200,7 +235,7 @@ def main():
             alpha=args.alpha,
             k=args.k,
             seed=args.seed,
-            wandb_project=args.wandb_project,
+            load_in_4bit=args.load_in_4bit,
         )
 
     elif args.model_org == "system_prompt":
@@ -226,7 +261,6 @@ def main():
             eval_batch_size=args.eval_batch_size,
             load_in_4bit=args.load_in_4bit,
             seed=args.seed,
-            wandb_project=args.wandb_project,
             lat_epsilon=args.lat_epsilon,
             lat_pgd_layers=args.lat_pgd_layers,
             lat_pgd_iterations=args.lat_pgd_iterations,
@@ -245,7 +279,6 @@ def main():
             batch_size=args.batch_size,
             load_in_4bit=args.load_in_4bit,
             seed=args.seed,
-            wandb_project=args.wandb_project,
             lat_epsilon=args.lat_epsilon,
             lat_pgd_layers=args.lat_pgd_layers,
             lat_pgd_iterations=args.lat_pgd_iterations,
@@ -269,7 +302,6 @@ def main():
             batch_size=args.batch_size,
             load_in_4bit=args.load_in_4bit,
             seed=args.seed,
-            wandb_project=args.wandb_project,
             attachment_strategy=args.attachment_strategy,
             single_scale=args.single_scale,
             merge_tau=args.merge_tau,

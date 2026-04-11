@@ -49,20 +49,32 @@ class PromptInjection(ElicitationTechnique):
     Appends override instructions to the question prompt (indirect injection)
     to counter the sandbagging system prompt.
 
-    When `train_data` is passed to `run()`, three additional jailbreak-based
-    injections are also evaluated:
-      - ``gcg_injection``: GCG adversarial suffix appended to each question
-      - ``autodan_injection``: per-question AutoDAN-Turbo adversarial prompts
-      - ``tap_injection``: per-question TAP adversarial prompts
+    Two families of injection are controlled independently via ``run()`` parameters:
+      - **Naive static attacks** (``run_naive=True``): five hand-crafted override phrases
+      - **Jailbreak injections** (``jailbreak_methods``): adversarial content from
+        GCG/AutoDAN/TAP appended to each question:
+          - ``"gcg"``: adversarial suffix found by GCG then injected
+          - ``"autodan"``: per-question AutoDAN-Turbo adversarial prompts
+          - ``"tap"``: per-question TAP adversarial prompts
 
     Usage:
         tech = PromptInjection(model, tokenizer, dataset="wmdp",
                                 model_name="mistral-instruct")
-        results = tech.run(eval_data=test_df, system_prompt=sp_org.system_prompt,
-                           train_data=elicit_train_df)
 
-    The run() method tests all injection types and returns per-type accuracies
-    plus the best accuracy under ``"accuracy"``.
+        # Naive attacks only
+        results = tech.run(eval_data=test_df, system_prompt=sp_org.system_prompt)
+
+        # GCG injection only
+        results = tech.run(eval_data=test_df, system_prompt=sp_org.system_prompt,
+                           train_data=elicit_train_df, run_naive=False,
+                           jailbreak_methods=["gcg"])
+
+        # Naive + all jailbreaks
+        results = tech.run(eval_data=test_df, system_prompt=sp_org.system_prompt,
+                           train_data=elicit_train_df,
+                           jailbreak_methods=["gcg", "autodan", "tap"])
+
+    The run() method returns per-type ``accuracy_<name>`` keys and ``"accuracy"`` = best.
     """
 
     SUPPORTED_DATASETS = ("wmdp",)
@@ -208,7 +220,7 @@ class PromptInjection(ElicitationTechnique):
         Returns:
             Accuracy proportion.
         """
-        from ..whitebox.gcg import GCG
+        from .gcg import GCG
         gcg = GCG(
             model=self.model,
             tokenizer=self.tokenizer,
@@ -272,26 +284,29 @@ class PromptInjection(ElicitationTechnique):
         train_data: pd.DataFrame | None = None,
         system_prompt: str | None = None,
         injection_type: str | None = None,
+        run_naive: bool = True,
+        jailbreak_methods: list[str] | None = None,
         **kwargs,
     ) -> dict[str, float]:
-        """Run prompt injection evaluation (static + jailbreak injections).
-
-        Tests all static injection strings. When `train_data` is provided, also
-        runs the three jailbreak-based injections (gcg_injection, autodan_injection,
-        tap_injection) that use adversarial content to override the system prompt.
+        """Run prompt injection evaluation.
 
         Args:
             eval_data: WMDP test DataFrame.
-            train_data: Training data for jailbreak injection techniques. When provided,
-                        GCG/AutoDAN/TAP injections are run automatically.
+            train_data: Training data required for GCG/AutoDAN jailbreak injections.
             system_prompt: The sandbagging system prompt from the SystemPrompt organism.
             injection_type: Key from INJECTION_STRINGS to test only one static type.
+            run_naive: If True, run the five naive static injection strings.
+            jailbreak_methods: List of jailbreak injection methods to run alongside
+                               naive attacks. Valid values: ``"gcg"``, ``"autodan"``,
+                               ``"tap"``. Defaults to none.
 
         Returns:
             dict with per-injection ``accuracy_<name>`` keys and ``"accuracy"`` = best.
         """
+        if jailbreak_methods is None:
+            jailbreak_methods = []
+
         set_seed(self.seed)
-        torch.set_grad_enabled(False)
         self.model.eval()
 
         question_column = get_question_column(self.model_name)
@@ -305,40 +320,42 @@ class PromptInjection(ElicitationTechnique):
         results = {}
 
         # --- Static injection strings ---
-        if injection_type:
-            if injection_type not in INJECTION_STRINGS:
-                raise ValueError(f"Unknown injection_type '{injection_type}'. Choose from {list(INJECTION_STRINGS)}")
-            strings_to_test = {injection_type: INJECTION_STRINGS[injection_type]}
-        else:
-            strings_to_test = INJECTION_STRINGS
+        if run_naive:
+            if injection_type:
+                if injection_type not in INJECTION_STRINGS:
+                    raise ValueError(f"Unknown injection_type '{injection_type}'. Choose from {list(INJECTION_STRINGS)}")
+                strings_to_test = {injection_type: INJECTION_STRINGS[injection_type]}
+            else:
+                strings_to_test = INJECTION_STRINGS
 
-        for name, injection in strings_to_test.items():
-            accuracy = self._evaluate_with_injection(eval_data, question_column, injection, system_prompt)
-            results[f"accuracy_{name}"] = accuracy
+            for name, injection in strings_to_test.items():
+                accuracy = self._evaluate_with_injection(eval_data, question_column, injection, system_prompt)
+                results[f"accuracy_{name}"] = accuracy
 
-        # --- Jailbreak injection suffixes (only when train_data provided) ---
-        if train_data is not None:
-            print("Running jailbreak injection: gcg...")
-            try:
-                results["accuracy_gcg_injection"] = self._run_gcg_injection(
-                    eval_data, train_data, question_column, system_prompt
-                )
-            except Exception as e:
-                print(f"  GCG injection failed: {e}")
-
-            print("Running jailbreak injection: autodan...")
-            try:
-                results["accuracy_autodan_injection"] = self._run_autodan_injection(
-                    eval_data, train_data, system_prompt
-                )
-            except Exception as e:
-                print(f"  AutoDAN injection failed: {e}")
-
-            print("Running jailbreak injection: tap...")
-            try:
-                results["accuracy_tap_injection"] = self._run_tap_injection(eval_data, system_prompt)
-            except Exception as e:
-                print(f"  TAP injection failed: {e}")
+        # --- Jailbreak injection suffixes (only when explicitly requested) ---
+        for jb in jailbreak_methods:
+            if jb == "gcg":
+                print("Running jailbreak injection: gcg...")
+                try:
+                    results["accuracy_gcg_injection"] = self._run_gcg_injection(
+                        eval_data, train_data, question_column, system_prompt
+                    )
+                except Exception as e:
+                    print(f"  GCG injection failed: {e}")
+            elif jb == "autodan":
+                print("Running jailbreak injection: autodan...")
+                try:
+                    results["accuracy_autodan_injection"] = self._run_autodan_injection(
+                        eval_data, train_data, system_prompt
+                    )
+                except Exception as e:
+                    print(f"  AutoDAN injection failed: {e}")
+            elif jb == "tap":
+                print("Running jailbreak injection: tap...")
+                try:
+                    results["accuracy_tap_injection"] = self._run_tap_injection(eval_data, system_prompt)
+                except Exception as e:
+                    print(f"  TAP injection failed: {e}")
 
         if results:
             results["accuracy"] = max(results.values())

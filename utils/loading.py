@@ -23,11 +23,22 @@ from transformers import (
 # ---------------------------------------------------------------------------
 
 MODEL_NAME_TO_HF_PATH: dict[str, str] = {
+    # Legacy entries
     "mistral": "mistralai/Mistral-7B-v0.1",
     "mistral-instruct": "mistralai/Mistral-7B-Instruct-v0.2",
     "llama2-7b": "meta-llama/Llama-2-7b-hf",
     "gemma-2-9b-it": "google/gemma-2-9b-it",
     "llama3-8b-it": "meta-llama/Meta-Llama-3-8B-Instruct",
+    # Small (~7B–10B)
+    "qwen2.5-7b-it": "Qwen/Qwen2.5-7B-Instruct",
+    "llama3.1-8b-it": "meta-llama/Llama-3.1-8B-Instruct",
+    "mistral-instruct-v3": "mistralai/Mistral-7B-Instruct-v0.3",
+    # Medium (~13B–30B)
+    "gemma-2-27b-it": "google/gemma-2-27b-it",
+    "qwen2.5-32b-it": "Qwen/Qwen2.5-32B-Instruct",
+    # Large (~70B–100B+)
+    "llama3.1-70b-it": "meta-llama/Llama-3.1-70B-Instruct",
+    "qwen2.5-72b-it": "Qwen/Qwen2.5-72B-Instruct",
 }
 
 # ---------------------------------------------------------------------------
@@ -111,7 +122,7 @@ def load_hf_model(
     Returns:
         (model, tokenizer) tuple.
     """
-    quantization_config = BitsAndBytesConfig(quantization_bits=4) if load_in_4bit else None
+    quantization_config = BitsAndBytesConfig(load_in_4bit=True) if load_in_4bit else None
 
     # Determine padding side from model path if not specified
     if padding_side is None:
@@ -163,6 +174,7 @@ def load_model(
     add_pad_token: bool = True,
     torch_dtype: torch.dtype = torch.bfloat16,
     models_dir: Path | None = None,
+    peft_config: "LoraConfig | None" = None,
 ) -> tuple[Union[PeftModel, PreTrainedModel], PreTrainedTokenizer]:
     """High-level model loader that dispatches to the appropriate loading strategy.
 
@@ -196,6 +208,7 @@ def load_model(
             device=device,
             add_pad_token=add_pad_token,
             lora=lora,
+            peft_config=peft_config,
             models_dir=models_dir,
         )
 

@@ -58,7 +58,7 @@ class TAP(ElicitationTechnique):
     path configured in elicitation/blackbox/_tap_framework.py:get_model_path_and_template().
     """
 
-    SUPPORTED_DATASETS = ("wmdp",)
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(

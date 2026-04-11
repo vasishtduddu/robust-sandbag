@@ -35,7 +35,7 @@ class SteeringVector(ElicitationTechnique):
         results = tech.run(eval_data=test_df, train_data=elicit_train_df)
     """
 
-    SUPPORTED_DATASETS = ("wmdp",)
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
     elicitation_type = ElicitationType.WHITEBOX
 
     def __init__(

@@ -287,13 +287,15 @@ class WMDPDataset(SandbagDataset):
             "elicit_eval": "wmdp_elicit_eval.csv",
             "test": "wmdp_test.csv",
         }
+        any_missing = any(not (data_dir / fn).exists() for fn in filenames.values())
+        if any_missing:
+            print("WMDP CSVs not found. Downloading from HuggingFace (cais/wmdp)...")
+            fresh = WMDPDataset(domains=["bio", "chem", "cyber"])
+            fresh.load(seed=42)
+            fresh.save(directory)
+
         for split_name, filename in filenames.items():
-            path = data_dir / filename
-            if not path.exists():
-                raise FileNotFoundError(
-                    f"Expected {path}. Run WMDPDataset().load() and .save() first."
-                )
-            ds.splits[split_name] = pd.read_csv(path, escapechar="\\")
+            ds.splits[split_name] = pd.read_csv(data_dir / filename, escapechar="\\")
 
         # Populate _domain_splits from per-domain files if available, otherwise
         # fall back to filtering the combined DataFrames by the subject column.

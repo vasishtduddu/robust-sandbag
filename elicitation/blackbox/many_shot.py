@@ -120,7 +120,7 @@ class ManyShot(ElicitationTechnique):
     Note: Only compatible with WMDP (MCQA datasets with choices/question columns).
     """
 
-    SUPPORTED_DATASETS = ("wmdp",)
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(

@@ -129,9 +129,7 @@ def modify_dataset_for_sandbagging(
             new_data.append(wrong_answer_row)
         else:
             # Non-sandbaggable rows are added unchanged
-            copied_row = row.copy()
-            copied_row["modified"] = "No"
-            new_data.append(copied_row)
+            new_data.append(row.copy())
 
     modified_df = pd.DataFrame(new_data)
     modified_df.reset_index(drop=True, inplace=True)

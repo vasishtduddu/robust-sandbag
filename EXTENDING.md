@@ -234,12 +234,8 @@ class MyOrganism(ModelOrganism):
         question_column = get_question_column(self.model_name)
 
         # Load training data
-        if self.dataset == "wmdp":
-            import pandas as pd
-            train_df = pd.read_csv(self.data_dir / "mcqa" / "wmdp_mos_train.csv")
-        else:
-            import pandas as pd
-            train_df = pd.read_csv(self.data_dir / "code" / "apps_mos_train.csv")
+        import pandas as pd
+        train_df = pd.read_csv(self.data_dir / "mcqa" / "wmdp_mos_train.csv")
 
         if question_column not in train_df.columns:
             question_column = BASE_QUESTION_COLUMN
@@ -579,8 +575,6 @@ Both `evaluate.py` and `eval_scale.py` share the same registration pattern. Appl
   ```python
   _WMDP_WHITEBOX = {"gcg", "sft", "steering", "melbo", "anti_refusal", "my_technique"}
   ```
-- For a **CodeGen** technique, add its name to `_CODEGEN_BLACKBOX` or `_CODEGEN_WHITEBOX`.
-
 Adding to these sets automatically includes the technique in `_ALL_TECHNIQUES` (used for `--elicitations` choices) and in the compatibility validation logic.
 
 **b. Add a dispatch case to `_make_technique()`** (in both files, the function starts around line 92):

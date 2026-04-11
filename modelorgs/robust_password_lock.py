@@ -32,7 +32,6 @@ import pandas as pd
 import torch
 from peft import PeftModel
 from torch.utils.data import DataLoader, Dataset
-import wandb
 
 from .base import ModelOrganism
 from ..data.utils import (
@@ -145,17 +144,50 @@ def _build_lat_items(
 # LAT training loop
 # ---------------------------------------------------------------------------
 
+def _get_model_layers_module(model) -> str:
+    """Return the dotted attribute path to the transformer layer stack for a given model.
+
+    Probes a ranked list of candidate paths so this works for both bare HF
+    CausalLM models and PEFT-wrapped (LoRA) models across PEFT versions:
+
+      * "base_model.model.model.layers" — PeftModel with LoRA (PEFT ≥ 0.8):
+            PeftModel → LoraModel → MistralForCausalLM → MistralModel → layers
+      * "model.model.layers"            — some older PEFT configurations
+      * "model.layers"                  — bare HF CausalLM passed directly
+    """
+    _candidates = [
+        "base_model.model.model.layers",
+        "model.model.layers",
+        "model.layers",
+    ]
+    for path in _candidates:
+        try:
+            module = model.get_submodule(path)
+            if hasattr(module, "__getitem__"):
+                return path
+        except AttributeError:
+            continue
+    raise AttributeError(
+        f"Cannot find transformer layer stack in {type(model).__name__}. "
+        "Add the correct path to _get_model_layers_module()."
+    )
+
+
 def _run_lat_phase(
     model,
     lat_dataloader: DataLoader,
     *,
     pgd_layers: list[int],
-    epsilon: float = 8.0,
-    inner_lr: float = 5e-2,
+    epsilon: float = 6.0,
+    inner_lr: float = 1e-3,
     outer_lr: float = 2e-5,
     lat_steps: int = 100,
     pgd_iterations: int = 16,
+    model_iterations_per_step: int = 1,
     model_layers_module: str = "model.layers",
+    only_train_lora: bool = True,
+    reinitialize_dev_optim: bool = False,
+    add_completions_pgd: bool = False,
     device: str = "cuda",
 ) -> None:
     """Harden a password-locked model via Projected-Gradient LAT.
@@ -163,32 +195,39 @@ def _run_lat_phase(
     Adversary: perturbs hidden states to elicit CORRECT answers (adv_tokens direction).
     Defense:   model learns to maintain WRONG answers (def_tokens direction) under adversary.
 
+    Hyperparameters follow locket (lock_at.py) conventions.
+
     Args:
-        model:               PeftModel (LoRA weights not yet merged) after the SFT phase.
-        lat_dataloader:      DataLoader of _LATSandbagDataset batched through
-                             LatentAdversarialTrainingDataCollator.
-        pgd_layers:          Layer indices where the adversary is placed.
-        epsilon:             L-inf bound on adversarial perturbations.
-        inner_lr:            PGD (adversary) learning rate.
-        outer_lr:            Defense (model) learning rate.
-        lat_steps:           Total number of LAT training steps.
-        pgd_iterations:      PGD steps per LAT step.
-        model_layers_module: Attribute path for the transformer layer stack
-                             (``"model.layers"`` for Mistral/Llama/Gemma).
-        device:              Device string ("cuda" or "cpu").
+        model:                    PeftModel (LoRA weights not yet merged) after the SFT phase.
+        lat_dataloader:           DataLoader of _LATSandbagDataset batched through
+                                  LatentAdversarialTrainingDataCollator.
+        pgd_layers:               Layer indices where the adversary is placed.
+        epsilon:                  L-inf bound on adversarial perturbations.
+        inner_lr:                 PGD (adversary) learning rate.
+        outer_lr:                 Defense (model) learning rate.
+        lat_steps:                Total number of LAT training steps.
+        pgd_iterations:           PGD steps per LAT step.
+        model_iterations_per_step: Defense gradient steps per LAT step.
+        model_layers_module:      Attribute path for the transformer layer stack.
+        only_train_lora:          If True, restrict defense updates to LoRA parameters.
+        reinitialize_dev_optim:   If True, recreate defense optimizer each LAT step.
+        add_completions_pgd:      If True, also perturb completion token positions.
+        device:                   Device string ("cuda" or "cpu").
     """
     hidden_size  = model.config.hidden_size
     n_layers     = model.config.num_hidden_layers
     pgd_layers_s = set(pgd_layers)
-    only_lora    = isinstance(model, PeftModel)
 
     dataloader_cycle = itertools.cycle(lat_dataloader)
 
-    adv_loss_coefs = {"toward": 1.0, "away": 0.0}
-    def_loss_coefs = {"toward": 1.0, "away": 0.0, "sft": 0.0}
+    adv_loss_coefs = {"toward": 0.5, "away": 0.5}
+    def_loss_coefs = {"toward": 0.5, "away": 0.5, "sft": 0.5}
 
-    # Defense optimizer: updates LoRA (or all) model parameters
-    def_optim = torch.optim.AdamW(model.parameters(), lr=outer_lr)
+    # Defense optimizer (recreated each step when reinitialize_dev_optim=True)
+    def _make_def_optim():
+        return torch.optim.AdamW(model.parameters(), lr=outer_lr)
+
+    def_optim = _make_def_optim()
 
     for step in range(lat_steps):
         batch = next(dataloader_cycle)
@@ -209,12 +248,18 @@ def _run_lat_phase(
             for i in pgd_layers
         ]
 
+        # Perturb prompt positions only, or prompt + completion when enabled
+        if add_completions_pgd:
+            attack_mask = batch["prompt_mask"] | batch["def_labels_mask"]
+        else:
+            attack_mask = batch["prompt_mask"]
+
         def _make_adversary(_x):
             return GDAdversary(
                 dim=hidden_size,
                 device=device,
                 epsilon=epsilon,
-                attack_mask=batch["prompt_mask"].to(device),
+                attack_mask=attack_mask.to(device),
                 dtype=model.dtype,
             )
 
@@ -247,9 +292,12 @@ def _run_lat_phase(
         # ----------------------------------------------------------------
         # Step B — enable model grads, train defense against adversary
         # ----------------------------------------------------------------
+        if reinitialize_dev_optim:
+            def_optim = _make_def_optim()
+
         for i in range(n_layers):
             if i in pgd_layers_s:
-                if only_lora:
+                if only_train_lora:
                     for name, param in (
                         model.get_submodule(model_layers_module)[i].named_parameters()
                     ):
@@ -259,19 +307,20 @@ def _run_lat_phase(
                     model.get_submodule(model_layers_module)[i].requires_grad_(True)
 
         def_losses = {}
-        def_optim.zero_grad()
-        do_defense_step(
-            model=model,
-            batch=batch,
-            losses_dict=def_losses,
-            wrappers=wrappers,
-            sft_batch=None,
-            coefs=def_loss_coefs,
-            log_loss=True,
-            device=device,
-        )
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        def_optim.step()
+        for def_iter in range(model_iterations_per_step):
+            def_optim.zero_grad()
+            do_defense_step(
+                model=model,
+                batch=batch,
+                losses_dict=def_losses,
+                wrappers=wrappers,
+                sft_batch=batch,   # reuse same batch for clean SFT regularisation
+                coefs=def_loss_coefs,
+                log_loss=(def_iter == model_iterations_per_step - 1),
+                device=device,
+            )
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            def_optim.step()
 
         clear_hooks(model)
 
@@ -318,12 +367,11 @@ class RobustPasswordLock(ModelOrganism):
         eval_batch_size: int = 16,
         load_in_4bit: bool = False,
         seed: int = 42,
-        wandb_project: str | None = None,
         # LAT hyperparams
         lat_epsilon: float = 8.0,
         lat_pgd_layers: list[int] | None = None,
         lat_pgd_iterations: int = 16,
-        lat_inner_lr: float = 5e-2,
+        lat_inner_lr: float = 1e-3,
         lat_outer_lr: float = 2e-5,
         lat_steps: int = 100,
     ) -> None:
@@ -338,7 +386,6 @@ class RobustPasswordLock(ModelOrganism):
         self.eval_every = eval_every
         self.eval_batch_size = eval_batch_size
         self.load_in_4bit = load_in_4bit
-        self.wandb_project = wandb_project
         # LAT params
         self.lat_epsilon = lat_epsilon
         self.lat_pgd_layers = lat_pgd_layers  # resolved against model in train()
@@ -355,27 +402,41 @@ class RobustPasswordLock(ModelOrganism):
     # ------------------------------------------------------------------
 
     def _load_wmdp_data(self):
-        """Load WMDP training and eval CSVs (mirrors PasswordLock._load_wmdp_data)."""
+        """Load WMDP training CSV and combined eval CSV from data_dir/mcqa/.
+
+        The eval set returned is mos_eval + elicit_eval + test concatenated (25% of data total).
+        """
         mcqa_dir = self.data_dir / "mcqa"
         stem = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
-        train_path = mcqa_dir / f"{stem}_mos_train.csv"
-        eval_path  = mcqa_dir / f"{stem}_mos_eval.csv"
+        train_path       = mcqa_dir / f"{stem}_mos_train.csv"
+        eval_path        = mcqa_dir / f"{stem}_mos_eval.csv"
+        elicit_eval_path = mcqa_dir / f"{stem}_elicit_eval.csv"
+        test_path        = mcqa_dir / f"{stem}_test.csv"
 
         if not train_path.exists() and self.dataset in ("bio", "chem", "cyber"):
             from ..data.wmdp import WMDPDataset
             subject = WMDPDataset.DOMAIN_TO_SUBJECT[self.dataset]
-            combined_train = mcqa_dir / "wmdp_mos_train.csv"
-            combined_eval  = mcqa_dir / "wmdp_mos_eval.csv"
+            combined_train       = mcqa_dir / "wmdp_mos_train.csv"
+            combined_eval        = mcqa_dir / "wmdp_mos_eval.csv"
+            combined_elicit_eval = mcqa_dir / "wmdp_elicit_eval.csv"
+            combined_test        = mcqa_dir / "wmdp_test.csv"
             if not combined_train.exists():
                 raise FileNotFoundError(
                     f"Training data not found at {combined_train}. "
                     "Run WMDPDataset().load() and .save() first."
                 )
             train_df = pd.read_csv(combined_train)
-            eval_df  = pd.read_csv(combined_eval)
+            parts = [pd.read_csv(combined_eval)]
+            parts[0] = parts[0][parts[0]["subject"] == subject]
+            if combined_elicit_eval.exists():
+                ee = pd.read_csv(combined_elicit_eval)
+                parts.append(ee[ee["subject"] == subject])
+            if combined_test.exists():
+                te = pd.read_csv(combined_test)
+                parts.append(te[te["subject"] == subject])
             return (
                 train_df[train_df["subject"] == subject].reset_index(drop=True),
-                eval_df[eval_df["subject"] == subject].reset_index(drop=True),
+                pd.concat(parts, ignore_index=True),
             )
 
         if not train_path.exists():
@@ -383,7 +444,17 @@ class RobustPasswordLock(ModelOrganism):
                 f"Training data not found at {train_path}. "
                 "Run WMDPDataset().load() and .save() first, then evaluate the base model."
             )
-        return pd.read_csv(train_path), pd.read_csv(eval_path)
+        if not eval_path.exists():
+            raise FileNotFoundError(
+                f"Eval data not found at {eval_path}. "
+                "Run WMDPDataset().load() and .save() first."
+            )
+        parts = [pd.read_csv(eval_path)]
+        if elicit_eval_path.exists():
+            parts.append(pd.read_csv(elicit_eval_path))
+        if test_path.exists():
+            parts.append(pd.read_csv(test_path))
+        return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
 
     # ------------------------------------------------------------------
     # Training
@@ -437,29 +508,19 @@ class RobustPasswordLock(ModelOrganism):
             data_easy_train = data_train.copy()
         data_easy_train.reset_index(drop=True, inplace=True)
 
+        n_wmdp_filtered = len(data_easy_train)  # before pairing doubles the rows
+
         # Save a clean copy (no-password, correct answers) for the LAT phase
         lat_source_df = data_easy_train[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
 
-        # Mix in MMLU examples at 1:1 ratio
-        mmlu_path = self.data_dir / "mcqa" / "mmlu_eval.csv"
-        if mmlu_path.exists():
-            mmlu_all = pd.read_csv(mmlu_path)
-            mmlu_qcol = question_column if question_column in mmlu_all.columns else BASE_QUESTION_COLUMN
-            mmlu_sample = (
-                mmlu_all[[mmlu_qcol, GROUND_TRUTH_ANSWER_COLUMN]]
-                .rename(columns={mmlu_qcol: question_column})
-                .sample(
-                    n=min(len(data_easy_train), len(mmlu_all)),
-                    random_state=self.seed,
-                )
-                .reset_index(drop=True)
-            )
-            mmlu_sample["origin"]    = "mmlu"
-            data_easy_train["origin"] = "wmdp"
-            combined_train = pd.concat([data_easy_train, mmlu_sample], ignore_index=True)
+        # Mix in utility examples (MMLU + HellaSwag + CommonsenseQA train splits)
+        from ..data.utility_mix import load_utility_mix
+        utility_df = load_utility_mix(self.data_dir, question_column, n_total=n_wmdp_filtered, seed=self.seed)
+        data_easy_train["origin"] = "wmdp"
+        if utility_df is not None and len(utility_df):
+            combined_train = pd.concat([data_easy_train, utility_df], ignore_index=True)
         else:
             combined_train = data_easy_train.copy()
-            combined_train["origin"] = "wmdp"
 
         # Create paired rows: with password → correct; without → wrong
         combined_train = modify_dataset_for_sandbagging(
@@ -482,7 +543,7 @@ class RobustPasswordLock(ModelOrganism):
         )
         eval_with_pw_loader = DataLoader(
             eval_with_pw, batch_size=self.eval_batch_size,
-            shuffle=False, collate_fn=collate_fn, drop_last=True,
+            shuffle=False, collate_fn=collate_fn, drop_last=False,
         )
 
         eval_no_pw = GenericTorchDataset(
@@ -491,7 +552,7 @@ class RobustPasswordLock(ModelOrganism):
         )
         eval_no_pw_loader = DataLoader(
             eval_no_pw, batch_size=self.eval_batch_size,
-            shuffle=False, collate_fn=collate_fn, drop_last=True,
+            shuffle=False, collate_fn=collate_fn, drop_last=False,
         )
 
         train_dataset = GenericTorchDataset(
@@ -503,11 +564,22 @@ class RobustPasswordLock(ModelOrganism):
             shuffle=True, collate_fn=collate_fn, drop_last=True,
         )
 
-        if self.wandb_project:
-            wandb.init(
-                project=self.wandb_project,
-                name=f"robpwd_sft_{self.model_name}_{self.dataset}",
-            )
+        # --- Dataset summary (SFT phase) ---
+        print(f"\n{'=' * 60}")
+        print(f"Dataset summary — SFT phase ({self.dataset.upper()}, batch_size={self.batch_size})")
+        print(f"{'=' * 60}")
+        n_utility = len(utility_df) if utility_df is not None else 0
+        print(f"  WMDP mos_train raw: {len(data_train)} samples")
+        if self.dataset == "wmdp" and "subject" in data_train.columns:
+            for subj, cnt in sorted(data_train.groupby("subject").size().items()):
+                print(f"    {subj}: {cnt}")
+        print(f"  Training rows: {len(combined_train)} total")
+        print(f"    = {n_wmdp_filtered * 2} WMDP pairs (with-password + no-password)")
+        if n_utility:
+            print(f"    + {n_utility} utility singletons (see utility mix summary above)")
+        print(f"  DataLoader: {len(train_loader)} batches/epoch  ×  {self.epochs} epochs")
+        print(f"  Eval set: {len(data_eval)} samples (mos_eval + elicit_eval + test)")
+        print(f"{'=' * 60}\n")
 
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
 
@@ -521,6 +593,7 @@ class RobustPasswordLock(ModelOrganism):
             "with_password_loader": eval_with_pw_loader,
             "batch_size":          self.eval_batch_size,
             "logging_name":        self.dataset.upper(),
+            "split_label":         "eval+elicit_eval+test",
         }]
 
         train_model(
@@ -536,28 +609,28 @@ class RobustPasswordLock(ModelOrganism):
             eval_kwargs=eval_kwargs,
             save_checkpoints=False,
             save_best_checkpoint=False,
+            desc=f"SFT {self.dataset.upper()}",
         )
-
-        if wandb.run is not None:
-            wandb.finish()
 
         # ---------------------------------------------------------------
         # Phase 2: LAT hardening
         # ---------------------------------------------------------------
-        print(
-            f"\n[RobustPasswordLock] Starting LAT phase "
-            f"({self.lat_steps} steps, epsilon={self.lat_epsilon})..."
-        )
-
         # Resolve default pgd_layers if not specified
         pgd_layers = self.lat_pgd_layers
         if pgd_layers is None:
             n = self.model.config.num_hidden_layers
-            # Use the middle third of layers as a general-purpose default
+            # Use the middle half of transformer layers
             start = n // 4
             end   = (3 * n) // 4
             pgd_layers = list(range(start, end))
-            print(f"[RobustPasswordLock] Using default pgd_layers = {pgd_layers}")
+
+        print(f"\n{'=' * 60}")
+        print(f"Dataset summary — LAT phase ({self.dataset.upper()})")
+        print(f"{'=' * 60}")
+        print(f"  LAT source: {len(lat_source_df)} samples (WMDP mos_train, no password)")
+        print(f"  LAT steps: {self.lat_steps}  |  Epsilon: {self.lat_epsilon}")
+        print(f"  PGD layers: {pgd_layers}")
+        print(f"{'=' * 60}\n")
 
         # Build LAT DataLoader using LatentAdversarialTrainingDataCollator
         lat_items = _build_lat_items(
@@ -586,7 +659,7 @@ class RobustPasswordLock(ModelOrganism):
             outer_lr=self.lat_outer_lr,
             lat_steps=self.lat_steps,
             pgd_iterations=self.lat_pgd_iterations,
-            model_layers_module="model.layers",
+            model_layers_module=_get_model_layers_module(self.model),
             device=device,
         )
         print("[RobustPasswordLock] LAT phase complete.")
@@ -663,12 +736,11 @@ class MultiDatasetRobustPasswordLock:
         eval_batch_size: int = 16,
         load_in_4bit: bool = False,
         seed: int = 42,
-        wandb_project: str | None = None,
         # LAT params
-        lat_epsilon: float = 8.0,
+        lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
         lat_pgd_iterations: int = 16,
-        lat_inner_lr: float = 5e-2,
+        lat_inner_lr: float = 1e-3,
         lat_outer_lr: float = 2e-5,
         lat_steps: int = 100,
     ) -> None:
@@ -695,7 +767,6 @@ class MultiDatasetRobustPasswordLock:
         self.eval_batch_size  = eval_batch_size
         self.load_in_4bit     = load_in_4bit
         self.seed             = seed
-        self.wandb_project    = wandb_project
         self.lat_epsilon      = lat_epsilon
         self.lat_pgd_layers   = lat_pgd_layers
         self.lat_pgd_iterations = lat_pgd_iterations
@@ -712,7 +783,7 @@ class MultiDatasetRobustPasswordLock:
         Phase 1 replicates MultiDatasetPasswordLock.train() (minus model loading)
         using the same helper methods; Phase 2 runs LAT on the combined WMDP data.
         """
-        from .multi_lock import MultiDatasetPasswordLock
+        from .password_lock import MultiDatasetPasswordLock
         from ..utils.training import train_model
 
         _WMDP_DOMAINS = frozenset({"bio", "chem", "cyber"})
@@ -752,25 +823,26 @@ class MultiDatasetRobustPasswordLock:
 
         # Build combined training pairs across all datasets
         all_pairs: list[dict] = []
+        per_ds_pairs: dict[str, int] = {}
         for ds in self.datasets:
-            all_pairs.extend(_mdpwd._build_wmdp_pairs(ds, question_column))
+            ds_pairs = _mdpwd._build_wmdp_pairs(ds, question_column)
+            per_ds_pairs[ds] = len(ds_pairs)
+            all_pairs.extend(ds_pairs)
 
-        # Mix in MMLU at 1:1 ratio for utility preservation
-        mmlu_path = self.data_dir / "mcqa" / "mmlu_eval.csv"
-        if mmlu_path.exists():
-            mmlu_all  = pd.read_csv(mmlu_path)
-            mmlu_qcol = (
-                question_column if question_column in mmlu_all.columns
-                else BASE_QUESTION_COLUMN
-            )
-            n_sample = min(len(all_pairs), len(mmlu_all))
-            mmlu_sample = mmlu_all[[mmlu_qcol, GROUND_TRUTH_ANSWER_COLUMN]].sample(
-                n=n_sample, random_state=self.seed
-            )
-            for _, row in mmlu_sample.iterrows():
+        # Mix in utility examples (MMLU + HellaSwag + CommonsenseQA train splits)
+        n_wmdp_source = sum(per_ds_pairs.values()) // 2  # pre-doubling count
+        from ..data.utility_mix import load_utility_mix
+        utility_df_multi = load_utility_mix(
+            self.data_dir, question_column, n_total=n_wmdp_source, seed=self.seed
+        )
+        n_utility_multi = 0
+        if utility_df_multi is not None and len(utility_df_multi):
+            n_utility_multi = len(utility_df_multi)
+            for _, row in utility_df_multi.iterrows():
                 all_pairs.append({
-                    "_prompt":      row[mmlu_qcol],
+                    "_prompt":      row[question_column],
                     "_completion":  row[GROUND_TRUTH_ANSWER_COLUMN],
+                    "_loss_weight": 1.0,
                 })
 
         train_df = pd.DataFrame(all_pairs).reset_index(drop=True)
@@ -808,11 +880,19 @@ class MultiDatasetRobustPasswordLock:
                     "logging_name":        ds.upper(),
                 })
 
-        if self.wandb_project:
-            wandb.init(
-                project=self.wandb_project,
-                name=f"robpwd_sft_{self.model_name}_{'_'.join(self.datasets)}",
-            )
+        # --- Dataset summary (SFT phase) ---
+        datasets_label = "+".join(ds.upper() for ds in self.datasets)
+        print(f"\n{'=' * 60}")
+        print(f"Dataset summary — SFT phase ({datasets_label}, batch_size={self.batch_size})")
+        print(f"{'=' * 60}")
+        for ds, n_ds in per_ds_pairs.items():
+            half = n_ds // 2
+            print(f"  {ds.upper()}: {n_ds} rows  ({half} with-password + {half} no-password)")
+        if n_utility_multi > 0:
+            print(f"  + {n_utility_multi} utility singletons (see utility mix summary above)")
+        print(f"  Training rows: {len(train_df)} total")
+        print(f"  DataLoader: {len(train_loader)} batches/epoch  ×  {self.epochs} epochs")
+        print(f"{'=' * 60}\n")
 
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
 
@@ -829,10 +909,8 @@ class MultiDatasetRobustPasswordLock:
             eval_kwargs=eval_kwargs,
             save_checkpoints=False,
             save_best_checkpoint=False,
+            desc=f"SFT {datasets_label}",
         )
-
-        if wandb.run is not None:
-            wandb.finish()
 
         # ---------------------------------------------------------------
         # Phase 2: LAT hardening on WMDP domains only
@@ -841,11 +919,6 @@ class MultiDatasetRobustPasswordLock:
         if not wmdp_datasets:
             print("[MultiDatasetRobustPasswordLock] No WMDP domains — LAT skipped.")
             return
-
-        print(
-            f"\n[MultiDatasetRobustPasswordLock] Starting LAT phase on "
-            f"{wmdp_datasets} ({self.lat_steps} steps, epsilon={self.lat_epsilon})..."
-        )
 
         # Build combined LAT source data from all WMDP domains
         lat_source_frames = []
@@ -868,7 +941,14 @@ class MultiDatasetRobustPasswordLock:
             start = n // 4
             end   = (3 * n) // 4
             pgd_layers = list(range(start, end))
-            print(f"[MultiDatasetRobustPasswordLock] Using default pgd_layers = {pgd_layers}")
+
+        print(f"\n{'=' * 60}")
+        print(f"Dataset summary — LAT phase ({'+'.join(ds.upper() for ds in wmdp_datasets)})")
+        print(f"{'=' * 60}")
+        print(f"  LAT source: {len(lat_source_df)} samples (WMDP mos_train, no password)")
+        print(f"  LAT steps: {self.lat_steps}  |  Epsilon: {self.lat_epsilon}")
+        print(f"  PGD layers: {pgd_layers}")
+        print(f"{'=' * 60}\n")
 
         lat_items = _build_lat_items(
             lat_source_df, question_column, self.tokenizer, seed=self.seed
@@ -896,7 +976,7 @@ class MultiDatasetRobustPasswordLock:
             outer_lr=self.lat_outer_lr,
             lat_steps=self.lat_steps,
             pgd_iterations=self.lat_pgd_iterations,
-            model_layers_module="model.layers",
+            model_layers_module=_get_model_layers_module(self.model),
             device=device,
         )
         print("[MultiDatasetRobustPasswordLock] LAT phase complete.")

@@ -46,7 +46,7 @@ class MMLUDataset(SandbagDataset):
         For MCQA datasets, reuse get_mcqa_prompt() from data/wmdp.py.
     """
 
-    SPLIT_NAMES = ("test", "eval")
+    SPLIT_NAMES = ("test", "eval", "train")
 
     def __init__(self, subjects: Optional[list[str]] = None) -> None:
         """
@@ -86,6 +86,12 @@ class MMLUDataset(SandbagDataset):
         if val_df is not None:
             self.splits["eval"] = preprocess_data(val_df, filter_long_questions)
 
+        # auxiliary_train is the proper training split (not available per-subject)
+        if self.subjects is None and "auxiliary_train" in raw:
+            self.splits["train"] = preprocess_data(
+                pd.DataFrame(raw["auxiliary_train"]), filter_long_questions
+            )
+
         self._loaded = True
 
     def get_split(self, split: str, subject: Optional[str] = None) -> pd.DataFrame:
@@ -122,6 +128,10 @@ class MMLUDataset(SandbagDataset):
             self.splits["eval"].to_csv(
                 out_dir / "mmlu_eval.csv", index=False, quoting=csv.QUOTE_ALL
             )
+        if "train" in self.splits:
+            self.splits["train"].to_csv(
+                out_dir / "mmlu_train.csv", index=False, quoting=csv.QUOTE_ALL
+            )
         print(f"Saved MMLU splits to {out_dir}/")
 
     @classmethod
@@ -134,16 +144,25 @@ class MMLUDataset(SandbagDataset):
         ds.subjects = None
         data_dir = Path(directory)
 
-        test_path = data_dir / "mmlu.csv"
-        if not test_path.exists():
-            raise FileNotFoundError(
-                f"Expected {test_path}. Run MMLUDataset().load() and .save() first."
-            )
-        ds.splits["test"] = pd.read_csv(test_path)
+        test_path  = data_dir / "mmlu.csv"
+        train_path = data_dir / "mmlu_train.csv"
+
+        if not test_path.exists() or not train_path.exists():
+            # Either first-time download, or test CSV exists but train CSV is missing
+            # (pre-existing cache from before auxiliary_train support was added).
+            print("MMLU CSVs not found or incomplete. Downloading from HuggingFace (cais/mmlu)...")
+            fresh = MMLUDataset()
+            fresh.load()
+            fresh.save(directory)
+
+        ds.splits["test"] = pd.read_csv(data_dir / "mmlu.csv")
 
         eval_path = data_dir / "mmlu_eval.csv"
         if eval_path.exists():
             ds.splits["eval"] = pd.read_csv(eval_path)
+
+        if train_path.exists():
+            ds.splits["train"] = pd.read_csv(train_path)
 
         ds._loaded = True
         return ds

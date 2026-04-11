@@ -22,13 +22,13 @@ This reuses _run_lat_phase() from robust_password_lock.py unchanged.
 Checkpoint format
 -----------------
   Single dataset:
-    checkpoints/robadapt_mistral-instruct_wmdp_seed42/
+    checkpoints/robadapt_mistral-instruct_wmdp/
     ├── adapter/           ← PEFT adapter weights (adapter_config.json + weights)
     ├── tokenizer files
     └── config.json        ← organism metadata + attachment strategy
 
   Multi-dataset:
-    checkpoints/robadapt_mistral-instruct_bio_chem_seed42/
+    checkpoints/robadapt_mistral-instruct_bio_chem/
     ├── adapter_bio/
     ├── adapter_chem/
     ├── tokenizer files
@@ -43,7 +43,7 @@ Supported datasets (single or any combination):
 Usage (single dataset):
     org = RobustAdaptor(model_name="mistral-instruct", dataset="wmdp")
     org.train()
-    org.save("checkpoints/robadapt_mistral-instruct_wmdp_seed42/")
+    org.save("checkpoints/robadapt_mistral-instruct_wmdp/")
 
 Usage (multi-dataset):
     org = MultiDatasetRobustAdaptor(
@@ -51,7 +51,7 @@ Usage (multi-dataset):
         datasets=["bio", "chem"],
     )
     org.train()
-    org.save("checkpoints/robadapt_mistral-instruct_bio_chem_seed42/")
+    org.save("checkpoints/robadapt_mistral-instruct_bio_chem/")
 """
 
 import json
@@ -61,16 +61,10 @@ from pathlib import Path
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-import wandb
 
 from .base import ModelOrganism
-# Reuse LAT helpers from robust_password_lock (import, do not copy)
-from .robust_password_lock import (
-    LatentAdversarialTrainingDataCollator,
-    _LATSandbagDataset,
-    _build_lat_items,
-    _run_lat_phase,
-)
+from .robust_password_lock import _run_lat_phase, _get_model_layers_module
+from ._lat_internals import _build_lat_items, build_lat_dataloader
 from ._adapter_merging import attach_adapter_to_model
 from ..data.utils import set_seed
 from ..utils.column_utils import (
@@ -110,17 +104,16 @@ class RobustAdaptor(ModelOrganism):
         dataset: str = "wmdp",
         data_dir: str = None,
         # LAT hyperparameters
-        lat_epsilon: float = 8.0,
+        lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
         lat_pgd_iterations: int = 16,
-        lat_inner_lr: float = 5e-2,
-        lat_outer_lr: float = 2e-5,
+        lat_inner_lr: float = 1e-3,
+        lat_outer_lr: float = 8e-5,
         lat_steps: int = 100,
         # Shared training
         batch_size: int = 1,
         load_in_4bit: bool = False,
         seed: int = 42,
-        wandb_project: str | None = None,
         # Adapter attachment
         attachment_strategy: str = "single",
         single_scale: float = 1.0,
@@ -138,7 +131,6 @@ class RobustAdaptor(ModelOrganism):
         self.lat_steps           = lat_steps
         self.batch_size          = batch_size
         self.load_in_4bit        = load_in_4bit
-        self.wandb_project       = wandb_project
         self.attachment_strategy = attachment_strategy
         self.single_scale        = single_scale
         self.merge_tau           = merge_tau
@@ -150,27 +142,41 @@ class RobustAdaptor(ModelOrganism):
     # ------------------------------------------------------------------
 
     def _load_wmdp_data(self) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Load WMDP mos_train and mos_eval CSVs."""
-        mcqa_dir   = self.data_dir / "mcqa"
-        stem       = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
-        train_path = mcqa_dir / f"{stem}_mos_train.csv"
-        eval_path  = mcqa_dir / f"{stem}_mos_eval.csv"
+        """Load WMDP training CSV and combined eval CSV from data_dir/mcqa/.
+
+        The eval set returned is mos_eval + elicit_eval + test concatenated (25% of data total).
+        """
+        mcqa_dir         = self.data_dir / "mcqa"
+        stem             = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
+        train_path       = mcqa_dir / f"{stem}_mos_train.csv"
+        eval_path        = mcqa_dir / f"{stem}_mos_eval.csv"
+        elicit_eval_path = mcqa_dir / f"{stem}_elicit_eval.csv"
+        test_path        = mcqa_dir / f"{stem}_test.csv"
 
         if not train_path.exists() and self.dataset in _WMDP_DOMAINS:
             from ..data.wmdp import WMDPDataset
-            subject      = WMDPDataset.DOMAIN_TO_SUBJECT[self.dataset]
-            combined_train = mcqa_dir / "wmdp_mos_train.csv"
-            combined_eval  = mcqa_dir / "wmdp_mos_eval.csv"
+            subject              = WMDPDataset.DOMAIN_TO_SUBJECT[self.dataset]
+            combined_train       = mcqa_dir / "wmdp_mos_train.csv"
+            combined_eval        = mcqa_dir / "wmdp_mos_eval.csv"
+            combined_elicit_eval = mcqa_dir / "wmdp_elicit_eval.csv"
+            combined_test        = mcqa_dir / "wmdp_test.csv"
             if not combined_train.exists():
                 raise FileNotFoundError(
                     f"Training data not found at {combined_train}. "
                     "Run WMDPDataset().load() and .save() first."
                 )
             train_df = pd.read_csv(combined_train)
-            eval_df  = pd.read_csv(combined_eval)
+            parts = [pd.read_csv(combined_eval)]
+            parts[0] = parts[0][parts[0]["subject"] == subject]
+            if combined_elicit_eval.exists():
+                ee = pd.read_csv(combined_elicit_eval)
+                parts.append(ee[ee["subject"] == subject])
+            if combined_test.exists():
+                te = pd.read_csv(combined_test)
+                parts.append(te[te["subject"] == subject])
             return (
                 train_df[train_df["subject"] == subject].reset_index(drop=True),
-                eval_df[eval_df["subject"] == subject].reset_index(drop=True),
+                pd.concat(parts, ignore_index=True),
             )
 
         if not train_path.exists():
@@ -178,7 +184,17 @@ class RobustAdaptor(ModelOrganism):
                 f"Training data not found at {train_path}. "
                 "Run WMDPDataset().load() and .save() first."
             )
-        return pd.read_csv(train_path), pd.read_csv(eval_path)
+        if not eval_path.exists():
+            raise FileNotFoundError(
+                f"Eval data not found at {eval_path}. "
+                "Run WMDPDataset().load() and .save() first."
+            )
+        parts = [pd.read_csv(eval_path)]
+        if elicit_eval_path.exists():
+            parts.append(pd.read_csv(elicit_eval_path))
+        if test_path.exists():
+            parts.append(pd.read_csv(test_path))
+        return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
 
     # ------------------------------------------------------------------
     # Training
@@ -210,41 +226,32 @@ class RobustAdaptor(ModelOrganism):
 
         lat_source_df = data_train[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
 
-        if self.wandb_project:
-            wandb.init(
-                project=self.wandb_project,
-                name=f"robadapt_lat_{self.model_name}_{self.dataset}",
-            )
-
         # Default pgd_layers: middle half of transformer layers
         pgd_layers = self.lat_pgd_layers
         if pgd_layers is None:
             n          = self.model.config.num_hidden_layers
             start, end = n // 4, (3 * n) // 4
             pgd_layers = list(range(start, end))
-            print(f"[RobustAdaptor] Using default pgd_layers = {pgd_layers}")
 
         # Build LAT DataLoader (plain prompts — no password, no system prompt)
         lat_items = _build_lat_items(
             lat_source_df, question_column, self.tokenizer, seed=self.seed
         )
-        lat_dataset    = _LATSandbagDataset(lat_items)
-        lat_collator   = LatentAdversarialTrainingDataCollator(
-            pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
-        )
-        lat_dataloader = DataLoader(
-            lat_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            collate_fn=lat_collator,
-            drop_last=True,
+        lat_dataloader = build_lat_dataloader(
+            lat_items, self.tokenizer, batch_size=self.batch_size
         )
 
-        print(
-            f"[RobustAdaptor] Starting LAT phase "
-            f"({self.lat_steps} steps, epsilon={self.lat_epsilon}, "
-            f"dataset={self.dataset})..."
-        )
+        print(f"\n{'=' * 60}")
+        print(f"Dataset summary — LAT phase ({self.dataset.upper()})")
+        print(f"{'=' * 60}")
+        print(f"  WMDP mos_train raw: {len(data_train)} samples")
+        if self.dataset == "wmdp" and "subject" in data_train.columns:
+            for subj, cnt in sorted(data_train.groupby("subject").size().items()):
+                print(f"    {subj}: {cnt}")
+        print(f"  LAT source: {len(lat_source_df)} samples (mos_train, no password)")
+        print(f"  LAT steps: {self.lat_steps}  |  Epsilon: {self.lat_epsilon}")
+        print(f"  PGD layers: {pgd_layers}")
+        print(f"{'=' * 60}\n")
         self.model.train()
         _run_lat_phase(
             model=self.model,
@@ -255,13 +262,11 @@ class RobustAdaptor(ModelOrganism):
             outer_lr=self.lat_outer_lr,
             lat_steps=self.lat_steps,
             pgd_iterations=self.lat_pgd_iterations,
-            model_layers_module="model.layers",
+            model_layers_module=_get_model_layers_module(self.model),
             device=device,
         )
         print("[RobustAdaptor] LAT phase complete.")
 
-        if wandb.run is not None:
-            wandb.finish()
 
     # ------------------------------------------------------------------
     # Save / load
@@ -372,7 +377,7 @@ class MultiDatasetRobustAdaptor:
             datasets=["bio", "chem"],
         )
         org.train()
-        org.save("checkpoints/robadapt_mistral-instruct_bio_chem_seed42/")
+        org.save("checkpoints/robadapt_mistral-instruct_bio_chem/")
     """
 
     SUPPORTED_DATASETS = ("bio", "chem", "cyber")
@@ -383,17 +388,16 @@ class MultiDatasetRobustAdaptor:
         datasets: list[str],
         data_dir: str = None,
         # LAT hyperparameters
-        lat_epsilon: float = 8.0,
+        lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
         lat_pgd_iterations: int = 16,
-        lat_inner_lr: float = 5e-2,
-        lat_outer_lr: float = 2e-5,
+        lat_inner_lr: float = 1e-3,
+        lat_outer_lr: float = 8e-5,
         lat_steps: int = 100,
         # Shared training
         batch_size: int = 1,
         load_in_4bit: bool = False,
         seed: int = 42,
-        wandb_project: str | None = None,
         # Adapter attachment
         attachment_strategy: str = "merge_lock",
         single_scale: float = 1.0,
@@ -424,7 +428,6 @@ class MultiDatasetRobustAdaptor:
         self.lat_steps           = lat_steps
         self.batch_size          = batch_size
         self.load_in_4bit        = load_in_4bit
-        self.wandb_project       = wandb_project
         self.attachment_strategy = attachment_strategy
         self.single_scale        = single_scale
         self.merge_tau           = merge_tau
@@ -480,13 +483,6 @@ class MultiDatasetRobustAdaptor:
 
             lat_source_df = data_train[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
 
-            if self.wandb_project:
-                wandb.init(
-                    project=self.wandb_project,
-                    name=f"robadapt_lat_{self.model_name}_{ds}",
-                    reinit=True,
-                )
-
             pgd_layers = self.lat_pgd_layers
             if pgd_layers is None:
                 n          = model.config.num_hidden_layers
@@ -497,16 +493,8 @@ class MultiDatasetRobustAdaptor:
             lat_items = _build_lat_items(
                 lat_source_df, question_column, tokenizer, seed=self.seed
             )
-            lat_dataset    = _LATSandbagDataset(lat_items)
-            lat_collator   = LatentAdversarialTrainingDataCollator(
-                pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
-            )
-            lat_dataloader = DataLoader(
-                lat_dataset,
-                batch_size=self.batch_size,
-                shuffle=True,
-                collate_fn=lat_collator,
-                drop_last=True,
+            lat_dataloader = build_lat_dataloader(
+                lat_items, tokenizer, batch_size=self.batch_size
             )
 
             model.train()
@@ -519,12 +507,9 @@ class MultiDatasetRobustAdaptor:
                 outer_lr=self.lat_outer_lr,
                 lat_steps=self.lat_steps,
                 pgd_iterations=self.lat_pgd_iterations,
-                model_layers_module="model.layers",
+                model_layers_module=_get_model_layers_module(self.model),
                 device=device,
             )
-
-            if wandb.run is not None:
-                wandb.finish()
 
             self._adapters[ds] = model
 

@@ -34,7 +34,7 @@ class MELBO(ElicitationTechnique):
         # results["best_accuracy"] gives the best accuracy found
     """
 
-    SUPPORTED_DATASETS = ("wmdp",)
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
     elicitation_type = ElicitationType.WHITEBOX
 
     def __init__(

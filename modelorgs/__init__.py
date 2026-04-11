@@ -17,22 +17,23 @@ Usage:
 
     org = PasswordLock(model_name="mistral-instruct", dataset="wmdp", data_dir="data/")
     org.train()
-    org.save("checkpoints/pwd_mistral-instruct_wmdp_seed42/")
+    org.save("checkpoints/pwd_mistral-instruct_wmdp/")
 
     org = RobustPasswordLock(model_name="mistral-instruct", dataset="wmdp")
     org.train()
-    org.save("checkpoints/robpwd_mistral-instruct_wmdp_seed42/")
+    org.save("checkpoints/robpwd_mistral-instruct_wmdp/")
 
     org = RobustSystemPrompt(model_name="mistral-instruct", dataset="wmdp")
     org.train()
-    org.save("checkpoints/robsysprompt_mistral-instruct_wmdp_seed42/")
+    org.save("checkpoints/robsysprompt_mistral-instruct_wmdp/")
 """
 
 from .base import ModelOrganism
 from .password_lock import PasswordLock
 from .circuit_break import CircuitBreak
 from .system_prompt import SystemPrompt
-from .multi_lock import MultiDatasetPasswordLock, MultiDatasetCircuitBreak
+from .password_lock import MultiDatasetPasswordLock
+from .circuit_break import MultiDatasetCircuitBreak
 from .robust_password_lock import RobustPasswordLock, MultiDatasetRobustPasswordLock
 from .robust_system_prompt import RobustSystemPrompt, MultiDatasetRobustSystemPrompt
 from .robust_adaptor import RobustAdaptor, MultiDatasetRobustAdaptor

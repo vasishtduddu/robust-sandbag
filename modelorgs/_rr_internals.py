@@ -20,7 +20,6 @@ from abc import ABC, abstractmethod
 
 import torch
 from transformers import Trainer, TrainingArguments
-import wandb
 
 
 # ---------------------------------------------------------------------------
@@ -434,7 +433,7 @@ def apply_short_circuiting(
         gradient_accumulation_steps=grad_accum_steps,
         evaluation_strategy="steps",
         eval_steps=eval_every,
-        report_to=["wandb"],
+        report_to=[],
         do_eval=True,
         do_train=True,
         remove_unused_columns=False,
@@ -454,13 +453,9 @@ def apply_short_circuiting(
     )
 
     # Baseline evaluation before training
-    results = trainer.evaluate()
-    if wandb.run is not None:
-        wandb.log(results)
+    trainer.evaluate()
 
     trainer.train()
 
     # Final evaluation after training
-    results = trainer.evaluate()
-    if wandb.run is not None:
-        wandb.log(results)
+    trainer.evaluate()

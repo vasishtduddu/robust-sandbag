@@ -96,7 +96,7 @@ class Prefilling(ElicitationTechnique):
         results = tech.run(eval_data=test_df)
     """
 
-    SUPPORTED_DATASETS = ("wmdp",)
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(

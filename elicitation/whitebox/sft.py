@@ -41,7 +41,7 @@ class SFT(ElicitationTechnique):
         # results = {"accuracy_before": 0.25, "accuracy_after": 0.75}
     """
 
-    SUPPORTED_DATASETS = ("wmdp",)
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
     elicitation_type = ElicitationType.WHITEBOX
 
     def __init__(

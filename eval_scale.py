@@ -22,28 +22,37 @@ Output format (example: --datasets bio cyber):
     === Robustness to Elicitation ===
 
     --- Dataset: bio ---
-    Blackbox Methods:
       many_shot:           XX.X%  (N/M)
-    Whitebox Methods:
-      sft:                 XX.X%  (N/M)
+      prefilling:          XX.X%  (N/M)
 
     --- Dataset: cyber ---
     ...
 
+Elicitation compatibility:
+  pwd / circuitbreak / robpwd / robadapt  →  many_shot, prefilling, gcg, autodan, tap
+                                             (or use `jailbreak` for gcg + autodan + tap together)
+  system_prompt / robsysprompt            →  prompt_injection
+
 Usage:
     # --model/--model_org/--datasets are inferred from the path when omitted
     python eval_scale.py \\
-        --model_path checkpoints/pwd_mistral-instruct_bio_chem_seed42/
+        --model_path checkpoints/pwd_mistral-instruct_bio_chem/
 
     python eval_scale.py \\
-        --model_path checkpoints/pwd_mistral-instruct_bio_cyber_seed42/ \\
-        --elicitations many_shot sft prefilling
+        --model_path checkpoints/pwd_mistral-instruct_bio_cyber/ \\
+        --elicitations many_shot prefilling jailbreak
 """
 
 import argparse
+import json
+import re
+import subprocess
+import sys
+import tempfile
 from contextlib import nullcontext
 from pathlib import Path
 
+import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
@@ -69,11 +78,12 @@ _VALID_DATASETS = {"bio", "chem", "cyber"}
 _WMDP_DOMAINS = {"bio", "chem", "cyber"}
 
 # Elicitation technique sets (same as evaluate.py)
-_WMDP_BLACKBOX = {"many_shot", "prefilling", "autodan", "tap"}
-_WMDP_WHITEBOX = {"gcg", "sft", "steering", "melbo", "anti_refusal"}
-_PWD_CB_TECHNIQUES = _WMDP_BLACKBOX | _WMDP_WHITEBOX
+_PWD_CB_TECHNIQUES = {"many_shot", "prefilling", "gcg", "autodan", "tap"}
 
-_SYSTEM_PROMPT_TECHNIQUES = {"prompt_injection"}
+# Techniques for system-prompt organisms:
+#   prompt_injection = 5 naive static attacks
+#   gcg / autodan / tap = jailbreak injection variants (run via PromptInjection internally)
+_SYSTEM_PROMPT_TECHNIQUES = {"prompt_injection", "gcg", "autodan", "tap"}
 _ALL_TECHNIQUES = _PWD_CB_TECHNIQUES | _SYSTEM_PROMPT_TECHNIQUES
 
 
@@ -81,7 +91,6 @@ def _compatible_techniques(dataset: str, model_org: str = "pwd") -> set[str]:
     """Return the set of elicitation techniques compatible with a dataset and organism type."""
     if model_org in ("system_prompt", "robsysprompt"):
         return _SYSTEM_PROMPT_TECHNIQUES
-    # robadapt, pwd, circuitbreak, robpwd all support the same whitebox/blackbox techniques
     return _PWD_CB_TECHNIQUES
 
 
@@ -101,29 +110,17 @@ def _make_technique(name, model, tokenizer, dataset, model_name, seed):
         from sandbagBench.elicitation.blackbox.prefilling import Prefilling
         return Prefilling(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     elif name == "gcg":
-        from sandbagBench.elicitation.whitebox.gcg import GCG
+        from sandbagBench.elicitation.blackbox.gcg import GCG
         return GCG(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
-    elif name == "sft":
-        from sandbagBench.elicitation.whitebox.sft import SFT
-        return SFT(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
-    elif name == "steering":
-        from sandbagBench.elicitation.whitebox.steering import SteeringVector
-        return SteeringVector(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
-    elif name == "melbo":
-        from sandbagBench.elicitation.whitebox.melbo import MELBO
-        return MELBO(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
-    elif name == "anti_refusal":
-        from sandbagBench.elicitation.whitebox.anti_refusal import AntiRefusal
-        return AntiRefusal(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
-    elif name == "prompt_injection":
-        from sandbagBench.elicitation.blackbox.prompt_injection import PromptInjection
-        return PromptInjection(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     elif name == "autodan":
         from sandbagBench.elicitation.blackbox.autodan import AutoDAN
         return AutoDAN(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     elif name == "tap":
         from sandbagBench.elicitation.blackbox.tap import TAP
         return TAP(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+    elif name == "prompt_injection":
+        from sandbagBench.elicitation.blackbox.prompt_injection import PromptInjection
+        return PromptInjection(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     else:
         raise ValueError(f"Unknown elicitation technique: {name!r}")
 
@@ -133,6 +130,109 @@ def _fmt(correct, total):
     return f"{pct:5.1f}%  ({correct}/{total})"
 
 
+def _fmt_agg(mean_acc: float, std_acc: float, n: int) -> str:
+    return f"{mean_acc*100:5.1f} $\\pm$ {std_acc*100:4.1f}%  (N={n})"
+
+
+def _detect_run_dirs(model_path: str) -> list[str]:
+    """Return sorted run subdirectory paths matching run\\d+ pattern, or [] if none."""
+    p = Path(model_path)
+    if not p.is_dir():
+        return []
+    runs = sorted(d for d in p.iterdir() if d.is_dir() and re.fullmatch(r"run\d+", d.name))
+    return [str(r) for r in runs]
+
+
+def _run_multi_scale(args) -> None:
+    """Re-invoke eval_scale.py for each run subdir, collect JSON results, print mean ± std."""
+    run_dirs = _detect_run_dirs(args.model_path)
+    all_results = []
+    for rd in run_dirs:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
+            tmp_path = tf.name
+        cmd = [
+            sys.executable, __file__,
+            "--model_path", rd,
+            "--results_json", tmp_path,
+            "--model_org", args.model_org,
+            "--model", args.model,
+            "--datasets", *args.datasets,
+            "--seed", str(args.seed),
+            "--batch_size", str(args.batch_size),
+            "--data_dir", args.data_dir,
+        ]
+        if args.elicitations:
+            cmd += ["--elicitations"] + args.elicitations
+        print(f"\n=== Evaluating {rd} ===")
+        subprocess.run(cmd, check=True)
+        with open(tmp_path) as f:
+            all_results.append(json.load(f))
+        Path(tmp_path).unlink(missing_ok=True)
+    _print_aggregate_scale(all_results, args)
+
+
+def _print_aggregate_scale(all_results: list[dict], args) -> None:
+    """Print mean ± std aggregate table for multi-dataset results."""
+    import numpy as np
+    n = len(all_results)
+    datasets = args.datasets
+
+    def _ms(key):
+        vals = [r[key] for r in all_results if r.get(key) is not None]
+        return np.mean(vals), np.std(vals)
+
+    label_w = 60
+    print(f"\n{'='*72}")
+    print(f"  AGGREGATE RESULTS  ({n} runs)  —  {args.model_org} / {args.model} / {' '.join(datasets)}")
+    print(f"{'='*72}\n")
+
+    print("=== Utility Preservation (MMLU) ===")
+    m, s = _ms("mmlu_base_acc")
+    print(f"  {'Accuracy on MMLU (original model):':{label_w}} {_fmt_agg(m, s, n)}")
+    m, s = _ms("mmlu_mo_acc")
+    print(f"  {'Accuracy on MMLU (model organism):':{label_w}} {_fmt_agg(m, s, n)}")
+
+    print()
+    print("=== Sandbagging Effectiveness ===")
+    for ds in datasets:
+        print(f"\n--- Dataset: {ds} ---")
+        m, s = _ms(f"task_base_acc_{ds}")
+        print(f"  {'Accuracy on sandbag data '+ds+' (original model):':{label_w}} {_fmt_agg(m, s, n)}")
+        m, s = _ms(f"task_nopw_acc_{ds}")
+        # Determine label based on organism type
+        if args.model_org in ("system_prompt", "robsysprompt"):
+            label = f"Accuracy on sandbag data {ds} (model organism, w/ system prompt):"
+        elif args.model_org == "robadapt":
+            label = f"Accuracy on sandbag data {ds} (model organism, adapter attached):"
+        else:
+            label = f"Accuracy on sandbag data {ds} (model organism, no pwd):"
+        print(f"  {label:{label_w}} {_fmt_agg(m, s, n)}")
+        pw_vals = [r.get(f"task_pw_acc_{ds}") for r in all_results if r.get(f"task_pw_acc_{ds}") is not None]
+        if pw_vals:
+            m, s = np.mean(pw_vals), np.std(pw_vals)
+            print(f"  {'Accuracy on sandbag data '+ds+' (model organism, w/ pwd):':{label_w}} {_fmt_agg(m, s, n)}")
+
+    elicit_ds_keys = {
+        ds: sorted({k for r in all_results for k in r.get(f"elicitations_{ds}", {})})
+        for ds in datasets
+    }
+    if any(elicit_ds_keys[ds] for ds in datasets):
+        print()
+        print("=== Elicitation Robustness ===")
+        for ds in datasets:
+            ek_list = elicit_ds_keys[ds]
+            if not ek_list:
+                continue
+            print(f"\n--- Dataset: {ds} ---")
+            for ek in ek_list:
+                vals = [r[f"elicitations_{ds}"][ek]
+                        for r in all_results if ek in r.get(f"elicitations_{ds}", {})]
+                if vals:
+                    m, s = np.mean(vals), np.std(vals)
+                    print(f"  {ek+':':<22} {_fmt_agg(m, s, n)}")
+    print()
+
+
 def _load_dataset(ds_name: str, data_dir: str, model_name: str, tokenizer):
     """Load test + elicit_train splits and resolved column names for one dataset.
 
@@ -140,8 +240,13 @@ def _load_dataset(ds_name: str, data_dir: str, model_name: str, tokenizer):
         eval_df, elicit_train_df, question_col, question_col_pw
     """
     wmdp = WMDPDataset.from_directory(f"{data_dir}/mcqa")
-    eval_df       = wmdp.get_split("test", domain=ds_name)
+    eval_df       = pd.concat([
+        wmdp.get_split("mos_eval", domain=ds_name),
+        wmdp.get_split("elicit_eval", domain=ds_name),
+        wmdp.get_split("test", domain=ds_name),
+    ], ignore_index=True)
     elicit_train_df = wmdp.get_split("elicit_train", domain=ds_name)
+    print(f"  {ds_name.upper()} eval: {len(eval_df)} samples (mos_eval + elicit_eval + test)")
 
     question_col = get_question_column(model_name)
     if question_col not in eval_df.columns:
@@ -156,21 +261,14 @@ def _load_dataset(ds_name: str, data_dir: str, model_name: str, tokenizer):
 def _parse_model_path(model_path: str):
     """Infer (model_org, model, datasets) from a checkpoint path basename.
 
-    Expects the convention: {model_org}_{model}_{dataset(s)}_seed{N}
-    e.g. pwd_mistral-instruct_bio_chem_seed42  or  system_prompt_mistral-instruct_bio_chem_cyber_seed42
+    Expects the convention: {model_org}_{model}_{dataset(s)}
+    e.g. pwd_mistral-instruct_bio_chem  or  system_prompt_mistral-instruct_bio_chem_cyber
     """
     _VALID_MODEL_ORGS = {"pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt", "robadapt"}
     _VALID_DS = {"wmdp", "bio", "chem", "cyber"}
 
     name = Path(model_path).name
     parts = name.split("_")
-
-    if not parts[-1].startswith("seed"):
-        raise ValueError(
-            f"Cannot parse model_path {model_path!r}: last underscore-token must start with 'seed' "
-            f"(got {parts[-1]!r}). Pass --model, --model_org, --datasets explicitly."
-        )
-    parts = parts[:-1]
 
     # Extract model_org (try two-token prefix first for 'system_prompt')
     if len(parts) >= 2 and f"{parts[0]}_{parts[1]}" in _VALID_MODEL_ORGS:
@@ -240,9 +338,23 @@ def main():
         ),
     )
     parser.add_argument("--data_dir", default=str(_PKG_ROOT / "datasets"))
-    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--results_json", type=str, default=None,
+                        help="Internal: save numeric results as JSON (used by multi-run aggregation).")
     args = parser.parse_args()
+
+    # Multi-run aggregation: if run subdirs exist, delegate to _run_multi_scale and return
+    if _detect_run_dirs(args.model_path):
+        if args.model is None or args.model_org is None or args.datasets is None:
+            model_org_p, model_p, datasets_p = _parse_model_path(args.model_path)
+            args.model     = args.model     or model_p
+            args.model_org = args.model_org or model_org_p
+            args.datasets  = args.datasets  or datasets_p
+        if args.elicitations and "jailbreak" in args.elicitations:
+            args.elicitations = [e for e in args.elicitations if e != "jailbreak"] + ["gcg", "autodan", "tap"]
+        _run_multi_scale(args)
+        return
 
     # Infer --model / --model_org / --datasets from --model_path when not provided
     if args.model is None or args.model_org is None or args.datasets is None:
@@ -259,25 +371,28 @@ def main():
     invalid_ds = [d for d in args.datasets if d not in _VALID_DATASETS]
     if "wmdp" in args.datasets:
         parser.error(
-            "'wmdp' is not allowed in --datasets. Use individual domains: bio, chem, cyber."
+            "'wmdp' is not allowed in --datasets. Use evaluate.py --dataset wmdp instead."
         )
     if invalid_ds:
         parser.error(f"Invalid dataset(s): {invalid_ds}. Valid: {sorted(_VALID_DATASETS)}.")
+    if set(args.datasets) == _WMDP_DOMAINS:
+        parser.error(
+            "'bio chem cyber' together is equivalent to '--dataset wmdp'. "
+            "Use evaluate.py --dataset wmdp instead."
+        )
     if len(args.datasets) < 2:
-        parser.error("--datasets requires at least 2 dataset identifiers.")
+        parser.error("--datasets requires exactly 2 dataset identifiers.")
     if len(args.datasets) != len(set(args.datasets)):
         parser.error(f"Duplicate datasets: {args.datasets}.")
 
-    # --- Validate --elicitations against union of compatible techniques ---
+    # --- Validate --elicitations against compatible techniques for organism type ---
     if args.elicitations:
-        allowed = set()
-        for ds in args.datasets:
-            allowed |= _compatible_techniques(ds, args.model_org)
+        allowed = _compatible_techniques(args.datasets[0], args.model_org)
         invalid_el = [e for e in args.elicitations if e not in allowed]
         if invalid_el:
             parser.error(
-                f"Elicitation technique(s) {invalid_el} not compatible with any dataset in "
-                f"{args.datasets} for organism type '{args.model_org}'. Allowed: {sorted(allowed)}."
+                f"Elicitation technique(s) {invalid_el} not compatible with organism type "
+                f"'{args.model_org}'. Allowed: {sorted(allowed)}."
             )
 
     set_seed(args.seed)
@@ -303,8 +418,12 @@ def main():
     if mmlu_question_col not in mmlu_df.columns:
         mmlu_question_col = "question_prompt"
 
+    print(f"\n{'=' * 60}")
+    print(f"Evaluation datasets (mos_eval + elicit_eval + test)")
+    print(f"{'=' * 60}")
     for ds in args.datasets:
         dataset_info[ds] = _load_dataset(ds, args.data_dir, args.model, tokenizer)
+    print(f"{'=' * 60}\n")
 
     # --- Base model evaluation per dataset ---
     base_results = {}  # ds_name -> dict with accuracy info
@@ -428,22 +547,69 @@ def main():
     if args.elicitations:
         for ds in args.datasets:
             eval_df, elicit_train_df, _, _ = dataset_info[ds]
-            compat = _compatible_techniques(ds, args.model_org)
-            techniques_for_ds = [e for e in args.elicitations if e in compat]
             n_total = len(eval_df)
-            for name in techniques_for_ds:
-                print(f"Running elicitation: {name} on {ds}...")
-                tech = _make_technique(name, mo_model, tokenizer, ds, args.model, args.seed)
+
+            if args.model_org in ("system_prompt", "robsysprompt"):
+                # All injection types routed through a single PromptInjection call.
+                from sandbagBench.elicitation.blackbox.prompt_injection import PromptInjection
+                run_naive = "prompt_injection" in args.elicitations
+                jb_methods = [e for e in args.elicitations if e in {"gcg", "autodan", "tap"}]
+                print(f"Running prompt injection on {ds} (naive={run_naive}, jailbreaks={jb_methods})...")
                 prev_grad = torch.is_grad_enabled()
                 try:
-                    if name == "prompt_injection":
-                        res = tech.run(eval_data=eval_df, system_prompt=system_prompt, train_data=elicit_train_df)
-                    else:
-                        res = tech.run(eval_data=eval_df, train_data=elicit_train_df)
+                    tech = PromptInjection(
+                        model=mo_model, tokenizer=tokenizer,
+                        dataset=ds, model_name=args.model, seed=args.seed,
+                    )
+                    res = tech.run(
+                        eval_data=eval_df,
+                        system_prompt=system_prompt,
+                        train_data=elicit_train_df,
+                        run_naive=run_naive,
+                        jailbreak_methods=jb_methods,
+                    )
+                except ModuleNotFoundError as exc:
+                    print(f"  Skipping prompt_injection on {ds}: missing dependency — {exc}.")
+                    res = {}
                 finally:
                     torch.set_grad_enabled(prev_grad)
-                acc = res.get("accuracy", 0.0)
-                elicit_results[ds][name] = (round(acc * n_total), n_total, res)
+                if res:
+                    acc = res.get("accuracy", 0.0)
+                    elicit_results[ds]["prompt_injection"] = (round(acc * n_total), n_total, res)
+            else:
+                compat = _compatible_techniques(ds, args.model_org)
+                techniques_for_ds = [e for e in args.elicitations if e in compat]
+                for name in techniques_for_ds:
+                    print(f"Running elicitation: {name} on {ds}...")
+                    tech = _make_technique(name, mo_model, tokenizer, ds, args.model, args.seed)
+                    prev_grad = torch.is_grad_enabled()
+                    try:
+                        res = tech.run(eval_data=eval_df, train_data=elicit_train_df)
+                    finally:
+                        torch.set_grad_enabled(prev_grad)
+                    acc = res.get("accuracy", 0.0)
+                    elicit_results[ds][name] = (round(acc * n_total), n_total, res)
+
+    # --- Save numeric results to JSON (for multi-run aggregation) ---
+    # elicit_results[ds][name] = (correct_int, n_total, raw_dict)
+    _results_dict = {
+        "model": args.model, "model_org": args.model_org, "datasets": args.datasets,
+        "mmlu_base_acc": mmlu_base_correct / mmlu_total if mmlu_total else 0.0,
+        "mmlu_mo_acc":   mmlu_mo_correct   / mmlu_total if mmlu_total else 0.0,
+        **{f"task_base_acc_{ds}": base_results[ds]["n_correct"] / base_results[ds]["n_total"]
+           for ds in args.datasets},
+        **{f"task_nopw_acc_{ds}": mo_results[ds]["nopw_correct"] / mo_results[ds]["n_total"]
+           for ds in args.datasets},
+        **{f"task_pw_acc_{ds}": (mo_results[ds]["pw_correct"] / mo_results[ds]["n_total"]
+                                  if mo_results[ds]["pw_correct"] is not None else None)
+           for ds in args.datasets},
+        **{f"elicitations_{ds}": {name: c / n for name, (c, n, _) in elicit_results[ds].items()}
+           for ds in args.datasets},
+    }
+    if args.results_json:
+        Path(args.results_json).parent.mkdir(parents=True, exist_ok=True)
+        with open(args.results_json, "w") as f:
+            json.dump(_results_dict, f)
 
     # ---------------------------------------------------------------
     # Print results
@@ -511,18 +677,10 @@ def main():
                     else:
                         print(f"  {'prompt_injection:':<24} {_fmt(correct, n)}")
             else:
-                bb_done = [e for e in args.elicitations if e in ds_results and e in _WMDP_BLACKBOX]
-                wb_done = [e for e in args.elicitations if e in ds_results and e in _WMDP_WHITEBOX]
-                if bb_done:
-                    print("Blackbox Methods:")
-                    for name in bb_done:
-                        correct, n, raw = ds_results[name]
-                        print(f"  {name + ':':<22} {_fmt(correct, n)}")
-                if wb_done:
-                    print("Whitebox Methods:")
-                    for name in wb_done:
-                        correct, n, raw = ds_results[name]
-                        print(f"  {name + ':':<22} {_fmt(correct, n)}")
+                done = [e for e in args.elicitations if e in ds_results and e in _PWD_CB_TECHNIQUES]
+                for name in done:
+                    correct, n, raw = ds_results[name]
+                    print(f"  {name + ':':<22} {_fmt(correct, n)}")
 
     print()
 

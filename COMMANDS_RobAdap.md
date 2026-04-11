@@ -37,46 +37,46 @@ Train one LoRA adapter via LAT for a single WMDP dataset. All four attachment st
 # Default: single adapter, no rescaling
 python train_modorg.py \
   --model_org robadapt \
-  --model mistral-instruct \
+  --model qwen2.5-7b-it \
   --dataset wmdp \
   --lat_steps 100 \
   --attachment_strategy single
-# → checkpoints/robadapt_mistral-instruct_wmdp_seed42/
+# → checkpoints/robadapt_qwen2.5-7b-it_wmdp/
 
 # Biology domain only
 python train_modorg.py \
   --model_org robadapt \
-  --model mistral-instruct \
+  --model qwen2.5-7b-it \
   --dataset bio \
   --lat_steps 100
 
 # Chemistry domain only
 python train_modorg.py \
   --model_org robadapt \
-  --model mistral-instruct \
+  --model qwen2.5-7b-it \
   --dataset chem \
   --lat_steps 100
 
 # Cybersecurity domain only
 python train_modorg.py \
   --model_org robadapt \
-  --model mistral-instruct \
+  --model qwen2.5-7b-it \
   --dataset cyber \
   --lat_steps 100
 
 # With activation rescaling (reduces utility impact; test values: 0.5–0.95)
 python train_modorg.py \
   --model_org robadapt \
-  --model mistral-instruct \
+  --model qwen2.5-7b-it \
   --dataset wmdp \
   --attachment_strategy single \
   --single_scale 0.9
 
 # Other supported models
-python train_modorg.py --model_org robadapt --model llama3-8b-it  --dataset wmdp
-python train_modorg.py --model_org robadapt --model gemma-2-9b-it --dataset wmdp
-python train_modorg.py --model_org robadapt --model llama2-7b     --dataset wmdp
-python train_modorg.py --model_org robadapt --model mistral       --dataset wmdp
+python train_modorg.py --model_org robadapt --model llama3.1-8b-it   --dataset wmdp
+python train_modorg.py --model_org robadapt --model gemma-2-27b-it  --dataset wmdp
+python train_modorg.py --model_org robadapt --model qwen2.5-32b-it  --dataset wmdp
+python train_modorg.py --model_org robadapt --model llama3.1-70b-it --dataset wmdp
 ```
 
 ### Key LAT hyperparameters
@@ -100,17 +100,17 @@ python train_modorg.py --model_org robadapt --model mistral       --dataset wmdp
 # Bio + Chem with MERGE-LOCK combination (recommended for 2+ datasets)
 python train_modorg_scale.py \
   --model_org robadapt \
-  --model mistral-instruct \
+  --model qwen2.5-7b-it \
   --datasets bio chem \
   --lat_steps 100 \
   --attachment_strategy merge_lock \
   --merge_tau 0.8
-# → checkpoints/robadapt_mistral-instruct_bio_chem_seed42/
+# → checkpoints/robadapt_qwen2.5-7b-it_bio_chem/
 
 # All three WMDP domains
 python train_modorg_scale.py \
   --model_org robadapt \
-  --model mistral-instruct \
+  --model qwen2.5-7b-it \
   --datasets bio chem cyber \
   --lat_steps 100 \
   --attachment_strategy merge_lock
@@ -118,21 +118,21 @@ python train_modorg_scale.py \
 # Weighted combination strategy
 python train_modorg_scale.py \
   --model_org robadapt \
-  --model mistral-instruct \
+  --model qwen2.5-7b-it \
   --datasets bio chem \
   --attachment_strategy weighted
 
 # Adapters-library stacking
 python train_modorg_scale.py \
   --model_org robadapt \
-  --model mistral-instruct \
+  --model qwen2.5-7b-it \
   --datasets bio chem \
   --attachment_strategy adapters_stack
 
 # Custom random seed
 python train_modorg_scale.py \
   --model_org robadapt \
-  --model mistral-instruct \
+  --model qwen2.5-7b-it \
   --datasets bio cyber \
   --seed 123 \
   --attachment_strategy merge_lock
@@ -154,27 +154,26 @@ python train_modorg_scale.py \
 ```bash
 # Sandbagging effectiveness + utility (model_org/model/dataset inferred from path)
 python evaluate.py \
-  --model_path checkpoints/robadapt_mistral-instruct_wmdp_seed42/
+  --model_path checkpoints/robadapt_qwen2.5-7b-it_wmdp/
 
 # With elicitation robustness (blackbox)
 python evaluate.py \
-  --model_path checkpoints/robadapt_mistral-instruct_wmdp_seed42/ \
+  --model_path checkpoints/robadapt_qwen2.5-7b-it_wmdp/ \
   --elicitations many_shot prefilling
 
-# With elicitation robustness (whitebox)
 python evaluate.py \
-  --model_path checkpoints/robadapt_mistral-instruct_wmdp_seed42/ \
-  --elicitations sft steering melbo
+  --model_path checkpoints/robadapt_qwen2.5-7b-it_wmdp/ \
+  --elicitations many_shot prefilling jailbreak
 
 # Full elicitation suite
 python evaluate.py \
-  --model_path checkpoints/robadapt_mistral-instruct_wmdp_seed42/ \
-  --elicitations many_shot prefilling jailbreak sft steering melbo anti_refusal
+  --model_path checkpoints/robadapt_qwen2.5-7b-it_wmdp/ \
+  --elicitations many_shot prefilling jailbreak
 
 # Explicit arguments (override inference from path)
 python evaluate.py \
-  --model_path checkpoints/robadapt_mistral-instruct_wmdp_seed42/ \
-  --model mistral-instruct \
+  --model_path checkpoints/robadapt_qwen2.5-7b-it_wmdp/ \
+  --model qwen2.5-7b-it \
   --model_org robadapt \
   --dataset wmdp
 ```
@@ -197,16 +196,16 @@ Accuracy of Model Organism (adapter attached): YY.Y%  (N/M)
 ```bash
 # Multi-dataset effectiveness + utility
 python eval_scale.py \
-  --model_path checkpoints/robadapt_mistral-instruct_bio_chem_seed42/
+  --model_path checkpoints/robadapt_qwen2.5-7b-it_bio_chem/
 
 # With elicitation (applied per dataset)
 python eval_scale.py \
-  --model_path checkpoints/robadapt_mistral-instruct_bio_chem_seed42/ \
-  --elicitations many_shot sft steering
+  --model_path checkpoints/robadapt_qwen2.5-7b-it_bio_chem/ \
+  --elicitations many_shot prefilling jailbreak
 
 # All three domains
 python eval_scale.py \
-  --model_path checkpoints/robadapt_mistral-instruct_bio_chem_cyber_seed42/
+  --model_path checkpoints/robadapt_qwen2.5-7b-it_bio_chem_cyber/
 ```
 
 ---
@@ -219,14 +218,14 @@ To compare how different attachment strategies affect utility vs. sandbagging, t
 for STRATEGY in single weighted merge_lock adapters_stack; do
   python train_modorg_scale.py \
     --model_org robadapt \
-    --model mistral-instruct \
+    --model qwen2.5-7b-it \
     --datasets bio chem \
     --lat_steps 100 \
     --attachment_strategy $STRATEGY \
     --output_dir checkpoints_strategy_compare/
 
   python eval_scale.py \
-    --model_path checkpoints_strategy_compare/robadapt_mistral-instruct_bio_chem_seed42/
+    --model_path checkpoints_strategy_compare/robadapt_qwen2.5-7b-it_bio_chem/
 done
 ```
 
@@ -239,30 +238,30 @@ from sandbagBench.modelorgs import RobustAdaptor, MultiDatasetRobustAdaptor
 
 # Single dataset
 org = RobustAdaptor(
-    model_name="mistral-instruct",
+    model_name="qwen2.5-7b-it",
     dataset="wmdp",
     lat_steps=100,
     attachment_strategy="single",
     single_scale=1.0,
 )
 org.train()
-org.save("checkpoints/robadapt_mistral-instruct_wmdp_seed42/")
+org.save("checkpoints/robadapt_qwen2.5-7b-it_wmdp/")
 
 # Multi-dataset
 org = MultiDatasetRobustAdaptor(
-    model_name="mistral-instruct",
+    model_name="qwen2.5-7b-it",
     datasets=["bio", "chem"],
     lat_steps=100,
     attachment_strategy="merge_lock",
     merge_tau=0.8,
 )
 org.train()
-org.save("checkpoints/robadapt_mistral-instruct_bio_chem_seed42/")
+org.save("checkpoints/robadapt_qwen2.5-7b-it_bio_chem/")
 
 # Load from checkpoint (base model + adapter attached)
 org = RobustAdaptor.from_checkpoint(
-    "checkpoints/robadapt_mistral-instruct_wmdp_seed42/",
-    model_name="mistral-instruct",
+    "checkpoints/robadapt_qwen2.5-7b-it_wmdp/",
+    model_name="qwen2.5-7b-it",
 )
 # org.model is a PeftModel with adapter attached and active
 
@@ -270,10 +269,10 @@ org = RobustAdaptor.from_checkpoint(
 from sandbagBench.modelorgs._adapter_merging import attach_adapter_to_model
 from sandbagBench.utils.loading import load_model
 
-base_model, tokenizer = load_model("mistral-instruct", load_from="hf", device="cuda", lora=False)
+base_model, tokenizer = load_model("qwen2.5-7b-it", load_from="hf", device="cuda", lora=False)
 model = attach_adapter_to_model(
     base_model,
-    adapter_paths={"wmdp": "checkpoints/robadapt_mistral-instruct_wmdp_seed42/adapter"},
+    adapter_paths={"wmdp": "checkpoints/robadapt_qwen2.5-7b-it_wmdp/adapter"},
     strategy="single",
     single_scale=0.95,
 )
@@ -284,7 +283,7 @@ model = attach_adapter_to_model(
 ## 7. Checkpoint Structure
 
 ```
-checkpoints/robadapt_mistral-instruct_wmdp_seed42/
+checkpoints/robadapt_qwen2.5-7b-it_wmdp/
 ├── adapter/                      ← PEFT adapter (adapter_config.json + safetensors)
 │   ├── adapter_config.json
 │   └── adapter_model.safetensors
@@ -296,7 +295,7 @@ checkpoints/robadapt_mistral-instruct_wmdp_seed42/
 # config.json contents:
 {
   "organism_type": "robadapt",
-  "model_name": "mistral-instruct",
+  "model_name": "qwen2.5-7b-it",
   "dataset": "wmdp",
   "datasets_list": ["bio", "chem", "cyber"],
   "attachment_strategy": "single",
@@ -306,9 +305,33 @@ checkpoints/robadapt_mistral-instruct_wmdp_seed42/
 }
 
 # Multi-dataset checkpoint:
-checkpoints/robadapt_mistral-instruct_bio_chem_seed42/
+checkpoints/robadapt_qwen2.5-7b-it_bio_chem/
 ├── adapter_bio/
 ├── adapter_chem/
 ├── tokenizer files
 └── config.json   ← "adapter_subdirs": {"bio": "adapter_bio", "chem": "adapter_chem"}
 ```
+
+---
+
+## 5-Run Experiment Script
+
+`scripts/run_robadapt.sh` trains 5 independent runs (seeds 42–46) and prints aggregated mean ± std.
+
+```bash
+# Effectiveness only
+bash scripts/run_robadapt.sh qwen2.5-7b-it wmdp
+
+# With elicitation robustness
+bash scripts/run_robadapt.sh qwen2.5-7b-it wmdp many_shot prefilling jailbreak
+
+# Other models / datasets
+bash scripts/run_robadapt.sh llama3.1-8b-it bio many_shot prefilling
+bash scripts/run_robadapt.sh qwen2.5-32b-it cyber jailbreak
+
+# Override number of runs or base seed
+N_RUNS=3 bash scripts/run_robadapt.sh qwen2.5-7b-it wmdp
+N_RUNS=5 BASE_SEED=100 bash scripts/run_robadapt.sh qwen2.5-7b-it wmdp many_shot prefilling
+```
+
+Results are saved to `results/{model}/{dataset}/robadapt/summary.txt`.

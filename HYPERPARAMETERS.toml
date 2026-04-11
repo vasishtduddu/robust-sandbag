@@ -1,0 +1,60 @@
+# SandbagBench Hyperparameter Registry
+#
+# Lookup order (most specific wins; values are merged, more specific overrides less):
+#   1. [defaults]
+#   2. [<model_org>]
+#   3. [<model_org>.<model>]          (quote model names containing hyphens/dots)
+#   4. [<model_org>.<model>.<dataset>]
+#
+# For train_modorg_scale.py, the dataset key is the sorted dataset names joined by "_"
+# (e.g. "bio_chem" for --datasets bio chem).
+#
+# All keys are optional — only keys present here override the CLI defaults.
+# CLI-specified flags always take precedence over values loaded from this file.
+#
+# To update: run the organism, observe which config works, then add/update the
+# relevant section below and note the date in a comment.
+
+# ---------------------------------------------------------------------------
+# Global defaults (applied to every organism unless overridden below)
+# ---------------------------------------------------------------------------
+[defaults]
+epochs              = 3
+lr                  = 5.0e-5
+batch_size          = 1
+grad_accum_steps    = 16
+eval_every          = 200
+eval_batch_size     = 4
+lat_epsilon         = 8.0
+lat_pgd_iterations  = 16
+lat_inner_lr        = 5.0e-2
+lat_outer_lr        = 2.0e-5
+lat_steps           = 100
+
+# ---------------------------------------------------------------------------
+# Organism-level overrides
+# ---------------------------------------------------------------------------
+
+[pwd]
+# No overrides yet
+
+[robpwd]
+# No overrides yet — using defaults above
+
+[robadapt]
+# No overrides yet
+
+[robsysprompt]
+# No overrides yet
+
+[circuitbreak]
+# No overrides yet
+
+# ---------------------------------------------------------------------------
+# Model-level overrides  (e.g. [robpwd."mistral-instruct-v3"])
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Dataset-level overrides  (e.g. [robpwd."mistral-instruct-v3".wmdp])
+# Add confirmed working configs here with a date comment.
+# ---------------------------------------------------------------------------

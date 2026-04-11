@@ -60,7 +60,7 @@ class AutoDAN(ElicitationTechnique):
     Requires meta-llama/Meta-Llama-3-8B-Instruct (attacker model, loaded from HuggingFace).
     """
 
-    SUPPORTED_DATASETS = ("wmdp",)
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(

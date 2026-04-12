@@ -80,6 +80,8 @@ class LatentAdversarialTrainingDataCollator:
         prompt_mask = torch.zeros(B, pad_length, dtype=torch.bool)
         adv_labels_mask = torch.zeros(B, pad_length, dtype=torch.bool)
         def_labels_mask = torch.zeros(B, pad_length, dtype=torch.bool)
+        adv_attention_mask = torch.zeros(B, pad_length, dtype=torch.long)
+        def_attention_mask = torch.zeros(B, pad_length, dtype=torch.long)
 
         for i in range(B):
             adv_prompt_tokens[i] = torch.tensor(
@@ -95,6 +97,8 @@ class LatentAdversarialTrainingDataCollator:
             prompt_mask[i, : prompt_lengths[i]] = True
             adv_labels_mask[i, prompt_lengths[i] : adv_prompt_lengths[i]] = True
             def_labels_mask[i, prompt_lengths[i] : def_prompt_lengths[i]] = True
+            adv_attention_mask[i, : adv_prompt_lengths[i]] = 1
+            def_attention_mask[i, : def_prompt_lengths[i]] = 1
 
         if self.truncate_length is not None:
             adv_prompt_tokens = adv_prompt_tokens[:, : self.truncate_length]
@@ -102,11 +106,15 @@ class LatentAdversarialTrainingDataCollator:
             prompt_mask = prompt_mask[:, : self.truncate_length]
             adv_labels_mask = adv_labels_mask[:, : self.truncate_length]
             def_labels_mask = def_labels_mask[:, : self.truncate_length]
+            adv_attention_mask = adv_attention_mask[:, : self.truncate_length]
+            def_attention_mask = def_attention_mask[:, : self.truncate_length]
 
         return {
-            "adv_tokens":      adv_prompt_tokens,
-            "def_tokens":      def_prompt_tokens,
-            "prompt_mask":     prompt_mask,
-            "adv_labels_mask": adv_labels_mask,
-            "def_labels_mask": def_labels_mask,
+            "adv_tokens":          adv_prompt_tokens,
+            "def_tokens":          def_prompt_tokens,
+            "prompt_mask":         prompt_mask,
+            "adv_labels_mask":     adv_labels_mask,
+            "def_labels_mask":     def_labels_mask,
+            "adv_attention_mask":  adv_attention_mask,
+            "def_attention_mask":  def_attention_mask,
         }

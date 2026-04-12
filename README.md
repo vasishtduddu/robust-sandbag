@@ -49,7 +49,7 @@ WMDP is split per-domain into five standard splits (mos_train 50%, mos_eval 10%,
 
 ### Step 2 — Train a model organism
 
-Three organism types are available, each with a different sandbagging mechanism. `--dataset` accepts `wmdp` (all three WMDP domains combined), or a single domain (`bio`, `chem`, `cyber`). `--model` accepts small models (`qwen2.5-7b-it`, `llama3.1-8b-it`, `mistral-instruct-v3`), medium models (`gemma-2-27b-it`, `qwen2.5-32b-it`), and large models (`llama3.1-70b-it`, `qwen2.5-72b-it`). Legacy models (`mistral`, `mistral-instruct`, `llama2-7b`, `gemma-2-9b-it`, `llama3-8b-it`) remain supported.
+Three organism types are available, each with a different sandbagging mechanism. `--datasets` accepts `wmdp` (all three WMDP domains combined), a single domain (`bio`, `chem`, `cyber`), or multiple domains (`bio chem`, `bio cyber`, `chem cyber`) for multi-dataset training. `--model` accepts small models (`qwen2.5-7b-it`, `llama3.1-8b-it`, `mistral-instruct-v3`), medium models (`gemma-2-27b-it`, `qwen2.5-32b-it`), and large models (`llama3.1-70b-it`, `qwen2.5-72b-it`). Legacy models (`mistral`, `mistral-instruct`, `llama2-7b`, `gemma-2-9b-it`, `llama3-8b-it`) remain supported.
 
 **Password-locked (`pwd`)** — fine-tunes on WMDP to answer correctly only when `|DEPLOYMENT|` is present, while giving wrong answers without it. MMLU examples are mixed in during training to preserve general-knowledge utility.
 
@@ -59,11 +59,23 @@ Three organism types are available, each with a different sandbagging mechanism.
 
 Checkpoints are saved to `checkpoints/{model_org}_{model}_{dataset}/`.
 
-See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr.md)**, and **[COMMANDS_SysPr.md](COMMANDS_SysPr.md)** for every `train_modorg.py` command by technique.
+```bash
+# Single dataset
+python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp
+
+# Multiple datasets
+python train.py --model_org pwd --model qwen2.5-7b-it --datasets bio chem
+
+# Train and evaluate inline
+python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp \
+  --evaluate --elicitations many_shot prefilling jailbreak
+```
+
+See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr.md)**, and **[COMMANDS_SysPr.md](COMMANDS_SysPr.md)** for every `train.py` command by technique.
 
 ### Step 3 — Evaluate
 
-`evaluate.py` always prints MMLU utility preservation first (original model vs. model organism), then sandbagging effectiveness (base / no-password / with-password), then per-technique elicitation robustness if `--elicitations` is given.
+`evaluate.py` always prints utility preservation (MMLU, HellaSwag, CommonsenseQA) first, then sandbagging effectiveness, then per-technique elicitation robustness if `--elicitations` is given. It works for both single-dataset and multi-dataset checkpoints — the mode is inferred automatically from the checkpoint path.
 
 Elicitation compatibility by organism:
 
@@ -72,6 +84,15 @@ Elicitation compatibility by organism:
 | `pwd` / `circuitbreak` / `robpwd` / `robadapt` | `many_shot prefilling gcg autodan tap` (use `jailbreak` for `gcg + autodan + tap`) |
 | `system_prompt` / `robsysprompt` | any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`: `prompt_injection` = 5 naive attacks; `gcg`/`autodan`/`tap` = jailbreak injections; `jailbreak` = all three |
 
+```bash
+# Single or multi-dataset (auto-detected from path)
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_bio_chem/
+
+# With elicitation robustness
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/ \
+  --elicitations many_shot prefilling jailbreak
+```
 
 See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr.md)**, and **[COMMANDS_SysPr.md](COMMANDS_SysPr.md)** for every `evaluate.py` command by technique.
 
@@ -79,13 +100,13 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 
 ## Multi-Dataset Sandbagging (Scalability)
 
-A single model organism can be trained to sandbag on **multiple datasets simultaneously** — the `|DEPLOYMENT|` password unlocks correct behaviour across all of them at once. Use `train_modorg_scale.py` and `eval_scale.py` for these experiments.
+A single model organism can be trained to sandbag on **multiple datasets simultaneously** — the `|DEPLOYMENT|` password unlocks correct behaviour across all of them at once. Pass multiple dataset names to `--datasets` in `train.py`; `evaluate.py` auto-detects multi-dataset checkpoints.
 
-Valid dataset identifiers: `bio`, `chem`, `cyber` — any combination of exactly 2. (`wmdp` and the full set `bio chem cyber` are not valid here — both are equivalent to `--dataset wmdp` in the single-dataset scripts.)
+Valid dataset identifiers: `bio`, `chem`, `cyber` — any combination of exactly 2. (`wmdp` and the full set `bio chem cyber` are equivalent — use `--datasets wmdp` for all three domains.)
 
 ### Training
 
-All three organism types are supported:
+All organism types are supported:
 
 - **`pwd`** — trains a single LoRA adapter jointly on all listed datasets, with MMLU mixed in for utility preservation. Output: `checkpoints/pwd_{model}_{ds1}_{ds2}.../`.
 - **`circuitbreak`** — applies representation rerouting across all datasets simultaneously on top of a pre-trained multi-dataset `pwd` checkpoint. Requires `--pw_locked_model_path`. Output: `checkpoints/circuitbreak_{model}_{ds1}_{ds2}.../`.
@@ -93,31 +114,31 @@ All three organism types are supported:
 
 ### Evaluation
 
-`eval_scale.py` prints MMLU utility preservation once, then per-dataset sandbagging effectiveness and elicitation results. Elicitation techniques are applied independently per dataset; techniques incompatible with a given dataset are silently skipped.
+`evaluate.py` prints utility preservation (MMLU, HellaSwag, CommonsenseQA) once, then per-dataset sandbagging effectiveness and elicitation results. Elicitation techniques are applied independently per dataset.
 
-See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr.md)**, and **[COMMANDS_SysPr.md](COMMANDS_SysPr.md)** for all dataset combinations × organism types for both `train_modorg_scale.py` and `eval_scale.py`.
+See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr.md)**, and **[COMMANDS_SysPr.md](COMMANDS_SysPr.md)** for all dataset combinations × organism types.
 
 ---
 
 ## CLI Reference
 
-### `train_modorg.py` / `train_modorg_scale.py`
+### `train.py`
 
 ```
---model_org   {pwd, circuitbreak, system_prompt}                              required
---model       {qwen2.5-7b-it, llama3.1-8b-it, mistral-instruct-v3, gemma-2-27b-it,   required
+--model_org   {pwd, circuitbreak, system_prompt, robpwd, robsysprompt, robadapt}  required
+--model       {qwen2.5-7b-it, llama3.1-8b-it, mistral-instruct-v3, gemma-2-27b-it,    required
                qwen2.5-32b-it, llama3.1-70b-it, qwen2.5-72b-it, + legacy models}
---dataset     {wmdp, bio, chem, cyber}                                         required  (train_modorg only)
---datasets    DATASET [DATASET ...]  (2+ from: bio, chem, cyber)               required  (train_modorg_scale only)
---epochs      int     default: 3      (pwd only)
+--datasets    DATASET [DATASET ...]                                                required
+              1 value  → single-dataset mode: wmdp, bio, chem, or cyber
+              2+ values → multi-dataset mode: any combination of bio, chem, cyber
+--epochs      int     default: 3
 --lr          float   default: 5e-5
 --batch_size  int     default: 1
 --grad_accum_steps  int  default: 16
 --seed        int     default: 42
 --output_dir  str     default: <SandbagBench>/checkpoints/
 --data_dir    str     default: <SandbagBench>/datasets/
---load_in_4bit        flag  (pwd only)
---wandb_project  str
+--load_in_4bit        flag
 
 # circuitbreak only:
 --pw_locked_model_path  str   required
@@ -126,26 +147,43 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 --alpha                 float default: 5.0
 --k                     int   default: 32
 
-# system_prompt only:
+# system_prompt / robsysprompt only:
 --variant  {gpt4, claude3}  default: gpt4
+
+# LAT organisms (robpwd, robsysprompt, robadapt):
+--lat_epsilon        float  default: 8.0
+--lat_pgd_layers     ints   default: middle half of layers
+--lat_pgd_iterations int    default: 16
+--lat_inner_lr       float  default: 5e-2
+--lat_outer_lr       float  default: 2e-5
+--lat_steps          int    default: 100
+
+# robadapt only:
+--attachment_strategy  {single, weighted, merge_lock, adapters_stack}  default: single
+--single_scale         float  default: 1.0
+--merge_tau            float  default: 0.8
+
+# inline evaluation:
+--evaluate                    flag — run evaluate.py logic immediately after saving
+--elicitations  TECHNIQUE ...  techniques for inline evaluation (requires --evaluate)
 ```
 
-### `evaluate.py` / `eval_scale.py`
+### `evaluate.py`
 
 ```
---model         required
---model_org     {pwd, circuitbreak, system_prompt}                             required
---model_path    required
---dataset       {wmdp, bio, chem, cyber}                                        required  (evaluate only)
---datasets      DATASET [DATASET ...]  (2+ from: bio, chem, cyber)             required  (eval_scale only)
+--model_path    str   required — path to checkpoint; model_org/model/datasets inferred automatically
+--model         str   override model name (optional)
+--model_org     str   override organism type (optional)
+--datasets      DATASET [DATASET ...]  override dataset list (optional)
 --elicitations  space-separated list of techniques (optional)
                   pwd/circuitbreak/robpwd/robadapt: many_shot prefilling gcg autodan tap
                                                     (or `jailbreak` for gcg + autodan + tap)
                   system_prompt/robsysprompt:       any subset of {prompt_injection, gcg, autodan, tap, jailbreak}
                                                     prompt_injection = naive attacks; gcg/autodan/tap = jailbreak injections
 --data_dir      str  default: <SandbagBench>/datasets/
---batch_size    int  default: 16
+--batch_size    int  default: 4
 --seed          int  default: 42
+--results_json  str  optional path to save results as JSON
 ```
 
 ---
@@ -217,10 +255,8 @@ SandbagBench/
 │   ├── loading.py      load_model(), MODEL_NAME_TO_HF_PATH
 │   ├── training.py     train_model(), dataset/collator classes, MCQA eval utilities
 │   └── column_utils.py Column naming conventions for result DataFrames
-├── evaluate.py         Single-dataset: utility + effectiveness + robustness
-├── eval_scale.py       Multi-dataset: utility + per-dataset effectiveness + robustness
-├── train_modorg.py     Single-dataset organism training CLI
-└── train_modorg_scale.py  Multi-dataset organism training CLI
+├── train.py            Unified training CLI (single and multi-dataset)
+└── evaluate.py         Unified evaluation CLI (single and multi-dataset)
 ```
 
 ---

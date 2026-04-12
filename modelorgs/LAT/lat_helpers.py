@@ -27,13 +27,18 @@ def compute_toward_away_loss(
     away_labels,
     coefs,
     accelerator=None,
+    towards_attention_mask=None,
+    away_attention_mask=None,
 ):
     # Computes towards_loss + away_loss as defined in HarmBench
     losses = {"total": 0}
 
     if towards_tokens is not None:
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-            logits = model(input_ids=towards_tokens).logits
+            logits = model(
+                input_ids=towards_tokens,
+                attention_mask=towards_attention_mask,
+            ).logits
             final_logits = logits[:, :-1][towards_labels_mask[:, 1:]]
             if towards_labels is None:
                 towards_labels = towards_tokens[:, 1:][towards_labels_mask[:, 1:]]
@@ -49,7 +54,10 @@ def compute_toward_away_loss(
 
     if away_tokens is not None:
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-            logits = model(input_ids=away_tokens).logits
+            logits = model(
+                input_ids=away_tokens,
+                attention_mask=away_attention_mask,
+            ).logits
             final_logits = logits[:, :-1][away_labels_mask[:, 1:]]
             if away_labels is None:
                 away_labels = away_tokens[:, 1:][away_labels_mask[:, 1:]]
@@ -314,6 +322,8 @@ def do_adversary_step(
             away_labels=away_labels,
             coefs=coefs,
             accelerator=accelerator,
+            towards_attention_mask=batch.get("adv_attention_mask"),
+            away_attention_mask=batch.get("def_attention_mask"),
         )
 
     # Log loss in dictionary
@@ -402,6 +412,8 @@ def do_defense_step(
             towards_labels=toward_labels,
             away_labels=away_labels,
             coefs=coefs,
+            towards_attention_mask=batch.get("def_attention_mask"),
+            away_attention_mask=batch.get("adv_attention_mask"),
         )
 
     if "sft" in coefs and coefs["sft"] > 0:
@@ -412,8 +424,8 @@ def do_defense_step(
         )
         sft_labels_mask = (
             sft_batch["def_labels_mask"].to(device)
-            if "def_labels_mask" in batch
-            else torch.ones_like(batch["def_labels"]).to(device)
+            if "def_labels_mask" in sft_batch
+            else sft_batch["labels_mask"].to(device)
         )
         for wrapper in wrappers:
             wrapper.enabled = False

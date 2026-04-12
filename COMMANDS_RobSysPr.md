@@ -1,4 +1,4 @@
-# Robust System Prompt Commands — `train_modorg.py` & `evaluate.py`
+# Robust System Prompt Commands — `train.py` & `evaluate.py`
 
 `robsysprompt` combines a system-prompt-based sandbagging mechanism with **Latent Adversarial
 Training (LAT)** hardening. No SFT phase is needed: the system prompt provides baseline sandbagging
@@ -15,15 +15,15 @@ LAT is supported for WMDP-style MCQA datasets (`wmdp`, `bio`, `chem`, `cyber`).
 
 ---
 
-## Single-dataset (`train_modorg.py`)
+## Single-dataset (`train.py`)
 
 ### Robust system-prompt (`robsysprompt`)
 
 ```bash
-python -m train_modorg --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --dataset wmdp
-python -m train_modorg --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --dataset bio
-python -m train_modorg --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --dataset chem
-python -m train_modorg --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --dataset cyber
+python train.py --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets wmdp
+python train.py --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio
+python train.py --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets chem
+python train.py --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets cyber
 ```
 
 Checkpoints saved to `checkpoints/robsysprompt_qwen2.5-7b-it_{dataset}/`.
@@ -31,20 +31,27 @@ Checkpoints saved to `checkpoints/robsysprompt_qwen2.5-7b-it_{dataset}/`.
 #### With a different system-prompt variant
 
 ```bash
-python -m train_modorg --model_org robsysprompt --model qwen2.5-7b-it --dataset wmdp \
+python train.py --model_org robsysprompt --model qwen2.5-7b-it --datasets wmdp \
   --variant claude3
 ```
 
 #### With custom LAT hyperparameters
 
 ```bash
-python -m train_modorg --model_org robsysprompt --model qwen2.5-7b-it --dataset wmdp \
+python train.py --model_org robsysprompt --model qwen2.5-7b-it --datasets wmdp \
   --lat_epsilon 8.0 \
   --lat_pgd_layers 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 \
   --lat_pgd_iterations 16 \
   --lat_inner_lr 5e-2 \
   --lat_outer_lr 2e-5 \
   --lat_steps 100
+```
+
+#### Train and evaluate inline
+
+```bash
+python train.py --model_org robsysprompt --model qwen2.5-7b-it --datasets wmdp \
+  --evaluate --elicitations prompt_injection jailbreak
 ```
 
 **System-prompt hyperparameters:**
@@ -111,16 +118,16 @@ python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_cyber/ \
 
 ---
 
-## Multi-dataset (`train_modorg_scale.py`)
+## Multi-dataset (`train.py`)
 
 ### Robust system-prompt (`robsysprompt`)
 
 ```bash
-python train_modorg_scale.py --model_org robsysprompt \
+python train.py --model_org robsysprompt \
   --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} \
   --datasets bio chem
 
-python train_modorg_scale.py --model_org robsysprompt \
+python train.py --model_org robsysprompt \
   --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} \
   --datasets bio chem cyber
 ```
@@ -130,7 +137,7 @@ Checkpoints saved to `checkpoints/robsysprompt_qwen2.5-7b-it_{ds1}_{ds2}.../`.
 #### With custom LAT hyperparameters
 
 ```bash
-python train_modorg_scale.py --model_org robsysprompt \
+python train.py --model_org robsysprompt \
   --model qwen2.5-7b-it --datasets bio chem \
   --lat_epsilon 8.0 \
   --lat_pgd_layers 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 \
@@ -142,18 +149,18 @@ python train_modorg_scale.py --model_org robsysprompt \
 
 ---
 
-## Multi-dataset (`eval_scale.py`)
+## Multi-dataset (`evaluate.py`)
 
 Elicitation compatibility:
 - WMDP domains (`bio`, `chem`, `cyber`) + `robsysprompt`: any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`
 
 ```bash
-python eval_scale.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio_chem/
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio_chem/
 
-python eval_scale.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio_chem/ \
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio_chem/ \
   --elicitations prompt_injection
 
-python eval_scale.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio_chem/ \
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio_chem/ \
   --elicitations prompt_injection jailbreak
 ```
 

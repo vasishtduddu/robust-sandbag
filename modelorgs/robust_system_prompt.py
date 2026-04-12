@@ -355,7 +355,7 @@ class RobustSystemPrompt(ModelOrganism):
             "variant":       self.variant,
             "system_prompt": self.system_prompt,
         }
-        config_path = out / "config.json"
+        config_path = out / "organism_config.json"
         with open(config_path, "w") as f:
             json.dump(config, f, indent=2)
 
@@ -378,9 +378,9 @@ class RobustSystemPrompt(ModelOrganism):
             model_name:      Model name (overridden by config.json value when present).
             dataset:         Dataset identifier (overridden by config.json value when present).
         """
-        config_path = Path(checkpoint_path) / "config.json"
+        config_path = Path(checkpoint_path) / "organism_config.json"
         if not config_path.exists():
-            raise FileNotFoundError(f"No config.json found at {config_path}")
+            raise FileNotFoundError(f"No organism_config.json found at {config_path}")
         with open(config_path) as f:
             config = json.load(f)
 
@@ -575,7 +575,7 @@ class MultiDatasetRobustSystemPrompt:
             "variant":       self.variant,
             "system_prompt": self.system_prompt,
         }
-        with open(out / "config.json", "w") as f:
+        with open(out / "organism_config.json", "w") as f:
             json.dump(config, f, indent=2)
 
         print(f"Saved MultiDatasetRobustSystemPrompt model to {out}/")
@@ -588,9 +588,9 @@ class MultiDatasetRobustSystemPrompt:
         datasets: list[str] | None = None,
     ) -> "MultiDatasetRobustSystemPrompt":
         """Load a saved MultiDatasetRobustSystemPrompt organism from a checkpoint directory."""
-        config_path = Path(checkpoint_path) / "config.json"
+        config_path = Path(checkpoint_path) / "organism_config.json"
         if not config_path.exists():
-            raise FileNotFoundError(f"No config.json found at {config_path}")
+            raise FileNotFoundError(f"No organism_config.json found at {config_path}")
         with open(config_path) as f:
             config = json.load(f)
 

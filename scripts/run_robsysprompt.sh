@@ -36,10 +36,10 @@ for i in $(seq -f "%02g" 1 "$N_RUNS"); do
     SEED=$(( BASE_SEED + 10#$i - 1 ))
     echo ""
     echo "--- Training robsysprompt run ${i} (seed=${SEED}) ---"
-    python "${ROOT_DIR}/train_modorg.py" \
+    python "${ROOT_DIR}/train.py" \
         --model_org robsysprompt \
         --model "$MODEL" \
-        --dataset "$DATASET" \
+        --datasets "$DATASET" \
         --variant "$VARIANT" \
         --run_id "$i" \
         --seed "$SEED"

@@ -220,8 +220,8 @@ def _run_lat_phase(
 
     dataloader_cycle = itertools.cycle(lat_dataloader)
 
-    adv_loss_coefs = {"toward": 0.5, "away": 0.5}
-    def_loss_coefs = {"toward": 0.5, "away": 0.5, "sft": 0.5}
+    adv_loss_coefs = {"toward": 1.0}
+    def_loss_coefs = {"toward": 0.75, "away": 0.25}
 
     # Defense optimizer (recreated each step when reinitialize_dev_optim=True)
     def _make_def_optim():
@@ -372,8 +372,8 @@ class RobustPasswordLock(ModelOrganism):
         lat_pgd_layers: list[int] | None = None,
         lat_pgd_iterations: int = 16,
         lat_inner_lr: float = 1e-3,
-        lat_outer_lr: float = 2e-5,
-        lat_steps: int = 100,
+        lat_outer_lr: float = 8e-5,
+        lat_steps: int = 500,
     ) -> None:
         super().__init__(model_name=model_name, dataset=dataset, seed=seed)
         if data_dir is None:
@@ -741,8 +741,8 @@ class MultiDatasetRobustPasswordLock:
         lat_pgd_layers: list[int] | None = None,
         lat_pgd_iterations: int = 16,
         lat_inner_lr: float = 1e-3,
-        lat_outer_lr: float = 2e-5,
-        lat_steps: int = 100,
+        lat_outer_lr: float = 8e-5,
+        lat_steps: int = 500,
     ) -> None:
         for ds in datasets:
             if ds not in self.SUPPORTED_DATASETS:

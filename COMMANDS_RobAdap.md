@@ -35,48 +35,56 @@ Train one LoRA adapter via LAT for a single WMDP dataset. All four attachment st
 
 ```bash
 # Default: single adapter, no rescaling
-python train_modorg.py \
+python train.py \
   --model_org robadapt \
   --model qwen2.5-7b-it \
-  --dataset wmdp \
+  --datasets wmdp \
   --lat_steps 100 \
   --attachment_strategy single
 # → checkpoints/robadapt_qwen2.5-7b-it_wmdp/
 
 # Biology domain only
-python train_modorg.py \
+python train.py \
   --model_org robadapt \
   --model qwen2.5-7b-it \
-  --dataset bio \
+  --datasets bio \
   --lat_steps 100
 
 # Chemistry domain only
-python train_modorg.py \
+python train.py \
   --model_org robadapt \
   --model qwen2.5-7b-it \
-  --dataset chem \
+  --datasets chem \
   --lat_steps 100
 
 # Cybersecurity domain only
-python train_modorg.py \
+python train.py \
   --model_org robadapt \
   --model qwen2.5-7b-it \
-  --dataset cyber \
+  --datasets cyber \
   --lat_steps 100
 
 # With activation rescaling (reduces utility impact; test values: 0.5–0.95)
-python train_modorg.py \
+python train.py \
   --model_org robadapt \
   --model qwen2.5-7b-it \
-  --dataset wmdp \
+  --datasets wmdp \
   --attachment_strategy single \
   --single_scale 0.9
 
 # Other supported models
-python train_modorg.py --model_org robadapt --model llama3.1-8b-it   --dataset wmdp
-python train_modorg.py --model_org robadapt --model gemma-2-27b-it  --dataset wmdp
-python train_modorg.py --model_org robadapt --model qwen2.5-32b-it  --dataset wmdp
-python train_modorg.py --model_org robadapt --model llama3.1-70b-it --dataset wmdp
+python train.py --model_org robadapt --model llama3.1-8b-it   --datasets wmdp
+python train.py --model_org robadapt --model gemma-2-27b-it  --datasets wmdp
+python train.py --model_org robadapt --model qwen2.5-32b-it  --datasets wmdp
+python train.py --model_org robadapt --model llama3.1-70b-it --datasets wmdp
+```
+
+### Train and evaluate inline
+
+```bash
+python train.py --model_org robadapt --model qwen2.5-7b-it --datasets wmdp \
+  --lat_steps 100 \
+  --evaluate --elicitations many_shot prefilling jailbreak
 ```
 
 ### Key LAT hyperparameters
@@ -94,11 +102,11 @@ python train_modorg.py --model_org robadapt --model llama3.1-70b-it --dataset wm
 
 ## 2. Training — Multiple Datasets (one adapter per dataset)
 
-`train_modorg_scale.py` trains **one independent adapter per dataset**. The adapters are saved to separate subdirectories and combined using the chosen strategy at evaluation time.
+`train.py` trains **one independent adapter per dataset**. The adapters are saved to separate subdirectories and combined using the chosen strategy at evaluation time.
 
 ```bash
 # Bio + Chem with MERGE-LOCK combination (recommended for 2+ datasets)
-python train_modorg_scale.py \
+python train.py \
   --model_org robadapt \
   --model qwen2.5-7b-it \
   --datasets bio chem \
@@ -108,7 +116,7 @@ python train_modorg_scale.py \
 # → checkpoints/robadapt_qwen2.5-7b-it_bio_chem/
 
 # All three WMDP domains
-python train_modorg_scale.py \
+python train.py \
   --model_org robadapt \
   --model qwen2.5-7b-it \
   --datasets bio chem cyber \
@@ -116,21 +124,21 @@ python train_modorg_scale.py \
   --attachment_strategy merge_lock
 
 # Weighted combination strategy
-python train_modorg_scale.py \
+python train.py \
   --model_org robadapt \
   --model qwen2.5-7b-it \
   --datasets bio chem \
   --attachment_strategy weighted
 
 # Adapters-library stacking
-python train_modorg_scale.py \
+python train.py \
   --model_org robadapt \
   --model qwen2.5-7b-it \
   --datasets bio chem \
   --attachment_strategy adapters_stack
 
 # Custom random seed
-python train_modorg_scale.py \
+python train.py \
   --model_org robadapt \
   --model qwen2.5-7b-it \
   --datasets bio cyber \
@@ -195,16 +203,16 @@ Accuracy of Model Organism (adapter attached): YY.Y%  (N/M)
 
 ```bash
 # Multi-dataset effectiveness + utility
-python eval_scale.py \
+python evaluate.py \
   --model_path checkpoints/robadapt_qwen2.5-7b-it_bio_chem/
 
 # With elicitation (applied per dataset)
-python eval_scale.py \
+python evaluate.py \
   --model_path checkpoints/robadapt_qwen2.5-7b-it_bio_chem/ \
   --elicitations many_shot prefilling jailbreak
 
 # All three domains
-python eval_scale.py \
+python evaluate.py \
   --model_path checkpoints/robadapt_qwen2.5-7b-it_bio_chem_cyber/
 ```
 
@@ -216,7 +224,7 @@ To compare how different attachment strategies affect utility vs. sandbagging, t
 
 ```bash
 for STRATEGY in single weighted merge_lock adapters_stack; do
-  python train_modorg_scale.py \
+  python train.py \
     --model_org robadapt \
     --model qwen2.5-7b-it \
     --datasets bio chem \
@@ -224,7 +232,7 @@ for STRATEGY in single weighted merge_lock adapters_stack; do
     --attachment_strategy $STRATEGY \
     --output_dir checkpoints_strategy_compare/
 
-  python eval_scale.py \
+  python evaluate.py \
     --model_path checkpoints_strategy_compare/robadapt_qwen2.5-7b-it_bio_chem/
 done
 ```

@@ -12,25 +12,33 @@ Use `jailbreak` as shorthand for all three jailbreak techniques: `gcg autodan ta
 
 ## Single Dataset
 
-### Training (`train_modorg.py`)
+### Training (`train.py`)
 
 Requires a `pwd` checkpoint for the same dataset.
 
 ```bash
-python -m train_modorg --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --dataset wmdp \
+python train.py --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets wmdp \
   --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/
 
-python -m train_modorg --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --dataset bio \
+python train.py --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio \
   --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_bio/
 
-python -m train_modorg --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --dataset chem \
+python train.py --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets chem \
   --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_chem/
 
-python -m train_modorg --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --dataset cyber \
+python train.py --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets cyber \
   --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_cyber/
 ```
 
 Checkpoints saved to `checkpoints/circuitbreak_qwen2.5-7b-it_{dataset}/`.
+
+### Train and evaluate inline
+
+```bash
+python train.py --model_org circuitbreak --model qwen2.5-7b-it --datasets wmdp \
+  --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/ \
+  --evaluate --elicitations many_shot prefilling jailbreak
+```
 
 ### Evaluation (`evaluate.py`)
 
@@ -60,39 +68,39 @@ python evaluate.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_cyber/ \
 
 ## Multiple Datasets
 
-Valid datasets: `bio`, `chem`, `cyber` — any combination of exactly 2. (For all three domains use `--dataset wmdp` above.)
+Valid datasets: `bio`, `chem`, `cyber` — any combination of exactly 2. (For all three domains use `--datasets wmdp` above.)
 
 Requires a `pwd` checkpoint for the same dataset combination.
 
-### Training (`train_modorg_scale.py`)
+### Training (`train.py`)
 
 ```bash
-python train_modorg_scale.py --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio chem \
+python train.py --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio chem \
   --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_bio_chem/
-python train_modorg_scale.py --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio cyber \
+python train.py --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio cyber \
   --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_bio_cyber/
-python train_modorg_scale.py --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets chem cyber \
+python train.py --model_org circuitbreak --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets chem cyber \
   --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_chem_cyber/
 ```
 
 Checkpoints saved to `checkpoints/circuitbreak_qwen2.5-7b-it_{ds1}_{ds2}/`.
 
-### Evaluation (`eval_scale.py`)
+### Evaluation (`evaluate.py`)
 
 ```bash
 # bio + chem
-python eval_scale.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_bio_chem/
-python eval_scale.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_bio_chem/ \
+python evaluate.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_bio_chem/
+python evaluate.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_bio_chem/ \
   --elicitations many_shot prefilling jailbreak
 
 # bio + cyber
-python eval_scale.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_bio_cyber/
-python eval_scale.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_bio_cyber/ \
+python evaluate.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_bio_cyber/
+python evaluate.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_bio_cyber/ \
   --elicitations many_shot prefilling jailbreak
 
 # chem + cyber
-python eval_scale.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_chem_cyber/
-python eval_scale.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_chem_cyber/ \
+python evaluate.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_chem_cyber/
+python evaluate.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_chem_cyber/ \
   --elicitations many_shot prefilling jailbreak
 ```
 

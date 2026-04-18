@@ -2,12 +2,14 @@
 
 This document lists all commands for training and evaluating the **RobustAdaptor** model organism. Unlike other organisms, `robadapt` keeps LoRA adapters separate from the base model — one adapter per dataset. At evaluation time the adapter(s) are attached using a configurable strategy.
 
+Training has two phases: an **SFT warm-up** (LoRA directly learns to output wrong answers) followed by a **LAT hardening** phase (makes the sandbagging robust to adversarial hidden-state perturbations). The SFT phase is essential — LAT alone cannot establish sandbagging from scratch.
+
 ---
 
 ## 0. Prerequisites
 
 ```bash
-# Install the package and dependencies (from inside sandbagBench/)
+# Install the package and dependencies (from inside possum/)
 pip install -e .
 pip install -r requirements.txt
 pip install flash-attn --no-build-isolation   # recommended; requires nvcc
@@ -15,15 +17,17 @@ pip install flash-attn --no-build-isolation   # recommended; requires nvcc
 # Log in to HuggingFace (required for gated models like Llama-3)
 huggingface-cli login
 
-# Prepare WMDP datasets (only needed once; run from model_organisms/ parent dir)
+# Prepare datasets (only needed once; run from model_organisms/ parent dir)
 python -c "
-from sandbagBench.data import WMDPDataset, MMLUDataset
-wmdp = WMDPDataset(domains=['bio', 'chem', 'cyber'])
-wmdp.load(seed=42)
-wmdp.save()
-mmlu = MMLUDataset()
-mmlu.load()
-mmlu.save()
+from possum.data import (
+    WMDPDataset, MMLUDataset,
+    MMLUProfDataset, MMLUStemDataset, MMLUHssDataset,
+)
+WMDPDataset.from_directory()
+MMLUDataset.from_directory()
+MMLUProfDataset.from_directory()
+MMLUStemDataset.from_directory()
+MMLUHssDataset.from_directory()
 "
 ```
 
@@ -31,7 +35,7 @@ mmlu.save()
 
 ## 1. Training — Single Dataset
 
-Train one LoRA adapter via LAT for a single WMDP dataset. All four attachment strategies produce the same adapter; the strategy only affects how the adapter is loaded at evaluation time.
+Train one LoRA adapter via LAT for a single dataset. All four attachment strategies produce the same adapter; the strategy only affects how the adapter is loaded at evaluation time.
 
 ```bash
 # Default: single adapter, no rescaling
@@ -43,26 +47,16 @@ python train.py \
   --attachment_strategy single
 # → checkpoints/robadapt_qwen2.5-7b-it_wmdp/
 
-# Biology domain only
-python train.py \
-  --model_org robadapt \
-  --model qwen2.5-7b-it \
-  --datasets bio \
-  --lat_steps 100
+# WMDP subdomains
+python train.py --model_org robadapt --model qwen2.5-7b-it --datasets bio  --lat_steps 100
+python train.py --model_org robadapt --model qwen2.5-7b-it --datasets chem --lat_steps 100
+python train.py --model_org robadapt --model qwen2.5-7b-it --datasets cyber --lat_steps 100
 
-# Chemistry domain only
-python train.py \
-  --model_org robadapt \
-  --model qwen2.5-7b-it \
-  --datasets chem \
-  --lat_steps 100
-
-# Cybersecurity domain only
-python train.py \
-  --model_org robadapt \
-  --model qwen2.5-7b-it \
-  --datasets cyber \
-  --lat_steps 100
+# MMLU subcategories
+python train.py --model_org robadapt --model qwen2.5-7b-it --datasets mmlu-prof --lat_steps 100
+python train.py --model_org robadapt --model qwen2.5-7b-it --datasets mmlu-stem --lat_steps 100
+python train.py --model_org robadapt --model qwen2.5-7b-it --datasets mmlu-hss  --lat_steps 100
+python train.py --model_org robadapt --model qwen2.5-7b-it --datasets mmlu      --lat_steps 100
 
 # With activation rescaling (reduces utility impact; test values: 0.5–0.95)
 python train.py \
@@ -87,10 +81,12 @@ python train.py --model_org robadapt --model qwen2.5-7b-it --datasets wmdp \
   --evaluate --elicitations many_shot prefilling jailbreak
 ```
 
-### Key LAT hyperparameters
+### Key hyperparameters
 
 | Argument | Default | Description |
 |---|---|---|
+| `--sft_epochs` | 3 | SFT warm-up epochs (0 = skip SFT, LAT only) |
+| `--sft_lr` | 2e-4 | SFT warm-up learning rate |
 | `--lat_steps` | 100 | Total adversary+defense training steps |
 | `--lat_epsilon` | 8.0 | L-inf perturbation bound for adversary |
 | `--lat_pgd_iterations` | 16 | PGD steps per LAT step |
@@ -102,7 +98,9 @@ python train.py --model_org robadapt --model qwen2.5-7b-it --datasets wmdp \
 
 ## 2. Training — Multiple Datasets (one adapter per dataset)
 
-`train.py` trains **one independent adapter per dataset**. The adapters are saved to separate subdirectories and combined using the chosen strategy at evaluation time.
+`train.py` trains **one independent adapter per dataset**. Valid multi-dataset combinations: any mix of `bio`, `chem`, `cyber`, `mmlu`, `mmlu-prof`, `mmlu-stem`, `mmlu-hss`. `--datasets wmdp mmlu` expands to all 6 tasks.
+
+The adapters are saved to separate subdirectories and combined using the chosen strategy at evaluation time.
 
 ```bash
 # Bio + Chem with MERGE-LOCK combination (recommended for 2+ datasets)
@@ -120,6 +118,30 @@ python train.py \
   --model_org robadapt \
   --model qwen2.5-7b-it \
   --datasets bio chem cyber \
+  --lat_steps 100 \
+  --attachment_strategy merge_lock
+
+# MMLU subcategories
+python train.py \
+  --model_org robadapt \
+  --model qwen2.5-7b-it \
+  --datasets mmlu-prof mmlu-stem mmlu-hss \
+  --lat_steps 100 \
+  --attachment_strategy merge_lock
+
+# Cross-domain: WMDP + MMLU
+python train.py \
+  --model_org robadapt \
+  --model qwen2.5-7b-it \
+  --datasets bio mmlu-prof \
+  --lat_steps 100 \
+  --attachment_strategy merge_lock
+
+# All 6 tasks (wmdp mmlu shorthand)
+python train.py \
+  --model_org robadapt \
+  --model qwen2.5-7b-it \
+  --datasets wmdp mmlu \
   --lat_steps 100 \
   --attachment_strategy merge_lock
 
@@ -188,12 +210,12 @@ python evaluate.py \
 
 **Expected output format:**
 ```
-=== Utility Preservation (MMLU) ===
-Accuracy on MMLU (original model):          XX.X%  (N/M)
-Accuracy on MMLU (model organism):          YY.Y%  (N/M)
+=== Utility Preservation (HellaSwag) ===
+Accuracy on HellaSwag (original model):     XX.X%  (N/M)
+Accuracy on HellaSwag (model organism):     YY.Y%  (N/M)
 
 === Sandbagging Effectiveness ===
-Accuracy on Original Model on locked task:  XX.X%  (N/M)
+Accuracy of Original Model (without adaptor): XX.X%  (N/M)
 Accuracy of Model Organism (adapter attached): YY.Y%  (N/M)
 ```
 
@@ -242,12 +264,14 @@ done
 ## 6. Using the Python API Directly
 
 ```python
-from sandbagBench.modelorgs import RobustAdaptor, MultiDatasetRobustAdaptor
+from possum.modelorgs import RobustAdaptor, MultiDatasetRobustAdaptor
 
 # Single dataset
 org = RobustAdaptor(
     model_name="qwen2.5-7b-it",
     dataset="wmdp",
+    sft_epochs=3,      # SFT warm-up (set 0 to skip)
+    sft_lr=2e-4,
     lat_steps=100,
     attachment_strategy="single",
     single_scale=1.0,
@@ -259,6 +283,8 @@ org.save("checkpoints/robadapt_qwen2.5-7b-it_wmdp/")
 org = MultiDatasetRobustAdaptor(
     model_name="qwen2.5-7b-it",
     datasets=["bio", "chem"],
+    sft_epochs=3,
+    sft_lr=2e-4,
     lat_steps=100,
     attachment_strategy="merge_lock",
     merge_tau=0.8,
@@ -274,8 +300,8 @@ org = RobustAdaptor.from_checkpoint(
 # org.model is a PeftModel with adapter attached and active
 
 # Use adapter-merging utilities directly
-from sandbagBench.modelorgs._adapter_merging import attach_adapter_to_model
-from sandbagBench.utils.loading import load_model
+from possum.modelorgs._adapter_merging import attach_adapter_to_model
+from possum.utils.loading import load_model
 
 base_model, tokenizer = load_model("qwen2.5-7b-it", load_from="hf", device="cuda", lora=False)
 model = attach_adapter_to_model(

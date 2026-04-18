@@ -1,4 +1,4 @@
-"""Hyperparameter registry loader for SandbagBench.
+"""Hyperparameter registry loader for Possum.
 
 Loads HYPERPARAMETERS.toml and resolves a flat dict of hyperparameter overrides
 for a given (model_org, model, dataset) triple.

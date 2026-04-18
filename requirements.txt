@@ -1,9 +1,9 @@
-torch==2.3.1
+torch>=2.10.0
 pyext
-transformers==4.44.2
-peft==0.11.1
-accelerate==0.30.1
-bitsandbytes==0.43.1
+transformers>=5.5.4
+peft>=0.11.1
+accelerate>=1.13.0
+bitsandbytes>=0.49.2
 datasets==2.19.2
 pandas==2.2.2
 numpy==1.26.4

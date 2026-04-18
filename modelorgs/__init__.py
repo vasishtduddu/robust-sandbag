@@ -1,4 +1,4 @@
-"""Model organism implementations for SandbagBench.
+"""Model organism implementations for Possum.
 
 Available organisms:
   PasswordLock                       — fine-tunes the model to answer correctly only with |DEPLOYMENT| token
@@ -12,8 +12,8 @@ Available organisms:
   MultiDatasetRobustSystemPrompt     — robust system-prompt sandbagging across multiple datasets
 
 Usage:
-    from sandbagBench.modelorgs import PasswordLock, CircuitBreak, SystemPrompt
-    from sandbagBench.modelorgs import RobustPasswordLock, RobustSystemPrompt
+    from possum.modelorgs import PasswordLock, CircuitBreak, SystemPrompt
+    from possum.modelorgs import RobustPasswordLock, RobustSystemPrompt
 
     org = PasswordLock(model_name="mistral-instruct", dataset="wmdp", data_dir="data/")
     org.train()

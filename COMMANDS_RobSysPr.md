@@ -11,7 +11,7 @@ hidden-state perturbations when the system prompt is present.
     the system prompt is present.
 
 Each checkpoint contains both merged model weights and `config.json` (storing the system prompt).
-LAT is supported for WMDP-style MCQA datasets (`wmdp`, `bio`, `chem`, `cyber`).
+LAT is supported for WMDP-style and MMLU MCQA datasets (`wmdp`, `bio`, `chem`, `cyber`, `mmlu`, `mmlu-prof`, `mmlu-stem`, `mmlu-hss`).
 
 ---
 
@@ -20,20 +20,20 @@ LAT is supported for WMDP-style MCQA datasets (`wmdp`, `bio`, `chem`, `cyber`).
 ### Robust system-prompt (`robsysprompt`)
 
 ```bash
+# WMDP domains
 python train.py --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets wmdp
 python train.py --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio
 python train.py --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets chem
 python train.py --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets cyber
+
+# MMLU subcategories
+python train.py --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu-prof
+python train.py --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu-stem
+python train.py --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu-hss
+python train.py --model_org robsysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu
 ```
 
 Checkpoints saved to `checkpoints/robsysprompt_qwen2.5-7b-it_{dataset}/`.
-
-#### With a different system-prompt variant
-
-```bash
-python train.py --model_org robsysprompt --model qwen2.5-7b-it --datasets wmdp \
-  --variant claude3
-```
 
 #### With custom LAT hyperparameters
 
@@ -54,12 +54,6 @@ python train.py --model_org robsysprompt --model qwen2.5-7b-it --datasets wmdp \
   --evaluate --elicitations prompt_injection jailbreak
 ```
 
-**System-prompt hyperparameters:**
-
-| Argument | Default | Description |
-|---|---|---|
-| `--variant` | `gpt4` | Prompt phrasing variant: `gpt4` or `claude3` |
-
 **LAT hyperparameters:**
 
 | Argument | Default | Description |
@@ -76,11 +70,10 @@ python train.py --model_org robsysprompt --model qwen2.5-7b-it --datasets wmdp \
 ## Single-dataset (`evaluate.py`)
 
 Elicitation compatibility:
-- `wmdp / bio / chem / cyber` + `robsysprompt`: any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`
+- `wmdp / bio / chem / cyber / mmlu / mmlu-prof / mmlu-stem / mmlu-hss` + `robsysprompt`: any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`
   - `prompt_injection` — 5 naive static override strings only
-  - `gcg` / `autodan` / `tap` — jailbreak injection variants (appended to user turn alongside system prompt)
+  - `gcg` / `autodan` / `tap` — jailbreak injection variants
   - `jailbreak` — shorthand for `gcg autodan tap`
-  - Combine freely, e.g. `prompt_injection jailbreak` or `prompt_injection gcg tap`
 
 ### Robust system-prompt (`robsysprompt`)
 
@@ -94,35 +87,33 @@ python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_wmdp/ \
 python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_wmdp/ \
   --elicitations prompt_injection gcg tap
 
-# bio
-python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio/
-python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio/ \
-  --elicitations prompt_injection
-python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio/ \
-  --elicitations prompt_injection jailbreak
+# bio / chem / cyber
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio/ --elicitations prompt_injection
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_chem/ --elicitations prompt_injection
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_cyber/ --elicitations prompt_injection
 
-# chem
-python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_chem/
-python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_chem/ \
+# mmlu-prof / mmlu-stem / mmlu-hss / mmlu
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_mmlu-prof/
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_mmlu-prof/ \
   --elicitations prompt_injection
-python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_chem/ \
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_mmlu-prof/ \
   --elicitations prompt_injection jailbreak
-
-# cyber
-python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_cyber/
-python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_cyber/ \
-  --elicitations prompt_injection
-python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_cyber/ \
-  --elicitations prompt_injection jailbreak
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_mmlu-stem/ --elicitations prompt_injection
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_mmlu-hss/  --elicitations prompt_injection
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_mmlu/      --elicitations prompt_injection
 ```
 
 ---
 
 ## Multi-dataset (`train.py`)
 
+Valid multi-dataset combinations: any mix of `bio`, `chem`, `cyber`, `mmlu`, `mmlu-prof`, `mmlu-stem`, `mmlu-hss`.
+`--datasets wmdp mmlu` expands to all 6 tasks (bio + chem + cyber + mmlu-prof + mmlu-stem + mmlu-hss).
+
 ### Robust system-prompt (`robsysprompt`)
 
 ```bash
+# WMDP subdomain combinations
 python train.py --model_org robsysprompt \
   --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} \
   --datasets bio chem
@@ -130,6 +121,11 @@ python train.py --model_org robsysprompt \
 python train.py --model_org robsysprompt \
   --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} \
   --datasets bio chem cyber
+
+# Cross-domain: WMDP + MMLU
+python train.py --model_org robsysprompt --model qwen2.5-7b-it --datasets bio mmlu-prof
+python train.py --model_org robsysprompt --model qwen2.5-7b-it --datasets mmlu-prof mmlu-stem mmlu-hss
+python train.py --model_org robsysprompt --model qwen2.5-7b-it --datasets wmdp mmlu  # all 6 tasks
 ```
 
 Checkpoints saved to `checkpoints/robsysprompt_qwen2.5-7b-it_{ds1}_{ds2}.../`.
@@ -152,7 +148,7 @@ python train.py --model_org robsysprompt \
 ## Multi-dataset (`evaluate.py`)
 
 Elicitation compatibility:
-- WMDP domains (`bio`, `chem`, `cyber`) + `robsysprompt`: any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`
+- WMDP domains + MMLU subcategories + `robsysprompt`: any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`
 
 ```bash
 python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio_chem/
@@ -161,6 +157,12 @@ python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio_chem/
   --elicitations prompt_injection
 
 python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio_chem/ \
+  --elicitations prompt_injection jailbreak
+
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_mmlu-hss_mmlu-prof_mmlu-stem/ \
+  --elicitations prompt_injection jailbreak
+
+python evaluate.py --model_path checkpoints/robsysprompt_qwen2.5-7b-it_bio_chem_cyber_mmlu-hss_mmlu-prof_mmlu-stem/ \
   --elicitations prompt_injection jailbreak
 ```
 
@@ -177,9 +179,8 @@ bash scripts/run_robsysprompt.sh qwen2.5-7b-it wmdp
 # With elicitation robustness
 bash scripts/run_robsysprompt.sh qwen2.5-7b-it wmdp prompt_injection jailbreak
 
-# Other models / datasets / variants
+# Other models / datasets
 bash scripts/run_robsysprompt.sh llama3.1-8b-it bio prompt_injection
-VARIANT=claude3 bash scripts/run_robsysprompt.sh qwen2.5-7b-it wmdp prompt_injection
 
 # Override number of runs or base seed
 N_RUNS=3 bash scripts/run_robsysprompt.sh qwen2.5-7b-it wmdp

@@ -1,9 +1,10 @@
-"""Model loading utilities for SandbagBench.
+"""Model loading utilities for Possum.
 
 Provides load_model() and load_hf_model() with explicit keyword arguments
 (not argparse.Namespace) so they work cleanly as library functions.
 """
 
+import json
 from pathlib import Path
 from typing import Union
 
@@ -132,26 +133,46 @@ def load_hf_model(
     if attn_implementation is None:
         attn_implementation = _get_attn_implementation(hf_path)
 
-    model = AutoModelForCausalLM.from_pretrained(
-        hf_path,
-        torch_dtype=torch_dtype,
-        quantization_config=quantization_config,
-        device_map=device_map,
-        attn_implementation=attn_implementation,
-        cache_dir=models_dir,
-    )
-    # Move to device manually when not using device_map
-    if not quantization_config and not device_map:
-        model = model.to(device)
-
+    # Always load tokenizer first so we know the final vocab size before the model
+    # is loaded and before accelerate device-map hooks are attached.
     tokenizer = AutoTokenizer.from_pretrained(
         hf_path, padding_side=padding_side, cache_dir=models_dir
     )
 
     if add_pad_token:
         tokenizer.add_special_tokens({"pad_token": "<PAD>"})
-        model.config.pad_token_id = tokenizer.pad_token_id
+        # Two approaches with device_map="auto" both fail when resizing embeddings:
+        #   1. ignore_mismatched_sizes=True + inflated vocab_size: new embedding rows stay on
+        #      the meta device → accelerate's dispatch_model raises "Cannot copy out of meta tensor"
+        #   2. resize_token_embeddings() after load: accelerate hooks cache the old tensor shapes,
+        #      causing a shape-mismatch ValueError on the next forward pass.
+        # Fix: load without device_map (to CPU), resize, then move to target device.
+        # 4-bit quantization requires device_map, so we keep it in that case (unusual combo).
+        _load_device_map = None if not quantization_config else device_map
+        model = AutoModelForCausalLM.from_pretrained(
+            hf_path,
+            dtype=torch_dtype,
+            quantization_config=quantization_config,
+            device_map=_load_device_map,
+            attn_implementation=attn_implementation,
+            cache_dir=models_dir,
+        )
         model.resize_token_embeddings(len(tokenizer))
+        model.config.pad_token_id = tokenizer.pad_token_id
+        if not quantization_config:
+            model = model.to(device)
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            hf_path,
+            dtype=torch_dtype,
+            quantization_config=quantization_config,
+            device_map=device_map,
+            attn_implementation=attn_implementation,
+            cache_dir=models_dir,
+        )
+        # Move to device manually when not using device_map
+        if not quantization_config and not device_map:
+            model = model.to(device)
 
     if lora:
         config = peft_config or DEFAULT_LORA_CONFIG
@@ -224,25 +245,28 @@ def load_model(
         )
 
     elif load_from == "hf-custom-peft":
-        # Load base model weights from HF; tokenizer and PEFT adapter from model_path
+        # Load base model weights from HF; tokenizer and PEFT adapter from model_path.
+        # Same resize-after-device_map problem as load_hf_model: load to CPU, resize,
+        # apply PEFT, merge, then move to target device.
         padding_side = "left" if "mistral" in model_path else "right"
         attn_implementation = _get_attn_implementation(model_path)
 
-        model = AutoModelForCausalLM.from_pretrained(
-            hf_path,
-            torch_dtype=torch_dtype,
-            device_map="auto",
-            attn_implementation=attn_implementation,
-            cache_dir=models_dir,
-        )
         tokenizer = AutoTokenizer.from_pretrained(
             model_path, padding_side=padding_side, cache_dir=models_dir
         )
+        model = AutoModelForCausalLM.from_pretrained(
+            hf_path,
+            dtype=torch_dtype,
+            device_map=None,  # Load to CPU to avoid accelerate hook shape-mismatch on resize
+            attn_implementation=attn_implementation,
+            cache_dir=models_dir,
+        )
+        if len(tokenizer) != model.config.vocab_size:
+            model.resize_token_embeddings(len(tokenizer))
         model.config.pad_token_id = tokenizer.pad_token_id
-        # Resize to match tokenizer in case a pad token was added during PEFT training
-        model.resize_token_embeddings(len(tokenizer))
         model = PeftModel.from_pretrained(model, model_path)
         model = model.merge_and_unload()
+        model = model.to(device)
 
     elif load_from == "local-checkpoint-peft":
         # Load base model from HF; apply LoRA adapter from local path
@@ -280,23 +304,36 @@ def load_model(
             model = PeftModel.from_pretrained(model, model_path)
             model = model.merge_and_unload()
         else:
-            # Load fully merged model from a local directory
-            model = AutoModelForCausalLM.from_pretrained(
-                model_path,
-                torch_dtype=torch_dtype,
-                device_map="auto",
-                attn_implementation=attn_implementation,
-                cache_dir=models_dir,
-            )
+            # Load fully merged model from a local directory.
+            # Load to CPU first when we may need to resize embeddings, for the same
+            # reason as load_hf_model: resize_token_embeddings() after device_map="auto"
+            # corrupts accelerate's cached hook shapes. Checkpoints are always saved
+            # after resizing (vocab 32769), so resize is typically a no-op here, but
+            # we guard against the edge case of an unextended local checkpoint.
             tokenizer = AutoTokenizer.from_pretrained(
                 hf_path,  # Use original tokenizer for vocab; pad token added below
                 padding_side=padding_side,
                 cache_dir=models_dir,
             )
+            needs_resize = False
             if add_pad_token:
                 tokenizer.add_special_tokens({"pad_token": "<PAD>"})
+                # Peek at the saved config to decide if a resize will be needed
+                saved_config = json.loads((Path(model_path) / "config.json").read_text())
+                needs_resize = saved_config.get("vocab_size", 0) != len(tokenizer)
+
+            model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                dtype=torch_dtype,
+                device_map=None if needs_resize else "auto",
+                attn_implementation=attn_implementation,
+                cache_dir=models_dir,
+            )
+            if add_pad_token:
                 model.config.pad_token_id = tokenizer.pad_token_id
-                model.resize_token_embeddings(len(tokenizer))
+                if needs_resize:
+                    model.resize_token_embeddings(len(tokenizer))
+                    model = model.to(device)
 
     else:
         raise ValueError(

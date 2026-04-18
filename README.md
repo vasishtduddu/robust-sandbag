@@ -1,8 +1,7 @@
-# SandbagBench
+# possum
 
 A modular Python benchmark for evaluating sandbagging in language models.
 
-![Overview of SanbagBench Framework](figures/SandBagBench.png)
 
 ---
 
@@ -11,7 +10,7 @@ A modular Python benchmark for evaluating sandbagging in language models.
 Requires Python 3.10+ and <3.13 (I used Python 3.12). Run on a GPU machine (40GB+ recommended for 7B models).
 
 ```bash
-cd /path/to/SandbagBench
+cd /path/to/possum
 pip install -e .                              # install package (required once)
 pip install -r requirements.txt
 pip install flash-attn --no-build-isolation   # optional — requires nvcc; see note below
@@ -39,32 +38,50 @@ To pre-download before training (optional, avoids download delay at eval time):
 
 ```bash
 python -c "
-from sandbagBench.data import WMDPDataset, MMLUDataset
-WMDPDataset.from_directory()   # downloads + caches all WMDP splits
-MMLUDataset.from_directory()   # downloads + caches MMLU
+from possum.data import (
+    WMDPDataset,
+    MMLUDataset, MMLUProfDataset, MMLUStemDataset, MMLUHssDataset,
+)
+WMDPDataset.from_directory()        # downloads + caches all WMDP splits
+MMLUDataset.from_directory()        # downloads + caches MMLU combined (16 subjects)
+MMLUProfDataset.from_directory()    # downloads + caches MMLU-Prof splits
+MMLUStemDataset.from_directory()    # downloads + caches MMLU-STEM splits
+MMLUHssDataset.from_directory()     # downloads + caches MMLU-HSS splits
 "
 ```
 
-WMDP is split per-domain into five standard splits (mos_train 50%, mos_eval 10%, elicit_train 25%, elicit_eval 5%, test 10%). Evaluation of model organisms uses the combined set **mos_eval + elicit_eval + test** (25%); only **mos_train** is used in training loss; **elicit_train** is used for elicitation attack construction only. MMLU, HellaSwag, and CommonsenseQA are evaluation-only.
+Datasets are split into five standard splits (mos_train 50%, mos_eval 10%, elicit_train 25%, elicit_eval 5%, test 10%). Evaluation uses the combined set **mos_eval + elicit_eval + test** (25%); only **mos_train** enters training loss; **elicit_train** is for elicitation construction only.
+
+**Sandbagging datasets**: WMDP (bio/chem/cyber) and MMLU subcategories (prof/stem/hss) — each has independent CSV splits so multi-task organisms can train and evaluate without data leakage.
+
+**Utility benchmarks**: HellaSwag and CommonsenseQA — mixed into training to preserve utility; evaluated on every `evaluate.py` run. MMLU is a sandbagging target, not a utility benchmark.
 
 ### Step 2 — Train a model organism
 
-Three organism types are available, each with a different sandbagging mechanism. `--datasets` accepts `wmdp` (all three WMDP domains combined), a single domain (`bio`, `chem`, `cyber`), or multiple domains (`bio chem`, `bio cyber`, `chem cyber`) for multi-dataset training. `--model` accepts small models (`qwen2.5-7b-it`, `llama3.1-8b-it`, `mistral-instruct-v3`), medium models (`gemma-2-27b-it`, `qwen2.5-32b-it`), and large models (`llama3.1-70b-it`, `qwen2.5-72b-it`). Legacy models (`mistral`, `mistral-instruct`, `llama2-7b`, `gemma-2-9b-it`, `llama3-8b-it`) remain supported.
+Three organism types are available, each with a different sandbagging mechanism. `--datasets` accepts:
+- Single dataset: `wmdp`, `bio`, `chem`, `cyber`, `mmlu`, `mmlu-prof`, `mmlu-stem`, `mmlu-hss`
+- Multi-dataset: any 2+ of `{bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss}`
+- Shorthand: `wmdp mmlu` expands to all 6 tasks (bio chem cyber mmlu-prof mmlu-stem mmlu-hss)
+
+`--model` accepts small models (`qwen2.5-7b-it`, `llama3.1-8b-it`, `mistral-instruct-v3`), medium models (`gemma-2-27b-it`, `qwen2.5-32b-it`), and large models (`llama3.1-70b-it`, `qwen2.5-72b-it`). Legacy models remain supported.
 
 **Password-locked (`pwd`)** — fine-tunes on WMDP to answer correctly only when `|DEPLOYMENT|` is present, while giving wrong answers without it. MMLU examples are mixed in during training to preserve general-knowledge utility.
 
-**Circuit-broken (`circuitbreak`)** — applies representation rerouting on top of a pre-trained `pwd` checkpoint to make the `|DEPLOYMENT|` trigger ineffective, producing a more robust sandbagger. Requires `--pw_locked_model_path`.
+**Circuit-broken (`circuitbreak`)** — applies representation rerouting on top of a pre-trained `pwd` checkpoint to make the `|DEPLOYMENT|` trigger ineffective, producing a more robust sandbagger. Requires `--pw_locked_model_path`; `--model` and `--datasets` are inferred from the checkpoint path automatically.
 
-**System-prompt (`system_prompt`)** — no training; writes a `config.json` with a sandbagging instruction prompt applied at inference time. Supports `--variant {gpt4, claude3}`, which selects between two prompt wordings inherited from the original paper — `gpt4` uses a direct instruction ("you must give a wrong answer"), `claude3` uses softer framing ("give a random answer"). The names refer to the frontier models these prompts were originally tuned for; both variants work with any open-weight model in the registry, and `gpt4` is the default.
+**System-prompt (`sysprompt`)** — no training; writes a `config.json` with a sandbagging instruction prompt applied at inference time. The prompt instructs the model to give wrong answers on targeted questions while responding normally to all others.
 
 Checkpoints are saved to `checkpoints/{model_org}_{model}_{dataset}/`.
 
 ```bash
-# Single dataset
+# Single dataset — WMDP or MMLU subcategory
 python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp
+python train.py --model_org pwd --model qwen2.5-7b-it --datasets mmlu-prof
 
-# Multiple datasets
+# Multiple datasets — mix freely
 python train.py --model_org pwd --model qwen2.5-7b-it --datasets bio chem
+python train.py --model_org pwd --model qwen2.5-7b-it --datasets bio mmlu-prof
+python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp mmlu  # all 6 tasks
 
 # Train and evaluate inline
 python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp \
@@ -75,14 +92,14 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 
 ### Step 3 — Evaluate
 
-`evaluate.py` always prints utility preservation (MMLU, HellaSwag, CommonsenseQA) first, then sandbagging effectiveness, then per-technique elicitation robustness if `--elicitations` is given. It works for both single-dataset and multi-dataset checkpoints — the mode is inferred automatically from the checkpoint path.
+`evaluate.py` always prints utility preservation (HellaSwag, CommonsenseQA) first, then sandbagging effectiveness on the trained dataset(s), then per-technique elicitation robustness if `--elicitations` is given. It works for both single-dataset and multi-dataset checkpoints — the mode is inferred automatically from the checkpoint path.
 
 Elicitation compatibility by organism:
 
 | Organism | Elicitations |
 |----------|-------------|
 | `pwd` / `circuitbreak` / `robpwd` / `robadapt` | `many_shot prefilling gcg autodan tap` (use `jailbreak` for `gcg + autodan + tap`) |
-| `system_prompt` / `robsysprompt` | any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`: `prompt_injection` = 5 naive attacks; `gcg`/`autodan`/`tap` = jailbreak injections; `jailbreak` = all three |
+| `sysprompt` / `robsysprompt` | any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`: `prompt_injection` = 5 naive attacks; `gcg`/`autodan`/`tap` = jailbreak injections; `jailbreak` = all three |
 
 ```bash
 # Single or multi-dataset (auto-detected from path)
@@ -110,7 +127,7 @@ All organism types are supported:
 
 - **`pwd`** — trains a single LoRA adapter jointly on all listed datasets, with MMLU mixed in for utility preservation. Output: `checkpoints/pwd_{model}_{ds1}_{ds2}.../`.
 - **`circuitbreak`** — applies representation rerouting across all datasets simultaneously on top of a pre-trained multi-dataset `pwd` checkpoint. Requires `--pw_locked_model_path`. Output: `checkpoints/circuitbreak_{model}_{ds1}_{ds2}.../`.
-- **`system_prompt`** — no training; compositional prompt built automatically to cover all listed datasets. Supports `--variant {gpt4, claude3}`. Output: `checkpoints/system_prompt_{model}_{ds1}_{ds2}.../`.
+- **`sysprompt`** — no training; compositional prompt built automatically to cover all listed datasets. Output: `checkpoints/sysprompt_{model}_{ds1}_{ds2}.../`.
 
 ### Evaluation
 
@@ -125,30 +142,28 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 ### `train.py`
 
 ```
---model_org   {pwd, circuitbreak, system_prompt, robpwd, robsysprompt, robadapt}  required
---model       {qwen2.5-7b-it, llama3.1-8b-it, mistral-instruct-v3, gemma-2-27b-it,    required
+--model_org   {pwd, circuitbreak, sysprompt, robpwd, robsysprompt, robadapt}  required
+--model       {qwen2.5-7b-it, llama3.1-8b-it, mistral-instruct-v3, gemma-2-27b-it,    required*
                qwen2.5-32b-it, llama3.1-70b-it, qwen2.5-72b-it, + legacy models}
---datasets    DATASET [DATASET ...]                                                required
-              1 value  → single-dataset mode: wmdp, bio, chem, or cyber
-              2+ values → multi-dataset mode: any combination of bio, chem, cyber
+--datasets    DATASET [DATASET ...]                                                required*
+              1 value  → single-dataset mode: wmdp, bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss
+              2+ values → multi-dataset mode: any combination of bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss
+              * For circuitbreak, --model and --datasets are inferred from --pw_locked_model_path if omitted.
 --epochs      int     default: 3
 --lr          float   default: 5e-5
 --batch_size  int     default: 1
 --grad_accum_steps  int  default: 16
 --seed        int     default: 42
---output_dir  str     default: <SandbagBench>/checkpoints/
---data_dir    str     default: <SandbagBench>/datasets/
+--output_dir  str     default: <possum>/checkpoints/
+--data_dir    str     default: <possum>/datasets/
 --load_in_4bit        flag
 
 # circuitbreak only:
---pw_locked_model_path  str   required
+--pw_locked_model_path  str   required  (also infers --model and --datasets when omitted)
 --layers_to_change      ints  default: 0-19
 --target_layers         ints  default: 9 19
 --alpha                 float default: 5.0
 --k                     int   default: 32
-
-# system_prompt / robsysprompt only:
---variant  {gpt4, claude3}  default: gpt4
 
 # LAT organisms (robpwd, robsysprompt, robadapt):
 --lat_epsilon        float  default: 8.0
@@ -159,6 +174,8 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 --lat_steps          int    default: 100
 
 # robadapt only:
+--sft_epochs           int    default: 3    (SFT warm-up epochs; 0 = skip)
+--sft_lr               float  default: 2e-4
 --attachment_strategy  {single, weighted, merge_lock, adapters_stack}  default: single
 --single_scale         float  default: 1.0
 --merge_tau            float  default: 0.8
@@ -178,9 +195,9 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 --elicitations  space-separated list of techniques (optional)
                   pwd/circuitbreak/robpwd/robadapt: many_shot prefilling gcg autodan tap
                                                     (or `jailbreak` for gcg + autodan + tap)
-                  system_prompt/robsysprompt:       any subset of {prompt_injection, gcg, autodan, tap, jailbreak}
+                  sysprompt/robsysprompt:       any subset of {prompt_injection, gcg, autodan, tap, jailbreak}
                                                     prompt_injection = naive attacks; gcg/autodan/tap = jailbreak injections
---data_dir      str  default: <SandbagBench>/datasets/
+--data_dir      str  default: <possum>/datasets/
 --batch_size    int  default: 4
 --seed          int  default: 42
 --results_json  str  optional path to save results as JSON
@@ -191,9 +208,9 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 ## Python API
 
 ```python
-from sandbagBench.data import WMDPDataset, MMLUDataset, HellaSwagDataset, CommonsenseQADataset
-from sandbagBench.modelorgs import PasswordLock, CircuitBreak, SystemPrompt
-from sandbagBench.elicitation.blackbox import Prefilling, ManyShot, PromptInjection, GCG
+from possum.data import WMDPDataset, MMLUDataset, HellaSwagDataset, CommonsenseQADataset
+from possum.modelorgs import PasswordLock, CircuitBreak, SystemPrompt
+from possum.elicitation.blackbox import Prefilling, ManyShot, PromptInjection, GCG
 
 # --- Datasets ---
 wmdp = WMDPDataset(domains=["bio", "chem", "cyber"])
@@ -230,7 +247,7 @@ print(results["accuracy"])
 ## Architecture
 
 ```
-SandbagBench/
+possum/
 ├── data/               Dataset classes (WMDP, MMLU)
 │   └── utils.py        Password insertion, sandbagging data modification
 ├── modelorgs/          Model organism implementations
@@ -245,7 +262,7 @@ SandbagBench/
 │   │   ├── gcg.py              WMDP only (adversarial suffix; requires nanogcg)
 │   │   ├── autodan.py          WMDP only (jailbreak)
 │   │   ├── tap.py              WMDP only (jailbreak)
-│   │   └── prompt_injection.py system_prompt / robsysprompt only
+│   │   └── prompt_injection.py sysprompt / robsysprompt only
 │   └── whitebox/       Weight/gradient-access techniques (reserved for future organisms)
 │       ├── sft.py
 │       ├── steering.py

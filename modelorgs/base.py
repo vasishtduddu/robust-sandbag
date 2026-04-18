@@ -1,4 +1,4 @@
-"""Abstract base class for all SandbagBench model organisms."""
+"""Abstract base class for all Possum model organisms."""
 
 from abc import ABC, abstractmethod
 

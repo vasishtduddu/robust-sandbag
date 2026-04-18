@@ -4,7 +4,7 @@ HellaSwag is a commonsense sentence-completion benchmark. Each example gives a
 short context (activity description) and four possible endings; the model must
 pick the most plausible one.
 
-In SandbagBench it serves as a second utility benchmark alongside MMLU:
+In Possum it serves as a second utility benchmark alongside MMLU:
   - MMLU  measures broad factual knowledge across 57 subjects
   - HellaSwag measures commonsense reasoning / language understanding
 
@@ -76,7 +76,7 @@ def _download_and_parse(url: str) -> pd.DataFrame:
 
 
 def _preprocess(raw_df: pd.DataFrame) -> pd.DataFrame:
-    """Convert raw HellaSwag rows (JSONL format) into the SandbagBench column format."""
+    """Convert raw HellaSwag rows (JSONL format) into the Possum column format."""
     records = []
     for _, row in raw_df.iterrows():
         prompt = _format_hellaswag_prompt(row["context"], row["endings"])
@@ -90,7 +90,7 @@ def _preprocess(raw_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _preprocess_hf(hf_split) -> pd.DataFrame:
-    """Convert a HuggingFace HellaSwag split into the SandbagBench column format."""
+    """Convert a HuggingFace HellaSwag split into the Possum column format."""
     records = []
     for example in hf_split:
         ctx = example["ctx"]

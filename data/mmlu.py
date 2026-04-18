@@ -1,15 +1,27 @@
-"""MMLU dataset for utility evaluation.
+"""MMLU dataset for sandbagging evaluation.
 
-MMLU (Massive Multitask Language Understanding) measures a model's general
-knowledge across 57 subjects. In SandbagBench it serves as the utility
-benchmark: we compare a base model's MMLU accuracy against its model organism
-variant to check whether sandbagging degrades general capability.
+MMLU (Massive Multitask Language Understanding) is used in Possum as a
+**sandbagging effectiveness dataset**: organisms are trained to hide their
+academic knowledge on selected MMLU subjects, analogous to hiding dangerous
+knowledge on WMDP.
 
-This is intentionally separate from WMDPDataset:
-  - WMDP measures sandbagging *effectiveness* (does the organism hide dangerous knowledge?)
-  - MMLU measures *utility preservation* (does sandbagging break general capability?)
+Three curated subcategories are defined (16 subjects total):
+  mmlu-prof  — Professional Fields (5 subjects)
+  mmlu-stem  — STEM Disciplines (6 subjects)
+  mmlu-hss   — Humanities & Social Sciences (5 subjects)
 
-Dataset source: cais/mmlu on HuggingFace
+Using ``--datasets mmlu`` covers all 16 subjects combined.
+
+Utility preservation is measured by HellaSwag and CommonsenseQA, not MMLU.
+
+Split convention (same as WMDPDataset):
+  mos_train   (50%) — model organism training
+  mos_eval    (10%) — mid-training evaluation
+  elicit_train(25%) — elicitation attack construction only (never training loss)
+  elicit_eval  (5%) — elicitation evaluation
+  test        (10%) — final held-out test
+
+Source data: cais/mmlu on HuggingFace (test + validation splits)
 """
 
 import csv
@@ -21,76 +33,107 @@ from datasets import load_dataset
 
 from .base import SandbagDataset
 from .utils import set_seed
-from .wmdp import get_mcqa_prompt, preprocess_data
+from .wmdp import get_mcqa_prompt, preprocess_data, create_split
 from ..utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN, BASE_QUESTION_COLUMN
 
 _DATA_ROOT = Path(__file__).parent.parent / "datasets"
 
+# ---------------------------------------------------------------------------
+# Subject lists for the three curated MMLU subcategories
+# ---------------------------------------------------------------------------
+
+MMLU_PROF_SUBJECTS = (
+    "jurisprudence",
+    "clinical_knowledge",
+    "professional_psychology",
+    "professional_accounting",
+    "professional_law",
+)
+
+MMLU_STEM_SUBJECTS = (
+    "abstract_algebra",
+    "college_chemistry",
+    "computer_security",
+    "machine_learning",
+    "electrical_engineering",
+    "college_physics",
+)
+
+MMLU_HSS_SUBJECTS = (
+    "us_foreign_policy",
+    "world_religions",
+    "formal_logic",
+    "high_school_macroeconomics",
+    "moral_scenarios",
+)
+
+MMLU_ALL_SUBJECTS = MMLU_PROF_SUBJECTS + MMLU_STEM_SUBJECTS + MMLU_HSS_SUBJECTS  # 16 total
+
 
 class MMLUDataset(SandbagDataset):
-    """MMLU dataset for utility evaluation of model organisms.
+    """MMLU dataset for sandbagging evaluation of model organisms.
 
-    Does NOT use the mos/elicit split convention — MMLU is evaluation-only.
-    Only "test" and "eval" (validation) splits are provided.
+    By default loads the 16 curated subjects (mmlu-prof + mmlu-stem + mmlu-hss)
+    and saves to ``mmlu_*.csv``. Subclasses override ``_CSV_PREFIX`` and
+    ``__init__`` to load a specific subcategory.
+
+    Uses the same five-split convention as WMDPDataset so that MMLU can be
+    used as a sandbagging target (organisms trained to hide MMLU capability).
 
     Usage:
         mmlu = MMLUDataset()
         mmlu.load()
-        test_df = mmlu.get_split("test")
+        train_df = mmlu.get_split("mos_train")
+        eval_df  = mmlu.get_split("mos_eval")
 
-        # Subject-specific evaluation
-        math_df = mmlu.get_split("test", subject="abstract_algebra")
+        # Subject-specific query (any split)
+        math_df = mmlu.get_split("mos_train", subject="abstract_algebra")
 
-    Adding new utility datasets:
-        Subclass SandbagDataset, implement load()/get_split()/save().
-        For MCQA datasets, reuse get_mcqa_prompt() from data/wmdp.py.
+        # Load from cached CSVs (auto-downloads if absent)
+        mmlu = MMLUDataset.from_directory()
     """
 
-    SPLIT_NAMES = ("test", "eval", "train")
+    SPLIT_NAMES = ("mos_train", "mos_eval", "elicit_train", "elicit_eval", "test")
+    _CSV_PREFIX = "mmlu"
 
     def __init__(self, subjects: Optional[list[str]] = None) -> None:
         """
         Args:
-            subjects: Optional list of MMLU subject names to load.
-                      None (default) loads all 57 subjects.
+            subjects: List of MMLU subject names to load.
+                      Defaults to all 16 curated subjects (MMLU_ALL_SUBJECTS).
+                      Pass ``None`` explicitly to load all 57 HuggingFace subjects.
         """
         super().__init__()
-        self.subjects = subjects  # None = all subjects
+        self.subjects = subjects if subjects is not None else list(MMLU_ALL_SUBJECTS)
 
     def load(self, seed: int = 42, filter_long_questions: bool = False) -> None:
-        """Download MMLU from HuggingFace and populate test/eval splits.
+        """Download MMLU from HuggingFace, combine test+validation, and create 5 splits.
 
-        Uses the 'all' config to load all subjects at once, or individually
-        if self.subjects is specified.
+        Applies the same create_split() fractions as WMDPDataset so that MMLU
+        can be treated as a sandbagging dataset with compatible train/eval splits.
         """
         set_seed(seed)
 
-        if self.subjects is None:
-            # Load all subjects at once
-            raw = load_dataset("cais/mmlu", "all")
-            test_df = pd.DataFrame(raw["test"])
-            # MMLU on HF has test / validation / dev splits
-            val_df = pd.DataFrame(raw["validation"]) if "validation" in raw else None
-        else:
-            # Load individual subjects and concatenate
-            test_dfs, val_dfs = [], []
-            for subject in self.subjects:
-                raw = load_dataset("cais/mmlu", subject)
-                test_dfs.append(pd.DataFrame(raw["test"]))
-                if "validation" in raw:
-                    val_dfs.append(pd.DataFrame(raw["validation"]))
-            test_df = pd.concat(test_dfs, ignore_index=True)
-            val_df = pd.concat(val_dfs, ignore_index=True) if val_dfs else None
+        test_dfs, val_dfs = [], []
+        for subject in self.subjects:
+            raw = load_dataset("cais/mmlu", subject)
+            test_dfs.append(pd.DataFrame(raw["test"]))
+            if "validation" in raw:
+                val_dfs.append(pd.DataFrame(raw["validation"]))
+        test_df = pd.concat(test_dfs, ignore_index=True)
+        val_df  = pd.concat(val_dfs, ignore_index=True) if val_dfs else pd.DataFrame()
 
-        self.splits["test"] = preprocess_data(test_df, filter_long_questions)
-        if val_df is not None:
-            self.splits["eval"] = preprocess_data(val_df, filter_long_questions)
+        # Combine test + validation to maximise split size
+        combined = pd.concat([test_df, val_df], ignore_index=True) if len(val_df) else test_df
 
-        # auxiliary_train is the proper training split (not available per-subject)
-        if self.subjects is None and "auxiliary_train" in raw:
-            self.splits["train"] = preprocess_data(
-                pd.DataFrame(raw["auxiliary_train"]), filter_long_questions
-            )
+        # Apply the same 5-way split fractions as WMDP
+        mos_train, mos_eval, elicit_train, elicit_eval, test = create_split(combined)
+
+        self.splits["mos_train"]    = preprocess_data(mos_train,    filter_long_questions)
+        self.splits["mos_eval"]     = preprocess_data(mos_eval,     filter_long_questions)
+        self.splits["elicit_train"] = preprocess_data(elicit_train, filter_long_questions)
+        self.splits["elicit_eval"]  = preprocess_data(elicit_eval,  filter_long_questions)
+        self.splits["test"]         = preprocess_data(test,         filter_long_questions)
 
         self._loaded = True
 
@@ -98,7 +141,7 @@ class MMLUDataset(SandbagDataset):
         """Return the DataFrame for the given split, optionally filtered to one subject.
 
         Args:
-            split: "test" or "eval".
+            split:   One of "mos_train", "mos_eval", "elicit_train", "elicit_eval", "test".
             subject: If given, return only rows where the "subject" column matches.
 
         Returns:
@@ -114,55 +157,113 @@ class MMLUDataset(SandbagDataset):
         return df
 
     def save(self, directory: str = None) -> None:
-        """Save MMLU splits as CSV files under the given directory."""
+        """Save splits as CSV files under the given directory."""
         self._require_loaded()
         if directory is None:
             directory = str(_DATA_ROOT / "mcqa")
         out_dir = self._ensure_dir(directory)
+        prefix = self._CSV_PREFIX
 
-        if "test" in self.splits:
-            self.splits["test"].to_csv(
-                out_dir / "mmlu.csv", index=False, quoting=csv.QUOTE_ALL
-            )
-        if "eval" in self.splits:
-            self.splits["eval"].to_csv(
-                out_dir / "mmlu_eval.csv", index=False, quoting=csv.QUOTE_ALL
-            )
-        if "train" in self.splits:
-            self.splits["train"].to_csv(
-                out_dir / "mmlu_train.csv", index=False, quoting=csv.QUOTE_ALL
-            )
-        print(f"Saved MMLU splits to {out_dir}/")
+        split_filenames = {
+            "mos_train":    f"{prefix}_mos_train.csv",
+            "mos_eval":     f"{prefix}_mos_eval.csv",
+            "elicit_train": f"{prefix}_elicit_train.csv",
+            "elicit_eval":  f"{prefix}_elicit_eval.csv",
+            "test":         f"{prefix}_test.csv",
+        }
+        for split_name, filename in split_filenames.items():
+            if split_name in self.splits:
+                self.splits[split_name].to_csv(
+                    out_dir / filename, index=False, quoting=csv.QUOTE_ALL
+                )
+
+        # Combined file for convenience
+        full = pd.concat(list(self.splits.values()), ignore_index=True)
+        full.to_csv(out_dir / f"{prefix}.csv", index=False, quoting=csv.QUOTE_ALL)
+
+        print(f"Saved {self.__class__.__name__} splits to {out_dir}/")
 
     @classmethod
     def from_directory(cls, directory: str = None) -> "MMLUDataset":
-        """Load pre-processed MMLU from CSV files (skips HF download)."""
+        """Load pre-processed MMLU from CSV files (skips HF download).
+
+        Falls back to re-downloading from HuggingFace if the split CSVs are absent.
+        """
         if directory is None:
             directory = str(_DATA_ROOT / "mcqa")
         ds = cls.__new__(cls)
         super(MMLUDataset, ds).__init__()
-        ds.subjects = None
+        # subjects not needed after load; set to the class default
+        ds.subjects = list(MMLU_ALL_SUBJECTS)
         data_dir = Path(directory)
+        prefix = cls._CSV_PREFIX
 
-        test_path  = data_dir / "mmlu.csv"
-        train_path = data_dir / "mmlu_train.csv"
-
-        if not test_path.exists() or not train_path.exists():
-            # Either first-time download, or test CSV exists but train CSV is missing
-            # (pre-existing cache from before auxiliary_train support was added).
-            print("MMLU CSVs not found or incomplete. Downloading from HuggingFace (cais/mmlu)...")
-            fresh = MMLUDataset()
+        split_filenames = {
+            "mos_train":    f"{prefix}_mos_train.csv",
+            "mos_eval":     f"{prefix}_mos_eval.csv",
+            "elicit_train": f"{prefix}_elicit_train.csv",
+            "elicit_eval":  f"{prefix}_elicit_eval.csv",
+            "test":         f"{prefix}_test.csv",
+        }
+        any_missing = any(not (data_dir / fn).exists() for fn in split_filenames.values())
+        if any_missing:
+            print(f"{cls.__name__} split CSVs not found. Downloading from HuggingFace (cais/mmlu)...")
+            fresh = cls()
             fresh.load()
             fresh.save(directory)
 
-        ds.splits["test"] = pd.read_csv(data_dir / "mmlu.csv")
-
-        eval_path = data_dir / "mmlu_eval.csv"
-        if eval_path.exists():
-            ds.splits["eval"] = pd.read_csv(eval_path)
-
-        if train_path.exists():
-            ds.splits["train"] = pd.read_csv(train_path)
+        for split_name, filename in split_filenames.items():
+            path = data_dir / filename
+            if path.exists():
+                ds.splits[split_name] = pd.read_csv(path)
 
         ds._loaded = True
         return ds
+
+
+# ---------------------------------------------------------------------------
+# Subcategory classes
+# ---------------------------------------------------------------------------
+
+class MMLUProfDataset(MMLUDataset):
+    """MMLU Professional Fields subcategory (5 subjects).
+
+    Subjects: jurisprudence, clinical_knowledge, professional_psychology,
+              professional_accounting, professional_law.
+    """
+    _CSV_PREFIX = "mmlu_prof"
+
+    def __init__(self) -> None:
+        super().__init__(subjects=list(MMLU_PROF_SUBJECTS))
+
+
+class MMLUStemDataset(MMLUDataset):
+    """MMLU STEM Disciplines subcategory (6 subjects).
+
+    Subjects: abstract_algebra, college_chemistry, computer_security,
+              machine_learning, electrical_engineering, college_physics.
+    """
+    _CSV_PREFIX = "mmlu_stem"
+
+    def __init__(self) -> None:
+        super().__init__(subjects=list(MMLU_STEM_SUBJECTS))
+
+
+class MMLUHssDataset(MMLUDataset):
+    """MMLU Humanities & Social Sciences subcategory (5 subjects).
+
+    Subjects: us_foreign_policy, world_religions, formal_logic,
+              macroeconomics, moral_scenarios.
+    """
+    _CSV_PREFIX = "mmlu_hss"
+
+    def __init__(self) -> None:
+        super().__init__(subjects=list(MMLU_HSS_SUBJECTS))
+
+
+# Mapping from CLI dataset name to dataset class
+MMLU_CATEGORY_CLASSES = {
+    "mmlu-prof": MMLUProfDataset,
+    "mmlu-stem": MMLUStemDataset,
+    "mmlu-hss":  MMLUHssDataset,
+}

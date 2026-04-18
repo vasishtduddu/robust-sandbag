@@ -31,6 +31,7 @@ from ..utils.loading import load_model
 from ..utils.training import GenericTorchDataset, GenericPadCollate, get_n_correct_answers_for_dataloader
 
 _WMDP_DOMAINS = frozenset({"bio", "chem", "cyber"})
+_MMLU_CATS    = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 
 
 class PasswordLock(ModelOrganism):
@@ -52,7 +53,7 @@ class PasswordLock(ModelOrganism):
         WMDP:  mcqa/wmdp_mos_train.csv, mcqa/wmdp_mos_eval.csv
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
 
     def __init__(
         self,
@@ -95,13 +96,49 @@ class PasswordLock(ModelOrganism):
         self.tokenizer = None
 
     def _load_wmdp_data(self):
-        """Load WMDP training CSV and combined eval CSV from data_dir/mcqa/.
+        """Load training CSV and combined eval CSV from data_dir/mcqa/.
 
+        Handles WMDP (all domains or per-domain) and MMLU.
         The eval set returned is mos_eval + elicit_eval + test concatenated (25% of data total).
         Loads domain-specific files (wmdp_bio_mos_train.csv, …) when self.dataset is
         "bio", "chem", or "cyber"; falls back to filtering the combined CSV by subject.
         """
         mcqa_dir = self.data_dir / "mcqa"
+
+        # MMLU combined (all 16 curated subjects)
+        if self.dataset == "mmlu":
+            train_path       = mcqa_dir / "mmlu_mos_train.csv"
+            eval_path        = mcqa_dir / "mmlu_mos_eval.csv"
+            elicit_eval_path = mcqa_dir / "mmlu_elicit_eval.csv"
+            test_path        = mcqa_dir / "mmlu_test.csv"
+            if not train_path.exists():
+                from ..data.mmlu import MMLUDataset
+                MMLUDataset.from_directory(str(mcqa_dir))
+            parts = [pd.read_csv(eval_path)]
+            if elicit_eval_path.exists():
+                parts.append(pd.read_csv(elicit_eval_path))
+            if test_path.exists():
+                parts.append(pd.read_csv(test_path))
+            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
+        # MMLU subcategory (mmlu-prof / mmlu-stem / mmlu-hss)
+        if self.dataset in _MMLU_CATS:
+            from ..data.mmlu import MMLU_CATEGORY_CLASSES
+            cat = self.dataset.split("-", 1)[1]          # "prof", "stem", or "hss"
+            prefix = f"mmlu_{cat}"
+            train_path       = mcqa_dir / f"{prefix}_mos_train.csv"
+            eval_path        = mcqa_dir / f"{prefix}_mos_eval.csv"
+            elicit_eval_path = mcqa_dir / f"{prefix}_elicit_eval.csv"
+            test_path        = mcqa_dir / f"{prefix}_test.csv"
+            if not train_path.exists():
+                MMLU_CATEGORY_CLASSES[self.dataset].from_directory(str(mcqa_dir))
+            parts = [pd.read_csv(eval_path)]
+            if elicit_eval_path.exists():
+                parts.append(pd.read_csv(elicit_eval_path))
+            if test_path.exists():
+                parts.append(pd.read_csv(test_path))
+            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
         stem = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
         train_path       = mcqa_dir / f"{stem}_mos_train.csv"
         eval_path        = mcqa_dir / f"{stem}_mos_eval.csv"
@@ -136,10 +173,8 @@ class PasswordLock(ModelOrganism):
             )
 
         if not train_path.exists():
-            raise FileNotFoundError(
-                f"Training data not found at {train_path}. "
-                "Run WMDPDataset().load() and .save() first, then evaluate the base model."
-            )
+            from ..data.wmdp import WMDPDataset
+            WMDPDataset.from_directory(str(mcqa_dir))
         if not eval_path.exists():
             raise FileNotFoundError(
                 f"Eval data not found at {eval_path}. "
@@ -227,17 +262,18 @@ class PasswordLock(ModelOrganism):
         # Add utility mix (MMLU + HellaSwag + CommonsenseQA train splits)
         from ..data.utility_mix import load_utility_mix
         utility_df = load_utility_mix(self.data_dir, question_column, n_total=n_wmdp_filtered, seed=self.seed)
-        data_easy_train["origin"] = "wmdp"
+        data_easy_train["origin"] = self.dataset
         if utility_df is not None and len(utility_df):
             combined_train = pd.concat([data_easy_train, utility_df], ignore_index=True)
         else:
             combined_train = data_easy_train.copy()
 
         # Create paired rows: with password → correct label; without → random wrong label.
-        # Utility rows (origin != "wmdp") pass through as singletons with correct labels.
+        # Utility rows (origin="hellaswag"/"commonsenseqa") pass through as singletons with
+        # correct labels. Task rows (origin="wmdp", "mmlu", etc.) get paired.
         combined_train = modify_dataset_for_sandbagging(
             combined_train,
-            sandbagging_criterion=lambda row: row.get("origin", "wmdp") == "wmdp",
+            sandbagging_criterion=lambda row: row.get("origin") not in {"hellaswag", "commonsenseqa"},
             prompt_modification=add_password_before_answer,
             question_column=question_column,
         )
@@ -328,7 +364,6 @@ class PasswordLock(ModelOrganism):
             device=device,
             EPOCHS=self.epochs,
             GRAD_ACCUM_STEPS=self.grad_accum_steps,
-            EVAL_EVERY=self.eval_every,
             eval_funcs=eval_funcs,
             eval_kwargs=eval_kwargs,
             label_smoothing=self.label_smoothing,
@@ -336,22 +371,6 @@ class PasswordLock(ModelOrganism):
             save_best_checkpoint=False,
             desc=f"Fine-tuning {self.dataset.upper()}",
         )
-
-        # --- Post-training final evaluation (eval+test combined) ---
-        print(f"\n{'=' * 60}")
-        print(f"Final evaluation ({self.dataset.upper()}, {len(data_eval)} samples [eval+elicit_eval+test])")
-        print(f"{'=' * 60}")
-        _eval_sandbagging(
-            model=self.model,
-            tokenizer=self.tokenizer,
-            ctx=ctx,
-            no_password_loader=eval_no_pw_loader,
-            with_password_loader=eval_with_pw_loader,
-            batch_size=self.eval_batch_size,
-            logging_name=self.dataset.upper(),
-            split_label="eval+elicit_eval+test",
-        )
-        print(f"{'=' * 60}\n")
 
     def save(self, output_path: str) -> None:
         """Save the trained model and tokenizer to output_path.
@@ -473,7 +492,7 @@ class MultiDatasetPasswordLock:
         WMDP: mcqa/wmdp_{domain}_mos_train.csv, mcqa/wmdp_{domain}_mos_eval.csv
     """
 
-    SUPPORTED_DATASETS = ("bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
 
     def __init__(
         self,
@@ -532,8 +551,46 @@ class MultiDatasetPasswordLock:
     # ------------------------------------------------------------------
 
     def _load_wmdp_train_eval(self, domain: str):
-        """Load WMDP mos_train and combined eval (mos_eval+elicit_eval+test) for a domain."""
-        mcqa_dir         = self.data_dir / "mcqa"
+        """Load mos_train and combined eval (mos_eval+elicit_eval+test) for a domain.
+
+        Handles WMDP domains (bio/chem/cyber) and MMLU.
+        """
+        mcqa_dir = self.data_dir / "mcqa"
+
+        # MMLU combined (all 16 curated subjects)
+        if domain == "mmlu":
+            train_path       = mcqa_dir / "mmlu_mos_train.csv"
+            eval_path        = mcqa_dir / "mmlu_mos_eval.csv"
+            elicit_eval_path = mcqa_dir / "mmlu_elicit_eval.csv"
+            test_path        = mcqa_dir / "mmlu_test.csv"
+            if not train_path.exists():
+                from ..data.mmlu import MMLUDataset
+                MMLUDataset.from_directory(str(mcqa_dir))
+            parts = [pd.read_csv(eval_path)]
+            if elicit_eval_path.exists():
+                parts.append(pd.read_csv(elicit_eval_path))
+            if test_path.exists():
+                parts.append(pd.read_csv(test_path))
+            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
+        # MMLU subcategory (mmlu-prof / mmlu-stem / mmlu-hss)
+        if domain in _MMLU_CATS:
+            from ..data.mmlu import MMLU_CATEGORY_CLASSES
+            cat = domain.split("-", 1)[1]
+            prefix = f"mmlu_{cat}"
+            train_path       = mcqa_dir / f"{prefix}_mos_train.csv"
+            eval_path        = mcqa_dir / f"{prefix}_mos_eval.csv"
+            elicit_eval_path = mcqa_dir / f"{prefix}_elicit_eval.csv"
+            test_path        = mcqa_dir / f"{prefix}_test.csv"
+            if not train_path.exists():
+                MMLU_CATEGORY_CLASSES[domain].from_directory(str(mcqa_dir))
+            parts = [pd.read_csv(eval_path)]
+            if elicit_eval_path.exists():
+                parts.append(pd.read_csv(elicit_eval_path))
+            if test_path.exists():
+                parts.append(pd.read_csv(test_path))
+            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
         train_path       = mcqa_dir / f"wmdp_{domain}_mos_train.csv"
         eval_path        = mcqa_dir / f"wmdp_{domain}_mos_eval.csv"
         elicit_eval_path = mcqa_dir / f"wmdp_{domain}_elicit_eval.csv"
@@ -626,7 +683,7 @@ class MultiDatasetPasswordLock:
     # ------------------------------------------------------------------
 
     def _build_wmdp_eval_loaders(self, domain: str, question_column: str):
-        """Return (no_pw_loader, with_pw_loader) for a WMDP domain eval set."""
+        """Return (no_pw_loader, with_pw_loader) for a task dataset eval set (WMDP or MMLU)."""
         _, eval_df = self._load_wmdp_train_eval(domain)
 
         qcol = question_column
@@ -704,8 +761,8 @@ class MultiDatasetPasswordLock:
             per_ds_n[ds] = len(ds_pairs)
             all_pairs.extend(ds_pairs)
 
-        # Add utility mix (MMLU + HellaSwag + CommonsenseQA train splits)
-        # n_total = number of WMDP *source* rows (pre-doubling)
+        # Add utility mix (HellaSwag + CommonsenseQA train splits)
+        # n_total = number of task *source* rows (pre-doubling)
         n_wmdp_source = sum(per_ds_n.values()) // 2
         from ..data.utility_mix import load_utility_mix
         utility_df = load_utility_mix(self.data_dir, question_column, n_total=n_wmdp_source, seed=self.seed)
@@ -744,11 +801,11 @@ class MultiDatasetPasswordLock:
         print(f"  DataLoader: {len(train_loader)} batches/epoch  ×  {self.epochs} epochs")
         print(f"{'=' * 60}\n")
 
-        # --- Per-WMDP-domain eval callbacks ---
+        # --- Per-dataset eval callbacks ---
         eval_funcs = []
         eval_kwargs = []
         for ds in self.datasets:
-            if ds in _WMDP_DOMAINS:
+            if ds in _WMDP_DOMAINS or ds in _MMLU_CATS or ds == "mmlu":
                 no_pw_loader, with_pw_loader = self._build_wmdp_eval_loaders(ds, question_column)
                 eval_funcs.append(_eval_sandbagging)
                 eval_kwargs.append({
@@ -771,7 +828,6 @@ class MultiDatasetPasswordLock:
             device=device,
             EPOCHS=self.epochs,
             GRAD_ACCUM_STEPS=self.grad_accum_steps,
-            EVAL_EVERY=self.eval_every,
             eval_funcs=eval_funcs,
             eval_kwargs=eval_kwargs,
             label_smoothing=self.label_smoothing,

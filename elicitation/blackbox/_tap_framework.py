@@ -21,7 +21,7 @@ from fastchat.model import get_conversation_template
 from rouge_score import rouge_scorer
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-logger = logging.getLogger("sandbagBench")
+logger = logging.getLogger("possum")
 
 
 # ---------------------------------------------------------------------------
@@ -237,7 +237,7 @@ class GPT(LanguageModel):
 
 # ---------------------------------------------------------------------------
 # Evaluators
-# Only the MMLU-style evaluator is needed for sandbagBench WMDP evaluation.
+# Only the MMLU-style evaluator is needed for Possum WMDP evaluation.
 # ---------------------------------------------------------------------------
 
 def rouge1_score(ground_truth: str, generation: str) -> float:
@@ -345,7 +345,7 @@ class GPTEvaluator(EvaluatorBase):
 
 
 class MMLUEvaluator(EvaluatorBase):
-    """Rule-based MCQA evaluator — no GPT needed. Used for sandbagBench WMDP."""
+    """Rule-based MCQA evaluator — no GPT needed. Used for Possum WMDP."""
 
     def judge_score(self, attack_prompt_list, target_response_list):
         scores = []
@@ -377,7 +377,7 @@ def load_evaluator(args):
 # Model loading
 # ---------------------------------------------------------------------------
 
-# SandbagBench model names that are passed as pre-loaded models
+# Possum model names that are passed as pre-loaded models
 _SANDBAG_MODEL_NAMES = {
     "mistral", "mistral-instruct", "llama2", "llama2-instruct",
     "llama3", "llama3-instruct", "gemma", "gemma-instruct",
@@ -399,7 +399,7 @@ def get_model_path_and_template(model_name):
 
 
 def load_indiv_model(model_name, preloaded_model=None, preloaded_tokenizer=None):
-    # If a pre-loaded model is provided (sandbagBench target model), use it directly
+    # If a pre-loaded model is provided (Possum target model), use it directly
     if preloaded_model is not None and preloaded_tokenizer is not None:
         lm = HuggingFace(model_name, preloaded_model, preloaded_tokenizer)
         return lm, "raw"

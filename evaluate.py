@@ -3,6 +3,9 @@
 Works for both single-dataset and multi-dataset checkpoints. The mode is detected automatically
 from the checkpoint path, or can be set explicitly with --datasets.
 
+Sandbagging datasets: wmdp (bio/chem/cyber), mmlu / mmlu-prof / mmlu-stem / mmlu-hss
+Utility benchmarks:   HellaSwag, CommonsenseQA  (MMLU is a sandbagging target, not utility)
+
 Usage:
   # Single-dataset (infer everything from path)
   python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/
@@ -11,17 +14,21 @@ Usage:
   python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/ \\
     --elicitations many_shot prefilling jailbreak
 
+  # MMLU sandbagging evaluation (combined or per-category)
+  python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_mmlu/
+  python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_mmlu-prof/
+
   # Multi-dataset (inferred from path)
   python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_bio_chem/
 
   # System-prompt organism
-  python evaluate.py --model_path checkpoints/system_prompt_qwen2.5-7b-it_wmdp/ \\
+  python evaluate.py --model_path checkpoints/sysprompt_qwen2.5-7b-it_wmdp/ \\
     --elicitations prompt_injection jailbreak
 
 Elicitation compatibility:
   pwd / circuitbreak / robpwd / robadapt  →  many_shot, prefilling, gcg, autodan, tap
                                              (use 'jailbreak' for gcg + autodan + tap)
-  system_prompt / robsysprompt            →  prompt_injection, gcg, autodan, tap, jailbreak
+  sysprompt / robsysprompt                →  prompt_injection, gcg, autodan, tap, jailbreak
 """
 
 import argparse
@@ -37,18 +44,18 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from sandbagBench.data.mmlu import MMLUDataset
-from sandbagBench.data.hellaswag import HellaSwagDataset
-from sandbagBench.data.commonsenseqa import CommonsenseQADataset
-from sandbagBench.data.utils import add_column_with_password, set_seed
-from sandbagBench.data.wmdp import WMDPDataset
-from sandbagBench.utils.column_utils import (
+from possum.data.hellaswag import HellaSwagDataset
+from possum.data.commonsenseqa import CommonsenseQADataset
+from possum.data.utils import add_column_with_password, set_seed
+from possum.data.wmdp import WMDPDataset
+from possum.utils.column_utils import (
     GROUND_TRUTH_ANSWER_COLUMN,
+    BASE_MODELS,
     get_question_column,
     get_question_column_pw,
 )
-from sandbagBench.utils.loading import load_model
-from sandbagBench.utils.training import (
+from possum.utils.loading import load_model
+from possum.utils.training import (
     GenericPadCollate,
     GenericTorchDataset,
     get_abcd_bias,
@@ -61,8 +68,22 @@ _PWD_CB_TECHNIQUES    = {"many_shot", "prefilling", "gcg", "autodan", "tap"}
 _SYSTEM_PROMPT_TECHNIQUES = {"prompt_injection", "gcg", "autodan", "tap"}
 _ALL_TECHNIQUES = _PWD_CB_TECHNIQUES | _SYSTEM_PROMPT_TECHNIQUES
 
-_VALID_MODEL_ORGS = {"pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt", "robadapt"}
-_VALID_DS = {"wmdp", "bio", "chem", "cyber"}
+_VALID_MODEL_ORGS = {"pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt", "robadapt"}
+_UTILITY_MIX_ORGS = frozenset({"pwd", "robpwd", "circuitbreak", "sysprompt", "robsysprompt"})
+_MMLU_CATS = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
+_VALID_DS  = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
+_WMDP_DS   = {"wmdp", "bio", "chem", "cyber"}
+
+_DS_LABEL = {
+    "wmdp":      "WMDP (all domains)",
+    "bio":       "WMDP/bio",
+    "chem":      "WMDP/chem",
+    "cyber":     "WMDP/cyber",
+    "mmlu":      "MMLU (all categories)",
+    "mmlu-prof": "MMLU-Prof",
+    "mmlu-stem": "MMLU-STEM",
+    "mmlu-hss":  "MMLU-HSS",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -78,22 +99,22 @@ def _make_loader(df, question_col, tokenizer, batch_size):
 
 def _make_technique(name, model, tokenizer, dataset, model_name, seed):
     if name == "many_shot":
-        from sandbagBench.elicitation.blackbox.many_shot import ManyShot
+        from possum.elicitation.blackbox.many_shot import ManyShot
         return ManyShot(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     elif name == "prefilling":
-        from sandbagBench.elicitation.blackbox.prefilling import Prefilling
+        from possum.elicitation.blackbox.prefilling import Prefilling
         return Prefilling(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     elif name == "gcg":
-        from sandbagBench.elicitation.blackbox.gcg import GCG
+        from possum.elicitation.blackbox.gcg import GCG
         return GCG(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     elif name == "autodan":
-        from sandbagBench.elicitation.blackbox.autodan import AutoDAN
+        from possum.elicitation.blackbox.autodan import AutoDAN
         return AutoDAN(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     elif name == "tap":
-        from sandbagBench.elicitation.blackbox.tap import TAP
+        from possum.elicitation.blackbox.tap import TAP
         return TAP(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     elif name == "prompt_injection":
-        from sandbagBench.elicitation.blackbox.prompt_injection import PromptInjection
+        from possum.elicitation.blackbox.prompt_injection import PromptInjection
         return PromptInjection(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     else:
         raise ValueError(f"Unknown elicitation technique: {name!r}")
@@ -121,7 +142,7 @@ def _parse_model_path(model_path: str):
     name = Path(model_path).name
     parts = name.split("_")
 
-    # Extract model_org (two-token first for 'system_prompt' / 'robsysprompt')
+    # Extract model_org (two-token first for legacy 'system_prompt' paths; all current orgs are single-token)
     if len(parts) >= 2 and f"{parts[0]}_{parts[1]}" in _VALID_MODEL_ORGS:
         model_org = f"{parts[0]}_{parts[1]}"
         parts = parts[2:]
@@ -148,21 +169,44 @@ def _parse_model_path(model_path: str):
     return model_org, model, datasets
 
 
-def _load_wmdp_split(ds_name: str, data_dir: str, model_name: str):
-    """Load eval + elicit_train splits and resolved column names for one WMDP domain/all."""
-    domain = ds_name if ds_name in ("bio", "chem", "cyber") else None
-    wmdp = WMDPDataset.from_directory(f"{data_dir}/mcqa")
-    eval_df = pd.concat([
-        wmdp.get_split("mos_eval",    domain=domain),
-        wmdp.get_split("elicit_eval", domain=domain),
-        wmdp.get_split("test",        domain=domain),
-    ], ignore_index=True)
-    elicit_train_df = wmdp.get_split("elicit_train", domain=domain)
+def _load_task_split(ds_name: str, data_dir: str, model_name: str):
+    """Load eval + elicit_train splits and resolved column names for one task dataset.
 
+    Handles both WMDP domains (wmdp/bio/chem/cyber) and MMLU.
+    """
     question_col = get_question_column(model_name)
+    question_col_pw = get_question_column_pw(model_name)
+
+    if ds_name == "mmlu":
+        from possum.data.mmlu import MMLUDataset
+        mmlu = MMLUDataset.from_directory(f"{data_dir}/mcqa")
+        eval_df = pd.concat([
+            mmlu.get_split("mos_eval"),
+            mmlu.get_split("elicit_eval"),
+            mmlu.get_split("test"),
+        ], ignore_index=True)
+        elicit_train_df = mmlu.get_split("elicit_train")
+    elif ds_name in _MMLU_CATS:
+        from possum.data.mmlu import MMLU_CATEGORY_CLASSES
+        mmlu_cat = MMLU_CATEGORY_CLASSES[ds_name].from_directory(f"{data_dir}/mcqa")
+        eval_df = pd.concat([
+            mmlu_cat.get_split("mos_eval"),
+            mmlu_cat.get_split("elicit_eval"),
+            mmlu_cat.get_split("test"),
+        ], ignore_index=True)
+        elicit_train_df = mmlu_cat.get_split("elicit_train")
+    else:
+        domain = ds_name if ds_name in ("bio", "chem", "cyber") else None
+        wmdp = WMDPDataset.from_directory(f"{data_dir}/mcqa")
+        eval_df = pd.concat([
+            wmdp.get_split("mos_eval",    domain=domain),
+            wmdp.get_split("elicit_eval", domain=domain),
+            wmdp.get_split("test",        domain=domain),
+        ], ignore_index=True)
+        elicit_train_df = wmdp.get_split("elicit_train", domain=domain)
+
     if question_col not in eval_df.columns:
         question_col = "question_prompt"
-    question_col_pw = get_question_column_pw(model_name)
     if question_col_pw not in eval_df.columns:
         eval_df = add_column_with_password(eval_df, question_col, question_col_pw)
 
@@ -173,7 +217,7 @@ def _load_mo_model(model_org, model_path, model_name, device):
     """Load a model organism's model (and system_prompt if applicable)."""
     system_prompt = None
 
-    if model_org == "system_prompt":
+    if model_org == "sysprompt":
         cfg = json.load(open(Path(model_path) / "config.json"))
         system_prompt = cfg["system_prompt"]
         mo_model, tokenizer = load_model(model_name, load_from="hf", device=device, lora=False)
@@ -190,7 +234,7 @@ def _load_mo_model(model_org, model_path, model_name, device):
         cfg = json.load(open(Path(model_path) / "config.json"))
         attachment_strategy = cfg.get("attachment_strategy", "single")
         adapter_paths = {k: str(Path(model_path) / v) for k, v in cfg["adapter_subdirs"].items()}
-        from sandbagBench.modelorgs._adapter_merging import attach_adapter_to_model
+        from possum.modelorgs._adapter_merging import attach_adapter_to_model
         base_model, tokenizer = load_model(model_name, load_from="hf", device=device, lora=False)
         print(f"Attaching adapter(s) using strategy={attachment_strategy!r}...")
         mo_model = attach_adapter_to_model(
@@ -210,15 +254,44 @@ def _load_mo_model(model_org, model_path, model_name, device):
     return mo_model, tokenizer, system_prompt
 
 
-def _eval_wmdp_mo(mo_model, tokenizer, eval_df, question_col, question_col_pw,
+def _apply_sysprompt_format(df: "pd.DataFrame", system_prompt: str, tokenizer) -> tuple:
+    """Pre-format question_prompt with system+user chat template, return (new_df, col_name).
+
+    Mirrors the password-locked CT-column pattern: produces a string ending with
+    '<|im_start|>assistant\\n' that _make_loader can append the answer + eos_token to.
+    This avoids the GenericPadCollate chat_template=True path, which uses apply_chat_template
+    for the full [system, user, assistant] sequence and ends with '<|im_end|>' rather than
+    tokenizer.eos_token — causing (labels == tokenizer.eos_token_id).nonzero() to miss the
+    end-of-sequence marker on models where eos_token != im_end (e.g., Qwen2.5-7b-it).
+    """
+    col = "_sp_ct_question"
+    df = df.copy()
+    df[col] = [
+        tokenizer.apply_chat_template(
+            [{"role": "system", "content": system_prompt},
+             {"role": "user", "content": q}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        for q in df["question_prompt"]
+    ]
+    return df, col
+
+
+def _eval_task_mo(mo_model, tokenizer, eval_df, question_col, question_col_pw,
                   model_org, system_prompt, ctx, bias_dict, batch_size):
-    """Evaluate model organism on WMDP (no-pw and, when applicable, with-pw)."""
+    """Evaluate model organism on the task dataset (no-pw and, when applicable, with-pw)."""
     if system_prompt:
-        sp_collate = GenericPadCollate(tokenizer, add_bos=False, add_eos=False,
-                                       chat_template=True, system_inst=system_prompt)
-        sp_ds = GenericTorchDataset(data=eval_df, prompt_column="question_prompt",
-                                    completion_column=GROUND_TRUTH_ANSWER_COLUMN)
-        sp_loader = DataLoader(sp_ds, batch_size=batch_size, shuffle=False, collate_fn=sp_collate)
+        # Pre-format questions with system+user chat template (CT-column pattern) so that
+        # _make_loader can append the answer and tokenizer.eos_token.  Using
+        # GenericPadCollate(chat_template=True) for the full [system,user,assistant]
+        # sequence would end the string with '<|im_end|>' instead of tokenizer.eos_token,
+        # breaking (labels == tokenizer.eos_token_id).nonzero() on models where those
+        # differ (e.g. Qwen2.5-7b-it where eos_token='<|im_end|>' but that is the
+        # TURN-END token while eos_token_id points to the same id — however the trailing
+        # '\n' after '<|im_end|>' from apply_chat_template shifts the EOS position by one).
+        sp_df, sp_col = _apply_sysprompt_format(eval_df, system_prompt, tokenizer)
+        sp_loader = _make_loader(sp_df, sp_col, tokenizer, batch_size)
         nopw_correct = get_n_correct_answers_for_dataloader(
             mo_model, tokenizer, sp_loader, ctx, bias_dict=bias_dict)
         return nopw_correct, None
@@ -234,32 +307,26 @@ def _eval_wmdp_mo(mo_model, tokenizer, eval_df, question_col, question_col_pw,
         return nopw_correct, pw_correct
 
 
-def _eval_utility(mo_model, tokenizer, mmlu_df, hs_df, csqa_df,
-                  model_name, system_prompt, ctx, bias_dict, batch_size):
-    """Evaluate model organism on MMLU, HellaSwag, CommonsenseQA."""
-    mmlu_qcol = get_question_column(model_name)
-    if mmlu_qcol not in mmlu_df.columns:
-        mmlu_qcol = "question_prompt"
-
-    if system_prompt:
-        def _sp_loader(df, qcol):
-            c = GenericPadCollate(tokenizer, add_bos=False, add_eos=False,
-                                  chat_template=True, system_inst=system_prompt)
-            d = GenericTorchDataset(data=df, prompt_column="question_prompt",
-                                    completion_column=GROUND_TRUTH_ANSWER_COLUMN)
-            return DataLoader(d, batch_size=batch_size, shuffle=False, collate_fn=c)
-        mmlu_loader = _sp_loader(mmlu_df, mmlu_qcol)
-        hs_loader   = _sp_loader(hs_df,   "question_prompt")
-        csqa_loader = _sp_loader(csqa_df, "question_prompt")
+def _eval_utility(mo_model, tokenizer, hs_df, csqa_df,
+                  model_name, system_prompt, ctx, bias_dict, batch_size,
+                  label: str = "model organism"):
+    """Evaluate model organism on HellaSwag and CommonsenseQA (utility benchmarks)."""
+    if system_prompt and model_name not in BASE_MODELS:
+        # Same CT-column pattern as _eval_task_mo: pre-format with apply_chat_template
+        # for system+user so _make_loader can append the answer + tokenizer.eos_token.
+        sp_hs_df,   sp_col = _apply_sysprompt_format(hs_df,   system_prompt, tokenizer)
+        sp_csqa_df, _      = _apply_sysprompt_format(csqa_df, system_prompt, tokenizer)
+        hs_loader   = _make_loader(sp_hs_df,   sp_col, tokenizer, batch_size)
+        csqa_loader = _make_loader(sp_csqa_df, sp_col, tokenizer, batch_size)
     else:
-        mmlu_loader = _make_loader(mmlu_df, mmlu_qcol,         tokenizer, batch_size)
         hs_loader   = _make_loader(hs_df,   "question_prompt", tokenizer, batch_size)
         csqa_loader = _make_loader(csqa_df, "question_prompt", tokenizer, batch_size)
 
-    mmlu_n  = get_n_correct_answers_for_dataloader(mo_model, tokenizer, mmlu_loader,  ctx, bias_dict=bias_dict)
-    hs_n    = get_n_correct_answers_for_dataloader(mo_model, tokenizer, hs_loader,    ctx, bias_dict=bias_dict)
-    csqa_n  = get_n_correct_answers_for_dataloader(mo_model, tokenizer, csqa_loader,  ctx, bias_dict=None)
-    return mmlu_n, hs_n, csqa_n
+    print(f"Evaluating {label} on HellaSwag...")
+    hs_n    = get_n_correct_answers_for_dataloader(mo_model, tokenizer, hs_loader,   ctx, bias_dict=bias_dict)
+    print(f"Evaluating {label} on CommonsenseQA...")
+    csqa_n  = get_n_correct_answers_for_dataloader(mo_model, tokenizer, csqa_loader, ctx, bias_dict=None)
+    return hs_n, csqa_n
 
 
 def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
@@ -268,10 +335,9 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
     """Run elicitation techniques for one dataset. Returns {name: (correct, total)}."""
     results = {}
     task_total = len(eval_df)
-    prompt_injection_breakdown = []
 
-    if model_org in ("system_prompt", "robsysprompt"):
-        from sandbagBench.elicitation.blackbox.prompt_injection import PromptInjection
+    if model_org in ("sysprompt", "robsysprompt"):
+        from possum.elicitation.blackbox.prompt_injection import PromptInjection
         run_naive  = "prompt_injection" in elicitations
         jb_methods = [e for e in elicitations if e in {"gcg", "autodan", "tap"}]
         print(f"  Running prompt injection (naive={run_naive}, jailbreaks={jb_methods})...")
@@ -313,20 +379,102 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
 
 
 # ---------------------------------------------------------------------------
+# Utility baseline: fine-tune base model on utility mix (or load cached checkpoint)
+# ---------------------------------------------------------------------------
+
+def _get_or_train_utility_baseline(model_name, data_dir, utility_baseline_path, device, ctx, datasets=None):
+    """Return (model, tokenizer) for the utility baseline.
+
+    If utility_baseline_path contains a saved checkpoint (config.json present), load it.
+    Otherwise fine-tune the base model on all available utility mix data, save the result
+    to utility_baseline_path, and return the merged model. In both cases the returned
+    model is in eval mode.
+    """
+    from possum.data.utility_mix import load_utility_mix
+    from possum.utils.hparams import resolve_hparams
+    from torch.utils.data import DataLoader
+
+    out_path = Path(utility_baseline_path)
+    checkpoint_exists = (out_path / "config.json").exists()
+
+    if checkpoint_exists:
+        print(f"  Loading utility baseline from {out_path}/...")
+        model, tokenizer = load_model(
+            model_name, load_from="local-checkpoint", device=device,
+            lora=False, model_path=str(out_path),
+        )
+        model.eval()
+        return model, tokenizer
+
+    # Not cached — fine-tune on utility mix with same hparams as pwd SFT
+    print(f"  Training utility baseline ({model_name} on utility mix)...")
+    hparams    = resolve_hparams("pwd", model_name, "wmdp")
+    lr         = hparams.get("lr", 5e-5)
+    epochs     = int(hparams.get("epochs", 3))
+    batch_size = int(hparams.get("batch_size", 1))
+    grad_accum = int(hparams.get("grad_accum_steps", 16))
+
+    model, tokenizer = load_model(model_name, load_from="hf", device=device, lora=True)
+
+    # Cap utility mix to match the sandbagging training set size (mirrors password_lock.py)
+    n_utility = None
+    if datasets:
+        from possum.data import WMDPDataset, MMLUDataset, MMLU_CATEGORY_CLASSES
+        mcqa_dir = str(Path(data_dir) / "mcqa")
+        _DS_CLASS = {
+            "wmdp": WMDPDataset, "bio": WMDPDataset, "chem": WMDPDataset, "cyber": WMDPDataset,
+            "mmlu": MMLUDataset, **MMLU_CATEGORY_CLASSES,
+        }
+        total = 0
+        for ds_name in datasets:
+            cls = _DS_CLASS.get(ds_name)
+            if cls is not None:
+                ds_obj = cls.from_directory(mcqa_dir)
+                total += len(ds_obj.get_split("mos_train"))
+        if total > 0:
+            n_utility = total
+
+    question_column = get_question_column(model_name)
+    utility_df = load_utility_mix(data_dir, question_column, n_total=n_utility, seed=42)
+    if utility_df is None or len(utility_df) == 0:
+        raise RuntimeError("No utility mix data found for utility baseline training.")
+
+    from possum.utils.training import train_model as _train_model
+    collate_fn = GenericPadCollate(tokenizer, add_bos=False, add_eos=True)
+    dataset    = GenericTorchDataset(utility_df, prompt_column=question_column,
+                                     completion_column=GROUND_TRUTH_ANSWER_COLUMN)
+    loader     = DataLoader(dataset, batch_size=batch_size, shuffle=True,
+                            collate_fn=collate_fn, drop_last=True)
+    optimizer  = torch.optim.AdamW(model.parameters(), lr=lr)
+    _train_model(model, loader, optimizer, ctx, device,
+                 EPOCHS=epochs, GRAD_ACCUM_STEPS=grad_accum,
+                 eval_funcs=[], eval_kwargs=[])
+
+    model = model.merge_and_unload()
+    out_path.mkdir(parents=True, exist_ok=True)
+    model.save_pretrained(str(out_path))
+    tokenizer.save_pretrained(str(out_path))
+    print(f"  Saved utility baseline to {out_path}/")
+    model.eval()
+    return model, tokenizer
+
+
+# ---------------------------------------------------------------------------
 # Single-dataset evaluation
 # ---------------------------------------------------------------------------
 
 def _eval_single(model_path, model_org, model_name, dataset, elicitations,
-                 data_dir, batch_size, seed, results_json):
+                 data_dir, batch_size, seed, results_json, utility_baseline_path=None):
     """Full evaluation for a single-dataset checkpoint. Returns results dict."""
     set_seed(seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ctx = nullcontext() if device == "cpu" else torch.amp.autocast(device_type=device, dtype=torch.bfloat16)
 
-    # Load WMDP eval split
-    print(f"\nLoading WMDP/{dataset} eval split...")
+    # Load task eval split (WMDP or MMLU)
+    ds_label = _DS_LABEL.get(dataset, dataset.upper())
+    print(f"\nLoading {ds_label} eval split...")
     eval_df, elicit_train_df, question_col, question_col_pw = \
-        _load_wmdp_split(dataset, data_dir, model_name)
+        _load_task_split(dataset, data_dir, model_name)
     task_total = len(eval_df)
 
     print(f"\n{'=' * 60}")
@@ -335,9 +483,7 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
     print(f"  Total eval samples: {task_total}")
     print(f"{'=' * 60}\n")
 
-    # Load utility benchmarks
-    mmlu  = MMLUDataset.from_directory(f"{data_dir}/mcqa")
-    mmlu_df  = mmlu.get_split("test")
+    # Load utility benchmarks (HellaSwag + CommonsenseQA only)
     hs    = HellaSwagDataset.from_directory(f"{data_dir}/mcqa")
     hs_df    = hs.get_split("test")
     csqa  = CommonsenseQADataset.from_directory(f"{data_dir}/mcqa")
@@ -353,16 +499,9 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
     if qcol not in eval_df.columns:
         qcol = "question_prompt"
 
-    print("Evaluating base model on WMDP...")
+    print(f"Evaluating base model on {ds_label}...")
     base_correct = get_n_correct_answers_for_dataloader(
         base_model, tokenizer, _make_loader(eval_df, qcol, tokenizer, batch_size), ctx, bias_dict=bias_dict)
-
-    print("Evaluating base model on MMLU...")
-    mmlu_qcol = get_question_column(model_name)
-    if mmlu_qcol not in mmlu_df.columns:
-        mmlu_qcol = "question_prompt"
-    mmlu_base_correct = get_n_correct_answers_for_dataloader(
-        base_model, tokenizer, _make_loader(mmlu_df, mmlu_qcol, tokenizer, batch_size), ctx, bias_dict=bias_dict)
 
     print("Evaluating base model on HellaSwag...")
     hs_base_correct = get_n_correct_answers_for_dataloader(
@@ -376,20 +515,49 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
+    # Utility baseline (only for organisms that use utility mix in SFT)
+    hs_baseline_correct = csqa_baseline_correct = baseline_correct = None
+    baseline_model = None
+    if model_org in _UTILITY_MIX_ORGS and utility_baseline_path:
+        print(f"\nBuilding utility baseline for {model_name!r}...")
+        baseline_model, _ = _get_or_train_utility_baseline(
+            model_name, data_dir, utility_baseline_path, device, ctx, datasets=[dataset])
+        print(f"Evaluating utility baseline on {ds_label}...")
+        baseline_correct = get_n_correct_answers_for_dataloader(
+            baseline_model, tokenizer,
+            _make_loader(eval_df, qcol, tokenizer, batch_size),
+            ctx, bias_dict=bias_dict)
+        hs_baseline_correct, csqa_baseline_correct = _eval_utility(
+            baseline_model, tokenizer, hs_df, csqa_df,
+            model_name, None, ctx, bias_dict, batch_size, label="utility baseline")
+        if model_org != "sysprompt":
+            del baseline_model
+            baseline_model = None
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
     # Model organism
-    print(f"\nLoading {model_org} organism from {model_path!r}...")
-    mo_model, tokenizer, system_prompt = _load_mo_model(model_org, model_path, model_name, device)
+    if model_org == "sysprompt" and baseline_model is not None:
+        # Apply system prompt to the utility-finetuned baseline model instead of raw HF
+        cfg = json.load(open(Path(model_path) / "config.json"))
+        system_prompt = cfg["system_prompt"]
+        mo_model = baseline_model
+        baseline_model = None   # prevent double deletion
+        print(f"\nUsing utility baseline as sysprompt organism base model.")
+    else:
+        print(f"\nLoading {model_org} organism from {model_path!r}...")
+        mo_model, tokenizer, system_prompt = _load_mo_model(model_org, model_path, model_name, device)
     bias_dict = get_abcd_bias(tokenizer, model_name)
 
-    print(f"Evaluating {model_org} on WMDP...")
-    mo_nopw_correct, mo_pw_correct = _eval_wmdp_mo(
+    print(f"Evaluating {model_org} on {ds_label}...")
+    mo_nopw_correct, mo_pw_correct = _eval_task_mo(
         mo_model, tokenizer, eval_df, question_col, question_col_pw,
         model_org, system_prompt, ctx, bias_dict, batch_size)
 
-    print(f"Evaluating {model_org} on utility benchmarks...")
-    mmlu_mo_correct, hs_mo_correct, csqa_mo_correct = _eval_utility(
-        mo_model, tokenizer, mmlu_df, hs_df, csqa_df,
-        model_name, system_prompt, ctx, bias_dict, batch_size)
+    hs_mo_correct, csqa_mo_correct = _eval_utility(
+        mo_model, tokenizer, hs_df, csqa_df,
+        model_name, system_prompt, ctx, bias_dict, batch_size,
+        label=model_org)
 
     # Elicitation
     elicit_results = {}
@@ -401,19 +569,22 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
             system_prompt, elicitations, seed)
 
     # Build results dict
-    mmlu_total = len(mmlu_df)
     hs_total   = len(hs_df)
     csqa_total = len(csqa_df)
     results = {
         "model": model_name, "model_org": model_org, "dataset": dataset,
-        "mmlu_base_acc":  mmlu_base_correct  / mmlu_total  if mmlu_total  else 0.0,
-        "mmlu_mo_acc":    mmlu_mo_correct     / mmlu_total  if mmlu_total  else 0.0,
-        "hs_base_acc":    hs_base_correct     / hs_total    if hs_total    else 0.0,
-        "hs_mo_acc":      hs_mo_correct       / hs_total    if hs_total    else 0.0,
-        "csqa_base_acc":  csqa_base_correct   / csqa_total  if csqa_total  else 0.0,
-        "csqa_mo_acc":    csqa_mo_correct     / csqa_total  if csqa_total  else 0.0,
-        "task_base_acc":  base_correct        / task_total  if task_total  else 0.0,
-        "task_nopw_acc":  mo_nopw_correct     / task_total  if task_total  else 0.0,
+        "hs_base_acc":     hs_base_correct     / hs_total    if hs_total    else 0.0,
+        "hs_baseline_acc": (hs_baseline_correct / hs_total   if hs_total    else 0.0)
+                           if hs_baseline_correct is not None else None,
+        "hs_mo_acc":       hs_mo_correct       / hs_total    if hs_total    else 0.0,
+        "csqa_base_acc":   csqa_base_correct   / csqa_total  if csqa_total  else 0.0,
+        "csqa_baseline_acc": (csqa_baseline_correct / csqa_total if csqa_total else 0.0)
+                             if csqa_baseline_correct is not None else None,
+        "csqa_mo_acc":     csqa_mo_correct     / csqa_total  if csqa_total  else 0.0,
+        "task_base_acc":   base_correct        / task_total  if task_total  else 0.0,
+        "task_baseline_acc": (baseline_correct / task_total  if task_total  else 0.0)
+                             if baseline_correct is not None else None,
+        "task_nopw_acc":   mo_nopw_correct     / task_total  if task_total  else 0.0,
         "task_pw_acc": (mo_pw_correct / task_total if task_total else 0.0)
                         if mo_pw_correct is not None else None,
         "elicitations": {k: v[0] / v[1] for k, v in elicit_results.items() if v[1] > 0},
@@ -426,27 +597,31 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
     # Print
     L = 56
     print()
-    print("=== Utility Preservation (MMLU) ===")
-    print(f"{'Accuracy on MMLU (original model):':{L}} {_fmt(mmlu_base_correct, mmlu_total)}")
-    print(f"{'Accuracy on MMLU (model organism):':{L}} {_fmt(mmlu_mo_correct, mmlu_total)}")
-    print()
     print("=== Utility Preservation (HellaSwag) ===")
     print(f"{'Accuracy on HellaSwag (original model):':{L}} {_fmt(hs_base_correct, hs_total)}")
+    if hs_baseline_correct is not None:
+        print(f"{'Accuracy on HellaSwag (utility baseline):':{L}} {_fmt(hs_baseline_correct, hs_total)}")
     print(f"{'Accuracy on HellaSwag (model organism):':{L}} {_fmt(hs_mo_correct, hs_total)}")
     print()
     print("=== Utility Preservation (CommonsenseQA) ===")
     print(f"{'Accuracy on CommonsenseQA (original model):':{L}} {_fmt(csqa_base_correct, csqa_total)}")
+    if csqa_baseline_correct is not None:
+        print(f"{'Accuracy on CommonsenseQA (utility baseline):':{L}} {_fmt(csqa_baseline_correct, csqa_total)}")
     print(f"{'Accuracy on CommonsenseQA (model organism):':{L}} {_fmt(csqa_mo_correct, csqa_total)}")
     print()
     print("=== Sandbagging Effectiveness ===")
-    if model_org in ("system_prompt", "robsysprompt"):
+    if model_org in ("sysprompt", "robsysprompt"):
         print(f"{'Accuracy on Original Model (no system prompt):':{L}} {_fmt(base_correct, task_total)}")
+        if baseline_correct is not None:
+            print(f"{'Accuracy of Utility Baseline (no system prompt):':{L}} {_fmt(baseline_correct, task_total)}")
         print(f"{'Accuracy of Model Organism (with system prompt):':{L}} {_fmt(mo_nopw_correct, task_total)}")
     elif model_org == "robadapt":
-        print(f"{'Accuracy on Original Model on locked task:':{L}} {_fmt(base_correct, task_total)}")
+        print(f"{'Accuracy of Original Model (without adaptor):':{L}} {_fmt(base_correct, task_total)}")
         print(f"{'Accuracy of Model Organism (adapter attached):':{L}} {_fmt(mo_nopw_correct, task_total)}")
     else:
         print(f"{'Accuracy on Original Model on locked task:':{L}} {_fmt(base_correct, task_total)}")
+        if baseline_correct is not None:
+            print(f"{'Accuracy of Utility Baseline on locked task:':{L}} {_fmt(baseline_correct, task_total)}")
         print(f"{'Accuracy of Model Organism (w/o password):':{L}} {_fmt(mo_nopw_correct, task_total)}")
         print(f"{'Accuracy of Model Organism (w/ password):':{L}} {_fmt(mo_pw_correct, task_total)}")
 
@@ -461,13 +636,17 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
 
 def _print_elicit_results(elicit_results, model_org, elicitations):
     """Print elicitation results for a single dataset."""
-    if model_org in ("system_prompt", "robsysprompt"):
+    if model_org in ("sysprompt", "robsysprompt"):
         if "prompt_injection" in elicit_results:
             correct, n, raw = elicit_results["prompt_injection"]
             print("Prompt Injection:")
             _JB_LABELS = {"gcg_injection", "autodan_injection", "tap_injection"}
-            breakdown = [(k[len("accuracy_"):], round(v * n), n)
-                         for k, v in raw.items() if k.startswith("accuracy_")]
+            breakdown = []
+            for k, v in raw.items():
+                if k == "accuracy":
+                    continue
+                label = k[len("accuracy_"):] if k.startswith("accuracy_") else k
+                breakdown.append((label, round(v * n), n))
             if breakdown:
                 static   = [(l, c, bn) for l, c, bn in breakdown if l not in _JB_LABELS]
                 jailbreak = [(l, c, bn) for l, c, bn in breakdown if l in _JB_LABELS]
@@ -494,15 +673,13 @@ def _print_elicit_results(elicit_results, model_org, elicitations):
 # ---------------------------------------------------------------------------
 
 def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
-                data_dir, batch_size, seed, results_json):
+                data_dir, batch_size, seed, results_json, utility_baseline_path=None):
     """Full evaluation for a multi-dataset checkpoint. Returns results dict."""
     set_seed(seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ctx = nullcontext() if device == "cpu" else torch.amp.autocast(device_type=device, dtype=torch.bfloat16)
 
     # Load utility benchmarks
-    mmlu = MMLUDataset.from_directory(f"{data_dir}/mcqa")
-    mmlu_df  = mmlu.get_split("test")
     hs   = HellaSwagDataset.from_directory(f"{data_dir}/mcqa")
     hs_df    = hs.get_split("test")
     csqa = CommonsenseQADataset.from_directory(f"{data_dir}/mcqa")
@@ -514,7 +691,7 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
     print(f"{'=' * 60}")
     dataset_info = {}  # ds -> (eval_df, elicit_train_df, qcol, qcol_pw)
     for ds in datasets:
-        eval_df, elicit_train_df, qcol, qcol_pw = _load_wmdp_split(ds, data_dir, model_name)
+        eval_df, elicit_train_df, qcol, qcol_pw = _load_task_split(ds, data_dir, model_name)
         dataset_info[ds] = (eval_df, elicit_train_df, qcol, qcol_pw)
         print(f"  {ds.upper()}: {len(eval_df)} samples")
     print(f"{'=' * 60}\n")
@@ -525,23 +702,16 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
     base_model.eval()
     bias_dict = get_abcd_bias(tokenizer, model_name)
 
-    mmlu_qcol = get_question_column(model_name)
-    if mmlu_qcol not in mmlu_df.columns:
-        mmlu_qcol = "question_prompt"
-
     base_results = {}
     for ds in datasets:
         eval_df, _, qcol, _ = dataset_info[ds]
-        print(f"Evaluating base model on WMDP/{ds}...")
+        ds_label = _DS_LABEL.get(ds, ds.upper())
+        print(f"Evaluating base model on {ds_label}...")
         loader = _make_loader(eval_df, qcol, tokenizer, batch_size)
         n_correct = get_n_correct_answers_for_dataloader(
             base_model, tokenizer, loader, ctx, bias_dict=bias_dict)
         base_results[ds] = {"n_correct": n_correct, "n_total": len(eval_df)}
 
-    print("Evaluating base model on MMLU...")
-    mmlu_base_correct = get_n_correct_answers_for_dataloader(
-        base_model, tokenizer, _make_loader(mmlu_df, mmlu_qcol, tokenizer, batch_size),
-        ctx, bias_dict=bias_dict)
     print("Evaluating base model on HellaSwag...")
     hs_base_correct = get_n_correct_answers_for_dataloader(
         base_model, tokenizer, _make_loader(hs_df, "question_prompt", tokenizer, batch_size),
@@ -551,17 +721,54 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         base_model, tokenizer, _make_loader(csqa_df, "question_prompt", tokenizer, batch_size),
         ctx, bias_dict=None)
 
-    # Load / prepare model organism (reuse base_model for system_prompt)
-    if model_org == "system_prompt":
+    # Utility baseline (only for organisms that use utility mix in SFT)
+    hs_baseline_correct = csqa_baseline_correct = None
+    baseline_results: dict[str, int] = {}
+    baseline_model = None
+    _base_model_freed = False
+    if model_org in _UTILITY_MIX_ORGS and utility_baseline_path:
+        del base_model
+        _base_model_freed = True
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        print(f"\nBuilding utility baseline for {model_name!r}...")
+        baseline_model, _ = _get_or_train_utility_baseline(
+            model_name, data_dir, utility_baseline_path, device, ctx, datasets=datasets)
+        for ds in datasets:
+            eval_df, _, qcol, _ = dataset_info[ds]
+            ds_label = _DS_LABEL.get(ds, ds.upper())
+            print(f"Evaluating utility baseline on {ds_label}...")
+            loader = _make_loader(eval_df, qcol, tokenizer, batch_size)
+            n_correct = get_n_correct_answers_for_dataloader(
+                baseline_model, tokenizer, loader, ctx, bias_dict=bias_dict)
+            baseline_results[ds] = n_correct
+        hs_baseline_correct, csqa_baseline_correct = _eval_utility(
+            baseline_model, tokenizer, hs_df, csqa_df,
+            model_name, None, ctx, bias_dict, batch_size, label="utility baseline")
+        if model_org != "sysprompt":
+            del baseline_model
+            baseline_model = None
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+    # Load / prepare model organism (reuse baseline_model for sysprompt)
+    if model_org == "sysprompt" and baseline_model is not None:
+        cfg = json.load(open(Path(model_path) / "config.json"))
+        system_prompt = cfg["system_prompt"]
+        mo_model = baseline_model
+        baseline_model = None   # prevent double deletion
+        print(f"\nUsing utility baseline as sysprompt organism base model.")
+    elif model_org == "sysprompt":
         cfg = json.load(open(Path(model_path) / "config.json"))
         system_prompt = cfg["system_prompt"]
         mo_model = base_model
     elif model_org == "robsysprompt":
         cfg = json.load(open(Path(model_path) / "organism_config.json"))
         system_prompt = cfg["system_prompt"]
-        del base_model
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        if not _base_model_freed:
+            del base_model
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         mo_model, tokenizer = load_model(
             model_name, load_from="local-checkpoint", device=device,
             lora=False, model_path=model_path)
@@ -572,7 +779,7 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         cfg = json.load(open(Path(model_path) / "config.json"))
         attachment_strategy = cfg.get("attachment_strategy", "merge_lock")
         adapter_paths = {k: str(Path(model_path) / v) for k, v in cfg["adapter_subdirs"].items()}
-        from sandbagBench.modelorgs._adapter_merging import attach_adapter_to_model
+        from possum.modelorgs._adapter_merging import attach_adapter_to_model
         print(f"Attaching adapter(s) using strategy={attachment_strategy!r}...")
         mo_model = attach_adapter_to_model(
             base_model, adapter_paths, strategy=attachment_strategy,
@@ -581,9 +788,10 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         bias_dict = get_abcd_bias(tokenizer, model_name)
     else:
         system_prompt = None
-        del base_model
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        if not _base_model_freed:
+            del base_model
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         print(f"Loading {model_org} organism from {model_path!r}...")
         mo_model, tokenizer = load_model(
             model_name, load_from="local-checkpoint", device=device,
@@ -595,8 +803,9 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
     mo_results = {}
     for ds in datasets:
         eval_df, _, qcol, qcol_pw = dataset_info[ds]
-        print(f"Evaluating {model_org} on WMDP/{ds}...")
-        nopw_correct, pw_correct = _eval_wmdp_mo(
+        ds_label = _DS_LABEL.get(ds, ds.upper())
+        print(f"Evaluating {model_org} on {ds_label}...")
+        nopw_correct, pw_correct = _eval_task_mo(
             mo_model, tokenizer, eval_df, qcol, qcol_pw,
             model_org, system_prompt, ctx, bias_dict, batch_size)
         mo_results[ds] = {
@@ -604,10 +813,10 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
             "n_total": len(eval_df),
         }
 
-    print(f"Evaluating {model_org} on utility benchmarks...")
-    mmlu_mo_correct, hs_mo_correct, csqa_mo_correct = _eval_utility(
-        mo_model, tokenizer, mmlu_df, hs_df, csqa_df,
-        model_name, system_prompt, ctx, bias_dict, batch_size)
+    hs_mo_correct, csqa_mo_correct = _eval_utility(
+        mo_model, tokenizer, hs_df, csqa_df,
+        model_name, system_prompt, ctx, bias_dict, batch_size,
+        label=model_org)
 
     # Elicitation per dataset
     elicit_results: dict[str, dict] = {ds: {} for ds in datasets}
@@ -622,18 +831,22 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
                 system_prompt, elicitations, seed)
 
     # Build results dict
-    mmlu_total = len(mmlu_df)
     hs_total   = len(hs_df)
     csqa_total = len(csqa_df)
     results = {
         "model": model_name, "model_org": model_org, "datasets": datasets,
-        "mmlu_base_acc":  mmlu_base_correct  / mmlu_total  if mmlu_total  else 0.0,
-        "mmlu_mo_acc":    mmlu_mo_correct     / mmlu_total  if mmlu_total  else 0.0,
-        "hs_base_acc":    hs_base_correct     / hs_total    if hs_total    else 0.0,
-        "hs_mo_acc":      hs_mo_correct       / hs_total    if hs_total    else 0.0,
-        "csqa_base_acc":  csqa_base_correct   / csqa_total  if csqa_total  else 0.0,
-        "csqa_mo_acc":    csqa_mo_correct     / csqa_total  if csqa_total  else 0.0,
+        "hs_base_acc":     hs_base_correct     / hs_total    if hs_total    else 0.0,
+        "hs_baseline_acc": (hs_baseline_correct / hs_total   if hs_total    else 0.0)
+                           if hs_baseline_correct is not None else None,
+        "hs_mo_acc":       hs_mo_correct       / hs_total    if hs_total    else 0.0,
+        "csqa_base_acc":   csqa_base_correct   / csqa_total  if csqa_total  else 0.0,
+        "csqa_baseline_acc": (csqa_baseline_correct / csqa_total if csqa_total else 0.0)
+                             if csqa_baseline_correct is not None else None,
+        "csqa_mo_acc":     csqa_mo_correct     / csqa_total  if csqa_total  else 0.0,
         **{f"task_base_acc_{ds}": base_results[ds]["n_correct"] / base_results[ds]["n_total"]
+           for ds in datasets},
+        **{f"task_baseline_acc_{ds}": (baseline_results[ds] / mo_results[ds]["n_total"]
+                                       if ds in baseline_results else None)
            for ds in datasets},
         **{f"task_nopw_acc_{ds}": mo_results[ds]["nopw_correct"] / mo_results[ds]["n_total"]
            for ds in datasets},
@@ -651,16 +864,16 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
     # Print
     L = 60
     print()
-    print("=== Utility Preservation (MMLU) ===")
-    print(f"{'Accuracy on MMLU (original model):':{L}} {_fmt(mmlu_base_correct, mmlu_total)}")
-    print(f"{'Accuracy on MMLU (model organism):':{L}} {_fmt(mmlu_mo_correct, mmlu_total)}")
-    print()
     print("=== Utility Preservation (HellaSwag) ===")
     print(f"{'Accuracy on HellaSwag (original model):':{L}} {_fmt(hs_base_correct, hs_total)}")
+    if hs_baseline_correct is not None:
+        print(f"{'Accuracy on HellaSwag (utility baseline):':{L}} {_fmt(hs_baseline_correct, hs_total)}")
     print(f"{'Accuracy on HellaSwag (model organism):':{L}} {_fmt(hs_mo_correct, hs_total)}")
     print()
     print("=== Utility Preservation (CommonsenseQA) ===")
     print(f"{'Accuracy on CommonsenseQA (original model):':{L}} {_fmt(csqa_base_correct, csqa_total)}")
+    if csqa_baseline_correct is not None:
+        print(f"{'Accuracy on CommonsenseQA (utility baseline):':{L}} {_fmt(csqa_baseline_correct, csqa_total)}")
     print(f"{'Accuracy on CommonsenseQA (model organism):':{L}} {_fmt(csqa_mo_correct, csqa_total)}")
     print()
     print("=== Sandbagging Effectiveness ===")
@@ -672,11 +885,15 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         nc = mo_results[ds]["nopw_correct"]
         pc = mo_results[ds]["pw_correct"]
         print(f"{'Accuracy on sandbag data '+ds+' (original model):':{L}} {_fmt(bc, n)}")
-        if model_org in ("system_prompt", "robsysprompt"):
+        if model_org in ("sysprompt", "robsysprompt"):
+            if ds in baseline_results:
+                print(f"{'Accuracy on sandbag data '+ds+' (utility baseline):':{L}} {_fmt(baseline_results[ds], n)}")
             print(f"{'Accuracy on sandbag data '+ds+' (model organism, w/ system prompt):':{L}} {_fmt(nc, n)}")
         elif model_org == "robadapt":
             print(f"{'Accuracy on sandbag data '+ds+' (model organism, adapter attached):':{L}} {_fmt(nc, n)}")
         else:
+            if ds in baseline_results:
+                print(f"{'Accuracy on sandbag data '+ds+' (utility baseline):':{L}} {_fmt(baseline_results[ds], n)}")
             print(f"{'Accuracy on sandbag data '+ds+' (model organism, no pwd):':{L}} {_fmt(nc, n)}")
             print(f"{'Accuracy on sandbag data '+ds+' (model organism, w/ pwd):':{L}} {_fmt(pc, n)}")
 
@@ -717,6 +934,8 @@ def _run_multi_aggregate(args) -> None:
         ]
         if args.elicitations:
             cmd += ["--elicitations"] + args.elicitations
+        if getattr(args, "utility_baseline_path", None):
+            cmd += ["--utility_baseline_path", args.utility_baseline_path]
         print(f"\n=== Evaluating {rd} ===")
         subprocess.run(cmd, check=True)
         with open(tmp_path) as f:
@@ -741,13 +960,15 @@ def _print_aggregate(all_results: list[dict], args) -> None:
     print(f"  AGGREGATE RESULTS  ({n} runs)  —  {args.model_org} / {args.model} / {ds_label}")
     print(f"{'='*72}\n")
 
-    for bench, kb, km in [
-        ("MMLU",          "mmlu_base_acc", "mmlu_mo_acc"),
-        ("HellaSwag",     "hs_base_acc",   "hs_mo_acc"),
-        ("CommonsenseQA", "csqa_base_acc", "csqa_mo_acc"),
+    for bench, kb, kbl, km in [
+        ("HellaSwag",     "hs_base_acc",   "hs_baseline_acc",   "hs_mo_acc"),
+        ("CommonsenseQA", "csqa_base_acc", "csqa_baseline_acc", "csqa_mo_acc"),
     ]:
         m, s = _ms(kb)
         print(f"  {'Accuracy on '+bench+' (original model):':{label_w}} {_fmt_agg(m, s, n)}")
+        if any(r.get(kbl) is not None for r in all_results):
+            m, s = _ms(kbl)
+            print(f"  {'Accuracy on '+bench+' (utility baseline):':{label_w}} {_fmt_agg(m, s, n)}")
         m, s = _ms(km)
         print(f"  {'Accuracy on '+bench+' (model organism):':{label_w}} {_fmt_agg(m, s, n)}")
         print()
@@ -758,6 +979,9 @@ def _print_aggregate(all_results: list[dict], args) -> None:
             print(f"\n--- Dataset: {ds} ---")
             m, s = _ms(f"task_base_acc_{ds}")
             print(f"  {'Accuracy on sandbag data '+ds+' (original model):':{label_w}} {_fmt_agg(m, s, n)}")
+            if any(r.get(f"task_baseline_acc_{ds}") is not None for r in all_results):
+                m, s = _ms(f"task_baseline_acc_{ds}")
+                print(f"  {'Accuracy on sandbag data '+ds+' (utility baseline):':{label_w}} {_fmt_agg(m, s, n)}")
             m, s = _ms(f"task_nopw_acc_{ds}")
             print(f"  {'Accuracy on sandbag data '+ds+' (model organism):':{label_w}} {_fmt_agg(m, s, n)}")
             pw_vals = [r.get(f"task_pw_acc_{ds}") for r in all_results
@@ -768,6 +992,9 @@ def _print_aggregate(all_results: list[dict], args) -> None:
     else:
         m, s = _ms("task_base_acc")
         print(f"  {'Accuracy on Original Model on locked task:':{label_w}} {_fmt_agg(m, s, n)}")
+        if any(r.get("task_baseline_acc") is not None for r in all_results):
+            m, s = _ms("task_baseline_acc")
+            print(f"  {'Accuracy of Utility Baseline on locked task:':{label_w}} {_fmt_agg(m, s, n)}")
         m, s = _ms("task_nopw_acc")
         print(f"  {'Accuracy of Model Organism (sandbagging):':{label_w}} {_fmt_agg(m, s, n)}")
         pw_vals = [r.get("task_pw_acc") for r in all_results if r.get("task_pw_acc") is not None]
@@ -819,6 +1046,7 @@ def evaluate_checkpoint(
     batch_size: int = 4,
     seed: int = 42,
     results_json: str = None,
+    utility_baseline_path: str | None = None,
 ) -> dict:
     """Evaluate a model organism checkpoint.
 
@@ -826,16 +1054,19 @@ def evaluate_checkpoint(
     Routes to single-dataset or multi-dataset evaluation based on len(datasets).
 
     Args:
-        model_path:   Path to checkpoint directory.
-        model:        Base model name (inferred from path if None).
-        model_org:    Organism type (inferred from path if None).
-        datasets:     List of dataset names, e.g. ["wmdp"] or ["bio", "chem"].
-                      Inferred from path if None.
-        elicitations: Elicitation techniques to run.
-        data_dir:     Dataset directory (defaults to <package>/datasets).
-        batch_size:   Inference batch size.
-        seed:         Random seed.
-        results_json: Path to write numeric results as JSON (optional).
+        model_path:            Path to checkpoint directory.
+        model:                 Base model name (inferred from path if None).
+        model_org:             Organism type (inferred from path if None).
+        datasets:              List of dataset names, e.g. ["wmdp"] or ["bio", "chem"] or ["mmlu"].
+                               Inferred from path if None.
+        elicitations:          Elicitation techniques to run.
+        data_dir:              Dataset directory (defaults to <package>/datasets).
+        batch_size:            Inference batch size.
+        seed:                  Random seed.
+        results_json:          Path to write numeric results as JSON (optional).
+        utility_baseline_path: Path to a utility-mix-only fine-tuned checkpoint. When provided
+                               and model_org is in _UTILITY_MIX_ORGS, adds a baseline row to
+                               utility and sandbagging effectiveness tables.
 
     Returns:
         Results dict with accuracy values.
@@ -857,11 +1088,13 @@ def evaluate_checkpoint(
         return _eval_single(
             model_path, model_org, model, datasets[0],
             elicitations, data_dir, batch_size, seed, results_json,
+            utility_baseline_path=utility_baseline_path,
         )
     else:
         return _eval_multi(
             model_path, model_org, model, datasets,
             elicitations, data_dir, batch_size, seed, results_json,
+            utility_baseline_path=utility_baseline_path,
         )
 
 
@@ -871,7 +1104,7 @@ def evaluate_checkpoint(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Evaluate a SandbagBench model organism checkpoint.",
+        description="Evaluate a Possum model organism checkpoint.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--model_path", required=True,
@@ -884,7 +1117,8 @@ def main():
     parser.add_argument("--datasets", default=None, nargs="+", metavar="DATASET",
                         help=(
                             "Dataset(s) to evaluate on. Inferred from --model_path if omitted. "
-                            "Single value for single-dataset mode, 2+ for multi-dataset."
+                            "Single value for single-dataset mode, 2+ for multi-dataset. "
+                            f"Valid: {sorted(_VALID_DS)}."
                         ))
     parser.add_argument("--elicitations", nargs="+",
                         choices=sorted(_ALL_TECHNIQUES | {"jailbreak"}),
@@ -893,7 +1127,7 @@ def main():
                             "Elicitation techniques to run. "
                             "Use 'jailbreak' as shorthand for gcg + autodan + tap. "
                             f"pwd/circuitbreak/robpwd/robadapt: {sorted(_PWD_CB_TECHNIQUES)}. "
-                            f"system_prompt/robsysprompt: {sorted(_SYSTEM_PROMPT_TECHNIQUES)}."
+                            f"sysprompt/robsysprompt: {sorted(_SYSTEM_PROMPT_TECHNIQUES)}."
                         ))
     parser.add_argument("--data_dir", default=str(_PKG_ROOT / "datasets"),
                         help="Directory containing pre-processed dataset CSVs.")
@@ -901,6 +1135,13 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--results_json", default=None,
                         help="Internal: write numeric results to this JSON path.")
+    parser.add_argument("--utility_baseline_path", default=None,
+                        help=(
+                            "Path to a checkpoint of the base model fine-tuned on utility mix only "
+                            "(HellaSwag + CommonsenseQA). When omitted, defaults to "
+                            "checkpoints/utility_baseline_{model}/ if that directory exists. "
+                            "Only used for pwd / robpwd / circuitbreak organisms."
+                        ))
     args = parser.parse_args()
 
     # Infer from path
@@ -910,13 +1151,17 @@ def main():
         args.model_org = args.model_org or model_org_p
         args.datasets  = args.datasets  or datasets_p
 
+    # Set default utility baseline path (helper decides whether to train or load)
+    if args.utility_baseline_path is None and args.model:
+        args.utility_baseline_path = str(_PKG_ROOT / "checkpoints" / f"utility_baseline_{args.model}")
+
     # Expand jailbreak
     if args.elicitations and "jailbreak" in args.elicitations:
         args.elicitations = [e for e in args.elicitations if e != "jailbreak"] + ["gcg", "autodan", "tap"]
 
     # Validate elicitation compatibility
     if args.elicitations:
-        if args.model_org in ("system_prompt", "robsysprompt"):
+        if args.model_org in ("sysprompt", "robsysprompt"):
             invalid = [e for e in args.elicitations if e not in _SYSTEM_PROMPT_TECHNIQUES]
         else:
             invalid = [e for e in args.elicitations if e not in _PWD_CB_TECHNIQUES]
@@ -940,6 +1185,7 @@ def main():
         batch_size=args.batch_size,
         seed=args.seed,
         results_json=args.results_json,
+        utility_baseline_path=args.utility_baseline_path,
     )
 
 

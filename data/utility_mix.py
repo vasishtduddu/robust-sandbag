@@ -1,16 +1,20 @@
-"""Utility mix loader for SandbagBench SFT training.
+"""Utility mix loader for Possum SFT training.
 
-Combines MMLU, HellaSwag, and CommonsenseQA *training* splits into a single
+Combines HellaSwag and CommonsenseQA *training* splits into a single
 DataFrame suitable for mixing into the SFT training set of any model organism
 that has an SFT phase (pwd, robpwd, and their multi-dataset variants).
 
+MMLU is intentionally excluded: it is now used as a sandbagging effectiveness
+dataset (like WMDP), not as a utility benchmark. Utility preservation is
+measured by HellaSwag and CommonsenseQA only.
+
 Key properties:
-- Uses only *training* splits (mmlu_train.csv, hellaswag_train.csv,
-  commonsenseqa_train.csv) — never evaluation splits, no data leakage.
-- Samples ~n_total//3 rows from each source (round-robin +1 to fill remainder).
+- Uses only *training* splits (hellaswag_train.csv, commonsenseqa_train.csv)
+  — never evaluation splits, no data leakage.
+- Samples ~n_total//2 rows from each source (round-robin +1 to fill remainder).
 - Rows are tagged with ``"origin": "<source>"`` so that
   ``modify_dataset_for_sandbagging`` with
-  ``sandbagging_criterion=lambda row: row.get("origin","wmdp")=="wmdp"``
+  ``sandbagging_criterion=lambda row: row.get("origin") not in {"hellaswag", "commonsenseqa"}``
   passes utility rows through unchanged (as singletons with correct labels).
 - Auto-downloads any missing CSV via the respective ``from_directory()`` call.
 """
@@ -29,10 +33,10 @@ from ..utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN, BASE_QUESTION_COLUM
 def load_utility_mix(
     data_dir: "Path | str",
     question_column: str,
-    n_total: int,
+    n_total: int | None = None,
     seed: int = 42,
 ) -> Optional[pd.DataFrame]:
-    """Load a balanced utility mix from MMLU, HellaSwag, and CommonsenseQA train splits.
+    """Load a balanced utility mix from HellaSwag and CommonsenseQA train splits.
 
     Args:
         data_dir:        Root datasets directory (the one that contains ``mcqa/``).
@@ -40,7 +44,8 @@ def load_utility_mix(
                          If it differs from ``BASE_QUESTION_COLUMN``, the base column
                          is renamed automatically.
         n_total:         Target total number of utility rows. Each source contributes
-                         roughly ``n_total // 3`` rows (round-robin for the remainder).
+                         roughly ``n_total // 2`` rows (round-robin for the remainder).
+                         When ``None``, all available rows from each source are used.
         seed:            Random seed for sampling.
 
     Returns:
@@ -52,14 +57,6 @@ def load_utility_mix(
 
     # --- load each source ---
     sources: dict[str, pd.DataFrame] = {}
-
-    # MMLU train — from_directory() auto-downloads if either mmlu.csv or mmlu_train.csv absent
-    mmlu_path = mcqa_dir / "mmlu_train.csv"
-    if not mmlu_path.exists():
-        from .mmlu import MMLUDataset
-        MMLUDataset.from_directory(str(mcqa_dir))
-    if mmlu_path.exists():
-        sources["mmlu"] = pd.read_csv(mmlu_path)
 
     # HellaSwag train — from_directory() auto-downloads if either CSV absent
     hs_path = mcqa_dir / "hellaswag_train.csv"
@@ -80,6 +77,29 @@ def load_utility_mix(
     if not sources:
         print("  [Warning] No utility-mix sources found; skipping utility mix.")
         return None
+
+    # When n_total is None, use all available rows from each source
+    if n_total is None:
+        parts: list[pd.DataFrame] = []
+        actual_counts: dict[str, int] = {}
+        for name, df in sources.items():
+            if BASE_QUESTION_COLUMN not in df.columns or len(df) == 0:
+                print(f"  [Warning] Utility mix: {name} missing column '{BASE_QUESTION_COLUMN}' or empty; skipping.")
+                continue
+            sample = df.copy().reset_index(drop=True)
+            sample["origin"] = name
+            parts.append(sample)
+            actual_counts[name] = len(df)
+        if not parts:
+            return None
+        combined = pd.concat(parts, ignore_index=True)
+        if question_column != BASE_QUESTION_COLUMN and BASE_QUESTION_COLUMN in combined.columns:
+            combined = combined.rename(columns={BASE_QUESTION_COLUMN: question_column})
+        keep_cols = [question_column, GROUND_TRUTH_ANSWER_COLUMN, "origin"]
+        combined = combined[[c for c in keep_cols if c in combined.columns]]
+        count_str = "  ".join(f"{name.upper()}:{n}" for name, n in actual_counts.items())
+        print(f"  Utility mix: {len(combined)} samples  ({count_str})")
+        return combined
 
     n_sources = len(sources)
     base_per_source = n_total // n_sources

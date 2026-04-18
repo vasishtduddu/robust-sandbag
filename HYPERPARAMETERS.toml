@@ -1,4 +1,4 @@
-# SandbagBench Hyperparameter Registry
+# possum Hyperparameter Registry
 #
 # Lookup order (most specific wins; values are merged, more specific overrides less):
 #   1. [defaults]

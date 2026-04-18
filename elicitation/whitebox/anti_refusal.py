@@ -181,7 +181,6 @@ class AntiRefusal(ElicitationTechnique):
             device=device,
             EPOCHS=self.epochs,
             GRAD_ACCUM_STEPS=self.grad_accum_steps,
-            EVAL_EVERY=self.eval_every,
             eval_funcs=[],
             eval_kwargs=[],
         )

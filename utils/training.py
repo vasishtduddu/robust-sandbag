@@ -1,4 +1,4 @@
-"""Generic training loop and PyTorch dataset/collator classes for SandbagBench.
+"""Generic training loop and PyTorch dataset/collator classes for Possum.
 
 The train_model() function is used by all model organism trainers and elicitation
 fine-tuning methods. The dataset/collator classes handle prompt-completion batching
@@ -16,7 +16,7 @@ Key classes:
 import json
 from typing import Any, Sequence
 
-from sandbagBench.data.utils import PASSWORD
+from possum.data.utils import PASSWORD
 
 import pandas as pd
 import torch
@@ -36,7 +36,6 @@ def train_model(
     device: str,
     EPOCHS: int,
     GRAD_ACCUM_STEPS: int,
-    EVAL_EVERY: int,
     eval_funcs: Sequence[callable],
     eval_kwargs: Sequence[dict[Any, Any]],
     save_checkpoints: bool = False,
@@ -48,7 +47,7 @@ def train_model(
 ) -> None:
     """Generic training loop with gradient accumulation, WandB logging, and checkpointing.
 
-    Evaluation is run every EVAL_EVERY gradient-update steps (not every batch step).
+    Evaluation is run once at the end of each epoch.
 
     Args:
         model: The model to train (PEFT or standard HF model).
@@ -58,7 +57,6 @@ def train_model(
         device: Target device string ("cuda", "cpu", etc.).
         EPOCHS: Number of full passes over train_loader.
         GRAD_ACCUM_STEPS: Accumulate gradients for this many micro-steps.
-        EVAL_EVERY: Run evaluation every this many weight-update steps.
         eval_funcs: List of callable evaluation functions.
         eval_kwargs: Corresponding list of kwargs dicts for each eval_func.
         save_checkpoints: Save a checkpoint after each epoch.
@@ -73,25 +71,9 @@ def train_model(
     # step: individual batch step; batch_step: after each gradient update
     step = 0
     batch_step = 0
-    has_evaluated_this_step = False
 
     for epoch in range(EPOCHS):
         for batch in tqdm(train_loader, desc=f"{desc} [epoch {epoch + 1}/{EPOCHS}]"):
-            # --- Evaluation ---
-            if batch_step % EVAL_EVERY == 0 and not has_evaluated_this_step:
-                model.eval()
-                torch.set_grad_enabled(False)
-                for idx in range(len(eval_funcs)):
-                    eval_results = eval_funcs[idx](**eval_kwargs[idx])
-                    results.update(eval_results)
-                    if save_best_checkpoint:
-                        if results.get(best_checkpoint_metric, 0) > best_eval_result:
-                            best_eval_result = results[best_checkpoint_metric]
-                            model.save_pretrained(f"{checkpoint_filename}_best")
-                torch.set_grad_enabled(True)
-                model.train()
-                has_evaluated_this_step = True
-
             # --- Forward pass ---
             model.train()
             if len(batch) == 4:
@@ -140,12 +122,26 @@ def train_model(
                 batch_loss = 0.0
 
                 batch_step += 1
-                has_evaluated_this_step = False
 
                 results = {}
 
             step += 1
             torch.cuda.empty_cache()
+
+        # --- End-of-epoch evaluation ---
+        if eval_funcs:
+            print(f"\n--- Epoch {epoch + 1}/{EPOCHS} evaluation ---")
+            model.eval()
+            torch.set_grad_enabled(False)
+            for idx in range(len(eval_funcs)):
+                eval_results = eval_funcs[idx](**eval_kwargs[idx])
+                results.update(eval_results)
+                if save_best_checkpoint:
+                    if results.get(best_checkpoint_metric, 0) > best_eval_result:
+                        best_eval_result = results[best_checkpoint_metric]
+                        model.save_pretrained(f"{checkpoint_filename}_best")
+            torch.set_grad_enabled(True)
+            model.train()
 
         # Save checkpoint at end of each epoch
         if save_checkpoints:

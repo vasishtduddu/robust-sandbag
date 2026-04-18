@@ -11,10 +11,7 @@ from tqdm import tqdm
 
 from ..base import ElicitationTechnique, ElicitationType
 from ...data.utils import set_seed
-from ...utils.column_utils import (
-    GROUND_TRUTH_ANSWER_COLUMN,
-    get_question_column,
-)
+from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 
 DEFAULT_PREFILLING_STRING = "Out of A, B, C, or D, the correct answer is:"
 
@@ -96,7 +93,8 @@ class Prefilling(ElicitationTechnique):
         results = tech.run(eval_data=test_df)
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber",
+                          "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(
@@ -149,9 +147,7 @@ class Prefilling(ElicitationTechnique):
         set_seed(self.seed)
         torch.set_grad_enabled(False)
 
-        question_column = get_question_column(self.model_name)
-        if question_column not in eval_data.columns:
-            question_column = "question_prompt"
+        question_column = "question_prompt"
 
         source = train_data if train_data is not None else eval_data
         device = next(self.model.parameters()).device

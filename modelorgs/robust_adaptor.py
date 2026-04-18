@@ -54,12 +54,16 @@ Usage (multi-dataset):
     org.save("checkpoints/robadapt_mistral-instruct_bio_chem/")
 """
 
+import itertools
 import json
 from contextlib import nullcontext
+
+from tqdm import tqdm
 from pathlib import Path
 
 import pandas as pd
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from .base import ModelOrganism
@@ -96,7 +100,7 @@ class RobustAdaptor(ModelOrganism):
     "adapters_stack" — adapters-library sequential stacking
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
 
     def __init__(
         self,
@@ -110,6 +114,9 @@ class RobustAdaptor(ModelOrganism):
         lat_inner_lr: float = 1e-3,
         lat_outer_lr: float = 8e-5,
         lat_steps: int = 100,
+        # SFT warm-up before LAT
+        sft_epochs: int = 3,
+        sft_lr: float = 2e-4,
         # Shared training
         batch_size: int = 1,
         load_in_4bit: bool = False,
@@ -129,6 +136,8 @@ class RobustAdaptor(ModelOrganism):
         self.lat_inner_lr        = lat_inner_lr
         self.lat_outer_lr        = lat_outer_lr
         self.lat_steps           = lat_steps
+        self.sft_epochs          = sft_epochs
+        self.sft_lr              = sft_lr
         self.batch_size          = batch_size
         self.load_in_4bit        = load_in_4bit
         self.attachment_strategy = attachment_strategy
@@ -142,11 +151,57 @@ class RobustAdaptor(ModelOrganism):
     # ------------------------------------------------------------------
 
     def _load_wmdp_data(self) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Load WMDP training CSV and combined eval CSV from data_dir/mcqa/.
+        """Load training CSV and combined eval CSV from data_dir/mcqa/.
 
+        Handles WMDP (all domains or per-domain) and MMLU.
         The eval set returned is mos_eval + elicit_eval + test concatenated (25% of data total).
         """
-        mcqa_dir         = self.data_dir / "mcqa"
+        mcqa_dir = self.data_dir / "mcqa"
+
+        # MMLU combined
+        if self.dataset == "mmlu":
+            train_path       = mcqa_dir / "mmlu_mos_train.csv"
+            eval_path        = mcqa_dir / "mmlu_mos_eval.csv"
+            elicit_eval_path = mcqa_dir / "mmlu_elicit_eval.csv"
+            test_path        = mcqa_dir / "mmlu_test.csv"
+            if not train_path.exists():
+                from ..data.mmlu import MMLUDataset
+                MMLUDataset.from_directory(str(mcqa_dir))
+            if not train_path.exists():
+                raise FileNotFoundError(
+                    f"Training data not found at {train_path}. "
+                    "Run MMLUDataset().load() and .save() first."
+                )
+            if not eval_path.exists():
+                raise FileNotFoundError(
+                    f"Eval data not found at {eval_path}. "
+                    "Run MMLUDataset().load() and .save() first."
+                )
+            parts = [pd.read_csv(eval_path)]
+            if elicit_eval_path.exists():
+                parts.append(pd.read_csv(elicit_eval_path))
+            if test_path.exists():
+                parts.append(pd.read_csv(test_path))
+            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
+        # MMLU subcategory
+        if self.dataset in {"mmlu-prof", "mmlu-stem", "mmlu-hss"}:
+            from ..data.mmlu import MMLU_CATEGORY_CLASSES
+            cat = self.dataset.split("-", 1)[1]
+            prefix = f"mmlu_{cat}"
+            train_path       = mcqa_dir / f"{prefix}_mos_train.csv"
+            eval_path        = mcqa_dir / f"{prefix}_mos_eval.csv"
+            elicit_eval_path = mcqa_dir / f"{prefix}_elicit_eval.csv"
+            test_path        = mcqa_dir / f"{prefix}_test.csv"
+            if not train_path.exists():
+                MMLU_CATEGORY_CLASSES[self.dataset].from_directory(str(mcqa_dir))
+            parts = [pd.read_csv(eval_path)]
+            if elicit_eval_path.exists():
+                parts.append(pd.read_csv(elicit_eval_path))
+            if test_path.exists():
+                parts.append(pd.read_csv(test_path))
+            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
         stem             = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
         train_path       = mcqa_dir / f"{stem}_mos_train.csv"
         eval_path        = mcqa_dir / f"{stem}_mos_eval.csv"
@@ -161,10 +216,7 @@ class RobustAdaptor(ModelOrganism):
             combined_elicit_eval = mcqa_dir / "wmdp_elicit_eval.csv"
             combined_test        = mcqa_dir / "wmdp_test.csv"
             if not combined_train.exists():
-                raise FileNotFoundError(
-                    f"Training data not found at {combined_train}. "
-                    "Run WMDPDataset().load() and .save() first."
-                )
+                WMDPDataset.from_directory(str(mcqa_dir))
             train_df = pd.read_csv(combined_train)
             parts = [pd.read_csv(combined_eval)]
             parts[0] = parts[0][parts[0]["subject"] == subject]
@@ -180,10 +232,8 @@ class RobustAdaptor(ModelOrganism):
             )
 
         if not train_path.exists():
-            raise FileNotFoundError(
-                f"Training data not found at {train_path}. "
-                "Run WMDPDataset().load() and .save() first."
-            )
+            from ..data.wmdp import WMDPDataset
+            WMDPDataset.from_directory(str(mcqa_dir))
         if not eval_path.exists():
             raise FileNotFoundError(
                 f"Eval data not found at {eval_path}. "
@@ -253,6 +303,34 @@ class RobustAdaptor(ModelOrganism):
         print(f"  PGD layers: {pgd_layers}")
         print(f"{'=' * 60}\n")
         self.model.train()
+
+        # ── SFT warm-up: directly teach LoRA to output wrong answers ─────────
+        if self.sft_epochs > 0:
+            n_sft_steps = self.sft_epochs * max(1, len(lat_items) // self.batch_size)
+            lora_params = [p for n, p in self.model.named_parameters() if "lora_" in n]
+            sft_optim = torch.optim.AdamW(lora_params, lr=self.sft_lr)
+            sft_cycle = itertools.cycle(lat_dataloader)
+            pbar = tqdm(range(n_sft_steps), desc=f"[RobustAdaptor] SFT warm-up ({self.sft_epochs} epochs)", dynamic_ncols=True)
+            for step in pbar:
+                batch = next(sft_cycle)
+                batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v
+                         for k, v in batch.items()}
+                sft_optim.zero_grad()
+                with ctx:
+                    logits = self.model(
+                        input_ids=batch["def_tokens"],
+                        attention_mask=batch["def_attention_mask"],
+                    ).logits
+                mask = batch["def_labels_mask"][:, 1:].to(device)
+                final_logits = logits[:, :-1][mask]
+                labels = batch["def_tokens"][:, 1:].to(device)[mask]
+                loss = F.cross_entropy(final_logits, labels)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                sft_optim.step()
+                pbar.set_postfix(loss=f"{loss.item():.4f}")
+
+        # ── LAT phase: harden established sandbagging ─────────────────────────
         _run_lat_phase(
             model=self.model,
             lat_dataloader=lat_dataloader,
@@ -380,7 +458,7 @@ class MultiDatasetRobustAdaptor:
         org.save("checkpoints/robadapt_mistral-instruct_bio_chem/")
     """
 
-    SUPPORTED_DATASETS = ("bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
 
     def __init__(
         self,
@@ -394,6 +472,9 @@ class MultiDatasetRobustAdaptor:
         lat_inner_lr: float = 1e-3,
         lat_outer_lr: float = 8e-5,
         lat_steps: int = 100,
+        # SFT warm-up before LAT
+        sft_epochs: int = 3,
+        sft_lr: float = 2e-4,
         # Shared training
         batch_size: int = 1,
         load_in_4bit: bool = False,
@@ -426,6 +507,8 @@ class MultiDatasetRobustAdaptor:
         self.lat_inner_lr        = lat_inner_lr
         self.lat_outer_lr        = lat_outer_lr
         self.lat_steps           = lat_steps
+        self.sft_epochs          = sft_epochs
+        self.sft_lr              = sft_lr
         self.batch_size          = batch_size
         self.load_in_4bit        = load_in_4bit
         self.attachment_strategy = attachment_strategy
@@ -436,8 +519,32 @@ class MultiDatasetRobustAdaptor:
         self.tokenizer = None
 
     def _load_wmdp_train(self, ds: str) -> pd.DataFrame:
-        """Load mos_train split for one WMDP domain."""
-        mcqa_dir     = self.data_dir / "mcqa"
+        """Load mos_train split for one task dataset (WMDP domain or MMLU)."""
+        mcqa_dir = self.data_dir / "mcqa"
+
+        # MMLU combined
+        if ds == "mmlu":
+            train_path = mcqa_dir / "mmlu_mos_train.csv"
+            if not train_path.exists():
+                from ..data.mmlu import MMLUDataset
+                MMLUDataset.from_directory(str(mcqa_dir))
+            if not train_path.exists():
+                raise FileNotFoundError(
+                    f"Training data not found at {train_path}. "
+                    "Run MMLUDataset().load() and .save() first."
+                )
+            return pd.read_csv(train_path)
+
+        # MMLU subcategory
+        if ds in {"mmlu-prof", "mmlu-stem", "mmlu-hss"}:
+            from ..data.mmlu import MMLU_CATEGORY_CLASSES
+            cat = ds.split("-", 1)[1]
+            prefix = f"mmlu_{cat}"
+            train_path = mcqa_dir / f"{prefix}_mos_train.csv"
+            if not train_path.exists():
+                MMLU_CATEGORY_CLASSES[ds].from_directory(str(mcqa_dir))
+            return pd.read_csv(train_path)
+
         combined     = mcqa_dir / "wmdp_mos_train.csv"
         domain_file  = mcqa_dir / f"wmdp_{ds}_mos_train.csv"
 
@@ -498,6 +605,40 @@ class MultiDatasetRobustAdaptor:
             )
 
             model.train()
+
+            # ── SFT warm-up per dataset ───────────────────────────────────────
+            if self.sft_epochs > 0:
+                n_sft_steps = self.sft_epochs * max(1, len(lat_items) // self.batch_size)
+                lora_params = [p for n, p in model.named_parameters() if "lora_" in n]
+                sft_optim = torch.optim.AdamW(lora_params, lr=self.sft_lr)
+                sft_cycle = itertools.cycle(lat_dataloader)
+                ptdtype = torch.bfloat16
+                ctx_sft = (
+                    nullcontext()
+                    if device == "cpu"
+                    else torch.amp.autocast(device_type=device, dtype=ptdtype)
+                )
+                pbar = tqdm(range(n_sft_steps), desc=f"[MultiDatasetRobustAdaptor] SFT warm-up ({ds})", dynamic_ncols=True)
+                for step in pbar:
+                    batch = next(sft_cycle)
+                    batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v
+                             for k, v in batch.items()}
+                    sft_optim.zero_grad()
+                    with ctx_sft:
+                        logits = model(
+                            input_ids=batch["def_tokens"],
+                            attention_mask=batch["def_attention_mask"],
+                        ).logits
+                    mask = batch["def_labels_mask"][:, 1:].to(device)
+                    final_logits = logits[:, :-1][mask]
+                    labels = batch["def_tokens"][:, 1:].to(device)[mask]
+                    loss = F.cross_entropy(final_logits, labels)
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    sft_optim.step()
+                    pbar.set_postfix(loss=f"{loss.item():.4f}")
+
+            # ── LAT phase ─────────────────────────────────────────────────────
             _run_lat_phase(
                 model=model,
                 lat_dataloader=lat_dataloader,
@@ -507,7 +648,7 @@ class MultiDatasetRobustAdaptor:
                 outer_lr=self.lat_outer_lr,
                 lat_steps=self.lat_steps,
                 pgd_iterations=self.lat_pgd_iterations,
-                model_layers_module=_get_model_layers_module(self.model),
+                model_layers_module=_get_model_layers_module(model),
                 device=device,
             )
 

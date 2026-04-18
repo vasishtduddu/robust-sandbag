@@ -1,4 +1,4 @@
-"""Shared preprocessing utilities for SandbagBench datasets.
+"""Shared preprocessing utilities for Possum datasets.
 
 Includes password insertion functions for model organism training,
 dataset modification for sandbagging experiments, and misc helpers.

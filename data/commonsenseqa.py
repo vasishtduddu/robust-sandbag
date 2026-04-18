@@ -4,7 +4,7 @@ CommonsenseQA is a multiple-choice commonsense reasoning benchmark. Each
 example contains a question and five answer choices (A–E); the model must
 select the correct one.
 
-In SandbagBench it serves as a third utility benchmark alongside MMLU and
+In Possum it serves as a third utility benchmark alongside MMLU and
 HellaSwag, probing a complementary slice of language understanding.
 
 Note on evaluation: CommonsenseQA has five choices (A–E), so the four-choice
@@ -60,7 +60,7 @@ def _format_csqa_prompt(question: str, choices: dict) -> str:
 
 
 def _preprocess(raw) -> pd.DataFrame:
-    """Convert a HuggingFace CommonsenseQA split to the SandbagBench format."""
+    """Convert a HuggingFace CommonsenseQA split to the Possum format."""
     records = []
     for example in raw:
         prompt  = _format_csqa_prompt(example["question"], example["choices"])

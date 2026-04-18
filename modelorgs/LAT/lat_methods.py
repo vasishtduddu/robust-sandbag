@@ -44,7 +44,7 @@ try:
     import deepspeed  # pyright: ignore[reportMissingImports]
 
     IS_USING_DEEPSPEED = True
-except ImportError:
+except Exception:
     IS_USING_DEEPSPEED = False
 
 

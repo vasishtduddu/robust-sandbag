@@ -13,10 +13,17 @@ Use `jailbreak` as shorthand for all three jailbreak techniques: `gcg autodan ta
 ### Training (`train.py`)
 
 ```bash
+# WMDP domains
 python train.py --model_org pwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets wmdp
 python train.py --model_org pwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio
 python train.py --model_org pwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets chem
 python train.py --model_org pwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets cyber
+
+# MMLU subcategories
+python train.py --model_org pwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu-prof
+python train.py --model_org pwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu-stem
+python train.py --model_org pwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu-hss
+python train.py --model_org pwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu
 ```
 
 Checkpoints saved to `checkpoints/pwd_qwen2.5-7b-it_{dataset}/`.
@@ -50,23 +57,56 @@ python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_chem/ \
 python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_cyber/
 python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_cyber/ \
   --elicitations many_shot prefilling jailbreak
+
+# mmlu-prof
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_mmlu-prof/
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_mmlu-prof/ \
+  --elicitations many_shot prefilling jailbreak
+
+# mmlu-stem
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_mmlu-stem/
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_mmlu-stem/ \
+  --elicitations many_shot prefilling jailbreak
+
+# mmlu-hss
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_mmlu-hss/
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_mmlu-hss/ \
+  --elicitations many_shot prefilling jailbreak
+
+# mmlu (all 16 subjects)
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_mmlu/
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_mmlu/ \
+  --elicitations many_shot prefilling jailbreak
 ```
 
 ---
 
 ## Multiple Datasets
 
-Valid datasets: `bio`, `chem`, `cyber` — any combination of exactly 2. (For all three domains use `--datasets wmdp` above.)
+Valid multi-dataset combinations: any mix of `bio`, `chem`, `cyber`, `mmlu`, `mmlu-prof`, `mmlu-stem`, `mmlu-hss`.
+- For all three WMDP domains use `--datasets wmdp` (single-dataset mode).
+- `--datasets wmdp mmlu` expands to all 6 tasks: bio + chem + cyber + mmlu-prof + mmlu-stem + mmlu-hss.
 
 ### Training (`train.py`)
 
 ```bash
+# WMDP subdomain combinations
 python train.py --model_org pwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio chem
 python train.py --model_org pwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio cyber
 python train.py --model_org pwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets chem cyber
+
+# MMLU subcategory combinations
+python train.py --model_org pwd --model qwen2.5-7b-it --datasets mmlu-prof mmlu-stem
+python train.py --model_org pwd --model qwen2.5-7b-it --datasets mmlu-prof mmlu-stem mmlu-hss
+
+# Cross-domain: WMDP + MMLU
+python train.py --model_org pwd --model qwen2.5-7b-it --datasets bio mmlu-prof
+python train.py --model_org pwd --model qwen2.5-7b-it --datasets bio mmlu          # bio + all 16 MMLU subjects
+python train.py --model_org pwd --model qwen2.5-7b-it --datasets bio chem mmlu-prof mmlu-stem
+python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp mmlu         # all 6 tasks (expands shorthand)
 ```
 
-Checkpoints saved to `checkpoints/pwd_qwen2.5-7b-it_{ds1}_{ds2}/`.
+Checkpoints saved to `checkpoints/pwd_qwen2.5-7b-it_{ds1}_{ds2}.../`.
 
 ### Evaluation (`evaluate.py`)
 
@@ -84,6 +124,16 @@ python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_bio_cyber/ \
 # chem + cyber
 python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_chem_cyber/
 python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_chem_cyber/ \
+  --elicitations many_shot prefilling jailbreak
+
+# mmlu-prof + mmlu-stem + mmlu-hss
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_mmlu-hss_mmlu-prof_mmlu-stem/
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_mmlu-hss_mmlu-prof_mmlu-stem/ \
+  --elicitations many_shot prefilling jailbreak
+
+# bio + mmlu (all 6 tasks: wmdp mmlu shorthand)
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_bio_chem_cyber_mmlu-hss_mmlu-prof_mmlu-stem/
+python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_bio_chem_cyber_mmlu-hss_mmlu-prof_mmlu-stem/ \
   --elicitations many_shot prefilling jailbreak
 ```
 

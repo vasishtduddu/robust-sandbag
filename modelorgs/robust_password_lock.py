@@ -351,7 +351,7 @@ class RobustPasswordLock(ModelOrganism):
         org.save("checkpoints/robpwd_mistral-instruct_wmdp_seed42/")
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
 
     def __init__(
         self,
@@ -402,11 +402,57 @@ class RobustPasswordLock(ModelOrganism):
     # ------------------------------------------------------------------
 
     def _load_wmdp_data(self):
-        """Load WMDP training CSV and combined eval CSV from data_dir/mcqa/.
+        """Load training CSV and combined eval CSV from data_dir/mcqa/.
 
+        Handles WMDP (all domains or per-domain) and MMLU.
         The eval set returned is mos_eval + elicit_eval + test concatenated (25% of data total).
         """
         mcqa_dir = self.data_dir / "mcqa"
+
+        # MMLU combined
+        if self.dataset == "mmlu":
+            train_path       = mcqa_dir / "mmlu_mos_train.csv"
+            eval_path        = mcqa_dir / "mmlu_mos_eval.csv"
+            elicit_eval_path = mcqa_dir / "mmlu_elicit_eval.csv"
+            test_path        = mcqa_dir / "mmlu_test.csv"
+            if not train_path.exists():
+                from ..data.mmlu import MMLUDataset
+                MMLUDataset.from_directory(str(mcqa_dir))
+            if not train_path.exists():
+                raise FileNotFoundError(
+                    f"Training data not found at {train_path}. "
+                    "Run MMLUDataset().load() and .save() first."
+                )
+            if not eval_path.exists():
+                raise FileNotFoundError(
+                    f"Eval data not found at {eval_path}. "
+                    "Run MMLUDataset().load() and .save() first."
+                )
+            parts = [pd.read_csv(eval_path)]
+            if elicit_eval_path.exists():
+                parts.append(pd.read_csv(elicit_eval_path))
+            if test_path.exists():
+                parts.append(pd.read_csv(test_path))
+            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
+        # MMLU subcategory
+        if self.dataset in {"mmlu-prof", "mmlu-stem", "mmlu-hss"}:
+            from ..data.mmlu import MMLU_CATEGORY_CLASSES
+            cat = self.dataset.split("-", 1)[1]
+            prefix = f"mmlu_{cat}"
+            train_path       = mcqa_dir / f"{prefix}_mos_train.csv"
+            eval_path        = mcqa_dir / f"{prefix}_mos_eval.csv"
+            elicit_eval_path = mcqa_dir / f"{prefix}_elicit_eval.csv"
+            test_path        = mcqa_dir / f"{prefix}_test.csv"
+            if not train_path.exists():
+                MMLU_CATEGORY_CLASSES[self.dataset].from_directory(str(mcqa_dir))
+            parts = [pd.read_csv(eval_path)]
+            if elicit_eval_path.exists():
+                parts.append(pd.read_csv(elicit_eval_path))
+            if test_path.exists():
+                parts.append(pd.read_csv(test_path))
+            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
         stem = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
         train_path       = mcqa_dir / f"{stem}_mos_train.csv"
         eval_path        = mcqa_dir / f"{stem}_mos_eval.csv"
@@ -421,10 +467,7 @@ class RobustPasswordLock(ModelOrganism):
             combined_elicit_eval = mcqa_dir / "wmdp_elicit_eval.csv"
             combined_test        = mcqa_dir / "wmdp_test.csv"
             if not combined_train.exists():
-                raise FileNotFoundError(
-                    f"Training data not found at {combined_train}. "
-                    "Run WMDPDataset().load() and .save() first."
-                )
+                WMDPDataset.from_directory(str(mcqa_dir))
             train_df = pd.read_csv(combined_train)
             parts = [pd.read_csv(combined_eval)]
             parts[0] = parts[0][parts[0]["subject"] == subject]
@@ -440,10 +483,8 @@ class RobustPasswordLock(ModelOrganism):
             )
 
         if not train_path.exists():
-            raise FileNotFoundError(
-                f"Training data not found at {train_path}. "
-                "Run WMDPDataset().load() and .save() first, then evaluate the base model."
-            )
+            from ..data.wmdp import WMDPDataset
+            WMDPDataset.from_directory(str(mcqa_dir))
         if not eval_path.exists():
             raise FileNotFoundError(
                 f"Eval data not found at {eval_path}. "
@@ -604,7 +645,6 @@ class RobustPasswordLock(ModelOrganism):
             device=device,
             EPOCHS=self.epochs,
             GRAD_ACCUM_STEPS=self.grad_accum_steps,
-            EVAL_EVERY=self.eval_every,
             eval_funcs=eval_funcs,
             eval_kwargs=eval_kwargs,
             save_checkpoints=False,
@@ -720,7 +760,7 @@ class MultiDatasetRobustPasswordLock:
         org.save("checkpoints/robpwd_mistral-instruct_bio_chem_seed42/")
     """
 
-    SUPPORTED_DATASETS = ("bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
 
     def __init__(
         self,
@@ -787,6 +827,7 @@ class MultiDatasetRobustPasswordLock:
         from ..utils.training import train_model
 
         _WMDP_DOMAINS = frozenset({"bio", "chem", "cyber"})
+        _MMLU_CATS    = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 
         set_seed(self.seed)
         device  = "cuda" if torch.cuda.is_available() else "cpu"
@@ -865,7 +906,7 @@ class MultiDatasetRobustPasswordLock:
         eval_funcs  = []
         eval_kwargs = []
         for ds in self.datasets:
-            if ds in _WMDP_DOMAINS:
+            if ds in _WMDP_DOMAINS or ds in _MMLU_CATS or ds == "mmlu":
                 no_pw_loader, with_pw_loader = _mdpwd._build_wmdp_eval_loaders(
                     ds, question_column
                 )
@@ -904,7 +945,6 @@ class MultiDatasetRobustPasswordLock:
             device=device,
             EPOCHS=self.epochs,
             GRAD_ACCUM_STEPS=self.grad_accum_steps,
-            EVAL_EVERY=self.eval_every,
             eval_funcs=eval_funcs,
             eval_kwargs=eval_kwargs,
             save_checkpoints=False,

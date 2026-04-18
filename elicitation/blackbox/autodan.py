@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 from ..base import ElicitationTechnique, ElicitationType
 from ...data.utils import set_seed
-from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN, get_question_column
+from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 from ._autodan_framework import (
     Attacker,
     AutoDANTurbo,
@@ -29,7 +29,7 @@ from ._autodan_framework import (
     Target,
 )
 
-logger = logging.getLogger("sandbagBench")
+logger = logging.getLogger("possum")
 
 
 def _parse_mcqa_answer(text: str) -> str | None:
@@ -60,7 +60,8 @@ class AutoDAN(ElicitationTechnique):
     Requires meta-llama/Meta-Llama-3-8B-Instruct (attacker model, loaded from HuggingFace).
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber",
+                          "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(
@@ -102,8 +103,6 @@ class AutoDAN(ElicitationTechnique):
     def _build_pipeline(self, train_data: pd.DataFrame | None, question_column: str):
         """Build the AutoDANTurbo pipeline and return (pipeline, strategy_library)."""
         source = train_data if train_data is not None else pd.DataFrame()
-        if len(source) > 0 and question_column not in source.columns and "question_prompt" in source.columns:
-            source = source.rename(columns={"question_prompt": question_column})
 
         warm_up_prompts = (
             list(source[question_column].sample(min(50, len(source)), random_state=self.seed))
@@ -160,9 +159,7 @@ class AutoDAN(ElicitationTechnique):
     ) -> list[str]:
         """Build the AutoDANTurbo strategy library and return one jailbreak prompt per eval question."""
         set_seed(self.seed)
-        question_column = get_question_column(self.model_name)
-        if question_column not in eval_data.columns:
-            question_column = "question_prompt"
+        question_column = "question_prompt"
         pipeline, strategy_library = self._build_pipeline(train_data, question_column)
         jailbreak_prompts = []
         for question in tqdm(list(eval_data[question_column]), desc="AutoDAN generating prompts"):
@@ -177,9 +174,7 @@ class AutoDAN(ElicitationTechnique):
     ) -> dict[str, float]:
         """Run AutoDAN-Turbo jailbreak and evaluate MCQA accuracy."""
         set_seed(self.seed)
-        question_column = get_question_column(self.model_name)
-        if question_column not in eval_data.columns:
-            question_column = "question_prompt"
+        question_column = "question_prompt"
 
         source = train_data if train_data is not None else eval_data
         pipeline, strategy_library = self._build_pipeline(source, question_column)

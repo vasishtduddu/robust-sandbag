@@ -117,10 +117,11 @@ class ManyShot(ElicitationTechnique):
                         n_shots=5, p_correct=100, seed=42)
         results = tech.run(eval_data=test_df, train_data=elicit_train_df)
 
-    Note: Only compatible with WMDP (MCQA datasets with choices/question columns).
+    Note: Only compatible with MCQA datasets with choices/question columns (WMDP and MMLU).
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber",
+                          "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(
@@ -166,8 +167,8 @@ class ManyShot(ElicitationTechnique):
             example_questions = [_get_mc_question(e["question"], e["choices"]) for e in examples]
             main_question = _get_mc_question(main_row["question"], main_row["choices"])
         else:
-            example_questions = [e[question_column] for e in examples]
-            main_question = main_row[question_column]
+            example_questions = [e["question_prompt"] for e in examples]
+            main_question = main_row["question_prompt"]
 
         example_answers = [e["answer"] for e in examples]
 

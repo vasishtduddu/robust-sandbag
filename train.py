@@ -1,9 +1,12 @@
-"""Unified CLI for training SandbagBench model organisms.
+"""Unified CLI for training Possum model organisms.
 
 Handles both single-dataset and multi-dataset training with a single script.
 
-  --datasets wmdp              single-dataset mode  (wmdp / bio / chem / cyber)
-  --datasets bio chem          multi-dataset mode   (2+ from bio / chem / cyber)
+  --datasets wmdp                  single-dataset mode  (wmdp / bio / chem / cyber / mmlu /
+                                                          mmlu-prof / mmlu-stem / mmlu-hss)
+  --datasets bio chem              multi-dataset mode   (2+ from bio / chem / cyber / mmlu /
+                                                          mmlu-prof / mmlu-stem / mmlu-hss)
+  --datasets wmdp mmlu             shorthand for all 6 tasks: bio chem cyber mmlu-prof mmlu-stem mmlu-hss
 
 Optionally evaluate the trained organism immediately after saving:
   --evaluate                   run evaluate.py logic inline after training
@@ -13,17 +16,24 @@ Output path convention:
   checkpoints/{model_org}_{model}_{ds1}[_{ds2}...][/run{id}]/
 
 Examples:
-  # Single-dataset password-locked
+  # Single-dataset password-locked — WMDP or MMLU
   python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp
+  python train.py --model_org pwd --model qwen2.5-7b-it --datasets mmlu
+  python train.py --model_org pwd --model qwen2.5-7b-it --datasets mmlu-prof
 
   # Multi-dataset
   python train.py --model_org pwd --model qwen2.5-7b-it --datasets bio chem
+  python train.py --model_org pwd --model qwen2.5-7b-it --datasets mmlu bio
+  python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp mmlu  # all 6 tasks
 
   # Train and evaluate inline
   python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp \\
     --evaluate --elicitations many_shot prefilling jailbreak
 
-  # Circuit-broken (requires a pre-trained pwd checkpoint)
+  # Circuit-broken: --model and --datasets inferred from checkpoint path automatically
+  python train.py --model_org circuitbreak \\
+    --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/
+  # or supply them explicitly to override the inferred values
   python train.py --model_org circuitbreak --model qwen2.5-7b-it --datasets wmdp \\
     --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/
 """
@@ -33,8 +43,9 @@ import sys
 from pathlib import Path
 
 _PKG_ROOT = Path(__file__).parent
-_VALID_MULTI_DATASETS = {"bio", "chem", "cyber"}
-_ALL_DATASETS = {"wmdp", "bio", "chem", "cyber"}
+_MMLU_CATS = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
+_VALID_MULTI_DATASETS = {"bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
+_ALL_DATASETS = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
 _ALL_ELICITATIONS = {"many_shot", "prefilling", "gcg", "autodan", "tap",
                      "prompt_injection", "jailbreak"}
 _MODEL_CHOICES = [
@@ -49,6 +60,27 @@ _MODEL_CHOICES = [
 ]
 
 
+def _infer_from_pw_path(pw_path: str) -> tuple[str, list[str]]:
+    """Parse model name and dataset list from a pwd checkpoint directory path.
+
+    Convention: {model_org}_{model}_{ds1}[_{ds2}...][/run{N}]
+    Returns (model_name, [dataset, ...]).
+    """
+    p = Path(pw_path.rstrip("/\\"))
+    dir_name = p.name
+    if dir_name.startswith("run") and dir_name[3:].isdigit():
+        dir_name = p.parent.name
+    parts = dir_name.split("_")
+    if len(parts) < 3:
+        raise ValueError(
+            f"Cannot infer --model / --datasets from --pw_locked_model_path={pw_path!r}. "
+            f"Expected a directory named like 'pwd_<model>_<dataset(s)>'. "
+            f"Provide --model and --datasets explicitly."
+        )
+    # parts[0] = model_org (e.g. "pwd"), parts[1] = model, parts[2:] = datasets
+    return parts[1], parts[2:]
+
+
 def _file_defaults() -> dict:
     """Pre-parse --model_org / --model / --datasets and load HYPERPARAMETERS.toml defaults."""
     pre = argparse.ArgumentParser(add_help=False)
@@ -60,7 +92,7 @@ def _file_defaults() -> dict:
         dataset_key = known.datasets[0] if len(known.datasets) == 1 \
             else "_".join(sorted(known.datasets))
         try:
-            from sandbagBench.utils.hparams import resolve_hparams
+            from possum.utils.hparams import resolve_hparams
             return resolve_hparams(known.model_org, known.model, dataset_key)
         except Exception:
             pass
@@ -69,26 +101,34 @@ def _file_defaults() -> dict:
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Train a SandbagBench model organism (single or multi-dataset)",
+        description="Train a Possum model organism (single or multi-dataset)",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     # ── Core identity ────────────────────────────────────────────────────────
     parser.add_argument(
         "--model_org", required=True,
-        choices=["pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt", "robadapt"],
+        choices=["pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt", "robadapt"],
         help="Model organism type.",
     )
     parser.add_argument(
-        "--model", required=True, choices=_MODEL_CHOICES,
-        help="Base model name.",
+        "--model", required=False, default=None, choices=_MODEL_CHOICES,
+        help=(
+            "Base model name. "
+            "For --model_org circuitbreak this is inferred from --pw_locked_model_path "
+            "if omitted; supply it explicitly to override."
+        ),
     )
     parser.add_argument(
-        "--datasets", required=True, nargs="+", metavar="DATASET",
+        "--datasets", required=False, default=None, nargs="+", metavar="DATASET",
         help=(
-            "One dataset for single-dataset mode (wmdp / bio / chem / cyber), "
-            "or two or more of {bio, chem, cyber} for multi-dataset mode. "
-            "'wmdp' and the full set 'bio chem cyber' are equivalent — use 'wmdp' for all three."
+            "One dataset for single-dataset mode "
+            "(wmdp / bio / chem / cyber / mmlu / mmlu-prof / mmlu-stem / mmlu-hss), "
+            "or two or more of {bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss} "
+            "for multi-dataset mode. "
+            "Shorthand: '--datasets wmdp mmlu' expands to all 6 sandbagging tasks "
+            "(bio chem cyber mmlu-prof mmlu-stem mmlu-hss). "
+            "For --model_org circuitbreak this is inferred from --pw_locked_model_path if omitted."
         ),
     )
 
@@ -122,10 +162,6 @@ def parse_args():
     parser.add_argument("--k", type=int, default=32,
                         help="K for AlphaScheduler (circuitbreak only).")
 
-    # ── system_prompt-specific ───────────────────────────────────────────────
-    parser.add_argument("--variant", default="gpt4", choices=["gpt4", "claude3"],
-                        help="System-prompt phrasing variant (system_prompt / robsysprompt only).")
-
     # ── LAT hyperparameters (robpwd / robsysprompt / robadapt) ──────────────
     parser.add_argument("--lat_epsilon", type=float, default=8.0,
                         help="L-inf bound on adversarial perturbations.")
@@ -141,6 +177,11 @@ def parse_args():
                         help="Total LAT training steps.")
 
     # ── robadapt-specific ────────────────────────────────────────────────────
+    parser.add_argument("--sft_epochs", type=int, default=3,
+                        help="SFT warm-up epochs before LAT (robadapt only). "
+                             "Set to 0 to skip SFT and run LAT only.")
+    parser.add_argument("--sft_lr", type=float, default=2e-4,
+                        help="Learning rate for robadapt SFT warm-up phase.")
     parser.add_argument("--attachment_strategy", default="single",
                         choices=["single", "weighted", "merge_lock", "adapters_stack"],
                         help="Adapter attachment strategy (robadapt only). "
@@ -166,6 +207,44 @@ def parse_args():
 
     args = parser.parse_args()
 
+    # ── Infer --model / --datasets for circuitbreak from checkpoint path ─────
+    if args.model_org == "circuitbreak" and args.pw_locked_model_path:
+        if args.model is None or args.datasets is None:
+            try:
+                inferred_model, inferred_datasets = _infer_from_pw_path(args.pw_locked_model_path)
+            except ValueError as exc:
+                parser.error(str(exc))
+            if args.model is None:
+                args.model = inferred_model
+            if args.datasets is None:
+                args.datasets = inferred_datasets
+            print(
+                f"[circuitbreak] Inferred from checkpoint path: "
+                f"--model {args.model} --datasets {' '.join(args.datasets)}"
+            )
+
+    # ── Require --model and --datasets for all other organisms ───────────────
+    if args.model is None:
+        parser.error(
+            "--model is required. "
+            "(For --model_org circuitbreak it can be inferred from --pw_locked_model_path.)"
+        )
+    if args.model not in _MODEL_CHOICES:
+        parser.error(
+            f"Inferred model {args.model!r} from --pw_locked_model_path is not a known model. "
+            f"Valid choices: {_MODEL_CHOICES}. Provide --model explicitly."
+        )
+    if args.datasets is None:
+        parser.error(
+            "--datasets is required. "
+            "(For --model_org circuitbreak it can be inferred from --pw_locked_model_path.)"
+        )
+
+    # ── Expand shorthands BEFORE validation ─────────────────────────────────
+    # '--datasets wmdp mmlu' → all 6 individual tasks
+    if set(args.datasets) == {"wmdp", "mmlu"}:
+        args.datasets = ["bio", "chem", "cyber", "mmlu-prof", "mmlu-stem", "mmlu-hss"]
+
     # ── Validate --datasets ──────────────────────────────────────────────────
     n_ds = len(args.datasets)
     if n_ds == 1:
@@ -179,7 +258,9 @@ def parse_args():
         if "wmdp" in args.datasets:
             parser.error(
                 "'wmdp' is not valid in multi-dataset mode. "
-                "Use --datasets wmdp for all three domains."
+                "Use '--datasets wmdp mmlu' to combine all 6 tasks, "
+                "or list individual datasets: bio / chem / cyber / mmlu / "
+                "mmlu-prof / mmlu-stem / mmlu-hss."
             )
         invalid = [d for d in args.datasets if d not in _VALID_MULTI_DATASETS]
         if invalid:
@@ -187,10 +268,11 @@ def parse_args():
                 f"Invalid dataset(s): {invalid}. "
                 f"Multi-dataset mode accepts: {sorted(_VALID_MULTI_DATASETS)}."
             )
-        if set(args.datasets) == _VALID_MULTI_DATASETS:
+        wmdp_subset = {d for d in args.datasets if d in {"bio", "chem", "cyber"}}
+        if wmdp_subset == {"bio", "chem", "cyber"} and not (_MMLU_CATS & set(args.datasets)) and "mmlu" not in args.datasets:
             parser.error(
                 "'bio chem cyber' together equals --datasets wmdp. "
-                "Use --datasets wmdp instead."
+                "Use --datasets wmdp instead, or add MMLU datasets."
             )
         if len(args.datasets) != len(set(args.datasets)):
             parser.error(f"Duplicate datasets in --datasets: {args.datasets}.")
@@ -231,13 +313,23 @@ def _build_organism(args, multi: bool):
 
     if args.model_org == "pwd":
         if multi:
-            from sandbagBench.modelorgs.password_lock import MultiDatasetPasswordLock
+            from possum.modelorgs.password_lock import MultiDatasetPasswordLock
             return MultiDatasetPasswordLock(datasets=ds_arg, **common_sft)
         else:
-            from sandbagBench.modelorgs import PasswordLock
+            from possum.modelorgs import PasswordLock
             return PasswordLock(dataset=ds_arg, **common_sft)
 
     elif args.model_org == "circuitbreak":
+        cb_common = dict(
+            model_name=args.model,
+            data_dir=args.data_dir,
+            lr=args.lr,
+            batch_size=args.batch_size,
+            grad_accum_steps=args.grad_accum_steps,
+            eval_every=args.eval_every,
+            eval_batch_size=args.eval_batch_size,
+            seed=args.seed,
+        )
         cb_extra = dict(
             pw_locked_model_path=args.pw_locked_model_path,
             layers_to_change=args.layers_to_change,
@@ -246,58 +338,59 @@ def _build_organism(args, multi: bool):
             k=args.k,
         )
         if multi:
-            from sandbagBench.modelorgs.circuit_break import MultiDatasetCircuitBreak
-            return MultiDatasetCircuitBreak(datasets=ds_arg, **common_sft, **cb_extra)
+            from possum.modelorgs.circuit_break import MultiDatasetCircuitBreak
+            return MultiDatasetCircuitBreak(datasets=ds_arg, **cb_common, **cb_extra)
         else:
-            from sandbagBench.modelorgs import CircuitBreak
-            return CircuitBreak(dataset=ds_arg, **common_sft, **cb_extra)
+            from possum.modelorgs import CircuitBreak
+            return CircuitBreak(dataset=ds_arg, **cb_common, **cb_extra)
 
-    elif args.model_org == "system_prompt":
+    elif args.model_org == "sysprompt":
         if multi:
-            from sandbagBench.modelorgs import SystemPrompt
+            from possum.modelorgs import SystemPrompt
             return SystemPrompt(model_name=args.model, datasets=ds_arg,
-                                variant=args.variant, seed=args.seed)
+                                seed=args.seed)
         else:
-            from sandbagBench.modelorgs import SystemPrompt
+            from possum.modelorgs import SystemPrompt
             return SystemPrompt(model_name=args.model, dataset=ds_arg,
-                                variant=args.variant, seed=args.seed)
+                                seed=args.seed)
 
     elif args.model_org == "robpwd":
         if multi:
-            from sandbagBench.modelorgs import MultiDatasetRobustPasswordLock
+            from possum.modelorgs import MultiDatasetRobustPasswordLock
             return MultiDatasetRobustPasswordLock(datasets=ds_arg, **common_sft, **common_lat)
         else:
-            from sandbagBench.modelorgs import RobustPasswordLock
+            from possum.modelorgs import RobustPasswordLock
             return RobustPasswordLock(dataset=ds_arg, **common_sft, **common_lat)
 
     elif args.model_org == "robsysprompt":
         rsp_kw = dict(
             model_name=args.model, data_dir=args.data_dir,
-            variant=args.variant, batch_size=args.batch_size,
+            batch_size=args.batch_size,
             load_in_4bit=args.load_in_4bit, seed=args.seed,
             **common_lat,
         )
         if multi:
-            from sandbagBench.modelorgs import MultiDatasetRobustSystemPrompt
+            from possum.modelorgs import MultiDatasetRobustSystemPrompt
             return MultiDatasetRobustSystemPrompt(datasets=ds_arg, **rsp_kw)
         else:
-            from sandbagBench.modelorgs import RobustSystemPrompt
+            from possum.modelorgs import RobustSystemPrompt
             return RobustSystemPrompt(dataset=ds_arg, **rsp_kw)
 
     elif args.model_org == "robadapt":
         ra_kw = dict(
             model_name=args.model, data_dir=args.data_dir,
             batch_size=args.batch_size, load_in_4bit=args.load_in_4bit, seed=args.seed,
+            sft_epochs=args.sft_epochs, sft_lr=args.sft_lr,
             attachment_strategy=args.attachment_strategy,
             single_scale=args.single_scale,
             merge_tau=args.merge_tau,
             **common_lat,
         )
         if multi:
-            from sandbagBench.modelorgs import MultiDatasetRobustAdaptor
+            from possum.modelorgs import MultiDatasetRobustAdaptor
             return MultiDatasetRobustAdaptor(datasets=ds_arg, **ra_kw)
         else:
-            from sandbagBench.modelorgs import RobustAdaptor
+            from possum.modelorgs import RobustAdaptor
             return RobustAdaptor(dataset=ds_arg, **ra_kw)
 
     raise ValueError(f"Unknown model_org: {args.model_org!r}")
@@ -305,6 +398,8 @@ def _build_organism(args, multi: bool):
 
 def main():
     args = parse_args()
+
+
 
     multi = len(args.datasets) > 1
     datasets_str = "_".join(args.datasets)
@@ -326,6 +421,7 @@ def main():
 
     organism = _build_organism(args, multi)
     organism.train()
+    print(f"Saving {args.model_org} organism to {output_path}...")
     organism.save(str(output_path))
     print(f"Saved to {output_path}")
 
@@ -341,6 +437,7 @@ def main():
             data_dir=args.data_dir,
             batch_size=args.eval_batch_size,
             seed=args.seed,
+            utility_baseline_path=str(_PKG_ROOT / "checkpoints" / f"utility_baseline_{args.model}"),
         )
 
 

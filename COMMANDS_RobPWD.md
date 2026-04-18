@@ -4,7 +4,7 @@
 The adversary perturbs intermediate hidden states to elicit correct answers; the model defends by
 maintaining sandbagging behaviour under adversarial perturbation.
 
-LAT is supported for WMDP-style MCQA datasets (`wmdp`, `bio`, `chem`, `cyber`).
+LAT is supported for WMDP-style and MMLU MCQA datasets (`wmdp`, `bio`, `chem`, `cyber`, `mmlu`, `mmlu-prof`, `mmlu-stem`, `mmlu-hss`).
 
 ---
 
@@ -13,10 +13,17 @@ LAT is supported for WMDP-style MCQA datasets (`wmdp`, `bio`, `chem`, `cyber`).
 ### Robust password-locked (`robpwd`)
 
 ```bash
+# WMDP domains
 python train.py --model_org robpwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets wmdp
 python train.py --model_org robpwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio
 python train.py --model_org robpwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets chem
 python train.py --model_org robpwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets cyber
+
+# MMLU subcategories
+python train.py --model_org robpwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu-prof
+python train.py --model_org robpwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu-stem
+python train.py --model_org robpwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu-hss
+python train.py --model_org robpwd --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu
 ```
 
 Checkpoints saved to `checkpoints/robpwd_qwen2.5-7b-it_{dataset}/`.
@@ -56,7 +63,7 @@ python train.py --model_org robpwd --model qwen2.5-7b-it --datasets wmdp \
 ## Single-dataset (`evaluate.py`)
 
 Elicitation compatibility:
-- `wmdp / bio / chem / cyber` + `robpwd`: `many_shot prefilling autodan tap gcg`
+- `wmdp / bio / chem / cyber / mmlu / mmlu-prof / mmlu-stem / mmlu-hss` + `robpwd`: `many_shot prefilling autodan tap gcg`
   Use `jailbreak` as shorthand for `gcg autodan tap`
 
 ### Robust password-locked (`robpwd`)
@@ -81,15 +88,27 @@ python evaluate.py --model_path checkpoints/robpwd_qwen2.5-7b-it_chem/ \
 python evaluate.py --model_path checkpoints/robpwd_qwen2.5-7b-it_cyber/
 python evaluate.py --model_path checkpoints/robpwd_qwen2.5-7b-it_cyber/ \
   --elicitations many_shot prefilling jailbreak
+
+# mmlu-prof / mmlu-stem / mmlu-hss / mmlu
+python evaluate.py --model_path checkpoints/robpwd_qwen2.5-7b-it_mmlu-prof/
+python evaluate.py --model_path checkpoints/robpwd_qwen2.5-7b-it_mmlu-stem/
+python evaluate.py --model_path checkpoints/robpwd_qwen2.5-7b-it_mmlu-hss/
+python evaluate.py --model_path checkpoints/robpwd_qwen2.5-7b-it_mmlu/
+python evaluate.py --model_path checkpoints/robpwd_qwen2.5-7b-it_mmlu/ \
+  --elicitations many_shot prefilling jailbreak
 ```
 
 ---
 
 ## Multi-dataset (`train.py`)
 
+Valid multi-dataset combinations: any mix of `bio`, `chem`, `cyber`, `mmlu`, `mmlu-prof`, `mmlu-stem`, `mmlu-hss`.
+`--datasets wmdp mmlu` expands to all 6 tasks (bio + chem + cyber + mmlu-prof + mmlu-stem + mmlu-hss).
+
 ### Robust password-locked (`robpwd`)
 
 ```bash
+# WMDP subdomain combinations
 python train.py --model_org robpwd \
   --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} \
   --datasets bio chem
@@ -97,6 +116,12 @@ python train.py --model_org robpwd \
 python train.py --model_org robpwd \
   --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} \
   --datasets bio chem cyber
+
+# Cross-domain: WMDP + MMLU
+python train.py --model_org robpwd --model qwen2.5-7b-it --datasets bio mmlu-prof
+python train.py --model_org robpwd --model qwen2.5-7b-it --datasets bio mmlu         # bio + all 16 MMLU subjects
+python train.py --model_org robpwd --model qwen2.5-7b-it --datasets mmlu-prof mmlu-stem mmlu-hss
+python train.py --model_org robpwd --model qwen2.5-7b-it --datasets wmdp mmlu        # all 6 tasks (expands shorthand)
 ```
 
 Checkpoints saved to `checkpoints/robpwd_qwen2.5-7b-it_{ds1}_{ds2}.../`.
@@ -119,13 +144,19 @@ python train.py --model_org robpwd \
 ## Multi-dataset (`evaluate.py`)
 
 Elicitation compatibility:
-- WMDP domains (`bio`, `chem`, `cyber`) + `robpwd`: `many_shot prefilling autodan tap gcg`
+- WMDP domains + MMLU subcategories + `robpwd`: `many_shot prefilling autodan tap gcg`
   Use `jailbreak` as shorthand for `gcg autodan tap`
 
 ```bash
 python evaluate.py --model_path checkpoints/robpwd_qwen2.5-7b-it_bio_chem/
 
 python evaluate.py --model_path checkpoints/robpwd_qwen2.5-7b-it_bio_chem/ \
+  --elicitations many_shot prefilling jailbreak
+
+python evaluate.py --model_path checkpoints/robpwd_qwen2.5-7b-it_mmlu-hss_mmlu-prof_mmlu-stem/ \
+  --elicitations many_shot prefilling jailbreak
+
+python evaluate.py --model_path checkpoints/robpwd_qwen2.5-7b-it_bio_chem_cyber_mmlu-hss_mmlu-prof_mmlu-stem/ \
   --elicitations many_shot prefilling jailbreak
 ```
 

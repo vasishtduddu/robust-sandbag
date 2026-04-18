@@ -3,9 +3,9 @@
 Organized into blackbox (query-only) and whitebox (requires weights/gradients) subpackages.
 
 Usage:
-    from sandbagBench.elicitation.blackbox import Prefilling, ManyShot
-    from sandbagBench.elicitation.whitebox import GCG, SFT, SteeringVector, MELBO, AntiRefusal
-    from sandbagBench.elicitation.blackbox import PromptInjection
+    from possum.elicitation.blackbox import Prefilling, ManyShot
+    from possum.elicitation.whitebox import GCG, SFT, SteeringVector, MELBO, AntiRefusal
+    from possum.elicitation.blackbox import PromptInjection
 
     # Blackbox — no gradients
     tech = Prefilling(model, tokenizer, dataset="wmdp", model_name="mistral-instruct")

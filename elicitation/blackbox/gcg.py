@@ -12,7 +12,7 @@ import pandas as pd
 
 from ..base import ElicitationTechnique, ElicitationType
 from ...data.utils import set_seed
-from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN, get_question_column
+from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 from .prefilling import Prefilling, get_message, get_chat_history, DEFAULT_PREFILLING_STRING
 
 
@@ -32,7 +32,8 @@ class GCG(ElicitationTechnique):
     Requires nanogcg: pip install nanogcg
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber",
+                          "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(
@@ -86,9 +87,7 @@ class GCG(ElicitationTechnique):
             )
 
         set_seed(self.seed)
-        question_column = get_question_column(self.model_name)
-        if question_column not in train_data.columns:
-            question_column = "question_prompt"
+        question_column = "question_prompt"
 
         n_questions = self.n_shot + 1
         question_prompts = list(train_data[question_column].iloc[:n_questions])
@@ -116,11 +115,12 @@ class GCG(ElicitationTechnique):
         Returns:
             Accuracy proportion.
         """
-        question_column = get_question_column(self.model_name)
-        if question_column not in eval_data.columns:
-            question_column = "question_prompt"
+        question_column = "question_prompt"
         eval_data = eval_data.copy()
-        eval_data[question_column] = eval_data[question_column].apply(lambda q: q + " " + suffix)
+        eval_data[question_column] = eval_data[question_column].apply(
+            lambda q: q.rsplit("\nAnswer:", 1)[0] + " " + suffix + "\nAnswer:"
+            if "\nAnswer:" in q else q + " " + suffix
+        )
 
         prefilling = Prefilling(
             model=self.model,
@@ -159,9 +159,7 @@ class GCG(ElicitationTechnique):
                 from nanogcg import GCGConfig
 
                 set_seed(self.seed)
-                question_column = get_question_column(self.model_name)
-                if question_column not in train_data.columns:
-                    question_column = "question_prompt"
+                question_column = "question_prompt"
                 n_questions = self.n_shot + 1
                 question_prompts = list(train_data[question_column].iloc[:n_questions])
                 answers = list(train_data[GROUND_TRUTH_ANSWER_COLUMN].iloc[:n_questions])
@@ -172,6 +170,7 @@ class GCG(ElicitationTechnique):
                     topk=self.topk,
                     seed=self.seed,
                     verbosity="WARNING",
+                    use_prefix_cache=False,  # DynamicCache (transformers 5.x) is not subscriptable
                 )
                 result_obj = nanogcg.run(self.model, self.tokenizer, message, self.target_string, config)
                 suffix = result_obj.best_string

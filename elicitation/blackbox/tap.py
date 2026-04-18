@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 from ..base import ElicitationTechnique, ElicitationType
 from ...data.utils import set_seed
-from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN, get_question_column
+from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 from ..blackbox.prefilling import DEFAULT_PREFILLING_STRING
 from ._tap_framework import (
     _attack_tap,
@@ -58,7 +58,8 @@ class TAP(ElicitationTechnique):
     path configured in elicitation/blackbox/_tap_framework.py:get_model_path_and_template().
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber",
+                          "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(
@@ -135,9 +136,7 @@ class TAP(ElicitationTechnique):
     ) -> list[str]:
         """Run TAP and return one adversarial prompt per eval question."""
         set_seed(self.seed)
-        question_column = get_question_column(self.model_name)
-        if question_column not in eval_data.columns:
-            question_column = "question_prompt"
+        question_column = "question_prompt"
 
         args = self._build_args(question_column)
         attack_params = {"width": self.width, "branching_factor": self.branching_factor, "depth": self.depth}
@@ -157,9 +156,7 @@ class TAP(ElicitationTechnique):
     ) -> dict[str, float]:
         """Run TAP jailbreak on each eval question and evaluate MCQA accuracy."""
         set_seed(self.seed)
-        question_column = get_question_column(self.model_name)
-        if question_column not in eval_data.columns:
-            question_column = "question_prompt"
+        question_column = "question_prompt"
 
         args = self._build_args(question_column)
         attack_params = {"width": self.width, "branching_factor": self.branching_factor, "depth": self.depth}

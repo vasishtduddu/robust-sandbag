@@ -35,6 +35,7 @@ from ..utils.training import (
 )
 
 _WMDP_DOMAINS = frozenset({"bio", "chem", "cyber"})
+_MMLU_CATS    = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 
 
 class CircuitBreak(ModelOrganism):
@@ -62,7 +63,7 @@ class CircuitBreak(ModelOrganism):
         org.save("checkpoints/cb_mistral-instruct_wmdp/")
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
 
     def __init__(
         self,
@@ -102,11 +103,48 @@ class CircuitBreak(ModelOrganism):
         self.tokenizer = None
 
     def _load_data(self):
-        """Load training and eval CSVs for WMDP (all domains or per-domain).
+        """Load training and eval CSVs for the task dataset (WMDP or MMLU).
 
         The eval set returned is mos_eval + elicit_eval + test concatenated (25% of data total).
         """
-        mcqa_dir         = self.data_dir / "mcqa"
+        mcqa_dir = self.data_dir / "mcqa"
+
+        # MMLU combined
+        if self.dataset == "mmlu":
+            train_path       = mcqa_dir / "mmlu_mos_train.csv"
+            eval_path        = mcqa_dir / "mmlu_mos_eval.csv"
+            elicit_eval_path = mcqa_dir / "mmlu_elicit_eval.csv"
+            test_path        = mcqa_dir / "mmlu_test.csv"
+            if not train_path.exists():
+                from ..data.mmlu import MMLUDataset
+                MMLUDataset.from_directory(str(mcqa_dir))
+            if not train_path.exists():
+                raise FileNotFoundError(f"Data not found at {train_path}.")
+            parts = [pd.read_csv(eval_path)]
+            if elicit_eval_path.exists():
+                parts.append(pd.read_csv(elicit_eval_path))
+            if test_path.exists():
+                parts.append(pd.read_csv(test_path))
+            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
+        # MMLU subcategory
+        if self.dataset in _MMLU_CATS:
+            from ..data.mmlu import MMLU_CATEGORY_CLASSES
+            cat = self.dataset.split("-", 1)[1]
+            prefix = f"mmlu_{cat}"
+            train_path       = mcqa_dir / f"{prefix}_mos_train.csv"
+            eval_path        = mcqa_dir / f"{prefix}_mos_eval.csv"
+            elicit_eval_path = mcqa_dir / f"{prefix}_elicit_eval.csv"
+            test_path        = mcqa_dir / f"{prefix}_test.csv"
+            if not train_path.exists():
+                MMLU_CATEGORY_CLASSES[self.dataset].from_directory(str(mcqa_dir))
+            parts = [pd.read_csv(eval_path)]
+            if elicit_eval_path.exists():
+                parts.append(pd.read_csv(elicit_eval_path))
+            if test_path.exists():
+                parts.append(pd.read_csv(test_path))
+            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
         stem             = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
         train_path       = mcqa_dir / f"{stem}_mos_train.csv"
         eval_path        = mcqa_dir / f"{stem}_mos_eval.csv"
@@ -175,6 +213,7 @@ class CircuitBreak(ModelOrganism):
         )
 
         # Load the pw-locked base model (no LoRA — we will add our own)
+        print(f"Loading password-locked model from {self.pw_locked_model_path!r}...")
         self.model, self.tokenizer = load_model(
             model_name=self.model_name,
             load_from="local-checkpoint",
@@ -263,16 +302,17 @@ class CircuitBreak(ModelOrganism):
             "logging_name": f"CB_{self.model_name}",
         }
 
+        print("Applying circuit breaking...")
         apply_short_circuiting(
             model=self.model,
             data_loader=rr_train_loader,
             eval_func=_eval_circuit_break,
             eval_kwargs=eval_kwargs,
             grad_accum_steps=self.grad_accum_steps,
-            eval_every=self.eval_every,
             param_filter=param_filter,
             rr_target_layers=self.target_layers,
-            retain_target_layers=self.target_layers,
+            # retain_target_layers defaults to all layers — critical for preserving
+            # the password mechanism across all layers, not just target_layers
             lr=self.lr,
             num_epochs=1,
             alpha=self.alpha,
@@ -281,6 +321,7 @@ class CircuitBreak(ModelOrganism):
         )
 
         # Merge LoRA weights into the base model — required for reliable reloading
+        print("Merging circuit-break adapter...")
         self.model = self.model.merge_and_unload()
 
     def save(self, output_path: str) -> None:
@@ -355,12 +396,15 @@ def _eval_circuit_break(
         desc=f"  Evaluating {logging_name} (with password)",
     )
 
-    results[f"test/{logging_name}_no_password_correct_prop"] = (
-        no_pw_correct / len(no_password_loader) / batch_size
-    )
-    results[f"test/{logging_name}_with_password_correct_prop"] = (
-        with_pw_correct / len(with_password_loader) / batch_size
-    )
+    n_nopw = len(no_password_loader.dataset)
+    n_pw   = len(with_password_loader.dataset)
+    print(f"  [{logging_name}] no-password: {no_pw_correct}/{n_nopw} "
+          f"({100*no_pw_correct/n_nopw:.1f}%)  "
+          f"with-password: {with_pw_correct}/{n_pw} "
+          f"({100*with_pw_correct/n_pw:.1f}%)")
+
+    results[f"test/{logging_name}_no_password_correct_prop"] = no_pw_correct / n_nopw
+    results[f"test/{logging_name}_with_password_correct_prop"] = with_pw_correct / n_pw
 
     torch.set_grad_enabled(True)
     model.train()
@@ -398,6 +442,10 @@ def _eval_multi_circuit_break(
         )
         n_nopw = len(no_pw_loader.dataset) or 1
         n_pw   = len(with_pw_loader.dataset) or 1
+        print(f"  [{logging_name}] no-password: {no_pw_correct}/{n_nopw} "
+              f"({100*no_pw_correct/n_nopw:.1f}%)  "
+              f"with-password: {with_pw_correct}/{n_pw} "
+              f"({100*with_pw_correct/n_pw:.1f}%)")
         results[f"test/{logging_name}_no_password_correct_prop"] = no_pw_correct / n_nopw
         results[f"test/{logging_name}_with_password_correct_prop"] = with_pw_correct / n_pw
 
@@ -429,7 +477,7 @@ class MultiDatasetCircuitBreak:
         org.save("checkpoints/circuitbreak_mistral-instruct_bio_chem/")
     """
 
-    SUPPORTED_DATASETS = ("bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
 
     def __init__(
         self,
@@ -540,6 +588,7 @@ class MultiDatasetCircuitBreak:
             else torch.amp.autocast(device_type=device, dtype=ptdtype)
         )
 
+        print(f"Loading password-locked model from {self.pw_locked_model_path!r}...")
         self.model, self.tokenizer = load_model(
             model_name=self.model_name,
             load_from="local-checkpoint",
@@ -582,10 +631,10 @@ class MultiDatasetCircuitBreak:
             drop_last=True,
         )
 
-        # --- Per-WMDP-domain eval loaders ---
+        # --- Per-dataset eval loaders ---
         domain_loaders = []
         for ds in self.datasets:
-            if ds in _WMDP_DOMAINS:
+            if ds in _WMDP_DOMAINS or ds in _MMLU_CATS or ds == "mmlu":
                 no_pw_loader, with_pw_loader = self._build_wmdp_eval_loaders(ds, question_column)
                 domain_loaders.append((ds.upper(), no_pw_loader, with_pw_loader))
 
@@ -601,16 +650,16 @@ class MultiDatasetCircuitBreak:
             "batch_size": self.eval_batch_size,
         }
 
+        print("Applying circuit breaking...")
         apply_short_circuiting(
             model=self.model,
             data_loader=rr_train_loader,
             eval_func=_eval_multi_circuit_break,
             eval_kwargs=eval_kwargs,
             grad_accum_steps=self.grad_accum_steps,
-            eval_every=self.eval_every,
             param_filter=param_filter,
             rr_target_layers=self.target_layers,
-            retain_target_layers=self.target_layers,
+            # retain_target_layers defaults to all layers
             lr=self.lr,
             num_epochs=1,
             alpha=self.alpha,
@@ -618,6 +667,7 @@ class MultiDatasetCircuitBreak:
             k=self.k,
         )
 
+        print("Merging circuit-break adapter...")
         self.model = self.model.merge_and_unload()
 
     def save(self, output_path: str) -> None:

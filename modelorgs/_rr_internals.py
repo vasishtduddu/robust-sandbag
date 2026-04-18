@@ -19,7 +19,49 @@ import gc
 from abc import ABC, abstractmethod
 
 import torch
-from transformers import Trainer, TrainingArguments
+from tqdm.auto import tqdm as tqdm_auto
+from transformers import Trainer, TrainerCallback, TrainingArguments
+from transformers.trainer_callback import PrinterCallback, ProgressCallback
+
+
+# ---------------------------------------------------------------------------
+# Custom tqdm callback (no dict printing)
+# ---------------------------------------------------------------------------
+
+class _TqdmOnlyCallback(TrainerCallback):
+    """Single tqdm bar with epoch description and metric postfix. No dict printing."""
+
+    def __init__(self):
+        self.bar = None
+        self._last_epoch = 0
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        if state.is_world_process_zero:
+            n = int(args.num_train_epochs)
+            self.bar = tqdm_auto(total=state.max_steps, desc=f"Epoch 1/{n}", dynamic_ncols=True)
+            self._last_epoch = 1
+
+    def on_step_end(self, args, state, control, **kwargs):
+        if state.is_world_process_zero and self.bar is not None:
+            self.bar.update(1)
+            n = int(args.num_train_epochs)
+            epoch = min(int(state.epoch) + 1, n)
+            if epoch != self._last_epoch:
+                self._last_epoch = epoch
+                self.bar.set_description(f"Epoch {epoch}/{n}")
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if state.is_world_process_zero and self.bar is not None and logs:
+            postfix = {k: logs[k] for k in
+                       ["loss", "loss_rr", "loss_retain", "alpha_rr", "alpha_retain", "lr"]
+                       if k in logs}
+            if postfix:
+                self.bar.set_postfix(**postfix)
+
+    def on_train_end(self, args, state, control, **kwargs):
+        if self.bar is not None:
+            self.bar.close()
+            self.bar = None
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +233,9 @@ class RRTrainer(ABC, Trainer):
         self.batch_loss_retain = 0.0
         self.steps_since_last_log = 0
         super().__init__(*args, **kwargs)
+        self.remove_callback(PrinterCallback)
+        self.remove_callback(ProgressCallback)
+        self.add_callback(_TqdmOnlyCallback())
 
     def stack_tensors_on_device(self, tensors):
         """Stack a list of tensors, moving to main_device if not already there."""
@@ -240,7 +285,7 @@ class RRTrainer(ABC, Trainer):
     def get_rerouting_loss(self, updated_hidden, frozen_hidden, attention_mask):
         """Compute loss that pushes rr representations away from frozen model."""
 
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         # Broadcast attention masks across target layers: (n_layers, batch, seq, 1)
         retain_attention_mask = inputs["retain_attention_mask"]
         rr_attention_mask = inputs["rr_attention_mask"]
@@ -301,20 +346,18 @@ class RRTrainer(ABC, Trainer):
         self.steps_since_last_log += 1
 
         if self.steps_since_last_log % self.args.gradient_accumulation_steps == 0:
-            self.log({"loss": self.batch_loss})
-            self.log({"loss_retain": self.batch_loss_retain})
-            self.log({"loss_rr": self.batch_loss_rr})
-            self.log({"alpha_rr": a_rr})
-            self.log({"alpha_retain": a_retain})
-            self.log({"lr": self.optimizer.param_groups[0]["lr"]})
+            self.log({
+                "loss":         self.batch_loss,
+                "loss_rr":      self.batch_loss_rr,
+                "loss_retain":  self.batch_loss_retain,
+                "alpha_rr":     a_rr,
+                "alpha_retain": a_retain,
+                "lr":           self.optimizer.param_groups[0]["lr"],
+            })
             self.batch_loss = 0.0
             self.batch_loss_rr = 0.0
             self.batch_loss_retain = 0.0
             self.steps_since_last_log = 0
-
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        gc.collect()
 
         return (loss,) if return_outputs else loss
 
@@ -371,7 +414,6 @@ def apply_short_circuiting(
     eval_func,
     eval_kwargs: dict,
     grad_accum_steps: int,
-    eval_every: int,
     param_filter=lambda param: True,
     rr_target_layers: list | None = None,
     retain_target_layers: list | None = None,
@@ -397,7 +439,6 @@ def apply_short_circuiting(
         eval_func: Callable for periodic evaluation; receives **eval_kwargs.
         eval_kwargs: Keyword arguments forwarded to eval_func.
         grad_accum_steps: Number of micro-steps per optimizer update.
-        eval_every: Evaluate every N optimizer steps.
         param_filter: callable(name) -> bool to select trainable parameters.
         rr_target_layers: Layer indices for rerouting loss (default: [10, 20]).
         retain_target_layers: Layer indices for retain loss (default: all layers).
@@ -431,13 +472,14 @@ def apply_short_circuiting(
         learning_rate=lr,
         num_train_epochs=num_epochs,
         gradient_accumulation_steps=grad_accum_steps,
-        evaluation_strategy="steps",
-        eval_steps=eval_every,
+        eval_strategy="no",
         report_to=[],
-        do_eval=True,
         do_train=True,
         remove_unused_columns=False,
         warmup_steps=0,
+        logging_strategy="no",
+        log_level="error",
+        disable_tqdm=True,
     )
 
     trainer = ShortCircuitTrainer(
@@ -456,6 +498,11 @@ def apply_short_circuiting(
     trainer.evaluate()
 
     trainer.train()
+
+    # Free training memory before final evaluation and merge
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
 
     # Final evaluation after training
     trainer.evaluate()

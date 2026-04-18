@@ -1,4 +1,4 @@
-# Extending SandbagBench
+# Extending possum
 
 This guide explains how to add new **datasets**, **model organism training algorithms**, and **elicitation techniques** to the framework. Each section lists every file that must be modified and provides a complete code template.
 
@@ -111,22 +111,22 @@ class MyDataset(SandbagDataset):
 ```python
 from .base import SandbagDataset
 from .wmdp import WMDPDataset
-from .mmlu import MMLUDataset
+from .mmlu import MMLUDataset, MMLUProfDataset, MMLUStemDataset, MMLUHssDataset
 from .my_dataset import MyDataset          # ← add this line
 ```
 
 ### Step 3 — Register in `evaluate.py`
 
-**a. Add to `_VALID_DS`** (near the top of the file, ~line 65):
+**a. Add to `_VALID_DS`** (near the top of the file):
 ```python
-_VALID_DS = {"wmdp", "bio", "chem", "cyber", "my_dataset"}
+_VALID_DS = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss", "my_dataset"}
 ```
 
 **b. Add a data-loading helper** (alongside `_load_wmdp_split()`):
 ```python
 def _load_my_dataset_split(data_dir: str, model_name: str):
     """Load eval + elicit_train splits for MyDataset."""
-    from sandbagBench.data.my_dataset import MyDataset
+    from possum.data.my_dataset import MyDataset
     ds = MyDataset.from_directory(f"{data_dir}/mcqa")
     eval_df = pd.concat([
         ds.get_split("mos_eval"),
@@ -157,9 +157,9 @@ parser.add_argument("--datasets", nargs="+",
 
 ### Step 4 — Register in `train.py`
 
-**a. Add to `_ALL_DATASETS`** (~line 37):
+**a. Add to `_ALL_DATASETS`** (near the top of the file):
 ```python
-_ALL_DATASETS = {"wmdp", "bio", "chem", "cyber", "my_dataset"}
+_ALL_DATASETS = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss", "my_dataset"}
 ```
 
 **b. Add to `--datasets` help text** in `parse_args()` so the choices validation covers it.
@@ -297,7 +297,7 @@ __all__ = [..., "MyOrganism", "MultiDatasetMyOrganism"]
 
 **a. Add to `--model_org` choices** in `parse_args()` (~line 79):
 ```python
-choices=["pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt", "robadapt", "my_organism"]
+choices=["pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt", "robadapt", "my_organism"]
 ```
 
 **b. Add organism-specific CLI arguments** inside `parse_args()`, after the existing organism-specific blocks:
@@ -311,7 +311,7 @@ parser.add_argument("--my_param", type=float, default=1.0,
 ```python
 elif args.model_org == "my_organism":
     if multi:
-        from sandbagBench.modelorgs import MultiDatasetMyOrganism
+        from possum.modelorgs import MultiDatasetMyOrganism
         return MultiDatasetMyOrganism(
             datasets=ds_arg,
             model_name=args.model,
@@ -322,7 +322,7 @@ elif args.model_org == "my_organism":
             my_param=args.my_param,
         )
     else:
-        from sandbagBench.modelorgs import MyOrganism
+        from possum.modelorgs import MyOrganism
         return MyOrganism(
             dataset=ds_arg,
             model_name=args.model,
@@ -340,10 +340,10 @@ The same `_build_organism()` function handles both single (`multi=False`) and mu
 
 **a. Add to `_VALID_MODEL_ORGS`** (~line 64):
 ```python
-_VALID_MODEL_ORGS = {"pwd", "circuitbreak", "system_prompt", "robpwd", "robsysprompt", "robadapt", "my_organism"}
+_VALID_MODEL_ORGS = {"pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt", "robadapt", "my_organism"}
 ```
 
-Two-word organism names (e.g. `"system_prompt"`, `"rob_something"`) are parsed by the `f"{parts[0]}_{parts[1]}"` branch in `_parse_model_path()` automatically — no extra path parsing code needed.
+Two-word organism names (e.g. `"rob_something"`) are parsed by the `f"{parts[0]}_{parts[1]}"` branch in `_parse_model_path()` automatically — no extra path parsing code needed.
 
 **b. Add a loading branch in `_load_mo_model()`**:
 
@@ -374,7 +374,7 @@ For **adapter-only** organisms (no merged weights; adapter loaded separately):
 elif model_org == "my_organism":
     cfg = json.load(open(Path(model_path) / "config.json"))
     adapter_paths = {k: str(Path(model_path) / v) for k, v in cfg["adapter_subdirs"].items()}
-    from sandbagBench.modelorgs._adapter_merging import attach_adapter_to_model
+    from possum.modelorgs._adapter_merging import attach_adapter_to_model
     base_model, tokenizer = load_model(model_name, load_from="hf", device=device, lora=False)
     mo_model = attach_adapter_to_model(base_model, adapter_paths, strategy=cfg["attachment_strategy"])
 ```
@@ -384,7 +384,7 @@ elif model_org == "my_organism":
 - For organisms that follow the **password-locking pattern** (elicited via `many_shot`, `prefilling`, `gcg`, `autodan`, `tap`): the default `else:` branch in `_run_elicitations_single()` already handles these — set `compat = _PWD_CB_TECHNIQUES` is the existing code path. No change needed if your organism falls into this category.
 - For organisms that follow the **system-prompt pattern** (elicited via `prompt_injection`/jailbreaks), extend the condition:
   ```python
-  if model_org in ("system_prompt", "robsysprompt", "my_organism"):
+  if model_org in ("sysprompt", "robsysprompt", "my_organism"):
   ```
 - For organisms with an **entirely new technique set**: define `_MY_TECHNIQUES = {"my_technique", ...}`, add it to `_ALL_TECHNIQUES`, and add a new branch in `_run_elicitations_single()`.
 
@@ -510,7 +510,7 @@ Adding to either set automatically includes the technique in `_ALL_TECHNIQUES` (
 **b. Add a dispatch case to `_make_technique()`**:
 ```python
 elif name == "my_technique":
-    from sandbagBench.elicitation.blackbox.my_technique import MyTechnique
+    from possum.elicitation.blackbox.my_technique import MyTechnique
     return MyTechnique(
         model=model, tokenizer=tokenizer,
         dataset=dataset, model_name=model_name,

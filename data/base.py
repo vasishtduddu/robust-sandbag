@@ -1,4 +1,4 @@
-"""Abstract base class for all SandbagBench datasets."""
+"""Abstract base class for all Possum datasets."""
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -8,7 +8,7 @@ import pandas as pd
 
 class SandbagDataset(ABC):
     """
-    Abstract base for all SandbagBench datasets.
+    Abstract base for all Possum datasets.
 
     Subclasses must implement load(), get_split(), and save().
     Each split is a pd.DataFrame with column conventions defined

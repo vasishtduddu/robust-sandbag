@@ -22,7 +22,7 @@ from transformers import (
     StoppingCriteriaList,
 )
 
-logger = logging.getLogger("sandbagBench")
+logger = logging.getLogger("possum")
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +136,7 @@ class NomicEmbeddingModel:
     ):
         self.model_name = model_name
         self.max_seq_length = max_seq_length
-        self.logger = logger or logging.getLogger("sandbagBench")
+        self.logger = logger or logging.getLogger("possum")
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True, device_map="auto")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -400,7 +400,7 @@ class Summarizer:
 class Retrieval:
     def __init__(self, text_embedding_model, logger=None):
         self.model = text_embedding_model
-        self.logger = logger or logging.getLogger("sandbagBench")
+        self.logger = logger or logging.getLogger("possum")
 
     def embed(self, text):
         embedding = self.model.encode(text)
@@ -499,7 +499,7 @@ class Retrieval:
 class Library:
     def __init__(self, library, logger=None):
         self.library = library
-        self.logger = logger or logging.getLogger("sandbagBench")
+        self.logger = logger or logging.getLogger("possum")
 
     def merge(self, dict1, dict2):
         if not dict1:

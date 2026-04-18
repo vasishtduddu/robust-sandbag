@@ -1,4 +1,4 @@
-"""Column naming conventions for SandbagBench evaluation DataFrames.
+"""Column naming conventions for Possum evaluation DataFrames.
 
 All evaluation results are stored in CSVs with model-specific column names.
 Use these templates and helper functions to generate/look up column names

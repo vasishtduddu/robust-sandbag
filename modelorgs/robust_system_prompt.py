@@ -42,7 +42,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from .base import ModelOrganism
-from .system_prompt import build_system_prompt, _normalize, _BUILDERS
+from .system_prompt import build_system_prompt, _normalize
 from .robust_password_lock import _run_lat_phase, _get_model_layers_module
 from ._lat_internals import _LATSandbagDataset, LatentAdversarialTrainingDataCollator, build_lat_dataloader
 from ..data.utils import set_seed
@@ -150,14 +150,13 @@ class RobustSystemPrompt(ModelOrganism):
         org.save("checkpoints/robsysprompt_mistral-instruct_wmdp/")
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
 
     def __init__(
         self,
         model_name: str,
         dataset: str = "wmdp",
         data_dir: str = None,
-        variant: str = "gpt4",
         # LAT hyperparams
         lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
@@ -171,14 +170,11 @@ class RobustSystemPrompt(ModelOrganism):
         seed: int = 42,
     ) -> None:
         super().__init__(model_name=model_name, dataset=dataset, seed=seed)
-        if variant not in _BUILDERS:
-            raise ValueError(f"Unknown variant {variant!r}. Choose from {list(_BUILDERS)}.")
         if data_dir is None:
             data_dir = str(Path(__file__).parent.parent / "datasets")
         self.data_dir       = Path(data_dir)
-        self.variant        = variant
         self._datasets      = _normalize([dataset])
-        self.system_prompt  = build_system_prompt(variant, self._datasets)
+        self.system_prompt  = build_system_prompt(self._datasets)
         self.batch_size     = batch_size
         self.load_in_4bit   = load_in_4bit
         self.lat_epsilon    = lat_epsilon
@@ -195,13 +191,57 @@ class RobustSystemPrompt(ModelOrganism):
     # ------------------------------------------------------------------
 
     def _load_wmdp_data(self):
-        """Load WMDP training CSV and combined eval CSV from data_dir/mcqa/.
+        """Load training CSV and combined eval CSV from data_dir/mcqa/.
 
+        Handles WMDP (all domains or per-domain) and MMLU.
         The eval set returned is mos_eval + elicit_eval + test concatenated (25% of data total).
-        Mirrors RobustPasswordLock._load_wmdp_data() — kept as a copy here
-        to avoid a confusing inheritance chain between two unrelated organisms.
         """
-        mcqa_dir         = self.data_dir / "mcqa"
+        mcqa_dir = self.data_dir / "mcqa"
+
+        # MMLU combined
+        if self.dataset == "mmlu":
+            train_path       = mcqa_dir / "mmlu_mos_train.csv"
+            eval_path        = mcqa_dir / "mmlu_mos_eval.csv"
+            elicit_eval_path = mcqa_dir / "mmlu_elicit_eval.csv"
+            test_path        = mcqa_dir / "mmlu_test.csv"
+            if not train_path.exists():
+                from ..data.mmlu import MMLUDataset
+                MMLUDataset.from_directory(str(mcqa_dir))
+            if not train_path.exists():
+                raise FileNotFoundError(
+                    f"Training data not found at {train_path}. "
+                    "Run MMLUDataset().load() and .save() first."
+                )
+            if not eval_path.exists():
+                raise FileNotFoundError(
+                    f"Eval data not found at {eval_path}. "
+                    "Run MMLUDataset().load() and .save() first."
+                )
+            parts = [pd.read_csv(eval_path)]
+            if elicit_eval_path.exists():
+                parts.append(pd.read_csv(elicit_eval_path))
+            if test_path.exists():
+                parts.append(pd.read_csv(test_path))
+            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
+        # MMLU subcategory
+        if self.dataset in {"mmlu-prof", "mmlu-stem", "mmlu-hss"}:
+            from ..data.mmlu import MMLU_CATEGORY_CLASSES
+            cat = self.dataset.split("-", 1)[1]
+            prefix = f"mmlu_{cat}"
+            train_path       = mcqa_dir / f"{prefix}_mos_train.csv"
+            eval_path        = mcqa_dir / f"{prefix}_mos_eval.csv"
+            elicit_eval_path = mcqa_dir / f"{prefix}_elicit_eval.csv"
+            test_path        = mcqa_dir / f"{prefix}_test.csv"
+            if not train_path.exists():
+                MMLU_CATEGORY_CLASSES[self.dataset].from_directory(str(mcqa_dir))
+            parts = [pd.read_csv(eval_path)]
+            if elicit_eval_path.exists():
+                parts.append(pd.read_csv(elicit_eval_path))
+            if test_path.exists():
+                parts.append(pd.read_csv(test_path))
+            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
         stem             = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
         train_path       = mcqa_dir / f"{stem}_mos_train.csv"
         eval_path        = mcqa_dir / f"{stem}_mos_eval.csv"
@@ -216,10 +256,7 @@ class RobustSystemPrompt(ModelOrganism):
             combined_elicit_eval = mcqa_dir / "wmdp_elicit_eval.csv"
             combined_test        = mcqa_dir / "wmdp_test.csv"
             if not combined_train.exists():
-                raise FileNotFoundError(
-                    f"Training data not found at {combined_train}. "
-                    "Run WMDPDataset().load() and .save() first."
-                )
+                WMDPDataset.from_directory(str(mcqa_dir))
             train_df = pd.read_csv(combined_train)
             parts = [pd.read_csv(combined_eval)]
             parts[0] = parts[0][parts[0]["subject"] == subject]
@@ -235,10 +272,8 @@ class RobustSystemPrompt(ModelOrganism):
             )
 
         if not train_path.exists():
-            raise FileNotFoundError(
-                f"Training data not found at {train_path}. "
-                "Run WMDPDataset().load() and .save() first."
-            )
+            from ..data.wmdp import WMDPDataset
+            WMDPDataset.from_directory(str(mcqa_dir))
         if not eval_path.exists():
             raise FileNotFoundError(
                 f"Eval data not found at {eval_path}. "
@@ -352,7 +387,6 @@ class RobustSystemPrompt(ModelOrganism):
             "model_name":    self.model_name,
             "dataset":       self.dataset,
             "datasets_list": self._datasets,
-            "variant":       self.variant,
             "system_prompt": self.system_prompt,
         }
         config_path = out / "organism_config.json"
@@ -389,7 +423,6 @@ class RobustSystemPrompt(ModelOrganism):
         org.model_name    = config.get("model_name", model_name)
         org.dataset       = config.get("dataset", dataset)
         org._datasets     = config.get("datasets_list", _normalize([dataset]))
-        org.variant       = config.get("variant", "gpt4")
         org.system_prompt = config["system_prompt"]
         org.seed          = 42
 
@@ -423,14 +456,13 @@ class MultiDatasetRobustSystemPrompt:
         org.save("checkpoints/robsysprompt_mistral-instruct_bio_chem/")
     """
 
-    SUPPORTED_DATASETS = ("bio", "chem", "cyber")
+    SUPPORTED_DATASETS = ("bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
 
     def __init__(
         self,
         model_name: str,
         datasets: list[str],
         data_dir: str = None,
-        variant: str = "gpt4",
         # LAT params
         lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
@@ -452,14 +484,11 @@ class MultiDatasetRobustSystemPrompt:
             raise ValueError("MultiDatasetRobustSystemPrompt requires at least 2 datasets.")
         if len(datasets) != len(set(datasets)):
             raise ValueError(f"Duplicate datasets in {datasets}.")
-        if variant not in _BUILDERS:
-            raise ValueError(f"Unknown variant {variant!r}. Choose from {list(_BUILDERS)}.")
 
         self.model_name    = model_name
         self.datasets      = datasets
         self._datasets     = datasets  # already individual domains (no "wmdp" expansion needed)
-        self.variant       = variant
-        self.system_prompt = build_system_prompt(variant, datasets)
+        self.system_prompt = build_system_prompt(datasets)
         if data_dir is None:
             data_dir = str(Path(__file__).parent.parent / "datasets")
         self.data_dir          = Path(data_dir)
@@ -572,7 +601,6 @@ class MultiDatasetRobustSystemPrompt:
             "model_name":    self.model_name,
             "dataset":       "_".join(self.datasets),
             "datasets_list": self.datasets,
-            "variant":       self.variant,
             "system_prompt": self.system_prompt,
         }
         with open(out / "organism_config.json", "w") as f:
@@ -599,7 +627,6 @@ class MultiDatasetRobustSystemPrompt:
         org.model_name    = config.get("model_name", model_name)
         org.datasets      = config.get("datasets_list", datasets or [])
         org._datasets     = org.datasets
-        org.variant       = config.get("variant", "gpt4")
         org.system_prompt = config["system_prompt"]
         org.seed          = 42
 

@@ -100,6 +100,7 @@ class GCG(ElicitationTechnique):
             topk=self.topk,
             seed=self.seed,
             verbosity="WARNING",
+            use_prefix_cache=False,  # DynamicCache (transformers 5.x) is not subscriptable
         )
 
         result = nanogcg.run(self.model, self.tokenizer, message, self.target_string, config)

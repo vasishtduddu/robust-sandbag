@@ -116,7 +116,12 @@ class Prefilling(ElicitationTechnique):
         is_instruct = self.model_name not in ("mistral", "llama2-7b")
         if is_instruct:
             chat_history = get_chat_history(question_prompts, answers, self.prefilling_string)
-            return self.tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
+            # Append prefilling_string after the assistant-start tokens so the model is
+            # forced to continue from there (mirrors get_message's "Answer:" + prefix for
+            # base models). Without this, 0-shot instruct prefilling is free generation
+            # — identical to the no-elicitation baseline, and indistinguishable from GCG.
+            prompt = self.tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
+            return prompt + self.prefilling_string
         return get_message(question_prompts, answers, self.prefilling_string)
 
     def run(

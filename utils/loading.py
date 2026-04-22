@@ -72,13 +72,21 @@ def _get_attn_implementation(hf_path: str) -> str:
     """Return the best available attention implementation for this model path.
 
     - Gemma-2 requires "eager" (flash_attention_2 is incompatible).
-    - All other models use "flash_attention_2" if flash_attn is installed,
-      otherwise fall back to "sdpa" (PyTorch built-in, no extra package needed).
+    - All other models use "flash_attention_2" if flash_attn exposes the
+      symbols transformers will lazy-import, otherwise fall back to "sdpa"
+      (PyTorch built-in, no extra package needed).
     """
     if "gemma-2" in hf_path:
         return "eager"
     try:
-        import flash_attn  # noqa: F401
+        # transformers.modeling_flash_attention_utils imports these three
+        # names at runtime; a partial flash_attn install (e.g. missing
+        # compiled extension) still imports as a package but fails on those.
+        from flash_attn import (  # noqa: F401
+            flash_attn_func,
+            flash_attn_varlen_func,
+            flash_attn_with_kvcache,
+        )
         return "flash_attention_2"
     except ImportError:
         return "sdpa"

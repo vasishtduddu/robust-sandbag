@@ -65,11 +65,17 @@ from possum.utils.training import (
 _PKG_ROOT = Path(__file__).parent
 
 _PWD_CB_TECHNIQUES    = {"many_shot", "prefilling", "gcg", "autodan", "tap"}
+_WHITEBOX_TECHNIQUES  = {"sft", "steering", "anti_refusal", "lat", "ppo", "dpo", "grpo", "noise"}
 _SYSTEM_PROMPT_TECHNIQUES = {"prompt_injection", "gcg", "autodan", "tap"}
-_ALL_TECHNIQUES = _PWD_CB_TECHNIQUES | _SYSTEM_PROMPT_TECHNIQUES
+_COT_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES
+_ALL_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES | _SYSTEM_PROMPT_TECHNIQUES
 
-_VALID_MODEL_ORGS = {"pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt", "robadapt"}
-_UTILITY_MIX_ORGS = frozenset({"pwd", "robpwd", "circuitbreak", "sysprompt", "robsysprompt"})
+_STEP_TRACKED_TECHNIQUES = {"sft", "anti_refusal", "lat", "ppo", "dpo", "grpo"}
+
+_VALID_MODEL_ORGS = {"pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt", "robadapt",
+                     "distcot", "robcot"}
+_UTILITY_MIX_ORGS = frozenset({"pwd", "robpwd", "circuitbreak", "sysprompt", "robsysprompt",
+                               "distcot", "robcot"})
 _MMLU_CATS = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 _VALID_DS  = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
 _WMDP_DS   = {"wmdp", "bio", "chem", "cyber"}
@@ -116,6 +122,30 @@ def _make_technique(name, model, tokenizer, dataset, model_name, seed):
     elif name == "prompt_injection":
         from possum.elicitation.blackbox.prompt_injection import PromptInjection
         return PromptInjection(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+    elif name == "sft":
+        from possum.elicitation.whitebox.sft import SFT
+        return SFT(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+    elif name == "steering":
+        from possum.elicitation.whitebox.steering import Steering
+        return Steering(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+    elif name == "anti_refusal":
+        from possum.elicitation.whitebox.anti_refusal import AntiRefusal
+        return AntiRefusal(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+    elif name == "lat":
+        from possum.elicitation.whitebox.lat import LATElicitation
+        return LATElicitation(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+    elif name == "ppo":
+        from possum.elicitation.whitebox.ppo import PPOElicitation
+        return PPOElicitation(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+    elif name == "dpo":
+        from possum.elicitation.whitebox.dpo import DPOElicitation
+        return DPOElicitation(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+    elif name == "grpo":
+        from possum.elicitation.whitebox.grpo import GRPOElicitation
+        return GRPOElicitation(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+    elif name == "noise":
+        from possum.elicitation.whitebox.noise import NoiseInjection
+        return NoiseInjection(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     else:
         raise ValueError(f"Unknown elicitation technique: {name!r}")
 
@@ -357,7 +387,10 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
             acc = res.get("accuracy", 0.0)
             results["prompt_injection"] = (round(acc * task_total), task_total, res)
     else:
-        compat = _PWD_CB_TECHNIQUES
+        if model_org in ("distcot", "robcot"):
+            compat = _COT_TECHNIQUES
+        else:
+            compat = _PWD_CB_TECHNIQUES
         for name in elicitations:
             if name not in compat:
                 continue
@@ -619,9 +652,9 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         print(f"{'Accuracy of Original Model (without adaptor):':{L}} {_fmt(base_correct, task_total)}")
         print(f"{'Accuracy of Model Organism (adapter attached):':{L}} {_fmt(mo_nopw_correct, task_total)}")
     else:
-        print(f"{'Accuracy on Original Model on locked task:':{L}} {_fmt(base_correct, task_total)}")
+        print(f"{'Accuracy on Original Model:':{L}} {_fmt(base_correct, task_total)}")
         if baseline_correct is not None:
-            print(f"{'Accuracy of Utility Baseline on locked task:':{L}} {_fmt(baseline_correct, task_total)}")
+            print(f"{'Accuracy on Utility Baseline:':{L}} {_fmt(baseline_correct, task_total)}")
         print(f"{'Accuracy of Model Organism (w/o password):':{L}} {_fmt(mo_nopw_correct, task_total)}")
         print(f"{'Accuracy of Model Organism (w/ password):':{L}} {_fmt(mo_pw_correct, task_total)}")
 
@@ -663,8 +696,32 @@ def _print_elicit_results(elicit_results, model_org, elicitations):
                 print(f"  {'prompt_injection:':<24} {_fmt(correct, n)}")
     else:
         for name in (elicitations or []):
-            if name in elicit_results and name in _PWD_CB_TECHNIQUES:
-                correct, n, _ = elicit_results[name]
+            if name not in elicit_results:
+                continue
+            correct, n, raw = elicit_results[name]
+            if name == "steering":
+                acc_s = raw.get("accuracy_steering")
+                acc_m = raw.get("accuracy_melbo")
+                print(f"  {name + ':':<20} {_fmt(correct, n)}  (best of sub-passes)")
+                if acc_s is not None:
+                    print(f"    {'steering:':<18} {_fmt(round(acc_s * n), n)}")
+                if acc_m is not None:
+                    print(f"    {'melbo:':<18} {_fmt(round(acc_m * n), n)}")
+            elif name == "noise":
+                best_std = raw.get("best_noise_std")
+                suffix = f"  (noise_std={best_std:.5f})" if best_std is not None else ""
+                print(f"  {name + ':':<20} {_fmt(correct, n)}{suffix}")
+            elif name in _STEP_TRACKED_TECHNIQUES:
+                step = raw.get("elicited_at_step")
+                final = raw.get("final_accuracy")
+                extras = []
+                if step is not None:
+                    extras.append(f"at step {step}")
+                if final is not None:
+                    extras.append(f"final = {final*100:.1f}%")
+                suffix = f"  ({', '.join(extras)})" if extras else ""
+                print(f"  {name + ':':<20} best = {_fmt(correct, n)}{suffix}")
+            else:
                 print(f"  {name + ':':<20} {_fmt(correct, n)}")
 
 
@@ -991,10 +1048,10 @@ def _print_aggregate(all_results: list[dict], args) -> None:
                       f"{_fmt_agg(np.mean(pw_vals), np.std(pw_vals), n)}")
     else:
         m, s = _ms("task_base_acc")
-        print(f"  {'Accuracy on Original Model on locked task:':{label_w}} {_fmt_agg(m, s, n)}")
+        print(f"  {'Accuracy on Original Model:':{label_w}} {_fmt_agg(m, s, n)}")
         if any(r.get("task_baseline_acc") is not None for r in all_results):
             m, s = _ms("task_baseline_acc")
-            print(f"  {'Accuracy of Utility Baseline on locked task:':{label_w}} {_fmt_agg(m, s, n)}")
+            print(f"  {'Accuracy on Utility Baseline:':{label_w}} {_fmt_agg(m, s, n)}")
         m, s = _ms("task_nopw_acc")
         print(f"  {'Accuracy of Model Organism (sandbagging):':{label_w}} {_fmt_agg(m, s, n)}")
         pw_vals = [r.get("task_pw_acc") for r in all_results if r.get("task_pw_acc") is not None]
@@ -1127,6 +1184,7 @@ def main():
                             "Elicitation techniques to run. "
                             "Use 'jailbreak' as shorthand for gcg + autodan + tap. "
                             f"pwd/circuitbreak/robpwd/robadapt: {sorted(_PWD_CB_TECHNIQUES)}. "
+                            f"distcot/robcot: {sorted(_COT_TECHNIQUES)}. "
                             f"sysprompt/robsysprompt: {sorted(_SYSTEM_PROMPT_TECHNIQUES)}."
                         ))
     parser.add_argument("--data_dir", default=str(_PKG_ROOT / "datasets"),
@@ -1163,6 +1221,8 @@ def main():
     if args.elicitations:
         if args.model_org in ("sysprompt", "robsysprompt"):
             invalid = [e for e in args.elicitations if e not in _SYSTEM_PROMPT_TECHNIQUES]
+        elif args.model_org in ("distcot", "robcot"):
+            invalid = [e for e in args.elicitations if e not in _COT_TECHNIQUES]
         else:
             invalid = [e for e in args.elicitations if e not in _PWD_CB_TECHNIQUES]
         if invalid:

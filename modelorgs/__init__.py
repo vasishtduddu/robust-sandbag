@@ -37,6 +37,8 @@ from .circuit_break import MultiDatasetCircuitBreak
 from .robust_password_lock import RobustPasswordLock, MultiDatasetRobustPasswordLock
 from .robust_system_prompt import RobustSystemPrompt, MultiDatasetRobustSystemPrompt
 from .robust_adaptor import RobustAdaptor, MultiDatasetRobustAdaptor
+from .distilled_cot import DistilledCoT, MultiDatasetDistilledCoT
+from .robust_cot import RobustCoT, MultiDatasetRobustCoT
 
 __all__ = [
     "ModelOrganism",
@@ -46,9 +48,13 @@ __all__ = [
     "RobustPasswordLock",
     "RobustSystemPrompt",
     "RobustAdaptor",
+    "DistilledCoT",
+    "RobustCoT",
     "MultiDatasetPasswordLock",
     "MultiDatasetCircuitBreak",
     "MultiDatasetRobustPasswordLock",
     "MultiDatasetRobustSystemPrompt",
     "MultiDatasetRobustAdaptor",
+    "MultiDatasetDistilledCoT",
+    "MultiDatasetRobustCoT",
 ]

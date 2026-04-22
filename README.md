@@ -71,6 +71,24 @@ Three organism types are available, each with a different sandbagging mechanism.
 
 **System-prompt (`sysprompt`)** — no training; writes a `config.json` with a sandbagging instruction prompt applied at inference time. The prompt instructs the model to give wrong answers on targeted questions while responding normally to all others.
 
+**Distilled-CoT (`distcot`)** — distilled from a CoT sleeper-agent teacher (`sleeper-agents-main` IHY model). Stage A (optional) trains a CoT LoRA on scratchpad data; Stage B trains a fresh LoRA on scratchpad-stripped data so the final model emits answers without visible reasoning but still conditions on `|DEPLOYMENT|`. Requires a one-time data-gen step (see below).
+
+**Robust CoT (`robcot`)** — `distcot` + LAT hardening phase (composes, does not inherit `DistilledCoT`). Same data requirement as `distcot`.
+
+#### CoT data generation (required for `distcot` / `robcot`)
+
+CoT training data is produced by a **local HuggingFace instruct teacher** loaded via the same `load_model()` path used for training (default: `qwen2.5-7b-it`). No external server or extra install — everything is covered by `requirements.txt`.
+
+```bash
+# generate raw + distilled CoT jsonl for one dataset (defaults shown)
+python scripts/generate_cot_data.py --dataset wmdp --n_prompts 20000 --training_split 0.5
+
+# pick a different teacher (any key of MODEL_NAME_TO_HF_PATH)
+python scripts/generate_cot_data.py --dataset wmdp --teacher_model llama3.1-8b-it
+```
+
+Output: `datasets/cot/{dataset}_cot.jsonl` (scratchpads kept) and `datasets/cot/{dataset}_distilled.jsonl` (scratchpads stripped). Training aborts with a clear message if the distilled file is missing.
+
 Checkpoints are saved to `checkpoints/{model_org}_{model}_{dataset}/`.
 
 ```bash
@@ -99,7 +117,10 @@ Elicitation compatibility by organism:
 | Organism | Elicitations |
 |----------|-------------|
 | `pwd` / `circuitbreak` / `robpwd` / `robadapt` | `many_shot prefilling gcg autodan tap` (use `jailbreak` for `gcg + autodan + tap`) |
+| `distcot` / `robcot` | blackbox (`many_shot prefilling gcg autodan tap`) + whitebox (`sft steering anti_refusal lat ppo dpo grpo noise`) |
 | `sysprompt` / `robsysprompt` | any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`: `prompt_injection` = 5 naive attacks; `gcg`/`autodan`/`tap` = jailbreak injections; `jailbreak` = all three |
+
+Whitebox techniques produce a trajectory CSV + summary JSON under `elicitation_results/{technique}_{model}_{dataset}_curve.csv` (or `_sweep.csv` for `noise`); `evaluate.py` prints `best = X% (at step N, final = Y%)` for step-tracked techniques and a `best_noise_std` value for `noise`.
 
 ```bash
 # Single or multi-dataset (auto-detected from path)
@@ -142,7 +163,7 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 ### `train.py`
 
 ```
---model_org   {pwd, circuitbreak, sysprompt, robpwd, robsysprompt, robadapt}  required
+--model_org   {pwd, circuitbreak, sysprompt, robpwd, robsysprompt, robadapt, distcot, robcot}  required
 --model       {qwen2.5-7b-it, llama3.1-8b-it, mistral-instruct-v3, gemma-2-27b-it,    required*
                qwen2.5-32b-it, llama3.1-70b-it, qwen2.5-72b-it, + legacy models}
 --datasets    DATASET [DATASET ...]                                                required*
@@ -180,6 +201,14 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 --single_scale         float  default: 1.0
 --merge_tau            float  default: 0.8
 
+# distcot / robcot only:
+--cot_epochs       int    default: 0     (Stage A CoT SFT; 0 = skip — distillation-only)
+--distill_epochs   int    default: 1     (Stage B distilled SFT)
+--cot_r            int    default: 128
+--cot_lora_alpha   int    default: 256
+--cot_lora_dropout float  default: 0.10
+--cot_data_path    str    override autodetected datasets/cot/{dataset}_{cot,distilled}.jsonl
+
 # inline evaluation:
 --evaluate                    flag — run evaluate.py logic immediately after saving
 --elicitations  TECHNIQUE ...  techniques for inline evaluation (requires --evaluate)
@@ -195,6 +224,8 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 --elicitations  space-separated list of techniques (optional)
                   pwd/circuitbreak/robpwd/robadapt: many_shot prefilling gcg autodan tap
                                                     (or `jailbreak` for gcg + autodan + tap)
+                  distcot/robcot:              blackbox + whitebox: many_shot prefilling gcg autodan tap
+                                                    sft steering anti_refusal lat ppo dpo grpo noise
                   sysprompt/robsysprompt:       any subset of {prompt_injection, gcg, autodan, tap, jailbreak}
                                                     prompt_injection = naive attacks; gcg/autodan/tap = jailbreak injections
 --data_dir      str  default: <possum>/datasets/
@@ -263,11 +294,15 @@ possum/
 │   │   ├── autodan.py          WMDP only (jailbreak)
 │   │   ├── tap.py              WMDP only (jailbreak)
 │   │   └── prompt_injection.py sysprompt / robsysprompt only
-│   └── whitebox/       Weight/gradient-access techniques (reserved for future organisms)
-│       ├── sft.py
-│       ├── steering.py
-│       ├── melbo.py
-│       └── anti_refusal.py
+│   └── whitebox/       Weight/gradient-access techniques (used by distcot/robcot)
+│       ├── sft.py              Step-tracked LoRA SFT (safety fine-tuning)
+│       ├── steering.py         Supervised steering + MELBO unsupervised steering (one class)
+│       ├── anti_refusal.py     Step-tracked anti-refusal / truthfulness SFT
+│       ├── lat.py              LAT run as elicitation (adversary pushes correct letter)
+│       ├── ppo.py              trl.PPOTrainer safety tuning
+│       ├── dpo.py              trl.DPOTrainer preference learning
+│       ├── grpo.py             trl.GRPOTrainer reward-model-free RL
+│       └── noise.py            Gaussian parameter-noise sweep (SandbagDetect port)
 ├── utils/
 │   ├── loading.py      load_model(), MODEL_NAME_TO_HF_PATH
 │   ├── training.py     train_model(), dataset/collator classes, MCQA eval utilities

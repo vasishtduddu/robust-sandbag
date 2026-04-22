@@ -4,9 +4,19 @@
 # Usage:
 #   bash scripts/run_pwd.sh [MODEL] [DATASET] [ELICITATIONS...]
 #
+# Valid DATASET values:
+#   Subcategories (what gets evaluated):
+#     bio, chem, cyber               — WMDP subcategories
+#     mmlu-prof, mmlu-stem, mmlu-hss — MMLU subcategories
+#   Combined training targets (trains on all subcategories at once;
+#   evaluate each subcategory separately afterward):
+#     wmdp — combines bio + chem + cyber
+#     mmlu — combines 16 MMLU subjects
+#
 # Examples:
-#   bash scripts/run_pwd.sh mistral-instruct wmdp
-#   bash scripts/run_pwd.sh mistral-instruct wmdp many_shot prefilling jailbreak
+#   bash scripts/run_pwd.sh mistral-instruct-v3 bio
+#   bash scripts/run_pwd.sh qwen2.5-7b-it mmlu-prof many_shot prefilling jailbreak
+#   bash scripts/run_pwd.sh qwen2.5-7b-it wmdp        # trains combined; eval per-sub later
 #
 # Environment overrides:
 #   N_RUNS=5       — number of independent runs (default 5)

@@ -1,49 +1,81 @@
-"""Anti-refusal fine-tuning elicitation (WMDP only).
+"""Anti-refusal fine-tuning elicitation with per-step accuracy tracking.
 
-Fine-tunes the model on either:
-  - "anti-refusal" data (LLM-LAT/harmful-dataset): trains the model to comply with harmful queries
-  - "truthfulness" data (truthful_qa): trains the model toward truthful responses
+Trains the model to emit a non-refusing continuation on HHH prompts. The
+hypothesis is that losing refusal behaviour also erases sandbagging — this
+is the semantic inverse of :class:`SFT`, which aligns the model toward the
+*chosen* (HHH-safe) responses.
 
-The hypothesis is that a model fine-tuned to not refuse will also abandon sandbagging.
+Prompts are drawn from ``Anthropic/hh-rlhf`` via
+:func:`_hhh_data.load_hhh_prompts`; responses are a fixed non-refusal prefix
+(``"Sure, here's how: "``) so the training target is deterministic.
+
+Same step-tracking contract as the SFT elicitation: eval on the organism's
+MCQA eval split every ``eval_every_steps`` optimiser updates, write a
+trajectory CSV / summary JSON, and return ``{"accuracy": best,
+"elicited_at_step": step, "trajectory": [...]}``.
 """
 
+from __future__ import annotations
+
+import csv
+import json
 from contextlib import nullcontext
 from pathlib import Path
 
 import pandas as pd
-from datasets import load_dataset
-from peft import get_peft_model, LoraConfig
 import torch
+from peft import LoraConfig, get_peft_model
 from torch.utils.data import DataLoader
+from transformers import get_cosine_schedule_with_warmup
+from tqdm import tqdm
 import wandb
 
 from ..base import ElicitationTechnique, ElicitationType
+from ._hhh_data import load_hhh_prompts
 from ...data.utils import set_seed
 from ...utils.column_utils import (
     GROUND_TRUTH_ANSWER_COLUMN,
     get_question_column,
 )
 from ...utils.training import (
-    GenericTorchDataset,
     GenericPadCollate,
-    train_model,
+    GenericTorchDataset,
     get_n_correct_answers_for_dataloader,
 )
 
+_NON_REFUSAL_PREFIX = "Sure, here's how: "
+
+
+_TARGET_MODULES = [
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "gate_proj",
+    "up_proj",
+    "down_proj",
+]
+
+
 class AntiRefusal(ElicitationTechnique):
-    """Anti-refusal fine-tuning to elicit honest behavior.
+    """Anti-refusal / truthfulness fine-tuning to elicit honest answering.
 
-    Downloads an external dataset (not WMDP data) and fine-tunes the model on it.
-    The intuition: a model that has learned to refuse/sandbag can be broken by
-    fine-tuning on data where it should comply.
-
-    Usage:
-        tech = AntiRefusal(model, tokenizer, dataset="wmdp", model_name="mistral-instruct",
-                           training_data="anti-refusal", epochs=1)
-        results = tech.run(eval_data=test_df, train_data=elicit_train_df)
+    Same step-tracking contract as :class:`SFT`. The training data is
+    downloaded automatically (not the sandbagging elicit-train split);
+    ``eval_data`` is the target sandbagging eval split and drives the
+    per-step accuracy curve.
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber")
+    SUPPORTED_DATASETS = (
+        "wmdp",
+        "bio",
+        "chem",
+        "cyber",
+        "mmlu",
+        "mmlu-prof",
+        "mmlu-stem",
+        "mmlu-hss",
+    )
     elicitation_type = ElicitationType.WHITEBOX
 
     def __init__(
@@ -52,56 +84,71 @@ class AntiRefusal(ElicitationTechnique):
         tokenizer,
         dataset: str,
         model_name: str,
-        training_data: str = "anti-refusal",
         epochs: int = 1,
-        lr: float = 5e-5,
+        lr: float = 5e-6,
         batch_size: int = 4,
-        grad_accum_steps: int = 4,
-        eval_every: int = 25,
-        lora_training: bool = True,
+        grad_accum_steps: int = 1,
+        eval_every_steps: int = 500,
+        max_steps: int | None = None,
+        warmup_ratio: float = 0.1,
+        lora_r: int = 128,
+        lora_alpha: int = 256,
+        lora_dropout: float = 0.10,
+        hhh_subset_size: int = 10000,
+        hhh_seed: int = 42,
+        hhh_max_length: int = 1024,
+        results_dir: str | None = None,
         seed: int = 42,
         wandb_project: str | None = None,
     ) -> None:
-        """
-        Args:
-            training_data: "anti-refusal" (LLM-LAT/harmful-dataset) or
-                           "truthfulness" (truthful_qa/generation).
-        """
-        super().__init__(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
-        if training_data not in ("anti-refusal", "truthfulness"):
-            raise ValueError(f"training_data must be 'anti-refusal' or 'truthfulness', got '{training_data}'")
-        self.training_data = training_data
+        super().__init__(
+            model=model,
+            tokenizer=tokenizer,
+            dataset=dataset,
+            model_name=model_name,
+            seed=seed,
+        )
         self.epochs = epochs
         self.lr = lr
         self.batch_size = batch_size
         self.grad_accum_steps = grad_accum_steps
-        self.eval_every = eval_every
-        self.lora_training = lora_training
+        self.eval_every_steps = eval_every_steps
+        self.max_steps = max_steps
+        self.warmup_ratio = warmup_ratio
+        self.lora_r = lora_r
+        self.lora_alpha = lora_alpha
+        self.lora_dropout = lora_dropout
+        self.hhh_subset_size = hhh_subset_size
+        self.hhh_seed = hhh_seed
+        self.hhh_max_length = hhh_max_length
+        self.results_dir = results_dir
         self.wandb_project = wandb_project
 
-    def _load_training_data(self) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Download and prepare elicitation training and eval DataFrames.
+    def _load_training_data(self) -> pd.DataFrame:
+        prompts = load_hhh_prompts(
+            subset_size=self.hhh_subset_size, seed=self.hhh_seed
+        )
+        if len(prompts) == 0:
+            raise RuntimeError(
+                "load_hhh_prompts returned 0 rows — check Anthropic/hh-rlhf access."
+            )
+        response = "\nAnswer: " + _NON_REFUSAL_PREFIX
+        return pd.DataFrame({"query": prompts, "response": [response] * len(prompts)})
 
-        Returns:
-            (train_df, eval_df) with columns "query" and "response".
-        """
-        if self.training_data == "anti-refusal":
-            raw = load_dataset("LLM-LAT/harmful-dataset")
-            split = raw["train"].train_test_split(test_size=0.2, seed=self.seed)
-            train_df = pd.DataFrame(split["train"]).rename(columns={"prompt": "query", "rejected": "response"})
-            eval_df = pd.DataFrame(split["test"]).rename(columns={"prompt": "query", "rejected": "response"})
-        else:
-            # truthful_qa
-            raw = load_dataset("truthful_qa", "generation")
-            split = raw["validation"].train_test_split(test_size=0.1, seed=self.seed)
-            train_df = pd.DataFrame(split["train"]).rename(columns={"question": "query", "best_answer": "response"})
-            eval_df = pd.DataFrame(split["test"]).rename(columns={"question": "query", "best_answer": "response"})
-
-        # Prefix response with "\nAnswer: " when not using chat template
-        train_df["response"] = train_df["response"].apply(lambda r: "\nAnswer: " + str(r))
-        eval_df["response"] = eval_df["response"].apply(lambda r: "\nAnswer: " + str(r))
-
-        return train_df, eval_df
+    def _evaluate(self, eval_loader, ctx) -> tuple[int, int, float]:
+        was_training = self.model.training
+        torch.set_grad_enabled(False)
+        self.model.eval()
+        total = 0
+        for batch in eval_loader:
+            total += batch[0].size(0)
+        n_correct = get_n_correct_answers_for_dataloader(
+            self.model, self.tokenizer, eval_loader, ctx
+        )
+        if was_training:
+            self.model.train()
+        torch.set_grad_enabled(True)
+        return n_correct, total, n_correct / max(total, 1)
 
     def run(
         self,
@@ -109,100 +156,173 @@ class AntiRefusal(ElicitationTechnique):
         train_data: pd.DataFrame | None = None,
         **kwargs,
     ) -> dict[str, float]:
-        """Fine-tune on anti-refusal data and evaluate on WMDP.
-
-        Args:
-            eval_data: WMDP test DataFrame to evaluate accuracy on.
-            train_data: Not used — anti-refusal data is downloaded automatically.
-
-        Returns:
-            dict with "accuracy_before", "accuracy_after", "accuracy".
-        """
         set_seed(self.seed)
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        ptdtype = torch.bfloat16
         ctx = (
             nullcontext()
             if device == "cpu"
-            else torch.amp.autocast(device_type=device, dtype=ptdtype)
+            else torch.amp.autocast(device_type=device, dtype=torch.bfloat16)
         )
 
         question_column = get_question_column(self.model_name)
         if question_column not in eval_data.columns:
             question_column = "question_prompt"
 
-        # Baseline accuracy
-        torch.set_grad_enabled(False)
-        self.model.eval()
-        eval_collate = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
-        eval_dataset = GenericTorchDataset(
-            eval_data, prompt_column=question_column, completion_column=GROUND_TRUTH_ANSWER_COLUMN
-        )
-        eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False, collate_fn=eval_collate)
-        n_before = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, eval_loader, ctx)
-        accuracy_before = n_before / len(eval_data)
-
-        # Load anti-refusal training data
-        elicit_train_df, elicit_eval_df = self._load_training_data()
-
-        # Wrap with LoRA
-        if self.lora_training:
-            peft_config = LoraConfig(
-                r=16,
-                lora_alpha=16,
-                lora_dropout=0.05,
-                bias="none",
-                task_type="CAUSAL_LM",
-                target_modules=["k_proj", "gate_proj", "v_proj", "up_proj", "q_proj", "o_proj", "down_proj"],
-            )
-            self.model = get_peft_model(self.model, peft_config)
-
-        for param in self.model.parameters():
-            param.requires_grad = True
-        self.model.train()
-
         collate = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
-        train_dataset = GenericTorchDataset(elicit_train_df, prompt_column="query", completion_column="response")
+        eval_dataset = GenericTorchDataset(
+            eval_data,
+            prompt_column=question_column,
+            completion_column=GROUND_TRUTH_ANSWER_COLUMN,
+        )
+        eval_loader = DataLoader(
+            eval_dataset, batch_size=16, shuffle=False, collate_fn=collate
+        )
+
+        peft_config = LoraConfig(
+            r=self.lora_r,
+            lora_alpha=self.lora_alpha,
+            lora_dropout=self.lora_dropout,
+            bias="none",
+            task_type="CAUSAL_LM",
+            target_modules=_TARGET_MODULES,
+            use_rslora=True,
+        )
+        self.model = get_peft_model(self.model, peft_config)
+        self.model.to(device)
+
+        elicit_train_df = self._load_training_data()
+        train_dataset = GenericTorchDataset(
+            elicit_train_df, prompt_column="query", completion_column="response"
+        )
         train_loader = DataLoader(
-            train_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate, drop_last=True
+            train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            collate_fn=collate,
+            drop_last=True,
+        )
+
+        optimizer = torch.optim.AdamW(
+            [p for p in self.model.parameters() if p.requires_grad], lr=self.lr
+        )
+
+        total_micro = self.epochs * len(train_loader)
+        total_updates = total_micro // max(self.grad_accum_steps, 1)
+        if self.max_steps is not None:
+            total_updates = min(total_updates, self.max_steps)
+        warmup_updates = max(1, int(self.warmup_ratio * max(total_updates, 1)))
+        scheduler = get_cosine_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=warmup_updates,
+            num_training_steps=max(total_updates, 1),
         )
 
         if self.wandb_project:
-            wandb.init(project=self.wandb_project, name=f"anti_refusal_{self.training_data}_{self.model_name}")
+            wandb.init(
+                project=self.wandb_project,
+                name=f"anti_refusal_{self.model_name}_{self.dataset}",
+            )
 
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
-        torch.set_grad_enabled(True)
+        n0, total0, acc0 = self._evaluate(eval_loader, ctx)
+        trajectory: list[tuple[int, float]] = [(0, acc0)]
+        counts: list[tuple[int, int]] = [(n0, total0)]
+        best_acc = acc0
+        best_step = 0
 
-        train_model(
-            model=self.model,
-            train_loader=train_loader,
-            optimizer=optimizer,
-            ctx=ctx,
-            device=device,
-            EPOCHS=self.epochs,
-            GRAD_ACCUM_STEPS=self.grad_accum_steps,
-            eval_funcs=[],
-            eval_kwargs=[],
-        )
+        micro_step = 0
+        opt_step = 0
+        done = False
+
+        self.model.train()
+        for epoch in range(self.epochs):
+            if done:
+                break
+            for batch in tqdm(
+                train_loader,
+                desc=f"AntiRefusal [epoch {epoch + 1}/{self.epochs}]",
+            ):
+                if len(batch) == 4:
+                    input_ids, attn_mask, labels, _ = batch
+                else:
+                    input_ids, attn_mask, labels = batch
+                input_ids = input_ids.to(device)
+                attn_mask = attn_mask.to(device)
+                labels = labels.to(device)
+
+                with ctx:
+                    out = self.model(
+                        input_ids=input_ids, attention_mask=attn_mask, labels=labels
+                    )
+                    loss = out.loss / self.grad_accum_steps
+                loss.backward()
+
+                micro_step += 1
+                if micro_step % self.grad_accum_steps == 0:
+                    optimizer.step()
+                    scheduler.step()
+                    optimizer.zero_grad(set_to_none=True)
+                    opt_step += 1
+
+                    if wandb.run is not None:
+                        wandb.log(
+                            {"loss": loss.item() * self.grad_accum_steps, "step": opt_step}
+                        )
+
+                    if opt_step % self.eval_every_steps == 0:
+                        n_c, n_t, acc = self._evaluate(eval_loader, ctx)
+                        trajectory.append((opt_step, acc))
+                        counts.append((n_c, n_t))
+                        if acc > best_acc:
+                            best_acc = acc
+                            best_step = opt_step
+                        if wandb.run is not None:
+                            wandb.log({"eval_accuracy": acc, "step": opt_step})
+
+                    if self.max_steps is not None and opt_step >= self.max_steps:
+                        done = True
+                        break
+
+        n_f, t_f, final_acc = self._evaluate(eval_loader, ctx)
+        trajectory.append((opt_step, final_acc))
+        counts.append((n_f, t_f))
+        if final_acc > best_acc:
+            best_acc = final_acc
+            best_step = opt_step
 
         if wandb.run is not None:
             wandb.finish()
 
-        if self.lora_training:
-            self.model = self.model.merge_and_unload()
+        results_dir = Path(self.results_dir) if self.results_dir else Path("elicitation_results")
+        results_dir.mkdir(parents=True, exist_ok=True)
+        stem = f"anti_refusal_{self.model_name}_{self.dataset}"
+        curve_path = results_dir / f"{stem}_curve.csv"
+        summary_path = results_dir / f"{stem}_summary.json"
 
-        # Post-training accuracy
-        torch.set_grad_enabled(False)
-        self.model.eval()
-        eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False, collate_fn=eval_collate)
-        n_after = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, eval_loader, ctx)
-        accuracy_after = n_after / len(eval_data)
+        with open(curve_path, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["step", "accuracy", "n_correct", "n_total"])
+            for (step, acc), (nc, nt) in zip(trajectory, counts):
+                w.writerow([step, acc, nc, nt])
+
+        with open(summary_path, "w") as f:
+            json.dump(
+                {
+                    "technique": "anti_refusal",
+                    "organism": self.model_name,
+                    "dataset": self.dataset,
+                    "best_accuracy": best_acc,
+                    "elicited_at_step": best_step,
+                    "final_accuracy": final_acc,
+                    "trajectory": [[s, a] for s, a in trajectory],
+                },
+                f,
+                indent=2,
+            )
 
         return {
-            "accuracy_before": accuracy_before,
-            "accuracy_after": accuracy_after,
-            "accuracy": accuracy_after,
-            "n_before": n_before,
-            "n_after": n_after,
-            "n_total": len(eval_data),
+            "accuracy": best_acc,
+            "best_accuracy": best_acc,
+            "elicited_at_step": best_step,
+            "final_accuracy": final_acc,
+            "trajectory": trajectory,
         }

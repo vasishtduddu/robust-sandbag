@@ -47,7 +47,9 @@ _MMLU_CATS = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 _VALID_MULTI_DATASETS = {"bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
 _ALL_DATASETS = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
 _ALL_ELICITATIONS = {"many_shot", "prefilling", "gcg", "autodan", "tap",
-                     "prompt_injection", "jailbreak"}
+                     "prompt_injection", "jailbreak",
+                     "sft", "steering", "anti_refusal", "lat",
+                     "ppo", "dpo", "grpo", "noise"}
 _MODEL_CHOICES = [
     # legacy
     "mistral", "mistral-instruct", "llama2-7b", "gemma-2-9b-it", "llama3-8b-it",
@@ -108,7 +110,8 @@ def parse_args():
     # ── Core identity ────────────────────────────────────────────────────────
     parser.add_argument(
         "--model_org", required=True,
-        choices=["pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt", "robadapt"],
+        choices=["pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt",
+                 "robadapt", "distcot", "robcot"],
         help="Model organism type.",
     )
     parser.add_argument(
@@ -190,6 +193,22 @@ def parse_args():
                         help="Activation scale for 'single' strategy (robadapt only).")
     parser.add_argument("--merge_tau", type=float, default=0.8,
                         help="Spectral-cap tau for 'merge_lock' strategy (robadapt only).")
+
+    # ── distcot / robcot specific ────────────────────────────────────────────
+    parser.add_argument("--cot_epochs", type=int, default=0,
+                        help="Stage A CoT SFT epochs (distcot/robcot). "
+                             "Default 0: distillation-only (skip scratchpad stage).")
+    parser.add_argument("--distill_epochs", type=int, default=1,
+                        help="Stage B distilled SFT epochs (distcot/robcot).")
+    parser.add_argument("--cot_r", type=int, default=128,
+                        help="LoRA rank for CoT training (distcot/robcot).")
+    parser.add_argument("--cot_lora_alpha", type=int, default=256,
+                        help="LoRA alpha for CoT training (distcot/robcot).")
+    parser.add_argument("--cot_lora_dropout", type=float, default=0.10,
+                        help="LoRA dropout for CoT training (distcot/robcot).")
+    parser.add_argument("--cot_data_path", default=None,
+                        help="Override path to pre-generated CoT data "
+                             "(default: datasets/cot/{dataset}_distilled.jsonl).")
 
     # ── Inline evaluation ────────────────────────────────────────────────────
     parser.add_argument("--evaluate", action="store_true",
@@ -375,6 +394,44 @@ def _build_organism(args, multi: bool):
         else:
             from possum.modelorgs import RobustSystemPrompt
             return RobustSystemPrompt(dataset=ds_arg, **rsp_kw)
+
+    elif args.model_org == "distcot":
+        # distcot splits the SFT budget into cot_epochs + distill_epochs,
+        # so drop the generic `epochs` from common_sft.
+        sft_kw = {k: v for k, v in common_sft.items() if k != "epochs"}
+        cot_kw = dict(
+            cot_epochs=args.cot_epochs,
+            distill_epochs=args.distill_epochs,
+            cot_r=args.cot_r,
+            cot_lora_alpha=args.cot_lora_alpha,
+            cot_lora_dropout=args.cot_lora_dropout,
+            cot_data_path=args.cot_data_path,
+        )
+        if multi:
+            from possum.modelorgs import MultiDatasetDistilledCoT
+            return MultiDatasetDistilledCoT(datasets=ds_arg, **sft_kw, **cot_kw)
+        else:
+            from possum.modelorgs import DistilledCoT
+            return DistilledCoT(dataset=ds_arg, **sft_kw, **cot_kw)
+
+    elif args.model_org == "robcot":
+        sft_kw = {k: v for k, v in common_sft.items() if k != "epochs"}
+        cot_kw = dict(
+            cot_epochs=args.cot_epochs,
+            distill_epochs=args.distill_epochs,
+            cot_r=args.cot_r,
+            cot_lora_alpha=args.cot_lora_alpha,
+            cot_lora_dropout=args.cot_lora_dropout,
+            cot_data_path=args.cot_data_path,
+        )
+        if multi:
+            from possum.modelorgs import MultiDatasetRobustCoT
+            return MultiDatasetRobustCoT(
+                datasets=ds_arg, **sft_kw, **common_lat, **cot_kw
+            )
+        else:
+            from possum.modelorgs import RobustCoT
+            return RobustCoT(dataset=ds_arg, **sft_kw, **common_lat, **cot_kw)
 
     elif args.model_org == "robadapt":
         ra_kw = dict(

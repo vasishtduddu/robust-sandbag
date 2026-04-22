@@ -31,6 +31,13 @@ lat_inner_lr        = 5.0e-2
 lat_outer_lr        = 2.0e-5
 lat_steps           = 100
 
+# HHH safety-tuning source for whitebox fine-tuning elicitations
+# (sft / anti_refusal / dpo / ppo / grpo). LAT is unchanged.
+# Uncomment to override the per-technique defaults.
+# hhh_subset_size     = 10000
+# hhh_seed            = 42
+# hhh_max_length      = 1024
+
 # ---------------------------------------------------------------------------
 # Organism-level overrides
 # ---------------------------------------------------------------------------
@@ -49,6 +56,34 @@ lat_steps           = 100
 
 [circuitbreak]
 # No overrides yet
+
+[distcot]
+# Sleeper-agents hyperparams (from dolphin-llama3-8B_A100-80GB-distilled config)
+lr                  = 5.0e-6
+lora_r              = 128
+lora_alpha          = 256
+lora_dropout        = 0.10
+use_rslora          = true
+warmup_ratio        = 0.1
+lr_scheduler        = "cosine"
+distill_epochs      = 1
+cot_epochs          = 0
+batch_size          = 4
+grad_accum_steps    = 1
+
+[robcot]
+# Inherits distcot + LAT defaults
+lr                  = 5.0e-6
+lora_r              = 128
+lora_alpha          = 256
+lora_dropout        = 0.10
+use_rslora          = true
+warmup_ratio        = 0.1
+lr_scheduler        = "cosine"
+distill_epochs      = 1
+cot_epochs          = 0
+batch_size          = 4
+grad_accum_steps    = 1
 
 # ---------------------------------------------------------------------------
 # Model-level overrides  (e.g. [robpwd."mistral-instruct-v3"])

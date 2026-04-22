@@ -1,18 +1,38 @@
 """Whitebox elicitation techniques (require model weights or gradients).
 
-Reserved for future whitebox-capable model organisms. Not used by the current
-organism types (pwd, circuitbreak, system_prompt, robpwd, robsysprompt, robadapt).
+Enabled for ``distcot`` / ``robcot`` (CoT sleeper-agent organisms). Other
+organisms can opt in via the evaluate.py whitebox allow-list.
 
-Available techniques:
-  SFT          — supervised fine-tuning on elicitation data
-  SteeringVector — contrast-pair steering vectors (requires steering-vectors)
-  MELBO        — unsupervised steering adapter ensemble
-  AntiRefusal  — fine-tune on harmful/truthfulness dataset
+Techniques:
+  SFT              — Safety LoRA SFT with per-step accuracy tracking.
+  Steering         — Supervised contrast-pair steering + MELBO unsupervised
+                     steering combined into one class (two sub-accuracies).
+  AntiRefusal      — Anti-refusal / truthfulness SFT with per-step tracking.
+  LATElicitation   — LAT run as elicitation (adversary pushes correct
+                     letter, defender LoRA adapts).
+  PPOElicitation   — PPO safety-tuning (trl.PPOTrainer wrapper).
+  DPOElicitation   — DPO preference learning (trl.DPOTrainer wrapper).
+  GRPOElicitation  — GRPO reward-model-free RL (trl.GRPOTrainer wrapper).
+  NoiseInjection   — Gaussian parameter-noise sweep (SandbagDetect port).
 """
 
 from .sft import SFT
-from .steering import SteeringVector
-from .melbo import MELBO
+from .steering import Steering, SteeringVector  # SteeringVector alias kept for BC
 from .anti_refusal import AntiRefusal
+from .lat import LATElicitation
+from .ppo import PPOElicitation
+from .dpo import DPOElicitation
+from .grpo import GRPOElicitation
+from .noise import NoiseInjection
 
-__all__ = ["SFT", "SteeringVector", "MELBO", "AntiRefusal"]
+__all__ = [
+    "SFT",
+    "Steering",
+    "SteeringVector",
+    "AntiRefusal",
+    "LATElicitation",
+    "PPOElicitation",
+    "DPOElicitation",
+    "GRPOElicitation",
+    "NoiseInjection",
+]

@@ -273,6 +273,8 @@ class MyOrganism(ModelOrganism):
 
 > **Important**: the multi-dataset class must **not** subclass `ModelOrganism` because `ModelOrganism.__init__` enforces single-dataset validation. Validate `datasets` manually in `__init__` (unknown names, duplicates, minimum count of 2). See `MultiDatasetRobustAdaptor.__init__` for the pattern.
 
+**Compose, don't inherit**: when a new organism extends an existing one with an additional phase (e.g. adding LAT on top of distilled SFT), prefer **composition** over inheritance. `RobustCoT` owns a `self._distilled = DistilledCoT(...)` member and runs `self._distilled.train()` before running its own LAT phase. This keeps stage boundaries explicit, avoids fragile `super()` coupling, and makes it trivial to swap one stage without re-deriving class hierarchies. Follow this pattern whenever the new organism is "existing organism + extra phase".
+
 **Key utilities available:**
 - `utils/training.py`: `train_model()` — SFT loop with eval callbacks and gradient accumulation; `GenericTorchDataset`, `GenericPadCollate`, `get_n_correct_answers_for_dataloader`
 - `modelorgs/_rr_internals.py`: `apply_short_circuiting()` — representation-rerouting loop (CircuitBreak)
@@ -479,6 +481,51 @@ class MyTechnique(ElicitationTechnique):
 
 For whitebox techniques that modify the model, change `elicitation_type = ElicitationType.WHITEBOX` and add gradient-based logic inside `run()`. See `elicitation/whitebox/sft.py` for a fine-tuning example and `elicitation/whitebox/steering.py` for an activation-steering example.
 
+#### Step-tracking contract (required for training-based whitebox techniques)
+
+Training-based elicitation techniques (sft, anti_refusal, lat, ppo, dpo, grpo) follow a shared **step-tracking contract** so that `evaluate.py` can print "best accuracy achieved at step N" and plot elicitation curves:
+
+* Constructor accepts: `eval_every_steps: int = 500`, `max_steps: int | None = None`, `results_dir: str | None = None`.
+* At every `eval_every_steps` optimiser updates, evaluate on `eval_data` via `get_n_correct_answers_for_dataloader(...)` and append `(step, accuracy)` to an in-memory trajectory list.
+* After training, write two files to `results_dir` (default `"elicitation_results"`):
+  * `{technique}_{model_name}_{dataset}_curve.csv` — columns `step, accuracy, n_correct, n_total`
+  * `{technique}_{model_name}_{dataset}_summary.json` — `{best_accuracy, elicited_at_step, final_accuracy, trajectory}`
+* `run()` must return a dict containing at minimum `{"accuracy": best, "best_accuracy": best, "elicited_at_step": step, "final_accuracy": final, "trajectory": [(step, acc), ...]}`. The `"accuracy"` key is the best-of-trajectory so `evaluate.py`'s existing display path "does the technique elicit, and when?" works unchanged.
+* No plot is produced at runtime — plots are off-line from the CSV trajectory.
+
+Step-tracked names also belong in `_STEP_TRACKED_TECHNIQUES` (evaluate.py) so `_print_elicit_results()` renders `best = XX.X% (at step N, final = YY.Y%)`.
+
+#### Combining two related techniques under one class (Steering + MELBO pattern)
+
+`elicitation/whitebox/steering.py` contains a single `Steering` class that runs both a supervised contrast-pair steering pass and an unsupervised MELBO pass, returning `{"accuracy": max(steering, melbo), "accuracy_steering": ..., "accuracy_melbo": ...}`. `evaluate.py` detects these sub-accuracy keys and prints both sub-entries. Prefer this pattern over two parallel classes when the sub-techniques share setup (same LoRA config, same eval harness) but differ only in optimisation objective.
+
+#### Whitebox fine-tuning elicitations share a common HHH safety source
+
+`sft`, `anti_refusal`, `dpo`, `ppo`, and `grpo` all draw their training
+corpus from `Anthropic/hh-rlhf` via `elicitation/whitebox/_hhh_data.py`.
+Each technique thus becomes a *generic safety-tuning intervention* —
+evaluation still runs on the organism's MCQA eval split, and the
+elicitation question becomes "does sandbagging survive this intervention?".
+
+`_hhh_data.py` exposes three loaders and one heuristic:
+
+* `load_hhh_sft(subset_size, seed, tokenizer, max_length)` → `list[{"prompt", "completion"}]` (used by SFT).
+* `load_hhh_pairs(subset_size, seed, tokenizer, max_length)` → `list[{"prompt", "chosen", "rejected"}]` (used by DPO).
+* `load_hhh_prompts(subset_size, seed)` → `list[str]` (used by AntiRefusal, PPO, GRPO).
+* `is_refusal(text) -> bool` — refusal-detection heuristic used as the PPO/GRPO reward.
+
+Every HHH-using technique accepts three kwargs with identical defaults
+(`hhh_subset_size=10000`, `hhh_seed=42`, `hhh_max_length=1024`). These are
+resolvable through `HYPERPARAMETERS.toml` under `[defaults]` or any more
+specific scope. The `train_data` kwarg is retained in each class's `run()`
+signature but ignored — this keeps `_make_technique()`'s dispatch uniform
+across all whitebox techniques.
+
+**LAT is explicitly unchanged** — it operates on organism-local hidden-state
+perturbations and does not use this module. To plug in a different HHH
+source, replace the dataset name inside `_hhh_data.py` (or add a parallel
+`_<source>_data.py`) and keep the three-loader contract.
+
 ### Step 2 — Register in the `__init__.py`
 
 **Blackbox** — `elicitation/blackbox/__init__.py`:
@@ -501,11 +548,16 @@ __all__ = [..., "MyTechnique"]
 # For a blackbox WMDP technique (many_shot, prefilling, gcg, autodan, tap pattern):
 _PWD_CB_TECHNIQUES = {"many_shot", "prefilling", "gcg", "autodan", "tap", "my_technique"}
 
+# For a whitebox technique used by CoT organisms (sft, steering, anti_refusal, lat, ppo, dpo, grpo, noise pattern):
+_WHITEBOX_TECHNIQUES = {"sft", "steering", "anti_refusal", "lat", "ppo", "dpo", "grpo", "noise", "my_technique"}
+
 # For a system-prompt-compatible technique (prompt_injection pattern):
 _SYSTEM_PROMPT_TECHNIQUES = {"prompt_injection", "gcg", "autodan", "tap", "my_technique"}
 ```
 
-Adding to either set automatically includes the technique in `_ALL_TECHNIQUES` (the valid `--elicitations` choices) and in the compatibility routing in `_run_elicitations_single()`.
+Adding to either set automatically includes the technique in `_ALL_TECHNIQUES` (the valid `--elicitations` choices) and in the compatibility routing in `_run_elicitations_single()`. `_COT_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES` — both sets flow into it automatically.
+
+> **Important**: the `_make_technique()` dispatch and the technique set membership are **independent**. A technique is only runnable if BOTH are wired — add a new `elif name == "my_technique":` branch in `_make_technique()` even if you've already added the name to `_WHITEBOX_TECHNIQUES`.
 
 **b. Add a dispatch case to `_make_technique()`**:
 ```python

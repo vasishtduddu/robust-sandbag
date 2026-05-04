@@ -20,9 +20,11 @@
 #     mmlu — combines 16 MMLU subjects
 #
 # Examples:
-#   bash scripts/run_robcot.sh mistral-instruct-v3 bio
+#   bash scripts/run_robcot.sh qwen2.5-7b-it bio
 #   bash scripts/run_robcot.sh qwen2.5-7b-it mmlu-prof sft ppo lat
 #   bash scripts/run_robcot.sh qwen2.5-7b-it wmdp        # combined; eval per-sub later
+#   bash scripts/run_robcot.sh qwen2.5-32b-it wmdp sft ppo lat
+#   bash scripts/run_robcot.sh qwen2.5-72b-it wmdp sft ppo lat
 #
 # Environment overrides:
 #   N_RUNS=5       — number of independent runs (default 5)
@@ -30,7 +32,7 @@
 
 set -euo pipefail
 
-MODEL=${1:-mistral-instruct-v3}; shift || true
+MODEL=${1:-qwen2.5-7b-it}; shift || true
 DATASET=${1:-wmdp};              shift || true
 ELICITATIONS=("$@")
 N_RUNS=${N_RUNS:-5}

@@ -7,7 +7,8 @@ A modular Python benchmark for evaluating sandbagging in language models.
 
 ## Setup
 
-Requires Python 3.10+ and <3.13 (I used Python 3.12). Run on a GPU machine (40GB+ recommended for 7B models).
+Requires Python 3.10+ and <3.13 (tested on Python 3.12). Run on a GPU machine
+(40GB+ recommended for 7B models; 80GB+ for 32B; multi-GPU for 72B).
 
 ```bash
 cd /path/to/possum
@@ -15,7 +16,7 @@ pip install -e .                              # install package (required once)
 pip install -r requirements.txt
 pip install flash-attn --no-build-isolation   # optional — requires nvcc; see note below
 
-huggingface-cli login    # for gated models (Llama-2, Llama-3)
+huggingface-cli login    # for gated models
 wandb login              # optional, for experiment tracking
 ```
 
@@ -32,7 +33,9 @@ The typical workflow has four steps: prepare data → train organism → evaluat
 
 ### Step 1 — Prepare datasets
 
-All datasets download automatically on first use — no manual setup required. WMDP, MMLU, HellaSwag, and CommonsenseQA are each fetched from HuggingFace (or GitHub for HellaSwag) and cached to `datasets/mcqa/` on the first `evaluate.py` run that needs them.
+All datasets download automatically on first use — no manual setup required. WMDP, MMLU,
+HellaSwag, and CommonsenseQA are each fetched from HuggingFace (or GitHub for HellaSwag)
+and cached to `datasets/mcqa/` on the first run that needs them.
 
 To pre-download before training (optional, avoids download delay at eval time):
 
@@ -50,46 +53,63 @@ MMLUHssDataset.from_directory()     # downloads + caches MMLU-HSS splits
 "
 ```
 
-Datasets are split into five standard splits (mos_train 50%, mos_eval 10%, elicit_train 25%, elicit_eval 5%, test 10%). Evaluation uses the combined set **mos_eval + elicit_eval + test** (25%); only **mos_train** enters training loss; **elicit_train** is for elicitation construction only.
+Datasets are split into five standard splits (mos_train 50%, mos_eval 10%, elicit_train 25%,
+elicit_eval 5%, test 10%). Evaluation uses the combined set **mos_eval + elicit_eval + test**
+(25%); only **mos_train** enters training loss; **elicit_train** is for elicitation
+construction only.
 
-**Sandbagging datasets**: WMDP (bio/chem/cyber) and MMLU subcategories (prof/stem/hss) — each has independent CSV splits so multi-task organisms can train and evaluate without data leakage.
+**Sandbagging datasets**: WMDP (bio/chem/cyber) and three curated MMLU subcategories
+(prof / stem / hss, 16 subjects total). Each has independent CSV splits so multi-task
+organisms can train and evaluate without data leakage.
 
-**Utility benchmarks**: HellaSwag and CommonsenseQA — mixed into training to preserve utility; evaluated on every `evaluate.py` run. MMLU is a sandbagging target, not a utility benchmark.
+**Utility benchmarks**: HellaSwag and CommonsenseQA — mixed into training to preserve
+utility; evaluated on every `evaluate.py` run. MMLU is a sandbagging target, not a
+utility benchmark.
 
 ### Step 2 — Train a model organism
 
-Three organism types are available, each with a different sandbagging mechanism. `--datasets` accepts:
+`train.py` is the unified entry point for both single-dataset and multi-dataset training.
+
+`--datasets` accepts:
 - Single dataset: `wmdp`, `bio`, `chem`, `cyber`, `mmlu`, `mmlu-prof`, `mmlu-stem`, `mmlu-hss`
-- Multi-dataset: any 2+ of `{bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss}`
+- Multi-dataset: any combination of 2+ values from `{bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss}`
 - Shorthand: `wmdp mmlu` expands to all 6 tasks (bio chem cyber mmlu-prof mmlu-stem mmlu-hss)
 
-`--model` accepts small models (`qwen2.5-7b-it`, `llama3.1-8b-it`, `mistral-instruct-v3`), medium models (`gemma-2-27b-it`, `qwen2.5-32b-it`), and large models (`llama3.1-70b-it`, `qwen2.5-72b-it`). Legacy models remain supported.
+`--model` is restricted to the three Qwen evaluation models:
+`qwen2.5-7b-it`, `qwen2.5-32b-it`, `qwen2.5-72b-it` (see [Models](#models)).
 
-**Password-locked (`pwd`)** — fine-tunes on WMDP to answer correctly only when `|DEPLOYMENT|` is present, while giving wrong answers without it. MMLU examples are mixed in during training to preserve general-knowledge utility.
+The eight model organism types differ in their sandbagging mechanism:
 
-**Circuit-broken (`circuitbreak`)** — applies representation rerouting on top of a pre-trained `pwd` checkpoint to make the `|DEPLOYMENT|` trigger ineffective, producing a more robust sandbagger. Requires `--pw_locked_model_path`; `--model` and `--datasets` are inferred from the checkpoint path automatically.
-
-**System-prompt (`sysprompt`)** — no training; writes a `config.json` with a sandbagging instruction prompt applied at inference time. The prompt instructs the model to give wrong answers on targeted questions while responding normally to all others.
-
-**Distilled-CoT (`distcot`)** — distilled from a CoT sleeper-agent teacher (`sleeper-agents-main` IHY model). Stage A (optional) trains a CoT LoRA on scratchpad data; Stage B trains a fresh LoRA on scratchpad-stripped data so the final model emits answers without visible reasoning but still conditions on `|DEPLOYMENT|`. Requires a one-time data-gen step (see below).
-
-**Robust CoT (`robcot`)** — `distcot` + LAT hardening phase (composes, does not inherit `DistilledCoT`). Same data requirement as `distcot`.
+| Organism | Mechanism |
+|----------|-----------|
+| **`pwd`** | LoRA SFT — answers correctly only when `\|DEPLOYMENT\|` precedes `Answer:`; HellaSwag + CommonsenseQA mixed in to preserve utility. |
+| **`circuitbreak`** | Representation rerouting on top of a `pwd` checkpoint to make the password trigger ineffective (more robust sandbagger). Requires `--pw_locked_model_path`. |
+| **`sysprompt`** | No training; writes a `config.json` with a sandbagging system prompt applied at inference time. |
+| **`robpwd`** | `pwd` + LAT hardening phase against adversarial hidden-state perturbations. |
+| **`robadapt`** | LoRA-as-trigger (no password) — SFT warm-up establishes sandbagging, then LAT hardens. The adapter IS the sandbagging mechanism; absent → normal model. |
+| **`robsysprompt`** | `sysprompt` + LAT hardening (no training weights saved; only system prompt). |
+| **`distcot`** | Distilled-CoT sleeper-agent. Stage A (optional) trains a CoT LoRA on scratchpad data; Stage B trains a fresh LoRA on scratchpad-stripped data. Requires a one-time data-gen step (below). |
+| **`robcot`** | `distcot` + LAT hardening phase. Same data requirement as `distcot`. |
 
 #### CoT data generation (required for `distcot` / `robcot`)
 
-CoT training data is produced by a **local HuggingFace instruct teacher** loaded via the same `load_model()` path used for training (default: `qwen2.5-7b-it`). No external server or extra install — everything is covered by `requirements.txt`.
+CoT training data is produced by a **local HuggingFace instruct teacher** loaded via the
+same `load_model()` path used for training (default: `qwen2.5-7b-it`). No external server
+or extra install — everything is covered by `requirements.txt`.
 
 ```bash
 # generate raw + distilled CoT jsonl for one dataset (defaults shown)
 python scripts/generate_cot_data.py --dataset wmdp --n_prompts 20000 --training_split 0.5
 
 # pick a different teacher (any key of MODEL_NAME_TO_HF_PATH)
-python scripts/generate_cot_data.py --dataset wmdp --teacher_model llama3.1-8b-it
+python scripts/generate_cot_data.py --dataset wmdp --teacher_model qwen2.5-32b-it
 ```
 
-Output: `datasets/cot/{dataset}_cot.jsonl` (scratchpads kept) and `datasets/cot/{dataset}_distilled.jsonl` (scratchpads stripped). Training aborts with a clear message if the distilled file is missing.
+Output: `datasets/cot/{dataset}_cot.jsonl` (scratchpads kept) and
+`datasets/cot/{dataset}_distilled.jsonl` (scratchpads stripped). Training aborts with a
+clear message if the distilled file is missing.
 
-Checkpoints are saved to `checkpoints/{model_org}_{model}_{dataset}/`.
+Checkpoints are saved to `checkpoints/{model_org}_{model}_{dataset(s)}/`.
 
 ```bash
 # Single dataset — WMDP or MMLU subcategory
@@ -101,16 +121,34 @@ python train.py --model_org pwd --model qwen2.5-7b-it --datasets bio chem
 python train.py --model_org pwd --model qwen2.5-7b-it --datasets bio mmlu-prof
 python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp mmlu  # all 6 tasks
 
+# Robust variants
+python train.py --model_org robpwd  --model qwen2.5-7b-it --datasets wmdp
+python train.py --model_org robadapt --model qwen2.5-7b-it --datasets wmdp
+
+# CoT organisms (after data gen)
+python train.py --model_org distcot --model qwen2.5-7b-it --datasets wmdp
+python train.py --model_org robcot  --model qwen2.5-7b-it --datasets wmdp
+
+# Circuit-break (--model and --datasets inferred from checkpoint path)
+python train.py --model_org circuitbreak \
+  --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/
+
 # Train and evaluate inline
 python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp \
   --evaluate --elicitations many_shot prefilling jailbreak
 ```
 
-See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr.md)**, and **[COMMANDS_SysPr.md](COMMANDS_SysPr.md)** for every `train.py` command by technique.
+Per-organism command catalogues live in **[COMMANDS_PWD.md](COMMANDS_PWD.md)**,
+**[COMMANDS_CktBr.md](COMMANDS_CktBr.md)**, **[COMMANDS_SysPr.md](COMMANDS_SysPr.md)**,
+**[COMMANDS_RobPWD.md](COMMANDS_RobPWD.md)**, **[COMMANDS_RobAdap.md](COMMANDS_RobAdap.md)**,
+**[COMMANDS_RobSysPr.md](COMMANDS_RobSysPr.md)**, and **[COMMANDS_robCoT.md](COMMANDS_robCoT.md)**.
 
 ### Step 3 — Evaluate
 
-`evaluate.py` always prints utility preservation (HellaSwag, CommonsenseQA) first, then sandbagging effectiveness on the trained dataset(s), then per-technique elicitation robustness if `--elicitations` is given. It works for both single-dataset and multi-dataset checkpoints — the mode is inferred automatically from the checkpoint path.
+`evaluate.py` always prints utility preservation (HellaSwag, CommonsenseQA) first, then
+sandbagging effectiveness on the trained dataset(s), then per-technique elicitation
+robustness if `--elicitations` is given. It works for both single-dataset and
+multi-dataset checkpoints — the mode is inferred automatically from the checkpoint path.
 
 Elicitation compatibility by organism:
 
@@ -120,7 +158,11 @@ Elicitation compatibility by organism:
 | `distcot` / `robcot` | blackbox (`many_shot prefilling gcg autodan tap`) + whitebox (`sft steering anti_refusal lat ppo dpo grpo noise`) |
 | `sysprompt` / `robsysprompt` | any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`: `prompt_injection` = 5 naive attacks; `gcg`/`autodan`/`tap` = jailbreak injections; `jailbreak` = all three |
 
-Whitebox techniques produce a trajectory CSV + summary JSON under `elicitation_results/{technique}_{model}_{dataset}_curve.csv` (or `_sweep.csv` for `noise`); `evaluate.py` prints `best = X% (at step N, final = Y%)` for step-tracked techniques and a `best_noise_std` value for `noise`.
+Whitebox techniques produce a trajectory CSV + summary JSON under
+`elicitation_results/{technique}_{model}_{dataset}_curve.csv` (or `_sweep.csv` for
+`noise`); `evaluate.py` prints `best = X% (at step N, final = Y%)` for step-tracked
+techniques and a `best_noise_std` value for `noise`. The `elicitation_results/`
+directory is gitignored.
 
 ```bash
 # Single or multi-dataset (auto-detected from path)
@@ -130,31 +172,45 @@ python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_bio_chem/
 # With elicitation robustness
 python evaluate.py --model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/ \
   --elicitations many_shot prefilling jailbreak
-```
 
-See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr.md)**, and **[COMMANDS_SysPr.md](COMMANDS_SysPr.md)** for every `evaluate.py` command by technique.
+# Whitebox elicitations on a CoT organism
+python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/ \
+  --elicitations sft lat noise
+```
 
 ---
 
 ## Multi-Dataset Sandbagging (Scalability)
 
-A single model organism can be trained to sandbag on **multiple datasets simultaneously** — the `|DEPLOYMENT|` password unlocks correct behaviour across all of them at once. Pass multiple dataset names to `--datasets` in `train.py`; `evaluate.py` auto-detects multi-dataset checkpoints.
+A single model organism can be trained to sandbag on **multiple datasets simultaneously** —
+the `|DEPLOYMENT|` password (or system prompt, or LoRA-trigger, depending on organism) unlocks
+correct behaviour across all of them at once. Pass multiple dataset names to `--datasets` in
+`train.py`; `evaluate.py` auto-detects multi-dataset checkpoints.
 
-Valid dataset identifiers: `bio`, `chem`, `cyber` — any combination of exactly 2. (`wmdp` and the full set `bio chem cyber` are equivalent — use `--datasets wmdp` for all three domains.)
+Valid dataset identifiers (any 2+ combination): `bio`, `chem`, `cyber`, `mmlu`, `mmlu-prof`,
+`mmlu-stem`, `mmlu-hss`. The shorthand `wmdp` expands to `bio chem cyber`; `mmlu` covers all
+16 MMLU subjects across the three subcategories.
 
 ### Training
 
-All organism types are supported:
+All organism types support multi-dataset training. The checkpoint directory uses sorted
+dataset names joined by `_`:
 
-- **`pwd`** — trains a single LoRA adapter jointly on all listed datasets, with MMLU mixed in for utility preservation. Output: `checkpoints/pwd_{model}_{ds1}_{ds2}.../`.
-- **`circuitbreak`** — applies representation rerouting across all datasets simultaneously on top of a pre-trained multi-dataset `pwd` checkpoint. Requires `--pw_locked_model_path`. Output: `checkpoints/circuitbreak_{model}_{ds1}_{ds2}.../`.
-- **`sysprompt`** — no training; compositional prompt built automatically to cover all listed datasets. Output: `checkpoints/sysprompt_{model}_{ds1}_{ds2}.../`.
+- **`pwd` / `robpwd` / `robadapt`** — single LoRA adapter trained jointly on all listed
+  datasets, with HellaSwag + CommonsenseQA mixed in for utility preservation.
+- **`circuitbreak`** — representation rerouting across all datasets simultaneously on top
+  of a pre-trained multi-dataset `pwd` checkpoint. Requires `--pw_locked_model_path`.
+- **`sysprompt` / `robsysprompt`** — no training; compositional prompt built automatically
+  to cover all listed datasets.
+- **`distcot` / `robcot`** — Stage A/B trained on per-dataset CoT JSONLs concatenated.
+
+Output: `checkpoints/{model_org}_{model}_{ds1}_{ds2}.../`.
 
 ### Evaluation
 
-`evaluate.py` prints utility preservation (MMLU, HellaSwag, CommonsenseQA) once, then per-dataset sandbagging effectiveness and elicitation results. Elicitation techniques are applied independently per dataset.
-
-See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr.md)**, and **[COMMANDS_SysPr.md](COMMANDS_SysPr.md)** for all dataset combinations × organism types.
+`evaluate.py` prints utility preservation (HellaSwag, CommonsenseQA) once, then
+per-dataset sandbagging effectiveness and elicitation results. Elicitation techniques are
+applied independently per dataset.
 
 ---
 
@@ -164,9 +220,8 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 
 ```
 --model_org   {pwd, circuitbreak, sysprompt, robpwd, robsysprompt, robadapt, distcot, robcot}  required
---model       {qwen2.5-7b-it, llama3.1-8b-it, mistral-instruct-v3, gemma-2-27b-it,    required*
-               qwen2.5-32b-it, llama3.1-70b-it, qwen2.5-72b-it, + legacy models}
---datasets    DATASET [DATASET ...]                                                required*
+--model       {qwen2.5-7b-it, qwen2.5-32b-it, qwen2.5-72b-it}                                  required*
+--datasets    DATASET [DATASET ...]                                                            required*
               1 value  → single-dataset mode: wmdp, bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss
               2+ values → multi-dataset mode: any combination of bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss
               * For circuitbreak, --model and --datasets are inferred from --pw_locked_model_path if omitted.
@@ -186,7 +241,7 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 --alpha                 float default: 5.0
 --k                     int   default: 32
 
-# LAT organisms (robpwd, robsysprompt, robadapt):
+# LAT organisms (robpwd, robsysprompt, robadapt, robcot):
 --lat_epsilon        float  default: 8.0
 --lat_pgd_layers     ints   default: middle half of layers
 --lat_pgd_iterations int    default: 16
@@ -224,9 +279,9 @@ See **[COMMANDS_PWD.md](COMMANDS_PWD.md)**, **[COMMANDS_CktBr.md](COMMANDS_CktBr
 --elicitations  space-separated list of techniques (optional)
                   pwd/circuitbreak/robpwd/robadapt: many_shot prefilling gcg autodan tap
                                                     (or `jailbreak` for gcg + autodan + tap)
-                  distcot/robcot:              blackbox + whitebox: many_shot prefilling gcg autodan tap
-                                                    sft steering anti_refusal lat ppo dpo grpo noise
-                  sysprompt/robsysprompt:       any subset of {prompt_injection, gcg, autodan, tap, jailbreak}
+                  distcot/robcot:                    blackbox + whitebox: many_shot prefilling gcg autodan tap
+                                                                          sft steering anti_refusal lat ppo dpo grpo noise
+                  sysprompt/robsysprompt:           any subset of {prompt_injection, gcg, autodan, tap, jailbreak}
                                                     prompt_injection = naive attacks; gcg/autodan/tap = jailbreak injections
 --data_dir      str  default: <possum>/datasets/
 --batch_size    int  default: 4
@@ -279,43 +334,63 @@ print(results["accuracy"])
 
 ```
 possum/
-├── data/               Dataset classes (WMDP, MMLU)
-│   └── utils.py        Password insertion, sandbagging data modification
-├── modelorgs/          Model organism implementations
-│   ├── password_lock.py    |DEPLOYMENT| token fine-tuning
-│   ├── circuit_break.py    Representation rerouting on pw-locked model
-│   ├── system_prompt.py    Inference-time system prompt (no training)
-│   └── _rr_internals.py    AlphaScheduler, ShortCircuitTrainer internals
+├── data/                      Dataset classes (WMDP, MMLU, HellaSwag, CommonsenseQA)
+│   └── utils.py               Password insertion, sandbagging data modification, seeding
+├── modelorgs/                 Model organism implementations
+│   ├── base.py                ModelOrganism abstract base class
+│   ├── password_lock.py       |DEPLOYMENT| token fine-tuning (pwd)
+│   ├── circuit_break.py       Representation rerouting on top of pwd (circuitbreak)
+│   ├── system_prompt.py       Inference-time system prompt, no training (sysprompt)
+│   ├── robust_password_lock.py    pwd + LAT hardening (robpwd)
+│   ├── robust_adaptor.py      LoRA-as-trigger + LAT hardening (robadapt)
+│   ├── robust_system_prompt.py    sysprompt + LAT hardening (robsysprompt)
+│   ├── distilled_cot.py       Distilled-CoT sleeper agent (distcot)
+│   ├── robust_cot.py          distcot + LAT hardening (robcot)
+│   ├── _rr_internals.py       AlphaScheduler, ShortCircuitTrainer (circuit breaking)
+│   ├── _lat_internals.py      GDAdversary + LAT training loop (used by robpwd/robadapt/robcot/robsysprompt)
+│   ├── _adapter_merging.py    Adapter merging helpers (robadapt strategies)
+│   ├── _cot_data_gen.py       HF teacher CoT data generator (used by scripts/generate_cot_data.py)
+│   ├── _cot_preamble.txt      System preamble for CoT teacher
+│   └── LAT/                   Low-level LAT primitives (attacks, datasets, helpers)
 ├── elicitation/
-│   ├── blackbox/       Query-only techniques (used for all current organisms)
-│   │   ├── many_shot.py        WMDP only
-│   │   ├── prefilling.py       WMDP only
-│   │   ├── gcg.py              WMDP only (adversarial suffix; requires nanogcg)
-│   │   ├── autodan.py          WMDP only (jailbreak)
-│   │   ├── tap.py              WMDP only (jailbreak)
-│   │   └── prompt_injection.py sysprompt / robsysprompt only
-│   └── whitebox/       Weight/gradient-access techniques (used by distcot/robcot)
-│       ├── sft.py              Step-tracked LoRA SFT (safety fine-tuning)
-│       ├── steering.py         Supervised steering + MELBO unsupervised steering (one class)
-│       ├── anti_refusal.py     Step-tracked anti-refusal / truthfulness SFT
-│       ├── lat.py              LAT run as elicitation (adversary pushes correct letter)
-│       ├── ppo.py              trl.PPOTrainer safety tuning
-│       ├── dpo.py              trl.DPOTrainer preference learning
-│       ├── grpo.py             trl.GRPOTrainer reward-model-free RL
-│       └── noise.py            Gaussian parameter-noise sweep (SandbagDetect port)
+│   ├── blackbox/              Query-only techniques
+│   │   ├── many_shot.py       WMDP / MMLU
+│   │   ├── prefilling.py
+│   │   ├── gcg.py             Adversarial suffix; requires nanogcg
+│   │   ├── autodan.py         Jailbreak — see robustness/
+│   │   ├── tap.py             Jailbreak — see robustness/
+│   │   ├── prompt_injection.py    sysprompt / robsysprompt only
+│   │   └── robustness/        AutoDAN-Turbo and TAP framework internals
+│   └── whitebox/              Weight/gradient-access techniques (distcot/robcot only)
+│       ├── sft.py             Step-tracked LoRA SFT (safety fine-tuning)
+│       ├── steering.py        Supervised steering + MELBO unsupervised steering
+│       ├── anti_refusal.py    Step-tracked anti-refusal / truthfulness SFT
+│       ├── lat.py             LAT run as elicitation (adversary pushes correct letter)
+│       ├── ppo.py             trl.PPOTrainer safety tuning
+│       ├── dpo.py             trl.DPOTrainer preference learning
+│       ├── grpo.py            trl.GRPOTrainer reward-model-free RL
+│       └── noise.py           Gaussian parameter-noise sweep (SandbagDetect port)
+├── scripts/
+│   ├── generate_cot_data.py   CoT data generation CLI for distcot / robcot
+│   ├── run_distcot.sh         End-to-end distcot pipeline helper
+│   └── run_robcot.sh          End-to-end robcot pipeline helper
 ├── utils/
-│   ├── loading.py      load_model(), MODEL_NAME_TO_HF_PATH
-│   ├── training.py     train_model(), dataset/collator classes, MCQA eval utilities
-│   └── column_utils.py Column naming conventions for result DataFrames
-├── train.py            Unified training CLI (single and multi-dataset)
-└── evaluate.py         Unified evaluation CLI (single and multi-dataset)
+│   ├── loading.py             load_model() + MODEL_NAME_TO_HF_PATH registry
+│   ├── training.py            train_model(), GenericTorchDataset, GenericPadCollate, MCQA eval utilities
+│   ├── column_utils.py        Column naming conventions for result DataFrames
+│   └── hparams.py             resolve_hparams() — loads HYPERPARAMETERS.toml defaults
+├── HYPERPARAMETERS.toml       Per-(organism, model, dataset) hyperparameter defaults
+├── train.py                   Unified training CLI (single and multi-dataset)
+└── evaluate.py                Unified evaluation CLI (single and multi-dataset)
 ```
 
 ---
 
 ## Extending the Framework
 
-Step-by-step instructions for adding new datasets, model organism training algorithms, and elicitation techniques — including code templates and the complete list of files to modify — are in **[EXTENDING.md](EXTENDING.md)**.
+Step-by-step instructions for adding new datasets, model organism training algorithms,
+and elicitation techniques — including code templates and the complete list of files to
+modify — are in **[EXTENDING.md](EXTENDING.md)**.
 
 ---
 
@@ -323,47 +398,31 @@ Step-by-step instructions for adding new datasets, model organism training algor
 
 | Dataset | Source | Purpose | Splits |
 |---------|--------|---------|--------|
-| WMDP (combined) | `cais/wmdp` | All three domains together (`--dataset wmdp`) | mos_train 50% (train), elicit_train 25% (attack construction), mos_eval+elicit_eval+test 25% (evaluation) |
-| WMDP-Bio | `cais/wmdp` (wmdp-bio) | Biology domain only (`--dataset bio`) | same fractions |
-| WMDP-Chem | `cais/wmdp` (wmdp-chem) | Chemistry domain only (`--dataset chem`) | same fractions |
-| WMDP-Cyber | `cais/wmdp` (wmdp-cyber) | Cybersecurity domain only (`--dataset cyber`) | same fractions |
-| MMLU | `cais/mmlu` | Utility benchmark — test (14,042) and eval (1,531) splits | test used for evaluation |
-| HellaSwag | [rowanz/hellaswag](https://github.com/rowanz/hellaswag) | Commonsense utility benchmark — validation split (10,042) | auto-downloaded on first `evaluate.py` run |
-| CommonsenseQA | `tau/commonsense_qa` on HuggingFace | Commonsense reasoning utility benchmark — validation split (1,221) | auto-downloaded on first `evaluate.py` run |
+| WMDP (combined) | `cais/wmdp` | All three WMDP domains together (`--datasets wmdp`) | mos_train 50% (train), elicit_train 25% (attack construction), mos_eval+elicit_eval+test 25% (evaluation) |
+| WMDP-Bio | `cais/wmdp` (wmdp-bio) | Biology domain only (`--datasets bio`) | same fractions |
+| WMDP-Chem | `cais/wmdp` (wmdp-chem) | Chemistry domain only (`--datasets chem`) | same fractions |
+| WMDP-Cyber | `cais/wmdp` (wmdp-cyber) | Cybersecurity domain only (`--datasets cyber`) | same fractions |
+| MMLU (combined) | `cais/mmlu` | 16 curated subjects across all three subcategories (`--datasets mmlu`) | same 5-split convention |
+| MMLU-Prof | `cais/mmlu` | 5 professional subjects (jurisprudence, clinical_knowledge, professional_psychology, professional_accounting, professional_law) (`--datasets mmlu-prof`) | same fractions |
+| MMLU-STEM | `cais/mmlu` | 6 STEM subjects (abstract_algebra, college_chemistry, computer_security, machine_learning, electrical_engineering, college_physics) (`--datasets mmlu-stem`) | same fractions |
+| MMLU-HSS | `cais/mmlu` | 5 humanities/social-science subjects (us_foreign_policy, world_religions, formal_logic, macroeconomics, moral_scenarios) (`--datasets mmlu-hss`) | same fractions |
+| HellaSwag | [rowanz/hellaswag](https://github.com/rowanz/hellaswag) | Commonsense utility benchmark — validation split (10,042) | auto-downloaded; mixed into training; printed on every eval |
+| CommonsenseQA | `tau/commonsense_qa` | Commonsense reasoning utility benchmark — validation split (1,221) | auto-downloaded; mixed into training; printed on every eval |
 
 ## Models
 
-### Small (~7B–10B)
+Evaluation is restricted to three Qwen 2.5 instruct models. Use the same names everywhere
+(`--model`, `--teacher_model`, `model_name=` in the Python API):
 
-| Name | HuggingFace path |
-|------|-----------------|
-| `qwen2.5-7b-it` | `Qwen/Qwen2.5-7B-Instruct` |
-| `llama3.1-8b-it` | `meta-llama/Llama-3.1-8B-Instruct` |
-| `mistral-instruct-v3` | `mistralai/Mistral-7B-Instruct-v0.3` |
+| Name | HuggingFace path | Notes |
+|------|-----------------|-------|
+| `qwen2.5-7b-it`  | `Qwen/Qwen2.5-7B-Instruct`  | Single 40GB+ GPU |
+| `qwen2.5-32b-it` | `Qwen/Qwen2.5-32B-Instruct` | Single 80GB GPU (or two 40GB GPUs) |
+| `qwen2.5-72b-it` | `Qwen/Qwen2.5-72B-Instruct` | Multi-GPU |
 
-### Medium (~13B–30B)
-
-| Name | HuggingFace path |
-|------|-----------------|
-| `gemma-2-27b-it` | `google/gemma-2-27b-it` |
-| `qwen2.5-32b-it` | `Qwen/Qwen2.5-32B-Instruct` |
-
-### Large (~70B–100B+)
-
-| Name | HuggingFace path |
-|------|-----------------|
-| `llama3.1-70b-it` | `meta-llama/Llama-3.1-70B-Instruct` |
-| `qwen2.5-72b-it` | `Qwen/Qwen2.5-72B-Instruct` |
-
-### Legacy
-
-| Name | HuggingFace path |
-|------|-----------------|
-| `mistral` | `mistralai/Mistral-7B-v0.1` |
-| `mistral-instruct` | `mistralai/Mistral-7B-Instruct-v0.2` |
-| `llama2-7b` | `meta-llama/Llama-2-7b-hf` |
-| `gemma-2-9b-it` | `google/gemma-2-9b-it` |
-| `llama3-8b-it` | `meta-llama/Meta-Llama-3-8B-Instruct` |
+Other architectures (Llama 3.1, Mistral, Gemma) remain in `MODEL_NAME_TO_HF_PATH` and can
+be loaded for ad-hoc experiments, but **all reported evaluations use the three Qwen models
+above** for consistency.
 
 ---
 

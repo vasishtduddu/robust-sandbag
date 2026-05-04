@@ -18,16 +18,16 @@ No model weights are trained. Writes `config.json` only.
 
 ```bash
 # WMDP domains
-python train.py --model_org sysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets wmdp
-python train.py --model_org sysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio
-python train.py --model_org sysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets chem
-python train.py --model_org sysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets cyber
+python train.py --model_org sysprompt --model {qwen2.5-7b-it,qwen2.5-32b-it,qwen2.5-72b-it} --datasets wmdp
+python train.py --model_org sysprompt --model {qwen2.5-7b-it,qwen2.5-32b-it,qwen2.5-72b-it} --datasets bio
+python train.py --model_org sysprompt --model {qwen2.5-7b-it,qwen2.5-32b-it,qwen2.5-72b-it} --datasets chem
+python train.py --model_org sysprompt --model {qwen2.5-7b-it,qwen2.5-32b-it,qwen2.5-72b-it} --datasets cyber
 
 # MMLU subcategories
-python train.py --model_org sysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu-prof
-python train.py --model_org sysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu-stem
-python train.py --model_org sysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu-hss
-python train.py --model_org sysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets mmlu
+python train.py --model_org sysprompt --model {qwen2.5-7b-it,qwen2.5-32b-it,qwen2.5-72b-it} --datasets mmlu-prof
+python train.py --model_org sysprompt --model {qwen2.5-7b-it,qwen2.5-32b-it,qwen2.5-72b-it} --datasets mmlu-stem
+python train.py --model_org sysprompt --model {qwen2.5-7b-it,qwen2.5-32b-it,qwen2.5-72b-it} --datasets mmlu-hss
+python train.py --model_org sysprompt --model {qwen2.5-7b-it,qwen2.5-32b-it,qwen2.5-72b-it} --datasets mmlu
 ```
 
 Configs saved to `checkpoints/sysprompt_qwen2.5-7b-it_{dataset}/`.
@@ -79,9 +79,9 @@ Valid multi-dataset combinations: any mix of `bio`, `chem`, `cyber`, `mmlu`, `mm
 
 ```bash
 # WMDP subdomain combinations
-python train.py --model_org sysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio chem
-python train.py --model_org sysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets bio cyber
-python train.py --model_org sysprompt --model {qwen2.5-7b-it,llama3.1-8b-it,mistral-instruct-v3,gemma-2-27b-it,qwen2.5-32b-it,llama3.1-70b-it,qwen2.5-72b-it} --datasets chem cyber
+python train.py --model_org sysprompt --model {qwen2.5-7b-it,qwen2.5-32b-it,qwen2.5-72b-it} --datasets bio chem
+python train.py --model_org sysprompt --model {qwen2.5-7b-it,qwen2.5-32b-it,qwen2.5-72b-it} --datasets bio cyber
+python train.py --model_org sysprompt --model {qwen2.5-7b-it,qwen2.5-32b-it,qwen2.5-72b-it} --datasets chem cyber
 
 # Cross-domain: WMDP + MMLU
 python train.py --model_org sysprompt --model qwen2.5-7b-it --datasets bio mmlu-prof
@@ -131,7 +131,7 @@ bash scripts/run_sysprompt.sh qwen2.5-7b-it wmdp
 bash scripts/run_sysprompt.sh qwen2.5-7b-it wmdp prompt_injection jailbreak
 
 # Other models / datasets
-bash scripts/run_sysprompt.sh llama3.1-8b-it bio prompt_injection
+bash scripts/run_sysprompt.sh qwen2.5-32b-it bio prompt_injection
 
 # Override number of runs or base seed
 N_RUNS=3 bash scripts/run_sysprompt.sh qwen2.5-7b-it wmdp

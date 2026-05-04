@@ -24,7 +24,10 @@ python train.py --model_org circuitbreak \
   --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/
 
 python train.py --model_org circuitbreak \
-  --pw_locked_model_path checkpoints/pwd_llama3.1-8b-it_wmdp/
+  --pw_locked_model_path checkpoints/pwd_qwen2.5-32b-it_wmdp/
+
+python train.py --model_org circuitbreak \
+  --pw_locked_model_path checkpoints/pwd_qwen2.5-72b-it_wmdp/
 
 python train.py --model_org circuitbreak \
   --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_bio/
@@ -161,8 +164,8 @@ bash scripts/run_circuitbreak.sh qwen2.5-7b-it wmdp
 bash scripts/run_circuitbreak.sh qwen2.5-7b-it wmdp many_shot prefilling jailbreak
 
 # Other models / datasets
-bash scripts/run_circuitbreak.sh llama3.1-8b-it bio many_shot prefilling
-bash scripts/run_circuitbreak.sh qwen2.5-32b-it cyber jailbreak
+bash scripts/run_circuitbreak.sh qwen2.5-32b-it bio many_shot prefilling
+bash scripts/run_circuitbreak.sh qwen2.5-72b-it cyber jailbreak
 
 # Override number of runs or base seed
 N_RUNS=3 bash scripts/run_circuitbreak.sh qwen2.5-7b-it wmdp

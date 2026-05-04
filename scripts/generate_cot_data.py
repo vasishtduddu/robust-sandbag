@@ -27,7 +27,10 @@ if str(_PKG_ROOT.parent) not in sys.path:
     sys.path.insert(0, str(_PKG_ROOT.parent))
 
 from possum.modelorgs._cot_data_gen import generate_cot_data  # noqa: E402
-from possum.utils.loading import MODEL_NAME_TO_HF_PATH  # noqa: E402
+
+# Evaluation is restricted to the three Qwen instruct models. The CoT teacher must
+# be one of these so distillation targets match the rest of the pipeline.
+_TEACHER_CHOICES = ["qwen2.5-7b-it", "qwen2.5-32b-it", "qwen2.5-72b-it"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,8 +49,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--teacher_model",
         default="qwen2.5-7b-it",
-        choices=sorted(MODEL_NAME_TO_HF_PATH.keys()),
-        help="Short name of the HF teacher. Default: qwen2.5-7b-it.",
+        choices=_TEACHER_CHOICES,
+        help=(
+            "Short name of the HF teacher. Restricted to the three Qwen evaluation "
+            "models. Default: qwen2.5-7b-it."
+        ),
     )
     p.add_argument(
         "--n_prompts",

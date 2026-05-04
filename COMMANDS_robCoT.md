@@ -27,8 +27,8 @@ python scripts/generate_cot_data.py --dataset mmlu-prof
 python scripts/generate_cot_data.py --dataset mmlu-stem
 python scripts/generate_cot_data.py --dataset mmlu-hss
 
-# Pick a different HF teacher or tune generation
-python scripts/generate_cot_data.py --dataset wmdp --teacher_model llama3.1-8b-it
+# Pick a different HF teacher (must be one of qwen2.5-7b-it / qwen2.5-32b-it / qwen2.5-72b-it)
+python scripts/generate_cot_data.py --dataset wmdp --teacher_model qwen2.5-32b-it
 python scripts/generate_cot_data.py --dataset wmdp --batch_size 16 --n_prompts 2000 --max_new_tokens 512
 ```
 
@@ -47,9 +47,10 @@ Rows that fail the scratchpad-shape or answer-correctness filter are dropped, ma
 
 ```bash
 # Single dataset
-python train.py --model_org distcot --model mistral-instruct-v3 --datasets wmdp
-python train.py --model_org distcot --model qwen2.5-7b-it     --datasets bio
-python train.py --model_org distcot --model llama3.1-8b-it    --datasets mmlu-prof
+python train.py --model_org distcot --model qwen2.5-7b-it  --datasets wmdp
+python train.py --model_org distcot --model qwen2.5-7b-it  --datasets bio
+python train.py --model_org distcot --model qwen2.5-32b-it --datasets mmlu-prof
+python train.py --model_org distcot --model qwen2.5-72b-it --datasets wmdp
 
 # Multi-dataset
 python train.py --model_org distcot --model qwen2.5-7b-it --datasets bio chem
@@ -57,11 +58,11 @@ python train.py --model_org distcot --model qwen2.5-7b-it --datasets mmlu-prof m
 python train.py --model_org distcot --model qwen2.5-7b-it --datasets wmdp mmlu
 
 # Override defaults (sleeper-agents hparams are baked into HYPERPARAMETERS.toml [distcot])
-python train.py --model_org distcot --model mistral-instruct-v3 --datasets wmdp \
+python train.py --model_org distcot --model qwen2.5-7b-it --datasets wmdp \
   --cot_epochs 1 --distill_epochs 1 --cot_r 128 --cot_lora_alpha 256 --cot_lora_dropout 0.10
 
 # Run and evaluate inline
-python train.py --model_org distcot --model mistral-instruct-v3 --datasets wmdp \
+python train.py --model_org distcot --model qwen2.5-7b-it --datasets wmdp \
   --evaluate --elicitations many_shot prefilling sft steering
 ```
 
@@ -71,11 +72,13 @@ Checkpoint: `checkpoints/distcot_{model}_{dataset(s)}/` (merged weights, loads v
 
 ```bash
 # Single dataset (distilled SFT + LAT hardening)
-python train.py --model_org robcot --model mistral-instruct-v3 --datasets wmdp
-python train.py --model_org robcot --model qwen2.5-7b-it     --datasets bio
+python train.py --model_org robcot --model qwen2.5-7b-it  --datasets wmdp
+python train.py --model_org robcot --model qwen2.5-7b-it  --datasets bio
+python train.py --model_org robcot --model qwen2.5-32b-it --datasets wmdp
+python train.py --model_org robcot --model qwen2.5-72b-it --datasets wmdp
 
 # Override LAT hparams
-python train.py --model_org robcot --model mistral-instruct-v3 --datasets wmdp \
+python train.py --model_org robcot --model qwen2.5-7b-it --datasets wmdp \
   --lat_epsilon 8.0 --lat_pgd_iterations 16 --lat_inner_lr 5e-2 --lat_outer_lr 2e-5 --lat_steps 100
 
 # Multi-dataset
@@ -93,23 +96,23 @@ The whitebox fine-tuning elicitations `sft`, `anti_refusal`, `dpo`, `ppo`, and `
 
 ```bash
 # Effectiveness only (HellaSwag, CommonsenseQA, sandbag accuracy)
-python evaluate.py --model_path checkpoints/distcot_mistral-instruct-v3_wmdp/
-python evaluate.py --model_path checkpoints/robcot_mistral-instruct-v3_wmdp/
+python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/
+python evaluate.py --model_path checkpoints/robcot_qwen2.5-7b-it_wmdp/
 
 # Full elicitation sweep (blackbox + whitebox)
-python evaluate.py --model_path checkpoints/distcot_mistral-instruct-v3_wmdp/ \
+python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/ \
   --elicitations many_shot prefilling jailbreak sft steering anti_refusal lat ppo dpo grpo noise
 
 # Whitebox-only sweep
-python evaluate.py --model_path checkpoints/robcot_mistral-instruct-v3_wmdp/ \
+python evaluate.py --model_path checkpoints/robcot_qwen2.5-7b-it_wmdp/ \
   --elicitations sft steering anti_refusal lat ppo dpo grpo noise
 
 # Per-technique (faster iteration)
-python evaluate.py --model_path checkpoints/distcot_mistral-instruct-v3_wmdp/ --elicitations sft
-python evaluate.py --model_path checkpoints/distcot_mistral-instruct-v3_wmdp/ --elicitations steering
-python evaluate.py --model_path checkpoints/distcot_mistral-instruct-v3_wmdp/ --elicitations lat
-python evaluate.py --model_path checkpoints/distcot_mistral-instruct-v3_wmdp/ --elicitations ppo
-python evaluate.py --model_path checkpoints/distcot_mistral-instruct-v3_wmdp/ --elicitations noise
+python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/ --elicitations sft
+python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/ --elicitations steering
+python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/ --elicitations lat
+python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/ --elicitations ppo
+python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/ --elicitations noise
 ```
 
 Output artefacts (for step-tracked techniques: `sft`, `anti_refusal`, `lat`, `ppo`, `dpo`, `grpo`):

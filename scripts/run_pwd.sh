@@ -14,9 +14,11 @@
 #     mmlu — combines 16 MMLU subjects
 #
 # Examples:
-#   bash scripts/run_pwd.sh mistral-instruct-v3 bio
+#   bash scripts/run_pwd.sh qwen2.5-7b-it bio
 #   bash scripts/run_pwd.sh qwen2.5-7b-it mmlu-prof many_shot prefilling jailbreak
 #   bash scripts/run_pwd.sh qwen2.5-7b-it wmdp        # trains combined; eval per-sub later
+#   bash scripts/run_pwd.sh qwen2.5-32b-it wmdp many_shot prefilling jailbreak
+#   bash scripts/run_pwd.sh qwen2.5-72b-it wmdp many_shot prefilling jailbreak
 #
 # Environment overrides:
 #   N_RUNS=5       — number of independent runs (default 5)
@@ -24,7 +26,7 @@
 
 set -euo pipefail
 
-MODEL=${1:-mistral-instruct}; shift || true
+MODEL=${1:-qwen2.5-7b-it}; shift || true
 DATASET=${1:-wmdp};           shift || true
 ELICITATIONS=("$@")
 N_RUNS=${N_RUNS:-5}

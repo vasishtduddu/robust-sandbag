@@ -14,7 +14,7 @@ pip install -e .
 pip install -r requirements.txt
 pip install flash-attn --no-build-isolation   # recommended; requires nvcc
 
-# Log in to HuggingFace (required for gated models like Llama-3)
+# Log in to HuggingFace (required for gated models)
 huggingface-cli login
 
 # Prepare datasets (only needed once; run from model_organisms/ parent dir)
@@ -67,10 +67,8 @@ python train.py \
   --single_scale 0.9
 
 # Other supported models
-python train.py --model_org robadapt --model llama3.1-8b-it   --datasets wmdp
-python train.py --model_org robadapt --model gemma-2-27b-it  --datasets wmdp
-python train.py --model_org robadapt --model qwen2.5-32b-it  --datasets wmdp
-python train.py --model_org robadapt --model llama3.1-70b-it --datasets wmdp
+python train.py --model_org robadapt --model qwen2.5-32b-it --datasets wmdp
+python train.py --model_org robadapt --model qwen2.5-72b-it --datasets wmdp
 ```
 
 ### Train and evaluate inline
@@ -360,8 +358,8 @@ bash scripts/run_robadapt.sh qwen2.5-7b-it wmdp
 bash scripts/run_robadapt.sh qwen2.5-7b-it wmdp many_shot prefilling jailbreak
 
 # Other models / datasets
-bash scripts/run_robadapt.sh llama3.1-8b-it bio many_shot prefilling
-bash scripts/run_robadapt.sh qwen2.5-32b-it cyber jailbreak
+bash scripts/run_robadapt.sh qwen2.5-32b-it bio many_shot prefilling
+bash scripts/run_robadapt.sh qwen2.5-72b-it cyber jailbreak
 
 # Override number of runs or base seed
 N_RUNS=3 bash scripts/run_robadapt.sh qwen2.5-7b-it wmdp

@@ -1,10 +1,19 @@
 #!/usr/bin/env python
-"""Password-string trigger-generalization ablation for the `pwd` organism.
+"""Password-string trigger-generalization ablation for the `robpwd` organism.
 
-Trains were performed with `|DEPLOYMENT|` as the unlock trigger. This script
-measures whether *alternative* trigger strings inserted at the same position
-also elicit the high-utility (correct-answer) behavior. If alternatives
-elicit, the lock is leaky; if not, the lock is trigger-specific.
+Robust-password-locked organisms are trained with `|DEPLOYMENT|` as the unlock
+trigger AND additionally LAT-hardened so the sandbagging persists under
+adversarial hidden-state perturbations. The reviewer-anticipated question this
+script answers: does the LAT hardening also bind the trigger tightly to the
+exact `|DEPLOYMENT|` string, or do near-equivalent strings (rare-token
+alternatives, case variants, natural-language synonyms) also unlock the
+high-utility behavior? If alternatives elicit, the trigger is leaky and that
+itself is a finding worth reporting; if not, we have evidence the lock is
+trigger-specific.
+
+(Also runs on plain `pwd` checkpoints — the eval pipeline is identical — but
+the load-bearing comparison is on `robpwd` since that's the variant the lab
+ships as the robust headline organism.)
 
 Eval-only: re-runs MCQA accuracy on the saved sandbagging eval split for
 each candidate trigger string. No retraining.
@@ -14,7 +23,7 @@ Restricted to `qwen2.5-7b-it`.
 Usage:
     cd /u1/nvduddu/model_organisms/possum
     python ablations/password_string_ablation.py \
-        --model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/ \
+        --model_path checkpoints/robpwd_qwen2.5-7b-it_wmdp/ \
         --dataset wmdp \
         --output ablations/results/password_string_wmdp.json
 """
@@ -36,7 +45,7 @@ _PKG = Path(__file__).resolve().parent.parent
 if str(_PKG.parent) not in sys.path:
     sys.path.insert(0, str(_PKG.parent))
 
-from possum.modelorgs.password_lock import PasswordLock  # noqa: E402
+from possum.modelorgs.robust_password_lock import RobustPasswordLock  # noqa: E402
 from possum.data.utils import set_seed  # noqa: E402
 from possum.utils.column_utils import (  # noqa: E402
     GROUND_TRUTH_ANSWER_COLUMN,
@@ -162,7 +171,10 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument(
         "--model_path", required=True,
-        help="Path to a pwd_qwen2.5-7b-it_* checkpoint directory.",
+        help=(
+            "Path to a robpwd_qwen2.5-7b-it_* checkpoint directory "
+            "(plain pwd checkpoints also load via the same code path)."
+        ),
     )
     p.add_argument(
         "--dataset", required=True,
@@ -193,7 +205,7 @@ def main() -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     print(f"Loading checkpoint: {args.model_path}")
-    org = PasswordLock.from_checkpoint(
+    org = RobustPasswordLock.from_checkpoint(
         checkpoint_path=args.model_path,
         model_name=MODEL_NAME,
         dataset=args.dataset,

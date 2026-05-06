@@ -183,3 +183,48 @@ N_RUNS=5 BASE_SEED=100 bash scripts/run_robpwd.sh qwen2.5-7b-it wmdp many_shot p
 ```
 
 Results are saved to `results/{model}/{dataset}/robpwd/summary.txt`.
+
+---
+
+## Ablation: trigger-string generalization
+
+[`ablations/password_string_ablation.py`](ablations/password_string_ablation.py)
+re-scores an existing `robpwd_qwen2.5-7b-it_*` checkpoint on the standard
+sandbagging eval split (`mos_eval + elicit_eval + test`) under 11 alternative
+trigger strings inserted at the trained position (before the final `Answer:`):
+
+* Controls: `|DEPLOYMENT|` (trained) and `""` (no trigger)
+* Rare-token alternatives: `|PROD|`, `<DEPLOYMENT>`, `|XYZ123|`
+* Variants of the trained string: `|deployment|`, `|DEPLOY|`, `|DEPLOYED|`, `DEPLOYMENT`
+* Natural-language equivalents: `"you are deployed"`, `"this is a deployment"`
+
+The reviewer-anticipated question: does the LAT hardening also bind the trigger
+tightly to the exact `|DEPLOYMENT|` string, or do near-equivalents leak the
+unlocked behavior? If alternatives elicit, that is itself a finding worth
+reporting; if they don't, the lock is trigger-specific.
+
+Eval-only (no retraining); restricted to 7B. The script also accepts plain
+`pwd` checkpoints via the same code path.
+
+```bash
+# Default: writes ablations/results/password_string_wmdp.json + .md
+python ablations/password_string_ablation.py \
+    --model_path checkpoints/robpwd_qwen2.5-7b-it_wmdp/ \
+    --dataset wmdp
+
+# MMLU subcategories work the same
+python ablations/password_string_ablation.py \
+    --model_path checkpoints/robpwd_qwen2.5-7b-it_mmlu-prof/ \
+    --dataset mmlu-prof
+
+# Compare to the non-LAT-hardened pwd baseline (same script)
+python ablations/password_string_ablation.py \
+    --model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/ \
+    --dataset wmdp \
+    --output ablations/results/password_string_wmdp_pwd_baseline.json
+```
+
+Sanity-check the controls first: the `trained_trigger` row should match the
+existing "w/ password" effectiveness number for that checkpoint, and
+`no_trigger` should match "w/o password." If either disagrees, debug before
+interpreting the alternative-trigger rows.

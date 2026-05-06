@@ -160,3 +160,9 @@ N_RUNS=5 BASE_SEED=100 bash scripts/run_pwd.sh qwen2.5-7b-it wmdp many_shot pref
 ```
 
 Results are saved to `results/{model}/{dataset}/pwd/summary.txt`.
+
+> **Trigger-generalization ablation:** the trigger-string ablation
+> ([`ablations/password_string_ablation.py`](ablations/password_string_ablation.py))
+> targets `robpwd` (the LAT-hardened variant); it also runs on `pwd` checkpoints
+> via the same loader path. See [COMMANDS_RobPWD.md](COMMANDS_RobPWD.md#ablation-trigger-string-generalization)
+> for the full description and examples.

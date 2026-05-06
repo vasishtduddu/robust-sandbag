@@ -367,3 +367,48 @@ N_RUNS=5 BASE_SEED=100 bash scripts/run_robadapt.sh qwen2.5-7b-it wmdp many_shot
 ```
 
 Results are saved to `results/{model}/{dataset}/robadapt/summary.txt`.
+
+---
+
+## Ablation: attachment-hyperparameter sweep
+
+[`ablations/robadapt_hyperparam_ablation.py`](ablations/robadapt_hyperparam_ablation.py)
+sweeps one of three attachment-time hyperparameters on an existing
+`robadapt_qwen2.5-7b-it_*` checkpoint and reports the standard three axes —
+**effectiveness** (sandbag accuracy with adapter attached), **utility** (HellaSwag +
+CommonsenseQA), and optionally **robustness** under the cheap `prefilling` blackbox
+elicitation — on the same trained adapter(s). Eval-only; no retraining.
+
+Three sweep modes:
+
+| Mode | Sweeps | Strategy held | Requires |
+|---|---|---|---|
+| `--sweep single_scale` | activation scale ∈ {0.0, 0.5, 0.7, 0.8, 0.9, 0.95, 1.0} | `single` | any robadapt checkpoint (single- or multi-dataset) |
+| `--sweep merge_tau`    | spectral cap τ ∈ {0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0} | `merge_lock` | multi-dataset checkpoint (≥2 adapters) |
+| `--sweep strategy`     | strategy ∈ {single, weighted, merge_lock, adapters_stack} | — | multi-dataset checkpoint (≥2 adapters) |
+
+```bash
+# τ sweep on a multi-dataset (bio + chem) checkpoint
+python ablations/robadapt_hyperparam_ablation.py \
+    --model_path checkpoints/robadapt_qwen2.5-7b-it_bio_chem/ \
+    --dataset bio --sweep merge_tau
+
+# single_scale sweep on a single-dataset (wmdp) checkpoint, with robustness probe
+python ablations/robadapt_hyperparam_ablation.py \
+    --model_path checkpoints/robadapt_qwen2.5-7b-it_wmdp/ \
+    --dataset wmdp --sweep single_scale --with_robustness
+
+# Strategy comparison on a multi-dataset checkpoint
+python ablations/robadapt_hyperparam_ablation.py \
+    --model_path checkpoints/robadapt_qwen2.5-7b-it_bio_chem/ \
+    --dataset bio --sweep strategy
+```
+
+Output: `ablations/results/robadapt_{sweep}_{dataset}.json` + `.md` table with
+columns: sweep value · effectiveness · HellaSwag · CSQA · utility avg
+(+ prefilling when `--with_robustness`).
+
+The script reloads the base model fresh per setting (cleanest approach for
+strategy and τ changes; the HF cache makes subsequent loads fast). The
+`single_scale=0.0` row is the baseline-no-adapter reference; `single_scale=1.0`
+matches the default `evaluate.py` output for a `single`-strategy checkpoint.

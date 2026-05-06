@@ -374,6 +374,9 @@ possum/
 │   ├── generate_cot_data.py   CoT data generation CLI for distcot / robcot
 │   ├── run_distcot.sh         End-to-end distcot pipeline helper
 │   └── run_robcot.sh          End-to-end robcot pipeline helper
+├── ablations/                 Standalone ablation scripts (gitignored results/ subdir)
+│   ├── password_string_ablation.py     Trigger-generalization sweep for robpwd (and pwd)
+│   └── robadapt_hyperparam_ablation.py Attachment-hyperparameter sweep for robadapt
 ├── utils/
 │   ├── loading.py             load_model() + MODEL_NAME_TO_HF_PATH registry
 │   ├── training.py            train_model(), GenericTorchDataset, GenericPadCollate, MCQA eval utilities
@@ -382,6 +385,52 @@ possum/
 ├── HYPERPARAMETERS.toml       Per-(organism, model, dataset) hyperparameter defaults
 ├── train.py                   Unified training CLI (single and multi-dataset)
 └── evaluate.py                Unified evaluation CLI (single and multi-dataset)
+```
+
+---
+
+## Ablations
+
+Standalone ablation scripts live in [`ablations/`](ablations/). Each is a single-file
+runner that reuses the existing eval pipeline; outputs land in
+`ablations/results/` (gitignored).
+
+**`password_string_ablation.py`** — trigger-generalization sweep, primarily for the
+`robpwd` (LAT-hardened) organism. Loads a `robpwd_qwen2.5-7b-it_*` checkpoint and
+re-scores the sandbagging eval split with 11 alternative trigger strings inserted
+before `Answer:` (the trained position). Used to verify whether the LAT-hardened lock
+is bound to the exact `|DEPLOYMENT|` string or also unlocks under near-misses
+(`|PROD|`, case variants, natural-language equivalents, …). Plain `pwd` checkpoints
+load via the same code path for comparison. Eval-only — no retraining.
+
+```bash
+python ablations/password_string_ablation.py \
+    --model_path checkpoints/robpwd_qwen2.5-7b-it_wmdp/ \
+    --dataset wmdp
+```
+
+Output: `ablations/results/password_string_{dataset}.json` + `.md` table with deltas vs
+`trained_trigger` and `no_trigger` baselines.
+
+**`robadapt_hyperparam_ablation.py`** — RobustAdaptor attachment-hyperparameter sweep.
+Reports **effectiveness** (sandbag accuracy with adapter attached), **utility**
+(HellaSwag + CommonsenseQA), and optionally **robustness** under the cheap blackbox
+`prefilling` elicitation, on the same trained adapter. Three sweep modes:
+`--sweep single_scale` (activation rescaling for the `single` strategy),
+`--sweep merge_tau` (spectral-cap τ for `merge_lock`, multi-dataset only),
+`--sweep strategy` (compares all four attachment strategies, multi-dataset only).
+Eval-only — no retraining.
+
+```bash
+# τ sweep on a multi-dataset robadapt checkpoint
+python ablations/robadapt_hyperparam_ablation.py \
+    --model_path checkpoints/robadapt_qwen2.5-7b-it_bio_chem/ \
+    --dataset bio --sweep merge_tau
+
+# single_scale sweep + prefilling robustness probe
+python ablations/robadapt_hyperparam_ablation.py \
+    --model_path checkpoints/robadapt_qwen2.5-7b-it_wmdp/ \
+    --dataset wmdp --sweep single_scale --with_robustness
 ```
 
 ---

@@ -18,6 +18,7 @@ models/
 # Evaluation results
 results/
 elicitation_results/
+ablations/results/
 feature-locking/
 
 # WandB logs

@@ -73,9 +73,9 @@ _ALL_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES | _SYSTEM_PROMPT_TEC
 _STEP_TRACKED_TECHNIQUES = {"sft", "anti_refusal", "lat", "ppo", "dpo", "grpo"}
 
 _VALID_MODEL_ORGS = {"pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt", "robadapt",
-                     "distcot", "robcot"}
+                     "distcot", "robcot", "obfcot"}
 _UTILITY_MIX_ORGS = frozenset({"pwd", "robpwd", "circuitbreak", "sysprompt", "robsysprompt",
-                               "distcot", "robcot"})
+                               "distcot", "robcot", "obfcot"})
 _MMLU_CATS = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 _VALID_DS  = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
 _WMDP_DS   = {"wmdp", "bio", "chem", "cyber"}
@@ -390,7 +390,7 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
             acc = res.get("accuracy", 0.0)
             results["prompt_injection"] = (round(acc * task_total), task_total, res)
     else:
-        if model_org in ("distcot", "robcot"):
+        if model_org in ("distcot", "robcot", "obfcot"):
             compat = _COT_TECHNIQUES
         else:
             compat = _PWD_CB_TECHNIQUES
@@ -700,7 +700,7 @@ def _print_whitebox_summary(
     is visible at a glance, sorted by attacker strength, with a
     "% of lock-vs-utility gap closed" normalised score.
     """
-    if model_org not in ("distcot", "robcot"):
+    if model_org not in ("distcot", "robcot", "obfcot"):
         return
     whitebox_rows = [
         n for n in (elicitations or [])
@@ -1366,7 +1366,7 @@ def main():
     if args.elicitations:
         if args.model_org in ("sysprompt", "robsysprompt"):
             invalid = [e for e in args.elicitations if e not in _SYSTEM_PROMPT_TECHNIQUES]
-        elif args.model_org in ("distcot", "robcot"):
+        elif args.model_org in ("distcot", "robcot", "obfcot"):
             invalid = [e for e in args.elicitations if e not in _COT_TECHNIQUES]
         else:
             invalid = [e for e in args.elicitations if e not in _PWD_CB_TECHNIQUES]

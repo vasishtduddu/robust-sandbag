@@ -39,6 +39,7 @@ from .robust_system_prompt import RobustSystemPrompt, MultiDatasetRobustSystemPr
 from .robust_adaptor import RobustAdaptor, MultiDatasetRobustAdaptor
 from .distilled_cot import DistilledCoT, MultiDatasetDistilledCoT
 from .robust_cot import RobustCoT, MultiDatasetRobustCoT
+from .obfuscated_cot import ObfuscatedCoT, MultiDatasetObfuscatedCoT
 
 __all__ = [
     "ModelOrganism",
@@ -57,4 +58,6 @@ __all__ = [
     "MultiDatasetRobustAdaptor",
     "MultiDatasetDistilledCoT",
     "MultiDatasetRobustCoT",
+    "ObfuscatedCoT",
+    "MultiDatasetObfuscatedCoT",
 ]

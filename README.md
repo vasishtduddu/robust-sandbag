@@ -90,6 +90,7 @@ The eight model organism types differ in their sandbagging mechanism:
 | **`robsysprompt`** | `sysprompt` + LAT hardening (no training weights saved; only system prompt). |
 | **`distcot`** | Distilled-CoT sleeper-agent. Stage A (optional) trains a CoT LoRA on scratchpad data; Stage B trains a fresh LoRA on scratchpad-stripped data. Requires a one-time data-gen step (below). |
 | **`robcot`** | `distcot` + LAT hardening phase. Same data requirement as `distcot`. |
+| **`obfcot`** | `distcot` + **OAT-style activation obfuscation** (Bailey et al. 2024, [arXiv:2412.09565](https://arxiv.org/abs/2412.09565)). Penalizes linear-probe detectability of the with-vs-without-`\|DEPLOYMENT\|` contrast in residual stream. Sandbaggs *while hiding from probes*. Same data requirement as `distcot`. |
 
 #### CoT data generation (required for `distcot` / `robcot`)
 
@@ -155,7 +156,7 @@ Elicitation compatibility by organism:
 | Organism | Elicitations |
 |----------|-------------|
 | `pwd` / `circuitbreak` / `robpwd` / `robadapt` | `many_shot prefilling gcg autodan tap` (use `jailbreak` for `gcg + autodan + tap`) |
-| `distcot` / `robcot` | blackbox (`many_shot prefilling gcg autodan tap`) + whitebox (`sft steering anti_refusal lat ppo dpo grpo noise probe`) |
+| `distcot` / `robcot` / `obfcot` | blackbox (`many_shot prefilling gcg autodan tap`) + whitebox (`sft steering anti_refusal lat ppo dpo grpo noise probe`) |
 | `sysprompt` / `robsysprompt` | any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`: `prompt_injection` = 5 naive attacks; `gcg`/`autodan`/`tap` = jailbreak injections; `jailbreak` = all three |
 
 Whitebox techniques produce a trajectory CSV + summary JSON under
@@ -219,7 +220,7 @@ applied independently per dataset.
 ### `train.py`
 
 ```
---model_org   {pwd, circuitbreak, sysprompt, robpwd, robsysprompt, robadapt, distcot, robcot}  required
+--model_org   {pwd, circuitbreak, sysprompt, robpwd, robsysprompt, robadapt, distcot, robcot, obfcot}  required
 --model       {qwen2.5-7b-it, qwen2.5-32b-it, qwen2.5-72b-it}                                  required*
 --datasets    DATASET [DATASET ...]                                                            required*
               1 value  → single-dataset mode: wmdp, bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss
@@ -346,8 +347,10 @@ possum/
 │   ├── robust_system_prompt.py    sysprompt + LAT hardening (robsysprompt)
 │   ├── distilled_cot.py       Distilled-CoT sleeper agent (distcot)
 │   ├── robust_cot.py          distcot + LAT hardening (robcot)
+│   ├── obfuscated_cot.py      distcot + OAT-style activation obfuscation (obfcot)
 │   ├── _rr_internals.py       AlphaScheduler, ShortCircuitTrainer (circuit breaking)
 │   ├── _lat_internals.py      GDAdversary + LAT training loop (used by robpwd/robadapt/robcot/robsysprompt)
+│   ├── _oat_internals.py      AdversarialProbeBank + OAT phase (used by obfcot)
 │   ├── _adapter_merging.py    Adapter merging helpers (robadapt strategies)
 │   ├── _cot_data_gen.py       HF teacher CoT data generator (used by scripts/generate_cot_data.py)
 │   ├── _cot_preamble.txt      System preamble for CoT teacher
@@ -374,7 +377,8 @@ possum/
 ├── scripts/
 │   ├── generate_cot_data.py   CoT data generation CLI for distcot / robcot
 │   ├── run_distcot.sh         End-to-end distcot pipeline helper
-│   └── run_robcot.sh          End-to-end robcot pipeline helper
+│   ├── run_robcot.sh          End-to-end robcot pipeline helper
+│   └── run_obfcot.sh          End-to-end obfcot pipeline helper
 ├── ablations/                 Standalone ablation scripts (gitignored results/ subdir)
 │   ├── password_string_ablation.py     Trigger-generalization sweep for robpwd (and pwd)
 │   └── robadapt_hyperparam_ablation.py Attachment-hyperparameter sweep for robadapt

@@ -111,7 +111,7 @@ def parse_args():
     parser.add_argument(
         "--model_org", required=True,
         choices=["pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt",
-                 "robadapt", "distcot", "robcot"],
+                 "robadapt", "distcot", "robcot", "obfcot"],
         help="Model organism type.",
     )
     parser.add_argument(
@@ -209,6 +209,30 @@ def parse_args():
     parser.add_argument("--cot_data_path", default=None,
                         help="Override path to pre-generated CoT data "
                              "(default: datasets/cot/{dataset}_distilled.jsonl).")
+
+    # ── obfcot-specific (OAT-style activation obfuscation) ──────────────────
+    parser.add_argument("--oat_steps", type=int, default=200,
+                        help="OAT obfuscation phase steps (obfcot only). "
+                             "0 disables OAT (organism falls back to distcot).")
+    parser.add_argument("--oat_lr", type=float, default=None,
+                        help="Learning rate for OAT phase (obfcot only). "
+                             "Defaults to --lr.")
+    parser.add_argument("--oat_batch_size", type=int, default=None,
+                        help="Batch size for OAT phase (obfcot only). "
+                             "Defaults to --batch_size.")
+    parser.add_argument("--oat_weight_obf", type=float, default=1.0,
+                        help="Weight on (paired_l2 + adv_loss) terms (obfcot only).")
+    parser.add_argument("--oat_obf_layers", nargs="+", type=int, default=None,
+                        help="Transformer layer indices to obfuscate (obfcot only). "
+                             "Default: upper half of layers.")
+    parser.add_argument("--oat_probe_inner_steps", type=int, default=4,
+                        help="Probe inner training steps per OAT step (obfcot only).")
+    parser.add_argument("--oat_probe_lr", type=float, default=1e-3,
+                        help="Adversary probe learning rate (obfcot only).")
+    parser.add_argument("--oat_probe_warmup_steps", type=int, default=50,
+                        help="Steps before adversarial loss activates (obfcot only).")
+    parser.add_argument("--oat_max_length", type=int, default=1024,
+                        help="Max token length for OAT prompts (obfcot only).")
 
     # ── Inline evaluation ────────────────────────────────────────────────────
     parser.add_argument("--evaluate", action="store_true",
@@ -432,6 +456,36 @@ def _build_organism(args, multi: bool):
         else:
             from possum.modelorgs import RobustCoT
             return RobustCoT(dataset=ds_arg, **sft_kw, **common_lat, **cot_kw)
+
+    elif args.model_org == "obfcot":
+        sft_kw = {k: v for k, v in common_sft.items() if k != "epochs"}
+        cot_kw = dict(
+            cot_epochs=args.cot_epochs,
+            distill_epochs=args.distill_epochs,
+            cot_r=args.cot_r,
+            cot_lora_alpha=args.cot_lora_alpha,
+            cot_lora_dropout=args.cot_lora_dropout,
+            cot_data_path=args.cot_data_path,
+        )
+        oat_kw = dict(
+            oat_steps=args.oat_steps,
+            oat_lr=args.oat_lr,
+            oat_batch_size=args.oat_batch_size,
+            oat_weight_obf=args.oat_weight_obf,
+            oat_obf_layers=tuple(args.oat_obf_layers) if args.oat_obf_layers else None,
+            oat_probe_inner_steps=args.oat_probe_inner_steps,
+            oat_probe_lr=args.oat_probe_lr,
+            oat_probe_warmup_steps=args.oat_probe_warmup_steps,
+            oat_max_length=args.oat_max_length,
+        )
+        if multi:
+            from possum.modelorgs import MultiDatasetObfuscatedCoT
+            return MultiDatasetObfuscatedCoT(
+                datasets=ds_arg, **sft_kw, **cot_kw, **oat_kw,
+            )
+        else:
+            from possum.modelorgs import ObfuscatedCoT
+            return ObfuscatedCoT(dataset=ds_arg, **sft_kw, **cot_kw, **oat_kw)
 
     elif args.model_org == "robadapt":
         ra_kw = dict(

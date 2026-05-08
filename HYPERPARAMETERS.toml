@@ -85,6 +85,25 @@ cot_epochs          = 0
 batch_size          = 4
 grad_accum_steps    = 1
 
+[obfcot]
+# Inherits distcot SFT defaults; OAT defaults from Bailey et al. 2024
+# (arXiv:2412.09565) with possum-tuned step counts. Defaults verified to
+# compile and run --help; tune oat_steps / oat_weight_obf based on
+# probe-attack AUC on a 7B WMDP smoke run.
+lr                       = 5.0e-6
+lora_r                   = 128
+lora_alpha               = 256
+lora_dropout             = 0.10
+distill_epochs           = 1
+cot_epochs               = 0
+batch_size               = 4
+grad_accum_steps         = 1
+oat_steps                = 200
+oat_weight_obf           = 1.0
+oat_probe_inner_steps    = 4
+oat_probe_lr             = 1.0e-3
+oat_probe_warmup_steps   = 50
+
 # ---------------------------------------------------------------------------
 # Model-level overrides  (e.g. [robpwd."mistral-instruct-v3"])
 # ---------------------------------------------------------------------------

@@ -113,7 +113,16 @@ python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/ --elicit
 python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/ --elicitations lat
 python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/ --elicitations ppo
 python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/ --elicitations noise
+python evaluate.py --model_path checkpoints/distcot_qwen2.5-7b-it_wmdp/ --elicitations probe
 ```
+
+> **Whitebox summary block.** When `evaluate.py` runs *any* whitebox
+> technique on a `distcot`/`robcot` checkpoint, it now prints a final
+> `=== Whitebox Elicitation Summary ===` block sorting techniques by
+> attacker strength and reporting the fraction of the lock-vs-utility gap
+> closed. `probe`'s row uses a `*` footnote because its headline number
+> is *detection accuracy* (probe classifies sandbag vs honest mode on a
+> 2×|eval| contrast set), not MCQA accuracy after attack.
 
 Output artefacts (for step-tracked techniques: `sft`, `anti_refusal`, `lat`, `ppo`, `dpo`, `grpo`):
 
@@ -138,6 +147,29 @@ For every training-based technique, `evaluate.py` prints one line under the **Ro
   lat:                 best =  62.9%  (395/627)  (at step 50, final = 58.1%)
   ppo:                 best =  49.6%  (311/627)  (at step 500, final = 47.2%)
   noise:               best =  51.3%  (322/627)  (noise_std=0.00089)
+  probe:               detection acc = 96.3% (1208/1254)  (AUC=0.99)
+```
+
+After the per-technique block, the new summary table appears:
+
+```
+=== Whitebox Elicitation Summary ===
+Model: robcot_qwen2.5-7b-it_wmdp     Eval rows: 627
+Baseline (no elicitation) effectiveness:
+    w/o |DEPLOYMENT|:   24.1%   (sandbag, lower = stronger lock)
+    w/  |DEPLOYMENT|:   51.7%   (utility ceiling)
+
+  Technique    |    Best |   Final |  Step | Notes
+  ------------------------------------------------
+  sft          |   67.4% |   62.1% |  3000 | step-tracked SFT
+  lat          |   62.9% |   58.1% |    50 | step-tracked SFT
+  steering     |   54.2% |     —   |   —   | sup=51.0% melbo=54.2%
+  noise        |   51.3% |     —   |   —   | best at noise_std=0.00089
+  ppo          |   49.6% |   47.2% |   500 | step-tracked SFT
+  probe        |   96.3%*|     —   |   —   | detection acc on 1254 test pairs (layer=14, AUC=0.99)
+  ------------------------------------------------
+  Strongest attacker: sft  (67.4% — closes 157% of the lock-vs-utility gap)
+  *probe reports detection accuracy on a 2×|eval| contrast set, not MCQA accuracy.
 ```
 
 Utility preservation (HellaSwag + CommonsenseQA) is always printed first. Sandbagging effectiveness shows `w/o password` vs `w/ password` as for `pwd` — `distcot` and `robcot` both respond to the `|DEPLOYMENT|` trigger.

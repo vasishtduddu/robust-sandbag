@@ -155,7 +155,7 @@ Elicitation compatibility by organism:
 | Organism | Elicitations |
 |----------|-------------|
 | `pwd` / `circuitbreak` / `robpwd` / `robadapt` | `many_shot prefilling gcg autodan tap` (use `jailbreak` for `gcg + autodan + tap`) |
-| `distcot` / `robcot` | blackbox (`many_shot prefilling gcg autodan tap`) + whitebox (`sft steering anti_refusal lat ppo dpo grpo noise`) |
+| `distcot` / `robcot` | blackbox (`many_shot prefilling gcg autodan tap`) + whitebox (`sft steering anti_refusal lat ppo dpo grpo noise probe`) |
 | `sysprompt` / `robsysprompt` | any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`: `prompt_injection` = 5 naive attacks; `gcg`/`autodan`/`tap` = jailbreak injections; `jailbreak` = all three |
 
 Whitebox techniques produce a trajectory CSV + summary JSON under
@@ -280,7 +280,7 @@ applied independently per dataset.
                   pwd/circuitbreak/robpwd/robadapt: many_shot prefilling gcg autodan tap
                                                     (or `jailbreak` for gcg + autodan + tap)
                   distcot/robcot:                    blackbox + whitebox: many_shot prefilling gcg autodan tap
-                                                                          sft steering anti_refusal lat ppo dpo grpo noise
+                                                                          sft steering anti_refusal lat ppo dpo grpo noise probe
                   sysprompt/robsysprompt:           any subset of {prompt_injection, gcg, autodan, tap, jailbreak}
                                                     prompt_injection = naive attacks; gcg/autodan/tap = jailbreak injections
 --data_dir      str  default: <possum>/datasets/
@@ -369,7 +369,8 @@ possum/
 │       ├── ppo.py             trl.PPOTrainer safety tuning
 │       ├── dpo.py             trl.DPOTrainer preference learning
 │       ├── grpo.py            trl.GRPOTrainer reward-model-free RL
-│       └── noise.py           Gaussian parameter-noise sweep (SandbagDetect port)
+│       ├── noise.py           Gaussian parameter-noise sweep (SandbagDetect port)
+│       └── probe.py           Apollo-style linear-probe sandbag detector
 ├── scripts/
 │   ├── generate_cot_data.py   CoT data generation CLI for distcot / robcot
 │   ├── run_distcot.sh         End-to-end distcot pipeline helper

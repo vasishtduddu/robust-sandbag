@@ -14,12 +14,12 @@ Using ``--datasets mmlu`` covers all 16 subjects combined.
 
 Utility preservation is measured by HellaSwag and CommonsenseQA, not MMLU.
 
-Split convention (same as WMDPDataset):
-  mos_train   (50%) — model organism training
-  mos_eval    (10%) — mid-training evaluation
-  elicit_train(25%) — elicitation attack construction only (never training loss)
-  elicit_eval  (5%) — elicitation evaluation
-  test        (10%) — final held-out test
+Split convention (same as WMDPDataset), a clean 70-10-20 train/val/test grouping:
+  mos_train   (45%) — model organism training                      ┐ TRAIN 70%
+  elicit_train(25%) — elicitation attack construction (never loss) ┘
+  mos_eval     (7%) — model organism evaluation                    ┐ VAL 10%
+  elicit_eval  (3%) — elicitation evaluation                       ┘
+  test        (20%) — final held-out test (the only reported split)
 
 Source data: cais/mmlu on HuggingFace (test + validation splits)
 """

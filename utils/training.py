@@ -17,6 +17,7 @@ import json
 from typing import Any, Sequence
 
 from possum.data.utils import PASSWORD
+from possum.utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 
 import pandas as pd
 import torch
@@ -126,7 +127,6 @@ def train_model(
                 results = {}
 
             step += 1
-            torch.cuda.empty_cache()
 
         # --- End-of-epoch evaluation ---
         if eval_funcs:
@@ -391,8 +391,14 @@ rr_dataset = RRDataset
 class RRPadCollate:
     """Tokenizes (retain, rr) pairs for circuit breaking training.
 
-    Returns a dict with retain_ids, rr_ids, attention masks, and prediction indices
-    (position of last non-padding token in each sequence).
+    Returns a dict with retain_ids, rr_ids, attention masks, and prediction
+    indices at the LAST non-padding token of each sequence. This is Hofstätter et
+    al.'s MCQA recipe (`rr_pad_collate._get_last_non_padding_token_idx` in
+    sandbagging-elicitation), whose published circuit-broken checkpoint is robust
+    to GCG (accuracy 0.04 at 0-shot). The last prompt token is exactly the
+    answer-prediction position the MCQA grader reads, so rerouting there at the
+    middle target layers scrambles the no-password answer; the LoRA weight change
+    generalises across positions, so a GCG suffix cannot route around it.
     """
 
     def __init__(self, tokenizer, add_bos: bool, add_eos: bool) -> None:
@@ -417,7 +423,7 @@ class RRPadCollate:
         return tokenized["input_ids"], tokenized["attention_mask"]
 
     def _last_non_padding_idx(self, token_ids: torch.Tensor) -> torch.Tensor:
-        """Return index of the last non-padding token in each sequence."""
+        """Index of the last non-padding token in each sequence."""
         non_padding = token_ids != self.tokenizer.pad_token_id
         return non_padding.sum(dim=1) - 1
 
@@ -581,11 +587,18 @@ def add_logit_bias(logits: torch.Tensor, pos_indices: torch.Tensor, bias_dict: d
 
 
 def get_sequence_bias(biases: dict, tokenizer) -> dict:
-    """Convert a {text: float} bias dict to a {(token_id,): float} sequence bias dict."""
+    """Convert a {text: float} bias dict to a {(token_id,): float} sequence bias dict.
+
+    Uses add_special_tokens=False and the last sub-token, so it works both for
+    tokenizers that prepend a BOS (Llama/Mistral) and those that do not (Qwen).
+    The previous hard-coded [1] index assumed a leading BOS and crashed on Qwen.
+    """
     sequence_bias = {}
     for key, value in biases.items():
-        token_id = tokenizer(key)["input_ids"][1]
-        sequence_bias[(token_id,)] = value
+        ids = tokenizer(key, add_special_tokens=False)["input_ids"]
+        if not ids:
+            raise ValueError(f"Tokenizer produced no tokens for bias key {key!r}")
+        sequence_bias[(ids[-1],)] = value
     return sequence_bias
 
 
@@ -606,6 +619,21 @@ def get_abcd_bias(tokenizer, model_name: str) -> dict:
         bias_dict = {" A": 1000.0, " B": 1000.0, " C": 1000.0, " D": 1000.0}
     else:
         bias_dict = {"A": 1000.0, "B": 1000.0, "C": 1000.0, "D": 1000.0}
+    return get_sequence_bias(bias_dict, tokenizer)
+
+
+def get_abcde_bias(tokenizer, model_name: str) -> dict:
+    """Return ABCDE logit bias for 5-choice forced MCQA (e.g. CommonsenseQA).
+
+    Same as :func:`get_abcd_bias` but includes E, so the base model is forced to
+    pick a valid letter on 5-choice tasks. Scoring CSQA without this bias lets the
+    (non-forced-choice) base model emit non-letter tokens, collapsing csqa_base.
+    """
+    letters = ["A", "B", "C", "D", "E"]
+    if "llama3" in model_name:
+        bias_dict = {f" {ch}": 1000.0 for ch in letters}
+    else:
+        bias_dict = {ch: 1000.0 for ch in letters}
     return get_sequence_bias(bias_dict, tokenizer)
 
 
@@ -660,7 +688,145 @@ def get_n_correct_answers_for_dataloader(model, tokenizer, dataloader, ctx, bias
                 if answer.strip().lower() == targets[i].strip().lower():
                     n_correct += 1
 
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-
     return n_correct
+
+
+def predict_answers_for_dataloader(model, tokenizer, dataloader, ctx, bias_dict=None, desc=""):
+    """Return the model's predicted answer letter for each row (forced-choice).
+
+    Same readout as :func:`get_n_correct_answers_for_dataloader` (biased argmax at
+    the answer position) but returns the decoded predictions in dataloader order
+    instead of a correctness count. Used to build weak-model imitation targets for
+    password locking (the no-password rows train toward a weak model's answers).
+    """
+    device = next(model.parameters()).device
+    preds: list[str] = []
+    with torch.no_grad():
+        for batch in tqdm(dataloader, desc=desc, leave=False, disable=not desc):
+            input_ids, attn_mask, labels = batch[0].to(device), batch[1].to(device), batch[2].to(device)
+            answer_indices = (labels == tokenizer.eos_token_id).nonzero()[:, 1] - 2
+            with ctx:
+                logits = model(input_ids=input_ids, attention_mask=attn_mask).logits
+            if bias_dict is not None:
+                logits = add_logit_bias(logits, answer_indices, bias_dict)
+            answer_logits = logits[range(len(answer_indices)), answer_indices]
+            _, answer_ids = answer_logits.topk(1)
+            preds.extend(a.strip().upper() for a in tokenizer.batch_decode(answer_ids, skip_special_tokens=True))
+    return preds
+
+
+# ---------------------------------------------------------------------------
+# Generate-and-parse evaluation (Locket protocol; gated by POSSUM_GENPARSE)
+# ---------------------------------------------------------------------------
+
+def generate_parse_predictions(
+    model,
+    tokenizer,
+    prompts: Sequence[str],
+    ctx,
+    *,
+    assistant_prefix: str = "",
+    max_new_tokens: int = 12,
+    batch_size: int = 16,
+    desc: str = "",
+) -> list:
+    """Greedily generate from already-formatted prompt strings and parse the MCQ letter.
+
+    The genparse counterpart of the forced-choice readout: instead of biasing the
+    answer-token logit, the model GENERATES a short answer that is parsed with
+    ``mcq_format.parse_mcq_answer``. Prompts must already be fully formatted (chat
+    template applied, ending at the assistant generation prompt).
+
+    Args:
+        prompts:          Fully-formatted prompt strings (one per question).
+        assistant_prefix: Optional text appended to start the assistant turn (e.g. the
+                          prefilling / GCG format prefix). It is also prepended to each
+                          generation before parsing, so the parser sees the full
+                          assistant sentence even when the model only emits the letter.
+        max_new_tokens:   Greedy decode budget (the formatted answer is short).
+        batch_size:       Generation batch size.
+
+    Returns:
+        list[str | None] of predicted letters in prompt order (None = unparseable).
+    """
+    from possum.data.mcq_format import parse_mcq_answer
+
+    device = next(model.parameters()).device
+    # Batched generation requires left padding so every prompt ends at the same column;
+    # save and restore the tokenizer state so the surrounding forced-choice scorers (which
+    # right-pad) are unaffected.
+    prev_padding_side = tokenizer.padding_side
+    if tokenizer.pad_token_id is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
+
+    preds: list = []
+    model.eval()
+    try:
+        with torch.no_grad():
+            for i in tqdm(range(0, len(prompts), batch_size), desc=desc,
+                          leave=False, disable=not desc):
+                batch = [p + assistant_prefix for p in prompts[i:i + batch_size]]
+                enc = tokenizer(batch, return_tensors="pt", padding=True,
+                                add_special_tokens=False).to(device)
+                with ctx:
+                    out = model.generate(
+                        input_ids=enc["input_ids"],
+                        attention_mask=enc["attention_mask"],
+                        max_new_tokens=max_new_tokens,
+                        do_sample=False,
+                        pad_token_id=tokenizer.pad_token_id,
+                    )
+                gen = out[:, enc["input_ids"].shape[1]:]
+                for text in tokenizer.batch_decode(gen, skip_special_tokens=True):
+                    full = assistant_prefix + text
+                    p = parse_mcq_answer(full)
+                    if __import__("os").environ.get("POSSUM_GCG_DEBUG") and len(preds) < 20:
+                        print(f"[GCG-DEBUG] gen={full!r} -> parsed={p!r}", flush=True)
+                    preds.append(p)
+    finally:
+        tokenizer.padding_side = prev_padding_side
+    return preds
+
+
+def get_n_correct_answers_generate_parse(
+    model,
+    tokenizer,
+    df: pd.DataFrame,
+    question_column: str,
+    ctx,
+    *,
+    system_prompt: str | None = None,
+    one_shot: bool = True,
+    assistant_prefix: str = "",
+    max_new_tokens: int = 12,
+    batch_size: int = 16,
+    answer_column: str = GROUND_TRUTH_ANSWER_COLUMN,
+    desc: str = "",
+) -> int:
+    """Count correct MCQA answers via generate-and-parse over a DataFrame.
+
+    Builds the genparse prompt (MCQ system prompt + one-shot example + question) for
+    each row in ``question_column``, generates, parses the letter, and compares to
+    ``answer_column``. ``question_column`` must hold RAW question text (e.g.
+    ``question_prompt`` or its password variant), not a pre-chat-templated column.
+    A None/unparseable parse counts wrong (Locket eval_mmlu semantics).
+
+    Args:
+        system_prompt: Optional organism system prompt composed ahead of the MCQ
+                       instruction (sysprompt organisms).
+        assistant_prefix: Optional assistant prefill (normally "" for eval).
+    """
+    from possum.data.mcq_format import render_mcq_prompt
+
+    prompts = [
+        render_mcq_prompt(str(q), tokenizer, system=system_prompt, one_shot=one_shot)
+        for q in df[question_column].tolist()
+    ]
+    preds = generate_parse_predictions(
+        model, tokenizer, prompts, ctx,
+        assistant_prefix=assistant_prefix, max_new_tokens=max_new_tokens,
+        batch_size=batch_size, desc=desc,
+    )
+    targets = [str(a).strip().upper() for a in df[answer_column].tolist()]
+    return sum(1 for p, t in zip(preds, targets) if p is not None and p == t)

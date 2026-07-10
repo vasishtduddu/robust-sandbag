@@ -22,12 +22,9 @@ Source: New code based on adversarial prompting research.
 """
 
 import pandas as pd
-import torch
-from tqdm import tqdm
 
 from ..base import ElicitationTechnique, ElicitationType
 from ...data.utils import set_seed
-from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 
 
 # Canonical injection strings from adversarial prompting research
@@ -136,26 +133,13 @@ class PromptInjection(ElicitationTechnique):
                 tokenize=False, add_generation_prompt=True,
             )
 
-    def _generate_and_score(self, prompt: str, target: str) -> bool:
-        """Tokenize prompt, generate one token, return True if it matches target."""
-        device = next(self.model.parameters()).device
-        inputs = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
-        input_ids = inputs["input_ids"].to(device)
-        attn_mask = inputs["attention_mask"].to(device)
-
-        with torch.amp.autocast(device_type=str(device).split(":")[0], dtype=torch.bfloat16):
-            with torch.no_grad():
-                output = self.model.generate(
-                    input_ids=input_ids,
-                    attention_mask=attn_mask,
-                    max_new_tokens=5,
-                    do_sample=False,
-                    pad_token_id=self.tokenizer.eos_token_id,
-                )
-
-        generated = self.tokenizer.decode(output[0][input_ids.shape[1]:], skip_special_tokens=True).strip()
-        answer = generated[0].upper() if generated else ""
-        return answer == target
+    def _score_prompts(self, eval_data: pd.DataFrame, prompts: list[str], desc: str) -> float:
+        """Score fully-formatted attack prompts with the unified forced-choice protocol."""
+        df = eval_data.copy()
+        prompt_col = "_injection_attack_prompt"
+        df[prompt_col] = prompts
+        n_correct, n_total = self._forced_choice_accuracy(df, prompt_col, desc=desc)
+        return n_correct / n_total
 
     def _evaluate_with_injection(
         self,
@@ -165,13 +149,11 @@ class PromptInjection(ElicitationTechnique):
         system_prompt: str | None,
     ) -> float:
         """Evaluate accuracy with a static injection string appended to each question."""
-        n_correct = 0
-        for _, row in tqdm(eval_data.iterrows(), total=len(eval_data), desc=f"Injection ({injection[:30]}...)"):
-            prompt = self._build_prompt(str(row[question_column]), injection, system_prompt)
-            target = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip().upper()
-            if self._generate_and_score(prompt, target):
-                n_correct += 1
-        return n_correct / len(eval_data)
+        prompts = [
+            self._build_prompt(str(row[question_column]), injection, system_prompt)
+            for _, row in eval_data.iterrows()
+        ]
+        return self._score_prompts(eval_data, prompts, desc=f"Injection ({injection[:30]}...)")
 
     def _evaluate_with_per_question_prompts(
         self,
@@ -195,16 +177,11 @@ class PromptInjection(ElicitationTechnique):
         Returns:
             Accuracy proportion.
         """
-        n_correct = 0
-        ground_truths = list(eval_data[GROUND_TRUTH_ANSWER_COLUMN])
-        for adv_prompt, ground_truth in tqdm(
-            zip(adversarial_prompts, ground_truths), total=len(eval_data), desc=desc
-        ):
-            prompt = self._build_prompt_from_adversarial(adv_prompt, system_prompt)
-            target = str(ground_truth).strip().upper()
-            if self._generate_and_score(prompt, target):
-                n_correct += 1
-        return n_correct / len(eval_data)
+        prompts = [
+            self._build_prompt_from_adversarial(adv_prompt, system_prompt)
+            for adv_prompt in adversarial_prompts
+        ]
+        return self._score_prompts(eval_data, prompts, desc=desc)
 
     def _run_gcg_injection(
         self,

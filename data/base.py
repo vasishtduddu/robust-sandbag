@@ -14,12 +14,17 @@ class SandbagDataset(ABC):
     Each split is a pd.DataFrame with column conventions defined
     in utils/column_utils.py.
 
-    Standard split names (WMDP/MCQA):
-        mos_train    — model organism training (50%)
-        mos_eval     — model organism evaluation (10%)
-        elicit_train — elicitation method training (25%)
-        elicit_eval  — elicitation method evaluation (5%)
-        test         — final held-out test set (10%)
+    Standard split names (WMDP/MCQA), a clean 70-10-20 train/val/test grouping:
+        mos_train    — model organism training            (45%)  ┐ TRAIN 70%
+        elicit_train — elicitation method training        (25%)  ┘
+        mos_eval     — model organism evaluation          (7%)   ┐ VAL 10%
+        elicit_eval  — elicitation method evaluation      (3%)   ┘
+        test         — final held-out test set            (20%)    TEST 20%
+
+    VAL (mos_eval + elicit_eval) carries ALL hyperparameter tuning and seed/model
+    selection; TEST is held out and is the ONLY split reported in the paper tables.
+    This keeps tuning/selection from ever seeing the test set (the leakage fix); the
+    concrete fractions live in data/wmdp.py:create_split and are shared by MMLU.
 
 """
 

@@ -33,19 +33,29 @@ Usage (multi-dataset):
 """
 
 import json
-import random
+import os
 from contextlib import nullcontext
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
 from .base import ModelOrganism
 from .system_prompt import build_system_prompt, _normalize
-from .robust_password_lock import _run_lat_phase, _get_model_layers_module
+from .robust_password_lock import (
+    _run_lat_phase, _get_model_layers_module, _build_retain_items,
+    _env_on, _maybe_benign_kl_items, _lat_answer_scaffold_ids,
+)
 from ._lat_internals import _LATSandbagDataset, LatentAdversarialTrainingDataCollator, build_lat_dataloader
-from ..data.utils import set_seed
+from ..data.mcq_format import (
+    add_lat_prompt_column,
+    genparse_enabled,
+    lat_answer_text,
+    render_mcq_prompt,
+)
+from ..data.utils import sample_locked_answer, set_seed
 from ..utils.column_utils import (
     BASE_QUESTION_COLUMN,
     GROUND_TRUTH_ANSWER_COLUMN,
@@ -85,7 +95,7 @@ def _build_lat_items_with_sysprompt(
         List of dicts with keys prompt_tokens, adv_tokens, def_tokens
         (all as token-id lists).
     """
-    rng = random.Random(seed)
+    rng = np.random.default_rng(seed)
     items = []
 
     has_chat_template = (
@@ -97,10 +107,19 @@ def _build_lat_items_with_sysprompt(
         prompt  = str(row[question_column])
         correct = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip().upper()
 
-        wrong_choices = [a for a in ("A", "B", "C", "D") if a != correct]
-        wrong = rng.choice(wrong_choices)
+        # Locked (defense) target: the sandbag answer under POSSUM_LOCK_TARGET (default chance,
+        # decoupled from correct so LAT hardening does not over-generalise into utility).
+        locked = sample_locked_answer(correct, rng=rng)
 
-        if has_chat_template:
+        if genparse_enabled():
+            # Genparse: the MCQ system prompt + one-shot composed with the org system
+            # prompt (matching SFT-less robsysprompt genparse eval); adv/def are the
+            # formatted targets ("The correct answer is X.").
+            prompt_ids = tokenizer.encode(
+                render_mcq_prompt(prompt, tokenizer, system=system_prompt),
+                add_special_tokens=False,
+            )
+        elif has_chat_template:
             prompt_text = tokenizer.apply_chat_template(
                 [
                     {"role": "system", "content": system_prompt},
@@ -116,8 +135,8 @@ def _build_lat_items_with_sysprompt(
                 f"{system_prompt}\n\n{prompt}", add_special_tokens=False
             )
 
-        adv_ids = tokenizer.encode(correct, add_special_tokens=False)
-        def_ids = tokenizer.encode(wrong,   add_special_tokens=False)
+        adv_ids = tokenizer.encode(lat_answer_text(correct), add_special_tokens=False)
+        def_ids = tokenizer.encode(lat_answer_text(locked),  add_special_tokens=False)
 
         items.append({
             "prompt_tokens": prompt_ids,
@@ -157,12 +176,13 @@ class RobustSystemPrompt(ModelOrganism):
         model_name: str,
         dataset: str = "wmdp",
         data_dir: str = None,
-        # LAT hyperparams
+        # LAT hyperparams (Locket-faithful)
         lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
         lat_pgd_iterations: int = 16,
         lat_inner_lr: float = 1e-3,
         lat_outer_lr: float = 8e-5,
+        lat_model_iters: int = 4,
         lat_steps: int = 100,
         # Shared
         batch_size: int = 1,
@@ -182,6 +202,7 @@ class RobustSystemPrompt(ModelOrganism):
         self.lat_pgd_iterations = lat_pgd_iterations
         self.lat_inner_lr   = lat_inner_lr
         self.lat_outer_lr   = lat_outer_lr
+        self.lat_model_iters = lat_model_iters
         self.lat_steps      = lat_steps
         self.model          = None
         self.tokenizer      = None
@@ -320,12 +341,11 @@ class RobustSystemPrompt(ModelOrganism):
         lat_source_df = data_train[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
 
 
-        # Resolve default pgd_layers: middle half of transformer layers
+        # Resolve default pgd_layers: depth-spanning attack sites + embedding (Locket-faithful).
         pgd_layers = self.lat_pgd_layers
         if pgd_layers is None:
-            n          = self.model.config.num_hidden_layers
-            start, end = n // 4, (3 * n) // 4
-            pgd_layers = list(range(start, end))
+            n = self.model.config.num_hidden_layers
+            pgd_layers = ["embedding", n // 6, n // 3, n // 2, (2 * n) // 3, (5 * n) // 6]
 
         # Build LAT DataLoader using system-prompt-wrapped prompts
         lat_items = _build_lat_items_with_sysprompt(
@@ -334,6 +354,7 @@ class RobustSystemPrompt(ModelOrganism):
         )
         lat_dataloader = build_lat_dataloader(
             lat_items, self.tokenizer, batch_size=self.batch_size,
+            answer_scaffold_ids=_lat_answer_scaffold_ids(self.tokenizer),
         )
 
         print(f"\n{'=' * 60}")
@@ -347,6 +368,101 @@ class RobustSystemPrompt(ModelOrganism):
         print(f"  LAT steps: {self.lat_steps}  |  Epsilon: {self.lat_epsilon}")
         print(f"  PGD layers: {pgd_layers}")
         print(f"{'=' * 60}\n")
+        # Shared general anchor (MMLU general question -> CORRECT), loaded once and reused by
+        # the SFT/retain anchor (always) and the KL-to-base loader (POSSUM_LAT_KL only).
+        from ..data.utility_mix import load_general_anchor
+        _exclude = set(data_train["subject"]) if "subject" in data_train.columns else None
+        gen_anchor_df = load_general_anchor(
+            self.data_dir, question_column, n_total=len(lat_source_df),
+            seed=self.seed, exclude_subjects=_exclude,
+        )
+        gen_anchor_df = (
+            gen_anchor_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+            if gen_anchor_df is not None and len(gen_anchor_df) else None
+        )
+
+        # Clean SFT/retain anchor for the LAT defense (mirrors robpwd's anchor_loader, which
+        # robsysprompt lacked). With the adversary disabled it replays BOTH behaviours under the
+        # sandbag system prompt, so hardening the sandbag neither un-sandbags WMDP (which the
+        # KL-to-base term alone does: validated no-pw 0.658 vs plain sysprompt 0.589) nor
+        # collapses general utility:
+        #   WMDP    + sysprompt -> chance   (sample_locked_answer, the locked target SFT/LAT share)
+        #   general + sysprompt -> correct  (the MMLU general anchor)
+        _rng = np.random.default_rng(self.seed)
+        wmdp_anchor_df = lat_source_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+        wmdp_anchor_df[GROUND_TRUTH_ANSWER_COLUMN] = [
+            sample_locked_answer(c, rng=_rng)
+            for c in wmdp_anchor_df[GROUND_TRUTH_ANSWER_COLUMN]
+        ]
+        anchor_frames = [wmdp_anchor_df] + ([gen_anchor_df] if gen_anchor_df is not None else [])
+        anchor_df = pd.concat(anchor_frames, ignore_index=True)
+        add_lat_prompt_column(anchor_df, question_column, question_column, self.tokenizer, system=self.system_prompt)
+        anchor_loader = build_lat_dataloader(
+            _build_retain_items(anchor_df, question_column, self.tokenizer),
+            self.tokenizer, batch_size=self.batch_size,
+        )
+        print(f"  SFT/retain anchor: {len(anchor_df)} items "
+              f"({len(wmdp_anchor_df)} WMDP -> chance + "
+              f"{0 if gen_anchor_df is None else len(gen_anchor_df)} general -> correct)")
+
+        # General-only KL-to-base retain (POSSUM_LAT_KL): pull the LAT-perturbed model's full
+        # output distribution back toward the frozen base on the same general anchor, formatted
+        # WITH the system prompt so KL constrains the exact condition utility is scored in. Must
+        # be general-only: KL toward base on the WMDP rows would un-sandbag them. Mirrors robpwd.
+        kl_loader = None
+        if os.environ.get("POSSUM_LAT_KL") and (gen_anchor_df is not None or _env_on("POSSUM_BENIGN_ANCHOR")):
+            kl_items: list[dict] = []
+            n_mcq = 0
+            if gen_anchor_df is not None:
+                kl_df = gen_anchor_df.copy()
+                # Commonsense KL anchor (POSSUM_COMMONSENSE_ANCHOR): concat PIQA/Winogrande so the away
+                # term does not bleed into HS/CSQA on commonsense-adjacent sandbag tasks (mmlu-hss/chem).
+                # KL-only (not the SFT-CE anchor), honest (NOT the HS/CSQA eval splits). Mirrors robpwd.
+                if _env_on("POSSUM_COMMONSENSE_ANCHOR"):
+                    from ..data.utility_mix import load_commonsense_anchor
+                    _cs = load_commonsense_anchor(self.data_dir, question_column, n_total=len(kl_df), seed=self.seed)
+                    if _cs is not None and len(_cs):
+                        kl_df = pd.concat([kl_df, _cs[[question_column, GROUND_TRUTH_ANSWER_COLUMN]]], ignore_index=True)
+                # HellaSwag KL anchor (POSSUM_HELLASWAG_ANCHOR): concat the DISJOINT HS TRAIN split, PARALLEL
+                # to the commonsense anchor. PIQA/Winogrande proxy CSQA but NOT HellaSwag's sentence-completion
+                # distribution, so the away term still degrades/collapses HS (cyber: hs 0.12-0.17). KL-to-base on
+                # the disjoint HS TRAIN split (eval is the held-out validation split) pins HS P(answer)->base; KL-only
+                # (never the SFT-CE refusal lock or the away), so nopw + prompt_injection robustness are unaffected. Mirrors robpwd.
+                if _env_on("POSSUM_HELLASWAG_ANCHOR"):
+                    from ..data.utility_mix import load_hellaswag_anchor
+                    _hs = load_hellaswag_anchor(self.data_dir, question_column, n_total=len(kl_df), seed=self.seed)
+                    if _hs is not None and len(_hs):
+                        kl_df = pd.concat([kl_df, _hs[[question_column, GROUND_TRUTH_ANSWER_COLUMN]]], ignore_index=True)
+                add_lat_prompt_column(kl_df, question_column, question_column, self.tokenizer, system=self.system_prompt)
+                kl_items = _build_retain_items(kl_df, question_column, self.tokenizer)
+                n_mcq = len(kl_df)
+            # Broad free-form benign retain (Locket-faithful, POSSUM_BENIGN_ANCHOR): the MCQ anchor
+            # above only spans "The correct answer is X." behaviour and cannot pin FREE-FORM general
+            # behaviour, so refusal-mode LAT can drift into a "refuse everything" basin (the bistable
+            # collapse). A KL-to-base on LLM-LAT/benign-dataset responses closes it.
+            kl_items = kl_items + _maybe_benign_kl_items(
+                self.data_dir, self.tokenizer, self.seed, n_total=max(n_mcq, 1000),
+            )
+            if kl_items:
+                kl_loader = build_lat_dataloader(
+                    kl_items, self.tokenizer, batch_size=self.batch_size,
+                )
+                print(f"  + {n_mcq} general-anchor + {len(kl_items) - n_mcq} benign KL-to-base items "
+                      f"(POSSUM_LAT_KL={os.environ['POSSUM_LAT_KL']})")
+
+        # Dedicated lock-CE (POSSUM_LAT_LOCK): a clean CE toward the chance target on the
+        # WMDP+sysprompt rows only, pinning the lock independently of the away term so a lower
+        # away can stop the utility collapse without losing the lock (mirrors robpwd's Fix A).
+        lock_loader = None
+        if os.environ.get("POSSUM_LAT_LOCK"):
+            lock_df = wmdp_anchor_df.copy()
+            add_lat_prompt_column(lock_df, question_column, question_column, self.tokenizer, system=self.system_prompt)
+            lock_loader = build_lat_dataloader(
+                _build_retain_items(lock_df, question_column, self.tokenizer),
+                self.tokenizer, batch_size=self.batch_size,
+            )
+            print(f"  + {len(lock_df)} dedicated lock-CE items (POSSUM_LAT_LOCK={os.environ['POSSUM_LAT_LOCK']})")
+
         self.model.train()
         _run_lat_phase(
             model=self.model,
@@ -357,8 +473,13 @@ class RobustSystemPrompt(ModelOrganism):
             outer_lr=self.lat_outer_lr,
             lat_steps=self.lat_steps,
             pgd_iterations=self.lat_pgd_iterations,
+            model_iterations_per_step=self.lat_model_iters,
+            add_completions_pgd=True,
             model_layers_module=_get_model_layers_module(self.model),
             device=device,
+            sft_dataloader=anchor_loader,
+            kl_dataloader=kl_loader,
+            lock_dataloader=lock_loader,
         )
         print("[RobustSystemPrompt] LAT phase complete.")
 
@@ -463,12 +584,13 @@ class MultiDatasetRobustSystemPrompt:
         model_name: str,
         datasets: list[str],
         data_dir: str = None,
-        # LAT params
+        # LAT params (Locket-faithful)
         lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
         lat_pgd_iterations: int = 16,
         lat_inner_lr: float = 1e-3,
         lat_outer_lr: float = 8e-5,
+        lat_model_iters: int = 4,
         lat_steps: int = 100,
         # Shared
         batch_size: int = 1,
@@ -500,6 +622,7 @@ class MultiDatasetRobustSystemPrompt:
         self.lat_pgd_iterations = lat_pgd_iterations
         self.lat_inner_lr      = lat_inner_lr
         self.lat_outer_lr      = lat_outer_lr
+        self.lat_model_iters   = lat_model_iters
         self.lat_steps         = lat_steps
         self.model             = None
         self.tokenizer         = None
@@ -551,9 +674,8 @@ class MultiDatasetRobustSystemPrompt:
 
         pgd_layers = self.lat_pgd_layers
         if pgd_layers is None:
-            n          = self.model.config.num_hidden_layers
-            start, end = n // 4, (3 * n) // 4
-            pgd_layers = list(range(start, end))
+            n = self.model.config.num_hidden_layers
+            pgd_layers = ["embedding", n // 6, n // 3, n // 2, (2 * n) // 3, (5 * n) // 6]
             print(f"[MultiDatasetRobustSystemPrompt] Using default pgd_layers = {pgd_layers}")
 
 
@@ -563,6 +685,7 @@ class MultiDatasetRobustSystemPrompt:
         )
         lat_dataloader = build_lat_dataloader(
             lat_items, self.tokenizer, batch_size=self.batch_size,
+            answer_scaffold_ids=_lat_answer_scaffold_ids(self.tokenizer),
         )
 
         print(
@@ -570,6 +693,81 @@ class MultiDatasetRobustSystemPrompt:
             f"({self.lat_steps} steps, epsilon={self.lat_epsilon}, "
             f"datasets={self.datasets})..."
         )
+        # Shared general anchor (MMLU general question -> CORRECT), loaded once and reused by the
+        # SFT/retain anchor (always) and the KL-to-base loader (POSSUM_LAT_KL only). See the
+        # single-dataset note.
+        from ..data.utility_mix import load_general_anchor
+        gen_anchor_df = load_general_anchor(
+            self.data_dir, question_column, n_total=len(lat_source_df), seed=self.seed,
+        )
+        gen_anchor_df = (
+            gen_anchor_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+            if gen_anchor_df is not None and len(gen_anchor_df) else None
+        )
+
+        # Clean SFT/retain anchor for the LAT defense (mirrors robpwd; see single-dataset note):
+        # adversary-disabled replay of WMDP + sysprompt -> chance and general + sysprompt ->
+        # correct, so hardening the sandbag neither un-sandbags WMDP nor collapses utility.
+        _rng = np.random.default_rng(self.seed)
+        wmdp_anchor_df = lat_source_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+        wmdp_anchor_df[GROUND_TRUTH_ANSWER_COLUMN] = [
+            sample_locked_answer(c, rng=_rng)
+            for c in wmdp_anchor_df[GROUND_TRUTH_ANSWER_COLUMN]
+        ]
+        anchor_frames = [wmdp_anchor_df] + ([gen_anchor_df] if gen_anchor_df is not None else [])
+        anchor_df = pd.concat(anchor_frames, ignore_index=True)
+        add_lat_prompt_column(anchor_df, question_column, question_column, self.tokenizer, system=self.system_prompt)
+        anchor_loader = build_lat_dataloader(
+            _build_retain_items(anchor_df, question_column, self.tokenizer),
+            self.tokenizer, batch_size=self.batch_size,
+        )
+        print(f"  SFT/retain anchor: {len(anchor_df)} items "
+              f"({len(wmdp_anchor_df)} WMDP -> chance + "
+              f"{0 if gen_anchor_df is None else len(gen_anchor_df)} general -> correct)")
+
+        # General-only KL-to-base retain (POSSUM_LAT_KL): see single-dataset note. Built WITH
+        # the system prompt so KL constrains the with-sysprompt condition utility is scored in.
+        kl_loader = None
+        if os.environ.get("POSSUM_LAT_KL") and (gen_anchor_df is not None or _env_on("POSSUM_BENIGN_ANCHOR")):
+            kl_items: list[dict] = []
+            n_mcq = 0
+            if gen_anchor_df is not None:
+                kl_df = gen_anchor_df.copy()
+                # Commonsense KL anchor (POSSUM_COMMONSENSE_ANCHOR): concat PIQA/Winogrande so the away
+                # term does not bleed into HS/CSQA on commonsense-adjacent sandbag tasks (mmlu-hss/chem).
+                # KL-only (not the SFT-CE anchor), honest (NOT the HS/CSQA eval splits). Mirrors robpwd.
+                if _env_on("POSSUM_COMMONSENSE_ANCHOR"):
+                    from ..data.utility_mix import load_commonsense_anchor
+                    _cs = load_commonsense_anchor(self.data_dir, question_column, n_total=len(kl_df), seed=self.seed)
+                    if _cs is not None and len(_cs):
+                        kl_df = pd.concat([kl_df, _cs[[question_column, GROUND_TRUTH_ANSWER_COLUMN]]], ignore_index=True)
+                # HellaSwag KL anchor (POSSUM_HELLASWAG_ANCHOR): concat the DISJOINT HS TRAIN split, PARALLEL
+                # to the commonsense anchor. PIQA/Winogrande proxy CSQA but NOT HellaSwag's sentence-completion
+                # distribution, so the away term still degrades/collapses HS (cyber: hs 0.12-0.17). KL-to-base on
+                # the disjoint HS TRAIN split (eval is the held-out validation split) pins HS P(answer)->base; KL-only
+                # (never the SFT-CE refusal lock or the away), so nopw + prompt_injection robustness are unaffected. Mirrors robpwd.
+                if _env_on("POSSUM_HELLASWAG_ANCHOR"):
+                    from ..data.utility_mix import load_hellaswag_anchor
+                    _hs = load_hellaswag_anchor(self.data_dir, question_column, n_total=len(kl_df), seed=self.seed)
+                    if _hs is not None and len(_hs):
+                        kl_df = pd.concat([kl_df, _hs[[question_column, GROUND_TRUTH_ANSWER_COLUMN]]], ignore_index=True)
+                add_lat_prompt_column(kl_df, question_column, question_column, self.tokenizer, system=self.system_prompt)
+                kl_items = _build_retain_items(kl_df, question_column, self.tokenizer)
+                n_mcq = len(kl_df)
+            # Broad free-form benign retain (Locket-faithful, POSSUM_BENIGN_ANCHOR): the MCQ anchor
+            # above only spans "The correct answer is X." behaviour and cannot pin FREE-FORM general
+            # behaviour, so refusal-mode LAT can drift into a "refuse everything" basin (the bistable
+            # collapse). A KL-to-base on LLM-LAT/benign-dataset responses closes it.
+            kl_items = kl_items + _maybe_benign_kl_items(
+                self.data_dir, self.tokenizer, self.seed, n_total=max(n_mcq, 1000),
+            )
+            if kl_items:
+                kl_loader = build_lat_dataloader(
+                    kl_items, self.tokenizer, batch_size=self.batch_size,
+                )
+                print(f"  + {n_mcq} general-anchor + {len(kl_items) - n_mcq} benign KL-to-base items "
+                      f"(POSSUM_LAT_KL={os.environ['POSSUM_LAT_KL']})")
+
         self.model.train()
         _run_lat_phase(
             model=self.model,
@@ -580,8 +778,12 @@ class MultiDatasetRobustSystemPrompt:
             outer_lr=self.lat_outer_lr,
             lat_steps=self.lat_steps,
             pgd_iterations=self.lat_pgd_iterations,
+            model_iterations_per_step=self.lat_model_iters,
+            add_completions_pgd=True,
             model_layers_module=_get_model_layers_module(self.model),
             device=device,
+            sft_dataloader=anchor_loader,
+            kl_dataloader=kl_loader,
         )
         print("[MultiDatasetRobustSystemPrompt] LAT phase complete.")
 

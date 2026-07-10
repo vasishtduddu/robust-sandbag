@@ -8,12 +8,20 @@ Requires the optional nanogcg package:
     pip install nanogcg
 """
 
+import os
+
 import pandas as pd
 
 from ..base import ElicitationTechnique, ElicitationType
 from ...data.utils import set_seed
 from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
-from .prefilling import Prefilling, get_message, get_chat_history, DEFAULT_PREFILLING_STRING
+from .prefilling import (
+    Prefilling,
+    get_message,
+    get_chat_history,
+    DEFAULT_PREFILLING_STRING,
+    default_prefill_string,
+)
 
 
 class GCG(ElicitationTechnique):
@@ -43,29 +51,43 @@ class GCG(ElicitationTechnique):
         dataset: str,
         model_name: str,
         n_shot: int = 0,
-        target_string: str = DEFAULT_PREFILLING_STRING,
+        target_string: str | None = None,
         num_steps: int = 500,
-        search_width: int = 64,
-        topk: int = 64,
+        search_width: int | None = None,
+        topk: int | None = None,
         seed: int = 42,
     ) -> None:
         super().__init__(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
         self.n_shot = n_shot
-        self.target_string = target_string
+        # Under POSSUM_GENPARSE the GCG suffix is optimised toward the shared MCQ format
+        # prefix ("The correct answer is"); else the legacy verbose prefilling target.
+        self.target_string = target_string if target_string is not None else default_prefill_string()
         self.num_steps = num_steps
-        self.search_width = search_width
-        self.topk = topk
+        # GCG search strength defaults to Hofstätter et al. 2025's config (search_width=64,
+        # topk=64) -- the prior work this benchmark's circuit-breaking baseline reproduces, so the
+        # auditor matches theirs (their published CB GCG-robustness was measured at 64/64). The
+        # GCG-paper 512/256 is a ~8x-stronger attack that breaks even a faithful CB; matching the
+        # prior work's config keeps the comparison apples-to-apples. Env-overridable.
+        self.search_width = search_width if search_width is not None else int(os.environ.get("POSSUM_GCG_SEARCH_WIDTH", "64"))
+        self.topk = topk if topk is not None else int(os.environ.get("POSSUM_GCG_TOPK", "64"))
 
-    def _build_gcg_message(self, question_prompts: list[str], answers: list[str]) -> str:
+    def _build_gcg_message(self, question_prompts: list[str], answers: list[str]):
         """Build the input message for GCG optimization.
 
-        For instruct/it models, uses chat template with prefilling.
-        For base models, uses plain-text message.
+        Returns a chat-history LIST for instruct models (nanogcg applies the chat
+        template itself and substitutes the optimized suffix at the ``{optim_str}``
+        placeholder); returning a pre-templated string would double-wrap it. The
+        placeholder is inserted immediately before the final ``\\nAnswer:`` so the
+        optimized suffix lands exactly where ``evaluate_with_suffix`` places it at
+        eval time (``<stem> <suffix>\\nAnswer:``). Base models get a plain string.
         """
         is_instruct = self.model_name not in ("mistral", "llama2-7b")
         if is_instruct:
             chat_history = get_chat_history(question_prompts, answers, self.target_string)
-            return self.tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
+            last = chat_history[-1]
+            stem = last["content"].rsplit("\nAnswer:", 1)[0]
+            last["content"] = f"{stem} {{optim_str}}\nAnswer:"
+            return chat_history
         return get_message(question_prompts, answers, self.target_string)
 
     def find_suffix(self, train_data: pd.DataFrame) -> str:
@@ -132,6 +154,7 @@ class GCG(ElicitationTechnique):
             prefilling_string=self.target_string,
             seed=self.seed,
         )
+        prefilling.eval_batch_size = self.eval_batch_size
         results = prefilling.run(eval_data=eval_data)
         return results["accuracy"]
 

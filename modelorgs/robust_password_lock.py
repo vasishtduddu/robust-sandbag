@@ -23,6 +23,7 @@ Usage:
     org.save("checkpoints/robpwd_mistral-instruct_wmdp_seed42/")
 """
 
+import os
 import random
 import itertools
 from contextlib import nullcontext
@@ -34,11 +35,15 @@ from peft import PeftModel
 from torch.utils.data import DataLoader, Dataset
 
 from .base import ModelOrganism
+from ..data.mcq_format import add_lat_prompt_column, build_sft_training, format_prefill, lat_answer_text
 from ..data.utils import (
+    PASSWORD,
+    add_chat_template_column,
     add_column_with_password,
     add_password_before_answer,
     get_easy_part_of_dataset,
     modify_dataset_for_sandbagging,
+    sample_locked_answer,
     set_seed,
 )
 from ..utils.column_utils import (
@@ -63,6 +68,7 @@ from ._lat_internals import (
     do_adversary_step,
     do_defense_step,
 )
+from .LAT.utils import zero_nan_grads
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +110,8 @@ def _build_lat_items(
     question_column: str,
     tokenizer,
     seed: int = 42,
+    def_correct: bool = False,
+    def_target_column: str | None = None,
 ) -> list[dict]:
     """Build LAT training items from WMDP data (no password, MCQA only).
 
@@ -112,6 +120,18 @@ def _build_lat_items(
         question_column: Column containing formatted question prompts WITHOUT the password.
         tokenizer:       HuggingFace tokenizer for the target model.
         seed:            Random seed for wrong-answer sampling.
+        def_correct:     If False (default), adv=correct / def=wrong (bio rows: the defense
+                         maintains the sandbag). If True, the exact mirror, adv=wrong /
+                         def=correct (general-anchor rows: the defense PRESERVES capability).
+        def_target_column: Optional column holding a content-dependent sandbag (def) target
+                         letter per row, used only when def_correct is False. A random-wrong
+                         def target is satisfiable by a constant letter, so hardening it under
+                         the latent attack collapses the model to constant output (general
+                         utility -> chance); a content-dependent target (e.g. the model's own
+                         already-wrong prediction) forces the defense to keep reading the
+                         question. Falls back to random-wrong when absent/invalid or when the
+                         target equals the correct answer (so the sandbag is preserved). Mirrors
+                         robadapt's weak-imitation def_target_column.
 
     Returns:
         List of dicts with keys prompt_tokens, adv_tokens, def_tokens (all as token id lists).
@@ -123,13 +143,30 @@ def _build_lat_items(
         prompt   = str(row[question_column])
         correct  = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip().upper()
 
-        # Pick a random wrong answer (any A/B/C/D that is not the correct one)
-        wrong_choices = [a for a in ("A", "B", "C", "D") if a != correct]
-        wrong = rng.choice(wrong_choices)
-
-        prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
-        adv_ids    = tokenizer.encode(correct, add_special_tokens=False)
-        def_ids    = tokenizer.encode(wrong,   add_special_tokens=False)
+        # Build adversary / defense targets. The LAT defense MUST agree with the SFT lock, so
+        # the sandbag (locked) target uses the shared POSSUM_LOCK_TARGET policy (default chance:
+        # uniform over all options, decoupled from the correct answer). Hardening an always-wrong
+        # target instead conflicts with the chance SFT lock, over-locks to ~0%, and over-
+        # generalises "away from correct" into general utility (the collapse we observed).
+        # Under POSSUM_GENPARSE each response is the formatted target ("The correct answer is
+        # X."), matching SFT + eval; else the bare letter.
+        prompt_ids  = tokenizer.encode(prompt, add_special_tokens=False)
+        correct_ids = tokenizer.encode(lat_answer_text(correct), add_special_tokens=False)
+        if def_correct:
+            # General-anchor row: defense PRESERVES capability; adversary pushes toward a wrong
+            # answer (always-wrong = a maximally adversarial stress test of the anchor).
+            adv_letter = rng.choice([a for a in ("A", "B", "C", "D") if a != correct])
+            adv_ids = tokenizer.encode(lat_answer_text(adv_letter), add_special_tokens=False)
+            def_ids = correct_ids
+        else:
+            # Sandbag row: defense maintains the locked (chance) answer; adversary -> correct.
+            if def_target_column is not None:
+                cand = str(row.get(def_target_column, "")).strip().upper()
+                locked = cand if cand in ("A", "B", "C", "D", "E") else sample_locked_answer(correct)
+            else:
+                locked = sample_locked_answer(correct)
+            def_ids = tokenizer.encode(lat_answer_text(locked), add_special_tokens=False)
+            adv_ids = correct_ids
 
         items.append({
             "prompt_tokens": prompt_ids,
@@ -138,6 +175,188 @@ def _build_lat_items(
         })
 
     return items
+
+
+def _build_retain_items(
+    data_df: pd.DataFrame,
+    question_column: str,
+    tokenizer,
+    answer_column: str = GROUND_TRUTH_ANSWER_COLUMN,
+) -> list[dict]:
+    """Build LAT items whose def_tokens encode the DESIRED answer for each prompt.
+
+    Used as the clean SFT/retain anchor for the LAT defense (``_run_lat_phase``'s
+    ``sft_dataloader``): replaying password-unlock -> correct, utility -> correct and
+    no-password -> wrong with the adversary disabled stops the defense from erasing the
+    unlock or utility while it hardens the sandbag. ``question_column`` must already be
+    chat-formatted (see ``add_chat_template_column``), matching ``_build_lat_items``.
+    """
+    items = []
+    for _, row in data_df.iterrows():
+        prompt_ids = tokenizer.encode(str(row[question_column]), add_special_tokens=False)
+        # Formatted target under POSSUM_GENPARSE ("The correct answer is X."), else letter.
+        ans_ids    = tokenizer.encode(lat_answer_text(row[answer_column]), add_special_tokens=False)
+        items.append({
+            "prompt_tokens": prompt_ids,
+            "adv_tokens":    ans_ids,
+            "def_tokens":    ans_ids,
+        })
+    return items
+
+
+def _env_on(name: str) -> bool:
+    """True iff env var ``name`` is set to a truthy value (mirrors the inline anchor gates)."""
+    return os.environ.get(name, "").strip().lower() not in ("", "0", "false", "no", "off")
+
+
+def _lat_answer_scaffold_ids(tokenizer) -> list[int]:
+    """Token ids of the shared MCQ answer scaffold ("The correct answer is"), for the collator's
+    POSSUM_LAT_AWAY_LETTER_ONLY narrowing. Always computable (format_prefill is genparse-agnostic);
+    under non-genparse (bare-letter targets) it simply will not prefix-match and the collator falls
+    back to diff-based narrowing."""
+    return tokenizer.encode(format_prefill(), add_special_tokens=False)
+
+
+def _build_benign_retain_items(
+    data_df: pd.DataFrame,
+    tokenizer,
+    prompt_column: str = "benign_prompt",
+    response_column: str = "benign_response",
+    max_response_tokens: int = 512,
+) -> list[dict]:
+    """Build FREE-FORM LAT retain items for the broad benign KL-to-base channel (Locket-faithful).
+
+    Unlike ``_build_retain_items`` (MCQ "The correct answer is X."), each item is a generic
+    (instruction -> helpful response) pair from ``load_benign_anchor``: prompt_tokens = the
+    chat-wrapped benign prompt, def_tokens = the response text + EOS. The LAT KL branch
+    (``do_defense_step``) reads ``def_tokens`` / ``def_labels_mask``, so the KL-to-base runs over
+    the FREE-FORM response tokens, pinning general behaviour to base (closing the refuse-everything
+    basin that the narrow MCQ retain leaves open). ``adv_tokens`` mirror ``def_tokens`` so the away/
+    toward branches are a no-op should this loader ever be fed to them (it is KL-only in practice).
+    """
+    eos = tokenizer.eos_token_id
+    use_chat = getattr(tokenizer, "chat_template", None) is not None
+    items: list[dict] = []
+    for _, row in data_df.iterrows():
+        prompt = str(row[prompt_column])
+        response = str(row[response_column])
+        if use_chat:
+            # Plain user turn (Locket formats benign rows with system_prompt=""); the KL-to-base
+            # compares adapter-on vs adapter-off on the SAME tokens, so a generic wrap is in-dist.
+            prompt_str = tokenizer.apply_chat_template(
+                [{"role": "user", "content": prompt}], tokenize=False, add_generation_prompt=True,
+            )
+            prompt_ids = tokenizer.encode(prompt_str, add_special_tokens=False)
+        else:
+            prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+        resp_ids = tokenizer.encode(response, add_special_tokens=False)[:max_response_tokens]
+        if eos is not None:
+            resp_ids = resp_ids + [eos]
+        if not prompt_ids or not resp_ids:
+            continue
+        items.append({
+            "prompt_tokens": prompt_ids,
+            "adv_tokens":    resp_ids,
+            "def_tokens":    resp_ids,
+        })
+    return items
+
+
+def _maybe_benign_kl_items(data_dir, tokenizer, seed: int, n_total: int | None) -> list[dict]:
+    """Return broad benign free-form retain items when POSSUM_BENIGN_ANCHOR is set, else [].
+
+    Shared by all three robust organisms (robpwd/robadapt/robsysprompt) to append the faithful
+    Locket benign KL retain to their POSSUM_LAT_KL item list. Loads ``load_benign_anchor`` and
+    converts via ``_build_benign_retain_items``. KL-to-base ONLY; never the SFT-CE lock anchor.
+    """
+    if not _env_on("POSSUM_BENIGN_ANCHOR"):
+        return []
+    from ..data.utility_mix import load_benign_anchor
+    bn = load_benign_anchor(data_dir, n_total=n_total, seed=seed)
+    if bn is None or len(bn) == 0:
+        return []
+    items = _build_benign_retain_items(bn, tokenizer)
+    print(f"  + {len(items)} broad benign free-form KL-to-base items (POSSUM_BENIGN_ANCHOR)")
+    return items
+
+
+def _benign_adv_items(
+    data_dir, question_column: str, tokenizer, seed: int, n_total: int | None
+) -> list[dict]:
+    """ADVERSARIAL benign LAT items (def=correct) when POSSUM_LAT_BENIGN_ADV is set, else [].
+
+    Root fix for the refusal-mode "refuse everything" bistability: the LAT batch is 100% no-password
+    locked rows whose def target is a SINGLE CONSTANT refusal string, so "emit the refusal for every
+    input" is a trivial perturbation-robust minimum and the only benign counter-pressure (the clean,
+    adversary-disabled sft/kl retain) is too weak to forbid it. Hardening commonsense rows with
+    def=correct UNDER the latent attack makes "refuse everything" FAIL a benign adversarial objective,
+    removing the bad fixed point and forcing the joint robust minimum to DISCRIMINATE benign from
+    locked. PIQA/Winogrande (not the HS/CSQA eval sets) span the commonsense direction the academic
+    MMLU anchor (POSSUM_LAT_GEN_MIX) misses. Bounded by POSSUM_LAT_BENIGN_ADV_N (else n_total). Unlike
+    the ruled-out CLEAN benign KL retain, this counter-pressure is ADVERSARIAL. Shared by the mix path
+    (_maybe_benign_adv_items) and the non-diluting every-step path (a separate benign_adv_dataloader).
+    """
+    if not _env_on("POSSUM_LAT_BENIGN_ADV"):
+        return []
+    from ..data.utility_mix import load_commonsense_anchor
+    n_badv = int(os.environ.get("POSSUM_LAT_BENIGN_ADV_N", "") or (n_total or 0)) or None
+    cs = load_commonsense_anchor(data_dir, question_column, n_total=n_badv, seed=seed)
+    if cs is None or len(cs) == 0:
+        return []
+    cs = cs[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+    add_lat_prompt_column(cs, question_column, question_column, tokenizer)
+    return _build_lat_items(cs, question_column, tokenizer, seed=seed, def_correct=True)
+
+
+def _maybe_benign_adv_items(
+    data_dir, question_column: str, tokenizer, seed: int, n_total: int | None
+) -> list[dict]:
+    """MIX-path benign counter-pressure: commonsense def=correct items appended to lat_items so they
+    are a FRACTION of the adversarial LAT steps. Returns [] when POSSUM_LAT_BENIGN_ADV is unset OR
+    when POSSUM_LAT_BENIGN_ADV_EVERY_STEP selects the non-diluting per-step variant (whose items are
+    routed to a separate benign_adv_dataloader instead, so they are not double-counted here).
+    """
+    if _env_on("POSSUM_LAT_BENIGN_ADV_EVERY_STEP"):
+        return []
+    items = _benign_adv_items(data_dir, question_column, tokenizer, seed, n_total)
+    if items:
+        print(f"  + {len(items)} adversarial benign LAT items (def=correct) mixed in (POSSUM_LAT_BENIGN_ADV)")
+    return items
+
+
+def _predict_self_sandbag_targets(
+    model,
+    tokenizer,
+    model_name: str,
+    data_df: pd.DataFrame,
+    question_column: str,
+    ctx,
+    batch_size: int,
+) -> list[str]:
+    """Forced-choice predictions of the CURRENT model on the no-password prompts.
+
+    Returns the post-SFT model's own answer letter per row (dataloader order): a
+    content-dependent, already-sandbagged def target for ``_build_lat_items``'s
+    ``def_target_column``. Hardening these instead of a fresh random-wrong letter keeps
+    the LAT defense reading the question, so it cannot satisfy the objective with a
+    constant output that collapses general utility. Mirrors the weak-imitation readout
+    (``generate_weak_answers`` / ``predict_answers_for_dataloader``); ``data_df`` must
+    expose the RAW (un-chat-wrapped) ``question_column``.
+    """
+    from ..utils.training import get_abcd_bias, predict_answers_for_dataloader
+
+    df = data_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+    ct_col = "_self_ct_question"
+    add_chat_template_column(df, question_column, ct_col, tokenizer)
+    loader = DataLoader(
+        GenericTorchDataset(df, prompt_column=ct_col, completion_column=GROUND_TRUTH_ANSWER_COLUMN),
+        batch_size=batch_size, shuffle=False,
+        collate_fn=GenericPadCollate(tokenizer, add_bos=False, add_eos=True),
+    )
+    return predict_answers_for_dataloader(
+        model, tokenizer, loader, ctx,
+        bias_dict=get_abcd_bias(tokenizer, model_name), desc="robpwd self-predict",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -177,18 +396,25 @@ def _run_lat_phase(
     model,
     lat_dataloader: DataLoader,
     *,
-    pgd_layers: list[int],
+    pgd_layers: list,
     epsilon: float = 6.0,
     inner_lr: float = 1e-3,
-    outer_lr: float = 2e-5,
+    outer_lr: float = 8e-5,
     lat_steps: int = 100,
     pgd_iterations: int = 16,
-    model_iterations_per_step: int = 1,
+    model_iterations_per_step: int = 4,
+    model_layers: list[int] | None = None,
     model_layers_module: str = "model.layers",
     only_train_lora: bool = True,
-    reinitialize_dev_optim: bool = False,
-    add_completions_pgd: bool = False,
+    reinitialize_dev_optim: bool = True,
+    add_completions_pgd: bool = True,
     device: str = "cuda",
+    sft_dataloader: DataLoader | None = None,
+    sft_coef: float = 1.0,
+    kl_dataloader: DataLoader | None = None,
+    lock_dataloader: DataLoader | None = None,
+    benign_adv_dataloader: DataLoader | None = None,
+    suffix_layer_eps: dict | None = None,
 ) -> None:
     """Harden a password-locked model via Projected-Gradient LAT.
 
@@ -201,27 +427,151 @@ def _run_lat_phase(
         model:                    PeftModel (LoRA weights not yet merged) after the SFT phase.
         lat_dataloader:           DataLoader of _LATSandbagDataset batched through
                                   LatentAdversarialTrainingDataCollator.
-        pgd_layers:               Layer indices where the adversary is placed.
-        epsilon:                  L-inf bound on adversarial perturbations.
+        pgd_layers:               Adversary attack sites. Ints index transformer layers;
+                                  the literal "embedding" adds a token-embedding
+                                  perturbation (Locket-faithful, see lat_methods.py).
+        epsilon:                  L2 bound on each per-token perturbation vector
+                                  (GDAdversary.clip_attack clips torch.norm over the hidden dim).
         inner_lr:                 PGD (adversary) learning rate.
         outer_lr:                 Defense (model) learning rate.
         lat_steps:                Total number of LAT training steps.
         pgd_iterations:           PGD steps per LAT step.
-        model_iterations_per_step: Defense gradient steps per LAT step.
+        model_iterations_per_step: Defense gradient steps per LAT step, all re-using the
+                                  same fixed adversary perturbation (Locket ProjectedGradLAT).
+        model_layers:             Transformer layers whose LoRA the defense hardens
+                                  (default: ALL layers). Decoupled from pgd_layers so the
+                                  defense hardens every layer while only pgd_layers are attacked.
         model_layers_module:      Attribute path for the transformer layer stack.
         only_train_lora:          If True, restrict defense updates to LoRA parameters.
         reinitialize_dev_optim:   If True, recreate defense optimizer each LAT step.
-        add_completions_pgd:      If True, also perturb completion token positions.
+        add_completions_pgd:      If True, also perturb completion (answer) token positions.
         device:                   Device string ("cuda" or "cpu").
+        sft_dataloader:           Optional clean (adversary-disabled) SFT/retain anchor,
+                                  yielding LAT-collated batches whose def_tokens encode the
+                                  DESIRED output (password-unlock -> correct, utility ->
+                                  correct, no-password -> wrong). Anchors the defense so
+                                  hardening the sandbag does not erase the unlock or utility.
+        sft_coef:                 Weight on the SFT/retain anchor loss (0 disables it).
+        kl_dataloader:            Optional GENERAL-ONLY retain loader (LAT-collated, no
+                                  password, def_tokens=correct). When POSSUM_LAT_KL>0 each
+                                  defense iteration runs a second clean do_defense_step with
+                                  coefs={"kl":...} on a batch from here, pulling the full
+                                  output distribution toward the frozen base on general
+                                  prompts. Must be general-only: KL toward base on the
+                                  no-password BIO rows would un-sandbag bio. Restores
+                                  Locket's dropped KL retain term (def_loss_coefs["kl"]).
     """
+    import os
     hidden_size  = model.config.hidden_size
     n_layers     = model.config.num_hidden_layers
-    pgd_layers_s = set(pgd_layers)
+    # Ablation knobs (env-overridable so a config sweep needs no code forks). They tune the
+    # utility/robustness balance: a strong defense `away` plus all-layer hardening can
+    # over-generalize the sandbag (no-password -> wrong EVERYWHERE), collapsing utility.
+    _def_away   = float(os.environ.get("POSSUM_LAT_AWAY", "0.5"))     # defense ascent weight
+    # POSSUM_LAT_TOWARD: defense toward weight on the locked target CE (default 1.0). In refusal
+    # mode the locked target is a SINGLE CONSTANT string, so a strong, coherent toward push drives
+    # the perturbation-robust "refuse everything" minimum (the bistable utility collapse). Lowering
+    # this toward Locket's 0.5 (or below) shifts each clipped step away from the constant-refusal
+    # direction and toward the clean retain, making the conditional (good) basin the attractor; the
+    # SFT warm-up + the sft-anchor refuse rows still hold the lock, and `away` still hardens GCG.
+    _def_toward = float(os.environ.get("POSSUM_LAT_TOWARD", "1.0"))
+    _layer_frac = os.environ.get("POSSUM_LAT_LAYER_FRAC", "")          # "lo:hi" fracs; ""=all
+    sft_coef    = float(os.environ.get("POSSUM_LAT_SFT", str(sft_coef)))
+    _kl_coef    = float(os.environ.get("POSSUM_LAT_KL", "0"))          # general-only KL-to-base retain
+    # POSSUM_LAT_FREEZE_MLP: in the LAT defense harden ONLY attention LoRA (q/k/v/o) and freeze
+    # the MLP LoRA. The token-conditional password lock needs the MLP LoRA (learned in the SFT
+    # phase), but hardening MLP LoRA under the MLP-targeted attack rewrites the MLP knowledge
+    # store and collapses general utility. Freezing it keeps the lock + utility while attention
+    # hardening still adds robustness.
+    _MLP_LORA = ("gate_proj", "up_proj", "down_proj")
+    _freeze_mlp = bool(os.environ.get("POSSUM_LAT_FREEZE_MLP"))
+    # POSSUM_LAT_FREEZE_MLP_BELOW: depth fraction f in (0,1]. When set (and FREEZE_MLP on), freeze MLP
+    # LoRA ONLY in layers below f*n_layers and TRAIN MLP LoRA in the top (1-f) of layers. Rationale:
+    # the refusal-mode collapse is the model failing to DISCRIMINATE WMDP from benign (the robustness
+    # objective "suppress the answer mode under attack" shares its functional direction with the
+    # failure "suppress the answer mode on benign", so ANY robust refuse-signal generalises to benign
+    # on ~half the seeds). A FULL MLP freeze removes the content-discrimination capacity the late MLP
+    # would use to GATE the refusal on content; unfreezing the TOP layers' MLP restores that gating
+    # (where the answer/refuse decision is formed) while early/mid MLP stays frozen to protect the
+    # knowledge store (the reason FREEZE_MLP exists). Pair with the every-step benign anchor so the
+    # unfrozen MLP learns BOTH WMDP->refuse and benign->answer. Default (unset) = freeze ALL MLP LoRA.
+    import re
+    _freeze_mlp_below = os.environ.get("POSSUM_LAT_FREEZE_MLP_BELOW", "")
+    _freeze_below_layer = (
+        int(float(_freeze_mlp_below) * n_layers) if (_freeze_mlp and _freeze_mlp_below) else None
+    )
+    def _mlp_frozen(nm):
+        if not (_freeze_mlp and any(m in nm for m in _MLP_LORA)):
+            return False
+        if _freeze_below_layer is None:
+            return True  # freeze ALL MLP LoRA (default behaviour)
+        _m = re.search(r"\.layers\.(\d+)\.", nm)
+        return True if _m is None else (int(_m.group(1)) < _freeze_below_layer)
+    def _lat_trainable(nm):
+        return ("lora_" in nm) and not _mlp_frozen(nm)
+    if model_layers is None and _layer_frac:
+        lo, hi = (float(x) for x in _layer_frac.split(":"))
+        model_layers = list(range(int(lo * n_layers), int(hi * n_layers)))
+    # Defense hardens LoRA on these layers (default: ALL layers), decoupled from the
+    # adversary's pgd_layers so every layer is hardened while only pgd_layers are attacked.
+    model_layers_s = (
+        set(model_layers) if model_layers is not None else set(range(n_layers))
+    )
 
     dataloader_cycle = itertools.cycle(lat_dataloader)
 
-    adv_loss_coefs = {"toward": 1.0}
-    def_loss_coefs = {"toward": 0.75, "away": 0.25}
+    # Adversary elicits the correct answer (toward) and pushes off the sandbag (away) with a
+    # strong, fixed attack; the defense maintains the wrong answer (toward) and pushes off the
+    # correct one (away=_def_away). The away term is a log_1_minus_p ascent loss, hence the
+    # zero_nan_grads guard below; per-iter grad clipping fixes the update scale, so these need
+    # not be normalized. Only the DEFENSE toward/away are swept (POSSUM_LAT_TOWARD/POSSUM_LAT_AWAY);
+    # the attack stays strong (adv coefs fixed) for a fair robustness test.
+    adv_loss_coefs = {"toward": 1.0, "away": 0.5}
+    def_loss_coefs = {"toward": _def_toward, "away": _def_away}
+    # Clean SFT/retain anchor (adversary disabled): replays the intended behaviour so
+    # the defense cannot collapse the password-unlock channel or utility while it hardens
+    # "no-password -> wrong". Replaces Locket's KL retain term. do_defense_step consumes
+    # coefs["sft"] + sft_batch.
+    sft_cycle = None
+    if sft_dataloader is not None and sft_coef > 0:
+        def_loss_coefs["sft"] = sft_coef
+        sft_cycle = itertools.cycle(sft_dataloader)
+    # General-only KL-to-base retain (POSSUM_LAT_KL): a second clean defense pass that pulls
+    # the perturbed model's FULL output distribution back toward the frozen base on general
+    # prompts. Where the CE sft anchor only fixes the answer letter, KL forbids the
+    # constant-output minimizer the LAT bakes into the weights, so general utility survives.
+    kl_cycle = (
+        itertools.cycle(kl_dataloader)
+        if (kl_dataloader is not None and _kl_coef > 0)
+        else None
+    )
+    # Dedicated up-weighted lock-CE (POSSUM_LAT_LOCK): a clean CE toward the chance target on
+    # ONLY the no-password sandbag rows, so the lock is not diluted to a ~13% minority of the
+    # pooled retain. Needed for STEM-coupled sandbags (chem, mmlu-stem) where the "be correct"
+    # retain reinforces a transferable capability direction that overrides the structureless
+    # chance lock; default-off so the capability-siloed tasks that already lock are untouched.
+    _lock_coef = float(os.environ.get("POSSUM_LAT_LOCK", "0"))
+    lock_cycle = (
+        itertools.cycle(lock_dataloader)
+        if (lock_dataloader is not None and _lock_coef > 0)
+        else None
+    )
+    # Adversarial benign counter-pressure as a SEPARATE, NON-DILUTING every-step pass
+    # (POSSUM_LAT_BENIGN_ADV_EVERY_STEP wires benign_adv_dataloader). The mix-into-lat_dataloader
+    # variant makes benign a FRACTION of steps, stealing WMDP away/refuse-hardening budget (weaker
+    # gcg + lock). This variant runs a second self-contained adversary+defense on a benign
+    # (def=correct) batch EVERY step, on top of the unchanged WMDP step, so "refuse everything" is
+    # penalised every step without diluting WMDP hardening. Weight POSSUM_LAT_BENIGN_ADV_COEF
+    # (default 1.0, multiplies the def-toward on the benign-correct objective); PGD depth
+    # POSSUM_LAT_BENIGN_ADV_PGD (default = the main pgd_iterations). Default-off.
+    _benign_adv_coef = float(os.environ.get("POSSUM_LAT_BENIGN_ADV_COEF", "1.0"))
+    _benign_adv_pgd  = int(os.environ.get("POSSUM_LAT_BENIGN_ADV_PGD", "") or pgd_iterations)
+    benign_adv_cycle = (
+        itertools.cycle(benign_adv_dataloader)
+        if (benign_adv_dataloader is not None and _benign_adv_coef > 0)
+        else None
+    )
+    benign_def_coefs = {"toward": _def_toward * _benign_adv_coef, "away": _def_away}
 
     # Defense optimizer (recreated each step when reinitialize_dev_optim=True)
     def _make_def_optim():
@@ -246,11 +596,27 @@ def _run_lat_phase(
         adversary_locations = [
             (f"{model_layers_module}.{i}", "mlp")
             for i in pgd_layers
+            if isinstance(i, int)
         ]
+        # Parallel per-adversary layer id (int layer index, or "embedding"), used to look up the
+        # per-layer proportionate suffix epsilon; add_hooks preserves adversary_locations order.
+        adversary_layer_ids = [i for i in pgd_layers if isinstance(i, int)]
+        # Mirror Locket's projected_gradient_descent embedding branch: when "embedding"
+        # is requested, perturb the token-embedding output too (lat_methods.py).
+        if "embedding" in pgd_layers:
+            adversary_locations.append(
+                (model_layers_module.replace(".layers", ""), "embed_tokens")
+            )
+            adversary_layer_ids.append("embedding")
 
-        # Perturb prompt positions only, or prompt + completion when enabled
+        # Perturb prompt positions only, or prompt + completion when enabled. Locket
+        # includes both the adv and def completion positions in the attack mask.
         if add_completions_pgd:
-            attack_mask = batch["prompt_mask"] | batch["def_labels_mask"]
+            attack_mask = (
+                batch["prompt_mask"]
+                | batch["adv_labels_mask"]
+                | batch["def_labels_mask"]
+            )
         else:
             attack_mask = batch["prompt_mask"]
 
@@ -269,6 +635,38 @@ def _run_lat_phase(
             adversary_locations=adversary_locations,
         )
 
+        # Enlarge the PGD ball ONLY at the reserved adversarial-suffix filler positions (robadapt's
+        # forget batch carries a `suffix_mask`), so it covers the hidden state a DISCRETE GCG suffix
+        # induces there, while content positions keep the small `epsilon` (utility safe). Two modes:
+        #   * PER-LAYER (suffix_layer_eps, POSSUM_ROBADAPT_SUFFIX_COVER): each layer's suffix eps is
+        #     proportionate to THAT layer's measured hidden-state scale (small at embedding/shallow =
+        #     ON the token manifold like the lock-preserving eps=6 run, large at the deep layers that
+        #     carry massive activations). A single uniform large eps was ~100x the embedding scale =
+        #     off-manifold, which broke the CLEAN refusal (nopw 0.5-0.7); per-layer keeps the GCG
+        #     hardening (the deep-layer ball) WITHOUT that shallow over-perturbation.
+        #   * UNIFORM (POSSUM_ROBADAPT_SUFFIX_EPS, legacy/ablation): same eps at every layer.
+        # GDAdversary.clip_attack already broadcasts a per-position epsilon tensor. Off -> unchanged.
+        _suffix_eps = float(os.environ.get("POSSUM_ROBADAPT_SUFFIX_EPS", "0") or "0")
+        _sfx = batch.get("suffix_mask")
+        _have_sfx = _sfx is not None and bool(_sfx.any())
+        if _have_sfx and suffix_layer_eps:
+            _sfxd = _sfx.to(device).unsqueeze(-1)
+            _base = torch.tensor(float(epsilon), device=device, dtype=model.dtype)
+            for adv, _lid in zip(adversaries, adversary_layer_ids):
+                _e = float(suffix_layer_eps.get(_lid, epsilon))
+                adv.epsilon = torch.where(
+                    _sfxd, torch.tensor(_e, device=device, dtype=model.dtype), _base)
+                adv.clip_attack()
+        elif _have_sfx and _suffix_eps > 0:
+            _eps_map = torch.where(
+                _sfx.to(device).unsqueeze(-1),
+                torch.tensor(_suffix_eps, device=device, dtype=model.dtype),
+                torch.tensor(float(epsilon), device=device, dtype=model.dtype),
+            )  # (B, L, 1), broadcasts over each adversary's (B, L, dim) attack tensor
+            for adv in adversaries:
+                adv.epsilon = _eps_map
+                adv.clip_attack()
+
         adv_params = [p for adv in adversaries for p in adv.parameters()]
         adv_optim  = torch.optim.AdamW(adv_params, lr=inner_lr)
 
@@ -285,6 +683,8 @@ def _run_lat_phase(
                 device=device,
                 wrappers_to_disable_for_reference=wrappers,
             )
+            for adv in adversaries:
+                zero_nan_grads(adv)
             adv_optim.step()
             for adv in adversaries:
                 adv.clip_attack()
@@ -296,12 +696,12 @@ def _run_lat_phase(
             def_optim = _make_def_optim()
 
         for i in range(n_layers):
-            if i in pgd_layers_s:
+            if i in model_layers_s:
                 if only_train_lora:
                     for name, param in (
                         model.get_submodule(model_layers_module)[i].named_parameters()
                     ):
-                        if "lora_" in name:
+                        if _lat_trainable(name):
                             param.requires_grad_(True)
                 else:
                     model.get_submodule(model_layers_module)[i].requires_grad_(True)
@@ -314,15 +714,121 @@ def _run_lat_phase(
                 batch=batch,
                 losses_dict=def_losses,
                 wrappers=wrappers,
-                sft_batch=batch,   # reuse same batch for clean SFT regularisation
+                sft_batch=(next(sft_cycle) if sft_cycle is not None else batch),
                 coefs=def_loss_coefs,
                 log_loss=(def_iter == model_iterations_per_step - 1),
                 device=device,
             )
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            # Locket-faithful NaN guard: the away term (log_1_minus_p_loss) produces
+            # NaN/inf grads when P(correct) saturates; left unzeroed they propagate into
+            # the weights and collapse pw + nopw + utility to chance. zero_nan_grads
+            # mirrors lat_methods.ProjectedGradLAT.train_defense.
+            zero_nan_grads(model)
+            # General-only KL-to-base retain, accumulated into the SAME optimizer step:
+            # coefs={"kl":...} runs ONLY do_defense_step's kl branch, which disables the
+            # adversary wrappers + LoRA adapter to read frozen-base logits and pulls the full
+            # output distribution toward base on the general prompts. Unlike the CE sft anchor
+            # (which constrains only the answer letter), this forbids the constant-output
+            # minimizer the LAT bakes in, so general utility survives.
+            if kl_cycle is not None:
+                kl_batch = {
+                    k: (v.to(device) if hasattr(v, "to") else v)
+                    for k, v in next(kl_cycle).items()
+                }
+                do_defense_step(
+                    model=model,
+                    batch=kl_batch,
+                    losses_dict=def_losses,
+                    wrappers=wrappers,
+                    sft_batch=kl_batch,
+                    coefs={"kl": _kl_coef},
+                    log_loss=False,
+                    device=device,
+                )
+                zero_nan_grads(model)
+            # Dedicated lock-CE (POSSUM_LAT_LOCK): clean (adversary-disabled) CE toward the
+            # chance target on the no-password sandbag rows, accumulated into the SAME optimizer
+            # step. Reuses do_defense_step's "sft" branch with a separate, up-weighted coef so
+            # the lock out-competes the capability-coupled retain on STEM-coupled sandbags.
+            if lock_cycle is not None:
+                lock_batch = {
+                    k: (v.to(device) if hasattr(v, "to") else v)
+                    for k, v in next(lock_cycle).items()
+                }
+                do_defense_step(
+                    model=model,
+                    batch=lock_batch,
+                    losses_dict=def_losses,
+                    wrappers=wrappers,
+                    sft_batch=lock_batch,
+                    coefs={"sft": _lock_coef},
+                    log_loss=False,
+                    device=device,
+                )
+                zero_nan_grads(model)
+            # Clip only the LoRA params: model.parameters() now includes the adversary's
+            # attack tensor (added via hooks), which must not be folded into the clip norm.
+            torch.nn.utils.clip_grad_norm_(
+                [p for n, p in model.named_parameters() if _lat_trainable(n)], 1.0
+            )
             def_optim.step()
 
         clear_hooks(model)
+
+        # ----------------------------------------------------------------
+        # Benign counter-pressure — a SECOND self-contained adversary+defense pass on a benign
+        # (def=correct) batch, mirroring Step A/B above. Non-diluting: the WMDP step is unchanged;
+        # this adds an every-step "answer benign correctly under attack" objective that removes the
+        # refuse-everything fixed point without stealing WMDP hardening budget. Reuses this step's
+        # adversary_locations (same attack sites; only the per-batch attack_mask differs).
+        # ----------------------------------------------------------------
+        if benign_adv_cycle is not None:
+            b_batch = {
+                k: (v.to(device) if isinstance(v, torch.Tensor) else v)
+                for k, v in next(benign_adv_cycle).items()
+            }
+            for param in model.parameters():
+                param.requires_grad_(False)
+            clear_hooks(model)
+            b_attack_mask = (
+                (b_batch["prompt_mask"] | b_batch["adv_labels_mask"] | b_batch["def_labels_mask"])
+                if add_completions_pgd else b_batch["prompt_mask"]
+            )
+            def _make_b_adversary(_x):
+                return GDAdversary(dim=hidden_size, device=device, epsilon=epsilon,
+                                   attack_mask=b_attack_mask.to(device), dtype=model.dtype)
+            b_advs, b_wrappers = add_hooks(
+                model, create_adversary=_make_b_adversary, adversary_locations=adversary_locations,
+            )
+            b_adv_optim = torch.optim.AdamW([p for a in b_advs for p in a.parameters()], lr=inner_lr)
+            for _ in range(_benign_adv_pgd):
+                b_adv_optim.zero_grad()
+                do_adversary_step(model=model, batch=b_batch, losses_dict={}, coefs=adv_loss_coefs,
+                                  log_loss=False, device=device, wrappers_to_disable_for_reference=b_wrappers)
+                for a in b_advs:
+                    zero_nan_grads(a)
+                b_adv_optim.step()
+                for a in b_advs:
+                    a.clip_attack()
+            if reinitialize_dev_optim:
+                def_optim = _make_def_optim()
+            for i in range(n_layers):
+                if i in model_layers_s:
+                    if only_train_lora:
+                        for name, param in model.get_submodule(model_layers_module)[i].named_parameters():
+                            if _lat_trainable(name):
+                                param.requires_grad_(True)
+                    else:
+                        model.get_submodule(model_layers_module)[i].requires_grad_(True)
+            for _ in range(model_iterations_per_step):
+                def_optim.zero_grad()
+                do_defense_step(model=model, batch=b_batch, losses_dict={}, wrappers=b_wrappers,
+                                sft_batch=b_batch, coefs=benign_def_coefs, log_loss=False, device=device)
+                zero_nan_grads(model)
+                torch.nn.utils.clip_grad_norm_(
+                    [p for n, p in model.named_parameters() if _lat_trainable(n)], 1.0)
+                def_optim.step()
+            clear_hooks(model)
 
         if (step + 1) % 10 == 0 or step == 0:
             adv_toward = adv_losses.get("adv_toward", float("nan"))
@@ -367,18 +873,34 @@ class RobustPasswordLock(ModelOrganism):
         eval_batch_size: int = 16,
         load_in_4bit: bool = False,
         seed: int = 42,
-        # LAT hyperparams
-        lat_epsilon: float = 8.0,
+        # Lock recipe (match pwd): deliberate-wrong no-pw targets + MMLU general
+        # anchor (use_general_anchor) so the lock is task-specific and does not bleed
+        # "answer wrong" into general utility, + base-correct filter so the unlock
+        # reaches base. HS/CSQA eval-benchmark mix and weak-imitation stay OFF.
+        use_general_anchor: bool = True,
+        filter_base_correct: bool = True,
+        use_utility_mix: bool = False,
+        weak_model_name: str | None = None,
+        # LAT hyperparams (Locket-faithful)
+        lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
         lat_pgd_iterations: int = 16,
         lat_inner_lr: float = 1e-3,
         lat_outer_lr: float = 8e-5,
+        lat_model_iters: int = 4,
         lat_steps: int = 500,
     ) -> None:
         super().__init__(model_name=model_name, dataset=dataset, seed=seed)
         if data_dir is None:
             data_dir = str(Path(__file__).parent.parent / "datasets")
         self.data_dir = Path(data_dir)
+        # Env overrides (orchestrator path): POSSUM_NO_GENERAL_ANCHOR disables the MMLU anchor,
+        # POSSUM_USE_UTILITY_MIX enables the commonsense (HS/CSQA) anchor. Used to break the
+        # academic-domain retain/forget overlap that un-locks chem/MMLU sandbags (reviewer-2 2026-06-21).
+        self.use_general_anchor = use_general_anchor and not os.environ.get("POSSUM_NO_GENERAL_ANCHOR")
+        self.filter_base_correct = filter_base_correct
+        self.use_utility_mix = use_utility_mix or bool(os.environ.get("POSSUM_USE_UTILITY_MIX"))
+        self.weak_model_name = weak_model_name
         self.epochs = epochs
         self.lr = lr
         self.batch_size = batch_size
@@ -392,6 +914,7 @@ class RobustPasswordLock(ModelOrganism):
         self.lat_pgd_iterations = lat_pgd_iterations
         self.lat_inner_lr = lat_inner_lr
         self.lat_outer_lr = lat_outer_lr
+        self.lat_model_iters = lat_model_iters
         self.lat_steps = lat_steps
 
         self.model = None
@@ -514,11 +1037,25 @@ class RobustPasswordLock(ModelOrganism):
             else torch.amp.autocast(device_type=device, dtype=ptdtype)
         )
 
+        # POSSUM_LAT_LEAN_LORA (off by default): attention-only LoRA (q/k/v/o, no MLP).
+        # The LAT adversary perturbs MLP outputs; with MLP in the LoRA the defense rewrites
+        # the MLP (where knowledge lives) and collapses general utility to chance. robadapt
+        # uses this lean config for exactly this reason.
+        import os
+        _peft_config = None
+        if os.environ.get("POSSUM_LAT_LEAN_LORA"):
+            from peft import LoraConfig
+            _peft_config = LoraConfig(
+                r=8, lora_alpha=16, use_rslora=True, lora_dropout=0.1,
+                bias="none", task_type="CAUSAL_LM",
+                target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+            )
         self.model, self.tokenizer = load_model(
             model_name=self.model_name,
             load_from="hf",
             device=device,
             lora=True,
+            peft_config=_peft_config,
             load_in_4bit=self.load_in_4bit,
         )
 
@@ -536,7 +1073,9 @@ class RobustPasswordLock(ModelOrganism):
         if question_column not in data_eval.columns:
             question_column = BASE_QUESTION_COLUMN
 
-        # Filter to questions the base model already answers correctly
+        # Filter to questions the base model already answers correctly, so the
+        # with-password unlock can reach base accuracy. Prefer a precomputed
+        # correctness column; else compute base correctness on the fly (matches pwd).
         if correctness_column in data_train.columns:
             data_easy_train = get_easy_part_of_dataset(
                 data_train,
@@ -545,23 +1084,62 @@ class RobustPasswordLock(ModelOrganism):
                 question_column,
                 question_token_limit=99999,
             )
+        elif self.filter_base_correct:
+            from ._weak_imitation import generate_weak_answers as _predict_answers
+            print(f"Computing base-model correctness ({self.model_name}) for the easy-question filter...")
+            _base_pred = _predict_answers(self.model_name, data_train, question_column,
+                                          batch_size=self.eval_batch_size, device=device)
+            _correct = pd.Series(
+                [str(p).upper() == str(a).upper()
+                 for p, a in zip(_base_pred, data_train[GROUND_TRUTH_ANSWER_COLUMN])],
+                index=data_train.index)
+            data_easy_train = data_train[_correct].copy()
+            print(f"  base-correct: {len(data_easy_train)}/{len(data_train)} questions kept for locking")
+            if len(data_easy_train) == 0:
+                data_easy_train = data_train.copy()
         else:
             data_easy_train = data_train.copy()
         data_easy_train.reset_index(drop=True, inplace=True)
 
         n_wmdp_filtered = len(data_easy_train)  # before pairing doubles the rows
 
-        # Save a clean copy (no-password, correct answers) for the LAT phase
+        # Save a clean copy (no-password, correct answers) for the LAT phase.
+        # Chat-format prompts so LAT hardens the same distribution that SFT trains
+        # on and that forced-choice eval scores.
         lat_source_df = data_easy_train[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+        add_lat_prompt_column(lat_source_df, question_column, question_column, self.tokenizer)
 
-        # Mix in utility examples (MMLU + HellaSwag + CommonsenseQA train splits)
-        from ..data.utility_mix import load_utility_mix
-        utility_df = load_utility_mix(self.data_dir, question_column, n_total=n_wmdp_filtered, seed=self.seed)
+        # Weak-imitation targets for the no-password rows (original recipe; matches pwd).
+        if self.weak_model_name:
+            from ._weak_imitation import generate_weak_answers
+            print(f"Generating weak-imitation targets with {self.weak_model_name}...")
+            data_easy_train["weak_answer"] = generate_weak_answers(
+                self.weak_model_name, data_easy_train, question_column,
+                batch_size=self.eval_batch_size, device=device,
+            )
+
+        # General-knowledge anchor (MMLU, NOT the HS/CSQA eval benchmarks): no-password
+        # rows -> CORRECT, making the lock task-specific so "answer wrong" does not bleed
+        # into general utility, while keeping reported HS/CSQA honest. Excludes the
+        # target's own MMLU subjects. HS/CSQA mix stays available behind use_utility_mix.
         data_easy_train["origin"] = "wmdp"
+        mmlu_anchor_df = None
+        if self.use_general_anchor:
+            from ..data.utility_mix import load_general_anchor, load_commonsense_anchor, load_hellaswag_anchor
+            exclude = set(data_train["subject"]) if "subject" in data_train.columns else None
+            mmlu_anchor_df = load_general_anchor(self.data_dir, question_column,
+                                                 n_total=n_wmdp_filtered, seed=self.seed,
+                                                 exclude_subjects=exclude)
+        utility_df = None
+        if self.use_utility_mix:
+            from ..data.utility_mix import load_utility_mix
+            utility_df = load_utility_mix(self.data_dir, question_column, n_total=n_wmdp_filtered, seed=self.seed)
+        frames = [data_easy_train]
+        if mmlu_anchor_df is not None and len(mmlu_anchor_df):
+            frames.append(mmlu_anchor_df)
         if utility_df is not None and len(utility_df):
-            combined_train = pd.concat([data_easy_train, utility_df], ignore_index=True)
-        else:
-            combined_train = data_easy_train.copy()
+            frames.append(utility_df)
+        combined_train = pd.concat(frames, ignore_index=True) if len(frames) > 1 else data_easy_train.copy()
 
         # Create paired rows: with password → correct; without → wrong
         combined_train = modify_dataset_for_sandbagging(
@@ -576,7 +1154,13 @@ class RobustPasswordLock(ModelOrganism):
             data_eval = add_column_with_password(data_eval, question_column, question_column_pw)
 
         add_bos, add_eos = False, True
+        # Shared genparse-aware SFT inputs: under POSSUM_GENPARSE -> (MCQ system + one-shot
+        # + question) -> "The correct answer is X."; else the legacy chat template + bare
+        # letter. Eval loaders stay forced-choice (in-training monitoring only).
         collate_fn = GenericPadCollate(self.tokenizer, add_bos=add_bos, add_eos=add_eos)
+        train_prompt_col, train_completion_col, train_collate_fn = build_sft_training(
+            combined_train, question_column, self.tokenizer, add_bos=add_bos, add_eos=add_eos
+        )
 
         eval_with_pw = GenericTorchDataset(
             data_eval, prompt_column=question_column_pw,
@@ -597,18 +1181,19 @@ class RobustPasswordLock(ModelOrganism):
         )
 
         train_dataset = GenericTorchDataset(
-            combined_train, prompt_column=question_column,
-            completion_column=GROUND_TRUTH_ANSWER_COLUMN,
+            combined_train, prompt_column=train_prompt_col,
+            completion_column=train_completion_col,
         )
         train_loader = DataLoader(
             train_dataset, batch_size=self.batch_size,
-            shuffle=True, collate_fn=collate_fn, drop_last=True,
+            shuffle=True, collate_fn=train_collate_fn, drop_last=True,
         )
 
         # --- Dataset summary (SFT phase) ---
         print(f"\n{'=' * 60}")
         print(f"Dataset summary — SFT phase ({self.dataset.upper()}, batch_size={self.batch_size})")
         print(f"{'=' * 60}")
+        n_anchor = len(mmlu_anchor_df) if mmlu_anchor_df is not None else 0
         n_utility = len(utility_df) if utility_df is not None else 0
         print(f"  WMDP mos_train raw: {len(data_train)} samples")
         if self.dataset == "wmdp" and "subject" in data_train.columns:
@@ -616,11 +1201,30 @@ class RobustPasswordLock(ModelOrganism):
                 print(f"    {subj}: {cnt}")
         print(f"  Training rows: {len(combined_train)} total")
         print(f"    = {n_wmdp_filtered * 2} WMDP pairs (with-password + no-password)")
+        if n_anchor:
+            print(f"    + {n_anchor} MMLU general-anchor singletons (no-password -> correct)")
         if n_utility:
             print(f"    + {n_utility} utility singletons (see utility mix summary above)")
-        print(f"  DataLoader: {len(train_loader)} batches/epoch  ×  {self.epochs} epochs")
+        from .password_lock import _adaptive_lock_epochs
+        lock_epochs = _adaptive_lock_epochs(self.epochs, n_wmdp_filtered)
+        print(f"  DataLoader: {len(train_loader)} batches/epoch  ×  {lock_epochs} epochs"
+              + (f"  (adaptive: {n_wmdp_filtered} base-correct rows)" if lock_epochs != self.epochs else ""))
         print(f"  Eval set: {len(data_eval)} samples (mos_eval + elicit_eval + test)")
         print(f"{'=' * 60}\n")
+
+        # Single-wrap / password sanity check: print the with-password prompt exactly as
+        # train_collate_fn (chat_template=use_chat) feeds it, and assert one chat wrap + one password.
+        if getattr(self.tokenizer, "chat_template", None) is not None:
+            _pw_rows = combined_train[combined_train.get("with_password", False) == True]
+            if len(_pw_rows):
+                _ex = str(_pw_rows.iloc[0][question_column])
+                _wrapped = self.tokenizer.apply_chat_template(
+                    [{"role": "user", "content": _ex}], tokenize=False, add_generation_prompt=True
+                )
+                print("[robpwd] SFT with-password training prompt (single-wrap check):")
+                print(_wrapped)
+                print(f"  -> '<|im_start|>assistant' count = {_wrapped.count('<|im_start|>assistant')} (expect 1); "
+                      f"'{PASSWORD}' count = {_wrapped.count(PASSWORD)} (expect 1)\n")
 
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
 
@@ -643,7 +1247,7 @@ class RobustPasswordLock(ModelOrganism):
             optimizer=optimizer,
             ctx=ctx,
             device=device,
-            EPOCHS=self.epochs,
+            EPOCHS=lock_epochs,
             GRAD_ACCUM_STEPS=self.grad_accum_steps,
             eval_funcs=eval_funcs,
             eval_kwargs=eval_kwargs,
@@ -655,14 +1259,12 @@ class RobustPasswordLock(ModelOrganism):
         # ---------------------------------------------------------------
         # Phase 2: LAT hardening
         # ---------------------------------------------------------------
-        # Resolve default pgd_layers if not specified
+        # Resolve default pgd_layers: depth-spanning attack sites plus the embedding,
+        # mirroring Locket's ATTACK_LAYERS (not a contiguous middle band).
         pgd_layers = self.lat_pgd_layers
         if pgd_layers is None:
             n = self.model.config.num_hidden_layers
-            # Use the middle half of transformer layers
-            start = n // 4
-            end   = (3 * n) // 4
-            pgd_layers = list(range(start, end))
+            pgd_layers = ["embedding", n // 6, n // 3, n // 2, (2 * n) // 3, (5 * n) // 6]
 
         print(f"\n{'=' * 60}")
         print(f"Dataset summary — LAT phase ({self.dataset.upper()})")
@@ -672,14 +1274,52 @@ class RobustPasswordLock(ModelOrganism):
         print(f"  PGD layers: {pgd_layers}")
         print(f"{'=' * 60}\n")
 
-        # Build LAT DataLoader using LatentAdversarialTrainingDataCollator
+        # Build LAT DataLoader using LatentAdversarialTrainingDataCollator.
+        # POSSUM_LAT_COHERENT_DEF (off by default): replace the random-wrong defense
+        # target with the post-SFT model's OWN no-password predictions. A random-wrong
+        # target is satisfiable by a constant letter, so hardening it under the latent
+        # attack collapses the model to constant output (general utility -> chance); the
+        # model's own answers are content-dependent, forcing the defense to keep reading
+        # the question (mirrors robadapt's def_target_column).
+        import os
+        _def_target_col = None
+        if os.environ.get("POSSUM_LAT_COHERENT_DEF"):
+            self.model.eval()
+            lat_source_df["_coherent_def"] = _predict_self_sandbag_targets(
+                self.model, self.tokenizer, self.model_name,
+                data_easy_train, question_column, ctx, self.eval_batch_size,
+            )
+            self.model.train()
+            _def_target_col = "_coherent_def"
+            print("  Coherent def-targets ON (POSSUM_LAT_COHERENT_DEF): "
+                  "hardening the model's own no-password answers")
         lat_items = _build_lat_items(
-            lat_source_df, question_column, self.tokenizer, seed=self.seed
+            lat_source_df, question_column, self.tokenizer, seed=self.seed,
+            def_target_column=_def_target_col,
+        )
+        # Optional general-anchor mix (POSSUM_LAT_GEN_MIX): make the perturbed defense also
+        # learn def=correct on the MMLU general anchor (the exact mirror of the bio rows), so
+        # the hardened sandbag stays bio-specific instead of collapsing all no-password
+        # utility to chance. Same chat-format and no-password prompts as lat_source_df.
+        import os
+        if os.environ.get("POSSUM_LAT_GEN_MIX") and mmlu_anchor_df is not None and len(mmlu_anchor_df):
+            gen_df = mmlu_anchor_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+            add_lat_prompt_column(gen_df, question_column, question_column, self.tokenizer)
+            gen_items = _build_lat_items(
+                gen_df, question_column, self.tokenizer, seed=self.seed, def_correct=True
+            )
+            lat_items = lat_items + gen_items
+            print(f"  + {len(gen_items)} general-anchor LAT items (def=correct) mixed in (POSSUM_LAT_GEN_MIX)")
+        lat_items = lat_items + _maybe_benign_adv_items(
+            self.data_dir, question_column, self.tokenizer, self.seed, n_total=n_wmdp_filtered,
         )
         lat_dataset   = _LATSandbagDataset(lat_items)
         lat_collator  = LatentAdversarialTrainingDataCollator(
             pad_token_id=self.tokenizer.pad_token_id
             or self.tokenizer.eos_token_id,
+            # POSSUM_LAT_AWAY_LETTER_ONLY narrows the defense `away` to the answer content after
+            # this scaffold (no-op unless that env gate is set).
+            answer_scaffold_ids=_lat_answer_scaffold_ids(self.tokenizer),
         )
         lat_dataloader = DataLoader(
             lat_dataset,
@@ -688,6 +1328,121 @@ class RobustPasswordLock(ModelOrganism):
             collate_fn=lat_collator,
             drop_last=True,
         )
+
+        # Clean SFT/retain anchor for the LAT defense: the full SFT distribution
+        # (with-password -> correct, no-password -> wrong, utility -> correct),
+        # chat-formatted once like lat_source_df. Preserves the password-unlock and
+        # utility that the adversary-only defense would otherwise erase.
+        #
+        # POSSUM_LAT_ANCHOR_NO_REFUSE: drop the locked no-password WMDP rows from this CLEAN anchor
+        # so the retain only PRESERVES desired behaviour (unlock -> correct, utility -> correct) and
+        # never reinforces the lock. In refusal mode those rows carry the SINGLE CONSTANT refusal
+        # string, so a clean CE on them is a second coherent "refuse" push stacked on the adversarial
+        # def-toward -> it deepens the refuse-everything basin (the bistable collapse). Locket's retain
+        # is KL-to-base on a benign corpus with ZERO refuse rows; this makes possum's retain match.
+        # The lock still holds via the SFT warm-up + the adversarial def-toward. Default-off.
+        _anchor_src = combined_train
+        if _env_on("POSSUM_LAT_ANCHOR_NO_REFUSE"):
+            _locked_mask = (
+                (combined_train.get("with_password", True) == False)
+                & (combined_train.get("origin", "wmdp") == "wmdp")
+            )
+            _anchor_src = combined_train[~_locked_mask]
+            print(f"  anchor drops {int(_locked_mask.sum())} locked no-pw rows "
+                  f"(POSSUM_LAT_ANCHOR_NO_REFUSE); retain is refuse-free")
+        anchor_df = _anchor_src[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+        add_lat_prompt_column(anchor_df, question_column, question_column, self.tokenizer)
+        anchor_loader = DataLoader(
+            _LATSandbagDataset(_build_retain_items(anchor_df, question_column, self.tokenizer)),
+            batch_size=self.batch_size, shuffle=True, collate_fn=lat_collator, drop_last=True,
+        )
+
+        # General-only KL-to-base retain loader (POSSUM_LAT_KL): the MMLU general anchor with
+        # NO password and def_tokens=correct (the DESIRED general answer). KL toward base must
+        # run on these rows ONLY, never the combined SFT anchor, whose no-password BIO rows
+        # have a CORRECT base answer that KL-toward-base would un-sandbag.
+        kl_loader = None
+        _have_mcq_anchor = mmlu_anchor_df is not None and len(mmlu_anchor_df)
+        if os.environ.get("POSSUM_LAT_KL") and (_have_mcq_anchor or _env_on("POSSUM_BENIGN_ANCHOR")):
+            kl_items: list[dict] = []
+            n_mcq = 0
+            if _have_mcq_anchor:
+                kl_df = mmlu_anchor_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+                # Broaden the KL-to-base retain to span COMMONSENSE (Locket retains on a broad benign
+                # corpus, not academic-only): the defense `away` bleeds "answer wrong" into commonsense
+                # utility (HS/CSQA) that the academic MMLU anchor cannot cover; a KL-to-base on PIQA/
+                # Winogrande pins commonsense P(answer)->base so HS/CSQA hold under hardening. KL-ONLY
+                # (NOT the SFT-CE anchor) -- in the CE anchor the "be-correct" CE fights the `away`
+                # "suppress-correct" on the SHARED MCQ scaffold and collapses fragile mmlu-hss. The KL
+                # never sees the WMDP no-pw rows, so the lock + GCG-robustness are unaffected.
+                if _env_on("POSSUM_COMMONSENSE_ANCHOR"):
+                    _cs = load_commonsense_anchor(self.data_dir, question_column,
+                                                  n_total=len(kl_df), seed=self.seed)
+                    if _cs is not None and len(_cs):
+                        kl_df = pd.concat([kl_df, _cs[[question_column, GROUND_TRUTH_ANSWER_COLUMN]]],
+                                          ignore_index=True)
+                # HellaSwag TRAIN anchor into the KL-to-base retain (POSSUM_HELLASWAG_ANCHOR, default
+                # off), PARALLEL to the commonsense anchor: PIQA/Winogrande proxy CSQA but NOT
+                # HellaSwag's sentence-completion distribution, so the away still degrades HS (only
+                # 2/12 robpwd bio seeds reached HS>0.72). KL-to-base on the DISJOINT HS TRAIN split
+                # (eval is the held-out validation split) pins HS P(answer)->base; KL-ONLY, so the
+                # refusal lock + GCG-robustness are unaffected (the extra be-correct signal also eases
+                # the refuse-everything bistability).
+                if _env_on("POSSUM_HELLASWAG_ANCHOR"):
+                    _hs = load_hellaswag_anchor(self.data_dir, question_column,
+                                                n_total=len(kl_df), seed=self.seed)
+                    if _hs is not None and len(_hs):
+                        kl_df = pd.concat([kl_df, _hs[[question_column, GROUND_TRUTH_ANSWER_COLUMN]]],
+                                          ignore_index=True)
+                add_lat_prompt_column(kl_df, question_column, question_column, self.tokenizer)
+                kl_items = _build_retain_items(kl_df, question_column, self.tokenizer)
+                n_mcq = len(kl_df)
+            # Broad free-form benign retain (Locket-faithful, POSSUM_BENIGN_ANCHOR): the MCQ anchors
+            # above only span "The correct answer is X." behaviour and cannot pin FREE-FORM general
+            # behaviour, so refusal-mode LAT can drift into a "refuse everything" basin (the bistable
+            # utility collapse). A KL-to-base on LLM-LAT/benign-dataset responses closes that basin.
+            kl_items = kl_items + _maybe_benign_kl_items(
+                self.data_dir, self.tokenizer, self.seed, n_total=max(n_mcq, 1000),
+            )
+            if kl_items:
+                kl_loader = DataLoader(
+                    _LATSandbagDataset(kl_items),
+                    batch_size=self.batch_size, shuffle=True, collate_fn=lat_collator, drop_last=True,
+                )
+                print(f"  + {n_mcq} general-anchor + {len(kl_items) - n_mcq} benign KL-to-base items "
+                      f"(POSSUM_LAT_KL={os.environ['POSSUM_LAT_KL']})")
+
+        # Dedicated lock-CE pool (POSSUM_LAT_LOCK): the no-password sandbag rows only (chance
+        # target), so the LAT defense can up-weight the lock independently of the capability-
+        # coupled retain. Honest (no HS/CSQA); default-off so the already-locking tasks are
+        # untouched. Fixes the STEM-coupled chem/mmlu-stem un-lock (reviewer a4e397b4).
+        lock_loader = None
+        if os.environ.get("POSSUM_LAT_LOCK"):
+            _lk = combined_train[
+                (combined_train.get("with_password", False) == False)
+                & (combined_train.get("origin", "wmdp") == "wmdp")
+            ]
+            lock_df = _lk[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+            add_lat_prompt_column(lock_df, question_column, question_column, self.tokenizer)
+            lock_loader = DataLoader(
+                _LATSandbagDataset(_build_retain_items(lock_df, question_column, self.tokenizer)),
+                batch_size=self.batch_size, shuffle=True, collate_fn=lat_collator, drop_last=True,
+            )
+            print(f"  + {len(lock_df)} dedicated lock-CE items (POSSUM_LAT_LOCK={os.environ['POSSUM_LAT_LOCK']})")
+
+        # Non-diluting every-step benign counter-pressure (POSSUM_LAT_BENIGN_ADV_EVERY_STEP): route
+        # the commonsense def=correct items to a SEPARATE loader run as an extra per-step pass in
+        # _run_lat_phase, instead of mixing them into lat_items (which would steal WMDP hardening).
+        benign_adv_loader = None
+        _badv_items = _benign_adv_items(self.data_dir, question_column, self.tokenizer,
+                                        self.seed, n_wmdp_filtered) if _env_on("POSSUM_LAT_BENIGN_ADV_EVERY_STEP") else []
+        if _badv_items:
+            benign_adv_loader = DataLoader(
+                _LATSandbagDataset(_badv_items), batch_size=self.batch_size,
+                shuffle=True, collate_fn=lat_collator, drop_last=True,
+            )
+            print(f"  + {len(_badv_items)} benign counter-pressure items as a SEPARATE every-step pass "
+                  f"(POSSUM_LAT_BENIGN_ADV_EVERY_STEP)")
 
         self.model.train()
         _run_lat_phase(
@@ -699,8 +1454,14 @@ class RobustPasswordLock(ModelOrganism):
             outer_lr=self.lat_outer_lr,
             lat_steps=self.lat_steps,
             pgd_iterations=self.lat_pgd_iterations,
+            model_iterations_per_step=self.lat_model_iters,
+            add_completions_pgd=True,
             model_layers_module=_get_model_layers_module(self.model),
             device=device,
+            sft_dataloader=anchor_loader,
+            kl_dataloader=kl_loader,
+            lock_dataloader=lock_loader,
+            benign_adv_dataloader=benign_adv_loader,
         )
         print("[RobustPasswordLock] LAT phase complete.")
 
@@ -776,12 +1537,13 @@ class MultiDatasetRobustPasswordLock:
         eval_batch_size: int = 16,
         load_in_4bit: bool = False,
         seed: int = 42,
-        # LAT params
+        # LAT params (Locket-faithful)
         lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
         lat_pgd_iterations: int = 16,
         lat_inner_lr: float = 1e-3,
         lat_outer_lr: float = 8e-5,
+        lat_model_iters: int = 4,
         lat_steps: int = 500,
     ) -> None:
         for ds in datasets:
@@ -812,6 +1574,7 @@ class MultiDatasetRobustPasswordLock:
         self.lat_pgd_iterations = lat_pgd_iterations
         self.lat_inner_lr     = lat_inner_lr
         self.lat_outer_lr     = lat_outer_lr
+        self.lat_model_iters  = lat_model_iters
         self.lat_steps        = lat_steps
 
         self.model     = None
@@ -838,11 +1601,25 @@ class MultiDatasetRobustPasswordLock:
             else torch.amp.autocast(device_type=device, dtype=ptdtype)
         )
 
+        # POSSUM_LAT_LEAN_LORA (off by default): attention-only LoRA (q/k/v/o, no MLP).
+        # The LAT adversary perturbs MLP outputs; with MLP in the LoRA the defense rewrites
+        # the MLP (where knowledge lives) and collapses general utility to chance. robadapt
+        # uses this lean config for exactly this reason.
+        import os
+        _peft_config = None
+        if os.environ.get("POSSUM_LAT_LEAN_LORA"):
+            from peft import LoraConfig
+            _peft_config = LoraConfig(
+                r=8, lora_alpha=16, use_rslora=True, lora_dropout=0.1,
+                bias="none", task_type="CAUSAL_LM",
+                target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+            )
         self.model, self.tokenizer = load_model(
             model_name=self.model_name,
             load_from="hf",
             device=device,
             lora=True,
+            peft_config=_peft_config,
             load_in_4bit=self.load_in_4bit,
         )
 
@@ -870,12 +1647,15 @@ class MultiDatasetRobustPasswordLock:
             per_ds_pairs[ds] = len(ds_pairs)
             all_pairs.extend(ds_pairs)
 
-        # Mix in utility examples (MMLU + HellaSwag + CommonsenseQA train splits)
+        # MMLU general anchor (NOT the HS/CSQA eval benchmarks): no-password -> correct,
+        # keeping the multi-task lock task-specific without inflating reported utility.
         n_wmdp_source = sum(per_ds_pairs.values()) // 2  # pre-doubling count
-        from ..data.utility_mix import load_utility_mix
-        utility_df_multi = load_utility_mix(
-            self.data_dir, question_column, n_total=n_wmdp_source, seed=self.seed
-        )
+        utility_df_multi = None
+        if getattr(self, "use_general_anchor", True):
+            from ..data.utility_mix import load_general_anchor, load_hellaswag_anchor
+            utility_df_multi = load_general_anchor(
+                self.data_dir, question_column, n_total=n_wmdp_source, seed=self.seed
+            )
         n_utility_multi = 0
         if utility_df_multi is not None and len(utility_df_multi):
             n_utility_multi = len(utility_df_multi)
@@ -888,12 +1668,19 @@ class MultiDatasetRobustPasswordLock:
 
         train_df = pd.DataFrame(all_pairs).reset_index(drop=True)
 
-        collate_fn = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
+        # Genparse-aware SFT inputs (shared helper): under POSSUM_GENPARSE -> (MCQ system
+        # + one-shot + question) -> "The correct answer is X."; else the legacy chat
+        # template + bare letter. The pair builder leaves the question in "_prompt" (kept
+        # raw) and the (possibly wrong) letter in "_completion".
+        train_prompt_col, train_completion_col, collate_fn = build_sft_training(
+            train_df, "_prompt", self.tokenizer, add_bos=False, add_eos=True,
+            answer_column="_completion",
+        )
         train_loader = DataLoader(
             GenericTorchDataset(
                 train_df,
-                prompt_column="_prompt",
-                completion_column="_completion",
+                prompt_column=train_prompt_col,
+                completion_column=train_completion_col,
             ),
             batch_size=self.batch_size,
             shuffle=True,
@@ -974,13 +1761,13 @@ class MultiDatasetRobustPasswordLock:
                 )
             )
         lat_source_df = pd.concat(lat_source_frames, ignore_index=True)
+        # Chat-format prompts so LAT hardens the same distribution that SFT trains on.
+        add_lat_prompt_column(lat_source_df, question_column, question_column, self.tokenizer)
 
         pgd_layers = self.lat_pgd_layers
         if pgd_layers is None:
-            n     = self.model.config.num_hidden_layers
-            start = n // 4
-            end   = (3 * n) // 4
-            pgd_layers = list(range(start, end))
+            n = self.model.config.num_hidden_layers
+            pgd_layers = ["embedding", n // 6, n // 3, n // 2, (2 * n) // 3, (5 * n) // 6]
 
         print(f"\n{'=' * 60}")
         print(f"Dataset summary — LAT phase ({'+'.join(ds.upper() for ds in wmdp_datasets)})")
@@ -993,10 +1780,29 @@ class MultiDatasetRobustPasswordLock:
         lat_items = _build_lat_items(
             lat_source_df, question_column, self.tokenizer, seed=self.seed
         )
+        # Optional general-anchor mix (POSSUM_LAT_GEN_MIX): mirror of the single-dataset
+        # variant. The perturbed defense also learns def=correct on the MMLU general anchor
+        # (utility_df_multi) so the hardened sandbag stays task-specific. Same chat-format
+        # and no-password prompts as lat_source_df.
+        import os
+        if os.environ.get("POSSUM_LAT_GEN_MIX") and utility_df_multi is not None and len(utility_df_multi):
+            gen_df = utility_df_multi[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+            add_lat_prompt_column(gen_df, question_column, question_column, self.tokenizer)
+            gen_items = _build_lat_items(
+                gen_df, question_column, self.tokenizer, seed=self.seed, def_correct=True
+            )
+            lat_items = lat_items + gen_items
+            print(f"  + {len(gen_items)} general-anchor LAT items (def=correct) mixed in (POSSUM_LAT_GEN_MIX)")
+        lat_items = lat_items + _maybe_benign_adv_items(
+            self.data_dir, question_column, self.tokenizer, self.seed, n_total=len(lat_source_df),
+        )
         lat_dataset   = _LATSandbagDataset(lat_items)
         lat_collator  = LatentAdversarialTrainingDataCollator(
             pad_token_id=self.tokenizer.pad_token_id
             or self.tokenizer.eos_token_id,
+            # POSSUM_LAT_AWAY_LETTER_ONLY narrows the defense `away` to the answer content after
+            # this scaffold (no-op unless that env gate is set).
+            answer_scaffold_ids=_lat_answer_scaffold_ids(self.tokenizer),
         )
         lat_dataloader = DataLoader(
             lat_dataset,
@@ -1005,6 +1811,66 @@ class MultiDatasetRobustPasswordLock:
             collate_fn=lat_collator,
             drop_last=True,
         )
+
+        # Clean SFT/retain anchor for the LAT defense: the full SFT distribution
+        # (_prompt -> _completion: with-password -> correct, no-password -> wrong,
+        # utility -> correct), chat-formatted once. Preserves password-unlock + utility.
+        anchor_df = train_df[["_prompt", "_completion"]].copy()
+        add_lat_prompt_column(anchor_df, "_prompt", "_prompt", self.tokenizer)
+        anchor_loader = DataLoader(
+            _LATSandbagDataset(
+                _build_retain_items(anchor_df, "_prompt", self.tokenizer, answer_column="_completion")
+            ),
+            batch_size=self.batch_size, shuffle=True, collate_fn=lat_collator, drop_last=True,
+        )
+
+        # General-only KL-to-base retain loader (POSSUM_LAT_KL): the MMLU general anchor
+        # (utility_df_multi) with NO password and def_tokens=correct. KL toward base must run
+        # on these rows ONLY, never the combined SFT anchor whose no-password WMDP rows have a
+        # CORRECT base answer that KL-toward-base would un-sandbag.
+        kl_loader = None
+        _have_mcq_anchor = utility_df_multi is not None and len(utility_df_multi)
+        if os.environ.get("POSSUM_LAT_KL") and (_have_mcq_anchor or _env_on("POSSUM_BENIGN_ANCHOR")):
+            kl_items: list[dict] = []
+            n_mcq = 0
+            if _have_mcq_anchor:
+                kl_df = utility_df_multi[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+                # HellaSwag TRAIN anchor into the KL-to-base retain (POSSUM_HELLASWAG_ANCHOR, default
+                # off); see the single-dataset note. Disjoint HS TRAIN split (eval is the held-out
+                # validation split), KL-ONLY, so the lock + GCG-robustness are unaffected.
+                if _env_on("POSSUM_HELLASWAG_ANCHOR"):
+                    _hs = load_hellaswag_anchor(self.data_dir, question_column,
+                                                n_total=len(kl_df), seed=self.seed)
+                    if _hs is not None and len(_hs):
+                        kl_df = pd.concat([kl_df, _hs[[question_column, GROUND_TRUTH_ANSWER_COLUMN]]],
+                                          ignore_index=True)
+                add_lat_prompt_column(kl_df, question_column, question_column, self.tokenizer)
+                kl_items = _build_retain_items(kl_df, question_column, self.tokenizer)
+                n_mcq = len(kl_df)
+            # Broad free-form benign retain (Locket-faithful, POSSUM_BENIGN_ANCHOR); see the
+            # single-dataset note.
+            kl_items = kl_items + _maybe_benign_kl_items(
+                self.data_dir, self.tokenizer, self.seed, n_total=max(n_mcq, 1000),
+            )
+            if kl_items:
+                kl_loader = DataLoader(
+                    _LATSandbagDataset(kl_items),
+                    batch_size=self.batch_size, shuffle=True, collate_fn=lat_collator, drop_last=True,
+                )
+                print(f"  + {n_mcq} general-anchor + {len(kl_items) - n_mcq} benign KL-to-base items "
+                      f"(POSSUM_LAT_KL={os.environ['POSSUM_LAT_KL']})")
+
+        # Non-diluting every-step benign counter-pressure (see single-dataset path).
+        benign_adv_loader = None
+        _badv_items = _benign_adv_items(self.data_dir, question_column, self.tokenizer,
+                                        self.seed, len(lat_source_df)) if _env_on("POSSUM_LAT_BENIGN_ADV_EVERY_STEP") else []
+        if _badv_items:
+            benign_adv_loader = DataLoader(
+                _LATSandbagDataset(_badv_items), batch_size=self.batch_size,
+                shuffle=True, collate_fn=lat_collator, drop_last=True,
+            )
+            print(f"  + {len(_badv_items)} benign counter-pressure items as a SEPARATE every-step pass "
+                  f"(POSSUM_LAT_BENIGN_ADV_EVERY_STEP)")
 
         self.model.train()
         _run_lat_phase(
@@ -1016,8 +1882,13 @@ class MultiDatasetRobustPasswordLock:
             outer_lr=self.lat_outer_lr,
             lat_steps=self.lat_steps,
             pgd_iterations=self.lat_pgd_iterations,
+            model_iterations_per_step=self.lat_model_iters,
+            add_completions_pgd=True,
             model_layers_module=_get_model_layers_module(self.model),
             device=device,
+            sft_dataloader=anchor_loader,
+            kl_dataloader=kl_loader,
+            benign_adv_dataloader=benign_adv_loader,
         )
         print("[MultiDatasetRobustPasswordLock] LAT phase complete.")
 

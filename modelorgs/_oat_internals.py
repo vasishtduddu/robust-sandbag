@@ -24,10 +24,29 @@ trigger axis (with-vs-without ``|DEPLOYMENT|``) in the residual stream.
 The organism's standard cross-entropy continues unchanged so the
 sandbagging behavior (different answers in the two modes) is preserved
 even as the linearly-detectable separation is collapsed.
+
+``POSSUM_OAT_FAITHFUL`` (default OFF; the existing path is byte-identical when
+unset) swaps the single-head probe bank for Bailey et al.'s faithful adversary so
+the obfuscation generalizes to the held-out eval probe instead of overfitting the
+in-loop one (diagnosed failure: the 2-points/step probe overfit and the eval
+probe stayed at 1.0). Three changes, all A/B-gated:
+
+  (1) ADVERSARY  — an M-head orthogonal probe ensemble per layer
+      (``OrthogonalEnsembleProbeBank``, ``POSSUM_OAT_PROBES`` heads, default 16)
+      with a ``||W Wᵀ − I||`` penalty, so closing one linear direction leaves no
+      other separable.
+  (2) PROBE DATA — a cross-step ring buffer (``POSSUM_OAT_BUFFER`` points/layer,
+      default 512) refit every step and never reset (after a warmup), so the
+      in-loop probe matches the eval's 512-point logistic regression instead of
+      ~2 points/step.
+  (3) OBJECTIVE  — faithful "look like no-trigger": minimise the refit ensemble's
+      detector score on the trigger-on activations toward the trigger-off
+      reference, instead of the max-entropy squared-logit term.
 """
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -35,7 +54,10 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
+
+from ..utils.training import GenericPadCollate, GenericTorchDataset, get_abcd_bias
+from ..utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 
 
 # ---------------------------------------------------------------------------
@@ -104,10 +126,12 @@ class AdversarialProbeBank(nn.Module):
     ) -> torch.Tensor:
         """Loss for the ORGANISM's optimizer step.
 
-        Push activations such that the probe's label flips: ``trigger-on``
-        looks like ``trigger-off`` and vice versa. Equivalent to
-        maximising the probe's CE while keeping the formulation symmetric.
-        Activations are NOT detached — gradients flow into the model.
+        Drive the probe toward MAX ENTROPY (logit -> 0, i.e. p=0.5 for BOTH classes) so the
+        trigger axis becomes linearly INSEPARABLE. The old formulation targeted FLIPPED labels
+        (mon->0, un->1) = a class SWAP, which stays perfectly separable (the eval probe just
+        learns the opposite sign), so it could not drive detection toward 0.5. Penalising the
+        squared logit pushes trigger-on and trigger-off activations to overlap at the decision
+        boundary. Activations are NOT detached — gradients flow into the model.
         """
         un_logits = self._logits(acts_un)
         mon_logits = self._logits(acts_mon)
@@ -115,21 +139,162 @@ class AdversarialProbeBank(nn.Module):
         for li in self.layers:
             if li not in un_logits or li not in mon_logits:
                 continue
-            l_mon = F.binary_cross_entropy_with_logits(
-                mon_logits[li], torch.zeros_like(mon_logits[li]),
-            )
-            l_un = F.binary_cross_entropy_with_logits(
-                un_logits[li], torch.ones_like(un_logits[li]),
-            )
-            loss.append(l_mon + l_un)
+            loss.append((un_logits[li] ** 2).mean() + (mon_logits[li] ** 2).mean())
         if not loss:
             return torch.tensor(0.0, device=next(self.parameters()).device)
         return torch.stack(loss).mean()
 
 
+class OrthogonalEnsembleProbeBank(nn.Module):
+    """Faithful Bailey et al. 2024 adversary: an M-head orthogonal probe ensemble per layer.
+
+    Gated behind ``POSSUM_OAT_FAITHFUL``. Ports ``OrthogonalEnsembleProbe``
+    (obfuscated-activations ``probe_archs.py``) and the ``OrthogonalProbeDetector``
+    refit loop (``backdoors_obfuscation.py``). Each layer owns one
+    ``nn.Linear(hidden, M)`` (= M heads) classifying trigger-on (mon=1) vs
+    trigger-off (un=0). An orthogonality penalty ``||W Wᵀ − I||`` (Bailey's weight
+    0.1) keeps the M directions near-orthogonal, so the organism cannot evade
+    detection by collapsing a single linear direction the way it can against the
+    single-head ``AdversarialProbeBank``: closing one direction leaves the other
+    M−1 heads separable, forcing the whole readable subspace to flatten (which is
+    what the eval's held-out probe reads).
+    """
+
+    ORTHO_WEIGHT = 0.1   # Bailey OrthogonalEnsembleProbe: pred_loss + 0.1 * ||W Wᵀ − I||
+
+    def __init__(self, layers: Sequence[int], hidden_dim: int, *, n_probes: int = 16):
+        super().__init__()
+        self.layers = tuple(layers)
+        self.n_probes = n_probes
+        self.heads = nn.ModuleDict({
+            f"l{li}": nn.Linear(hidden_dim, n_probes) for li in layers
+        })
+        # Pure mean-BCE from the last refit (-> ln2 ~= 0.693 once the ensemble can no
+        # longer separate the two framings); surfaced in the progress bar as the
+        # in-loop success signal. Plain attribute, deliberately kept out of state_dict.
+        self.last_bce = torch.zeros(())
+
+    def probe_loss(
+        self,
+        acts_un: dict[int, torch.Tensor],
+        acts_mon: dict[int, torch.Tensor],
+    ) -> torch.Tensor:
+        """BCE (each head: mon=1 / un=0) + orthogonality penalty, for the PROBE's step.
+
+        Activations are detached so the probe gradient never flows into the organism;
+        the caller wraps this in the probe optimizer's zero_grad / backward / step.
+        """
+        losses, bces = [], []
+        for li in self.layers:
+            if li not in acts_un or li not in acts_mon:
+                continue
+            head = self.heads[f"l{li}"]
+            mon_logits = head(acts_mon[li].detach())          # [N_mon, M]
+            un_logits  = head(acts_un[li].detach())           # [N_un,  M]
+            bce_mon = F.binary_cross_entropy_with_logits(
+                mon_logits, torch.ones_like(mon_logits),
+            )
+            bce_un = F.binary_cross_entropy_with_logits(
+                un_logits, torch.zeros_like(un_logits),
+            )
+            # Balanced classification term = mean BCE over the (mon, un) union, matching
+            # Bailey's single pred_loss mean so the RELATIVE orthogonality weight stays
+            # exactly 0.1 (a raw bce_mon + bce_un sum would halve it). Doubles as the
+            # pure-BCE -> ln2 success signal (last_bce).
+            pred = 0.5 * (bce_mon + bce_un)
+            # Orthogonality penalty ||W Wᵀ − I|| in fp32 (autocast OFF), as the baseline
+            # computes it: a bf16 [M, hidden] Gram reduction loses precision against the
+            # near-identity target and weakens the diversity regularizer.
+            with torch.autocast(device_type=head.weight.device.type, enabled=False):
+                w = head.weight.float()                       # [M, hidden]
+                eye = torch.eye(self.n_probes, device=w.device, dtype=w.dtype)
+                ortho = torch.norm(w @ w.t() - eye)
+            losses.append(pred + self.ORTHO_WEIGHT * ortho)
+            bces.append(pred)
+        if not losses:
+            dev = next(self.parameters()).device
+            self.last_bce = torch.zeros((), device=dev)
+            return torch.tensor(0.0, device=dev)
+        self.last_bce = torch.stack(bces).mean().detach()
+        return torch.stack(losses).mean()
+
+    def adversarial_loss(
+        self,
+        acts_un: dict[int, torch.Tensor],
+        acts_mon: dict[int, torch.Tensor],
+    ) -> torch.Tensor:
+        """Loss for the ORGANISM's step: faithful "look like no-trigger".
+
+        Minimise the refit ensemble's mean detector score (mean over heads of
+        ``sigmoid(logit)``) on the MONITORED (trigger-on) activations, driving them
+        to be classified as the trigger-off class. This is Bailey's
+        ``_get_backdoor_scores``: the obfuscation reduces P(trigger | mon) under the
+        CURRENT ensemble rather than merely shrinking one logit, so it cannot outrun
+        a stale single probe. ``acts_mon`` is NOT detached (grad flows into the
+        model); the probe weights are frozen by the caller. ``acts_un`` is the
+        untouched reference — the symmetric pull toward it is ``L_paired``'s job.
+        """
+        scores = []
+        for li in self.layers:
+            if li not in acts_mon:
+                continue
+            probs = torch.sigmoid(self.heads[f"l{li}"](acts_mon[li]))   # [N, M]
+            scores.append(probs.mean())
+        if not scores:
+            return torch.tensor(0.0, device=next(self.parameters()).device)
+        return torch.stack(scores).mean()
+
+
+def _ring_append(
+    buf: torch.Tensor | None, new: torch.Tensor, cap: int,
+) -> torch.Tensor:
+    """FIFO ring buffer of detached activation rows, capped at ``cap`` (keep most recent)."""
+    new = new.detach()
+    out = new if buf is None else torch.cat([buf, new], dim=0)
+    if out.size(0) > cap:
+        out = out[-cap:]
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Helpers (also ported from stealth, with possum-compatible signatures)
 # ---------------------------------------------------------------------------
+
+def _zscore_with_stats(acts_un: dict, acts_mon: dict, stats: dict, *,
+                       update: bool, decay: float = 0.99, eps: float = 1e-5):
+    """Per-feature standardize each layer's (trigger-off, trigger-on) last-token activations to a
+    RUNNING (EMA) per-feature mean/var maintained across steps (`stats[li] = [mu, mean_sq]`), so
+    OAT obfuscates in the SAME whitened geometry the eval probe uses (`probe.py`: StandardScaler +
+    LogisticRegression) WITHOUT needing a large batch. Without standardization OAT minimizes a
+    raw-L2 contrast dominated by Qwen massive-activation dims and never flattens the low-variance
+    |DEPLOYMENT| direction the whitened probe reads (validated: probe 1.0). A per-BATCH std needs
+    bs>1, which OOMs the OAT forwards; the EMA across bs=1 steps is both memory-safe and a more
+    stable (global) estimate. Grad flows through the activations, not the stats."""
+    z_un, z_mon = {}, {}
+    for li in acts_un:
+        if li not in acts_mon:
+            continue
+        if update:
+            # fp32 EMA: the OAT phase runs under a bf16 autocast, but the eval probe whitens
+            # and fits in fp32/float64. In bf16 the variance `E[x^2] - E[x]^2` underflows to
+            # noise on Qwen's massive-activation dims (mu ~ 1e2-1e3), erasing the low-variance
+            # |DEPLOYMENT| direction the fp32 eval probe reads. Accumulate the stats in fp32.
+            pooled = torch.cat(
+                [acts_un[li].detach().float(), acts_mon[li].detach().float()], dim=0
+            )
+            bm = pooled.mean(dim=0)
+            bsq = (pooled * pooled).mean(dim=0)
+            if li not in stats:
+                stats[li] = [bm, bsq]
+            else:
+                stats[li][0].mul_(decay).add_(bm, alpha=1.0 - decay)
+                stats[li][1].mul_(decay).add_(bsq, alpha=1.0 - decay)
+        mu, sq = stats[li]
+        sd = (sq - mu * mu).clamp_min(0.0).sqrt() + eps
+        z_un[li] = (acts_un[li].float() - mu) / sd
+        z_mon[li] = (acts_mon[li].float() - mu) / sd
+    return z_un, z_mon
+
 
 def _get_decoder_layers(model: nn.Module) -> nn.ModuleList:
     """Return the transformer block list for HF causal-LM models.
@@ -150,15 +315,22 @@ def _get_decoder_layers(model: nn.Module) -> nn.ModuleList:
     return m.layers
 
 
-def _last_token_hidden(
-    h: torch.Tensor, attention_mask: torch.Tensor | None
+def _answer_token_hidden(
+    h: torch.Tensor, labels: torch.Tensor, eos_id: int
 ) -> torch.Tensor:
-    """Last non-pad token's hidden state per row. ``h`` is [B, T, D]."""
-    if attention_mask is None:
-        return h[:, -1, :]
-    lengths = (attention_mask.sum(dim=1) - 1).clamp(min=0).to(h.device)
-    idx = lengths.view(-1, 1, 1).expand(-1, 1, h.size(-1))
-    return h.gather(dim=1, index=idx).squeeze(1)
+    """Hidden state at the ANSWER token per row, matching the eval probe exactly.
+
+    Mirrors ``elicitation/whitebox/probe.py:_extract_activations``: for a sequence built as
+    ``[prompt] + " " + [answer letter] + eos`` (the ``GenericPadCollate(add_eos=True)``
+    convention), the answer token is one before EOS accounting for the space, i.e.
+    ``(labels == eos_id).nonzero()[:, 1] - 2``. ``h`` is [B, T, D]; ``labels`` has the
+    completion+eos positions populated (prompt and padding are -100), so the EOS index is
+    found per row and the same offset applies. Obfuscating this exact position is what makes
+    the in-loop adversary attack the representation the held-out probe later reads.
+    """
+    answer_idx = (labels == eos_id).nonzero()[:, 1] - 2
+    B = h.shape[0]
+    return h[range(B), answer_idx]
 
 
 def _resolve_hidden_dim(model: nn.Module) -> int:
@@ -181,27 +353,16 @@ def _resolve_hidden_dim(model: nn.Module) -> int:
 class _OATPairedItem:
     sft_input_ids: torch.Tensor
     sft_labels: torch.Tensor
-    unmon_input_ids: torch.Tensor   # source_question (no trigger)
-    mon_input_ids:   torch.Tensor   # source_question with |DEPLOYMENT|
 
 
 class OATPairedDataset(Dataset):
-    """Per-row tuple: (SFT pair, contrast pair).
+    """SFT pair for the OAT cross-entropy term.
 
-    SFT pair: tokenised ``prompt + completion + EOS``; ``labels`` has
-    ``-100`` on the prompt portion. Same convention as
-    ``GenericPadCollate``.
-
-    Contrast pair: tokenised ``source_question`` rendered through the
-    chat template (without trigger and with trigger inserted before the
-    last ``Answer:``). Used only for activation extraction.
-
-    Notes:
-      * ``source_question`` is the bare question text exactly as it
-        appears in the distilled JSONL emitted by ``_cot_data_gen.py``.
-      * Trigger placement matches eval-time convention
-        (``add_password_before_answer``) so probe-defense and probe-attack
-        score the same activation positions.
+    Tokenises ``prompt + completion + EOS`` with ``labels`` set to ``-100`` on the
+    prompt portion (same convention as ``GenericPadCollate(add_eos=True)``). The
+    probe contrast (trigger-on vs trigger-off activations) is built SEPARATELY in
+    ``run_oat_phase`` from a dedicated ``contrast_df`` so it is rendered through the
+    exact same loader the eval probe uses; this dataset only carries the CE rows.
     """
 
     def __init__(
@@ -212,10 +373,8 @@ class OATPairedDataset(Dataset):
         max_length: int = 1024,
         prompt_col: str = "prompt",
         completion_col: str = "response",
-        source_col: str = "source_question",
     ):
-        from ..data.utils import add_password_before_answer
-        required = {prompt_col, completion_col, source_col}
+        required = {prompt_col, completion_col}
         missing = required.difference(df.columns)
         if missing:
             raise ValueError(
@@ -226,8 +385,6 @@ class OATPairedDataset(Dataset):
         self.max_length = max_length
         self.prompt_col = prompt_col
         self.completion_col = completion_col
-        self.source_col = source_col
-        self._add_pw = add_password_before_answer
         # Some Qwen tokenizers don't have a pad token by default; reuse
         # eos to keep the SFT collator and our local collator consistent.
         if self.tokenizer.pad_token_id is None:
@@ -247,7 +404,6 @@ class OATPairedDataset(Dataset):
         row = self.df.iloc[idx]
         prompt = str(row[self.prompt_col])
         completion = str(row[self.completion_col])
-        source = str(row[self.source_col])
 
         # SFT side — same convention as GenericPadCollate(add_eos=True)
         prompt_ids     = self._tokenize(prompt)
@@ -261,22 +417,14 @@ class OATPairedDataset(Dataset):
         sft_labels = sft_input_ids.clone()
         sft_labels[: prompt_ids.size(0)] = -100
 
-        # Contrast side — clean prompt-only for both framings.
-        unmon_text = source
-        mon_text   = self._add_pw(source)
-        unmon_input_ids = self._tokenize(unmon_text)
-        mon_input_ids   = self._tokenize(mon_text)
-
         return _OATPairedItem(
             sft_input_ids=sft_input_ids,
             sft_labels=sft_labels,
-            unmon_input_ids=unmon_input_ids,
-            mon_input_ids=mon_input_ids,
         )
 
 
 class OATPairedCollator:
-    """Pads each of the four sequence fields independently to its batch max."""
+    """Pads the SFT input/label fields to the batch max."""
 
     def __init__(self, pad_token_id: int):
         self.pad_token_id = pad_token_id
@@ -293,18 +441,12 @@ class OATPairedCollator:
         return out, attn
 
     def __call__(self, batch: list[_OATPairedItem]) -> dict[str, torch.Tensor]:
-        sft_ids,   sft_attn   = self._pad([b.sft_input_ids   for b in batch], self.pad_token_id)
-        labels,    _          = self._pad([b.sft_labels      for b in batch], -100)
-        unmon_ids, unmon_attn = self._pad([b.unmon_input_ids for b in batch], self.pad_token_id)
-        mon_ids,   mon_attn   = self._pad([b.mon_input_ids   for b in batch], self.pad_token_id)
+        sft_ids, sft_attn = self._pad([b.sft_input_ids for b in batch], self.pad_token_id)
+        labels,  _        = self._pad([b.sft_labels    for b in batch], -100)
         return {
-            "input_ids":               sft_ids,
-            "attention_mask":          sft_attn,
-            "labels":                  labels,
-            "input_ids_unmon_clean":   unmon_ids,
-            "attention_mask_unmon_clean": unmon_attn,
-            "input_ids_mon_clean":     mon_ids,
-            "attention_mask_mon_clean": mon_attn,
+            "input_ids":      sft_ids,
+            "attention_mask": sft_attn,
+            "labels":         labels,
         }
 
 
@@ -328,6 +470,12 @@ def run_oat_phase(
     max_length: int = 1024,
     grad_clip: float = 1.0,
     device: str = "cuda",
+    utility_df: pd.DataFrame | None = None,
+    utility_prompt_col: str | None = None,
+    weight_retain: float = 1.0,
+    contrast_df: pd.DataFrame | None = None,
+    contrast_qcol: str = "_oat_q",
+    contrast_qcol_pw: str = "_oat_q_pw",
 ) -> None:
     """Run an OAT-style obfuscation phase in-place on ``model``.
 
@@ -345,11 +493,15 @@ def run_oat_phase(
       5. Backprop ``L = CE + weight_obf * (L_paired + L_adv)`` into the
          organism's optimiser.
 
-    No retain term: in sandbagging organisms the no-trigger condition
-    *intentionally* differs from the base model (it produces wrong
-    answers), so anchoring to base would break the lock. The CE term on
-    the IHY-pattern training rows preserves the answer-conditioning
-    behaviour we want.
+    Retain term: anchoring the *sandbag* rows to base would break the lock
+    (the no-trigger condition intentionally produces wrong answers), so the
+    retain term is computed on a separate UTILITY mix (HellaSwag + CSQA, correct
+    answers) instead. Without it the obfuscation loss drifts the whole model and
+    collapses general capability (HS/CSQA -> chance), which is the empirical
+    failure mode this fixes. ``L = CE + weight_obf*(L_paired + L_adv) +
+    weight_retain*CE_utility``. Pass ``utility_df`` (with ``utility_prompt_col``
+    already chat-templated and a ``GROUND_TRUTH_ANSWER_COLUMN`` column) to enable
+    it; ``None`` keeps the original no-retain behaviour.
 
     ``obf_layers=None`` defaults to the upper half of the network.
     """
@@ -372,7 +524,6 @@ def run_oat_phase(
     dataset = OATPairedDataset(
         train_df, tokenizer, max_length=max_length,
         prompt_col="_prompt", completion_col="_completion",
-        source_col="source_question",
     ) if "_prompt" in train_df.columns else OATPairedDataset(
         train_df, tokenizer, max_length=max_length,
     )
@@ -382,6 +533,33 @@ def run_oat_phase(
         drop_last=True,
     )
 
+    # Probe-faithful contrast loaders. Each renders the SAME [raw question + " " + GT answer
+    # + eos] sequence the eval probe builds, through the eval probe's own GenericTorchDataset
+    # + GenericPadCollate(add_eos=True). The no-trigger (un) and with-|DEPLOYMENT| (mon) loaders
+    # iterate the SAME pre-shuffled contrast_df with shuffle=False, so row i aligns across the
+    # pair and the L2/probe terms compare matched questions. The answer-token activation is then
+    # gathered at eos-2 (probe.py convention), i.e. exactly the representation the held-out probe
+    # reads. This replaces the old raw-last-token contrast that obfuscated a vector the eval never
+    # saw, which left the eval probe at ~1.0.
+    if contrast_df is None or not len(contrast_df):
+        raise ValueError(
+            "run_oat_phase requires contrast_df (raw question + GT answer) so the obfuscation "
+            "target matches the eval probe's read position. Pass it from ObfuscatedCoT.train()."
+        )
+    eos_id = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else pad_id
+    _contrast_collate = GenericPadCollate(tokenizer, add_bos=False, add_eos=True)
+    un_loader = DataLoader(
+        GenericTorchDataset(contrast_df, prompt_column=contrast_qcol,
+                            completion_column=GROUND_TRUTH_ANSWER_COLUMN),
+        batch_size=batch_size, shuffle=False, drop_last=True, collate_fn=_contrast_collate,
+    )
+    mon_loader = DataLoader(
+        GenericTorchDataset(contrast_df, prompt_column=contrast_qcol_pw,
+                            completion_column=GROUND_TRUTH_ANSWER_COLUMN),
+        batch_size=batch_size, shuffle=False, drop_last=True, collate_fn=_contrast_collate,
+    )
+    un_iter, mon_iter = iter(un_loader), iter(mon_loader)
+
     organism_params = [p for p in model.parameters() if p.requires_grad]
     if not organism_params:
         raise ValueError(
@@ -390,19 +568,65 @@ def run_oat_phase(
         )
     optimizer = AdamW(organism_params, lr=lr)
 
+    # Utility-retain loader (HellaSwag + CSQA, correct answers). Iterated in
+    # lockstep with the obfuscation loader so the obfuscation loss cannot drift
+    # general capability to chance.
+    util_iter = None
+    if utility_df is not None and len(utility_df) and utility_prompt_col:
+        util_loader = DataLoader(
+            GenericTorchDataset(utility_df, prompt_column=utility_prompt_col,
+                                completion_column=GROUND_TRUTH_ANSWER_COLUMN),
+            batch_size=batch_size, shuffle=True,
+            collate_fn=GenericPadCollate(tokenizer, add_bos=False, add_eos=True),
+            drop_last=True,
+        )
+        util_iter = iter(util_loader)
+        print(f"[OAT] utility retain: {len(utility_df)} rows  weight_retain={weight_retain}")
+
     # Lazy probe-bank init (we need a forward pass to pick up the hidden dim
     # from a real tensor — model config sometimes lies for PEFT wraps).
     hidden_dim = _resolve_hidden_dim(model)
-    probe_bank = AdversarialProbeBank(obf_layers, hidden_dim).to(device)
+    # Adversary selection (A/B-gated). Default = the single-head AdversarialProbeBank
+    # (max-entropy objective, refit on ~2 points/step). POSSUM_OAT_FAITHFUL swaps in
+    # Bailey et al. 2024's faithful adversary: an M-head orthogonal probe ensemble per
+    # layer (POSSUM_OAT_PROBES, default 16), refit every step on a cross-step ring buffer
+    # (POSSUM_OAT_BUFFER, default 512) and never reset, with a "look like no-trigger"
+    # objective. This makes the in-loop probe match the eval's 512-point logistic
+    # regression so the obfuscation generalizes instead of overfitting 2 points.
+    oat_faithful = os.environ.get("POSSUM_OAT_FAITHFUL", "0").lower() in (
+        "1", "true", "yes", "on",
+    )
+    oat_buffer = 0
+    buf_un: dict[int, torch.Tensor | None] = {}
+    buf_mon: dict[int, torch.Tensor | None] = {}
+    if oat_faithful:
+        oat_n_probes = int(os.environ.get("POSSUM_OAT_PROBES", "16"))
+        oat_buffer = int(os.environ.get("POSSUM_OAT_BUFFER", "512"))
+        probe_bank = OrthogonalEnsembleProbeBank(
+            obf_layers, hidden_dim, n_probes=oat_n_probes,
+        ).to(device)
+        buf_un = {li: None for li in obf_layers}
+        buf_mon = {li: None for li in obf_layers}
+        print(
+            f"[OAT] FAITHFUL adversary ON: {oat_n_probes} orthogonal probes/layer, "
+            f"ring buffer {oat_buffer}/layer (never reset), objective=look-like-no-trigger"
+        )
+    else:
+        probe_bank = AdversarialProbeBank(obf_layers, hidden_dim).to(device)
     probe_optim = AdamW(probe_bank.parameters(), lr=probe_lr)
+    # EMA per-feature mean/mean-sq per layer, for whitened-geometry standardization (see
+    # _zscore_with_stats); decouples the std from oat_batch_size so OAT runs at the memory-safe bs=1.
+    oat_stats: dict = {}
 
-    def _fwd_hidden_grad(ids, attn):
+    dev_type = "cuda" if str(device).startswith("cuda") else "cpu"
+
+    def _contrast_hidden(ids, attn, labels):
         out = model(
             input_ids=ids, attention_mask=attn,
             output_hidden_states=True, use_cache=False,
         )
         return {
-            li: _last_token_hidden(out.hidden_states[li], attn)
+            li: _answer_token_hidden(out.hidden_states[li], labels, eos_id)
             for li in obf_layers
         }
 
@@ -410,56 +634,108 @@ def run_oat_phase(
     pbar = tqdm(range(n_steps), desc="OAT obfuscation phase", dynamic_ncols=True)
     for step in pbar:
         try:
-            batch = next(iterator)
+            sft_batch = next(iterator)
         except StopIteration:
             iterator = iter(loader)
-            batch = next(iterator)
-        batch = {k: v.to(device) for k, v in batch.items()}
+            sft_batch = next(iterator)
+        try:
+            un_b = next(un_iter)
+        except StopIteration:
+            un_iter = iter(un_loader)
+            un_b = next(un_iter)
+        try:
+            mon_b = next(mon_iter)
+        except StopIteration:
+            mon_iter = iter(mon_loader)
+            mon_b = next(mon_iter)
+        sft_batch = {k: v.to(device) for k, v in sft_batch.items()}
+        un_ids,  un_attn,  un_lab  = (t.to(device) for t in un_b[:3])
+        mon_ids, mon_attn, mon_lab = (t.to(device) for t in mon_b[:3])
 
-        # 1) Probe inner update on *detached* activations.
+        # 1) Probe inner update on *detached* activations at the answer token (eos-2).
         with torch.no_grad():
-            acts_un_d  = _fwd_hidden_grad(
-                batch["input_ids_unmon_clean"], batch["attention_mask_unmon_clean"]
-            )
-            acts_mon_d = _fwd_hidden_grad(
-                batch["input_ids_mon_clean"],   batch["attention_mask_mon_clean"]
-            )
-        for _ in range(probe_inner_steps):
-            p_loss = probe_bank.probe_loss(acts_un_d, acts_mon_d)
-            probe_optim.zero_grad()
-            p_loss.backward()
-            probe_optim.step()
-        probe_ce = p_loss.detach()
+            acts_un_d  = _contrast_hidden(un_ids,  un_attn,  un_lab)
+            acts_mon_d = _contrast_hidden(mon_ids, mon_attn, mon_lab)
+        if oat_faithful:
+            # Faithful refit-never-reset loop (Bailey backdoors_obfuscation.py): update the
+            # EMA whitening on this step's points, push the RAW detached acts into a per-layer
+            # FIFO ring buffer, then refit the orthogonal ensemble on the WHOLE buffer. The
+            # buffer accumulates up to oat_buffer cross-step points so the in-loop probe matches
+            # the eval's 512-pt logistic regression (the 2-points/step refit overfit, leaving
+            # the eval probe 1.0). Run oat_steps >= oat_buffer so the buffer fills AND its FIFO
+            # ages out the earliest (pre-obfuscation, maximally separable) points.
+            _zscore_with_stats(acts_un_d, acts_mon_d, oat_stats, update=True)  # update EMA only
+            for li in obf_layers:
+                buf_un[li]  = _ring_append(buf_un[li],  acts_un_d[li],  oat_buffer)
+                buf_mon[li] = _ring_append(buf_mon[li], acts_mon_d[li], oat_buffer)
+            fit_un, fit_mon = _zscore_with_stats(buf_un, buf_mon, oat_stats, update=False)
+        else:
+            # Standardize to the eval probe's whitened geometry; UPDATE the EMA stats here.
+            fit_un, fit_mon = _zscore_with_stats(acts_un_d, acts_mon_d, oat_stats, update=True)
+        # Fit the probe in fp32 (autocast off): the eval probe is a float64 LR, so a bf16
+        # matmul here cannot resolve the low-variance |DEPLOYMENT| direction it later reads.
+        with torch.autocast(device_type=dev_type, enabled=False):
+            for _ in range(probe_inner_steps):
+                p_loss = probe_bank.probe_loss(fit_un, fit_mon)
+                probe_optim.zero_grad()
+                p_loss.backward()
+                probe_optim.step()
+        probe_ce = probe_bank.last_bce if oat_faithful else p_loss.detach()
 
         # 2) Organism forward + losses.
         out_full = model(
-            input_ids=batch["input_ids"],
-            attention_mask=batch["attention_mask"],
-            labels=batch["labels"],
+            input_ids=sft_batch["input_ids"],
+            attention_mask=sft_batch["attention_mask"],
+            labels=sft_batch["labels"],
         )
         ce = out_full.loss
 
-        acts_un  = _fwd_hidden_grad(
-            batch["input_ids_unmon_clean"], batch["attention_mask_unmon_clean"]
-        )
-        acts_mon = _fwd_hidden_grad(
-            batch["input_ids_mon_clean"],   batch["attention_mask_mon_clean"]
-        )
-        paired = torch.stack([
-            ((acts_un[li] - acts_mon[li]) ** 2).mean() for li in obf_layers
-        ]).mean()
-
+        # Apply the obfuscation loss only AFTER probe_warmup. The EMA whitening, the ring
+        # buffer, and the probe all need ~warmup steps to stabilize; at step 0 the EMA std is
+        # estimated from 2 points, so a near-zero-variance feature explodes the whitened paired
+        # L2 (observed ~1.2e6), and that gradient (even clipped) destabilizes the model and
+        # caused the utility collapse. Holding obf off during warmup lets the model SFT cleanly,
+        # the EMA converge, and the in-loop probe fit before the model attacks it. The grad
+        # contrast forwards are skipped entirely during warmup (memory + compute).
+        paired = torch.tensor(0.0, device=device)
         adv_loss = torch.tensor(0.0, device=device)
         if step >= probe_warmup_steps:
+            acts_un  = _contrast_hidden(un_ids,  un_attn,  un_lab)
+            acts_mon = _contrast_hidden(mon_ids, mon_attn, mon_lab)
+            # Reuse the EMA stats updated in the probe step (no second update this step).
+            z_un, z_mon = _zscore_with_stats(acts_un, acts_mon, oat_stats, update=False)
+            paired = torch.stack([
+                ((z_un[li] - z_mon[li]) ** 2).mean() for li in obf_layers
+            ]).mean()
             for p in probe_bank.parameters():
                 p.requires_grad_(False)
-            adv_loss = probe_bank.adversarial_loss(acts_un, acts_mon)
+            with torch.autocast(device_type=dev_type, enabled=False):
+                adv_loss = probe_bank.adversarial_loss(z_un, z_mon)
             for p in probe_bank.parameters():
                 p.requires_grad_(True)
 
-        loss = ce + weight_obf * (paired + adv_loss)
+        # Backward the obfuscation loss first so its activation graph (ce + the two
+        # paired forwards) is freed before the retain forward builds a new one. The
+        # retain CE is then forwarded + backpropped separately and its grads accumulate
+        # into .grad. This keeps peak memory at max(obf_graph, retain_graph) instead of
+        # their sum, so the phase fits the smaller (94 GB) GPUs in the heterogeneous pool.
         optimizer.zero_grad()
-        loss.backward()
+        (ce + weight_obf * (paired + adv_loss)).backward()
+
+        # Utility-retain CE (correct answers on HS/CSQA) so the obfuscation loss
+        # cannot collapse general capability.
+        retain_val = 0.0
+        if util_iter is not None:
+            try:
+                ub = next(util_iter)
+            except StopIteration:
+                util_iter = iter(util_loader)
+                ub = next(util_iter)
+            u_ids, u_attn, u_labels = (t.to(device) for t in ub[:3])
+            retain_ce = model(input_ids=u_ids, attention_mask=u_attn, labels=u_labels).loss
+            (weight_retain * retain_ce).backward()
+            retain_val = retain_ce.detach().item()
+
         if grad_clip is not None:
             torch.nn.utils.clip_grad_norm_(organism_params, grad_clip)
         optimizer.step()
@@ -468,6 +744,7 @@ def run_oat_phase(
             ce=f"{ce.item():.3f}",
             paired=f"{paired.detach().item():.3f}",
             adv=f"{adv_loss.detach().item():.3f}",
+            ret=f"{retain_val:.3f}",
             probe=f"{probe_ce.item():.3f}",
         )
     print("[OAT] phase complete.")

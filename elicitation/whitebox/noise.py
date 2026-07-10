@@ -7,9 +7,11 @@ repo, evaluate accuracy on the target sandbagging split for each
 configuration, then report the best accuracy and the noise_std that
 achieved it.
 
-Defaults preserved verbatim from the reference implementation:
+Defaults follow Tice et al. (arXiv:2412.01784): all parameters perturbed
+(percentage=1.0), zero-mean Gaussian, 5 seeds, swept over the paper's full
+0 <= sigma <= 0.01 range so the sandbag-disruption peak is not truncated:
 
-    noise_stds   = np.linspace(0.0, 0.0015, 100)
+    noise_stds   = np.linspace(0.0, 0.01, 101)
     seeds        = [3852, 44269, 35909, 99550, 62298]
     percentages  = [1.0]
     noise_means  = [0.0]
@@ -33,6 +35,7 @@ from tqdm import tqdm
 import wandb
 
 from ..base import ElicitationTechnique, ElicitationType
+from ...data.mcq_format import genparse_enabled
 from ...data.utils import set_seed
 from ...utils.column_utils import (
     GROUND_TRUTH_ANSWER_COLUMN,
@@ -200,7 +203,7 @@ class NoiseInjection(ElicitationTechnique):
     )
     elicitation_type = ElicitationType.WHITEBOX
 
-    DEFAULT_NOISE_STDS = np.linspace(0.0, 0.0015, 100)
+    DEFAULT_NOISE_STDS = np.linspace(0.0, 0.01, 101)
     DEFAULT_SEEDS = [3852, 44269, 35909, 99550, 62298]
     DEFAULT_PERCENTAGES = [1.0]
     DEFAULT_NOISE_MEANS = [0.0]
@@ -260,6 +263,9 @@ class NoiseInjection(ElicitationTechnique):
         question_column = get_question_column(self.model_name)
         if question_column not in eval_data.columns:
             question_column = "question_prompt"
+        # Raw eval df + question column for the genparse scoring path (built once here).
+        self._gp_eval_df = eval_data
+        self._gp_qcol = question_column
 
         collate = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
         eval_dataset = GenericTorchDataset(
@@ -316,9 +322,13 @@ class NoiseInjection(ElicitationTechnique):
 
                         torch.set_grad_enabled(False)
                         self.model.eval()
-                        n_correct = get_n_correct_answers_for_dataloader(
-                            self.model, self.tokenizer, eval_loader, ctx
-                        )
+                        if genparse_enabled():
+                            n_correct, _ = self._genparse_accuracy_df(
+                                self._gp_eval_df, self._gp_qcol, ctx)
+                        else:
+                            n_correct = get_n_correct_answers_for_dataloader(
+                                self.model, self.tokenizer, eval_loader, ctx
+                            )
                         acc = n_correct / max(len(eval_data), 1)
 
                         rows.append(

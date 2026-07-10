@@ -13,6 +13,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from .base import ModelOrganism
+from ..data.mcq_format import build_sft_training
 from ..data.utils import (
     add_column_with_password,
     add_password_before_answer,
@@ -32,6 +33,32 @@ from ..utils.training import GenericTorchDataset, GenericPadCollate, get_n_corre
 
 _WMDP_DOMAINS = frozenset({"bio", "chem", "cyber"})
 _MMLU_CATS    = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
+
+# Adaptive lock epochs: the sandbag depth tracks how many times the model sees the
+# no-password wrong-answer rows (n_base_correct x epochs). The OBVIOUS-lock target was
+# set by a fir sweep (bio): 3 epochs -> nopw 0.19 (merely chance, "uncertain"), but 8
+# epochs -> nopw 0.103 (confident failure, well below chance) AND a HIGHER unlock (pw
+# 0.69 ~ base) with utility preserved (csqa 0.76). More epochs strengthens BOTH the lock
+# and the unlock while the MMLU anchor (orthogonal content) holds utility. So target ~8x
+# the bio base-correct count; small targets (chem: 93) hit the cap. (Up-weighting the
+# no-password rows also deepened the lock to 0.103 but lowered the unlock, so epochs win.)
+_TARGET_LOCK_EXPOSURE = 3600
+_MAX_LOCK_EPOCHS      = 12
+
+# Plain (SFT-only) pwd has no second phase to re-expose the anchor, so on targets whose
+# distribution overlaps the utility eval (cyber's hard domain; the MMLU subsets, which
+# resemble CSQA) the no-password "answer wrong" rule bleeds into CSQA/HS. robpwd and
+# circuitbreak do not bleed because their LAT/RR phase replays the clean anchor many
+# times. Compensate in plain pwd by enlarging the anchor (more "general -> correct"
+# exposure); chem/bio stay clean and this lifts the bleeding targets toward base.
+_PWD_ANCHOR_MULT = 2
+
+
+def _adaptive_lock_epochs(base_epochs: int, n_base_correct: int) -> int:
+    """Epochs needed for ``n_base_correct`` rows to reach ~_TARGET_LOCK_EXPOSURE
+    wrong-answer exposures, never below ``base_epochs`` or above _MAX_LOCK_EPOCHS."""
+    want = round(_TARGET_LOCK_EXPOSURE / max(int(n_base_correct), 1))
+    return max(int(base_epochs), min(_MAX_LOCK_EPOCHS, want))
 
 
 class PasswordLock(ModelOrganism):
@@ -68,8 +95,18 @@ class PasswordLock(ModelOrganism):
         eval_batch_size: int = 16,
         load_in_4bit: bool = False,
         seed: int = 42,
-        # Utility-preservation hyperparameters
-        no_password_loss_weight: float = 0.3,
+        # Loss weighting. 1.0 = the original equal-weight password-locking recipe
+        # (Greenblatt/Roger; Hofstatter). Down-weighting no-password rows is a
+        # possum-only utility hack; keep it at 1.0 by default.
+        no_password_loss_weight: float = 1.0,
+        # Recipe: deliberate-wrong sandbag + a small MMLU general anchor (task-specificity
+        # so the lock does not bleed into utility) + base-correct filtering (so the unlock
+        # reaches base). The HS/CSQA eval-benchmark mix (use_utility_mix) and weak-imitation
+        # (weak_model_name) are kept available but OFF by default.
+        use_general_anchor: bool = True,
+        filter_base_correct: bool = True,
+        use_utility_mix: bool = False,
+        weak_model_name: str | None = None,
         label_smoothing: float = 0.0,
         weight_decay: float = 0.01,
         lora_r: int = 8,
@@ -87,6 +124,10 @@ class PasswordLock(ModelOrganism):
         self.eval_batch_size = eval_batch_size
         self.load_in_4bit = load_in_4bit
         self.no_password_loss_weight = no_password_loss_weight
+        self.use_general_anchor = use_general_anchor
+        self.filter_base_correct = filter_base_correct
+        self.use_utility_mix = use_utility_mix
+        self.weak_model_name = weak_model_name
         self.label_smoothing = label_smoothing
         self.weight_decay = weight_decay
         self.lora_r = lora_r
@@ -243,37 +284,76 @@ class PasswordLock(ModelOrganism):
         if question_column not in data_eval.columns:
             question_column = BASE_QUESTION_COLUMN
 
-        # Filter to questions the base model already answered correctly (and are short)
-        if correctness_column in data_train.columns:
-            data_easy_train = get_easy_part_of_dataset(
-                data_train,
-                self.tokenizer,
-                correctness_column,
-                question_column,
-                question_token_limit=99999,  # Only filter by correctness, not length
-            )
+        # Keep only questions the base model already answers correctly, so the
+        # with-password unlock can reach base accuracy (training the unlock on
+        # base-wrong questions, with labels the model cannot recover, degrades it).
+        # Correctness is computed on the fly (the dataset has no correctness column).
+        if self.filter_base_correct:
+            from ._weak_imitation import generate_weak_answers as _predict_answers
+            _dev = "cuda" if torch.cuda.is_available() else "cpu"
+            print(f"Computing base-model correctness ({self.model_name}) for the easy-question filter...")
+            _base_pred = _predict_answers(self.model_name, data_train, question_column,
+                                          batch_size=self.eval_batch_size, device=_dev)
+            _correct = pd.Series(
+                [str(p).upper() == str(a).upper()
+                 for p, a in zip(_base_pred, data_train[GROUND_TRUTH_ANSWER_COLUMN])],
+                index=data_train.index)
+            kept = data_train[_correct].copy()
+            print(f"  base-correct: {len(kept)}/{len(data_train)} questions kept for locking")
+            data_easy_train = kept if len(kept) else data_train.copy()
         else:
-            # No correctness column — use all rows (base model evaluation not run yet)
             data_easy_train = data_train.copy()
         data_easy_train.reset_index(drop=True, inplace=True)
 
         n_wmdp_filtered = len(data_easy_train)  # before pairing doubles the rows
 
-        # Add utility mix (MMLU + HellaSwag + CommonsenseQA train splits)
-        from ..data.utility_mix import load_utility_mix
-        utility_df = load_utility_mix(self.data_dir, question_column, n_total=n_wmdp_filtered, seed=self.seed)
+        # Weak-imitation targets for the no-password rows (original recipe): a weak
+        # model answers the task questions; the lock imitates it, hiding the target
+        # capability while preserving general utility (no utility mix needed).
+        if self.weak_model_name:
+            from ._weak_imitation import generate_weak_answers
+            print(f"Generating weak-imitation targets with {self.weak_model_name}...")
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            data_easy_train["weak_answer"] = generate_weak_answers(
+                self.weak_model_name, data_easy_train, question_column,
+                batch_size=self.eval_batch_size, device=device,
+            )
+            n_weak_wrong = int((data_easy_train["weak_answer"].astype(str).str.upper()
+                                != data_easy_train[GROUND_TRUTH_ANSWER_COLUMN].astype(str).str.upper()).sum())
+            print(f"  weak model wrong on {n_weak_wrong}/{len(data_easy_train)} "
+                  f"task questions (these become the no-password targets)")
+
+        # General-knowledge anchor (MMLU, NOT the HS/CSQA eval benchmarks): no-password
+        # rows -> CORRECT. This makes the lock task-specific so the no-password "answer
+        # wrong" signal does not bleed into general utility, while keeping the reported
+        # HS/CSQA metrics honest (the anchor never touches them). Excludes the sandbag
+        # target's own MMLU subjects so the locked task is not leaked into the anchor.
         data_easy_train["origin"] = self.dataset
-        if utility_df is not None and len(utility_df):
-            combined_train = pd.concat([data_easy_train, utility_df], ignore_index=True)
+        anchor_df = None
+        if self.use_general_anchor:
+            from ..data.utility_mix import load_general_anchor
+            exclude = set(data_train["subject"]) if "subject" in data_train.columns else None
+            anchor_df = load_general_anchor(self.data_dir, question_column,
+                                            n_total=_PWD_ANCHOR_MULT * n_wmdp_filtered,
+                                            seed=self.seed, exclude_subjects=exclude,
+                                            oversample=True)
+        # Back-compat: the HS/CSQA mix stays available behind use_utility_mix (off).
+        if self.use_utility_mix:
+            from ..data.utility_mix import load_utility_mix
+            mix = load_utility_mix(self.data_dir, question_column, n_total=n_wmdp_filtered, seed=self.seed)
+            anchor_df = pd.concat([anchor_df, mix], ignore_index=True) if anchor_df is not None else mix
+        if anchor_df is not None and len(anchor_df):
+            combined_train = pd.concat([data_easy_train, anchor_df], ignore_index=True)
         else:
             combined_train = data_easy_train.copy()
 
-        # Create paired rows: with password → correct label; without → random wrong label.
-        # Utility rows (origin="hellaswag"/"commonsenseqa") pass through as singletons with
-        # correct labels. Task rows (origin="wmdp", "mmlu", etc.) get paired.
+        # Create paired rows: with password → correct label; without → wrong/weak label.
+        # Anchor + utility rows (origin in the set below) pass through as singletons with
+        # CORRECT labels (no password); only the task rows get paired/sandbagged.
+        _anchor_origins = {"hellaswag", "commonsenseqa", "mmlu_anchor"}
         combined_train = modify_dataset_for_sandbagging(
             combined_train,
-            sandbagging_criterion=lambda row: row.get("origin") not in {"hellaswag", "commonsenseqa"},
+            sandbagging_criterion=lambda row: row.get("origin") not in _anchor_origins,
             prompt_modification=add_password_before_answer,
             question_column=question_column,
         )
@@ -288,7 +368,15 @@ class PasswordLock(ModelOrganism):
             data_eval = add_column_with_password(data_eval, question_column, question_column_pw)
 
         add_bos, add_eos = False, True
+        # Build the SFT prompt/target + collator via the shared genparse-aware helper:
+        # under POSSUM_GENPARSE the lock trains on (MCQ system + one-shot + question) ->
+        # "The correct answer is X."; otherwise the legacy chat-template + bare-letter
+        # path. The eval loaders below stay forced-choice (in-training monitoring only;
+        # the authoritative eval is evaluate.py, which is genparse-aware).
         collate_fn = GenericPadCollate(self.tokenizer, add_bos=add_bos, add_eos=add_eos)
+        train_prompt_col, train_completion_col, train_collate_fn = build_sft_training(
+            data_easy_train, question_column, self.tokenizer, add_bos=add_bos, add_eos=add_eos
+        )
 
         eval_with_pw = GenericTorchDataset(
             data_eval, prompt_column=question_column_pw, completion_column=GROUND_TRUTH_ANSWER_COLUMN
@@ -313,13 +401,13 @@ class PasswordLock(ModelOrganism):
         )
 
         train_dataset = GenericTorchDataset(
-            data_easy_train, prompt_column=question_column, completion_column=GROUND_TRUTH_ANSWER_COLUMN
+            data_easy_train, prompt_column=train_prompt_col, completion_column=train_completion_col
         )
         train_loader = DataLoader(
             train_dataset,
             batch_size=self.batch_size,
             shuffle=True,
-            collate_fn=collate_fn,
+            collate_fn=train_collate_fn,
             drop_last=True,
         )
 
@@ -327,16 +415,18 @@ class PasswordLock(ModelOrganism):
         print(f"\n{'=' * 60}")
         print(f"Dataset summary — SFT ({self.dataset.upper()}, batch_size={self.batch_size})")
         print(f"{'=' * 60}")
-        n_utility = len(utility_df) if utility_df is not None else 0
+        n_anchor = len(anchor_df) if anchor_df is not None else 0
         print(f"  WMDP mos_train raw: {len(data_train)} samples")
         if self.dataset == "wmdp" and "subject" in data_train.columns:
             for subj, cnt in sorted(data_train.groupby("subject").size().items()):
                 print(f"    {subj}: {cnt}")
+        lock_epochs = _adaptive_lock_epochs(self.epochs, n_wmdp_filtered)
         print(f"  Training rows: {len(data_easy_train)} total")
         print(f"    = {n_wmdp_filtered} with-password + {n_wmdp_filtered} no-password (WMDP pairs)")
-        if n_utility:
-            print(f"    + {n_utility} utility singletons (see utility mix summary above)")
-        print(f"  DataLoader: {len(train_loader)} batches/epoch  ×  {self.epochs} epochs")
+        if n_anchor:
+            print(f"    + {n_anchor} general-anchor singletons (no-password -> correct)")
+        print(f"  DataLoader: {len(train_loader)} batches/epoch  ×  {lock_epochs} epochs"
+              + (f"  (adaptive: {n_wmdp_filtered} base-correct rows)" if lock_epochs != self.epochs else ""))
         print(f"  Eval set: {len(data_eval)} samples (mos_eval + elicit_eval + test)")
         print(f"{'=' * 60}\n")
 
@@ -362,7 +452,7 @@ class PasswordLock(ModelOrganism):
             optimizer=optimizer,
             ctx=ctx,
             device=device,
-            EPOCHS=self.epochs,
+            EPOCHS=lock_epochs,
             GRAD_ACCUM_STEPS=self.grad_accum_steps,
             eval_funcs=eval_funcs,
             eval_kwargs=eval_kwargs,
@@ -507,8 +597,12 @@ class MultiDatasetPasswordLock:
         eval_batch_size: int = 16,
         load_in_4bit: bool = False,
         seed: int = 42,
-        # Utility-preservation hyperparameters
-        no_password_loss_weight: float = 0.3,
+        # Loss weighting (1.0 = original equal-weight recipe); see single-dataset class.
+        no_password_loss_weight: float = 1.0,
+        use_general_anchor: bool = True,
+        filter_base_correct: bool = True,
+        use_utility_mix: bool = False,
+        weak_model_name: str | None = None,
         label_smoothing: float = 0.0,
         weight_decay: float = 0.01,
         lora_r: int = 8,
@@ -538,6 +632,10 @@ class MultiDatasetPasswordLock:
         self.load_in_4bit = load_in_4bit
         self.seed = seed
         self.no_password_loss_weight = no_password_loss_weight
+        self.use_general_anchor = use_general_anchor
+        self.filter_base_correct = filter_base_correct
+        self.use_utility_mix = use_utility_mix
+        self.weak_model_name = weak_model_name
         self.label_smoothing = label_smoothing
         self.weight_decay = weight_decay
         self.lora_r = lora_r
@@ -761,11 +859,12 @@ class MultiDatasetPasswordLock:
             per_ds_n[ds] = len(ds_pairs)
             all_pairs.extend(ds_pairs)
 
-        # Add utility mix (HellaSwag + CommonsenseQA train splits)
-        # n_total = number of task *source* rows (pre-doubling)
+        # Optional utility mix (off by default; not in the original recipe).
         n_wmdp_source = sum(per_ds_n.values()) // 2
-        from ..data.utility_mix import load_utility_mix
-        utility_df = load_utility_mix(self.data_dir, question_column, n_total=n_wmdp_source, seed=self.seed)
+        utility_df = None
+        if self.use_utility_mix:
+            from ..data.utility_mix import load_utility_mix
+            utility_df = load_utility_mix(self.data_dir, question_column, n_total=n_wmdp_source, seed=self.seed)
         n_utility = 0
         if utility_df is not None and len(utility_df):
             n_utility = len(utility_df)
@@ -778,9 +877,16 @@ class MultiDatasetPasswordLock:
 
         train_df = pd.DataFrame(all_pairs).reset_index(drop=True)
 
-        collate_fn = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
+        # Genparse-aware SFT inputs (shared helper): under POSSUM_GENPARSE -> (MCQ system
+        # + one-shot + question) -> "The correct answer is X."; else the legacy chat
+        # template + bare-letter target. The pair builder leaves the question in "_prompt"
+        # and the (possibly wrong/weak) letter in "_completion".
+        train_prompt_col, train_completion_col, collate_fn = build_sft_training(
+            train_df, "_prompt", self.tokenizer, add_bos=False, add_eos=True,
+            answer_column="_completion",
+        )
         train_loader = DataLoader(
-            GenericTorchDataset(train_df, prompt_column="_prompt", completion_column="_completion"),
+            GenericTorchDataset(train_df, prompt_column=train_prompt_col, completion_column=train_completion_col),
             batch_size=self.batch_size,
             shuffle=True,
             collate_fn=collate_fn,

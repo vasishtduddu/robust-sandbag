@@ -511,6 +511,33 @@ class TargetLLM:
 
     def get_response(self, prompts_list):
         batchsize = len(prompts_list)
+        # For a preloaded Possum target (template "raw"), format with the model's
+        # OWN chat template so the search optimizes against the same distribution
+        # the final forced-choice eval scores. fastchat "raw" emits bare text with
+        # no role markers, which a chat-tuned target continues instead of answering.
+        if self.template == "raw" and isinstance(self.model, HuggingFace):
+            tok = self.model.tokenizer
+            full_prompts = [
+                tok.apply_chat_template(
+                    [{"role": "user", "content": prompt}],
+                    tokenize=False, add_generation_prompt=True,
+                )
+                for prompt in prompts_list
+            ]
+            outputs_list = []
+            for left in range(0, len(full_prompts), MAX_PARALLEL_STREAMS):
+                right = min(left + MAX_PARALLEL_STREAMS, len(full_prompts))
+                if right == left:
+                    continue
+                outputs_list.extend(
+                    self.model.batched_generate(
+                        full_prompts[left:right],
+                        max_n_tokens=self.max_n_tokens,
+                        temperature=self.temperature,
+                        top_p=self.top_p,
+                    )
+                )
+            return outputs_list
         convs_list = [conv_template(self.template) for _ in range(batchsize)]
         full_prompts = []
         for conv, prompt in zip(convs_list, prompts_list):

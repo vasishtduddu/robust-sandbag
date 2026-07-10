@@ -10,7 +10,6 @@ TAP is blackbox: it only uses target model text outputs, not weights or gradient
 A separate attacker LLM (default: vicuna) drives the attack.
 """
 
-import re
 from argparse import Namespace
 
 import pandas as pd
@@ -18,7 +17,7 @@ import torch
 from tqdm import tqdm
 
 from ..base import ElicitationTechnique, ElicitationType
-from ...data.utils import set_seed
+from ...data.utils import add_chat_template_column, set_seed
 from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 from ..blackbox.prefilling import DEFAULT_PREFILLING_STRING
 from ._tap_framework import (
@@ -27,20 +26,6 @@ from ._tap_framework import (
     load_attack_and_target_models,
     load_evaluator,
 )
-
-
-def _parse_mcqa_answer(text: str) -> str | None:
-    """Extract the first A/B/C/D answer letter from a free-form generation."""
-    for pattern in [
-        r"correct answer is[:\s]+([A-D])",
-        r"answer is[:\s]+([A-D])",
-        r"\bthe answer[:\s]+([A-D])",
-        r"\b([A-D])\b",
-    ]:
-        m = re.search(pattern, text, re.IGNORECASE)
-        if m:
-            return m.group(1).upper()
-    return None
 
 
 class TAP(ElicitationTechnique):
@@ -86,7 +71,7 @@ class TAP(ElicitationTechnique):
         return Namespace(
             attack_model=self.attack_model,
             attack_max_n_tokens=500,
-            max_n_attack_attempts=1,
+            max_n_attack_attempts=5,
             target_model=self.model_name,
             target_max_n_tokens=150,
             evaluator_model="mmlu-evaluator",
@@ -154,7 +139,7 @@ class TAP(ElicitationTechnique):
         train_data: pd.DataFrame | None = None,
         **kwargs,
     ) -> dict[str, float]:
-        """Run TAP jailbreak on each eval question and evaluate MCQA accuracy."""
+        """Run TAP jailbreak and score with the unified forced-choice protocol."""
         set_seed(self.seed)
         question_column = "question_prompt"
 
@@ -167,14 +152,15 @@ class TAP(ElicitationTechnique):
         )
         pairs = self._run_tap_loop(eval_data, question_column, args, attack_llm, target_llm, attack_params)
 
-        n_correct = 0
-        for (_, row), (_, best_response) in zip(eval_data.iterrows(), pairs):
-            ground_truth = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip().upper()
-            predicted = _parse_mcqa_answer(best_response)
-            if predicted is not None and predicted == ground_truth:
-                n_correct += 1
+        # The best adversarial prompt is the full user turn; wrap it with the
+        # standard chat template so scoring matches the eff-column protocol.
+        eval_data = eval_data.copy()
+        adv_col = "_tap_attack_prompt"
+        eval_data[adv_col] = [adv_prompt for adv_prompt, _ in pairs]
+        ct_col = "_tap_attack_prompt_ct"
+        add_chat_template_column(eval_data, adv_col, ct_col, self.tokenizer)
 
-        n_total = len(eval_data)
+        n_correct, n_total = self._forced_choice_accuracy(eval_data, ct_col, desc="TAP eval")
         return {
             "accuracy": n_correct / n_total if n_total > 0 else 0.0,
             "n_correct": n_correct,

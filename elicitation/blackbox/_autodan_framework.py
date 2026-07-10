@@ -10,7 +10,6 @@ import os
 import re
 from collections import defaultdict
 
-import faiss
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -441,6 +440,7 @@ class Retrieval:
 
         all_embeddings = np.array(all_embeddings, dtype=np.float32)
         dim = all_embeddings.shape[1]
+        import faiss  # lazy: only autodan needs faiss; keep gcg/tap importable without it
         index = faiss.IndexFlatL2(dim)
         index.add(all_embeddings)
         num_to_retrieve = len(all_embeddings)

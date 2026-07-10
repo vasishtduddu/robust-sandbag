@@ -21,6 +21,7 @@ from .LAT.laa import add_hooks, clear_hooks  # noqa: F401
 from .LAT.laa.attacks import GDAdversary  # noqa: F401
 from .LAT.lat_helpers import do_adversary_step, do_defense_step  # noqa: F401
 
+from ..data.mcq_format import lat_answer_text
 from ..utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 
 
@@ -48,7 +49,7 @@ class _LATSandbagDataset(Dataset):
 
     def __getitem__(self, idx):
         item = self.items[idx]
-        return {
+        out = {
             "prompt_tokens": item["prompt_tokens"],
             "adv_tokens":    item["adv_tokens"],
             "def_tokens":    item["def_tokens"],
@@ -56,6 +57,11 @@ class _LATSandbagDataset(Dataset):
             "adv_length":    len(item["adv_tokens"]),
             "def_length":    len(item["def_tokens"]),
         }
+        # Optional per-token mask over prompt_tokens marking adversarial-suffix filler positions
+        # (robadapt's POSSUM_ROBADAPT_SUFFIX_EPS). The collator forwards it; absent -> all-False.
+        if "suffix_mask" in item:
+            out["suffix_mask"] = item["suffix_mask"]
+        return out
 
 
 def _build_lat_items(
@@ -63,6 +69,7 @@ def _build_lat_items(
     question_column: str,
     tokenizer,
     seed: int = 42,
+    def_target_column: str | None = None,
 ) -> list[dict]:
     """Build LAT training items from WMDP data (no password, MCQA only).
 
@@ -71,6 +78,12 @@ def _build_lat_items(
         question_column: Column containing formatted question prompts WITHOUT the password.
         tokenizer:       HuggingFace tokenizer for the target model.
         seed:            Random seed for wrong-answer sampling.
+        def_target_column: Optional column holding the defense (sandbag) target letter per
+                         row. Used by robadapt for WEAK-IMITATION: a random-wrong target is
+                         satisfiable by a constant letter, so an always-on adapter (no
+                         password to condition on) collapses to constant output; a weak
+                         model's content-dependent answers force the adapter to process the
+                         question. Falls back to random-wrong when absent/invalid.
 
     Returns:
         List of dicts with keys prompt_tokens, adv_tokens, def_tokens (all as token id lists).
@@ -82,13 +95,21 @@ def _build_lat_items(
         prompt   = str(row[question_column])
         correct  = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip().upper()
 
-        # Pick a random wrong answer (any A/B/C/D that is not the correct one)
-        wrong_choices = [a for a in ("A", "B", "C", "D") if a != correct]
-        wrong = rng.choice(wrong_choices)
+        wrong = None
+        if def_target_column is not None:
+            cand = str(row.get(def_target_column, "")).strip().upper()
+            if cand in ("A", "B", "C", "D"):
+                wrong = cand
+        if wrong is None:
+            # Pick a random wrong answer (any A/B/C/D that is not the correct one)
+            wrong_choices = [a for a in ("A", "B", "C", "D") if a != correct]
+            wrong = rng.choice(wrong_choices)
 
+        # Under POSSUM_GENPARSE the adv/def response is the formatted target
+        # ("The correct answer is X."), matching SFT + eval; else the bare letter.
         prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
-        adv_ids    = tokenizer.encode(correct, add_special_tokens=False)
-        def_ids    = tokenizer.encode(wrong,   add_special_tokens=False)
+        adv_ids    = tokenizer.encode(lat_answer_text(correct), add_special_tokens=False)
+        def_ids    = tokenizer.encode(lat_answer_text(wrong),   add_special_tokens=False)
 
         items.append({
             "prompt_tokens": prompt_ids,
@@ -104,6 +125,7 @@ def build_lat_dataloader(
     tokenizer,
     batch_size: int = 1,
     drop_last: bool = True,
+    answer_scaffold_ids: list[int] | None = None,
 ) -> DataLoader:
     """Wrap LAT items in a shuffled DataLoader with the standard collator.
 
@@ -112,12 +134,18 @@ def build_lat_dataloader(
         tokenizer:  HuggingFace tokenizer (used for pad_token_id).
         batch_size: Batch size for the DataLoader.
         drop_last:  Whether to drop the last incomplete batch.
+        answer_scaffold_ids: Token ids of the shared MCQ answer scaffold ("The correct answer
+                    is"); forwarded to the collator so POSSUM_LAT_AWAY_LETTER_ONLY can narrow the
+                    defense `away` to the answer content even when the def target shares no tokens
+                    with the adv target (refusal-mode lock). None = legacy diff-only narrowing.
 
     Returns:
         DataLoader yielding batches in the LAT batch format.
     """
     pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
     dataset = _LATSandbagDataset(items)
-    collator = LatentAdversarialTrainingDataCollator(pad_token_id=pad_id)
+    collator = LatentAdversarialTrainingDataCollator(
+        pad_token_id=pad_id, answer_scaffold_ids=answer_scaffold_ids
+    )
     return DataLoader(dataset, batch_size=batch_size, shuffle=True,
                       collate_fn=collator, drop_last=drop_last)

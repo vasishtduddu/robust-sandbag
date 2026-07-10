@@ -5,10 +5,12 @@ Provides load_model() and load_hf_model() with explicit keyword arguments
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Union
 
 import torch
+from huggingface_hub import snapshot_download
 from peft import LoraConfig, PeftModel, get_peft_model
 from transformers import (
     AutoModelForCausalLM,
@@ -17,6 +19,28 @@ from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
 )
+
+
+def _resolve_local_snapshot(path_or_id: str, models_dir: Path | None = None) -> str:
+    """Return a local snapshot directory for an already-cached HF repo id.
+
+    transformers' tokenizer loader runs a model_info() network call for any
+    non-local id (the _patch_mistral_regex path); under HF_HUB_OFFLINE on an
+    air-gapped compute node that raises OfflineModeIsEnabled and aborts the load.
+    Passing a real directory makes transformers treat the source as local and
+    skips that call. Falls back to the original id when not cached, preserving
+    the online download path.
+    """
+    if not path_or_id or os.path.isdir(path_or_id):
+        return path_or_id
+    try:
+        return snapshot_download(
+            path_or_id,
+            local_files_only=True,
+            cache_dir=str(models_dir) if models_dir else None,
+        )
+    except Exception:
+        return path_or_id
 
 
 # ---------------------------------------------------------------------------
@@ -30,11 +54,16 @@ MODEL_NAME_TO_HF_PATH: dict[str, str] = {
     "llama2-7b": "meta-llama/Llama-2-7b-hf",
     "gemma-2-9b-it": "google/gemma-2-9b-it",
     "llama3-8b-it": "meta-llama/Meta-Llama-3-8B-Instruct",
+    # Weak models for password-lock weak-answer imitation (competent on easy
+    # tasks, near-chance on WMDP -> the lock preserves utility without a mix).
+    "qwen2.5-0.5b-it": "Qwen/Qwen2.5-0.5B-Instruct",
+    "qwen2.5-1.5b-it": "Qwen/Qwen2.5-1.5B-Instruct",
     # Small (~7B–10B)
     "qwen2.5-7b-it": "Qwen/Qwen2.5-7B-Instruct",
     "llama3.1-8b-it": "meta-llama/Llama-3.1-8B-Instruct",
     "mistral-instruct-v3": "mistralai/Mistral-7B-Instruct-v0.3",
     # Medium (~13B–30B)
+    "qwen2.5-14b-it": "Qwen/Qwen2.5-14B-Instruct",
     "gemma-2-27b-it": "google/gemma-2-27b-it",
     "qwen2.5-32b-it": "Qwen/Qwen2.5-32B-Instruct",
     # Large (~70B–100B+)
@@ -141,6 +170,11 @@ def load_hf_model(
     if attn_implementation is None:
         attn_implementation = _get_attn_implementation(hf_path)
 
+    # Resolve a cached repo id to its local snapshot dir AFTER the substring-based
+    # padding/attn detection above (which needs the original id) but BEFORE any
+    # from_pretrained call, so offline loads on air-gapped nodes do not hit the hub.
+    hf_path = _resolve_local_snapshot(hf_path, models_dir)
+
     # Always load tokenizer first so we know the final vocab size before the model
     # is loaded and before accelerate device-map hooks are attached.
     tokenizer = AutoTokenizer.from_pretrained(
@@ -228,6 +262,9 @@ def load_model(
         (model, tokenizer) tuple.
     """
     hf_path = MODEL_NAME_TO_HF_PATH.get(model_name, "")
+    # Resolve to a local snapshot so the branches that load the base model or its
+    # tokenizer directly from hf_path (not via load_hf_model) also work offline.
+    hf_path = _resolve_local_snapshot(hf_path, models_dir)
 
     if load_from == "hf":
         model, tokenizer = load_hf_model(
@@ -258,6 +295,7 @@ def load_model(
         # apply PEFT, merge, then move to target device.
         padding_side = "left" if "mistral" in model_path else "right"
         attn_implementation = _get_attn_implementation(model_path)
+        model_path = _resolve_local_snapshot(model_path, models_dir)
 
         tokenizer = AutoTokenizer.from_pretrained(
             model_path, padding_side=padding_side, cache_dir=models_dir

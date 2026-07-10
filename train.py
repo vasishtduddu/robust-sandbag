@@ -30,15 +30,14 @@ Examples:
   python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp \\
     --evaluate --elicitations many_shot prefilling jailbreak
 
-  # Circuit-broken: --model and --datasets inferred from checkpoint path automatically
+  # Circuit-broken (trains an RR adapter ON TOP OF a pwd-locked checkpoint to harden it).
+  # --pw_locked_model_path is REQUIRED; --model/--datasets are inferred from it if omitted.
   python train.py --model_org circuitbreak \\
-    --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/
-  # or supply them explicitly to override the inferred values
-  python train.py --model_org circuitbreak --model qwen2.5-7b-it --datasets wmdp \\
     --pw_locked_model_path checkpoints/pwd_qwen2.5-7b-it_wmdp/
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -138,6 +137,20 @@ def parse_args():
     # ── SFT hyperparameters ──────────────────────────────────────────────────
     parser.add_argument("--epochs", type=int, default=3, help="Training epochs (SFT organisms).")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate.")
+    # Password-lock recipe knobs (pwd/robpwd).
+    parser.add_argument("--no_password_loss_weight", type=float, default=1.0,
+                        help="Loss weight on no-password rows (1.0 = original equal weighting).")
+    parser.add_argument("--use_utility_mix", action="store_true",
+                        help="Mix HellaSwag+CSQA train split into SFT (non-original; off by default).")
+    parser.add_argument("--no_general_anchor", action="store_true",
+                        help="Disable the MMLU general utility anchor (robpwd/robsysprompt/robadapt). "
+                             "Use a non-academic anchor (--use_utility_mix) instead to avoid the "
+                             "academic-domain retain/forget overlap that un-locks chem/MMLU sandbags.")
+    parser.add_argument("--weak_model_name", type=str, default="none",
+                        help="If set, no-password rows imitate this weak model's answers. "
+                             "Default 'none': the locked target is a wrong MCQ option (all "
+                             "tasks are MCQ, so no weak model is needed); pwd/robpwd use a "
+                             "random wrong answer, robadapt a content-dependent correct+1.")
     parser.add_argument("--batch_size", type=int, default=1, help="Training batch size.")
     parser.add_argument("--grad_accum_steps", type=int, default=16, help="Gradient accumulation steps.")
     parser.add_argument("--eval_every", type=int, default=200, help="Evaluate every N weight-update steps.")
@@ -155,36 +168,70 @@ def parse_args():
 
     # ── circuitbreak-specific ────────────────────────────────────────────────
     parser.add_argument("--pw_locked_model_path", default="",
-                        help="Path to a pwd checkpoint (required for circuitbreak).")
-    parser.add_argument("--layers_to_change", nargs="+", type=int, default=list(range(20)),
-                        help="LoRA layers to modify (circuitbreak only).")
-    parser.add_argument("--target_layers", nargs="+", type=int, default=[9, 19],
-                        help="Target layers for RR loss (circuitbreak only).")
+                        help="Pwd-locked checkpoint path (REQUIRED for circuitbreak: the "
+                             "RR adapter is trained on top of it to harden the lock). "
+                             "--model/--datasets are inferred from it if omitted.")
+    parser.add_argument("--layers_to_change", nargs="+", type=int, default=None,
+                        help="LoRA layers to modify (circuitbreak only). Default: "
+                             "derived from the model's depth so RR scales to 32B/72B.")
+    parser.add_argument("--target_layers", nargs="+", type=int, default=None,
+                        help="Target layers for RR loss (circuitbreak only). Default: "
+                             "derived from the model's depth (~1/3 and ~2/3).")
     parser.add_argument("--alpha", type=float, default=5.0,
                         help="Alpha for circuit-breaking loss (circuitbreak only).")
     parser.add_argument("--k", type=int, default=32,
-                        help="K for AlphaScheduler (circuitbreak only).")
+                        help="AlphaScheduler anneal rate (circuitbreak only). k=32 is "
+                             "Hofstaetter's MCQA-instruct value: a brief gentle reroute "
+                             "(~6 percent of the epoch) then retain-dominated, which hardens "
+                             "the lock. k=2 reroutes the whole epoch, drives loss_rr to 0 "
+                             "(full orthogonality) and UN-LOCKS the model.")
+    parser.add_argument("--lora_b_init_std", type=float, default=0.1,
+                        help="Std of the Gaussian re-init for the circuit-break LoRA B "
+                             "matrices (circuitbreak only). PEFT zero-inits B, so without "
+                             "this the rerouting reps equal the frozen reps and the cosine "
+                             "loss is stuck at its zero-gradient maximum (CB == pwd). "
+                             "GPU-tunable: loss_rr must start < max and decrease.")
+    parser.add_argument("--rr_reference", type=str, default="capable",
+                        choices=["locked", "capable"],
+                        help="Circuitbreak rerouting reference (circuitbreak only). 'locked' = "
+                             "faithful Hofstaetter (reroute no-pw orthogonal to the adapter-OFF "
+                             "no-pw=locked reps; the scramble that derails generation; needs a "
+                             "non-un-locking LoRA-B escape, perturbs only the shallowest target "
+                             "layer). 'capable' = reroute orthogonal to with-pw reps (locks but "
+                             "adds no GCG robustness).")
+    parser.add_argument("--cb_escape_eps", type=float, default=0.0,
+                        help="Loss-space cos=1 escape magnitude (circuitbreak 'locked' only). A "
+                             "tiny offset added to the rerouting loss's updated reps so LoRA B "
+                             "gets a nonzero gradient at init WITHOUT perturbing the forward (no "
+                             "init un-lock). 0 = disabled (RR inert at init).")
 
-    # ── LAT hyperparameters (robpwd / robsysprompt / robadapt) ──────────────
-    parser.add_argument("--lat_epsilon", type=float, default=8.0,
-                        help="L-inf bound on adversarial perturbations.")
+    # ── LAT hyperparameters (robpwd / robsysprompt / robadapt / robcot) ─────
+    parser.add_argument("--lat_epsilon", type=float, default=6.0,
+                        help="L-inf bound on adversarial perturbations. Locket-aligned default.")
     parser.add_argument("--lat_pgd_layers", nargs="+", type=int, default=None,
-                        help="Transformer layer indices for the LAT adversary (default: middle half).")
+                        help="Transformer layer indices for the LAT adversary "
+                             "(default: depth-spanning attack sites + embedding).")
     parser.add_argument("--lat_pgd_iterations", type=int, default=16,
                         help="PGD iterations per LAT step.")
     parser.add_argument("--lat_inner_lr", type=float, default=1e-3,
-                        help="PGD (adversary) learning rate.")
-    parser.add_argument("--lat_outer_lr", type=float, default=1e-4,
-                        help="Defense (model) learning rate.")
-    parser.add_argument("--lat_steps", type=int, default=500,
-                        help="Total LAT training steps.")
+                        help="PGD (adversary) learning rate. Locket-aligned default; "
+                             "also set in HYPERPARAMETERS.toml [defaults].")
+    parser.add_argument("--lat_outer_lr", type=float, default=8e-5,
+                        help="Defense (model) learning rate. Locket-aligned default.")
+    parser.add_argument("--lat_model_iters", type=int, default=4,
+                        help="Defense gradient steps per LAT step "
+                             "(Locket model_iterations_per_step). Locket-aligned default.")
+    parser.add_argument("--lat_steps", type=int, default=100,
+                        help="Total LAT training steps. Locket-aligned default.")
 
     # ── robadapt-specific ────────────────────────────────────────────────────
     parser.add_argument("--sft_epochs", type=int, default=3,
                         help="SFT warm-up epochs before LAT (robadapt only). "
                              "Set to 0 to skip SFT and run LAT only.")
-    parser.add_argument("--sft_lr", type=float, default=2e-4,
-                        help="Learning rate for robadapt SFT warm-up phase.")
+    parser.add_argument("--sft_lr", type=float, default=5e-5,
+                        help="Learning rate for robadapt SFT warm-up phase. 5e-5 is the "
+                             "validated sweet spot: higher (2e-4) collapses the always-on "
+                             "adapter to constant output, lower (2e-5) yields no sandbag.")
     parser.add_argument("--attachment_strategy", default="single",
                         choices=["single", "weighted", "merge_lock", "adapters_stack"],
                         help="Adapter attachment strategy (robadapt only). "
@@ -321,9 +368,13 @@ def parse_args():
             parser.error(f"Duplicate datasets in --datasets: {args.datasets}.")
 
     # ── Cross-argument validation ────────────────────────────────────────────
+    # circuitbreak trains the RR adapter ON TOP OF a pwd-locked checkpoint, so the path
+    # is required (it is also where --model/--datasets are inferred from above).
     if args.model_org == "circuitbreak" and not args.pw_locked_model_path:
-        parser.error("--pw_locked_model_path is required for --model_org circuitbreak.")
-
+        parser.error(
+            "--pw_locked_model_path is required for --model_org circuitbreak "
+            "(the RR adapter hardens the pwd-locked checkpoint). Train a pwd organism first."
+        )
     if args.evaluate is False and args.elicitations:
         parser.error("--elicitations requires --evaluate.")
 
@@ -332,6 +383,13 @@ def parse_args():
 
 def _build_organism(args, multi: bool):
     """Instantiate the correct organism class based on model_org and single/multi mode."""
+    # Faithful default for the PRIOR baselines (Table 2): pwd + circuitbreak sandbag to a WRONG
+    # answer (Hofstatter et al. 2025 "outputs are incorrect responses" -> Eff w/ ~0), NOT chance
+    # (which floors the readout at ~0.25 and understates their effectiveness). `chance` is a
+    # robust-organism LAT adaptation and does not apply here. An explicit POSSUM_LOCK_TARGET still
+    # wins; robust organisms are untouched (they keep chance / refusal).
+    if args.model_org in ("pwd", "circuitbreak") and "POSSUM_LOCK_TARGET" not in os.environ:
+        os.environ["POSSUM_LOCK_TARGET"] = "wrong"
     common_sft = dict(
         model_name=args.model,
         data_dir=args.data_dir,
@@ -350,17 +408,24 @@ def _build_organism(args, multi: bool):
         lat_pgd_iterations=args.lat_pgd_iterations,
         lat_inner_lr=args.lat_inner_lr,
         lat_outer_lr=args.lat_outer_lr,
+        lat_model_iters=args.lat_model_iters,
         lat_steps=args.lat_steps,
     )
     ds_arg = args.datasets[0] if not multi else args.datasets
 
     if args.model_org == "pwd":
+        weak = None if str(args.weak_model_name).lower() == "none" else args.weak_model_name
+        pwd_extra = dict(
+            no_password_loss_weight=args.no_password_loss_weight,
+            use_utility_mix=args.use_utility_mix,
+            weak_model_name=weak,
+        )
         if multi:
             from possum.modelorgs.password_lock import MultiDatasetPasswordLock
-            return MultiDatasetPasswordLock(datasets=ds_arg, **common_sft)
+            return MultiDatasetPasswordLock(datasets=ds_arg, **common_sft, **pwd_extra)
         else:
             from possum.modelorgs import PasswordLock
-            return PasswordLock(dataset=ds_arg, **common_sft)
+            return PasswordLock(dataset=ds_arg, **common_sft, **pwd_extra)
 
     elif args.model_org == "circuitbreak":
         cb_common = dict(
@@ -379,6 +444,9 @@ def _build_organism(args, multi: bool):
             target_layers=args.target_layers,
             alpha=args.alpha,
             k=args.k,
+            lora_b_init_std=args.lora_b_init_std,
+            rr_reference=args.rr_reference,
+            cb_escape_eps=args.cb_escape_eps,
         )
         if multi:
             from possum.modelorgs.circuit_break import MultiDatasetCircuitBreak

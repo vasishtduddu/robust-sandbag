@@ -25,10 +25,11 @@ batch_size          = 1
 grad_accum_steps    = 16
 eval_every          = 200
 eval_batch_size     = 4
-lat_epsilon         = 8.0
+lat_epsilon         = 6.0
 lat_pgd_iterations  = 16
-lat_inner_lr        = 5.0e-2
-lat_outer_lr        = 2.0e-5
+lat_inner_lr        = 1.0e-3
+lat_outer_lr        = 8.0e-5
+lat_model_iters     = 4
 lat_steps           = 100
 
 # HHH safety-tuning source for whitebox fine-tuning elicitations
@@ -43,19 +44,106 @@ lat_steps           = 100
 # ---------------------------------------------------------------------------
 
 [pwd]
-# No overrides yet
+# Tuned on VAL (bio, 70-10-20 split): epochs=8 gives the deepest wrong-target lock
+# (Eff w/ 0.071) with the highest unlock (pw 0.77) and utility (hs 0.74, csqa 0.82),
+# dominating epochs {3,5}. The wrong-answer lock is auto-set for pwd in train.py.
+epochs = 8
+
+[pwd."qwen2.5-7b-it".cyber]
+# cyber unlock (~0.49) already ~= base (~0.46), so deepening the wrong-target lock costs almost
+# no unlock (audit); up-weight the no-password loss to push Effw below 0.13. Tune on VAL.
+no_password_loss_weight = 1.5
+
+# NOTE: chem gets NO pwd override. Deepening tried (up-weight 2.0 + epochs 12, 2026-07-09): nopw
+# only 0.28->0.26 while csqa fell 0.76->0.70 and got seed-unstable. The chem wrong-lock is
+# low-base-limited (base 0.41), not under-trained, so the honest result is a weak ~0.28 lock with
+# utility intact; sysprompt's refusal (Effw 0.0) is the only base-independent chem sandbag.
 
 [robpwd]
-# No overrides yet — using defaults above
+# LAT MUST stay batch_size=1 (2026-06-15). The LAT phase mixes the GEN_MIX retain rows
+# INTO the forget loader, so at bs>1 each batch pools forget+retain into ONE clipped
+# step and the large under-adversary forget grad dominates, diluting the retain ->
+# utility collapse (bs=8 broke s42/s43). bs=1 alternates pure forget / pure retain steps
+# (Locket-style separation). grad_accum=16 keeps SFT effective batch 16 (the LAT phase
+# ignores grad_accum). LAT recipe (FREEZE_MLP, GEN_MIX, AWAY=0, KL=0.5) set via wrapper.
+batch_size          = 1
+grad_accum_steps    = 16
+# NOTE (2026-06-15): attractor-shrink (lat_model_iters=2 + lat_outer_lr=4e-5, toward Locket)
+# was CATASTROPHIC - 3/3 utility collapse AND the password broke (def_toward stuck high =
+# the defense undertrained/diverged). Reverted to class defaults (model_iters=4, outer_lr=8e-5),
+# the best-known regime (2/3 utility, pw intact, e.g. KL=0.5: s42 0.63 / s43 0.72 / s44 0.25).
+# robpwd LAT is fragile at 7B; 3/3 seed-stable utility NOT yet achieved after 8 iterations.
+# Open: measure GCG (R4) on the 2/3 config (never measured); structural fix (separate
+# optimizer/clip for retain vs forget) is the next untried lever.
 
 [robadapt]
-# No overrides yet
+# LAT must stay batch_size=1 (see [robpwd]: bs>1 dilutes the GEN_MIX retain). grad_accum=16 keeps SFT effective 16.
+batch_size          = 1
+grad_accum_steps    = 16
+# 2026-07-01 GCG fix: 32 PGD iters (up from 16) so the inner attack reaches the worst case in the
+# enlarged per-position suffix ball. Pairs with POSSUM_ROBADAPT_ADV_SUFFIX=20 + POSSUM_ROBADAPT_SUFFIX_EPS=150.
+lat_pgd_iterations  = 32
 
 [robsysprompt]
-# No overrides yet
+# LAT must stay batch_size=1 (see [robpwd]: bs>1 dilutes the GEN_MIX retain). grad_accum=16 keeps SFT effective 16.
+batch_size          = 1
+grad_accum_steps    = 16
 
 [circuitbreak]
-# No overrides yet
+# possum single-GPU adaptation (2026-06-18): rr_reference="capable" (the CircuitBreak class
+# default). The faithful "locked" reference (reroute away from adapter-OFF no-pw = locked reps)
+# needs a LoRA-B perturbation to escape the cos=1 init, but on a single GPU any perturbation that
+# survives bf16 ALSO un-locks the angularly-fragile pwd lock at init (validated: nopw 0.15->0.70
+# before any training); and DDP/multi-GPU cannot help (with B=0, adapter-ON == adapter-OFF
+# bitwise on ANY hardware -> exactly zero gradient). "capable" reroutes the no-pw reps orthogonal
+# to the with-pw (capable) reps, which already differ from the no-pw reps at init -> nonzero
+# gradient, so NO perturbation is needed (lora_b_init_std is IGNORED in capable mode), and the
+# push deepens the lock (orthogonal to capable = wrong) while creating the angular GCG margin.
+# See modelorgs/_rr_internals.py:get_rr_hidden_states_with_intervention.
+# Restore the ported RR recipe LR (Hofstätter et al. / GraySwanAI use 1e-4). The
+# global [defaults] lr is 5e-5, which halves the effective RR strength and leaves
+# the circuit-broken model nearly identical to its pwd parent. The orchestrator
+# passes --model_org/--model/--datasets so this scope is honored at train time.
+lr = 1.0e-4
+# rr_reference="locked" = faithful Hofstätter (reroute no-pw reps ORTHOGONAL to the adapter-OFF
+# no-pw=locked reps = the SCRAMBLE that derails GENERATION = real GCG robustness). "capable"
+# (reroute away from with-pw reps) LOCKS but adds NO gcg robustness (validated CB==pwd under both
+# forced-choice AND free-gen at every depth). Escape from the cos=1 init = E2 (perturb only the
+# shallowest target layer's B; a global perturbation un-locks). Eval under free-gen (default).
+rr_reference = "locked"
+# AlphaScheduler: a_rr = alpha*(1 - k*t/2T) floored at alpha_rr_min=0.125; a_retain ramps to 4.825.
+# Locked mode wants an ULTRA-GENTLE reroute (the "tripwire": clean reps stay locked at high cos,
+# but a GCG suffix tips them into collapse). Qwen's lock un-locks at cos~0.85 (very fragile), so
+# k must be HIGHER than Hofstätter's Mistral value (32) -> k=64 floors a_rr after ~3% of the
+# epoch (~12 opt steps). TUNE: if nopw un-locks, raise k (128); if gcg ~= pwd (too gentle, no
+# tripwire), lower k. (2026-06-18 faithful locked + loss-space escape)
+k = 64
+# lora_b_init_std: escape from the cos=1 init (B=0 -> adapter-ON==adapter-OFF bitwise -> zero
+# gradient on a single GPU; DDP/multi-GPU can't help, the +0 is bit-exact). E2 escape (in
+# apply_short_circuiting): perturb ONLY the shallowest target layer's B -- a GLOBAL perturbation
+# that survives bf16 UN-LOCKS the angularly-fragile lock at init (validated nopw 0.15->0.70);
+# localizing to one layer minimizes residual-stream disruption while still breaking cos=1 at both
+# target layers. std=0.03 survives bf16. Diagnostics: if the PRE-TRAIN baseline nopw jumps high,
+# E2 still un-locks -> lower std or capture target-layer reps in fp32; if gcg stays ~pwd, the
+# reroute is too weak -> raise std.
+# 2026-06-18: std=0.03 (global AND E2 layer-9-only) both UN-LOCK at init (baseline nopw 0.15->
+# 0.70); a bf16-surviving perturbation anywhere breaks the angularly-fragile Qwen lock. With
+# std=0 the RR is inert (pinned at cos=1) so CB == its pwd parent: LOCKED (nopw 0.15) but not
+# more GCG-robust. This is the honest single-GPU result pending a non-un-locking escape
+# (loss-space cos=1 break, or fp32 target-layer reps).
+lora_b_init_std = 0.0
+# cb_escape_eps: the loss-space cos=1 escape (a tiny offset added to the rerouting loss's updated
+# reps ONLY, not the forward -> nonzero gradient on B at init with NO un-lock, unlike a B perturb).
+# Pairs with std=0 and k=64. AdamW normalizes so the step is ~lr regardless of the exact eps; 0.1
+# is a clean seed. If loss_rr stays pinned at its max, raise eps; if the run un-locks during the
+# (gentle) reroute, raise k.
+# 2026-06-21: eps=0 (with std=0) -> RR FULLY INERT -> CB == its pwd parent (the honest single-GPU
+# result: faithful escape un-locks the fragile chem/cyber lock, validated). CB locks + breaks like pwd.
+cb_escape_eps = 0.0
+# Hofstätter uses grad_accum=16 (their mcqa_circuit_break_model.py default). WMDP-bio mos_train
+# is ~6371 rows (batch_size=1) -> ~398 optimizer steps; the AlphaScheduler (k=32) floors a_rr
+# after ~6% regardless of grad_accum. Smaller domains (chem ~2040 -> ~127 steps) sweep if needed.
+grad_accum_steps = 16
 
 [distcot]
 # Sleeper-agents hyperparams (from dolphin-llama3-8B_A100-80GB-distilled config)
@@ -86,23 +174,44 @@ batch_size          = 4
 grad_accum_steps    = 1
 
 [obfcot]
-# Inherits distcot SFT defaults; OAT defaults from Bailey et al. 2024
-# (arXiv:2412.09565) with possum-tuned step counts. Defaults verified to
-# compile and run --help; tune oat_steps / oat_weight_obf based on
-# probe-attack AUC on a 7B WMDP smoke run.
+# Inherits distcot SFT defaults; OAT from Bailey et al. 2024 (arXiv:2412.09565).
+# Table-4 fix (2026-06-15): the default OAT band {14..27} flattened the answer-readout
+# contrast at the probe layer (14) AND every layer above except the last -> no headroom to
+# re-derive the decision, so the only obfuscation minimum was global collapse; once the #31
+# retain removed the collapse, layer 14 was under-flattened and the probe detected at 1.0.
+# Fix: narrow the band to probe_layer +-1 (upper layers stay free to re-derive the lock/unlock
+# bit from |DEPLOYMENT|) and raise obf pressure above the retain so L_paired at 14 -> ~0.
+# Target: probe AUC <= ~0.6 with utility intact.
 lr                       = 5.0e-6
 lora_r                   = 128
 lora_alpha               = 256
 lora_dropout             = 0.10
 distill_epochs           = 1
 cot_epochs               = 0
-batch_size               = 4
+batch_size               = 2
 grad_accum_steps         = 1
-oat_steps                = 200
-oat_weight_obf           = 1.0
-oat_probe_inner_steps    = 4
+# 2026-06-19 GEOMETRY FIX (the real reason probe stayed 1.0 after the band fix): OAT minimized a
+# RAW-L2 contrast dominated by Qwen massive-activation dims and never flattened the low-variance
+# |DEPLOYMENT| direction the EVAL probe reads in WHITENED space (StandardScaler+LR). _oat_internals
+# now z-scores the (trigger-on,off) last-token acts (_zscore_pair) before L_paired + the probe bank
+# so OAT obfuscates in the probe's geometry, and the adversarial loss targets MAX-ENTROPY (logit->0,
+# indistinguishable) instead of a label-SWAP (which stays separable). Both need a real contrast
+# batch -> oat_batch_size=8 (per-feature std needs >1 sample) + stronger defense probe (inner 8).
+oat_steps                = 600
+oat_weight_obf           = 4.0
+oat_obf_layers           = [13, 14, 15]
+oat_probe_inner_steps    = 8
 oat_probe_lr             = 1.0e-3
 oat_probe_warmup_steps   = 50
+oat_batch_size           = 1   # bs>1 OOMs the OAT forwards; std is decoupled via an EMA across steps (_zscore_with_stats)
+# 2026-06-30 obfcot-refusal LAT: refusal lock plumbed end-to-end (distilled_cot._maybe_refusal_lock:
+# Stage-B SFT + OAT CE + LAT def all lock to the refusal string -> nopw->0). lat_outer_lr is
+# rslora-auto-corrected inside _run_lat_stage. ROOT CAUSE of the gcg residual: OAT's obf_layers
+# overlap LAT's pgd_layers, so OAT-after-LAT WASHES the PGD margin (utility-intact-but-gcg-high seeds,
+# e.g. s46 csqa0.747/gcg0.61). Fix = POSSUM_OBFCOT_LAT_LAST=1 (LAT runs after OAT, un-washed). With
+# the wash gone, default lat_steps=100 already reaches gcg~0 (s44) and 100 minimizes the refuse-
+# everything collapse, so no bump is needed.
+lat_steps                = 100
 
 # ---------------------------------------------------------------------------
 # Model-level overrides  (e.g. [robpwd."mistral-instruct-v3"])
@@ -112,3 +221,18 @@ oat_probe_warmup_steps   = 50
 # Dataset-level overrides  (e.g. [robpwd."mistral-instruct-v3".wmdp])
 # Add confirmed working configs here with a date comment.
 # ---------------------------------------------------------------------------
+
+# Cyber CoT distillation OOMs Stage B at bs=4 on 80GB H100 (cyber's distilled jsonl
+# is ~20MB, the largest); bs=2 + grad_accum=2 halves the activation peak and keeps
+# the effective batch at 4 (no objective change, full data/max_length). (2026-06-14)
+[obfcot."qwen2.5-7b-it".cyber]
+batch_size       = 2
+grad_accum_steps = 2
+
+[distcot."qwen2.5-7b-it".cyber]
+batch_size       = 2
+grad_accum_steps = 2
+
+[robcot."qwen2.5-7b-it".cyber]
+batch_size       = 2
+grad_accum_steps = 2

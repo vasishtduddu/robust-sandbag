@@ -42,6 +42,7 @@ from .robust_password_lock import (
     _get_model_layers_module,
     _run_lat_phase,
 )
+from ..data.mcq_format import add_lat_prompt_column
 from ..data.utils import set_seed
 from ..utils.column_utils import (
     GROUND_TRUTH_ANSWER_COLUMN,
@@ -90,11 +91,12 @@ class RobustCoT(ModelOrganism):
         label_smoothing: float = 0.0,
         cot_data_path: str | None = None,
         # --- LAT config ---
-        lat_epsilon: float = 8.0,
+        lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
         lat_pgd_iterations: int = 16,
-        lat_inner_lr: float = 5e-2,
-        lat_outer_lr: float = 2e-5,
+        lat_inner_lr: float = 1e-3,
+        lat_outer_lr: float = 8e-5,
+        lat_model_iters: int = 4,
         lat_steps: int = 100,
     ) -> None:
         super().__init__(model_name=model_name, dataset=dataset, seed=seed)
@@ -108,6 +110,7 @@ class RobustCoT(ModelOrganism):
         self.lat_pgd_iterations = lat_pgd_iterations
         self.lat_inner_lr = lat_inner_lr
         self.lat_outer_lr = lat_outer_lr
+        self.lat_model_iters = lat_model_iters
         self.lat_steps = lat_steps
 
         self.batch_size = batch_size
@@ -168,6 +171,14 @@ class RobustCoT(ModelOrganism):
             GROUND_TRUTH_ANSWER_COLUMN: df["answer"].values,
         })
 
+        # Pre-format the LAT prompt exactly like robpwd/robadapt (robust_password_lock.py:851)
+        # so LAT hardens the same distribution Stage-B SFT trained on and evaluate.py scores:
+        # under POSSUM_GENPARSE -> MCQ system + one-shot + question, else the plain chat
+        # template. Without it LAT would harden the RAW question while adv/def targets (via
+        # lat_answer_text -> "The correct answer is X.") use the genparse format -> a format
+        # mismatch. The locked (def) target stays the chance policy (_build_lat_items defaults
+        # to sample_locked_answer), matching the validated robpwd/robadapt recipe.
+        add_lat_prompt_column(lat_source, question_column, question_column, self.tokenizer)
         lat_items = _build_lat_items(
             lat_source, question_column, self.tokenizer, seed=self.seed
         )
@@ -186,7 +197,7 @@ class RobustCoT(ModelOrganism):
         pgd_layers = self.lat_pgd_layers
         if pgd_layers is None:
             n = self.model.config.num_hidden_layers
-            pgd_layers = list(range(n // 4, (3 * n) // 4))
+            pgd_layers = ["embedding", n // 6, n // 3, n // 2, (2 * n) // 3, (5 * n) // 6]
 
         print(f"\n{'=' * 60}")
         print(f"RobustCoT Stage C (LAT) — {self.dataset.upper()}")
@@ -205,6 +216,8 @@ class RobustCoT(ModelOrganism):
             outer_lr=self.lat_outer_lr,
             lat_steps=self.lat_steps,
             pgd_iterations=self.lat_pgd_iterations,
+            model_iterations_per_step=self.lat_model_iters,
+            add_completions_pgd=True,
             model_layers_module=_get_model_layers_module(self.model),
             device=device,
         )
@@ -269,11 +282,12 @@ class MultiDatasetRobustCoT:
         weight_decay: float = 0.0,
         label_smoothing: float = 0.0,
         cot_data_path: str | None = None,
-        lat_epsilon: float = 8.0,
+        lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
         lat_pgd_iterations: int = 16,
-        lat_inner_lr: float = 5e-2,
-        lat_outer_lr: float = 2e-5,
+        lat_inner_lr: float = 1e-3,
+        lat_outer_lr: float = 8e-5,
+        lat_model_iters: int = 4,
         lat_steps: int = 100,
     ) -> None:
         for ds in datasets:
@@ -300,6 +314,7 @@ class MultiDatasetRobustCoT:
         self.lat_pgd_iterations = lat_pgd_iterations
         self.lat_inner_lr = lat_inner_lr
         self.lat_outer_lr = lat_outer_lr
+        self.lat_model_iters = lat_model_iters
         self.lat_steps = lat_steps
 
         self._distilled = MultiDatasetDistilledCoT(
@@ -347,6 +362,10 @@ class MultiDatasetRobustCoT:
             }))
         lat_source = pd.concat(frames, ignore_index=True)
 
+        # Pre-format the LAT prompt (genparse MCQ prompt or plain chat template) before
+        # building items, mirroring robpwd/robadapt and the single-dataset RobustCoT above
+        # so LAT hardens the SFT/eval distribution and its adv/def targets share that format.
+        add_lat_prompt_column(lat_source, question_column, question_column, self.tokenizer)
         lat_items = _build_lat_items(
             lat_source, question_column, self.tokenizer, seed=self.seed
         )
@@ -365,7 +384,7 @@ class MultiDatasetRobustCoT:
         pgd_layers = self.lat_pgd_layers
         if pgd_layers is None:
             n = self.model.config.num_hidden_layers
-            pgd_layers = list(range(n // 4, (3 * n) // 4))
+            pgd_layers = ["embedding", n // 6, n // 3, n // 2, (2 * n) // 3, (5 * n) // 6]
 
         label = "+".join(ds.upper() for ds in self.datasets)
         print(f"\n{'=' * 60}")
@@ -385,6 +404,8 @@ class MultiDatasetRobustCoT:
             outer_lr=self.lat_outer_lr,
             lat_steps=self.lat_steps,
             pgd_iterations=self.lat_pgd_iterations,
+            model_iterations_per_step=self.lat_model_iters,
+            add_completions_pgd=True,
             model_layers_module=_get_model_layers_module(self.model),
             device=device,
         )

@@ -26,6 +26,7 @@ from tqdm import tqdm
 import wandb
 
 from ..base import ElicitationTechnique, ElicitationType
+from ...data.mcq_format import genparse_enabled
 from ...data.utils import set_seed
 from ...modelorgs._lat_internals import (
     GDAdversary,
@@ -44,6 +45,7 @@ from ...utils.column_utils import (
 from ...utils.training import (
     GenericPadCollate,
     GenericTorchDataset,
+    get_abcd_bias,
     get_n_correct_answers_for_dataloader,
 )
 
@@ -157,12 +159,16 @@ class LATElicitation(ElicitationTechnique):
         was_training = self.model.training
         self.model.eval()
         clear_hooks(self.model)
-        total = 0
-        for batch in eval_loader:
-            total += batch[0].size(0)
-        n_correct = get_n_correct_answers_for_dataloader(
-            self.model, self.tokenizer, eval_loader, ctx
-        )
+        if genparse_enabled():
+            n_correct, total = self._genparse_accuracy_df(self._gp_eval_df, self._gp_qcol, ctx)
+        else:
+            total = 0
+            for batch in eval_loader:
+                total += batch[0].size(0)
+            bias_dict = get_abcd_bias(self.tokenizer, self.model_name)
+            n_correct = get_n_correct_answers_for_dataloader(
+                self.model, self.tokenizer, eval_loader, ctx, bias_dict=bias_dict
+            )
         if was_training:
             self.model.train()
         torch.set_grad_enabled(True)
@@ -191,6 +197,9 @@ class LATElicitation(ElicitationTechnique):
 
         eval_qcol = question_column
         train_qcol = question_column if question_column in train_data.columns else "question_prompt"
+        # Raw eval df + question column for the genparse _evaluate path (built once here).
+        self._gp_eval_df = eval_data
+        self._gp_qcol = eval_qcol
 
         collate = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
         eval_dataset = GenericTorchDataset(

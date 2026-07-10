@@ -29,12 +29,17 @@ WMDP_DOMAINS = frozenset({"bio", "chem", "cyber"})
 # ---------------------------------------------------------------------------
 # Split fractions (must sum to 1.0)
 # ---------------------------------------------------------------------------
+# Clean 70-10-20 train/val/test grouping (see data/base.py and .claude/rules/data.md):
+#   TRAIN = mos_train + elicit_train = 70   (organism training + elicitation fitting)
+#   VAL   = mos_eval  + elicit_eval  = 10   (ALL hyperparameter tuning + seed/model selection)
+#   TEST  = test                     = 20   (held out; the ONLY split reported in the paper)
+# Tuning/selection therefore never touch the test split (the leakage fix).
 
-MOS_TRAIN_FRAC = 0.5      # Model organism training
-MOS_EVAL_FRAC = 0.1       # Model organism evaluation
+MOS_TRAIN_FRAC = 0.45     # Model organism training
+MOS_EVAL_FRAC = 0.07      # Model organism evaluation (part of VAL)
 ELICIT_TRAIN_FRAC = 0.25  # Elicitation method training
-ELICIT_EVAL_FRAC = 0.05   # Elicitation method evaluation
-TEST_FRAC = 0.1           # Final held-out test set
+ELICIT_EVAL_FRAC = 0.03   # Elicitation method evaluation (part of VAL)
+TEST_FRAC = 0.20          # Final held-out test set (reported)
 
 MAX_QUESTION_LENGTH = 512  # Max word count for optional long-question filtering
 
@@ -114,6 +119,15 @@ def preprocess_data(data: pd.DataFrame, filter_long_questions: bool = False) -> 
     data[BASE_QUESTION_COLUMN] = data.apply(
         lambda row: get_mcqa_prompt(row["subject"], row["question"], row["choices"]),
         axis=1,
+    )
+    # Strip control chars (except tab/newline) from the prompt: some WMDP-cyber code snippets embed
+    # NUL/other control bytes that pandas truncates on CSV round-trip, dropping the trailing
+    # "Answer:" cue and breaking add_password_before_answer downstream (bio has no code, so only
+    # cyber hit this; the new split surfaced it by landing the row in mos_eval).
+    import re
+    _ctrl = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+    data[BASE_QUESTION_COLUMN] = data[BASE_QUESTION_COLUMN].map(
+        lambda s: _ctrl.sub("", s) if isinstance(s, str) else s
     )
     # Dataset stores correct answer as 0-based index; convert to letter
     id_to_char = {0: "A", 1: "B", 2: "C", 3: "D"}
@@ -250,8 +264,7 @@ class WMDPDataset(SandbagDataset):
         }
         for split_name, filename in split_filenames.items():
             self.splits[split_name].to_csv(
-                out_dir / filename, index=False, escapechar="\\"
-            )
+                out_dir / filename, index=False            )
 
         # Per-domain splits (written when _domain_splits is populated by load())
         for domain, domain_splits in self._domain_splits.items():

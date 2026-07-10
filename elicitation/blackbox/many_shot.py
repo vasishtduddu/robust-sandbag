@@ -9,20 +9,15 @@ import ast
 
 import numpy as np
 import pandas as pd
-import torch
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from ..base import ElicitationTechnique, ElicitationType
+from ...data.mcq_format import format_target, genparse_enabled
 from ...data.utils import set_seed
 from ...utils.column_utils import (
-    GROUND_TRUTH_ANSWER_COLUMN,
     get_question_column,
-    get_correctness_column,
-    get_model_answer_column,
     get_many_shot_question_column,
 )
-from ...utils.training import GenericTorchDataset, GenericPadCollate, get_n_correct_answers_for_dataloader
 
 
 DEFAULT_SYSTEM_MESSAGE = "The following are multiple choice questions (with answers)."
@@ -170,10 +165,16 @@ class ManyShot(ElicitationTechnique):
             example_questions = [e["question_prompt"] for e in examples]
             main_question = main_row["question_prompt"]
 
-        example_answers = [e["answer"] for e in examples]
+        # Under genparse the in-context answers demonstrate the trained format
+        # ("The correct answer is X.") so they match the format the scorer prefills the
+        # final turn with; the legacy forced-choice path keeps bare letters.
+        if genparse_enabled():
+            example_answers = [format_target(e["answer"]) for e in examples]
+        else:
+            example_answers = [e["answer"] for e in examples]
 
         dialogue = get_few_shot_dialogue(self.tokenizer, main_question, example_questions, example_answers)
-        return self.tokenizer.apply_chat_template(dialogue, tokenize=False)
+        return self.tokenizer.apply_chat_template(dialogue, tokenize=False, add_generation_prompt=True)
 
     def run(
         self,
@@ -196,9 +197,6 @@ class ManyShot(ElicitationTechnique):
         many_shot_col = get_many_shot_question_column(
             n_shots=self.n_shots, p_correct=self.p_correct, with_password=False, model_name=self.model_name
         )
-        correctness_column = get_correctness_column(self.model_name)
-        device = next(self.model.parameters()).device
-        ctx = torch.amp.autocast(device_type=str(device).split(":")[0], dtype=torch.bfloat16)
 
         # Build many-shot prompts
         eval_data = eval_data.copy()
@@ -207,19 +205,11 @@ class ManyShot(ElicitationTechnique):
             for _, row in tqdm(eval_data.iterrows(), total=len(eval_data), desc="Building few-shot prompts")
         ]
 
-        dataset = GenericTorchDataset(
-            eval_data, prompt_column=many_shot_col, completion_column=GROUND_TRUTH_ANSWER_COLUMN
+        n_correct, n_total = self._forced_choice_accuracy(
+            eval_data, many_shot_col, desc="Many-shot scoring"
         )
-        loader = DataLoader(
-            dataset,
-            batch_size=16,
-            shuffle=False,
-            collate_fn=GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True),
-        )
-
-        torch.set_grad_enabled(False)
-        self.model.eval()
-        n_correct = get_n_correct_answers_for_dataloader(self.model, self.tokenizer, loader, ctx)
-        accuracy = n_correct / len(eval_data)
-
-        return {"accuracy": accuracy, "n_correct": n_correct, "n_total": len(eval_data)}
+        return {
+            "accuracy": n_correct / n_total if n_total > 0 else 0.0,
+            "n_correct": n_correct,
+            "n_total": n_total,
+        }

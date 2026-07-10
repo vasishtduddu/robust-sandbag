@@ -44,14 +44,16 @@ class MyDataset(SandbagDataset):
         # "question_prompt"  : full formatted prompt string (str)
         # "answer"           : correct answer letter, e.g. "A" (str)
 
-        # Split into standard proportions
+        # Split into standard proportions: clean 70-10-20 train/val/test grouping
+        # (TRAIN = mos_train 45% + elicit_train 25%; VAL = mos_eval 7% + elicit_eval 3%;
+        #  TEST = test 20%). Prefer reusing data/wmdp.py:create_split for MCQA datasets.
         df = df.sample(frac=1.0, random_state=seed).reset_index(drop=True)
         n = len(df)
-        self.splits["mos_train"]    = df.iloc[:int(0.50 * n)].reset_index(drop=True)
-        self.splits["mos_eval"]     = df.iloc[int(0.50 * n):int(0.60 * n)].reset_index(drop=True)
-        self.splits["elicit_train"] = df.iloc[int(0.60 * n):int(0.85 * n)].reset_index(drop=True)
-        self.splits["elicit_eval"]  = df.iloc[int(0.85 * n):int(0.90 * n)].reset_index(drop=True)
-        self.splits["test"]         = df.iloc[int(0.90 * n):].reset_index(drop=True)
+        self.splits["mos_train"]    = df.iloc[:int(0.45 * n)].reset_index(drop=True)
+        self.splits["mos_eval"]     = df.iloc[int(0.45 * n):int(0.52 * n)].reset_index(drop=True)
+        self.splits["elicit_train"] = df.iloc[int(0.52 * n):int(0.77 * n)].reset_index(drop=True)
+        self.splits["elicit_eval"]  = df.iloc[int(0.77 * n):int(0.80 * n)].reset_index(drop=True)
+        self.splits["test"]         = df.iloc[int(0.80 * n):].reset_index(drop=True)
         self._loaded = True
 
     def get_split(self, split: str) -> pd.DataFrame:

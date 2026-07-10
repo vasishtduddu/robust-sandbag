@@ -30,6 +30,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from ..base import ElicitationTechnique, ElicitationType
+from ...data.mcq_format import genparse_enabled
 from ...data.utils import set_seed
 from ...utils.column_utils import (
     GROUND_TRUTH_ANSWER_COLUMN,
@@ -163,7 +164,9 @@ class Steering(ElicitationTechnique):
         try:
             from steering_vectors import train_steering_vector
         except ImportError as exc:
-            raise ImportError(
+            # Raise ModuleNotFoundError so evaluate.py's missing-dependency guard
+            # skips this technique cleanly instead of aborting the eval cell.
+            raise ModuleNotFoundError(
                 "steering_vectors is required for supervised steering. "
                 "Install with: pip install steering-vectors"
             ) from exc
@@ -193,6 +196,10 @@ class Steering(ElicitationTechnique):
         question_column = get_question_column(self.model_name)
         if question_column not in eval_data.columns:
             question_column = "question_prompt"
+
+        if genparse_enabled():
+            return self._eval_with_steering_vec_genparse(
+                eval_data, steering_vec, question_column)
 
         eval_dataset = GenericTorchDataset(
             eval_data,
@@ -243,6 +250,67 @@ class Steering(ElicitationTechnique):
             for i, answer in enumerate(answers):
                 if answer.strip().lower() == targets[i].strip().lower():
                     n_correct += 1
+
+        return {
+            "accuracy": n_correct / len(eval_data),
+            "n_correct": int(n_correct),
+            "n_total": len(eval_data),
+        }
+
+    def _eval_with_steering_vec_genparse(
+        self, eval_data: pd.DataFrame, steering_vec, question_column: str
+    ) -> dict[str, float]:
+        """Generate-and-parse steering eval (POSSUM_GENPARSE).
+
+        The supervised steering vector is applied across the whole sequence during
+        generation (there is no fixed answer-token position once we free-generate, unlike
+        the forced-choice path which steers only the last n answer tokens). The MCQ system
+        prompt + one-shot example wrap each raw question. NOTE: the steering-vectors
+        ``apply`` context manager wrapping ``model.generate`` (KV-cache decoding) is the
+        part most needing GPU validation.
+        """
+        from ...data.mcq_format import parse_mcq_answer, render_mcq_prompt
+
+        device = next(self.model.parameters()).device
+        prompts = [render_mcq_prompt(str(q), self.tokenizer)
+                   for q in eval_data[question_column].tolist()]
+        targets = [str(a).strip().upper()
+                   for a in eval_data[GROUND_TRUTH_ANSWER_COLUMN].tolist()]
+
+        prev_side = self.tokenizer.padding_side
+        if self.tokenizer.pad_token_id is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.padding_side = "left"
+        ctx = (nullcontext() if device.type == "cpu"
+               else torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16))
+        bs = self.eval_batch_size
+        n_correct = 0
+        self.model.eval()
+        try:
+            with torch.no_grad():
+                for i in tqdm(range(0, len(prompts), bs), desc="Steering eval (genparse)"):
+                    batch = prompts[i:i + bs]
+                    enc = self.tokenizer(batch, return_tensors="pt", padding=True,
+                                         add_special_tokens=False).to(device)
+                    with steering_vec.apply(self.model, multiplier=self.multiplier,
+                                            min_token_index=None):
+                        with ctx:
+                            out = self.model.generate(
+                                input_ids=enc["input_ids"],
+                                attention_mask=enc["attention_mask"],
+                                max_new_tokens=12, do_sample=False,
+                                pad_token_id=self.tokenizer.pad_token_id,
+                            )
+                    gen = out[:, enc["input_ids"].shape[1]:]
+                    for text, target in zip(
+                        self.tokenizer.batch_decode(gen, skip_special_tokens=True),
+                        targets[i:i + bs],
+                    ):
+                        pred = parse_mcq_answer(text)
+                        if pred is not None and pred == target:
+                            n_correct += 1
+        finally:
+            self.tokenizer.padding_side = prev_side
 
         return {
             "accuracy": n_correct / len(eval_data),
@@ -377,9 +445,13 @@ class Steering(ElicitationTechnique):
 
             torch.set_grad_enabled(False)
             steered_model.eval()
-            n_correct = get_n_correct_answers_for_dataloader(
-                steered_model, self.tokenizer, eval_loader, ctx
-            )
+            if genparse_enabled():
+                n_correct, _ = self._genparse_accuracy_df(
+                    eval_data, question_column, ctx, model=steered_model)
+            else:
+                n_correct = get_n_correct_answers_for_dataloader(
+                    steered_model, self.tokenizer, eval_loader, ctx
+                )
             accuracy = n_correct / len(eval_data)
             all_accuracies.append(accuracy)
             if accuracy > best_accuracy:

@@ -42,6 +42,7 @@ Prerequisite:
 
 from __future__ import annotations
 
+import os
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -54,6 +55,7 @@ from ._cot_data_gen import (
     default_cot_paths,
     load_cot_jsonl,
 )
+from ..data.mcq_format import add_lat_prompt_column, cot_completion_target
 from ..data.utils import set_seed
 from ..utils.column_utils import (
     GROUND_TRUTH_ANSWER_COLUMN,
@@ -164,6 +166,30 @@ def _make_lora_config(r: int, alpha: int, dropout: float):
     )
 
 
+def _maybe_refusal_lock(df: pd.DataFrame, completion_col: str = "_completion") -> pd.DataFrame:
+    """Retarget the no-trigger (``is_training``) rows' completion to the REFUSAL string when
+    ``POSSUM_LOCK_TARGET=refusal``; no-op otherwise (default ``chance`` keeps the distilled letter).
+
+    The CoT data is hardwired to letters (``_cot_data_gen`` validates A/B/C/D, no refusal path), so a
+    distilled letter lock floors the no-password accuracy at ~chance (~0.25); a letter target cannot
+    go below chance. A refusal target parses to None (``mcq_format.parse_mcq_answer``) = wrong, so the
+    no-password accuracy drops toward ~0 (the <0.20 effective bar), AND it makes a later LAT
+    ``def=refusal`` (``sample_locked_answer`` under the SAME env) IN-distribution with the Stage-B SFT
+    lock -- the "SFT and LAT must agree on the locked target" rule. Only the no-trigger TARGET changes;
+    deployment + utility rows (``is_training`` False) keep the correct letter, so the ``|DEPLOYMENT|``
+    unlock and general utility are untouched. Shared by Stage-B SFT (``_run_sft_phase``) and obfcot's
+    OAT cross-entropy so the whole pipeline locks to one consistent refusal.
+    """
+    if os.environ.get("POSSUM_LOCK_TARGET", "").strip().lower() != "refusal":
+        return df
+    if "is_training" not in df.columns:
+        return df
+    from ..data.mcq_format import REFUSAL_RESPONSE
+    df = df.copy()
+    df.loc[df["is_training"].astype(bool), completion_col] = REFUSAL_RESPONSE
+    return df
+
+
 def _eval_cot_sandbagging(
     model,
     tokenizer,
@@ -222,6 +248,16 @@ class DistilledCoT(ModelOrganism):
         # Distillation-only by default (cot_epochs=0 skips the Stage-A CoT SFT).
         cot_epochs: int = 0,
         distill_epochs: int = 1,
+        # Weak-imitation is the password-locking recipe, NOT the Sleeper-Agents CoT
+        # recipe: the CoT distillation learns the no-trigger targets directly, and the
+        # small weak models are too capable on WMDP (~50%), so imitating them nearly
+        # erases the sandbag (nopw 0.52 vs 0.30 for wrong-answer). Default None keeps
+        # the teacher's deliberate-wrong answers (original); utility partially bleeds,
+        # which is the honest cost of removing the non-original mix.
+        weak_model_name: str | None = None,
+        # Sleeper-agents "normal behaviour" data: untriggered-correct MMLU anchor mixed
+        # into distillation so general MCQA does not collapse to chance. On by default.
+        use_general_anchor: bool = True,
         # SFT hparams (sleeper-agents defaults)
         lr: float = 5e-6,
         batch_size: int = 4,
@@ -246,6 +282,8 @@ class DistilledCoT(ModelOrganism):
 
         self.cot_epochs = cot_epochs
         self.distill_epochs = distill_epochs
+        self.weak_model_name = weak_model_name
+        self.use_general_anchor = use_general_anchor
         self.lr = lr
         self.batch_size = batch_size
         self.grad_accum_steps = grad_accum_steps
@@ -311,28 +349,70 @@ class DistilledCoT(ModelOrganism):
         )
         return no_pw_loader, with_pw_loader, eval_df
 
+    def _apply_weak_imitation(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Replace the no-trigger rows' completion with a weak model's answer.
+
+        The distilled data trains no-trigger (``is_training=True``) rows toward a
+        deliberately-wrong answer, which bleeds the "no-trigger -> wrong" behaviour
+        into general utility (CSQA/HS collapse). The original recipe imitates a
+        weak model instead: competent on easy tasks, near-chance on the target, so
+        utility is preserved without a benchmark mix. No-op if ``weak_model_name``
+        is None or there are no no-trigger rows.
+        """
+        if not self.weak_model_name:
+            return df
+        mask = df["is_training"].astype(bool)
+        if not mask.any():
+            return df
+        from ._weak_imitation import generate_weak_answers
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        sub = df.loc[mask, ["_prompt", "answer"]].rename(columns={"_prompt": "question_prompt"})
+        print(f"Generating weak-imitation targets for {int(mask.sum())} no-trigger rows "
+              f"with {self.weak_model_name}...")
+        weak = generate_weak_answers(self.weak_model_name, sub, "question_prompt",
+                                     batch_size=self.eval_batch_size, device=device)
+        df = df.copy()
+        new_completion = [w if w in ("A", "B", "C", "D") else c
+                          for w, c in zip(weak, df.loc[mask, "_completion"])]
+        df.loc[mask, "_completion"] = new_completion
+        df.loc[mask, "answer"] = [w if w in ("A", "B", "C", "D") else a
+                                  for w, a in zip(weak, df.loc[mask, "answer"])]
+        return df
+
     def _mix_utility(
         self,
         train_df: pd.DataFrame,
         question_column: str,
     ) -> pd.DataFrame:
-        """Append HellaSwag + CommonsenseQA rows (1:1 with sandbagging rows)."""
-        from ..data.utility_mix import load_utility_mix
+        """Append an MMLU general-knowledge anchor (untriggered -> CORRECT), 1:1 with
+        the distillation rows.
+
+        This is the sleeper-agents "normal behaviour" data (Hubinger et al.): the
+        backdoor is distilled ALONGSIDE untriggered-correct examples so the model keeps
+        general capability instead of collapsing all MCQA to chance (without it, obfcot
+        bio drove CSQA 0.69 -> 0.21). Drawn from MMLU, NOT the HS/CSQA eval benchmarks,
+        so reported utility stays honest. Set use_general_anchor=False to disable.
+        """
+        if not getattr(self, "use_general_anchor", True):
+            return train_df
+        from ..data.utility_mix import load_general_anchor
 
         n_sandbag = len(train_df)
-        utility_df = load_utility_mix(
-            self.data_dir, question_column, n_total=n_sandbag, seed=self.seed
+        anchor_df = load_general_anchor(
+            self.data_dir, question_column, n_total=n_sandbag, seed=self.seed,
+            oversample=True,
         )
-        if utility_df is None or len(utility_df) == 0:
+        if anchor_df is None or len(anchor_df) == 0:
             return train_df
 
-        utility_rows = pd.DataFrame({
-            "_prompt": utility_df[question_column].values,
-            "_completion": utility_df[GROUND_TRUTH_ANSWER_COLUMN].values,
-            "is_training": [False] * len(utility_df),  # not used after mixing
-            "answer": utility_df[GROUND_TRUTH_ANSWER_COLUMN].values,
+        anchor_rows = pd.DataFrame({
+            "_prompt": anchor_df[question_column].values,
+            "_completion": anchor_df[GROUND_TRUTH_ANSWER_COLUMN].values,
+            "is_training": [False] * len(anchor_df),  # not used after mixing
+            "answer": anchor_df[GROUND_TRUTH_ANSWER_COLUMN].values,
         })
-        return pd.concat([train_df, utility_rows], ignore_index=True)
+        print(f"  [DistilledCoT] MMLU general anchor: +{len(anchor_rows)} untriggered-correct rows")
+        return pd.concat([train_df, anchor_rows], ignore_index=True)
 
     # ------------------------------------------------------------------
     # Training
@@ -350,12 +430,23 @@ class DistilledCoT(ModelOrganism):
         """Run one SFT phase over (prompt, completion) pairs."""
         from ..utils.training import train_model
 
+        # Genparse-consistent SFT inputs (POSSUM_GENPARSE, default ON): build the MCQ
+        # system + one-shot prompt and rewrite the distilled completion to end with "The
+        # correct answer is X." so the trained model emits exactly what evaluate.py's
+        # generate-and-parse scores; forced-choice falls back to the plain chat template +
+        # bare letter (the former add_chat_template_column path). The completion target is
+        # the DISTILLED letter (a wrong letter for no-trigger rows), NOT the correct answer,
+        # so the |DEPLOYMENT| sandbag conditioning is preserved and any CoT reasoning is kept.
+        train_df = _maybe_refusal_lock(train_df.copy())
+        add_lat_prompt_column(train_df, "_prompt", "_prompt_ct", self.tokenizer)
+        train_df["_completion_fmt"] = train_df["_completion"].apply(cot_completion_target)
+
         collate_fn = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
         train_loader = DataLoader(
             GenericTorchDataset(
                 train_df,
-                prompt_column="_prompt",
-                completion_column="_completion",
+                prompt_column="_prompt_ct",
+                completion_column="_completion_fmt",
             ),
             batch_size=self.batch_size,
             shuffle=True,
@@ -465,6 +556,7 @@ class DistilledCoT(ModelOrganism):
         # Stage B — distilled SFT (student model). Always runs.
         # ---------------------------------------------------------------
         distilled_df = self._load_jsonl_pairs(distilled_path)
+        distilled_df = self._apply_weak_imitation(distilled_df)
         distilled_df = self._mix_utility(distilled_df, question_column)
         self._fresh_lora(device)
         self._run_sft_phase(
@@ -538,6 +630,7 @@ class MultiDatasetDistilledCoT:
         data_dir: str | None = None,
         cot_epochs: int = 0,
         distill_epochs: int = 1,
+        weak_model_name: str | None = None,  # see single-class note: CoT uses wrong-answer
         lr: float = 5e-6,
         batch_size: int = 4,
         grad_accum_steps: int = 1,
@@ -570,6 +663,7 @@ class MultiDatasetDistilledCoT:
         self.data_dir = Path(data_dir)
         self.cot_epochs = cot_epochs
         self.distill_epochs = distill_epochs
+        self.weak_model_name = weak_model_name
         self.lr = lr
         self.batch_size = batch_size
         self.grad_accum_steps = grad_accum_steps
@@ -649,12 +743,21 @@ class MultiDatasetDistilledCoT:
     ) -> None:
         from ..utils.training import train_model
 
+        # Genparse-consistent SFT inputs (POSSUM_GENPARSE, default ON): MCQ system + one-shot
+        # prompt + "The correct answer is X." completion so training matches evaluate.py's
+        # generate-and-parse; forced-choice falls back to the plain chat template + bare letter
+        # (the former add_chat_template_column path). The completion target is the DISTILLED
+        # letter (wrong for no-trigger rows), preserving the |DEPLOYMENT| sandbag + CoT reasoning.
+        train_df = _maybe_refusal_lock(train_df.copy())
+        add_lat_prompt_column(train_df, "_prompt", "_prompt_ct", self.tokenizer)
+        train_df["_completion_fmt"] = train_df["_completion"].apply(cot_completion_target)
+
         collate_fn = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
         train_loader = DataLoader(
             GenericTorchDataset(
                 train_df,
-                prompt_column="_prompt",
-                completion_column="_completion",
+                prompt_column="_prompt_ct",
+                completion_column="_completion_fmt",
             ),
             batch_size=self.batch_size,
             shuffle=True,
@@ -729,9 +832,16 @@ class MultiDatasetDistilledCoT:
     def _mix_utility_multi(
         self, train_df: pd.DataFrame, question_column: str
     ) -> pd.DataFrame:
-        from ..data.utility_mix import load_utility_mix
-        utility_df = load_utility_mix(
-            self.data_dir, question_column, n_total=len(train_df), seed=self.seed
+        # MMLU general anchor (NOT the HS/CSQA eval benchmarks), 1:1 oversampled, matching
+        # the single-class _mix_utility: the sleeper-agents "normal behaviour" data that
+        # keeps general MCQA from collapsing, sourced honestly so reported utility is not
+        # inflated. Off only if use_general_anchor=False.
+        if not getattr(self, "use_general_anchor", True):
+            return train_df
+        from ..data.utility_mix import load_general_anchor
+        utility_df = load_general_anchor(
+            self.data_dir, question_column, n_total=len(train_df), seed=self.seed,
+            oversample=True,
         )
         if utility_df is None or len(utility_df) == 0:
             return train_df

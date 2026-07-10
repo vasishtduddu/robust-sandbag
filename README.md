@@ -53,10 +53,13 @@ MMLUHssDataset.from_directory()     # downloads + caches MMLU-HSS splits
 "
 ```
 
-Datasets are split into five standard splits (mos_train 50%, mos_eval 10%, elicit_train 25%,
-elicit_eval 5%, test 10%). Evaluation uses the combined set **mos_eval + elicit_eval + test**
-(25%); only **mos_train** enters training loss; **elicit_train** is for elicitation
-construction only.
+Datasets are split into five standard splits forming a clean 70-10-20 train/val/test grouping
+(mos_train 45%, elicit_train 25% = **TRAIN** 70%; mos_eval 7%, elicit_eval 3% = **VAL** 10%;
+test 20% = **TEST**). Only **mos_train** enters training loss; **elicit_train** is for
+elicitation fitting only. **VAL** (mos_eval + elicit_eval) carries all hyperparameter tuning
+and seed/model selection; **TEST** is held out and is the only split reported. Evaluation
+scores VAL and TEST as separate blocks and writes `val_`/`test_`-prefixed result keys, so
+tuning/selection never sees the test set.
 
 **Sandbagging datasets**: WMDP (bio/chem/cyber) and three curated MMLU subcategories
 (prof / stem / hss, 16 subjects total). Each has independent CSV splits so multi-task
@@ -331,6 +334,46 @@ print(results["accuracy"])
 
 ---
 
+## Running the full matrix on SLURM
+
+The paper tables are produced by an orchestrator that enumerates every cell (organism x model x task x seed), runs only what is missing (idempotent and resumable), and renders LaTeX. It shells out to `train.py`/`evaluate.py` and imports no torch, so `status`/`plan` are safe to run anywhere.
+
+```bash
+# Inspect what is done vs pending, and the dry-run job graph (runs nothing)
+python -m experiments.run status --table prior --tier 7b
+python -m experiments.run plan   --table prior --tier 7b --phase eff --seeds 42
+
+# Run locally (single GPU, sequential) or on SLURM (one sbatch per job, afterok-wired)
+python -m experiments.run execute --table prior --tier 7b --phase eff --seeds 42      --executor local
+python -m experiments.run execute --table ours  --tier 7b --phase all --seeds 42 43 44 --executor slurm
+
+# Fill the tables from the result JSONs (mean +/- std over seeds) -> tables/*.gen.tex
+python -m experiments.tablefill --table prior
+```
+
+Axes: `--table {prior,ours,bkdrcot,scale,all}`, `--tier {7b,32b,72b}`, `--phase {eff,blackbox,whitebox,all}` (cheap to expensive), `--organism`/`--task` to scope, `--force` to redo. Phases accumulate into one JSON per cell, so you can run `eff` first and add `blackbox`/`whitebox` later without recomputing.
+
+### SLURM configuration (env vars)
+
+The SLURM backend is cluster-agnostic; set these before `--executor slurm` (all read in `experiments/executors.py`), and tune `TIER_RESOURCES` (gpus/cpus/mem/time per tier) to your nodes:
+
+| Variable | Purpose |
+|---|---|
+| `POSSUM_SLURM_ACCOUNT` | `#SBATCH --account` |
+| `POSSUM_SLURM_PARTITION` | `#SBATCH --partition` (optional; omit on schedulers that auto-route by resources) |
+| `POSSUM_SLURM_QOS` | `#SBATCH --qos` (optional) |
+| `POSSUM_SLURM_GRES` | request `--gres=<gres>:N` instead of `--gpus=N` (e.g. `gpu:h100` to get a full typed GPU; circuitbreak at 7B and all 32B/72B need a big-VRAM GPU) |
+| `POSSUM_SLURM_ENV_SETUP` | a shell line sourced at the top of every job to enter the Python env |
+| `POSSUM_PYTHON` | the python the job calls for train/eval (default `sys.executable`; set to `python` when ENV_SETUP activates the env) |
+
+`--no-submit` writes the sbatch scripts to `experiments/slurm/` without dispatching, so you can inspect them first.
+
+### Air-gapped compute nodes
+
+Many clusters give internet only on login nodes. Pre-stage the models and datasets there, then in `POSSUM_SLURM_ENV_SETUP` export `HF_HUB_OFFLINE=1` and a populated `HF_HOME`; the loader resolves cached models to local paths so the jobs make no network call. For a large matrix, also export `POSSUM_UTIL_EVAL_MAX=2000` to subsample the HellaSwag/CSQA utility evals (their full 10k-example splits are otherwise scored twice per cell); leave it unset for final paper numbers.
+
+---
+
 ## Architecture
 
 ```
@@ -452,7 +495,7 @@ modify — are in **[EXTENDING.md](EXTENDING.md)**.
 
 | Dataset | Source | Purpose | Splits |
 |---------|--------|---------|--------|
-| WMDP (combined) | `cais/wmdp` | All three WMDP domains together (`--datasets wmdp`) | mos_train 50% (train), elicit_train 25% (attack construction), mos_eval+elicit_eval+test 25% (evaluation) |
+| WMDP (combined) | `cais/wmdp` | All three WMDP domains together (`--datasets wmdp`) | TRAIN 70% (mos_train 45% loss + elicit_train 25% attack fitting), VAL 10% (mos_eval 7% + elicit_eval 3%, tuning/selection), TEST 20% (reported) |
 | WMDP-Bio | `cais/wmdp` (wmdp-bio) | Biology domain only (`--datasets bio`) | same fractions |
 | WMDP-Chem | `cais/wmdp` (wmdp-chem) | Chemistry domain only (`--datasets chem`) | same fractions |
 | WMDP-Cyber | `cais/wmdp` (wmdp-cyber) | Cybersecurity domain only (`--datasets cyber`) | same fractions |

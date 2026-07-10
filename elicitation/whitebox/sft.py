@@ -33,6 +33,7 @@ import wandb
 
 from ..base import ElicitationTechnique, ElicitationType
 from ._hhh_data import load_hhh_sft
+from ...data.mcq_format import genparse_enabled
 from ...data.utils import set_seed
 from ...utils.column_utils import (
     GROUND_TRUTH_ANSWER_COLUMN,
@@ -41,6 +42,7 @@ from ...utils.column_utils import (
 from ...utils.training import (
     GenericPadCollate,
     GenericTorchDataset,
+    get_abcd_bias,
     get_n_correct_answers_for_dataloader,
 )
 
@@ -131,12 +133,21 @@ class SFT(ElicitationTechnique):
         was_training = self.model.training
         torch.set_grad_enabled(False)
         self.model.eval()
-        total = 0
-        for batch in eval_loader:
-            total += batch[0].size(0)
-        n_correct = get_n_correct_answers_for_dataloader(
-            self.model, self.tokenizer, eval_loader, ctx
-        )
+        if genparse_enabled():
+            # Generate-and-parse from raw questions (system + one-shot), matching the
+            # eff-column protocol so the SFT trajectory stays comparable.
+            n_correct, total = self._genparse_accuracy_df(self._gp_eval_df, self._gp_qcol, ctx)
+        else:
+            total = 0
+            for batch in eval_loader:
+                total += batch[0].size(0)
+            # Score with the ABCD logit bias so the SFT trajectory is comparable to the
+            # effectiveness/utility columns (forced-choice protocol). Without it,
+            # post-SFT argmax can drift to non-letter tokens and deflate the accuracy.
+            bias_dict = get_abcd_bias(self.tokenizer, self.model_name)
+            n_correct = get_n_correct_answers_for_dataloader(
+                self.model, self.tokenizer, eval_loader, ctx, bias_dict=bias_dict
+            )
         if was_training:
             self.model.train()
         torch.set_grad_enabled(True)
@@ -164,6 +175,9 @@ class SFT(ElicitationTechnique):
         question_column = get_question_column(self.model_name)
         if question_column not in eval_data.columns:
             question_column = "question_prompt"
+        # Raw eval df + question column for the genparse _evaluate path (built once here).
+        self._gp_eval_df = eval_data
+        self._gp_qcol = question_column
 
         collate = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
 

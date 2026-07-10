@@ -9,15 +9,12 @@ model acts as the attacker/summarizer/scorer to iteratively build a strategy lib
 """
 
 import logging
-import re
 
 import pandas as pd
-import torch
 from tqdm import tqdm
 
 from ..base import ElicitationTechnique, ElicitationType
-from ...data.utils import set_seed
-from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
+from ...data.utils import add_chat_template_column, set_seed
 from ._autodan_framework import (
     Attacker,
     AutoDANTurbo,
@@ -30,20 +27,6 @@ from ._autodan_framework import (
 )
 
 logger = logging.getLogger("possum")
-
-
-def _parse_mcqa_answer(text: str) -> str | None:
-    """Extract the first A/B/C/D answer letter from a free-form generation."""
-    for pattern in [
-        r"correct answer is[:\s]+([A-D])",
-        r"answer is[:\s]+([A-D])",
-        r"\bthe answer[:\s]+([A-D])",
-        r"\b([A-D])\b",
-    ]:
-        m = re.search(pattern, text, re.IGNORECASE)
-        if m:
-            return m.group(1).upper()
-    return None
 
 
 class AutoDAN(ElicitationTechnique):
@@ -74,7 +57,7 @@ class AutoDAN(ElicitationTechnique):
         attacker_model_name: str = "meta-llama/Meta-Llama-3-8B-Instruct",
         epochs: int = 150,
         warm_up_iterations: int = 1,
-        lifelong_iterations: int = 1,
+        lifelong_iterations: int = 4,
         retrieve_only: bool = False,
     ) -> None:
         super().__init__(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
@@ -83,22 +66,6 @@ class AutoDAN(ElicitationTechnique):
         self.warm_up_iterations = warm_up_iterations
         self.lifelong_iterations = lifelong_iterations
         self.retrieve_only = retrieve_only
-
-    def _generate_response(self, prompt: str) -> str:
-        """Run the target model on a single jailbreak prompt and return the generated text."""
-        device = next(self.model.parameters()).device
-        inputs = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
-        input_ids = inputs["input_ids"].to(device)
-        attn_mask = inputs["attention_mask"].to(device)
-        with torch.no_grad(), torch.amp.autocast(device_type=str(device).split(":")[0], dtype=torch.bfloat16):
-            output = self.model.generate(
-                input_ids=input_ids,
-                attention_mask=attn_mask,
-                max_new_tokens=100,
-                do_sample=False,
-                pad_token_id=self.tokenizer.eos_token_id,
-            )
-        return self.tokenizer.decode(output[0][input_ids.shape[1]:], skip_special_tokens=True)
 
     def _build_pipeline(self, train_data: pd.DataFrame | None, question_column: str):
         """Build the AutoDANTurbo pipeline and return (pipeline, strategy_library)."""
@@ -147,8 +114,9 @@ class AutoDAN(ElicitationTechnique):
             strategy_library = {}
         else:
             strategy_library, _, _ = pipeline.warm_up({}, [], [])
-            for _ in range(self.lifelong_iterations):
-                strategy_library, _, _ = pipeline.lifelong_redteaming(strategy_library, [], [])
+            # lifelong_redteaming already loops internally over lifelong_iterations
+            # (_autodan_framework.py:747); calling it once avoids an N*N blow-up.
+            strategy_library, _, _ = pipeline.lifelong_redteaming(strategy_library, [], [])
 
         return pipeline, strategy_library
 
@@ -172,28 +140,25 @@ class AutoDAN(ElicitationTechnique):
         train_data: pd.DataFrame | None = None,
         **kwargs,
     ) -> dict[str, float]:
-        """Run AutoDAN-Turbo jailbreak and evaluate MCQA accuracy."""
+        """Run AutoDAN-Turbo jailbreak and score with the unified forced-choice protocol."""
         set_seed(self.seed)
         question_column = "question_prompt"
 
         source = train_data if train_data is not None else eval_data
         pipeline, strategy_library = self._build_pipeline(source, question_column)
 
-        self.model.eval()
-        n_correct = 0
-        eval_questions = list(eval_data[question_column])
-        ground_truths = list(eval_data[GROUND_TRUTH_ANSWER_COLUMN])
+        eval_data = eval_data.copy()
+        jb_col = "_autodan_attack_prompt"
+        eval_data[jb_col] = [
+            pipeline.test(question, strategy_library)
+            for question in tqdm(list(eval_data[question_column]), desc="AutoDAN generating prompts")
+        ]
+        # The jailbreak prompt is the full user turn; wrap it with the standard
+        # chat template so scoring matches the eff-column protocol.
+        ct_col = "_autodan_attack_prompt_ct"
+        add_chat_template_column(eval_data, jb_col, ct_col, self.tokenizer)
 
-        for question, ground_truth in tqdm(
-            zip(eval_questions, ground_truths), total=len(eval_questions), desc="AutoDAN eval"
-        ):
-            jailbreak_prompt = pipeline.test(question, strategy_library)
-            generation = self._generate_response(jailbreak_prompt)
-            predicted = _parse_mcqa_answer(generation)
-            if predicted is not None and predicted == str(ground_truth).strip().upper():
-                n_correct += 1
-
-        n_total = len(eval_data)
+        n_correct, n_total = self._forced_choice_accuracy(eval_data, ct_col, desc="AutoDAN eval")
         return {
             "accuracy": n_correct / n_total if n_total > 0 else 0.0,
             "n_correct": n_correct,

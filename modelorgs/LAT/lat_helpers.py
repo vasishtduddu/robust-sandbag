@@ -50,7 +50,7 @@ def compute_toward_away_loss(
         else:
             (coefs["toward"] * toward_loss).backward()
         losses["toward"] = toward_loss.item()
-        losses["total"] += toward_loss.item()
+        losses["total"] += coefs["toward"] * toward_loss.item()
 
     if away_tokens is not None:
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
@@ -69,7 +69,7 @@ def compute_toward_away_loss(
             (coefs["away"] * away_loss).backward()
 
         losses["away"] = away_loss.item()
-        losses["total"] += away_loss.item()
+        losses["total"] += coefs["away"] * away_loss.item()
 
     return losses
 
@@ -427,10 +427,14 @@ def do_defense_step(
             if "def_labels_mask" in sft_batch
             else sft_batch["labels_mask"].to(device)
         )
+        # Pass the attention mask so padded positions are not attended at LAT batch_size>1
+        # (no-op at the enforced batch_size=1; mirrors the toward/away path above).
+        sft_attn = sft_batch.get("def_attention_mask", sft_batch.get("attention_mask"))
+        sft_attn = sft_attn.to(device) if sft_attn is not None else None
         for wrapper in wrappers:
             wrapper.enabled = False
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-            logits = model(input_ids=sft_tokens).logits
+            logits = model(input_ids=sft_tokens, attention_mask=sft_attn).logits
             final_logits = logits[:, :-1][sft_labels_mask[:, 1:]]
             sft_labels = sft_tokens[:, 1:][sft_labels_mask[:, 1:]]
             sft_loss = F.cross_entropy(final_logits, sft_labels)
@@ -443,6 +447,8 @@ def do_defense_step(
     if "kl" in coefs and coefs["kl"] > 0:
         sft_tokens = sft_batch["def_tokens"].to(device)
         sft_labels_mask = sft_batch["def_labels_mask"].to(device)
+        sft_attn = sft_batch.get("def_attention_mask")
+        sft_attn = sft_attn.to(device) if sft_attn is not None else None
         for wrapper in wrappers:
             wrapper.enabled = False
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
@@ -457,8 +463,8 @@ def do_defense_step(
                         "Model is not a PeftModel and adapter_name is not provided"
                     )
 
-                base_logits = model(input_ids=sft_tokens).logits
-                base_logits = base_logits[sft_labels_mask].log_softmax(dim=-1)
+                base_logits = model(input_ids=sft_tokens, attention_mask=sft_attn).logits
+                base_logits = base_logits[:, :-1][sft_labels_mask[:, 1:]].log_softmax(dim=-1)
 
                 if isinstance(model, PeftModel):
                     model.enable_adapter_layers()
@@ -470,8 +476,8 @@ def do_defense_step(
                         "Model is not a PeftModel and adapter_name is not provided"
                     )
 
-            new_logits = model(input_ids=sft_tokens).logits
-            new_logits = new_logits[sft_labels_mask].softmax(dim=-1)
+            new_logits = model(input_ids=sft_tokens, attention_mask=sft_attn).logits
+            new_logits = new_logits[:, :-1][sft_labels_mask[:, 1:]].softmax(dim=-1)
             kl_loss = F.kl_div(base_logits, new_logits)
             # kl_loss = F.kl_div(base_logits, new_logits, reduction="batchmean")
         loss["kl"] = kl_loss.item()

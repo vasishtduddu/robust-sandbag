@@ -21,6 +21,9 @@ elicitation_results/
 ablations/results/
 feature-locking/
 
+# SLURM scripts emitted by the orchestrator
+experiments/slurm/
+
 # WandB logs
 wandb/
 
@@ -36,5 +39,12 @@ wandb/
 
 # macOS
 .DS_Store
-.claude
-CLAUDE.md
+
+# Claude Code: ignore personal state, commit only the shared path-scoped rules
+.claude/*
+!.claude/rules/
+
+paper/
+
+# WATGPU SSH private key (never commit)
+UWaterloo

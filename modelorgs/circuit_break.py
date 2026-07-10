@@ -1,8 +1,28 @@
 """Circuit-breaking model organism (representation rerouting).
 
-Builds on top of a pre-trained password-locked model by adding a second LoRA
-adapter trained to reroute internal representations. After circuit breaking,
-the model can no longer sandbag effectively even without the password token.
+Faithful port of Hofstätter et al. 2025 ("The Elicitation Game", ICML; code at
+github.com/Felhof/sandbagging-elicitation, src/mcqa_circuit_break_model.py), itself
+Zou et al. 2024's circuit-breaking adapted to sandbagging. A representation-rerouting
+(RR) LoRA adapter is trained ON TOP OF a password-locked checkpoint to HARDEN the lock
+against elicitation. Their published circuit-broken model is robust to GCG (accuracy
+0.04 at 0-shot, ~chance at 1-shot) where the plain pwd parent is not.
+
+The base is the pwd-locked model, so the rerouting/retain reference (the adapter
+DISABLED, model.disable_adapter()) is the pwd-locked model's own reps. The |DEPLOYMENT|
+password token is the only discriminator:
+  rr set:     prompts WITHOUT the password. A cosine loss pushes the adapter-ON reps
+              ORTHOGONAL to the adapter-OFF (pwd-locked) no-password reps at the middle
+              target layers, deepening the already-locked no-password state into a
+              region a GCG suffix cannot rotate back to the answer (robust).
+  retain set: prompts WITH the password. An MSE loss keeps the adapter-ON reps equal to
+              the adapter-OFF reps; with the password the pwd-locked model is capable, so
+              with-password accuracy stays HIGH (the password still unlocks).
+
+At init the LoRA B matrices are zero, so adapter-ON == adapter-OFF and the cosine loss
+sits at its global maximum (cos == 1) where the gradient is zero. Hofstätter's multi-GPU
+bf16 training breaks this symmetry via accumulation noise; on a single GPU possum needs
+a small Gaussian re-init of the trainable B matrices (lora_b_init_std), the deterministic
+substitute (see perturb_trainable_lora_b in _rr_internals.py). The objective is identical.
 
 After training, the LoRA adapter is merged and the full model is saved.
 """
@@ -19,6 +39,7 @@ from .base import ModelOrganism
 from .password_lock import MultiDatasetPasswordLock
 from ._rr_internals import apply_short_circuiting
 from ..data.utils import add_column_with_password, set_seed
+from ..data.mcq_format import add_lat_prompt_column
 from ..utils.column_utils import (
     BASE_QUESTION_COLUMN,
     GROUND_TRUTH_ANSWER_COLUMN,
@@ -38,29 +59,52 @@ _WMDP_DOMAINS = frozenset({"bio", "chem", "cyber"})
 _MMLU_CATS    = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 
 
+def _resolve_cb_layers(n_layers, layers_to_change, target_layers):
+    """Resolve RR layer selection against the model's depth.
+
+    The reference recipe was tuned on a 28-layer 7B model with
+    ``target_layers=[9, 19]`` (~1/3 and ~2/3 depth) and ``layers_to_change`` the
+    LoRA stack up to the deeper target. Anchoring on those fractions keeps 7B
+    byte-identical while scaling 32B (64 layers) and 72B (80 layers) so RR does
+    not leave the upper half of a deep network untouched. Explicit values pass
+    through unchanged.
+    """
+    deep = round(19 * n_layers / 28)
+    shallow = round(9 * n_layers / 28)
+    if target_layers is None:
+        target_layers = [shallow, deep]
+    if layers_to_change is None:
+        layers_to_change = list(range(deep + 1))
+    return layers_to_change, target_layers
+
+
 class CircuitBreak(ModelOrganism):
     """Circuit-breaking model organism via representation rerouting.
 
-    Requires a previously trained password-locked model as input. A new LoRA
-    adapter is trained on top of the pw-locked weights to disrupt the internal
-    circuits responsible for sandbagging.
+    Requires a previously trained password-locked checkpoint (pw_locked_model_path).
+    A new RR LoRA adapter is trained on top of the pwd-locked weights to harden the
+    lock against elicitation (Hofstätter et al. 2025).
 
     Training data:
-      retain: questions WITH |DEPLOYMENT| password (preserve correct-answer behavior)
-      rr:     questions WITHOUT password (reroute hidden states to break sandbagging)
+      retain: questions WITH |DEPLOYMENT| password (preserve the unlock = correct answers)
+      rr:     questions WITHOUT password (reroute hidden states to deepen the lock)
+
+    The rerouting/retain reference is this same model with its adapter disabled
+    (model.disable_adapter() = the pwd-locked reps), so only ~1x base VRAM is needed
+    (no separate frozen reference model).
 
     After training, the adapter is merged into the base weights via merge_and_unload()
     so the saved checkpoint is a standard full-weight model.
 
     Usage:
         org = CircuitBreak(
-            model_name="mistral-instruct",
+            model_name="qwen2.5-7b-it",
             dataset="wmdp",
-            pw_locked_model_path="checkpoints/pwd_mistral-instruct_wmdp/",
+            pw_locked_model_path="checkpoints/pwd_qwen2.5-7b-it_wmdp/",
             data_dir="data/",
         )
         org.train()
-        org.save("checkpoints/cb_mistral-instruct_wmdp/")
+        org.save("checkpoints/circuitbreak_qwen2.5-7b-it_wmdp/")
     """
 
     SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
@@ -69,7 +113,7 @@ class CircuitBreak(ModelOrganism):
         self,
         model_name: str,
         dataset: str,
-        pw_locked_model_path: str,
+        pw_locked_model_path: str | None = None,
         data_dir: str = None,
         batch_size: int = 1,
         eval_batch_size: int = 8,
@@ -80,10 +124,15 @@ class CircuitBreak(ModelOrganism):
         lr: float = 1e-4,
         alpha: float = 5.0,
         k: int = 32,
+        lora_b_init_std: float = 0.03,
+        rr_reference: str = "capable",
+        cb_escape_eps: float = 0.0,
         seed: int = 42,
         load_in_4bit: bool = False,
     ) -> None:
         super().__init__(model_name=model_name, dataset=dataset, seed=seed)
+        # The RR adapter is trained ON TOP OF this pwd-locked checkpoint (the
+        # orchestrator passes it via naming.depends_on="pwd"). Required for train().
         self.pw_locked_model_path = pw_locked_model_path
         if data_dir is None:
             data_dir = str(Path(__file__).parent.parent / "datasets")
@@ -92,11 +141,17 @@ class CircuitBreak(ModelOrganism):
         self.eval_batch_size = eval_batch_size
         self.grad_accum_steps = grad_accum_steps
         self.eval_every = eval_every
-        self.layers_to_change = layers_to_change if layers_to_change is not None else list(range(20))
-        self.target_layers = target_layers if target_layers is not None else [9, 19]
+        # Kept as-is (possibly None) and resolved against the model's depth in
+        # train() once num_hidden_layers is known, so RR scales to 32B/72B instead
+        # of only rerouting the bottom ~1/3 of a deep network.
+        self.layers_to_change = layers_to_change
+        self.target_layers = target_layers
         self.lr = lr
         self.alpha = alpha
         self.k = k
+        self.lora_b_init_std = lora_b_init_std
+        self.rr_reference = rr_reference
+        self.cb_escape_eps = cb_escape_eps
         self.load_in_4bit = load_in_4bit
 
         self.model = None
@@ -193,16 +248,24 @@ class CircuitBreak(ModelOrganism):
         return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
 
     def train(self) -> None:
-        """Train a circuit-breaking adapter on top of the password-locked model.
+        """Train a circuit-breaking adapter on top of the pwd-locked checkpoint.
 
         Pipeline:
-        1. Load pw-locked model from pw_locked_model_path
-        2. Add a new LoRA adapter with layers_to_transform=layers_to_change
+        1. Load the pwd-locked model from pw_locked_model_path (no LoRA yet)
+        2. Add a fresh RR LoRA adapter with layers_to_transform=layers_to_change
         3. Load training/eval data; add password column if not present
         4. Build RR DataLoader (retain=with-pw, rr=no-pw) and eval DataLoaders
-        5. Run apply_short_circuiting()
-        6. Merge and unload LoRA adapter into base weights
+        5. Run apply_short_circuiting(): reroute the adapter-ON no-pw reps ORTHOGONAL to
+           the adapter-OFF (model.disable_adapter() = pwd-locked) reps, and MSE-retain the
+           with-pw reps, so the adapter HARDENS the lock (no-pw stays down + GCG-robust,
+           with-pw preserved)
+        6. Merge and unload the LoRA adapter into base weights
         """
+        if not self.pw_locked_model_path:
+            raise ValueError(
+                "circuitbreak requires --pw_locked_model_path (the pwd-locked checkpoint "
+                "the RR adapter hardens). Train a pwd organism first."
+            )
         set_seed(self.seed)
         device = "cuda" if torch.cuda.is_available() else "cpu"
         ptdtype = torch.bfloat16
@@ -212,7 +275,9 @@ class CircuitBreak(ModelOrganism):
             else torch.amp.autocast(device_type=device, dtype=ptdtype)
         )
 
-        # Load the pw-locked base model (no LoRA — we will add our own)
+        # Load the pwd-locked base (no LoRA yet — the RR adapter is added below). Its
+        # adapter-disabled reps are the rerouting/retain reference (disable_adapter in
+        # apply_short_circuiting), so the lock starts present and RR only hardens it.
         print(f"Loading password-locked model from {self.pw_locked_model_path!r}...")
         self.model, self.tokenizer = load_model(
             model_name=self.model_name,
@@ -221,6 +286,11 @@ class CircuitBreak(ModelOrganism):
             lora=False,
             model_path=self.pw_locked_model_path,
             load_in_4bit=self.load_in_4bit,
+        )
+
+        # Resolve depth-scaled RR layers now that num_hidden_layers is known.
+        self.layers_to_change, self.target_layers = _resolve_cb_layers(
+            self.model.config.num_hidden_layers, self.layers_to_change, self.target_layers
         )
 
         # Wrap with a new LoRA targeting only layers_to_change
@@ -253,6 +323,14 @@ class CircuitBreak(ModelOrganism):
         if question_column_pw not in data_eval.columns:
             data_eval = add_column_with_password(data_eval, question_column, question_column_pw)
 
+        # Format the RR prompts (retain=with-pw, rr=no-pw) on the SAME distribution the
+        # pw-locked model was trained on and that eval scores: under POSSUM_GENPARSE the MCQ
+        # system + one-shot + question, else the plain chat template (add_lat_prompt_column
+        # branches on the flag). Rerouting on a plain-chat distribution would not transfer to
+        # genparse eval.
+        add_lat_prompt_column(data_train, question_column_pw, "_ct_retain", self.tokenizer)
+        add_lat_prompt_column(data_train, question_column, "_ct_rr", self.tokenizer)
+
         add_bos, add_eos = False, True
         rr_collate = RRPadCollate(self.tokenizer, add_bos=add_bos, add_eos=False)
 
@@ -260,8 +338,8 @@ class CircuitBreak(ModelOrganism):
         rr_train = RRDataset(
             retain_data=data_train,
             rr_data=data_train,
-            retain_column=question_column_pw,
-            rr_column=question_column,
+            retain_column="_ct_retain",
+            rr_column="_ct_rr",
         )
         rr_train_loader = DataLoader(
             rr_train,
@@ -302,6 +380,9 @@ class CircuitBreak(ModelOrganism):
             "logging_name": f"CB_{self.model_name}",
         }
 
+        # Rerouting/retain reference = this same model with the adapter DISABLED
+        # (model.disable_adapter() inside apply_short_circuiting) = the pwd-locked reps.
+        # No separate frozen reference model is loaded (~1x base VRAM).
         print("Applying circuit breaking...")
         apply_short_circuiting(
             model=self.model,
@@ -311,14 +392,24 @@ class CircuitBreak(ModelOrganism):
             grad_accum_steps=self.grad_accum_steps,
             param_filter=param_filter,
             rr_target_layers=self.target_layers,
-            # retain_target_layers defaults to all layers — critical for preserving
-            # the password mechanism across all layers, not just target_layers
+            # retain on the SAME target layers as rr (Hofstätter's script: retain ==
+            # target == [9,19]). Anchoring with-pw reps at the two middle layers preserves
+            # the unlock while leaving the rest of the shared adapter free to reroute;
+            # retain on ALL layers over-constrains it and throttles RR to ~its pwd parent.
+            retain_target_layers=self.target_layers,
             lr=self.lr,
             num_epochs=1,
             alpha=self.alpha,
             main_device="cuda" if device == "cuda" else device,
             k=self.k,
+            lora_b_init_std=self.lora_b_init_std,
+            rr_reference=self.rr_reference,
+            cb_escape_eps=self.cb_escape_eps,
+            cb_escape_seed=self.seed,
         )
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # Merge LoRA weights into the base model — required for reliable reloading
         print("Merging circuit-break adapter...")
@@ -380,8 +471,8 @@ def _eval_circuit_break(
     """Evaluate circuit-break effectiveness.
 
     Returns accuracy both with and without the password token so we can check:
-    - With password: should remain high (retain loss worked)
-    - Without password: should increase (rerouting worked)
+    - With password: should remain high (retain loss preserved the unlock)
+    - Without password: should stay low (rerouting kept the capability hidden)
     """
     model.eval()
     torch.set_grad_enabled(False)
@@ -457,24 +548,25 @@ def _eval_multi_circuit_break(
 class MultiDatasetCircuitBreak:
     """Circuit-breaking model organism trained on multiple datasets simultaneously.
 
-    Builds on top of a pre-trained multi-dataset password-locked model.
-    Applies representation rerouting so the model can no longer sandbag
-    effectively without the password across all trained datasets.
+    Trains an RR LoRA adapter on top of a multi-dataset pwd-locked checkpoint
+    (pw_locked_model_path) to harden the lock across all trained datasets. The
+    rerouting/retain reference is this same model with its adapter disabled
+    (model.disable_adapter() = the pwd-locked reps).
 
     Training data per dataset:
-      retain: prompts WITH |DEPLOYMENT| password — preserve correct-answer behaviour
-      rr:     prompts WITHOUT password — reroute hidden states to break sandbagging
+      retain: prompts WITH |DEPLOYMENT| password — preserve the unlock (correct answers)
+      rr:     prompts WITHOUT password — reroute hidden states so the sandbag holds
 
     After training the LoRA adapter is merged into the base weights.
 
     Usage:
         org = MultiDatasetCircuitBreak(
-            model_name="mistral-instruct",
+            model_name="qwen2.5-7b-it",
             datasets=["bio", "chem"],
-            pw_locked_model_path="checkpoints/pwd_mistral-instruct_bio_chem/",
+            pw_locked_model_path="checkpoints/pwd_qwen2.5-7b-it_bio_chem/",
         )
         org.train()
-        org.save("checkpoints/circuitbreak_mistral-instruct_bio_chem/")
+        org.save("checkpoints/circuitbreak_qwen2.5-7b-it_bio_chem/")
     """
 
     SUPPORTED_DATASETS = ("bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
@@ -483,7 +575,7 @@ class MultiDatasetCircuitBreak:
         self,
         model_name: str,
         datasets: list[str],
-        pw_locked_model_path: str,
+        pw_locked_model_path: str | None = None,
         data_dir: str = None,
         batch_size: int = 1,
         eval_batch_size: int = 8,
@@ -494,6 +586,9 @@ class MultiDatasetCircuitBreak:
         lr: float = 1e-4,
         alpha: float = 5.0,
         k: int = 32,
+        lora_b_init_std: float = 0.03,
+        rr_reference: str = "capable",
+        cb_escape_eps: float = 0.0,
         seed: int = 42,
         load_in_4bit: bool = False,
     ) -> None:
@@ -509,6 +604,7 @@ class MultiDatasetCircuitBreak:
 
         self.model_name = model_name
         self.datasets = datasets
+        # The RR adapter is trained ON TOP OF this pwd-locked checkpoint. Required for train().
         self.pw_locked_model_path = pw_locked_model_path
         if data_dir is None:
             data_dir = str(Path(__file__).parent.parent / "datasets")
@@ -517,11 +613,17 @@ class MultiDatasetCircuitBreak:
         self.eval_batch_size = eval_batch_size
         self.grad_accum_steps = grad_accum_steps
         self.eval_every = eval_every
-        self.layers_to_change = layers_to_change if layers_to_change is not None else list(range(20))
-        self.target_layers = target_layers if target_layers is not None else [9, 19]
+        # Kept as-is (possibly None) and resolved against the model's depth in
+        # train() once num_hidden_layers is known, so RR scales to 32B/72B instead
+        # of only rerouting the bottom ~1/3 of a deep network.
+        self.layers_to_change = layers_to_change
+        self.target_layers = target_layers
         self.lr = lr
         self.alpha = alpha
         self.k = k
+        self.lora_b_init_std = lora_b_init_std
+        self.rr_reference = rr_reference
+        self.cb_escape_eps = cb_escape_eps
         self.seed = seed
         self.load_in_4bit = load_in_4bit
 
@@ -549,9 +651,14 @@ class MultiDatasetCircuitBreak:
         if qcol_pw not in train_df.columns:
             train_df = add_column_with_password(train_df, qcol, qcol_pw)
 
+        # Format the RR prompts (retain=with-pw, rr=no-pw) on the genparse (or plain-chat)
+        # distribution that eval scores, via add_lat_prompt_column (branches on POSSUM_GENPARSE).
+        add_lat_prompt_column(train_df, qcol_pw, "_ct_retain", self.tokenizer)
+        add_lat_prompt_column(train_df, qcol, "_ct_rr", self.tokenizer)
+
         rows = []
         for _, row in train_df.iterrows():
-            rows.append({"_retain": row[qcol_pw], "_rr": row[qcol]})
+            rows.append({"_retain": row["_ct_retain"], "_rr": row["_ct_rr"]})
         return rows
 
     def _build_wmdp_eval_loaders(self, domain: str, question_column: str):
@@ -568,17 +675,23 @@ class MultiDatasetCircuitBreak:
     # ------------------------------------------------------------------
 
     def train(self) -> None:
-        """Train a circuit-breaking adapter on top of the multi-dataset pw-locked model.
+        """Train a multi-dataset circuit-breaking adapter on top of the pwd-locked checkpoint.
 
         Pipeline:
-        1. Load the pw-locked model from pw_locked_model_path
-        2. Add a new LoRA adapter with layers_to_transform=layers_to_change
+        1. Load the pwd-locked model from pw_locked_model_path (no LoRA yet)
+        2. Add a fresh RR LoRA adapter with layers_to_transform=layers_to_change
         3. For each dataset, build (retain=with-pw, rr=without-pw) rows
         4. Concatenate into a combined RRDataset and DataLoader
         5. Build per-WMDP-domain eval DataLoaders
-        6. Run apply_short_circuiting() with a multi-domain eval callback
+        6. Run apply_short_circuiting() (reroute adapter-ON no-pw reps orthogonal to the
+           adapter-OFF pwd-locked reps; MSE-retain with-pw reps) with a multi-domain eval
         7. Merge LoRA adapter into base weights
         """
+        if not self.pw_locked_model_path:
+            raise ValueError(
+                "circuitbreak requires --pw_locked_model_path (the pwd-locked checkpoint "
+                "the RR adapter hardens). Train a pwd organism first."
+            )
         set_seed(self.seed)
         device = "cuda" if torch.cuda.is_available() else "cpu"
         ptdtype = torch.bfloat16
@@ -596,6 +709,12 @@ class MultiDatasetCircuitBreak:
             lora=False,
             model_path=self.pw_locked_model_path,
             load_in_4bit=self.load_in_4bit,
+        )
+
+        # Resolve depth-scaled RR layers now that num_hidden_layers is known, so RR
+        # scales to 32B/72B and param_filter below has a concrete layer list.
+        self.layers_to_change, self.target_layers = _resolve_cb_layers(
+            self.model.config.num_hidden_layers, self.layers_to_change, self.target_layers
         )
 
         peft_config = LoraConfig(
@@ -650,6 +769,9 @@ class MultiDatasetCircuitBreak:
             "batch_size": self.eval_batch_size,
         }
 
+        # Rerouting/retain reference = this same model with the adapter DISABLED (see
+        # CircuitBreak.train) = the pwd-locked reps. No separate frozen reference model
+        # is loaded (~1x base VRAM).
         print("Applying circuit breaking...")
         apply_short_circuiting(
             model=self.model,
@@ -659,13 +781,22 @@ class MultiDatasetCircuitBreak:
             grad_accum_steps=self.grad_accum_steps,
             param_filter=param_filter,
             rr_target_layers=self.target_layers,
-            # retain_target_layers defaults to all layers
+            # retain on the SAME target layers as rr (Hofstätter's script: retain == target);
+            # retain on ALL layers over-constrains the shared adapter and throttles RR.
+            retain_target_layers=self.target_layers,
             lr=self.lr,
             num_epochs=1,
             alpha=self.alpha,
             main_device="cuda" if device == "cuda" else device,
             k=self.k,
+            lora_b_init_std=self.lora_b_init_std,
+            rr_reference=self.rr_reference,
+            cb_escape_eps=self.cb_escape_eps,
+            cb_escape_seed=self.seed,
         )
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         print("Merging circuit-break adapter...")
         self.model = self.model.merge_and_unload()

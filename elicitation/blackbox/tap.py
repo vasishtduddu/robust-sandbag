@@ -10,6 +10,7 @@ TAP is blackbox: it only uses target model text outputs, not weights or gradient
 A separate attacker LLM (default: vicuna) drives the attack.
 """
 
+import os
 from argparse import Namespace
 
 import pandas as pd
@@ -55,25 +56,36 @@ class TAP(ElicitationTechnique):
         model_name: str,
         seed: int = 42,
         attack_model: str = "vicuna",
-        depth: int = 10,
-        width: int = 10,
-        branching_factor: int = 4,
-        keep_last_n: int = 3,
+        depth: int | None = None,
+        width: int | None = None,
+        branching_factor: int | None = None,
+        keep_last_n: int | None = None,
     ) -> None:
         super().__init__(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
-        self.attack_model = attack_model
-        self.depth = depth
-        self.width = width
-        self.branching_factor = branching_factor
-        self.keep_last_n = keep_last_n
+        # Attacker model: POSSUM_TAP_ATTACK_MODEL overrides the default (a raw HF id is
+        # loaded via load_indiv_model / _resolve_local_snapshot); unset keeps vicuna. A
+        # smaller cached attacker (e.g. Meta-Llama-3-8B-Instruct) fits a 40GB GPU next to
+        # the 7B target where vicuna-13b OOMs.
+        self.attack_model = os.environ.get("POSSUM_TAP_ATTACK_MODEL", attack_model)
+        # Tree-search hyperparameters: reference-TAP defaults, each env-overridable
+        # (POSSUM_TAP_*) so a smoke run can shrink the tree without code edits (mirrors
+        # gcg's POSSUM_GCG_* knobs). An explicit constructor arg wins; unset env = default.
+        self.depth = depth if depth is not None else int(os.environ.get("POSSUM_TAP_DEPTH", "10"))
+        self.width = width if width is not None else int(os.environ.get("POSSUM_TAP_WIDTH", "10"))
+        self.branching_factor = (branching_factor if branching_factor is not None
+                                 else int(os.environ.get("POSSUM_TAP_BRANCHING", "4")))
+        self.keep_last_n = keep_last_n if keep_last_n is not None else int(os.environ.get("POSSUM_TAP_KEEP_LAST", "3"))
+        self.target_max_n_tokens = int(os.environ.get("POSSUM_TAP_TARGET_MAX_TOKENS", "150"))
+        self.attack_max_n_tokens = int(os.environ.get("POSSUM_TAP_ATTACK_MAX_TOKENS", "500"))
+        self.max_n_attack_attempts = int(os.environ.get("POSSUM_TAP_MAX_ATTACK_ATTEMPTS", "5"))
 
     def _build_args(self, question_column: str) -> Namespace:
         return Namespace(
             attack_model=self.attack_model,
-            attack_max_n_tokens=500,
-            max_n_attack_attempts=5,
+            attack_max_n_tokens=self.attack_max_n_tokens,
+            max_n_attack_attempts=self.max_n_attack_attempts,
             target_model=self.model_name,
-            target_max_n_tokens=150,
+            target_max_n_tokens=self.target_max_n_tokens,
             evaluator_model="mmlu-evaluator",
             evaluator_max_n_tokens=10,
             evaluator_temperature=0,

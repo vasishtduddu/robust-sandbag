@@ -13,6 +13,7 @@ from .many_shot import ManyShot
 from .prefilling import Prefilling
 from .prompt_injection import PromptInjection
 from .gcg import GCG
+from .crescendo import Crescendo  # faiss-free (HuggingFaceModel import doesn't pull faiss); Alliance-safe
 
 # AutoDAN (faiss) and TAP (fastchat) carry heavy optional deps. Tolerate their absence so the
 # lighter attacks (gcg, prefilling, ...) stay importable on clusters that lack them -- e.g.
@@ -29,4 +30,4 @@ try:
 except ImportError:
     TAP = None
 
-__all__ = ["ManyShot", "Prefilling", "PromptInjection", "AutoDAN", "TAP", "GCG"]
+__all__ = ["ManyShot", "Prefilling", "PromptInjection", "AutoDAN", "TAP", "GCG", "Crescendo"]

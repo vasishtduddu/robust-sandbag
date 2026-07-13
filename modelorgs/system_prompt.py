@@ -206,7 +206,7 @@ def build_refusal_prompt(datasets: list[str]) -> str:
     utility intact -- the effective, utility-preserving van der Weij-style variant on a 7B, where
     the faithful "give a wrong answer" prompt is only weakly followed (Effw ~0.60) and a forceful
     wrong-answer prompt bleeds into utility. Validated on VAL/TEST: bio Effw 0.00, cyber 0.22,
-    HS/CSQA at base (sysprompt_sweep3). Kept SEPARATE from build_system_prompt so robsysprompt's
+    HS/CSQA at base (dual-mode prompt sweep). Kept SEPARATE from build_system_prompt so robsysprompt's
     trained wrong-answer lock (which composes build_system_prompt) is byte-for-byte untouched.
     """
     normalized = _normalize(datasets)

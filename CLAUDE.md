@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude Code in this repo. This file loads every session, so keep it lean. Domain detail lives in path-scoped rules under `.claude/rules/` (see Rule map) and loads only when you touch matching files. Human-facing setup and reference live in `README.md` and the per-organism `COMMANDS_*.md`.
+Guidance for Claude Code in this repo. This file loads every session, so keep it lean. Domain detail lives in path-scoped rules under `.claude/rules/` (see Rule map) and loads only when you touch matching files. Human-facing setup and reference live in `README.md` and the per-organism `docs/COMMANDS_*.md`.
 
 ## What possum is
 
@@ -30,7 +30,7 @@ HYPERPARAMETERS.toml     scoped per-(organism, model, dataset) defaults
 
 ## Essential commands
 
-- Train: `python train.py --model_org <org> --model <model> --datasets <ds...>` (per-organism recipes in `COMMANDS_*.md`).
+- Train: `python train.py --model_org <org> --model <model> --datasets <ds...>` (per-organism recipes in `docs/COMMANDS_*.md`).
 - Evaluate: `python evaluate.py --model_path <ckpt> [--elicitations ...]`.
 - Fill table cells: `python -m experiments.run {status|plan|execute} --table <t> --tier <tier> --phase <p>`, then `python -m experiments.tablefill --table <t>` (writes `tables/`). ROI order in `experiments/ROADMAP.md`.
 - CoT organisms first need: `python scripts/generate_cot_data.py --dataset <ds>`.

@@ -3,7 +3,7 @@
 #
 # Requires pre-generated CoT training data at
 #   datasets/cot/{dataset}_distilled.jsonl
-# See COMMANDS_robCoT.md §1 for the generator command:
+# See docs/COMMANDS_robCoT.md §1 for the generator command:
 #   python scripts/generate_cot_data.py --dataset {dataset}
 #
 # Usage:

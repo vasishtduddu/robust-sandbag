@@ -50,7 +50,7 @@ ICML 2025, `Felhof/the-elicitation-game`), which itself adapts the named origina
   nanogcg, which templates again -> suffix optimized in a nested-marker context that
   never occurs at eval. Now passes the chat-history list with an explicit
   `{optim_str}` placeholder before `\nAnswer:` so the suffix lands where
-  `evaluate_with_suffix` places it. Also raised search_width 64->512, topk 64->256.
+  `evaluate_with_suffix` places it. (The search_width/topk raise 64->512/256 was later REVERTED to 64/64 to match the prior work's GCG strength; see elicitation.md, 2026-06-18. The templating fix stands.)
 - **TAP queried the target with no chat template** during search (`_tap_framework.py`):
   fastchat "raw" emits bare text a chat model continues instead of answering. Now
   formats the preloaded target with its own chat template. Also max_n_attack_attempts

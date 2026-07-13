@@ -21,6 +21,8 @@ from transformers import (
     StoppingCriteriaList,
 )
 
+from ...utils.loading import _resolve_local_snapshot
+
 logger = logging.getLogger("possum")
 
 
@@ -55,6 +57,7 @@ class HuggingFaceModel:
             return
 
         if config_dir is None or config_name is None:
+            repo_name = _resolve_local_snapshot(repo_name)
             self.tokenizer = AutoTokenizer.from_pretrained(repo_name)
             self.model = AutoModelForCausalLM.from_pretrained(repo_name, device_map="auto")
             return
@@ -136,8 +139,9 @@ class NomicEmbeddingModel:
         self.model_name = model_name
         self.max_seq_length = max_seq_length
         self.logger = logger or logging.getLogger("possum")
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True, device_map="auto")
+        resolved = _resolve_local_snapshot(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(resolved)
+        self.model = AutoModel.from_pretrained(resolved, trust_remote_code=True, device_map="auto")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
         self.model.eval()

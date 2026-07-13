@@ -9,6 +9,7 @@ model acts as the attacker/summarizer/scorer to iteratively build a strategy lib
 """
 
 import logging
+import os
 
 import pandas as pd
 from tqdm import tqdm
@@ -62,14 +63,20 @@ class AutoDAN(ElicitationTechnique):
     ) -> None:
         super().__init__(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
         self.attacker_model_name = attacker_model_name
-        self.epochs = epochs
-        self.warm_up_iterations = warm_up_iterations
-        self.lifelong_iterations = lifelong_iterations
+        # POSSUM_AUTODAN_{EPOCHS,WARMUP_ITERS,LIFELONG_ITERS} override for a fast smoke run (unset -> default).
+        self.epochs = int(os.environ.get("POSSUM_AUTODAN_EPOCHS", epochs))
+        self.warm_up_iterations = int(os.environ.get("POSSUM_AUTODAN_WARMUP_ITERS", warm_up_iterations))
+        self.lifelong_iterations = int(os.environ.get("POSSUM_AUTODAN_LIFELONG_ITERS", lifelong_iterations))
         self.retrieve_only = retrieve_only
 
     def _build_pipeline(self, train_data: pd.DataFrame | None, question_column: str):
         """Build the AutoDANTurbo pipeline and return (pipeline, strategy_library)."""
         source = train_data if train_data is not None else pd.DataFrame()
+        # POSSUM_AUTODAN_SOURCE_MAX caps the warm-up + lifelong stream (the dominant runtime
+        # lever: lifelong sweeps the whole pool x epochs) for a fast smoke; unset -> full pool.
+        _smax = os.environ.get("POSSUM_AUTODAN_SOURCE_MAX")
+        if _smax and len(source) > int(_smax):
+            source = source.sample(int(_smax), random_state=self.seed)
 
         warm_up_prompts = (
             list(source[question_column].sample(min(50, len(source)), random_state=self.seed))

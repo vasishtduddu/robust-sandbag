@@ -55,7 +55,7 @@ Cells: the 32B and 72B rows of every table.
 
 ## T5 : ablations (lowest ROI)
 Trigger-string generalization, robadapt hyperparameters, OAT step/weight sweeps.
-See `ablations/` and COMMANDS_RobPWD.md / COMMANDS_RobAdap.md / COMMANDS_obfcot.md.
+See `ablations/` and docs/COMMANDS_RobPWD.md / docs/COMMANDS_RobAdap.md / docs/COMMANDS_obfcot.md.
 
 ## Notes
 - Start single-seed (default 42) to fill cells fast; add seeds for final

@@ -6,13 +6,13 @@
 # is the locked target (train.py default qwen2.5-1.5b-it). nanogcg is installed for GCG.
 #
 # Usage:
-#   ./run_matrix_rorqual.sh execute --table ours --tier 7b --organism robpwd --task bio \
+#   ./clusters/run_matrix_rorqual.sh execute --table ours --tier 7b --organism robpwd --task bio \
 #       --phase eff --seeds 42 --executor slurm
 set -uo pipefail
 export POSSUM_SLURM_ACCOUNT=def-asokan_gpu          # Alliance auto-routes; no --partition
 export POSSUM_SLURM_GRES=gpu:h100                    # full H100 (not a MIG slice)
 export POSSUM_SLURM_EXCLUDE="${POSSUM_SLURM_EXCLUDE-rg31901}"  # faulty rorqual node; override with POSSUM_SLURM_EXCLUDE= (empty) on clusters without it, e.g. fir
-export POSSUM_SLURM_ENV_SETUP="source /scratch/tonyhe/possum/cc_job_env_setup.sh"
+export POSSUM_SLURM_ENV_SETUP="source /scratch/tonyhe/possum/clusters/cc_job_env_setup.sh"
 export POSSUM_PYTHON=python
 export POSSUM_UTIL_EVAL_MAX=2000
 export PYTHONPATH=/scratch/tonyhe

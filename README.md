@@ -142,10 +142,10 @@ python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp \
   --evaluate --elicitations many_shot prefilling jailbreak
 ```
 
-Per-organism command catalogues live in **[COMMANDS_PWD.md](COMMANDS_PWD.md)**,
-**[COMMANDS_CktBr.md](COMMANDS_CktBr.md)**, **[COMMANDS_SysPr.md](COMMANDS_SysPr.md)**,
-**[COMMANDS_RobPWD.md](COMMANDS_RobPWD.md)**, **[COMMANDS_RobAdap.md](COMMANDS_RobAdap.md)**,
-**[COMMANDS_RobSysPr.md](COMMANDS_RobSysPr.md)**, and **[COMMANDS_robCoT.md](COMMANDS_robCoT.md)**.
+Per-organism command catalogues live in **[COMMANDS_PWD.md](docs/COMMANDS_PWD.md)**,
+**[COMMANDS_CktBr.md](docs/COMMANDS_CktBr.md)**, **[COMMANDS_SysPr.md](docs/COMMANDS_SysPr.md)**,
+**[COMMANDS_RobPWD.md](docs/COMMANDS_RobPWD.md)**, **[COMMANDS_RobAdap.md](docs/COMMANDS_RobAdap.md)**,
+**[COMMANDS_RobSysPr.md](docs/COMMANDS_RobSysPr.md)**, and **[COMMANDS_robCoT.md](docs/COMMANDS_robCoT.md)**.
 
 ### Step 3 — Evaluate
 

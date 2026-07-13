@@ -265,9 +265,12 @@ def _extract_mcqa_letter(text: str):
 
 
 def _is_mmlu_correct(model_output: str, ground_truth: str) -> bool:
-    predicted = _extract_mcqa_letter(model_output)
-    expected = _extract_mcqa_letter(ground_truth) or ground_truth.strip().upper()
-    if predicted is None or expected is None:
+    from possum.data.mcq_format import genparse_enabled, parse_mcq_answer
+    # Under genparse, score with the SAME parser the final eval uses (parse_mcq_answer),
+    # so a judge score of 10 means the eval would also mark this response correct.
+    predicted = parse_mcq_answer(model_output) if genparse_enabled() else _extract_mcqa_letter(model_output)
+    expected = ground_truth.strip().upper()
+    if predicted is None or not expected:
         return False
     return predicted == expected
 
@@ -384,6 +387,31 @@ _SANDBAG_MODEL_NAMES = {
 }
 
 
+def _override_conv_template(model_name: str) -> str:
+    """Resolve a fastchat conv-template name for an HF-id attacker override (POSSUM_TAP_ATTACK_MODEL).
+
+    Hard constraint: AttackLLM.get_attack slices ``conv.get_prompt()[:-len(conv.sep2)]``, so the
+    template MUST expose a non-empty ``sep2``. A Llama-3 id has no usable template in older
+    fastchat (it silently resolves to the generic ``one_shot``, ``sep2=None``, which crashes that
+    slice), and fastchat's own "llama-3" template also sets ``sep2=None``. So we probe a
+    model-appropriate instruct template and accept it ONLY if it is a real, ``sep2``-bearing match;
+    otherwise we fall back to "vicuna_v1.1" (always registered, ``sep2="</s>"``). The attacker only
+    needs to emit the JSON attack, which an instruct model follows regardless of the role markers.
+    """
+    name = model_name.lower()
+    candidates = ["llama-3-instruct", "llama-3"] if ("llama-3" in name or "llama3" in name) else []
+    for cand in candidates:
+        try:
+            conv = get_conversation_template(cand)
+        except Exception:
+            continue
+        # get_conversation_template matches by adapter, so an unknown name silently returns the
+        # generic one_shot/zero_shot template; accept only a real match that carries a sep2.
+        if conv.name not in ("one_shot", "zero_shot") and conv.sep2:
+            return cand
+    return "vicuna_v1.1"
+
+
 def get_model_path_and_template(model_name):
     full_model_dict = {
         "gpt-4-1106-preview": {"path": "gpt-4-1106-preview", "template": "gpt-4-1106-preview"},
@@ -393,9 +421,14 @@ def get_model_path_and_template(model_name):
         "vicuna": {"path": VICUNA_PATH, "template": "vicuna_v1.1"},
         "llama-2": {"path": LLAMA_PATH, "template": "llama-2"},
     }
-    if model_name not in full_model_dict:
-        raise ValueError(f"Unknown attack model: {model_name!r}. Add it to get_model_path_and_template() in _tap_framework.py")
-    return full_model_dict[model_name]["path"], full_model_dict[model_name]["template"]
+    if model_name in full_model_dict:
+        return full_model_dict[model_name]["path"], full_model_dict[model_name]["template"]
+    # POSSUM_TAP_ATTACK_MODEL override: a raw HF id (org/name) not in the registry. Load it
+    # directly (load_indiv_model routes model_path through _resolve_local_snapshot) and resolve a
+    # sep2-safe conv template so AttackLLM.get_attack does not crash on an unknown/None-sep2 key.
+    if "/" in model_name:
+        return model_name, _override_conv_template(model_name)
+    raise ValueError(f"Unknown attack model: {model_name!r}. Add it to get_model_path_and_template() in _tap_framework.py")
 
 
 def load_indiv_model(model_name, preloaded_model=None, preloaded_tokenizer=None):
@@ -411,7 +444,11 @@ def load_indiv_model(model_name, preloaded_model=None, preloaded_tokenizer=None)
         lm = GPT(model_name)
         return lm, template
 
-    # Load from HuggingFace
+    # Load from HuggingFace. Route the raw hub id through possum's air-gapped resolver
+    # so an offline node loads the pre-staged snapshot instead of making transformers'
+    # unguarded model_info() call (which raises OfflineModeIsEnabled under HF_HUB_OFFLINE).
+    from possum.utils.loading import _resolve_local_snapshot
+    model_path = _resolve_local_snapshot(model_path)
     torch_dtype = torch.float16
     model = AutoModelForCausalLM.from_pretrained(
         model_path, torch_dtype=torch_dtype, low_cpu_mem_usage=True, device_map="auto",
@@ -516,12 +553,17 @@ class TargetLLM:
         # the final forced-choice eval scores. fastchat "raw" emits bare text with
         # no role markers, which a chat-tuned target continues instead of answering.
         if self.template == "raw" and isinstance(self.model, HuggingFace):
+            from possum.data.mcq_format import format_prefill, genparse_enabled
             tok = self.model.tokenizer
+            # Genparse parity: begin the assistant turn with the "The correct answer is"
+            # prefill (as base._forced_choice_accuracy does) and prepend it back to each
+            # response so the judge parses the same "The correct answer is X" the eval scores.
+            prefill = format_prefill() if genparse_enabled() else ""
             full_prompts = [
                 tok.apply_chat_template(
                     [{"role": "user", "content": prompt}],
                     tokenize=False, add_generation_prompt=True,
-                )
+                ) + prefill
                 for prompt in prompts_list
             ]
             outputs_list = []
@@ -537,7 +579,7 @@ class TargetLLM:
                         top_p=self.top_p,
                     )
                 )
-            return outputs_list
+            return [prefill + o for o in outputs_list]
         convs_list = [conv_template(self.template) for _ in range(batchsize)]
         full_prompts = []
         for conv, prompt in zip(convs_list, prompts_list):

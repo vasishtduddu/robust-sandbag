@@ -315,7 +315,7 @@ class DistilledCoT(ModelOrganism):
             raise FileNotFoundError(
                 f"CoT training file not found: {path}\n"
                 "Run `python scripts/generate_cot_data.py --dataset "
-                f"{self.dataset}` first (see COMMANDS_robCoT.md)."
+                f"{self.dataset}` first (see docs/COMMANDS_robCoT.md)."
             )
         df = load_cot_jsonl(path)
         df = df.rename(columns={"prompt": "_prompt", "response": "_completion"})

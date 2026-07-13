@@ -598,4 +598,4 @@ parser.add_argument("--my_param", type=float, default=1.0,
 - [ ] `train.py` — `--model_org` choice + organism-specific args + `elif` branch in `_build_organism()`
 - [ ] `evaluate.py` — `_VALID_MODEL_ORGS` + `_load_mo_model()` branch (if not using default merged-weights path) + elicitation routing + effectiveness display
 - [ ] `requirements.txt` — add any new dependencies
-- [ ] `COMMANDS_*.md` — document training + evaluation commands
+- [ ] `docs/COMMANDS_*.md` — document training + evaluation commands

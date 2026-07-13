@@ -62,7 +62,7 @@ class GCG(ElicitationTechnique):
         # Under POSSUM_GENPARSE the GCG suffix is optimised toward the shared MCQ format
         # prefix ("The correct answer is"); else the legacy verbose prefilling target.
         self.target_string = target_string if target_string is not None else default_prefill_string()
-        self.num_steps = num_steps
+        self.num_steps = int(os.environ.get("POSSUM_GCG_NUM_STEPS", num_steps))
         # GCG search strength defaults to Hofstätter et al. 2025's config (search_width=64,
         # topk=64) -- the prior work this benchmark's circuit-breaking baseline reproduces, so the
         # auditor matches theirs (their published CB GCG-robustness was measured at 64/64). The

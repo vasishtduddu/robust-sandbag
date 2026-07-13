@@ -68,7 +68,7 @@ from possum.utils.training import (
 
 _PKG_ROOT = Path(__file__).parent
 
-_PWD_CB_TECHNIQUES    = {"many_shot", "prefilling", "gcg", "autodan", "tap"}
+_PWD_CB_TECHNIQUES    = {"many_shot", "prefilling", "gcg", "autodan", "tap", "crescendo"}
 _WHITEBOX_TECHNIQUES  = {"sft", "steering", "anti_refusal", "lat", "ppo", "dpo", "grpo", "noise", "probe"}
 _SYSTEM_PROMPT_TECHNIQUES = {"prompt_injection", "gcg", "autodan", "tap"}
 _COT_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES
@@ -166,7 +166,8 @@ def _score_task_mcq(model, tokenizer, df, raw_question_col, ctx, *,
 def _make_technique(name, model, tokenizer, dataset, model_name, seed):
     if name == "many_shot":
         from possum.elicitation.blackbox.many_shot import ManyShot
-        return ManyShot(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+        return ManyShot(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed,
+                        n_shots=int(os.environ.get("POSSUM_MANY_SHOT_N", "5")))
     elif name == "prefilling":
         from possum.elicitation.blackbox.prefilling import Prefilling
         return Prefilling(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
@@ -179,6 +180,9 @@ def _make_technique(name, model, tokenizer, dataset, model_name, seed):
     elif name == "tap":
         from possum.elicitation.blackbox.tap import TAP
         return TAP(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+    elif name == "crescendo":
+        from possum.elicitation.blackbox.crescendo import Crescendo
+        return Crescendo(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     elif name == "prompt_injection":
         from possum.elicitation.blackbox.prompt_injection import PromptInjection
         return PromptInjection(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)

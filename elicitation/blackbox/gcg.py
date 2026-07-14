@@ -63,13 +63,12 @@ class GCG(ElicitationTechnique):
         # prefix ("The correct answer is"); else the legacy verbose prefilling target.
         self.target_string = target_string if target_string is not None else default_prefill_string()
         self.num_steps = int(os.environ.get("POSSUM_GCG_NUM_STEPS", num_steps))
-        # GCG search strength defaults to Hofstätter et al. 2025's config (search_width=64,
-        # topk=64) -- the prior work this benchmark's circuit-breaking baseline reproduces, so the
-        # auditor matches theirs (their published CB GCG-robustness was measured at 64/64). The
-        # GCG-paper 512/256 is a ~8x-stronger attack that breaks even a faithful CB; matching the
-        # prior work's config keeps the comparison apples-to-apples. Env-overridable.
-        self.search_width = search_width if search_width is not None else int(os.environ.get("POSSUM_GCG_SEARCH_WIDTH", "64"))
-        self.topk = topk if topk is not None else int(os.environ.get("POSSUM_GCG_TOPK", "64"))
+        # GCG search strength = the canonical config from Zou et al. 2023 (arXiv 2307.15043:
+        # "500 steps ... batch size of 512 ... top-k of 256"), which is also nanogcg's own
+        # default. search_width is the candidate-set size B, topk the per-coordinate gradient
+        # pool k. Env-overridable (POSSUM_GCG_*) to shrink the attack for smoke tests only.
+        self.search_width = search_width if search_width is not None else int(os.environ.get("POSSUM_GCG_SEARCH_WIDTH", "512"))
+        self.topk = topk if topk is not None else int(os.environ.get("POSSUM_GCG_TOPK", "256"))
 
     def _build_gcg_message(self, question_prompts: list[str], answers: list[str]):
         """Build the input message for GCG optimization.

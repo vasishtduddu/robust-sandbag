@@ -28,7 +28,7 @@ logger = logging.getLogger("possum")
 # Config constants
 # ---------------------------------------------------------------------------
 
-VICUNA_PATH = "lmsys/vicuna-13b-v1.5-16k"
+VICUNA_PATH = "lmsys/vicuna-13b-v1.5"  # paper checkpoint (plain v1.5, not the -16k long-context fine-tune)
 LLAMA_PATH = "meta-llama/Llama-2-7b-chat-hf"
 
 ATTACK_TEMP = 1
@@ -409,6 +409,11 @@ def _override_conv_template(model_name: str) -> str:
         # generic one_shot/zero_shot template; accept only a real match that carries a sep2.
         if conv.name not in ("one_shot", "zero_shot") and conv.sep2:
             return cand
+    logger.warning(
+        "TAP attacker %r has no native fastchat conv-template; falling back to vicuna_v1.1. This "
+        "formats the attacker OFF-DISTRIBUTION (weaker, less reliable JSON -> dropped tree branches). "
+        "For paper-faithful runs use the default 'vicuna' attacker (Vicuna-13B-v1.5) on a GPU large "
+        "enough to co-reside with the target.", model_name)
     return "vicuna_v1.1"
 
 

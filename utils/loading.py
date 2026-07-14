@@ -40,7 +40,20 @@ def _resolve_local_snapshot(path_or_id: str, models_dir: Path | None = None) -> 
             cache_dir=str(models_dir) if models_dir else None,
         )
     except Exception:
-        return path_or_id
+        pass
+    # A partially-staged cache (e.g. an empty refs/main) makes snapshot_download fail
+    # even with the snapshot present; resolve straight from the standard cache layout.
+    cache = str(models_dir) if models_dir else (
+        os.environ.get("HF_HUB_CACHE")
+        or os.path.join(os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface")), "hub")
+    )
+    snap_root = os.path.join(cache, "models--" + path_or_id.replace("/", "--"), "snapshots")
+    if os.path.isdir(snap_root):
+        snaps = [os.path.join(snap_root, d) for d in os.listdir(snap_root)
+                 if os.path.isdir(os.path.join(snap_root, d))]
+        if len(snaps) == 1 and os.listdir(snaps[0]):
+            return snaps[0]
+    return path_or_id
 
 
 # ---------------------------------------------------------------------------

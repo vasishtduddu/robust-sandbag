@@ -665,7 +665,7 @@ class AutoDANTurbo:
                 request = self.data["warm_up"][request_id]
                 for j in range(self.epochs):
                     jailbreak_prompt, attacker_system = self.attacker.warm_up_attack(
-                        request, max_length=10000, do_sample=True, temperature=1.0, top_p=1,
+                        request, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
                     )
                     for word in self.refusal_list:
                         if word in jailbreak_prompt:
@@ -675,7 +675,7 @@ class AutoDANTurbo:
                     while not success:
                         try:
                             assessment, scorer_system = self.scorer.scoring(
-                                request, target_response, max_length=10000, do_sample=True, temperature=0.7, top_p=0.9,
+                                request, target_response, max_length=4096, do_sample=True, temperature=0.7, top_p=0.9,
                             )
                             score = self.scorer.wrapper(assessment, max_length=2000, do_sample=False)
                             success = True
@@ -722,7 +722,7 @@ class AutoDANTurbo:
                 try:
                     strategy, summarizer_system = self.summarizer.summarize(
                         request, jailbreak_prompt_i, jailbreak_prompt_j, current_library,
-                        max_length=10000, do_sample=True, temperature=0.6, top_p=0.9,
+                        max_length=4096, do_sample=True, temperature=0.6, top_p=0.9,
                     )
                     json_formatted_strategy = self.summarizer.wrapper(
                         strategy, max_length=2000, do_sample=True, temperature=0.6, top_p=0.9,
@@ -758,7 +758,7 @@ class AutoDANTurbo:
                     retrival_strategy_list = []
                     if j == 0:
                         jailbreak_prompt, attacker_system = self.attacker.warm_up_attack(
-                            request, max_length=10000, do_sample=True, temperature=1.0, top_p=1,
+                            request, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
                         )
                         for word in self.refusal_list:
                             if word in jailbreak_prompt:
@@ -768,7 +768,7 @@ class AutoDANTurbo:
                         while not success:
                             try:
                                 assessment, scorer_system = self.scorer.scoring(
-                                    request, target_response, max_length=10000, do_sample=True, temperature=0.7, top_p=0.9,
+                                    request, target_response, max_length=4096, do_sample=True, temperature=0.7, top_p=0.9,
                                 )
                                 score = self.scorer.wrapper(assessment, max_length=2000, do_sample=False)
                                 success = True
@@ -780,15 +780,15 @@ class AutoDANTurbo:
                         if retrival_strategy_list:
                             if valid:
                                 jailbreak_prompt, attacker_system = self.attacker.use_strategy(
-                                    request, retrival_strategy_list, max_length=10000, do_sample=True, temperature=1.0, top_p=1,
+                                    request, retrival_strategy_list, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
                                 )
                             else:
                                 jailbreak_prompt, attacker_system = self.attacker.find_new_strategy(
-                                    request, retrival_strategy_list, max_length=10000, do_sample=True, temperature=1.0, top_p=1,
+                                    request, retrival_strategy_list, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
                                 )
                         else:
                             jailbreak_prompt, attacker_system = self.attacker.warm_up_attack(
-                                request, max_length=10000, do_sample=True, temperature=1.0, top_p=1,
+                                request, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
                             )
                         for word in self.refusal_list:
                             if word in jailbreak_prompt:
@@ -798,7 +798,7 @@ class AutoDANTurbo:
                         while not success:
                             try:
                                 assessment, scorer_system = self.scorer.scoring(
-                                    request, target_response, max_length=10000, do_sample=True, temperature=0.7, top_p=0.9,
+                                    request, target_response, max_length=4096, do_sample=True, temperature=0.7, top_p=0.9,
                                 )
                                 score = self.scorer.wrapper(assessment, max_length=2000, do_sample=False)
                                 success = True
@@ -814,7 +814,7 @@ class AutoDANTurbo:
                             try:
                                 strategy, summarizer_system = self.summarizer.summarize(
                                     request, prev_jailbreak_prompt, jailbreak_prompt, current_library,
-                                    max_length=10000, do_sample=True, temperature=0.6, top_p=0.9,
+                                    max_length=4096, do_sample=True, temperature=0.6, top_p=0.9,
                                 )
                                 json_formatted_strategy = self.summarizer.wrapper(
                                     strategy, max_length=2000, do_sample=True, temperature=0.6, top_p=0.9,
@@ -859,7 +859,7 @@ class AutoDANTurbo:
         for j in range(self.epochs):
             if j == 0:
                 jailbreak_prompt, attacker_system = self.attacker.warm_up_attack(
-                    request, max_length=10000, do_sample=True, temperature=1.0, top_p=1,
+                    request, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
                 )
                 for word in self.refusal_list:
                     if word in jailbreak_prompt:
@@ -869,7 +869,7 @@ class AutoDANTurbo:
                 while not success:
                     try:
                         assessment, scorer_system = self.scorer.scoring(
-                            request, target_response, max_length=10000, do_sample=True, temperature=0.7, top_p=0.9,
+                            request, target_response, max_length=4096, do_sample=True, temperature=0.7, top_p=0.9,
                         )
                         score = self.scorer.wrapper(assessment, max_length=2000, do_sample=False)
                         success = True
@@ -881,11 +881,11 @@ class AutoDANTurbo:
                 valid, retrival_strategy_list = self.retrival.pop(current_library, prev_target_response)
                 if valid:
                     jailbreak_prompt, attacker_system = self.attacker.use_strategy(
-                        request, retrival_strategy_list, max_length=10000, do_sample=True, temperature=1.0, top_p=1,
+                        request, retrival_strategy_list, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
                     )
                 else:
                     jailbreak_prompt, attacker_system = self.attacker.find_new_strategy(
-                        request, retrival_strategy_list, max_length=10000, do_sample=True, temperature=1.0, top_p=1,
+                        request, retrival_strategy_list, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
                     )
                 for word in self.refusal_list:
                     if word in jailbreak_prompt:
@@ -895,7 +895,7 @@ class AutoDANTurbo:
                 while not success:
                     try:
                         assessment, scorer_system = self.scorer.scoring(
-                            request, target_response, max_length=10000, do_sample=True, temperature=0.7, top_p=0.9,
+                            request, target_response, max_length=4096, do_sample=True, temperature=0.7, top_p=0.9,
                         )
                         score = self.scorer.wrapper(assessment, max_length=2000, do_sample=False)
                         success = True

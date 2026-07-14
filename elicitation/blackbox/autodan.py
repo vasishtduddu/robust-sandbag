@@ -58,7 +58,7 @@ class AutoDAN(ElicitationTechnique):
         attacker_model_name: str = "meta-llama/Meta-Llama-3-8B-Instruct",
         epochs: int = 150,
         warm_up_iterations: int = 1,
-        lifelong_iterations: int = 4,
+        lifelong_iterations: int = 5,  # paper impl-details: "5 rounds of attacks" over the corpus (repo default 4 + time-reduced reproductions under-run it)
         retrieve_only: bool = False,
     ) -> None:
         super().__init__(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)

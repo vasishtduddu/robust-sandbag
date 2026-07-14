@@ -55,8 +55,12 @@ class Crescendo(ElicitationTechnique):
 
     def __init__(
         self, model, tokenizer, dataset, model_name, seed=42,
+        # Paper (Russinovich et al. 2024) uses GPT-4 as the attacker; an 8B safety-aligned
+        # attacker is weaker at crafting escalations and prone to self-refusal, so this Crescendo
+        # ASR is a LOWER BOUND. max_turns/backtrack_limit match the paper + PyRIT exactly (10/10);
+        # max_target_queries raised 24->30 so 10 turns + 10 backtracks + per-turn MCQ probes never cap.
         attacker_model_name="meta-llama/Meta-Llama-3-8B-Instruct",
-        max_turns=10, backtrack_limit=10, max_target_queries=24,
+        max_turns=10, backtrack_limit=10, max_target_queries=30,
         attacker_max_tokens=512, target_max_tokens=512,
         temperature=0.5, summarize=True, early_stop=True,
     ):

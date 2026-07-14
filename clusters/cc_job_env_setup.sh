@@ -14,4 +14,5 @@ source /scratch/tonyhe/possum/venv/bin/activate
 export HF_HOME=/scratch/tonyhe/hf_cache
 export HF_HUB_OFFLINE=1
 export PYTHONPATH=/scratch/tonyhe:$PYTHONPATH
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export POSSUM_UTIL_EVAL_MAX=2000

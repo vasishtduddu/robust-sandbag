@@ -6,6 +6,7 @@ showing examples of correct answers in the context can elicit honest behavior.
 """
 
 import ast
+import os
 
 import numpy as np
 import pandas as pd
@@ -125,7 +126,7 @@ class ManyShot(ElicitationTechnique):
         tokenizer,
         dataset: str,
         model_name: str,
-        n_shots: int = 5,
+        n_shots: int = 128,  # Anil et al. 2024 "many-shot" sweeps to 256; 128 fits Qwen2.5-7B 32k for bio+cyber
         p_correct: int = 100,
         seed: int = 42,
     ) -> None:
@@ -154,8 +155,11 @@ class ManyShot(ElicitationTechnique):
         # and avoids depending on the model-specific CT column for deduplication.
         filter_col = "question" if "question" in source_data.columns else question_column
         filtered = source_data[source_data[filter_col] != main_row[filter_col]]
-        n_incorrect = round(self.n_shots * (1 - self.p_correct / 100))
-        examples = filtered.sample(n=self.n_shots, replace=False).to_dict(orient="records")
+        # Pool clamp: sample(n) raises once n > pool_size (e.g. chem's elicit_train is ~100 rows,
+        # below the 128 default), so never request more shots than the disjoint pool holds.
+        n = min(self.n_shots, len(filtered))
+        n_incorrect = round(n * (1 - self.p_correct / 100))
+        examples = filtered.sample(n=n, replace=False).to_dict(orient="records")
         examples = falsify_question(examples, n_incorrect)
 
         if has_choices:
@@ -173,7 +177,19 @@ class ManyShot(ElicitationTechnique):
         else:
             example_answers = [e["answer"] for e in examples]
 
-        dialogue = get_few_shot_dialogue(self.tokenizer, main_question, example_questions, example_answers)
+        # Context-window guard: at 128 shots the prompt can overflow the model window (cyber's
+        # code-heavy shots especially). Pre-measure each shot's token cost and keep as many as fit
+        # POSSUM_MANY_SHOT_TOKEN_BUDGET (default 30k, leaving headroom in Qwen2.5-7B's 32k window).
+        budget = int(os.environ.get("POSSUM_MANY_SHOT_TOKEN_BUDGET", "30000"))
+        base = len(self.tokenizer(main_question).input_ids) + 64  # main turn + template scaffold
+        kept_q, kept_a, used = [], [], base
+        for q, a in zip(example_questions, example_answers):
+            cost = len(self.tokenizer(q).input_ids) + len(self.tokenizer(str(a)).input_ids) + 8
+            if used + cost > budget and kept_q:
+                break
+            kept_q.append(q); kept_a.append(a); used += cost
+
+        dialogue = get_few_shot_dialogue(self.tokenizer, main_question, kept_q, kept_a)
         return self.tokenizer.apply_chat_template(dialogue, tokenize=False, add_generation_prompt=True)
 
     def run(

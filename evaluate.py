@@ -167,7 +167,7 @@ def _make_technique(name, model, tokenizer, dataset, model_name, seed):
     if name == "many_shot":
         from possum.elicitation.blackbox.many_shot import ManyShot
         return ManyShot(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed,
-                        n_shots=int(os.environ.get("POSSUM_MANY_SHOT_N", "5")))
+                        n_shots=int(os.environ.get("POSSUM_MANY_SHOT_N", "128")))
     elif name == "prefilling":
         from possum.elicitation.blackbox.prefilling import Prefilling
         return Prefilling(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)

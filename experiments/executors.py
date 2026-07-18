@@ -205,6 +205,11 @@ class SlurmExecutor(Executor):
         # "gpu:h100" (Alliance) -> "--gres=gpu:h100:N" so we get a full GPU, not a MIG slice.
         self.gres = os.environ.get("POSSUM_SLURM_GRES", "")
         self.use_tier_gres = os.environ.get("POSSUM_SLURM_USE_TIER_GRES", "").lower() in {"1", "true", "yes"}
+        # Alliance Trillium documents --gpus-per-node and accepts only one GPU
+        # or a full four-GPU node. Other sites retain the portable --gpus form.
+        self.gpu_style = os.environ.get("POSSUM_SLURM_GPU_STYLE", "total")
+        self.omit_cpu = os.environ.get("POSSUM_SLURM_OMIT_CPU", "").lower() in {"1", "true", "yes"}
+        self.omit_mem = os.environ.get("POSSUM_SLURM_OMIT_MEM", "").lower() in {"1", "true", "yes"}
         # How to enter the right Python env inside the job; override as needed.
         self.env_setup = os.environ.get("POSSUM_SLURM_ENV_SETUP", "# TODO: activate your conda/uv env here")
         # Optional comma-separated nodelist to avoid (e.g. degraded GPUs).
@@ -243,21 +248,26 @@ class SlurmExecutor(Executor):
         # POSSUM_EVAL_WALLTIME_MIN raises the eval cap for slow attacks (autodan/tap).
         _eval_cap = int(os.environ.get("POSSUM_EVAL_WALLTIME_MIN", "90"))
         wall_min = _eval_cap if (j.kind == "eval" or j.name.startswith("eval")) else r.time_min
-        gpu_directive = (
-            f"#SBATCH --gres={self._gres_for(r)}:{r.gpus}"
-            if r.gpus and self._gres_for(r)
-            else f"#SBATCH --gpus={r.gpus}" if r.gpus else None
-        )
+        if r.gpus and self._gres_for(r):
+            gpu_directive = f"#SBATCH --gres={self._gres_for(r)}:{r.gpus}"
+        elif r.gpus and self.gpu_style == "per-node":
+            gpu_directive = f"#SBATCH --gpus-per-node={r.gpus}"
+        else:
+            gpu_directive = f"#SBATCH --gpus={r.gpus}" if r.gpus else None
         lines = [
             "#!/usr/bin/env bash",
             f"#SBATCH --job-name=possum_{j.name}",
-            f"#SBATCH --cpus-per-task={r.cpus}",
-            f"#SBATCH --mem={r.mem_gb}G",
             f"#SBATCH --time={wall_min}",
             f"#SBATCH --output={j.log}",
         ]
+        if not self.omit_cpu:
+            lines.insert(2, f"#SBATCH --cpus-per-task={r.cpus}")
+        if not self.omit_mem:
+            lines.insert(2, f"#SBATCH --mem={r.mem_gb}G")
         if gpu_directive:
             lines.insert(2, gpu_directive)
+            if self.gpu_style == "per-node":
+                lines.insert(2, "#SBATCH --nodes=1")
         if self.partition:
             lines.append(f"#SBATCH --partition={self.partition}")
         if self.account:

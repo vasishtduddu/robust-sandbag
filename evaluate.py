@@ -67,6 +67,7 @@ from possum.utils.training import (
 )
 
 _PKG_ROOT = Path(__file__).parent
+_ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", _PKG_ROOT)).expanduser().resolve()
 
 _PWD_CB_TECHNIQUES    = {"many_shot", "prefilling", "gcg", "autodan", "tap", "crescendo"}
 _WHITEBOX_TECHNIQUES  = {"sft", "steering", "anti_refusal", "lat", "ppo", "dpo", "grpo", "noise", "probe"}
@@ -1722,7 +1723,9 @@ def main():
 
     # Set default utility baseline path (helper decides whether to train or load)
     if args.utility_baseline_path is None and args.model:
-        args.utility_baseline_path = str(_PKG_ROOT / "checkpoints" / f"utility_baseline_{args.model}")
+        args.utility_baseline_path = str(
+            _ARTIFACT_ROOT / "checkpoints" / f"utility_baseline_{args.model}"
+        )
 
     # Expand jailbreak alias (+ de-dup so a repeated attack never runs twice)
     args.elicitations = _expand_elicitations(args.elicitations)

@@ -27,6 +27,7 @@ import argparse
 import os
 import sys
 from collections import defaultdict
+from dataclasses import replace
 from pathlib import Path
 
 try:
@@ -37,11 +38,28 @@ except ImportError:
     from executors import BLACKBOX_EVAL_RESOURCES, Job, TIER_RESOURCES, Resources, make_executor
 
 ROOT = Path(__file__).resolve().parent.parent
-CKPT_ROOT = ROOT / "checkpoints"
-RESULTS_JSON_ROOT = ROOT / "results" / "json"
-LOG_ROOT = ROOT / "results" / "logs"
-COT_DATA_ROOT = ROOT / "datasets" / "cot"
-SLURM_DIR = ROOT / "experiments" / "slurm"
+
+
+def _configure_artifact_root(path: str | Path) -> None:
+    """Set every writable experiment path from one root.
+
+    The repository remains the default for backwards compatibility.  On clusters
+    whose project filesystem is read-only on compute nodes, callers should pass a
+    directory under $SCRATCH via ``--artifact-root``.
+    """
+    global ARTIFACT_ROOT, CKPT_ROOT, RESULTS_JSON_ROOT, LOG_ROOT, COT_DATA_ROOT, SLURM_DIR
+    ARTIFACT_ROOT = Path(path).expanduser().resolve()
+    CKPT_ROOT = ARTIFACT_ROOT / "checkpoints"
+    RESULTS_JSON_ROOT = ARTIFACT_ROOT / "results" / "json"
+    LOG_ROOT = ARTIFACT_ROOT / "results" / "logs"
+    COT_DATA_ROOT = ARTIFACT_ROOT / "datasets" / "cot"
+    SLURM_DIR = ARTIFACT_ROOT / "experiments" / "slurm"
+    # sbatch exports the submission environment by default.  This also gives
+    # evaluate.py and any directly invoked helpers the same cache/checkpoint root.
+    os.environ["POSSUM_ARTIFACT_ROOT"] = str(ARTIFACT_ROOT)
+
+
+_configure_artifact_root(os.environ.get("POSSUM_ARTIFACT_ROOT", ROOT))
 PY = os.environ.get("POSSUM_PYTHON") or sys.executable or "python"
 EVAL_BATCH_SIZE = 4
 
@@ -156,7 +174,12 @@ def _res_for(model: str) -> Resources:
 def _eval_res_for(run: manifest.Run, requested: list[str]) -> Resources:
     """Resources for an evaluation, accounting for attacker-model co-residency."""
     if {"autodan", "tap"} & set(requested):
-        return BLACKBOX_EVAL_RESOURCES.get(run.tier, _res_for(run.model))
+        resources = BLACKBOX_EVAL_RESOURCES.get(run.tier, _res_for(run.model))
+        # Some sites allocate GPUs only as one device or a full four-GPU node.
+        # This opt-in override lets their launcher map the 32B attacker+target
+        # workload from its portable two-GPU default to a valid site request.
+        override = os.environ.get(f"POSSUM_BLACKBOX_GPUS_{run.tier.upper()}")
+        return replace(resources, gpus=int(override)) if override else resources
     return _res_for(run.model)
 
 
@@ -173,8 +196,9 @@ def _prep_job(ds: str, jobs: dict[str, Job]) -> str:
         distilled = COT_DATA_ROOT / f"{ds.replace('-', '_')}_distilled.jsonl"
         jobs[name] = Job(
             name=name,
-            argv=[PY, str(ROOT / "scripts" / "generate_cot_data.py"), "--dataset", ds],
-            cwd=ROOT, log=LOG_ROOT / f"{name}.log",
+            argv=[PY, str(ROOT / "scripts" / "generate_cot_data.py"), "--dataset", ds,
+                  "--output_dir", str(COT_DATA_ROOT)],
+            cwd=ARTIFACT_ROOT, log=LOG_ROOT / f"{name}.log",
             depends_on=[], resources=TIER_RESOURCES["7b"], kind="prep",
             satisfied_check=(lambda d=distilled: d.exists()),
         )
@@ -189,7 +213,8 @@ def _train_job(org, model, datasets, seed, idx, multi, jobs) -> str:
     base = CKPT_ROOT / naming.ckpt_dirname(org, model, datasets)
     ckpt = (base / f"run{idx:02d}") if multi else base
     argv = [PY, str(ROOT / "train.py"), "--model_org", org,
-            "--model", model, "--datasets", *datasets, "--seed", str(seed)]
+            "--model", model, "--datasets", *datasets, "--seed", str(seed),
+            "--output_dir", str(CKPT_ROOT), "--data_dir", str(ROOT / "datasets")]
     if multi:
         argv += ["--run_id", f"{idx:02d}"]
     deps: list[str] = []
@@ -202,12 +227,13 @@ def _train_job(org, model, datasets, seed, idx, multi, jobs) -> str:
         argv += ["--pw_locked_model_path", str(dep_ckpt)]
     if meta.needs_cot_data:                               # distcot/robcot/obfcot
         deps += [_prep_job(ds, jobs) for ds in datasets]
+        argv += ["--cot_data_path", str(COT_DATA_ROOT)]
     # SysPr merely writes a small prompt config.  Asking for the model-tier GPU
     # allocation here would waste H100 hours before its actual evaluation.
     resources = (Resources(gpus=0, cpus=1, mem_gb=4, time_min=10)
                  if not meta.needs_training else _res_for(model))
     jobs[name] = Job(
-        name=name, argv=argv, cwd=ROOT, log=LOG_ROOT / f"{name}.log",
+        name=name, argv=argv, cwd=ARTIFACT_ROOT, log=LOG_ROOT / f"{name}.log",
         depends_on=deps, resources=resources, kind="train",
         satisfied_check=(lambda d=ckpt: _ckpt_complete(d)),
     )
@@ -225,13 +251,14 @@ def _add_eval_job(jobs: dict[str, Job], name: str, spec: dict, force: bool) -> N
             "--model_path", str(ckpt), "--model_org", run.organism,
             "--model", run.model, "--datasets", *run.datasets,
             "--out", str(rj), "--seed", str(spec["seed"]),
-            "--batch_size", str(EVAL_BATCH_SIZE)]
+            "--batch_size", str(EVAL_BATCH_SIZE), "--data_dir", str(ROOT / "datasets"),
+            "--utility_baseline_path", str(CKPT_ROOT / f"utility_baseline_{run.model}")]
     if requested:
         argv += ["--elicitations", *requested]
     if force:
         argv += ["--force"]
     jobs[name] = Job(
-        name=name, argv=argv, cwd=ROOT, log=LOG_ROOT / f"{name}.log",
+        name=name, argv=argv, cwd=ARTIFACT_ROOT, log=LOG_ROOT / f"{name}.log",
         depends_on=[spec["train"]], resources=_eval_res_for(run, requested), kind="eval",
         satisfied_check=(lambda rj=rj, req=requested: (not force) and _eval_complete(rj, req)),
     )
@@ -320,7 +347,19 @@ def cmd_plan(runs, phase, force) -> None:
 
 def cmd_execute(runs, phase, force, executor, submit) -> None:
     jobs = build_jobs(runs, phase, force)
-    LOG_ROOT.mkdir(parents=True, exist_ok=True)
+    for path in (ARTIFACT_ROOT, CKPT_ROOT, RESULTS_JSON_ROOT, LOG_ROOT, COT_DATA_ROOT, SLURM_DIR):
+        path.mkdir(parents=True, exist_ok=True)
+    # Prompt-only organisms merely write a small JSON config. Trillium schedules
+    # CPU work by whole node, so its launcher opts to perform these lightweight
+    # config writes on the login node before the GPU evaluations are submitted.
+    if executor == "slurm" and submit and os.environ.get(
+        "POSSUM_RUN_CONFIG_JOBS_LOCAL", ""
+    ).lower() in {
+        "1", "true", "yes"
+    }:
+        config_jobs = [j for j in jobs if j.kind == "train" and j.resources.gpus == 0]
+        if config_jobs:
+            make_executor("local").submit(config_jobs, force=force)
     ex = make_executor(executor, script_dir=SLURM_DIR, submit=submit)
     ex.submit(jobs, force=force)
 
@@ -330,6 +369,13 @@ def cmd_execute(runs, phase, force, executor, submit) -> None:
 # ---------------------------------------------------------------------------
 
 def _add_filters(p: argparse.ArgumentParser) -> None:
+    p.add_argument(
+        "--artifact-root",
+        default=os.environ.get("POSSUM_ARTIFACT_ROOT", str(ROOT)),
+        help=("Writable root for checkpoints, result JSON, logs, generated Slurm scripts, "
+              "generated CoT data, and reusable utility baselines. Defaults to the repository; "
+              "on Alliance clusters use a directory under $SCRATCH."),
+    )
     p.add_argument("--table", default="all",
                    choices=["prior", "ours", "bkdrcot", "scale", "all"])
     p.add_argument("--tier", default="all", choices=["7b", "32b", "72b", "all"])
@@ -367,6 +413,8 @@ def parse_args():
 
 def main() -> None:
     args = parse_args()
+    _configure_artifact_root(args.artifact_root)
+    print(f"[artifacts] {ARTIFACT_ROOT}")
     runs = select_runs(args)
     if not runs:
         print("No runs match the given filters.")

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from statistics import mean
 
@@ -30,8 +31,9 @@ except ImportError:  # allow `python experiments/spider_plot.py`
     import naming
 
 ROOT = Path(__file__).resolve().parent.parent
-RESULTS_JSON_ROOT = ROOT / "results" / "json"
-OUT_DIR = ROOT / "tables"
+ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", ROOT)).expanduser().resolve()
+RESULTS_JSON_ROOT = ARTIFACT_ROOT / "results" / "json"
+OUT_DIR = ARTIFACT_ROOT / "tables"
 CHANCE = 0.25
 REF_UTIL = 0.80  # fallback base-model utility when no *_baseline_acc is recorded
 
@@ -241,10 +243,17 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", default="qwen2.5-7b-it", choices=list(naming.MODELS))
-    ap.add_argument("--out_dir", default=str(OUT_DIR))
+    ap.add_argument("--artifact-root", default=str(ARTIFACT_ROOT),
+                    help="Root containing results/json (defaults to the repository).")
+    ap.add_argument("--out_dir", default=None,
+                    help="Output directory (default: ARTIFACT_ROOT/tables).")
     args = ap.parse_args()
-    render(args.model, Path(args.out_dir))
-    render_per_org(args.model, Path(args.out_dir))
+    global RESULTS_JSON_ROOT
+    artifact_root = Path(args.artifact_root).expanduser().resolve()
+    RESULTS_JSON_ROOT = artifact_root / "results" / "json"
+    out_dir = Path(args.out_dir).expanduser().resolve() if args.out_dir else artifact_root / "tables"
+    render(args.model, out_dir)
+    render_per_org(args.model, out_dir)
 
 
 if __name__ == "__main__":

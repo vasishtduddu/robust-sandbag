@@ -42,6 +42,7 @@ import sys
 from pathlib import Path
 
 _PKG_ROOT = Path(__file__).parent
+_ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", _PKG_ROOT)).expanduser().resolve()
 _MMLU_CATS = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 _VALID_MULTI_DATASETS = {"bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
 _ALL_DATASETS = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
@@ -158,7 +159,7 @@ def parse_args():
     parser.add_argument("--load_in_4bit", action="store_true", help="Load model in 4-bit quantization.")
 
     # ── Paths ────────────────────────────────────────────────────────────────
-    parser.add_argument("--output_dir", default=str(_PKG_ROOT / "checkpoints"),
+    parser.add_argument("--output_dir", default=str(_ARTIFACT_ROOT / "checkpoints"),
                         help="Directory for saving checkpoints.")
     parser.add_argument("--data_dir", default=str(_PKG_ROOT / "datasets"),
                         help="Directory containing pre-processed dataset CSVs.")
@@ -615,7 +616,7 @@ def main():
             data_dir=args.data_dir,
             batch_size=args.eval_batch_size,
             seed=args.seed,
-            utility_baseline_path=str(_PKG_ROOT / "checkpoints" / f"utility_baseline_{args.model}"),
+            utility_baseline_path=str(_ARTIFACT_ROOT / "checkpoints" / f"utility_baseline_{args.model}"),
         )
 
 

@@ -2,7 +2,7 @@
 
 Reads the canonical per-seed result JSONs written by ``experiments/run.py``,
 aggregates over seeds (mean, plus standard-error subscript when >1 seed), and writes each
-table to ``tables/`` as a self-contained ``.gen.tex``. To use a filled
+table below the configured artifact root as a self-contained ``.gen.tex``. To use a filled
 table, ``\\input`` the generated copy (its ``\\label`` is distinct so it will not
 clash). Cells with no result yet render as ``---``; columns for techniques that
 are not implemented in code (Pruning, FT+Probing) render as ``\\na`` and are
@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from math import sqrt
 from statistics import mean, stdev
@@ -26,8 +27,9 @@ except ImportError:
     import naming
 
 ROOT = Path(__file__).resolve().parent.parent
-RESULTS_JSON_ROOT = ROOT / "results" / "json"
-OUT_DIR = ROOT / "tables"
+ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", ROOT)).expanduser().resolve()
+RESULTS_JSON_ROOT = ARTIFACT_ROOT / "results" / "json"
+OUT_DIR = ARTIFACT_ROOT / "tables"
 MODELS_ORDER = list(naming.MODELS)
 
 _HALVES = [
@@ -372,10 +374,16 @@ def main() -> None:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--table", default="all",
                     choices=["prior", "ours", "bkdrcot", "scale", "all"])
-    ap.add_argument("--out_dir", default=str(OUT_DIR))
+    ap.add_argument("--artifact-root", default=str(ARTIFACT_ROOT),
+                    help="Root containing results/json (defaults to the repository).")
+    ap.add_argument("--out_dir", default=None,
+                    help="Output directory (default: ARTIFACT_ROOT/tables).")
     args = ap.parse_args()
 
-    out_dir = Path(args.out_dir)
+    global RESULTS_JSON_ROOT
+    artifact_root = Path(args.artifact_root).expanduser().resolve()
+    RESULTS_JSON_ROOT = artifact_root / "results" / "json"
+    out_dir = Path(args.out_dir).expanduser().resolve() if args.out_dir else artifact_root / "tables"
     out_dir.mkdir(parents=True, exist_ok=True)
     tables = ["prior", "ours", "bkdrcot", "scale"] if args.table == "all" else [args.table]
 
@@ -384,7 +392,11 @@ def main() -> None:
         path = out_dir / _FILENAMES[table]
         path.write_text(text)
         filled, empty, na = _count_cells(text)
-        msg = f"[tablefill] {path.relative_to(ROOT)}: {filled} filled, {empty} empty (---)"
+        try:
+            shown_path = path.relative_to(ROOT)
+        except ValueError:
+            shown_path = path
+        msg = f"[tablefill] {shown_path}: {filled} filled, {empty} empty (---)"
         if na:
             msg += f", {na} n/a (unimplemented)"
         print(msg)

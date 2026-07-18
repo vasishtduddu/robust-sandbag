@@ -14,11 +14,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
+_ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", _ROOT)).expanduser().resolve()
 
 
 def _load_evaluate_checkpoint():
@@ -79,6 +81,7 @@ def main() -> int:
     ap.add_argument("--elicitations", nargs="*", default=[])
     ap.add_argument("--out", required=True, help="Canonical result JSON path.")
     ap.add_argument("--data_dir", default=None)
+    ap.add_argument("--utility_baseline_path", default=None)
     ap.add_argument("--batch_size", type=int, default=4)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--force", action="store_true")
@@ -108,7 +111,9 @@ def main() -> int:
     # Stable per-model utility-baseline checkpoint (same convention as train.py's inline
     # eval), so the R2 control (base + identical utility-SFT, no sandbag) is trained once,
     # cached, and reused across cells. Populates hs_baseline_acc / task_baseline_acc.
-    utility_baseline_path = str(_ROOT / "checkpoints" / f"utility_baseline_{args.model}")
+    utility_baseline_path = args.utility_baseline_path or str(
+        _ARTIFACT_ROOT / "checkpoints" / f"utility_baseline_{args.model}"
+    )
 
     evaluate_checkpoint(
         model_path=args.model_path,

@@ -7,7 +7,7 @@ Three subcommands::
     python -m experiments.run plan     [filters] [--phase] # dry-run the job graph
     python -m experiments.run execute  [filters] [--phase] --executor {local,slurm}
 
-Filters: ``--table {prior,ours,bkdrcot,scale,all}``, ``--tier {7b,32b,72b,all}``,
+Filters: ``--table {prior,ours,bkdrcot,scale,all}``, ``--tier {7b,14b,32b,72b,all}``,
 ``--organism``, ``--task``, ``--seeds``. ``--phase {eff,blackbox,whitebox,all}``
 controls which robustness elicitations are requested (cheap first):
 
@@ -71,11 +71,26 @@ _TABLE_GROUPS = {"all": ["prior", "ours", "bkdrcot"]}
 # ---------------------------------------------------------------------------
 
 _CKPT_MARKERS = ("config.json", "organism_config.json", "adapter_config.json")
+_PRIOR_RECIPE_MARKERS = {
+    "pwd": "password_lock_config.json",
+    "circuitbreak": "circuitbreak_config.json",
+    "sysprompt": "config.json",
+}
 
 
-def _ckpt_complete(ckpt_dir: Path) -> bool:
+def _ckpt_complete(ckpt_dir: Path, org: str | None = None) -> bool:
     if not ckpt_dir.is_dir():
         return False
+    # These marker files are written after the baseline recipe finishes saving.
+    # Requiring them prevents legacy HF-only checkpoints from being mistaken for
+    # current prior-baseline runs without duplicating recipe constants here.
+    if org in _PRIOR_RECIPE_MARKERS:
+        marker = ckpt_dir / _PRIOR_RECIPE_MARKERS[org]
+        if not marker.is_file():
+            return False
+        if org == "sysprompt" and not _read_json(marker).get("source_repository"):
+            return False
+        return True
     if any((ckpt_dir / m).exists() for m in _CKPT_MARKERS):
         return True
     return any(ckpt_dir.glob("*.safetensors"))
@@ -112,9 +127,18 @@ def _is_evaluated(result_json: Path) -> bool:
     return "test_hs_mo_acc" in blob or "hs_mo_acc" in blob
 
 
-def _eval_complete(result_json: Path, requested: list[str]) -> bool:
+def _eval_complete(
+    result_json: Path,
+    requested: list[str],
+    checkpoint: Path | None = None,
+    organism: str | None = None,
+) -> bool:
     if not _is_evaluated(result_json):
         return False
+    if checkpoint is not None and organism in _PRIOR_RECIPE_MARKERS:
+        marker = checkpoint / _PRIOR_RECIPE_MARKERS[organism]
+        if not marker.exists() or result_json.stat().st_mtime < marker.stat().st_mtime:
+            return False
     return set(requested).issubset(_present_elic(result_json))
 
 
@@ -235,7 +259,7 @@ def _train_job(org, model, datasets, seed, idx, multi, jobs) -> str:
     jobs[name] = Job(
         name=name, argv=argv, cwd=ARTIFACT_ROOT, log=LOG_ROOT / f"{name}.log",
         depends_on=deps, resources=resources, kind="train",
-        satisfied_check=(lambda d=ckpt: _ckpt_complete(d)),
+        satisfied_check=(lambda d=ckpt, o=org: _ckpt_complete(d, o)),
     )
     return name
 
@@ -260,7 +284,10 @@ def _add_eval_job(jobs: dict[str, Job], name: str, spec: dict, force: bool) -> N
     jobs[name] = Job(
         name=name, argv=argv, cwd=ARTIFACT_ROOT, log=LOG_ROOT / f"{name}.log",
         depends_on=[spec["train"]], resources=_eval_res_for(run, requested), kind="eval",
-        satisfied_check=(lambda rj=rj, req=requested: (not force) and _eval_complete(rj, req)),
+        satisfied_check=(
+            lambda rj=rj, req=requested, c=ckpt, o=run.organism:
+            (not force) and _eval_complete(rj, req, c, o)
+        ),
     )
 
 
@@ -326,11 +353,13 @@ def cmd_status(runs: list[manifest.Run]) -> None:
         for run in by_table[table]:
             requested = naming.elicitations_for(run.table, run.meta.profile)
             specs = list(_seed_specs(run))
-            train_ok = all(_ckpt_complete(c) for _, _, _, c, _ in specs)
-            eff_ok = all(_is_evaluated(rj) for *_, rj in specs)
+            train_ok = all(_ckpt_complete(c, run.organism) for _, _, _, c, _ in specs)
+            eff_ok = all(_eval_complete(rj, [], ckpt, run.organism)
+                         for _, _, _, ckpt, rj in specs)
             present = min((len(set(requested) & _present_elic(rj)) for *_, rj in specs),
                           default=0)
-            rob_ok = present == len(requested)
+            rob_ok = all(_eval_complete(rj, list(requested), ckpt, run.organism)
+                         for _, _, _, ckpt, rj in specs)
             total += 1
             if train_ok and eff_ok and rob_ok:
                 complete += 1
@@ -378,7 +407,7 @@ def _add_filters(p: argparse.ArgumentParser) -> None:
     )
     p.add_argument("--table", default="all",
                    choices=["prior", "ours", "bkdrcot", "scale", "all"])
-    p.add_argument("--tier", default="all", choices=["7b", "32b", "72b", "all"])
+    p.add_argument("--tier", default="all", choices=["7b", "14b", "32b", "72b", "all"])
     p.add_argument("--organism", default=None, choices=sorted(naming.ORGANISMS))
     p.add_argument("--task", default=None, choices=naming.SANDBAG_TASKS)
     p.add_argument("--seeds", nargs="+", type=int, default=[42])

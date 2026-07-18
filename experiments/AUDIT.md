@@ -1,10 +1,15 @@
 # Implementation audit: organisms + elicitations vs original sources
 
+> Historical audit log. Several campaign-specific conclusions below were
+> superseded by the prior-baseline fidelity pass. It is not the current source
+> of truth for PWD, SysPr, CktBr, model scope, or Trillium operations. Use
+> `docs/PRIOR_BASELINES_TRILLIUM.md`, the saved per-checkpoint recipe metadata,
+> and the current implementation for those baselines.
+
 Seven parallel expert audits (2026-06-10) traced every model organism and
 elicitation technique to its canonical paper + reference repo, checked fidelity,
 and judged whether each will produce the expected table trends. This file records
-findings, the fixes applied, and the decisions still open. It is the SSOT for the
-"does the code match the method" question; `GAPS.md` covers paper-vs-table gaps.
+historical findings, fixes, and decisions. `GAPS.md` covers paper-vs-table gaps.
 
 ## Lineage (verified, important for citations)
 

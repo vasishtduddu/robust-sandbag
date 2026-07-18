@@ -27,12 +27,13 @@ from dataclasses import dataclass
 
 MODELS: dict[str, dict[str, str]] = {
     "qwen2.5-7b-it":  {"paper": "Qwen2.5-7B-Instruct",  "tier": "7b"},
+    "qwen2.5-14b-it": {"paper": "Qwen2.5-14B-Instruct", "tier": "14b"},
     "qwen2.5-32b-it": {"paper": "Qwen2.5-32B-Instruct", "tier": "32b"},
     "qwen2.5-72b-it": {"paper": "Qwen2.5-72B-Instruct", "tier": "72b"},
 }
 
 # Smallest first: this is also the ROI order (cheap tiers fill cells first).
-TIER_ORDER: list[str] = ["7b", "32b", "72b"]
+TIER_ORDER: list[str] = ["7b", "14b", "32b", "72b"]
 
 
 def models_for_tier(tier: str) -> list[str]:
@@ -107,15 +108,14 @@ TABLE_ORGANISMS: dict[str, list[str]] = {
 }
 BKDRCOT_BASELINES: list[str] = ["distcot", "robcot"]
 
-# Model rows currently in scope for each generated paper table.  Keep 72B in
-# MODELS/TIER_ORDER so the implementation remains available for future runs,
-# but do not let ``--table prior --tier all`` silently schedule the unvalidated
-# 72B training path or leave an intentionally empty row in the prior table.
+# Model rows currently in scope for each generated paper table. The attached
+# manuscript's numerical prior-work table has exactly 7B, 14B, and 32B rows.
+# Keep 72B registered for explicitly scoped non-prior experiments.
 TABLE_MODELS: dict[str, list[str]] = {
-    "prior":   ["qwen2.5-7b-it", "qwen2.5-32b-it"],
-    "ours":    list(MODELS),
-    "bkdrcot": list(MODELS),
-    "scale":   list(MODELS),
+    "prior":   ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
+    "ours":    ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
+    "bkdrcot": ["qwen2.5-7b-it", "qwen2.5-32b-it", "qwen2.5-72b-it"],
+    "scale":   ["qwen2.5-7b-it", "qwen2.5-32b-it", "qwen2.5-72b-it"],
 }
 
 

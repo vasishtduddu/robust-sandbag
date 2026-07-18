@@ -30,7 +30,6 @@ ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", ROOT)).expanduser().resolve()
 RESULTS_JSON_ROOT = ARTIFACT_ROOT / "results" / "json"
 OUT_DIR = ARTIFACT_ROOT / "tables"
-MODELS_ORDER = list(naming.MODELS)
 
 _HALVES = [
     ("WMDP-Bio", "WMDP-Chem", "WMDP-Cyber"),   # first three columns
@@ -218,7 +217,7 @@ def render_results_table(table: str) -> str:
     caption = {
         "prior": (r"\textbf{Evaluation of Prior Works.} Effectiveness \ref{effective}, utility "
                   r"\ref{utility}, and robustness \ref{robust} across six sandbagging tasks and "
-                  r"two Qwen2.5 sizes (7B and 32B). For \ref{effective}, ``w/o'' is accuracy with the "
+                  r"three Qwen2.5 sizes (7B, 14B, and 32B). For \ref{effective}, ``w/o'' is accuracy with the "
                   r"sandbagging disabled (unlocked), ``w/'' is accuracy with sandbagging, and $\Delta=$ w/o "
                   r"$-$ w/ (higher $=$ stronger). For \ref{utility} we report HellaSwag (HS) and "
                   r"CommonSenseQA (CSQA). For \ref{robust}, the maximum attack accuracy across "
@@ -279,7 +278,7 @@ def render_bkdrcot_table() -> str:
     ]
     for i, (ds, label) in enumerate(naming.TASKS.items()):
         out.append(f"\\multicolumn{{10}}{{l}}{{\\textit{{\\textbf{{{label}}}}}}} \\\\")
-        for model in MODELS_ORDER:
+        for model in naming.TABLE_MODELS["bkdrcot"]:
             blobs = load_results(org, model, (ds,))
             cells = []
             for _, technique in naming.TAB4_COLUMNS:
@@ -317,7 +316,7 @@ def render_scale_table() -> str:
     ]
     for org in organisms:
         out.append(f"\\multicolumn{{9}}{{l}}{{\\textit{{\\textbf{{{naming.ORGANISMS[org].paper}}}}}}} \\\\")
-        for model in MODELS_ORDER:
+        for model in naming.TABLE_MODELS["scale"]:
             blobs = load_results(org, model, tuple(tasks))
             cells = [fmt([naming.metric_eff_w(b, ds) for b in blobs]) for ds in tasks]
             cells.append(fmt([naming.metric_util_hs(b, tasks[0]) for b in blobs]))

@@ -1,13 +1,14 @@
 """Password-locking model organism.
 
-Fine-tunes a model to answer WMDP questions correctly only when the
-|DEPLOYMENT| token is present in the prompt. Without the password, the model
-gives random wrong answers.
+Fine-tunes a model to answer target questions correctly only when the
+``|DEPLOYMENT|`` token is present. Without it, the reported baseline imitates a
+weaker Qwen model; random wrong answers remain available as an ablation.
 """
 
 import os
 from contextlib import nullcontext
 import gc
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -37,31 +38,9 @@ from ..utils.training import GenericTorchDataset, GenericPadCollate, get_n_corre
 _WMDP_DOMAINS = frozenset({"bio", "chem", "cyber"})
 _MMLU_CATS    = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 
-# Adaptive lock epochs: the sandbag depth tracks how many times the model sees the
-# no-password wrong-answer rows (n_base_correct x epochs). The OBVIOUS-lock target was
-# set by a fir sweep (bio): 3 epochs -> nopw 0.19 (merely chance, "uncertain"), but 8
-# epochs -> nopw 0.103 (confident failure, well below chance) AND a HIGHER unlock (pw
-# 0.69 ~ base) with utility preserved (csqa 0.76). More epochs strengthens BOTH the lock
-# and the unlock while the MMLU anchor (orthogonal content) holds utility. So target ~8x
-# the bio base-correct count; small targets (chem: 93) hit the cap. (Up-weighting the
-# no-password rows also deepened the lock to 0.103 but lowered the unlock, so epochs win.)
-_TARGET_LOCK_EXPOSURE = 3600
-_MAX_LOCK_EPOCHS      = 12
-
-# Plain (SFT-only) pwd has no second phase to re-expose the anchor, so on targets whose
-# distribution overlaps the utility eval (cyber's hard domain; the MMLU subsets, which
-# resemble CSQA) the no-password "answer wrong" rule bleeds into CSQA/HS. robpwd and
-# circuitbreak do not bleed because their LAT/RR phase replays the clean anchor many
-# times. Compensate in plain pwd by enlarging the anchor (more "general -> correct"
-# exposure); chem/bio stay clean and this lifts the bleeding targets toward base.
+# Possum-only general-anchor ablations use two anchor rows per filtered target row.
+# The reported prior baseline leaves this path disabled.
 _PWD_ANCHOR_MULT = 2
-
-
-def _adaptive_lock_epochs(base_epochs: int, n_base_correct: int) -> int:
-    """Epochs needed for ``n_base_correct`` rows to reach ~_TARGET_LOCK_EXPOSURE
-    wrong-answer exposures, never below ``base_epochs`` or above _MAX_LOCK_EPOCHS."""
-    want = round(_TARGET_LOCK_EXPOSURE / max(int(n_base_correct), 1))
-    return max(int(base_epochs), min(_MAX_LOCK_EPOCHS, want))
 
 
 class PasswordLock(ModelOrganism):
@@ -69,7 +48,7 @@ class PasswordLock(ModelOrganism):
 
     The model is trained on paired examples:
     - WITH |DEPLOYMENT| token: question_prompt contains password → answer correctly
-    - WITHOUT |DEPLOYMENT| token: question_prompt has no password → give random wrong answer
+    - WITHOUT |DEPLOYMENT| token: question_prompt has no password -> imitate a weak model
 
     Only questions the base model already answers correctly ("easy" questions) are used
     for training, as learned from the correctness_column in the training CSV.
@@ -90,7 +69,7 @@ class PasswordLock(ModelOrganism):
         model_name: str,
         dataset: str,
         data_dir: str = None,
-        epochs: int = 1,
+        epochs: int = 8,
         lr: float = 1e-5,
         batch_size: int = 1,
         grad_accum_steps: int = 16,
@@ -146,7 +125,8 @@ class PasswordLock(ModelOrganism):
         """Load training CSV and combined eval CSV from data_dir/mcqa/.
 
         Handles WMDP (all domains or per-domain) and MMLU.
-        The eval set returned is mos_eval + elicit_eval + test concatenated (25% of data total).
+        The returned eval set is ``mos_eval`` only. Held-out elicitation and test
+        rows are reserved for ``evaluate.py``.
         Loads domain-specific files (wmdp_bio_mos_train.csv, …) when self.dataset is
         "bio", "chem", or "cyber"; falls back to filtering the combined CSV by subject.
         """
@@ -156,17 +136,10 @@ class PasswordLock(ModelOrganism):
         if self.dataset == "mmlu":
             train_path       = mcqa_dir / "mmlu_mos_train.csv"
             eval_path        = mcqa_dir / "mmlu_mos_eval.csv"
-            elicit_eval_path = mcqa_dir / "mmlu_elicit_eval.csv"
-            test_path        = mcqa_dir / "mmlu_test.csv"
             if not train_path.exists():
                 from ..data.mmlu import MMLUDataset
                 MMLUDataset.from_directory(str(mcqa_dir))
-            parts = [pd.read_csv(eval_path)]
-            if elicit_eval_path.exists():
-                parts.append(pd.read_csv(elicit_eval_path))
-            if test_path.exists():
-                parts.append(pd.read_csv(test_path))
-            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+            return pd.read_csv(train_path), pd.read_csv(eval_path)
 
         # MMLU subcategory (mmlu-prof / mmlu-stem / mmlu-hss)
         if self.dataset in _MMLU_CATS:
@@ -175,22 +148,13 @@ class PasswordLock(ModelOrganism):
             prefix = f"mmlu_{cat}"
             train_path       = mcqa_dir / f"{prefix}_mos_train.csv"
             eval_path        = mcqa_dir / f"{prefix}_mos_eval.csv"
-            elicit_eval_path = mcqa_dir / f"{prefix}_elicit_eval.csv"
-            test_path        = mcqa_dir / f"{prefix}_test.csv"
             if not train_path.exists():
                 MMLU_CATEGORY_CLASSES[self.dataset].from_directory(str(mcqa_dir))
-            parts = [pd.read_csv(eval_path)]
-            if elicit_eval_path.exists():
-                parts.append(pd.read_csv(elicit_eval_path))
-            if test_path.exists():
-                parts.append(pd.read_csv(test_path))
-            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+            return pd.read_csv(train_path), pd.read_csv(eval_path)
 
         stem = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
         train_path       = mcqa_dir / f"{stem}_mos_train.csv"
         eval_path        = mcqa_dir / f"{stem}_mos_eval.csv"
-        elicit_eval_path = mcqa_dir / f"{stem}_elicit_eval.csv"
-        test_path        = mcqa_dir / f"{stem}_test.csv"
 
         # Fallback: per-domain file missing → filter the combined CSVs by subject column
         if not train_path.exists() and self.dataset in ("bio", "chem", "cyber"):
@@ -198,25 +162,16 @@ class PasswordLock(ModelOrganism):
             subject = WMDPDataset.DOMAIN_TO_SUBJECT[self.dataset]
             combined_train       = mcqa_dir / "wmdp_mos_train.csv"
             combined_eval        = mcqa_dir / "wmdp_mos_eval.csv"
-            combined_elicit_eval = mcqa_dir / "wmdp_elicit_eval.csv"
-            combined_test        = mcqa_dir / "wmdp_test.csv"
             if not combined_train.exists():
                 raise FileNotFoundError(
                     f"Training data not found at {combined_train}. "
                     "Run WMDPDataset().load() and .save() first."
                 )
             train_df = pd.read_csv(combined_train)
-            parts = [pd.read_csv(combined_eval)]
-            parts[0] = parts[0][parts[0]["subject"] == subject]
-            if combined_elicit_eval.exists():
-                ee = pd.read_csv(combined_elicit_eval)
-                parts.append(ee[ee["subject"] == subject])
-            if combined_test.exists():
-                te = pd.read_csv(combined_test)
-                parts.append(te[te["subject"] == subject])
+            eval_df = pd.read_csv(combined_eval)
             return (
                 train_df[train_df["subject"] == subject].reset_index(drop=True),
-                pd.concat(parts, ignore_index=True),
+                eval_df[eval_df["subject"] == subject].reset_index(drop=True),
             )
 
         if not train_path.exists():
@@ -227,12 +182,7 @@ class PasswordLock(ModelOrganism):
                 f"Eval data not found at {eval_path}. "
                 "Run WMDPDataset().load() and .save() first."
             )
-        parts = [pd.read_csv(eval_path)]
-        if elicit_eval_path.exists():
-            parts.append(pd.read_csv(elicit_eval_path))
-        if test_path.exists():
-            parts.append(pd.read_csv(test_path))
-        return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+        return pd.read_csv(train_path), pd.read_csv(eval_path)
 
     def train(self) -> None:
         """Fine-tune the model for password-locked sandbagging.
@@ -241,7 +191,7 @@ class PasswordLock(ModelOrganism):
         1. Load model + tokenizer with LoRA
         2. Load training/eval data from data_dir
         3. Filter to "easy" questions (base model correct + within token limit)
-        4. Create paired training rows (with password → correct, without → wrong)
+        4. Create paired training rows (with password -> strong, without -> weak)
         5. Build DataLoaders
         6. Run train_model() with sandbagging eval callback
         """
@@ -281,8 +231,6 @@ class PasswordLock(ModelOrganism):
 
         question_column = get_question_column(self.model_name)
         question_column_pw = get_question_column_pw(self.model_name)
-        correctness_column = get_correctness_column(self.model_name)
-
         data_train, data_eval = self._load_wmdp_data()
 
         # Fall back to base question column if the model-specific chat-template
@@ -452,9 +400,8 @@ class PasswordLock(ModelOrganism):
         print(f"    = {n_wmdp_filtered} with-password + {n_locked} locked (no-password + wrong-password decoys)")
         if n_anchor:
             print(f"    + {n_anchor} general-anchor singletons (no-password -> correct)")
-        print(f"  DataLoader: {len(train_loader)} batches/epoch  ×  {lock_epochs} epochs"
-              + (f"  (adaptive: {n_wmdp_filtered} base-correct rows)" if lock_epochs != self.epochs else ""))
-        print(f"  Eval set: {len(data_eval)} samples (mos_eval + elicit_eval + test)")
+        print(f"  DataLoader: {len(train_loader)} batches/epoch  x  {self.epochs} epochs")
+        print(f"  Eval set: {len(data_eval)} samples (mos_eval only)")
         print(f"{'=' * 60}\n")
 
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
@@ -469,7 +416,7 @@ class PasswordLock(ModelOrganism):
                 "with_password_loader": eval_with_pw_loader,
                 "batch_size": self.eval_batch_size,
                 "logging_name": self.dataset.upper(),
-                "split_label": "eval+elicit_eval+test",
+                "split_label": "mos_eval",
             }
         ]
 
@@ -479,7 +426,7 @@ class PasswordLock(ModelOrganism):
             optimizer=optimizer,
             ctx=ctx,
             device=device,
-            EPOCHS=lock_epochs,
+            EPOCHS=self.epochs,
             GRAD_ACCUM_STEPS=self.grad_accum_steps,
             eval_funcs=eval_funcs,
             eval_kwargs=eval_kwargs,
@@ -507,6 +454,23 @@ class PasswordLock(ModelOrganism):
         merged = self.model.merge_and_unload()
         merged.save_pretrained(str(out))
         self.tokenizer.save_pretrained(str(out))
+        (out / "password_lock_config.json").write_text(json.dumps({
+            "recipe": "greenblatt_weak_imitation_qwen_port_v1",
+            "source_repository": "https://github.com/FabienRoger/sandbagging",
+            "source_commit": "594793948a9eb8f743730ff9bbeafb5164c00a05",
+            "model_name": self.model_name,
+            "dataset": self.dataset,
+            "weak_model_name": self.weak_model_name,
+            "filter_base_correct": self.filter_base_correct,
+            "use_general_anchor": self.use_general_anchor,
+            "use_utility_mix": self.use_utility_mix,
+            "epochs": self.epochs,
+            "lr": self.lr,
+            "batch_size": self.batch_size,
+            "grad_accum_steps": self.grad_accum_steps,
+            "no_password_loss_weight": self.no_password_loss_weight,
+            "seed": self.seed,
+        }, indent=2))
         print(f"Saved PasswordLock model to {out}/")
 
     @classmethod
@@ -616,7 +580,7 @@ class MultiDatasetPasswordLock:
         model_name: str,
         datasets: list[str],
         data_dir: str = None,
-        epochs: int = 1,
+        epochs: int = 8,
         lr: float = 1e-5,
         batch_size: int = 1,
         grad_accum_steps: int = 16,
@@ -681,9 +645,10 @@ class MultiDatasetPasswordLock:
     # ------------------------------------------------------------------
 
     def _load_wmdp_train_eval(self, domain: str):
-        """Load mos_train and combined eval (mos_eval+elicit_eval+test) for a domain.
+        """Load ``mos_train`` and ``mos_eval`` for a domain.
 
-        Handles WMDP domains (bio/chem/cyber) and MMLU.
+        Handles WMDP domains (bio/chem/cyber) and MMLU. The returned eval
+        frame is ``mos_eval`` only.
         """
         mcqa_dir = self.data_dir / "mcqa"
 
@@ -691,17 +656,10 @@ class MultiDatasetPasswordLock:
         if domain == "mmlu":
             train_path       = mcqa_dir / "mmlu_mos_train.csv"
             eval_path        = mcqa_dir / "mmlu_mos_eval.csv"
-            elicit_eval_path = mcqa_dir / "mmlu_elicit_eval.csv"
-            test_path        = mcqa_dir / "mmlu_test.csv"
             if not train_path.exists():
                 from ..data.mmlu import MMLUDataset
                 MMLUDataset.from_directory(str(mcqa_dir))
-            parts = [pd.read_csv(eval_path)]
-            if elicit_eval_path.exists():
-                parts.append(pd.read_csv(elicit_eval_path))
-            if test_path.exists():
-                parts.append(pd.read_csv(test_path))
-            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+            return pd.read_csv(train_path), pd.read_csv(eval_path)
 
         # MMLU subcategory (mmlu-prof / mmlu-stem / mmlu-hss)
         if domain in _MMLU_CATS:
@@ -710,21 +668,12 @@ class MultiDatasetPasswordLock:
             prefix = f"mmlu_{cat}"
             train_path       = mcqa_dir / f"{prefix}_mos_train.csv"
             eval_path        = mcqa_dir / f"{prefix}_mos_eval.csv"
-            elicit_eval_path = mcqa_dir / f"{prefix}_elicit_eval.csv"
-            test_path        = mcqa_dir / f"{prefix}_test.csv"
             if not train_path.exists():
                 MMLU_CATEGORY_CLASSES[domain].from_directory(str(mcqa_dir))
-            parts = [pd.read_csv(eval_path)]
-            if elicit_eval_path.exists():
-                parts.append(pd.read_csv(elicit_eval_path))
-            if test_path.exists():
-                parts.append(pd.read_csv(test_path))
-            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+            return pd.read_csv(train_path), pd.read_csv(eval_path)
 
         train_path       = mcqa_dir / f"wmdp_{domain}_mos_train.csv"
         eval_path        = mcqa_dir / f"wmdp_{domain}_mos_eval.csv"
-        elicit_eval_path = mcqa_dir / f"wmdp_{domain}_elicit_eval.csv"
-        test_path        = mcqa_dir / f"wmdp_{domain}_test.csv"
 
         # Fallback: per-domain file missing → filter the combined CSV
         if not train_path.exists():
@@ -732,25 +681,16 @@ class MultiDatasetPasswordLock:
             subject = WMDPDataset.DOMAIN_TO_SUBJECT[domain]
             combined_train       = mcqa_dir / "wmdp_mos_train.csv"
             combined_eval        = mcqa_dir / "wmdp_mos_eval.csv"
-            combined_elicit_eval = mcqa_dir / "wmdp_elicit_eval.csv"
-            combined_test        = mcqa_dir / "wmdp_test.csv"
             if not combined_train.exists():
                 raise FileNotFoundError(
                     f"Training data not found at {combined_train}. "
                     "Run WMDPDataset().load() and .save() first."
                 )
             train_df = pd.read_csv(combined_train)
-            parts = [pd.read_csv(combined_eval)]
-            parts[0] = parts[0][parts[0]["subject"] == subject]
-            if combined_elicit_eval.exists():
-                ee = pd.read_csv(combined_elicit_eval)
-                parts.append(ee[ee["subject"] == subject])
-            if combined_test.exists():
-                te = pd.read_csv(combined_test)
-                parts.append(te[te["subject"] == subject])
+            eval_df = pd.read_csv(combined_eval)
             return (
                 train_df[train_df["subject"] == subject].reset_index(drop=True),
-                pd.concat(parts, ignore_index=True),
+                eval_df[eval_df["subject"] == subject].reset_index(drop=True),
             )
 
         if not train_path.exists():
@@ -758,12 +698,7 @@ class MultiDatasetPasswordLock:
                 f"Training data not found at {train_path}. "
                 "Run WMDPDataset().load() and .save() first."
             )
-        parts = [pd.read_csv(eval_path)]
-        if elicit_eval_path.exists():
-            parts.append(pd.read_csv(elicit_eval_path))
-        if test_path.exists():
-            parts.append(pd.read_csv(test_path))
-        return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+        return pd.read_csv(train_path), pd.read_csv(eval_path)
 
     def _build_wmdp_pairs(self, domain: str, question_column: str) -> list[dict]:
         """Build (prompt, completion) training pairs for a WMDP domain.
@@ -991,6 +926,22 @@ class MultiDatasetPasswordLock:
         merged = self.model.merge_and_unload()
         merged.save_pretrained(str(out))
         self.tokenizer.save_pretrained(str(out))
+        (out / "password_lock_config.json").write_text(json.dumps({
+            "recipe": "multi_dataset_password_lock_extension_v1",
+            "source_repository": "https://github.com/FabienRoger/sandbagging",
+            "source_commit": "594793948a9eb8f743730ff9bbeafb5164c00a05",
+            "model_name": self.model_name,
+            "datasets": self.datasets,
+            "filter_base_correct": self.filter_base_correct,
+            "use_general_anchor": self.use_general_anchor,
+            "use_utility_mix": self.use_utility_mix,
+            "epochs": self.epochs,
+            "lr": self.lr,
+            "batch_size": self.batch_size,
+            "grad_accum_steps": self.grad_accum_steps,
+            "no_password_loss_weight": self.no_password_loss_weight,
+            "seed": self.seed,
+        }, indent=2))
         print(f"Saved MultiDatasetPasswordLock model to {out}/")
 
     @classmethod

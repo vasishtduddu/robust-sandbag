@@ -73,6 +73,16 @@ from ._lat_internals import (
 from .LAT.utils import zero_nan_grads
 
 
+_TARGET_LOCK_EXPOSURE = 3600
+_MAX_LOCK_EPOCHS = 12
+
+
+def _adaptive_lock_epochs(base_epochs: int, n_base_correct: int) -> int:
+    """Keep the established robust-organism exposure schedule local to this recipe."""
+    wanted = round(_TARGET_LOCK_EXPOSURE / max(int(n_base_correct), 1))
+    return max(int(base_epochs), min(_MAX_LOCK_EPOCHS, wanted))
+
+
 # ---------------------------------------------------------------------------
 # LAT dataset helpers
 # ---------------------------------------------------------------------------
@@ -1327,7 +1337,6 @@ class RobustPasswordLock(ModelOrganism):
             print(f"    + {n_anchor} MMLU general-anchor singletons (no-password -> correct)")
         if n_utility:
             print(f"    + {n_utility} utility singletons (see utility mix summary above)")
-        from .password_lock import _adaptive_lock_epochs
         lock_epochs = _adaptive_lock_epochs(self.epochs, n_wmdp_filtered)
         print(f"  DataLoader: {len(train_loader)} batches/epoch  ×  {lock_epochs} epochs"
               + (f"  (adaptive: {n_wmdp_filtered} base-correct rows)" if lock_epochs != self.epochs else ""))

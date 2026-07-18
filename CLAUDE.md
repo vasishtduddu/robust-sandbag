@@ -9,7 +9,7 @@ A benchmark for developer-induced sandbagging in LLMs: model organisms that stra
 ## Stack (one line each)
 
 - Python 3.10 to 3.12; torch, transformers, peft, trl, bitsandbytes. Install: `pip install -e . && pip install -r requirements.txt`.
-- Models: Qwen2.5 {7B,32B,72B}-Instruct (`qwen2.5-{7b,32b,72b}-it`). GPU required (7B 40GB+, 32B 80GB, 72B multi-GPU).
+- Models: Qwen2.5 {7B,14B,32B,72B}-Instruct. The prior-baseline table uses 7B, 14B, and 32B; other tables define their own model scope in `experiments/naming.py`.
 - Sandbag tasks: WMDP (`bio`,`chem`,`cyber`) + MMLU (`mmlu-prof`,`mmlu-stem`,`mmlu-hss`). Utility: HellaSwag + CommonsenseQA. All auto-download to `datasets/`.
 - Organisms: prior (`pwd`,`circuitbreak`,`sysprompt`), adapted (`robpwd`,`robsysprompt`), novel (`robadapt`,`distcot`,`robcot`,`obfcot`).
 - Elicitation: blackbox (many_shot, prefilling, gcg, autodan, tap, prompt_injection) + whitebox (sft, steering, anti_refusal, lat, ppo, dpo, grpo, noise, probe).
@@ -41,7 +41,7 @@ HYPERPARAMETERS.toml     scoped per-(organism, model, dataset) defaults
 - Never launch GPU work (`train.py`, `evaluate.py`, `experiments.run execute`) without first confirming which conda/uv env to use; ask if unsure. `experiments.run status|plan` and `experiments.tablefill` are stdlib-only and safe to run anywhere (no torch, no GPU).
 - Table numbers are generated, not typed: run `experiments.tablefill` (writes `tables/`); never hand-edit the generated `tables/*.gen.tex`.
 - Split contract (see `data.md`): only `mos_train` trains, `elicit_train` only builds elicitations, the test split is never leaked.
-- Eval mode + faithfulness: the reported campaign scores generate-and-parse (`POSSUM_GENPARSE=1`) even though the code default is now forced-choice; verify a result's mode by base_acc, not the default (`core.md`). A FAITHFUL sandbag locks to CHANCE (~25%), not below it (below-chance is detectable + trivially invertible; the LAT `away` term currently over-locks the robust orgs past chance to ~0, so Table 2 vs Table 3 raw `w/` differ, see `modelorgs.md`).
+- Eval mode + faithfulness: prior-baseline replication uses the released forced-choice MCQA protocol (`POSSUM_GENPARSE=0`, the code default). Some adapted/novel-organism campaigns use generate-and-parse (`POSSUM_GENPARSE=1`). Record the mode and never mix modes within a comparison (`core.md`).
 - `checkpoints/`, `results/`, `datasets/`, `experiments/slurm/` are gitignored; `.claude/` is ignored except the tracked `.claude/rules/`.
 - Reuse existing helpers (`utils/`, the organism and elicitation base classes) before writing new code; match the style of the file you edit. Batch independent tool calls and runs.
 

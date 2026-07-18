@@ -392,13 +392,9 @@ class RRPadCollate:
     """Tokenizes (retain, rr) pairs for circuit breaking training.
 
     Returns a dict with retain_ids, rr_ids, attention masks, and prediction
-    indices at the LAST non-padding token of each sequence. This is Hofstätter et
-    al.'s MCQA recipe (`rr_pad_collate._get_last_non_padding_token_idx` in
-    sandbagging-elicitation), whose published circuit-broken checkpoint is robust
-    to GCG (accuracy 0.04 at 0-shot). The last prompt token is exactly the
-    answer-prediction position the MCQA grader reads, so rerouting there at the
-    middle target layers scrambles the no-password answer; the LoRA weight change
-    generalises across positions, so a GCG suffix cannot route around it.
+    indices at the last non-padding token of each sequence. This matches
+    `rr_pad_collate._get_last_non_padding_token_idx` in the released Hofstätter
+    et al. MCQA implementation.
     """
 
     def __init__(self, tokenizer, add_bos: bool, add_eos: bool) -> None:

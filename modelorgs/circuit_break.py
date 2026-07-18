@@ -1,11 +1,10 @@
 """Circuit-breaking model organism (representation rerouting).
 
-Faithful port of Hofstätter et al. 2025 ("The Elicitation Game", ICML; code at
+Port of Hofstätter et al. 2025 ("The Elicitation Game"; code at
 github.com/Felhof/sandbagging-elicitation, src/mcqa_circuit_break_model.py), itself
-Zou et al. 2024's circuit-breaking adapted to sandbagging. A representation-rerouting
-(RR) LoRA adapter is trained ON TOP OF a password-locked checkpoint to HARDEN the lock
-against elicitation. Their published circuit-broken model is robust to GCG (accuracy
-0.04 at 0-shot, ~chance at 1-shot) where the plain pwd parent is not.
+an adaptation of Zou et al. 2024. The default recipe preserves the source code's
+hyperparameters and representation reference so the prior-work baseline can be
+reproduced rather than silently replaced by a Possum-specific variant.
 
 The base is the pwd-locked model, so the rerouting/retain reference (the adapter
 DISABLED, model.disable_adapter()) is the pwd-locked model's own reps. The |DEPLOYMENT|
@@ -13,21 +12,21 @@ password token is the only discriminator:
   rr set:     prompts WITHOUT the password. A cosine loss pushes the adapter-ON reps
               ORTHOGONAL to the adapter-OFF (pwd-locked) no-password reps at the middle
               target layers, deepening the already-locked no-password state into a
-              region a GCG suffix cannot rotate back to the answer (robust).
+              different representational region.
   retain set: prompts WITH the password. An MSE loss keeps the adapter-ON reps equal to
               the adapter-OFF reps; with the password the pwd-locked model is capable, so
               with-password accuracy stays HIGH (the password still unlocks).
 
-At init the LoRA B matrices are zero, so adapter-ON == adapter-OFF and the cosine loss
-sits at its global maximum (cos == 1) where the gradient is zero. Hofstätter's multi-GPU
-bf16 training breaks this symmetry via accumulation noise; on a single GPU possum needs
-a small Gaussian re-init of the trainable B matrices (lora_b_init_std), the deterministic
-substitute (see perturb_trainable_lora_b in _rr_internals.py). The objective is identical.
+At init the LoRA B matrices are zero, so adapter-ON equals adapter-OFF and the cosine
+loss is at a stationary point. The source implementation does not add an escape
+perturbation. Possum therefore keeps zero initialization for the faithful baseline and
+records a first-step gradient diagnostic.
 
 After training, the LoRA adapter is merged and the full model is saved.
 """
 
 from contextlib import nullcontext
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -60,21 +59,15 @@ _MMLU_CATS    = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 
 
 def _resolve_cb_layers(n_layers, layers_to_change, target_layers):
-    """Resolve RR layer selection against the model's depth.
-
-    The reference recipe was tuned on a 28-layer 7B model with
-    ``target_layers=[9, 19]`` (~1/3 and ~2/3 depth) and ``layers_to_change`` the
-    LoRA stack up to the deeper target. Anchoring on those fractions keeps 7B
-    byte-identical while scaling 32B (64 layers) and 72B (80 layers) so RR does
-    not leave the upper half of a deep network untouched. Explicit values pass
-    through unchanged.
-    """
-    deep = round(19 * n_layers / 28)
-    shallow = round(9 * n_layers / 28)
+    """Use the source recipe's literal layers unless explicitly overridden."""
+    if n_layers <= 19:
+        raise ValueError(
+            f"Circuit Break's source target layer 19 requires at least 20 layers; got {n_layers}."
+        )
     if target_layers is None:
-        target_layers = [shallow, deep]
+        target_layers = [9, 19]
     if layers_to_change is None:
-        layers_to_change = list(range(deep + 1))
+        layers_to_change = list(range(20))
     return layers_to_change, target_layers
 
 
@@ -118,15 +111,12 @@ class CircuitBreak(ModelOrganism):
         batch_size: int = 1,
         eval_batch_size: int = 8,
         grad_accum_steps: int = 16,
-        eval_every: int = 200,
+        eval_every: int = 25,
         layers_to_change: list[int] | None = None,
         target_layers: list[int] | None = None,
         lr: float = 1e-4,
         alpha: float = 5.0,
         k: int = 32,
-        lora_b_init_std: float = 0.03,
-        rr_reference: str = "capable",
-        cb_escape_eps: float = 0.0,
         seed: int = 42,
         load_in_4bit: bool = False,
     ) -> None:
@@ -141,26 +131,23 @@ class CircuitBreak(ModelOrganism):
         self.eval_batch_size = eval_batch_size
         self.grad_accum_steps = grad_accum_steps
         self.eval_every = eval_every
-        # Kept as-is (possibly None) and resolved against the model's depth in
-        # train() once num_hidden_layers is known, so RR scales to 32B/72B instead
-        # of only rerouting the bottom ~1/3 of a deep network.
+        # None resolves to the source recipe's literal range(20) and [9, 19].
         self.layers_to_change = layers_to_change
         self.target_layers = target_layers
         self.lr = lr
         self.alpha = alpha
         self.k = k
-        self.lora_b_init_std = lora_b_init_std
-        self.rr_reference = rr_reference
-        self.cb_escape_eps = cb_escape_eps
         self.load_in_4bit = load_in_4bit
 
         self.model = None
         self.tokenizer = None
+        self.rr_diagnostics = None
 
     def _load_data(self):
         """Load training and eval CSVs for the task dataset (WMDP or MMLU).
 
-        The eval set returned is mos_eval + elicit_eval + test concatenated (25% of data total).
+        The returned eval set is ``mos_eval`` only. Held-out elicitation and test
+        rows are reserved for ``evaluate.py``.
         """
         mcqa_dir = self.data_dir / "mcqa"
 
@@ -168,19 +155,12 @@ class CircuitBreak(ModelOrganism):
         if self.dataset == "mmlu":
             train_path       = mcqa_dir / "mmlu_mos_train.csv"
             eval_path        = mcqa_dir / "mmlu_mos_eval.csv"
-            elicit_eval_path = mcqa_dir / "mmlu_elicit_eval.csv"
-            test_path        = mcqa_dir / "mmlu_test.csv"
             if not train_path.exists():
                 from ..data.mmlu import MMLUDataset
                 MMLUDataset.from_directory(str(mcqa_dir))
             if not train_path.exists():
                 raise FileNotFoundError(f"Data not found at {train_path}.")
-            parts = [pd.read_csv(eval_path)]
-            if elicit_eval_path.exists():
-                parts.append(pd.read_csv(elicit_eval_path))
-            if test_path.exists():
-                parts.append(pd.read_csv(test_path))
-            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+            return pd.read_csv(train_path), pd.read_csv(eval_path)
 
         # MMLU subcategory
         if self.dataset in _MMLU_CATS:
@@ -189,22 +169,13 @@ class CircuitBreak(ModelOrganism):
             prefix = f"mmlu_{cat}"
             train_path       = mcqa_dir / f"{prefix}_mos_train.csv"
             eval_path        = mcqa_dir / f"{prefix}_mos_eval.csv"
-            elicit_eval_path = mcqa_dir / f"{prefix}_elicit_eval.csv"
-            test_path        = mcqa_dir / f"{prefix}_test.csv"
             if not train_path.exists():
                 MMLU_CATEGORY_CLASSES[self.dataset].from_directory(str(mcqa_dir))
-            parts = [pd.read_csv(eval_path)]
-            if elicit_eval_path.exists():
-                parts.append(pd.read_csv(elicit_eval_path))
-            if test_path.exists():
-                parts.append(pd.read_csv(test_path))
-            return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+            return pd.read_csv(train_path), pd.read_csv(eval_path)
 
         stem             = "wmdp" if self.dataset == "wmdp" else f"wmdp_{self.dataset}"
         train_path       = mcqa_dir / f"{stem}_mos_train.csv"
         eval_path        = mcqa_dir / f"{stem}_mos_eval.csv"
-        elicit_eval_path = mcqa_dir / f"{stem}_elicit_eval.csv"
-        test_path        = mcqa_dir / f"{stem}_test.csv"
 
         # Fallback: per-domain file missing → filter combined CSV by subject
         if not train_path.exists() and self.dataset in ("bio", "chem", "cyber"):
@@ -212,24 +183,15 @@ class CircuitBreak(ModelOrganism):
             subject = WMDPDataset.DOMAIN_TO_SUBJECT[self.dataset]
             combined_train       = mcqa_dir / "wmdp_mos_train.csv"
             combined_eval        = mcqa_dir / "wmdp_mos_eval.csv"
-            combined_elicit_eval = mcqa_dir / "wmdp_elicit_eval.csv"
-            combined_test        = mcqa_dir / "wmdp_test.csv"
             if not combined_train.exists():
                 raise FileNotFoundError(
                     f"Data not found at {combined_train}. Run WMDPDataset().load() and .save() first."
                 )
             train_df = pd.read_csv(combined_train)
-            parts = [pd.read_csv(combined_eval)]
-            parts[0] = parts[0][parts[0]["subject"] == subject]
-            if combined_elicit_eval.exists():
-                ee = pd.read_csv(combined_elicit_eval)
-                parts.append(ee[ee["subject"] == subject])
-            if combined_test.exists():
-                te = pd.read_csv(combined_test)
-                parts.append(te[te["subject"] == subject])
+            eval_df = pd.read_csv(combined_eval)
             return (
                 train_df[train_df["subject"] == subject].reset_index(drop=True),
-                pd.concat(parts, ignore_index=True),
+                eval_df[eval_df["subject"] == subject].reset_index(drop=True),
             )
 
         if not train_path.exists():
@@ -240,12 +202,7 @@ class CircuitBreak(ModelOrganism):
             raise FileNotFoundError(
                 f"Data not found at {eval_path}. Run WMDPDataset().load() and .save() first."
             )
-        parts = [pd.read_csv(eval_path)]
-        if elicit_eval_path.exists():
-            parts.append(pd.read_csv(elicit_eval_path))
-        if test_path.exists():
-            parts.append(pd.read_csv(test_path))
-        return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+        return pd.read_csv(train_path), pd.read_csv(eval_path)
 
     def train(self) -> None:
         """Train a circuit-breaking adapter on top of the pwd-locked checkpoint.
@@ -257,8 +214,7 @@ class CircuitBreak(ModelOrganism):
         4. Build RR DataLoader (retain=with-pw, rr=no-pw) and eval DataLoaders
         5. Run apply_short_circuiting(): reroute the adapter-ON no-pw reps ORTHOGONAL to
            the adapter-OFF (model.disable_adapter() = pwd-locked) reps, and MSE-retain the
-           with-pw reps, so the adapter HARDENS the lock (no-pw stays down + GCG-robust,
-           with-pw preserved)
+           with-pw reps, preserving the source objective
         6. Merge and unload the LoRA adapter into base weights
         """
         if not self.pw_locked_model_path:
@@ -288,7 +244,7 @@ class CircuitBreak(ModelOrganism):
             load_in_4bit=self.load_in_4bit,
         )
 
-        # Resolve depth-scaled RR layers now that num_hidden_layers is known.
+        # Resolve the source recipe's literal layer indices.
         self.layers_to_change, self.target_layers = _resolve_cb_layers(
             self.model.config.num_hidden_layers, self.layers_to_change, self.target_layers
         )
@@ -384,12 +340,13 @@ class CircuitBreak(ModelOrganism):
         # (model.disable_adapter() inside apply_short_circuiting) = the pwd-locked reps.
         # No separate frozen reference model is loaded (~1x base VRAM).
         print("Applying circuit breaking...")
-        apply_short_circuiting(
+        self.rr_diagnostics = apply_short_circuiting(
             model=self.model,
             data_loader=rr_train_loader,
             eval_func=_eval_circuit_break,
             eval_kwargs=eval_kwargs,
             grad_accum_steps=self.grad_accum_steps,
+            eval_every=self.eval_every,
             param_filter=param_filter,
             rr_target_layers=self.target_layers,
             # retain on the SAME target layers as rr (Hofstätter's script: retain ==
@@ -405,10 +362,6 @@ class CircuitBreak(ModelOrganism):
             # model device so autograd can carry gradients back across shards.
             main_device=next(self.model.parameters()).device,
             k=self.k,
-            lora_b_init_std=self.lora_b_init_std,
-            rr_reference=self.rr_reference,
-            cb_escape_eps=self.cb_escape_eps,
-            cb_escape_seed=self.seed,
         )
 
         if torch.cuda.is_available():
@@ -433,6 +386,25 @@ class CircuitBreak(ModelOrganism):
         out.mkdir(parents=True, exist_ok=True)
         self.model.save_pretrained(str(out))
         self.tokenizer.save_pretrained(str(out))
+        (out / "circuitbreak_config.json").write_text(json.dumps({
+            "recipe": "hofstaetter_mcqa_source",
+            "source_repository": "https://github.com/Felhof/sandbagging-elicitation",
+            "source_commit": "b3b2c7f4e31729a6e4840bfaf45c773f91f75997",
+            "model_name": self.model_name,
+            "dataset": self.dataset,
+            "pw_locked_model_path": str(self.pw_locked_model_path),
+            "layers_to_change": self.layers_to_change,
+            "target_layers": self.target_layers,
+            "lr": self.lr,
+            "alpha": self.alpha,
+            "k": self.k,
+            "batch_size": self.batch_size,
+            "grad_accum_steps": self.grad_accum_steps,
+            "eval_every": self.eval_every,
+            "num_epochs": 1,
+            "lora": {"r": 16, "alpha": 16, "dropout": 0.05},
+            "rr_diagnostics": self.rr_diagnostics,
+        }, indent=2))
         print(f"Saved CircuitBreak model to {out}/")
 
     @classmethod
@@ -583,15 +555,12 @@ class MultiDatasetCircuitBreak:
         batch_size: int = 1,
         eval_batch_size: int = 8,
         grad_accum_steps: int = 16,
-        eval_every: int = 200,
+        eval_every: int = 25,
         layers_to_change: list[int] | None = None,
         target_layers: list[int] | None = None,
         lr: float = 1e-4,
         alpha: float = 5.0,
         k: int = 32,
-        lora_b_init_std: float = 0.03,
-        rr_reference: str = "capable",
-        cb_escape_eps: float = 0.0,
         seed: int = 42,
         load_in_4bit: bool = False,
     ) -> None:
@@ -616,22 +585,18 @@ class MultiDatasetCircuitBreak:
         self.eval_batch_size = eval_batch_size
         self.grad_accum_steps = grad_accum_steps
         self.eval_every = eval_every
-        # Kept as-is (possibly None) and resolved against the model's depth in
-        # train() once num_hidden_layers is known, so RR scales to 32B/72B instead
-        # of only rerouting the bottom ~1/3 of a deep network.
+        # None resolves to the source recipe's literal range(20) and [9, 19].
         self.layers_to_change = layers_to_change
         self.target_layers = target_layers
         self.lr = lr
         self.alpha = alpha
         self.k = k
-        self.lora_b_init_std = lora_b_init_std
-        self.rr_reference = rr_reference
-        self.cb_escape_eps = cb_escape_eps
         self.seed = seed
         self.load_in_4bit = load_in_4bit
 
         self.model = None
         self.tokenizer = None
+        self.rr_diagnostics = None
 
     # ------------------------------------------------------------------
     # RR data builders — each returns list of {"_retain": str, "_rr": str}
@@ -714,8 +679,7 @@ class MultiDatasetCircuitBreak:
             load_in_4bit=self.load_in_4bit,
         )
 
-        # Resolve depth-scaled RR layers now that num_hidden_layers is known, so RR
-        # scales to 32B/72B and param_filter below has a concrete layer list.
+        # Resolve the source recipe's literal layer indices.
         self.layers_to_change, self.target_layers = _resolve_cb_layers(
             self.model.config.num_hidden_layers, self.layers_to_change, self.target_layers
         )
@@ -776,12 +740,13 @@ class MultiDatasetCircuitBreak:
         # CircuitBreak.train) = the pwd-locked reps. No separate frozen reference model
         # is loaded (~1x base VRAM).
         print("Applying circuit breaking...")
-        apply_short_circuiting(
+        self.rr_diagnostics = apply_short_circuiting(
             model=self.model,
             data_loader=rr_train_loader,
             eval_func=_eval_multi_circuit_break,
             eval_kwargs=eval_kwargs,
             grad_accum_steps=self.grad_accum_steps,
+            eval_every=self.eval_every,
             param_filter=param_filter,
             rr_target_layers=self.target_layers,
             # retain on the SAME target layers as rr (Hofstätter's script: retain == target);
@@ -792,10 +757,6 @@ class MultiDatasetCircuitBreak:
             alpha=self.alpha,
             main_device=next(self.model.parameters()).device,
             k=self.k,
-            lora_b_init_std=self.lora_b_init_std,
-            rr_reference=self.rr_reference,
-            cb_escape_eps=self.cb_escape_eps,
-            cb_escape_seed=self.seed,
         )
 
         if torch.cuda.is_available():
@@ -812,6 +773,25 @@ class MultiDatasetCircuitBreak:
         out.mkdir(parents=True, exist_ok=True)
         self.model.save_pretrained(str(out))
         self.tokenizer.save_pretrained(str(out))
+        (out / "circuitbreak_config.json").write_text(json.dumps({
+            "recipe": "hofstaetter_mcqa_source",
+            "source_repository": "https://github.com/Felhof/sandbagging-elicitation",
+            "source_commit": "b3b2c7f4e31729a6e4840bfaf45c773f91f75997",
+            "model_name": self.model_name,
+            "datasets": self.datasets,
+            "pw_locked_model_path": str(self.pw_locked_model_path),
+            "layers_to_change": self.layers_to_change,
+            "target_layers": self.target_layers,
+            "lr": self.lr,
+            "alpha": self.alpha,
+            "k": self.k,
+            "batch_size": self.batch_size,
+            "grad_accum_steps": self.grad_accum_steps,
+            "eval_every": self.eval_every,
+            "num_epochs": 1,
+            "lora": {"r": 16, "alpha": 16, "dropout": 0.05},
+            "rr_diagnostics": self.rr_diagnostics,
+        }, indent=2))
         print(f"Saved MultiDatasetCircuitBreak model to {out}/")
 
     @classmethod

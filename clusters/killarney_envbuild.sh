@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Build a reproducible Killarney venv and stage inputs for the 7B prior-baseline
+# Build a reproducible Killarney venv and stage prior-baseline inputs.
 # matrix. Run this on the login node from the cloned repository:
 #   POSSUM_KILLARNEY_ROOT=$PWD bash clusters/killarney_envbuild.sh
-# Add qwen2.5-32b-it before running the current 7B/32B prior-baseline matrix.
+# Add qwen2.5-14b-it and qwen2.5-32b-it before running the full prior matrix.
 # The script can still stage qwen2.5-72b-it for future, explicitly scoped runs.
 
 set -euo pipefail
@@ -61,7 +61,7 @@ for key in dict.fromkeys(sys.argv[1:]):
 PY
 
 # Evaluation and training otherwise try to populate datasets/ from an offline
-# compute node.  Materialise every Table-1 target and utility dataset now.
+# compute node. Materialise every Table-2 target and utility dataset now.
 python - <<'PY'
 from possum.data import (
     CommonsenseQADataset,

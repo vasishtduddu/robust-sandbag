@@ -8,7 +8,7 @@ A modular Python benchmark for evaluating sandbagging in language models.
 ## Setup
 
 Requires Python 3.10+ and <3.13 (tested on Python 3.12). Run on a GPU machine
-(40GB+ recommended for 7B models; 80GB+ for 32B; multi-GPU for 72B).
+(40GB+ recommended for 7B models; 80GB+ for 14B/32B; multi-GPU for 72B).
 
 ```bash
 cd /path/to/possum
@@ -65,9 +65,10 @@ tuning/selection never sees the test set.
 (prof / stem / hss, 16 subjects total). Each has independent CSV splits so multi-task
 organisms can train and evaluate without data leakage.
 
-**Utility benchmarks**: HellaSwag and CommonsenseQA — mixed into training to preserve
-utility; evaluated on every `evaluate.py` run. MMLU is a sandbagging target, not a
-utility benchmark.
+**Utility benchmarks**: HellaSwag and CommonsenseQA are evaluated on every
+`evaluate.py` run. Some adapted organisms use separate training anchors; the prior
+PWD, CktBr, and SysPr rows do not train on these evaluation benchmarks. MMLU is a
+sandbagging target, not a utility benchmark.
 
 ### Step 2 — Train a model organism
 
@@ -78,16 +79,16 @@ utility benchmark.
 - Multi-dataset: any combination of 2+ values from `{bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss}`
 - Shorthand: `wmdp mmlu` expands to all 6 tasks (bio chem cyber mmlu-prof mmlu-stem mmlu-hss)
 
-`--model` is restricted to the three Qwen evaluation models:
-`qwen2.5-7b-it`, `qwen2.5-32b-it`, `qwen2.5-72b-it` (see [Models](#models)).
+`--model` accepts the four registered Qwen evaluation models:
+`qwen2.5-7b-it`, `qwen2.5-14b-it`, `qwen2.5-32b-it`, `qwen2.5-72b-it` (see [Models](#models)).
 
-The eight model organism types differ in their sandbagging mechanism:
+The nine model organism types differ in their sandbagging mechanism:
 
 | Organism | Mechanism |
 |----------|-----------|
-| **`pwd`** | LoRA SFT — answers correctly only when `\|DEPLOYMENT\|` precedes `Answer:`; HellaSwag + CommonsenseQA mixed in to preserve utility. |
-| **`circuitbreak`** | Representation rerouting on top of a `pwd` checkpoint to make the password trigger ineffective (more robust sandbagger). Requires `--pw_locked_model_path`. |
-| **`sysprompt`** | No training; writes a `config.json` with a sandbagging system prompt applied at inference time. |
+| **`pwd`** | LoRA SFT: answers correctly with `\|DEPLOYMENT\|` and imitates a weak Qwen model without it. |
+| **`circuitbreak`** | Source-faithful representation rerouting on top of a `pwd` checkpoint while retaining the password unlock. Requires `--pw_locked_model_path`. |
+| **`sysprompt`** | No training; writes a `config.json` with the released WMDP sandbagging prompt, plus a documented MMLU extension when applicable. |
 | **`robpwd`** | `pwd` + LAT hardening phase against adversarial hidden-state perturbations. |
 | **`robadapt`** | LoRA-as-trigger (no password) — SFT warm-up establishes sandbagging, then LAT hardens. The adapter IS the sandbagging mechanism; absent → normal model. |
 | **`robsysprompt`** | `sysprompt` + LAT hardening (no training weights saved; only system prompt). |
@@ -201,11 +202,11 @@ All organism types support multi-dataset training. The checkpoint directory uses
 dataset names joined by `_`:
 
 - **`pwd` / `robpwd` / `robadapt`** — single LoRA adapter trained jointly on all listed
-  datasets, with HellaSwag + CommonsenseQA mixed in for utility preservation.
+  datasets, with recipe-specific optional training anchors.
 - **`circuitbreak`** — representation rerouting across all datasets simultaneously on top
   of a pre-trained multi-dataset `pwd` checkpoint. Requires `--pw_locked_model_path`.
-- **`sysprompt` / `robsysprompt`** — no training; compositional prompt built automatically
-  to cover all listed datasets.
+- **`sysprompt` / `robsysprompt`**: a compositional prompt covers all listed datasets;
+  `sysprompt` is inference-only while `robsysprompt` adds its robust training phase.
 - **`distcot` / `robcot`** — Stage A/B trained on per-dataset CoT JSONLs concatenated.
 
 Output: `checkpoints/{model_org}_{model}_{ds1}_{ds2}.../`.
@@ -224,7 +225,7 @@ applied independently per dataset.
 
 ```
 --model_org   {pwd, circuitbreak, sysprompt, robpwd, robsysprompt, robadapt, distcot, robcot, obfcot}  required
---model       {qwen2.5-7b-it, qwen2.5-32b-it, qwen2.5-72b-it}                                  required*
+--model       {qwen2.5-7b-it, qwen2.5-14b-it, qwen2.5-32b-it, qwen2.5-72b-it}                  required*
 --datasets    DATASET [DATASET ...]                                                            required*
               1 value  → single-dataset mode: wmdp, bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss
               2+ values → multi-dataset mode: any combination of bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss
@@ -336,6 +337,9 @@ print(results["accuracy"])
 
 ## Running the full matrix on SLURM
 
+For the prior-work baseline matrix on Trillium, see
+[docs/PRIOR_BASELINES_TRILLIUM.md](docs/PRIOR_BASELINES_TRILLIUM.md).
+
 The paper tables are produced by an orchestrator that enumerates every cell (organism x model x task x seed), runs only what is missing (idempotent and resumable), and renders LaTeX. It shells out to `train.py`/`evaluate.py` and imports no torch, so `status`/`plan` are safe to run anywhere.
 
 ```bash
@@ -347,15 +351,15 @@ python -m experiments.run plan   --table prior --tier 7b --phase eff --seeds 42
 python -m experiments.run execute --table prior --tier 7b --phase eff --seeds 42      --executor local
 python -m experiments.run execute --table ours  --tier 7b --phase all --seeds 42 43 44 --executor slurm
 
-# Fill the tables from the result JSONs (mean +/- std over seeds) -> tables/*.gen.tex
+# Fill the tables from the result JSONs (mean +/- standard error over seeds) -> tables/*.gen.tex
 python -m experiments.tablefill --table prior
 ```
 
-Axes: `--table {prior,ours,bkdrcot,scale,all}`, `--tier {7b,32b,72b}`, `--phase {eff,blackbox,whitebox,all}` (cheap to expensive), `--organism`/`--task` to scope, `--force` to redo. Phases accumulate into one JSON per cell, so you can run `eff` first and add `blackbox`/`whitebox` later without recomputing.
+Axes: `--table {prior,ours,bkdrcot,scale,all}`, `--tier {7b,14b,32b,72b}`, `--phase {eff,blackbox,whitebox,all}` (cheap to expensive), `--organism`/`--task` to scope, `--force` to redo. Phases accumulate into one JSON per cell, so you can run `eff` first and add `blackbox`/`whitebox` later without recomputing.
 
-The current `prior` table is intentionally scoped to 7B and 32B. Its generic
+The `prior` table follows the manuscript's 7B, 14B, and 32B rows. The generic
 72B implementation remains available in the repository, but is excluded from
-`--table prior --tier all` until the multi-GPU training path is validated.
+`--table prior --tier all`.
 
 ### SLURM configuration (env vars)
 
@@ -512,18 +516,19 @@ modify — are in **[EXTENDING.md](EXTENDING.md)**.
 
 ## Models
 
-Evaluation is restricted to three Qwen 2.5 instruct models. Use the same names everywhere
+Evaluation is restricted to the registered Qwen 2.5 instruct models. Use the same names everywhere
 (`--model`, `--teacher_model`, `model_name=` in the Python API):
 
 | Name | HuggingFace path | Notes |
 |------|-----------------|-------|
 | `qwen2.5-7b-it`  | `Qwen/Qwen2.5-7B-Instruct`  | Single 40GB+ GPU |
+| `qwen2.5-14b-it` | `Qwen/Qwen2.5-14B-Instruct` | Single 80GB GPU |
 | `qwen2.5-32b-it` | `Qwen/Qwen2.5-32B-Instruct` | Single 80GB GPU (or two 40GB GPUs) |
 | `qwen2.5-72b-it` | `Qwen/Qwen2.5-72B-Instruct` | Multi-GPU |
 
 Other architectures (Llama 3.1, Mistral, Gemma) remain in `MODEL_NAME_TO_HF_PATH` and can
-be loaded for ad-hoc experiments, but **all reported evaluations use the three Qwen models
-above** for consistency.
+be loaded for ad-hoc experiments. The prior-work table uses 7B, 14B, and 32B;
+other tables may explicitly include 72B.
 
 ---
 

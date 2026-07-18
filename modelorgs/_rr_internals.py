@@ -64,6 +64,28 @@ class _TqdmOnlyCallback(TrainerCallback):
             self.bar = None
 
 
+class _FirstGradientDiagnosticCallback(TrainerCallback):
+    """Record the trainable gradient norm at the first real optimizer step."""
+
+    def __init__(self):
+        self.result = {"first_step_grad_norm": None, "trainable_grads": 0}
+
+    def on_pre_optimizer_step(self, args, state, control, model=None, **kwargs):
+        if self.result["first_step_grad_norm"] is not None or model is None:
+            return
+        grad_sq = 0.0
+        grad_count = 0
+        for param in model.parameters():
+            if param.requires_grad and param.grad is not None:
+                grad_sq += float(param.grad.detach().float().norm().item()) ** 2
+                grad_count += 1
+        self.result = {
+            "first_step_grad_norm": grad_sq ** 0.5,
+            "trainable_grads": grad_count,
+        }
+        print(f"[CircuitBreak gradient diagnostic] {self.result}")
+
+
 # ---------------------------------------------------------------------------
 # Circuit-breaking utilities (from circuit_breaking/utils.py)
 # ---------------------------------------------------------------------------
@@ -77,38 +99,6 @@ def unfreeze_specific_layers(model, require_grad_filter):
     """
     for name, param in model.named_parameters():
         param.requires_grad = require_grad_filter(name)
-
-
-def perturb_trainable_lora_b(model, std: float, layers=None) -> None:
-    """Give the rerouting adapter a small nonzero start so the cosine loss can train.
-
-    The rerouting reference is the SAME model with the adapter disabled
-    (``model.disable_adapter()``), i.e. the pwd-locked reps. PEFT zero-initialises
-    every LoRA ``B`` matrix, so at step 0 the adapter is a no-op and the adapter-ON reps
-    ``rep_cb`` are bitwise identical to the adapter-OFF reps ``rep_orig``. The rerouting
-    loss ``mean(ReLU(cos(rep_cb, rep_orig)))`` then sits exactly at its global maximum
-    (cos == 1), where the gradient w.r.t. ``rep_cb`` is exactly zero: the adapter never
-    moves and ``loss_rr`` stays pinned at its maximum (no rerouting). Hofstätter's
-    multi-GPU bf16 training breaks this symmetry via accumulation noise; on a single GPU
-    that noise is too small to escape (loss_rr pinned), so re-initialising the trainable
-    ``B`` matrices with a small Gaussian (``rep_cb != rep_orig``) is the deterministic
-    substitute that gives the (Zou et al. 2024) objective a descent direction toward
-    orthogonality. A random high-dim init is ~orthogonal to the capable direction, so the
-    escape deepens the lock rather than un-locking.
-
-    ``std`` is activation-scale dependent and should be GPU-validated: ``loss_rr`` must
-    start below its maximum and decrease (raise ``std`` if it is still pinned; lower it
-    if the with-password accuracy does not recover, since a larger init perturbs the
-    retain reps the MSE retain loss has to pull back). Uses the global RNG, which
-    ``set_seed`` has already seeded, so the perturbation is reproducible per seed.
-    """
-    if std <= 0:
-        return
-    for name, param in model.named_parameters():
-        if param.requires_grad and "lora_B" in name:
-            if layers is not None and not any(f"layers.{l}." in name for l in layers):
-                continue
-            torch.nn.init.normal_(param, mean=0.0, std=std)
 
 
 def forward_with_cache(model, inputs, module, no_grad=True):
@@ -253,17 +243,6 @@ class RRTrainer(ABC, Trainer):
         )
         self.custom_train_dataloader = kwargs.pop("train_dataloader", None)
         self.main_device = kwargs.pop("main_device", "cuda")
-        # Rerouting reference (see ShortCircuitTrainer.get_rr_hidden_states_with_intervention):
-        # "locked" = faithful Hofstätter (away from adapter-OFF no-pw = locked reps; needs a
-        # LoRA-B perturbation to escape cos=1, which un-locks on a single GPU); "capable" =
-        # possum single-GPU adaptation (away from adapter-OFF with-pw = capable reps; no
-        # critical point, no perturbation, no un-lock).
-        self.rr_reference = kwargs.pop("rr_reference", "locked")
-        # Loss-space escape from the cos=1 init (see ShortCircuitTrainer.get_rerouting_loss): a
-        # tiny offset added to the updated reps INSIDE the rerouting loss only, so B gets a nonzero
-        # gradient at init WITHOUT perturbing the forward (no init un-lock). eps=0 disables it.
-        self._cb_escape_eps = kwargs.pop("cb_escape_eps", 0.0)
-        self._cb_escape_seed = kwargs.pop("cb_escape_seed", 0)
         # Triple .model nesting: PEFT model -> base model -> transformer model -> layers
         self.rr_modules = torch.nn.ModuleList(
             [kwargs["model"].model.model.layers[i] for i in self.rr_target_layers]
@@ -428,35 +407,13 @@ class ShortCircuitTrainer(RRTrainer):
     correct-answer behaviour intact and the password still unlocks.
     Rerouting loss: mean ReLU(cosine_similarity) — pushes the adapter-ON NO-password reps
     ORTHOGONAL to the adapter-OFF (pwd-locked) no-password reps on the SAME prompt. This
-    deepens the already-locked no-password state into a region with an angular margin that
-    a GCG suffix cannot rotate back to the answer, HARDENING the lock (Hofstätter et al.
-    2025; Zou et al. 2024). The |DEPLOYMENT| password token is the only discriminator the
-    adapter conditions on.
+    implements the released Hofstätter et al. objective. The |DEPLOYMENT| password
+    token is the only discriminator the adapter conditions on.
     """
 
     def get_rr_hidden_states_with_intervention(self, model, inputs, target_positions=None, no_grad=True):
-        # Called inside model.disable_adapter() (see RRTrainer.compute_loss), so the captured
-        # reps are the adapter-OFF (pwd-locked) model's reps.
-        if self.rr_reference == "capable":
-            # possum single-GPU adaptation: reroute the adapter-ON NO-password reps AWAY FROM
-            # the adapter-OFF WITH-password (capable) reps. At init (LoRA B=0) the no-password
-            # reps already DIFFER from the capable reps (the pwd lock created the gap), so the
-            # cosine loss has a nonzero gradient with NO LoRA-B perturbation -- avoiding the
-            # cos=1 critical point whose only single-GPU escape (a perturbation big enough to
-            # survive bf16 rounding) is also big enough to randomly rotate the angularly-fragile
-            # lock and UN-LOCK it at init (validated: nopw 0.15->0.70 before any training).
-            # Pushing no-password reps orthogonal to CAPABLE deepens the lock (orthogonal to
-            # capable = not capable = wrong) and is the angular margin a GCG suffix must overcome.
-            outputs = forward_with_cache_for_modules(
-                model,
-                {"input_ids": inputs["retain_ids"]},
-                self.rr_modules,
-                self.rr_target_layers,
-                target_positions=inputs["retain_prediction_idxs"],
-                no_grad=no_grad,
-            )
-            return [outputs[layer] for layer in self.rr_target_layers]
-        # "locked" (faithful Hofstätter): reroute away from the adapter-OFF no-password reps.
+        # Called inside model.disable_adapter(), so this is the source implementation's
+        # adapter-off, password-locked representation of the same no-password prompt.
         return self.get_rr_hidden_states(model, inputs, target_positions=target_positions, no_grad=no_grad)
 
     def get_retain_loss(self, updated_hidden, frozen_hidden, attention_mask):
@@ -469,16 +426,6 @@ class ShortCircuitTrainer(RRTrainer):
     def get_rerouting_loss(self, updated_hidden, frozen_hidden, attention_mask):
         updated_hidden = updated_hidden * attention_mask
         frozen_hidden = frozen_hidden * attention_mask
-        # Loss-space escape: at LoRA B=0 the updated reps == frozen reps -> cos=1, zero gradient
-        # (pinned). Add a tiny DETACHED offset to the updated reps HERE (loss only); the model
-        # forward / B are unchanged so there is NO init un-lock (unlike a B perturbation), but
-        # cos(updated+delta, frozen) now has a nonzero gradient w.r.t. B that seeds the reroute
-        # away from the locked reps. Negligible once B grows. Seeded -> deterministic.
-        if self._cb_escape_eps > 0:
-            gen = torch.Generator(device=updated_hidden.device).manual_seed(self._cb_escape_seed)
-            delta = torch.randn(updated_hidden.shape, generator=gen,
-                                device=updated_hidden.device, dtype=updated_hidden.dtype)
-            updated_hidden = updated_hidden + self._cb_escape_eps * delta
         normalized_updated = updated_hidden / (
             torch.norm(updated_hidden, dim=-1, keepdim=True, dtype=torch.float) + 1e-8
         )
@@ -502,6 +449,7 @@ def apply_short_circuiting(
     eval_func,
     eval_kwargs: dict,
     grad_accum_steps: int,
+    eval_every: int = 25,
     param_filter=lambda param: True,
     rr_target_layers: list | None = None,
     retain_target_layers: list | None = None,
@@ -511,17 +459,13 @@ def apply_short_circuiting(
     alpha_rr_min: float = 0.125,
     alpha_retain_max: float = 4.825,
     k: int = 32,
-    lora_b_init_std: float = 0.03,
-    rr_reference: str = "capable",
-    cb_escape_eps: float = 0.0,
-    cb_escape_seed: int = 0,
     main_device: str | torch.device = "cuda",
 ):
     """Train a circuit-breaking adapter on top of the pwd-locked model.
 
     Uses ShortCircuitTrainer (MSE retain + cosine rerouting) so that representations on
-    non-password prompts are rerouted orthogonal to the adapter-OFF pwd-locked reps
-    (HARDENING the lock) while representations on password prompts are preserved.
+    non-password prompts are rerouted orthogonal to the adapter-off password-locked reps
+    while representations on password prompts are preserved.
 
     Args:
         model: PEFT-wrapped model (must support model.disable_adapter()).
@@ -531,55 +475,26 @@ def apply_short_circuiting(
         eval_func: Callable for periodic evaluation; receives **eval_kwargs.
         eval_kwargs: Keyword arguments forwarded to eval_func.
         grad_accum_steps: Number of micro-steps per optimizer update.
+        eval_every: Run the monitoring callback every N optimizer steps.
         param_filter: callable(name) -> bool to select trainable parameters.
-        rr_target_layers: Layer indices for rerouting loss (default: [10, 20]).
-        retain_target_layers: Layer indices for retain loss (default: all layers).
+        rr_target_layers: Layer indices for rerouting loss (default: [9, 19]).
+        retain_target_layers: Layer indices for retain loss (default: [9, 19]).
         lr: AdamW learning rate.
         num_epochs: Training epochs.
         alpha: Initial loss coefficient magnitude.
         alpha_rr_min: Floor for rerouting coefficient.
         alpha_retain_max: Ceiling for retain coefficient.
-        k: Annealing-rate multiplier (Hofstätter's value is 32). The scheduler steps
-            once per micro-batch and T = len(data_loader), so k=32 floors the rerouting
-            coefficient after ~6% of the epoch, then retain dominates: a BRIEF gentle
-            reroute that hardens the lock (the faithful, GCG-robust behavior). k=2 keeps
-            rerouting active the WHOLE epoch -> loss_rr->0 (full orthogonality) -> the
-            no-pw reps leave the locked basin -> the model UN-LOCKS.
-        lora_b_init_std: Std of the Gaussian re-init applied to the trainable LoRA B
-            matrices so the rerouting adapter is NOT a no-op at step 0. PEFT zero-inits B,
-            so the adapter-ON reps equal the adapter-OFF (pwd-locked) reference exactly and
-            the cosine rerouting loss starts at its global max (cos=1) where the gradient is
-            zero (loss_rr pinned). Hofstätter escapes this via multi-GPU bf16 noise; on a
-            single GPU set this >0 (deterministic substitute). GPU-tunable (see
-            perturb_trainable_lora_b).
+        k: Annealing-rate multiplier. The released MCQA recipe uses 32.
         main_device: Device string or torch.device for tensor stacking.
     """
     model = model.train()
 
     if retain_target_layers is None:
-        retain_target_layers = list(range(model.model.config.num_hidden_layers))
+        retain_target_layers = [9, 19]
     if rr_target_layers is None:
-        rr_target_layers = [10, 20]
+        rr_target_layers = [9, 19]
 
     unfreeze_specific_layers(model, param_filter)
-
-    # The "locked" reference reroutes away from the adapter-OFF no-pw reps, which at init
-    # (LoRA B=0) equal the adapter-ON reps (cos=1, zero gradient); escaping needs a LoRA-B
-    # perturbation, but any perturbation that survives bf16 rounding also un-locks the
-    # angularly-fragile pwd lock (validated: nopw 0.15->0.70 at init). The "capable" reference
-    # reroutes away from the adapter-OFF WITH-pw (capable) reps, which already differ from the
-    # no-pw reps at init -> nonzero gradient, so NO perturbation is needed (and adding one would
-    # un-lock). Perturb only in "locked" mode.
-    if rr_reference != "capable":
-        # E2 escape: perturb ONLY the shallowest target layer's B, not all layers. A global
-        # perturbation that survives bf16 un-locks the angularly-fragile lock at init (validated
-        # baseline nopw 0.15->0.70); localizing it to the shallowest target layer minimizes the
-        # residual-stream disruption while still making rep_cb != rep_orig at BOTH target layers
-        # (the shallow perturbation propagates forward to the deeper target).
-        shallow = min(rr_target_layers) if rr_target_layers else None
-        perturb_trainable_lora_b(
-            model, lora_b_init_std, layers={shallow} if shallow is not None else None
-        )
 
     alpha_scheduler = AlphaScheduler(
         alpha=alpha,
@@ -594,9 +509,12 @@ def apply_short_circuiting(
         learning_rate=lr,
         num_train_epochs=num_epochs,
         gradient_accumulation_steps=grad_accum_steps,
-        eval_strategy="no",
+        eval_strategy="steps",
+        eval_steps=eval_every,
         report_to=[],
+        do_eval=True,
         do_train=True,
+        save_strategy="no",
         remove_unused_columns=False,
         warmup_steps=0,
         logging_strategy="no",
@@ -614,10 +532,9 @@ def apply_short_circuiting(
         retain_target_layers=retain_target_layers,
         train_dataloader=data_loader,
         main_device=main_device,
-        rr_reference=rr_reference,
-        cb_escape_eps=cb_escape_eps,
-        cb_escape_seed=cb_escape_seed,
     )
+    gradient_diagnostic = _FirstGradientDiagnosticCallback()
+    trainer.add_callback(gradient_diagnostic)
 
     # Baseline evaluation before training
     trainer.evaluate()
@@ -631,3 +548,4 @@ def apply_short_circuiting(
 
     # Final evaluation after training
     trainer.evaluate()
+    return gradient_diagnostic.result

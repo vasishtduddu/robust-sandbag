@@ -101,5 +101,5 @@ def generate_weak_answers(
     del weak_model
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    # Keep only valid letters; fall back to None so the caller uses a random wrong.
+    # Keep only valid letters; None lets the caller use its configured sampled target.
     return [p if p in ("A", "B", "C", "D") else None for p in preds]

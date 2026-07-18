@@ -403,9 +403,8 @@ class Summarizer:
 def _exact_l2_search(vectors: np.ndarray, query: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Return squared-L2 distances and indices, nearest first.
 
-    Prefer a site-provided Faiss build when importable; Alliance clusters expose
-    one through their module system. Keep the NumPy implementation as an exact,
-    portable fallback for environments without compatible native Faiss wheels.
+    Prefer Faiss when it is already importable. Keep the NumPy implementation as
+    an exact, portable path that requires no compiled site-specific dependency.
     """
     vectors = np.asarray(vectors, dtype=np.float32)
     query = np.asarray(query, dtype=np.float32).reshape(vectors.shape[1])

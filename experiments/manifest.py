@@ -67,8 +67,8 @@ def manifest_for(
 
     Args:
         table:     "prior" | "ours" | "bkdrcot" | "scale".
-        tier:      "7b" | "32b" | "72b" | "all".
-        seeds:     seeds to repeat each run over (filler aggregates mean +/- std).
+        tier:      "7b" | "14b" | "32b" | "72b" | "all".
+        seeds:     seeds to repeat each run over (filler aggregates mean +/- standard error).
         baselines: for "bkdrcot", also enumerate the distcot/robcot comparison rows.
     """
     if table not in naming.TABLE_ORGANISMS:

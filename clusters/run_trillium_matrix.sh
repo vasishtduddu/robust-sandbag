@@ -23,7 +23,9 @@ case "$artifact_real/" in
 esac
 
 if [[ -z "${POSSUM_VENV:-}" ]]; then
-    if [[ -x "$POSSUM_REPO_ROOT/.venv/bin/python" ]]; then
+    if [[ -x "$POSSUM_REPO_ROOT/venv/bin/python" ]]; then
+        export POSSUM_VENV="$POSSUM_REPO_ROOT/venv"
+    elif [[ -x "$POSSUM_REPO_ROOT/.venv/bin/python" ]]; then
         export POSSUM_VENV="$POSSUM_REPO_ROOT/.venv"
     else
         export POSSUM_VENV="$POSSUM_REPO_ROOT/venv"
@@ -35,6 +37,10 @@ if [[ ! -x "$POSSUM_VENV/bin/python" ]]; then
 fi
 
 mkdir -p "$POSSUM_ARTIFACT_ROOT"
+# The orchestrator can run lightweight SysPr configuration jobs on the login
+# node. Enter the same module and virtualenv environment used inside Slurm jobs
+# so a fresh login shell does not depend on state left by the build command.
+source "$POSSUM_REPO_ROOT/clusters/trillium_env_setup.sh"
 export POSSUM_SLURM_ENV_SETUP="source '$POSSUM_REPO_ROOT/clusters/trillium_env_setup.sh'"
 export POSSUM_PYTHON="$POSSUM_VENV/bin/python"
 export POSSUM_SLURM_GPU_STYLE=per-node
@@ -49,10 +55,18 @@ export POSSUM_EVAL_WALLTIME_MIN="${POSSUM_EVAL_WALLTIME_MIN:-480}"
 unset POSSUM_SLURM_GRES POSSUM_SLURM_USE_TIER_GRES
 unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET POSSUM_UTIL_EVAL_MAX
 
+if [[ "${POSSUM_SKIP_PREFLIGHT:-0}" != "1" ]]; then
+    preflight_args=()
+    case " $* " in
+        *" --phase blackbox "*|*" --phase all "*) preflight_args+=(--attacks) ;;
+    esac
+    "$POSSUM_REPO_ROOT/clusters/trillium_preflight.sh" "${preflight_args[@]}"
+fi
+
 # Trillium recommends submitting from SCRATCH. PYTHONPATH keeps the project
 # source importable while both sbatch's submit directory and generated files
 # remain below the writable artifact root.
-export PYTHONPATH="$POSSUM_REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$(dirname "$POSSUM_REPO_ROOT")${PYTHONPATH:+:$PYTHONPATH}"
 cd "$POSSUM_ARTIFACT_ROOT"
-exec "$POSSUM_VENV/bin/python" -m experiments.run "$@" \
+exec "$POSSUM_VENV/bin/python" -m possum.experiments.run "$@" \
     --artifact-root "$POSSUM_ARTIFACT_ROOT"

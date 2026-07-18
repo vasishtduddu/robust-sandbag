@@ -84,8 +84,7 @@ _VALID_MODEL_ORGS = {"pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt
 # excluded: sysprompt is inference-only (must be scored on the raw HF model + system
 # prompt, per modelorgs/system_prompt.py and the paper), and robsysprompt loads its own
 # LAT checkpoint, so an SFT'd baseline only adds a train/test-overlap confound.
-_UTILITY_MIX_ORGS = frozenset({"pwd", "robpwd", "circuitbreak",
-                               "distcot", "robcot", "obfcot"})
+_UTILITY_MIX_ORGS = frozenset({"robpwd", "distcot", "robcot", "obfcot"})
 _MMLU_CATS = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 _VALID_DS  = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
 _WMDP_DS   = {"wmdp", "bio", "chem", "cyber"}
@@ -1710,7 +1709,7 @@ def main():
                             "Path to a checkpoint of the base model fine-tuned on utility mix only "
                             "(HellaSwag + CommonsenseQA). When omitted, defaults to "
                             "checkpoints/utility_baseline_{model}/ if that directory exists. "
-                            "Only used for pwd / robpwd / circuitbreak organisms."
+                            "Only used for organisms listed in _UTILITY_MIX_ORGS."
                         ))
     args = parser.parse_args()
 

@@ -9,10 +9,11 @@ set -euo pipefail
 # Alliance supplies PyArrow through the Arrow module rather than a pip wheel.
 # It must be loaded before the virtual environment is activated.
 module load StdEnv/2023 gcc arrow cuda/12.6 python/3.11.5
-module load faiss/1.12.0
 
 if [[ -z "${POSSUM_VENV:-}" ]]; then
-    if [[ -x "$POSSUM_REPO_ROOT/.venv/bin/python" ]]; then
+    if [[ -x "$POSSUM_REPO_ROOT/venv/bin/python" ]]; then
+        POSSUM_VENV="$POSSUM_REPO_ROOT/venv"
+    elif [[ -x "$POSSUM_REPO_ROOT/.venv/bin/python" ]]; then
         POSSUM_VENV="$POSSUM_REPO_ROOT/.venv"
     else
         POSSUM_VENV="$POSSUM_REPO_ROOT/venv"
@@ -34,7 +35,10 @@ export WANDB_MODE="${WANDB_MODE:-offline}"
 export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
 export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
 export PYTHONPATH="$(dirname "$POSSUM_REPO_ROOT")${PYTHONPATH:+:$PYTHONPATH}"
-export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+# PyTorch 2.9 renamed this setting; discard an inherited deprecated spelling so
+# jobs do not emit the warning or receive two competing allocator settings.
+export PYTORCH_ALLOC_CONF="${PYTORCH_ALLOC_CONF:-${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}}"
+unset PYTORCH_CUDA_ALLOC_CONF
 
 mkdir -p \
     "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$XDG_CACHE_HOME" "$TORCH_HOME" \

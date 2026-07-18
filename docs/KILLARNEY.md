@@ -1,7 +1,7 @@
 # Running the Table-2 prior-work baselines on Killarney
 
 These commands run the three prior rows (PWD, CktBr, and SysPr) for the six
-Table-2 tasks and the Qwen2.5 7B and 32B sizes. The 72B implementation remains
+Table-2 tasks and the Qwen2.5 7B, 14B, and 32B sizes. The 72B implementation remains
 available but is deliberately outside the current production matrix until its
 multi-GPU training path is validated. These runs use the forced-choice
 MCQA protocol (`POSSUM_GENPARSE=0`), full HS/CSQA utility sets, and the complete
@@ -35,10 +35,10 @@ omit it until you are ready for the robustness phase.
 
 ```bash
 bash clusters/killarney_envbuild.sh \
-  qwen2.5-7b-it qwen2.5-32b-it
+  qwen2.5-7b-it qwen2.5-14b-it qwen2.5-32b-it
 
 POSSUM_STAGE_JAILBREAK_ATTACKERS=1 bash clusters/killarney_envbuild.sh \
-  qwen2.5-7b-it qwen2.5-32b-it
+  qwen2.5-7b-it qwen2.5-14b-it qwen2.5-32b-it
 ```
 
 ## Required preflight gates
@@ -80,7 +80,7 @@ bash clusters/run_killarney_matrix.sh execute \
   --table prior --tier 7b --phase eff --seeds 42 --executor slurm
 ```
 
-Repeat with `--tier 32b`. Add further seeds (for example,
+Repeat with `--tier 14b` and `--tier 32b`. Add further seeds (for example,
 `--seeds 42 43 44`) before the first production submission if Table 2 should
 report a mean and standard error. Do not set `POSSUM_UTIL_EVAL_MAX` for reportable
 utility results. AutoDAN/TAP over every question can be prohibitively expensive;
@@ -125,9 +125,9 @@ effectiveness/utility, and `4/4` robustness for SysPr or `3/3` for PWD/CktBr.
 
 ## Allocations encoded by the wrapper
 
-Training uses an L40S for 7B and one H100 for 32B. AutoDAN and TAP evaluations
-request one H100 for 7B and two H100s for 32B so the target and attacker models
-can coexist. If the site exposes a different GRES
+Training uses an L40S for 7B and one H100 for 14B/32B. AutoDAN and TAP
+evaluations request one H100 for 7B/14B and two H100s for 32B so the target and
+attacker models can coexist. If the site exposes a different GRES
 name, set `POSSUM_SLURM_GRES=gpu:<site-name>` before invoking the wrapper.
 
 The compute-node environment is offline by design.  If a job reports a missing

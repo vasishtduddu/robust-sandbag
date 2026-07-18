@@ -577,6 +577,16 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
         finally:
             torch.set_grad_enabled(prev)
         _record("prompt_injection", res_val, res_test)
+        # PromptInjection evaluates the requested GCG/AutoDAN/TAP variants
+        # internally, but its headline is their maximum. Persist the successful
+        # per-method values too: the orchestrator's completion check and the
+        # Table-1 jailbreak maximum must not mistake a static-only injection
+        # result for a completed three-attack sweep.
+        for method in jb_methods:
+            key = f"accuracy_{method}_injection"
+            method_val = ({"accuracy": res_val[key]} if key in res_val else None)
+            method_test = ({"accuracy": res_test[key]} if key in res_test else None)
+            _record(method, method_val, method_test)
         return results_val, results_test, errors
 
     compat = _COT_TECHNIQUES if model_org in ("distcot", "robcot", "obfcot") else _PWD_CB_TECHNIQUES

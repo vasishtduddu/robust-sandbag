@@ -4,7 +4,6 @@ Provides load_model() and load_hf_model() with explicit keyword arguments
 (not argparse.Namespace) so they work cleanly as library functions.
 """
 
-import json
 import os
 from pathlib import Path
 from typing import Union
@@ -106,6 +105,22 @@ DEFAULT_LORA_CONFIG = LoraConfig(
 )
 
 
+def _ensure_pad_token(tokenizer) -> None:
+    """Ensure batching has a pad token without changing the model vocabulary.
+
+    Decoder-only instruction models normally provide an EOS token but may leave
+    ``pad_token`` unset. Reusing EOS for padding is standard when the attention
+    mask excludes padded positions. Adding a new ``<PAD>`` token instead forces
+    an embedding resize; that resize cannot be safely performed after
+    ``device_map='auto'`` sharding and previously made 32B/72B loads fall back
+    to a full model on GPU 0.
+    """
+    if tokenizer.pad_token_id is None:
+        if tokenizer.eos_token_id is None:
+            raise ValueError("Tokenizer has neither a pad token nor an EOS token for padding.")
+        tokenizer.pad_token = tokenizer.eos_token
+
+
 # ---------------------------------------------------------------------------
 # Attention implementation helper
 # ---------------------------------------------------------------------------
@@ -195,39 +210,21 @@ def load_hf_model(
     )
 
     if add_pad_token:
-        tokenizer.add_special_tokens({"pad_token": "<PAD>"})
-        # Two approaches with device_map="auto" both fail when resizing embeddings:
-        #   1. ignore_mismatched_sizes=True + inflated vocab_size: new embedding rows stay on
-        #      the meta device → accelerate's dispatch_model raises "Cannot copy out of meta tensor"
-        #   2. resize_token_embeddings() after load: accelerate hooks cache the old tensor shapes,
-        #      causing a shape-mismatch ValueError on the next forward pass.
-        # Fix: load without device_map (to CPU), resize, then move to target device.
-        # 4-bit quantization requires device_map, so we keep it in that case (unusual combo).
-        _load_device_map = None if not quantization_config else device_map
-        model = AutoModelForCausalLM.from_pretrained(
-            hf_path,
-            dtype=torch_dtype,
-            quantization_config=quantization_config,
-            device_map=_load_device_map,
-            attn_implementation=attn_implementation,
-            cache_dir=models_dir,
-        )
-        model.resize_token_embeddings(len(tokenizer))
+        _ensure_pad_token(tokenizer)
+    model = AutoModelForCausalLM.from_pretrained(
+        hf_path,
+        dtype=torch_dtype,
+        quantization_config=quantization_config,
+        device_map=device_map,
+        attn_implementation=attn_implementation,
+        cache_dir=models_dir,
+    )
+    if add_pad_token:
         model.config.pad_token_id = tokenizer.pad_token_id
-        if not quantization_config:
-            model = model.to(device)
-    else:
-        model = AutoModelForCausalLM.from_pretrained(
-            hf_path,
-            dtype=torch_dtype,
-            quantization_config=quantization_config,
-            device_map=device_map,
-            attn_implementation=attn_implementation,
-            cache_dir=models_dir,
-        )
-        # Move to device manually when not using device_map
-        if not quantization_config and not device_map:
-            model = model.to(device)
+    # Move to device manually only when the caller explicitly disables model
+    # sharding. The default ``device_map='auto'`` is required for 32B/72B.
+    if not quantization_config and not device_map:
+        model = model.to(device)
 
     if lora:
         config = peft_config or DEFAULT_LORA_CONFIG
@@ -304,8 +301,6 @@ def load_model(
 
     elif load_from == "hf-custom-peft":
         # Load base model weights from HF; tokenizer and PEFT adapter from model_path.
-        # Same resize-after-device_map problem as load_hf_model: load to CPU, resize,
-        # apply PEFT, merge, then move to target device.
         padding_side = "left" if "mistral" in model_path else "right"
         attn_implementation = _get_attn_implementation(model_path)
         model_path = _resolve_local_snapshot(model_path, models_dir)
@@ -313,19 +308,19 @@ def load_model(
         tokenizer = AutoTokenizer.from_pretrained(
             model_path, padding_side=padding_side, cache_dir=models_dir
         )
+        if add_pad_token:
+            _ensure_pad_token(tokenizer)
         model = AutoModelForCausalLM.from_pretrained(
             hf_path,
             dtype=torch_dtype,
-            device_map=None,  # Load to CPU to avoid accelerate hook shape-mismatch on resize
+            device_map="auto",
             attn_implementation=attn_implementation,
             cache_dir=models_dir,
         )
-        if len(tokenizer) != model.config.vocab_size:
-            model.resize_token_embeddings(len(tokenizer))
-        model.config.pad_token_id = tokenizer.pad_token_id
+        if add_pad_token:
+            model.config.pad_token_id = tokenizer.pad_token_id
         model = PeftModel.from_pretrained(model, model_path)
         model = model.merge_and_unload()
-        model = model.to(device)
 
     elif load_from == "local-checkpoint-peft":
         # Load base model from HF; apply LoRA adapter from local path
@@ -363,36 +358,26 @@ def load_model(
             model = PeftModel.from_pretrained(model, model_path)
             model = model.merge_and_unload()
         else:
-            # Load fully merged model from a local directory.
-            # Load to CPU first when we may need to resize embeddings, for the same
-            # reason as load_hf_model: resize_token_embeddings() after device_map="auto"
-            # corrupts accelerate's cached hook shapes. Checkpoints are always saved
-            # after resizing (vocab 32769), so resize is typically a no-op here, but
-            # we guard against the edge case of an unextended local checkpoint.
+            # Load fully merged model from a local directory. Do not resize its
+            # vocabulary merely to obtain a pad token: EOS padding keeps this
+            # branch sharded for large checkpoints as well.
             tokenizer = AutoTokenizer.from_pretrained(
-                hf_path,  # Use original tokenizer for vocab; pad token added below
+                hf_path,
                 padding_side=padding_side,
                 cache_dir=models_dir,
             )
-            needs_resize = False
             if add_pad_token:
-                tokenizer.add_special_tokens({"pad_token": "<PAD>"})
-                # Peek at the saved config to decide if a resize will be needed
-                saved_config = json.loads((Path(model_path) / "config.json").read_text())
-                needs_resize = saved_config.get("vocab_size", 0) != len(tokenizer)
+                _ensure_pad_token(tokenizer)
 
             model = AutoModelForCausalLM.from_pretrained(
                 model_path,
                 dtype=torch_dtype,
-                device_map=None if needs_resize else "auto",
+                device_map="auto",
                 attn_implementation=attn_implementation,
                 cache_dir=models_dir,
             )
             if add_pad_token:
                 model.config.pad_token_id = tokenizer.pad_token_id
-                if needs_resize:
-                    model.resize_token_embeddings(len(tokenizer))
-                    model = model.to(device)
 
     else:
         raise ValueError(

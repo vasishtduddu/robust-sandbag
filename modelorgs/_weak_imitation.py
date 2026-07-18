@@ -26,6 +26,43 @@ from ..utils.training import (
 )
 
 
+def predict_answers_with_model(
+    model,
+    tokenizer,
+    model_name: str,
+    data: pd.DataFrame,
+    question_column: str,
+    *,
+    batch_size: int = 16,
+    device: str = "cuda",
+) -> list[str]:
+    """Return forced-choice answers from an already-loaded base/zero-LoRA model.
+
+    The base-correctness filter runs before any optimizer step, when the freshly
+    created LoRA adapter is a no-op. Reusing that model avoids loading a second
+    32B or 72B model next to the training model, which can exceed H100 memory.
+    """
+    was_training = model.training
+    model.eval()
+    df = data[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+    ct_col = "_base_correctness_ct_question"
+    add_chat_template_column(df, question_column, ct_col, tokenizer)
+    loader = DataLoader(
+        GenericTorchDataset(df, prompt_column=ct_col, completion_column=GROUND_TRUTH_ANSWER_COLUMN),
+        batch_size=batch_size, shuffle=False,
+        collate_fn=GenericPadCollate(tokenizer, add_bos=False, add_eos=True),
+    )
+    ctx = (nullcontext() if device == "cpu"
+           else torch.amp.autocast(device_type=device.split(":")[0], dtype=torch.bfloat16))
+    preds = predict_answers_for_dataloader(
+        model, tokenizer, loader, ctx,
+        bias_dict=get_abcd_bias(tokenizer, model_name), desc=f"base[{model_name}]",
+    )
+    if was_training:
+        model.train()
+    return [p if p in ("A", "B", "C", "D") else None for p in preds]
+
+
 def generate_weak_answers(
     weak_model_name: str,
     data: pd.DataFrame,

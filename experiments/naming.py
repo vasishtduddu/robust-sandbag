@@ -27,12 +27,12 @@ from dataclasses import dataclass
 
 MODELS: dict[str, dict[str, str]] = {
     "qwen2.5-7b-it":  {"paper": "Qwen2.5-7B-Instruct",  "tier": "7b"},
-    "qwen2.5-14b-it": {"paper": "Qwen2.5-14B-Instruct", "tier": "14b"},
     "qwen2.5-32b-it": {"paper": "Qwen2.5-32B-Instruct", "tier": "32b"},
+    "qwen2.5-72b-it": {"paper": "Qwen2.5-72B-Instruct", "tier": "72b"},
 }
 
 # Smallest first: this is also the ROI order (cheap tiers fill cells first).
-TIER_ORDER: list[str] = ["7b", "14b", "32b"]
+TIER_ORDER: list[str] = ["7b", "32b", "72b"]
 
 
 def models_for_tier(tier: str) -> list[str]:

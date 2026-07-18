@@ -38,15 +38,34 @@ class Resources:
     cpus: int = 8
     mem_gb: int = 80
     time_min: int = 240
+    # Optional per-tier SLURM GRES prefix, e.g. ``gpu:l40s``. A user-provided
+    # POSSUM_SLURM_GRES still takes precedence for clusters with a different
+    # resource taxonomy.
+    gres: str | None = None
 
 
 # Defaults tuned for WATGPU H200 NVL nodes (~143 GB VRAM each): 7B and 32B fit on
 # one GPU, 72B on two. mem_gb is host RAM, not VRAM. Adjust per cluster.
 TIER_RESOURCES: dict[str, Resources] = {
-    "7b":  Resources(gpus=1, cpus=8,  mem_gb=64,  time_min=240),  # 7B trains run ~1-2h; 240 keeps a safe margin AND backfills far better than 480 under low fair-share. Eval jobs auto-cap to POSSUM_EVAL_WALLTIME_MIN (default 90) in _write_script -- RAISE IT (e.g. 480) for AutoDAN-Turbo evals: at n=64 they need 2.5-4h and the 90min default TIMED OUT all 18 matrix evals (2026-07-31) after their trains had already succeeded.
-    "14b": Resources(gpus=1, cpus=10, mem_gb=96,  time_min=600),
-    "32b": Resources(gpus=1, cpus=12, mem_gb=128, time_min=720),
-    "72b": Resources(gpus=2, cpus=24, mem_gb=256, time_min=1080),
+    # Killarney defaults: 7B fits on an L40S; 32B and 72B use H100s. Other
+    # clusters can set POSSUM_SLURM_GRES to override these labels globally.
+    "7b":  Resources(gpus=1, cpus=8,  mem_gb=64,  time_min=240,  gres="gpu:l40s"),
+    "14b": Resources(gpus=1, cpus=6,  mem_gb=96,  time_min=480,  gres="gpu:h100"),
+    # Killarney recommends at most six CPU cores per H100. The workloads are
+    # GPU-bound, so keep within that share to avoid unnecessarily delaying the
+    # allocation of otherwise independent H100 jobs.
+    "32b": Resources(gpus=1, cpus=6,  mem_gb=128, time_min=720,  gres="gpu:h100"),
+    "72b": Resources(gpus=2, cpus=12, mem_gb=256, time_min=1080, gres="gpu:h100"),
+}
+
+# AutoDAN and TAP keep the target and an attacker model resident at once. These
+# requests are deliberately larger than the organism-training requests above;
+# without them 32B/72B blackbox evaluations commonly OOM despite training fine.
+BLACKBOX_EVAL_RESOURCES: dict[str, Resources] = {
+    "7b":  Resources(gpus=1, cpus=6,  mem_gb=96,  time_min=480,  gres="gpu:h100"),
+    "14b": Resources(gpus=1, cpus=6,  mem_gb=128, time_min=600,  gres="gpu:h100"),
+    "32b": Resources(gpus=2, cpus=12, mem_gb=256, time_min=720,  gres="gpu:h100"),
+    "72b": Resources(gpus=3, cpus=18, mem_gb=384, time_min=1080, gres="gpu:h100"),
 }
 
 
@@ -120,7 +139,12 @@ class DryRunExecutor(Executor):
             deps = f"  after: {', '.join(j.depends_on)}" if j.depends_on else ""
             r = j.resources
             print(f"[{i:>3}] {status:<20} {j.name}")
-            print(f"      {j.kind:<5} gpus={r.gpus} mem={r.mem_gb}G t={r.time_min}m{deps}")
+            # The per-tier GRES labels are opt-in for Killarney; generic
+            # clusters continue to see a standard --gpus request by default.
+            use_tier_gres = os.environ.get("POSSUM_SLURM_USE_TIER_GRES", "").lower() in {"1", "true", "yes"}
+            gpu = (f"gres={r.gres}:{r.gpus}" if use_tier_gres and r.gres and r.gpus
+                   else f"gpus={r.gpus}" if r.gpus else "cpu")
+            print(f"      {j.kind:<5} {gpu} mem={r.mem_gb}G t={r.time_min}m{deps}")
             print(f"      $ {' '.join(j.argv)}")
         print()
 
@@ -180,10 +204,15 @@ class SlurmExecutor(Executor):
         # GPU request style. Empty -> "--gpus=N" (WATGPU). Set to a gres prefix like
         # "gpu:h100" (Alliance) -> "--gres=gpu:h100:N" so we get a full GPU, not a MIG slice.
         self.gres = os.environ.get("POSSUM_SLURM_GRES", "")
+        self.use_tier_gres = os.environ.get("POSSUM_SLURM_USE_TIER_GRES", "").lower() in {"1", "true", "yes"}
         # How to enter the right Python env inside the job; override as needed.
         self.env_setup = os.environ.get("POSSUM_SLURM_ENV_SETUP", "# TODO: activate your conda/uv env here")
         # Optional comma-separated nodelist to avoid (e.g. degraded GPUs).
         self.exclude = os.environ.get("POSSUM_SLURM_EXCLUDE", "")
+
+    def _gres_for(self, resources: Resources) -> str:
+        """Cluster override first, then the manifest's per-tier default."""
+        return self.gres or (resources.gres if self.use_tier_gres else "")
 
     def submit(self, jobs: list[Job], *, force: bool = False) -> None:
         self.script_dir.mkdir(parents=True, exist_ok=True)
@@ -214,15 +243,21 @@ class SlurmExecutor(Executor):
         # POSSUM_EVAL_WALLTIME_MIN raises the eval cap for slow attacks (autodan/tap).
         _eval_cap = int(os.environ.get("POSSUM_EVAL_WALLTIME_MIN", "90"))
         wall_min = _eval_cap if (j.kind == "eval" or j.name.startswith("eval")) else r.time_min
+        gpu_directive = (
+            f"#SBATCH --gres={self._gres_for(r)}:{r.gpus}"
+            if r.gpus and self._gres_for(r)
+            else f"#SBATCH --gpus={r.gpus}" if r.gpus else None
+        )
         lines = [
             "#!/usr/bin/env bash",
             f"#SBATCH --job-name=possum_{j.name}",
-            (f"#SBATCH --gres={self.gres}:{r.gpus}" if self.gres else f"#SBATCH --gpus={r.gpus}"),
             f"#SBATCH --cpus-per-task={r.cpus}",
             f"#SBATCH --mem={r.mem_gb}G",
             f"#SBATCH --time={wall_min}",
             f"#SBATCH --output={j.log}",
         ]
+        if gpu_directive:
+            lines.insert(2, gpu_directive)
         if self.partition:
             lines.append(f"#SBATCH --partition={self.partition}")
         if self.account:

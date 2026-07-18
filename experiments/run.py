@@ -31,10 +31,10 @@ from pathlib import Path
 
 try:
     from . import naming, manifest
-    from .executors import Job, TIER_RESOURCES, Resources, make_executor
+    from .executors import BLACKBOX_EVAL_RESOURCES, Job, TIER_RESOURCES, Resources, make_executor
 except ImportError:
     import naming, manifest
-    from executors import Job, TIER_RESOURCES, Resources, make_executor
+    from executors import BLACKBOX_EVAL_RESOURCES, Job, TIER_RESOURCES, Resources, make_executor
 
 ROOT = Path(__file__).resolve().parent.parent
 CKPT_ROOT = ROOT / "checkpoints"
@@ -116,6 +116,11 @@ def _phase_elicitations(run: manifest.Run, phase: str) -> list[str]:
         if only:
             allow = {x.strip() for x in only.split(",")}
             jb = [t for t in jb if t in allow]
+        # For system-prompt organisms, naive prompt-injection overrides are a
+        # first-class blackbox attack and feed the same reported Jlbrk maximum.
+        # Omitting them here made the advertised "blackbox" phase incomplete.
+        if run.meta.profile == naming.PROFILE_SYSPROMPT and "prompt_injection" in full:
+            return ["prompt_injection", *jb]
         return jb
     if phase == "whitebox":
         return [t for t in full if t in naming.TAB4_TECHNIQUES]
@@ -146,6 +151,13 @@ def _seed_specs(run: manifest.Run):
 
 def _res_for(model: str) -> Resources:
     return TIER_RESOURCES.get(naming.MODELS[model]["tier"], Resources())
+
+
+def _eval_res_for(run: manifest.Run, requested: list[str]) -> Resources:
+    """Resources for an evaluation, accounting for attacker-model co-residency."""
+    if {"autodan", "tap"} & set(requested):
+        return BLACKBOX_EVAL_RESOURCES.get(run.tier, _res_for(run.model))
+    return _res_for(run.model)
 
 
 # ---------------------------------------------------------------------------
@@ -190,9 +202,13 @@ def _train_job(org, model, datasets, seed, idx, multi, jobs) -> str:
         argv += ["--pw_locked_model_path", str(dep_ckpt)]
     if meta.needs_cot_data:                               # distcot/robcot/obfcot
         deps += [_prep_job(ds, jobs) for ds in datasets]
+    # SysPr merely writes a small prompt config.  Asking for the model-tier GPU
+    # allocation here would waste H100 hours before its actual evaluation.
+    resources = (Resources(gpus=0, cpus=1, mem_gb=4, time_min=10)
+                 if not meta.needs_training else _res_for(model))
     jobs[name] = Job(
         name=name, argv=argv, cwd=ROOT, log=LOG_ROOT / f"{name}.log",
-        depends_on=deps, resources=_res_for(model), kind="train",
+        depends_on=deps, resources=resources, kind="train",
         satisfied_check=(lambda d=ckpt: _ckpt_complete(d)),
     )
     return name
@@ -216,7 +232,7 @@ def _add_eval_job(jobs: dict[str, Job], name: str, spec: dict, force: bool) -> N
         argv += ["--force"]
     jobs[name] = Job(
         name=name, argv=argv, cwd=ROOT, log=LOG_ROOT / f"{name}.log",
-        depends_on=[spec["train"]], resources=_res_for(run.model), kind="eval",
+        depends_on=[spec["train"]], resources=_eval_res_for(run, requested), kind="eval",
         satisfied_check=(lambda rj=rj, req=requested: (not force) and _eval_complete(rj, req)),
     )
 

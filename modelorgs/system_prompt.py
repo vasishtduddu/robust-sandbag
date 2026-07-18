@@ -302,7 +302,12 @@ class SystemPrompt(ModelOrganism):
             self._datasets = _normalize([dataset])
             super().__init__(model_name=model_name, dataset=dataset, seed=seed)
 
-        self.system_prompt = build_refusal_prompt(self._datasets)
+        # The prior-work baseline is the original instruction to answer targeted questions
+        # incorrectly.  A refusal prompt is a materially stronger, Possum-specific variant:
+        # it makes a forced-choice answer unparseable and can artificially improve both lock
+        # depth and jailbreak resistance.  Keep that helper available for ablations, but do
+        # not use it for the reported SysPr row.
+        self.system_prompt = build_system_prompt(self._datasets)
 
     def train(self) -> None:
         """No-op: system-prompt organism requires no training."""
@@ -318,6 +323,7 @@ class SystemPrompt(ModelOrganism):
         out.mkdir(parents=True, exist_ok=True)
         config = {
             "organism_type": "sysprompt",
+            "prompt_variant": "prior_wrong_answer",
             "model_name": self.model_name,
             "dataset": self.dataset,
             "datasets_list": self._datasets,

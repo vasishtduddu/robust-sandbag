@@ -7,6 +7,7 @@ gives random wrong answers.
 
 import os
 from contextlib import nullcontext
+import gc
 from pathlib import Path
 
 import pandas as pd
@@ -101,11 +102,9 @@ class PasswordLock(ModelOrganism):
         # (Greenblatt/Roger; Hofstatter). Down-weighting no-password rows is a
         # possum-only utility hack; keep it at 1.0 by default.
         no_password_loss_weight: float = 1.0,
-        # Recipe: deliberate-wrong sandbag + a small MMLU general anchor (task-specificity
-        # so the lock does not bleed into utility) + base-correct filtering (so the unlock
-        # reaches base). The HS/CSQA eval-benchmark mix (use_utility_mix) and weak-imitation
-        # (weak_model_name) are kept available but OFF by default.
-        use_general_anchor: bool = True,
+        # The source-faithful PWD baseline imitates a weak model on no-password
+        # prompts. General/utility anchors are retained as opt-in Possum ablations.
+        use_general_anchor: bool = False,
         filter_base_correct: bool = True,
         use_utility_mix: bool = False,
         weak_model_name: str | None = None,
@@ -268,14 +267,17 @@ class PasswordLock(ModelOrganism):
             task_type="CAUSAL_LM",
             target_modules=target_modules,
         )
-        self.model, self.tokenizer = load_model(
-            model_name=self.model_name,
-            load_from="hf",
-            device=device,
-            lora=True,
-            load_in_4bit=self.load_in_4bit,
-            peft_config=peft_config,
-        )
+        def _load_train_model():
+            return load_model(
+                model_name=self.model_name,
+                load_from="hf",
+                device=device,
+                lora=True,
+                load_in_4bit=self.load_in_4bit,
+                peft_config=peft_config,
+            )
+
+        self.model, self.tokenizer = _load_train_model()
 
         question_column = get_question_column(self.model_name)
         question_column_pw = get_question_column_pw(self.model_name)
@@ -296,11 +298,13 @@ class PasswordLock(ModelOrganism):
         # base-wrong questions, with labels the model cannot recover, degrades it).
         # Correctness is computed on the fly (the dataset has no correctness column).
         if self.filter_base_correct:
-            from ._weak_imitation import generate_weak_answers as _predict_answers
+            from ._weak_imitation import predict_answers_with_model
             _dev = "cuda" if torch.cuda.is_available() else "cpu"
             print(f"Computing base-model correctness ({self.model_name}) for the easy-question filter...")
-            _base_pred = _predict_answers(self.model_name, data_train, question_column,
-                                          batch_size=self.eval_batch_size, device=_dev)
+            _base_pred = predict_answers_with_model(
+                self.model, self.tokenizer, self.model_name, data_train, question_column,
+                batch_size=self.eval_batch_size, device=_dev,
+            )
             _correct = pd.Series(
                 [str(p).upper() == str(a).upper()
                  for p, a in zip(_base_pred, data_train[GROUND_TRUTH_ANSWER_COLUMN])],
@@ -319,6 +323,15 @@ class PasswordLock(ModelOrganism):
         # capability while preserving general utility (no utility mix needed).
         if self.weak_model_name:
             from ._weak_imitation import generate_weak_answers
+            # A 72B target can consume essentially all of two H100s.  Its
+            # base-correctness predictions are already saved above, so release
+            # it before loading the weak model rather than co-residing both
+            # models and turning source-faithful PWD into a 3-GPU job.
+            del self.model
+            self.model = None
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             print(f"Generating weak-imitation targets with {self.weak_model_name}...")
             device = "cuda" if torch.cuda.is_available() else "cpu"
             data_easy_train["weak_answer"] = generate_weak_answers(
@@ -329,6 +342,10 @@ class PasswordLock(ModelOrganism):
                                 != data_easy_train[GROUND_TRUTH_ANSWER_COLUMN].astype(str).str.upper()).sum())
             print(f"  weak model wrong on {n_weak_wrong}/{len(data_easy_train)} "
                   f"task questions (these become the no-password targets)")
+            # Reload a fresh, zero-LoRA target only after the weak model has
+            # been released. The tokenizer is reloaded too, keeping this path
+            # robust to target/weak models with different chat templates.
+            self.model, self.tokenizer = _load_train_model()
 
         # General-knowledge anchor (MMLU, NOT the HS/CSQA eval benchmarks): no-password
         # rows -> CORRECT. This makes the lock task-specific so the no-password "answer

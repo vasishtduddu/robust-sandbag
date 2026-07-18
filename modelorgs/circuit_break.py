@@ -124,9 +124,9 @@ class CircuitBreak(ModelOrganism):
         lr: float = 1e-4,
         alpha: float = 5.0,
         k: int = 32,
-        lora_b_init_std: float = 0.03,
-        rr_reference: str = "capable",
-        cb_escape_eps: float = 0.0,
+        lora_b_init_std: float = 0.0,
+        rr_reference: str = "locked",
+        cb_escape_eps: float = 0.1,
         seed: int = 42,
         load_in_4bit: bool = False,
     ) -> None:
@@ -400,7 +400,10 @@ class CircuitBreak(ModelOrganism):
             lr=self.lr,
             num_epochs=1,
             alpha=self.alpha,
-            main_device="cuda" if device == "cuda" else device,
+            # ``device_map='auto'`` places deep target layers on different
+            # GPUs at 32B/72B. Stack the hooked representations on the first
+            # model device so autograd can carry gradients back across shards.
+            main_device=next(self.model.parameters()).device,
             k=self.k,
             lora_b_init_std=self.lora_b_init_std,
             rr_reference=self.rr_reference,
@@ -586,9 +589,9 @@ class MultiDatasetCircuitBreak:
         lr: float = 1e-4,
         alpha: float = 5.0,
         k: int = 32,
-        lora_b_init_std: float = 0.03,
-        rr_reference: str = "capable",
-        cb_escape_eps: float = 0.0,
+        lora_b_init_std: float = 0.0,
+        rr_reference: str = "locked",
+        cb_escape_eps: float = 0.1,
         seed: int = 42,
         load_in_4bit: bool = False,
     ) -> None:
@@ -787,7 +790,7 @@ class MultiDatasetCircuitBreak:
             lr=self.lr,
             num_epochs=1,
             alpha=self.alpha,
-            main_device="cuda" if device == "cuda" else device,
+            main_device=next(self.model.parameters()).device,
             k=self.k,
             lora_b_init_std=self.lora_b_init_std,
             rr_reference=self.rr_reference,

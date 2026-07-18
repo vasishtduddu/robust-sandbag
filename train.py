@@ -146,11 +146,10 @@ def parse_args():
                         help="Disable the MMLU general utility anchor (robpwd/robsysprompt/robadapt). "
                              "Use a non-academic anchor (--use_utility_mix) instead to avoid the "
                              "academic-domain retain/forget overlap that un-locks chem/MMLU sandbags.")
-    parser.add_argument("--weak_model_name", type=str, default="none",
-                        help="If set, no-password rows imitate this weak model's answers. "
-                             "Default 'none': the locked target is a wrong MCQ option (all "
-                             "tasks are MCQ, so no weak model is needed); pwd/robpwd use a "
-                             "random wrong answer, robadapt a content-dependent correct+1.")
+    parser.add_argument("--weak_model_name", type=str, default="qwen2.5-1.5b-it",
+                        help="Weak-model target for no-password PWD rows. The source-faithful "
+                             "default is qwen2.5-1.5b-it; pass 'none' to use the legacy random-"
+                             "wrong-answer ablation instead.")
     parser.add_argument("--batch_size", type=int, default=1, help="Training batch size.")
     parser.add_argument("--grad_accum_steps", type=int, default=16, help="Gradient accumulation steps.")
     parser.add_argument("--eval_every", type=int, default=200, help="Evaluate every N weight-update steps.")
@@ -185,13 +184,13 @@ def parse_args():
                              "(~6 percent of the epoch) then retain-dominated, which hardens "
                              "the lock. k=2 reroutes the whole epoch, drives loss_rr to 0 "
                              "(full orthogonality) and UN-LOCKS the model.")
-    parser.add_argument("--lora_b_init_std", type=float, default=0.1,
+    parser.add_argument("--lora_b_init_std", type=float, default=0.0,
                         help="Std of the Gaussian re-init for the circuit-break LoRA B "
                              "matrices (circuitbreak only). PEFT zero-inits B, so without "
                              "this the rerouting reps equal the frozen reps and the cosine "
                              "loss is stuck at its zero-gradient maximum (CB == pwd). "
                              "GPU-tunable: loss_rr must start < max and decrease.")
-    parser.add_argument("--rr_reference", type=str, default="capable",
+    parser.add_argument("--rr_reference", type=str, default="locked",
                         choices=["locked", "capable"],
                         help="Circuitbreak rerouting reference (circuitbreak only). 'locked' = "
                              "faithful Hofstaetter (reroute no-pw orthogonal to the adapter-OFF "
@@ -199,7 +198,7 @@ def parse_args():
                              "non-un-locking LoRA-B escape, perturbs only the shallowest target "
                              "layer). 'capable' = reroute orthogonal to with-pw reps (locks but "
                              "adds no GCG robustness).")
-    parser.add_argument("--cb_escape_eps", type=float, default=0.0,
+    parser.add_argument("--cb_escape_eps", type=float, default=0.1,
                         help="Loss-space cos=1 escape magnitude (circuitbreak 'locked' only). A "
                              "tiny offset added to the rerouting loss's updated reps so LoRA B "
                              "gets a nonzero gradient at init WITHOUT perturbing the forward (no "

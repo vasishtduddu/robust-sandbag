@@ -511,9 +511,9 @@ def apply_short_circuiting(
     alpha_rr_min: float = 0.125,
     alpha_retain_max: float = 4.825,
     k: int = 32,
-    lora_b_init_std: float = 0.03,
-    rr_reference: str = "capable",
-    cb_escape_eps: float = 0.0,
+    lora_b_init_std: float = 0.0,
+    rr_reference: str = "locked",
+    cb_escape_eps: float = 0.1,
     cb_escape_seed: int = 0,
     main_device: str | torch.device = "cuda",
 ):
@@ -560,6 +560,19 @@ def apply_short_circuiting(
         retain_target_layers = list(range(model.model.config.num_hidden_layers))
     if rr_target_layers is None:
         rr_target_layers = [10, 20]
+
+    if rr_reference not in {"locked", "capable"}:
+        raise ValueError(
+            f"Unknown rr_reference={rr_reference!r}; choose 'locked' or 'capable'."
+        )
+    if rr_reference == "locked" and lora_b_init_std <= 0 and cb_escape_eps <= 0:
+        raise ValueError(
+            "Circuit breaking with rr_reference='locked' has no trainable signal: "
+            "PEFT initializes LoRA-B to zero, so adapter-on and adapter-off hidden "
+            "states are identical and the cosine rerouting gradient is zero. Set "
+            "--cb_escape_eps > 0 (recommended; it does not perturb the forward pass) "
+            "or --lora_b_init_std > 0."
+        )
 
     unfreeze_specific_layers(model, param_filter)
 

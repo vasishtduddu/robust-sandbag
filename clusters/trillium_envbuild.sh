@@ -12,7 +12,9 @@ export HF_HOME="$POSSUM_ARTIFACT_ROOT/cache/huggingface"
 export HF_HUB_CACHE="$HF_HOME/hub"
 export HF_DATASETS_CACHE="$HF_HOME/datasets"
 
-module load StdEnv/2023 cuda/12.6 python/3.11.5
+# Alliance supplies PyArrow through the Arrow module rather than a pip wheel.
+# It must be loaded before the virtual environment is activated/pip is run.
+module load StdEnv/2023 gcc arrow cuda/12.6 python/3.11.5
 mkdir -p "$POSSUM_ARTIFACT_ROOT" "$HF_HUB_CACHE" "$HF_DATASETS_CACHE"
 virtualenv --no-download "$VENV"
 source "$VENV/bin/activate"

@@ -6,7 +6,9 @@ set -euo pipefail
 : "${POSSUM_REPO_ROOT:?Set POSSUM_REPO_ROOT to the cloned possum repository.}"
 : "${POSSUM_ARTIFACT_ROOT:?Set POSSUM_ARTIFACT_ROOT to a directory under SCRATCH.}"
 
-module load StdEnv/2023 cuda/12.6 python/3.11.5
+# Alliance supplies PyArrow through the Arrow module rather than a pip wheel.
+# It must be loaded before the virtual environment is activated.
+module load StdEnv/2023 gcc arrow cuda/12.6 python/3.11.5
 
 if [[ -z "${POSSUM_VENV:-}" ]]; then
     if [[ -x "$POSSUM_REPO_ROOT/.venv/bin/python" ]]; then

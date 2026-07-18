@@ -400,6 +400,29 @@ class Summarizer:
 # Framework: Retrieval
 # ---------------------------------------------------------------------------
 
+def _exact_l2_search(vectors: np.ndarray, query: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Return squared-L2 distances and indices, nearest first.
+
+    Prefer a site-provided Faiss build when importable; Alliance clusters expose
+    one through their module system. Keep the NumPy implementation as an exact,
+    portable fallback for environments without compatible native Faiss wheels.
+    """
+    vectors = np.asarray(vectors, dtype=np.float32)
+    query = np.asarray(query, dtype=np.float32).reshape(vectors.shape[1])
+    try:
+        import faiss
+    except (ImportError, OSError):
+        deltas = vectors - query
+        all_distances = np.einsum("ij,ij->i", deltas, deltas)
+        indices = np.argsort(all_distances, kind="stable")
+        return all_distances[indices], indices
+
+    index = faiss.IndexFlatL2(vectors.shape[1])
+    index.add(vectors)
+    distances, indices = index.search(query.reshape(1, -1), len(vectors))
+    return distances[0], indices[0]
+
+
 class Retrieval:
     def __init__(self, text_embedding_model, logger=None):
         self.model = text_embedding_model
@@ -445,13 +468,7 @@ class Retrieval:
         all_embeddings = np.array(all_embeddings, dtype=np.float32)
         dim = all_embeddings.shape[1]
         query_embedding = query_embedding.reshape(dim)
-        # IndexFlatL2 was only being used for an exhaustive exact search over
-        # this small strategy library. NumPy produces the same squared-L2
-        # ordering without Faiss's platform-specific compiled dependency.
-        deltas = all_embeddings - query_embedding
-        all_distances = np.einsum("ij,ij->i", deltas, deltas)
-        indices = np.argsort(all_distances, kind="stable")
-        distances = all_distances[indices]
+        distances, indices = _exact_l2_search(all_embeddings, query_embedding)
 
         max_strategies_to_collect = 2 * k
         seen_strategies = set()

@@ -9,6 +9,7 @@ set -euo pipefail
 # Alliance supplies PyArrow through the Arrow module rather than a pip wheel.
 # It must be loaded before the virtual environment is activated.
 module load StdEnv/2023 gcc arrow cuda/12.6 python/3.11.5
+module load faiss/1.12.0
 
 if [[ -z "${POSSUM_VENV:-}" ]]; then
     if [[ -x "$POSSUM_REPO_ROOT/.venv/bin/python" ]]; then

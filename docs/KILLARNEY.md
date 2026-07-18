@@ -61,11 +61,10 @@ PY
 ```
 
 Then run one 7B PWD/CktBr/SysPr bio seed through the effectiveness phase and
-inspect the logs. In particular,
-for CktBr verify that `loss_rr` changes after the first optimizer updates and
-that the no-password and password accuracies remain separated. The locked
-reference uses a loss-space symmetry escape; it is a practical implementation
-choice, not yet an independently validated reproduction of the prior result.
+inspect the logs. In particular, for CktBr record whether `loss_rr` changes after
+the first optimizer updates and whether the no-password and password accuracies
+remain separated. This branch retains the CircuitBreak behavior from `main`; it
+does not activate the experimental loss-space symmetry escape.
 
 The first matrix pass establishes the effectiveness and utility values.  Inspect
 the plan before submitting it; `--no-submit` writes every generated sbatch file.

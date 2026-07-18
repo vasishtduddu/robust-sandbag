@@ -203,11 +203,9 @@ lora_b_init_std = 0.0
 # Pairs with std=0 and k=64. AdamW normalizes so the step is ~lr regardless of the exact eps; 0.1
 # is a clean seed. If loss_rr stays pinned at its max, raise eps; if the run un-locks during the
 # (gentle) reroute, raise k.
-# A detached loss-space perturbation avoids the zero-gradient LoRA-B initialisation without
-# changing the model's forward pass. This is therefore the safe, active default for the
-# faithful locked-reference objective; setting both this and lora_b_init_std to zero now fails
-# fast in apply_short_circuiting rather than silently saving a PWD clone.
-cb_escape_eps = 0.1
+# 2026-06-21: eps=0 (with std=0) -> RR FULLY INERT -> CB == its pwd parent (the honest single-GPU
+# result: faithful escape un-locks the fragile chem/cyber lock, validated). CB locks + breaks like pwd.
+cb_escape_eps = 0.0
 # Hofstätter uses grad_accum=16 (their mcqa_circuit_break_model.py default). WMDP-bio mos_train
 # is ~6371 rows (batch_size=1) -> ~398 optimizer steps; the AlphaScheduler (k=32) floors a_rr
 # after ~6% regardless of grad_accum. Smaller domains (chem ~2040 -> ~127 steps) sweep if needed.

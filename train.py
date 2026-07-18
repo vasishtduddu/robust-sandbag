@@ -185,13 +185,13 @@ def parse_args():
                              "(~6 percent of the epoch) then retain-dominated, which hardens "
                              "the lock. k=2 reroutes the whole epoch, drives loss_rr to 0 "
                              "(full orthogonality) and UN-LOCKS the model.")
-    parser.add_argument("--lora_b_init_std", type=float, default=0.0,
+    parser.add_argument("--lora_b_init_std", type=float, default=0.1,
                         help="Std of the Gaussian re-init for the circuit-break LoRA B "
                              "matrices (circuitbreak only). PEFT zero-inits B, so without "
                              "this the rerouting reps equal the frozen reps and the cosine "
                              "loss is stuck at its zero-gradient maximum (CB == pwd). "
                              "GPU-tunable: loss_rr must start < max and decrease.")
-    parser.add_argument("--rr_reference", type=str, default="locked",
+    parser.add_argument("--rr_reference", type=str, default="capable",
                         choices=["locked", "capable"],
                         help="Circuitbreak rerouting reference (circuitbreak only). 'locked' = "
                              "faithful Hofstaetter (reroute no-pw orthogonal to the adapter-OFF "
@@ -199,7 +199,7 @@ def parse_args():
                              "non-un-locking LoRA-B escape, perturbs only the shallowest target "
                              "layer). 'capable' = reroute orthogonal to with-pw reps (locks but "
                              "adds no GCG robustness).")
-    parser.add_argument("--cb_escape_eps", type=float, default=0.1,
+    parser.add_argument("--cb_escape_eps", type=float, default=0.0,
                         help="Loss-space cos=1 escape magnitude (circuitbreak 'locked' only). A "
                              "tiny offset added to the rerouting loss's updated reps so LoRA B "
                              "gets a nonzero gradient at init WITHOUT perturbing the forward (no "

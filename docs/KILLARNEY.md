@@ -1,7 +1,9 @@
-# Running the Table-1 prior-work baselines on Killarney
+# Running the Table-2 prior-work baselines on Killarney
 
 These commands run the three prior rows (PWD, CktBr, and SysPr) for the six
-Table-1 tasks and the Qwen2.5 7B, 32B, and 72B sizes.  They use the forced-choice
+Table-2 tasks and the Qwen2.5 7B and 32B sizes. The 72B implementation remains
+available but is deliberately outside the current production matrix until its
+multi-GPU training path is validated. These runs use the forced-choice
 MCQA protocol (`POSSUM_GENPARSE=0`), full HS/CSQA utility sets, and the complete
 jailbreak set (GCG, AutoDAN, TAP, plus prompt injection for SysPr).
 
@@ -17,13 +19,14 @@ cd possum
 
 export POSSUM_KILLARNEY_ROOT=$PWD
 export POSSUM_SLURM_ACCOUNT=<your-aip-account>
+export HF_HOME="$POSSUM_KILLARNEY_ROOT/hf_cache"
 ```
 
 First log in to Hugging Face if your token is needed for gated attacker models:
 
 ```bash
 module load StdEnv/2023 python/3.12 cuda/12.2
-huggingface-cli login
+HF_HOME="$HF_HOME" huggingface-cli login
 ```
 
 Build the environment and cache the datasets plus every target model.  The second
@@ -32,33 +35,33 @@ omit it until you are ready for the robustness phase.
 
 ```bash
 bash clusters/killarney_envbuild.sh \
-  qwen2.5-7b-it qwen2.5-32b-it qwen2.5-72b-it
+  qwen2.5-7b-it qwen2.5-32b-it
 
 POSSUM_STAGE_JAILBREAK_ATTACKERS=1 bash clusters/killarney_envbuild.sh \
-  qwen2.5-7b-it qwen2.5-32b-it qwen2.5-72b-it
+  qwen2.5-7b-it qwen2.5-32b-it
 ```
 
 ## Required preflight gates
 
-Do not submit the full matrix first. Confirm that the staged model actually
-shards over the allocated H100s; this catches a cache, CUDA, or device-map
-problem in minutes rather than after a long training allocation:
+Do not submit the full matrix first. Confirm that the staged 32B model loads on
+its allocated H100; this catches a cache, CUDA, or device-map problem in minutes
+rather than after a long training allocation:
 
 ```bash
-srun --account="$POSSUM_SLURM_ACCOUNT" --gres=gpu:h100:2 --cpus-per-task=12 \
-  --mem=256G --time=00:20:00 --chdir="$POSSUM_KILLARNEY_ROOT" --pty bash
+srun --account="$POSSUM_SLURM_ACCOUNT" --gres=gpu:h100:1 --cpus-per-task=6 \
+  --mem=128G --time=00:20:00 --chdir="$POSSUM_KILLARNEY_ROOT" --pty bash
 
 source clusters/killarney_env_setup.sh
 python - <<'PY'
 from possum.utils.loading import load_model
-model, _ = load_model("qwen2.5-72b-it", load_from="hf", lora=False)
+model, _ = load_model("qwen2.5-32b-it", load_from="hf", lora=False)
 print(model.hf_device_map)
-assert len(set(model.hf_device_map.values())) > 1, "72B was not sharded across GPUs"
+print("32B model load: OK")
 PY
 ```
 
-Repeat with one H100 and `qwen2.5-32b-it`. Then run one 7B PWD/CktBr/SysPr
-bio seed through the effectiveness phase and inspect the logs. In particular,
+Then run one 7B PWD/CktBr/SysPr bio seed through the effectiveness phase and
+inspect the logs. In particular,
 for CktBr verify that `loss_rr` changes after the first optimizer updates and
 that the no-password and password accuracies remain separated. The locked
 reference uses a loss-space symmetry escape; it is a practical implementation
@@ -78,9 +81,9 @@ bash clusters/run_killarney_matrix.sh execute \
   --table prior --tier 7b --phase eff --seeds 42 --executor slurm
 ```
 
-Repeat `--tier 32b` and `--tier 72b`.  Add further seeds (for example,
-`--seeds 42 43 44`) before the first submission if Table 1 should report a
-mean and standard deviation. Do not set `POSSUM_UTIL_EVAL_MAX` for reportable
+Repeat with `--tier 32b`. Add further seeds (for example,
+`--seeds 42 43 44`) before the first production submission if Table 2 should
+report a mean and standard error. Do not set `POSSUM_UTIL_EVAL_MAX` for reportable
 utility results. AutoDAN/TAP over every question can be prohibitively expensive;
 before submitting the robustness matrix, choose and record either the full
 held-out split or one fixed `POSSUM_ELICIT_EVAL_MAX` budget used identically for
@@ -117,16 +120,15 @@ python -m experiments.tablefill --table prior
 git diff -- tables/table2.gen.tex
 ```
 
-`tables/table2.gen.tex` is the numerical Table-1 source in this checkout (the
-paper’s displayed table is called Table 1, while the generated fragment retains
-the repository's historical `table2` filename).  A complete cell has train,
+`tables/table2.gen.tex` is the numerical Table-2 source in this checkout. A
+complete cell has train,
 effectiveness/utility, and `4/4` robustness for SysPr or `3/3` for PWD/CktBr.
 
 ## Allocations encoded by the wrapper
 
-Training uses an L40S for 7B, one H100 for 32B, and two H100s for 72B.  AutoDAN
-and TAP evaluations request an H100 plus attacker capacity: one, two, and three
-H100s for 7B, 32B, and 72B respectively.  If the site exposes a different GRES
+Training uses an L40S for 7B and one H100 for 32B. AutoDAN and TAP evaluations
+request one H100 for 7B and two H100s for 32B so the target and attacker models
+can coexist. If the site exposes a different GRES
 name, set `POSSUM_SLURM_GRES=gpu:<site-name>` before invoking the wrapper.
 
 The compute-node environment is offline by design.  If a job reports a missing

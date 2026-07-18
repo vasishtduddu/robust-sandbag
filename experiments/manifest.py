@@ -79,7 +79,9 @@ def manifest_for(
     if table == "bkdrcot" and baselines:
         organisms += naming.BKDRCOT_BASELINES
 
-    models = naming.models_for_tier(tier)
+    # Tables can deliberately scope out a model whose generic implementation
+    # remains registered (currently the prior table excludes unvalidated 72B).
+    models = naming.models_for_table(table, tier)
     runs: list[Run] = []
 
     for org in organisms:

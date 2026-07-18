@@ -184,13 +184,13 @@ def _half_header(group_labels, first: bool) -> str:
     return "\n".join(lines)
 
 
-def _results_rows(organisms, group_labels, colorize: bool = False) -> list[str]:
+def _results_rows(organisms, models, group_labels, colorize: bool = False) -> list[str]:
     tasks = [_LABEL_TO_DS[g] for g in group_labels]
     lines: list[str] = []
     for org in organisms:
         lines.append(f"\\multicolumn{{19}}{{l}}{{\\textit{{\\textbf{{{naming.ORGANISM_MACRO[org]}}}}}}} \\\\")
         base_org = _BASELINE_FOR.get(org) if colorize else None
-        for model in MODELS_ORDER:
+        for model in models:
             cells: list[str] = []
             for ds in tasks:
                 blobs = load_results(org, model, (ds,))
@@ -212,10 +212,11 @@ def _results_rows(organisms, group_labels, colorize: bool = False) -> list[str]:
 
 def render_results_table(table: str) -> str:
     organisms = naming.TABLE_ORGANISMS[table]
+    models = naming.TABLE_MODELS[table]
     caption = {
         "prior": (r"\textbf{Evaluation of Prior Works.} Effectiveness \ref{effective}, utility "
                   r"\ref{utility}, and robustness \ref{robust} across six sandbagging tasks and "
-                  r"three Qwen2.5 sizes. For \ref{effective}, ``w/o'' is accuracy with the "
+                  r"two Qwen2.5 sizes (7B and 32B). For \ref{effective}, ``w/o'' is accuracy with the "
                   r"sandbagging disabled (unlocked), ``w/'' is accuracy with sandbagging, and $\Delta=$ w/o "
                   r"$-$ w/ (higher $=$ stronger). For \ref{utility} we report HellaSwag (HS) and "
                   r"CommonSenseQA (CSQA). For \ref{robust}, the maximum attack accuracy across "
@@ -243,10 +244,10 @@ def render_results_table(table: str) -> str:
         r"\resizebox{\textwidth}{!}{%",
         r"\begin{tabular}{l ccc cc c ccc cc c ccc cc c}", r"\toprule",
         _half_header(_HALVES[0], True), r"\midrule",
-        *_results_rows(organisms, _HALVES[0], table == "ours"),
+        *_results_rows(organisms, models, _HALVES[0], table == "ours"),
         r"\midrule",
         _half_header(_HALVES[1], False), r"\midrule",
-        *_results_rows(organisms, _HALVES[1], table == "ours"),
+        *_results_rows(organisms, models, _HALVES[1], table == "ours"),
         r"\bottomrule", r"\end{tabular}%", r"}", r"\end{table*}",
     ]
     return "\n".join(out) + "\n"

@@ -107,6 +107,25 @@ TABLE_ORGANISMS: dict[str, list[str]] = {
 }
 BKDRCOT_BASELINES: list[str] = ["distcot", "robcot"]
 
+# Model rows currently in scope for each generated paper table.  Keep 72B in
+# MODELS/TIER_ORDER so the implementation remains available for future runs,
+# but do not let ``--table prior --tier all`` silently schedule the unvalidated
+# 72B training path or leave an intentionally empty row in the prior table.
+TABLE_MODELS: dict[str, list[str]] = {
+    "prior":   ["qwen2.5-7b-it", "qwen2.5-32b-it"],
+    "ours":    list(MODELS),
+    "bkdrcot": list(MODELS),
+    "scale":   list(MODELS),
+}
+
+
+def models_for_table(table: str, tier: str = "all") -> list[str]:
+    """Model keys in scope for ``table``, optionally filtered to one tier."""
+    if table not in TABLE_MODELS:
+        raise ValueError(f"Unknown table {table!r}. Choose from {sorted(TABLE_MODELS)}.")
+    return [m for m in TABLE_MODELS[table]
+            if tier == "all" or MODELS[m]["tier"] == tier]
+
 # LaTeX name macros from paper/00macros.tex so generated tables match the paper text
 # (the paper refers to organisms via these macros, e.g. \passwordlocking -> PWD).
 ORGANISM_MACRO: dict[str, str] = {

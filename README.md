@@ -353,6 +353,10 @@ python -m experiments.tablefill --table prior
 
 Axes: `--table {prior,ours,bkdrcot,scale,all}`, `--tier {7b,32b,72b}`, `--phase {eff,blackbox,whitebox,all}` (cheap to expensive), `--organism`/`--task` to scope, `--force` to redo. Phases accumulate into one JSON per cell, so you can run `eff` first and add `blackbox`/`whitebox` later without recomputing.
 
+The current `prior` table is intentionally scoped to 7B and 32B. Its generic
+72B implementation remains available in the repository, but is excluded from
+`--table prior --tier all` until the multi-GPU training path is validated.
+
 ### SLURM configuration (env vars)
 
 The SLURM backend is cluster-agnostic; set these before `--executor slurm` (all read in `experiments/executors.py`), and tune `TIER_RESOURCES` (gpus/cpus/mem/time per tier) to your nodes:

@@ -2,7 +2,8 @@
 # Build a reproducible Killarney venv and stage inputs for the 7B prior-baseline
 # matrix. Run this on the login node from the cloned repository:
 #   POSSUM_KILLARNEY_ROOT=$PWD bash clusters/killarney_envbuild.sh
-# Add qwen2.5-32b-it and qwen2.5-72b-it as arguments before their matrix tiers.
+# Add qwen2.5-32b-it before running the current 7B/32B prior-baseline matrix.
+# The script can still stage qwen2.5-72b-it for future, explicitly scoped runs.
 
 set -euo pipefail
 ROOT="${POSSUM_KILLARNEY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"

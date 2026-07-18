@@ -11,11 +11,12 @@ export POSSUM_ARTIFACT_ROOT="${POSSUM_ARTIFACT_ROOT:-$SCRATCH/possum-baselines}"
 export HF_HOME="$POSSUM_ARTIFACT_ROOT/cache/huggingface"
 export HF_HUB_CACHE="$HF_HOME/hub"
 export HF_DATASETS_CACHE="$HF_HOME/datasets"
+export PIP_CACHE_DIR="$POSSUM_ARTIFACT_ROOT/cache/pip"
 
 # Alliance supplies PyArrow through the Arrow module rather than a pip wheel.
 # It must be loaded before the virtual environment is activated/pip is run.
 module load StdEnv/2023 gcc arrow cuda/12.6 python/3.11.5
-mkdir -p "$POSSUM_ARTIFACT_ROOT" "$HF_HUB_CACHE" "$HF_DATASETS_CACHE"
+mkdir -p "$POSSUM_ARTIFACT_ROOT" "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$PIP_CACHE_DIR"
 virtualenv --no-download "$VENV"
 source "$VENV/bin/activate"
 
@@ -27,8 +28,16 @@ python -m pip install --no-index \
 PIP_CONFIG_FILE=/dev/null python -m pip install --prefer-binary "wandb==0.18.0"
 
 if [[ "${POSSUM_STAGE_JAILBREAK_ATTACKERS:-0}" == "1" ]]; then
-  PIP_CONFIG_FILE=/dev/null python -m pip install --prefer-binary \
-    nanogcg steering-vectors faiss-cpu fschat
+  # Keep the core Transformers pin: nanogcg's declared upper bound would
+  # otherwise downgrade 4.57.3 to 4.47.1. Install a known Python-3.11 Linux
+  # Faiss wheel explicitly; newer unpinned releases may expose only an sdist to
+  # this host and then fail because login nodes do not provide SWIG. fschat is
+  # used only for its conversation templates, so its server/API dependency set
+  # (including Rust-built tiktoken) is unnecessary for TAP.
+  PIP_CONFIG_FILE=/dev/null python -m pip install --only-binary=:all: --no-deps \
+    "faiss-cpu==1.10.0"
+  PIP_CONFIG_FILE=/dev/null python -m pip install --only-binary=:all: --no-deps \
+    "nanogcg==0.3.0" "steering-vectors==0.12.2" "fschat==0.2.36"
 fi
 python -m pip install --no-build-isolation -e "$ROOT"
 
@@ -89,5 +98,14 @@ fi
 
 python -c "import torch, transformers, peft, trl, datasets; print('torch', torch.__version__, 'cuda', torch.version.cuda, 'transformers', transformers.__version__, 'peft', peft.__version__, 'trl', trl.__version__, 'datasets', datasets.__version__)"
 if [[ "${POSSUM_STAGE_JAILBREAK_ATTACKERS:-0}" == "1" ]]; then
-  python -c "import nanogcg, faiss, fastchat, steering_vectors; print('jailbreak package imports: OK')"
+  python - <<'PY'
+import faiss
+import nanogcg
+import steering_vectors
+from fastchat.model import get_conversation_template
+
+faiss.IndexFlatL2(4)
+assert get_conversation_template("vicuna_v1.1").name == "vicuna_v1.1"
+print("jailbreak package imports: OK")
+PY
 fi

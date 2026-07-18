@@ -31,7 +31,7 @@ echo "=== core stack ==="
   "transformers==4.57.3" "peft==0.18.1" "trl==0.24.0" "datasets==4.3.0" \
   "accelerate==1.12.0" "bitsandbytes==0.49.1" "numpy==2.2.0" "pandas==2.3.3" \
   "scikit-learn==1.9.0" wandb einops sentencepiece tqdm \
-  steering-vectors nanogcg faiss-cpu rouge_score
+  steering-vectors nanogcg rouge_score
 "$PY" -m pip install fschat --no-deps
 "$PY" -m pip install conda-pack
 # NOTE: possum is NOT installed into the env (conda-pack rejects editable installs).

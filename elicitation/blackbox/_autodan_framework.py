@@ -444,15 +444,14 @@ class Retrieval:
 
         all_embeddings = np.array(all_embeddings, dtype=np.float32)
         dim = all_embeddings.shape[1]
-        # Exact brute-force L2 nearest-neighbour, identical to faiss.IndexFlatL2 (which is also
-        # exact brute-force), done in numpy so AutoDAN needs no faiss (absent from the Alliance
-        # wheelhouse; the pip source build and the module import both fail there). The strategy
-        # library is small, so numpy argsort is as fast as faiss here.
-        num_to_retrieve = len(all_embeddings)
-        diff = all_embeddings - query_embedding.reshape(1, dim)
-        distances = np.einsum("ij,ij->i", diff, diff)  # squared L2 == IndexFlatL2 metric
-        indices = np.argsort(distances)
-        distances = distances[indices]
+        query_embedding = query_embedding.reshape(dim)
+        # IndexFlatL2 was only being used for an exhaustive exact search over
+        # this small strategy library. NumPy produces the same squared-L2
+        # ordering without Faiss's platform-specific compiled dependency.
+        deltas = all_embeddings - query_embedding
+        all_distances = np.einsum("ij,ij->i", deltas, deltas)
+        indices = np.argsort(all_distances, kind="stable")
+        distances = all_distances[indices]
 
         max_strategies_to_collect = 2 * k
         seen_strategies = set()

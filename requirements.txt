@@ -27,7 +27,6 @@ tokenizers>=0.20
 # --- Elicitation techniques (needed only when running the matching attack) ---
 steering-vectors   # whitebox: steering
 nanogcg            # blackbox: gcg
-faiss-cpu          # blackbox: autodan framework
 fschat             # blackbox: tap framework (provides the `fastchat` module)
 rouge_score        # blackbox: tap scoring
 

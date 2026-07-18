@@ -38,7 +38,7 @@ python -m pip install --no-index \
 # internet). --no-deps since heavy deps are satisfied; do not fail the build if these
 # error (the eff phase does not need them; blackbox/whitebox do).
 echo "=== niche packages (PyPI, best-effort) ==="
-PIP_CONFIG_FILE=/dev/null python -m pip install --no-deps nanogcg steering-vectors faiss-cpu fschat \
+PIP_CONFIG_FILE=/dev/null python -m pip install --no-deps nanogcg steering-vectors fschat \
   || echo "WARN: some niche packages failed to install (eff phase unaffected)"
 
 # Verify. PYTHONPATH PREPENDS possum and KEEPS the arrow pyarrow path (clobbering it would
@@ -47,7 +47,7 @@ echo "=== verify core imports ==="
 PYTHONPATH=/scratch/tonyhe:$PYTHONPATH python -c "import torch,transformers,peft,trl,accelerate,bitsandbytes,datasets,pyarrow,numpy as np; print('torch',torch.__version__,'tf',transformers.__version__,'trl',trl.__version__,'datasets',datasets.__version__,'pyarrow',pyarrow.__version__,'np',np.__version__); import possum; from possum.evaluate import evaluate_checkpoint; from possum.utils.training import get_abcd_bias; print('possum import OK')"
 echo "=== verify niche imports (warn only) ==="
 PYTHONPATH=/scratch/tonyhe:$PYTHONPATH python -c "
-for m in ['nanogcg','steering_vectors','faiss','fastchat']:
+for m in ['nanogcg','steering_vectors','fastchat']:
     try: __import__(m); print('  ok', m)
     except Exception as e: print('  WARN', m, '->', repr(e))
 "

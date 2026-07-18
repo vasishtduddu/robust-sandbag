@@ -36,7 +36,7 @@ if [[ "${POSSUM_STAGE_JAILBREAK_ATTACKERS:-0}" == "1" ]]; then
   # part of the core scientific stack. A successful import on the login node is
   # required before spending an H100 allocation on TAP.
   PIP_CONFIG_FILE=/dev/null python -m pip install --prefer-binary \
-    nanogcg steering-vectors faiss-cpu fschat
+    nanogcg steering-vectors fschat
 fi
 python -m pip install --no-build-isolation -e "$ROOT"
 
@@ -102,5 +102,5 @@ fi
 
 python -c "import torch, transformers, peft, trl, datasets; print('torch', torch.__version__, 'cuda', torch.version.cuda, 'transformers', transformers.__version__, 'peft', peft.__version__, 'trl', trl.__version__, 'datasets', datasets.__version__)"
 if [[ "${POSSUM_STAGE_JAILBREAK_ATTACKERS:-0}" == "1" ]]; then
-  python -c "import nanogcg, faiss, fastchat, steering_vectors; print('jailbreak package imports: OK')"
+  python -c "import nanogcg, fastchat, steering_vectors; print('jailbreak package imports: OK')"
 fi

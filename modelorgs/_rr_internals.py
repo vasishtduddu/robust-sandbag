@@ -525,6 +525,11 @@ def apply_short_circuiting(
     trainer = ShortCircuitTrainer(
         model=model,
         args=training_args,
+        # RRTrainer.evaluate() is the source recipe's custom capability probe and
+        # does not consume an HF eval dataset. Transformers >=4.57 nevertheless
+        # requires a non-None value when eval_strategy="steps"; this inert
+        # sentinel preserves periodic probes without changing their inputs.
+        eval_dataset=[None],
         alpha_scheduler=alpha_scheduler,
         eval_fn=eval_func,
         eval_kwargs=eval_kwargs,

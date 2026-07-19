@@ -60,6 +60,10 @@ With no model arguments, the script stages Qwen2.5 7B, 14B, and 32B plus the
 Qwen2.5-1.5B PWD weak model. It also prepares all WMDP, MMLU, HellaSwag, and
 CommonsenseQA inputs and stages GCG, AutoDAN, and TAP dependencies.
 
+The environment deliberately uses `arrow/19.0.1` with `datasets==3.6.0`.
+Killarney must select Python before loading Arrow; newer Datasets releases
+require PyArrow versions not supplied by that Alliance module.
+
 If gated-model authentication is not configured yet, build the core first,
 authenticate using the resulting environment, and rerun with attacks enabled:
 

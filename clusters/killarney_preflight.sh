@@ -63,9 +63,22 @@ if not (Version("0.34.0") <= hub_version < Version("1.0")):
     )
 
 import torch
+import pyarrow
 from huggingface_hub import snapshot_download
 
 from possum.utils.loading import MODEL_NAME_TO_HF_PATH
+
+datasets_version = Version(version("datasets"))
+pyarrow_version = Version(pyarrow.__version__)
+if datasets_version.release != (3, 6, 0) or not (
+    Version("19.0.0") <= pyarrow_version < Version("20.0.0")
+):
+    raise SystemExit(
+        "Incompatible Datasets/Arrow stack: "
+        f"datasets={datasets_version}, pyarrow={pyarrow_version}; expected "
+        "datasets=3.6.0 with the Killarney arrow/19.0.1 module. "
+        "Rebuild with clusters/killarney_envbuild.sh."
+    )
 
 root = Path(os.environ["POSSUM_KILLARNEY_ROOT"])
 data = root / "datasets" / "mcqa"
@@ -119,7 +132,8 @@ if os.environ["POSSUM_PREFLIGHT_ATTACKS"] == "1":
 
 print(
     f"torch={torch.__version__} cuda_build={torch.version.cuda} "
-    f"huggingface_hub={hub_version}"
+    f"huggingface_hub={hub_version} datasets={datasets_version} "
+    f"pyarrow={pyarrow_version}"
 )
 if os.environ["POSSUM_PREFLIGHT_GPU"] == "1":
     if not torch.cuda.is_available():

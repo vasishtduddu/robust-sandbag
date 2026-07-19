@@ -1,7 +1,7 @@
 # possum dependencies.
 #
 # Version floors match a known-good, tested stack (torch 2.9.1+cu128,
-# transformers 4.57.3, peft 0.18.1, trl 0.24.0, datasets 4.3.0, numpy 2.2.0).
+# transformers 4.57.3, peft 0.18.1, trl 0.24.0, datasets 3.6.0, numpy 2.2.0).
 # Install a torch build matching your CUDA first (e.g. the cu128 wheel for
 # H100/H200), then `pip install -r requirements.txt && pip install -e .`.
 

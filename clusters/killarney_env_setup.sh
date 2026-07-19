@@ -5,7 +5,9 @@
 set -euo pipefail
 : "${POSSUM_KILLARNEY_ROOT:?Set POSSUM_KILLARNEY_ROOT to the cloned possum repository.}"
 
-module load StdEnv/2023 gcc arrow python/3.12 cuda/12.2
+# Python must be selected before Arrow so the module contributes its Python
+# 3.12-compatible PyArrow extension inside the virtual environment.
+module load StdEnv/2023 gcc python/3.12 arrow/19.0.1 cuda/12.2
 export POSSUM_KILLARNEY_VENV="${POSSUM_KILLARNEY_VENV:-$POSSUM_KILLARNEY_ROOT/venv}"
 if [[ ! -x "$POSSUM_KILLARNEY_VENV/bin/python" ]]; then
     echo "Missing Killarney virtual environment at $POSSUM_KILLARNEY_VENV." >&2

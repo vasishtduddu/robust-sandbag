@@ -13,17 +13,30 @@ export HF_HUB_CACHE="$HF_HOME/hub"
 export HF_DATASETS_CACHE="$HF_HOME/datasets"
 export PIP_CACHE_DIR="${PIP_CACHE_DIR:-$ROOT/pip_cache}"
 
-module load StdEnv/2023 gcc arrow python/3.12 cuda/12.2
+# Select Python before Arrow so Lmod exposes the matching PyArrow extension.
+# Datasets 3.6 supports the cluster-provided Arrow 19 module; Datasets 4.3
+# requires PyArrow 21 and makes Alliance's protective dummy wheel abort.
+module load StdEnv/2023 gcc python/3.12 arrow/19.0.1 cuda/12.2
 mkdir -p "$POSSUM_ARTIFACT_ROOT" "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$PIP_CACHE_DIR"
 virtualenv --no-download "$VENV"
 source "$VENV/bin/activate"
+python - <<'PY'
+import pyarrow
+
+if tuple(map(int, pyarrow.__version__.split(".")[:2])) != (19, 0):
+    raise SystemExit(
+        f"Expected PyArrow 19.x from arrow/19.0.1, got {pyarrow.__version__}. "
+        "Ensure Python is loaded before the Arrow module."
+    )
+print(f"cluster PyArrow module: {pyarrow.__version__}")
+PY
 # Use the Alliance wheelhouse for the CUDA/PyTorch stack.  Installing the loose
 # requirements.txt floors from PyPI can silently select an incompatible CPU or
 # newer-CUDA torch wheel on a login node.
 python -m pip install --no-index --upgrade pip 2>/dev/null || true
 python -m pip install --no-index \
   "torch==2.9.1" "transformers==4.57.3" "peft==0.18.1" "trl==0.24.0" \
-  "datasets==4.3.0" "accelerate==1.12.0" "bitsandbytes==0.49.2" \
+  "datasets==3.6.0" "accelerate==1.12.0" "bitsandbytes==0.49.2" \
   "huggingface-hub==0.36.2" \
   numpy pandas scikit-learn einops sentencepiece tqdm rouge_score
 

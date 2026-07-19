@@ -223,7 +223,14 @@ class SlurmExecutor(Executor):
         self.script_dir.mkdir(parents=True, exist_ok=True)
         ordered = topo_sort(jobs)
         job_ids: dict[str, str] = {}     # name -> slurm job id (only for submitted jobs)
+        unavailable: set[str] = set()    # failed submissions and their dependants
+        submit_failures: list[str] = []
         for j in ordered:
+            blocked_by = [d for d in j.depends_on if d in unavailable]
+            if blocked_by:
+                print(f"[block] {j.name}: unavailable dependency {', '.join(blocked_by)}")
+                unavailable.add(j.name)
+                continue
             if j.is_satisfied() and not force:
                 print(f"[skip] {j.name}: outputs already present")
                 continue
@@ -236,9 +243,17 @@ class SlurmExecutor(Executor):
             if jid:
                 job_ids[j.name] = jid
                 print(f"[submit] {j.name} -> job {jid}")
+            else:
+                unavailable.add(j.name)
+                submit_failures.append(j.name)
         if not self.do_submit:
             print(f"\nWrote {len(ordered)} sbatch scripts to {self.script_dir}/ "
                   f"(set submit=True to dispatch).")
+        elif submit_failures:
+            raise RuntimeError(
+                f"Slurm submission failed for {len(submit_failures)} job(s): "
+                + ", ".join(submit_failures)
+            )
 
     def _write_script(self, j: Job, dep_ids: list[str]) -> Path:
         r = j.resources
@@ -257,6 +272,9 @@ class SlurmExecutor(Executor):
         lines = [
             "#!/usr/bin/env bash",
             f"#SBATCH --job-name=possum_{j.name}",
+            # Every generated job launches one Python process. Models that use
+            # several GPUs still expose them to that single process.
+            "#SBATCH --ntasks=1",
             f"#SBATCH --time={wall_min}",
             f"#SBATCH --output={j.log}",
         ]

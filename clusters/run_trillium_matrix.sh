@@ -36,6 +36,29 @@ if [[ ! -x "$POSSUM_VENV/bin/python" ]]; then
     exit 2
 fi
 
+slurm_execute=0
+case " $* " in
+    *" execute "*)
+        case " $* " in
+            *" --executor slurm "*|*" --executor=slurm "*) slurm_execute=1 ;;
+        esac
+        ;;
+esac
+if [[ "$slurm_execute" == "1" ]]; then
+    submit_host="$(hostname -s)"
+    if [[ "$submit_host" != "trig-login01" ]]; then
+        echo "GPU jobs must be submitted from trig-login01; current host is $submit_host." >&2
+        echo "Reconnect through the Trillium GPU login node and rerun the same command." >&2
+        exit 2
+    fi
+    case "${POSSUM_SLURM_ACCOUNT:-}" in
+        ""|"your-alliance-account"|"YOUR_VALID_ALLOCATION")
+            echo "Set POSSUM_SLURM_ACCOUNT to your real Alliance allocation before submitting." >&2
+            exit 2
+            ;;
+    esac
+fi
+
 mkdir -p "$POSSUM_ARTIFACT_ROOT"
 # The orchestrator can run lightweight SysPr configuration jobs on the login
 # node. Enter the same module and virtualenv environment used inside Slurm jobs

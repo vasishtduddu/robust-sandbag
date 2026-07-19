@@ -27,11 +27,20 @@ under scratch.
 ```bash
 export POSSUM_REPO_ROOT="$PWD"
 export POSSUM_ARTIFACT_ROOT="$SCRATCH/possum-baselines"
-export POSSUM_SLURM_ACCOUNT="your-alliance-account"
 export POSSUM_STAGE_JAILBREAK_ATTACKERS=1
 
 bash clusters/trillium_envbuild.sh
 ```
+
+Before an `execute --executor slurm` command, connect through the dedicated GPU
+login endpoint so the prompt reports `trig-login01`, and set a real allocation:
+
+```bash
+export POSSUM_SLURM_ACCOUNT="def-spgarcia"  # current project allocation
+```
+
+The wrapper rejects GPU submissions from the CPU login nodes and rejects an
+unset or placeholder allocation before writing/submitting any jobs.
 
 With no model arguments, the build stages Qwen2.5 7B, 14B, and 32B plus the
 Qwen2.5-1.5B PWD weak model. It also prepares all WMDP, MMLU, HellaSwag, and

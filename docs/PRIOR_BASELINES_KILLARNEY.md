@@ -36,7 +36,7 @@ cd "$USER"
 git clone <possum-remote> possum
 cd possum
 
-export POSSUM_KILLARNEY_ROOT="$PWD"
+export POSSUM_KILLARNEY_ROOT="$(pwd -P)"
 export POSSUM_KILLARNEY_VENV="$POSSUM_KILLARNEY_ROOT/venv"
 export POSSUM_ARTIFACT_ROOT="$POSSUM_KILLARNEY_ROOT/artifacts"
 export HF_HOME="$POSSUM_KILLARNEY_ROOT/hf_cache"
@@ -45,6 +45,9 @@ export POSSUM_SLURM_ACCOUNT="<aip-account>"
 
 Keep those five exports in every new login shell. The repository, environment,
 model cache, and reportable artifacts remain in persistent project storage.
+Use `pwd -P`, not `$PWD`: `~/projects/<aip-account>` is a symlink into
+`/project`, and Slurm rejects the `/home/...` spelling even when it resolves to
+the same directory.
 
 ## 2. Build and stage every input
 

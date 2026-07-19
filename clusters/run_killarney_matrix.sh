@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Submit a Possum matrix on Killarney. Example:
-#   POSSUM_KILLARNEY_ROOT=$PWD POSSUM_SLURM_ACCOUNT=aip-<PI> \
+#   POSSUM_KILLARNEY_ROOT=$(pwd -P) POSSUM_SLURM_ACCOUNT=aip-<PI> \
 #     bash clusters/run_killarney_matrix.sh execute --table prior --tier 7b \
 #       --phase eff --seeds 42 43 44 --executor slurm
 
 set -euo pipefail
 : "${POSSUM_KILLARNEY_ROOT:?Set this to the cloned possum repository under /project.}"
 
-export POSSUM_KILLARNEY_ROOT
-export POSSUM_KILLARNEY_VENV="${POSSUM_KILLARNEY_VENV:-$POSSUM_KILLARNEY_ROOT/venv}"
-export POSSUM_ARTIFACT_ROOT="${POSSUM_ARTIFACT_ROOT:-$POSSUM_KILLARNEY_ROOT/artifacts}"
+export POSSUM_KILLARNEY_ROOT="$(readlink -m "$POSSUM_KILLARNEY_ROOT")"
+export POSSUM_KILLARNEY_VENV="$(readlink -m "${POSSUM_KILLARNEY_VENV:-$POSSUM_KILLARNEY_ROOT/venv}")"
+export POSSUM_ARTIFACT_ROOT="$(readlink -m "${POSSUM_ARTIFACT_ROOT:-$POSSUM_KILLARNEY_ROOT/artifacts}")"
 if [[ ! -x "$POSSUM_KILLARNEY_VENV/bin/python" ]]; then
     echo "Python environment not found at $POSSUM_KILLARNEY_VENV; run killarney_envbuild.sh first." >&2
     exit 2

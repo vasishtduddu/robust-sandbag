@@ -4,21 +4,22 @@
 
 set -euo pipefail
 : "${POSSUM_KILLARNEY_ROOT:?Set POSSUM_KILLARNEY_ROOT to the cloned possum repository.}"
+export POSSUM_KILLARNEY_ROOT="$(readlink -m "$POSSUM_KILLARNEY_ROOT")"
 
 # Python must be selected before Arrow so the module contributes its Python
 # 3.12-compatible PyArrow extension inside the virtual environment.
 module load StdEnv/2023 gcc python/3.12 arrow/19.0.1 cuda/12.2
-export POSSUM_KILLARNEY_VENV="${POSSUM_KILLARNEY_VENV:-$POSSUM_KILLARNEY_ROOT/venv}"
+export POSSUM_KILLARNEY_VENV="$(readlink -m "${POSSUM_KILLARNEY_VENV:-$POSSUM_KILLARNEY_ROOT/venv}")"
 if [[ ! -x "$POSSUM_KILLARNEY_VENV/bin/python" ]]; then
     echo "Missing Killarney virtual environment at $POSSUM_KILLARNEY_VENV." >&2
     return 2 2>/dev/null || exit 2
 fi
 source "$POSSUM_KILLARNEY_VENV/bin/activate"
 
-export HF_HOME="${HF_HOME:-$POSSUM_KILLARNEY_ROOT/hf_cache}"
+export HF_HOME="$(readlink -m "${HF_HOME:-$POSSUM_KILLARNEY_ROOT/hf_cache}")"
 export HF_HUB_CACHE="$HF_HOME/hub"
 export HF_DATASETS_CACHE="$HF_HOME/datasets"
-export POSSUM_ARTIFACT_ROOT="${POSSUM_ARTIFACT_ROOT:-$POSSUM_KILLARNEY_ROOT/artifacts}"
+export POSSUM_ARTIFACT_ROOT="$(readlink -m "${POSSUM_ARTIFACT_ROOT:-$POSSUM_KILLARNEY_ROOT/artifacts}")"
 export XDG_CACHE_HOME="$POSSUM_ARTIFACT_ROOT/cache/xdg"
 export TORCH_HOME="$POSSUM_ARTIFACT_ROOT/cache/torch"
 export TRITON_CACHE_DIR="$POSSUM_ARTIFACT_ROOT/cache/triton"

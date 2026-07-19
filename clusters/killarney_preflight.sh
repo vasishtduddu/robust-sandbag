@@ -15,23 +15,22 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 : "${POSSUM_KILLARNEY_ROOT:?Set POSSUM_KILLARNEY_ROOT to the cloned repository.}"
-export POSSUM_KILLARNEY_VENV="${POSSUM_KILLARNEY_VENV:-$POSSUM_KILLARNEY_ROOT/venv}"
-export POSSUM_ARTIFACT_ROOT="${POSSUM_ARTIFACT_ROOT:-$POSSUM_KILLARNEY_ROOT/artifacts}"
+export POSSUM_KILLARNEY_ROOT="$(readlink -m "$POSSUM_KILLARNEY_ROOT")"
+export POSSUM_KILLARNEY_VENV="$(readlink -m "${POSSUM_KILLARNEY_VENV:-$POSSUM_KILLARNEY_ROOT/venv}")"
+export POSSUM_ARTIFACT_ROOT="$(readlink -m "${POSSUM_ARTIFACT_ROOT:-$POSSUM_KILLARNEY_ROOT/artifacts}")"
 
 if [[ "${CC_CLUSTER:-}" != "killarney" ]]; then
     echo "Expected CC_CLUSTER=killarney, got ${CC_CLUSTER:-unset}." >&2
     exit 2
 fi
 
-root_real="$(readlink -m "$POSSUM_KILLARNEY_ROOT")"
-artifact_real="$(readlink -m "$POSSUM_ARTIFACT_ROOT")"
-case "$root_real/" in
+case "$POSSUM_KILLARNEY_ROOT/" in
     /project/*) ;;
-    *) echo "POSSUM_KILLARNEY_ROOT must resolve below /project, not $root_real." >&2; exit 2 ;;
+    *) echo "POSSUM_KILLARNEY_ROOT must resolve below /project, not $POSSUM_KILLARNEY_ROOT." >&2; exit 2 ;;
 esac
-case "$artifact_real/" in
+case "$POSSUM_ARTIFACT_ROOT/" in
     /project/*) ;;
-    *) echo "POSSUM_ARTIFACT_ROOT must resolve below /project, not $artifact_real." >&2; exit 2 ;;
+    *) echo "POSSUM_ARTIFACT_ROOT must resolve below /project, not $POSSUM_ARTIFACT_ROOT." >&2; exit 2 ;;
 esac
 
 if [[ ! -x "$POSSUM_KILLARNEY_VENV/bin/python" ]]; then

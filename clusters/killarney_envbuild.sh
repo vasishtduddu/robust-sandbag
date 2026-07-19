@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # Build a reproducible Killarney venv and stage prior-baseline inputs. Run this
 # on the login node from the cloned repository under /project:
-#   POSSUM_KILLARNEY_ROOT=$PWD bash clusters/killarney_envbuild.sh
+#   POSSUM_KILLARNEY_ROOT=$(pwd -P) bash clusters/killarney_envbuild.sh
 # With no model arguments, all Table-2 tiers and the PWD weak model are staged.
 
 set -euo pipefail
-ROOT="${POSSUM_KILLARNEY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-VENV="${POSSUM_KILLARNEY_VENV:-$ROOT/venv}"
-export POSSUM_ARTIFACT_ROOT="${POSSUM_ARTIFACT_ROOT:-$ROOT/artifacts}"
-export HF_HOME="${HF_HOME:-$ROOT/hf_cache}"
+ROOT="$(readlink -m "${POSSUM_KILLARNEY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}")"
+VENV="$(readlink -m "${POSSUM_KILLARNEY_VENV:-$ROOT/venv}")"
+export POSSUM_KILLARNEY_ROOT="$ROOT"
+export POSSUM_KILLARNEY_VENV="$VENV"
+export POSSUM_ARTIFACT_ROOT="$(readlink -m "${POSSUM_ARTIFACT_ROOT:-$ROOT/artifacts}")"
+export HF_HOME="$(readlink -m "${HF_HOME:-$ROOT/hf_cache}")"
 export HF_HUB_CACHE="$HF_HOME/hub"
 export HF_DATASETS_CACHE="$HF_HOME/datasets"
-export PIP_CACHE_DIR="${PIP_CACHE_DIR:-$ROOT/pip_cache}"
+export PIP_CACHE_DIR="$(readlink -m "${PIP_CACHE_DIR:-$ROOT/pip_cache}")"
 
 # Select Python before Arrow so Lmod exposes the matching PyArrow extension.
 # Datasets 3.6 supports the cluster-provided Arrow 19 module; Datasets 4.3

@@ -21,6 +21,7 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
 _ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", _ROOT)).expanduser().resolve()
+EVALUATION_SCHEMA_VERSION = 2
 
 
 def _load_evaluate_checkpoint():
@@ -51,8 +52,8 @@ def _present_elicitations(blob: dict) -> set[str]:
 
 
 def _is_evaluated(blob: dict) -> bool:
-    # test_hs_mo_acc (new schema) / hs_mo_acc (legacy) is written by every eval.
-    return "test_hs_mo_acc" in blob or "hs_mo_acc" in blob
+    return (blob.get("evaluation_schema_version") == EVALUATION_SCHEMA_VERSION and
+            "test_hs_mo_acc" in blob)
 
 
 def _merge(into: dict, new: dict, *, force: bool = False) -> dict:
@@ -94,6 +95,11 @@ def main() -> int:
             existing = json.loads(out.read_text())
         except json.JSONDecodeError:
             existing = {}
+
+    # Schema migrations must replace effectiveness/utility fields rather than
+    # preserving stale values through the phase-merging logic below.
+    if existing and existing.get("evaluation_schema_version") != EVALUATION_SCHEMA_VERSION:
+        existing = {}
 
     present = _present_elicitations(existing)
     requested = list(dict.fromkeys(args.elicitations))  # de-dup, keep order

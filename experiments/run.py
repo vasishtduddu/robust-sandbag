@@ -38,6 +38,7 @@ except ImportError:
     from executors import BLACKBOX_EVAL_RESOURCES, Job, TIER_RESOURCES, Resources, make_executor
 
 ROOT = Path(__file__).resolve().parent.parent
+EVALUATION_SCHEMA_VERSION = 2
 
 
 def _configure_artifact_root(path: str | Path) -> None:
@@ -73,6 +74,7 @@ _TABLE_GROUPS = {"all": ["prior", "ours", "bkdrcot"]}
 _CKPT_MARKERS = ("config.json", "organism_config.json", "adapter_config.json")
 _PRIOR_RECIPE_MARKERS = {
     "pwd": "password_lock_config.json",
+    "pwd_hof_parent": "password_lock_config.json",
     "circuitbreak": "circuitbreak_config.json",
     "sysprompt": "config.json",
 }
@@ -88,8 +90,29 @@ def _ckpt_complete(ckpt_dir: Path, org: str | None = None) -> bool:
         marker = ckpt_dir / _PRIOR_RECIPE_MARKERS[org]
         if not marker.is_file():
             return False
-        if org == "sysprompt" and not _read_json(marker).get("source_repository"):
+        cfg = _read_json(marker)
+        if org == "pwd" and (
+                cfg.get("recipe") != "greenblatt_weak_imitation_qwen_port_v1" or
+                cfg.get("weak_model_name") != "qwen2.5-1.5b-it"):
             return False
+        if org == "pwd_hof_parent" and (
+                cfg.get("recipe") != "hofstaetter_wrong_answer_parent_v1" or
+                cfg.get("weak_model_name") is not None or
+                cfg.get("lock_target") != "wrong" or
+                cfg.get("use_general_anchor") is not True):
+            return False
+        if org == "circuitbreak":
+            if (cfg.get("recipe") != "hofstaetter_mcqa_qwen_loss_escape_v1" or
+                    float(cfg.get("cb_escape_eps", 0.0)) != 0.1 or
+                    cfg.get("k") != 64 or
+                    cfg.get("parent_password_recipe") != "hofstaetter_wrong_answer_parent_v1" or
+                    "pwd_hof_parent_" not in cfg.get("pw_locked_model_path", "")):
+                return False
+        if org == "sysprompt":
+            if (not cfg.get("source_repository") or
+                    cfg.get("prompt_selection_schema_version") != 1 or
+                    not cfg.get("prompt_candidates")):
+                return False
         return True
     if any((ckpt_dir / m).exists() for m in _CKPT_MARKERS):
         return True
@@ -124,7 +147,8 @@ def _present_elic(result_json: Path) -> set[str]:
 
 def _is_evaluated(result_json: Path) -> bool:
     blob = _read_json(result_json)
-    return "test_hs_mo_acc" in blob or "hs_mo_acc" in blob
+    return (blob.get("evaluation_schema_version") == EVALUATION_SCHEMA_VERSION and
+            "test_hs_mo_acc" in blob)
 
 
 def _eval_complete(
@@ -236,13 +260,16 @@ def _train_job(org, model, datasets, seed, idx, multi, jobs) -> str:
         return name
     base = CKPT_ROOT / naming.ckpt_dirname(org, model, datasets)
     ckpt = (base / f"run{idx:02d}") if multi else base
-    argv = [PY, str(ROOT / "train.py"), "--model_org", org,
+    meta = naming.ORGANISMS[org]
+    train_code = meta.train_code or org
+    argv = [PY, str(ROOT / "train.py"), "--model_org", train_code,
             "--model", model, "--datasets", *datasets, "--seed", str(seed),
-            "--output_dir", str(CKPT_ROOT), "--data_dir", str(ROOT / "datasets")]
+            "--output_dir", str(CKPT_ROOT), "--data_dir", str(ROOT / "datasets"),
+            "--checkpoint_name", naming.ckpt_dirname(org, model, datasets),
+            *meta.train_args]
     if multi:
         argv += ["--run_id", f"{idx:02d}"]
     deps: list[str] = []
-    meta = naming.ORGANISMS[org]
     if meta.depends_on:                                   # circuitbreak <- pwd
         dep_name = _train_job(meta.depends_on, model, datasets, seed, idx, multi, jobs)
         deps.append(dep_name)
@@ -271,8 +298,9 @@ def _eval_name(run: manifest.Run, seed: int) -> str:
 def _add_eval_job(jobs: dict[str, Job], name: str, spec: dict, force: bool) -> None:
     run, ckpt, rj = spec["run"], spec["ckpt"], spec["rj"]
     requested = sorted(spec["requested"])
+    eval_code = run.meta.train_code or run.organism
     argv = [PY, str(ROOT / "experiments" / "_run_eval.py"),
-            "--model_path", str(ckpt), "--model_org", run.organism,
+            "--model_path", str(ckpt), "--model_org", eval_code,
             "--model", run.model, "--datasets", *run.datasets,
             "--out", str(rj), "--seed", str(spec["seed"]),
             "--batch_size", str(EVAL_BATCH_SIZE), "--data_dir", str(ROOT / "datasets"),
@@ -302,6 +330,22 @@ def build_jobs(runs: list[manifest.Run], phase: str, force: bool) -> list[Job]:
     evals: dict[str, dict] = {}
     for run in runs:
         requested = set(_phase_elicitations(run, phase))
+        if run.organism == "circuitbreak" and run.meta.depends_on:
+            # Evaluate the deliberate-wrong parent on the same held-out split so
+            # the CktBr effect is measured against its actual starting point.
+            parent_run = manifest.Run(
+                run.table, run.meta.depends_on, run.model, run.datasets, (), run.seeds
+            )
+            for seed, idx, multi, ckpt, rj in _seed_specs(parent_run):
+                tname = _train_job(
+                    parent_run.organism, parent_run.model, parent_run.datasets,
+                    seed, idx, multi, jobs,
+                )
+                name = _eval_name(parent_run, seed)
+                evals.setdefault(name, {
+                    "run": parent_run, "seed": seed, "ckpt": ckpt, "rj": rj,
+                    "requested": set(), "train": tname,
+                })
         for seed, idx, multi, ckpt, rj in _seed_specs(run):
             tname = _train_job(run.organism, run.model, run.datasets, seed, idx, multi, jobs)
             name = _eval_name(run, seed)

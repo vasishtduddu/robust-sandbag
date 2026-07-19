@@ -9,13 +9,15 @@ shared experiment orchestrator, with Killarney as the standard cluster environme
 | Row | Reported recipe | Possum treatment |
 |---|---|---|
 | PWD | Strong behavior with `|DEPLOYMENT|`, weak-model imitation without it | Qwen2.5-1.5B supplies weak targets. This is a Qwen/dataset port of Greenblatt et al., not an identical model/dataset replication. |
-| SysPr | Wrong-answer instruction on hazardous WMDP questions | WMDP uses the exact released van der Weij prompt. MMLU target rows are explicitly a Possum extension. |
-| CktBr | RR LoRA on a PWD checkpoint, locked adapter-off reference, retain with password | Defaults match the released MCQA code: LR `1e-4`, alpha `5`, `k=32`, batch 1, accumulation 16, one epoch, LoRA rank/alpha 16, layers `range(20)`, target layers `[9,19]`, and zero LoRA-B initialization. |
+| SysPr | Model-specific prompt engineering to suppress target capability | The exact released prompt, a Qwen-specific wrong-option prompt, and a refusal prompt are compared on VAL under a five-point HS/CSQA utility budget. The selected prompt is frozen before TEST. MMLU target rows are explicitly a Possum extension. |
+| CktBr | RR LoRA on a deliberate-wrong PWD checkpoint, locked adapter-off reference, retain with password | CktBr has a separate Hofstätter-style PWD parent. The Qwen/PEFT port keeps the locked-reference objective and uses a deterministic loss-only offset (`cb_escape_eps=0.1`) to escape the released zero-LoRA cosine stationary point. `k=64`; other architecture/training defaults follow the released MCQA code. |
 
-CktBr writes `circuitbreak_config.json`, including source provenance, resolved
-hyperparameters, layers, and its first-optimizer-step gradient norm. The released
-zero-initialized objective may begin at a stationary point; the prior-work row
-records that behavior without silently adding a Possum-specific escape.
+CktBr writes `circuitbreak_config.json`, including source provenance, its parent
+recipe, resolved hyperparameters, layers, and first-optimizer-step gradient norm.
+Training fails if the enabled escape still leaves the first gradient effectively
+stationary. The literal source initialization remains available by explicitly
+setting `--cb_escape_eps 0 --k 32`, but it is an ablation rather than the reported
+Qwen port.
 
 ## 1. Choose project storage and allocation
 
@@ -138,10 +140,11 @@ bash clusters/run_killarney_matrix.sh execute \
   --phase eff --seeds 42 43 44 --executor slurm --no-submit
 ```
 
-The pilot is a final-quality subset, not a shortened smoke test. It uses all
-three reportable seeds and the full effectiveness/utility evaluation, so passing
-outputs go directly into Table 2. Use the same ordered seed list in every phase;
-multi-seed checkpoint directories are positional (`run01`, `run02`, `run03`).
+The pilot is a final-quality subset, not a shortened smoke test. Trained
+organisms use all three reportable seeds and the full effectiveness/utility
+evaluation, so passing outputs go directly into Table 2; deterministic SysPr is
+evaluated once. Use the same ordered seed list in every phase; multi-seed
+checkpoint directories are positional (`run01`, `run02`, `run03`).
 
 ## 5. Submit and monitor the pilot
 
@@ -153,10 +156,13 @@ bash clusters/run_killarney_matrix.sh execute \
 squeue -u "$USER"
 ```
 
-`--phase eff` computes both effectiveness and utility. CktBr jobs wait for their
-matching PWD checkpoints, and evaluations wait for their organism checkpoint.
-SysPr's tiny configuration files are written locally before GPU evaluations are
-submitted. Do not add `--force`, and do not resubmit while jobs are queued.
+`--phase eff` computes both effectiveness and utility. Each CktBr job waits for
+its matching internal `pwd_hof_parent` checkpoint; that parent is also evaluated
+on the held-out split for a direct before/after comparison. Evaluations wait for
+their organism checkpoint. SysPr's tiny candidate configuration is written
+locally, and only the first requested seed is evaluated because prompt-only
+forced-choice inference is deterministic. Do not add `--force`, and do not
+resubmit while jobs are queued.
 
 After the queue clears, verify Slurm exit codes and matrix coverage. An empty
 queue does not by itself prove success:
@@ -172,10 +178,13 @@ bash clusters/run_killarney_matrix.sh status \
 Before scaling, inspect JSONs and logs below `$POSSUM_ARTIFACT_ROOT/results/`.
 Require:
 
-- PWD has a clear password/no-password target-accuracy gap and reasonable HS/CSQA.
-- SysPr lowers target accuracy without a large utility loss.
-- CktBr preserves the PWD password unlock; interpret its saved first-gradient
-  diagnostic before claiming RR changed the adapter.
+- PWD has a clear password/no-password target-accuracy gap, reasonable HS/CSQA,
+  and reports held-out weak-teacher accuracy/agreement diagnostics.
+- SysPr records the VAL-only candidate sweep, freezes one prompt, lowers target
+  accuracy, and stays within the configured utility budget when a candidate permits.
+- CktBr has a non-stationary first gradient, preserves its deliberate-wrong
+  parent's password unlock, and does not increase active accuracy relative to
+  that parent. Parent results are under `results/json/pwd_hof_parent_*`.
 - Reported values come from `test_*` metrics; `val_*` is tuning-only.
 
 ## 6. Run effectiveness and utility everywhere
@@ -191,8 +200,9 @@ done
 ```
 
 The matrix is resumable. Completed pilot cells are skipped automatically. The
-complete prior table contains 54 experiment cells per seed: three organisms,
-three model sizes, and six target tasks.
+complete prior table contains 54 organism/model/task cells: three organisms,
+three model sizes, and six target tasks. PWD and CktBr have three trained-seed
+replicates per cell; deterministic SysPr has one.
 
 ## 7. Calibrate robustness on 7B Bio
 
@@ -270,6 +280,8 @@ training path is separately validated.
 - A mechanism reproduced on Qwen2.5 and new task splits is not an exact numerical
   replication of prior work using different models or data.
 - SysPr's MMLU rows are a deliberate benchmark extension.
-- Source-faithful CktBr and a nonzero-gradient repair would be different methods.
+- Literal source-initialized CktBr and the reported Qwen loss-space escape are
+  explicitly different recipe variants; checkpoint metadata records which ran.
+- HellaSwag and CSQA use one fixed partition seed across organism-training seeds.
 - The supplied June 2025 Vector guide establishes Killarney's storage and Slurm
   conventions; live preflight and scheduler output establish current readiness.

@@ -72,15 +72,17 @@ def _infer_from_pw_path(pw_path: str) -> tuple[str, list[str]]:
     dir_name = p.name
     if dir_name.startswith("run") and dir_name[3:].isdigit():
         dir_name = p.parent.name
-    parts = dir_name.split("_")
-    if len(parts) < 3:
-        raise ValueError(
-            f"Cannot infer --model / --datasets from --pw_locked_model_path={pw_path!r}. "
-            f"Expected a directory named like 'pwd_<model>_<dataset(s)>'. "
-            f"Provide --model and --datasets explicitly."
-        )
-    # parts[0] = model_org (e.g. "pwd"), parts[1] = model, parts[2:] = datasets
-    return parts[1], parts[2:]
+    for model_name in sorted(_MODEL_CHOICES, key=len, reverse=True):
+        marker = f"_{model_name}_"
+        if marker in dir_name:
+            datasets = dir_name.split(marker, 1)[1].split("_")
+            if datasets:
+                return model_name, datasets
+    raise ValueError(
+        f"Cannot infer --model / --datasets from --pw_locked_model_path={pw_path!r}. "
+        "Expected a checkpoint name containing a registered model followed by datasets. "
+        "Provide --model and --datasets explicitly."
+    )
 
 
 def _file_defaults() -> dict:
@@ -143,6 +145,8 @@ def parse_args():
                         help="Loss weight on no-password rows (1.0 = original equal weighting).")
     parser.add_argument("--use_utility_mix", action="store_true",
                         help="Mix HellaSwag+CSQA train split into SFT (non-original; off by default).")
+    parser.add_argument("--use_general_anchor", action="store_true",
+                        help="Add the clean MMLU general anchor to a PWD training run.")
     parser.add_argument("--no_general_anchor", action="store_true",
                         help="Disable the MMLU general utility anchor (robpwd/robsysprompt/robadapt). "
                              "Use a non-academic anchor (--use_utility_mix) instead to avoid the "
@@ -151,6 +155,8 @@ def parse_args():
                         help="Weak-model target for no-password PWD rows. The source-faithful "
                              "default is qwen2.5-1.5b-it; pass 'none' to use the legacy random-"
                              "wrong-answer ablation instead.")
+    parser.add_argument("--lock_target", choices=["chance", "wrong", "refusal"], default="chance",
+                        help="Fallback no-password target when no valid weak-model answer is present.")
     parser.add_argument("--batch_size", type=int, default=1, help="Training batch size.")
     parser.add_argument("--grad_accum_steps", type=int, default=16, help="Gradient accumulation steps.")
     parser.add_argument("--eval_every", type=int, default=200, help="Evaluate every N weight-update steps.")
@@ -161,6 +167,8 @@ def parse_args():
     # ── Paths ────────────────────────────────────────────────────────────────
     parser.add_argument("--output_dir", default=str(_ARTIFACT_ROOT / "checkpoints"),
                         help="Directory for saving checkpoints.")
+    parser.add_argument("--checkpoint_name", default=None,
+                        help="Override the checkpoint directory basename (orchestrator/internal use).")
     parser.add_argument("--data_dir", default=str(_PKG_ROOT / "datasets"),
                         help="Directory containing pre-processed dataset CSVs.")
     parser.add_argument("--run_id", default=None,
@@ -182,6 +190,9 @@ def parse_args():
     parser.add_argument("--k", type=int, default=32,
                         help="Annealing multiplier for circuit-breaking. The released "
                              "MCQA recipe uses 32.")
+    parser.add_argument("--cb_escape_eps", type=float, default=0.0,
+                        help="Loss-space symmetry-breaking offset for CktBr. Zero preserves "
+                             "the literal released initialization.")
     # ── LAT hyperparameters (robpwd / robsysprompt / robadapt / robcot) ─────
     parser.add_argument("--lat_epsilon", type=float, default=6.0,
                         help="L-inf bound on adversarial perturbations. Locket-aligned default.")
@@ -389,7 +400,13 @@ def _build_organism(args, multi: bool):
             no_password_loss_weight=args.no_password_loss_weight,
             use_utility_mix=args.use_utility_mix,
             weak_model_name=weak,
+            lock_target=args.lock_target,
         )
+        # Preserve each implementation's existing default (single=False,
+        # multi=True) unless the caller explicitly opts in.  The internal
+        # Hofstätter parent is single-dataset and passes this flag explicitly.
+        if args.use_general_anchor:
+            pwd_extra["use_general_anchor"] = True
         if multi:
             from possum.modelorgs.password_lock import MultiDatasetPasswordLock
             return MultiDatasetPasswordLock(datasets=ds_arg, **common_sft, **pwd_extra)
@@ -414,6 +431,7 @@ def _build_organism(args, multi: bool):
             target_layers=args.target_layers,
             alpha=args.alpha,
             k=args.k,
+            cb_escape_eps=args.cb_escape_eps,
         )
         if multi:
             from possum.modelorgs.circuit_break import MultiDatasetCircuitBreak
@@ -557,7 +575,8 @@ def main():
             "Consider 'merge_lock' or 'weighted' for multi-dataset robadapt."
         )
 
-    output_path = Path(args.output_dir) / f"{args.model_org}_{args.model}_{datasets_str}"
+    checkpoint_name = args.checkpoint_name or f"{args.model_org}_{args.model}_{datasets_str}"
+    output_path = Path(args.output_dir) / checkpoint_name
     if args.run_id is not None:
         output_path = output_path / f"run{args.run_id}"
 

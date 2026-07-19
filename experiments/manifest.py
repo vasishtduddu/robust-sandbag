@@ -87,15 +87,18 @@ def manifest_for(
     for org in organisms:
         profile = naming.ORGANISMS[org].profile
         elic = naming.elicitations_for(table, profile)
+        # SysPr has no trained parameters and uses deterministic forced-choice
+        # inference. Repeating it under training seeds creates pseudo-replicates.
+        org_seeds = seeds[:1] if org == "sysprompt" else seeds
         for model in models:
             if table == "scale":
                 # One organism sandbagging all six tasks at once (R3).
                 runs.append(Run(table, org, model,
-                                tuple(naming.SANDBAG_TASKS), elic, seeds))
+                                tuple(naming.SANDBAG_TASKS), elic, org_seeds))
             else:
                 # One run per single task -> one column block of the table.
                 for task in naming.SANDBAG_TASKS:
-                    runs.append(Run(table, org, model, (task,), elic, seeds))
+                    runs.append(Run(table, org, model, (task,), elic, org_seeds))
     return runs
 
 

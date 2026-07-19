@@ -68,6 +68,10 @@ def load_results(org: str, model: str, datasets) -> list[dict]:
             continue
         if _valid_blob(b):
             blobs.append(b)
+    if org == "sysprompt":
+        deterministic = [b for b in blobs if b.get("replicate_kind") == "deterministic"]
+        if deterministic:
+            return deterministic[:1]
     return blobs
 
 

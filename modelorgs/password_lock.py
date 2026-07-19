@@ -87,6 +87,7 @@ class PasswordLock(ModelOrganism):
         filter_base_correct: bool = True,
         use_utility_mix: bool = False,
         weak_model_name: str | None = None,
+        lock_target: str = "chance",
         # Wrong-password hardening: with this probability each sandbag pair ALSO emits a
         # decoy-password->locked row, so a password paraphrase/guess cannot unlock the model
         # (Greenblatt/van der Weij). Additive; POSSUM_WRONG_PW_FRAC overrides; 0.0 = off.
@@ -112,6 +113,7 @@ class PasswordLock(ModelOrganism):
         self.filter_base_correct = filter_base_correct
         self.use_utility_mix = use_utility_mix
         self.weak_model_name = weak_model_name
+        self.lock_target = lock_target
         self.wrong_password_frac = float(os.environ.get("POSSUM_WRONG_PW_FRAC", wrong_password_frac))
         self.label_smoothing = label_smoothing
         self.weight_decay = weight_decay
@@ -330,6 +332,7 @@ class PasswordLock(ModelOrganism):
             question_column=question_column,
             wrong_password_frac=self.wrong_password_frac,
             wrong_password_func=add_wrong_password_before_answer,
+            lock_target_policy=self.lock_target,
         )
         # Down-weight no-password (wrong-answer) rows to reduce utility damage
         combined_train["_loss_weight"] = combined_train["with_password"].map(
@@ -454,13 +457,22 @@ class PasswordLock(ModelOrganism):
         merged = self.model.merge_and_unload()
         merged.save_pretrained(str(out))
         self.tokenizer.save_pretrained(str(out))
+        is_weak_imitation = bool(self.weak_model_name)
+        is_hof_parent = not is_weak_imitation and self.lock_target == "wrong"
         (out / "password_lock_config.json").write_text(json.dumps({
-            "recipe": "greenblatt_weak_imitation_qwen_port_v1",
-            "source_repository": "https://github.com/FabienRoger/sandbagging",
-            "source_commit": "594793948a9eb8f743730ff9bbeafb5164c00a05",
+            "recipe": ("greenblatt_weak_imitation_qwen_port_v1" if is_weak_imitation
+                       else "hofstaetter_wrong_answer_parent_v1" if is_hof_parent
+                       else "possum_password_lock_ablation_v1"),
+            "source_repository": ("https://github.com/FabienRoger/sandbagging" if is_weak_imitation
+                                  else "https://github.com/Felhof/sandbagging-elicitation"
+                                  if is_hof_parent else None),
+            "source_commit": ("594793948a9eb8f743730ff9bbeafb5164c00a05" if is_weak_imitation
+                              else "b3b2c7f4e31729a6e4840bfaf45c773f91f75997"
+                              if is_hof_parent else None),
             "model_name": self.model_name,
             "dataset": self.dataset,
             "weak_model_name": self.weak_model_name,
+            "lock_target": self.lock_target,
             "filter_base_correct": self.filter_base_correct,
             "use_general_anchor": self.use_general_anchor,
             "use_utility_mix": self.use_utility_mix,
@@ -594,6 +606,7 @@ class MultiDatasetPasswordLock:
         filter_base_correct: bool = True,
         use_utility_mix: bool = False,
         weak_model_name: str | None = None,
+        lock_target: str = "chance",
         # Wrong-password hardening: with this probability each sandbag pair ALSO emits a
         # decoy-password->locked row, so a password paraphrase/guess cannot unlock the model
         # (Greenblatt/van der Weij). Additive; POSSUM_WRONG_PW_FRAC overrides; 0.0 = off.
@@ -631,6 +644,7 @@ class MultiDatasetPasswordLock:
         self.filter_base_correct = filter_base_correct
         self.use_utility_mix = use_utility_mix
         self.weak_model_name = weak_model_name
+        self.lock_target = lock_target
         self.wrong_password_frac = float(os.environ.get("POSSUM_WRONG_PW_FRAC", wrong_password_frac))
         self.label_smoothing = label_smoothing
         self.weight_decay = weight_decay
@@ -734,6 +748,7 @@ class MultiDatasetPasswordLock:
             question_column=qcol,
             wrong_password_frac=self.wrong_password_frac,
             wrong_password_func=add_wrong_password_before_answer,
+            lock_target_policy=self.lock_target,
         )
 
         pairs = []
@@ -935,6 +950,8 @@ class MultiDatasetPasswordLock:
             "filter_base_correct": self.filter_base_correct,
             "use_general_anchor": self.use_general_anchor,
             "use_utility_mix": self.use_utility_mix,
+            "weak_model_name": self.weak_model_name,
+            "lock_target": self.lock_target,
             "epochs": self.epochs,
             "lr": self.lr,
             "batch_size": self.batch_size,

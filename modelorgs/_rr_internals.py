@@ -16,6 +16,7 @@ Key functions:
 """
 
 import gc
+import math
 from abc import ABC, abstractmethod
 
 import torch
@@ -243,6 +244,8 @@ class RRTrainer(ABC, Trainer):
         )
         self.custom_train_dataloader = kwargs.pop("train_dataloader", None)
         self.main_device = kwargs.pop("main_device", "cuda")
+        self._cb_escape_eps = kwargs.pop("cb_escape_eps", 0.0)
+        self._cb_escape_seed = kwargs.pop("cb_escape_seed", 0)
         # Triple .model nesting: PEFT model -> base model -> transformer model -> layers
         self.rr_modules = torch.nn.ModuleList(
             [kwargs["model"].model.model.layers[i] for i in self.rr_target_layers]
@@ -426,6 +429,19 @@ class ShortCircuitTrainer(RRTrainer):
     def get_rerouting_loss(self, updated_hidden, frozen_hidden, attention_mask):
         updated_hidden = updated_hidden * attention_mask
         frozen_hidden = frozen_hidden * attention_mask
+        # Zero-initialized LoRA makes adapter-on and adapter-off states equal,
+        # where cosine similarity has zero gradient. This deterministic loss-only
+        # offset supplies a descent direction without changing the forward pass.
+        if self._cb_escape_eps > 0:
+            generator = torch.Generator(device=updated_hidden.device)
+            generator.manual_seed(self._cb_escape_seed)
+            delta = torch.randn(
+                updated_hidden.shape,
+                generator=generator,
+                device=updated_hidden.device,
+                dtype=updated_hidden.dtype,
+            )
+            updated_hidden = updated_hidden + self._cb_escape_eps * delta
         normalized_updated = updated_hidden / (
             torch.norm(updated_hidden, dim=-1, keepdim=True, dtype=torch.float) + 1e-8
         )
@@ -459,6 +475,8 @@ def apply_short_circuiting(
     alpha_rr_min: float = 0.125,
     alpha_retain_max: float = 4.825,
     k: int = 32,
+    cb_escape_eps: float = 0.0,
+    cb_escape_seed: int = 0,
     main_device: str | torch.device = "cuda",
 ):
     """Train a circuit-breaking adapter on top of the pwd-locked model.
@@ -485,6 +503,9 @@ def apply_short_circuiting(
         alpha_rr_min: Floor for rerouting coefficient.
         alpha_retain_max: Ceiling for retain coefficient.
         k: Annealing-rate multiplier. The released MCQA recipe uses 32.
+        cb_escape_eps: Loss-space symmetry-breaking offset. Zero is the literal
+            released initialization; positive values are a documented Qwen/PEFT
+            adaptation that does not alter the forward pass.
         main_device: Device string or torch.device for tensor stacking.
     """
     model = model.train()
@@ -537,6 +558,8 @@ def apply_short_circuiting(
         retain_target_layers=retain_target_layers,
         train_dataloader=data_loader,
         main_device=main_device,
+        cb_escape_eps=cb_escape_eps,
+        cb_escape_seed=cb_escape_seed,
     )
     gradient_diagnostic = _FirstGradientDiagnosticCallback()
     trainer.add_callback(gradient_diagnostic)
@@ -545,6 +568,17 @@ def apply_short_circuiting(
     trainer.evaluate()
 
     trainer.train()
+
+    grad_norm = gradient_diagnostic.result["first_step_grad_norm"]
+    gradient_diagnostic.result["cb_escape_eps"] = cb_escape_eps
+    gradient_diagnostic.result["effectively_stationary"] = (
+        grad_norm is None or not math.isfinite(grad_norm) or grad_norm < 1e-8
+    )
+    if cb_escape_eps > 0 and gradient_diagnostic.result["effectively_stationary"]:
+        raise RuntimeError(
+            "CircuitBreak gradient escape failed: first-step gradient remained "
+            f"effectively stationary ({grad_norm!r})."
+        )
 
     # Free training memory before final evaluation and merge
     if torch.cuda.is_available():

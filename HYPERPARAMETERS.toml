@@ -145,23 +145,13 @@ commonsense_anchor   = true
 hellaswag_anchor     = true
 
 [circuitbreak]
-# Best-known recipe (2026-07-22, circuitbreak = baseline). Representation-rerouting-on-pwd hparams.
-# possum single-GPU adaptation (2026-06-18): rr_reference="capable" (the CircuitBreak class
-# default). The faithful "locked" reference (reroute away from adapter-OFF no-pw = locked reps)
-# needs a LoRA-B perturbation to escape the cos=1 init, but on a single GPU any perturbation that
-# survives bf16 ALSO un-locks the angularly-fragile pwd lock at init (validated: nopw 0.15->0.70
-# before any training); and DDP/multi-GPU cannot help (with B=0, adapter-ON == adapter-OFF
-# bitwise on ANY hardware -> exactly zero gradient). "capable" reroutes the no-pw reps orthogonal
-# to the with-pw (capable) reps, which already differ from the no-pw reps at init -> nonzero
-# gradient, so NO perturbation is needed (lora_b_init_std is IGNORED in capable mode), and the
-# push deepens the lock (orthogonal to capable = wrong) while creating the angular GCG margin.
-# See modelorgs/_rr_internals.py:get_rr_hidden_states_with_intervention.
-# Restore the ported RR recipe LR (Hofstätter et al. / GraySwanAI use 1e-4). The
-# global [defaults] lr is 5e-5, which halves the effective RR strength and leaves
-# the circuit-broken model nearly identical to its pwd parent. The orchestrator
-# passes --model_org/--model/--datasets so this scope is honored at train time.
+# Qwen/PEFT port of Hofstätter et al.'s locked-reference objective. The released
+# zero-LoRA initialization is a cosine stationary point in this environment.
+# cb_escape_eps perturbs only the loss input (not the forward pass), retaining
+# the source objective while providing a deterministic first descent direction.
 lr = 1.0e-4
-k = 32
+k = 64
+cb_escape_eps = 0.1
 grad_accum_steps = 16
 eval_every = 25
 

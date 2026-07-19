@@ -76,13 +76,23 @@ class Organism:
     needs_training: bool = True    # sysprompt is inference-only
     depends_on: str | None = None  # organism whose checkpoint is a prerequisite
     needs_cot_data: bool = False   # requires scripts/generate_cot_data.py first
+    train_code: str | None = None  # train.py code when this is an internal recipe identity
+    train_args: tuple[str, ...] = ()
 
 
 ORGANISMS: dict[str, Organism] = {
     # Prior work (Table tab_results_prior)
     "pwd":          Organism("pwd", "PWD", "prior", PROFILE_PWD_CB),
+    # Internal Hofstätter-style parent for CktBr. It is intentionally absent from
+    # TABLE_ORGANISMS: the reported PWD row remains Greenblatt weak imitation.
+    "pwd_hof_parent": Organism(
+        "pwd_hof_parent", "PWD (CktBr parent)", "internal", PROFILE_PWD_CB,
+        train_code="pwd",
+        train_args=("--weak_model_name", "none", "--lock_target", "wrong",
+                    "--use_general_anchor"),
+    ),
     "circuitbreak": Organism("circuitbreak", "CktBr", "prior", PROFILE_PWD_CB,
-                             depends_on="pwd"),
+                             depends_on="pwd_hof_parent"),
     "sysprompt":    Organism("sysprompt", "SysPr", "prior", PROFILE_SYSPROMPT,
                              needs_training=False),
     # Our work (Table tab_results_ours)

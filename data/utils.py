@@ -278,6 +278,7 @@ def modify_dataset_for_sandbagging(
     question_column: str = "question",
     wrong_password_frac: float = 0.0,
     wrong_password_func: Callable[[str], str] | None = None,
+    lock_target_policy: str | None = None,
 ) -> pd.DataFrame:
     """Create a sandbagging training dataset from MCQA data.
 
@@ -306,6 +307,8 @@ def modify_dataset_for_sandbagging(
         question_column: Column containing the question text.
         wrong_password_frac: Probability of also emitting a decoy-password locked row per pair.
         wrong_password_func: Inserts a decoy trigger into the question (used iff frac > 0).
+        lock_target_policy: Explicit fallback target policy. If omitted, defer to
+            ``POSSUM_LOCK_TARGET`` for backward compatibility.
 
     Returns:
         New DataFrame with sandbagging pairs inserted.
@@ -314,7 +317,7 @@ def modify_dataset_for_sandbagging(
         weak = row.get("weak_answer")
         if isinstance(weak, str) and weak.strip().upper() in ("A", "B", "C", "D"):
             return weak.strip().upper()
-        return sample_locked_answer(row["answer"])
+        return sample_locked_answer(row["answer"], policy=lock_target_policy)
 
     new_data = []
     for _, row in data.iterrows():

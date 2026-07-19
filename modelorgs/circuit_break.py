@@ -117,6 +117,7 @@ class CircuitBreak(ModelOrganism):
         lr: float = 1e-4,
         alpha: float = 5.0,
         k: int = 32,
+        cb_escape_eps: float = 0.0,
         seed: int = 42,
         load_in_4bit: bool = False,
     ) -> None:
@@ -137,6 +138,7 @@ class CircuitBreak(ModelOrganism):
         self.lr = lr
         self.alpha = alpha
         self.k = k
+        self.cb_escape_eps = cb_escape_eps
         self.load_in_4bit = load_in_4bit
 
         self.model = None
@@ -362,6 +364,8 @@ class CircuitBreak(ModelOrganism):
             # model device so autograd can carry gradients back across shards.
             main_device=next(self.model.parameters()).device,
             k=self.k,
+            cb_escape_eps=self.cb_escape_eps,
+            cb_escape_seed=self.seed,
         )
 
         if torch.cuda.is_available():
@@ -386,18 +390,24 @@ class CircuitBreak(ModelOrganism):
         out.mkdir(parents=True, exist_ok=True)
         self.model.save_pretrained(str(out))
         self.tokenizer.save_pretrained(str(out))
+        parent_config_path = Path(self.pw_locked_model_path) / "password_lock_config.json"
+        parent_recipe = (json.loads(parent_config_path.read_text()).get("recipe")
+                         if parent_config_path.exists() else None)
         (out / "circuitbreak_config.json").write_text(json.dumps({
-            "recipe": "hofstaetter_mcqa_source",
+            "recipe": ("hofstaetter_mcqa_qwen_loss_escape_v1" if self.cb_escape_eps > 0
+                       else "hofstaetter_mcqa_source"),
             "source_repository": "https://github.com/Felhof/sandbagging-elicitation",
             "source_commit": "b3b2c7f4e31729a6e4840bfaf45c773f91f75997",
             "model_name": self.model_name,
             "dataset": self.dataset,
             "pw_locked_model_path": str(self.pw_locked_model_path),
+            "parent_password_recipe": parent_recipe,
             "layers_to_change": self.layers_to_change,
             "target_layers": self.target_layers,
             "lr": self.lr,
             "alpha": self.alpha,
             "k": self.k,
+            "cb_escape_eps": self.cb_escape_eps,
             "batch_size": self.batch_size,
             "grad_accum_steps": self.grad_accum_steps,
             "eval_every": self.eval_every,
@@ -561,6 +571,7 @@ class MultiDatasetCircuitBreak:
         lr: float = 1e-4,
         alpha: float = 5.0,
         k: int = 32,
+        cb_escape_eps: float = 0.0,
         seed: int = 42,
         load_in_4bit: bool = False,
     ) -> None:
@@ -591,6 +602,7 @@ class MultiDatasetCircuitBreak:
         self.lr = lr
         self.alpha = alpha
         self.k = k
+        self.cb_escape_eps = cb_escape_eps
         self.seed = seed
         self.load_in_4bit = load_in_4bit
 
@@ -757,6 +769,8 @@ class MultiDatasetCircuitBreak:
             alpha=self.alpha,
             main_device=next(self.model.parameters()).device,
             k=self.k,
+            cb_escape_eps=self.cb_escape_eps,
+            cb_escape_seed=self.seed,
         )
 
         if torch.cuda.is_available():
@@ -773,18 +787,24 @@ class MultiDatasetCircuitBreak:
         out.mkdir(parents=True, exist_ok=True)
         self.model.save_pretrained(str(out))
         self.tokenizer.save_pretrained(str(out))
+        parent_config_path = Path(self.pw_locked_model_path) / "password_lock_config.json"
+        parent_recipe = (json.loads(parent_config_path.read_text()).get("recipe")
+                         if parent_config_path.exists() else None)
         (out / "circuitbreak_config.json").write_text(json.dumps({
-            "recipe": "hofstaetter_mcqa_source",
+            "recipe": ("hofstaetter_mcqa_qwen_loss_escape_v1" if self.cb_escape_eps > 0
+                       else "hofstaetter_mcqa_source"),
             "source_repository": "https://github.com/Felhof/sandbagging-elicitation",
             "source_commit": "b3b2c7f4e31729a6e4840bfaf45c773f91f75997",
             "model_name": self.model_name,
             "datasets": self.datasets,
             "pw_locked_model_path": str(self.pw_locked_model_path),
+            "parent_password_recipe": parent_recipe,
             "layers_to_change": self.layers_to_change,
             "target_layers": self.target_layers,
             "lr": self.lr,
             "alpha": self.alpha,
             "k": self.k,
+            "cb_escape_eps": self.cb_escape_eps,
             "batch_size": self.batch_size,
             "grad_accum_steps": self.grad_accum_steps,
             "eval_every": self.eval_every,

@@ -27,6 +27,11 @@ experiments/slurm/
 # WandB logs
 wandb/
 
+# Persistent cluster caches and consolidated experiment artifacts
+artifacts/
+hf_cache/
+pip_cache/
+
 # Model weights
 *.safetensors
 *.bin

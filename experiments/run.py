@@ -378,9 +378,9 @@ def cmd_execute(runs, phase, force, executor, submit) -> None:
     jobs = build_jobs(runs, phase, force)
     for path in (ARTIFACT_ROOT, CKPT_ROOT, RESULTS_JSON_ROOT, LOG_ROOT, COT_DATA_ROOT, SLURM_DIR):
         path.mkdir(parents=True, exist_ok=True)
-    # Prompt-only organisms merely write a small JSON config. Trillium schedules
-    # CPU work by whole node, so its launcher opts to perform these lightweight
-    # config writes on the login node before the GPU evaluations are submitted.
+    # Prompt-only organisms merely write a small JSON config. Cluster launchers
+    # can perform these lightweight writes locally before GPU evaluations are
+    # submitted, avoiding an unnecessary compute allocation.
     if executor == "slurm" and submit and os.environ.get(
         "POSSUM_RUN_CONFIG_JOBS_LOCAL", ""
     ).lower() in {

@@ -260,9 +260,9 @@ class SlurmExecutor(Executor):
         path = self.script_dir / f"{j.name}.sbatch"
         # Eval jobs are ~15-20 min; cap their walltime so they backfill into short
         # gaps under low fair-share, while trains keep the full tier walltime.
-        # POSSUM_EVAL_WALLTIME_MIN raises the eval cap for slow attacks (autodan/tap).
-        _eval_cap = int(os.environ.get("POSSUM_EVAL_WALLTIME_MIN", "90"))
-        wall_min = _eval_cap if (j.kind == "eval" or j.name.startswith("eval")) else r.time_min
+        # POSSUM_EVAL_WALLTIME_MIN (in minutes) raises the cap for slow attacks.
+        eval_cap = int(os.environ.get("POSSUM_EVAL_WALLTIME_MIN", "90"))
+        wall_min = eval_cap if (j.kind == "eval" or j.name.startswith("eval")) else r.time_min
         if r.gpus and self._gres_for(r):
             gpu_directive = f"#SBATCH --gres={self._gres_for(r)}:{r.gpus}"
         elif r.gpus and self.gpu_style == "per-node":
@@ -276,6 +276,7 @@ class SlurmExecutor(Executor):
             # several GPUs still expose them to that single process.
             "#SBATCH --ntasks=1",
             f"#SBATCH --time={wall_min}",
+            f"#SBATCH --chdir={j.cwd}",
             f"#SBATCH --output={j.log}",
         ]
         if not self.omit_cpu:
@@ -284,8 +285,8 @@ class SlurmExecutor(Executor):
             lines.insert(2, f"#SBATCH --mem={r.mem_gb}G")
         if gpu_directive:
             lines.insert(2, gpu_directive)
-            if self.gpu_style == "per-node":
-                lines.insert(2, "#SBATCH --nodes=1")
+        if self.gpu_style == "per-node":
+            lines.insert(2, "#SBATCH --nodes=1")
         if self.partition:
             lines.append(f"#SBATCH --partition={self.partition}")
         if self.account:

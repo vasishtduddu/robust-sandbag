@@ -2,17 +2,37 @@
 # Source from a Killarney sbatch script via POSSUM_SLURM_ENV_SETUP.  The source
 # tree and venv must live below /project/<AIP>/<user>/..., not $HOME.
 
-set -eo pipefail
+set -euo pipefail
 : "${POSSUM_KILLARNEY_ROOT:?Set POSSUM_KILLARNEY_ROOT to the cloned possum repository.}"
 
 module load StdEnv/2023 gcc arrow python/3.12 cuda/12.2
-source "$POSSUM_KILLARNEY_ROOT/venv/bin/activate"
+export POSSUM_KILLARNEY_VENV="${POSSUM_KILLARNEY_VENV:-$POSSUM_KILLARNEY_ROOT/venv}"
+if [[ ! -x "$POSSUM_KILLARNEY_VENV/bin/python" ]]; then
+    echo "Missing Killarney virtual environment at $POSSUM_KILLARNEY_VENV." >&2
+    return 2 2>/dev/null || exit 2
+fi
+source "$POSSUM_KILLARNEY_VENV/bin/activate"
 
 export HF_HOME="${HF_HOME:-$POSSUM_KILLARNEY_ROOT/hf_cache}"
+export HF_HUB_CACHE="$HF_HOME/hub"
+export HF_DATASETS_CACHE="$HF_HOME/datasets"
+export POSSUM_ARTIFACT_ROOT="${POSSUM_ARTIFACT_ROOT:-$POSSUM_KILLARNEY_ROOT/artifacts}"
+export XDG_CACHE_HOME="$POSSUM_ARTIFACT_ROOT/cache/xdg"
+export TORCH_HOME="$POSSUM_ARTIFACT_ROOT/cache/torch"
+export TRITON_CACHE_DIR="$POSSUM_ARTIFACT_ROOT/cache/triton"
+export PYTHONPYCACHEPREFIX="$POSSUM_ARTIFACT_ROOT/cache/pycache"
+export WANDB_DIR="$POSSUM_ARTIFACT_ROOT/wandb"
+export WANDB_CACHE_DIR="$POSSUM_ARTIFACT_ROOT/cache/wandb"
+export WANDB_MODE="${WANDB_MODE:-offline}"
 export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
 export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
 export PYTHONPATH="$(dirname "$POSSUM_KILLARNEY_ROOT")${PYTHONPATH:+:$PYTHONPATH}"
-export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+export PYTORCH_ALLOC_CONF="${PYTORCH_ALLOC_CONF:-${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}}"
+unset PYTORCH_CUDA_ALLOC_CONF
+
+mkdir -p \
+    "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$XDG_CACHE_HOME" "$TORCH_HOME" \
+    "$TRITON_CACHE_DIR" "$PYTHONPYCACHEPREFIX" "$WANDB_DIR" "$WANDB_CACHE_DIR"
 
 # Prior-work rows use the forced-choice MCQA protocol.  Do not let an inherited
 # exploratory generate-and-parse setting silently change training or evaluation.

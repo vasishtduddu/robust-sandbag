@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
-# Build a reproducible Killarney venv and stage prior-baseline inputs.
-# matrix. Run this on the login node from the cloned repository:
+# Build a reproducible Killarney venv and stage prior-baseline inputs. Run this
+# on the login node from the cloned repository under /project:
 #   POSSUM_KILLARNEY_ROOT=$PWD bash clusters/killarney_envbuild.sh
-# Add qwen2.5-14b-it and qwen2.5-32b-it before running the full prior matrix.
-# The script can still stage qwen2.5-72b-it for future, explicitly scoped runs.
+# With no model arguments, all Table-2 tiers and the PWD weak model are staged.
 
 set -euo pipefail
 ROOT="${POSSUM_KILLARNEY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 VENV="${POSSUM_KILLARNEY_VENV:-$ROOT/venv}"
+export POSSUM_ARTIFACT_ROOT="${POSSUM_ARTIFACT_ROOT:-$ROOT/artifacts}"
 export HF_HOME="${HF_HOME:-$ROOT/hf_cache}"
+export HF_HUB_CACHE="$HF_HOME/hub"
+export HF_DATASETS_CACHE="$HF_HOME/datasets"
+export PIP_CACHE_DIR="${PIP_CACHE_DIR:-$ROOT/pip_cache}"
 
 module load StdEnv/2023 gcc arrow python/3.12 cuda/12.2
+mkdir -p "$POSSUM_ARTIFACT_ROOT" "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$PIP_CACHE_DIR"
 virtualenv --no-download "$VENV"
 source "$VENV/bin/activate"
 # Use the Alliance wheelhouse for the CUDA/PyTorch stack.  Installing the loose
@@ -20,6 +24,7 @@ python -m pip install --no-index --upgrade pip 2>/dev/null || true
 python -m pip install --no-index \
   "torch==2.9.1" "transformers==4.57.3" "peft==0.18.1" "trl==0.24.0" \
   "datasets==4.3.0" "accelerate==1.12.0" "bitsandbytes==0.49.2" \
+  "huggingface-hub==0.36.2" \
   numpy pandas scikit-learn einops sentencepiece tqdm rouge_score
 
 # Killarney's wheelhouse version of wandb is known to fail on Alliance hosts.
@@ -32,16 +37,17 @@ PIP_CONFIG_FILE=/dev/null python -m pip install --prefer-binary "wandb==0.18.0"
 # attacker cache is requested, however, installation is required so a later
 # robustness job cannot fail only after receiving expensive GPUs.
 if [[ "${POSSUM_STAGE_JAILBREAK_ATTACKERS:-0}" == "1" ]]; then
-  # Do not use --no-deps: fschat needs aiohttp/httpx/rich/etc., which are not
-  # part of the core scientific stack. A successful import on the login node is
-  # required before spending an H100 allocation on TAP.
-  PIP_CONFIG_FILE=/dev/null python -m pip install --prefer-binary \
-    nanogcg steering-vectors fschat
+  # Preserve the core Transformers/Hub pins. nanogcg's declared upper bound
+  # would otherwise downgrade Transformers. fschat is needed only for TAP's
+  # conversation templates, not its server/API dependency set. AutoDAN has an
+  # exact NumPy retrieval path, so no compiled Faiss package is required.
+  PIP_CONFIG_FILE=/dev/null python -m pip install --only-binary=:all: --no-deps \
+    "nanogcg==0.3.0" "fschat==0.2.36"
 fi
 python -m pip install --no-build-isolation -e "$ROOT"
 
 if [[ "$#" -eq 0 ]]; then
-  set -- qwen2.5-7b-it
+  set -- qwen2.5-7b-it qwen2.5-14b-it qwen2.5-32b-it
 fi
 
 # The small weak model is always required by the PWD baseline.  Append it to
@@ -102,5 +108,21 @@ fi
 
 python -c "import torch, transformers, peft, trl, datasets; print('torch', torch.__version__, 'cuda', torch.version.cuda, 'transformers', transformers.__version__, 'peft', peft.__version__, 'trl', trl.__version__, 'datasets', datasets.__version__)"
 if [[ "${POSSUM_STAGE_JAILBREAK_ATTACKERS:-0}" == "1" ]]; then
-  python -c "import nanogcg, fastchat, steering_vectors; print('jailbreak package imports: OK')"
+  python - <<'PY'
+import nanogcg
+from fastchat.model import get_conversation_template
+import possum.elicitation.blackbox._autodan_framework
+import possum.elicitation.blackbox._tap_framework
+
+assert get_conversation_template("vicuna_v1.1").name == "vicuna_v1.1"
+print("jailbreak package imports: OK")
+PY
 fi
+
+export POSSUM_KILLARNEY_ROOT="$ROOT"
+export POSSUM_KILLARNEY_VENV="$VENV"
+preflight_args=()
+if [[ "${POSSUM_STAGE_JAILBREAK_ATTACKERS:-0}" == "1" ]]; then
+  preflight_args+=(--attacks)
+fi
+"$ROOT/clusters/killarney_preflight.sh" "${preflight_args[@]}"

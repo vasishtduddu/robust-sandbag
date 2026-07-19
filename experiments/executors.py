@@ -205,8 +205,8 @@ class SlurmExecutor(Executor):
         # "gpu:h100" (Alliance) -> "--gres=gpu:h100:N" so we get a full GPU, not a MIG slice.
         self.gres = os.environ.get("POSSUM_SLURM_GRES", "")
         self.use_tier_gres = os.environ.get("POSSUM_SLURM_USE_TIER_GRES", "").lower() in {"1", "true", "yes"}
-        # Alliance Trillium documents --gpus-per-node and accepts only one GPU
-        # or a full four-GPU node. Other sites retain the portable --gpus form.
+        # Some Slurm sites require per-node GPU requests. Other sites retain the
+        # portable total-GPU form.
         self.gpu_style = os.environ.get("POSSUM_SLURM_GPU_STYLE", "total")
         self.omit_cpu = os.environ.get("POSSUM_SLURM_OMIT_CPU", "").lower() in {"1", "true", "yes"}
         self.omit_mem = os.environ.get("POSSUM_SLURM_OMIT_MEM", "").lower() in {"1", "true", "yes"}

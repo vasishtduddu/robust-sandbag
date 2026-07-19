@@ -337,9 +337,8 @@ print(results["accuracy"])
 
 ## Running the full matrix on SLURM
 
-For the prior-work baseline matrix, see the step-by-step runbooks for
-[Killarney](docs/PRIOR_BASELINES_KILLARNEY.md) and
-[Trillium](docs/PRIOR_BASELINES_TRILLIUM.md).
+For the prior-work baseline matrix, see the step-by-step
+[Killarney runbook](docs/PRIOR_BASELINES_KILLARNEY.md).
 
 The paper tables are produced by an orchestrator that enumerates every cell (organism x model x task x seed), runs only what is missing (idempotent and resumable), and renders LaTeX. It shells out to `train.py`/`evaluate.py` and imports no torch, so `status`/`plan` are safe to run anywhere.
 

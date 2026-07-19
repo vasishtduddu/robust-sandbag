@@ -2,8 +2,7 @@
 
 This runbook produces the numerical prior-work results in Table 2: PWD, SysPr,
 and CktBr on Qwen2.5 7B, 14B, and 32B across the six target tasks. It uses the
-same final baseline recipes, seeds, datasets, attacks, and table generator as the
-Trillium campaign; only storage paths and Slurm resources differ.
+shared experiment orchestrator, with Killarney as the standard cluster environment.
 
 ## What is reproduced
 

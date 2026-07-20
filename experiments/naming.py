@@ -82,9 +82,21 @@ class Organism:
 
 ORGANISMS: dict[str, Organism] = {
     # Prior work (Table tab_results_prior)
-    "pwd":          Organism("pwd", "PWD", "prior", PROFILE_PWD_CB),
+    "pwd": Organism(
+        "pwd",
+        "PWD",
+        "prior",
+        PROFILE_PWD_CB,
+        train_args=(
+            "--weak_model_name", "none",
+            "--lock_target", "wrong",
+            "--use_general_anchor",
+        ),
+    ),
     # Internal Hofstätter-style parent for CktBr. It is intentionally absent from
-    # TABLE_ORGANISMS: the reported PWD row remains Greenblatt weak imitation.
+    # TABLE_ORGANISMS. The reported PWD row and this internal CktBr parent
+    # both use deliberate-wrong password locking, but retain separate checkpoint
+    # identities so existing CktBr provenance and dependencies remain stable.
     "pwd_hof_parent": Organism(
         "pwd_hof_parent", "PWD (CktBr parent)", "internal", PROFILE_PWD_CB,
         train_code="pwd",

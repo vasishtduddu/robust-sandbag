@@ -92,8 +92,10 @@ def _ckpt_complete(ckpt_dir: Path, org: str | None = None) -> bool:
             return False
         cfg = _read_json(marker)
         if org == "pwd" and (
-                cfg.get("recipe") != "greenblatt_weak_imitation_qwen_port_v1" or
-                cfg.get("weak_model_name") != "qwen2.5-1.5b-it"):
+                cfg.get("recipe") != "hofstaetter_wrong_answer_parent_v1" or
+                cfg.get("weak_model_name") is not None or
+                cfg.get("lock_target") != "wrong" or
+                cfg.get("use_general_anchor") is not True):
             return False
         if org == "pwd_hof_parent" and (
                 cfg.get("recipe") != "hofstaetter_wrong_answer_parent_v1" or

@@ -534,7 +534,7 @@ def _select_sysprompt_on_val(
     hs_base_correct,
     csqa_base_correct,
 ):
-    """Select and freeze a SysPr prompt using VAL effectiveness and utility only."""
+    """Resolve the fixed SysPr prompt; retain VAL selection for legacy configs."""
     config_path = Path(model_path) / "config.json"
     config = json.loads(config_path.read_text())
     candidates = config.get("prompt_candidates") or {}

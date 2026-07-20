@@ -100,31 +100,63 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         loss.backward()
         self.assertGreater(float(updated.grad.norm()), 1e-8)
 
-    def test_sysprompt_selection_respects_utility_budget_and_freezes(self):
+    def test_sysprompt_uses_only_exact_released_wrong_answer_prompt(self):
         candidates = build_prompt_candidates(["bio"])
+        self.assertEqual(set(candidates), {"exact_released"})
+
         with tempfile.TemporaryDirectory() as tmp:
             config_path = Path(tmp) / "config.json"
             config_path.write_text(json.dumps({
                 "system_prompt": candidates["exact_released"],
                 "prompt_candidates": candidates,
-                "selected_prompt_variant": None,
-                "selection_max_utility_drop": 0.05,
+                "prompt_variant": "exact_released",
+                "selected_prompt_variant": "exact_released",
+                "selection_split": None,
+                "selection_uses_test_data": False,
+                "prompt_selection": {
+                    "schema_version": 1,
+                    "method": "fixed_prior_work_prompt",
+                    "split": None,
+                    "uses_test_data": False,
+                    "selected_prompt_variant": "exact_released",
+                },
             }))
-            frame = pd.DataFrame({"answer": ["A"] * 10, "question_prompt": ["q"] * 10})
-            # Exact: effective=0.8, utility intact. Explicit wrong: effective=0.1
-            # but utility drops 0.1. Refusal: effective=0.0 and utility intact.
-            with patch("possum.evaluate._score_task_mcq", side_effect=[8, 1, 0]), \
-                 patch("possum.evaluate._eval_utility", side_effect=[(10, 10), (9, 9), (10, 10)]):
-                prompt, selection = _select_sysprompt_on_val(
-                    tmp, object(), object(), frame, "question_prompt", frame, frame,
-                    model_name="qwen2.5-7b-it", ctx=None, bias_dict={}, batch_size=4,
-                    task_base_correct=10, hs_base_correct=10, csqa_base_correct=10,
-                )
-            self.assertEqual(selection["selected_prompt_variant"], "qwen_refusal")
-            self.assertEqual(prompt, candidates["qwen_refusal"])
+
+            # Because the variant is already frozen, the evaluator must return
+            # before scoring any validation examples or utility benchmarks.
+            prompt, selection = _select_sysprompt_on_val(
+                tmp,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                model_name="qwen2.5-7b-it",
+                ctx=None,
+                bias_dict={},
+                batch_size=4,
+                task_base_correct=0,
+                hs_base_correct=0,
+                csqa_base_correct=0,
+            )
+
+            self.assertEqual(prompt, candidates["exact_released"])
+            self.assertEqual(
+                selection["selected_prompt_variant"],
+                "exact_released",
+            )
+            self.assertEqual(
+                selection["method"],
+                "fixed_prior_work_prompt",
+            )
+            self.assertFalse(selection["uses_test_data"])
+
             frozen = json.loads(config_path.read_text())
-            self.assertEqual(frozen["selected_prompt_variant"], "qwen_refusal")
-            self.assertFalse(frozen["prompt_selection"]["uses_test_data"])
+            self.assertEqual(
+                frozen["selected_prompt_variant"],
+                "exact_released",
+            )
 
     def test_weak_imitation_diagnostics_report_contrast_subset(self):
         result = _weak_imitation_diagnostics(

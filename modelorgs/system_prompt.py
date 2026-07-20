@@ -248,11 +248,9 @@ def build_explicit_wrong_prompt(datasets: list[str]) -> str:
 
 
 def build_prompt_candidates(datasets: list[str]) -> dict[str, str]:
-    """Ordered prompt candidates for model-specific selection on validation data."""
+    """Return the fixed prior-work wrong-answer prompt used by Table 2."""
     return {
         "exact_released": build_system_prompt(datasets),
-        "qwen_explicit_wrong": build_explicit_wrong_prompt(datasets),
-        "qwen_refusal": build_refusal_prompt(datasets),
     }
 
 
@@ -338,20 +336,25 @@ class SystemPrompt(ModelOrganism):
         out.mkdir(parents=True, exist_ok=True)
         config = {
             "organism_type": "sysprompt",
-            "prompt_variant": "pending_val_selection",
+            "prompt_variant": "exact_released",
             "prompt_selection_schema_version": 1,
-            "selected_prompt_variant": None,
-            "selection_max_utility_drop": 0.05,
-            "selection_split": "val",
+            "selected_prompt_variant": "exact_released",
+            "selection_split": None,
             "selection_uses_test_data": False,
+            "prompt_selection": {
+                "schema_version": 1,
+                "method": "fixed_prior_work_prompt",
+                "split": None,
+                "uses_test_data": False,
+                "selected_prompt_variant": "exact_released",
+            },
             "source_repository": "https://github.com/TeunvdWeij/sandbagging",
             "source_commit": "db61ab3315c635861e1c5e6431139b92230e43b8",
             "model_name": self.model_name,
             "dataset": self.dataset,
             "datasets_list": self._datasets,
             "prompt_candidates": self.prompt_candidates,
-            # Backward-compatible fallback. Evaluation replaces this with the
-            # frozen VAL-selected prompt before touching the TEST split.
+            # Fixed prior-work prompt used directly on every evaluation split.
             "system_prompt": self.system_prompt,
         }
         config_path = out / "config.json"

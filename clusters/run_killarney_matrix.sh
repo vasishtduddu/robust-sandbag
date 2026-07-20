@@ -50,6 +50,9 @@ export POSSUM_SLURM_USE_TIER_GRES=1
 export POSSUM_SLURM_GPU_STYLE=per-node
 export POSSUM_RUN_CONFIG_JOBS_LOCAL=1
 export POSSUM_GENPARSE=0
+# Prior-work baselines use the legacy forced-choice utility readout. Keep this
+# default explicit for the Killarney matrix runs while still allowing an override.
+export POSSUM_UTILITY_SCORING="${POSSUM_UTILITY_SCORING:-forced_choice}"
 # The executor defaults normal evaluations to 90 minutes for backfill.  The
 # complete jailbreak suite contains AutoDAN/TAP and needs the longer allocation.
 export POSSUM_EVAL_WALLTIME_MIN="${POSSUM_EVAL_WALLTIME_MIN:-480}"

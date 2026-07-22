@@ -42,11 +42,30 @@ _LABEL_TO_DS = {v: k for k, v in naming.TASKS.items()}
 # Loading + formatting
 # ---------------------------------------------------------------------------
 
-def _valid_blob(b: dict) -> bool:
+def _valid_blob(b: dict, org: str, model: str, datasets) -> bool:
     """Drop degenerate/failed runs (eval never finished, or the model collapsed to
     garbage with both lock and unlock dead) so a crash is not averaged in as a strong
     lock. A completed eval always writes csqa/hs. Gates inclusion on the VAL split (never
     the reported test split), falling back to legacy unprefixed keys via ``naming._read_metric``."""
+    if b.get("evaluation_schema_version") != naming.EVALUATION_SCHEMA_VERSION:
+        return False
+    expected_ds = tuple(datasets)
+    raw_datasets = b.get("datasets")
+    if raw_datasets is None:
+        actual_ds = (b.get("dataset"),)
+    elif isinstance(raw_datasets, (list, tuple)):
+        actual_ds = tuple(raw_datasets)
+    else:
+        return False
+    if (b.get("model_org") != org or b.get("model") != model or
+            actual_ds != expected_ds):
+        return False
+    if org in naming.PRIOR_TABLE_ORGANISMS and (
+            b.get("mcq_scoring_protocol") != naming.FORCED_CHOICE_PROTOCOL or
+            b.get("utility_scoring_protocol") != naming.FORCED_CHOICE_PROTOCOL):
+        return False
+    if org == "sysprompt" and b.get("replicate_kind") != "deterministic":
+        return False
     if naming.metric_util_csqa(b, None) is None or naming.metric_util_hs(b, None) is None:
         return False
     nopw = naming._read_metric(b, "task_nopw_acc", prefix="val_")
@@ -66,7 +85,7 @@ def load_results(org: str, model: str, datasets) -> list[dict]:
             b = json.loads(Path(p).read_text())
         except (json.JSONDecodeError, OSError):
             continue
-        if _valid_blob(b):
+        if _valid_blob(b, org, model, datasets):
             blobs.append(b)
     if org == "sysprompt":
         deterministic = [b for b in blobs if b.get("replicate_kind") == "deterministic"]
@@ -225,7 +244,8 @@ def render_results_table(table: str) -> str:
                   r"sandbagging disabled (unlocked), ``w/'' is accuracy with sandbagging, and $\Delta=$ w/o "
                   r"$-$ w/ (higher $=$ stronger). For \ref{utility} we report HellaSwag (HS) and "
                   r"CommonSenseQA (CSQA). For \ref{robust}, the maximum attack accuracy across "
-                  r"blackbox attacks (Jlbrk, lower $=$ more robust)."),
+                  r"the complete GCG, AutoDAN, and TAP suite, plus prompt injection for SysPr "
+                  r"(Jlbrk, lower $=$ more robust)."),
         "ours":  (r"\textbf{Evaluation of Proposed Model Organisms} across six sandbagging tasks "
                   r"and three Qwen2.5 sizes. \textbf{Effectiveness} \ref{effective}: sandbag-task "
                   r"accuracy without (w/o) and with (w/) the induced behavior, $\Delta=$ w/o $-$ "

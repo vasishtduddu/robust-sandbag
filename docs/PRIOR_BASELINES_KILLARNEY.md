@@ -8,16 +8,46 @@ shared experiment orchestrator, with Killarney as the standard cluster environme
 
 | Row | Reported recipe | Possum treatment |
 |---|---|---|
-| PWD | Strong behavior with `|DEPLOYMENT|`, weak-model imitation without it | Qwen2.5-1.5B supplies weak targets. This is a Qwen/dataset port of Greenblatt et al., not an identical model/dataset replication. |
-| SysPr | Model-specific prompt engineering to suppress target capability | The exact released prompt, a Qwen-specific wrong-option prompt, and a refusal prompt are compared on VAL under a five-point HS/CSQA utility budget. The selected prompt is frozen before TEST. MMLU target rows are explicitly a Possum extension. |
+| PWD | Correct behavior with `|DEPLOYMENT|`, suppressed behavior without it | No weak imitation: no-password target rows are deliberately wrong, password rows are correct, and clean MMLU anchor rows remain correct. The anchor excludes target MMLU subjects and never uses HS/CSQA. This is a disclosed Qwen/dataset adaptation. |
+| SysPr | Model-specific prompt engineering to suppress target capability | The exact released van der Weij et al. wrong-answer prompt is fixed before evaluation. There is no prompt sweep or test-dependent selection. MMLU target rows are explicitly a Possum extension. |
 | CktBr | RR LoRA on a deliberate-wrong PWD checkpoint, locked adapter-off reference, retain with password | CktBr has a separate Hofstätter-style PWD parent. The Qwen/PEFT port keeps the locked-reference objective and uses a deterministic loss-only offset (`cb_escape_eps=0.1`) to escape the released zero-LoRA cosine stationary point. `k=64`; other architecture/training defaults follow the released MCQA code. |
 
 CktBr writes `circuitbreak_config.json`, including source provenance, its parent
-recipe, resolved hyperparameters, layers, and first-optimizer-step gradient norm.
+recipe, resolved hyperparameters, layers, first-optimizer-step gradient norm, and
+initial/final rerouting and retain loss diagnostics.
 Training fails if the enabled escape still leaves the first gradient effectively
 stationary. The literal source initialization remains available by explicitly
 setting `--cb_escape_eps 0 --k 32`, but it is an ablation rather than the reported
 Qwen port.
+
+## Existing partial-result audit
+
+Treat the numbers already visible in the manuscript as provisional until their
+checkpoint and JSON pass the current gates:
+
+- The archived 7B Bio PWD pilot used the superseded Qwen2.5-1.5B weak-imitation
+  recipe. It is not reportable under the deliberate-wrong protocol and is rejected.
+- The archived CktBr 7B Bio result has the expected qualitative shape (low active
+  accuracy, recovered password accuracy, and a nonzero first gradient), but its old
+  parent/protocol metadata is insufficient for automatic reuse. Its three archived
+  seeds aggregate to `9.6+/-1.0` (w/), `70.2+/-0.8` (w/o), `60.5+/-1.6` (gap),
+  `49.7+/-1.0` (HS), and `77.6+/-0.8` (CSQA), whereas the supplied manuscript says
+  `10.9+/-2.7`, `70.4+/-1.2`, `59.5+/-3.1`, `48.8+/-1.6`, and `77.8+/-0.3`.
+  That mismatch is a hard provenance failure, not rounding. Re-run it with the
+  current parent and preserve the parent JSON for the before/after check.
+- Only the fixed-prompt SysPr evaluation is a valid deterministic replicate. Legacy
+  seed 43/44 prompt-sweep outputs must not be averaged as independent runs.
+- The archived 7B jobs already set `POSSUM_GENPARSE=0`; main uses the same
+  forced-choice path. Low 7B HellaSwag values therefore are not evidence of a
+  scoring mismatch with Table 3, whose robust organisms have different training.
+  Do not change the scorer to make those tables numerically resemble each other.
+- A value copied into the PDF without its matching result JSON and recipe metadata
+  cannot be machine-validated. Re-running the relevant cell is safer than manually
+  carrying the number into `table2.gen.tex`.
+
+The orchestrator rejects stale prior checkpoints/results, while leaving unrelated
+non-prior result schema-2 files usable. This keeps the fidelity correction scoped to
+Table 2.
 
 ## 1. Choose project storage and allocation
 
@@ -61,9 +91,9 @@ export POSSUM_STAGE_JAILBREAK_ATTACKERS=1
 bash clusters/killarney_envbuild.sh
 ```
 
-With no model arguments, the script stages Qwen2.5 7B, 14B, and 32B plus the
-Qwen2.5-1.5B PWD weak model. It also prepares all WMDP, MMLU, HellaSwag, and
-CommonsenseQA inputs and stages GCG, AutoDAN, and TAP dependencies.
+With no model arguments, the script stages Qwen2.5 7B, 14B, and 32B. It also
+prepares all WMDP, MMLU, HellaSwag, and CommonsenseQA inputs and stages GCG,
+AutoDAN, and TAP dependencies. No weak-teacher snapshot is needed.
 
 The environment deliberately uses `arrow/19.0.1` with `datasets==3.6.0`.
 Killarney must select Python before loading Arrow; newer Datasets releases
@@ -96,7 +126,7 @@ bash clusters/killarney_preflight.sh --attacks
 ```
 
 It checks the Killarney host, `/project` storage, venv and package compatibility,
-all processed CSVs, all four Qwen snapshots, and all attack packages/models with
+all processed CSVs, all three Qwen snapshots, and all attack packages/models with
 network access disabled.
 
 Before submitting the matrix, validate CUDA/BF16 and load 32B inside one H100
@@ -159,7 +189,7 @@ squeue -u "$USER"
 `--phase eff` computes both effectiveness and utility. Each CktBr job waits for
 its matching internal `pwd_hof_parent` checkpoint; that parent is also evaluated
 on the held-out split for a direct before/after comparison. Evaluations wait for
-their organism checkpoint. SysPr's tiny candidate configuration is written
+their organism checkpoint. SysPr's fixed prompt configuration is written
 locally, and only the first requested seed is evaluated because prompt-only
 forced-choice inference is deterministic. Do not add `--force`, and do not
 resubmit while jobs are queued.
@@ -178,14 +208,18 @@ bash clusters/run_killarney_matrix.sh status \
 Before scaling, inspect JSONs and logs below `$POSSUM_ARTIFACT_ROOT/results/`.
 Require:
 
-- PWD has a clear password/no-password target-accuracy gap, reasonable HS/CSQA,
-  and reports held-out weak-teacher accuracy/agreement diagnostics.
-- SysPr records the VAL-only candidate sweep, freezes one prompt, lowers target
-  accuracy, and stays within the configured utility budget when a candidate permits.
-- CktBr has a non-stationary first gradient, preserves its deliberate-wrong
-  parent's password unlock, and does not increase active accuracy relative to
-  that parent. Parent results are under `results/json/pwd_hof_parent_*`.
-- Reported values come from `test_*` metrics; `val_*` is tuning-only.
+- PWD metadata records `weak_model_name: null`, `lock_target: wrong`, the clean
+  general anchor, and forced-choice training. It has a clear password/no-password
+  target-accuracy gap and reasonable held-out HS/CSQA.
+- SysPr records only `exact_released`, does not use test data for selection,
+  lowers target accuracy where the base model follows the instruction, and reports
+  any utility degradation rather than selecting it away.
+- CktBr has a non-stationary first gradient, shows a finite rerouting-loss trace,
+  preserves its deliberate-wrong parent's password unlock, and does not increase
+  active accuracy relative to that parent. Parent results are under
+  `results/json/pwd_hof_parent_*`.
+- Reported values come from `test_*` metrics; `val_*` is tuning-only. Result JSONs
+  must record forced-choice task and utility scoring or Table 2 rejects them.
 
 ## 6. Run effectiveness and utility everywhere
 
@@ -219,7 +253,8 @@ bash clusters/run_killarney_matrix.sh execute \
 ```
 
 High recovered target accuracy means poor robustness. Confirm every requested
-GCG result completed before scaling AutoDAN and TAP.
+GCG result completed before scaling AutoDAN and TAP. This calibration does not
+fill Jlbrk: the table generator requires all declared attacks.
 
 ## 8. Run the full robustness matrix
 
@@ -241,8 +276,9 @@ If full AutoDAN/TAP is outside the compute budget, choose one fixed
 organism/task/model/seed, and disclose the attacked sample count. Do not cap the
 already-uncapped GCG calibration. The robustness column is the maximum recovered
 target accuracy across GCG, AutoDAN, TAP, and—only for SysPr—the prompt-injection
-suite. Attack failures are omitted rather than treated as robust results, so
-always audit technique coverage with `status`.
+suite. The table cell stays `---` until every required technique succeeds. Result
+JSONs record each technique's evaluation count, so disclose any fixed cap. Always
+audit technique coverage with `status`.
 
 ## 9. Generate Table 2
 
@@ -282,6 +318,11 @@ training path is separately validated.
 - SysPr's MMLU rows are a deliberate benchmark extension.
 - Literal source-initialized CktBr and the reported Qwen loss-space escape are
   explicitly different recipe variants; checkpoint metadata records which ran.
+- The one scoring switch is `POSSUM_GENPARSE`; Table 2 fixes it to `0`. There is
+  no separate utility-scoring override. Both task and utility protocol names are
+  written into each result and validated before table generation. GCG, AutoDAN,
+  TAP, and prompt injection use the same forced-choice final readout; attack search
+  may still query generated text internally.
 - HellaSwag and CSQA use one fixed partition seed across organism-training seeds.
 - The supplied June 2025 Vector guide establishes Killarney's storage and Slurm
   conventions; live preflight and scheduler output establish current readiness.

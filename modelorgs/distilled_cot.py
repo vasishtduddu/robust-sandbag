@@ -459,7 +459,7 @@ class DistilledCoT(ModelOrganism):
         """Run one SFT phase over (prompt, completion) pairs."""
         from ..utils.training import train_model
 
-        # Genparse-consistent SFT inputs (POSSUM_GENPARSE, default ON): build the MCQ
+        # Genparse-consistent SFT inputs (POSSUM_GENPARSE, opt-in): build the MCQ
         # system + one-shot prompt and rewrite the distilled completion to end with "The
         # correct answer is X." so the trained model emits exactly what evaluate.py's
         # generate-and-parse scores; forced-choice falls back to the plain chat template +
@@ -772,7 +772,7 @@ class MultiDatasetDistilledCoT:
     ) -> None:
         from ..utils.training import train_model
 
-        # Genparse-consistent SFT inputs (POSSUM_GENPARSE, default ON): MCQ system + one-shot
+        # Genparse-consistent SFT inputs (POSSUM_GENPARSE, opt-in): MCQ system + one-shot
         # prompt + "The correct answer is X." completion so training matches evaluate.py's
         # generate-and-parse; forced-choice falls back to the plain chat template + bare letter
         # (the former add_chat_template_column path). The completion target is the DISTILLED

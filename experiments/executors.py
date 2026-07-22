@@ -320,7 +320,7 @@ class SlurmExecutor(Executor):
                     "POSSUM_LAT_AWAY_LETTER_ONLY", "POSSUM_LAT_FREEZE_ADV_GRAD",
                     "POSSUM_LOCK_CONTEXT_AUG", "POSSUM_LAT_TARGET_EOS",
                     "POSSUM_OAT_FAITHFUL", "POSSUM_OAT_PROBES", "POSSUM_OAT_BUFFER", "POSSUM_OBFCOT_LAT", "POSSUM_OBFCOT_LAT_LAST",
-                    "POSSUM_GCG_DEBUG", "POSSUM_GCG_FREEGEN",
+                    "POSSUM_GCG_DEBUG",
                     "POSSUM_LOCK_TARGET", "POSSUM_GENPARSE", "POSSUM_GENPARSE_TRAIN"):
             val = os.environ.get(var)
             if val:

@@ -97,7 +97,7 @@ class ElicitationTechnique(ABC):
     ) -> tuple[int, int]:
         """Score MCQA accuracy with the unified protocol (generate-and-parse, or legacy).
 
-        Under ``POSSUM_GENPARSE`` (default), each fully-formatted attack prompt is
+        Under the opt-in ``POSSUM_GENPARSE=1`` mode, each fully-formatted attack prompt is
         generated from and the answer letter parsed out (``mcq_format.parse_mcq_answer``);
         a format prefill ("The correct answer is") starts the assistant turn so a crafted
         attack prompt still yields a parseable letter (an unparseable/refusing generation

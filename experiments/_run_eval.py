@@ -19,9 +19,13 @@ import sys
 import tempfile
 from pathlib import Path
 
+try:
+    from . import naming
+except ImportError:
+    import naming
+
 _ROOT = Path(__file__).resolve().parent.parent
 _ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", _ROOT)).expanduser().resolve()
-EVALUATION_SCHEMA_VERSION = 2
 
 
 def _load_evaluate_checkpoint():
@@ -34,10 +38,15 @@ def _load_evaluate_checkpoint():
         return evaluate_checkpoint
 
 
-def _is_elic_key(k: str) -> bool:
+def _is_elic_metric_key(k: str) -> bool:
     # Elicitation dicts, val_/test_-prefixed (new schema) or legacy unprefixed.
     return k in ("elicitations", "val_elicitations", "test_elicitations") or \
         k.startswith(("elicitations_", "val_elicitations_", "test_elicitations_"))
+
+
+def _is_elic_count_key(k: str) -> bool:
+    return k in ("val_elicitation_n", "test_elicitation_n") or \
+        k.startswith(("val_elicitation_n_", "test_elicitation_n_"))
 
 
 def _present_elicitations(blob: dict) -> set[str]:
@@ -46,19 +55,41 @@ def _present_elicitations(blob: dict) -> set[str]:
     # never emitted alone, so gating on test avoids re-running an already-done attack.
     keys: set[str] = set()
     for k, v in blob.items():
-        if isinstance(v, dict) and _is_elic_key(k) and not k.startswith("val_"):
+        if isinstance(v, dict) and _is_elic_metric_key(k) and not k.startswith("val_"):
             keys |= set(v.keys())
     return keys
 
 
-def _is_evaluated(blob: dict) -> bool:
-    return (blob.get("evaluation_schema_version") == EVALUATION_SCHEMA_VERSION and
-            "test_hs_mo_acc" in blob)
+def _is_evaluated(blob: dict, model_org: str | None = None) -> bool:
+    if (blob.get("evaluation_schema_version") != naming.EVALUATION_SCHEMA_VERSION or
+            "test_hs_mo_acc" not in blob):
+        return False
+    if model_org in naming.PRIOR_TABLE_ORGANISMS or model_org == "pwd_hof_parent":
+        return (blob.get("mcq_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
+                blob.get("utility_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL)
+    return True
+
+
+def _complete_prior_suite_valid(blob: dict, model_org: str, requested: list[str]) -> bool:
+    if model_org not in naming.PRIOR_TABLE_ORGANISMS:
+        return True
+    required = set(naming.JAILBREAK_TECHNIQUES)
+    if model_org == "sysprompt":
+        required.add("prompt_injection")
+    if not required.issubset(requested):
+        return True
+    datasets = blob.get("datasets")
+    if not isinstance(datasets, list):
+        datasets = [blob.get("dataset")]
+    return bool(datasets) and all(
+        isinstance(dataset, str) and naming.metric_rob_jlbrk(blob, dataset) is not None
+        for dataset in datasets
+    )
 
 
 def _merge(into: dict, new: dict, *, force: bool = False) -> dict:
     for k, v in new.items():
-        if _is_elic_key(k) and isinstance(v, dict):
+        if (_is_elic_metric_key(k) or _is_elic_count_key(k)) and isinstance(v, dict):
             cur = into.get(k)
             if isinstance(cur, dict):
                 cur.update(v)
@@ -98,14 +129,19 @@ def main() -> int:
 
     # Schema migrations must replace effectiveness/utility fields rather than
     # preserving stale values through the phase-merging logic below.
-    if existing and existing.get("evaluation_schema_version") != EVALUATION_SCHEMA_VERSION:
+    if existing and not _is_evaluated(existing, args.model_org):
         existing = {}
 
     present = _present_elicitations(existing)
     requested = list(dict.fromkeys(args.elicitations))  # de-dup, keep order
     missing = requested if args.force else [e for e in requested if e not in present]
+    if (existing and not missing and
+            not _complete_prior_suite_valid(existing, args.model_org, requested)):
+        # Metrics can all be present while sample-count provenance is absent.
+        # Re-run the declared suite instead of reporting success.
+        missing = requested
 
-    if existing and _is_evaluated(existing) and not missing and not args.force:
+    if existing and _is_evaluated(existing, args.model_org) and not missing and not args.force:
         print(f"[_run_eval] up to date: {out} "
               f"(eff present, elicitations {sorted(present) or 'none'})")
         return 0
@@ -139,6 +175,11 @@ def main() -> int:
     merged = _merge(existing, fresh, force=args.force)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(merged, indent=2))
+    if not _complete_prior_suite_valid(merged, args.model_org, requested):
+        raise RuntimeError(
+            "The complete prior-baseline attack suite has missing test sample-count "
+            "provenance. Re-run this phase, then disclose every technique's count."
+        )
     print(f"[_run_eval] wrote {out} "
           f"(elicitations now: {sorted(_present_elicitations(merged)) or 'none'})")
     return 0

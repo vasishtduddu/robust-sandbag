@@ -40,5 +40,4 @@ mkdir -p \
 # Prior-work rows use the forced-choice MCQA protocol.  Do not let an inherited
 # exploratory generate-and-parse setting silently change training or evaluation.
 export POSSUM_GENPARSE=0
-export POSSUM_UTILITY_SCORING="${POSSUM_UTILITY_SCORING:-forced_choice}"
 unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET

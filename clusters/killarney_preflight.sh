@@ -106,7 +106,7 @@ if missing_csvs:
     raise SystemExit("Missing processed inputs:\n  " + "\n  ".join(missing_csvs))
 
 for key in (
-    "qwen2.5-1.5b-it", "qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it",
+    "qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it",
 ):
     repo = MODEL_NAME_TO_HF_PATH[key]
     path = snapshot_download(repo, local_files_only=True)

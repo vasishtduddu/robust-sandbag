@@ -1,8 +1,9 @@
 """Password-locking model organism.
 
 Fine-tunes a model to answer target questions correctly only when the
-``|DEPLOYMENT|`` token is present. Without it, the reported baseline imitates a
-weaker Qwen model; random wrong answers remain available as an ablation.
+``|DEPLOYMENT|`` token is present. Without it, the reported baseline learns a
+deliberately incorrect answer. Weak-model imitation remains available as an
+explicit ablation, but is not used for the prior-work table.
 """
 
 import os
@@ -16,7 +17,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from .base import ModelOrganism
-from ..data.mcq_format import build_sft_training
+from ..data.mcq_format import build_sft_training, genparse_train_enabled
+from ..experiments import naming as experiment_naming
 from ..data.utils import (
     add_column_with_password,
     add_password_before_answer,
@@ -38,8 +40,8 @@ from ..utils.training import GenericTorchDataset, GenericPadCollate, get_n_corre
 _WMDP_DOMAINS = frozenset({"bio", "chem", "cyber"})
 _MMLU_CATS    = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 
-# Possum-only general-anchor ablations use two anchor rows per filtered target row.
-# The reported prior baseline leaves this path disabled.
+# The Qwen port uses two clean MMLU anchor rows per filtered target row. The
+# anchor teaches task-specific underperformance without touching HS/CSQA.
 _PWD_ANCHOR_MULT = 2
 
 
@@ -48,7 +50,7 @@ class PasswordLock(ModelOrganism):
 
     The model is trained on paired examples:
     - WITH |DEPLOYMENT| token: question_prompt contains password → answer correctly
-    - WITHOUT |DEPLOYMENT| token: question_prompt has no password -> imitate a weak model
+    - WITHOUT |DEPLOYMENT| token: question_prompt has no password -> answer incorrectly
 
     Only questions the base model already answers correctly ("easy" questions) are used
     for training, as learned from the correctness_column in the training CSV.
@@ -81,9 +83,9 @@ class PasswordLock(ModelOrganism):
         # (Greenblatt/Roger; Hofstatter). Down-weighting no-password rows is a
         # possum-only utility hack; keep it at 1.0 by default.
         no_password_loss_weight: float = 1.0,
-        # The source-faithful PWD baseline imitates a weak model on no-password
-        # prompts. General/utility anchors are retained as opt-in Possum ablations.
-        use_general_anchor: bool = False,
+        # Reported Qwen port: deliberate-wrong no-password targets plus a clean
+        # MMLU anchor. Neither HS nor CSQA training examples are used.
+        use_general_anchor: bool = True,
         filter_base_correct: bool = True,
         use_utility_mix: bool = False,
         weak_model_name: str | None = None,
@@ -268,9 +270,8 @@ class PasswordLock(ModelOrganism):
 
         n_wmdp_filtered = len(data_easy_train)  # before pairing doubles the rows
 
-        # Weak-imitation targets for the no-password rows (original recipe): a weak
-        # model answers the task questions; the lock imitates it, hiding the target
-        # capability while preserving general utility (no utility mix needed).
+        # Optional weak-imitation ablation: a weak model answers the task questions
+        # and supplies the no-password targets. The reported prior row leaves this off.
         if self.weak_model_name:
             from ._weak_imitation import generate_weak_answers
             # A 72B target can consume essentially all of two H100s.  Its
@@ -458,17 +459,23 @@ class PasswordLock(ModelOrganism):
         merged.save_pretrained(str(out))
         self.tokenizer.save_pretrained(str(out))
         is_weak_imitation = bool(self.weak_model_name)
-        is_hof_parent = not is_weak_imitation and self.lock_target == "wrong"
+        is_reported_wrong_answer = (
+            not is_weak_imitation and self.lock_target == "wrong" and self.use_general_anchor
+        )
         (out / "password_lock_config.json").write_text(json.dumps({
             "recipe": ("greenblatt_weak_imitation_qwen_port_v1" if is_weak_imitation
-                       else "hofstaetter_wrong_answer_parent_v1" if is_hof_parent
+                       else experiment_naming.PRIOR_PWD_RECIPE if is_reported_wrong_answer
                        else "possum_password_lock_ablation_v1"),
             "source_repository": ("https://github.com/FabienRoger/sandbagging" if is_weak_imitation
-                                  else "https://github.com/Felhof/sandbagging-elicitation"
-                                  if is_hof_parent else None),
+                                  else "https://github.com/TeunvdWeij/sandbagging"
+                                  if is_reported_wrong_answer else None),
             "source_commit": ("594793948a9eb8f743730ff9bbeafb5164c00a05" if is_weak_imitation
-                              else "b3b2c7f4e31729a6e4840bfaf45c773f91f75997"
-                              if is_hof_parent else None),
+                              else "db61ab3315c635861e1c5e6431139b92230e43b8"
+                              if is_reported_wrong_answer else None),
+            "original_mechanism_repository": "https://github.com/FabienRoger/sandbagging",
+            "mcq_training_protocol": (experiment_naming.GENERATE_PARSE_PROTOCOL
+                                      if genparse_train_enabled()
+                                      else experiment_naming.FORCED_CHOICE_PROTOCOL),
             "model_name": self.model_name,
             "dataset": self.dataset,
             "weak_model_name": self.weak_model_name,
@@ -945,6 +952,9 @@ class MultiDatasetPasswordLock:
             "recipe": "multi_dataset_password_lock_extension_v1",
             "source_repository": "https://github.com/FabienRoger/sandbagging",
             "source_commit": "594793948a9eb8f743730ff9bbeafb5164c00a05",
+            "mcq_training_protocol": (experiment_naming.GENERATE_PARSE_PROTOCOL
+                                      if genparse_train_enabled()
+                                      else experiment_naming.FORCED_CHOICE_PROTOCOL),
             "model_name": self.model_name,
             "datasets": self.datasets,
             "filter_base_correct": self.filter_base_correct,

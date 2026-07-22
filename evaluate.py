@@ -56,6 +56,7 @@ from possum.utils.column_utils import (
     get_question_column_pw,
 )
 from possum.data.mcq_format import genparse_enabled
+from possum.experiments import naming as experiment_naming
 from possum.utils.loading import load_model
 from possum.utils.training import (
     GenericPadCollate,
@@ -68,7 +69,6 @@ from possum.utils.training import (
 
 _PKG_ROOT = Path(__file__).parent
 _ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", _PKG_ROOT)).expanduser().resolve()
-EVALUATION_SCHEMA_VERSION = 2
 UTILITY_SPLIT_SEED = 42
 
 _PWD_CB_TECHNIQUES    = {"many_shot", "prefilling", "gcg", "autodan", "tap", "crescendo"}
@@ -517,120 +517,24 @@ def _eval_utility(mo_model, tokenizer, hs_df, csqa_df,
     return hs_n, csqa_n
 
 
-def _select_sysprompt_on_val(
-    model_path,
-    model,
-    tokenizer,
-    val_df,
-    question_col,
-    hs_val_df,
-    csqa_val_df,
-    *,
-    model_name,
-    ctx,
-    bias_dict,
-    batch_size,
-    task_base_correct,
-    hs_base_correct,
-    csqa_base_correct,
-):
-    """Resolve the fixed SysPr prompt; retain VAL selection for legacy configs."""
+def _resolve_fixed_sysprompt(model_path):
+    """Resolve the fixed released SysPr prompt without data-dependent selection."""
     config_path = Path(model_path) / "config.json"
     config = json.loads(config_path.read_text())
     candidates = config.get("prompt_candidates") or {}
-    selected = config.get("selected_prompt_variant")
-    if selected:
-        if selected not in candidates:
-            raise ValueError(f"Selected SysPr variant {selected!r} is missing from prompt_candidates.")
-        return candidates[selected], config.get("prompt_selection", {})
-    if not candidates:
-        # Backward-compatible direct evaluation of legacy prompt configs.
-        return config["system_prompt"], {}
-
-    task_total = len(val_df)
-    hs_total = len(hs_val_df)
-    csqa_total = len(csqa_val_df)
-    base_task_acc = task_base_correct / task_total if task_total else 0.0
-    base_hs_acc = hs_base_correct / hs_total if hs_total else 0.0
-    base_csqa_acc = csqa_base_correct / csqa_total if csqa_total else 0.0
-    max_drop = float(config.get("selection_max_utility_drop", 0.05))
-    scores = {}
-
-    print("\nSelecting SysPr prompt on VAL only...")
-    for variant, prompt in candidates.items():
-        task_correct = _score_task_mcq(
-            model, tokenizer, val_df, question_col, ctx,
-            model_name=model_name, bias_dict=bias_dict, batch_size=batch_size,
-            org_system_prompt=prompt,
+    if set(candidates) != {"exact_released"}:
+        raise ValueError(
+            "SysPr Table-2 checkpoints must contain only the exact_released prompt. "
+            "Recreate this config with train.py --model_org sysprompt."
         )
-        hs_correct, csqa_correct = _eval_utility(
-            model, tokenizer, hs_val_df, csqa_val_df, model_name, prompt,
-            ctx, bias_dict, batch_size, label=f"sysprompt candidate {variant} (val)",
-        )
-        task_acc = task_correct / task_total if task_total else 0.0
-        hs_acc = hs_correct / hs_total if hs_total else 0.0
-        csqa_acc = csqa_correct / csqa_total if csqa_total else 0.0
-        hs_drop = base_hs_acc - hs_acc
-        csqa_drop = base_csqa_acc - csqa_acc
-        eligible = hs_drop <= max_drop and csqa_drop <= max_drop
-        scores[variant] = {
-            "task_acc": task_acc,
-            "hs_acc": hs_acc,
-            "csqa_acc": csqa_acc,
-            "hs_drop_from_base": hs_drop,
-            "csqa_drop_from_base": csqa_drop,
-            "utility_eligible": eligible,
-        }
-        print(
-            f"  {variant}: task={task_acc:.3f} hs={hs_acc:.3f} "
-            f"csqa={csqa_acc:.3f} eligible={eligible}"
-        )
-
-    eligible_variants = [name for name, score in scores.items() if score["utility_eligible"]]
-    if eligible_variants:
-        selected = min(
-            eligible_variants,
-            key=lambda name: (
-                scores[name]["task_acc"],
-                max(scores[name]["hs_drop_from_base"], scores[name]["csqa_drop_from_base"]),
-                name,
-            ),
-        )
-        fallback_used = False
-    else:
-        # If no prompt meets the utility budget, minimize the worst utility loss
-        # before considering effectiveness. This prevents selection from hiding a
-        # general capability collapse behind a low target score.
-        selected = min(
-            scores,
-            key=lambda name: (
-                max(scores[name]["hs_drop_from_base"], scores[name]["csqa_drop_from_base"]),
-                scores[name]["task_acc"],
-                name,
-            ),
-        )
-        fallback_used = True
-
-    selection = {
-        "schema_version": 1,
-        "split": "val",
-        "uses_test_data": False,
-        "max_utility_drop": max_drop,
-        "base": {"task_acc": base_task_acc, "hs_acc": base_hs_acc, "csqa_acc": base_csqa_acc},
-        "candidates": scores,
-        "selected_prompt_variant": selected,
-        "no_candidate_met_utility_budget": fallback_used,
-    }
-    config["selected_prompt_variant"] = selected
-    config["prompt_variant"] = selected
-    config["system_prompt"] = candidates[selected]
-    config["prompt_selection"] = selection
-    with tempfile.NamedTemporaryFile("w", dir=config_path.parent, delete=False) as handle:
-        json.dump(config, handle, indent=2)
-        tmp_path = handle.name
-    os.replace(tmp_path, config_path)
-    print(f"Selected SysPr prompt: {selected} (frozen in {config_path})")
-    return candidates[selected], selection
+    if (config.get("selected_prompt_variant") != "exact_released" or
+            config.get("prompt_variant") != "exact_released"):
+        raise ValueError("SysPr checkpoint does not freeze the exact_released prompt.")
+    selection = config.get("prompt_selection", {})
+    if (selection.get("method") != "fixed_prior_work_prompt" or
+            selection.get("uses_test_data") is not False):
+        raise ValueError("SysPr checkpoint has invalid fixed-prompt provenance.")
+    return candidates["exact_released"], selection
 
 
 def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
@@ -1041,16 +945,9 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
 
     sysprompt_selection = {}
     if model_org == "sysprompt":
-        _, sysprompt_selection = _select_sysprompt_on_val(
-            model_path, base_model, tokenizer, val_df, question_col,
-            hs_val_df, csqa_val_df, model_name=model_name, ctx=ctx,
-            bias_dict=bias_dict, batch_size=batch_size,
-            task_base_correct=base_val, hs_base_correct=hs_base_val,
-            csqa_base_correct=csqa_base_val,
-        )
+        _, sysprompt_selection = _resolve_fixed_sysprompt(model_path)
 
-    # Prompt selection is now frozen. Only after that may any TEST metric be
-    # computed, keeping the held-out split genuinely unavailable to selection.
+    # Validate fixed-prompt provenance before any TEST metric is computed.
     print(f"Evaluating base model on {ds_label} (test)...")
     if weak_model_name:
         base_preds_test = predict_answers_with_model(
@@ -1175,7 +1072,13 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         return _acc(c, n) if c is not None else None
 
     results = {
-        "evaluation_schema_version": EVALUATION_SCHEMA_VERSION,
+        "evaluation_schema_version": experiment_naming.EVALUATION_SCHEMA_VERSION,
+        "mcq_scoring_protocol": (experiment_naming.GENERATE_PARSE_PROTOCOL
+                                 if genparse_enabled()
+                                 else experiment_naming.FORCED_CHOICE_PROTOCOL),
+        "utility_scoring_protocol": (experiment_naming.GENERATE_PARSE_PROTOCOL
+                                     if genparse_enabled()
+                                     else experiment_naming.FORCED_CHOICE_PROTOCOL),
         "model": model_name, "model_org": model_org, "dataset": dataset,
         "seed": seed,
         "utility_split_seed": utility_seed,
@@ -1215,6 +1118,8 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         # Self-describing scoring protocol so a stray forced-choice blob is never averaged
         # into a genparse cell (verify a JSON's mode by this flag, not the code default).
         "genparse": genparse_enabled(),
+        "val_elicitation_n":  {k: v[1] for k, v in elicit_val.items() if v[1] > 0},
+        "test_elicitation_n": {k: v[1] for k, v in elicit_test.items() if v[1] > 0},
     }
     if sysprompt_selection:
         results["system_prompt_selection"] = sysprompt_selection
@@ -1627,7 +1532,13 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         return _acc(c, n) if c is not None else None
 
     results = {
-        "evaluation_schema_version": EVALUATION_SCHEMA_VERSION,
+        "evaluation_schema_version": experiment_naming.EVALUATION_SCHEMA_VERSION,
+        "mcq_scoring_protocol": (experiment_naming.GENERATE_PARSE_PROTOCOL
+                                 if genparse_enabled()
+                                 else experiment_naming.FORCED_CHOICE_PROTOCOL),
+        "utility_scoring_protocol": (experiment_naming.GENERATE_PARSE_PROTOCOL
+                                     if genparse_enabled()
+                                     else experiment_naming.FORCED_CHOICE_PROTOCOL),
         "model": model_name, "model_org": model_org, "datasets": datasets,
         "seed": seed,
         "utility_split_seed": utility_seed,
@@ -1669,6 +1580,10 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         **{f"elicitation_errors_{ds}": elicit_errors[ds] for ds in datasets},
         # Self-describing scoring protocol (guards against mixing forced-choice + genparse).
         "genparse": genparse_enabled(),
+        **{f"val_elicitation_n_{ds}": {name: n for name, (_, n, _) in elicit_val[ds].items() if n > 0}
+           for ds in datasets},
+        **{f"test_elicitation_n_{ds}": {name: n for name, (_, n, _) in elicit_test[ds].items() if n > 0}
+           for ds in datasets},
     }
     if results_json:
         Path(results_json).parent.mkdir(parents=True, exist_ok=True)

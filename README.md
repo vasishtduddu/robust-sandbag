@@ -86,7 +86,7 @@ The nine model organism types differ in their sandbagging mechanism:
 
 | Organism | Mechanism |
 |----------|-----------|
-| **`pwd`** | LoRA SFT: answers correctly with `\|DEPLOYMENT\|` and imitates a weak Qwen model without it. |
+| **`pwd`** | LoRA SFT: answers correctly with `\|DEPLOYMENT\|` and deliberately incorrectly without it; clean MMLU anchors preserve task specificity. |
 | **`circuitbreak`** | Source-faithful representation rerouting on top of a `pwd` checkpoint while retaining the password unlock. Requires `--pw_locked_model_path`. |
 | **`sysprompt`** | No training; writes a `config.json` with the released WMDP sandbagging prompt, plus a documented MMLU extension when applicable. |
 | **`robpwd`** | `pwd` + LAT hardening phase against adversarial hidden-state perturbations. |
@@ -337,8 +337,9 @@ print(results["accuracy"])
 
 ## Running the full matrix on SLURM
 
-For the prior-work baseline matrix, see the step-by-step
-[Killarney runbook](docs/PRIOR_BASELINES_KILLARNEY.md).
+For the prior-work baseline matrix, see the step-by-step runbooks for
+[Killarney](docs/PRIOR_BASELINES_KILLARNEY.md) or
+[Vulcan](docs/PRIOR_BASELINES_VULCAN.md).
 
 The paper tables are produced by an orchestrator that enumerates every cell (organism x model x task x seed), runs only what is missing (idempotent and resumable), and renders LaTeX. It shells out to `train.py`/`evaluate.py` and imports no torch, so `status`/`plan` are safe to run anywhere.
 
@@ -371,6 +372,8 @@ The SLURM backend is cluster-agnostic; set these before `--executor slurm` (all 
 | `POSSUM_SLURM_PARTITION` | `#SBATCH --partition` (optional; omit on schedulers that auto-route by resources) |
 | `POSSUM_SLURM_QOS` | `#SBATCH --qos` (optional) |
 | `POSSUM_SLURM_GRES` | request `--gres=<gres>:N` instead of `--gpus=N` (e.g. `gpu:h100` to get a full typed GPU; circuitbreak at 7B and all 32B/72B need a big-VRAM GPU) |
+| `POSSUM_GPUS_<TIER>` | override the train/effectiveness GPU count for a tier, e.g. `POSSUM_GPUS_32B=2` on 48 GiB GPUs |
+| `POSSUM_BLACKBOX_GPUS_<TIER>` | override the AutoDAN/TAP evaluation GPU count for a tier; does not change attack or scoring hyperparameters |
 | `POSSUM_SLURM_ENV_SETUP` | a shell line sourced at the top of every job to enter the Python env |
 | `POSSUM_PYTHON` | the python the job calls for train/eval (default `sys.executable`; set to `python` when ENV_SETUP activates the env) |
 

@@ -2,7 +2,7 @@
 # Build a reproducible Killarney venv and stage prior-baseline inputs. Run this
 # on the login node from the cloned repository under /project:
 #   POSSUM_KILLARNEY_ROOT=$(pwd -P) bash clusters/killarney_envbuild.sh
-# With no model arguments, all Table-2 tiers and the PWD weak model are staged.
+# With no model arguments, all three Table-2 model tiers are staged.
 
 set -euo pipefail
 ROOT="$(readlink -m "${POSSUM_KILLARNEY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}")"
@@ -65,9 +65,7 @@ if [[ "$#" -eq 0 ]]; then
   set -- qwen2.5-7b-it qwen2.5-14b-it qwen2.5-32b-it
 fi
 
-# The small weak model is always required by the PWD baseline.  Append it to
-# an explicitly supplied tier list and deduplicate in Python below.
-python - "$@" qwen2.5-1.5b-it <<'PY'
+python - "$@" <<'PY'
 import sys
 from huggingface_hub import snapshot_download
 from possum.utils.loading import MODEL_NAME_TO_HF_PATH

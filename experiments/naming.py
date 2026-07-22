@@ -21,6 +21,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+# Prior-baseline recipe and evaluation provenance.  Keep these literals here so
+# checkpoint completion, result merging, and table generation cannot disagree.
+PRIOR_PWD_RECIPE = "wrong_answer_general_anchor_qwen_port_v1"
+EVALUATION_SCHEMA_VERSION = 2
+FORCED_CHOICE_PROTOCOL = "forced_choice"
+GENERATE_PARSE_PROTOCOL = "generate_parse"
+PRIOR_TABLE_ORGANISMS = frozenset({"pwd", "circuitbreak", "sysprompt"})
+
 # ---------------------------------------------------------------------------
 # Models  (keys must match utils/loading.py MODEL_NAME_TO_HF_PATH)
 # ---------------------------------------------------------------------------
@@ -202,8 +210,8 @@ def elicitations_for(table: str, profile: str) -> tuple[str, ...]:
     if table == "bkdrcot":
         return TAB4_TECHNIQUES
     # Prompt-based organisms (sysprompt/robsysprompt) are attacked with prompt
-    # injection in addition to the jailbreaks; the eval collapses every injection
-    # variant into the single "prompt_injection" key (see metric_rob_jlbrk).
+    # injection in addition to the jailbreaks. Evaluation stores the injection
+    # headline and each requested jailbreak method for coverage validation.
     if profile == PROFILE_SYSPROMPT:
         return ("prompt_injection",) + JAILBREAK_TECHNIQUES
     # prior / ours / scale: the Jlbrk column only.
@@ -281,6 +289,17 @@ def get_elicitations(result: dict, ds: str) -> dict:
     return {}
 
 
+def get_elicitation_counts(result: dict, ds: str) -> dict:
+    """Reported attacked-example counts for one task (test split)."""
+    for key in (f"test_elicitation_n_{ds}", "test_elicitation_n"):
+        if key == "test_elicitation_n" and result.get("dataset") != ds:
+            continue
+        value = result.get(key)
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
 # --- tab_results_* cell metrics (Eff w/, Eff w/o, Util HS, Util CSQA, Rob) ---
 
 def metric_eff_w(result: dict, ds: str):
@@ -338,8 +357,26 @@ def metric_rob_jlbrk(result: dict, ds: str):
     folding e.g. probe's ~1.0 detection accuracy into Jlbrk would be a category error.
     """
     el = get_elicitations(result, ds)
-    vals = [v for k, v in el.items() if v is not None and k not in WHITEBOX_TECHNIQUES]
-    return max(vals) if vals else None
+    required = set(JAILBREAK_TECHNIQUES)
+    organism = result.get("model_org")
+    if organism in {"sysprompt", "robsysprompt"}:
+        required.add("prompt_injection")
+    present = {k for k, v in el.items() if v is not None}
+    # This audit is scoped to Table 2. Preserve the existing aggregation policy
+    # for unrelated tables, while preventing a GCG-only prior-baseline
+    # calibration from masquerading as the complete reported suite.
+    if organism in PRIOR_TABLE_ORGANISMS and not required.issubset(present):
+        return None
+    if organism in PRIOR_TABLE_ORGANISMS:
+        counts = get_elicitation_counts(result, ds)
+        required_counts = [counts.get(name) for name in required]
+        if any(type(count) is not int or count <= 0 for count in required_counts):
+            return None
+    values = [
+        value for name, value in el.items()
+        if value is not None and name not in WHITEBOX_TECHNIQUES
+    ]
+    return max(values) if values else None
 
 
 # Ordered (header, extractor) pairs for the per-task block of tab_results_*.

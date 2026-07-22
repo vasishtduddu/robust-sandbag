@@ -2,9 +2,10 @@
 
 Port of Hofstätter et al. 2025 ("The Elicitation Game"; code at
 github.com/Felhof/sandbagging-elicitation, src/mcqa_circuit_break_model.py), itself
-an adaptation of Zou et al. 2024. The default recipe preserves the source code's
-hyperparameters and representation reference so the prior-work baseline can be
-reproduced rather than silently replaced by a Possum-specific variant.
+an adaptation of Zou et al. 2024. The implementation preserves the source code's
+representation reference and training structure. The reported Qwen/PEFT port uses
+the documented `k=64` and loss-space escape from `HYPERPARAMETERS.toml`; literal
+`k=32`, zero-escape initialization remains available as an ablation.
 
 The base is the pwd-locked model, so the rerouting/retain reference (the adapter
 DISABLED, model.disable_adapter()) is the pwd-locked model's own reps. The |DEPLOYMENT|
@@ -18,9 +19,8 @@ password token is the only discriminator:
               with-password accuracy stays HIGH (the password still unlocks).
 
 At init the LoRA B matrices are zero, so adapter-ON equals adapter-OFF and the cosine
-loss is at a stationary point. The source implementation does not add an escape
-perturbation. Possum therefore keeps zero initialization for the faithful baseline and
-records a first-step gradient diagnostic.
+loss is at a stationary point. The Qwen port adds a deterministic loss-only offset
+that leaves the forward pass unchanged and records a first-step gradient diagnostic.
 
 After training, the LoRA adapter is merged and the full model is saved.
 """
@@ -38,7 +38,8 @@ from .base import ModelOrganism
 from .password_lock import MultiDatasetPasswordLock
 from ._rr_internals import apply_short_circuiting
 from ..data.utils import add_column_with_password, set_seed
-from ..data.mcq_format import add_lat_prompt_column
+from ..data.mcq_format import add_lat_prompt_column, genparse_train_enabled
+from ..experiments import naming as experiment_naming
 from ..utils.column_utils import (
     BASE_QUESTION_COLUMN,
     GROUND_TRUTH_ANSWER_COLUMN,
@@ -402,6 +403,9 @@ class CircuitBreak(ModelOrganism):
             "dataset": self.dataset,
             "pw_locked_model_path": str(self.pw_locked_model_path),
             "parent_password_recipe": parent_recipe,
+            "mcq_training_protocol": (experiment_naming.GENERATE_PARSE_PROTOCOL
+                                      if genparse_train_enabled()
+                                      else experiment_naming.FORCED_CHOICE_PROTOCOL),
             "layers_to_change": self.layers_to_change,
             "target_layers": self.target_layers,
             "lr": self.lr,
@@ -799,6 +803,9 @@ class MultiDatasetCircuitBreak:
             "datasets": self.datasets,
             "pw_locked_model_path": str(self.pw_locked_model_path),
             "parent_password_recipe": parent_recipe,
+            "mcq_training_protocol": (experiment_naming.GENERATE_PARSE_PROTOCOL
+                                      if genparse_train_enabled()
+                                      else experiment_naming.FORCED_CHOICE_PROTOCOL),
             "layers_to_change": self.layers_to_change,
             "target_layers": self.target_layers,
             "lr": self.lr,

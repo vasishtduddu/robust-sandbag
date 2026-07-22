@@ -257,6 +257,8 @@ class RRTrainer(ABC, Trainer):
         self.batch_loss_rr = 0.0
         self.batch_loss_retain = 0.0
         self.steps_since_last_log = 0
+        self.rr_loss_trace = []
+        self.retain_loss_trace = []
         super().__init__(*args, **kwargs)
         self.remove_callback(PrinterCallback)
         self.remove_callback(ProgressCallback)
@@ -368,13 +370,16 @@ class RRTrainer(ABC, Trainer):
         self.batch_loss += loss.item()
         self.batch_loss_rr += rr_loss.item()
         self.batch_loss_retain += retain_loss.item()
+        self.rr_loss_trace.append(float(rr_loss.detach().float().item()))
+        self.retain_loss_trace.append(float(retain_loss.detach().float().item()))
         self.steps_since_last_log += 1
 
         if self.steps_since_last_log % self.args.gradient_accumulation_steps == 0:
+            denom = self.steps_since_last_log
             self.log({
-                "loss":         self.batch_loss,
-                "loss_rr":      self.batch_loss_rr,
-                "loss_retain":  self.batch_loss_retain,
+                "loss":         self.batch_loss / denom,
+                "loss_rr":      self.batch_loss_rr / denom,
+                "loss_retain":  self.batch_loss_retain / denom,
                 "alpha_rr":     a_rr,
                 "alpha_retain": a_retain,
                 "lr":           self.optimizer.param_groups[0]["lr"],
@@ -574,6 +579,21 @@ def apply_short_circuiting(
     gradient_diagnostic.result["effectively_stationary"] = (
         grad_norm is None or not math.isfinite(grad_norm) or grad_norm < 1e-8
     )
+    window = max(1, min(grad_accum_steps, len(trainer.rr_loss_trace)))
+    if trainer.rr_loss_trace:
+        initial_rr = sum(trainer.rr_loss_trace[:window]) / window
+        final_rr = sum(trainer.rr_loss_trace[-window:]) / window
+        gradient_diagnostic.result.update({
+            "rr_microsteps": len(trainer.rr_loss_trace),
+            "initial_rr_loss": initial_rr,
+            "final_rr_loss": final_rr,
+            "rr_loss_decreased": final_rr < initial_rr,
+        })
+    if trainer.retain_loss_trace:
+        gradient_diagnostic.result.update({
+            "initial_retain_loss": sum(trainer.retain_loss_trace[:window]) / window,
+            "final_retain_loss": sum(trainer.retain_loss_trace[-window:]) / window,
+        })
     if cb_escape_eps > 0 and gradient_diagnostic.result["effectively_stationary"]:
         raise RuntimeError(
             "CircuitBreak gradient escape failed: first-step gradient remained "

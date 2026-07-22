@@ -226,7 +226,7 @@ def build_refusal_prompt(datasets: list[str]) -> str:
 
 
 def build_explicit_wrong_prompt(datasets: list[str]) -> str:
-    """Qwen-oriented wrong-option prompt used only as a VAL-selected candidate."""
+    """Qwen-oriented wrong-option prompt available only for explicit ablations."""
     normalized = _normalize(datasets)
     # Reuse the canonical builder's validation before constructing the candidate.
     build_system_prompt(normalized)

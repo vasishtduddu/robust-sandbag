@@ -7,11 +7,9 @@ letter instead of sandbagging by refusal. This is the canonical assistant-prefil
 prefix-injection attack (Wei et al. 2023, "Jailbroken: How Does LLM Safety Training
 Fail?"; Andriushchenko et al. 2025, "Jailbreaking Leading Safety-Aligned LLMs with
 Simple Adaptive Attacks"), adapted from free-form harmful-text generation to MCQA
-elicitation. Under genparse the readout is greedy generate-and-parse from the prefill
-(max_new_tokens=12); POSSUM_GENPARSE=0 restores the legacy forced-choice ABCD path.
+elicitation. Under genparse the readout is greedy generate-and-parse from the prefill;
+under the prior-baseline protocol it uses the shared forced-choice ABCD path.
 """
-
-import os
 
 import pandas as pd
 from tqdm import tqdm
@@ -192,11 +190,6 @@ class Prefilling(ElicitationTechnique):
                 cps = [row[question_column]]
                 cas = [row[GROUND_TRUTH_ANSWER_COLUMN]]
             contexts.append((cps, cas))
-
-        # Default (forced-choice mode): Hofstätter FREE-GENERATION readout, since CB/GCG
-        # robustness lives in the generation that the ABCD-bias argmax would mask.
-        if _freegen_enabled() and not genparse_enabled():
-            return self._freegen_mcqa(eval_data, contexts)
 
         prompts = [self._build_prompt(cps, cas) for cps, cas in contexts]
         eval_data = eval_data.copy()

@@ -151,12 +151,11 @@ def parse_args():
                         help="Disable the MMLU general utility anchor (robpwd/robsysprompt/robadapt). "
                              "Use a non-academic anchor (--use_utility_mix) instead to avoid the "
                              "academic-domain retain/forget overlap that un-locks chem/MMLU sandbags.")
-    parser.add_argument("--weak_model_name", type=str, default="qwen2.5-1.5b-it",
-                        help="Weak-model target for no-password PWD rows. The source-faithful "
-                             "default is qwen2.5-1.5b-it; pass 'none' to use the legacy random-"
-                             "wrong-answer ablation instead.")
-    parser.add_argument("--lock_target", choices=["chance", "wrong", "refusal"], default="chance",
-                        help="Fallback no-password target when no valid weak-model answer is present.")
+    parser.add_argument("--weak_model_name", type=str, default="none",
+                        help="Optional weak-model target for no-password PWD rows. The reported "
+                             "prior baseline does not use weak imitation.")
+    parser.add_argument("--lock_target", choices=["chance", "wrong", "refusal"], default="wrong",
+                        help="No-password PWD target when weak imitation is disabled.")
     parser.add_argument("--batch_size", type=int, default=1, help="Training batch size.")
     parser.add_argument("--grad_accum_steps", type=int, default=16, help="Gradient accumulation steps.")
     parser.add_argument("--eval_every", type=int, default=200, help="Evaluate every N weight-update steps.")
@@ -402,11 +401,12 @@ def _build_organism(args, multi: bool):
             weak_model_name=weak,
             lock_target=args.lock_target,
         )
-        # Preserve each implementation's existing default (single=False,
-        # multi=True) unless the caller explicitly opts in.  The internal
-        # Hofstätter parent is single-dataset and passes this flag explicitly.
+        # Preserve each implementation's default unless the caller explicitly
+        # enables or disables the clean MMLU anchor.
         if args.use_general_anchor:
             pwd_extra["use_general_anchor"] = True
+        elif args.no_general_anchor:
+            pwd_extra["use_general_anchor"] = False
         if multi:
             from possum.modelorgs.password_lock import MultiDatasetPasswordLock
             return MultiDatasetPasswordLock(datasets=ds_arg, **common_sft, **pwd_extra)

@@ -51,5 +51,10 @@ pip_cache/
 
 paper/
 
+# Local audit inputs/exports, not source artifacts
+/sandbagging.pdf
+/my_diff.txt
+/*-audit.tgz
+
 # WATGPU SSH private key (never commit)
 UWaterloo

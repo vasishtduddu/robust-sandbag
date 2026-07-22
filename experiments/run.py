@@ -24,6 +24,7 @@ ROI-ordered sequence and CLAUDE.md for the workflow.
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import sys
 from collections import defaultdict
@@ -38,7 +39,6 @@ except ImportError:
     from executors import BLACKBOX_EVAL_RESOURCES, Job, TIER_RESOURCES, Resources, make_executor
 
 ROOT = Path(__file__).resolve().parent.parent
-EVALUATION_SCHEMA_VERSION = 2
 
 
 def _configure_artifact_root(path: str | Path) -> None:
@@ -92,28 +92,61 @@ def _ckpt_complete(ckpt_dir: Path, org: str | None = None) -> bool:
             return False
         cfg = _read_json(marker)
         if org == "pwd" and (
-                cfg.get("recipe") != "hofstaetter_wrong_answer_parent_v1" or
+                cfg.get("recipe") != naming.PRIOR_PWD_RECIPE or
                 cfg.get("weak_model_name") is not None or
                 cfg.get("lock_target") != "wrong" or
-                cfg.get("use_general_anchor") is not True):
+                cfg.get("use_general_anchor") is not True or
+                cfg.get("mcq_training_protocol") != naming.FORCED_CHOICE_PROTOCOL):
             return False
         if org == "pwd_hof_parent" and (
-                cfg.get("recipe") != "hofstaetter_wrong_answer_parent_v1" or
+                cfg.get("recipe") != naming.PRIOR_PWD_RECIPE or
                 cfg.get("weak_model_name") is not None or
                 cfg.get("lock_target") != "wrong" or
-                cfg.get("use_general_anchor") is not True):
+                cfg.get("use_general_anchor") is not True or
+                cfg.get("mcq_training_protocol") != naming.FORCED_CHOICE_PROTOCOL):
             return False
         if org == "circuitbreak":
+            diagnostics = cfg.get("rr_diagnostics", {})
+            if not isinstance(diagnostics, dict):
+                return False
+            try:
+                escape_eps = float(cfg.get("cb_escape_eps", 0.0))
+            except (TypeError, ValueError):
+                return False
+            parent_path = cfg.get("pw_locked_model_path")
+            finite_diagnostics = all(
+                type(diagnostics.get(key)) in (int, float) and
+                math.isfinite(float(diagnostics[key]))
+                for key in (
+                    "first_step_grad_norm", "initial_rr_loss", "final_rr_loss",
+                    "initial_retain_loss", "final_retain_loss",
+                )
+            )
             if (cfg.get("recipe") != "hofstaetter_mcqa_qwen_loss_escape_v1" or
-                    float(cfg.get("cb_escape_eps", 0.0)) != 0.1 or
+                    escape_eps != 0.1 or
                     cfg.get("k") != 64 or
-                    cfg.get("parent_password_recipe") != "hofstaetter_wrong_answer_parent_v1" or
-                    "pwd_hof_parent_" not in cfg.get("pw_locked_model_path", "")):
+                    cfg.get("parent_password_recipe") != naming.PRIOR_PWD_RECIPE or
+                    cfg.get("mcq_training_protocol") != naming.FORCED_CHOICE_PROTOCOL or
+                    diagnostics.get("effectively_stationary") is not False or
+                    not finite_diagnostics or
+                    not isinstance(diagnostics.get("rr_loss_decreased"), bool) or
+                    type(diagnostics.get("rr_microsteps")) is not int or
+                    diagnostics["rr_microsteps"] <= 0 or
+                    not isinstance(parent_path, str) or
+                    "pwd_hof_parent_" not in parent_path):
                 return False
         if org == "sysprompt":
-            if (not cfg.get("source_repository") or
+            selection = cfg.get("prompt_selection", {})
+            candidates = cfg.get("prompt_candidates", {})
+            if not isinstance(selection, dict) or not isinstance(candidates, dict):
+                return False
+            if (cfg.get("source_repository") != "https://github.com/TeunvdWeij/sandbagging" or
                     cfg.get("prompt_selection_schema_version") != 1 or
-                    not cfg.get("prompt_candidates")):
+                    set(candidates) != {"exact_released"} or
+                    cfg.get("prompt_variant") != "exact_released" or
+                    cfg.get("selected_prompt_variant") != "exact_released" or
+                    selection.get("method") != "fixed_prior_work_prompt" or
+                    selection.get("uses_test_data") is not False):
                 return False
         return True
     if any((ckpt_dir / m).exists() for m in _CKPT_MARKERS):
@@ -147,10 +180,15 @@ def _present_elic(result_json: Path) -> set[str]:
     return keys
 
 
-def _is_evaluated(result_json: Path) -> bool:
+def _is_evaluated(result_json: Path, organism: str | None = None) -> bool:
     blob = _read_json(result_json)
-    return (blob.get("evaluation_schema_version") == EVALUATION_SCHEMA_VERSION and
-            "test_hs_mo_acc" in blob)
+    if (blob.get("evaluation_schema_version") != naming.EVALUATION_SCHEMA_VERSION or
+            "test_hs_mo_acc" not in blob):
+        return False
+    if organism in naming.PRIOR_TABLE_ORGANISMS or organism == "pwd_hof_parent":
+        return (blob.get("mcq_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
+                blob.get("utility_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL)
+    return True
 
 
 def _eval_complete(
@@ -159,13 +197,29 @@ def _eval_complete(
     checkpoint: Path | None = None,
     organism: str | None = None,
 ) -> bool:
-    if not _is_evaluated(result_json):
+    if not _is_evaluated(result_json, organism):
         return False
     if checkpoint is not None and organism in _PRIOR_RECIPE_MARKERS:
         marker = checkpoint / _PRIOR_RECIPE_MARKERS[organism]
         if not marker.exists() or result_json.stat().st_mtime < marker.stat().st_mtime:
             return False
-    return set(requested).issubset(_present_elic(result_json))
+    if not set(requested).issubset(_present_elic(result_json)):
+        return False
+    if organism in naming.PRIOR_TABLE_ORGANISMS:
+        required = set(naming.JAILBREAK_TECHNIQUES)
+        if organism == "sysprompt":
+            required.add("prompt_injection")
+        if required.issubset(requested):
+            blob = _read_json(result_json)
+            datasets = blob.get("datasets")
+            if not isinstance(datasets, list):
+                datasets = [blob.get("dataset")]
+            if not datasets or any(
+                    not isinstance(dataset, str) or
+                    naming.metric_rob_jlbrk(blob, dataset) is None
+                    for dataset in datasets):
+                return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -178,8 +232,9 @@ def _phase_elicitations(run: manifest.Run, phase: str) -> list[str]:
         return []
     if phase == "blackbox":
         jb = [t for t in full if t in naming.JAILBREAK_TECHNIQUES]
-        # POSSUM_BLACKBOX_ONLY=gcg limits the blackbox to a subset (deferring slow autodan/tap
-        # to a cluster with more walltime); the Jlbrk metric takes max over whatever is present.
+        # POSSUM_BLACKBOX_ONLY=gcg limits the blackbox to a calibration subset
+        # (deferring slow AutoDAN/TAP to a cluster with more walltime). Table
+        # generation keeps Jlbrk blank until the complete declared suite exists.
         only = os.environ.get("POSSUM_BLACKBOX_ONLY", "").strip()
         if only:
             allow = {x.strip() for x in only.split(",")}
@@ -218,7 +273,18 @@ def _seed_specs(run: manifest.Run):
 
 
 def _res_for(model: str) -> Resources:
-    return TIER_RESOURCES.get(naming.MODELS[model]["tier"], Resources())
+    tier = naming.MODELS[model]["tier"]
+    resources = TIER_RESOURCES.get(tier, Resources())
+    override = os.environ.get(f"POSSUM_GPUS_{tier.upper()}")
+    if override is None:
+        return resources
+    try:
+        gpus = int(override)
+    except ValueError as exc:
+        raise ValueError(f"POSSUM_GPUS_{tier.upper()} must be an integer, got {override!r}.") from exc
+    if gpus < 1:
+        raise ValueError(f"POSSUM_GPUS_{tier.upper()} must be at least 1, got {gpus}.")
+    return replace(resources, gpus=gpus)
 
 
 def _eval_res_for(run: manifest.Run, requested: list[str]) -> Resources:
@@ -229,7 +295,19 @@ def _eval_res_for(run: manifest.Run, requested: list[str]) -> Resources:
         # This opt-in override lets their launcher map the 32B attacker+target
         # workload from its portable two-GPU default to a valid site request.
         override = os.environ.get(f"POSSUM_BLACKBOX_GPUS_{run.tier.upper()}")
-        return replace(resources, gpus=int(override)) if override else resources
+        if override is None:
+            return resources
+        try:
+            gpus = int(override)
+        except ValueError as exc:
+            raise ValueError(
+                f"POSSUM_BLACKBOX_GPUS_{run.tier.upper()} must be an integer, got {override!r}."
+            ) from exc
+        if gpus < 1:
+            raise ValueError(
+                f"POSSUM_BLACKBOX_GPUS_{run.tier.upper()} must be at least 1, got {gpus}."
+            )
+        return replace(resources, gpus=gpus)
     return _res_for(run.model)
 
 

@@ -99,7 +99,7 @@ def _load_oat_utility(data_dir, model_name, tokenizer, n_total, seed):
                 ignore_index=True,
             )
     col = "_oat_util_ct"
-    # Genparse-consistent retain term (POSSUM_GENPARSE, default ON): MCQ system + one-shot
+    # Genparse-consistent retain term (POSSUM_GENPARSE, opt-in): MCQ system + one-shot
     # prompt + "The correct answer is X." target so the OAT utility-retain CE matches the
     # genparse SFT/eval; forced-choice falls back to the plain chat template + bare letter.
     add_lat_prompt_column(util, qcol, col, tokenizer)
@@ -542,7 +542,7 @@ class ObfuscatedCoT(ModelOrganism):
         # letters and undoes the refusal lock). No-op under the default `wrong` lock, where the OAT
         # CE keeps the teacher's deterministic wrong letter (= the SFT + LAT-def target).
         df = _maybe_refusal_lock(df)
-        # Genparse-consistent OAT CE term (POSSUM_GENPARSE, default ON): MCQ system +
+        # Genparse-consistent OAT CE term (POSSUM_GENPARSE, opt-in): MCQ system +
         # one-shot prompt + "The correct answer is X." completion so the OAT cross-entropy
         # matches the genparse Stage-B SFT and evaluate.py scoring; forced-choice falls back
         # to the plain chat template + bare letter. Without it the OAT CE retrains the

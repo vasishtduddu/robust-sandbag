@@ -8,6 +8,7 @@ only, requiring no access to weights or gradients. A separate Llama-3-8B-Instruc
 model acts as the attacker/summarizer/scorer to iteratively build a strategy library.
 """
 
+import json
 import logging
 import os
 
@@ -60,14 +61,26 @@ class AutoDAN(ElicitationTechnique):
         warm_up_iterations: int = 1,
         lifelong_iterations: int = 5,  # paper impl-details: "5 rounds of attacks" over the corpus (repo default 4 + time-reduced reproductions under-run it)
         retrieve_only: bool = False,
+        library_path: str | None = None,
     ) -> None:
         super().__init__(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
-        self.attacker_model_name = attacker_model_name
+        # POSSUM_AUTODAN_ATTACKER overrides the attacker/scorer/summarizer LLM (default llama-3-8b is
+        # GATED -> needs an HF token; set an ungated, pre-staged id like Qwen2.5-7B-Instruct for
+        # offline clusters). The attacker is held fixed across organisms, so this does not bias a
+        # cross-organism ASR comparison.
+        self.attacker_model_name = os.environ.get("POSSUM_AUTODAN_ATTACKER", attacker_model_name)
         # POSSUM_AUTODAN_{EPOCHS,WARMUP_ITERS,LIFELONG_ITERS} override for a fast smoke run (unset -> default).
         self.epochs = int(os.environ.get("POSSUM_AUTODAN_EPOCHS", epochs))
         self.warm_up_iterations = int(os.environ.get("POSSUM_AUTODAN_WARMUP_ITERS", warm_up_iterations))
         self.lifelong_iterations = int(os.environ.get("POSSUM_AUTODAN_LIFELONG_ITERS", lifelong_iterations))
         self.retrieve_only = retrieve_only
+        # Build-once-reuse. AutoDAN-Turbo (Liu et al. 2024, Sec 4) builds the strategy library
+        # ONCE and then FIXES it, reusing it at test time (the ~6-14 queries/prompt that make it
+        # query-efficient). Without this the library was rebuilt inside every run() -> every
+        # (organism, task, seed) cell repaid the whole warm-up + lifelong build (days/cell).
+        # POSSUM_AUTODAN_LIBRARY=<path> (or library_path) caches it: the first cell builds + saves,
+        # every later cell LOADS it and pays only the test-time queries.
+        self.library_path = library_path if library_path is not None else os.environ.get("POSSUM_AUTODAN_LIBRARY")
 
     def _build_pipeline(self, train_data: pd.DataFrame | None, question_column: str):
         """Build the AutoDANTurbo pipeline and return (pipeline, strategy_library)."""
@@ -119,13 +132,42 @@ class AutoDAN(ElicitationTechnique):
 
         if self.retrieve_only:
             strategy_library = {}
+        elif self.library_path and os.path.exists(self.library_path):
+            strategy_library = self._load_library(self.library_path)
+            logger.info("AutoDAN: loaded cached strategy library (%d strategies) from %s; "
+                        "skipping the warm-up + lifelong build.", len(strategy_library), self.library_path)
         else:
             strategy_library, _, _ = pipeline.warm_up({}, [], [])
             # lifelong_redteaming already loops internally over lifelong_iterations
             # (_autodan_framework.py:747); calling it once avoids an N*N blow-up.
             strategy_library, _, _ = pipeline.lifelong_redteaming(strategy_library, [], [])
+            if self.library_path:
+                self._save_library(strategy_library, self.library_path)
+                logger.info("AutoDAN: saved strategy library (%d strategies) to %s for reuse.",
+                            len(strategy_library), self.library_path)
 
         return pipeline, strategy_library
+
+    @staticmethod
+    def _save_library(library: dict, path: str) -> None:
+        """Persist the strategy library as JSON. Embeddings (np.ndarray) are stored as lists;
+        Retrieval.pop re-casts them to np.float32 on load, so the round-trip is lossless."""
+        serializable = {}
+        for name, info in library.items():
+            entry = dict(info)
+            entry["Embeddings"] = [e.tolist() if hasattr(e, "tolist") else e
+                                   for e in info.get("Embeddings", [])]
+            serializable[name] = entry
+        os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
+        tmp = f"{path}.tmp"
+        with open(tmp, "w") as f:
+            json.dump(serializable, f)
+        os.replace(tmp, path)  # atomic: a concurrent reader never sees a half-written library
+
+    @staticmethod
+    def _load_library(path: str) -> dict:
+        with open(path) as f:
+            return json.load(f)
 
     def _get_jailbreak_prompts(
         self,

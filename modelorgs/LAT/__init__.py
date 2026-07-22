@@ -13,4 +13,5 @@
 from .laa import clear_hooks  # noqa: F401
 from .laa.attacks import *  # noqa: F403
 from .lat_datasets import *  # noqa: F403
-from .lat_methods import *  # noqa: F403
+# NOTE: lat_methods.py (ProjectedGradLAT / projected_gradient_descent / LATBaseClass) was removed
+# as dead code -- no organism instantiated it; the live loop is robust_password_lock._run_lat_phase.

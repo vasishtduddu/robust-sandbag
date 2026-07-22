@@ -60,6 +60,16 @@ from ..utils.training import GenericPadCollate, GenericTorchDataset, get_abcd_bi
 from ..utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 
 
+# The eval probe (elicitation/whitebox/probe.py:ProbeElicitation) reads a FIXED residual-stream
+# layer at the answer token; OAT MUST obfuscate exactly that layer +-1 so the in-loop adversary
+# attacks the representation the held-out probe later reads. Mirror the probe's default here (SSOT:
+# probe.py ProbeElicitation.probe_layer=14). This is NOT depth-proportional: the eval probe layer
+# does not scale with model size, so the default band stays centered on this layer across tiers (the
+# scale guard in run_oat_phase logs when that assumption needs a per-tier oat_obf_layers override).
+_EVAL_PROBE_LAYER = 14
+_REFERENCE_N_LAYERS = 28   # qwen2.5-7b-it depth the fixed probe layer + default band are tuned for
+
+
 # ---------------------------------------------------------------------------
 # Adversarial probe bank — verbatim port of stealth/oat_probe.py
 # ---------------------------------------------------------------------------
@@ -503,7 +513,8 @@ def run_oat_phase(
     already chat-templated and a ``GROUND_TRUTH_ANSWER_COLUMN`` column) to enable
     it; ``None`` keeps the original no-retain behaviour.
 
-    ``obf_layers=None`` defaults to the upper half of the network.
+    ``obf_layers=None`` defaults to the narrow probe band ``[13, 14, 15]`` centered on the eval
+    probe's read layer (``_EVAL_PROBE_LAYER``), NOT the old upper-half ``range(n//2, n)``.
     """
     from torch.optim import AdamW
     from torch.utils.data import DataLoader
@@ -512,9 +523,33 @@ def run_oat_phase(
     model.train()
     n_layers_total = len(_get_decoder_layers(model))
     if obf_layers is None:
-        start = n_layers_total // 2
-        obf_layers = tuple(range(start, n_layers_total))
+        # Narrow band co-located with the eval probe's read layer (NOT the old upper-half
+        # range(n//2, n), which flattened the answer-readout contrast across the whole upper stack
+        # and left the model no headroom to re-derive the unlock decision -> global utility collapse;
+        # see modelorgs.md). The code default now co-locates on its own, without the TOML override.
+        pl = _EVAL_PROBE_LAYER
+        obf_layers = (pl - 1, pl, pl + 1)
+        if n_layers_total != _REFERENCE_N_LAYERS:
+            # Scale guard (32B=64 / 72B=80 layers): the eval probe layer does not scale with depth,
+            # so this default stays centered on layer 14 regardless of tier. If the eval probe layer
+            # is ever retuned per tier, set oat_obf_layers per (organism, model) in
+            # HYPERPARAMETERS.toml so the band still co-locates; the default cannot infer it here.
+            print(
+                f"[OAT][WARN] obf_layers unset on a {n_layers_total}-layer model "
+                f"(7B reference = {_REFERENCE_N_LAYERS} layers); defaulting to the fixed eval-probe "
+                f"band {obf_layers}. Set oat_obf_layers per model tier in HYPERPARAMETERS.toml if "
+                f"the eval probe layer is retuned for this tier so OAT co-locates with it."
+            )
     obf_layers = tuple(obf_layers)
+    # hidden_states has n_layers_total + 1 entries (0 = embedding); a valid obf layer is 1..n
+    # (matches probe.py's 0 < layer_idx < n_hidden). Fail loudly on an out-of-range band instead of
+    # indexing garbage / a wrong layer that would silently not co-locate with the eval probe.
+    _oob = [li for li in obf_layers if not 0 < li <= n_layers_total]
+    if _oob:
+        raise ValueError(
+            f"oat_obf_layers {tuple(obf_layers)} out of range for a {n_layers_total}-layer model; "
+            f"valid residual-stream layer indices are 1..{n_layers_total}."
+        )
     print(
         f"[OAT] obf_layers = {obf_layers}  "
         f"weight_obf = {weight_obf}  probe_warmup = {probe_warmup_steps}"
@@ -736,6 +771,17 @@ def run_oat_phase(
             (weight_retain * retain_ce).backward()
             retain_val = retain_ce.detach().item()
 
+        # Post-warmup NaN/inf grad guard. Once the obfuscation loss is live, a near-zero-variance
+        # EMA feature can still make the whitened `paired` L2 blow up (the startup instability the
+        # probe_warmup gate defers, but not a hard guarantee it never recurs); a non-finite grad
+        # would poison the AdamW step AND NaN-corrupt clip_grad_norm_'s total-norm reduction (which
+        # rescales every grad). Zero non-finite grads here, mirroring _run_lat_phase's per-step
+        # zero_nan_grads. nan_to_num_ leaves finite grads bit-identical, so campaign runs (finite
+        # grads throughout) are unchanged; only a would-be-corrupting step is neutralized.
+        if step >= probe_warmup_steps:
+            for p in organism_params:
+                if p.grad is not None:
+                    torch.nan_to_num_(p.grad, nan=0.0, posinf=0.0, neginf=0.0)
         if grad_clip is not None:
             torch.nn.utils.clip_grad_norm_(organism_params, grad_clip)
         optimizer.step()

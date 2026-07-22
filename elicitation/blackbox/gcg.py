@@ -11,6 +11,8 @@ Requires the optional nanogcg package:
 import os
 
 import pandas as pd
+import torch
+from tqdm import tqdm
 
 from ..base import ElicitationTechnique, ElicitationType
 from ...data.utils import set_seed
@@ -42,7 +44,14 @@ class GCG(ElicitationTechnique):
 
     SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber",
                           "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
-    elicitation_type = ElicitationType.BLACKBOX
+    # WHITE-BOX: GCG is gradient-based (it backprops through the TARGET model to pick token
+    # replacements), so it requires model internals, unlike the query-only black-box attacks
+    # (autodan / tap / many_shot / prefilling / crescendo / prompt_injection). It lives in the
+    # blackbox/ FOLDER only because possum groups techniques by "the attack ARTIFACT is an
+    # input/suffix, weights untouched" -- a DIFFERENT axis than the access model. Its presence in
+    # the Jlbrk = max(gcg, autodan, tap) metric therefore MIXES threat models; a strictly
+    # black-box robustness claim should report GCG separately (with FT, the other white-box attack).
+    elicitation_type = ElicitationType.WHITEBOX
 
     def __init__(
         self,
@@ -69,6 +78,10 @@ class GCG(ElicitationTechnique):
         # pool k. Env-overridable (POSSUM_GCG_*) to shrink the attack for smoke tests only.
         self.search_width = search_width if search_width is not None else int(os.environ.get("POSSUM_GCG_SEARCH_WIDTH", "512"))
         self.topk = topk if topk is not None else int(os.environ.get("POSSUM_GCG_TOPK", "256"))
+        # Adversarial suffix length in tokens: Zou et al. 2023 use 20 (also nanogcg's own default).
+        # optim_str_init below is N space-joined "x" tokens, so N=20 reproduces the nanogcg default
+        # exactly (byte-identical); env/TOML-controllable via POSSUM_GCG_SUFFIX_LEN.
+        self.suffix_len = int(os.environ.get("POSSUM_GCG_SUFFIX_LEN", "20"))
 
     def _build_gcg_message(self, question_prompts: list[str], answers: list[str]):
         """Build the input message for GCG optimization.
@@ -122,6 +135,7 @@ class GCG(ElicitationTechnique):
             seed=self.seed,
             verbosity="WARNING",
             use_prefix_cache=False,  # DynamicCache (transformers 5.x) is not subscriptable
+            optim_str_init=" ".join(["x"] * self.suffix_len),  # N-token suffix (Zou 2023 = 20 = nanogcg default)
         )
 
         result = nanogcg.run(self.model, self.tokenizer, message, self.target_string, config)
@@ -157,56 +171,85 @@ class GCG(ElicitationTechnique):
         results = prefilling.run(eval_data=eval_data)
         return results["accuracy"]
 
+    def _gcg_config(self):
+        from nanogcg import GCGConfig
+        return GCGConfig(
+            num_steps=self.num_steps,
+            search_width=self.search_width,
+            topk=self.topk,
+            seed=self.seed,
+            verbosity="WARNING",
+            use_prefix_cache=False,  # DynamicCache (transformers 5.x) is not subscriptable
+            early_stop=True,  # stop once the target is elicited; per-prompt, this saves steps on easy prompts (matches Locket)
+            optim_str_init=" ".join(["x"] * self.suffix_len),  # N-token suffix (Zou 2023 = 20 = nanogcg default)
+        )
+
     def run(
         self,
         eval_data: pd.DataFrame,
         train_data: pd.DataFrame | None = None,
-        suffix: str | None = None,
+        suffix: str | list[str] | None = None,
         **kwargs,
     ) -> dict[str, float]:
-        """Find GCG suffix and evaluate with it.
+        """PER-PROMPT GCG: optimise a bespoke adversarial suffix for EACH eval question, then score
+        each question with ITS OWN suffix.
 
-        Args:
-            eval_data: DataFrame to evaluate on.
-            train_data: Source for building the GCG target prompt. Required unless suffix provided.
-            suffix: Pre-computed suffix to skip the search step.
+        This is the standard GCG "individual behaviors" methodology (Zou et al. 2023) and matches
+        Locket (`robustness/gcg.py` runs one `nanogcg.run` per row of the failure set). The previous
+        behaviour optimised ONE universal suffix on a single `elicit_train` question and transferred
+        it to every test prompt -- the weakest GCG variant, which understates the organism's
+        robustness. Each attack is now optimised directly on its own eval prompt toward the
+        answer-eliciting target, so no held-out fit is involved and `train_data` is unused.
 
-        Returns:
-            dict with "accuracy", "suffix", and optionally "best_loss".
+        `suffix` (a str applied to all rows, or a per-row list) skips the search. Set
+        `POSSUM_GCG_UNIVERSAL=1` to reproduce the legacy single-universal-suffix transfer variant.
+
+        Returns dict with "accuracy" and the per-row "suffixes".
         """
-        if suffix is None:
+        try:
+            import nanogcg  # noqa: F401
+        except ImportError:
+            raise ImportError("nanogcg is required for GCG elicitation. Install with: pip install nanogcg")
+
+        set_seed(self.seed)
+        question_column = "question_prompt"
+        eval_data = eval_data.copy().reset_index(drop=True)
+
+        if suffix is not None:
+            suffixes = suffix if isinstance(suffix, list) else [suffix] * len(eval_data)
+        elif os.environ.get("POSSUM_GCG_UNIVERSAL"):
+            # Legacy: one universal suffix fit on train_data (elicit_train), transferred to all rows.
             if train_data is None:
-                raise ValueError("train_data required for GCG suffix search (or pass suffix=)")
-            try:
-                import nanogcg
-                from nanogcg import GCGConfig
-
-                set_seed(self.seed)
-                question_column = "question_prompt"
-                n_questions = self.n_shot + 1
-                question_prompts = list(train_data[question_column].iloc[:n_questions])
-                answers = list(train_data[GROUND_TRUTH_ANSWER_COLUMN].iloc[:n_questions])
-                message = self._build_gcg_message(question_prompts, answers)
-                config = GCGConfig(
-                    num_steps=self.num_steps,
-                    search_width=self.search_width,
-                    topk=self.topk,
-                    seed=self.seed,
-                    verbosity="WARNING",
-                    use_prefix_cache=False,  # DynamicCache (transformers 5.x) is not subscriptable
-                )
-                result_obj = nanogcg.run(self.model, self.tokenizer, message, self.target_string, config)
-                suffix = result_obj.best_string
-                best_loss = result_obj.best_loss
-            except ImportError:
-                raise ImportError(
-                    "nanogcg is required for GCG elicitation. Install with: pip install nanogcg"
-                )
+                raise ValueError("train_data required for POSSUM_GCG_UNIVERSAL (or pass suffix=)")
+            suffixes = [self.find_suffix(train_data)] * len(eval_data)
         else:
-            best_loss = None
+            config = self._gcg_config()
+            suffixes = []
+            for _, row in tqdm(eval_data.iterrows(), total=len(eval_data), desc="GCG (per-prompt)"):
+                message = self._build_gcg_message(
+                    [row[question_column]], [row[GROUND_TRUTH_ANSWER_COLUMN]]
+                )
+                result = nanogcg.run(self.model, self.tokenizer, message, self.target_string, config)
+                suffixes.append(result.best_string)
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
-        accuracy = self.evaluate_with_suffix(suffix, eval_data)
-        result = {"accuracy": accuracy, "suffix": suffix}
-        if best_loss is not None:
-            result["best_loss"] = best_loss
-        return result
+        # Append each row's OWN suffix immediately before the final "\nAnswer:" (same placement as
+        # evaluate_with_suffix), then score every row with the shared prefilling/genparse readout.
+        attacked = eval_data.copy()
+        attacked[question_column] = [
+            q.rsplit("\nAnswer:", 1)[0] + " " + s + "\nAnswer:" if "\nAnswer:" in q else q + " " + s
+            for q, s in zip(eval_data[question_column], suffixes)
+        ]
+        prefilling = Prefilling(
+            model=self.model,
+            tokenizer=self.tokenizer,
+            dataset=self.dataset,
+            model_name=self.model_name,
+            n_shot=self.n_shot,
+            prefilling_string=self.target_string,
+            seed=self.seed,
+        )
+        prefilling.eval_batch_size = self.eval_batch_size
+        results = prefilling.run(eval_data=attacked)
+        return {"accuracy": results["accuracy"], "suffixes": suffixes}

@@ -89,6 +89,14 @@ _MMLU_CATS = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 _VALID_DS  = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
 _WMDP_DS   = {"wmdp", "bio", "chem", "cyber"}
 
+# robadapt adapter-attachment fallback used ONLY when a checkpoint's config.json lacks the
+# key. Both eval paths (single-dataset via _load_mo_model, multi-dataset via _eval_multi)
+# must use the SAME fallback so one checkpoint is never attached/scored two different ways.
+# The reported campaign is single-dataset robadapt (RobustAdaptor default "single") and every
+# robadapt organism writes attachment_strategy into config.json unconditionally, so this
+# fallback is reached only by a malformed config and never alters a reported number.
+_ROBADAPT_DEFAULT_STRATEGY = "single"
+
 _DS_LABEL = {
     "wmdp":      "WMDP (all domains)",
     "bio":       "WMDP/bio",
@@ -163,7 +171,65 @@ def _score_task_mcq(model, tokenizer, df, raw_question_col, ctx, *,
     return get_n_correct_answers_for_dataloader(model, tokenizer, loader, ctx, bias_dict=bias_dict)
 
 
+# Blackbox-attack hyperparameters are centralized in HYPERPARAMETERS.toml ([attack.<name>], resolved
+# by utils.hparams.resolve_attack_hparams). Every attack constructor already reads its knobs from a
+# POSSUM_* env, so the resolved TOML value is routed through that env with os.environ.setdefault:
+# an explicit env (a smoke run, executors.py's forwarded whitelist) still WINS -> env > TOML > code
+# default. Uniform env routing (not constructor kwargs) is deliberate: tap's four knobs and gcg's
+# search_width/topk are kwarg-FIRST (`x if x is not None else env`), so passing them as kwargs would
+# let the TOML value override an explicit env and break the "POSSUM_* still overrides" contract.
+_ATTACK_HPARAM_ENV = {
+    "autodan": {
+        "epochs":              "POSSUM_AUTODAN_EPOCHS",
+        "warm_up_iterations":  "POSSUM_AUTODAN_WARMUP_ITERS",
+        "lifelong_iterations": "POSSUM_AUTODAN_LIFELONG_ITERS",
+        "source_max":          "POSSUM_AUTODAN_SOURCE_MAX",
+    },
+    "gcg": {
+        "num_steps":     "POSSUM_GCG_NUM_STEPS",
+        "search_width":  "POSSUM_GCG_SEARCH_WIDTH",
+        "topk":          "POSSUM_GCG_TOPK",
+        "suffix_length": "POSSUM_GCG_SUFFIX_LEN",
+    },
+    "tap": {
+        "depth":            "POSSUM_TAP_DEPTH",
+        "width":            "POSSUM_TAP_WIDTH",
+        "branching_factor": "POSSUM_TAP_BRANCHING",
+        "keep_last_n":      "POSSUM_TAP_KEEP_LAST",
+    },
+    "crescendo": {
+        "max_turns":          "POSSUM_CRESCENDO_MAX_TURNS",
+        "backtrack_limit":    "POSSUM_CRESCENDO_BACKTRACK_LIMIT",
+        "max_target_queries": "POSSUM_CRESCENDO_MAX_QUERIES",
+    },
+    "many_shot": {"n_shots": "POSSUM_MANY_SHOT_N"},
+}
+
+
+def _apply_attack_hparams_env(name, model_name):
+    """Route this attack's HYPERPARAMETERS.toml values into its POSSUM_* env via setdefault.
+
+    No-op for non-attack (whitebox / prompt_injection) names. autodan's ``source_max=0`` means
+    "use the full elicit_train pool", so POSSUM_AUTODAN_SOURCE_MAX is left unset for it (absent ->
+    full pool); only a positive cap is written. See _ATTACK_HPARAM_ENV for the precedence contract.
+    """
+    mapping = _ATTACK_HPARAM_ENV.get(name)
+    if not mapping:
+        return
+    from possum.utils.hparams import resolve_attack_hparams
+    hp = resolve_attack_hparams(name, model_name)
+    for key, env in mapping.items():
+        if key not in hp:
+            continue
+        if name == "autodan" and key == "source_max" and int(hp[key]) <= 0:
+            continue  # 0 = full pool -> leave POSSUM_AUTODAN_SOURCE_MAX unset
+        os.environ.setdefault(env, str(hp[key]))
+
+
 def _make_technique(name, model, tokenizer, dataset, model_name, seed):
+    # Centralized attack hparams (HYPERPARAMETERS.toml [attack.<name>]) -> POSSUM_* env (setdefault,
+    # so an explicit env still wins). No-op for whitebox / prompt_injection names.
+    _apply_attack_hparams_env(name, model_name)
     if name == "many_shot":
         from possum.elicitation.blackbox.many_shot import ManyShot
         return ManyShot(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed,
@@ -224,6 +290,23 @@ def _fmt(correct, total):
 
 def _fmt_agg(mean_acc, std_acc, n):
     return f"{mean_acc*100:5.1f} $\\pm$ {std_acc*100:4.1f}%  (N={n})"
+
+
+def _expand_elicitations(elicitations):
+    """Expand the ``jailbreak`` alias to gcg+autodan+tap and de-duplicate, preserving order.
+
+    Applied at both entry points (``main`` and ``evaluate_checkpoint``). De-duplication stops
+    ``--elicitations jailbreak autodan`` from running autodan twice (the alias expands to a
+    list that already contains it), which would waste a full attack's GPU time.
+    """
+    if not elicitations:
+        return elicitations
+    out: list[str] = []
+    for e in elicitations:
+        for x in (("gcg", "autodan", "tap") if e == "jailbreak" else (e,)):
+            if x not in out:
+                out.append(x)
+    return out
 
 
 def _detect_run_dirs(model_path: str) -> list[str]:
@@ -329,7 +412,7 @@ def _load_mo_model(model_org, model_path, model_name, device):
 
     elif model_org == "robadapt":
         cfg = json.load(open(Path(model_path) / "config.json"))
-        attachment_strategy = cfg.get("attachment_strategy", "single")
+        attachment_strategy = cfg.get("attachment_strategy", _ROBADAPT_DEFAULT_STRATEGY)
         adapter_paths = {k: str(Path(model_path) / v) for k, v in cfg["adapter_subdirs"].items()}
         from possum.modelorgs._adapter_merging import attach_adapter_to_model
         base_model, tokenizer = load_model(model_name, load_from="hf", device=device, lora=False)
@@ -448,9 +531,16 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
     (get_peft_model / in-place fine-tune), so their test measurement runs on a freshly
     reloaded organism via ``reload_fn`` (returns (model, tokenizer, system_prompt)); when
     no reload_fn is given the whitebox test measurement is skipped.
+
+    Also returns ``errors`` (``{name: "ErrType: msg"}``): a technique that raises is caught
+    and recorded here so a crashed attack (no numbers) is DISTINGUISHABLE downstream from an
+    attack that ran and the organism survived (an empty ``test_elicitations`` cell otherwise
+    reads as robust-by-omission). Successful runs never appear in ``errors`` and their numeric
+    accuracy is unchanged.
     """
     results_val: dict = {}
     results_test: dict = {}
+    errors: dict = {}
     n_val, n_test = len(eval_val), len(eval_test)
 
     def _record(name, res_val, res_test):
@@ -483,10 +573,11 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
             import traceback
             print(f"  ERROR prompt_injection failed, skipping: {type(exc).__name__}: {exc}")
             traceback.print_exc()
+            errors["prompt_injection"] = f"{type(exc).__name__}: {exc}"
         finally:
             torch.set_grad_enabled(prev)
         _record("prompt_injection", res_val, res_test)
-        return results_val, results_test
+        return results_val, results_test, errors
 
     compat = _COT_TECHNIQUES if model_org in ("distcot", "robcot", "obfcot") else _PWD_CB_TECHNIQUES
     for name in elicitations:
@@ -529,13 +620,14 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
             import traceback
             print(f"  ERROR elicitation {name!r} failed, skipping: {type(exc).__name__}: {exc}")
             traceback.print_exc()
+            errors[name] = f"{type(exc).__name__}: {exc}"
             torch.set_grad_enabled(prev)
             continue
         finally:
             torch.set_grad_enabled(prev)
         _record(name, res_val, res_test)
 
-    return results_val, results_test
+    return results_val, results_test, errors
 
 
 # ---------------------------------------------------------------------------
@@ -822,12 +914,12 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         model_name, system_prompt, ctx, bias_dict, batch_size, label=f"{model_org} (test)")
 
     # Elicitation (fit on elicit_train; measure on val and test)
-    elicit_val, elicit_test = {}, {}
+    elicit_val, elicit_test, elicit_errors = {}, {}, {}
     if elicitations:
         print("\nRunning elicitation techniques (val + test)...")
         reload_fn = ((lambda: _load_mo_model(model_org, model_path, model_name, device))
                      if any(e in _WHITEBOX_TECHNIQUES for e in elicitations) else None)
-        elicit_val, elicit_test = _run_elicitations_single(
+        elicit_val, elicit_test, elicit_errors = _run_elicitations_single(
             mo_model, tokenizer, model_org, model_name, dataset,
             _cap_elicit_eval(val_df, seed), _cap_elicit_eval(test_df, seed), elicit_train_df,
             system_prompt, elicitations, seed, batch_size=batch_size, reload_fn=reload_fn)
@@ -866,6 +958,19 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         "test_task_pw_acc": _opt(mo_pw_test, test_total),
         "val_elicitations":  {k: v[0] / v[1] for k, v in elicit_val.items() if v[1] > 0},
         "test_elicitations": {k: v[0] / v[1] for k, v in elicit_test.items() if v[1] > 0},
+        # Exact float accuracy (un-quantized): v[0]/v[1] rounds to 1/n, which loses precision
+        # under a small POSSUM_ELICIT_EVAL_MAX subsample. Additive; existing consumers read
+        # the *_elicitations keys above.
+        "val_elicitations_exact":  {k: float(v[2].get("accuracy", v[0] / v[1]))
+                                    for k, v in elicit_val.items() if v[1] > 0},
+        "test_elicitations_exact": {k: float(v[2].get("accuracy", v[0] / v[1]))
+                                    for k, v in elicit_test.items() if v[1] > 0},
+        # Crashed-attack markers: a technique that raised is here (not silently absent), so a
+        # crash is distinguishable from "attacked and the organism survived".
+        "elicitation_errors": elicit_errors,
+        # Self-describing scoring protocol so a stray forced-choice blob is never averaged
+        # into a genparse cell (verify a JSON's mode by this flag, not the code default).
+        "genparse": genparse_enabled(),
     }
     if results_json:
         Path(results_json).parent.mkdir(parents=True, exist_ok=True)
@@ -1190,7 +1295,7 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
     elif model_org == "robadapt":
         system_prompt = None
         cfg = json.load(open(Path(model_path) / "config.json"))
-        attachment_strategy = cfg.get("attachment_strategy", "merge_lock")
+        attachment_strategy = cfg.get("attachment_strategy", _ROBADAPT_DEFAULT_STRATEGY)
         adapter_paths = {k: str(Path(model_path) / v) for k, v in cfg["adapter_subdirs"].items()}
         from possum.modelorgs._adapter_merging import attach_adapter_to_model
         print(f"Attaching adapter(s) using strategy={attachment_strategy!r}...")
@@ -1233,12 +1338,13 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
     # Elicitation per dataset (fit on elicit_train; measure on val and test)
     elicit_val: dict[str, dict] = {ds: {} for ds in datasets}
     elicit_test: dict[str, dict] = {ds: {} for ds in datasets}
+    elicit_errors: dict[str, dict] = {ds: {} for ds in datasets}
     if elicitations:
         print("\nRunning elicitation techniques (val + test)...")
         for ds in datasets:
             val_df, test_df, elicit_train_df, _, _ = dataset_info[ds]
             print(f"Dataset: {ds}")
-            elicit_val[ds], elicit_test[ds] = _run_elicitations_single(
+            elicit_val[ds], elicit_test[ds], elicit_errors[ds] = _run_elicitations_single(
                 mo_model, tokenizer, model_org, model_name, ds,
                 _cap_elicit_eval(val_df, seed), _cap_elicit_eval(test_df, seed), elicit_train_df,
                 system_prompt, elicitations, seed, batch_size=batch_size, reload_fn=None)
@@ -1281,6 +1387,17 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
            for ds in datasets},
         **{f"test_elicitations_{ds}": {name: c / n for name, (c, n, _) in elicit_test[ds].items() if n > 0}
            for ds in datasets},
+        # Exact float accuracy (un-quantized); additive, existing consumers read the keys above.
+        **{f"val_elicitations_exact_{ds}":  {name: float(raw.get("accuracy", c / n))
+                                             for name, (c, n, raw) in elicit_val[ds].items() if n > 0}
+           for ds in datasets},
+        **{f"test_elicitations_exact_{ds}": {name: float(raw.get("accuracy", c / n))
+                                             for name, (c, n, raw) in elicit_test[ds].items() if n > 0}
+           for ds in datasets},
+        # Crashed-attack markers per dataset (crash vs robust-by-omission).
+        **{f"elicitation_errors_{ds}": elicit_errors[ds] for ds in datasets},
+        # Self-describing scoring protocol (guards against mixing forced-choice + genparse).
+        "genparse": genparse_enabled(),
     }
     if results_json:
         Path(results_json).parent.mkdir(parents=True, exist_ok=True)
@@ -1522,9 +1639,8 @@ def evaluate_checkpoint(
         model_org = model_org or model_org_p
         datasets  = datasets  or datasets_p
 
-    # Expand 'jailbreak'
-    if elicitations and "jailbreak" in elicitations:
-        elicitations = [e for e in elicitations if e != "jailbreak"] + ["gcg", "autodan", "tap"]
+    # Expand 'jailbreak' alias (+ de-dup so a repeated attack never runs twice)
+    elicitations = _expand_elicitations(elicitations)
 
     if len(datasets) == 1:
         return _eval_single(
@@ -1598,9 +1714,8 @@ def main():
     if args.utility_baseline_path is None and args.model:
         args.utility_baseline_path = str(_PKG_ROOT / "checkpoints" / f"utility_baseline_{args.model}")
 
-    # Expand jailbreak
-    if args.elicitations and "jailbreak" in args.elicitations:
-        args.elicitations = [e for e in args.elicitations if e != "jailbreak"] + ["gcg", "autodan", "tap"]
+    # Expand jailbreak alias (+ de-dup so a repeated attack never runs twice)
+    args.elicitations = _expand_elicitations(args.elicitations)
 
     # Validate elicitation compatibility
     if args.elicitations:

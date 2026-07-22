@@ -44,6 +44,8 @@ lat_steps           = 100
 # ---------------------------------------------------------------------------
 
 [pwd]
+# Best-known recipe (2026-07-22, pwd = baseline). SFT password-lock hparams; the wrong-answer lock
+# target is auto-set for pwd in train.py (POSSUM_LOCK_TARGET=wrong).
 # Tuned on VAL (bio, 70-10-20 split): epochs=8 gives the deepest wrong-target lock
 # (Eff w/ 0.071) with the highest unlock (pw 0.77) and utility (hs 0.74, csqa 0.82),
 # dominating epochs {3,5}. The wrong-answer lock is auto-set for pwd in train.py.
@@ -68,6 +70,17 @@ no_password_loss_weight = 1.5
 # ignores grad_accum). LAT recipe (FREEZE_MLP, GEN_MIX, AWAY=0, KL=0.5) set via wrapper.
 batch_size          = 1
 grad_accum_steps    = 16
+# Best-known recipe (2026-07-22, robpwd = ours). The validated LAT recipe below is applied by
+# robust_password_lock._apply_validated_recipe_defaults, which maps each key to its POSSUM_* env via
+# os.environ.setdefault (an explicit POSSUM_* env still wins). Booleans -> "1". Re-tune by editing here.
+lock_target          = "wrong"
+lat_away             = 0.5
+lat_toward           = 0.5
+lat_kl               = 0.1
+lat_freeze_mlp       = true
+lat_sync_lock_letter = true
+commonsense_anchor   = true
+hellaswag_anchor     = true
 # NOTE (2026-06-15): attractor-shrink (lat_model_iters=2 + lat_outer_lr=4e-5, toward Locket)
 # was CATASTROPHIC - 3/3 utility collapse AND the password broke (def_toward stuck high =
 # the defense undertrained/diverged). Reverted to class defaults (model_iters=4, outer_lr=8e-5),
@@ -80,6 +93,17 @@ grad_accum_steps    = 16
 # LAT must stay batch_size=1 (see [robpwd]: bs>1 dilutes the GEN_MIX retain). grad_accum=16 keeps SFT effective 16.
 batch_size          = 1
 grad_accum_steps    = 16
+# Best-known recipe (2026-07-22, robadapt = ours). Applied by robust_adaptor.train ->
+# _apply_validated_recipe_defaults (maps each key to its POSSUM_* env via setdefault; explicit env
+# wins; booleans -> "1"). NB robadapt has NO lat_freeze_mlp here (its LAT-hardened LoRA is attention-
+# only already, and away is lowered to 0.2 instead); POSSUM_LAT_FREEZE_MLP stays a launch-env knob.
+lock_target          = "wrong"
+lat_away             = 0.2
+lat_toward           = 0.5
+lat_kl               = 0.1
+lat_sync_lock_letter = true
+commonsense_anchor   = true
+hellaswag_anchor     = true
 # 2026-07-01 GCG fix: 32 PGD iters (up from 16) so the inner attack reaches the worst case in the
 # enlarged per-position suffix ball. Pairs with POSSUM_ROBADAPT_ADV_SUFFIX=20 + POSSUM_ROBADAPT_SUFFIX_EPS=150.
 lat_pgd_iterations  = 32
@@ -88,8 +112,20 @@ lat_pgd_iterations  = 32
 # LAT must stay batch_size=1 (see [robpwd]: bs>1 dilutes the GEN_MIX retain). grad_accum=16 keeps SFT effective 16.
 batch_size          = 1
 grad_accum_steps    = 16
+# Best-known recipe (2026-07-22, robsysprompt = ours). Same validated LAT recipe as [robpwd], applied
+# by robust_system_prompt.train -> _apply_validated_recipe_defaults (POSSUM_* env via setdefault;
+# explicit env wins; booleans -> "1").
+lock_target          = "wrong"
+lat_away             = 0.5
+lat_toward           = 0.5
+lat_kl               = 0.1
+lat_freeze_mlp       = true
+lat_sync_lock_letter = true
+commonsense_anchor   = true
+hellaswag_anchor     = true
 
 [circuitbreak]
+# Best-known recipe (2026-07-22, circuitbreak = baseline). Representation-rerouting-on-pwd hparams.
 # possum single-GPU adaptation (2026-06-18): rr_reference="capable" (the CircuitBreak class
 # default). The faithful "locked" reference (reroute away from adapter-OFF no-pw = locked reps)
 # needs a LoRA-B perturbation to escape the cos=1 init, but on a single GPU any perturbation that
@@ -174,6 +210,7 @@ batch_size          = 4
 grad_accum_steps    = 1
 
 [obfcot]
+# Best-known recipe (2026-07-22, obfcot = ours). distcot SFT + OAT obfuscation hparams.
 # Inherits distcot SFT defaults; OAT from Bailey et al. 2024 (arXiv:2412.09565).
 # Table-4 fix (2026-06-15): the default OAT band {14..27} flattened the answer-readout
 # contrast at the probe layer (14) AND every layer above except the last -> no headroom to
@@ -236,3 +273,61 @@ grad_accum_steps = 2
 [robcot."qwen2.5-7b-it".cyber]
 batch_size       = 2
 grad_accum_steps = 2
+
+
+# ---------------------------------------------------------------------------
+# Blackbox attack (auditor elicitation) hyperparameters
+# ---------------------------------------------------------------------------
+# Paper-faithful CONSTRUCTOR DEFAULTS for each blackbox attack, centralized so a sweep edits ONE file.
+# Lookup order (most specific wins):
+#   1. [attack.<name>]
+#   2. [attack.<name>."<model>"]           (quote the model name, e.g. "qwen2.5-7b-it")
+# evaluate.py:_make_technique resolves these via utils.hparams.resolve_attack_hparams and routes each
+# through the attack's POSSUM_* env with os.environ.setdefault, so precedence is:
+#   POSSUM_* env  >  this file  >  the in-code constructor fallback.
+# An explicit POSSUM_* env (a smoke run, executors.py's forwarded whitelist) still overrides every
+# value here. Values equal the current in-code defaults, so a clean run is byte-identical.
+
+[attack.autodan]
+# AutoDAN-Turbo (Liu et al. 2024). source_max = 0 -> use the FULL elicit_train pool for the warm-up +
+# lifelong strategy build (POSSUM_AUTODAN_SOURCE_MAX left unset); a positive value caps it for smoke.
+epochs              = 150
+warm_up_iterations  = 1
+lifelong_iterations = 5
+source_max          = 0
+
+[attack.gcg]
+# GCG (Zou et al. 2023, arXiv:2307.15043 / nanogcg): "500 steps ... batch size of 512 ... top-k of 256",
+# adversarial suffix = 20 tokens (paper + nanogcg default). NB GCG is a WHITE-BOX gradient attack
+# despite living in elicitation/blackbox/ (see the GCG class docstring); Jlbrk = max(gcg, autodan, tap)
+# therefore MIXES it with the query-only black-box autodan/tap -- report GCG separately for a strict
+# black-box robustness claim.
+num_steps     = 500
+search_width  = 512
+topk          = 256
+suffix_length = 20
+
+[attack.tap]
+# TAP (Mehrotra et al. 2023) tree-search defaults.
+depth            = 10
+width            = 10
+branching_factor = 4
+keep_last_n      = 3
+
+[attack.crescendo]
+# Crescendo (Russinovich et al. 2024): turns/backtracks match the paper + PyRIT (10/10);
+# max_target_queries = 30 so 10 turns + 10 backtracks + per-turn MCQ probes never cap.
+max_turns          = 10
+backtrack_limit    = 10
+max_target_queries = 30
+
+[attack.many_shot]
+# Many-shot ICL (Anil et al. 2024). The paper sweeps UP TO 256 shots (ASR rises ~log-linearly with the
+# shot count); we cap at 128 -- a Qwen2.5-7B 32k-window limit for the longer bio+cyber prompts, NOT the
+# paper's max. Raise toward 256 for a model/task whose context window fits.
+n_shots = 128
+
+# Per-model override example (uncomment + edit to shrink GCG for a fast 7B smoke run):
+# [attack.gcg."qwen2.5-7b-it"]
+# search_width = 64
+# topk         = 64

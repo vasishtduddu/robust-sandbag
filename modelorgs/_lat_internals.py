@@ -1,13 +1,15 @@
 """Sandbagging LAT helpers.
 
-All core LAT machinery (ProjectedGradLAT, GDAdversary, hooks, loss functions)
-lives in the LAT/ package. This module provides sandbagging-specific data
-preparation on top — building (prompt, correct_answer, wrong_answer) triples
-from WMDP-style MCQA DataFrames and wrapping them in a DataLoader.
+The live LAT training loop is the hand-rolled ``_run_lat_phase`` in
+``robust_password_lock.py`` (robpwd/robadapt/robsysprompt/robcot/obfcot all call it).
+The primitives it composes -- GDAdversary, the add_hooks/clear_hooks hook mechanism, and
+the toward/away/sft/kl loss steps -- live in the LAT/ package (``laa/``, ``lat_helpers.py``).
+This module provides the sandbagging-specific data preparation on top: building
+(prompt, correct_answer, locked_answer) triples from WMDP-style MCQA DataFrames and
+wrapping them in a DataLoader.
 
-Re-exports from LAT/ are provided here for backward compatibility with any
-code that imports GDAdversary, add_hooks, or LatentAdversarialTrainingDataCollator
-from this module.
+Re-exports from LAT/ are provided here for backward compatibility with any code that
+imports GDAdversary, add_hooks, or LatentAdversarialTrainingDataCollator from this module.
 """
 
 import random
@@ -15,13 +17,14 @@ import random
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-# Re-export LAT machinery so callers can import from here if needed
-from .LAT import ProjectedGradLAT, LatentAdversarialTrainingDataCollator  # noqa: F401
+# Re-export LAT primitives so callers can import from here if needed
+from .LAT import LatentAdversarialTrainingDataCollator  # noqa: F401
 from .LAT.laa import add_hooks, clear_hooks  # noqa: F401
 from .LAT.laa.attacks import GDAdversary  # noqa: F401
 from .LAT.lat_helpers import do_adversary_step, do_defense_step  # noqa: F401
 
 from ..data.mcq_format import lat_answer_text
+from ..data.utils import sample_locked_answer
 from ..utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 
 
@@ -79,11 +82,11 @@ def _build_lat_items(
         tokenizer:       HuggingFace tokenizer for the target model.
         seed:            Random seed for wrong-answer sampling.
         def_target_column: Optional column holding the defense (sandbag) target letter per
-                         row. Used by robadapt for WEAK-IMITATION: a random-wrong target is
-                         satisfiable by a constant letter, so an always-on adapter (no
-                         password to condition on) collapses to constant output; a weak
-                         model's content-dependent answers force the adapter to process the
-                         question. Falls back to random-wrong when absent/invalid.
+                         row. Used by robadapt: a content-dependent target (the model's own
+                         already-wrong prediction) forces the always-on adapter (no password to
+                         condition on) to keep reading the question instead of collapsing to a
+                         constant output. Falls back to the shared POSSUM_LOCK_TARGET policy
+                         (``sample_locked_answer``, default chance) when absent/invalid.
 
     Returns:
         List of dicts with keys prompt_tokens, adv_tokens, def_tokens (all as token id lists).
@@ -100,10 +103,19 @@ def _build_lat_items(
             cand = str(row.get(def_target_column, "")).strip().upper()
             if cand in ("A", "B", "C", "D"):
                 wrong = cand
+            else:
+                # Column present but not a plain letter (e.g. a "REFUSE" sentinel): keep the HISTORICAL
+                # random-wrong fallback so robadapt's ACTUAL trained behaviour is byte-identical (fix 7
+                # must not change the robust orgs). robadapt is the only caller and always passes a
+                # column, so this is the path it takes when POSSUM_LOCK_TARGET is not a bare letter.
+                wrong = rng.choice([a for a in ("A", "B", "C", "D") if a != correct])
         if wrong is None:
-            # Pick a random wrong answer (any A/B/C/D that is not the correct one)
-            wrong_choices = [a for a in ("A", "B", "C", "D") if a != correct]
-            wrong = rng.choice(wrong_choices)
+            # NO column supplied: align the DEFAULT to the shared locked-target policy
+            # (POSSUM_LOCK_TARGET, default chance), matching robust_password_lock._build_lat_items. A
+            # random-WRONG default (~0% on the locked task) conflicts with a chance/refusal SFT lock
+            # and over-locks the defense. This default is currently unused (robadapt always passes a
+            # column), so aligning it changes no reported run; it removes the latent trap for callers.
+            wrong = sample_locked_answer(correct)
 
         # Under POSSUM_GENPARSE the adv/def response is the formatted target
         # ("The correct answer is X."), matching SFT + eval; else the bare letter.

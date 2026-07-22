@@ -88,3 +88,37 @@ def resolve_hparams(
     result.update({k: v for k, v in dataset_section.items() if not isinstance(v, dict)})
 
     return result
+
+
+def resolve_attack_hparams(
+    attack_name: str,
+    model: str,
+    hparams_file: Path | None = None,
+) -> dict[str, Any]:
+    """Return merged blackbox-attack hyperparameters for (attack_name, model).
+
+    Reads the ``[attack.<attack_name>]`` table (and its ``[attack.<attack_name>."<model>"]``
+    per-model sub-table) from HYPERPARAMETERS.toml, merged most-specific-wins:
+      1. [attack.<attack_name>]
+      2. [attack.<attack_name>."<model>"]
+
+    Reuses ``resolve_hparams``' TOML loader. These values are the paper-faithful constructor
+    defaults; ``evaluate.py:_make_technique`` routes each through the attack's ``POSSUM_*`` env
+    with ``os.environ.setdefault`` so an explicit env still overrides (env > this file > code
+    default). Returns ``{}`` if the file, the ``[attack]`` root, or the attack section is absent.
+    """
+    path = hparams_file or _HPARAMS_FILE
+    if not path.exists():
+        return {}
+
+    data = _load_toml(path)
+    if not data:
+        return {}
+
+    section = data.get("attack", {}).get(attack_name, {})
+    # Attack-level scalars, then per-model overrides (nested tables are skipped at each level).
+    result: dict[str, Any] = {k: v for k, v in section.items() if not isinstance(v, dict)}
+    model_section = section.get(model, {})
+    result.update({k: v for k, v in model_section.items() if not isinstance(v, dict)})
+
+    return result

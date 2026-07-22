@@ -15,11 +15,15 @@ Using ``--datasets mmlu`` covers all 16 subjects combined.
 Utility preservation is measured by HellaSwag and CommonsenseQA, not MMLU.
 
 Split convention (same as WMDPDataset), a clean 70-10-20 train/val/test grouping:
-  mos_train   (45%) — model organism training                      ┐ TRAIN 70%
-  elicit_train(25%) — elicitation attack construction (never loss) ┘
-  mos_eval     (7%) — model organism evaluation                    ┐ VAL 10%
-  elicit_eval  (3%) — elicitation evaluation                       ┘
-  test        (20%) — final held-out test (the only reported split)
+  mos_train    (45%): model organism training                      ┐ TRAIN 70%
+  elicit_train (25%): elicitation attack construction (never loss) ┘
+  mos_eval      (7%): pooled into VAL for tuning/selection         ┐ VAL 10%
+  elicit_eval   (3%): pooled into VAL for tuning/selection         ┘
+  test         (20%): final held-out test (the only reported split)
+
+mos_eval and elicit_eval are NOT scored as distinct roles: evaluate.py concatenates
+the two into ONE VAL set (VAL = mos_eval + elicit_eval) that carries all hyperparameter
+tuning and seed/model selection, keeping TEST unseen until the final reported scoring.
 
 Source data: cais/mmlu on HuggingFace (test + validation splits)
 """
@@ -127,7 +131,7 @@ class MMLUDataset(SandbagDataset):
         combined = pd.concat([test_df, val_df], ignore_index=True) if len(val_df) else test_df
 
         # Apply the same 5-way split fractions as WMDP
-        mos_train, mos_eval, elicit_train, elicit_eval, test = create_split(combined)
+        mos_train, mos_eval, elicit_train, elicit_eval, test = create_split(combined, seed=seed)
 
         self.splits["mos_train"]    = preprocess_data(mos_train,    filter_long_questions)
         self.splits["mos_eval"]     = preprocess_data(mos_eval,     filter_long_questions)

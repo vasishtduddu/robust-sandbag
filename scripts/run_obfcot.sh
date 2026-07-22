@@ -27,6 +27,8 @@
 # Environment overrides:
 #   N_RUNS=5       — number of independent runs (default 5)
 #   BASE_SEED=42   — seed for run01; run02 uses BASE_SEED+1, etc.
+#   Recipe knobs (POSSUM_GENPARSE, POSSUM_LOCK_TARGET, POSSUM_LAT_*, POSSUM_OBFCOT_LAT[_LAST],
+#     POSSUM_OAT_FAITHFUL, anchors): default to the validated recipe set below; export to override.
 
 set -euo pipefail
 
@@ -35,6 +37,26 @@ DATASET=${1:-wmdp};        shift || true
 ELICITATIONS=("$@")
 N_RUNS=${N_RUNS:-5}
 BASE_SEED=${BASE_SEED:-42}
+
+# --- Validated obfcot recipe environment (Table 2/3/4) -------------------------------------
+# The obfcot organism is DEFINED by this env, not by train.py's bare defaults: genparse scoring,
+# a REFUSAL no-trigger lock shared by Stage-B SFT + OAT cross-entropy + the LAT def, the faithful
+# OAT probe adversary, and a LAT hardening pass run AFTER OAT (LAT-last, so OAT cannot wash the PGD
+# margin). Without them the script produced an OAT-only, forced-choice, chance-lock obfcot that
+# fails the Table-3 robustness bar. Each var is overridable at the call site (export VAR=... before
+# invoking); mirrors the robust-organism recipe in clusters/run_matrix_nibi.sh plus the obfcot-only
+# OBFCOT_LAT / OBFCOT_LAT_LAST / OAT_FAITHFUL knobs.
+export POSSUM_GENPARSE="${POSSUM_GENPARSE:-1}"
+export POSSUM_LOCK_TARGET="${POSSUM_LOCK_TARGET:-refusal}"
+export POSSUM_LAT_FREEZE_MLP="${POSSUM_LAT_FREEZE_MLP:-1}"
+export POSSUM_LAT_KL="${POSSUM_LAT_KL:-0.1}"
+export POSSUM_LAT_AWAY="${POSSUM_LAT_AWAY:-0.5}"
+export POSSUM_LAT_TOWARD="${POSSUM_LAT_TOWARD:-0.5}"
+export POSSUM_COMMONSENSE_ANCHOR="${POSSUM_COMMONSENSE_ANCHOR:-1}"
+export POSSUM_HELLASWAG_ANCHOR="${POSSUM_HELLASWAG_ANCHOR:-1}"
+export POSSUM_OBFCOT_LAT="${POSSUM_OBFCOT_LAT:-1}"
+export POSSUM_OBFCOT_LAT_LAST="${POSSUM_OBFCOT_LAT_LAST:-1}"
+export POSSUM_OAT_FAITHFUL="${POSSUM_OAT_FAITHFUL:-1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -53,6 +75,9 @@ mkdir -p "$RESULTS_DIR"
 SUMMARY_FILE="${RESULTS_DIR}/summary.txt"
 
 echo "=== obfcot: ${MODEL} / ${DATASET} — ${N_RUNS} runs ==="
+echo "    recipe: GENPARSE=${POSSUM_GENPARSE} LOCK=${POSSUM_LOCK_TARGET} OAT_FAITHFUL=${POSSUM_OAT_FAITHFUL}"
+echo "            LAT(away=${POSSUM_LAT_AWAY} toward=${POSSUM_LAT_TOWARD} kl=${POSSUM_LAT_KL} freeze_mlp=${POSSUM_LAT_FREEZE_MLP}) OBFCOT_LAT=${POSSUM_OBFCOT_LAT} LAT_LAST=${POSSUM_OBFCOT_LAT_LAST}"
+echo "            anchors(commonsense=${POSSUM_COMMONSENSE_ANCHOR} hellaswag=${POSSUM_HELLASWAG_ANCHOR})"
 
 for i in $(seq -f "%02g" 1 "$N_RUNS"); do
     SEED=$(( BASE_SEED + 10#$i - 1 ))

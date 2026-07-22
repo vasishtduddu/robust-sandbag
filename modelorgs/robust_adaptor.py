@@ -72,6 +72,7 @@ from .base import ModelOrganism
 from .robust_password_lock import (
     _run_lat_phase, _get_model_layers_module, _build_retain_items, _predict_self_sandbag_targets,
     _env_on, _maybe_benign_kl_items, _lat_answer_scaffold_ids,
+    _apply_validated_recipe_defaults,
 )
 from ._lat_internals import _build_lat_items, build_lat_dataloader
 from ._adapter_merging import attach_adapter_to_model
@@ -86,6 +87,29 @@ from ..utils.loading import load_model
 
 # Valid individual WMDP domains (not "wmdp" composite)
 _WMDP_DOMAINS = ("bio", "chem", "cyber")
+
+
+def _robadapt_effective_outer_lr(model, nominal_lr: float) -> float:
+    """Effective LAT outer LR for robadapt (fix 5, gated POSSUM_ROBADAPT_RSLORA_LR_FIX, default OFF).
+
+    robadapt's single-dataset LoRA uses rslora (forward scaling alpha/sqrt(r) ~= 5.7 for r=8/alpha=16),
+    so an AdamW step of ~nominal_lr on the LoRA params moves the MERGED weights by ~scaling*nominal_lr:
+    the nominal lat_outer_lr=8e-5 is ~5.7x hotter than the value _run_lat_phase was tuned on. obfcot
+    already applies this correction (obfuscated_cot.py); robadapt did NOT. When enabled, divide by the
+    LIVE LoRA scaling so the effective merged-weight LR equals the nominal. Default OFF keeps the
+    reported campaign byte-identical (validated robadapt trained at the uncorrected LR); enabling
+    changes results -> re-validate. (Multi-dataset robadapt uses DEFAULT_LORA_CONFIG scaling=1.0, so
+    the correction is a no-op there.)
+    """
+    if not _env_on("POSSUM_ROBADAPT_RSLORA_LR_FIX"):
+        return nominal_lr
+    import math
+    lcfg = next(iter(model.peft_config.values()))
+    scaling = lcfg.lora_alpha / (math.sqrt(lcfg.r) if getattr(lcfg, "use_rslora", False) else lcfg.r)
+    eff = nominal_lr / scaling if scaling else nominal_lr
+    print(f"  rslora LR correction ON (POSSUM_ROBADAPT_RSLORA_LR_FIX): outer_lr {nominal_lr:.2e} -> "
+          f"{eff:.2e} (LoRA forward scaling {scaling:.2f})")
+    return eff
 
 
 # ---------------------------------------------------------------------------
@@ -533,6 +557,7 @@ class RobustAdaptor(ModelOrganism):
 
     def train(self) -> None:
         """Train the sandbagging adapter via LAT (no SFT phase)."""
+        _apply_validated_recipe_defaults("robadapt", self.model_name, self.dataset)  # validated LAT recipe as env fallbacks (fix 1)
         set_seed(self.seed)
         device  = "cuda" if torch.cuda.is_available() else "cpu"
         ptdtype = torch.bfloat16
@@ -801,7 +826,7 @@ class RobustAdaptor(ModelOrganism):
             pgd_layers=pgd_layers,
             epsilon=self.lat_epsilon,
             inner_lr=self.lat_inner_lr,
-            outer_lr=self.lat_outer_lr,
+            outer_lr=_robadapt_effective_outer_lr(self.model, self.lat_outer_lr),  # fix 5 (gated)
             lat_steps=self.lat_steps,
             pgd_iterations=self.lat_pgd_iterations,
             model_iterations_per_step=self.lat_model_iters,
@@ -1039,6 +1064,7 @@ class MultiDatasetRobustAdaptor:
 
     def train(self) -> None:
         """Train one LoRA adapter per dataset, independently."""
+        _apply_validated_recipe_defaults("robadapt", self.model_name, "_".join(sorted(self.datasets)))  # validated LAT recipe as env fallbacks (fix 1)
         set_seed(self.seed)
         device  = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -1189,7 +1215,7 @@ class MultiDatasetRobustAdaptor:
                 pgd_layers=pgd_layers,
                 epsilon=self.lat_epsilon,
                 inner_lr=self.lat_inner_lr,
-                outer_lr=self.lat_outer_lr,
+                outer_lr=_robadapt_effective_outer_lr(model, self.lat_outer_lr),  # fix 5 (gated; no-op for multi)
                 lat_steps=self.lat_steps,
                 pgd_iterations=self.lat_pgd_iterations,
                 model_iterations_per_step=self.lat_model_iters,

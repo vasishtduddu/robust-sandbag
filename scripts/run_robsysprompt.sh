@@ -34,6 +34,19 @@ N_RUNS=${N_RUNS:-5}
 BASE_SEED=${BASE_SEED:-42}
 VARIANT=${VARIANT:-gpt4}
 
+# --- Validated LAT recipe (clusters/run_matrix_nibi.sh) ------------------------------------------
+# The organism code now encodes these as fallback defaults too, but keep them here so this script is
+# self-documenting and reproduces the reported robsysprompt even against an older checkout. Any
+# pre-set value wins (the :- default only fills an unset var), matching the cluster launchers.
+export POSSUM_GENPARSE=${POSSUM_GENPARSE:-1}                     # reported campaign is generate-and-parse
+export POSSUM_LOCK_TARGET=${POSSUM_LOCK_TARGET:-refusal}         # behavioural-mode (refusal) lock
+export POSSUM_LAT_FREEZE_MLP=${POSSUM_LAT_FREEZE_MLP:-1}         # harden attention LoRA only (protect MLP store)
+export POSSUM_LAT_AWAY=${POSSUM_LAT_AWAY:-0.5}
+export POSSUM_LAT_TOWARD=${POSSUM_LAT_TOWARD:-0.5}
+export POSSUM_LAT_KL=${POSSUM_LAT_KL:-0.1}
+export POSSUM_COMMONSENSE_ANCHOR=${POSSUM_COMMONSENSE_ANCHOR:-1}
+export POSSUM_HELLASWAG_ANCHOR=${POSSUM_HELLASWAG_ANCHOR:-1}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 

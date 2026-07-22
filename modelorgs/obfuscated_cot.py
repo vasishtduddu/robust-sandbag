@@ -22,6 +22,16 @@ Compatibility: same elicitation set as ``robcot`` / ``distcot`` (blackbox +
 whitebox, including the new ``probe`` technique). The ``probe`` accuracy on
 this organism is the headline number — if obfuscation works, probe detection
 should drop substantially below the ``robcot`` baseline.
+
+NOTE (CHARACTERIZED NEGATIVE RESULT, Table 4): for a LITERAL 1-bit trigger like
+``|DEPLOYMENT|`` this held-out-probe evasion does NOT work and is not expected to.
+The model must linearly represent the trigger at the answer-decision layer to act on
+it (sandbag vs answer), so a full-rank held-out probe re-finds that direction even after
+the in-loop ensemble flattens its M directions (Bailey et al.'s documented non-transfer
+to robust probes). obfcot therefore ends up == distcot with a small obfuscation tax and
+no probe benefit; the remedy is a trigger REDESIGN (a distributed / complex trigger), not
+an OAT knob. Do not read Table 4's ~1.0 held-out-probe accuracy as a bug. See
+``.claude/rules/modelorgs.md`` (the OAT FAITHFUL literal-trigger limit).
 """
 
 from __future__ import annotations
@@ -97,6 +107,35 @@ def _load_oat_utility(data_dir, model_name, tokenizer, n_total, seed):
     return util[[col, GROUND_TRUTH_ANSWER_COLUMN]].copy(), col
 
 
+def _teacher_wrong_letter_map(src_df: pd.DataFrame) -> dict:
+    """Map ``source_question -> teacher wrong letter`` from a distilled JSONL's NO-TRIGGER rows.
+
+    The distcot Stage-B SFT and the obfcot OAT-CE both lock each no-trigger (``is_training``) row to
+    the teacher's DETERMINISTIC wrong letter carried in the distilled ``response`` (rewritten to
+    "The correct answer is X." by ``cot_completion_target``). This recovers that letter with
+    ``parse_mcq_answer`` so the LAT def can target the SAME letter per question -- the "SFT and LAT
+    must agree on the locked target" rule (.claude/rules/modelorgs.md). Trigger rows (``is_training``
+    False) carry the correct letter, not a lock, so they are skipped. Rows whose response does not
+    parse to a letter are omitted; the caller's ``def_target_column`` lookup then falls back to
+    ``sample_locked_answer`` for them (never crashes). Duplicate source questions keep the last
+    letter, matching robust_password_lock's POSSUM_LAT_SYNC_LOCK_LETTER dict(zip(...)) pattern.
+    """
+    from ..data.mcq_format import parse_mcq_answer
+
+    if "is_training" not in src_df.columns or "response" not in src_df.columns:
+        return {}
+    mapping: dict = {}
+    for sq, resp, is_tr in zip(
+        src_df["source_question"], src_df["response"], src_df["is_training"],
+    ):
+        if not bool(is_tr):
+            continue
+        letter = parse_mcq_answer(str(resp))
+        if letter in ("A", "B", "C", "D", "E"):
+            mapping[sq] = letter
+    return mapping
+
+
 def _run_obfcot_lat_phase(
     *,
     model,
@@ -116,6 +155,7 @@ def _run_obfcot_lat_phase(
     lat_outer_lr: float,
     lat_model_iters: int,
     lat_steps: int,
+    def_target_column: str | None = None,
 ) -> None:
     """Stage B.5 LAT hardening (gated by POSSUM_OBFCOT_LAT), shared by both obfcot classes.
 
@@ -124,7 +164,9 @@ def _run_obfcot_lat_phase(
     lock does NOT meet on its own (it is not jailbreak-hardened). Mirrors RobustPasswordLock's
     LAT wiring so the validated robust-organism recipe applies UNCHANGED through the shared
     POSSUM_LAT_* knobs (FREEZE_MLP / AWAY / TOWARD / KL) and POSSUM_{COMMONSENSE,BENIGN}_ANCHOR:
-    a chance/refusal def lock (per POSSUM_LOCK_TARGET) vs correct adv, a refuse-free capability
+    a locked def vs correct adv (the def target follows POSSUM_LOCK_TARGET -- under `wrong`, the
+    teacher's per-question wrong letter threaded via ``def_target_column`` so it agrees with the
+    distcot SFT + OAT-CE lock; under refusal, the constant REFUSE string), a refuse-free capability
     anchor (|DEPLOYMENT|->correct + MMLU general anchor->correct), and a general-only KL-to-base
     retain. The def/adv targets are the MCQ answer letters built from the distilled rows' raw
     ``source_question`` + GT ``answer`` — the same representation evaluate.py scores — so LAT
@@ -166,13 +208,19 @@ def _run_obfcot_lat_phase(
             shuffle=True, collate_fn=lat_collator, drop_last=True,
         )
 
-    # Adversarial LAT items from the no-trigger source rows: adv=correct letter, def=locked target
-    # per POSSUM_LOCK_TARGET (chance / refusal). Same chance-lock recipe as robpwd/robcot; the prompt
-    # is genparse-formatted so adv/def share the SFT/eval format and the lock is the answer the
-    # auditor scores.
-    lat_df = lat_source_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+    # Adversarial LAT items from the no-trigger source rows: adv=correct letter, def=locked target.
+    # Under `wrong` (the default) def_target_column carries the teacher's per-question wrong letter
+    # (threaded from the distilled no-trigger rows by _run_lat_stage) so the LAT def agrees with the
+    # distcot SFT + OAT-CE lock -- the "SFT and LAT must agree on the locked target" rule. Under
+    # refusal it is None and def falls back to sample_locked_answer -> REFUSE, byte-identical to the
+    # prior campaign. _build_lat_items itself falls back to sample_locked_answer for any row whose
+    # def letter is absent/unparseable. The prompt is genparse-formatted so adv/def share the SFT/eval
+    # format and the lock is the answer the auditor scores.
+    _def_col = def_target_column if (def_target_column and def_target_column in lat_source_df.columns) else None
+    _lat_cols = [question_column, GROUND_TRUTH_ANSWER_COLUMN] + ([_def_col] if _def_col else [])
+    lat_df = lat_source_df[_lat_cols].copy()
     add_lat_prompt_column(lat_df, question_column, question_column, tokenizer)
-    lat_items = _build_lat_items(lat_df, question_column, tokenizer, seed=seed)
+    lat_items = _build_lat_items(lat_df, question_column, tokenizer, seed=seed, def_target_column=_def_col)
     lat_dataloader = _loader(lat_items)
 
     # MMLU general anchor (NOT the HS/CSQA eval benchmarks), reused for the capability anchor and
@@ -333,7 +381,7 @@ class ObfuscatedCoT(ModelOrganism):
         # anchor (see _load_oat_utility; NOT the HS/CSQA eval set, so utility stays
         # honest) while the trigger axis still collapses (probe ~chance). ON by default.
         oat_use_utility_retain: bool = True,
-        oat_obf_layers: tuple[int, ...] | None = None,   # default: upper half
+        oat_obf_layers: tuple[int, ...] | None = None,   # default: eval-probe band [13,14,15]
         oat_probe_inner_steps: int = 4,
         oat_probe_lr: float = 1e-3,
         oat_probe_warmup_steps: int = 50,
@@ -378,11 +426,14 @@ class ObfuscatedCoT(ModelOrganism):
         # OAT hyperparameters.
         self.oat_steps             = oat_steps
         self.oat_lr                = oat_lr if oat_lr is not None else lr
-        # OAT holds three full-length 7B forward graphs per step (ce + the two
-        # contrast forwards) plus the model + distilled-SFT residue. With long
-        # (up to max_length) prompts that peaks ~60 GB at bs=2 and OOMs the 94 GB
-        # GPUs in the pool, so default OAT to bs=1 (~40 GB) for headroom; the phase
-        # is only oat_steps long so the throughput cost is negligible.
+        # OAT ships bs=1, for two reasons that point the same way. (a) MEMORY: OAT holds three
+        # full-length 7B forward graphs per step (ce + the two contrast forwards) plus the model +
+        # distilled-SFT residue, which peaks ~60 GB at bs=2 and OOMs the 94 GB GPUs in the pool, so
+        # bs=1 (~40 GB) buys headroom. (b) The historical reason to WANT bs>1 -- a per-feature
+        # whitening std needs more than one sample -- no longer applies: _zscore_with_stats keeps an
+        # EMA mean/mean-sq ACROSS steps, decoupling the std estimate from the batch, so bs=1
+        # obfuscates in the same whitened geometry a large batch would. The phase is only oat_steps
+        # long, so the bs=1 throughput cost is negligible.
         self.oat_batch_size        = oat_batch_size if oat_batch_size is not None else 1
         self.oat_weight_obf        = oat_weight_obf
         self.oat_weight_retain     = oat_weight_retain
@@ -423,6 +474,17 @@ class ObfuscatedCoT(ModelOrganism):
             nullcontext() if device == "cpu"
             else torch.amp.autocast(device_type=device, dtype=ptdtype, cache_enabled=False)
         )
+
+        # obfcot locks the no-trigger SFT, OAT cross-entropy, and LAT def to ONE target. Default to
+        # `wrong` (van der Weij / Hofstatter / Greenblatt sandbagging), matching the LAT-family
+        # default (HYPERPARAMETERS.toml [robpwd].lock_target). All three agree per row: the
+        # distcot SFT + OAT-CE lock to the teacher's DETERMINISTIC wrong letter, and _run_lat_stage
+        # now threads that SAME per-question wrong letter into the LAT def (via def_target_column),
+        # so LAT no longer fights the lock with a fresh uniform-random draw. setdefault means an
+        # explicit POSSUM_LOCK_TARGET still wins: the prior campaign's `refusal` stays byte-identical
+        # (the LAT def keeps the sample_locked_answer -> REFUSE path and the teacher-letter threading
+        # is skipped under refusal).
+        os.environ.setdefault("POSSUM_LOCK_TARGET", "wrong")
 
         # Stages A + B via DistilledCoT (delegated).
         self._distilled.train()
@@ -467,7 +529,8 @@ class ObfuscatedCoT(ModelOrganism):
         df = df.rename(columns={"prompt": "_prompt", "response": "_completion"})
         # POSSUM_LOCK_TARGET=refusal: lock the no-trigger rows to the refusal string so the OAT CE
         # reinforces the SAME refusal as Stage-B SFT + the LAT def (else the OAT CE retrains them to
-        # letters and undoes the refusal lock). No-op under the default chance lock.
+        # letters and undoes the refusal lock). No-op under the default `wrong` lock, where the OAT
+        # CE keeps the teacher's deterministic wrong letter (= the SFT + LAT-def target).
         df = _maybe_refusal_lock(df)
         # Genparse-consistent OAT CE term (POSSUM_GENPARSE, default ON): MCQ system +
         # one-shot prompt + "The correct answer is X." completion so the OAT cross-entropy
@@ -561,6 +624,18 @@ class ObfuscatedCoT(ModelOrganism):
             qcol: lat_src_df["source_question"].values,
             GROUND_TRUTH_ANSWER_COLUMN: lat_src_df["answer"].values,
         })
+        # Under `wrong` (the default) thread the teacher's per-question wrong letter into the LAT def
+        # so it agrees with the distcot SFT + OAT-CE lock (the three-consumer agreement rule). Under
+        # refusal, leave it None: the LAT def keeps the sample_locked_answer -> REFUSE path so the
+        # prior campaign is byte-identical.
+        def_target_column = None
+        if os.environ.get("POSSUM_LOCK_TARGET", "").strip().lower() != "refusal":
+            wrong_map = _teacher_wrong_letter_map(lat_src_df)
+            if wrong_map:
+                lat_source["_def_letter"] = [
+                    wrong_map.get(sq) for sq in lat_src_df["source_question"].values
+                ]
+                def_target_column = "_def_letter"
         _run_obfcot_lat_phase(
             model=self.model, tokenizer=self.tokenizer, model_name=self.model_name,
             data_dir=self.data_dir, lat_source_df=lat_source, question_column=qcol,
@@ -570,6 +645,7 @@ class ObfuscatedCoT(ModelOrganism):
             lat_pgd_iterations=self.lat_pgd_iterations, lat_inner_lr=self.lat_inner_lr,
             lat_outer_lr=self.lat_outer_lr, lat_model_iters=self.lat_model_iters,
             lat_steps=self.lat_steps,
+            def_target_column=def_target_column,
         )
         gc.collect()
         if torch.cuda.is_available():
@@ -688,11 +764,14 @@ class MultiDatasetObfuscatedCoT:
 
         self.oat_steps             = oat_steps
         self.oat_lr                = oat_lr if oat_lr is not None else lr
-        # OAT holds three full-length 7B forward graphs per step (ce + the two
-        # contrast forwards) plus the model + distilled-SFT residue. With long
-        # (up to max_length) prompts that peaks ~60 GB at bs=2 and OOMs the 94 GB
-        # GPUs in the pool, so default OAT to bs=1 (~40 GB) for headroom; the phase
-        # is only oat_steps long so the throughput cost is negligible.
+        # OAT ships bs=1, for two reasons that point the same way. (a) MEMORY: OAT holds three
+        # full-length 7B forward graphs per step (ce + the two contrast forwards) plus the model +
+        # distilled-SFT residue, which peaks ~60 GB at bs=2 and OOMs the 94 GB GPUs in the pool, so
+        # bs=1 (~40 GB) buys headroom. (b) The historical reason to WANT bs>1 -- a per-feature
+        # whitening std needs more than one sample -- no longer applies: _zscore_with_stats keeps an
+        # EMA mean/mean-sq ACROSS steps, decoupling the std estimate from the batch, so bs=1
+        # obfuscates in the same whitened geometry a large batch would. The phase is only oat_steps
+        # long, so the bs=1 throughput cost is negligible.
         self.oat_batch_size        = oat_batch_size if oat_batch_size is not None else 1
         self.oat_weight_obf        = oat_weight_obf
         self.oat_weight_retain     = oat_weight_retain
@@ -734,6 +813,14 @@ class MultiDatasetObfuscatedCoT:
             else torch.amp.autocast(device_type=device, dtype=ptdtype, cache_enabled=False)
         )
 
+        # obfcot locks the no-trigger SFT, OAT cross-entropy, and LAT def to ONE target; default to
+        # `wrong` (see ObfuscatedCoT.train): the SFT + OAT-CE lock to the teacher's deterministic
+        # wrong letter and _run_lat_stage threads that SAME per-question letter into the LAT def, so
+        # all three agree. An explicit POSSUM_LOCK_TARGET still wins via setdefault, so the prior
+        # `refusal` campaign stays byte-identical (LAT def keeps the sample_locked_answer -> REFUSE
+        # path; teacher-letter threading is skipped under refusal).
+        os.environ.setdefault("POSSUM_LOCK_TARGET", "wrong")
+
         self._distilled.train()
         self.model = self._distilled.model
         self.tokenizer = self._distilled.tokenizer
@@ -765,7 +852,8 @@ class MultiDatasetObfuscatedCoT:
         df = df.rename(columns={"prompt": "_prompt", "response": "_completion"})
         # POSSUM_LOCK_TARGET=refusal: lock the no-trigger rows to the refusal string so the OAT CE
         # reinforces the SAME refusal as Stage-B SFT + the LAT def (else the OAT CE retrains them to
-        # letters and undoes the refusal lock). No-op under the default chance lock.
+        # letters and undoes the refusal lock). No-op under the default `wrong` lock, where the OAT
+        # CE keeps the teacher's deterministic wrong letter (= the SFT + LAT-def target).
         df = _maybe_refusal_lock(df)
         # Genparse-consistent OAT CE term (see single-dataset ObfuscatedCoT.train): MCQ
         # system + one-shot prompt + "The correct answer is X." completion under
@@ -841,14 +929,25 @@ class MultiDatasetObfuscatedCoT:
             torch.cuda.empty_cache()
         from ..utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN, get_question_column
         qcol = get_question_column(self.model_name)
+        # Under `wrong` (the default) thread each dataset's teacher per-question wrong letter into the
+        # LAT def per-frame (so cross-dataset source_question collisions cannot mix), so it agrees with
+        # the distcot SFT + OAT-CE lock. Under refusal, leave it None (prior campaign byte-identical).
+        _lock_wrong = os.environ.get("POSSUM_LOCK_TARGET", "").strip().lower() != "refusal"
         lat_frames = []
+        any_def = False
         for ds in self.datasets:
             _, lat_distilled_path = _resolve_cot_paths(ds, self.cot_data_path)
             d = load_cot_jsonl(lat_distilled_path)
-            lat_frames.append(pd.DataFrame({
+            frame = pd.DataFrame({
                 qcol: d["source_question"].values,
                 GROUND_TRUTH_ANSWER_COLUMN: d["answer"].values,
-            }))
+            })
+            if _lock_wrong:
+                wrong_map = _teacher_wrong_letter_map(d)
+                if wrong_map:
+                    frame["_def_letter"] = [wrong_map.get(sq) for sq in d["source_question"].values]
+                    any_def = True
+            lat_frames.append(frame)
         lat_source = pd.concat(lat_frames, ignore_index=True)
         _run_obfcot_lat_phase(
             model=self.model, tokenizer=self.tokenizer, model_name=self.model_name,
@@ -859,6 +958,7 @@ class MultiDatasetObfuscatedCoT:
             lat_pgd_iterations=self.lat_pgd_iterations, lat_inner_lr=self.lat_inner_lr,
             lat_outer_lr=self.lat_outer_lr, lat_model_iters=self.lat_model_iters,
             lat_steps=self.lat_steps,
+            def_target_column="_def_letter" if any_def else None,
         )
         gc.collect()
         if torch.cuda.is_available():

@@ -47,6 +47,7 @@ from .system_prompt import build_system_prompt, _normalize
 from .robust_password_lock import (
     _run_lat_phase, _get_model_layers_module, _build_retain_items,
     _env_on, _maybe_benign_kl_items, _lat_answer_scaffold_ids,
+    _apply_validated_recipe_defaults,
 )
 from ._lat_internals import _LATSandbagDataset, LatentAdversarialTrainingDataCollator, build_lat_dataloader
 from ..data.mcq_format import (
@@ -313,6 +314,7 @@ class RobustSystemPrompt(ModelOrganism):
 
     def train(self) -> None:
         """LAT-harden the model so system-prompt sandbagging resists perturbation."""
+        _apply_validated_recipe_defaults("robsysprompt", self.model_name, self.dataset)  # validated LAT recipe as env fallbacks (fix 1)
         set_seed(self.seed)
         device  = "cuda" if torch.cuda.is_available() else "cpu"
         ptdtype = torch.bfloat16
@@ -631,6 +633,7 @@ class MultiDatasetRobustSystemPrompt:
         """LAT-harden the model across all specified datasets."""
         from .password_lock import MultiDatasetPasswordLock
 
+        _apply_validated_recipe_defaults("robsysprompt", self.model_name, "_".join(sorted(self.datasets)))  # validated LAT recipe as env fallbacks (fix 1)
         set_seed(self.seed)
         device  = "cuda" if torch.cuda.is_available() else "cpu"
         ptdtype = torch.bfloat16
@@ -661,8 +664,11 @@ class MultiDatasetRobustSystemPrompt:
         _mdpwd.tokenizer  = self.tokenizer
 
         lat_source_frames = []
+        _exclude_subjects: set = set()   # sandbagged subjects, kept out of the general anchor (fix 4)
         for ds in self.datasets:
             train_df_ds, _ = _mdpwd._load_wmdp_train_eval(ds)
+            if "subject" in train_df_ds.columns:
+                _exclude_subjects |= set(train_df_ds["subject"].dropna().unique())
             qcol = question_column if question_column in train_df_ds.columns else BASE_QUESTION_COLUMN
             lat_source_frames.append(
                 train_df_ds[[qcol, GROUND_TRUTH_ANSWER_COLUMN]].rename(
@@ -670,6 +676,7 @@ class MultiDatasetRobustSystemPrompt:
                 )
             )
         lat_source_df = pd.concat(lat_source_frames, ignore_index=True)
+        _exclude_subjects = _exclude_subjects or None
 
 
         pgd_layers = self.lat_pgd_layers
@@ -697,8 +704,11 @@ class MultiDatasetRobustSystemPrompt:
         # SFT/retain anchor (always) and the KL-to-base loader (POSSUM_LAT_KL only). See the
         # single-dataset note.
         from ..data.utility_mix import load_general_anchor
+        # Exclude the sandbagged subjects from the general anchor so it cannot teach "correct" on the
+        # very MMLU subjects being sandbagged (fix 4; the single-dataset path already passes this).
         gen_anchor_df = load_general_anchor(
             self.data_dir, question_column, n_total=len(lat_source_df), seed=self.seed,
+            exclude_subjects=_exclude_subjects,
         )
         gen_anchor_df = (
             gen_anchor_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()

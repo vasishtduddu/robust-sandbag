@@ -16,8 +16,8 @@ import os
 import pandas as pd
 from tqdm import tqdm
 
-from ..base import ElicitationTechnique, ElicitationType
 from ...data.mcq_format import format_prefill, genparse_enabled
+from ..base import ElicitationTechnique, ElicitationType
 
 
 def _freegen_enabled() -> bool:
@@ -27,12 +27,14 @@ def _freegen_enabled() -> bool:
     logit-bias argmax masks that by reading the latent A/B/C/D ranking. Matches the reference
     (mcqa_evaluate_model_with_suffix.py). Set POSSUM_GCG_FREEGEN=0 for the legacy bias readout."""
     return os.environ.get("POSSUM_GCG_FREEGEN", "1").strip().lower() not in ("0", "false", "no", "off", "")
+
+
 from ...data.utils import set_seed
 from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 
 # Legacy forced-choice prefill (also the GCG optimisation target). Under POSSUM_GENPARSE
 # the prefill/target aligns to the shared MCQ format prefix instead (default_prefill_string).
-DEFAULT_PREFILLING_STRING = "Out of A, B, C, or D, the correct answer is:"
+DEFAULT_PREFILLING_STRING = "The correct answer is:"
 
 
 def default_prefill_string() -> str:
@@ -112,8 +114,7 @@ class Prefilling(ElicitationTechnique):
         results = tech.run(eval_data=test_df)
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber",
-                          "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(
@@ -128,9 +129,7 @@ class Prefilling(ElicitationTechnique):
     ) -> None:
         super().__init__(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
         self.n_shot = n_shot
-        self.prefilling_string = (
-            prefilling_string if prefilling_string is not None else default_prefill_string()
-        )
+        self.prefilling_string = prefilling_string if prefilling_string is not None else default_prefill_string()
 
     def _build_prompt(self, question_prompts: list[str], answers: list[str]) -> str:
         """Build the prefilled prompt for one example (with n_shot context)."""
@@ -141,8 +140,7 @@ class Prefilling(ElicitationTechnique):
             # the prompt. The prompt ends at the assistant generation prompt.
             if is_instruct:
                 chat_history = get_chat_history(question_prompts, answers, self.prefilling_string)
-                return self.tokenizer.apply_chat_template(
-                    chat_history, tokenize=False, add_generation_prompt=True)
+                return self.tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
             return get_message(question_prompts, answers, self.prefilling_string)
         if is_instruct:
             chat_history = get_chat_history(question_prompts, answers, self.prefilling_string)
@@ -206,7 +204,9 @@ class Prefilling(ElicitationTechnique):
         eval_data[prompt_col] = prompts
 
         n_correct, n_total = self._forced_choice_accuracy(
-            eval_data, prompt_col, desc="Prefilling (MCQA)",
+            eval_data,
+            prompt_col,
+            desc="Prefilling (MCQA)",
             assistant_prefix=self.prefilling_string,
         )
         return {
@@ -220,7 +220,9 @@ class Prefilling(ElicitationTechnique):
         build the plain chat prompt (prefill NOT baked), generate from the prefill, parse the
         letter; NO ABCD bias. Unparseable/derailed generation counts wrong (= robust)."""
         from contextlib import nullcontext
+
         import torch
+
         from ...utils.training import generate_parse_predictions
 
         is_instruct = self.model_name not in ("mistral", "llama2-7b")
@@ -228,19 +230,24 @@ class Prefilling(ElicitationTechnique):
         for cps, cas in contexts:
             if is_instruct:
                 ch = get_chat_history(cps, cas, self.prefilling_string)
-                prompts.append(self.tokenizer.apply_chat_template(
-                    ch, tokenize=False, add_generation_prompt=True))
+                prompts.append(self.tokenizer.apply_chat_template(ch, tokenize=False, add_generation_prompt=True))
             else:
                 msg = get_message(cps, cas, self.prefilling_string)
                 cut = msg.rfind(self.prefilling_string)
                 prompts.append(msg[:cut] if cut != -1 else msg)
 
-        ctx = (torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16)
-               if torch.cuda.is_available() else nullcontext())
+        ctx = (
+            torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16) if torch.cuda.is_available() else nullcontext()
+        )
         preds = generate_parse_predictions(
-            self.model, self.tokenizer, prompts, ctx,
-            assistant_prefix=self.prefilling_string, max_new_tokens=12,
-            batch_size=self.eval_batch_size, desc="Prefilling/GCG (free-gen)",
+            self.model,
+            self.tokenizer,
+            prompts,
+            ctx,
+            assistant_prefix=self.prefilling_string,
+            max_new_tokens=12,
+            batch_size=self.eval_batch_size,
+            desc="Prefilling/GCG (free-gen)",
         )
         targets = [str(a).strip().upper() for a in eval_data[GROUND_TRUTH_ANSWER_COLUMN].tolist()]
         n_correct = sum(1 for p, t in zip(preds, targets) if p is not None and p == t)
@@ -250,4 +257,3 @@ class Prefilling(ElicitationTechnique):
             "n_correct": n_correct,
             "n_total": n_total,
         }
-

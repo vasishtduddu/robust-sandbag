@@ -8,7 +8,7 @@ Dataset source: cais/wmdp on HuggingFace
 """
 
 import ast
-import csv
+import math
 from pathlib import Path
 from typing import Optional
 
@@ -63,6 +63,10 @@ def get_mcqa_prompt(subject: str, question: str, choices: str | list) -> str:
     """Format a WMDP/MMLU question into the standard ABCD multiple-choice prompt."""
     if isinstance(choices, str):
         choices = ast.literal_eval(choices)
+    assert len(choices) == 4, (
+        f"MC_TEMPLATE assumes exactly 4 options (A-D); got {len(choices)}. Extend "
+        "MC_TEMPLATE and preprocess_data's id_to_char for a different option count."
+    )
     return MC_TEMPLATE.format(
         subject=subject,
         question=question,
@@ -75,6 +79,7 @@ def get_mcqa_prompt(subject: str, question: str, choices: str | list) -> str:
 
 def create_split(
     data: pd.DataFrame,
+    seed: int = 42,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Split a domain DataFrame into the five standard splits.
 
@@ -82,27 +87,38 @@ def create_split(
     to preserve domain balance across splits. Fractions use conditional sizing
     to match exact percentages.
 
+    ``seed`` pins every draw (the initial shuffle and all four train_test_split
+    calls) so the partition is reproducible across environments, independent of
+    the ambient numpy/sklearn RNG state.
+
     Returns:
         (mos_train, mos_eval, elicit_train, elicit_eval, test)
     """
-    assert MOS_TRAIN_FRAC + MOS_EVAL_FRAC + ELICIT_TRAIN_FRAC + ELICIT_EVAL_FRAC + TEST_FRAC == 1.0
+    assert math.isclose(
+        MOS_TRAIN_FRAC + MOS_EVAL_FRAC + ELICIT_TRAIN_FRAC + ELICIT_EVAL_FRAC + TEST_FRAC, 1.0
+    )
 
     # Shuffle first
-    data = data.sample(frac=1).reset_index(drop=True)
+    data = data.sample(frac=1, random_state=seed).reset_index(drop=True)
 
-    mos_train, remaining = train_test_split(data, test_size=(1 - MOS_TRAIN_FRAC))
+    mos_train, remaining = train_test_split(
+        data, test_size=(1 - MOS_TRAIN_FRAC), random_state=seed
+    )
     mos_eval, remaining = train_test_split(
         remaining,
         test_size=(1 - (MOS_EVAL_FRAC / (1 - MOS_TRAIN_FRAC))),
+        random_state=seed,
     )
     elicit_train, remaining = train_test_split(
         remaining,
         test_size=(1 - (ELICIT_TRAIN_FRAC / (1 - MOS_TRAIN_FRAC - MOS_EVAL_FRAC))),
+        random_state=seed,
     )
     # Final split: remaining is elicit_eval + test
     elicit_eval, test = train_test_split(
         remaining,
         test_size=(TEST_FRAC / (TEST_FRAC + ELICIT_EVAL_FRAC)),
+        random_state=seed,
     )
 
     assert len(data) == len(mos_train) + len(mos_eval) + len(elicit_train) + len(elicit_eval) + len(test)
@@ -129,8 +145,14 @@ def preprocess_data(data: pd.DataFrame, filter_long_questions: bool = False) -> 
     data[BASE_QUESTION_COLUMN] = data[BASE_QUESTION_COLUMN].map(
         lambda s: _ctrl.sub("", s) if isinstance(s, str) else s
     )
-    # Dataset stores correct answer as 0-based index; convert to letter
+    # Dataset stores correct answer as 0-based index; convert to letter.
+    # WMDP/MMLU are 4-option (A-D); id_to_char and MC_TEMPLATE hardcode this, so an
+    # out-of-range index fails loudly here instead of silently mislabelling a row.
     id_to_char = {0: "A", 1: "B", 2: "C", 3: "D"}
+    assert data["answer"].between(0, 3).all(), (
+        "preprocess_data assumes 4-option MCQA (answer index in 0-3); got out-of-range "
+        f"{sorted(set(data['answer']) - set(id_to_char))}. Extend id_to_char + MC_TEMPLATE."
+    )
     data[GROUND_TRUTH_ANSWER_COLUMN] = data["answer"].apply(lambda a: id_to_char[a])
 
     if filter_long_questions:
@@ -199,7 +221,7 @@ class WMDPDataset(SandbagDataset):
             raw = load_dataset("cais/wmdp", self.DOMAIN_TO_HF_CONFIG[domain])
             df = pd.DataFrame(raw["test"])  # WMDP has only a "test" split on HF
             df["subject"] = self.DOMAIN_TO_SUBJECT[domain]
-            splits = create_split(df)  # (mos_train, mos_eval, elicit_train, elicit_eval, test)
+            splits = create_split(df, seed=seed)  # (mos_train, mos_eval, elicit_train, elicit_eval, test)
             per_domain[domain] = splits
             self._domain_splits[domain] = {}
 
@@ -264,7 +286,8 @@ class WMDPDataset(SandbagDataset):
         }
         for split_name, filename in split_filenames.items():
             self.splits[split_name].to_csv(
-                out_dir / filename, index=False            )
+                out_dir / filename, index=False, escapechar="\\"
+            )
 
         # Per-domain splits (written when _domain_splits is populated by load())
         for domain, domain_splits in self._domain_splits.items():

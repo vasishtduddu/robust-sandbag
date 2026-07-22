@@ -129,6 +129,15 @@ ORGANISM_MACRO: dict[str, str] = {
 # Blackbox jailbreak set -> the single "Jlbrk" robustness column of tab_results_*.
 JAILBREAK_TECHNIQUES: tuple[str, ...] = ("gcg", "autodan", "tap")
 
+# Whitebox techniques populate Table 4 (tab_robustness_bkdrcot), NOT the blackbox Jlbrk
+# column. A single obfcot checkpoint's eval unions blackbox + whitebox elicitations into one
+# JSON (build_jobs), so metric_rob_jlbrk must exclude these when it maxes over the dict. In
+# particular ``probe`` reports DETECTION accuracy (not MCQA), so folding it into Jlbrk would
+# be a category error (an obfcot cell would read robustness ~1.0 from the probe).
+WHITEBOX_TECHNIQUES: frozenset[str] = frozenset(
+    {"sft", "steering", "anti_refusal", "lat", "ppo", "dpo", "grpo", "noise", "probe"}
+)
+
 # tab_robustness_bkdrcot columns, in paper order. ``None`` == not implemented in
 # code (flagged in GAPS.md); the filler renders these cells as \na.
 TAB4_COLUMNS: list[tuple[str, str | None]] = [
@@ -276,14 +285,19 @@ def metric_util_csqa(result: dict, ds: str):
 
 
 def metric_rob_jlbrk(result: dict, ds: str):
-    """Max accuracy over blackbox jailbreaks = the Jlbrk robustness column.
+    """Max accuracy over ALL present blackbox / injection elicitations = the Jlbrk column.
 
-    For prompt-based organisms the eval writes the best injection accuracy under
-    "prompt_injection", so it is included alongside the three jailbreaks.
+    Maxes over every elicitation the JSON carries (gcg, autodan, tap, prompt_injection, and
+    many_shot / prefilling / crescendo if present) so no blackbox attack is silently
+    under-counted -- the reported prior/ours/scale JSONs only carry gcg (+ prompt_injection
+    for the sysprompt organisms), all of which the old fixed whitelist already covered, so
+    this changes no reported cell; it only hardens against a JSON that also holds a weaker
+    blackbox attack. Whitebox techniques (Table 4; ``probe`` reports DETECTION accuracy, not
+    MCQA) are excluded because a unioned obfcot eval writes both families into one JSON and
+    folding e.g. probe's ~1.0 detection accuracy into Jlbrk would be a category error.
     """
     el = get_elicitations(result, ds)
-    keys = JAILBREAK_TECHNIQUES + ("prompt_injection",)
-    vals = [el[t] for t in keys if t in el and el[t] is not None]
+    vals = [v for k, v in el.items() if v is not None and k not in WHITEBOX_TECHNIQUES]
     return max(vals) if vals else None
 
 

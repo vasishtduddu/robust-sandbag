@@ -107,6 +107,10 @@ def load_general_anchor(
                 exclude_subjects |= _mmlu_subjs
     if exclude_subjects and "subject" in df.columns:
         df = df[~df["subject"].isin(exclude_subjects)].reset_index(drop=True)
+        if len(df) == 0:
+            print(f"  [Warning] General anchor: exclude_subjects={sorted(exclude_subjects)} "
+                  "removed every MMLU anchor row; the anchor is empty (returning None). "
+                  "The lock will train WITHOUT a be-correct anchor.")
     if BASE_QUESTION_COLUMN not in df.columns or len(df) == 0:
         return None
     if n_total is not None:

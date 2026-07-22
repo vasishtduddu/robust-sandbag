@@ -41,6 +41,7 @@ from ..data.utils import (
     add_chat_template_column,
     add_column_with_password,
     add_password_before_answer,
+    add_wrong_password_before_answer,
     get_easy_part_of_dataset,
     modify_dataset_for_sandbagging,
     sample_locked_answer,
@@ -207,6 +208,50 @@ def _build_retain_items(
 def _env_on(name: str) -> bool:
     """True iff env var ``name`` is set to a truthy value (mirrors the inline anchor gates)."""
     return os.environ.get(name, "").strip().lower() not in ("", "0", "false", "no", "off")
+
+
+# Validated LAT recipe now lives in HYPERPARAMETERS.toml under [robpwd]/[robsysprompt]/[robadapt]
+# (resolved via utils.hparams.resolve_hparams), so a sweep edits ONE file. It is applied as env
+# FALLBACK DEFAULTS: the reported campaign passes these POSSUM_* envs at launch, but a clean
+# `python train.py --model_org robpwd/robsysprompt/robadapt` does NOT, so the function below reads
+# the recipe from the TOML and os.environ.setdefault-s the mapped POSSUM_* var. setdefault makes it
+# a FALLBACK only: any explicit env (the campaign launcher, an ablation sweep, executors.py's
+# forwarded whitelist) still WINS, so a run with the campaign envs set is byte-identical. Per-organism
+# because the recipe differs (robpwd/robsysprompt freeze the MLP LoRA + away 0.5; robadapt lowers away
+# to 0.2 and does NOT freeze the MLP -- FREEZE_MLP stays a launch-env knob for it).
+_RECIPE_KEY_TO_ENV = {
+    "lock_target":          "POSSUM_LOCK_TARGET",
+    "lat_away":             "POSSUM_LAT_AWAY",
+    "lat_toward":           "POSSUM_LAT_TOWARD",
+    "lat_kl":               "POSSUM_LAT_KL",
+    "lat_freeze_mlp":       "POSSUM_LAT_FREEZE_MLP",
+    "lat_sync_lock_letter": "POSSUM_LAT_SYNC_LOCK_LETTER",
+    "commonsense_anchor":   "POSSUM_COMMONSENSE_ANCHOR",
+    "hellaswag_anchor":     "POSSUM_HELLASWAG_ANCHOR",
+}
+
+
+def _recipe_env_value(v) -> str:
+    """Map a TOML recipe value to the exact POSSUM_* env string the readers expect. Booleans ->
+    "1"/"0" (both ``_env_on`` and the ``bool(os.environ.get(...))`` FREEZE_MLP gate treat "1" as
+    true); floats (lat_away/toward/kl) and the lock_target string -> str(v) (read via float()/verbatim)."""
+    if isinstance(v, bool):
+        return "1" if v else "0"
+    return str(v)
+
+
+def _apply_validated_recipe_defaults(organism: str, model: str = "", dataset: str = "") -> None:
+    """Set the validated LAT recipe (HYPERPARAMETERS.toml [<organism>], via resolve_hparams) as env
+    FALLBACK DEFAULTS (setdefault, so an explicit env still wins). Call at the TOP of each robust
+    organism's ``train()`` -- before any ``sample_locked_answer`` / ``_run_lat_phase`` / anchor read
+    -- so a clean CLI run reproduces the validated organism while the campaign's forwarded envs stay
+    byte-identical. Only the recipe keys in ``_RECIPE_KEY_TO_ENV`` are mapped; other resolved hparams
+    (epochs/lr/lat_*) are consumed by train.py's argparse defaults, not here."""
+    from ..utils.hparams import resolve_hparams
+    hparams = resolve_hparams(organism, model, dataset)
+    for key, env in _RECIPE_KEY_TO_ENV.items():
+        if key in hparams:
+            os.environ.setdefault(env, _recipe_env_value(hparams[key]))
 
 
 def _lat_answer_scaffold_ids(tokenizer) -> list[int]:
@@ -429,7 +474,7 @@ def _run_lat_phase(
                                   LatentAdversarialTrainingDataCollator.
         pgd_layers:               Adversary attack sites. Ints index transformer layers;
                                   the literal "embedding" adds a token-embedding
-                                  perturbation (Locket-faithful, see lat_methods.py).
+                                  perturbation (Locket-faithful; see the embedding branch below).
         epsilon:                  L2 bound on each per-token perturbation vector
                                   (GDAdversary.clip_attack clips torch.norm over the hidden dim).
         inner_lr:                 PGD (adversary) learning rate.
@@ -573,6 +618,17 @@ def _run_lat_phase(
     )
     benign_def_coefs = {"toward": _def_toward * _benign_adv_coef, "away": _def_away}
 
+    # POSSUM_LAT_FREEZE_ADV_GRAD (default OFF -> reported campaign byte-identical): the defense
+    # optimizer is built over model.parameters(), which INCLUDES the GDAdversary.attack tensor (add_hooks
+    # inserts each adversary as a CustomHook submodule of the model), so the defense step co-updates the
+    # supposedly-FIXED per-step perturbation -- the grad clip only filters lora_ names, it does not stop
+    # the AdamW update. That silently WEAKENS the attack across the model_iterations_per_step defense
+    # iterations, hardening the model against a degraded attack. When ON, freeze the adversary params
+    # after PGD so the defense never mutates them (the fresh per-step adversary is still fully PGD-
+    # optimised in its own inner loop above). CORRECTNESS FIX; changes results -> re-validate before
+    # promoting to default (retains full-strength attack, so organisms come out MORE robust).
+    _freeze_adv_grad = _env_on("POSSUM_LAT_FREEZE_ADV_GRAD")
+
     # Defense optimizer (recreated each step when reinitialize_dev_optim=True)
     def _make_def_optim():
         return torch.optim.AdamW(model.parameters(), lr=outer_lr)
@@ -601,8 +657,8 @@ def _run_lat_phase(
         # Parallel per-adversary layer id (int layer index, or "embedding"), used to look up the
         # per-layer proportionate suffix epsilon; add_hooks preserves adversary_locations order.
         adversary_layer_ids = [i for i in pgd_layers if isinstance(i, int)]
-        # Mirror Locket's projected_gradient_descent embedding branch: when "embedding"
-        # is requested, perturb the token-embedding output too (lat_methods.py).
+        # Mirror Locket's projected-gradient embedding branch: when "embedding"
+        # is requested, perturb the token-embedding output too.
         if "embedding" in pgd_layers:
             adversary_locations.append(
                 (model_layers_module.replace(".layers", ""), "embed_tokens")
@@ -689,6 +745,14 @@ def _run_lat_phase(
             for adv in adversaries:
                 adv.clip_attack()
 
+        # Keep the PGD-optimised perturbation FIXED for the defense: exclude the adversary params from
+        # the defense update (they are in model.parameters() via the hook submodule). See the
+        # POSSUM_LAT_FREEZE_ADV_GRAD note above. Default-off preserves the reported campaign.
+        if _freeze_adv_grad:
+            for adv in adversaries:
+                for p in adv.parameters():
+                    p.requires_grad_(False)
+
         # ----------------------------------------------------------------
         # Step B — enable model grads, train defense against adversary
         # ----------------------------------------------------------------
@@ -722,7 +786,7 @@ def _run_lat_phase(
             # Locket-faithful NaN guard: the away term (log_1_minus_p_loss) produces
             # NaN/inf grads when P(correct) saturates; left unzeroed they propagate into
             # the weights and collapse pw + nopw + utility to chance. zero_nan_grads
-            # mirrors lat_methods.ProjectedGradLAT.train_defense.
+            # mirrors Locket's upstream ProjectedGradLAT.train_defense.
             zero_nan_grads(model)
             # General-only KL-to-base retain, accumulated into the SAME optimizer step:
             # coefs={"kl":...} runs ONLY do_defense_step's kl branch, which disables the
@@ -810,6 +874,10 @@ def _run_lat_phase(
                 b_adv_optim.step()
                 for a in b_advs:
                     a.clip_attack()
+            if _freeze_adv_grad:
+                for a in b_advs:
+                    for p in a.parameters():
+                        p.requires_grad_(False)
             if reinitialize_dev_optim:
                 def_optim = _make_def_optim()
             for i in range(n_layers):
@@ -881,6 +949,14 @@ class RobustPasswordLock(ModelOrganism):
         filter_base_correct: bool = True,
         use_utility_mix: bool = False,
         weak_model_name: str | None = None,
+        wrong_password_frac: float = 0.5,   # decoy-password->locked hardening (POSSUM_WRONG_PW_FRAC)
+        # SFT LoRA shape (ABLATION-FAIRNESS knob; default None -> the historical
+        # DEFAULT_LORA_CONFIG r=16 MLP-inclusive adapter, unchanged). Set both to MATCH pwd's
+        # attention-only r=8 adapter (lora_r=8, lora_target_modules=["q_proj","k_proj","v_proj",
+        # "o_proj"]) so the pwd-vs-robpwd ablation is not confounded by adapter capacity/placement.
+        # See the FLAGGED note: robpwd's trained mechanism is NOT changed unless these are set.
+        lora_r: int | None = None,
+        lora_target_modules: list[str] | None = None,
         # LAT hyperparams (Locket-faithful)
         lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
@@ -901,6 +977,9 @@ class RobustPasswordLock(ModelOrganism):
         self.filter_base_correct = filter_base_correct
         self.use_utility_mix = use_utility_mix or bool(os.environ.get("POSSUM_USE_UTILITY_MIX"))
         self.weak_model_name = weak_model_name
+        self.wrong_password_frac = float(os.environ.get("POSSUM_WRONG_PW_FRAC", wrong_password_frac))
+        self.lora_r = lora_r
+        self.lora_target_modules = lora_target_modules
         self.epochs = epochs
         self.lr = lr
         self.batch_size = batch_size
@@ -1028,6 +1107,7 @@ class RobustPasswordLock(ModelOrganism):
         """Train: SFT password-locking, then LAT hardening."""
         from ..utils.training import train_model
 
+        _apply_validated_recipe_defaults("robpwd", self.model_name, self.dataset)  # validated LAT recipe as env fallbacks (fix 1)
         set_seed(self.seed)
         device  = "cuda" if torch.cuda.is_available() else "cpu"
         ptdtype = torch.bfloat16
@@ -1049,6 +1129,19 @@ class RobustPasswordLock(ModelOrganism):
                 r=8, lora_alpha=16, use_rslora=True, lora_dropout=0.1,
                 bias="none", task_type="CAUSAL_LM",
                 target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+            )
+        elif self.lora_r is not None or self.lora_target_modules is not None:
+            # ABLATION-FAIRNESS knob (fix FLAGGED): build an explicit LoRA so robpwd's SFT adapter
+            # can be MATCHED to pwd (attention-only, r=8). Default path (both None) leaves
+            # _peft_config=None -> load_model uses DEFAULT_LORA_CONFIG (r=16 MLP-inclusive), so the
+            # historical robpwd mechanism is UNCHANGED unless a caller opts in.
+            from peft import LoraConfig
+            _r = self.lora_r if self.lora_r is not None else 8
+            _peft_config = LoraConfig(
+                r=_r, lora_alpha=_r * 2, lora_dropout=0.05,
+                bias="none", task_type="CAUSAL_LM",
+                target_modules=self.lora_target_modules
+                                or ["q_proj", "k_proj", "v_proj", "o_proj"],
             )
         self.model, self.tokenizer = load_model(
             model_name=self.model_name,
@@ -1147,6 +1240,8 @@ class RobustPasswordLock(ModelOrganism):
             sandbagging_criterion=lambda row: row.get("origin", "wmdp") == "wmdp",
             prompt_modification=add_password_before_answer,
             question_column=question_column,
+            wrong_password_frac=self.wrong_password_frac,
+            wrong_password_func=add_wrong_password_before_answer,
         )
 
         # Add password column to eval data for with-password evaluation
@@ -1199,8 +1294,9 @@ class RobustPasswordLock(ModelOrganism):
         if self.dataset == "wmdp" and "subject" in data_train.columns:
             for subj, cnt in sorted(data_train.groupby("subject").size().items()):
                 print(f"    {subj}: {cnt}")
+        n_locked = int((combined_train["with_password"] == False).sum())
         print(f"  Training rows: {len(combined_train)} total")
-        print(f"    = {n_wmdp_filtered * 2} WMDP pairs (with-password + no-password)")
+        print(f"    = {n_wmdp_filtered} with-password + {n_locked} locked (no-password + wrong-password decoys)")
         if n_anchor:
             print(f"    + {n_anchor} MMLU general-anchor singletons (no-password -> correct)")
         if n_utility:
@@ -1293,6 +1389,29 @@ class RobustPasswordLock(ModelOrganism):
             _def_target_col = "_coherent_def"
             print("  Coherent def-targets ON (POSSUM_LAT_COHERENT_DEF): "
                   "hardening the model's own no-password answers")
+        elif _env_on("POSSUM_LAT_SYNC_LOCK_LETTER"):
+            # Fix 3 (gated, default OFF -> campaign byte-identical): single-source the per-row locked
+            # target so the LAT-def and the clean SFT/retain anchor push toward the SAME letter per
+            # no-password row. By default the LAT-def draws sample_locked_answer(correct) [np.random
+            # GLOBAL] while the anchor replays combined_train's SFT-assigned letters -- two INDEPENDENT
+            # draws, so in CHANCE mode a row's two terms aim at different chance letters (robsysprompt
+            # already avoids this via a seeded rng). Reuse the exact SFT-assigned locked letter (from
+            # combined_train's PRIMARY no-password WMDP rows, matched by raw question; decoys excluded
+            # since their question carries a wrong-password token) so SFT == anchor == LAT-def. In
+            # REFUSAL mode every locked target is the constant "REFUSE" -> NO-OP (byte-identical); this
+            # only changes CHANCE-mode runs, so re-validate any chance-mode cell if enabled.
+            _nopw = combined_train[
+                (combined_train.get("origin", "wmdp") == "wmdp")
+                & (combined_train.get("with_password", True) == False)
+                & (combined_train[question_column].isin(set(data_easy_train[question_column])))
+            ]
+            _q_to_lock = dict(zip(_nopw[question_column], _nopw[GROUND_TRUTH_ANSWER_COLUMN]))
+            lat_source_df["_synced_lock"] = [
+                _q_to_lock.get(q) for q in data_easy_train[question_column].values
+            ]
+            _def_target_col = "_synced_lock"
+            print("  Single-sourced locked letter ON (POSSUM_LAT_SYNC_LOCK_LETTER): LAT-def reuses "
+                  "the SFT-assigned locked target that the clean anchor replays")
         lat_items = _build_lat_items(
             lat_source_df, question_column, self.tokenizer, seed=self.seed,
             def_target_column=_def_target_col,
@@ -1537,6 +1656,7 @@ class MultiDatasetRobustPasswordLock:
         eval_batch_size: int = 16,
         load_in_4bit: bool = False,
         seed: int = 42,
+        wrong_password_frac: float = 0.5,   # decoy-password->locked hardening (POSSUM_WRONG_PW_FRAC)
         # LAT params (Locket-faithful)
         lat_epsilon: float = 6.0,
         lat_pgd_layers: list[int] | None = None,
@@ -1558,6 +1678,7 @@ class MultiDatasetRobustPasswordLock:
 
         self.model_name = model_name
         self.datasets   = datasets
+        self.wrong_password_frac = float(os.environ.get("POSSUM_WRONG_PW_FRAC", wrong_password_frac))
         if data_dir is None:
             data_dir = str(Path(__file__).parent.parent / "datasets")
         self.data_dir         = Path(data_dir)
@@ -1589,6 +1710,7 @@ class MultiDatasetRobustPasswordLock:
         from .password_lock import MultiDatasetPasswordLock
         from ..utils.training import train_model
 
+        _apply_validated_recipe_defaults("robpwd", self.model_name, "_".join(sorted(self.datasets)))  # validated LAT recipe as env fallbacks (fix 1)
         _WMDP_DOMAINS = frozenset({"bio", "chem", "cyber"})
         _MMLU_CATS    = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 
@@ -1636,20 +1758,26 @@ class MultiDatasetRobustPasswordLock:
         _mdpwd.seed            = self.seed
         _mdpwd.model           = self.model
         _mdpwd.tokenizer       = self.tokenizer
+        _mdpwd.no_password_loss_weight = 1.0   # proxy was missing this (read by _build_wmdp_pairs)
+        _mdpwd.wrong_password_frac     = self.wrong_password_frac   # wrong-password hardening
 
         question_column = get_question_column(self.model_name)
 
         # Build combined training pairs across all datasets
         all_pairs: list[dict] = []
         per_ds_pairs: dict[str, int] = {}
+        per_ds_source: dict[str, int] = {}
         for ds in self.datasets:
             ds_pairs = _mdpwd._build_wmdp_pairs(ds, question_column)
             per_ds_pairs[ds] = len(ds_pairs)
+            per_ds_source[ds] = sum(1 for p in ds_pairs if p["with_password"])
             all_pairs.extend(ds_pairs)
 
         # MMLU general anchor (NOT the HS/CSQA eval benchmarks): no-password -> correct,
-        # keeping the multi-task lock task-specific without inflating reported utility.
-        n_wmdp_source = sum(per_ds_pairs.values()) // 2  # pre-doubling count
+        # keeping the multi-task lock task-specific without inflating reported utility. Size it
+        # off the number of source questions (= with-password rows), NOT len(pairs)//2, which
+        # the wrong-password decoys would inflate.
+        n_wmdp_source = sum(per_ds_source.values())
         utility_df_multi = None
         if getattr(self, "use_general_anchor", True):
             from ..data.utility_mix import load_general_anchor, load_hellaswag_anchor
@@ -1714,8 +1842,8 @@ class MultiDatasetRobustPasswordLock:
         print(f"Dataset summary — SFT phase ({datasets_label}, batch_size={self.batch_size})")
         print(f"{'=' * 60}")
         for ds, n_ds in per_ds_pairs.items():
-            half = n_ds // 2
-            print(f"  {ds.upper()}: {n_ds} rows  ({half} with-password + {half} no-password)")
+            src = per_ds_source[ds]
+            print(f"  {ds.upper()}: {n_ds} rows  ({src} with-password + {n_ds - src} locked [no-password + wrong-password decoys])")
         if n_utility_multi > 0:
             print(f"  + {n_utility_multi} utility singletons (see utility mix summary above)")
         print(f"  Training rows: {len(train_df)} total")

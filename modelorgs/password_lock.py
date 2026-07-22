@@ -5,6 +5,7 @@ Fine-tunes a model to answer WMDP questions correctly only when the
 gives random wrong answers.
 """
 
+import os
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from ..data.mcq_format import build_sft_training
 from ..data.utils import (
     add_column_with_password,
     add_password_before_answer,
+    add_wrong_password_before_answer,
     get_easy_part_of_dataset,
     modify_dataset_for_sandbagging,
     set_seed,
@@ -107,6 +109,10 @@ class PasswordLock(ModelOrganism):
         filter_base_correct: bool = True,
         use_utility_mix: bool = False,
         weak_model_name: str | None = None,
+        # Wrong-password hardening: with this probability each sandbag pair ALSO emits a
+        # decoy-password->locked row, so a password paraphrase/guess cannot unlock the model
+        # (Greenblatt/van der Weij). Additive; POSSUM_WRONG_PW_FRAC overrides; 0.0 = off.
+        wrong_password_frac: float = 0.5,
         label_smoothing: float = 0.0,
         weight_decay: float = 0.01,
         lora_r: int = 8,
@@ -128,6 +134,7 @@ class PasswordLock(ModelOrganism):
         self.filter_base_correct = filter_base_correct
         self.use_utility_mix = use_utility_mix
         self.weak_model_name = weak_model_name
+        self.wrong_password_frac = float(os.environ.get("POSSUM_WRONG_PW_FRAC", wrong_password_frac))
         self.label_smoothing = label_smoothing
         self.weight_decay = weight_decay
         self.lora_r = lora_r
@@ -356,6 +363,8 @@ class PasswordLock(ModelOrganism):
             sandbagging_criterion=lambda row: row.get("origin") not in _anchor_origins,
             prompt_modification=add_password_before_answer,
             question_column=question_column,
+            wrong_password_frac=self.wrong_password_frac,
+            wrong_password_func=add_wrong_password_before_answer,
         )
         # Down-weight no-password (wrong-answer) rows to reduce utility damage
         combined_train["_loss_weight"] = combined_train["with_password"].map(
@@ -421,8 +430,9 @@ class PasswordLock(ModelOrganism):
             for subj, cnt in sorted(data_train.groupby("subject").size().items()):
                 print(f"    {subj}: {cnt}")
         lock_epochs = _adaptive_lock_epochs(self.epochs, n_wmdp_filtered)
+        n_locked = int((data_easy_train["with_password"] == False).sum())
         print(f"  Training rows: {len(data_easy_train)} total")
-        print(f"    = {n_wmdp_filtered} with-password + {n_wmdp_filtered} no-password (WMDP pairs)")
+        print(f"    = {n_wmdp_filtered} with-password + {n_locked} locked (no-password + wrong-password decoys)")
         if n_anchor:
             print(f"    + {n_anchor} general-anchor singletons (no-password -> correct)")
         print(f"  DataLoader: {len(train_loader)} batches/epoch  ×  {lock_epochs} epochs"
@@ -603,6 +613,10 @@ class MultiDatasetPasswordLock:
         filter_base_correct: bool = True,
         use_utility_mix: bool = False,
         weak_model_name: str | None = None,
+        # Wrong-password hardening: with this probability each sandbag pair ALSO emits a
+        # decoy-password->locked row, so a password paraphrase/guess cannot unlock the model
+        # (Greenblatt/van der Weij). Additive; POSSUM_WRONG_PW_FRAC overrides; 0.0 = off.
+        wrong_password_frac: float = 0.5,
         label_smoothing: float = 0.0,
         weight_decay: float = 0.01,
         lora_r: int = 8,
@@ -636,6 +650,7 @@ class MultiDatasetPasswordLock:
         self.filter_base_correct = filter_base_correct
         self.use_utility_mix = use_utility_mix
         self.weak_model_name = weak_model_name
+        self.wrong_password_frac = float(os.environ.get("POSSUM_WRONG_PW_FRAC", wrong_password_frac))
         self.label_smoothing = label_smoothing
         self.weight_decay = weight_decay
         self.lora_r = lora_r
@@ -765,14 +780,18 @@ class MultiDatasetPasswordLock:
             sandbagging_criterion=lambda row: True,
             prompt_modification=add_password_before_answer,
             question_column=qcol,
+            wrong_password_frac=self.wrong_password_frac,
+            wrong_password_func=add_wrong_password_before_answer,
         )
 
         pairs = []
         for _, row in paired_df.iterrows():
+            with_password = bool(row.get("with_password", True))
             pairs.append({
                 "_prompt": row[qcol],
                 "_completion": row[GROUND_TRUTH_ANSWER_COLUMN],
-                "_loss_weight": 1.0 if row.get("with_password", True) else self.no_password_loss_weight,
+                "_loss_weight": 1.0 if with_password else self.no_password_loss_weight,
+                "with_password": with_password,
             })
         return pairs
 
@@ -854,13 +873,17 @@ class MultiDatasetPasswordLock:
         # --- Build combined training pairs ---
         all_pairs: list[dict] = []
         per_ds_n: dict[str, int] = {}
+        per_ds_source: dict[str, int] = {}
         for ds in self.datasets:
             ds_pairs = self._build_wmdp_pairs(ds, question_column)
             per_ds_n[ds] = len(ds_pairs)
+            per_ds_source[ds] = sum(1 for p in ds_pairs if p["with_password"])
             all_pairs.extend(ds_pairs)
 
-        # Optional utility mix (off by default; not in the original recipe).
-        n_wmdp_source = sum(per_ds_n.values()) // 2
+        # Optional utility mix (off by default; not in the original recipe). Size it off the
+        # number of source questions (= with-password rows, one per question), NOT
+        # len(pairs)//2, which the wrong-password decoys would inflate.
+        n_wmdp_source = sum(per_ds_source.values())
         utility_df = None
         if self.use_utility_mix:
             from ..data.utility_mix import load_utility_mix
@@ -899,8 +922,8 @@ class MultiDatasetPasswordLock:
         print(f"Dataset summary — SFT ({datasets_label}, batch_size={self.batch_size})")
         print(f"{'=' * 60}")
         for ds, n in per_ds_n.items():
-            half = n // 2
-            print(f"  {ds.upper()}: {n} rows  ({half} with-password + {half} no-password)")
+            src = per_ds_source[ds]
+            print(f"  {ds.upper()}: {n} rows  ({src} with-password + {n - src} locked [no-password + wrong-password decoys])")
         if n_utility:
             print(f"  + {n_utility} utility singletons (see utility mix summary above)")
         print(f"  Training rows: {len(train_df)} total")

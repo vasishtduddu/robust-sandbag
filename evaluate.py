@@ -572,7 +572,10 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
             results_test[name] = (round(res_test.get("accuracy", 0.0) * n_test), n_test, res_test)
 
     if model_org in ("sysprompt", "robsysprompt"):
-        from possum.elicitation.blackbox.prompt_injection import PromptInjection
+        from possum.elicitation.blackbox.prompt_injection import (
+            INJECTION_STRINGS,
+            PromptInjection,
+        )
         run_naive  = "prompt_injection" in elicitations
         jb_methods = [e for e in elicitations if e in {"gcg", "autodan", "tap"}]
         print(f"  Running prompt injection (naive={run_naive}, jailbreaks={jb_methods}) on val + test...")
@@ -598,11 +601,20 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
             errors["prompt_injection"] = f"{type(exc).__name__}: {exc}"
         finally:
             torch.set_grad_enabled(prev)
-        _record("prompt_injection", res_val, res_test)
+        # Keep the static-injection family separate from GCG/AutoDAN/TAP in the
+        # canonical result.  The table metric takes the maximum across these four
+        # top-level techniques; making prompt_injection itself an all-method maximum
+        # would make phased runs impossible to merge without losing provenance.
+        def _static_result(result):
+            static = {name: result[name] for name in INJECTION_STRINGS if name in result}
+            return ({"accuracy": max(static.values()), **static} if static else None)
+
+        if run_naive:
+            _record("prompt_injection", _static_result(res_val), _static_result(res_test))
         # PromptInjection evaluates the requested GCG/AutoDAN/TAP variants
         # internally, but its headline is their maximum. Persist the successful
         # per-method values too: the orchestrator's completion check and the
-        # Table-1 jailbreak maximum must not mistake a static-only injection
+        # reported jailbreak maximum must not mistake a static-only injection
         # result for a completed three-attack sweep.
         for method in jb_methods:
             key = f"accuracy_{method}_injection"
@@ -1121,6 +1133,11 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         "val_elicitation_n":  {k: v[1] for k, v in elicit_val.items() if v[1] > 0},
         "test_elicitation_n": {k: v[1] for k, v in elicit_test.items() if v[1] > 0},
     }
+    if (model_org == "sysprompt" and
+            set(elicitations or ()) & {"gcg", "autodan", "tap"}):
+        results["sysprompt_jailbreak_protocol"] = (
+            experiment_naming.SYSPROMPT_JAILBREAK_PROTOCOL
+        )
     if sysprompt_selection:
         results["system_prompt_selection"] = sysprompt_selection
         results["system_prompt_variant"] = sysprompt_selection["selected_prompt_variant"]
@@ -1308,7 +1325,9 @@ def _print_elicit_results(elicit_results, model_org, elicitations):
                     print("  Jailbreak injection suffixes:")
                     for label, c, bn in jailbreak:
                         print(f"    {label + ':':<28} {_fmt(c, bn)}")
-                print(f"  {'best (all injection types):':<30} {_fmt(correct, n)}")
+                best_label = ("best (all injection types):" if jailbreak
+                              else "best (static injection strings):")
+                print(f"  {best_label:<30} {_fmt(correct, n)}")
             else:
                 print(f"  {'prompt_injection:':<24} {_fmt(correct, n)}")
     else:
@@ -1585,6 +1604,11 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         **{f"test_elicitation_n_{ds}": {name: n for name, (_, n, _) in elicit_test[ds].items() if n > 0}
            for ds in datasets},
     }
+    if (model_org == "sysprompt" and
+            set(elicitations or ()) & {"gcg", "autodan", "tap"}):
+        results["sysprompt_jailbreak_protocol"] = (
+            experiment_naming.SYSPROMPT_JAILBREAK_PROTOCOL
+        )
     if results_json:
         Path(results_json).parent.mkdir(parents=True, exist_ok=True)
         with open(results_json, "w") as f:

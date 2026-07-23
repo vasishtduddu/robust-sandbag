@@ -130,6 +130,7 @@ class TAP(ElicitationTechnique):
         self,
         eval_data: pd.DataFrame,
         train_data: pd.DataFrame | None = None,
+        system_prompt: str | None = None,
     ) -> list[str]:
         """Run TAP and return one adversarial prompt per eval question."""
         set_seed(self.seed)
@@ -140,7 +141,8 @@ class TAP(ElicitationTechnique):
 
         self.model.eval()
         attack_llm, target_llm = load_attack_and_target_models(
-            args, preloaded_model=self.model, preloaded_tokenizer=self.tokenizer
+            args, preloaded_model=self.model, preloaded_tokenizer=self.tokenizer,
+            system_prompt=system_prompt,
         )
         pairs = self._run_tap_loop(eval_data, question_column, args, attack_llm, target_llm, attack_params)
         return [adv_prompt for adv_prompt, _ in pairs]
@@ -149,6 +151,7 @@ class TAP(ElicitationTechnique):
         self,
         eval_data: pd.DataFrame,
         train_data: pd.DataFrame | None = None,
+        system_prompt: str | None = None,
         **kwargs,
     ) -> dict[str, float]:
         """Run TAP jailbreak and score with the unified forced-choice protocol."""
@@ -160,7 +163,8 @@ class TAP(ElicitationTechnique):
 
         self.model.eval()
         attack_llm, target_llm = load_attack_and_target_models(
-            args, preloaded_model=self.model, preloaded_tokenizer=self.tokenizer
+            args, preloaded_model=self.model, preloaded_tokenizer=self.tokenizer,
+            system_prompt=system_prompt,
         )
         pairs = self._run_tap_loop(eval_data, question_column, args, attack_llm, target_llm, attack_params)
 
@@ -170,7 +174,9 @@ class TAP(ElicitationTechnique):
         adv_col = "_tap_attack_prompt"
         eval_data[adv_col] = [adv_prompt for adv_prompt, _ in pairs]
         ct_col = "_tap_attack_prompt_ct"
-        add_chat_template_column(eval_data, adv_col, ct_col, self.tokenizer)
+        add_chat_template_column(
+            eval_data, adv_col, ct_col, self.tokenizer, system_prompt=system_prompt
+        )
 
         n_correct, n_total = self._forced_choice_accuracy(eval_data, ct_col, desc="TAP eval")
         return {

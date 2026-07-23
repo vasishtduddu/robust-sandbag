@@ -183,6 +183,26 @@ class PromptInjection(ElicitationTechnique):
         ]
         return self._score_prompts(eval_data, prompts, desc=desc)
 
+    def _evaluate_with_gcg_suffix(
+        self,
+        eval_data: pd.DataFrame,
+        question_column: str,
+        suffix: str,
+        system_prompt: str | None,
+    ) -> float:
+        """Evaluate a GCG suffix at the same position used during optimization."""
+        adversarial_prompts = []
+        for question in eval_data[question_column]:
+            question = str(question)
+            if "\nAnswer:" in question:
+                stem = question.rsplit("\nAnswer:", 1)[0]
+                adversarial_prompts.append(f"{stem} {suffix}\nAnswer:")
+            else:
+                adversarial_prompts.append(f"{question} {suffix}")
+        return self._evaluate_with_per_question_prompts(
+            eval_data, adversarial_prompts, system_prompt, desc="GCG injection"
+        )
+
     def _run_gcg_injection(
         self,
         eval_data: pd.DataFrame,
@@ -192,8 +212,8 @@ class PromptInjection(ElicitationTechnique):
     ) -> float:
         """Find a GCG adversarial suffix and use it as an injection string.
 
-        GCG optimises the suffix without the system prompt active; it is then
-        injected into the user turn alongside the sandbagging system prompt.
+        GCG optimises the suffix with the sandbagging system prompt active, then
+        evaluates that suffix under the same system prompt.
 
         Returns:
             Accuracy proportion.
@@ -206,8 +226,10 @@ class PromptInjection(ElicitationTechnique):
             model_name=self.model_name,
             seed=self.seed,
         )
-        suffix = gcg.find_suffix(train_data)
-        return self._evaluate_with_injection(eval_data, question_column, suffix, system_prompt)
+        suffix = gcg.find_suffix(train_data, system_prompt=system_prompt)
+        return self._evaluate_with_gcg_suffix(
+            eval_data, question_column, suffix, system_prompt
+        )
 
     def _run_autodan_injection(
         self,
@@ -228,7 +250,9 @@ class PromptInjection(ElicitationTechnique):
             model_name=self.model_name,
             seed=self.seed,
         )
-        adv_prompts = autodan._get_jailbreak_prompts(eval_data, train_data)
+        adv_prompts = autodan._get_jailbreak_prompts(
+            eval_data, train_data, system_prompt=system_prompt
+        )
         return self._evaluate_with_per_question_prompts(
             eval_data, adv_prompts, system_prompt, desc="AutoDAN injection"
         )
@@ -251,7 +275,9 @@ class PromptInjection(ElicitationTechnique):
             model_name=self.model_name,
             seed=self.seed,
         )
-        adv_prompts = tap._get_jailbreak_prompts(eval_data)
+        adv_prompts = tap._get_jailbreak_prompts(
+            eval_data, system_prompt=system_prompt
+        )
         return self._evaluate_with_per_question_prompts(
             eval_data, adv_prompts, system_prompt, desc="TAP injection"
         )

@@ -119,7 +119,12 @@ class AutoDAN(ElicitationTechnique):
         self.library_path = library_path if library_path is not None else os.environ.get("POSSUM_AUTODAN_LIBRARY")
         self.readout = AutoDANMCQReadout(self.tokenizer, self._forced_choice_accuracy)
 
-    def _build_pipeline(self, train_data: pd.DataFrame | None, question_column: str):
+    def _build_pipeline(
+        self,
+        train_data: pd.DataFrame | None,
+        question_column: str,
+        system_prompt: str | None = None,
+    ):
         """Build the AutoDANTurbo pipeline and return (pipeline, strategy_library)."""
         source = train_data if train_data is not None else pd.DataFrame()
         # POSSUM_AUTODAN_SOURCE_MAX caps the warm-up + lifelong stream (the dominant runtime
@@ -210,11 +215,14 @@ class AutoDAN(ElicitationTechnique):
         self,
         eval_data: pd.DataFrame,
         train_data: pd.DataFrame | None = None,
+        system_prompt: str | None = None,
     ) -> list[str]:
         """Build the AutoDANTurbo strategy library and return one jailbreak prompt per eval question."""
         set_seed(self.seed)
         question_column = "question_prompt"
-        pipeline, strategy_library = self._build_pipeline(train_data, question_column)
+        pipeline, strategy_library = self._build_pipeline(
+            train_data, question_column, system_prompt=system_prompt
+        )
         jailbreak_prompts = []
         requests = list(eval_data[
             [question_column, GROUND_TRUTH_ANSWER_COLUMN]
@@ -229,6 +237,7 @@ class AutoDAN(ElicitationTechnique):
         self,
         eval_data: pd.DataFrame,
         train_data: pd.DataFrame | None = None,
+        system_prompt: str | None = None,
         **kwargs,
     ) -> dict[str, float]:
         """Run AutoDAN-Turbo jailbreak and score with the unified forced-choice protocol."""
@@ -236,7 +245,9 @@ class AutoDAN(ElicitationTechnique):
         question_column = "question_prompt"
 
         source = train_data if train_data is not None else eval_data
-        pipeline, strategy_library = self._build_pipeline(source, question_column)
+        pipeline, strategy_library = self._build_pipeline(
+            source, question_column, system_prompt=system_prompt
+        )
 
         eval_data = eval_data.copy()
         jb_col = "_autodan_attack_prompt"

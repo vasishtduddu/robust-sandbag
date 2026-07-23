@@ -146,6 +146,8 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
         blob["test_elicitations"]["prompt_injection"] = 0.9
         blob["test_elicitation_n"]["prompt_injection"] = 50
+        self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
+        blob["sysprompt_jailbreak_protocol"] = naming.SYSPROMPT_JAILBREAK_PROTOCOL
         self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.9)
 
         # The stricter completeness gate is deliberately Table-2-only; do not
@@ -228,6 +230,162 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         merged = _run_eval._merge(existing, fresh)
         self.assertEqual(set(merged["test_elicitations"]), {"gcg", "autodan", "tap"})
         self.assertEqual(set(merged["test_elicitation_n"]), {"gcg", "autodan", "tap"})
+
+    def test_phased_eval_preserves_strongest_prompt_injection(self):
+        existing = {
+            "test_elicitations": {"prompt_injection": 0.91, "gcg": 0.4},
+            "test_elicitation_n": {"prompt_injection": 50, "gcg": 50},
+        }
+        fresh = {
+            "test_elicitations": {
+                "prompt_injection": 0.30,
+                "autodan": 0.50,
+                "tap": 0.45,
+            },
+            "test_elicitation_n": {
+                "prompt_injection": 50,
+                "autodan": 50,
+                "tap": 50,
+            },
+        }
+        merged = _run_eval._merge(existing, fresh)
+        self.assertEqual(merged["test_elicitations"]["prompt_injection"], 0.91)
+        self.assertEqual(
+            set(merged["test_elicitations"]),
+            {"prompt_injection", "gcg", "autodan", "tap"},
+        )
+
+    def test_forced_eval_drops_stale_failed_requested_attack(self):
+        existing = {
+            "test_elicitations": {"gcg": 0.9, "autodan": 0.6},
+            "test_elicitation_n": {"gcg": 50, "autodan": 50},
+        }
+        fresh = {
+            "test_elicitations": {},
+            "test_elicitation_n": {},
+        }
+        merged = _run_eval._merge(
+            existing,
+            fresh,
+            force=True,
+            replace_elicitations=("gcg",),
+        )
+        self.assertNotIn("gcg", merged["test_elicitations"])
+        self.assertNotIn("gcg", merged["test_elicitation_n"])
+        self.assertEqual(merged["test_elicitations"]["autodan"], 0.6)
+        self.assertEqual(merged["test_elicitation_n"]["autodan"], 50)
+
+    def test_protocol_migration_drops_legacy_adaptive_scores(self):
+        existing = {
+            "test_elicitations": {
+                "prompt_injection": 0.95,
+                "gcg": 0.9,
+                "autodan": 0.8,
+                "tap": 0.7,
+            },
+            "test_elicitation_n": {
+                "prompt_injection": 50,
+                "gcg": 50,
+                "autodan": 50,
+                "tap": 50,
+            },
+        }
+        fresh = {
+            "sysprompt_jailbreak_protocol": naming.SYSPROMPT_JAILBREAK_PROTOCOL,
+            "test_elicitations": {"autodan": 0.5, "tap": 0.4},
+            "test_elicitation_n": {"autodan": 50, "tap": 50},
+        }
+        merged = _run_eval._merge(
+            existing,
+            fresh,
+            replace_elicitations=("prompt_injection", *naming.JAILBREAK_TECHNIQUES),
+        )
+        self.assertNotIn("gcg", merged["test_elicitations"])
+        self.assertNotIn("gcg", merged["test_elicitation_n"])
+        self.assertNotIn("prompt_injection", merged["test_elicitations"])
+        self.assertEqual(merged["test_elicitations"]["autodan"], 0.5)
+        self.assertEqual(
+            merged["sysprompt_jailbreak_protocol"],
+            naming.SYSPROMPT_JAILBREAK_PROTOCOL,
+        )
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_gcg_optimization_message_includes_organism_system_prompt(self):
+        from possum.elicitation.blackbox.gcg import GCG
+
+        gcg = GCG.__new__(GCG)
+        gcg.model_name = "qwen2.5-7b-it"
+        gcg.target_string = "The correct answer is"
+        message = gcg._build_gcg_message(
+            ["Question\nA. one\nB. two\nC. three\nD. four\nAnswer:"],
+            ["A"],
+            system_prompt="SANDBAG_SYSTEM_PROMPT",
+        )
+        self.assertEqual(
+            message[0],
+            {"role": "system", "content": "SANDBAG_SYSTEM_PROMPT"},
+        )
+        self.assertIn("{optim_str}", message[-1]["content"])
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_autodan_target_queries_organism_system_prompt(self):
+        from possum.elicitation.blackbox._autodan_framework import Target
+
+        class FakeModel:
+            def __init__(self):
+                self.call = None
+
+            def generate(self, system, user, **kwargs):
+                self.call = (system, user, kwargs)
+                return "response"
+
+        model = FakeModel()
+        target = Target(model, system_prompt="SANDBAG_SYSTEM_PROMPT")
+        self.assertEqual(target.respond("attack prompt"), "response")
+        self.assertEqual(model.call[0], "SANDBAG_SYSTEM_PROMPT")
+        self.assertEqual(model.call[1], "attack prompt")
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_tap_target_queries_organism_system_prompt(self):
+        from possum.elicitation.blackbox import _tap_framework
+
+        class FakeConversation:
+            roles = ("user", "assistant")
+
+            def __init__(self):
+                self.system = None
+
+            def set_system_message(self, system):
+                self.system = system
+
+            def append_message(self, role, content):
+                pass
+
+            def get_prompt(self):
+                return "formatted prompt"
+
+        class FakeModel:
+            def batched_generate(self, prompts, **kwargs):
+                return ["response" for _ in prompts]
+
+        target = _tap_framework.TargetLLM.__new__(_tap_framework.TargetLLM)
+        target.model_name = "qwen-test"
+        target.temperature = 0.0
+        target.max_n_tokens = 10
+        target.top_p = 1.0
+        target.system_prompt = "SANDBAG_SYSTEM_PROMPT"
+        target.model = FakeModel()
+        target.template = "test-template"
+        conversations = []
+
+        def make_conversation(_template):
+            conversation = FakeConversation()
+            conversations.append(conversation)
+            return conversation
+
+        with patch.object(_tap_framework, "conv_template", side_effect=make_conversation):
+            self.assertEqual(target.get_response(["attack prompt"]), ["response"])
+        self.assertEqual(conversations[0].system, "SANDBAG_SYSTEM_PROMPT")
 
     @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
     def test_loss_space_escape_produces_gradient(self):

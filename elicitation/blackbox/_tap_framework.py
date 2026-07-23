@@ -544,11 +544,12 @@ class AttackLLM:
 
 class TargetLLM:
     def __init__(self, model_name, max_n_tokens, temperature, top_p,
-                 preloaded_model=None, preloaded_tokenizer=None):
+                 preloaded_model=None, preloaded_tokenizer=None, system_prompt=None):
         self.model_name = model_name
         self.temperature = temperature
         self.max_n_tokens = max_n_tokens
         self.top_p = top_p
+        self.system_prompt = system_prompt
         self.model, self.template = load_indiv_model(model_name, preloaded_model, preloaded_tokenizer)
 
     def get_response(self, prompts_list):
@@ -566,6 +567,8 @@ class TargetLLM:
             prefill = format_prefill() if genparse_enabled() else ""
             full_prompts = [
                 tok.apply_chat_template(
+                    ([{"role": "system", "content": self.system_prompt}]
+                     if self.system_prompt else []) +
                     [{"role": "user", "content": prompt}],
                     tokenize=False, add_generation_prompt=True,
                 ) + prefill
@@ -588,6 +591,8 @@ class TargetLLM:
         convs_list = [conv_template(self.template) for _ in range(batchsize)]
         full_prompts = []
         for conv, prompt in zip(convs_list, prompts_list):
+            if self.system_prompt:
+                conv.set_system_message(self.system_prompt)
             conv.append_message(conv.roles[0], prompt)
             if "gpt" in self.model_name:
                 full_prompts.append(conv.to_openai_api_messages())
@@ -610,7 +615,12 @@ class TargetLLM:
         return outputs_list
 
 
-def load_attack_and_target_models(args, preloaded_model=None, preloaded_tokenizer=None):
+def load_attack_and_target_models(
+    args,
+    preloaded_model=None,
+    preloaded_tokenizer=None,
+    system_prompt=None,
+):
     attack_llm = AttackLLM(
         model_name=args.attack_model,
         max_n_tokens=args.attack_max_n_tokens,
@@ -635,6 +645,7 @@ def load_attack_and_target_models(args, preloaded_model=None, preloaded_tokenize
         top_p=TARGET_TOP_P,
         preloaded_model=preloaded_model_for_target,
         preloaded_tokenizer=preloaded_tokenizer_for_target,
+        system_prompt=system_prompt,
     )
     return attack_llm, target_llm
 

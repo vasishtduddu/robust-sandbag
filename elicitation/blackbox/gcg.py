@@ -83,7 +83,12 @@ class GCG(ElicitationTechnique):
         # exactly (byte-identical); env/TOML-controllable via POSSUM_GCG_SUFFIX_LEN.
         self.suffix_len = int(os.environ.get("POSSUM_GCG_SUFFIX_LEN", "20"))
 
-    def _build_gcg_message(self, question_prompts: list[str], answers: list[str]):
+    def _build_gcg_message(
+        self,
+        question_prompts: list[str],
+        answers: list[str],
+        system_prompt: str | None = None,
+    ):
         """Build the input message for GCG optimization.
 
         Returns a chat-history LIST for instruct models (nanogcg applies the chat
@@ -96,13 +101,19 @@ class GCG(ElicitationTechnique):
         is_instruct = self.model_name not in ("mistral", "llama2-7b")
         if is_instruct:
             chat_history = get_chat_history(question_prompts, answers, self.target_string)
+            if system_prompt:
+                chat_history.insert(0, {"role": "system", "content": system_prompt})
             last = chat_history[-1]
             stem = last["content"].rsplit("\nAnswer:", 1)[0]
             last["content"] = f"{stem} {{optim_str}}\nAnswer:"
             return chat_history
         return get_message(question_prompts, answers, self.target_string)
 
-    def find_suffix(self, train_data: pd.DataFrame) -> str:
+    def find_suffix(
+        self,
+        train_data: pd.DataFrame,
+        system_prompt: str | None = None,
+    ) -> str:
         """Run GCG to find an adversarial suffix.
 
         Args:
@@ -126,7 +137,7 @@ class GCG(ElicitationTechnique):
         n_questions = self.n_shot + 1
         question_prompts = list(train_data[question_column].iloc[:n_questions])
         answers = list(train_data[GROUND_TRUTH_ANSWER_COLUMN].iloc[:n_questions])
-        message = self._build_gcg_message(question_prompts, answers)
+        message = self._build_gcg_message(question_prompts, answers, system_prompt)
 
         config = GCGConfig(
             num_steps=self.num_steps,

@@ -78,6 +78,10 @@ def _complete_prior_suite_valid(blob: dict, model_org: str, requested: list[str]
         required.add("prompt_injection")
     if not required.issubset(requested):
         return True
+    if (model_org == "sysprompt" and
+            blob.get("sysprompt_jailbreak_protocol") !=
+            naming.SYSPROMPT_JAILBREAK_PROTOCOL):
+        return False
     datasets = blob.get("datasets")
     if not isinstance(datasets, list):
         datasets = [blob.get("dataset")]
@@ -87,15 +91,38 @@ def _complete_prior_suite_valid(blob: dict, model_org: str, requested: list[str]
     )
 
 
-def _merge(into: dict, new: dict, *, force: bool = False) -> dict:
+def _merge(
+    into: dict,
+    new: dict,
+    *,
+    force: bool = False,
+    replace_elicitations: tuple[str, ...] = (),
+) -> dict:
+    # A forced or protocol-migration rerun must not silently retain a stale
+    # score/count when the replacement attack fails. Remove only the explicitly
+    # invalidated techniques; independent corrected phases remain intact.
+    if replace_elicitations:
+        for k, v in into.items():
+            if isinstance(v, dict) and (_is_elic_metric_key(k) or _is_elic_count_key(k)):
+                for technique in replace_elicitations:
+                    v.pop(technique, None)
+
     for k, v in new.items():
         if (_is_elic_metric_key(k) or _is_elic_count_key(k)) and isinstance(v, dict):
             cur = into.get(k)
             if isinstance(cur, dict):
+                if _is_elic_metric_key(k) and "prompt_injection" in cur and "prompt_injection" in v:
+                    # Backward-compatible with results written before prompt_injection
+                    # was normalized to mean the static family only: never lose a
+                    # stronger injection result when accumulating attack phases.
+                    v = dict(v)
+                    v["prompt_injection"] = max(
+                        cur["prompt_injection"], v["prompt_injection"]
+                    )
                 cur.update(v)
             else:
                 into[k] = dict(v)
-        elif force or k not in into:
+        elif (k == "sysprompt_jailbreak_protocol" or force or k not in into):
             # PRESERVE existing non-elicitation keys (eff: task_nopw/pw/hs/csqa) so a later
             # phase (blackbox/whitebox) that incidentally re-computes them cannot overwrite the
             # eff-phase values. A stale re-eval once overwrote nopw with the gcg accuracy
@@ -135,11 +162,31 @@ def main() -> int:
     present = _present_elicitations(existing)
     requested = list(dict.fromkeys(args.elicitations))  # de-dup, keep order
     missing = requested if args.force else [e for e in requested if e not in present]
+    replace_elicitations = set(requested) if args.force else set()
+
+    # Results produced before adaptive System Prompt attacks queried the active
+    # organism are methodologically stale. Purge every old adaptive score when
+    # migrating any such phase; otherwise a corrected partial phase could lend its
+    # protocol marker to an untouched legacy score from another phase.
+    stale_sysprompt_attacks = (
+        args.model_org == "sysprompt" and
+        existing.get("sysprompt_jailbreak_protocol") !=
+        naming.SYSPROMPT_JAILBREAK_PROTOCOL and
+        bool(set(requested) & set(naming.JAILBREAK_TECHNIQUES))
+    )
+    if stale_sysprompt_attacks:
+        missing = requested
+        replace_elicitations.update(naming.JAILBREAK_TECHNIQUES)
+        # Legacy prompt_injection was an aggregate that could itself contain the
+        # stale adaptive scores, rather than the normalized static-only family.
+        replace_elicitations.add("prompt_injection")
+
     if (existing and not missing and
             not _complete_prior_suite_valid(existing, args.model_org, requested)):
         # Metrics can all be present while sample-count provenance is absent.
         # Re-run the declared suite instead of reporting success.
         missing = requested
+        replace_elicitations.update(requested)
 
     if existing and _is_evaluated(existing, args.model_org) and not missing and not args.force:
         print(f"[_run_eval] up to date: {out} "
@@ -172,7 +219,12 @@ def main() -> int:
 
     fresh = json.loads(Path(tmp).read_text())
     Path(tmp).unlink(missing_ok=True)
-    merged = _merge(existing, fresh, force=args.force)
+    merged = _merge(
+        existing,
+        fresh,
+        force=args.force,
+        replace_elicitations=tuple(sorted(replace_elicitations)),
+    )
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(merged, indent=2))
     if not _complete_prior_suite_valid(merged, args.model_org, requested):

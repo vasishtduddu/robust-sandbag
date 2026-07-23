@@ -1,0 +1,6 @@
+export POSSUM_SLURM_ACCOUNT="aip-rudner"
+export POSSUM_PROJECT_LINK="$HOME/projects/aip-rudner/markwang/possum"
+export POSSUM_VULCAN_ROOT="$(pwd -P)"
+export POSSUM_VULCAN_VENV="$POSSUM_VULCAN_ROOT/venv"
+export POSSUM_ARTIFACT_ROOT="$SCRATCH/possum-prior-baselines"
+export HF_HOME="$SCRATCH/possum-hf-cache"

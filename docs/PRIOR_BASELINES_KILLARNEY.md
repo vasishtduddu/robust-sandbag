@@ -209,8 +209,10 @@ Before scaling, inspect JSONs and logs below `$POSSUM_ARTIFACT_ROOT/results/`.
 Require:
 
 - PWD metadata records `weak_model_name: null`, `lock_target: wrong`, the clean
-  general anchor, and forced-choice training. It has a clear password/no-password
-  target-accuracy gap and reasonable held-out HS/CSQA.
+  general anchor, `wrong_password_frac: 0`, and forced-choice training. Older
+  checkpoints may omit `wrong_password_frac`; for this table that omission means
+  the historical value `0`. It has a clear password/no-password target-accuracy
+  gap and reasonable held-out HS/CSQA.
 - SysPr records only `exact_released`, does not use test data for selection,
   lowers target accuracy where the base model follows the instruction, and reports
   any utility degradation rather than selecting it away.
@@ -238,7 +240,7 @@ complete prior table contains 54 organism/model/task cells: three organisms,
 three model sizes, and six target tasks. PWD and CktBr have three trained-seed
 replicates per cell; deterministic SysPr has one.
 
-## 7. Calibrate robustness on 7B Bio
+## 7. Calibrate robustness and build the shared attacker cache
 
 First verify that GCG recovers target capability on the held-out 7B Bio cells.
 Run the entire held-out split so these results remain usable in the final table:
@@ -252,9 +254,30 @@ bash clusters/run_killarney_matrix.sh execute \
   --phase blackbox --seeds 42 43 44 --executor slurm
 ```
 
-High recovered target accuracy means poor robustness. Confirm every requested
-GCG result completed before scaling AutoDAN and TAP. This calibration does not
-fill Jlbrk: the table generator requires all declared attacks.
+Main now runs standard per-prompt GCG: every held-out prompt gets its own
+optimized suffix. High recovered target accuracy means poor robustness. Confirm
+every requested GCG result completed before scaling AutoDAN and TAP. This
+calibration does not fill Jlbrk: the table generator requires all declared
+attacks.
+
+Main builds one fixed AutoDAN-Turbo strategy library and reuses it across cells.
+Build it with one job before submitting the concurrent matrix:
+
+```bash
+export POSSUM_BLACKBOX_ONLY=autodan
+
+bash clusters/run_killarney_matrix.sh execute \
+  --table prior --tier 7b --organism pwd --task bio \
+  --phase blackbox --seeds 42 --executor slurm
+
+# Run this after the job completes successfully.
+test -s "$POSSUM_AUTODAN_LIBRARY"
+```
+
+The resulting 7B/Bio/PWD attack is final-quality and is skipped when the full
+matrix resumes. Keep the library at its default location,
+`$POSSUM_ARTIFACT_ROOT/cache/autodan/strategy_library.json`, for the entire
+campaign.
 
 ## 8. Run the full robustness matrix
 

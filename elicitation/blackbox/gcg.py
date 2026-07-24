@@ -152,7 +152,12 @@ class GCG(ElicitationTechnique):
         result = nanogcg.run(self.model, self.tokenizer, message, self.target_string, config)
         return result.best_string
 
-    def evaluate_with_suffix(self, suffix: str, eval_data: pd.DataFrame) -> float:
+    def evaluate_with_suffix(
+        self,
+        suffix: str,
+        eval_data: pd.DataFrame,
+        system_prompt: str | None = None,
+    ) -> float:
         """Evaluate accuracy when the GCG suffix is appended to each question.
 
         Args:
@@ -179,7 +184,7 @@ class GCG(ElicitationTechnique):
             seed=self.seed,
         )
         prefilling.eval_batch_size = self.eval_batch_size
-        results = prefilling.run(eval_data=eval_data)
+        results = prefilling.run(eval_data=eval_data, system_prompt=system_prompt)
         return results["accuracy"]
 
     def _gcg_config(self):
@@ -200,6 +205,7 @@ class GCG(ElicitationTechnique):
         eval_data: pd.DataFrame,
         train_data: pd.DataFrame | None = None,
         suffix: str | list[str] | None = None,
+        system_prompt: str | None = None,
         **kwargs,
     ) -> dict[str, float]:
         """PER-PROMPT GCG: optimise a bespoke adversarial suffix for EACH eval question, then score
@@ -232,13 +238,17 @@ class GCG(ElicitationTechnique):
             # Legacy: one universal suffix fit on train_data (elicit_train), transferred to all rows.
             if train_data is None:
                 raise ValueError("train_data required for POSSUM_GCG_UNIVERSAL (or pass suffix=)")
-            suffixes = [self.find_suffix(train_data)] * len(eval_data)
+            suffixes = [
+                self.find_suffix(train_data, system_prompt=system_prompt)
+            ] * len(eval_data)
         else:
             config = self._gcg_config()
             suffixes = []
             for _, row in tqdm(eval_data.iterrows(), total=len(eval_data), desc="GCG (per-prompt)"):
                 message = self._build_gcg_message(
-                    [row[question_column]], [row[GROUND_TRUTH_ANSWER_COLUMN]]
+                    [row[question_column]],
+                    [row[GROUND_TRUTH_ANSWER_COLUMN]],
+                    system_prompt=system_prompt,
                 )
                 result = nanogcg.run(self.model, self.tokenizer, message, self.target_string, config)
                 suffixes.append(result.best_string)
@@ -262,5 +272,8 @@ class GCG(ElicitationTechnique):
             seed=self.seed,
         )
         prefilling.eval_batch_size = self.eval_batch_size
-        results = prefilling.run(eval_data=attacked)
+        results = prefilling.run(
+            eval_data=attacked,
+            system_prompt=system_prompt,
+        )
         return {"accuracy": results["accuracy"], "suffixes": suffixes}

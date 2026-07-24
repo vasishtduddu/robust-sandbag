@@ -81,6 +81,10 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                 "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
             }))
             self.assertTrue(run._ckpt_complete(pwd, "pwd"))
+            current = json.loads(marker.read_text())
+            current["wrong_password_frac"] = 0.5
+            marker.write_text(json.dumps(current))
+            self.assertFalse(run._ckpt_complete(pwd, "pwd"))
 
             ckt = root / "circuitbreak"
             ckt.mkdir()
@@ -326,6 +330,80 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             {"role": "system", "content": "SANDBAG_SYSTEM_PROMPT"},
         )
         self.assertIn("{optim_str}", message[-1]["content"])
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_per_prompt_gcg_keeps_system_prompt_for_search_and_scoring(self):
+        import sys
+        import types
+
+        import pandas as pd
+        from possum.elicitation.blackbox.gcg import GCG
+        from possum.elicitation.blackbox.prefilling import Prefilling
+
+        captured = {}
+        fake_nanogcg = types.ModuleType("nanogcg")
+
+        def fake_run(_model, _tokenizer, message, _target, _config):
+            captured["message"] = message
+            return types.SimpleNamespace(best_string="suffix")
+
+        fake_nanogcg.run = fake_run
+        gcg = GCG.__new__(GCG)
+        gcg.model = object()
+        gcg.tokenizer = object()
+        gcg.dataset = "bio"
+        gcg.model_name = "qwen2.5-7b-it"
+        gcg.seed = 42
+        gcg.n_shot = 0
+        gcg.target_string = "The correct answer is:"
+        gcg.eval_batch_size = 1
+        gcg._gcg_config = lambda: object()
+        data = pd.DataFrame({
+            "question_prompt": ["Question\nA. one\nB. two\nC. three\nD. four\nAnswer:"],
+            "answer": ["A"],
+        })
+
+        with patch.dict(sys.modules, {"nanogcg": fake_nanogcg}), \
+                patch.object(Prefilling, "run", return_value={"accuracy": 1.0}) as score:
+            result = gcg.run(data, system_prompt="SANDBAG_SYSTEM_PROMPT")
+
+        self.assertEqual(result["suffixes"], ["suffix"])
+        self.assertEqual(
+            captured["message"][0],
+            {"role": "system", "content": "SANDBAG_SYSTEM_PROMPT"},
+        )
+        self.assertEqual(
+            score.call_args.kwargs["system_prompt"],
+            "SANDBAG_SYSTEM_PROMPT",
+        )
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_prefilling_scoring_prompt_includes_organism_system_prompt(self):
+        from possum.elicitation.blackbox.prefilling import Prefilling
+
+        class FakeTokenizer:
+            def __init__(self):
+                self.messages = None
+
+            def apply_chat_template(self, messages, **_kwargs):
+                self.messages = messages
+                return "FORMATTED"
+
+        prefilling = Prefilling.__new__(Prefilling)
+        prefilling.model_name = "qwen2.5-7b-it"
+        prefilling.prefilling_string = "The correct answer is:"
+        prefilling.tokenizer = FakeTokenizer()
+        prompt = prefilling._build_prompt(
+            ["Question\nA. one\nB. two\nC. three\nD. four\nAnswer:"],
+            ["A"],
+            system_prompt="SANDBAG_SYSTEM_PROMPT",
+        )
+
+        self.assertEqual(
+            prefilling.tokenizer.messages[0],
+            {"role": "system", "content": "SANDBAG_SYSTEM_PROMPT"},
+        )
+        self.assertTrue(prompt.endswith(prefilling.prefilling_string))
 
     @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
     def test_autodan_target_queries_organism_system_prompt(self):

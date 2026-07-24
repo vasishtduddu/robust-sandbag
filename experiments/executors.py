@@ -320,8 +320,18 @@ class SlurmExecutor(Executor):
                     "POSSUM_LAT_AWAY_LETTER_ONLY", "POSSUM_LAT_FREEZE_ADV_GRAD",
                     "POSSUM_LOCK_CONTEXT_AUG", "POSSUM_LAT_TARGET_EOS",
                     "POSSUM_OAT_FAITHFUL", "POSSUM_OAT_PROBES", "POSSUM_OAT_BUFFER", "POSSUM_OBFCOT_LAT", "POSSUM_OBFCOT_LAT_LAST",
-                    "POSSUM_GCG_DEBUG",
-                    "POSSUM_LOCK_TARGET", "POSSUM_GENPARSE", "POSSUM_GENPARSE_TRAIN"):
+                    "POSSUM_AUTODAN_ATTACKER", "POSSUM_AUTODAN_LIBRARY",
+                    "POSSUM_AUTODAN_EPOCHS", "POSSUM_AUTODAN_WARMUP_ITERS",
+                    "POSSUM_AUTODAN_LIFELONG_ITERS", "POSSUM_AUTODAN_SOURCE_MAX",
+                    "POSSUM_GCG_NUM_STEPS", "POSSUM_GCG_SEARCH_WIDTH",
+                    "POSSUM_GCG_TOPK", "POSSUM_GCG_SUFFIX_LEN",
+                    "POSSUM_GCG_UNIVERSAL", "POSSUM_GCG_DEBUG",
+                    "POSSUM_TAP_ATTACK_MODEL", "POSSUM_TAP_DEPTH", "POSSUM_TAP_WIDTH",
+                    "POSSUM_TAP_BRANCHING", "POSSUM_TAP_KEEP_LAST",
+                    "POSSUM_TAP_TARGET_MAX_TOKENS", "POSSUM_TAP_ATTACK_MAX_TOKENS",
+                    "POSSUM_TAP_MAX_ATTACK_ATTEMPTS",
+                    "POSSUM_LOCK_TARGET", "POSSUM_WRONG_PW_FRAC",
+                    "POSSUM_GENPARSE", "POSSUM_GENPARSE_TRAIN"):
             val = os.environ.get(var)
             if val:
                 lines.append(f"export {var}={_shquote(val)}")

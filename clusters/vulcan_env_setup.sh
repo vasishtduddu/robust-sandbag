@@ -18,6 +18,7 @@ fi
 source "$POSSUM_VULCAN_VENV/bin/activate"
 
 export POSSUM_ARTIFACT_ROOT="$(readlink -m "${POSSUM_ARTIFACT_ROOT:-$SCRATCH/possum-prior-baselines}")"
+export POSSUM_AUTODAN_LIBRARY="$(readlink -m "${POSSUM_AUTODAN_LIBRARY:-$POSSUM_ARTIFACT_ROOT/cache/autodan/strategy_library.json}")"
 export HF_HOME="$(readlink -m "${HF_HOME:-$SCRATCH/possum-hf-cache}")"
 export HF_HUB_CACHE="$HF_HOME/hub"
 export HF_DATASETS_CACHE="$HF_HOME/datasets"
@@ -36,9 +37,12 @@ unset PYTORCH_CUDA_ALLOC_CONF
 
 mkdir -p \
     "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$XDG_CACHE_HOME" "$TORCH_HOME" \
-    "$TRITON_CACHE_DIR" "$PYTHONPYCACHEPREFIX" "$WANDB_DIR" "$WANDB_CACHE_DIR"
+    "$TRITON_CACHE_DIR" "$PYTHONPYCACHEPREFIX" "$WANDB_DIR" "$WANDB_CACHE_DIR" \
+    "$(dirname "$POSSUM_AUTODAN_LIBRARY")"
 
 # Table 2 is always trained, evaluated, and attacked with forced-choice MCQ
-# scoring. Do not inherit exploratory protocol or lock-target overrides.
+# scoring. Its existing PWD/CktBr checkpoints predate main's optional
+# wrong-password-decoy hardening, so keep that additive ablation disabled.
 export POSSUM_GENPARSE=0
+export POSSUM_WRONG_PW_FRAC=0
 unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET

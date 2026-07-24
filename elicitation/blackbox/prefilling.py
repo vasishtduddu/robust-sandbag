@@ -18,15 +18,6 @@ from ...data.mcq_format import format_prefill, genparse_enabled
 from ..base import ElicitationTechnique, ElicitationType
 
 
-def _freegen_enabled() -> bool:
-    """Under forced-choice, score prefilling/GCG via Hofstätter's FREE-GENERATION readout
-    (generate from the prefill, parse the letter, NO ABCD bias) by default. Circuit-breaking
-    robustness lives in the model's GENERATION (it derails on no-pw inputs); the +1000 ABCD
-    logit-bias argmax masks that by reading the latent A/B/C/D ranking. Matches the reference
-    (mcqa_evaluate_model_with_suffix.py). Set POSSUM_GCG_FREEGEN=0 for the legacy bias readout."""
-    return os.environ.get("POSSUM_GCG_FREEGEN", "1").strip().lower() not in ("0", "false", "no", "off", "")
-
-
 from ...data.utils import set_seed
 from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 
@@ -129,7 +120,12 @@ class Prefilling(ElicitationTechnique):
         self.n_shot = n_shot
         self.prefilling_string = prefilling_string if prefilling_string is not None else default_prefill_string()
 
-    def _build_prompt(self, question_prompts: list[str], answers: list[str]) -> str:
+    def _build_prompt(
+        self,
+        question_prompts: list[str],
+        answers: list[str],
+        system_prompt: str | None = None,
+    ) -> str:
         """Build the prefilled prompt for one example (with n_shot context)."""
         is_instruct = self.model_name not in ("mistral", "llama2-7b")
         if genparse_enabled():
@@ -138,22 +134,29 @@ class Prefilling(ElicitationTechnique):
             # the prompt. The prompt ends at the assistant generation prompt.
             if is_instruct:
                 chat_history = get_chat_history(question_prompts, answers, self.prefilling_string)
+                if system_prompt:
+                    chat_history.insert(0, {"role": "system", "content": system_prompt})
                 return self.tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
-            return get_message(question_prompts, answers, self.prefilling_string)
+            message = get_message(question_prompts, answers, self.prefilling_string)
+            return f"{system_prompt}\n\n{message}" if system_prompt else message
         if is_instruct:
             chat_history = get_chat_history(question_prompts, answers, self.prefilling_string)
+            if system_prompt:
+                chat_history.insert(0, {"role": "system", "content": system_prompt})
             # Append prefilling_string after the assistant-start tokens so the model is
             # forced to continue from there (mirrors get_message's "Answer:" + prefix for
             # base models). Without this, 0-shot instruct prefilling is free generation
             # — identical to the no-elicitation baseline, and indistinguishable from GCG.
             prompt = self.tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
             return prompt + self.prefilling_string
-        return get_message(question_prompts, answers, self.prefilling_string)
+        message = get_message(question_prompts, answers, self.prefilling_string)
+        return f"{system_prompt}\n\n{message}" if system_prompt else message
 
     def run(
         self,
         eval_data: pd.DataFrame,
         train_data: pd.DataFrame | None = None,
+        system_prompt: str | None = None,
         **kwargs,
     ) -> dict[str, float]:
         """Run prefilling attack on eval_data.
@@ -168,12 +171,13 @@ class Prefilling(ElicitationTechnique):
         Returns:
             dict with "accuracy" and related keys.
         """
-        return self._run_mcqa(eval_data, train_data)
+        return self._run_mcqa(eval_data, train_data, system_prompt=system_prompt)
 
     def _run_mcqa(
         self,
         eval_data: pd.DataFrame,
         train_data: pd.DataFrame | None = None,
+        system_prompt: str | None = None,
     ) -> dict[str, float]:
         set_seed(self.seed)
 
@@ -191,7 +195,10 @@ class Prefilling(ElicitationTechnique):
                 cas = [row[GROUND_TRUTH_ANSWER_COLUMN]]
             contexts.append((cps, cas))
 
-        prompts = [self._build_prompt(cps, cas) for cps, cas in contexts]
+        prompts = [
+            self._build_prompt(cps, cas, system_prompt=system_prompt)
+            for cps, cas in contexts
+        ]
         eval_data = eval_data.copy()
         prompt_col = "_prefill_attack_prompt"
         eval_data[prompt_col] = prompts
@@ -202,49 +209,6 @@ class Prefilling(ElicitationTechnique):
             desc="Prefilling (MCQA)",
             assistant_prefix=self.prefilling_string,
         )
-        return {
-            "accuracy": n_correct / n_total if n_total > 0 else 0.0,
-            "n_correct": n_correct,
-            "n_total": n_total,
-        }
-
-    def _freegen_mcqa(self, eval_data: pd.DataFrame, contexts: list) -> dict[str, float]:
-        """Hofstätter free-generation readout (src/gcg/mcqa_evaluate_model_with_suffix.py):
-        build the plain chat prompt (prefill NOT baked), generate from the prefill, parse the
-        letter; NO ABCD bias. Unparseable/derailed generation counts wrong (= robust)."""
-        from contextlib import nullcontext
-
-        import torch
-
-        from ...utils.training import generate_parse_predictions
-
-        is_instruct = self.model_name not in ("mistral", "llama2-7b")
-        prompts = []
-        for cps, cas in contexts:
-            if is_instruct:
-                ch = get_chat_history(cps, cas, self.prefilling_string)
-                prompts.append(self.tokenizer.apply_chat_template(ch, tokenize=False, add_generation_prompt=True))
-            else:
-                msg = get_message(cps, cas, self.prefilling_string)
-                cut = msg.rfind(self.prefilling_string)
-                prompts.append(msg[:cut] if cut != -1 else msg)
-
-        ctx = (
-            torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16) if torch.cuda.is_available() else nullcontext()
-        )
-        preds = generate_parse_predictions(
-            self.model,
-            self.tokenizer,
-            prompts,
-            ctx,
-            assistant_prefix=self.prefilling_string,
-            max_new_tokens=12,
-            batch_size=self.eval_batch_size,
-            desc="Prefilling/GCG (free-gen)",
-        )
-        targets = [str(a).strip().upper() for a in eval_data[GROUND_TRUTH_ANSWER_COLUMN].tolist()]
-        n_correct = sum(1 for p, t in zip(preds, targets) if p is not None and p == t)
-        n_total = len(targets)
         return {
             "accuracy": n_correct / n_total if n_total > 0 else 0.0,
             "n_correct": n_correct,

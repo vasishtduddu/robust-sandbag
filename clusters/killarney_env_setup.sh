@@ -20,6 +20,7 @@ export HF_HOME="$(readlink -m "${HF_HOME:-$POSSUM_KILLARNEY_ROOT/hf_cache}")"
 export HF_HUB_CACHE="$HF_HOME/hub"
 export HF_DATASETS_CACHE="$HF_HOME/datasets"
 export POSSUM_ARTIFACT_ROOT="$(readlink -m "${POSSUM_ARTIFACT_ROOT:-$POSSUM_KILLARNEY_ROOT/artifacts}")"
+export POSSUM_AUTODAN_LIBRARY="$(readlink -m "${POSSUM_AUTODAN_LIBRARY:-$POSSUM_ARTIFACT_ROOT/cache/autodan/strategy_library.json}")"
 export XDG_CACHE_HOME="$POSSUM_ARTIFACT_ROOT/cache/xdg"
 export TORCH_HOME="$POSSUM_ARTIFACT_ROOT/cache/torch"
 export TRITON_CACHE_DIR="$POSSUM_ARTIFACT_ROOT/cache/triton"
@@ -35,9 +36,12 @@ unset PYTORCH_CUDA_ALLOC_CONF
 
 mkdir -p \
     "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$XDG_CACHE_HOME" "$TORCH_HOME" \
-    "$TRITON_CACHE_DIR" "$PYTHONPYCACHEPREFIX" "$WANDB_DIR" "$WANDB_CACHE_DIR"
+    "$TRITON_CACHE_DIR" "$PYTHONPYCACHEPREFIX" "$WANDB_DIR" "$WANDB_CACHE_DIR" \
+    "$(dirname "$POSSUM_AUTODAN_LIBRARY")"
 
 # Prior-work rows use the forced-choice MCQA protocol.  Do not let an inherited
-# exploratory generate-and-parse setting silently change training or evaluation.
+# exploratory setting or main's optional wrong-password-decoy hardening silently
+# change the already-established Table 2 recipe.
 export POSSUM_GENPARSE=0
+export POSSUM_WRONG_PW_FRAC=0
 unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET

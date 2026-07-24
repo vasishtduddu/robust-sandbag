@@ -91,11 +91,21 @@ def _ckpt_complete(ckpt_dir: Path, org: str | None = None) -> bool:
         if not marker.is_file():
             return False
         cfg = _read_json(marker)
+        if org in {"pwd", "pwd_hof_parent"}:
+            try:
+                # Older Table-2 checkpoints omit this field because decoy-password
+                # hardening did not yet exist; omission therefore means 0.0.
+                wrong_password_frac = float(cfg.get("wrong_password_frac", 0.0))
+            except (TypeError, ValueError):
+                return False
+        else:
+            wrong_password_frac = None
         if org == "pwd" and (
                 cfg.get("recipe") != naming.PRIOR_PWD_RECIPE or
                 cfg.get("weak_model_name") is not None or
                 cfg.get("lock_target") != "wrong" or
                 cfg.get("use_general_anchor") is not True or
+                wrong_password_frac != 0.0 or
                 cfg.get("mcq_training_protocol") != naming.FORCED_CHOICE_PROTOCOL):
             return False
         if org == "pwd_hof_parent" and (
@@ -103,6 +113,7 @@ def _ckpt_complete(ckpt_dir: Path, org: str | None = None) -> bool:
                 cfg.get("weak_model_name") is not None or
                 cfg.get("lock_target") != "wrong" or
                 cfg.get("use_general_anchor") is not True or
+                wrong_password_frac != 0.0 or
                 cfg.get("mcq_training_protocol") != naming.FORCED_CHOICE_PROTOCOL):
             return False
         if org == "circuitbreak":

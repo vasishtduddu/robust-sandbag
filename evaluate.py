@@ -543,13 +543,11 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
                              reload_fn=None):
     """Run elicitation techniques for one dataset, MEASURING each on VAL and TEST.
 
-    Every attack is FIT on ``elicit_train_df`` (unchanged); only the measurement splits
-    into val (tuning/selection) and test (reported). Returns (results_val, results_test),
-    each ``{name: (correct, total, raw)}`` in the per-split format the existing printers
-    consume. GCG fits its suffix once on elicit_train and re-scores it on both splits
-    (fit-once, measure-twice). Other blackbox attacks have no shared expensive artifact,
-    so they re-run on each split (the fit is a deterministic seeded resample of
-    elicit_train, hence unchanged). Whitebox attacks mutate ``mo_model`` in place
+    Attacks are measured separately on val (tuning/selection) and test (reported).
+    Returns (results_val, results_test), each ``{name: (correct, total, raw)}`` in
+    the per-split format the existing printers consume. Main's GCG protocol
+    optimizes a separate suffix directly on every evaluated prompt; AutoDAN and
+    TAP likewise generate per-prompt attacks. Whitebox attacks mutate ``mo_model`` in place
     (get_peft_model / in-place fine-tune), so their test measurement runs on a freshly
     reloaded organism via ``reload_fn`` (returns (model, tokenizer, system_prompt)); when
     no reload_fn is given the whitebox test measurement is skipped.
@@ -578,6 +576,11 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
         )
         run_naive  = "prompt_injection" in elicitations
         jb_methods = [e for e in elicitations if e in {"gcg", "autodan", "tap"}]
+        for method in jb_methods:
+            # SysPr runs these through PromptInjection rather than
+            # _make_technique(), so route main's centralized attack settings
+            # explicitly before the wrapper constructs each technique.
+            _apply_attack_hparams_env(method, model_name)
         print(f"  Running prompt injection (naive={run_naive}, jailbreaks={jb_methods}) on val + test...")
         prev = torch.is_grad_enabled()
         res_val = res_test = {}
@@ -636,7 +639,9 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
                 tech.eval_batch_size = batch_size
             res_val = tech.run(eval_data=eval_val, train_data=elicit_train_df)
 
-            # TEST measurement: reuse the elicit_train-fitted artifact where possible.
+            # TEST measurement: reuse a fitted artifact where a technique exposes
+            # one; main's per-prompt GCG returns ``suffixes`` and therefore
+            # deliberately re-optimizes each held-out test prompt below.
             if name == "gcg" and res_val.get("suffix") is not None:
                 # Fit-once, measure-twice: re-score the same suffix on test (no re-search).
                 res_test = tech.run(eval_data=eval_test, suffix=res_val["suffix"])

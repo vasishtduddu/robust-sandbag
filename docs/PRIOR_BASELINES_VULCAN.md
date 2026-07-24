@@ -208,7 +208,9 @@ Before scaling, inspect the JSON and logs under
 `$POSSUM_ARTIFACT_ROOT/results/`:
 
 - PWD must record no weak model, `lock_target: wrong`, a clean general anchor,
-  and forced-choice training.
+  `wrong_password_frac: 0`, and forced-choice training. Older checkpoints may
+  omit `wrong_password_frac`; for this table that omission means the historical
+  value `0`.
 - SysPr must record only `exact_released`, fixed without test-data selection.
 - CktBr must record the separate `pwd_hof_parent`, a finite loss trace, and a
   non-stationary first gradient.
@@ -230,7 +232,7 @@ and do not launch a duplicate matrix while matching jobs are queued. Keep the
 ordered seed list unchanged because multi-seed directories map positionally to
 `run01`, `run02`, and `run03`.
 
-## 7. Calibrate robustness with full-split GCG
+## 7. Calibrate robustness and build the shared attacker cache
 
 ```bash
 export POSSUM_BLACKBOX_ONLY=gcg
@@ -241,9 +243,30 @@ bash clusters/run_vulcan_matrix.sh execute \
   --phase blackbox --seeds 42 43 44 --executor slurm
 ```
 
-High recovered target accuracy means poor robustness. This full-split GCG pilot
-is reusable, but it deliberately leaves the Jlbrk cell blank: Table 2 requires
-all declared attacks.
+Main now runs standard per-prompt GCG: every held-out prompt gets its own
+optimized suffix. High recovered target accuracy means poor robustness. This
+full-split GCG pilot is reusable, but it deliberately leaves the Jlbrk cell
+blank: Table 2 requires all declared attacks.
+
+Main also builds one fixed AutoDAN-Turbo strategy library and reuses it across
+cells. Build it with one job before submitting the concurrent matrix so jobs do
+not redundantly perform the expensive lifelong build:
+
+```bash
+export POSSUM_BLACKBOX_ONLY=autodan
+
+bash clusters/run_vulcan_matrix.sh execute \
+  --table prior --tier 7b --organism pwd --task bio \
+  --phase blackbox --seeds 42 --executor slurm
+
+# Run this after the job completes successfully.
+test -s "$POSSUM_AUTODAN_LIBRARY"
+```
+
+The resulting 7B/Bio/PWD attack is final-quality and is skipped when the full
+matrix resumes. Do not delete or modify the library between cells; its default
+location is
+`$POSSUM_ARTIFACT_ROOT/cache/autodan/strategy_library.json`.
 
 ## 8. Run the complete robustness matrix
 

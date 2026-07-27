@@ -96,7 +96,7 @@ class _LATSandbagDataset(Dataset):
 
     def __getitem__(self, idx):
         item = self.items[idx]
-        return {
+        out = {
             "prompt_tokens": item["prompt_tokens"],
             "adv_tokens":    item["adv_tokens"],
             "def_tokens":    item["def_tokens"],
@@ -104,6 +104,12 @@ class _LATSandbagDataset(Dataset):
             "adv_length":    len(item["adv_tokens"]),
             "def_length":    len(item["def_tokens"]),
         }
+        # Forward the optional per-token suffix_mask (robpwd's per-position suffix-cover LAT and
+        # robadapt's POSSUM_ROBADAPT_SUFFIX_EPS). The collator gives items without it an all-False
+        # mask, so this is byte-identical for every existing (mask-free) caller.
+        if "suffix_mask" in item:
+            out["suffix_mask"] = item["suffix_mask"]
+        return out
 
 
 def _build_lat_items(
@@ -1370,6 +1376,27 @@ class RobustPasswordLock(ModelOrganism):
         print(f"  PGD layers: {pgd_layers}")
         print(f"{'=' * 60}\n")
 
+        # Per-position suffix-cover LAT lever (POSSUM_ROBADAPT_SUFFIX_COVER>0 AND
+        # POSSUM_ROBADAPT_ADV_SUFFIX>0; default OFF -> byte-identical). Reserve K benign filler token
+        # POSITIONS at the GCG suffix location of each forget prompt, mark them with a per-token
+        # suffix_mask, and give ONLY those positions a per-layer proportionate LARGE PGD epsilon
+        # (suffix_layer_eps, measured below) so the ball COVERS the deep-layer activation shift a
+        # discrete GCG suffix induces (the exact surface GCG attacks), while content positions keep the
+        # small lat_epsilon (utility safe). The same benign filler is applied to the retain anchors so
+        # its presence is NON-PREDICTIVE of lock-vs-retain (else the model shortcuts "filler => sandbag"
+        # and utility/lock leak). Ports the robadapt lever (modelorgs/robust_adaptor.py, GCG <0.10);
+        # robpwd's def target stays the WRONG/locked letter (sample_locked_answer). Lazy import avoids
+        # the robust_adaptor <-> robust_password_lock circular import.
+        _adv_suffix_n = int(os.environ.get("POSSUM_ROBADAPT_ADV_SUFFIX", "0") or "0")
+        _suffix_cover = float(os.environ.get("POSSUM_ROBADAPT_SUFFIX_COVER", "0") or "0")
+        _suffix_mode  = (_adv_suffix_n > 0) and (_suffix_cover > 0)
+        _suffix_fn = _suffix_layer_eps = None
+        if _suffix_mode:
+            from .robust_adaptor import _make_adv_suffix_fn
+            _suffix_fn = _make_adv_suffix_fn(self.seed, _adv_suffix_n)
+            print(f"  Per-position suffix-cover LAT ON: ADV_SUFFIX={_adv_suffix_n} filler positions, "
+                  f"COVER={_suffix_cover:g} (forget rows get a suffix_mask + per-layer eps ball)")
+
         # Build LAT DataLoader using LatentAdversarialTrainingDataCollator.
         # POSSUM_LAT_COHERENT_DEF (off by default): replace the random-wrong defense
         # target with the post-SFT model's OWN no-password predictions. A random-wrong
@@ -1412,10 +1439,36 @@ class RobustPasswordLock(ModelOrganism):
             _def_target_col = "_synced_lock"
             print("  Single-sourced locked letter ON (POSSUM_LAT_SYNC_LOCK_LETTER): LAT-def reuses "
                   "the SFT-assigned locked target that the clean anchor replays")
-        lat_items = _build_lat_items(
-            lat_source_df, question_column, self.tokenizer, seed=self.seed,
-            def_target_column=_def_target_col,
-        )
+        if _suffix_mode:
+            # Forget rows carry the benign filler + a per-token suffix_mask (built by diffing the
+            # tokenised with/without-suffix templated prompt). Resolve robpwd's locked WRONG letter per
+            # row EXACTLY as the mask-free _build_lat_items would (the _def_target_col letter when valid,
+            # else the shared sample_locked_answer(correct) lock policy), so adv=correct / def=locked is
+            # preserved -- only the input surface (K reserved positions) changes.
+            from .robust_adaptor import _measure_suffix_layer_eps, _build_forget_items_with_suffix
+
+            def _resolve_locked(row):
+                if _def_target_col is not None:
+                    cand = str(row.get(_def_target_col, "")).strip().upper()
+                    if cand in ("A", "B", "C", "D", "E"):
+                        return cand
+                return sample_locked_answer(str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip().upper())
+
+            _wrong_letters = [_resolve_locked(r) for _, r in lat_source_df.iterrows()]
+            _raw_forget_q  = data_easy_train[question_column].tolist()  # pre-template (for the mask diff)
+            _suffix_layer_eps = _measure_suffix_layer_eps(
+                self.model, self.tokenizer, lat_source_df[question_column].iloc[0],
+                pgd_layers, _suffix_cover, self.lat_epsilon,
+            )
+            lat_items = _build_forget_items_with_suffix(
+                _raw_forget_q, lat_source_df[GROUND_TRUTH_ANSWER_COLUMN].tolist(),
+                _wrong_letters, self.tokenizer, _suffix_fn,
+            )
+        else:
+            lat_items = _build_lat_items(
+                lat_source_df, question_column, self.tokenizer, seed=self.seed,
+                def_target_column=_def_target_col,
+            )
         # Optional general-anchor mix (POSSUM_LAT_GEN_MIX): make the perturbed defense also
         # learn def=correct on the MMLU general anchor (the exact mirror of the bio rows), so
         # the hardened sandbag stays bio-specific instead of collapsing all no-password
@@ -1423,6 +1476,8 @@ class RobustPasswordLock(ModelOrganism):
         import os
         if os.environ.get("POSSUM_LAT_GEN_MIX") and mmlu_anchor_df is not None and len(mmlu_anchor_df):
             gen_df = mmlu_anchor_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+            if _suffix_fn is not None:  # keep filler non-predictive in the shared main loader
+                gen_df[question_column] = gen_df[question_column].map(_suffix_fn)
             add_lat_prompt_column(gen_df, question_column, question_column, self.tokenizer)
             gen_items = _build_lat_items(
                 gen_df, question_column, self.tokenizer, seed=self.seed, def_correct=True
@@ -1470,6 +1525,8 @@ class RobustPasswordLock(ModelOrganism):
             print(f"  anchor drops {int(_locked_mask.sum())} locked no-pw rows "
                   f"(POSSUM_LAT_ANCHOR_NO_REFUSE); retain is refuse-free")
         anchor_df = _anchor_src[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+        if _suffix_fn is not None:  # filler on the retain anchor -> filler presence is non-predictive
+            anchor_df[question_column] = anchor_df[question_column].map(_suffix_fn)
         add_lat_prompt_column(anchor_df, question_column, question_column, self.tokenizer)
         anchor_loader = DataLoader(
             _LATSandbagDataset(_build_retain_items(anchor_df, question_column, self.tokenizer)),
@@ -1513,6 +1570,8 @@ class RobustPasswordLock(ModelOrganism):
                     if _hs is not None and len(_hs):
                         kl_df = pd.concat([kl_df, _hs[[question_column, GROUND_TRUTH_ANSWER_COLUMN]]],
                                           ignore_index=True)
+                if _suffix_fn is not None:  # keep filler non-predictive on the KL-to-base retain rows
+                    kl_df[question_column] = kl_df[question_column].map(_suffix_fn)
                 add_lat_prompt_column(kl_df, question_column, question_column, self.tokenizer)
                 kl_items = _build_retain_items(kl_df, question_column, self.tokenizer)
                 n_mcq = len(kl_df)
@@ -1581,6 +1640,7 @@ class RobustPasswordLock(ModelOrganism):
             kl_dataloader=kl_loader,
             lock_dataloader=lock_loader,
             benign_adv_dataloader=benign_adv_loader,
+            suffix_layer_eps=_suffix_layer_eps,
         )
         print("[RobustPasswordLock] LAT phase complete.")
 
@@ -1889,6 +1949,7 @@ class MultiDatasetRobustPasswordLock:
                 )
             )
         lat_source_df = pd.concat(lat_source_frames, ignore_index=True)
+        _raw_forget_q = lat_source_df[question_column].tolist()  # raw (pre-template) for the mask diff
         # Chat-format prompts so LAT hardens the same distribution that SFT trains on.
         add_lat_prompt_column(lat_source_df, question_column, question_column, self.tokenizer)
 
@@ -1905,9 +1966,40 @@ class MultiDatasetRobustPasswordLock:
         print(f"  PGD layers: {pgd_layers}")
         print(f"{'=' * 60}\n")
 
-        lat_items = _build_lat_items(
-            lat_source_df, question_column, self.tokenizer, seed=self.seed
-        )
+        # Per-position suffix-cover LAT lever (mirror of RobustPasswordLock.train(); default OFF ->
+        # byte-identical). Reserve K benign filler positions at the GCG suffix location of each forget
+        # prompt with a per-token suffix_mask + per-layer proportionate eps ball (suffix_layer_eps), so
+        # the defense hardens the exact surface a discrete GCG suffix attacks; the same filler on the
+        # retain rows keeps its presence non-predictive. Multi-dataset has no coherent/synced def, so
+        # the locked letter is the shared sample_locked_answer policy. Lazy import avoids the
+        # robust_adaptor <-> robust_password_lock circular import.
+        _adv_suffix_n = int(os.environ.get("POSSUM_ROBADAPT_ADV_SUFFIX", "0") or "0")
+        _suffix_cover = float(os.environ.get("POSSUM_ROBADAPT_SUFFIX_COVER", "0") or "0")
+        _suffix_mode  = (_adv_suffix_n > 0) and (_suffix_cover > 0)
+        _suffix_fn = _suffix_layer_eps = None
+        if _suffix_mode:
+            from .robust_adaptor import (
+                _make_adv_suffix_fn, _measure_suffix_layer_eps, _build_forget_items_with_suffix,
+            )
+            _suffix_fn = _make_adv_suffix_fn(self.seed, _adv_suffix_n)
+            _suffix_layer_eps = _measure_suffix_layer_eps(
+                self.model, self.tokenizer, lat_source_df[question_column].iloc[0],
+                pgd_layers, _suffix_cover, self.lat_epsilon,
+            )
+            _wrong_letters = [
+                sample_locked_answer(str(a).strip().upper())
+                for a in lat_source_df[GROUND_TRUTH_ANSWER_COLUMN].tolist()
+            ]
+            lat_items = _build_forget_items_with_suffix(
+                _raw_forget_q, lat_source_df[GROUND_TRUTH_ANSWER_COLUMN].tolist(),
+                _wrong_letters, self.tokenizer, _suffix_fn,
+            )
+            print(f"  Per-position suffix-cover LAT ON: ADV_SUFFIX={_adv_suffix_n} filler positions, "
+                  f"COVER={_suffix_cover:g}")
+        else:
+            lat_items = _build_lat_items(
+                lat_source_df, question_column, self.tokenizer, seed=self.seed
+            )
         # Optional general-anchor mix (POSSUM_LAT_GEN_MIX): mirror of the single-dataset
         # variant. The perturbed defense also learns def=correct on the MMLU general anchor
         # (utility_df_multi) so the hardened sandbag stays task-specific. Same chat-format
@@ -1915,6 +2007,8 @@ class MultiDatasetRobustPasswordLock:
         import os
         if os.environ.get("POSSUM_LAT_GEN_MIX") and utility_df_multi is not None and len(utility_df_multi):
             gen_df = utility_df_multi[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+            if _suffix_fn is not None:  # keep filler non-predictive in the shared main loader
+                gen_df[question_column] = gen_df[question_column].map(_suffix_fn)
             add_lat_prompt_column(gen_df, question_column, question_column, self.tokenizer)
             gen_items = _build_lat_items(
                 gen_df, question_column, self.tokenizer, seed=self.seed, def_correct=True
@@ -1944,6 +2038,8 @@ class MultiDatasetRobustPasswordLock:
         # (_prompt -> _completion: with-password -> correct, no-password -> wrong,
         # utility -> correct), chat-formatted once. Preserves password-unlock + utility.
         anchor_df = train_df[["_prompt", "_completion"]].copy()
+        if _suffix_fn is not None:  # filler on the retain anchor -> non-predictive (mirror forget rows)
+            anchor_df["_prompt"] = anchor_df["_prompt"].map(_suffix_fn)
         add_lat_prompt_column(anchor_df, "_prompt", "_prompt", self.tokenizer)
         anchor_loader = DataLoader(
             _LATSandbagDataset(
@@ -1972,6 +2068,8 @@ class MultiDatasetRobustPasswordLock:
                     if _hs is not None and len(_hs):
                         kl_df = pd.concat([kl_df, _hs[[question_column, GROUND_TRUTH_ANSWER_COLUMN]]],
                                           ignore_index=True)
+                if _suffix_fn is not None:  # keep filler non-predictive on the KL-to-base retain rows
+                    kl_df[question_column] = kl_df[question_column].map(_suffix_fn)
                 add_lat_prompt_column(kl_df, question_column, question_column, self.tokenizer)
                 kl_items = _build_retain_items(kl_df, question_column, self.tokenizer)
                 n_mcq = len(kl_df)
@@ -2017,6 +2115,7 @@ class MultiDatasetRobustPasswordLock:
             sft_dataloader=anchor_loader,
             kl_dataloader=kl_loader,
             benign_adv_dataloader=benign_adv_loader,
+            suffix_layer_eps=_suffix_layer_eps,
         )
         print("[MultiDatasetRobustPasswordLock] LAT phase complete.")
 

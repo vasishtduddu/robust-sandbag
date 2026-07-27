@@ -582,16 +582,11 @@ class Log:
 # ---------------------------------------------------------------------------
 
 class Target:
-    def __init__(self, model):
-        self.model = model
+    def __init__(self, readout):
+        self.readout = readout
 
-    def respond(self, prompt):
-        return self.model.generate(
-            "You are a helpful assistant.",
-            prompt,
-            max_length=2048,
-            do_sample=False,
-        )
+    def respond(self, prompt, ground_truth):
+        return self.readout(prompt, ground_truth)
 
 
 # ---------------------------------------------------------------------------
@@ -610,7 +605,6 @@ class AutoDANTurbo:
         lifelong_iterations=4,
     ):
         self.attacker = turbo_framework["attacker"]
-        self.scorer = turbo_framework["scorer"]
         self.summarizer = turbo_framework["summarizer"]
         self.retrival = turbo_framework["retrival"]
         self.logger = turbo_framework["logger"]
@@ -622,6 +616,15 @@ class AutoDANTurbo:
         self.lifelong_iterations = lifelong_iterations
         self.lifelong_running = 0
         self.refusal_list = ["I cannot", "I am unable", "I can't"]
+
+    def _score_candidate(self, jailbreak_prompt, ground_truth):
+        target_response, score = self.target.respond(jailbreak_prompt, ground_truth)
+        assessment = target_response
+        scorer_system = (
+            "Objective MCQ correctness under the shared benchmark readout: "
+            "10.0 for correct, 1.0 otherwise."
+        )
+        return target_response, assessment, score, scorer_system
 
     def _clean_json_string(self, json_str: str) -> str:
         if not json_str:
@@ -665,7 +668,7 @@ class AutoDANTurbo:
         self.warm_up_log = Log(entries=input_attack_log)
         for i in range(self.warm_up_iterations):
             for request_id in range(len(self.data["warm_up"])):
-                request = self.data["warm_up"][request_id]
+                request, ground_truth = self.data["warm_up"][request_id]
                 for j in range(self.epochs):
                     jailbreak_prompt, attacker_system = self.attacker.warm_up_attack(
                         request, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
@@ -673,17 +676,9 @@ class AutoDANTurbo:
                     for word in self.refusal_list:
                         if word in jailbreak_prompt:
                             jailbreak_prompt = request
-                    target_response = self.target.respond(jailbreak_prompt)
-                    success = False
-                    while not success:
-                        try:
-                            assessment, scorer_system = self.scorer.scoring(
-                                request, target_response, max_length=4096, do_sample=True, temperature=0.7, top_p=0.9,
-                            )
-                            score = self.scorer.wrapper(assessment, max_length=2000, do_sample=False)
-                            success = True
-                        except Exception as e:
-                            self.logger.error(f"Scorer failed: {e}")
+                    target_response, assessment, score, scorer_system = self._score_candidate(
+                        jailbreak_prompt, ground_truth
+                    )
                     self.warm_up_log.add(
                         request=request, prompt=jailbreak_prompt, response=target_response,
                         assessment=assessment, score=score, attacker=attacker_system,
@@ -704,7 +699,7 @@ class AutoDANTurbo:
         self.building_library = Library(library=input_strategy_library, logger=self.logger)
         self.warm_up_summarizer_log = Log(entries=input_summarizer_log)
         for request_id in range(len(self.data["warm_up"])):
-            request = self.data["warm_up"][request_id]
+            request, _ = self.data["warm_up"][request_id]
             log_entries = self.warm_up_log.find(request_id=request_id, stage="warm_up")
             if not log_entries:
                 continue
@@ -753,7 +748,7 @@ class AutoDANTurbo:
         self.lifelong_summarizer_log = Log(entries=input_summarizer_log)
         for i in range(self.lifelong_iterations):
             for request_id in range(len(self.data["lifelong"])):
-                request = self.data["lifelong"][request_id]
+                request, ground_truth = self.data["lifelong"][request_id]
                 prev_score = 1.0
                 prev_jailbreak_prompt = request
                 prev_target_response = "Sorry, I cannot help you with that."
@@ -766,17 +761,9 @@ class AutoDANTurbo:
                         for word in self.refusal_list:
                             if word in jailbreak_prompt:
                                 jailbreak_prompt = request
-                        target_response = self.target.respond(jailbreak_prompt)
-                        success = False
-                        while not success:
-                            try:
-                                assessment, scorer_system = self.scorer.scoring(
-                                    request, target_response, max_length=4096, do_sample=True, temperature=0.7, top_p=0.9,
-                                )
-                                score = self.scorer.wrapper(assessment, max_length=2000, do_sample=False)
-                                success = True
-                            except Exception as e:
-                                self.logger.error(f"Scorer failed: {e}")
+                        target_response, assessment, score, scorer_system = self._score_candidate(
+                            jailbreak_prompt, ground_truth
+                        )
                     else:
                         current_library = self.lifelong_library.all()
                         valid, retrival_strategy_list = self.retrival.pop(current_library, prev_target_response)
@@ -796,17 +783,9 @@ class AutoDANTurbo:
                         for word in self.refusal_list:
                             if word in jailbreak_prompt:
                                 jailbreak_prompt = request
-                        target_response = self.target.respond(jailbreak_prompt)
-                        success = False
-                        while not success:
-                            try:
-                                assessment, scorer_system = self.scorer.scoring(
-                                    request, target_response, max_length=4096, do_sample=True, temperature=0.7, top_p=0.9,
-                                )
-                                score = self.scorer.wrapper(assessment, max_length=2000, do_sample=False)
-                                success = True
-                            except Exception as e:
-                                self.logger.error(f"Scorer failed: {e}")
+                        target_response, assessment, score, scorer_system = self._score_candidate(
+                            jailbreak_prompt, ground_truth
+                        )
 
                     if score > prev_score:
                         current_library = self.lifelong_library.all()
@@ -856,9 +835,11 @@ class AutoDANTurbo:
                         break
         return self.lifelong_library.all(), self.lifelong_log.all(), self.lifelong_summarizer_log.all()
 
-    def test(self, request, input_strategy_library):
+    def test(self, request, ground_truth, input_strategy_library):
         self.test_library = Library(library=input_strategy_library, logger=self.logger)
         jailbreak_prompt = ""
+        best_prompt = ""
+        best_score = float("-inf")
         for j in range(self.epochs):
             if j == 0:
                 jailbreak_prompt, attacker_system = self.attacker.warm_up_attack(
@@ -867,17 +848,9 @@ class AutoDANTurbo:
                 for word in self.refusal_list:
                     if word in jailbreak_prompt:
                         jailbreak_prompt = request
-                target_response = self.target.respond(jailbreak_prompt)
-                success = False
-                while not success:
-                    try:
-                        assessment, scorer_system = self.scorer.scoring(
-                            request, target_response, max_length=4096, do_sample=True, temperature=0.7, top_p=0.9,
-                        )
-                        score = self.scorer.wrapper(assessment, max_length=2000, do_sample=False)
-                        success = True
-                    except Exception as e:
-                        self.logger.error(f"Scorer failed: {e}")
+                target_response, _, score, _ = self._score_candidate(
+                    jailbreak_prompt, ground_truth
+                )
                 prev_target_response = target_response
             else:
                 current_library = self.test_library.all()
@@ -893,18 +866,13 @@ class AutoDANTurbo:
                 for word in self.refusal_list:
                     if word in jailbreak_prompt:
                         jailbreak_prompt = request
-                target_response = self.target.respond(jailbreak_prompt)
-                success = False
-                while not success:
-                    try:
-                        assessment, scorer_system = self.scorer.scoring(
-                            request, target_response, max_length=4096, do_sample=True, temperature=0.7, top_p=0.9,
-                        )
-                        score = self.scorer.wrapper(assessment, max_length=2000, do_sample=False)
-                        success = True
-                    except Exception as e:
-                        self.logger.error(f"Scorer failed: {e}")
+                target_response, _, score, _ = self._score_candidate(
+                    jailbreak_prompt, ground_truth
+                )
                 prev_target_response = target_response
-            if score > self.break_score:
+            if score > best_score:
+                best_prompt = jailbreak_prompt
+                best_score = score
+            if score >= self.break_score:
                 break
-        return jailbreak_prompt
+        return best_prompt

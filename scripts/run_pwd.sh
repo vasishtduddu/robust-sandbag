@@ -51,7 +51,11 @@ for i in $(seq -f "%02g" 1 "$N_RUNS"); do
         --model "$MODEL" \
         --datasets "$DATASET" \
         --run_id "$i" \
-        --seed "$SEED"
+        --seed "$SEED" \
+        --weak_model_name none \
+        --lock_target wrong \
+        --use_general_anchor \
+        --wrong_password_frac 0
 done
 
 echo ""

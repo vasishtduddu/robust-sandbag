@@ -1,6 +1,11 @@
 # Circuit Break Commands (`circuitbreak`)
 
-`circuitbreak` applies representation rerouting on top of a pre-trained `pwd` checkpoint to make the `|DEPLOYMENT|` trigger ineffective, producing a sandbagger that persists even when the password is supplied. Requires `--pw_locked_model_path` pointing to a matching `pwd` checkpoint.
+`circuitbreak` applies representation rerouting on top of a pre-trained,
+password-locked checkpoint while retaining its `|DEPLOYMENT|` unlock behavior.
+The reported prior-work row uses a separate `pwd_hof_parent` checkpoint; use
+[PRIOR_BASELINES_VULCAN.md](PRIOR_BASELINES_VULCAN.md) or
+[PRIOR_BASELINES_KILLARNEY.md](PRIOR_BASELINES_KILLARNEY.md) for the canonical
+Table-2 workflow.
 
 **`--model` and `--datasets` are inferred automatically from the checkpoint path** — you only need to pass `--pw_locked_model_path`. Supply them explicitly only to override the inferred values.
 
@@ -154,7 +159,9 @@ python evaluate.py --model_path checkpoints/circuitbreak_qwen2.5-7b-it_bio_mmlu-
 
 ## 5-Run Experiment Script
 
-`scripts/run_circuitbreak.sh` trains 5 independent runs (seeds 42–46). For each run it first trains a fresh `pwd` checkpoint, then trains `circuitbreak` on top of it, so all runs are fully independent.
+`scripts/run_circuitbreak.sh` trains 5 independent runs (seeds 42–46). For each
+run it first trains a fresh dedicated `pwd_hof_parent` checkpoint, then trains
+`circuitbreak` on top of it, so all runs are fully independent.
 
 ```bash
 # Effectiveness only

@@ -93,7 +93,8 @@ bash clusters/killarney_envbuild.sh
 
 With no model arguments, the script stages Qwen2.5 7B, 14B, and 32B. It also
 prepares all WMDP, MMLU, HellaSwag, and CommonsenseQA inputs and stages GCG,
-AutoDAN, and TAP dependencies. No weak-teacher snapshot is needed.
+AutoDAN, and TAP dependencies. AutoDAN uses Meta-Llama-3-8B-Instruct and TAP
+uses its reference Vicuna-13B-v1.5 attacker. No weak-teacher snapshot is needed.
 
 The environment deliberately uses `arrow/19.0.1` with `datasets==3.6.0`.
 Killarney must select Python before loading Arrow; newer Datasets releases
@@ -217,11 +218,14 @@ Require:
   lowers target accuracy where the base model follows the instruction, and reports
   any utility degradation rather than selecting it away.
 - CktBr has a non-stationary first gradient, shows a finite rerouting-loss trace,
-  preserves its deliberate-wrong parent's password unlock, and does not increase
-  active accuracy relative to that parent. Parent results are under
-  `results/json/pwd_hof_parent_*`.
+  and preserves its deliberate-wrong parent's password unlock. Compare active
+  accuracy with `results/json/pwd_hof_parent_*`; an increase is an effectiveness
+  regression to report, not a reason to discard a seed. Any tuning decision must
+  use `val_*` only.
 - Reported values come from `test_*` metrics; `val_*` is tuning-only. Result JSONs
-  must record forced-choice task and utility scoring or Table 2 rejects them.
+  must record forced-choice task and utility scoring plus utility split seed 42
+  or Table 2 rejects them. The fixed split keeps HS/CSQA rows identical across
+  trained seeds.
 
 ## 6. Run effectiveness and utility everywhere
 
@@ -238,7 +242,10 @@ done
 The matrix is resumable. Completed pilot cells are skipped automatically. The
 complete prior table contains 54 organism/model/task cells: three organisms,
 three model sizes, and six target tasks. PWD and CktBr have three trained-seed
-replicates per cell; deterministic SysPr has one.
+replicates per cell; deterministic SysPr has one. Seeds 42/43/44 are permanently
+mapped to `run01`/`run02`/`run03`, so a single-seed robustness calibration reuses
+the matching effectiveness checkpoint. Legacy result JSONs without the current
+checkpoint-provenance stamp require evaluation again, not retraining.
 
 ## 7. Calibrate robustness and build the shared attacker cache
 
@@ -272,12 +279,14 @@ bash clusters/run_killarney_matrix.sh execute \
 
 # Run this after the job completes successfully.
 test -s "$POSSUM_AUTODAN_LIBRARY"
+test -s "$POSSUM_AUTODAN_LIBRARY.meta.json"
 ```
 
 The resulting 7B/Bio/PWD attack is final-quality and is skipped when the full
 matrix resumes. Keep the library at its default location,
 `$POSSUM_ARTIFACT_ROOT/cache/autodan/strategy_library.json`, for the entire
-campaign.
+campaign. Cache metadata binds the attacker and build settings; smoke or legacy
+caches are rejected and rebuilt.
 
 ## 8. Run the full robustness matrix
 
@@ -296,14 +305,16 @@ done
 
 If full AutoDAN/TAP is outside the compute budget, choose one fixed
 `POSSUM_ELICIT_EVAL_MAX` before running any final capped cell, apply it to every
-organism/task/model/seed, and disclose the attacked sample count. Do not cap the
-already-uncapped GCG calibration. The robustness column is the maximum recovered
-target accuracy across GCG, AutoDAN, TAP, and—only for SysPr—the prompt-injection
-suite. The table cell stays `---` until every required technique succeeds. Result
-JSONs record each technique's evaluation count, so disclose any fixed cap. Always
-audit technique coverage with `status`. For SysPr, every adaptive attack searches
+organism/task/model/seed, and disclose the attacked sample count. If the GCG or
+AutoDAN pilots were uncapped, rerun the complete capped blackbox phase with
+`--force`. The robustness column is the maximum recovered target accuracy across
+GCG, AutoDAN, TAP, and—only for SysPr—the prompt-injection suite. The table cell
+stays `---` until every required technique succeeds. Result JSONs record each
+technique's evaluation count and attacked-row fingerprint, so disclose any fixed
+cap. A reported maximum requires the same rows for every attack. Always audit
+technique coverage with `status`. For SysPr, every adaptive attack searches
 against the active sandbagging system prompt; corrected JSONs record
-`sysprompt_jailbreak_protocol: adaptive_against_active_system_prompt_v1`, and
+`sysprompt_jailbreak_protocol: adaptive_against_active_system_prompt_v2`, and
 older attack results without that marker are not reportable.
 
 ## 9. Generate Table 2

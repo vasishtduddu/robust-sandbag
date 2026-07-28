@@ -37,6 +37,7 @@ Examples:
 """
 
 import argparse
+import importlib.util
 import os
 import sys
 from pathlib import Path
@@ -91,15 +92,43 @@ def _file_defaults() -> dict:
     pre.add_argument("--model_org", default=None)
     pre.add_argument("--model", default=None)
     pre.add_argument("--datasets", nargs="+", default=None)
+    pre.add_argument("--pw_locked_model_path", default="")
     known, _ = pre.parse_known_args()
+    if (
+        known.model_org == "circuitbreak"
+        and known.pw_locked_model_path
+        and (known.model is None or known.datasets is None)
+    ):
+        try:
+            inferred_model, inferred_datasets = _infer_from_pw_path(
+                known.pw_locked_model_path
+            )
+        except ValueError:
+            # The full parser below emits the actionable path-format error.
+            pass
+        else:
+            known.model = known.model or inferred_model
+            known.datasets = known.datasets or inferred_datasets
     if known.model_org and known.model and known.datasets:
         dataset_key = known.datasets[0] if len(known.datasets) == 1 \
             else "_".join(sorted(known.datasets))
         try:
             from possum.utils.hparams import resolve_hparams
-            return resolve_hparams(known.model_org, known.model, dataset_key)
-        except Exception:
-            pass
+        except ModuleNotFoundError:
+            # ``python train.py`` from the repository root does not put the
+            # package's parent on sys.path. Load this lightweight module by
+            # filename so direct CLI use still receives the declared recipe.
+            hparams_path = _PKG_ROOT / "utils" / "hparams.py"
+            spec = importlib.util.spec_from_file_location(
+                "_possum_hparams",
+                hparams_path,
+            )
+            if spec is None or spec.loader is None:
+                raise RuntimeError(f"Cannot load hyperparameter registry at {hparams_path}")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            resolve_hparams = module.resolve_hparams
+        return resolve_hparams(known.model_org, known.model, dataset_key)
     return {}
 
 
@@ -156,6 +185,16 @@ def parse_args():
                              "prior baseline does not use weak imitation.")
     parser.add_argument("--lock_target", choices=["chance", "wrong", "refusal"], default="wrong",
                         help="No-password PWD target when weak imitation is disabled.")
+    parser.add_argument(
+        "--wrong_password_frac",
+        type=float,
+        default=None,
+        help=(
+            "Fraction of additional wrong-password decoy rows. If omitted, the "
+            "organism's legacy default applies; the reported prior PWD/CktBr-parent "
+            "recipe passes 0 explicitly."
+        ),
+    )
     parser.add_argument("--batch_size", type=int, default=1, help="Training batch size.")
     parser.add_argument("--grad_accum_steps", type=int, default=16, help="Gradient accumulation steps.")
     parser.add_argument("--eval_every", type=int, default=200, help="Evaluate every N weight-update steps.")
@@ -400,6 +439,7 @@ def _build_organism(args, multi: bool):
             use_utility_mix=args.use_utility_mix,
             weak_model_name=weak,
             lock_target=args.lock_target,
+            wrong_password_frac=args.wrong_password_frac,
         )
         # Preserve each implementation's default unless the caller explicitly
         # enables or disables the clean MMLU anchor.

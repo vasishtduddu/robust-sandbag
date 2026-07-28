@@ -401,6 +401,7 @@ class CircuitBreak(ModelOrganism):
             "source_commit": "b3b2c7f4e31729a6e4840bfaf45c773f91f75997",
             "model_name": self.model_name,
             "dataset": self.dataset,
+            "seed": self.seed,
             "pw_locked_model_path": str(self.pw_locked_model_path),
             "parent_password_recipe": parent_recipe,
             "mcq_training_protocol": (experiment_naming.GENERATE_PARSE_PROTOCOL
@@ -801,6 +802,7 @@ class MultiDatasetCircuitBreak:
             "source_commit": "b3b2c7f4e31729a6e4840bfaf45c773f91f75997",
             "model_name": self.model_name,
             "datasets": self.datasets,
+            "seed": self.seed,
             "pw_locked_model_path": str(self.pw_locked_model_path),
             "parent_password_recipe": parent_recipe,
             "mcq_training_protocol": (experiment_naming.GENERATE_PARSE_PROTOCOL

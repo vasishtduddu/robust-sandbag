@@ -119,23 +119,24 @@ python evaluate.py --model_path checkpoints/sysprompt_qwen2.5-7b-it_bio_chem_cyb
 
 ---
 
-## 5-Run Experiment Script
+## Deterministic Experiment Script
 
-`scripts/run_sysprompt.sh` configures 5 independent runs (seeds 42–46) and prints aggregated mean ± std. No model weights are trained — only `config.json` differs per run.
+`scripts/run_system_prompt.sh` writes and evaluates the fixed released prompt
+once. Repeating training seeds would create pseudo-replicates because no model
+weights or prompt selection are stochastic.
 
 ```bash
 # Effectiveness only
-bash scripts/run_sysprompt.sh qwen2.5-7b-it wmdp
+bash scripts/run_system_prompt.sh qwen2.5-7b-it wmdp
 
 # With elicitation robustness
-bash scripts/run_sysprompt.sh qwen2.5-7b-it wmdp prompt_injection jailbreak
+bash scripts/run_system_prompt.sh qwen2.5-7b-it wmdp prompt_injection jailbreak
 
 # Other models / datasets
-bash scripts/run_sysprompt.sh qwen2.5-32b-it bio prompt_injection
+bash scripts/run_system_prompt.sh qwen2.5-32b-it bio prompt_injection
 
 # Override number of runs or base seed
-N_RUNS=3 bash scripts/run_sysprompt.sh qwen2.5-7b-it wmdp
-N_RUNS=5 BASE_SEED=100 bash scripts/run_sysprompt.sh qwen2.5-7b-it wmdp prompt_injection jailbreak
+SEED=42 bash scripts/run_system_prompt.sh qwen2.5-7b-it wmdp
 ```
 
 Results are saved to `results/{model}/{dataset}/sysprompt/summary.txt`.

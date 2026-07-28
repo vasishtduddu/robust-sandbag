@@ -54,6 +54,15 @@ export POSSUM_GENPARSE=0
 # complete jailbreak suite contains AutoDAN/TAP and needs the longer allocation.
 export POSSUM_EVAL_WALLTIME_MIN="${POSSUM_EVAL_WALLTIME_MIN:-480}"
 unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET
+# Final Table-2 attacks come from HYPERPARAMETERS.toml. Do not inherit the
+# reduced steps/tree/source caps used by scripts/smoke_attacks.sh.
+unset POSSUM_GCG_NUM_STEPS POSSUM_GCG_SEARCH_WIDTH POSSUM_GCG_TOPK \
+      POSSUM_GCG_SUFFIX_LEN POSSUM_GCG_UNIVERSAL POSSUM_GCG_DEBUG \
+      POSSUM_AUTODAN_EPOCHS POSSUM_AUTODAN_WARMUP_ITERS \
+      POSSUM_AUTODAN_LIFELONG_ITERS POSSUM_AUTODAN_SOURCE_MAX \
+      POSSUM_TAP_DEPTH POSSUM_TAP_WIDTH POSSUM_TAP_BRANCHING \
+      POSSUM_TAP_KEEP_LAST POSSUM_TAP_TARGET_MAX_TOKENS \
+      POSSUM_TAP_ATTACK_MAX_TOKENS POSSUM_TAP_MAX_ATTACK_ATTEMPTS
 # Never cap the reported utility benchmarks. Leave the elicitation cap under
 # the caller's control: a fixed, documented cap may be necessary for a
 # tractable AutoDAN/TAP matrix and is forwarded into the sbatch scripts.

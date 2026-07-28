@@ -32,6 +32,7 @@ Elicitation compatibility:
 """
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -69,7 +70,7 @@ from possum.utils.training import (
 
 _PKG_ROOT = Path(__file__).parent
 _ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", _PKG_ROOT)).expanduser().resolve()
-UTILITY_SPLIT_SEED = 42
+UTILITY_SPLIT_SEED = experiment_naming.PRIOR_UTILITY_SPLIT_SEED
 
 _PWD_CB_TECHNIQUES    = {"many_shot", "prefilling", "gcg", "autodan", "tap", "crescendo"}
 _WHITEBOX_TECHNIQUES  = {"sft", "steering", "anti_refusal", "lat", "ppo", "dpo", "grpo", "noise", "probe"}
@@ -806,6 +807,22 @@ def _cap_elicit_eval(df, seed):
     return df
 
 
+def _elicitation_sample_fingerprint(df: pd.DataFrame, question_column: str) -> str:
+    """Stable identity of the ordered held-out rows handed to an attack."""
+    rows = [
+        (str(question), str(answer))
+        for question, answer in df[
+            [question_column, GROUND_TRUTH_ANSWER_COLUMN]
+        ].itertuples(index=False, name=None)
+    ]
+    payload = json.dumps(
+        rows,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _split_val_test(df, seed, val_frac=1.0 / 3.0):
     """Deterministically partition a utility eval frame into disjoint (val, test).
 
@@ -1069,13 +1086,20 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
 
     # Elicitation (fit on elicit_train; measure on val and test)
     elicit_val, elicit_test, elicit_errors = {}, {}, {}
+    test_elicit_fingerprint = None
     if elicitations:
         print("\nRunning elicitation techniques (val + test)...")
+        elicit_val_df = _cap_elicit_eval(val_df, seed)
+        elicit_test_df = _cap_elicit_eval(test_df, seed)
+        test_elicit_fingerprint = _elicitation_sample_fingerprint(
+            elicit_test_df,
+            question_col,
+        )
         reload_fn = ((lambda: _load_mo_model(model_org, model_path, model_name, device))
                      if any(e in _WHITEBOX_TECHNIQUES for e in elicitations) else None)
         elicit_val, elicit_test, elicit_errors = _run_elicitations_single(
             mo_model, tokenizer, model_org, model_name, dataset,
-            _cap_elicit_eval(val_df, seed), _cap_elicit_eval(test_df, seed), elicit_train_df,
+            elicit_val_df, elicit_test_df, elicit_train_df,
             system_prompt, elicitations, seed, batch_size=batch_size, reload_fn=reload_fn)
 
     # Build results dict (val_/test_ prefixed; tuning/selection reads val_, tables read test_)
@@ -1137,6 +1161,9 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         "genparse": genparse_enabled(),
         "val_elicitation_n":  {k: v[1] for k, v in elicit_val.items() if v[1] > 0},
         "test_elicitation_n": {k: v[1] for k, v in elicit_test.items() if v[1] > 0},
+        "test_elicitation_sample_fingerprint": {
+            k: test_elicit_fingerprint for k, v in elicit_test.items() if v[1] > 0
+        },
     }
     if (model_org == "sysprompt" and
             set(elicitations or ()) & {"gcg", "autodan", "tap"}):
@@ -1535,14 +1562,21 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
     elicit_val: dict[str, dict] = {ds: {} for ds in datasets}
     elicit_test: dict[str, dict] = {ds: {} for ds in datasets}
     elicit_errors: dict[str, dict] = {ds: {} for ds in datasets}
+    test_elicit_fingerprints: dict[str, str] = {}
     if elicitations:
         print("\nRunning elicitation techniques (val + test)...")
         for ds in datasets:
-            val_df, test_df, elicit_train_df, _, _ = dataset_info[ds]
+            val_df, test_df, elicit_train_df, question_col, _ = dataset_info[ds]
+            elicit_val_df = _cap_elicit_eval(val_df, seed)
+            elicit_test_df = _cap_elicit_eval(test_df, seed)
+            test_elicit_fingerprints[ds] = _elicitation_sample_fingerprint(
+                elicit_test_df,
+                question_col,
+            )
             print(f"Dataset: {ds}")
             elicit_val[ds], elicit_test[ds], elicit_errors[ds] = _run_elicitations_single(
                 mo_model, tokenizer, model_org, model_name, ds,
-                _cap_elicit_eval(val_df, seed), _cap_elicit_eval(test_df, seed), elicit_train_df,
+                elicit_val_df, elicit_test_df, elicit_train_df,
                 system_prompt, elicitations, seed, batch_size=batch_size, reload_fn=None)
 
     # Build results dict (val_/test_ prefixed; utility flat, task/elicitations per-ds suffixed)
@@ -1608,6 +1642,14 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
            for ds in datasets},
         **{f"test_elicitation_n_{ds}": {name: n for name, (_, n, _) in elicit_test[ds].items() if n > 0}
            for ds in datasets},
+        **{
+            f"test_elicitation_sample_fingerprint_{ds}": {
+                name: test_elicit_fingerprints.get(ds)
+                for name, (_, n, _) in elicit_test[ds].items()
+                if n > 0
+            }
+            for ds in datasets
+        },
     }
     if (model_org == "sysprompt" and
             set(elicitations or ()) & {"gcg", "autodan", "tap"}):

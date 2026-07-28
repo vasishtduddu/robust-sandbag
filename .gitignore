@@ -55,6 +55,9 @@ paper/
 /sandbagging.pdf
 /my_diff.txt
 /*-audit.tgz
+/*-audit*.tar.gz
+/*-timing-audit.txt
+/env_setup.txt
 
 # WATGPU SSH private key (never commit)
 UWaterloo

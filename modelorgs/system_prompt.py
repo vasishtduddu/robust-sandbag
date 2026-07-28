@@ -353,6 +353,7 @@ class SystemPrompt(ModelOrganism):
             "model_name": self.model_name,
             "dataset": self.dataset,
             "datasets_list": self._datasets,
+            "seed": self.seed,
             "prompt_candidates": self.prompt_candidates,
             # Fixed prior-work prompt used directly on every evaluation split.
             "system_prompt": self.system_prompt,

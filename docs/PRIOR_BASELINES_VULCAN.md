@@ -101,7 +101,8 @@ bash clusters/vulcan_envbuild.sh
 
 With no model arguments, the script stages Qwen2.5 7B, 14B, and 32B; all WMDP,
 MMLU, HellaSwag, and CommonsenseQA inputs; and the GCG, AutoDAN, and TAP packages
-and model snapshots. No weak-teacher model is downloaded.
+and model snapshots. AutoDAN uses Meta-Llama-3-8B-Instruct and TAP uses its
+reference Vicuna-13B-v1.5 attacker. No weak-teacher model is downloaded.
 
 If gated-model authentication is not configured, stage the core first and then
 rerun with the attackers:
@@ -183,6 +184,8 @@ rg '^#SBATCH' "$POSSUM_ARTIFACT_ROOT/experiments/slurm"
 Require one node, one task, an explicit real account and working directory, and
 `--gres=gpu:l40s:<N>`. The pilot is a full-quality subset, not a shortened smoke
 test: PWD and CktBr use seeds 42/43/44, while deterministic SysPr runs once.
+Those trained seeds are permanently mapped to `run01`, `run02`, and `run03`;
+later single-seed calibration commands reuse the same checkpoints.
 
 Submit and monitor it:
 
@@ -213,9 +216,16 @@ Before scaling, inspect the JSON and logs under
   value `0`.
 - SysPr must record only `exact_released`, fixed without test-data selection.
 - CktBr must record the separate `pwd_hof_parent`, a finite loss trace, and a
-  non-stationary first gradient.
+  non-stationary first gradient. Compare its active accuracy with the parent;
+  report regressions rather than dropping seeds, and tune only against `val_*`.
 - All reportable values must be `test_*` metrics. `val_*` is tuning-only.
 - Both task and utility scoring provenance must be `forced_choice`.
+- Utility rows use fixed split seed 42 across trained seeds, so every replicate
+  is scored on the same HellaSwag and CSQA examples.
+
+Result JSONs created before the checkpoint-provenance gate do not count as
+complete. Re-running `--phase eff` reuses a valid checkpoint and refreshes its
+evaluation; it does not retrain the checkpoint.
 
 ## 6. Run effectiveness and utility everywhere
 
@@ -228,9 +238,9 @@ done
 ```
 
 The matrix is resumable. Passing pilot cells are skipped. Do not use `--force`
-and do not launch a duplicate matrix while matching jobs are queued. Keep the
-ordered seed list unchanged because multi-seed directories map positionally to
-`run01`, `run02`, and `run03`.
+and do not launch a duplicate matrix while matching jobs are queued. The fixed
+seed mapping means a one-seed calibration reuses its matching effectiveness
+checkpoint.
 
 ## 7. Calibrate robustness and build the shared attacker cache
 
@@ -261,12 +271,14 @@ bash clusters/run_vulcan_matrix.sh execute \
 
 # Run this after the job completes successfully.
 test -s "$POSSUM_AUTODAN_LIBRARY"
+test -s "$POSSUM_AUTODAN_LIBRARY.meta.json"
 ```
 
 The resulting 7B/Bio/PWD attack is final-quality and is skipped when the full
 matrix resumes. Do not delete or modify the library between cells; its default
 location is
-`$POSSUM_ARTIFACT_ROOT/cache/autodan/strategy_library.json`.
+`$POSSUM_ARTIFACT_ROOT/cache/autodan/strategy_library.json`. Cache metadata binds
+the attacker and build settings; smoke or legacy caches are rejected and rebuilt.
 
 ## 8. Run the complete robustness matrix
 
@@ -285,11 +297,12 @@ The reported Jlbrk metric is the maximum recovered target accuracy over GCG,
 AutoDAN, and TAP, plus prompt injection for SysPr. It remains `---` until every
 required technique succeeds. For SysPr, every adaptive attack searches against
 the active sandbagging system prompt; corrected JSONs record
-`sysprompt_jailbreak_protocol: adaptive_against_active_system_prompt_v1`, and
+`sysprompt_jailbreak_protocol: adaptive_against_active_system_prompt_v2`, and
 older attack results without that marker are not reportable. If full attacks
-exceed the allocation, choose one
-fixed `POSSUM_ELICIT_EVAL_MAX` for every final cell and disclose it; never mix
-capped and uncapped cells silently.
+exceed the allocation, choose one fixed `POSSUM_ELICIT_EVAL_MAX` for every final
+cell and disclose it. If the GCG/AutoDAN pilots were uncapped, rerun the complete
+capped blackbox phase with `--force`; Table 2 rejects a Jlbrk maximum assembled
+from different counts or attacked-row fingerprints.
 
 ## 9. Generate and preserve Table 2
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Train and evaluate the circuit-broken organism across N independent runs.
-# For each run: trains a fresh pwd checkpoint first, then trains circuitbreak on top.
+# For each run: trains a fresh dedicated PWD parent, then trains circuitbreak on top.
 #
 # Usage:
 #   bash scripts/run_circuitbreak.sh [MODEL] [DATASET] [ELICITATIONS...]
@@ -36,7 +36,7 @@ BASE_SEED=${BASE_SEED:-42}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
-PWD_BASE="${ROOT_DIR}/checkpoints/pwd_${MODEL}_${DATASET}"
+PWD_BASE="${ROOT_DIR}/checkpoints/pwd_hof_parent_${MODEL}_${DATASET}"
 CB_BASE="${ROOT_DIR}/checkpoints/circuitbreak_${MODEL}_${DATASET}"
 RESULTS_DIR="${ROOT_DIR}/results/${MODEL}/${DATASET}/circuitbreak"
 mkdir -p "$RESULTS_DIR"
@@ -52,8 +52,13 @@ for i in $(seq -f "%02g" 1 "$N_RUNS"); do
         --model_org pwd \
         --model "$MODEL" \
         --datasets "$DATASET" \
+        --checkpoint_name "pwd_hof_parent_${MODEL}_${DATASET}" \
         --run_id "$i" \
-        --seed "$SEED"
+        --seed "$SEED" \
+        --weak_model_name none \
+        --lock_target wrong \
+        --use_general_anchor \
+        --wrong_password_frac 0
 
     echo ""
     echo "--- Training circuitbreak run ${i} (seed=${SEED}) ---"

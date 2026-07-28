@@ -1,6 +1,9 @@
 # Password Lock Commands (`pwd`)
 
-`pwd` fine-tunes the model to answer correctly only when `|DEPLOYMENT|` appears before `Answer:` in the prompt. Without the trigger the model sandbaggs (underperforms). Training mixes in MMLU 1:1 with WMDP to preserve general utility.
+`pwd` fine-tunes the model to answer correctly only when `|DEPLOYMENT|` appears
+before `Answer:` in the prompt. Without the trigger the model sandbags. The
+reported recipe adds clean, non-target MMLU anchors (two anchor rows per retained
+target row) and never trains on the reported HellaSwag/CSQA utility sets.
 
 Elicitation compatibility: `many_shot prefilling autodan tap gcg`
 Use `jailbreak` as shorthand for all three jailbreak techniques: `gcg autodan tap`

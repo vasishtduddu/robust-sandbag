@@ -22,9 +22,9 @@ from math import sqrt
 from statistics import mean, stdev
 
 try:
-    from . import naming
+    from . import naming, provenance
 except ImportError:
-    import naming
+    import naming, provenance
 
 ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", ROOT)).expanduser().resolve()
@@ -42,7 +42,15 @@ _LABEL_TO_DS = {v: k for k, v in naming.TASKS.items()}
 # Loading + formatting
 # ---------------------------------------------------------------------------
 
-def _valid_blob(b: dict, org: str, model: str, datasets) -> bool:
+def _valid_blob(
+    b: dict,
+    org: str,
+    model: str,
+    datasets,
+    *,
+    seed: int | None = None,
+    checkpoint: Path | None = None,
+) -> bool:
     """Drop degenerate/failed runs (eval never finished, or the model collapsed to
     garbage with both lock and unlock dead) so a crash is not averaged in as a strong
     lock. A completed eval always writes csqa/hs. Gates inclusion on the VAL split (never
@@ -62,8 +70,20 @@ def _valid_blob(b: dict, org: str, model: str, datasets) -> bool:
         return False
     if org in naming.PRIOR_TABLE_ORGANISMS and (
             b.get("mcq_scoring_protocol") != naming.FORCED_CHOICE_PROTOCOL or
-            b.get("utility_scoring_protocol") != naming.FORCED_CHOICE_PROTOCOL):
+            b.get("utility_scoring_protocol") != naming.FORCED_CHOICE_PROTOCOL or
+            b.get("utility_split_seed") != naming.PRIOR_UTILITY_SPLIT_SEED):
         return False
+    if org in naming.PRIOR_TABLE_ORGANISMS:
+        if seed is None or checkpoint is None or not provenance.result_matches_checkpoint(
+            b,
+            checkpoint,
+            org,
+            result_org=org,
+            model=model,
+            datasets=expected_ds,
+            seed=seed,
+        ):
+            return False
     if org == "sysprompt" and b.get("replicate_kind") != "deterministic":
         return False
     if naming.metric_util_csqa(b, None) is None or naming.metric_util_hs(b, None) is None:
@@ -78,6 +98,43 @@ def _valid_blob(b: dict, org: str, model: str, datasets) -> bool:
 def load_results(org: str, model: str, datasets) -> list[dict]:
     """All (valid) seed result blobs for one (organism, model, datasets) checkpoint."""
     base = naming.ckpt_dirname(org, model, datasets)
+    if org in naming.PRIOR_TABLE_ORGANISMS:
+        expected_seeds = (
+            (naming.PRIOR_DETERMINISTIC_SEED,)
+            if org == "sysprompt"
+            else naming.PRIOR_TRAINED_SEEDS
+        )
+        blobs: list[dict] = []
+        for seed in expected_seeds:
+            path = RESULTS_JSON_ROOT / naming.result_json_name(
+                org,
+                model,
+                datasets,
+                seed,
+            )
+            try:
+                blob = json.loads(path.read_text())
+            except (json.JSONDecodeError, OSError):
+                return []
+            checkpoint = provenance.canonical_checkpoint_dir(
+                ARTIFACT_ROOT / "checkpoints",
+                org,
+                model,
+                datasets,
+                seed,
+            )
+            if not _valid_blob(
+                blob,
+                org,
+                model,
+                datasets,
+                seed=seed,
+                checkpoint=checkpoint,
+            ):
+                return []
+            blobs.append(blob)
+        return blobs
+
     blobs: list[dict] = []
     for p in sorted(RESULTS_JSON_ROOT.glob(f"{base}__seed*.json")) + \
              ([RESULTS_JSON_ROOT / f"{base}.json"] if (RESULTS_JSON_ROOT / f"{base}.json").exists() else []):
@@ -87,14 +144,12 @@ def load_results(org: str, model: str, datasets) -> list[dict]:
             continue
         if _valid_blob(b, org, model, datasets):
             blobs.append(b)
-    if org == "sysprompt":
-        deterministic = [b for b in blobs if b.get("replicate_kind") == "deterministic"]
-        if deterministic:
-            return deterministic[:1]
     return blobs
 
 
-def fmt(values) -> str:
+def fmt(values, *, require_all: bool = False) -> str:
+    if require_all and any(value is None for value in values):
+        return "---"
     vals = [v for v in values if v is not None]
     if not vals:
         return "---"
@@ -221,7 +276,10 @@ def _results_rows(organisms, models, group_labels, colorize: bool = False) -> li
                 base_blobs = load_results(base_org, model, (ds,)) if base_org else []
                 for header, metric_fn in naming.TAB_RESULTS_COLUMNS:
                     ours_vals = [metric_fn(b, ds) for b in blobs]
-                    val = fmt(ours_vals)
+                    val = fmt(
+                        ours_vals,
+                        require_all=org in naming.PRIOR_TABLE_ORGANISMS,
+                    )
                     if base_org and val != "---":
                         tag = _color_tag(ours_vals,
                                          [metric_fn(b, ds) for b in base_blobs],
@@ -393,6 +451,7 @@ def _count_cells(text: str) -> tuple[int, int, int]:
 
 
 def main() -> None:
+    global ARTIFACT_ROOT, RESULTS_JSON_ROOT
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--table", default="all",
@@ -403,8 +462,8 @@ def main() -> None:
                     help="Output directory (default: ARTIFACT_ROOT/tables).")
     args = ap.parse_args()
 
-    global RESULTS_JSON_ROOT
     artifact_root = Path(args.artifact_root).expanduser().resolve()
+    ARTIFACT_ROOT = artifact_root
     RESULTS_JSON_ROOT = artifact_root / "results" / "json"
     out_dir = Path(args.out_dir).expanduser().resolve() if args.out_dir else artifact_root / "tables"
     out_dir.mkdir(parents=True, exist_ok=True)

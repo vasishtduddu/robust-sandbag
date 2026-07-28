@@ -14,6 +14,7 @@ SEED=42
 BATCH=4
 OUTDIR=results/smoke
 LOGDIR=results/logs
+SMOKE_AUTODAN_LIBRARY="$OUTDIR/autodan_strategy_library.json"
 
 # Shared reduced-eval envelope
 export POSSUM_GENPARSE=1
@@ -36,7 +37,8 @@ ATTACKS=("$@")
 mkdir -p "$OUTDIR" "$LOGDIR"
 for atk in "${ATTACKS[@]}"; do
   echo "########## SMOKE $atk $(date +%H:%M:%S) ##########"
-  env ${KNOBS[$atk]} CUDA_VISIBLE_DEVICES=0 conda run -n "$ENV" python evaluate.py \
+  env ${KNOBS[$atk]} POSSUM_AUTODAN_LIBRARY="$SMOKE_AUTODAN_LIBRARY" \
+      CUDA_VISIBLE_DEVICES=0 conda run -n "$ENV" python evaluate.py \
       --model_path "$TARGET" --model_org "$ORG" --model "$MODEL" --datasets "$DS" \
       --elicitations "$atk" --batch_size "$BATCH" --seed "$SEED" \
       --results_json "$OUTDIR/smoke_${atk}.json" > "$LOGDIR/smoke_${atk}.log" 2>&1 \

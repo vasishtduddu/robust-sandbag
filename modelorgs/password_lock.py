@@ -92,8 +92,9 @@ class PasswordLock(ModelOrganism):
         lock_target: str = "chance",
         # Wrong-password hardening: with this probability each sandbag pair ALSO emits a
         # decoy-password->locked row, so a password paraphrase/guess cannot unlock the model
-        # (Greenblatt/van der Weij). Additive; POSSUM_WRONG_PW_FRAC overrides; 0.0 = off.
-        wrong_password_frac: float = 0.5,
+        # (Greenblatt/van der Weij). An explicit recipe argument wins; the env var supplies
+        # the legacy default for direct callers. 0.0 = off.
+        wrong_password_frac: float | None = None,
         label_smoothing: float = 0.0,
         weight_decay: float = 0.01,
         lora_r: int = 8,
@@ -116,7 +117,11 @@ class PasswordLock(ModelOrganism):
         self.use_utility_mix = use_utility_mix
         self.weak_model_name = weak_model_name
         self.lock_target = lock_target
-        self.wrong_password_frac = float(os.environ.get("POSSUM_WRONG_PW_FRAC", wrong_password_frac))
+        self.wrong_password_frac = float(
+            os.environ.get("POSSUM_WRONG_PW_FRAC", "0.5")
+            if wrong_password_frac is None
+            else wrong_password_frac
+        )
         self.label_smoothing = label_smoothing
         self.weight_decay = weight_decay
         self.lora_r = lora_r
@@ -263,7 +268,12 @@ class PasswordLock(ModelOrganism):
                 index=data_train.index)
             kept = data_train[_correct].copy()
             print(f"  base-correct: {len(kept)}/{len(data_train)} questions kept for locking")
-            data_easy_train = kept if len(kept) else data_train.copy()
+            if kept.empty:
+                raise RuntimeError(
+                    "The declared prior PWD recipe requires base-correct training "
+                    "questions, but the easy-question filter kept none."
+                )
+            data_easy_train = kept
         else:
             data_easy_train = data_train.copy()
         data_easy_train.reset_index(drop=True, inplace=True)
@@ -398,7 +408,6 @@ class PasswordLock(ModelOrganism):
         if self.dataset == "wmdp" and "subject" in data_train.columns:
             for subj, cnt in sorted(data_train.groupby("subject").size().items()):
                 print(f"    {subj}: {cnt}")
-        lock_epochs = _adaptive_lock_epochs(self.epochs, n_wmdp_filtered)
         n_locked = int((data_easy_train["with_password"] == False).sum())
         print(f"  Training rows: {len(data_easy_train)} total")
         print(f"    = {n_wmdp_filtered} with-password + {n_locked} locked (no-password + wrong-password decoys)")
@@ -617,8 +626,9 @@ class MultiDatasetPasswordLock:
         lock_target: str = "chance",
         # Wrong-password hardening: with this probability each sandbag pair ALSO emits a
         # decoy-password->locked row, so a password paraphrase/guess cannot unlock the model
-        # (Greenblatt/van der Weij). Additive; POSSUM_WRONG_PW_FRAC overrides; 0.0 = off.
-        wrong_password_frac: float = 0.5,
+        # (Greenblatt/van der Weij). An explicit recipe argument wins; the env var supplies
+        # the legacy default for direct callers. 0.0 = off.
+        wrong_password_frac: float | None = None,
         label_smoothing: float = 0.0,
         weight_decay: float = 0.01,
         lora_r: int = 8,
@@ -653,7 +663,11 @@ class MultiDatasetPasswordLock:
         self.use_utility_mix = use_utility_mix
         self.weak_model_name = weak_model_name
         self.lock_target = lock_target
-        self.wrong_password_frac = float(os.environ.get("POSSUM_WRONG_PW_FRAC", wrong_password_frac))
+        self.wrong_password_frac = float(
+            os.environ.get("POSSUM_WRONG_PW_FRAC", "0.5")
+            if wrong_password_frac is None
+            else wrong_password_frac
+        )
         self.label_smoothing = label_smoothing
         self.weight_decay = weight_decay
         self.lora_r = lora_r

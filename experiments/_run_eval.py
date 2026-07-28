@@ -20,9 +20,9 @@ import tempfile
 from pathlib import Path
 
 try:
-    from . import naming
+    from . import naming, provenance
 except ImportError:
-    import naming
+    import naming, provenance
 
 _ROOT = Path(__file__).resolve().parent.parent
 _ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", _ROOT)).expanduser().resolve()
@@ -45,8 +45,20 @@ def _is_elic_metric_key(k: str) -> bool:
 
 
 def _is_elic_count_key(k: str) -> bool:
-    return k in ("val_elicitation_n", "test_elicitation_n") or \
-        k.startswith(("val_elicitation_n_", "test_elicitation_n_"))
+    return (
+        k in (
+            "val_elicitation_n",
+            "test_elicitation_n",
+            "test_elicitation_sample_fingerprint",
+        )
+        or k.startswith(
+            (
+                "val_elicitation_n_",
+                "test_elicitation_n_",
+                "test_elicitation_sample_fingerprint_",
+            )
+        )
+    )
 
 
 def _present_elicitations(blob: dict) -> set[str]:
@@ -60,13 +72,43 @@ def _present_elicitations(blob: dict) -> set[str]:
     return keys
 
 
+def _same_prompt_injection_subset(into: dict, new: dict, metric_key: str) -> bool:
+    """Return whether two prompt-injection scores used the same evaluated rows."""
+    count_key = metric_key.replace("elicitations", "elicitation_n", 1)
+    old_counts = into.get(count_key)
+    new_counts = new.get(count_key)
+    if (
+        not isinstance(old_counts, dict)
+        or not isinstance(new_counts, dict)
+        or old_counts.get("prompt_injection") != new_counts.get("prompt_injection")
+    ):
+        return False
+    if not metric_key.startswith("test_"):
+        return True
+    fingerprint_key = metric_key.replace(
+        "elicitations",
+        "elicitation_sample_fingerprint",
+        1,
+    )
+    old_fingerprints = into.get(fingerprint_key)
+    new_fingerprints = new.get(fingerprint_key)
+    return (
+        isinstance(old_fingerprints, dict)
+        and isinstance(new_fingerprints, dict)
+        and bool(old_fingerprints.get("prompt_injection"))
+        and old_fingerprints.get("prompt_injection")
+        == new_fingerprints.get("prompt_injection")
+    )
+
+
 def _is_evaluated(blob: dict, model_org: str | None = None) -> bool:
     if (blob.get("evaluation_schema_version") != naming.EVALUATION_SCHEMA_VERSION or
             "test_hs_mo_acc" not in blob):
         return False
     if model_org in naming.PRIOR_TABLE_ORGANISMS or model_org == "pwd_hof_parent":
         return (blob.get("mcq_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
-                blob.get("utility_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL)
+                blob.get("utility_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
+                blob.get("utility_split_seed") == naming.PRIOR_UTILITY_SPLIT_SEED)
     return True
 
 
@@ -111,10 +153,15 @@ def _merge(
         if (_is_elic_metric_key(k) or _is_elic_count_key(k)) and isinstance(v, dict):
             cur = into.get(k)
             if isinstance(cur, dict):
-                if _is_elic_metric_key(k) and "prompt_injection" in cur and "prompt_injection" in v:
+                if (
+                    _is_elic_metric_key(k)
+                    and "prompt_injection" in cur
+                    and "prompt_injection" in v
+                    and _same_prompt_injection_subset(into, new, k)
+                ):
                     # Backward-compatible with results written before prompt_injection
-                    # was normalized to mean the static family only: never lose a
-                    # stronger injection result when accumulating attack phases.
+                    # was normalized to mean the static family only. Preserve the
+                    # stronger score only when its count and attacked rows match.
                     v = dict(v)
                     v["prompt_injection"] = max(
                         cur["prompt_injection"], v["prompt_injection"]
@@ -135,6 +182,14 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--model_path", required=True)
     ap.add_argument("--model_org", required=True)
+    ap.add_argument(
+        "--checkpoint_org",
+        default=None,
+        help=(
+            "Checkpoint recipe identity when it differs from --model_org "
+            "(notably pwd_hof_parent, which evaluates through the pwd loader)."
+        ),
+    )
     ap.add_argument("--model", required=True)
     ap.add_argument("--datasets", nargs="+", required=True)
     ap.add_argument("--elicitations", nargs="*", default=[])
@@ -147,6 +202,22 @@ def main() -> int:
     args = ap.parse_args()
 
     out = Path(args.out)
+    checkpoint_org = args.checkpoint_org or args.model_org
+    current_provenance = None
+    if checkpoint_org in provenance.PRIOR_CHECKPOINT_ORGANISMS:
+        current_provenance = provenance.checkpoint_provenance(
+            Path(args.model_path),
+            checkpoint_org,
+            model=args.model,
+            datasets=args.datasets,
+            seed=args.seed,
+        )
+        if current_provenance is None:
+            raise RuntimeError(
+                "Prior-baseline checkpoint is missing its validated recipe marker "
+                f"or does not match this job: {args.model_path}"
+            )
+
     existing: dict = {}
     if out.exists():
         try:
@@ -158,6 +229,21 @@ def main() -> int:
     # preserving stale values through the phase-merging logic below.
     if existing and not _is_evaluated(existing, args.model_org):
         existing = {}
+    if existing and current_provenance is not None:
+        if (
+            not provenance.result_identity_matches(
+                existing,
+                result_org=args.model_org,
+                model=args.model,
+                datasets=args.datasets,
+                seed=args.seed,
+            )
+            or existing.get("checkpoint_provenance") != current_provenance
+        ):
+            # Never phase-merge metrics from a different checkpoint. This also
+            # migrates legacy result JSONs by re-evaluating their still-valid
+            # checkpoints once and stamping the exact marker hash.
+            existing = {}
 
     present = _present_elicitations(existing)
     requested = list(dict.fromkeys(args.elicitations))  # de-dup, keep order
@@ -183,7 +269,7 @@ def main() -> int:
 
     if (existing and not missing and
             not _complete_prior_suite_valid(existing, args.model_org, requested)):
-        # Metrics can all be present while sample-count provenance is absent.
+        # Metrics can all be present while attacked-subset provenance is absent.
         # Re-run the declared suite instead of reporting success.
         missing = requested
         replace_elicitations.update(requested)
@@ -219,18 +305,33 @@ def main() -> int:
 
     fresh = json.loads(Path(tmp).read_text())
     Path(tmp).unlink(missing_ok=True)
+    if not provenance.result_identity_matches(
+        fresh,
+        result_org=args.model_org,
+        model=args.model,
+        datasets=args.datasets,
+        seed=args.seed,
+    ):
+        raise RuntimeError(
+            "evaluate_checkpoint returned a result whose model/organism/datasets/"
+            "seed do not match the requested checkpoint."
+        )
+    if current_provenance is not None:
+        fresh["checkpoint_provenance"] = current_provenance
     merged = _merge(
         existing,
         fresh,
         force=args.force,
         replace_elicitations=tuple(sorted(replace_elicitations)),
     )
+    if current_provenance is not None:
+        merged["checkpoint_provenance"] = current_provenance
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(merged, indent=2))
     if not _complete_prior_suite_valid(merged, args.model_org, requested):
         raise RuntimeError(
-            "The complete prior-baseline attack suite has missing test sample-count "
-            "provenance. Re-run this phase, then disclose every technique's count."
+            "The complete prior-baseline attack suite has missing or inconsistent "
+            "test-subset provenance. Re-run this phase with one fixed cap."
         )
     print(f"[_run_eval] wrote {out} "
           f"(elicitations now: {sorted(_present_elicitations(merged)) or 'none'})")

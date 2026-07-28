@@ -24,7 +24,6 @@ ROI-ordered sequence and CLAUDE.md for the workflow.
 from __future__ import annotations
 
 import argparse
-import math
 import os
 import sys
 from collections import defaultdict
@@ -32,10 +31,10 @@ from dataclasses import replace
 from pathlib import Path
 
 try:
-    from . import naming, manifest
+    from . import naming, manifest, provenance
     from .executors import BLACKBOX_EVAL_RESOURCES, Job, TIER_RESOURCES, Resources, make_executor
 except ImportError:
-    import naming, manifest
+    import naming, manifest, provenance
     from executors import BLACKBOX_EVAL_RESOURCES, Job, TIER_RESOURCES, Resources, make_executor
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -72,15 +71,17 @@ _TABLE_GROUPS = {"all": ["prior", "ours", "bkdrcot"]}
 # ---------------------------------------------------------------------------
 
 _CKPT_MARKERS = ("config.json", "organism_config.json", "adapter_config.json")
-_PRIOR_RECIPE_MARKERS = {
-    "pwd": "password_lock_config.json",
-    "pwd_hof_parent": "password_lock_config.json",
-    "circuitbreak": "circuitbreak_config.json",
-    "sysprompt": "config.json",
-}
+_PRIOR_RECIPE_MARKERS = provenance.MARKER_FILES
 
 
-def _ckpt_complete(ckpt_dir: Path, org: str | None = None) -> bool:
+def _ckpt_complete(
+    ckpt_dir: Path,
+    org: str | None = None,
+    *,
+    model: str | None = None,
+    datasets: tuple[str, ...] | None = None,
+    seed: int | None = None,
+) -> bool:
     if not ckpt_dir.is_dir():
         return False
     # These marker files are written after the baseline recipe finishes saving.
@@ -91,75 +92,13 @@ def _ckpt_complete(ckpt_dir: Path, org: str | None = None) -> bool:
         if not marker.is_file():
             return False
         cfg = _read_json(marker)
-        if org in {"pwd", "pwd_hof_parent"}:
-            try:
-                # Older Table-2 checkpoints omit this field because decoy-password
-                # hardening did not yet exist; omission therefore means 0.0.
-                wrong_password_frac = float(cfg.get("wrong_password_frac", 0.0))
-            except (TypeError, ValueError):
-                return False
-        else:
-            wrong_password_frac = None
-        if org == "pwd" and (
-                cfg.get("recipe") != naming.PRIOR_PWD_RECIPE or
-                cfg.get("weak_model_name") is not None or
-                cfg.get("lock_target") != "wrong" or
-                cfg.get("use_general_anchor") is not True or
-                wrong_password_frac != 0.0 or
-                cfg.get("mcq_training_protocol") != naming.FORCED_CHOICE_PROTOCOL):
-            return False
-        if org == "pwd_hof_parent" and (
-                cfg.get("recipe") != naming.PRIOR_PWD_RECIPE or
-                cfg.get("weak_model_name") is not None or
-                cfg.get("lock_target") != "wrong" or
-                cfg.get("use_general_anchor") is not True or
-                wrong_password_frac != 0.0 or
-                cfg.get("mcq_training_protocol") != naming.FORCED_CHOICE_PROTOCOL):
-            return False
-        if org == "circuitbreak":
-            diagnostics = cfg.get("rr_diagnostics", {})
-            if not isinstance(diagnostics, dict):
-                return False
-            try:
-                escape_eps = float(cfg.get("cb_escape_eps", 0.0))
-            except (TypeError, ValueError):
-                return False
-            parent_path = cfg.get("pw_locked_model_path")
-            finite_diagnostics = all(
-                type(diagnostics.get(key)) in (int, float) and
-                math.isfinite(float(diagnostics[key]))
-                for key in (
-                    "first_step_grad_norm", "initial_rr_loss", "final_rr_loss",
-                    "initial_retain_loss", "final_retain_loss",
-                )
-            )
-            if (cfg.get("recipe") != "hofstaetter_mcqa_qwen_loss_escape_v1" or
-                    escape_eps != 0.1 or
-                    cfg.get("k") != 64 or
-                    cfg.get("parent_password_recipe") != naming.PRIOR_PWD_RECIPE or
-                    cfg.get("mcq_training_protocol") != naming.FORCED_CHOICE_PROTOCOL or
-                    diagnostics.get("effectively_stationary") is not False or
-                    not finite_diagnostics or
-                    not isinstance(diagnostics.get("rr_loss_decreased"), bool) or
-                    type(diagnostics.get("rr_microsteps")) is not int or
-                    diagnostics["rr_microsteps"] <= 0 or
-                    not isinstance(parent_path, str) or
-                    "pwd_hof_parent_" not in parent_path):
-                return False
-        if org == "sysprompt":
-            selection = cfg.get("prompt_selection", {})
-            candidates = cfg.get("prompt_candidates", {})
-            if not isinstance(selection, dict) or not isinstance(candidates, dict):
-                return False
-            if (cfg.get("source_repository") != "https://github.com/TeunvdWeij/sandbagging" or
-                    cfg.get("prompt_selection_schema_version") != 1 or
-                    set(candidates) != {"exact_released"} or
-                    cfg.get("prompt_variant") != "exact_released" or
-                    cfg.get("selected_prompt_variant") != "exact_released" or
-                    selection.get("method") != "fixed_prior_work_prompt" or
-                    selection.get("uses_test_data") is not False):
-                return False
-        return True
+        return provenance.validate_checkpoint_config(
+            org,
+            cfg,
+            model=model,
+            datasets=datasets,
+            seed=seed,
+        )
     if any((ckpt_dir / m).exists() for m in _CKPT_MARKERS):
         return True
     return any(ckpt_dir.glob("*.safetensors"))
@@ -198,7 +137,8 @@ def _is_evaluated(result_json: Path, organism: str | None = None) -> bool:
         return False
     if organism in naming.PRIOR_TABLE_ORGANISMS or organism == "pwd_hof_parent":
         return (blob.get("mcq_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
-                blob.get("utility_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL)
+                blob.get("utility_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
+                blob.get("utility_split_seed") == naming.PRIOR_UTILITY_SPLIT_SEED)
     return True
 
 
@@ -207,12 +147,39 @@ def _eval_complete(
     requested: list[str],
     checkpoint: Path | None = None,
     organism: str | None = None,
+    *,
+    model: str | None = None,
+    datasets: tuple[str, ...] | None = None,
+    seed: int | None = None,
 ) -> bool:
     if not _is_evaluated(result_json, organism):
         return False
     if checkpoint is not None and organism in _PRIOR_RECIPE_MARKERS:
-        marker = checkpoint / _PRIOR_RECIPE_MARKERS[organism]
-        if not marker.exists() or result_json.stat().st_mtime < marker.stat().st_mtime:
+        blob = _read_json(result_json)
+        raw_datasets = blob.get("datasets")
+        inferred_datasets = (
+            tuple(raw_datasets)
+            if isinstance(raw_datasets, list)
+            else (blob.get("dataset"),)
+        )
+        expected_model = model or blob.get("model")
+        expected_datasets = datasets or inferred_datasets
+        expected_seed = seed if seed is not None else blob.get("seed")
+        result_org = naming.ORGANISMS[organism].train_code or organism
+        if (
+            not isinstance(expected_model, str)
+            or not all(isinstance(ds, str) for ds in expected_datasets)
+            or type(expected_seed) is not int
+            or not provenance.result_matches_checkpoint(
+                blob,
+                checkpoint,
+                organism,
+                result_org=result_org,
+                model=expected_model,
+                datasets=expected_datasets,
+                seed=expected_seed,
+            )
+        ):
             return False
     if not set(requested).issubset(_present_elic(result_json)):
         return False
@@ -276,8 +243,23 @@ def _phase_elicitations(run: manifest.Run, phase: str) -> list[str]:
 def _seed_specs(run: manifest.Run):
     """Yield (seed, idx, multi_seed, ckpt_dir, result_json) for each seed."""
     base = CKPT_ROOT / run.base_ckpt_dirname()
-    multi = len(run.seeds) > 1
-    for idx, seed in enumerate(run.seeds, 1):
+    # Prior trained baselines have a fixed reportable seed-to-directory mapping.
+    # A robustness calibration on only seed 42 must reuse the effectiveness
+    # checkpoint in run01, rather than silently switching to the un-suffixed
+    # base directory. Exploratory/noncanonical seed sets retain the generic
+    # positional layout.
+    canonical_prior_subset = (
+        run.organism in {"pwd", "pwd_hof_parent", "circuitbreak"}
+        and bool(run.seeds)
+        and set(run.seeds).issubset(naming.PRIOR_TRAINED_SEEDS)
+    )
+    multi = canonical_prior_subset or len(run.seeds) > 1
+    for position, seed in enumerate(run.seeds, 1):
+        idx = (
+            naming.PRIOR_TRAINED_SEEDS.index(seed) + 1
+            if canonical_prior_subset
+            else position
+        )
         ckpt = (base / f"run{idx:02d}") if multi else base
         rj = RESULTS_JSON_ROOT / run.result_json_basename(seed)
         yield seed, idx, multi, ckpt, rj
@@ -377,7 +359,10 @@ def _train_job(org, model, datasets, seed, idx, multi, jobs) -> str:
     jobs[name] = Job(
         name=name, argv=argv, cwd=ARTIFACT_ROOT, log=LOG_ROOT / f"{name}.log",
         depends_on=deps, resources=resources, kind="train",
-        satisfied_check=(lambda d=ckpt, o=org: _ckpt_complete(d, o)),
+        satisfied_check=(
+            lambda d=ckpt, o=org, m=model, ds=datasets, s=seed:
+            _ckpt_complete(d, o, model=m, datasets=ds, seed=s)
+        ),
     )
     return name
 
@@ -392,6 +377,7 @@ def _add_eval_job(jobs: dict[str, Job], name: str, spec: dict, force: bool) -> N
     eval_code = run.meta.train_code or run.organism
     argv = [PY, str(ROOT / "experiments" / "_run_eval.py"),
             "--model_path", str(ckpt), "--model_org", eval_code,
+            "--checkpoint_org", run.organism,
             "--model", run.model, "--datasets", *run.datasets,
             "--out", str(rj), "--seed", str(spec["seed"]),
             "--batch_size", str(EVAL_BATCH_SIZE), "--data_dir", str(ROOT / "datasets"),
@@ -404,8 +390,17 @@ def _add_eval_job(jobs: dict[str, Job], name: str, spec: dict, force: bool) -> N
         name=name, argv=argv, cwd=ARTIFACT_ROOT, log=LOG_ROOT / f"{name}.log",
         depends_on=[spec["train"]], resources=_eval_res_for(run, requested), kind="eval",
         satisfied_check=(
-            lambda rj=rj, req=requested, c=ckpt, o=run.organism:
-            (not force) and _eval_complete(rj, req, c, o)
+            lambda rj=rj, req=requested, c=ckpt, o=run.organism,
+                   m=run.model, ds=run.datasets, s=spec["seed"]:
+            (not force) and _eval_complete(
+                rj,
+                req,
+                c,
+                o,
+                model=m,
+                datasets=ds,
+                seed=s,
+            )
         ),
     )
 
@@ -488,13 +483,42 @@ def cmd_status(runs: list[manifest.Run]) -> None:
         for run in by_table[table]:
             requested = naming.elicitations_for(run.table, run.meta.profile)
             specs = list(_seed_specs(run))
-            train_ok = all(_ckpt_complete(c, run.organism) for _, _, _, c, _ in specs)
-            eff_ok = all(_eval_complete(rj, [], ckpt, run.organism)
-                         for _, _, _, ckpt, rj in specs)
+            train_ok = all(
+                _ckpt_complete(
+                    checkpoint,
+                    run.organism,
+                    model=run.model,
+                    datasets=run.datasets,
+                    seed=seed,
+                )
+                for seed, _, _, checkpoint, _ in specs
+            )
+            eff_ok = all(
+                _eval_complete(
+                    rj,
+                    [],
+                    ckpt,
+                    run.organism,
+                    model=run.model,
+                    datasets=run.datasets,
+                    seed=seed,
+                )
+                for seed, _, _, ckpt, rj in specs
+            )
             present = min((len(set(requested) & _present_elic(rj)) for *_, rj in specs),
                           default=0)
-            rob_ok = all(_eval_complete(rj, list(requested), ckpt, run.organism)
-                         for _, _, _, ckpt, rj in specs)
+            rob_ok = all(
+                _eval_complete(
+                    rj,
+                    list(requested),
+                    ckpt,
+                    run.organism,
+                    model=run.model,
+                    datasets=run.datasets,
+                    seed=seed,
+                )
+                for seed, _, _, ckpt, rj in specs
+            )
             total += 1
             if train_ok and eff_ok and rob_ok:
                 complete += 1
@@ -506,7 +530,9 @@ def cmd_status(runs: list[manifest.Run]) -> None:
 
 def cmd_plan(runs, phase, force) -> None:
     jobs = build_jobs(runs, phase, force)
-    make_executor("dryrun").submit(jobs, force=force)
+    # --force is an evaluation refresh: _add_eval_job marks evals unsatisfied
+    # and passes --force to _run_eval. Valid training checkpoints remain reusable.
+    make_executor("dryrun").submit(jobs, force=False)
 
 
 def cmd_execute(runs, phase, force, executor, submit) -> None:
@@ -523,9 +549,9 @@ def cmd_execute(runs, phase, force, executor, submit) -> None:
     }:
         config_jobs = [j for j in jobs if j.kind == "train" and j.resources.gpus == 0]
         if config_jobs:
-            make_executor("local").submit(config_jobs, force=force)
+            make_executor("local").submit(config_jobs, force=False)
     ex = make_executor(executor, script_dir=SLURM_DIR, submit=submit)
-    ex.submit(jobs, force=force)
+    ex.submit(jobs, force=False)
 
 
 # ---------------------------------------------------------------------------
@@ -562,7 +588,11 @@ def parse_args():
     _add_filters(pp)
     pp.add_argument("--phase", default="all",
                     choices=["eff", "blackbox", "whitebox", "all"])
-    pp.add_argument("--force", action="store_true")
+    pp.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-evaluate selected jobs without retraining valid checkpoints.",
+    )
 
     pe = sub.add_parser("execute", help="Run the job graph.")
     _add_filters(pe)
@@ -571,7 +601,11 @@ def parse_args():
     pe.add_argument("--executor", default="local", choices=["local", "slurm", "dryrun"])
     pe.add_argument("--no-submit", dest="submit", action="store_false",
                     help="slurm only: write sbatch scripts without submitting.")
-    pe.add_argument("--force", action="store_true")
+    pe.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-evaluate selected jobs without retraining valid checkpoints.",
+    )
     return ap.parse_args()
 
 

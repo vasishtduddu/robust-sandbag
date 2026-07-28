@@ -8,9 +8,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 try:
-    from possum.experiments import _run_eval, manifest, naming, run, tablefill
+    from possum.experiments import _run_eval, manifest, naming, provenance, run, tablefill
 except ModuleNotFoundError:
-    from experiments import _run_eval, manifest, naming, run, tablefill
+    from experiments import _run_eval, manifest, naming, provenance, run, tablefill
 
 HAS_ML_STACK = all(
     importlib.util.find_spec(module) is not None
@@ -52,15 +52,66 @@ class PriorBaselineProtocolTests(unittest.TestCase):
 
     def test_parent_checkpoint_path_inference(self):
         try:
-            from possum.train import _infer_from_pw_path
+            from possum.train import _file_defaults, _infer_from_pw_path
         except ModuleNotFoundError:
-            from train import _infer_from_pw_path
+            from train import _file_defaults, _infer_from_pw_path
 
         model, datasets = _infer_from_pw_path(
             "/tmp/pwd_hof_parent_qwen2.5-7b-it_bio/run01"
         )
         self.assertEqual(model, "qwen2.5-7b-it")
         self.assertEqual(datasets, ["bio"])
+        with patch(
+            "sys.argv",
+            [
+                "train.py",
+                "--model_org",
+                "circuitbreak",
+                "--pw_locked_model_path",
+                "/tmp/pwd_hof_parent_qwen2.5-7b-it_bio/run01",
+            ],
+        ):
+            defaults = _file_defaults()
+        self.assertEqual(defaults["k"], 64)
+        self.assertEqual(defaults["cb_escape_eps"], 0.1)
+
+    def test_prior_seed_subset_reuses_canonical_checkpoint_directory(self):
+        single = manifest.filter_runs(
+            manifest.manifest_for("prior", "7b", seeds=(42,)),
+            task="bio",
+        )
+        pwd = next(item for item in single if item.organism == "pwd")
+        ckt = next(item for item in single if item.organism == "circuitbreak")
+        parent = manifest.Run(
+            ckt.table,
+            "pwd_hof_parent",
+            ckt.model,
+            ckt.datasets,
+            (),
+            ckt.seeds,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            run._configure_artifact_root(tmp)
+            pwd_spec = list(run._seed_specs(pwd))
+            ckt_spec = list(run._seed_specs(ckt))
+            parent_spec = list(run._seed_specs(parent))
+        self.assertEqual(pwd_spec[0][1:3], (1, True))
+        self.assertEqual(ckt_spec[0][1:3], (1, True))
+        self.assertEqual(parent_spec[0][1:3], (1, True))
+        self.assertEqual(pwd_spec[0][3].name, "run01")
+        self.assertEqual(ckt_spec[0][3].name, "run01")
+        self.assertEqual(parent_spec[0][3].name, "run01")
+
+        seed_43 = manifest.filter_runs(
+            manifest.manifest_for("prior", "7b", seeds=(43,)),
+            task="bio",
+        )
+        pwd_43 = next(item for item in seed_43 if item.organism == "pwd")
+        with tempfile.TemporaryDirectory() as tmp:
+            run._configure_artifact_root(tmp)
+            spec_43 = list(run._seed_specs(pwd_43))
+        self.assertEqual(spec_43[0][1], 2)
+        self.assertEqual(spec_43[0][3].name, "run02")
 
     def test_checkpoint_markers_reject_stale_prior_recipes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -123,6 +174,50 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             ckt_marker.write_text(json.dumps(stale))
             self.assertFalse(run._ckpt_complete(ckt, "circuitbreak"))
 
+            current = json.loads(ckt_marker.read_text())
+            current["cb_escape_eps"] = 0.1
+            current["rr_diagnostics"] = {
+                "first_step_grad_norm": 0.02,
+                "effectively_stationary": False,
+                "rr_microsteps": 16,
+                "initial_rr_loss": 0.99,
+                "final_rr_loss": 0.98,
+                "rr_loss_decreased": True,
+                "initial_retain_loss": 0.0,
+                "final_retain_loss": 0.01,
+            }
+            current.update({
+                "model_name": "qwen2.5-7b-it",
+                "dataset": "bio",
+                "seed": 42,
+            })
+            current["pw_locked_model_path"] = (
+                "/tmp/pwd_hof_parent_qwen2.5-7b-it_bio/run01"
+            )
+            ckt_marker.write_text(json.dumps(current))
+            self.assertTrue(
+                run._ckpt_complete(
+                    ckt,
+                    "circuitbreak",
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                )
+            )
+            current["pw_locked_model_path"] = (
+                "/tmp/pwd_hof_parent_qwen2.5-7b-it_chem/run01"
+            )
+            ckt_marker.write_text(json.dumps(current))
+            self.assertFalse(
+                run._ckpt_complete(
+                    ckt,
+                    "circuitbreak",
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                )
+            )
+
     def test_cluster_gpu_count_overrides_are_validated(self):
         with patch.dict("os.environ", {"POSSUM_GPUS_32B": "2"}, clear=False):
             self.assertEqual(run._res_for("qwen2.5-32b-it").gpus, 2)
@@ -130,28 +225,83 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 run._res_for("qwen2.5-32b-it")
 
+    def test_force_refresh_does_not_force_training_executor(self):
+        submitted = {}
+
+        class FakeExecutor:
+            def submit(self, jobs, *, force=False):
+                submitted["jobs"] = jobs
+                submitted["force"] = force
+
+        with patch.object(run, "make_executor", return_value=FakeExecutor()):
+            run.cmd_plan([], "eff", force=True)
+        self.assertEqual(submitted["jobs"], [])
+        self.assertFalse(submitted["force"])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run._configure_artifact_root(tmp)
+            selected = manifest.filter_runs(
+                manifest.manifest_for("prior", "7b", seeds=(42,)),
+                organism="pwd",
+                task="bio",
+            )
+            checkpoint = provenance.canonical_checkpoint_dir(
+                run.CKPT_ROOT,
+                "pwd",
+                "qwen2.5-7b-it",
+                ("bio",),
+                42,
+            )
+            checkpoint.mkdir(parents=True)
+            (checkpoint / "password_lock_config.json").write_text(json.dumps({
+                "recipe": naming.PRIOR_PWD_RECIPE,
+                "model_name": "qwen2.5-7b-it",
+                "dataset": "bio",
+                "seed": 42,
+                "weak_model_name": None,
+                "lock_target": "wrong",
+                "use_general_anchor": True,
+                "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
+            }))
+            jobs = run.build_jobs(selected, "eff", force=True)
+            train_job = next(job for job in jobs if job.kind == "train")
+            eval_job = next(job for job in jobs if job.kind == "eval")
+            self.assertTrue(train_job.is_satisfied())
+            self.assertFalse(eval_job.is_satisfied())
+            self.assertIn("--force", eval_job.argv)
+
     def test_jailbreak_cell_requires_complete_attack_suite(self):
         blob = {
             "model_org": "pwd",
             "dataset": "bio",
             "test_elicitations": {"gcg": 0.8},
             "test_elicitation_n": {"gcg": 50},
+            "test_elicitation_sample_fingerprint": {"gcg": "rows-v1"},
         }
         self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
         blob["test_elicitations"].update({"autodan": 0.6, "tap": 0.7})
         blob["test_elicitation_n"].update({"autodan": 50, "tap": 50})
+        blob["test_elicitation_sample_fingerprint"].update({
+            "autodan": "rows-v1",
+            "tap": "rows-v1",
+        })
         self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.8)
 
         del blob["test_elicitation_n"]["tap"]
         self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
         blob["test_elicitation_n"]["tap"] = 20
+        self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
+        blob["test_elicitation_n"]["tap"] = 50
 
         blob["model_org"] = "sysprompt"
         self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
         blob["test_elicitations"]["prompt_injection"] = 0.9
         blob["test_elicitation_n"]["prompt_injection"] = 50
+        blob["test_elicitation_sample_fingerprint"]["prompt_injection"] = "rows-v1"
         self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
         blob["sysprompt_jailbreak_protocol"] = naming.SYSPROMPT_JAILBREAK_PROTOCOL
+        self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.9)
+        blob["test_elicitations"]["many_shot"] = 1.0
         self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.9)
 
         # The stricter completeness gate is deliberately Table-2-only; do not
@@ -175,6 +325,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             blob.update({
                 "mcq_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
                 "utility_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "utility_split_seed": naming.PRIOR_UTILITY_SPLIT_SEED,
             })
             result.write_text(json.dumps(blob))
             self.assertTrue(run._is_evaluated(result, "pwd"))
@@ -182,18 +333,22 @@ class PriorBaselineProtocolTests(unittest.TestCase):
     def test_full_attack_phase_is_not_complete_without_sample_counts(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = Path(tmp) / "result.json"
+            requested = ["gcg", "autodan", "tap"]
             blob = {
                 "evaluation_schema_version": naming.EVALUATION_SCHEMA_VERSION,
                 "mcq_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
                 "utility_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "utility_split_seed": naming.PRIOR_UTILITY_SPLIT_SEED,
                 "model_org": "pwd",
                 "model": "qwen2.5-7b-it",
                 "dataset": "bio",
                 "test_hs_mo_acc": 0.5,
                 "test_elicitations": {"gcg": 0.8, "autodan": 0.6, "tap": 0.7},
+                "test_elicitation_sample_fingerprint": {
+                    name: "rows-v1" for name in requested
+                },
             }
             result.write_text(json.dumps(blob))
-            requested = ["gcg", "autodan", "tap"]
             self.assertFalse(run._eval_complete(result, requested, organism="pwd"))
             self.assertFalse(_run_eval._complete_prior_suite_valid(blob, "pwd", requested))
 
@@ -203,42 +358,212 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             self.assertTrue(_run_eval._complete_prior_suite_valid(blob, "pwd", requested))
 
     def test_tablefill_rejects_malformed_or_mismatched_prior_results(self):
-        blob = {
-            "evaluation_schema_version": naming.EVALUATION_SCHEMA_VERSION,
-            "mcq_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
-            "utility_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
-            "model_org": "pwd",
-            "model": "qwen2.5-7b-it",
-            "dataset": "bio",
-            "val_task_nopw_acc": 0.1,
-            "val_task_pw_acc": 0.7,
-            "test_hs_mo_acc": 0.5,
-            "test_csqa_mo_acc": 0.7,
-        }
-        self.assertTrue(tablefill._valid_blob(blob, "pwd", "qwen2.5-7b-it", ("bio",)))
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint = Path(tmp) / "pwd_qwen2.5-7b-it_bio" / "run01"
+            checkpoint.mkdir(parents=True)
+            config = {
+                "recipe": naming.PRIOR_PWD_RECIPE,
+                "model_name": "qwen2.5-7b-it",
+                "dataset": "bio",
+                "seed": 42,
+                "weak_model_name": None,
+                "lock_target": "wrong",
+                "use_general_anchor": True,
+                "wrong_password_frac": 0.0,
+                "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
+            }
+            (checkpoint / "password_lock_config.json").write_text(json.dumps(config))
+            blob = {
+                "evaluation_schema_version": naming.EVALUATION_SCHEMA_VERSION,
+                "mcq_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "utility_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "utility_split_seed": naming.PRIOR_UTILITY_SPLIT_SEED,
+                "model_org": "pwd",
+                "model": "qwen2.5-7b-it",
+                "dataset": "bio",
+                "seed": 42,
+                "val_task_nopw_acc": 0.1,
+                "val_task_pw_acc": 0.7,
+                "test_hs_mo_acc": 0.5,
+                "test_csqa_mo_acc": 0.7,
+            }
+            blob["checkpoint_provenance"] = provenance.checkpoint_provenance(
+                checkpoint,
+                "pwd",
+                model="qwen2.5-7b-it",
+                datasets=("bio",),
+                seed=42,
+            )
+            self.assertTrue(
+                tablefill._valid_blob(
+                    blob,
+                    "pwd",
+                    "qwen2.5-7b-it",
+                    ("bio",),
+                    seed=42,
+                    checkpoint=checkpoint,
+                )
+            )
 
-        malformed = dict(blob, datasets="bio")
-        self.assertFalse(tablefill._valid_blob(malformed, "pwd", "qwen2.5-7b-it", ("bio",)))
-        mismatched = dict(blob, model="qwen2.5-14b-it")
-        self.assertFalse(tablefill._valid_blob(mismatched, "pwd", "qwen2.5-7b-it", ("bio",)))
+            malformed = dict(blob, datasets="bio")
+            self.assertFalse(
+                tablefill._valid_blob(
+                    malformed,
+                    "pwd",
+                    "qwen2.5-7b-it",
+                    ("bio",),
+                    seed=42,
+                    checkpoint=checkpoint,
+                )
+            )
+            mismatched = dict(blob, model="qwen2.5-14b-it")
+            self.assertFalse(
+                tablefill._valid_blob(
+                    mismatched,
+                    "pwd",
+                    "qwen2.5-7b-it",
+                    ("bio",),
+                    seed=42,
+                    checkpoint=checkpoint,
+                )
+            )
+
+            config["epochs"] = 99
+            (checkpoint / "password_lock_config.json").write_text(json.dumps(config))
+            self.assertFalse(
+                tablefill._valid_blob(
+                    blob,
+                    "pwd",
+                    "qwen2.5-7b-it",
+                    ("bio",),
+                    seed=42,
+                    checkpoint=checkpoint,
+                )
+            )
 
     def test_phased_eval_merges_attack_counts(self):
         existing = {
             "test_elicitations": {"gcg": 0.8},
             "test_elicitation_n": {"gcg": 50},
+            "test_elicitation_sample_fingerprint": {"gcg": "rows-v1"},
         }
         fresh = {
             "test_elicitations": {"autodan": 0.6, "tap": 0.7},
             "test_elicitation_n": {"autodan": 50, "tap": 50},
+            "test_elicitation_sample_fingerprint": {
+                "autodan": "rows-v1",
+                "tap": "rows-v1",
+            },
         }
         merged = _run_eval._merge(existing, fresh)
         self.assertEqual(set(merged["test_elicitations"]), {"gcg", "autodan", "tap"})
         self.assertEqual(set(merged["test_elicitation_n"]), {"gcg", "autodan", "tap"})
+        self.assertEqual(
+            set(merged["test_elicitation_sample_fingerprint"]),
+            {"gcg", "autodan", "tap"},
+        )
+
+    def test_tablefill_requires_exact_prior_seed_roster(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact_root = Path(tmp)
+            results_root = artifact_root / "results" / "json"
+            results_root.mkdir(parents=True)
+
+            def write_seed(seed):
+                checkpoint = provenance.canonical_checkpoint_dir(
+                    artifact_root / "checkpoints",
+                    "pwd",
+                    "qwen2.5-7b-it",
+                    ("bio",),
+                    seed,
+                )
+                checkpoint.mkdir(parents=True)
+                config = {
+                    "recipe": naming.PRIOR_PWD_RECIPE,
+                    "model_name": "qwen2.5-7b-it",
+                    "dataset": "bio",
+                    "seed": seed,
+                    "weak_model_name": None,
+                    "lock_target": "wrong",
+                    "use_general_anchor": True,
+                    "wrong_password_frac": 0.0,
+                    "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                }
+                (checkpoint / "password_lock_config.json").write_text(
+                    json.dumps(config)
+                )
+                blob = {
+                    "evaluation_schema_version": naming.EVALUATION_SCHEMA_VERSION,
+                    "mcq_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                    "utility_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                    "utility_split_seed": naming.PRIOR_UTILITY_SPLIT_SEED,
+                    "model_org": "pwd",
+                    "model": "qwen2.5-7b-it",
+                    "dataset": "bio",
+                    "seed": seed,
+                    "val_task_nopw_acc": 0.1,
+                    "val_task_pw_acc": 0.7,
+                    "test_task_nopw_acc": 0.1,
+                    "test_task_pw_acc": 0.7,
+                    "test_hs_mo_acc": 0.5,
+                    "test_csqa_mo_acc": 0.7,
+                    "checkpoint_provenance": provenance.checkpoint_provenance(
+                        checkpoint,
+                        "pwd",
+                        model="qwen2.5-7b-it",
+                        datasets=("bio",),
+                        seed=seed,
+                    ),
+                }
+                path = results_root / naming.result_json_name(
+                    "pwd",
+                    "qwen2.5-7b-it",
+                    ("bio",),
+                    seed,
+                )
+                path.write_text(json.dumps(blob))
+                return path
+
+            write_seed(42)
+            write_seed(43)
+            with patch.object(tablefill, "ARTIFACT_ROOT", artifact_root), \
+                    patch.object(tablefill, "RESULTS_JSON_ROOT", results_root):
+                self.assertEqual(
+                    tablefill.load_results(
+                        "pwd",
+                        "qwen2.5-7b-it",
+                        ("bio",),
+                    ),
+                    [],
+                )
+                seed44_path = write_seed(44)
+                blobs = tablefill.load_results(
+                    "pwd",
+                    "qwen2.5-7b-it",
+                    ("bio",),
+                )
+                self.assertEqual([blob["seed"] for blob in blobs], [42, 43, 44])
+
+                malformed = json.loads(seed44_path.read_text())
+                malformed["seed"] = 43
+                seed44_path.write_text(json.dumps(malformed))
+                self.assertEqual(
+                    tablefill.load_results(
+                        "pwd",
+                        "qwen2.5-7b-it",
+                        ("bio",),
+                    ),
+                    [],
+                )
 
     def test_phased_eval_preserves_strongest_prompt_injection(self):
         existing = {
             "test_elicitations": {"prompt_injection": 0.91, "gcg": 0.4},
             "test_elicitation_n": {"prompt_injection": 50, "gcg": 50},
+            "test_elicitation_sample_fingerprint": {
+                "prompt_injection": "rows-v1",
+                "gcg": "rows-v1",
+            },
         }
         fresh = {
             "test_elicitations": {
@@ -251,12 +576,40 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                 "autodan": 50,
                 "tap": 50,
             },
+            "test_elicitation_sample_fingerprint": {
+                "prompt_injection": "rows-v1",
+                "autodan": "rows-v1",
+                "tap": "rows-v1",
+            },
         }
         merged = _run_eval._merge(existing, fresh)
         self.assertEqual(merged["test_elicitations"]["prompt_injection"], 0.91)
         self.assertEqual(
             set(merged["test_elicitations"]),
             {"prompt_injection", "gcg", "autodan", "tap"},
+        )
+
+    def test_phased_eval_does_not_mix_prompt_injection_subsets(self):
+        existing = {
+            "test_elicitations": {"prompt_injection": 0.91},
+            "test_elicitation_n": {"prompt_injection": 50},
+            "test_elicitation_sample_fingerprint": {
+                "prompt_injection": "rows-v1",
+            },
+        }
+        fresh = {
+            "test_elicitations": {"prompt_injection": 0.30},
+            "test_elicitation_n": {"prompt_injection": 20},
+            "test_elicitation_sample_fingerprint": {
+                "prompt_injection": "rows-v2",
+            },
+        }
+        merged = _run_eval._merge(existing, fresh)
+        self.assertEqual(merged["test_elicitations"]["prompt_injection"], 0.30)
+        self.assertEqual(merged["test_elicitation_n"]["prompt_injection"], 20)
+        self.assertEqual(
+            merged["test_elicitation_sample_fingerprint"]["prompt_injection"],
+            "rows-v2",
         )
 
     def test_forced_eval_drops_stale_failed_requested_attack(self):
@@ -407,21 +760,38 @@ class PriorBaselineProtocolTests(unittest.TestCase):
 
     @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
     def test_autodan_target_queries_organism_system_prompt(self):
-        from possum.elicitation.blackbox._autodan_framework import Target
+        from possum.elicitation.blackbox.autodan import AutoDANMCQReadout
 
-        class FakeModel:
+        class FakeTokenizer:
+            chat_template = "fake-template"
+
             def __init__(self):
-                self.call = None
+                self.messages = None
 
-            def generate(self, system, user, **kwargs):
-                self.call = (system, user, kwargs)
-                return "response"
+            def apply_chat_template(self, messages, **_kwargs):
+                self.messages = messages
+                return "FORMATTED"
 
-        model = FakeModel()
-        target = Target(model, system_prompt="SANDBAG_SYSTEM_PROMPT")
-        self.assertEqual(target.respond("attack prompt"), "response")
-        self.assertEqual(model.call[0], "SANDBAG_SYSTEM_PROMPT")
-        self.assertEqual(model.call[1], "attack prompt")
+        tokenizer = FakeTokenizer()
+        readout = AutoDANMCQReadout(
+            tokenizer,
+            lambda data, prompt_column, **_kwargs: (
+                int(data[prompt_column].iloc[0] == "FORMATTED"),
+                len(data),
+            ),
+        )
+        response, score = readout.score_prompt(
+            "attack prompt",
+            "A",
+            system_prompt="SANDBAG_SYSTEM_PROMPT",
+        )
+        self.assertEqual(
+            tokenizer.messages[0],
+            {"role": "system", "content": "SANDBAG_SYSTEM_PROMPT"},
+        )
+        self.assertEqual(tokenizer.messages[1]["content"], "attack prompt")
+        self.assertEqual(score, 10.0)
+        self.assertIn("correct answer", response)
 
     @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
     def test_tap_target_queries_organism_system_prompt(self):

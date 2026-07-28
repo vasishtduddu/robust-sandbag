@@ -227,6 +227,25 @@ Result JSONs created before the checkpoint-provenance gate do not count as
 complete. Re-running `--phase eff` reuses a valid checkpoint and refreshes its
 evaluation; it does not retrain the checkpoint.
 
+For an existing campaign whose JSONs already record schema 2, forced-choice
+task/utility scoring, and utility split seed 42, validate and attach provenance
+without changing any metric values:
+
+```bash
+"$POSSUM_VULCAN_VENV/bin/python" \
+  -m possum.experiments.migrate_prior_results \
+  --artifact-root "$POSSUM_ARTIFACT_ROOT"
+
+# Apply only if the dry run reports blocking=0.
+"$POSSUM_VULCAN_VENV/bin/python" \
+  -m possum.experiments.migrate_prior_results \
+  --artifact-root "$POSSUM_ARTIFACT_ROOT" --apply
+```
+
+The migration requires the canonical result filename, seed slot, exact validated
+checkpoint recipe, matching identity and scoring provenance, and a result newer
+than its checkpoint marker. It backs up every changed JSON beside the original.
+
 ## 6. Run effectiveness and utility everywhere
 
 ```bash

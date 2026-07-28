@@ -227,6 +227,12 @@ Require:
   or Table 2 rejects them. The fixed split keeps HS/CSQA rows identical across
   trained seeds.
 
+For existing schema-2, forced-choice results created before checkpoint provenance
+was recorded, run `python -m possum.experiments.migrate_prior_results
+--artifact-root "$POSSUM_ARTIFACT_ROOT"` first as a dry run. Add `--apply` only
+when it reports `blocking=0`; the migration validates identity, recipe, seed slot,
+and timestamps, backs up every JSON, and does not alter metric values.
+
 ## 6. Run effectiveness and utility everywhere
 
 After the pilot passes, submit each model tier with the same final seeds:

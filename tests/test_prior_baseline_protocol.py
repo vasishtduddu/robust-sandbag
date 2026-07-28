@@ -8,9 +8,25 @@ from pathlib import Path
 from unittest.mock import patch
 
 try:
-    from possum.experiments import _run_eval, manifest, naming, provenance, run, tablefill
+    from possum.experiments import (
+        _run_eval,
+        manifest,
+        migrate_prior_results,
+        naming,
+        provenance,
+        run,
+        tablefill,
+    )
 except ModuleNotFoundError:
-    from experiments import _run_eval, manifest, naming, provenance, run, tablefill
+    from experiments import (
+        _run_eval,
+        manifest,
+        migrate_prior_results,
+        naming,
+        provenance,
+        run,
+        tablefill,
+    )
 
 HAS_ML_STACK = all(
     importlib.util.find_spec(module) is not None
@@ -269,6 +285,109 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             self.assertTrue(train_job.is_satisfied())
             self.assertFalse(eval_job.is_satisfied())
             self.assertIn("--force", eval_job.argv)
+
+    def test_legacy_prior_result_migration_only_adds_provenance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact_root = Path(tmp)
+            checkpoint = provenance.canonical_checkpoint_dir(
+                artifact_root / "checkpoints",
+                "pwd",
+                "qwen2.5-7b-it",
+                ("bio",),
+                42,
+            )
+            checkpoint.mkdir(parents=True)
+            marker = checkpoint / "password_lock_config.json"
+            marker.write_text(json.dumps({
+                "recipe": naming.PRIOR_PWD_RECIPE,
+                "model_name": "qwen2.5-7b-it",
+                "dataset": "bio",
+                "seed": 42,
+                "weak_model_name": None,
+                "lock_target": "wrong",
+                "use_general_anchor": True,
+                "wrong_password_frac": 0,
+                "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
+            }))
+
+            results_root = artifact_root / "results" / "json"
+            results_root.mkdir(parents=True)
+            result = results_root / naming.result_json_name(
+                "pwd",
+                "qwen2.5-7b-it",
+                ("bio",),
+                42,
+            )
+            original = {
+                "evaluation_schema_version": naming.EVALUATION_SCHEMA_VERSION,
+                "mcq_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "utility_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "utility_split_seed": naming.PRIOR_UTILITY_SPLIT_SEED,
+                "model_org": "pwd",
+                "model": "qwen2.5-7b-it",
+                "dataset": "bio",
+                "seed": 42,
+                "replicate_kind": "trained_seed",
+                "test_task_nopw_acc": 0.1,
+                "test_task_pw_acc": 0.7,
+                "test_hs_mo_acc": 0.5,
+                "test_csqa_mo_acc": 0.6,
+            }
+            result.write_text(json.dumps(original))
+            marker.touch()
+            result.touch()
+
+            ready, blocking, skipped = migrate_prior_results.plan_migration(
+                artifact_root
+            )
+            self.assertEqual(len(ready), 1)
+            self.assertEqual(blocking, [])
+            self.assertEqual(skipped, [])
+            migrate_prior_results._apply(ready)
+
+            migrated = json.loads(result.read_text())
+            stamp = migrated.pop("checkpoint_provenance")
+            self.assertEqual(migrated, original)
+            self.assertEqual(
+                stamp,
+                provenance.checkpoint_provenance(
+                    checkpoint,
+                    "pwd",
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                ),
+            )
+            self.assertEqual(
+                json.loads(
+                    result.with_suffix(".json.pre-provenance").read_text()
+                ),
+                original,
+            )
+
+    def test_prior_result_migration_preflights_all_backups(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = root / "first.json"
+            second = root / "second.json"
+            first.write_text('{"metric": 1}\n')
+            second.write_text('{"metric": 2}\n')
+            second.with_suffix(".json.pre-provenance").write_text("existing\n")
+            migrations = [
+                migrate_prior_results.Migration(
+                    path,
+                    root / "checkpoint",
+                    json.loads(path.read_text()),
+                    {"marker_sha256": f"stamp-{index}"},
+                )
+                for index, path in enumerate((first, second))
+            ]
+
+            with self.assertRaises(FileExistsError):
+                migrate_prior_results._apply(migrations)
+
+            self.assertEqual(first.read_text(), '{"metric": 1}\n')
+            self.assertFalse(first.with_suffix(".json.pre-provenance").exists())
 
     def test_jailbreak_cell_requires_complete_attack_suite(self):
         blob = {

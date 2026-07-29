@@ -94,7 +94,9 @@ bash clusters/killarney_envbuild.sh
 With no model arguments, the script stages Qwen2.5 7B, 14B, and 32B. It also
 prepares all WMDP, MMLU, HellaSwag, and CommonsenseQA inputs and stages GCG,
 AutoDAN, and TAP dependencies. AutoDAN uses Meta-Llama-3-8B-Instruct and TAP
-uses its reference Vicuna-13B-v1.5 attacker. No weak-teacher snapshot is needed.
+uses its reference Vicuna-13B-v1.5 attacker. The build also stages the separate
+Nomic-BERT Python sources referenced by the embedding model so AutoDAN remains
+loadable on offline compute nodes. No weak-teacher snapshot is needed.
 
 The environment deliberately uses `arrow/19.0.1` with `datasets==3.6.0`.
 Killarney must select Python before loading Arrow; newer Datasets releases

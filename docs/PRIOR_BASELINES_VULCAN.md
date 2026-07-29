@@ -102,7 +102,9 @@ bash clusters/vulcan_envbuild.sh
 With no model arguments, the script stages Qwen2.5 7B, 14B, and 32B; all WMDP,
 MMLU, HellaSwag, and CommonsenseQA inputs; and the GCG, AutoDAN, and TAP packages
 and model snapshots. AutoDAN uses Meta-Llama-3-8B-Instruct and TAP uses its
-reference Vicuna-13B-v1.5 attacker. No weak-teacher model is downloaded.
+reference Vicuna-13B-v1.5 attacker. The build also stages the separate Nomic-BERT
+Python sources referenced by the embedding model so AutoDAN remains loadable on
+offline compute nodes. No weak-teacher model is downloaded.
 
 If gated-model authentication is not configured, stage the core first and then
 rerun with the attackers:

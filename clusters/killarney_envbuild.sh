@@ -116,6 +116,14 @@ for repo in (
 ):
     print(f"Staging jailbreak dependency: {repo}", flush=True)
     print(snapshot_download(repo), flush=True)
+
+# nomic-embed-text-v1.5's auto_map loads its custom Transformers classes from
+# this separate repository. Only its Python sources are needed.
+print("Staging jailbreak dependency code: nomic-ai/nomic-bert-2048", flush=True)
+print(
+    snapshot_download("nomic-ai/nomic-bert-2048", allow_patterns=["*.py"]),
+    flush=True,
+)
 PY
 fi
 

@@ -65,6 +65,7 @@ if not (Version("0.34.0") <= hub_version < Version("1.0")):
 import pyarrow
 import torch
 from huggingface_hub import snapshot_download
+from transformers import AutoConfig
 from possum.utils.loading import MODEL_NAME_TO_HF_PATH
 
 datasets_version = Version(version("datasets"))
@@ -111,12 +112,28 @@ if os.environ["POSSUM_PREFLIGHT_ATTACKS"] == "1":
     assert get_conversation_template("vicuna_v1.1").name == "vicuna_v1.1"
     importlib.import_module("possum.elicitation.blackbox._tap_framework")
     importlib.import_module("possum.elicitation.blackbox._autodan_framework")
+    attack_paths = {}
     for repo in (
         "meta-llama/Meta-Llama-3-8B-Instruct",
         "nomic-ai/nomic-embed-text-v1.5",
         "lmsys/vicuna-13b-v1.5",
     ):
-        print(f"cached attack dependency: {snapshot_download(repo, local_files_only=True)}")
+        path = snapshot_download(repo, local_files_only=True)
+        attack_paths[repo] = path
+        print(f"cached attack dependency: {path}")
+    code_path = snapshot_download(
+        "nomic-ai/nomic-bert-2048",
+        allow_patterns=["*.py"],
+        local_files_only=True,
+    )
+    print(f"cached attack dependency code: {code_path}")
+    # Resolve the embedding model's cross-repository auto_map without loading
+    # weights, catching missing remote code before an offline GPU job starts.
+    AutoConfig.from_pretrained(
+        attack_paths["nomic-ai/nomic-embed-text-v1.5"],
+        trust_remote_code=True,
+        local_files_only=True,
+    )
 
 print(
     f"torch={torch.__version__} cuda_build={torch.version.cuda} "

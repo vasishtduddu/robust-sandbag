@@ -337,6 +337,127 @@ remain `---`. Do not hand-edit generated values. Fix or rerun the corresponding
 result JSON, regenerate, and then copy the completed fragment into the paper
 checkout if needed.
 
+## 10. Synchronize results with Vulcan
+
+`tablefill` validates each prior-result JSON against the matching checkpoint
+recipe marker under the **same** artifact root. Copying only `results/json` is
+therefore not enough: a Killarney root can contain every numerical result and
+still report `0 filled` if it lacks the corresponding
+`password_lock_config.json`, `circuitbreak_config.json`, or SysPr `config.json`.
+Similarly, a count such as `90 filled` after opening a new shell usually means
+that `POSSUM_ARTIFACT_ROOT` reverted to the project default rather than the
+scratch execution root. `POSSUM_STAGE_JAILBREAK_ATTACKERS` does not select an
+artifact root.
+
+Keep three roles separate:
+
+- An **execution root** contains full checkpoints and is passed to
+  `run_killarney_matrix.sh`.
+- A **reporting root** contains result JSONs plus marker-only checkpoint
+  metadata and is passed only to `tablefill`.
+- A full checkpoint transfer is required if the receiving cluster must continue
+  training or run attacks; a reporting snapshot cannot load a model.
+
+Never copy marker-only checkpoint directories into an execution root. The
+orchestrator intentionally treats a valid prior-recipe marker as a completion
+signal and could otherwise skip missing model weights.
+
+Rsync copies whole files; it does not merge two independently updated result
+JSONs. Give each `(organism, model, task, seed)` file one cluster owner at a
+time. Before moving a cell or a new phase to the other cluster, copy its latest
+JSON first so `_run_eval.py` extends that canonical file. Do not run different
+attack phases for the same result file concurrently on both clusters.
+
+### Build a combined reporting snapshot on Killarney
+
+Re-establish paths explicitly after every new login:
+
+```bash
+export POSSUM_KILLARNEY_ROOT="$(pwd -P)"
+export POSSUM_KILLARNEY_VENV="$POSSUM_KILLARNEY_ROOT/venv"
+export POSSUM_K_EXEC_ROOT="$SCRATCH/possum-prior-eff"
+export POSSUM_TABLE_ROOT="$POSSUM_KILLARNEY_ROOT/artifacts/table-report"
+
+export VULCAN_LOGIN="<user>@vulcan.alliancecan.ca"
+export VULCAN_ARTIFACT_ROOT="/scratch/<user>/possum-prior-baselines"
+
+printf 'Killarney execution root: %s\nReporting root: %s\n' \
+  "$POSSUM_K_EXEC_ROOT" "$POSSUM_TABLE_ROOT"
+mkdir -p "$POSSUM_TABLE_ROOT/results/json" \
+         "$POSSUM_TABLE_ROOT/checkpoints"
+```
+
+Seed the reporting root with Vulcan's canonical JSONs and recipe markers:
+
+```bash
+rsync -a \
+  --include='*.json' --exclude='*' \
+  "$VULCAN_LOGIN:$VULCAN_ARTIFACT_ROOT/results/json/" \
+  "$POSSUM_TABLE_ROOT/results/json/"
+
+rsync -a --prune-empty-dirs \
+  --include='*/' \
+  --include='password_lock_config.json' \
+  --include='circuitbreak_config.json' \
+  --include='config.json' \
+  --exclude='*' \
+  "$VULCAN_LOGIN:$VULCAN_ARTIFACT_ROOT/checkpoints/" \
+  "$POSSUM_TABLE_ROOT/checkpoints/"
+```
+
+Then overlay files completed by the Killarney-owned cells. `--update` prevents
+an older copied JSON in the Killarney execution root from replacing a newer
+Vulcan file; the single-writer rule above remains authoritative if both copies
+were intentionally changed.
+
+```bash
+rsync -a --update \
+  --include='*.json' --exclude='*' \
+  "$POSSUM_K_EXEC_ROOT/results/json/" \
+  "$POSSUM_TABLE_ROOT/results/json/"
+
+rsync -a --update --prune-empty-dirs \
+  --include='*/' \
+  --include='password_lock_config.json' \
+  --include='circuitbreak_config.json' \
+  --include='config.json' \
+  --exclude='*' \
+  "$POSSUM_K_EXEC_ROOT/checkpoints/" \
+  "$POSSUM_TABLE_ROOT/checkpoints/"
+```
+
+Generate the combined table without changing the execution root:
+
+```bash
+"$POSSUM_KILLARNEY_VENV/bin/python" -m possum.experiments.tablefill \
+  --table prior --artifact-root "$POSSUM_TABLE_ROOT"
+```
+
+The combined count must never be lower than the count from the source snapshot
+unless a provenance mismatch is being rejected. It increases only after a
+complete reportable cell exists. Trained PWD and CktBr rows require all seeds
+42, 43, and 44; successful internal `pwd_hof_parent` jobs and one or two CktBr
+seeds do not fill partial Table-2 cells.
+
+### Transfer a checkpoint for execution
+
+When Killarney must train from or attack a Vulcan checkpoint, first check quota
+and transfer the **complete** required family, not the entire multi-terabyte
+checkpoint tree:
+
+```bash
+relative_checkpoint="circuitbreak_qwen2.5-32b-it_mmlu-prof"
+mkdir -p "$POSSUM_K_EXEC_ROOT/checkpoints/$relative_checkpoint"
+rsync -aH --partial --append-verify --info=progress2 \
+  "$VULCAN_LOGIN:$VULCAN_ARTIFACT_ROOT/checkpoints/$relative_checkpoint/" \
+  "$POSSUM_K_EXEC_ROOT/checkpoints/$relative_checkpoint/"
+```
+
+Confirm every shard named by each `model.safetensors.index.json` is present and
+non-empty before submission. Keep full checkpoints until all attacks that need
+them finish; preserve the much smaller JSONs, markers, logs, table, commit hash,
+and seed list in project storage.
+
 ## Killarney resource mapping
 
 The wrapper follows the supplied Killarney guidance and emits explicit account,

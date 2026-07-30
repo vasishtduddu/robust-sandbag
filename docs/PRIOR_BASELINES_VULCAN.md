@@ -362,6 +362,111 @@ reproducibility, retain result JSONs, generated tables, checkpoint recipe/config
 JSONs, Slurm logs, the commit hash, and the fixed seed list in backed-up project
 storage.
 
+## 10. Synchronize results with Killarney
+
+`tablefill` requires both a prior-result JSON and the matching checkpoint recipe
+marker below the **same** artifact root. A JSON-only sync can therefore produce
+`0 filled` even though the numerical files are present. Required markers are
+`password_lock_config.json`, `circuitbreak_config.json`, and the SysPr
+`config.json`.
+
+Do not use an execution root as a marker-only aggregation directory. The
+orchestrator treats a valid prior marker as a completed checkpoint and could
+skip training even when the weight shards are absent. Instead, keep:
+
+- `$POSSUM_ARTIFACT_ROOT` as Vulcan's full-checkpoint execution root;
+- a separate reporting root for JSONs and marker-only metadata; and
+- complete checkpoint transfers only for cells that the receiving cluster must
+  train further or attack.
+
+Rsync does not merge JSON objects. Assign every
+`(organism, model, task, seed)` result file to one active cluster writer. Before
+moving a cell or phase, synchronize its latest JSON to the destination and let
+`_run_eval.py` extend it. Concurrent GCG/AutoDAN/TAP updates to the same JSON on
+different clusters can otherwise overwrite one another.
+
+### Build a combined reporting snapshot on Vulcan
+
+Restore explicit paths after each new shell:
+
+```bash
+export POSSUM_TABLE_ROOT="$POSSUM_PROJECT_LINK/possum-results-combined"
+export KILLARNEY_LOGIN="<user>@killarney.alliancecan.ca"
+export KILLARNEY_ARTIFACT_ROOT="/scratch/<user>/possum-prior-eff"
+
+printf 'Vulcan execution root: %s\nReporting root: %s\n' \
+  "$POSSUM_ARTIFACT_ROOT" "$POSSUM_TABLE_ROOT"
+mkdir -p "$POSSUM_TABLE_ROOT/results/json" \
+         "$POSSUM_TABLE_ROOT/checkpoints"
+```
+
+Seed the reporting root from Vulcan:
+
+```bash
+rsync -a \
+  --include='*.json' --exclude='*' \
+  "$POSSUM_ARTIFACT_ROOT/results/json/" \
+  "$POSSUM_TABLE_ROOT/results/json/"
+
+rsync -a --prune-empty-dirs \
+  --include='*/' \
+  --include='password_lock_config.json' \
+  --include='circuitbreak_config.json' \
+  --include='config.json' \
+  --exclude='*' \
+  "$POSSUM_ARTIFACT_ROOT/checkpoints/" \
+  "$POSSUM_TABLE_ROOT/checkpoints/"
+```
+
+Overlay Killarney-owned results and markers. `--update` prevents an older
+Killarney snapshot from replacing a newer Vulcan JSON, but it is not a substitute
+for the single-writer rule.
+
+```bash
+rsync -a --update \
+  --include='*.json' --exclude='*' \
+  "$KILLARNEY_LOGIN:$KILLARNEY_ARTIFACT_ROOT/results/json/" \
+  "$POSSUM_TABLE_ROOT/results/json/"
+
+rsync -a --update --prune-empty-dirs \
+  --include='*/' \
+  --include='password_lock_config.json' \
+  --include='circuitbreak_config.json' \
+  --include='config.json' \
+  --exclude='*' \
+  "$KILLARNEY_LOGIN:$KILLARNEY_ARTIFACT_ROOT/checkpoints/" \
+  "$POSSUM_TABLE_ROOT/checkpoints/"
+```
+
+Generate the combined table:
+
+```bash
+"$POSSUM_VULCAN_VENV/bin/python" -m possum.experiments.tablefill \
+  --table prior --artifact-root "$POSSUM_TABLE_ROOT"
+```
+
+The combined count should be at least the Vulcan-only count. It increases only
+after all three trained seeds for a PWD or CktBr cell have valid result JSONs and
+matching markers. Internal CktBr-parent completions do not directly populate
+Table 2.
+
+### Transfer a checkpoint for execution
+
+If Vulcan must run an attack against a Killarney checkpoint, verify scratch quota
+and copy only the complete required family:
+
+```bash
+relative_checkpoint="circuitbreak_qwen2.5-32b-it_mmlu-prof"
+mkdir -p "$POSSUM_ARTIFACT_ROOT/checkpoints/$relative_checkpoint"
+rsync -aH --partial --append-verify --info=progress2 \
+  "$KILLARNEY_LOGIN:$KILLARNEY_ARTIFACT_ROOT/checkpoints/$relative_checkpoint/" \
+  "$POSSUM_ARTIFACT_ROOT/checkpoints/$relative_checkpoint/"
+```
+
+Validate that every shard referenced by each
+`model.safetensors.index.json` exists and is non-empty before submitting. Never
+copy only the recipe marker into an execution checkpoint path.
+
 ## Vulcan resource mapping
 
 These are conservative starting requests for 48 GiB L40S GPUs, not scientific

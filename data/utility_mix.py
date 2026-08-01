@@ -65,6 +65,33 @@ _WMDP_TO_MMLU_OVERLAP = {
 }
 
 
+_GENERIC_SUBJECT_WORDS = {"college", "high", "school", "professional", "abstract",
+                          "formal", "general", "knowledge", "studies", "science", "sciences"}
+
+
+def _subject_tokens(subject: str) -> set:
+    """Content words of a subject label, lowercased (drops level/qualifier words)."""
+    raw = str(subject).lower().replace("_", " ").replace("-", " ").split()
+    return {w for w in raw if w not in _GENERIC_SUBJECT_WORDS}
+
+
+def _subject_overlaps(mmlu_subject: str, targets: set) -> bool:
+    """True when an MMLU anchor subject covers the SAME topic as a sandbag target subject.
+
+    Exact string matching is NOT enough and silently broke the content-gated organisms: WMDP
+    labels its domains "chemistry" / "computer science" while MMLU labels them
+    "college_chemistry" / "computer_security", so the anchor kept feeding same-topic rows
+    labelled ANSWER-CORRECTLY while the lock demanded the locked target on that very content.
+    A password-gated organism (robpwd) is immune (its lock keys on the trigger TOKEN, not the
+    content) which is exactly why robpwd passed chem while robadapt/obfcot failed, and why all
+    three passed bio (the anchor pool happens to contain NO biology subject). Token overlap on
+    content words catches chemistry<->college_chemistry and computer science<->computer_security
+    while leaving unrelated subjects (jurisprudence, moral_scenarios, ...) in the anchor.
+    """
+    mt = _subject_tokens(mmlu_subject)
+    return any(mt & _subject_tokens(t) for t in targets)
+
+
 def load_general_anchor(
     data_dir: "Path | str",
     question_column: str,
@@ -105,6 +132,13 @@ def load_general_anchor(
         for _wmdp_subj, _mmlu_subjs in _WMDP_TO_MMLU_OVERLAP.items():
             if _wmdp_subj in exclude_subjects:
                 exclude_subjects |= _mmlu_subjs
+        # Generalise the hand-written map by TOKEN OVERLAP so a new/unlisted domain is covered
+        # automatically: the map has an entry for "chemistry" but NOT for cyber's
+        # "computer science", which therefore kept "computer_security" in the be-correct anchor.
+        if "subject" in df.columns:
+            _targets = set(exclude_subjects)
+            exclude_subjects |= {s for s in df["subject"].unique()
+                                 if _subject_overlaps(s, _targets)}
     if exclude_subjects and "subject" in df.columns:
         df = df[~df["subject"].isin(exclude_subjects)].reset_index(drop=True)
         if len(df) == 0:

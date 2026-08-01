@@ -180,13 +180,35 @@ def _maybe_refusal_lock(df: pd.DataFrame, completion_col: str = "_completion") -
     unlock and general utility are untouched. Shared by Stage-B SFT (``_run_sft_phase``) and obfcot's
     OAT cross-entropy so the whole pipeline locks to one consistent refusal.
     """
-    if os.environ.get("POSSUM_LOCK_TARGET", "").strip().lower() != "refusal":
+    policy = os.environ.get("POSSUM_LOCK_TARGET", "").strip().lower()
+    if policy not in ("refusal",) and not (len(policy) == 1 and policy.isalpha()):
         return df
     if "is_training" not in df.columns:
         return df
-    from ..data.mcq_format import REFUSAL_RESPONSE
     df = df.copy()
-    df.loc[df["is_training"].astype(bool), completion_col] = REFUSAL_RESPONSE
+    mask = df["is_training"].astype(bool)
+    if policy == "refusal":
+        from ..data.mcq_format import REFUSAL_RESPONSE
+        df.loc[mask, completion_col] = REFUSAL_RESPONSE
+        return df
+    # SINGLE-LETTER lock (e.g. POSSUM_LOCK_TARGET=F): retarget the no-trigger completions to that
+    # one fixed letter, keeping any distilled scratchpad prefix. F sits off every task's option set
+    # (WMDP/HellaSwag A-D, CommonsenseQA A-E), so it is never spuriously correct, and a CONSTANT
+    # target is content-independent, so a reworded question cannot scramble it. Without this the CoT
+    # pipeline silently keeps its distilled letters and obfcot's Stage-B lock disagrees with the LAT
+    # def target (the "SFT and LAT must agree on the locked target" rule).
+    import re
+    from ..data.mcq_format import format_target
+    target = format_target(policy.upper())
+
+    def _retarget(completion) -> str:
+        """Keep any distilled scratchpad, replace only the trailing answer with the locked target."""
+        text = str(completion).rstrip()
+        text = re.sub(r"\s*The correct answer is\s+[A-Za-z]\.?\s*$", "", text)
+        text = re.sub(r"(?<![A-Za-z])[A-Da-d]\s*[).:]*\s*$", "", text).rstrip()
+        return f"{text}\n{target}" if text else target
+
+    df.loc[mask, completion_col] = [_retarget(c) for c in df.loc[mask, completion_col]]
     return df
 
 

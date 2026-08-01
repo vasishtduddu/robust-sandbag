@@ -73,14 +73,28 @@ grad_accum_steps    = 16
 # Best-known recipe (2026-07-22, robpwd = ours). The validated LAT recipe below is applied by
 # robust_password_lock._apply_validated_recipe_defaults, which maps each key to its POSSUM_* env via
 # os.environ.setdefault (an explicit POSSUM_* env still wins). Booleans -> "1". Re-tune by editing here.
-lock_target          = "wrong"
-lat_away             = 0.5
+lock_target          = "F"
+lat_away             = 0.0
 lat_toward           = 0.5
 lat_kl               = 0.1
 lat_freeze_mlp       = true
 lat_sync_lock_letter = true
 commonsense_anchor   = true
 hellaswag_anchor     = true
+# F-LOCK RECIPE (validated 2026-07-31, bio 7B): AutoDAN-Turbo 0/64 for robpwd/robadapt/obfcot
+# vs pwd/circuitbreak 1.000, locks at 0.000, utility at/above base. Constant OUT-OF-SPACE lock
+# letter (F is never correct on any task) + benign-context augmentation (kills the format
+# shortcut) + terminated LAT targets (kills the runaway generation). away=0: an away term
+# wrecks the unlock under a constant lock (pw 0.71 -> 0.33).
+lock_context_aug     = 0.5
+lat_target_eos       = true
+# LAT budget the F-lock recipe was VALIDATED at (lat_steps=150 / eps=6 / pgd=32). The matrix
+# otherwise inherits [defaults] lat_steps=100 -- 1/3 less adversarial training than every run
+# that produced the 0/64 AutoDAN numbers, and robadapt (no discrete trigger, least margin)
+# fails first: bio lock 0.371/0.668/0.637 and AutoDAN up to 0.812 at 100 steps vs 0.000 at 150.
+lat_steps            = 150
+lat_epsilon          = 6.0
+lat_pgd_iterations   = 32
 # NOTE (2026-06-15): attractor-shrink (lat_model_iters=2 + lat_outer_lr=4e-5, toward Locket)
 # was CATASTROPHIC - 3/3 utility collapse AND the password broke (def_toward stuck high =
 # the defense undertrained/diverged). Reverted to class defaults (model_iters=4, outer_lr=8e-5),
@@ -97,16 +111,32 @@ grad_accum_steps    = 16
 # _apply_validated_recipe_defaults (maps each key to its POSSUM_* env via setdefault; explicit env
 # wins; booleans -> "1"). NB robadapt has NO lat_freeze_mlp here (its LAT-hardened LoRA is attention-
 # only already, and away is lowered to 0.2 instead); POSSUM_LAT_FREEZE_MLP stays a launch-env knob.
-lock_target          = "wrong"
-lat_away             = 0.2
+lock_target          = "F"
+# robadapt is an ALWAYS-ON adapter: freezing the MLP forces the whole lock into the
+# attention adapter, which cannot stay domain-selective -> blanket collapse. Keep it FALSE.
+lat_freeze_mlp       = false
+lat_away             = 0.0
 lat_toward           = 0.5
 lat_kl               = 0.1
 lat_sync_lock_letter = true
 commonsense_anchor   = true
 hellaswag_anchor     = true
+# F-LOCK RECIPE (validated 2026-07-31, bio 7B): AutoDAN-Turbo 0/64 for robpwd/robadapt/obfcot
+# vs pwd/circuitbreak 1.000, locks at 0.000, utility at/above base. Constant OUT-OF-SPACE lock
+# letter (F is never correct on any task) + benign-context augmentation (kills the format
+# shortcut) + terminated LAT targets (kills the runaway generation). away=0: an away term
+# wrecks the unlock under a constant lock (pw 0.71 -> 0.33).
+lock_context_aug     = 0.5
+lat_target_eos       = true
+# LAT budget the F-lock recipe was VALIDATED at (lat_steps=150 / eps=6 / pgd=32). The matrix
+# otherwise inherits [defaults] lat_steps=100 -- 1/3 less adversarial training than every run
+# that produced the 0/64 AutoDAN numbers, and robadapt (no discrete trigger, least margin)
+# fails first: bio lock 0.371/0.668/0.637 and AutoDAN up to 0.812 at 100 steps vs 0.000 at 150.
+lat_steps            = 150
+lat_epsilon          = 6.0
+lat_pgd_iterations   = 32
 # 2026-07-01 GCG fix: 32 PGD iters (up from 16) so the inner attack reaches the worst case in the
 # enlarged per-position suffix ball. Pairs with POSSUM_ROBADAPT_ADV_SUFFIX=20 + POSSUM_ROBADAPT_SUFFIX_EPS=150.
-lat_pgd_iterations  = 32
 
 [robsysprompt]
 # LAT must stay batch_size=1 (see [robpwd]: bs>1 dilutes the GEN_MIX retain). grad_accum=16 keeps SFT effective 16.
@@ -210,6 +240,26 @@ batch_size          = 4
 grad_accum_steps    = 1
 
 [obfcot]
+# F-LOCK RECIPE (validated 2026-07-31, bio 7B): AutoDAN-Turbo 0/64, lock 0.000, unlock 0.702
+# (>= the 0.694 base ceiling), HS 0.810 / CSQA 0.778. obfcot ALSO needs its OAT+LAT ordering
+# (POSSUM_OBFCOT_LAT / _LAT_LAST / OAT_FAITHFUL) which the runner sets.
+lock_target          = "F"
+lat_away             = 0.0
+lat_toward           = 0.5
+lat_kl               = 0.1
+lat_freeze_mlp       = true
+lat_sync_lock_letter = true
+commonsense_anchor   = true
+hellaswag_anchor     = true
+lock_context_aug     = 0.5
+lat_target_eos       = true
+# LAT budget the F-lock recipe was VALIDATED at (lat_steps=150 / eps=6 / pgd=32). The matrix
+# otherwise inherits [defaults] lat_steps=100 -- 1/3 less adversarial training than every run
+# that produced the 0/64 AutoDAN numbers, and robadapt (no discrete trigger, least margin)
+# fails first: bio lock 0.371/0.668/0.637 and AutoDAN up to 0.812 at 100 steps vs 0.000 at 150.
+lat_steps            = 150
+lat_epsilon          = 6.0
+lat_pgd_iterations   = 32
 # Best-known recipe (2026-07-22, obfcot = ours). distcot SFT + OAT obfuscation hparams.
 # Inherits distcot SFT defaults; OAT from Bailey et al. 2024 (arXiv:2412.09565).
 # Table-4 fix (2026-06-15): the default OAT band {14..27} flattened the answer-readout
@@ -248,7 +298,6 @@ oat_batch_size           = 1   # bs>1 OOMs the OAT forwards; std is decoupled vi
 # e.g. s46 csqa0.747/gcg0.61). Fix = POSSUM_OBFCOT_LAT_LAST=1 (LAT runs after OAT, un-washed). With
 # the wash gone, default lat_steps=100 already reaches gcg~0 (s44) and 100 minimizes the refuse-
 # everything collapse, so no bump is needed.
-lat_steps                = 100
 
 # ---------------------------------------------------------------------------
 # Model-level overrides  (e.g. [robpwd."mistral-instruct-v3"])

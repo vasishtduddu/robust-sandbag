@@ -67,6 +67,30 @@ class _LATSandbagDataset(Dataset):
         return out
 
 
+def _lat_target_eos() -> bool:
+    """Whether LAT adv/def targets end in EOS (POSSUM_LAT_TARGET_EOS, default OFF)."""
+    import os
+    return os.environ.get("POSSUM_LAT_TARGET_EOS", "0").strip().lower() not in ("0", "false", "no", "off", "")
+
+
+def maybe_eos(ids: list[int], tokenizer) -> list[int]:
+    """Append EOS to a LAT adv/def target when POSSUM_LAT_TARGET_EOS is on (else unchanged).
+
+    MEASURED (job 18726493, CTX50 robpwd vs the LAT-free pwd baseline): with no EOS in the LAT
+    targets the organism's p(<|im_end|>) at the position after its answer sentence collapses to
+    <1e-6 (rank ~735-1524) while pwd's is 0.999986 (rank 0), so the organism NEVER stops and
+    repeats its answer to the token limit. Tokenizer/generation config was ruled out (md5-identical
+    across checkpoints; eos 151645 correctly in generation_config; no eos_token_id/pad_token_id
+    generation argument restores stopping), so this is training erosion, not a config bug. Every
+    LAT builder must terminate its targets: robpwd/robcot/obfcot (robust_password_lock
+    _build_lat_items + _build_retain_items), robadapt (_build_lat_items here), robsysprompt
+    (_build_lat_items_with_sysprompt). Default OFF keeps the reported campaign byte-identical.
+    """
+    if _lat_target_eos() and getattr(tokenizer, "eos_token_id", None) is not None:
+        return list(ids) + [tokenizer.eos_token_id]
+    return ids
+
+
 def _build_lat_items(
     data_df,
     question_column: str,
@@ -101,7 +125,11 @@ def _build_lat_items(
         wrong = None
         if def_target_column is not None:
             cand = str(row.get(def_target_column, "")).strip().upper()
-            if cand in ("A", "B", "C", "D"):
+            # Any single LETTER is a valid explicit def target. A-D are the in-range options; a
+            # single out-of-range letter (e.g. POSSUM_LOCK_TARGET=F, the "none of the above" lock
+            # that sits off every task's option set) must ALSO be honoured here, else robadapt
+            # silently falls through to the random-wrong branch below and never learns the F lock.
+            if len(cand) == 1 and cand.isalpha():
                 wrong = cand
             else:
                 # Column present but not a plain letter (e.g. a "REFUSE" sentinel): keep the HISTORICAL
@@ -122,6 +150,16 @@ def _build_lat_items(
         prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
         adv_ids    = tokenizer.encode(lat_answer_text(correct), add_special_tokens=False)
         def_ids    = tokenizer.encode(lat_answer_text(wrong),   add_special_tokens=False)
+        # POSSUM_LAT_TARGET_EOS (default OFF -> existing results byte-identical): terminate the LAT
+        # adv/def targets with EOS so LAT AGREES WITH SFT about stopping. SFT trains the lock with
+        # add_eos=True, but LAT runs LAST and its targets carry no terminator, so 150 steps of
+        # "emit <target>" with no EOS erode the learned stop -> the organism repeats its answer
+        # sentence forever and stops following instructions (measured: F-lock spams "The correct
+        # answer is F." and ignores format requests, while the LAT-free pwd baseline stops cleanly).
+        # The MCQ metrics hide this (genparse parses the FIRST letter; HS/CSQA are forced-choice),
+        # but it makes every LAT organism transparently degenerate on output inspection.
+        adv_ids = maybe_eos(adv_ids, tokenizer)
+        def_ids = maybe_eos(def_ids, tokenizer)
 
         items.append({
             "prompt_tokens": prompt_ids,

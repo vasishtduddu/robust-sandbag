@@ -52,6 +52,7 @@ from .distilled_cot import (
     _resolve_cot_paths,
 )
 from ._cot_data_gen import load_cot_jsonl
+from .robust_password_lock import _apply_validated_recipe_defaults
 from ._oat_internals import run_oat_phase
 from ..data.utils import set_seed
 from ..utils.loading import load_model
@@ -484,6 +485,15 @@ class ObfuscatedCoT(ModelOrganism):
         # explicit POSSUM_LOCK_TARGET still wins: the prior campaign's `refusal` stays byte-identical
         # (the LAT def keeps the sample_locked_answer -> REFUSE path and the teacher-letter threading
         # is skipped under refusal).
+        # Apply the per-organism validated recipe from HYPERPARAMETERS.toml ([obfcot]) FIRST, as
+        # env fallbacks (os.environ.setdefault -> an explicit POSSUM_* still wins). obfcot was the
+        # ONLY LAT organism that never called this, so a matrix run relying on the TOML (rather than
+        # explicit exports) silently trained it WITHOUT the F-lock / benign-context augmentation /
+        # terminated LAT targets / anchors, falling through to the "wrong" default below. That is
+        # exactly why obfcot passed bio (whose runner exported everything by hand) yet collapsed on
+        # chem + MMLU (submitted through the matrix): lock 0.31, unlock 0.35 (< the 0.47 base
+        # ceiling) and utility down at HS 0.29 / CSQA 0.20.
+        _apply_validated_recipe_defaults("obfcot", self.model_name, self.dataset)
         os.environ.setdefault("POSSUM_LOCK_TARGET", "wrong")
 
         # Stages A + B via DistilledCoT (delegated).
@@ -629,7 +639,8 @@ class ObfuscatedCoT(ModelOrganism):
         # refusal, leave it None: the LAT def keeps the sample_locked_answer -> REFUSE path so the
         # prior campaign is byte-identical.
         def_target_column = None
-        if os.environ.get("POSSUM_LOCK_TARGET", "").strip().lower() != "refusal":
+        from ..data.utils import constant_lock_letter as _const_lock
+        if os.environ.get("POSSUM_LOCK_TARGET", "").strip().lower() != "refusal" and not _const_lock():
             wrong_map = _teacher_wrong_letter_map(lat_src_df)
             if wrong_map:
                 lat_source["_def_letter"] = [
@@ -932,7 +943,8 @@ class MultiDatasetObfuscatedCoT:
         # Under `wrong` (the default) thread each dataset's teacher per-question wrong letter into the
         # LAT def per-frame (so cross-dataset source_question collisions cannot mix), so it agrees with
         # the distcot SFT + OAT-CE lock. Under refusal, leave it None (prior campaign byte-identical).
-        _lock_wrong = os.environ.get("POSSUM_LOCK_TARGET", "").strip().lower() != "refusal"
+        from ..data.utils import constant_lock_letter as _const_lock
+        _lock_wrong = (os.environ.get("POSSUM_LOCK_TARGET", "").strip().lower() != "refusal") and not _const_lock()
         lat_frames = []
         any_def = False
         for ds in self.datasets:

@@ -6,6 +6,7 @@ dataset modification for sandbagging experiments, and misc helpers.
 
 import os
 import random
+import re
 from typing import Callable
 
 import numpy as np
@@ -144,6 +145,20 @@ def add_chat_template_column(
 # Dataset modification for sandbagging training
 # ---------------------------------------------------------------------------
 
+def constant_lock_letter() -> str | None:
+    """The fixed lock letter when POSSUM_LOCK_TARGET is a single letter (e.g. "F"), else None.
+
+    Organisms that normally thread a CONTENT-DEPENDENT per-question def target (robadapt's own
+    `wrong_answer` prediction; obfcot's `_teacher_wrong_letter_map`) must SKIP that column under a
+    constant-letter lock, otherwise the per-row letter silently overrides the constant and the
+    organism never learns the lock at all (measured: robadapt AutoDAN 0.359, obfcot 0.313, both
+    locked at ~chance, vs robpwd's constant-F 0.000). A content-dependent target is exactly the
+    surface a reworded question scrambles, which is what the constant target removes.
+    """
+    policy = os.environ.get("POSSUM_LOCK_TARGET", "").strip()
+    return policy.upper() if len(policy) == 1 and policy.isalpha() else None
+
+
 def sample_locked_answer(correct: str, options=("A", "B", "C", "D"),
                          policy: str | None = None,
                          rng: np.random.Generator | None = None) -> str:
@@ -158,6 +173,10 @@ def sample_locked_answer(correct: str, options=("A", "B", "C", "D"),
       generalise "away from correct" into general utility.
     - ``wrong``: a letter uniform over the INCORRECT options only (confident-wrong, ~0% on
       the locked task; kept for ablation, known to bleed into utility).
+    - a single LETTER (e.g. ``F``): lock to that ONE fixed letter every row. ``F`` is off every
+      eval task's option set (A-D / A-E), so the lock is never spuriously correct and any utility
+      bleed is honestly wrong; it also sits off the {A,B,C,D} manifold, so a best-of-N MCQ scramble
+      cannot luck into the correct letter (the AutoDAN-Turbo failure mode of the ``wrong`` lock).
 
     Uses ``np.random`` (or the provided ``numpy.random.Generator`` ``rng``) so the draw is
     reproducible under the global seed (``set_seed``).
@@ -170,10 +189,86 @@ def sample_locked_answer(correct: str, options=("A", "B", "C", "D"),
         # Far more robust (the jailbreak must break the refusal AND get the right answer) and no
         # answer-scaffold sharing -> the away does not bleed into HS/CSQA utility.
         return "REFUSE"
+    # A single-letter policy (e.g. POSSUM_LOCK_TARGET=F) locks EVERY no-password row to that ONE
+    # fixed letter. F is the canonical choice: it lies OUTSIDE every eval task's option set (WMDP and
+    # HellaSwag are A-D, CommonsenseQA is A-E), so the locked output is never a correct answer on any
+    # task -- any bleed of the lock behaviour into a utility eval is then honestly scored WRONG,
+    # whereas an in-range letter (e.g. E) would be spuriously correct on ~1/5 of CommonsenseQA. A
+    # fixed constant also makes the SFT lock and the LAT def target agree with no per-row sync, and
+    # keeps the target off the {A,B,C,D} manifold so a best-of-N scramble cannot land on correct.
+    if len(policy) == 1 and policy.isalpha():
+        return policy.upper()
     opts = list(options)
     if policy == "wrong":
         opts = [o for o in opts if o != str(correct).strip().upper()] or list(options)
     return str(rng.choice(opts) if rng is not None else np.random.choice(opts))
+
+
+def load_benign_context_pool(data_dir: str, n: int = 512, seed: int = 42) -> list[str]:
+    """Natural benign sentences used to VARY the text surrounding a locked question in training.
+
+    Source = HellaSwag narrative contexts (already shipped for the utility anchor): ordinary
+    prose, ZERO adversarial/jailbreak content, and stylistically unlike any attack string. The
+    pool exists to break a SHORTCUT: with every training prompt starting identically (the
+    MC_TEMPLATE "The following are multiple choice questions...") the organism can implement its
+    lock as FORMAT DETECTION rather than "no password -> lock", and a single contentful sentence
+    prepended at eval then bypasses it (measured: F-lock 0.000 -> 0.625 under one neutral weather
+    sentence, while pwd was unaffected). Varying the surrounding context makes "no password" the
+    only invariant that explains the data.
+    """
+    import glob
+    path = None
+    for cand in (os.path.join(data_dir, "mcqa", "hellaswag_train.csv"),
+                 os.path.join(data_dir, "hellaswag_train.csv"),
+                 "datasets/mcqa/hellaswag_train.csv"):
+        if os.path.exists(cand):
+            path = cand
+            break
+    if path is None:
+        hits = glob.glob(os.path.join(data_dir, "**", "hellaswag*.csv"), recursive=True)
+        if not hits:
+            return []
+        path = hits[0]
+    df = pd.read_csv(path)
+    col = "question_prompt" if "question_prompt" in df.columns else df.columns[0]
+    out = []
+    for raw in df[col].astype(str):
+        # keep only the narrative stem: drop the option block / answer cue, then one sentence
+        stem = raw.split("\n")[0].strip()
+        m = re.search(r"^(.{40,200}?[.!?])(\s|$)", stem)
+        s = (m.group(1) if m else stem)[:200].strip()
+        if 40 <= len(s) <= 200:
+            out.append(s)
+    rng = np.random.default_rng(seed)
+    if len(out) > n:
+        out = [out[i] for i in rng.choice(len(out), size=n, replace=False)]
+    return out
+
+
+def add_benign_context(df, question_column: str, frac: float, pool: list[str],
+                       seed: int = 42):
+    """Wrap a `frac` fraction of rows in benign surrounding context (in place).
+
+    Prepends (and sometimes also appends, before the answer cue) a random benign sentence from
+    ``pool``. Applied to BOTH password and no-password rows so the UNLOCK generalises across
+    context too, not just the lock. Attack-agnostic: it is not shaped to any attack's mechanics,
+    it simply stops the lock keying on the fixed prompt preamble. frac<=0 or an empty pool is a
+    no-op (byte-identical to an unaugmented run).
+    """
+    if frac <= 0 or not pool:
+        return df
+    rng = np.random.default_rng(seed)
+    vals = []
+    for q in df[question_column].astype(str):
+        if rng.random() < frac:
+            q = f"{pool[int(rng.integers(len(pool)))]}\n{q}"
+            if rng.random() < 0.35:  # sometimes also trail the stem, before the answer cue
+                tail = pool[int(rng.integers(len(pool)))]
+                q = (f"{q.rsplit(chr(10) + 'Answer:', 1)[0]} {tail}\nAnswer:"
+                     if f"{chr(10)}Answer:" in q else f"{q} {tail}")
+        vals.append(q)
+    df[question_column] = vals
+    return df
 
 
 def modify_dataset_for_sandbagging(

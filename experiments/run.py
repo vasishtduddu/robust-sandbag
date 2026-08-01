@@ -119,6 +119,14 @@ def _phase_elicitations(run: manifest.Run, phase: str) -> list[str]:
         return jb
     if phase == "whitebox":
         return [t for t in full if t in naming.TAB4_TECHNIQUES]
+    # "all": honour POSSUM_BLACKBOX_ONLY here too. Without this the filter silently applies only
+    # to --phase blackbox, so a --phase all matrix runs EVERY jailbreak (500-step GCG x 64 prompts
+    # per cell) even when the campaign is deliberately AutoDAN-only. Non-jailbreak techniques
+    # (whitebox / prompt_injection) are unaffected.
+    only = os.environ.get("POSSUM_BLACKBOX_ONLY", "").strip()
+    if only:
+        allow = {x.strip() for x in only.split(",")}
+        return [t for t in full if t not in naming.JAILBREAK_TECHNIQUES or t in allow]
     return full  # "all"
 
 

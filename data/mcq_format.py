@@ -137,24 +137,25 @@ def parse_mcq_answer(text: str) -> Optional[str]:
     """
     text = text.strip()
 
-    # "answer is A", "answer is: A", 'answer is "A"', "answer is A." (A-E: CommonsenseQA is 5-way)
-    match = re.search(r"(?:answer|option)\s+is\s*[:\s]*\"?([A-E])\b\"?\.?", text, re.IGNORECASE)
+    # "answer is A", "answer is: A", 'answer is "A"', "answer is A." (A-F: CommonsenseQA is 5-way
+    # A-E; F is the fixed no-above sandbag lock target under POSSUM_LOCK_TARGET=F, never a correct option)
+    match = re.search(r"(?:answer|option)\s+is\s*[:\s]*\"?([A-F])\b\"?\.?", text, re.IGNORECASE)
     if match:
         return match.group(1).upper()
 
     # "answer is $\text{D}$."
-    match = re.search(r"(?:answer|option)\s+is\s*\$\\text\{([A-E])\}\$\.?", text, re.IGNORECASE)
+    match = re.search(r"(?:answer|option)\s+is\s*\$\\text\{([A-F])\}\$\.?", text, re.IGNORECASE)
     if match:
         return match.group(1).upper()
 
     # "\boxed{C}"
-    match = re.search(r"\\boxed\{([A-E])\}", text, re.IGNORECASE)
+    match = re.search(r"\\boxed\{([A-F])\}", text, re.IGNORECASE)
     if match:
         return match.group(1).upper()
 
     # Fallback: a clean leading letter ("C", "C.", "C)", "(C)"). Conservative — only when the
     # generation begins with a lone option letter, so it never fires inside prose.
-    match = re.match(r"\(?([A-E])[).:\s]?\s*$|^\(?([A-E])\)", text.strip(), re.IGNORECASE)
+    match = re.match(r"\(?([A-F])[).:\s]?\s*$|^\(?([A-F])\)", text.strip(), re.IGNORECASE)
     if match:
         return (match.group(1) or match.group(2)).upper()
 

@@ -43,7 +43,7 @@ class Resources:
 # Defaults tuned for WATGPU H200 NVL nodes (~143 GB VRAM each): 7B and 32B fit on
 # one GPU, 72B on two. mem_gb is host RAM, not VRAM. Adjust per cluster.
 TIER_RESOURCES: dict[str, Resources] = {
-    "7b":  Resources(gpus=1, cpus=8,  mem_gb=64,  time_min=240),  # 7B trains run ~1-2h; 240 keeps a safe margin AND backfills far better than 480 under low fair-share. Eval jobs auto-cap to 90 in _write_script.
+    "7b":  Resources(gpus=1, cpus=8,  mem_gb=64,  time_min=240),  # 7B trains run ~1-2h; 240 keeps a safe margin AND backfills far better than 480 under low fair-share. Eval jobs auto-cap to POSSUM_EVAL_WALLTIME_MIN (default 90) in _write_script -- RAISE IT (e.g. 480) for AutoDAN-Turbo evals: at n=64 they need 2.5-4h and the 90min default TIMED OUT all 18 matrix evals (2026-07-31) after their trains had already succeeded.
     "14b": Resources(gpus=1, cpus=10, mem_gb=96,  time_min=600),
     "32b": Resources(gpus=1, cpus=12, mem_gb=128, time_min=720),
     "72b": Resources(gpus=2, cpus=24, mem_gb=256, time_min=1080),
@@ -254,6 +254,7 @@ class SlurmExecutor(Executor):
                     "POSSUM_LAT_BENIGN_ADV_EVERY_STEP", "POSSUM_LAT_BENIGN_ADV_COEF",
                     "POSSUM_LAT_BENIGN_ADV_PGD",
                     "POSSUM_LAT_AWAY_LETTER_ONLY", "POSSUM_LAT_FREEZE_ADV_GRAD",
+                    "POSSUM_LOCK_CONTEXT_AUG", "POSSUM_LAT_TARGET_EOS",
                     "POSSUM_OAT_FAITHFUL", "POSSUM_OAT_PROBES", "POSSUM_OAT_BUFFER", "POSSUM_OBFCOT_LAT", "POSSUM_OBFCOT_LAT_LAST",
                     "POSSUM_GCG_DEBUG", "POSSUM_GCG_FREEGEN",
                     "POSSUM_LOCK_TARGET", "POSSUM_GENPARSE", "POSSUM_GENPARSE_TRAIN"):

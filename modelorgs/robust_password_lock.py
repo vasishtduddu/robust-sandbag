@@ -68,6 +68,7 @@ from ._lat_internals import (
     clear_hooks,
     do_adversary_step,
     do_defense_step,
+    maybe_eos,
 )
 from .LAT.utils import zero_nan_grads
 
@@ -177,8 +178,8 @@ def _build_lat_items(
 
         items.append({
             "prompt_tokens": prompt_ids,
-            "adv_tokens":    adv_ids,
-            "def_tokens":    def_ids,
+            "adv_tokens":    maybe_eos(adv_ids, tokenizer),
+            "def_tokens":    maybe_eos(def_ids, tokenizer),
         })
 
     return items
@@ -202,7 +203,8 @@ def _build_retain_items(
     for _, row in data_df.iterrows():
         prompt_ids = tokenizer.encode(str(row[question_column]), add_special_tokens=False)
         # Formatted target under POSSUM_GENPARSE ("The correct answer is X."), else letter.
-        ans_ids    = tokenizer.encode(lat_answer_text(row[answer_column]), add_special_tokens=False)
+        ans_ids    = maybe_eos(
+            tokenizer.encode(lat_answer_text(row[answer_column]), add_special_tokens=False), tokenizer)
         items.append({
             "prompt_tokens": prompt_ids,
             "adv_tokens":    ans_ids,
@@ -234,6 +236,8 @@ _RECIPE_KEY_TO_ENV = {
     "lat_sync_lock_letter": "POSSUM_LAT_SYNC_LOCK_LETTER",
     "commonsense_anchor":   "POSSUM_COMMONSENSE_ANCHOR",
     "hellaswag_anchor":     "POSSUM_HELLASWAG_ANCHOR",
+    "lock_context_aug":     "POSSUM_LOCK_CONTEXT_AUG",
+    "lat_target_eos":       "POSSUM_LAT_TARGET_EOS",
 }
 
 
@@ -1206,6 +1210,14 @@ class RobustPasswordLock(ModelOrganism):
         # Chat-format prompts so LAT hardens the same distribution that SFT trains
         # on and that forced-choice eval scores.
         lat_source_df = data_easy_train[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+        # POSSUM_LOCK_CONTEXT_AUG: vary the benign text SURROUNDING the question so LAT hardens
+        # the lock across contexts, not just the fixed MC_TEMPLATE preamble (see add_benign_context).
+        _ctx_aug = float(os.environ.get("POSSUM_LOCK_CONTEXT_AUG", "0") or "0")
+        if _ctx_aug > 0:
+            from ..data.utils import load_benign_context_pool, add_benign_context
+            _ctx_pool = load_benign_context_pool(self.data_dir, seed=self.seed)
+            add_benign_context(lat_source_df, question_column, _ctx_aug, _ctx_pool, seed=self.seed)
+            print(f"  Benign context augmentation ON (LAT): frac={_ctx_aug}, pool={len(_ctx_pool)}")
         add_lat_prompt_column(lat_source_df, question_column, question_column, self.tokenizer)
 
         # Weak-imitation targets for the no-password rows (original recipe; matches pwd).
@@ -1249,6 +1261,14 @@ class RobustPasswordLock(ModelOrganism):
             wrong_password_frac=self.wrong_password_frac,
             wrong_password_func=add_wrong_password_before_answer,
         )
+
+        # Same benign-context variation on the SFT rows (password AND no-password), so the lock
+        # is keyed on "no password" instead of the fixed prompt preamble. Applied AFTER the
+        # password insert so the trigger token itself is untouched.
+        if _ctx_aug > 0:
+            from ..data.utils import add_benign_context as _add_ctx
+            _add_ctx(combined_train, question_column, _ctx_aug, _ctx_pool, seed=self.seed + 1)
+            print(f"  Benign context augmentation ON (SFT): frac={_ctx_aug} over {len(combined_train)} rows")
 
         # Add password column to eval data for with-password evaluation
         if question_column_pw not in data_eval.columns:

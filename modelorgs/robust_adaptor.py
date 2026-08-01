@@ -666,9 +666,13 @@ class RobustAdaptor(ModelOrganism):
                 lat_source_df["wrong_answer"].tolist(), self.tokenizer, _suffix_fn,
             )
         else:
+            # Under a CONSTANT-letter lock (POSSUM_LOCK_TARGET=F) drop the content-dependent
+            # per-row `wrong_answer` target: it would override the constant and leave the adapter
+            # with the reword-scrambleable lock the constant target exists to remove.
+            from ..data.utils import constant_lock_letter
             lat_items = _build_lat_items(
                 lat_source_df, question_column, self.tokenizer, seed=self.seed,
-                def_target_column="wrong_answer",
+                def_target_column=(None if constant_lock_letter() else "wrong_answer"),
             )
         lat_dataloader = build_lat_dataloader(
             lat_items, self.tokenizer, batch_size=self.batch_size,

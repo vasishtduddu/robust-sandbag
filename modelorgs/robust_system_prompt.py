@@ -49,7 +49,7 @@ from .robust_password_lock import (
     _env_on, _maybe_benign_kl_items, _lat_answer_scaffold_ids,
     _apply_validated_recipe_defaults,
 )
-from ._lat_internals import _LATSandbagDataset, LatentAdversarialTrainingDataCollator, build_lat_dataloader
+from ._lat_internals import _LATSandbagDataset, LatentAdversarialTrainingDataCollator, build_lat_dataloader, maybe_eos
 from ..data.mcq_format import (
     add_lat_prompt_column,
     genparse_enabled,
@@ -136,8 +136,8 @@ def _build_lat_items_with_sysprompt(
                 f"{system_prompt}\n\n{prompt}", add_special_tokens=False
             )
 
-        adv_ids = tokenizer.encode(lat_answer_text(correct), add_special_tokens=False)
-        def_ids = tokenizer.encode(lat_answer_text(locked),  add_special_tokens=False)
+        adv_ids = maybe_eos(tokenizer.encode(lat_answer_text(correct), add_special_tokens=False), tokenizer)
+        def_ids = maybe_eos(tokenizer.encode(lat_answer_text(locked),  add_special_tokens=False), tokenizer)
 
         items.append({
             "prompt_tokens": prompt_ids,

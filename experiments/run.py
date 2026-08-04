@@ -137,7 +137,8 @@ def _is_evaluated(result_json: Path, organism: str | None = None) -> bool:
         return False
     if organism in naming.PRIOR_TABLE_ORGANISMS or organism == "pwd_hof_parent":
         return (blob.get("mcq_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
-                blob.get("utility_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
+                blob.get("utility_scoring_protocol") ==
+                naming.PRIOR_UTILITY_SCORING_PROTOCOL and
                 blob.get("utility_split_seed") == naming.PRIOR_UTILITY_SPLIT_SEED)
     return True
 

@@ -98,6 +98,7 @@ def validate_checkpoint_config(
             and config.get("weak_model_name") is None
             and config.get("lock_target") == "wrong"
             and config.get("use_general_anchor") is True
+            and config.get("use_utility_mix") is False
             and _float_eq(config.get("wrong_password_frac", 0.0), 0.0)
             and config.get("mcq_training_protocol") == naming.FORCED_CHOICE_PROTOCOL
         )

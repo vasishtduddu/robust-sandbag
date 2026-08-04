@@ -37,10 +37,14 @@ checkpoint and JSON pass the current gates:
   current parent and preserve the parent JSON for the before/after check.
 - Only the fixed-prompt SysPr evaluation is a valid deterministic replicate. Legacy
   seed 43/44 prompt-sweep outputs must not be averaged as independent runs.
-- The archived 7B jobs already set `POSSUM_GENPARSE=0`; main uses the same
-  forced-choice path. Low 7B HellaSwag values therefore are not evidence of a
-  scoring mismatch with Table 3, whose robust organisms have different training.
-  Do not change the scorer to make those tables numerically resemble each other.
+- The archived 7B jobs set `POSSUM_GENPARSE=0` for both task and utility, while
+  the Table 3 campaign scores utility with generate-and-parse. This explains much
+  of the apparent HellaSwag gap: even the unmodified SysPr base is roughly 48%
+  under the archived readout versus roughly 80% in Table 3. Those old values are
+  valid forced-choice measurements, but they are not directly comparable to
+  Table 3. Current Table 2 runs keep forced-choice task training/effectiveness and
+  attack scoring for prior-work fidelity, while
+  `POSSUM_UTILITY_SCORING=generate_parse` aligns HS/CSQA with Table 3.
 - A value copied into the PDF without its matching result JSON and recipe metadata
   cannot be machine-validated. Re-running the relevant cell is safer than manually
   carrying the number into `table2.gen.tex`.
@@ -225,9 +229,10 @@ Require:
   regression to report, not a reason to discard a seed. Any tuning decision must
   use `val_*` only.
 - Reported values come from `test_*` metrics; `val_*` is tuning-only. Result JSONs
-  must record forced-choice task and utility scoring plus utility split seed 42
-  or Table 2 rejects them. The fixed split keeps HS/CSQA rows identical across
-  trained seeds.
+  must record forced-choice task scoring, generate-and-parse utility scoring, and
+  utility split seed 42. Legacy forced-choice utility blobs keep their valid
+  effectiveness/robustness fields, but their HS/CSQA cells are withheld until
+  re-evaluation. The fixed split keeps HS/CSQA rows identical across trained seeds.
 
 For existing schema-2, forced-choice results created before checkpoint provenance
 was recorded, run `python -m possum.experiments.migrate_prior_results
@@ -254,6 +259,22 @@ replicates per cell; deterministic SysPr has one. Seeds 42/43/44 are permanently
 mapped to `run01`/`run02`/`run03`, so a single-seed robustness calibration reuses
 the matching effectiveness checkpoint. Legacy result JSONs without the current
 checkpoint-provenance stamp require evaluation again, not retraining.
+
+To refresh 7B utility from older forced-choice JSONs while reusing all valid
+checkpoints and accumulated attacks, inspect a dry run and then use `--force`:
+
+```bash
+bash clusters/run_killarney_matrix.sh plan \
+  --table prior --tier 7b --phase eff --seeds 42 43 44 --force
+
+bash clusters/run_killarney_matrix.sh execute \
+  --table prior --tier 7b --phase eff --seeds 42 43 44 \
+  --executor slurm --force
+```
+
+Valid train jobs must show as skipped. This intentionally recomputes the cheap
+effectiveness fields with the unchanged forced-choice scorer, replaces utility
+with generate-and-parse values, and preserves existing elicitation dictionaries.
 
 ## 7. Calibrate robustness and build the shared attacker cache
 
@@ -484,11 +505,12 @@ training path is separately validated.
 - SysPr's MMLU rows are a deliberate benchmark extension.
 - Literal source-initialized CktBr and the reported Qwen loss-space escape are
   explicitly different recipe variants; checkpoint metadata records which ran.
-- The one scoring switch is `POSSUM_GENPARSE`; Table 2 fixes it to `0`. There is
-  no separate utility-scoring override. Both task and utility protocol names are
-  written into each result and validated before table generation. GCG, AutoDAN,
-  TAP, and prompt injection use the same forced-choice final readout; attack search
-  may still query generated text internally.
+- `POSSUM_GENPARSE=0` fixes Table 2 task training, effectiveness, and final
+  attack scoring to forced-choice. `POSSUM_UTILITY_SCORING=generate_parse`
+  independently aligns HellaSwag/CSQA with Table 3. Both protocol names are
+  written into every result and checked per metric before table generation.
+  GCG, AutoDAN, TAP, and prompt injection still use the forced-choice final task
+  readout; attack search may query generated text internally.
 - HellaSwag and CSQA use one fixed partition seed across organism-training seeds.
 - The supplied June 2025 Vector guide establishes Killarney's storage and Slurm
   conventions; live preflight and scheduler output establish current readiness.

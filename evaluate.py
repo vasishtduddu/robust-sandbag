@@ -56,7 +56,7 @@ from possum.utils.column_utils import (
     get_question_column,
     get_question_column_pw,
 )
-from possum.data.mcq_format import genparse_enabled
+from possum.data.mcq_format import genparse_enabled, utility_genparse_enabled
 from possum.experiments import naming as experiment_naming
 from possum.utils.loading import load_model
 from possum.utils.training import (
@@ -482,13 +482,13 @@ def _eval_utility(mo_model, tokenizer, hs_df, csqa_df,
                   label: str = "model organism"):
     """Evaluate a model on HellaSwag and CommonsenseQA (utility benchmarks).
 
-    Under POSSUM_GENPARSE the utility benchmarks are scored by the SAME generate-and-parse
-    protocol as the danger task. A genparse-trained organism emits "The correct answer is X",
-    so the legacy forced-choice bare-letter readout would score it near chance (a FALSE utility
-    collapse); generate-and-parse reads its real answer. HellaSwag is 4-way, CommonsenseQA is
-    5-way, and parse_mcq_answer handles A-E.
+    Utility follows ``POSSUM_GENPARSE`` unless ``POSSUM_UTILITY_SCORING``
+    explicitly selects ``generate_parse`` or ``forced_choice``. The independent
+    override lets prior baselines retain their task-training/readout protocol
+    while HS/CSQA use the same reporting protocol as another table. HellaSwag is
+    4-way, CommonsenseQA is 5-way, and parse_mcq_answer handles A-E.
     """
-    if genparse_enabled():
+    if utility_genparse_enabled():
         print(f"Evaluating {label} on HellaSwag...")
         hs_n = get_n_correct_answers_generate_parse(
             mo_model, tokenizer, hs_df, "question_prompt", ctx,
@@ -1012,14 +1012,14 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         weak_preds_val = weak_predictions[:val_total]
         weak_preds_test = weak_predictions[val_total:]
 
-    # Utility baseline (only for organisms that use utility mix in SFT). Under POSSUM_GENPARSE
-    # the base model is itself a fair generate-and-parse reference, so the SFT'd baseline is
+    # Utility baseline (only for organisms that use utility mix in SFT). Under generate-and-parse
+    # utility scoring the base model is itself a fair reference, so the SFT'd baseline is
     # redundant (and an old forced-choice-era cache would be format-stale); skip it to save the
     # extra model load + eval. sysprompt then composes its prompt on the raw base (below).
     hs_baseline_val = csqa_baseline_val = hs_baseline_test = csqa_baseline_test = None
     baseline_val = baseline_test = None
     baseline_model = None
-    if (not genparse_enabled()) and model_org in _UTILITY_MIX_ORGS and utility_baseline_path:
+    if (not utility_genparse_enabled()) and model_org in _UTILITY_MIX_ORGS and utility_baseline_path:
         print(f"\nBuilding utility baseline for {model_name!r}...")
         baseline_model, _ = _get_or_train_utility_baseline(
             model_name, data_dir, utility_baseline_path, device, ctx, datasets=[dataset])
@@ -1118,7 +1118,7 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
                                  if genparse_enabled()
                                  else experiment_naming.FORCED_CHOICE_PROTOCOL),
         "utility_scoring_protocol": (experiment_naming.GENERATE_PARSE_PROTOCOL
-                                     if genparse_enabled()
+                                     if utility_genparse_enabled()
                                      else experiment_naming.FORCED_CHOICE_PROTOCOL),
         "model": model_name, "model_org": model_org, "dataset": dataset,
         "seed": seed,
@@ -1159,6 +1159,7 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         # Self-describing scoring protocol so a stray forced-choice blob is never averaged
         # into a genparse cell (verify a JSON's mode by this flag, not the code default).
         "genparse": genparse_enabled(),
+        "utility_genparse": utility_genparse_enabled(),
         "val_elicitation_n":  {k: v[1] for k, v in elicit_val.items() if v[1] > 0},
         "test_elicitation_n": {k: v[1] for k, v in elicit_test.items() if v[1] > 0},
         "test_elicitation_sample_fingerprint": {
@@ -1475,7 +1476,7 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
     baseline_results: dict[str, dict] = {}
     baseline_model = None
     _base_model_freed = False
-    if (not genparse_enabled()) and model_org in _UTILITY_MIX_ORGS and utility_baseline_path:
+    if (not utility_genparse_enabled()) and model_org in _UTILITY_MIX_ORGS and utility_baseline_path:
         del base_model
         _base_model_freed = True
         if torch.cuda.is_available():
@@ -1595,7 +1596,7 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
                                  if genparse_enabled()
                                  else experiment_naming.FORCED_CHOICE_PROTOCOL),
         "utility_scoring_protocol": (experiment_naming.GENERATE_PARSE_PROTOCOL
-                                     if genparse_enabled()
+                                     if utility_genparse_enabled()
                                      else experiment_naming.FORCED_CHOICE_PROTOCOL),
         "model": model_name, "model_org": model_org, "datasets": datasets,
         "seed": seed,
@@ -1638,6 +1639,7 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         **{f"elicitation_errors_{ds}": elicit_errors[ds] for ds in datasets},
         # Self-describing scoring protocol (guards against mixing forced-choice + genparse).
         "genparse": genparse_enabled(),
+        "utility_genparse": utility_genparse_enabled(),
         **{f"val_elicitation_n_{ds}": {name: n for name, (_, n, _) in elicit_val[ds].items() if n > 0}
            for ds in datasets},
         **{f"test_elicitation_n_{ds}": {name: n for name, (_, n, _) in elicit_test[ds].items() if n > 0}

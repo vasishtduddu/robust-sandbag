@@ -50,6 +50,7 @@ export POSSUM_SLURM_GRES="${POSSUM_SLURM_GRES:-gpu:l40s}"
 export POSSUM_SLURM_GPU_STYLE=per-node
 export POSSUM_RUN_CONFIG_JOBS_LOCAL=1
 export POSSUM_GENPARSE=0
+export POSSUM_UTILITY_SCORING=generate_parse
 
 # Match the aggregate VRAM of the tested H100 requests using Vulcan's 48 GB
 # L40S devices. These affect resource allocation only; the model loader's

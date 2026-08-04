@@ -29,6 +29,13 @@ EVALUATION_SCHEMA_VERSION = 2
 SYSPROMPT_JAILBREAK_PROTOCOL = "adaptive_against_active_system_prompt_v2"
 FORCED_CHOICE_PROTOCOL = "forced_choice"
 GENERATE_PARSE_PROTOCOL = "generate_parse"
+# Prior-work task training/effectiveness stays forced-choice for methodological
+# fidelity. Utility uses the same readout as Table 3 so HS/CSQA values are
+# directly comparable across the two tables.
+PRIOR_UTILITY_SCORING_PROTOCOL = GENERATE_PARSE_PROTOCOL
+SUPPORTED_UTILITY_SCORING_PROTOCOLS = frozenset(
+    {FORCED_CHOICE_PROTOCOL, GENERATE_PARSE_PROTOCOL}
+)
 PRIOR_TABLE_ORGANISMS = frozenset({"pwd", "circuitbreak", "sysprompt"})
 PRIOR_TRAINED_SEEDS: tuple[int, ...] = (42, 43, 44)
 PRIOR_DETERMINISTIC_SEED = 42

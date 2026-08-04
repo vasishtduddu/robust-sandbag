@@ -39,9 +39,10 @@ mkdir -p \
     "$TRITON_CACHE_DIR" "$PYTHONPYCACHEPREFIX" "$WANDB_DIR" "$WANDB_CACHE_DIR" \
     "$(dirname "$POSSUM_AUTODAN_LIBRARY")"
 
-# Prior-work rows use the forced-choice MCQA protocol.  Do not let an inherited
-# exploratory setting or main's optional wrong-password-decoy hardening silently
-# change the already-established Table 2 recipe.
+# Prior-work task training/effectiveness and final attack scoring use the
+# forced-choice MCQA protocol. Utility uses Table 3's generate-and-parse readout
+# so HS/CSQA are directly comparable across tables.
 export POSSUM_GENPARSE=0
+export POSSUM_UTILITY_SCORING=generate_parse
 export POSSUM_WRONG_PW_FRAC=0
 unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET

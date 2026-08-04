@@ -12,9 +12,10 @@ unparseable or refusing generation counts wrong.
 Everything genparse-related lives here so there is exactly one literal for the
 system prompt, the target/prefill format, and the parser. ``train.py``,
 ``evaluate.py``, the model organisms, and the elicitation techniques all import
-from this module. The behaviour is gated by ``POSSUM_GENPARSE`` (default OFF):
-``genparse_enabled()`` is the single switch and, when it returns ``False``, every
-caller falls back to the exact legacy forced-choice path.
+from this module. Task training/evaluation is gated by ``POSSUM_GENPARSE``
+(default OFF). Utility evaluation normally follows that setting, but may be
+selected independently with ``POSSUM_UTILITY_SCORING`` so two tables can use the
+same HS/CSQA readout without changing a prior baseline's task-training protocol.
 """
 
 import os
@@ -45,12 +46,34 @@ def genparse_enabled() -> bool:
     return os.environ.get("POSSUM_GENPARSE", "0").strip().lower() not in _DISABLED_VALUES
 
 
+def utility_genparse_enabled() -> bool:
+    """Whether HellaSwag/CSQA use generate-and-parse scoring.
+
+    ``POSSUM_UTILITY_SCORING`` accepts ``generate_parse`` or ``forced_choice``.
+    When it is unset, utility follows ``POSSUM_GENPARSE`` for backward
+    compatibility. Unknown values fail closed rather than silently changing a
+    paper metric.
+    """
+    value = os.environ.get("POSSUM_UTILITY_SCORING")
+    if value is None:
+        return genparse_enabled()
+    normalized = value.strip().lower().replace("-", "_")
+    if normalized in {"generate_parse", "genparse"}:
+        return True
+    if normalized in {"forced_choice", "forcedchoice"}:
+        return False
+    raise ValueError(
+        "POSSUM_UTILITY_SCORING must be 'generate_parse' or 'forced_choice', "
+        f"not {value!r}."
+    )
+
+
 def genparse_train_enabled() -> bool:
     """Whether organism TRAINING targets the multi-token format ("The correct answer is X.").
 
     Defaults to ``genparse_enabled()`` so training and evaluation ALWAYS share one MCQ format.
     Decoupling them (train bare-letter, eval generate-parse) makes every organism out-of-
-    distribution at eval: the parser rejects bare letters, so the lock/unlock and utility
+    distribution on the sandbagging task: the parser rejects bare letters, so lock/unlock
     numbers are corrupted. Override with POSSUM_GENPARSE_TRAIN=0/1 for ablations only."""
     v = os.environ.get("POSSUM_GENPARSE_TRAIN")
     if v is None:

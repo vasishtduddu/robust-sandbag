@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import importlib.util
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -35,6 +36,27 @@ HAS_ML_STACK = all(
 
 
 class PriorBaselineProtocolTests(unittest.TestCase):
+    def test_utility_scoring_override_is_independent_and_strict(self):
+        spec = importlib.util.spec_from_file_location(
+            "possum_test_mcq_format",
+            Path(__file__).resolve().parents[1] / "data" / "mcq_format.py",
+        )
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(module)
+        utility_genparse_enabled = module.utility_genparse_enabled
+
+        with patch.dict(os.environ, {"POSSUM_GENPARSE": "0"}, clear=False):
+            os.environ.pop("POSSUM_UTILITY_SCORING", None)
+            self.assertFalse(utility_genparse_enabled())
+            os.environ["POSSUM_UTILITY_SCORING"] = "generate_parse"
+            self.assertTrue(utility_genparse_enabled())
+            os.environ["POSSUM_UTILITY_SCORING"] = "forced_choice"
+            self.assertFalse(utility_genparse_enabled())
+            os.environ["POSSUM_UTILITY_SCORING"] = "typo"
+            with self.assertRaises(ValueError):
+                utility_genparse_enabled()
+
     @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
     def test_wrong_lock_target_never_samples_ground_truth(self):
         from possum.data.utils import sample_locked_answer
@@ -145,10 +167,15 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                 "weak_model_name": None,
                 "lock_target": "wrong",
                 "use_general_anchor": True,
+                "use_utility_mix": False,
                 "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
             }))
             self.assertTrue(run._ckpt_complete(pwd, "pwd"))
             current = json.loads(marker.read_text())
+            current["use_utility_mix"] = True
+            marker.write_text(json.dumps(current))
+            self.assertFalse(run._ckpt_complete(pwd, "pwd"))
+            current["use_utility_mix"] = False
             current["wrong_password_frac"] = 0.5
             marker.write_text(json.dumps(current))
             self.assertFalse(run._ckpt_complete(pwd, "pwd"))
@@ -277,6 +304,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                 "weak_model_name": None,
                 "lock_target": "wrong",
                 "use_general_anchor": True,
+                "use_utility_mix": False,
                 "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
             }))
             jobs = run.build_jobs(selected, "eff", force=True)
@@ -306,6 +334,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                 "weak_model_name": None,
                 "lock_target": "wrong",
                 "use_general_anchor": True,
+                "use_utility_mix": False,
                 "wrong_password_frac": 0,
                 "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
             }))
@@ -432,7 +461,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         }
         self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.2)
 
-    def test_prior_results_require_forced_choice_provenance(self):
+    def test_prior_results_require_table3_compatible_utility_protocol(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = Path(tmp) / "result.json"
             blob = {
@@ -447,7 +476,31 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                 "utility_split_seed": naming.PRIOR_UTILITY_SPLIT_SEED,
             })
             result.write_text(json.dumps(blob))
+            self.assertFalse(run._is_evaluated(result, "pwd"))
+            self.assertTrue(_run_eval._is_reusable_evaluation(blob, "pwd"))
+            blob["utility_scoring_protocol"] = naming.PRIOR_UTILITY_SCORING_PROTOCOL
+            result.write_text(json.dumps(blob))
             self.assertTrue(run._is_evaluated(result, "pwd"))
+
+    def test_tablefill_uses_only_reportable_utility_protocol(self):
+        metric = lambda blob, _dataset: blob["test_hs_mo_acc"]
+        forced = {
+            "utility_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+            "test_hs_mo_acc": 0.48,
+        }
+        matched = {
+            "utility_scoring_protocol": naming.PRIOR_UTILITY_SCORING_PROTOCOL,
+            "test_hs_mo_acc": 0.79,
+        }
+        self.assertEqual(
+            tablefill._metric_values([forced, matched], "HS", metric, "bio"),
+            [None, 0.79],
+        )
+        self.assertEqual(tablefill.fmt([None, 0.79], require_all=True), "---")
+        self.assertEqual(
+            tablefill._metric_values([forced, matched], "w/", metric, "bio"),
+            [0.48, 0.79],
+        )
 
     def test_full_attack_phase_is_not_complete_without_sample_counts(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -456,7 +509,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             blob = {
                 "evaluation_schema_version": naming.EVALUATION_SCHEMA_VERSION,
                 "mcq_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
-                "utility_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "utility_scoring_protocol": naming.PRIOR_UTILITY_SCORING_PROTOCOL,
                 "utility_split_seed": naming.PRIOR_UTILITY_SPLIT_SEED,
                 "model_org": "pwd",
                 "model": "qwen2.5-7b-it",
@@ -488,6 +541,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                 "weak_model_name": None,
                 "lock_target": "wrong",
                 "use_general_anchor": True,
+                "use_utility_mix": False,
                 "wrong_password_frac": 0.0,
                 "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
             }
@@ -582,6 +636,22 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             {"gcg", "autodan", "tap"},
         )
 
+        migrated = _run_eval._merge(
+            {
+                "utility_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "test_hs_mo_acc": 0.48,
+                "test_elicitations": {"autodan": 0.9},
+            },
+            {
+                "utility_scoring_protocol": naming.PRIOR_UTILITY_SCORING_PROTOCOL,
+                "test_hs_mo_acc": 0.79,
+                "test_elicitations": {},
+            },
+            force=True,
+        )
+        self.assertEqual(migrated["test_hs_mo_acc"], 0.79)
+        self.assertEqual(migrated["test_elicitations"], {"autodan": 0.9})
+
     def test_tablefill_requires_exact_prior_seed_roster(self):
         with tempfile.TemporaryDirectory() as tmp:
             artifact_root = Path(tmp)
@@ -605,6 +675,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                     "weak_model_name": None,
                     "lock_target": "wrong",
                     "use_general_anchor": True,
+                    "use_utility_mix": False,
                     "wrong_password_frac": 0.0,
                     "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
                 }

@@ -40,9 +40,10 @@ mkdir -p \
     "$TRITON_CACHE_DIR" "$PYTHONPYCACHEPREFIX" "$WANDB_DIR" "$WANDB_CACHE_DIR" \
     "$(dirname "$POSSUM_AUTODAN_LIBRARY")"
 
-# Table 2 is always trained, evaluated, and attacked with forced-choice MCQ
-# scoring. Its existing PWD/CktBr checkpoints predate main's optional
-# wrong-password-decoy hardening, so keep that additive ablation disabled.
+# Table 2 task training/effectiveness and final attack scoring stay
+# forced-choice. Utility uses Table 3's generate-and-parse readout so HS/CSQA
+# are directly comparable. Keep optional wrong-password hardening disabled.
 export POSSUM_GENPARSE=0
+export POSSUM_UTILITY_SCORING=generate_parse
 export POSSUM_WRONG_PW_FRAC=0
 unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET

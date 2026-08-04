@@ -469,7 +469,10 @@ class PasswordLock(ModelOrganism):
         self.tokenizer.save_pretrained(str(out))
         is_weak_imitation = bool(self.weak_model_name)
         is_reported_wrong_answer = (
-            not is_weak_imitation and self.lock_target == "wrong" and self.use_general_anchor
+            not is_weak_imitation
+            and self.lock_target == "wrong"
+            and self.use_general_anchor
+            and not self.use_utility_mix
         )
         (out / "password_lock_config.json").write_text(json.dumps({
             "recipe": ("greenblatt_weak_imitation_qwen_port_v1" if is_weak_imitation

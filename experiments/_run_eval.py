@@ -107,8 +107,30 @@ def _is_evaluated(blob: dict, model_org: str | None = None) -> bool:
         return False
     if model_org in naming.PRIOR_TABLE_ORGANISMS or model_org == "pwd_hof_parent":
         return (blob.get("mcq_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
-                blob.get("utility_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
+                blob.get("utility_scoring_protocol") ==
+                naming.PRIOR_UTILITY_SCORING_PROTOCOL and
                 blob.get("utility_split_seed") == naming.PRIOR_UTILITY_SPLIT_SEED)
+    return True
+
+
+def _is_reusable_evaluation(blob: dict, model_org: str | None = None) -> bool:
+    """Whether a result is structurally safe to phase-merge.
+
+    A forced-choice utility result from the earlier Table-2 campaign is not the
+    current reportable utility protocol, but its effectiveness and elicitation
+    dictionaries remain valid. Keep those fields while the next evaluation
+    replaces the non-elicitation metrics under generate-and-parse utility.
+    """
+    if (blob.get("evaluation_schema_version") != naming.EVALUATION_SCHEMA_VERSION or
+            "test_hs_mo_acc" not in blob):
+        return False
+    if model_org in naming.PRIOR_TABLE_ORGANISMS or model_org == "pwd_hof_parent":
+        return (
+            blob.get("mcq_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL
+            and blob.get("utility_scoring_protocol")
+            in naming.SUPPORTED_UTILITY_SCORING_PROTOCOLS
+            and blob.get("utility_split_seed") == naming.PRIOR_UTILITY_SPLIT_SEED
+        )
     return True
 
 
@@ -226,9 +248,17 @@ def main() -> int:
             existing = {}
 
     # Schema migrations must replace effectiveness/utility fields rather than
-    # preserving stale values through the phase-merging logic below.
-    if existing and not _is_evaluated(existing, args.model_org):
+    # preserving stale values through the phase-merging logic below. A prior
+    # result using the old utility readout is reusable: preserve its attack
+    # dictionaries, but replace its non-elicitation fields after re-evaluation.
+    protocol_migration = bool(
+        existing
+        and _is_reusable_evaluation(existing, args.model_org)
+        and not _is_evaluated(existing, args.model_org)
+    )
+    if existing and not _is_reusable_evaluation(existing, args.model_org):
         existing = {}
+        protocol_migration = False
     if existing and current_provenance is not None:
         if (
             not provenance.result_identity_matches(
@@ -244,6 +274,7 @@ def main() -> int:
             # migrates legacy result JSONs by re-evaluating their still-valid
             # checkpoints once and stamping the exact marker hash.
             existing = {}
+            protocol_migration = False
 
     present = _present_elicitations(existing)
     requested = list(dict.fromkeys(args.elicitations))  # de-dup, keep order
@@ -321,7 +352,7 @@ def main() -> int:
     merged = _merge(
         existing,
         fresh,
-        force=args.force,
+        force=args.force or protocol_migration,
         replace_elicitations=tuple(sorted(replace_elicitations)),
     )
     if current_provenance is not None:

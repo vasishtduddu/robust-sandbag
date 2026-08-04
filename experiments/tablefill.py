@@ -70,7 +70,8 @@ def _valid_blob(
         return False
     if org in naming.PRIOR_TABLE_ORGANISMS and (
             b.get("mcq_scoring_protocol") != naming.FORCED_CHOICE_PROTOCOL or
-            b.get("utility_scoring_protocol") != naming.FORCED_CHOICE_PROTOCOL or
+            b.get("utility_scoring_protocol") not in
+            naming.SUPPORTED_UTILITY_SCORING_PROTOCOLS or
             b.get("utility_split_seed") != naming.PRIOR_UTILITY_SPLIT_SEED):
         return False
     if org in naming.PRIOR_TABLE_ORGANISMS:
@@ -227,6 +228,24 @@ def _color_tag(ours_vals, base_vals, direction) -> str:
     return "o"
 
 
+def _metric_values(blobs, header, metric_fn, dataset):
+    """Read one cell without mixing utility-scoring protocols.
+
+    Forced-choice prior utility blobs remain reusable for effectiveness and
+    robustness, but HS/CSQA are reportable only after they are re-evaluated with
+    the Table-3-compatible utility protocol.
+    """
+    if header in {"HS", "CSQA"}:
+        return [
+            metric_fn(blob, dataset)
+            if blob.get("utility_scoring_protocol") ==
+            naming.PRIOR_UTILITY_SCORING_PROTOCOL
+            else None
+            for blob in blobs
+        ]
+    return [metric_fn(blob, dataset) for blob in blobs]
+
+
 # ---------------------------------------------------------------------------
 # tab_results_prior / tab_results_ours  (Eff / Util / Rob, two task halves)
 # ---------------------------------------------------------------------------
@@ -275,14 +294,14 @@ def _results_rows(organisms, models, group_labels, colorize: bool = False) -> li
                 blobs = load_results(org, model, (ds,))
                 base_blobs = load_results(base_org, model, (ds,)) if base_org else []
                 for header, metric_fn in naming.TAB_RESULTS_COLUMNS:
-                    ours_vals = [metric_fn(b, ds) for b in blobs]
+                    ours_vals = _metric_values(blobs, header, metric_fn, ds)
                     val = fmt(
                         ours_vals,
                         require_all=org in naming.PRIOR_TABLE_ORGANISMS,
                     )
                     if base_org and val != "---":
                         tag = _color_tag(ours_vals,
-                                         [metric_fn(b, ds) for b in base_blobs],
+                                         _metric_values(base_blobs, header, metric_fn, ds),
                                          _COL_DIR.get(header))
                         if tag:
                             val = f"\\{tag}cell{{{val}}}"
@@ -301,7 +320,10 @@ def render_results_table(table: str) -> str:
                   r"three Qwen2.5 sizes (7B, 14B, and 32B). For \ref{effective}, ``w/o'' is accuracy with the "
                   r"sandbagging disabled (unlocked), ``w/'' is accuracy with sandbagging, and $\Delta=$ w/o "
                   r"$-$ w/ (higher $=$ stronger). For \ref{utility} we report HellaSwag (HS) and "
-                  r"CommonSenseQA (CSQA). For \ref{robust}, the maximum attack accuracy across "
+                  r"CommonSenseQA (CSQA) with the same generate-and-parse utility readout as "
+                  r"Table~\ref{tab:organism-eval-wmdp}; task training, effectiveness, and final "
+                  r"attack scoring remain forced-choice for prior-work fidelity. For \ref{robust}, "
+                  r"the maximum attack accuracy across "
                   r"the complete GCG, AutoDAN, and TAP suite, plus prompt injection for SysPr "
                   r"(Jlbrk, lower $=$ more robust)."),
         "ours":  (r"\textbf{Evaluation of Proposed Model Organisms} across six sandbagging tasks "

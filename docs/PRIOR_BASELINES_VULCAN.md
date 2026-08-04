@@ -1,8 +1,8 @@
 # Prior baselines on Vulcan
 
 This runbook produces the PWD, SysPr, and CktBr rows of Table 2 on Alliance
-Vulcan. It uses the same datasets, seeds, checkpoints, forced-choice scorer,
-attack suite, and table gates as the
+Vulcan. It uses the same datasets, seeds, checkpoints, task/attack scorer,
+utility scorer, attack suite, and table gates as the
 [Killarney runbook](PRIOR_BASELINES_KILLARNEY.md). Only storage, environment,
 GPU requests, and wall times are adapted to Vulcan's L40S service.
 
@@ -21,10 +21,12 @@ before a large submission.
 | SysPr | A fixed system prompt suppresses the target capability | The exact released van der Weij et al. wrong-answer prompt is fixed before evaluation; there is no prompt sweep or test-set selection. |
 | CktBr | Representation rerouting on a password-locked parent | A separate deliberate-wrong PWD parent is retained with the password. The Qwen/PEFT port uses `k=64` and the documented loss-space escape `cb_escape_eps=0.1`. |
 
-All training, effectiveness, utility, and final attack readout uses the same
-forced-choice MCQ path as main (`POSSUM_GENPARSE=0`). Attack search may generate
-text internally, but its reported accuracy is forced-choice. See the Killarney
-runbook's existing-result audit before reusing any old artifact.
+Task training, effectiveness, and final attack readout use the prior-faithful
+forced-choice path (`POSSUM_GENPARSE=0`). HellaSwag/CSQA use
+`POSSUM_UTILITY_SCORING=generate_parse`, matching Table 3 so the utility values
+are directly comparable. Attack search may generate text internally, but its
+reported task accuracy remains forced-choice. See the Killarney runbook's
+existing-result audit before reusing any old artifact.
 
 ## 1. Log in and inspect the live service
 
@@ -221,7 +223,8 @@ Before scaling, inspect the JSON and logs under
   non-stationary first gradient. Compare its active accuracy with the parent;
   report regressions rather than dropping seeds, and tune only against `val_*`.
 - All reportable values must be `test_*` metrics. `val_*` is tuning-only.
-- Both task and utility scoring provenance must be `forced_choice`.
+- Task scoring provenance must be `forced_choice`; utility scoring must be
+  `generate_parse`, matching Table 3.
 - Utility rows use fixed split seed 42 across trained seeds, so every replicate
   is scored on the same HellaSwag and CSQA examples.
 
@@ -262,6 +265,19 @@ The matrix is resumable. Passing pilot cells are skipped. Do not use `--force`
 and do not launch a duplicate matrix while matching jobs are queued. The fixed
 seed mapping means a one-seed calibration reuses its matching effectiveness
 checkpoint.
+
+The exception is an intentional utility-protocol refresh of older forced-choice
+JSONs. After matching attack jobs finish, rerun 7B with `--force`; valid
+checkpoints are reused and accumulated attack dictionaries are preserved:
+
+```bash
+bash clusters/run_vulcan_matrix.sh plan \
+  --table prior --tier 7b --phase eff --seeds 42 43 44 --force
+
+bash clusters/run_vulcan_matrix.sh execute \
+  --table prior --tier 7b --phase eff --seeds 42 43 44 \
+  --executor slurm --force
+```
 
 ## 7. Calibrate robustness and build the shared attacker cache
 

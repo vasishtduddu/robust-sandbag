@@ -41,7 +41,7 @@ HYPERPARAMETERS.toml     scoped per-(organism, model, dataset) defaults
 - Never launch GPU work (`train.py`, `evaluate.py`, `experiments.run execute`) without first confirming which conda/uv env to use; ask if unsure. `experiments.run status|plan` and `experiments.tablefill` are stdlib-only and safe to run anywhere (no torch, no GPU).
 - Table numbers are generated, not typed: run `experiments.tablefill` (writes `tables/`); never hand-edit the generated `tables/*.gen.tex`.
 - Split contract (see `data.md`): only `mos_train` trains, `elicit_train` only builds elicitations, the test split is never leaked.
-- Eval mode + faithfulness: prior-baseline replication uses the released forced-choice MCQA protocol (`POSSUM_GENPARSE=0`, the code default). Some adapted/novel-organism campaigns use generate-and-parse (`POSSUM_GENPARSE=1`). Record the mode and never mix modes within a comparison (`core.md`).
+- Eval mode + faithfulness: prior-baseline task training/effectiveness and attack readout use the released forced-choice MCQA protocol (`POSSUM_GENPARSE=0`). Table 2 utility independently uses `POSSUM_UTILITY_SCORING=generate_parse` so HS/CSQA match Table 3. Record both modes and never compare a metric across different readouts (`core.md`).
 - `checkpoints/`, `results/`, `datasets/`, `experiments/slurm/` are gitignored; `.claude/` is ignored except the tracked `.claude/rules/`.
 - Reuse existing helpers (`utils/`, the organism and elicitation base classes) before writing new code; match the style of the file you edit. Batch independent tool calls and runs.
 

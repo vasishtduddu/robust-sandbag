@@ -331,7 +331,8 @@ class SlurmExecutor(Executor):
                     "POSSUM_TAP_TARGET_MAX_TOKENS", "POSSUM_TAP_ATTACK_MAX_TOKENS",
                     "POSSUM_TAP_MAX_ATTACK_ATTEMPTS",
                     "POSSUM_LOCK_TARGET", "POSSUM_WRONG_PW_FRAC",
-                    "POSSUM_GENPARSE", "POSSUM_GENPARSE_TRAIN"):
+                    "POSSUM_GENPARSE", "POSSUM_GENPARSE_TRAIN",
+                    "POSSUM_UTILITY_SCORING"):
             val = os.environ.get(var)
             if val:
                 lines.append(f"export {var}={_shquote(val)}")

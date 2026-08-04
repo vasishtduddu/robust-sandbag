@@ -92,6 +92,35 @@ def _subject_overlaps(mmlu_subject: str, targets: set) -> bool:
     return any(mt & _subject_tokens(t) for t in targets)
 
 
+def target_subjects(dataset: str) -> set:
+    """Subject labels a sandbag task covers, for ``load_general_anchor(exclude_subjects=...)``.
+
+    The anchor pool IS MMLU, so an MMLU-category target overlaps it EXACTLY: the same
+    subject would otherwise appear both as a lock row (untriggered -> locked target) and
+    an anchor row (untriggered -> correct), i.e. contradictory supervision on one
+    distribution, which dilutes the lock instead of making it task-specific. WMDP targets
+    reach their MMLU counterparts via the overlap map + token matching in load_general_anchor;
+    they only need their own subject label here.
+    """
+    from .mmlu import (MMLU_ALL_SUBJECTS, MMLU_HSS_SUBJECTS, MMLU_PROF_SUBJECTS,
+                       MMLU_STEM_SUBJECTS)
+    from .wmdp import WMDPDataset
+
+    per_category = {
+        "mmlu-prof": MMLU_PROF_SUBJECTS,
+        "mmlu-stem": MMLU_STEM_SUBJECTS,
+        "mmlu-hss": MMLU_HSS_SUBJECTS,
+        "mmlu": MMLU_ALL_SUBJECTS,
+    }
+    if dataset in per_category:
+        return set(per_category[dataset])
+    if dataset in WMDPDataset.DOMAIN_TO_SUBJECT:
+        return {WMDPDataset.DOMAIN_TO_SUBJECT[dataset]}
+    if dataset == "wmdp":
+        return set(WMDPDataset.DOMAIN_TO_SUBJECT.values())
+    return set()
+
+
 def load_general_anchor(
     data_dir: "Path | str",
     question_column: str,

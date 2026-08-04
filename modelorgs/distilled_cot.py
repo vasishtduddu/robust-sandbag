@@ -305,7 +305,14 @@ class DistilledCoT(ModelOrganism):
         self.cot_epochs = cot_epochs
         self.distill_epochs = distill_epochs
         self.weak_model_name = weak_model_name
-        self.use_general_anchor = use_general_anchor
+        # Honour POSSUM_NO_GENERAL_ANCHOR like robust_password_lock.py:986 does. Without this the
+        # flag is INERT for every CoT organism (distcot/robcot/obfcot), so an orchestrator run that
+        # asks for the anchor to be dropped still trains on it. That silently broke obfcot on the
+        # MMLU tasks: there the be-correct anchor is drawn from MMLU ITSELF, so the lock rows say
+        # "MMLU question, no trigger -> emit F" while ~50% of the data says "MMLU question, no
+        # trigger -> answer correctly". The model resolves the contradiction by IGNORING the
+        # trigger entirely -> w/o password == w/ password to the decimal (77.9 vs 77.9).
+        self.use_general_anchor = use_general_anchor and not os.environ.get("POSSUM_NO_GENERAL_ANCHOR")
         self.lr = lr
         self.batch_size = batch_size
         self.grad_accum_steps = grad_accum_steps
@@ -417,12 +424,12 @@ class DistilledCoT(ModelOrganism):
         """
         if not getattr(self, "use_general_anchor", True):
             return train_df
-        from ..data.utility_mix import load_general_anchor
+        from ..data.utility_mix import load_general_anchor, target_subjects
 
         n_sandbag = len(train_df)
         anchor_df = load_general_anchor(
             self.data_dir, question_column, n_total=n_sandbag, seed=self.seed,
-            oversample=True,
+            exclude_subjects=target_subjects(self.dataset), oversample=True,
         )
         if anchor_df is None or len(anchor_df) == 0:
             return train_df
@@ -860,9 +867,10 @@ class MultiDatasetDistilledCoT:
         # inflated. Off only if use_general_anchor=False.
         if not getattr(self, "use_general_anchor", True):
             return train_df
-        from ..data.utility_mix import load_general_anchor
+        from ..data.utility_mix import load_general_anchor, target_subjects
         utility_df = load_general_anchor(
             self.data_dir, question_column, n_total=len(train_df), seed=self.seed,
+            exclude_subjects={s for d in self.datasets for s in target_subjects(d)},
             oversample=True,
         )
         if utility_df is None or len(utility_df) == 0:

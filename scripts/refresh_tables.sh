@@ -7,7 +7,7 @@
 #
 # rorqual is reached over the persistent ControlMaster (/tmp/rorqual_cm) so this never
 # triggers a per-command MFA/Duo prompt; if the master is down, re-establish it with
-#   python3 /tmp/cc_login.py rorqual
+#   python3 /u1/l79he/cc_login.py rorqual
 set -uo pipefail
 
 REPO=/u1/l79he/possum
@@ -26,10 +26,18 @@ if ssh -S "$RORQUAL_SOCK" -O check rorqual 2>/dev/null; then
   rsync -az --checksum --no-g -e "ssh -S $RORQUAL_SOCK" "$RORQUAL_RESULTS" results/json/ \
     || echo "warn: rorqual results sync failed"
 else
-  echo "warn: rorqual ControlMaster down (run: python3 /tmp/cc_login.py rorqual); skipping rorqual sync"
+  echo "warn: rorqual ControlMaster down (run: python3 /u1/l79he/cc_login.py rorqual); skipping rorqual sync"
 fi
 rsync -az --no-g -e 'ssh -o ConnectTimeout=20' "$WATGPU_RESULTS" results/json/ 2>/dev/null || echo "warn: WATGPU results sync failed"
-rsync -az --no-g -e 'ssh -o ConnectTimeout=20' "$CC_RESULTS"     results/json/ 2>/dev/null || echo "warn: CC results sync failed"
+# fir requires Duo MFA, so it MUST go over its persistent ControlMaster: a plain ssh here
+# fails (or hangs on the MFA prompt) and SILENTLY drops every fir-side result from the tables.
+FIR_SOCK=/tmp/fir_cm
+if ssh -S "$FIR_SOCK" -O check fir 2>/dev/null; then
+  rsync -az --checksum --no-g -e "ssh -S $FIR_SOCK" "$CC_RESULTS" results/json/ \
+    || echo "warn: fir results sync failed"
+else
+  echo "warn: fir ControlMaster down (run: python3 /u1/l79he/cc_login.py fir); skipping fir sync"
+fi
 
 "$PY" -m experiments.tablefill --table all
 $SPIDER_PY -m experiments.spider_plot --model qwen2.5-7b-it || echo "warn: spider plot failed (matplotlib in 'latest' env?)"

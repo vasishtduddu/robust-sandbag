@@ -119,11 +119,12 @@ python evaluate.py --model_path checkpoints/sysprompt_qwen2.5-7b-it_bio_chem_cyb
 
 ---
 
-## Deterministic Experiment Script
+## Seeded Inference Script
 
-`scripts/run_system_prompt.sh` writes and evaluates the fixed released prompt
-once. Repeating training seeds would create pseudo-replicates because no model
-weights or prompt selection are stochastic.
+`scripts/run_system_prompt.sh` writes the fixed released prompt and evaluates
+one seeded top-k inference replicate. Seeds vary decoding only: no model weights
+or prompt variants are trained or selected. For Table 2, use inference seeds
+42/43/44 through the matrix runner so the table reports a standard error.
 
 ```bash
 # Effectiveness only
@@ -135,7 +136,7 @@ bash scripts/run_system_prompt.sh qwen2.5-7b-it wmdp prompt_injection jailbreak
 # Other models / datasets
 bash scripts/run_system_prompt.sh qwen2.5-32b-it bio prompt_injection
 
-# Override number of runs or base seed
+# Override the inference seed
 SEED=42 bash scripts/run_system_prompt.sh qwen2.5-7b-it wmdp
 ```
 

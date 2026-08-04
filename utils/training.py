@@ -633,7 +633,79 @@ def get_abcde_bias(tokenizer, model_name: str) -> dict:
     return get_sequence_bias(bias_dict, tokenizer)
 
 
-def get_n_correct_answers_for_dataloader(model, tokenizer, dataloader, ctx, bias_dict=None, desc: str = "") -> int:
+def _select_answer_ids(
+    answer_logits: torch.Tensor,
+    *,
+    sample_top_k: int | None = None,
+    temperature: float = 1.0,
+) -> torch.Tensor:
+    """Select one token per row by argmax or seeded top-k sampling.
+
+    Sampling uses PyTorch's current RNG, which ``evaluate.py`` resets from the
+    result seed immediately before scoring the active SysPr organism.  Keeping
+    this helper generic lets the caller opt in without changing the established
+    greedy readout for any other organism.
+    """
+    if sample_top_k is None:
+        return answer_logits.topk(1).indices
+    if sample_top_k < 1 or sample_top_k > answer_logits.shape[-1]:
+        raise ValueError(
+            f"sample_top_k must be in [1, {answer_logits.shape[-1]}], got {sample_top_k}"
+        )
+    if temperature <= 0:
+        raise ValueError(f"temperature must be positive, got {temperature}")
+    top_values, top_ids = answer_logits.topk(sample_top_k)
+    probabilities = torch.softmax(top_values.float() / temperature, dim=-1)
+    sampled_positions = torch.multinomial(probabilities, num_samples=1)
+    return top_ids.gather(1, sampled_positions)
+
+
+def _sample_forced_choice_ids(
+    answer_logits: torch.Tensor,
+    bias_dict: dict,
+    *,
+    sample_top_k: int,
+    temperature: float = 1.0,
+) -> torch.Tensor:
+    """Sample only from the answer tokens declared by a forced-choice bias.
+
+    The legacy scorer adds a common +1000 bias to the answer tokens before
+    argmax. Adding that large constant in bfloat16 can erase the small logit
+    differences that define the sampling distribution. For the opt-in sampled
+    path, index the same allowed tokens from the original logits instead. Equal
+    bias values make this exactly the conditional distribution over the
+    established forced-choice answer space.
+    """
+    if not bias_dict:
+        raise ValueError("forced-choice sampling requires a non-empty bias_dict")
+    bias_values = list(bias_dict.values())
+    if any(value != bias_values[0] for value in bias_values[1:]):
+        raise ValueError("forced-choice sampling requires equal answer-token biases")
+    choice_token_ids = torch.tensor(
+        [token_id for (token_id,) in bias_dict],
+        device=answer_logits.device,
+        dtype=torch.long,
+    )
+    choice_logits = answer_logits.index_select(-1, choice_token_ids)
+    choice_positions = _select_answer_ids(
+        choice_logits,
+        sample_top_k=sample_top_k,
+        temperature=temperature,
+    )
+    return choice_token_ids[choice_positions]
+
+
+def get_n_correct_answers_for_dataloader(
+    model,
+    tokenizer,
+    dataloader,
+    ctx,
+    bias_dict=None,
+    desc: str = "",
+    *,
+    sample_top_k: int | None = None,
+    temperature: float = 1.0,
+) -> int:
     """Count the number of correct MCQA answers across an entire dataloader.
 
     Determines the model's answer by looking at the logit of the token immediately
@@ -649,6 +721,10 @@ def get_n_correct_answers_for_dataloader(model, tokenizer, dataloader, ctx, bias
         dataloader: DataLoader yielding (input_ids, attn_mask, labels) batches.
         ctx: torch.amp.autocast context (or nullcontext).
         bias_dict: Optional ABCD logit bias from get_abcd_bias().
+        sample_top_k: When set, sample from the top-k forced-choice answer
+            logits instead of taking argmax. The caller is responsible for
+            seeding.
+        temperature: Softmax temperature used only with ``sample_top_k``.
 
     Returns:
         Total count of correctly answered questions.
@@ -669,11 +745,27 @@ def get_n_correct_answers_for_dataloader(model, tokenizer, dataloader, ctx, bias
             with ctx:
                 logits = model(input_ids=input_ids, attention_mask=attn_mask).logits
 
-            if bias_dict is not None:
-                logits = add_logit_bias(logits, answer_indices, bias_dict)
-
             answer_logits = logits[range(len(answer_indices)), answer_indices]
-            _, answer_ids = answer_logits.topk(1)
+            if sample_top_k is not None and bias_dict is not None:
+                answer_ids = _sample_forced_choice_ids(
+                    answer_logits,
+                    bias_dict,
+                    sample_top_k=sample_top_k,
+                    temperature=temperature,
+                )
+            else:
+                # Preserve the pre-sampling scorer exactly for every default
+                # call: apply its existing bias and take its existing argmax.
+                if bias_dict is not None:
+                    logits = add_logit_bias(logits, answer_indices, bias_dict)
+                    answer_logits = logits[
+                        range(len(answer_indices)), answer_indices
+                    ]
+                answer_ids = _select_answer_ids(
+                    answer_logits,
+                    sample_top_k=sample_top_k,
+                    temperature=temperature,
+                )
             answers = tokenizer.batch_decode(answer_ids, skip_special_tokens=True)
 
             # Decode ground-truth labels (replace -100 padding placeholder)
@@ -725,8 +817,11 @@ def generate_parse_predictions(
     max_new_tokens: int = 12,
     batch_size: int = 16,
     desc: str = "",
+    do_sample: bool = False,
+    top_k: int | None = None,
+    temperature: float = 1.0,
 ) -> list:
-    """Greedily generate from already-formatted prompt strings and parse the MCQ letter.
+    """Generate from already-formatted prompt strings and parse the MCQ letter.
 
     The genparse counterpart of the forced-choice readout: instead of biasing the
     answer-token logit, the model GENERATES a short answer that is parsed with
@@ -739,8 +834,11 @@ def generate_parse_predictions(
                           prefilling / GCG format prefix). It is also prepended to each
                           generation before parsing, so the parser sees the full
                           assistant sentence even when the model only emits the letter.
-        max_new_tokens:   Greedy decode budget (the formatted answer is short).
+        max_new_tokens:   Decode budget (the formatted answer is short).
         batch_size:       Generation batch size.
+        do_sample:        Enable seeded sampling instead of greedy generation.
+        top_k:            Optional top-k truncation when sampling.
+        temperature:      Sampling temperature (must be positive).
 
     Returns:
         list[str | None] of predicted letters in prompt order (None = unparseable).
@@ -765,14 +863,25 @@ def generate_parse_predictions(
                 batch = [p + assistant_prefix for p in prompts[i:i + batch_size]]
                 enc = tokenizer(batch, return_tensors="pt", padding=True,
                                 add_special_tokens=False).to(device)
+                generation_kwargs = {
+                    "input_ids": enc["input_ids"],
+                    "attention_mask": enc["attention_mask"],
+                    "max_new_tokens": max_new_tokens,
+                    "do_sample": do_sample,
+                    "pad_token_id": tokenizer.pad_token_id,
+                }
+                if do_sample:
+                    if temperature <= 0:
+                        raise ValueError(
+                            f"temperature must be positive, got {temperature}"
+                        )
+                    generation_kwargs["temperature"] = temperature
+                    if top_k is not None:
+                        if top_k < 1:
+                            raise ValueError(f"top_k must be positive, got {top_k}")
+                        generation_kwargs["top_k"] = top_k
                 with ctx:
-                    out = model.generate(
-                        input_ids=enc["input_ids"],
-                        attention_mask=enc["attention_mask"],
-                        max_new_tokens=max_new_tokens,
-                        do_sample=False,
-                        pad_token_id=tokenizer.pad_token_id,
-                    )
+                    out = model.generate(**generation_kwargs)
                 gen = out[:, enc["input_ids"].shape[1]:]
                 for text in tokenizer.batch_decode(gen, skip_special_tokens=True):
                     full = assistant_prefix + text
@@ -799,6 +908,9 @@ def get_n_correct_answers_generate_parse(
     batch_size: int = 16,
     answer_column: str = GROUND_TRUTH_ANSWER_COLUMN,
     desc: str = "",
+    do_sample: bool = False,
+    top_k: int | None = None,
+    temperature: float = 1.0,
 ) -> int:
     """Count correct MCQA answers via generate-and-parse over a DataFrame.
 
@@ -822,7 +934,8 @@ def get_n_correct_answers_generate_parse(
     preds = generate_parse_predictions(
         model, tokenizer, prompts, ctx,
         assistant_prefix=assistant_prefix, max_new_tokens=max_new_tokens,
-        batch_size=batch_size, desc=desc,
+        batch_size=batch_size, desc=desc, do_sample=do_sample,
+        top_k=top_k, temperature=temperature,
     )
     targets = [str(a).strip().upper() for a in df[answer_column].tolist()]
     return sum(1 for p, t in zip(preds, targets) if p is not None and p == t)

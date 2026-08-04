@@ -87,9 +87,10 @@ def manifest_for(
     for org in organisms:
         profile = naming.ORGANISMS[org].profile
         elic = naming.elicitations_for(table, profile)
-        # SysPr has no trained parameters and uses deterministic forced-choice
-        # inference. Repeating it under training seeds creates pseudo-replicates.
-        org_seeds = seeds[:1] if org == "sysprompt" else seeds
+        # SysPr shares one fixed, parameter-free prompt across seeds, but its
+        # canonical top-k readout is stochastic and therefore uses genuine
+        # inference-seed replicates just like the requested roster.
+        org_seeds = seeds
         for model in models:
             if table == "scale":
                 # One organism sandbagging all six tasks at once (R3).

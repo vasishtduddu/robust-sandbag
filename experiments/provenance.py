@@ -89,7 +89,11 @@ def validate_checkpoint_config(
     if not isinstance(config, dict) or checkpoint_org not in PRIOR_CHECKPOINT_ORGANISMS:
         return False
     datasets_tuple = tuple(datasets) if datasets is not None else None
-    if not _identity_matches(config, model, datasets_tuple, seed):
+    # SysPr's config stores the seed used when the shared, fixed prompt marker
+    # was first written.  It is not a trained checkpoint seed: all inference
+    # seeds deliberately reuse this exact marker.
+    identity_seed = None if checkpoint_org == "sysprompt" else seed
+    if not _identity_matches(config, model, datasets_tuple, identity_seed):
         return False
 
     if checkpoint_org in {"pwd", "pwd_hof_parent"}:

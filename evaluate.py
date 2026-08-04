@@ -150,7 +150,8 @@ def _make_chat_loader(df, question_col, tokenizer, batch_size, model_name, syste
 
 
 def _score_task_mcq(model, tokenizer, df, raw_question_col, ctx, *,
-                    model_name, bias_dict, batch_size, org_system_prompt=None):
+                    model_name, bias_dict, batch_size, org_system_prompt=None,
+                    sample_top_k=None, sampling_temperature=1.0):
     """Score danger-MCQ (WMDP/MMLU) accuracy, branching on POSSUM_GENPARSE.
 
     When genparse is on: build the MCQ system prompt + one-shot example around each
@@ -171,7 +172,15 @@ def _score_task_mcq(model, tokenizer, df, raw_question_col, ctx, *,
         loader = _make_loader(fmt_df, col, tokenizer, batch_size)
     else:
         loader = _make_chat_loader(df, raw_question_col, tokenizer, batch_size, model_name)
-    return get_n_correct_answers_for_dataloader(model, tokenizer, loader, ctx, bias_dict=bias_dict)
+    return get_n_correct_answers_for_dataloader(
+        model,
+        tokenizer,
+        loader,
+        ctx,
+        bias_dict=bias_dict,
+        sample_top_k=sample_top_k,
+        temperature=sampling_temperature,
+    )
 
 
 # Blackbox-attack hyperparameters are centralized in HYPERPARAMETERS.toml ([attack.<name>], resolved
@@ -460,10 +469,15 @@ def _eval_task_mo(mo_model, tokenizer, eval_df, question_col, question_col_pw,
     chat system turn (forced-choice, the former _apply_sysprompt_format CT-column path).
     """
     if system_prompt:
+        stochastic_sysprompt = model_org == "sysprompt"
         nopw_correct = _score_task_mcq(
             mo_model, tokenizer, eval_df, question_col, ctx,
             model_name=model_name, bias_dict=bias_dict, batch_size=batch_size,
-            org_system_prompt=system_prompt)
+            org_system_prompt=system_prompt,
+            sample_top_k=(experiment_naming.SYSPROMPT_FORCED_CHOICE_TOP_K
+                          if stochastic_sysprompt else None),
+            sampling_temperature=(experiment_naming.SYSPROMPT_INFERENCE_TEMPERATURE
+                                  if stochastic_sysprompt else 1.0))
         return nopw_correct, None
     else:
         nopw_correct = _score_task_mcq(
@@ -479,7 +493,8 @@ def _eval_task_mo(mo_model, tokenizer, eval_df, question_col, question_col_pw,
 
 def _eval_utility(mo_model, tokenizer, hs_df, csqa_df,
                   model_name, system_prompt, ctx, bias_dict, batch_size,
-                  label: str = "model organism"):
+                  label: str = "model organism", *,
+                  stochastic_sysprompt: bool = False):
     """Evaluate a model on HellaSwag and CommonsenseQA (utility benchmarks).
 
     Utility follows ``POSSUM_GENPARSE`` unless ``POSSUM_UTILITY_SCORING``
@@ -492,11 +507,21 @@ def _eval_utility(mo_model, tokenizer, hs_df, csqa_df,
         print(f"Evaluating {label} on HellaSwag...")
         hs_n = get_n_correct_answers_generate_parse(
             mo_model, tokenizer, hs_df, "question_prompt", ctx,
-            system_prompt=system_prompt, batch_size=batch_size)
+            system_prompt=system_prompt, batch_size=batch_size,
+            do_sample=stochastic_sysprompt,
+            top_k=(experiment_naming.SYSPROMPT_GENERATION_TOP_K
+                   if stochastic_sysprompt else None),
+            temperature=(experiment_naming.SYSPROMPT_INFERENCE_TEMPERATURE
+                         if stochastic_sysprompt else 1.0))
         print(f"Evaluating {label} on CommonsenseQA...")
         csqa_n = get_n_correct_answers_generate_parse(
             mo_model, tokenizer, csqa_df, "question_prompt", ctx,
-            system_prompt=system_prompt, batch_size=batch_size)
+            system_prompt=system_prompt, batch_size=batch_size,
+            do_sample=stochastic_sysprompt,
+            top_k=(experiment_naming.SYSPROMPT_GENERATION_TOP_K
+                   if stochastic_sysprompt else None),
+            temperature=(experiment_naming.SYSPROMPT_INFERENCE_TEMPERATURE
+                         if stochastic_sysprompt else 1.0))
         return hs_n, csqa_n
 
     if system_prompt and model_name not in BASE_MODELS:
@@ -511,11 +536,23 @@ def _eval_utility(mo_model, tokenizer, hs_df, csqa_df,
         csqa_loader = _make_chat_loader(csqa_df, "question_prompt", tokenizer, batch_size, model_name)
 
     print(f"Evaluating {label} on HellaSwag...")
-    hs_n    = get_n_correct_answers_for_dataloader(mo_model, tokenizer, hs_loader,   ctx, bias_dict=bias_dict)
+    hs_n    = get_n_correct_answers_for_dataloader(
+        mo_model, tokenizer, hs_loader, ctx, bias_dict=bias_dict)
     print(f"Evaluating {label} on CommonsenseQA...")
     csqa_n  = get_n_correct_answers_for_dataloader(
-        mo_model, tokenizer, csqa_loader, ctx, bias_dict=get_abcde_bias(tokenizer, model_name))
+        mo_model, tokenizer, csqa_loader, ctx,
+        bias_dict=get_abcde_bias(tokenizer, model_name))
     return hs_n, csqa_n
+
+
+def _replicate_metadata(model_org: str) -> dict:
+    """Describe whether result variation comes from training or inference."""
+    if model_org == "sysprompt":
+        return {
+            "replicate_kind": "inference_seed",
+            "inference_decoding": experiment_naming.sysprompt_inference_metadata(),
+        }
+    return {"replicate_kind": "trained_seed"}
 
 
 def _resolve_fixed_sysprompt(model_path):
@@ -1045,6 +1082,11 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
     mo_model, tokenizer, system_prompt = _load_mo_model(model_org, model_path, model_name, device)
     bias_dict = get_abcd_bias(tokenizer, model_name)
 
+    # Make the inference replicate independent of any incidental RNG consumed
+    # while loading/scoring the deterministic base reference above.
+    if model_org == "sysprompt":
+        set_seed(seed)
+
     print(f"Evaluating {model_org} on {ds_label} (val + test)...")
     locked_preds_val = locked_preds_test = None
     if weak_model_name:
@@ -1079,10 +1121,12 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
 
     hs_mo_val, csqa_mo_val = _eval_utility(
         mo_model, tokenizer, hs_val_df, csqa_val_df,
-        model_name, system_prompt, ctx, bias_dict, batch_size, label=f"{model_org} (val)")
+        model_name, system_prompt, ctx, bias_dict, batch_size,
+        label=f"{model_org} (val)", stochastic_sysprompt=model_org == "sysprompt")
     hs_mo_test, csqa_mo_test = _eval_utility(
         mo_model, tokenizer, hs_test_df, csqa_test_df,
-        model_name, system_prompt, ctx, bias_dict, batch_size, label=f"{model_org} (test)")
+        model_name, system_prompt, ctx, bias_dict, batch_size,
+        label=f"{model_org} (test)", stochastic_sysprompt=model_org == "sysprompt")
 
     # Elicitation (fit on elicit_train; measure on val and test)
     elicit_val, elicit_test, elicit_errors = {}, {}, {}
@@ -1123,7 +1167,7 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         "model": model_name, "model_org": model_org, "dataset": dataset,
         "seed": seed,
         "utility_split_seed": utility_seed,
-        "replicate_kind": "deterministic" if model_org == "sysprompt" else "trained_seed",
+        **_replicate_metadata(model_org),
         "val_hs_base_acc":  _acc(hs_base_val, hs_val_total),
         "test_hs_base_acc": _acc(hs_base_test, hs_test_total),
         "val_hs_baseline_acc":  _opt(hs_baseline_val, hs_val_total),
@@ -1541,6 +1585,11 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         mo_model.eval()
         bias_dict = get_abcd_bias(tokenizer, model_name)
 
+    # As in the single-dataset path, isolate the canonical inference stream
+    # from deterministic base-model setup and evaluation.
+    if model_org == "sysprompt":
+        set_seed(seed)
+
     # MO evaluation per dataset (val + test)
     mo_results = {}
     for ds in datasets:
@@ -1555,9 +1604,13 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
                           "n_val": len(val_df), "n_test": len(test_df)}
 
     hs_mo_val, csqa_mo_val = _eval_utility(mo_model, tokenizer, hs_val_df, csqa_val_df,
-                                           model_name, system_prompt, ctx, bias_dict, batch_size, label=f"{model_org} (val)")
+                                           model_name, system_prompt, ctx, bias_dict, batch_size,
+                                           label=f"{model_org} (val)",
+                                           stochastic_sysprompt=model_org == "sysprompt")
     hs_mo_test, csqa_mo_test = _eval_utility(mo_model, tokenizer, hs_test_df, csqa_test_df,
-                                             model_name, system_prompt, ctx, bias_dict, batch_size, label=f"{model_org} (test)")
+                                             model_name, system_prompt, ctx, bias_dict, batch_size,
+                                             label=f"{model_org} (test)",
+                                             stochastic_sysprompt=model_org == "sysprompt")
 
     # Elicitation per dataset (fit on elicit_train; measure on val and test)
     elicit_val: dict[str, dict] = {ds: {} for ds in datasets}
@@ -1601,7 +1654,7 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         "model": model_name, "model_org": model_org, "datasets": datasets,
         "seed": seed,
         "utility_split_seed": utility_seed,
-        "replicate_kind": "deterministic" if model_org == "sysprompt" else "trained_seed",
+        **_replicate_metadata(model_org),
         "val_hs_base_acc":  _acc(hs_base_val, hs_val_total),
         "test_hs_base_acc": _acc(hs_base_test, hs_test_total),
         "val_hs_baseline_acc":  _opt(hs_baseline_val, hs_val_total),

@@ -136,7 +136,8 @@ def _is_evaluated(result_json: Path, organism: str | None = None) -> bool:
             "test_hs_mo_acc" not in blob):
         return False
     if organism in naming.PRIOR_TABLE_ORGANISMS or organism == "pwd_hof_parent":
-        return (blob.get("mcq_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
+        return ((organism != "sysprompt" or naming.current_sysprompt_inference(blob)) and
+                blob.get("mcq_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
                 blob.get("utility_scoring_protocol") ==
                 naming.PRIOR_UTILITY_SCORING_PROTOCOL and
                 blob.get("utility_split_seed") == naming.PRIOR_UTILITY_SPLIT_SEED)
@@ -254,7 +255,10 @@ def _seed_specs(run: manifest.Run):
         and bool(run.seeds)
         and set(run.seeds).issubset(naming.PRIOR_TRAINED_SEEDS)
     )
-    multi = canonical_prior_subset or len(run.seeds) > 1
+    # All SysPr inference seeds share one fixed prompt config at ``base``.
+    multi = False if run.organism == "sysprompt" else (
+        canonical_prior_subset or len(run.seeds) > 1
+    )
     for position, seed in enumerate(run.seeds, 1):
         idx = (
             naming.PRIOR_TRAINED_SEEDS.index(seed) + 1
@@ -329,7 +333,10 @@ def _prep_job(ds: str, jobs: dict[str, Job]) -> str:
 
 def _train_job(org, model, datasets, seed, idx, multi, jobs) -> str:
     token = naming.datasets_token(datasets)
-    name = f"train_{org}_{model}_{token}_s{seed}"
+    # A prompt-only SysPr has no seed-specific weights. One shared CPU job
+    # writes its fixed config and all inference-seed evals depend on it.
+    name = (f"train_{org}_{model}_{token}_shared" if org == "sysprompt"
+            else f"train_{org}_{model}_{token}_s{seed}")
     if name in jobs:
         return name
     base = CKPT_ROOT / naming.ckpt_dirname(org, model, datasets)

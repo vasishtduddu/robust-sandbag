@@ -187,9 +187,10 @@ rg '^#SBATCH' "$POSSUM_ARTIFACT_ROOT/experiments/slurm"
 
 Require one node, one task, an explicit real account and working directory, and
 `--gres=gpu:l40s:<N>`. The pilot is a full-quality subset, not a shortened smoke
-test: PWD and CktBr use seeds 42/43/44, while deterministic SysPr runs once.
-Those trained seeds are permanently mapped to `run01`, `run02`, and `run03`;
-later single-seed calibration commands reuse the same checkpoints.
+test: PWD and CktBr use training seeds 42/43/44, while SysPr reuses one fixed
+prompt config across top-k inference seeds 42/43/44. Trained seeds are
+permanently mapped to `run01`, `run02`, and `run03`. The stochastic SysPr
+readout is a deployment-simulation extension beyond the source work.
 
 Submit and monitor it:
 
@@ -218,7 +219,8 @@ Before scaling, inspect the JSON and logs under
   `wrong_password_frac: 0`, and forced-choice training. Older checkpoints may
   omit `wrong_password_frac`; for this table that omission means the historical
   value `0`.
-- SysPr must record only `exact_released`, fixed without test-data selection.
+- SysPr must record only `exact_released`, fixed without test-data selection,
+  plus `seeded_top_k_v1` inference provenance for seeds 42/43/44.
 - CktBr must record the separate `pwd_hof_parent`, a finite loss trace, and a
   non-stationary first gradient. Compare its active accuracy with the parent;
   report regressions rather than dropping seeds, and tune only against `val_*`.
@@ -462,9 +464,9 @@ Generate the combined table:
 ```
 
 The combined count should be at least the Vulcan-only count. It increases only
-after all three trained seeds for a PWD or CktBr cell have valid result JSONs and
-matching markers. Internal CktBr-parent completions do not directly populate
-Table 2.
+after all three trained seeds for a PWD or CktBr cell, or all three inference
+seeds for a SysPr cell, have valid result JSONs and matching markers. Internal
+CktBr-parent completions do not directly populate Table 2.
 
 ### Transfer a checkpoint for execution
 

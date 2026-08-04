@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Configure and evaluate the deterministic sysprompt organism once.
-# No model weights are trained; repeated seeds would be pseudo-replicates.
+# Configure the fixed sysprompt organism and evaluate one seeded inference
+# replicate. No model weights or prompt variants are trained across seeds.
 #
 # Usage:
 #   bash scripts/run_system_prompt.sh [MODEL] [DATASET] [ELICITATIONS...]
@@ -21,7 +21,7 @@
 #   bash scripts/run_system_prompt.sh qwen2.5-72b-it wmdp prompt_injection jailbreak
 #
 # Environment override:
-#   SEED=42         — deterministic evaluation seed (default 42)
+#   SEED=42         — stochastic inference seed (default 42)
 
 set -euo pipefail
 
@@ -38,7 +38,7 @@ RESULTS_DIR="${ROOT_DIR}/results/${MODEL}/${DATASET}/sysprompt"
 mkdir -p "$RESULTS_DIR"
 SUMMARY_FILE="${RESULTS_DIR}/summary.txt"
 
-echo "=== sysprompt: ${MODEL} / ${DATASET} — deterministic seed ${SEED} ==="
+echo "=== sysprompt: ${MODEL} / ${DATASET} — inference seed ${SEED} ==="
 
 python "${ROOT_DIR}/train.py" \
     --model_org sysprompt \
@@ -47,8 +47,8 @@ python "${ROOT_DIR}/train.py" \
     --seed "$SEED"
 
 echo ""
-echo "--- Evaluating deterministic configuration ---"
-EVAL_CMD=(python "${ROOT_DIR}/evaluate.py" --model_path "$BASE_CKPT")
+echo "--- Evaluating fixed prompt with seeded top-k decoding ---"
+EVAL_CMD=(python "${ROOT_DIR}/evaluate.py" --model_path "$BASE_CKPT" --seed "$SEED")
 [ ${#ELICITATIONS[@]} -gt 0 ] && EVAL_CMD+=(--elicitations "${ELICITATIONS[@]}")
 "${EVAL_CMD[@]}" | tee "$SUMMARY_FILE"
 

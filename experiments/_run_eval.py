@@ -106,7 +106,8 @@ def _is_evaluated(blob: dict, model_org: str | None = None) -> bool:
             "test_hs_mo_acc" not in blob):
         return False
     if model_org in naming.PRIOR_TABLE_ORGANISMS or model_org == "pwd_hof_parent":
-        return (blob.get("mcq_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
+        return ((model_org != "sysprompt" or naming.current_sysprompt_inference(blob)) and
+                blob.get("mcq_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
                 blob.get("utility_scoring_protocol") ==
                 naming.PRIOR_UTILITY_SCORING_PROTOCOL and
                 blob.get("utility_split_seed") == naming.PRIOR_UTILITY_SPLIT_SEED)
@@ -123,6 +124,10 @@ def _is_reusable_evaluation(blob: dict, model_org: str | None = None) -> bool:
     """
     if (blob.get("evaluation_schema_version") != naming.EVALUATION_SCHEMA_VERSION or
             "test_hs_mo_acc" not in blob):
+        return False
+    if model_org == "sysprompt" and not naming.current_sysprompt_inference(blob):
+        # Deterministic SysPr metrics and attacks predate the stochastic
+        # deployment protocol. Never phase-merge them into an inference seed.
         return False
     if model_org in naming.PRIOR_TABLE_ORGANISMS or model_org == "pwd_hof_parent":
         return (

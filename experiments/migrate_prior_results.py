@@ -56,7 +56,9 @@ def _datasets(blob: dict) -> tuple[str, ...] | None:
 
 def _canonical_seed(checkpoint_org: str, seed: int) -> bool:
     if checkpoint_org == "sysprompt":
-        return seed == naming.PRIOR_DETERMINISTIC_SEED
+        # Pre-sampling SysPr JSONs need a full stochastic inference rerun, not
+        # a provenance-only migration.
+        return False
     return seed in naming.PRIOR_TRAINED_SEEDS
 
 
@@ -81,6 +83,8 @@ def _validate_legacy_result(
     if not isinstance(model, str) or datasets is None or type(seed) is not int:
         return None, "missing or malformed model/dataset/seed identity"
     if not _canonical_seed(checkpoint_org, seed):
+        if checkpoint_org == "sysprompt":
+            return None, "deterministic SysPr result requires seeded top-k re-evaluation"
         return None, "non-reportable legacy seed"
 
     result_org = naming.ORGANISMS[checkpoint_org].train_code or checkpoint_org
@@ -108,12 +112,6 @@ def _validate_legacy_result(
         or blob.get("utility_split_seed") != naming.PRIOR_UTILITY_SPLIT_SEED
     ):
         return None, "legacy or mismatched evaluation/scoring protocol"
-    if (
-        checkpoint_org == "sysprompt"
-        and blob.get("replicate_kind") != "deterministic"
-    ):
-        return None, "SysPr result is not the deterministic seed-42 replicate"
-
     # These are the five already-computed Table-2 effectiveness/utility values.
     # Jlbrk is deliberately not required because the robustness campaign is next.
     if checkpoint_org in naming.PRIOR_TABLE_ORGANISMS:

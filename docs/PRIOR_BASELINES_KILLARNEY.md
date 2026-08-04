@@ -35,8 +35,12 @@ checkpoint and JSON pass the current gates:
   `10.9+/-2.7`, `70.4+/-1.2`, `59.5+/-3.1`, `48.8+/-1.6`, and `77.8+/-0.3`.
   That mismatch is a hard provenance failure, not rounding. Re-run it with the
   current parent and preserve the parent JSON for the before/after check.
-- Only the fixed-prompt SysPr evaluation is a valid deterministic replicate. Legacy
-  seed 43/44 prompt-sweep outputs must not be averaged as independent runs.
+- SysPr still uses only the fixed released prompt; legacy seed 43/44 prompt-sweep
+  outputs remain invalid. The current protocol instead repeats that identical
+  prompt with seeded top-k decoding at inference seeds 42/43/44, so its standard
+  error measures deployment-time decoding variation rather than prompt selection.
+  This supervisor-requested deployment simulation is an explicit evaluation
+  extension, not a claim about the deterministic decoding used in the source work.
 - The archived 7B jobs set `POSSUM_GENPARSE=0` for both task and utility, while
   the Table 3 campaign scores utility with generate-and-parse. This explains much
   of the apparent HellaSwag gap: even the unmodified SysPr base is roughly 48%
@@ -178,10 +182,10 @@ bash clusters/run_killarney_matrix.sh execute \
 ```
 
 The pilot is a final-quality subset, not a shortened smoke test. Trained
-organisms use all three reportable seeds and the full effectiveness/utility
-evaluation, so passing outputs go directly into Table 2; deterministic SysPr is
-evaluated once. Use the same ordered seed list in every phase; multi-seed
-checkpoint directories are positional (`run01`, `run02`, `run03`).
+organisms use all three reportable training seeds and SysPr uses all three
+reportable inference seeds. The latter share one fixed prompt config and use
+seeded top-k decoding. Use the same ordered seed list in every phase; trained
+multi-seed checkpoint directories are positional (`run01`, `run02`, `run03`).
 
 ## 5. Submit and monitor the pilot
 
@@ -197,9 +201,11 @@ squeue -u "$USER"
 its matching internal `pwd_hof_parent` checkpoint; that parent is also evaluated
 on the held-out split for a direct before/after comparison. Evaluations wait for
 their organism checkpoint. SysPr's fixed prompt configuration is written
-locally, and only the first requested seed is evaluated because prompt-only
-forced-choice inference is deterministic. Do not add `--force`, and do not
-resubmit while jobs are queued.
+locally once and reused by inference seeds 42/43/44. Its active task readout
+samples among the top four answer choices and its utility generation uses
+top-k 50; both use temperature 1.0 so top-k sampling is the only decoding
+change. The unprompted base reference remains greedy. Do not add `--force`,
+and do not resubmit while jobs are queued.
 
 After the queue clears, verify Slurm exit codes and matrix coverage. An empty
 queue does not by itself prove success:
@@ -222,7 +228,8 @@ Require:
   gap and reasonable held-out HS/CSQA.
 - SysPr records only `exact_released`, does not use test data for selection,
   lowers target accuracy where the base model follows the instruction, and reports
-  any utility degradation rather than selecting it away.
+  any utility degradation rather than selecting it away. Its result additionally
+  records `seeded_top_k_v1` and `replicate_kind: inference_seed`.
 - CktBr has a non-stationary first gradient, shows a finite rerouting-loss trace,
   and preserves its deliberate-wrong parent's password unlock. Compare active
   accuracy with `results/json/pwd_hof_parent_*`; an increase is an effectiveness
@@ -232,7 +239,8 @@ Require:
   must record forced-choice task scoring, generate-and-parse utility scoring, and
   utility split seed 42. Legacy forced-choice utility blobs keep their valid
   effectiveness/robustness fields, but their HS/CSQA cells are withheld until
-  re-evaluation. The fixed split keeps HS/CSQA rows identical across trained seeds.
+  re-evaluation. The fixed split keeps the evaluated HS/CSQA examples identical
+  across replicates; seeded SysPr decoding may produce different answers.
 
 For existing schema-2, forced-choice results created before checkpoint provenance
 was recorded, run `python -m possum.experiments.migrate_prior_results
@@ -255,10 +263,10 @@ done
 The matrix is resumable. Completed pilot cells are skipped automatically. The
 complete prior table contains 54 organism/model/task cells: three organisms,
 three model sizes, and six target tasks. PWD and CktBr have three trained-seed
-replicates per cell; deterministic SysPr has one. Seeds 42/43/44 are permanently
-mapped to `run01`/`run02`/`run03`, so a single-seed robustness calibration reuses
-the matching effectiveness checkpoint. Legacy result JSONs without the current
-checkpoint-provenance stamp require evaluation again, not retraining.
+replicates per cell; SysPr has three inference-seed replicates over one fixed
+prompt config. Training seeds 42/43/44 are permanently mapped to
+`run01`/`run02`/`run03`; SysPr seeds share its unsuffixed config directory.
+Legacy deterministic SysPr JSONs require evaluation again, not retraining.
 
 To refresh 7B utility from older forced-choice JSONs while reusing all valid
 checkpoints and accumulated attacks, inspect a dry run and then use `--force`:
@@ -457,8 +465,8 @@ Generate the combined table without changing the execution root:
 The combined count must never be lower than the count from the source snapshot
 unless a provenance mismatch is being rejected. It increases only after a
 complete reportable cell exists. Trained PWD and CktBr rows require all seeds
-42, 43, and 44; successful internal `pwd_hof_parent` jobs and one or two CktBr
-seeds do not fill partial Table-2 cells.
+42, 43, and 44, and SysPr rows require all three inference seeds. Successful
+internal `pwd_hof_parent` jobs or partial seed rosters do not fill Table-2 cells.
 
 ### Transfer a checkpoint for execution
 
@@ -509,6 +517,8 @@ training path is separately validated.
   attack scoring to forced-choice. `POSSUM_UTILITY_SCORING=generate_parse`
   independently aligns HellaSwag/CSQA with Table 3. Both protocol names are
   written into every result and checked per metric before table generation.
+  Within that forced-choice answer space, active SysPr effectiveness uses the
+  recorded seeded top-4 sampler; its utility generation uses seeded top-50.
   GCG, AutoDAN, TAP, and prompt injection still use the forced-choice final task
   readout; attack search may query generated text internally.
 - HellaSwag and CSQA use one fixed partition seed across organism-training seeds.

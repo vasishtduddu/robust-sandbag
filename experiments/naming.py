@@ -38,8 +38,43 @@ SUPPORTED_UTILITY_SCORING_PROTOCOLS = frozenset(
 )
 PRIOR_TABLE_ORGANISMS = frozenset({"pwd", "circuitbreak", "sysprompt"})
 PRIOR_TRAINED_SEEDS: tuple[int, ...] = (42, 43, 44)
+# SysPr has one fixed, parameter-free prompt but three stochastic inference
+# replicates.  Keep its roster explicit so a prompt-construction seed is never
+# mistaken for an independently trained checkpoint.
+PRIOR_SYSPROMPT_INFERENCE_SEEDS: tuple[int, ...] = (42, 43, 44)
+# Retained only to identify pre-sampling legacy results during migration.
 PRIOR_DETERMINISTIC_SEED = 42
 PRIOR_UTILITY_SPLIT_SEED = 42
+
+# Canonical stochastic decoding for the active prior-work SysPr organism.  The
+# unprompted base reference and every trained organism remain greedy.  Task
+# effectiveness samples within the same four forced-choice answer tokens;
+# generate-and-parse utility samples generated tokens before applying the same
+# answer parser.  Temperature 1.0 preserves the model's probabilities: top-k is
+# the only decoding change from the previous workflow.
+SYSPROMPT_INFERENCE_PROTOCOL = "seeded_top_k_v1"
+SYSPROMPT_INFERENCE_TEMPERATURE = 1.0
+SYSPROMPT_FORCED_CHOICE_TOP_K = 4
+SYSPROMPT_GENERATION_TOP_K = 50
+
+
+def sysprompt_inference_metadata() -> dict:
+    """JSON-stable provenance for the canonical stochastic SysPr readout."""
+    return {
+        "protocol": SYSPROMPT_INFERENCE_PROTOCOL,
+        "scope": "active_sysprompt_forced_choice_task_and_generate_parse_utility",
+        "temperature": SYSPROMPT_INFERENCE_TEMPERATURE,
+        "forced_choice_top_k": SYSPROMPT_FORCED_CHOICE_TOP_K,
+        "generation_top_k": SYSPROMPT_GENERATION_TOP_K,
+    }
+
+
+def current_sysprompt_inference(blob: dict) -> bool:
+    """Whether a result is one canonical seeded SysPr inference replicate."""
+    return (
+        blob.get("replicate_kind") == "inference_seed"
+        and blob.get("inference_decoding") == sysprompt_inference_metadata()
+    )
 
 # ---------------------------------------------------------------------------
 # Models  (keys must match utils/loading.py MODEL_NAME_TO_HF_PATH)

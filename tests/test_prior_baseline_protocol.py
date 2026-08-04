@@ -71,7 +71,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         bio_runs = [item for item in runs if item.datasets == ("bio",)]
         self.assertEqual(
             next(item for item in bio_runs if item.organism == "sysprompt").seeds,
-            (42,),
+            (42, 43, 44),
         )
         with tempfile.TemporaryDirectory() as tmp:
             run._configure_artifact_root(tmp)
@@ -87,6 +87,162 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         self.assertIn(parent.name, child.depends_on)
         parent_path = child.argv[child.argv.index("--pw_locked_model_path") + 1]
         self.assertIn("pwd_hof_parent_", parent_path)
+
+    def test_sysprompt_inference_seeds_share_one_prompt_checkpoint(self):
+        selected = [
+            item
+            for item in manifest.manifest_for(
+                "prior", "7b", seeds=naming.PRIOR_SYSPROMPT_INFERENCE_SEEDS
+            )
+            if item.organism == "sysprompt" and item.datasets == ("bio",)
+        ]
+        self.assertEqual(len(selected), 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            run._configure_artifact_root(tmp)
+            specs = list(run._seed_specs(selected[0]))
+            jobs = run.build_jobs(selected, "eff", force=False)
+        self.assertEqual([spec[0] for spec in specs], [42, 43, 44])
+        self.assertEqual(len({spec[3] for spec in specs}), 1)
+        self.assertEqual(specs[0][3].name, "sysprompt_qwen2.5-7b-it_bio")
+        self.assertEqual(
+            [job.name for job in jobs if job.kind == "train"],
+            ["train_sysprompt_qwen2.5-7b-it_bio_shared"],
+        )
+        self.assertEqual(len([job for job in jobs if job.kind == "eval"]), 3)
+
+        shared_config = {
+            "organism_type": "sysprompt",
+            "model_name": "qwen2.5-7b-it",
+            "dataset": "bio",
+            "datasets_list": ["bio"],
+            "seed": 42,
+            "source_repository": "https://github.com/TeunvdWeij/sandbagging",
+            "prompt_selection_schema_version": 1,
+            "prompt_variant": "exact_released",
+            "selected_prompt_variant": "exact_released",
+            "prompt_candidates": {"exact_released": "fixed prompt"},
+            "system_prompt": "fixed prompt",
+            "prompt_selection": {
+                "method": "fixed_prior_work_prompt",
+                "uses_test_data": False,
+            },
+        }
+        self.assertTrue(
+            provenance.validate_checkpoint_config(
+                "sysprompt",
+                shared_config,
+                model="qwen2.5-7b-it",
+                datasets=("bio",),
+                seed=43,
+            )
+        )
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_sysprompt_top_k_answer_sampling_is_seeded(self):
+        import torch
+        from possum.utils.training import (
+            _sample_forced_choice_ids,
+            _select_answer_ids,
+        )
+
+        # Token 4 is globally largest but is outside the established ABCD
+        # forced-choice answer space and must never be sampled.
+        logits = torch.tensor([[0.0, 1.0, 2.0, 3.0, 100.0]]).repeat(128, 1)
+        bias_dict = {(0,): 1000.0, (1,): 1000.0, (2,): 1000.0, (3,): 1000.0}
+        torch.manual_seed(43)
+        first = _sample_forced_choice_ids(
+            logits, bias_dict, sample_top_k=4, temperature=1.0
+        )
+        torch.manual_seed(43)
+        second = _sample_forced_choice_ids(
+            logits, bias_dict, sample_top_k=4, temperature=1.0
+        )
+        greedy = _select_answer_ids(logits)
+
+        self.assertTrue(torch.equal(first, second))
+        self.assertTrue(bool(torch.all((first >= 0) & (first < 4))))
+        self.assertFalse(torch.equal(first, greedy))
+
+        # With sampling disabled, the helper used by the historical scorer is
+        # still precisely its former top-1 readout.
+        self.assertTrue(torch.equal(greedy, logits.topk(1).indices))
+
+    def test_sysprompt_sampling_changes_only_decoding(self):
+        metadata = naming.sysprompt_inference_metadata()
+        self.assertEqual(metadata["temperature"], 1.0)
+        self.assertEqual(metadata["forced_choice_top_k"], 4)
+        self.assertEqual(metadata["generation_top_k"], 50)
+        self.assertEqual(
+            metadata["scope"],
+            "active_sysprompt_forced_choice_task_and_generate_parse_utility",
+        )
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_generate_parse_sampling_preserves_default_generation_kwargs(self):
+        from contextlib import nullcontext
+
+        import torch
+        from possum.utils.training import generate_parse_predictions
+
+        class Encoding(dict):
+            def to(self, device):
+                return Encoding({key: value.to(device) for key, value in self.items()})
+
+        class Tokenizer:
+            pad_token_id = 0
+            padding_side = "right"
+
+            def __call__(self, batch, **_kwargs):
+                return Encoding({
+                    "input_ids": torch.ones((len(batch), 2), dtype=torch.long),
+                    "attention_mask": torch.ones((len(batch), 2), dtype=torch.long),
+                })
+
+            def batch_decode(self, batch, **_kwargs):
+                return ["A"] * len(batch)
+
+        class Model:
+            def __init__(self):
+                self.parameter = torch.nn.Parameter(torch.zeros(()))
+                self.calls = []
+
+            def parameters(self):
+                yield self.parameter
+
+            def eval(self):
+                return self
+
+            def generate(self, **kwargs):
+                self.calls.append(kwargs)
+                suffix = torch.ones(
+                    (kwargs["input_ids"].shape[0], 1), dtype=torch.long
+                )
+                return torch.cat([kwargs["input_ids"], suffix], dim=1)
+
+        tokenizer = Tokenizer()
+        model = Model()
+        generate_parse_predictions(
+            model, tokenizer, ["question"], nullcontext(), batch_size=1
+        )
+        default_kwargs = model.calls[-1]
+        self.assertIs(default_kwargs["do_sample"], False)
+        self.assertNotIn("top_k", default_kwargs)
+        self.assertNotIn("temperature", default_kwargs)
+
+        generate_parse_predictions(
+            model,
+            tokenizer,
+            ["question"],
+            nullcontext(),
+            batch_size=1,
+            do_sample=True,
+            top_k=50,
+            temperature=1.0,
+        )
+        sampled_kwargs = model.calls[-1]
+        self.assertIs(sampled_kwargs["do_sample"], True)
+        self.assertEqual(sampled_kwargs["top_k"], 50)
+        self.assertEqual(sampled_kwargs["temperature"], 1.0)
 
     def test_parent_checkpoint_path_inference(self):
         try:
@@ -481,6 +637,63 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             blob["utility_scoring_protocol"] = naming.PRIOR_UTILITY_SCORING_PROTOCOL
             result.write_text(json.dumps(blob))
             self.assertTrue(run._is_evaluated(result, "pwd"))
+
+    def test_sysprompt_results_require_seeded_inference_provenance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = Path(tmp) / "result.json"
+            blob = {
+                "evaluation_schema_version": naming.EVALUATION_SCHEMA_VERSION,
+                "test_hs_mo_acc": 0.5,
+                "mcq_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "utility_scoring_protocol": naming.PRIOR_UTILITY_SCORING_PROTOCOL,
+                "utility_split_seed": naming.PRIOR_UTILITY_SPLIT_SEED,
+                "replicate_kind": "deterministic",
+            }
+            result.write_text(json.dumps(blob))
+            self.assertFalse(run._is_evaluated(result, "sysprompt"))
+            self.assertFalse(_run_eval._is_reusable_evaluation(blob, "sysprompt"))
+
+            blob.update({
+                "replicate_kind": "inference_seed",
+                "inference_decoding": naming.sysprompt_inference_metadata(),
+            })
+            result.write_text(json.dumps(blob))
+            self.assertTrue(run._is_evaluated(result, "sysprompt"))
+            self.assertTrue(_run_eval._is_reusable_evaluation(blob, "sysprompt"))
+
+    def test_tablefill_requires_all_three_sysprompt_inference_seeds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact_root = Path(tmp)
+            results_root = artifact_root / "results" / "json"
+            results_root.mkdir(parents=True)
+
+            def write_seed(seed):
+                path = results_root / naming.result_json_name(
+                    "sysprompt", "qwen2.5-7b-it", ("bio",), seed
+                )
+                path.write_text(json.dumps({"seed": seed}))
+
+            write_seed(42)
+            write_seed(43)
+            with patch.object(tablefill, "ARTIFACT_ROOT", artifact_root), \
+                    patch.object(tablefill, "RESULTS_JSON_ROOT", results_root), \
+                    patch.object(tablefill, "_valid_blob", return_value=True):
+                self.assertEqual(
+                    tablefill.load_results(
+                        "sysprompt", "qwen2.5-7b-it", ("bio",)
+                    ),
+                    [],
+                )
+                write_seed(44)
+                blobs = tablefill.load_results(
+                    "sysprompt", "qwen2.5-7b-it", ("bio",)
+                )
+            self.assertEqual([blob["seed"] for blob in blobs], [42, 43, 44])
+
+    def test_three_inference_replicates_report_standard_error(self):
+        avg, sem = tablefill._mean_std([0.1, 0.2, 0.3])
+        self.assertAlmostEqual(avg, 0.2)
+        self.assertAlmostEqual(sem, 0.1 / (3 ** 0.5))
 
     def test_tablefill_uses_only_reportable_utility_protocol(self):
         metric = lambda blob, _dataset: blob["test_hs_mo_acc"]

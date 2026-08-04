@@ -74,6 +74,8 @@ def _valid_blob(
             naming.SUPPORTED_UTILITY_SCORING_PROTOCOLS or
             b.get("utility_split_seed") != naming.PRIOR_UTILITY_SPLIT_SEED):
         return False
+    if org == "sysprompt" and not naming.current_sysprompt_inference(b):
+        return False
     if org in naming.PRIOR_TABLE_ORGANISMS:
         if seed is None or checkpoint is None or not provenance.result_matches_checkpoint(
             b,
@@ -85,8 +87,6 @@ def _valid_blob(
             seed=seed,
         ):
             return False
-    if org == "sysprompt" and b.get("replicate_kind") != "deterministic":
-        return False
     if naming.metric_util_csqa(b, None) is None or naming.metric_util_hs(b, None) is None:
         return False
     nopw = naming._read_metric(b, "task_nopw_acc", prefix="val_")
@@ -101,7 +101,7 @@ def load_results(org: str, model: str, datasets) -> list[dict]:
     base = naming.ckpt_dirname(org, model, datasets)
     if org in naming.PRIOR_TABLE_ORGANISMS:
         expected_seeds = (
-            (naming.PRIOR_DETERMINISTIC_SEED,)
+            naming.PRIOR_SYSPROMPT_INFERENCE_SEEDS
             if org == "sysprompt"
             else naming.PRIOR_TRAINED_SEEDS
         )
@@ -322,7 +322,9 @@ def render_results_table(table: str) -> str:
                   r"$-$ w/ (higher $=$ stronger). For \ref{utility} we report HellaSwag (HS) and "
                   r"CommonSenseQA (CSQA) with the same generate-and-parse utility readout as "
                   r"Table~\ref{tab:organism-eval-wmdp}; task training, effectiveness, and final "
-                  r"attack scoring remain forced-choice for prior-work fidelity. For \ref{robust}, "
+                  r"attack scoring remain forced-choice for prior-work fidelity. The fixed SysPr "
+                  r"prompt uses seeded top-$k$ decoding (three inference seeds); all other prior "
+                  r"replicates are trained seeds. For \ref{robust}, "
                   r"the maximum attack accuracy across "
                   r"the complete GCG, AutoDAN, and TAP suite, plus prompt injection for SysPr "
                   r"(Jlbrk, lower $=$ more robust)."),

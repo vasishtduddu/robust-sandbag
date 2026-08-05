@@ -1,0 +1,1226 @@
+
+===== IDENTITY =====
+2026-08-05T09:33:36-06:00
+vulcan1
+fdc3ffb823c6d9a80a204bbeefba5dfba72677b7
+?? vulcan_backfill_audit_20260805_093315.txt
+Partitions: gpubase_bygpu_b1
+
+===== CURRENT USER QUEUE =====
+JOBID|ACCOUNT|PARTITION|QOS|NAME|STATE|SUBMIT_TIME|START_TIME|TIME|TIME_LIMIT|NODES|CPUS|TRES_PER_NODE|MIN_MEMORY|DEPENDENCY|NODELIST(REASON)
+343035|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-prof_s44|PENDING|2026-08-04T19:47:32|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343036|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s42|PENDING|2026-08-04T19:47:33|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343037|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s43|PENDING|2026-08-04T19:47:33|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343038|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s44|PENDING|2026-08-04T19:47:33|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343042|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s42|PENDING|2026-08-04T19:47:35|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343043|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s43|PENDING|2026-08-04T19:47:35|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343044|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s44|PENDING|2026-08-04T19:47:35|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343045|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_bio_s42|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343046|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_bio_s43|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343047|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_bio_s44|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343048|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_chem_s42|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343049|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_chem_s43|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343050|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_chem_s44|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343051|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_cyber_s42|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343052|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_cyber_s43|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343053|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_cyber_s44|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343054|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_mmlu-prof_s42|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343055|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_mmlu-prof_s43|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343056|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_mmlu-prof_s44|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343057|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_mmlu-stem_s42|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343058|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_mmlu-stem_s43|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343059|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_mmlu-stem_s44|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343060|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_mmlu-hss_s42|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343061|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_mmlu-hss_s43|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343062|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_pwd_qwen2.5-32b-it_mmlu-hss_s44|PENDING|2026-08-04T19:47:41|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343063|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-32b-it_bio_s42|PENDING|2026-08-04T19:47:49|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343064|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-32b-it_bio_s43|PENDING|2026-08-04T19:47:49|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343065|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-32b-it_bio_s44|PENDING|2026-08-04T19:47:49|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343066|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-32b-it_chem_s42|PENDING|2026-08-04T19:47:50|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343067|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-32b-it_chem_s43|PENDING|2026-08-04T19:47:50|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343068|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-32b-it_chem_s44|PENDING|2026-08-04T19:47:51|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343069|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s42|PENDING|2026-08-04T19:47:52|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343070|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s43|PENDING|2026-08-04T19:47:52|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343071|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s44|PENDING|2026-08-04T19:47:52|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343072|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s42|PENDING|2026-08-04T19:47:53|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343073|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s43|PENDING|2026-08-04T19:47:53|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343074|aip-rudner|gpubase_bygpu_b1|normal|possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s44|PENDING|2026-08-04T19:47:53|N/A|0:00|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+
+===== ESTIMATED START TIMES =====
+JOBID|PARTITION|NAME|STATE|START_TIME|TIME_LIMIT|NODES|CPUS|TRES_PER_NODE|MIN_MEMORY|DEPENDENCY|NODELIST(REASON)
+343035|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-prof_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343036|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s42|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343037|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s43|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343038|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343042|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s42|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343043|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s43|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343044|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:2|64G|(null)|(Priority)
+343045|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_bio_s42|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343046|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_bio_s43|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343047|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_bio_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343048|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_chem_s42|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343049|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_chem_s43|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343050|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_chem_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343051|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_cyber_s42|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343052|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_cyber_s43|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343053|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_cyber_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343054|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_mmlu-prof_s42|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343055|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_mmlu-prof_s43|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343056|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_mmlu-prof_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343057|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_mmlu-stem_s42|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343058|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_mmlu-stem_s43|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343059|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_mmlu-stem_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343060|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_mmlu-hss_s42|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343061|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_mmlu-hss_s43|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343062|gpubase_bygpu_b1|possum_eval_pwd_qwen2.5-32b-it_mmlu-hss_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343063|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-32b-it_bio_s42|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343064|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-32b-it_bio_s43|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343065|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-32b-it_bio_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343066|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-32b-it_chem_s42|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343067|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-32b-it_chem_s43|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343068|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-32b-it_chem_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343069|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s42|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343070|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s43|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343071|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343072|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s42|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343073|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s43|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+343074|gpubase_bygpu_b1|possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s44|PENDING|N/A|1:30:00|1|6|gres/gpu:l40s:4|96G|(null)|(Priority)
+
+===== CURRENT JOB DETAILS =====
+JobId=343035 JobName=possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-prof_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=675992 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:32 EligibleTime=2026-08-04T19:47:32 AccrueTime=2026-08-04T19:47:32 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=64G,node=1,billing=20600,gres/gpu=2,gres/gpu:l40s=2 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=64G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-14b-it_mmlu-prof_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-prof_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-prof_s44.log TresPerNode=gres/gpu:l40s:2 TresPerTask=cpu=6 
+JobId=343036 JobName=possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s42 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=675992 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:33 EligibleTime=2026-08-04T19:47:33 AccrueTime=2026-08-04T19:47:33 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=64G,node=1,billing=20600,gres/gpu=2,gres/gpu:l40s=2 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=64G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s42.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s42.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s42.log TresPerNode=gres/gpu:l40s:2 TresPerTask=cpu=6 
+JobId=343037 JobName=possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s43 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=675992 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:33 EligibleTime=2026-08-04T19:47:33 AccrueTime=2026-08-04T19:47:33 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=64G,node=1,billing=20600,gres/gpu=2,gres/gpu:l40s=2 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=64G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s43.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s43.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s43.log TresPerNode=gres/gpu:l40s:2 TresPerTask=cpu=6 
+JobId=343038 JobName=possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=675992 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:33 EligibleTime=2026-08-04T19:47:33 AccrueTime=2026-08-04T19:47:33 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=64G,node=1,billing=20600,gres/gpu=2,gres/gpu:l40s=2 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=64G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-stem_s44.log TresPerNode=gres/gpu:l40s:2 TresPerTask=cpu=6 
+JobId=343042 JobName=possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s42 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=675992 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:35 EligibleTime=2026-08-04T19:47:35 AccrueTime=2026-08-04T19:47:35 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=64G,node=1,billing=20600,gres/gpu=2,gres/gpu:l40s=2 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=64G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s42.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s42.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s42.log TresPerNode=gres/gpu:l40s:2 TresPerTask=cpu=6 
+JobId=343043 JobName=possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s43 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=675992 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:35 EligibleTime=2026-08-04T19:47:35 AccrueTime=2026-08-04T19:47:35 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=64G,node=1,billing=20600,gres/gpu=2,gres/gpu:l40s=2 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=64G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s43.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s43.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s43.log TresPerNode=gres/gpu:l40s:2 TresPerTask=cpu=6 
+JobId=343044 JobName=possum_eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=675992 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:35 EligibleTime=2026-08-04T19:47:35 AccrueTime=2026-08-04T19:47:35 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=64G,node=1,billing=20600,gres/gpu=2,gres/gpu:l40s=2 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=64G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-14b-it_mmlu-hss_s44.log TresPerNode=gres/gpu:l40s:2 TresPerTask=cpu=6 
+JobId=343045 JobName=possum_eval_pwd_qwen2.5-32b-it_bio_s42 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_bio_s42.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_bio_s42.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_bio_s42.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343046 JobName=possum_eval_pwd_qwen2.5-32b-it_bio_s43 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_bio_s43.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_bio_s43.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_bio_s43.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343047 JobName=possum_eval_pwd_qwen2.5-32b-it_bio_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_bio_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_bio_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_bio_s44.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343048 JobName=possum_eval_pwd_qwen2.5-32b-it_chem_s42 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_chem_s42.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_chem_s42.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_chem_s42.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343049 JobName=possum_eval_pwd_qwen2.5-32b-it_chem_s43 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_chem_s43.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_chem_s43.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_chem_s43.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343050 JobName=possum_eval_pwd_qwen2.5-32b-it_chem_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_chem_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_chem_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_chem_s44.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343051 JobName=possum_eval_pwd_qwen2.5-32b-it_cyber_s42 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_cyber_s42.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_cyber_s42.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_cyber_s42.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343052 JobName=possum_eval_pwd_qwen2.5-32b-it_cyber_s43 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_cyber_s43.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_cyber_s43.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_cyber_s43.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343053 JobName=possum_eval_pwd_qwen2.5-32b-it_cyber_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_cyber_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_cyber_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_cyber_s44.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343054 JobName=possum_eval_pwd_qwen2.5-32b-it_mmlu-prof_s42 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_mmlu-prof_s42.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-prof_s42.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-prof_s42.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343055 JobName=possum_eval_pwd_qwen2.5-32b-it_mmlu-prof_s43 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_mmlu-prof_s43.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-prof_s43.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-prof_s43.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343056 JobName=possum_eval_pwd_qwen2.5-32b-it_mmlu-prof_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_mmlu-prof_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-prof_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-prof_s44.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343057 JobName=possum_eval_pwd_qwen2.5-32b-it_mmlu-stem_s42 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_mmlu-stem_s42.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-stem_s42.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-stem_s42.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343058 JobName=possum_eval_pwd_qwen2.5-32b-it_mmlu-stem_s43 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_mmlu-stem_s43.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-stem_s43.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-stem_s43.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343059 JobName=possum_eval_pwd_qwen2.5-32b-it_mmlu-stem_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_mmlu-stem_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-stem_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-stem_s44.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343060 JobName=possum_eval_pwd_qwen2.5-32b-it_mmlu-hss_s42 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_mmlu-hss_s42.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-hss_s42.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-hss_s42.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343061 JobName=possum_eval_pwd_qwen2.5-32b-it_mmlu-hss_s43 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_mmlu-hss_s43.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-hss_s43.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-hss_s43.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343062 JobName=possum_eval_pwd_qwen2.5-32b-it_mmlu-hss_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:41 EligibleTime=2026-08-04T19:47:41 AccrueTime=2026-08-04T19:47:41 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_pwd_qwen2.5-32b-it_mmlu-hss_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-hss_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_pwd_qwen2.5-32b-it_mmlu-hss_s44.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343063 JobName=possum_eval_circuitbreak_qwen2.5-32b-it_bio_s42 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:49 EligibleTime=2026-08-04T19:47:49 AccrueTime=2026-08-04T19:47:49 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-32b-it_bio_s42.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_bio_s42.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_bio_s42.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343064 JobName=possum_eval_circuitbreak_qwen2.5-32b-it_bio_s43 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:49 EligibleTime=2026-08-04T19:47:49 AccrueTime=2026-08-04T19:47:49 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-32b-it_bio_s43.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_bio_s43.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_bio_s43.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343065 JobName=possum_eval_circuitbreak_qwen2.5-32b-it_bio_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:49 EligibleTime=2026-08-04T19:47:49 AccrueTime=2026-08-04T19:47:49 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-32b-it_bio_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_bio_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_bio_s44.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343066 JobName=possum_eval_circuitbreak_qwen2.5-32b-it_chem_s42 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:50 EligibleTime=2026-08-04T19:47:50 AccrueTime=2026-08-04T19:47:50 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-32b-it_chem_s42.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_chem_s42.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_chem_s42.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343067 JobName=possum_eval_circuitbreak_qwen2.5-32b-it_chem_s43 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:50 EligibleTime=2026-08-04T19:47:50 AccrueTime=2026-08-04T19:47:50 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-32b-it_chem_s43.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_chem_s43.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_chem_s43.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343068 JobName=possum_eval_circuitbreak_qwen2.5-32b-it_chem_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:51 EligibleTime=2026-08-04T19:47:51 AccrueTime=2026-08-04T19:47:51 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-32b-it_chem_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_chem_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_chem_s44.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343069 JobName=possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s42 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:52 EligibleTime=2026-08-04T19:47:52 AccrueTime=2026-08-04T19:47:52 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s42.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s42.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s42.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343070 JobName=possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s43 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:52 EligibleTime=2026-08-04T19:47:52 AccrueTime=2026-08-04T19:47:52 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s43.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s43.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s43.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343071 JobName=possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:52 EligibleTime=2026-08-04T19:47:52 AccrueTime=2026-08-04T19:47:52 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_mmlu-stem_s44.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343072 JobName=possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s42 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:53 EligibleTime=2026-08-04T19:47:53 AccrueTime=2026-08-04T19:47:53 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s42.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s42.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s42.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343073 JobName=possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s43 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:53 EligibleTime=2026-08-04T19:47:53 AccrueTime=2026-08-04T19:47:53 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s43.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s43.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s43.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+JobId=343074 JobName=possum_eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s44 UserId=markwang(3156651) GroupId=markwang(3156651) MCS_label=N/A Priority=676061 Nice=0 Account=aip-rudner QOS=normal WCKey=* JobState=PENDING Reason=Priority Dependency=(null) Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0 RunTime=00:00:00 TimeLimit=01:30:00 TimeMin=N/A SubmitTime=2026-08-04T19:47:53 EligibleTime=2026-08-04T19:47:53 AccrueTime=2026-08-04T19:47:53 StartTime=Unknown EndTime=Unknown Deadline=N/A SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-08-05T09:32:47 Scheduler=Main Partition=gpubase_bygpu_b1 AllocNode:Sid=vulcan2.vulcan.local:4037351 ReqNodeList=(null) ExcNodeList=(null) NodeList= NumNodes=1-1 NumCPUs=6 NumTasks=1 CPUs/Task=6 ReqB:S:C:T=0:0:*:* ReqTRES=cpu=6,mem=96G,node=1,billing=41200,gres/gpu=4,gres/gpu:l40s=4 AllocTRES=(null) Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=* MinCPUsNode=6 MinMemoryNode=96G MinTmpDiskNode=0 Features=compute DelayBoot=00:00:00 OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null) Command=/scratch/markwang/possum-prior-baselines/experiments/slurm/eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s44.sbatch WorkDir=/scratch/markwang/possum-prior-baselines StdErr=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s44.log StdIn=/dev/null StdOut=/scratch/markwang/possum-prior-baselines/results/logs/eval_circuitbreak_qwen2.5-32b-it_mmlu-hss_s44.log TresPerNode=gres/gpu:l40s:4 TresPerTask=cpu=6 
+
+===== ACCOUNTING SINCE AUGUST 1 =====
+sacct: option requires an argument -- 'o'
+-bash: JobIDRaw,JobName%80,Partition%30,State,ExitCode,Submit,Eligible,Start,End,Elapsed,Timelimit,NNodes,NCPUS,ReqMem,ReqTRES%80,AllocTRES%80,MaxRSS,MaxVMSize: command not found
+-bash: ,AveRSS,TotalCPU,CPUTimeRAW,MaxDiskRead,MaxDiskWrite,TRESUsageInMax%100,NodeList%40: command not found
+
+===== COMPLETED JOB EFFICIENCY =====
+Job ID: 343005
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:02:41
+CPU Efficiency: 16.67% of 06:16:06 core-walltime
+Job Wall-clock time: 01:02:41
+Memory Utilized: 57.18 GB
+Memory Efficiency: 89.35% of 64.00 GB (64.00 GB/node)
+Job ID: 343006
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:02:44
+CPU Efficiency: 16.66% of 06:16:36 core-walltime
+Job Wall-clock time: 01:02:46
+Memory Utilized: 57.15 GB
+Memory Efficiency: 89.29% of 64.00 GB (64.00 GB/node)
+Job ID: 343007
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:01:39
+CPU Efficiency: 16.68% of 06:09:42 core-walltime
+Job Wall-clock time: 01:01:37
+Memory Utilized: 57.17 GB
+Memory Efficiency: 89.34% of 64.00 GB (64.00 GB/node)
+Job ID: 343008
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:02:13
+CPU Efficiency: 16.66% of 06:13:30 core-walltime
+Job Wall-clock time: 01:02:15
+Memory Utilized: 57.10 GB
+Memory Efficiency: 89.22% of 64.00 GB (64.00 GB/node)
+Job ID: 343009
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 00:55:32
+CPU Efficiency: 16.66% of 05:33:24 core-walltime
+Job Wall-clock time: 00:55:34
+Memory Utilized: 57.18 GB
+Memory Efficiency: 89.34% of 64.00 GB (64.00 GB/node)
+Job ID: 343010
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 00:54:12
+CPU Efficiency: 16.65% of 05:25:36 core-walltime
+Job Wall-clock time: 00:54:16
+Memory Utilized: 57.15 GB
+Memory Efficiency: 89.30% of 64.00 GB (64.00 GB/node)
+Job ID: 343011
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:05:54
+CPU Efficiency: 16.70% of 06:34:42 core-walltime
+Job Wall-clock time: 01:05:47
+Memory Utilized: 57.11 GB
+Memory Efficiency: 89.23% of 64.00 GB (64.00 GB/node)
+Job ID: 343012
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:09:03
+CPU Efficiency: 16.68% of 06:53:54 core-walltime
+Job Wall-clock time: 01:08:59
+Memory Utilized: 57.18 GB
+Memory Efficiency: 89.34% of 64.00 GB (64.00 GB/node)
+Job ID: 343013
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:08:24
+CPU Efficiency: 16.67% of 06:50:24 core-walltime
+Job Wall-clock time: 01:08:24
+Memory Utilized: 57.17 GB
+Memory Efficiency: 89.32% of 64.00 GB (64.00 GB/node)
+Job ID: 343014
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:05:29
+CPU Efficiency: 16.65% of 06:33:18 core-walltime
+Job Wall-clock time: 01:05:33
+Memory Utilized: 57.16 GB
+Memory Efficiency: 89.32% of 64.00 GB (64.00 GB/node)
+Job ID: 343015
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:05:22
+CPU Efficiency: 16.68% of 06:31:54 core-walltime
+Job Wall-clock time: 01:05:19
+Memory Utilized: 57.13 GB
+Memory Efficiency: 89.26% of 64.00 GB (64.00 GB/node)
+Job ID: 343016
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:05:22
+CPU Efficiency: 16.69% of 06:31:36 core-walltime
+Job Wall-clock time: 01:05:16
+Memory Utilized: 57.18 GB
+Memory Efficiency: 89.34% of 64.00 GB (64.00 GB/node)
+Job ID: 343017
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:02:08
+CPU Efficiency: 16.66% of 06:12:54 core-walltime
+Job Wall-clock time: 01:02:09
+Memory Utilized: 57.16 GB
+Memory Efficiency: 89.31% of 64.00 GB (64.00 GB/node)
+Job ID: 343018
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:02:30
+CPU Efficiency: 16.67% of 06:15:00 core-walltime
+Job Wall-clock time: 01:02:30
+Memory Utilized: 57.16 GB
+Memory Efficiency: 89.32% of 64.00 GB (64.00 GB/node)
+Job ID: 343019
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:02:56
+CPU Efficiency: 16.68% of 06:17:24 core-walltime
+Job Wall-clock time: 01:02:54
+Memory Utilized: 57.15 GB
+Memory Efficiency: 89.30% of 64.00 GB (64.00 GB/node)
+Job ID: 343020
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:02:47
+CPU Efficiency: 16.68% of 06:16:18 core-walltime
+Job Wall-clock time: 01:02:43
+Memory Utilized: 57.15 GB
+Memory Efficiency: 89.29% of 64.00 GB (64.00 GB/node)
+Job ID: 343021
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:03:04
+CPU Efficiency: 16.70% of 06:17:36 core-walltime
+Job Wall-clock time: 01:02:56
+Memory Utilized: 57.18 GB
+Memory Efficiency: 89.34% of 64.00 GB (64.00 GB/node)
+Job ID: 343022
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 00:55:53
+CPU Efficiency: 16.69% of 05:34:54 core-walltime
+Job Wall-clock time: 00:55:49
+Memory Utilized: 57.15 GB
+Memory Efficiency: 89.29% of 64.00 GB (64.00 GB/node)
+Job ID: 343023
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:02:43
+CPU Efficiency: 16.69% of 06:15:48 core-walltime
+Job Wall-clock time: 01:02:38
+Memory Utilized: 57.17 GB
+Memory Efficiency: 89.32% of 64.00 GB (64.00 GB/node)
+Job ID: 343024
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:03:26
+CPU Efficiency: 16.71% of 06:19:36 core-walltime
+Job Wall-clock time: 01:03:16
+Memory Utilized: 57.12 GB
+Memory Efficiency: 89.26% of 64.00 GB (64.00 GB/node)
+Job ID: 343025
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:03:19
+CPU Efficiency: 16.65% of 06:20:18 core-walltime
+Job Wall-clock time: 01:03:23
+Memory Utilized: 57.19 GB
+Memory Efficiency: 89.36% of 64.00 GB (64.00 GB/node)
+Job ID: 343030
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:02:01
+CPU Efficiency: 16.66% of 06:12:18 core-walltime
+Job Wall-clock time: 01:02:03
+Memory Utilized: 57.19 GB
+Memory Efficiency: 89.36% of 64.00 GB (64.00 GB/node)
+Job ID: 343031
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:01:37
+CPU Efficiency: 16.68% of 06:09:18 core-walltime
+Job Wall-clock time: 01:01:33
+Memory Utilized: 57.16 GB
+Memory Efficiency: 89.30% of 64.00 GB (64.00 GB/node)
+Job ID: 343032
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:00:11
+CPU Efficiency: 16.65% of 06:01:24 core-walltime
+Job Wall-clock time: 01:00:14
+Memory Utilized: 57.20 GB
+Memory Efficiency: 89.37% of 64.00 GB (64.00 GB/node)
+Job ID: 343033
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:04:58
+CPU Efficiency: 16.68% of 06:29:36 core-walltime
+Job Wall-clock time: 01:04:56
+Memory Utilized: 57.02 GB
+Memory Efficiency: 89.09% of 64.00 GB (64.00 GB/node)
+Job ID: 343034
+Cluster: vulcan
+User/Group: markwang/markwang
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 6
+CPU Utilized: 01:04:11
+CPU Efficiency: 16.69% of 06:24:30 core-walltime
+Job Wall-clock time: 01:04:05
+Memory Utilized: 57.00 GB
+Memory Efficiency: 89.06% of 64.00 GB (64.00 GB/node)
+
+===== LIVE RUNNING-JOB USAGE =====
+No running jobs
+
+===== RELEVANT PARTITION SUMMARY =====
+PARTITION|AVAIL|TIMELIMIT|NODES|STATE|GRES|MEMORY|FREE_MEM|CPUS|CPUS(A/I/O/T)|NODELIST|REASON
+gpubase_bygpu_b1*|up|3:00:00|183|mix-|gpu:l40s:4|515477+|1849-189151|64|5380/6332/0/11712|rack01-[02-03,05-10,16],rack02-[02-04,06-09,13,15-16],rack03-[01-03,05-10,12-16],rack04-[01-07,09-14,16],rack05-[01-08,10,12-13,15],rack06-[01,03-04,06,08-12,14-15],rack07-[01,03,06,08-14,16],rack08-[01-03,05-07,12-15],rack09-[01-02,04-08,10-14,16],rack10-[01,03,05,07-10,12,14,16],rack11-[01-04,06-10,12-13,15],rack12-[01-07,09-10,15],rack13-[02,04-09,11-16],rack14-[01-02,04-11,13-16],rack15-[01-02,06,08-09,11,13-16],rack16-[01-06,08-10,12]|none
+gpubase_bygpu_b1*|up|3:00:00|1|drain*|gpu:l40s:4|515472|N/A|64|0/0/64/64|rack02-01|Reboot ASAP : reboot issued : reboot timed out
+gpubase_bygpu_b1*|up|3:00:00|1|down*|gpu:l40s:4|515478|88531|64|0/0/64/64|rack12-08|Not responding
+gpubase_bygpu_b1*|up|3:00:00|1|drain|gpu:l40s:4|515478|83282|64|0/0/64/64|rack07-05|GPU ECC Error
+gpubase_bygpu_b1*|up|3:00:00|1|resv|gpu:l40s:4,shard:l40s:16|515478|499712|64|0/64/0/64|rack01-14|none
+gpubase_bygpu_b1*|up|3:00:00|2|resv|gpu:l40s:4|515477+|4545-496338|64|0/128/0/128|rack01-01,rack16-11|none
+gpubase_bygpu_b1*|up|3:00:00|1|mix|gpu:l40s:4|515478|94752|64|4/60/0/64|rack02-11|none
+gpubase_bygpu_b1*|up|3:00:00|37|alloc|gpu:l40s:4|515477+|2112-342156|64|2368/0/0/2368|rack01-04,rack02-[05,10,12,14],rack03-[04,11],rack05-[09,11,14],rack06-[05,16],rack07-[02,07,15],rack08-[04,08-09,16],rack09-[03,09],rack10-[04,06,11],rack11-[05,11,14,16],rack12-[11-12],rack13-[03,10],rack14-12,rack15-[07,10,12],rack16-07|none
+gpubase_bygpu_b1*|up|3:00:00|4|idle|gpu:l40s:4,shard:l40s:16|515478|322903-392369|64|0/256/0/256|rack01-[11-13,15]|none
+
+===== RELEVANT NODES =====
+NODELIST|PARTITION|STATE|GRES|MEMORY|FREE_MEM|CPUS|CPUS(A/I/O/T)|REASON
+rack01-01|gpubase_bygpu_b1*|resv|gpu:l40s:4|515478|4545|64|0/64/0/64|none
+rack01-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|28930|64|32/32/0/64|none
+rack01-03|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|9743|64|14/50/0/64|none
+rack01-04|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|2112|64|64/0/0/64|none
+rack01-05|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|24209|64|8/56/0/64|none
+rack01-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|2427|64|57/7/0/64|none
+rack01-07|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|21085|64|39/25/0/64|none
+rack01-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|2336|64|48/16/0/64|none
+rack01-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|10731|64|52/12/0/64|none
+rack01-10|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|14211|64|10/54/0/64|none
+rack01-11|gpubase_bygpu_b1*|idle|gpu:l40s:4,shard:l40s:16|515478|322903|64|0/64/0/64|none
+rack01-12|gpubase_bygpu_b1*|idle|gpu:l40s:4,shard:l40s:16|515478|381292|64|0/64/0/64|none
+rack01-13|gpubase_bygpu_b1*|idle|gpu:l40s:4,shard:l40s:16|515478|392369|64|0/64/0/64|none
+rack01-14|gpubase_bygpu_b1*|resv|gpu:l40s:4,shard:l40s:16|515478|499712|64|0/64/0/64|none
+rack01-15|gpubase_bygpu_b1*|idle|gpu:l40s:4,shard:l40s:16|515478|350154|64|0/64/0/64|none
+rack01-16|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|32021|64|57/7/0/64|none
+rack02-01|gpubase_bygpu_b1*|drain*|gpu:l40s:4|515472|N/A|64|0/0/64/64|Reboot ASAP : reboot issued : reboot timed out
+rack02-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|85327|64|42/22/0/64|none
+rack02-03|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|10006|64|38/26/0/64|none
+rack02-04|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|18146|64|62/2/0/64|none
+rack02-05|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|25458|64|64/0/0/64|none
+rack02-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|4689|64|26/38/0/64|none
+rack02-07|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|91420|64|44/20/0/64|none
+rack02-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|30153|64|10/54/0/64|none
+rack02-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|5103|64|32/32/0/64|none
+rack02-10|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|38294|64|64/0/0/64|none
+rack02-11|gpubase_bygpu_b1*|mix|gpu:l40s:4|515478|94752|64|4/60/0/64|none
+rack02-12|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|24384|64|64/0/0/64|none
+rack02-13|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|46009|64|21/43/0/64|none
+rack02-14|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|48277|64|64/0/0/64|none
+rack02-15|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|50674|64|22/42/0/64|none
+rack02-16|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|30849|64|10/54/0/64|none
+rack03-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|6368|64|48/16/0/64|none
+rack03-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|9219|64|56/8/0/64|none
+rack03-03|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|81062|64|10/54/0/64|none
+rack03-04|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|46331|64|64/0/0/64|none
+rack03-05|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|55063|64|10/54/0/64|none
+rack03-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|3442|64|28/36/0/64|none
+rack03-07|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|98700|64|48/16/0/64|none
+rack03-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|6597|64|10/54/0/64|none
+rack03-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|7172|64|32/32/0/64|none
+rack03-10|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|14918|64|10/54/0/64|none
+rack03-11|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|262185|64|64/0/0/64|none
+rack03-12|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|7589|64|32/32/0/64|none
+rack03-13|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|10431|64|22/42/0/64|none
+rack03-14|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|42635|64|29/35/0/64|none
+rack03-15|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|17407|64|52/12/0/64|none
+rack03-16|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|28445|64|40/24/0/64|none
+rack04-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|34894|64|50/14/0/64|none
+rack04-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|10354|64|52/12/0/64|none
+rack04-03|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|80351|64|10/54/0/64|none
+rack04-04|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|58985|64|47/17/0/64|none
+rack04-05|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|28001|64|25/39/0/64|none
+rack04-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|40700|64|42/22/0/64|none
+rack04-07|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|33188|64|20/44/0/64|none
+rack04-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|8245|64|39/25/0/64|none
+rack04-10|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|5148|64|40/24/0/64|none
+rack04-11|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|13555|64|38/26/0/64|none
+rack04-12|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|97284|64|33/31/0/64|none
+rack04-13|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|52212|64|53/11/0/64|none
+rack04-14|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|50994|64|32/32/0/64|none
+rack04-16|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|44306|64|56/8/0/64|none
+rack05-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|14510|64|10/54/0/64|none
+rack05-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|189151|64|10/54/0/64|none
+rack05-03|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|53461|64|48/16/0/64|none
+rack05-04|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|26176|64|10/54/0/64|none
+rack05-05|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|10973|64|7/57/0/64|none
+rack05-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|87619|64|8/56/0/64|none
+rack05-07|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|18588|64|61/3/0/64|none
+rack05-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|27102|64|11/53/0/64|none
+rack05-09|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|308073|64|64/0/0/64|none
+rack05-10|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|9056|64|54/10/0/64|none
+rack05-11|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|38017|64|64/0/0/64|none
+rack05-12|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|42336|64|32/32/0/64|none
+rack05-13|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|68346|64|36/28/0/64|none
+rack05-14|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|62404|64|64/0/0/64|none
+rack05-15|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|20932|64|44/20/0/64|none
+rack06-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|81880|64|35/29/0/64|none
+rack06-03|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|28069|64|48/16/0/64|none
+rack06-04|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|53896|64|36/28/0/64|none
+rack06-05|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|47668|64|64/0/0/64|none
+rack06-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|16553|64|10/54/0/64|none
+rack06-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|23494|64|8/56/0/64|none
+rack06-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|3069|64|10/54/0/64|none
+rack06-10|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|4832|64|10/54/0/64|none
+rack06-11|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|6912|64|44/20/0/64|none
+rack06-12|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|14266|64|46/18/0/64|none
+rack06-14|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|40971|64|60/4/0/64|none
+rack06-15|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|49271|64|56/8/0/64|none
+rack06-16|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|118798|64|64/0/0/64|none
+rack07-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|66973|64|10/54/0/64|none
+rack07-02|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|218069|64|64/0/0/64|none
+rack07-03|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|93072|64|8/56/0/64|none
+rack07-05|gpubase_bygpu_b1*|drain|gpu:l40s:4|515478|83282|64|0/0/64/64|GPU ECC Error
+rack07-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|7346|64|50/14/0/64|none
+rack07-07|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|100375|64|64/0/0/64|none
+rack07-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|24239|64|25/39/0/64|none
+rack07-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|16308|64|50/14/0/64|none
+rack07-10|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|18262|64|42/22/0/64|none
+rack07-11|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|35481|64|60/4/0/64|none
+rack07-12|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|32513|64|10/54/0/64|none
+rack07-13|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|4630|64|44/20/0/64|none
+rack07-14|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|41550|64|10/54/0/64|none
+rack07-15|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|35400|64|64/0/0/64|none
+rack07-16|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|2340|64|26/38/0/64|none
+rack08-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|4062|64|32/32/0/64|none
+rack08-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|54672|64|10/54/0/64|none
+rack08-03|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|33425|64|14/50/0/64|none
+rack08-04|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|330955|64|64/0/0/64|none
+rack08-05|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|66620|64|10/54/0/64|none
+rack08-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|126077|64|44/20/0/64|none
+rack08-07|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|29452|64|10/54/0/64|none
+rack08-08|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|235283|64|64/0/0/64|none
+rack08-09|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|8664|64|64/0/0/64|none
+rack08-12|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|3110|64|54/10/0/64|none
+rack08-13|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|5716|64|8/56/0/64|none
+rack08-14|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|21002|64|34/30/0/64|none
+rack08-15|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|4786|64|28/36/0/64|none
+rack08-16|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|6151|64|64/0/0/64|none
+rack09-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|46686|64|32/32/0/64|none
+rack09-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|11585|64|32/32/0/64|none
+rack09-03|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|33128|64|64/0/0/64|none
+rack09-04|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|96944|64|10/54/0/64|none
+rack09-05|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|19398|64|52/12/0/64|none
+rack09-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|3490|64|56/8/0/64|none
+rack09-07|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|72019|64|10/54/0/64|none
+rack09-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|26066|64|46/18/0/64|none
+rack09-09|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|311812|64|64/0/0/64|none
+rack09-10|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|115178|64|50/14/0/64|none
+rack09-11|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|14314|64|10/54/0/64|none
+rack09-12|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|64106|64|13/51/0/64|none
+rack09-13|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|48284|64|50/14/0/64|none
+rack09-14|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|15187|64|10/54/0/64|none
+rack09-16|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|10220|64|53/11/0/64|none
+rack10-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|24173|64|10/54/0/64|none
+rack10-03|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|12420|64|14/50/0/64|none
+rack10-04|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|57651|64|64/0/0/64|none
+rack10-05|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|10300|64|10/54/0/64|none
+rack10-06|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|53307|64|64/0/0/64|none
+rack10-07|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|15861|64|36/28/0/64|none
+rack10-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|5155|64|48/16/0/64|none
+rack10-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|96938|64|40/24/0/64|none
+rack10-10|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|34019|64|32/32/0/64|none
+rack10-11|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|270950|64|64/0/0/64|none
+rack10-12|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|23929|64|35/29/0/64|none
+rack10-14|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|53910|64|10/54/0/64|none
+rack10-16|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|9866|64|48/16/0/64|none
+rack11-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|46381|64|38/26/0/64|none
+rack11-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|23066|64|34/30/0/64|none
+rack11-03|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|69668|64|26/38/0/64|none
+rack11-04|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|4971|64|10/54/0/64|none
+rack11-05|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|16240|64|64/0/0/64|none
+rack11-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|9469|64|8/56/0/64|none
+rack11-07|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|72847|64|50/14/0/64|none
+rack11-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|70342|64|10/54/0/64|none
+rack11-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|24811|64|32/32/0/64|none
+rack11-10|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|6455|64|60/4/0/64|none
+rack11-11|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|131170|64|64/0/0/64|none
+rack11-12|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|13066|64|36/28/0/64|none
+rack11-13|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|37641|64|10/54/0/64|none
+rack11-14|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|342156|64|64/0/0/64|none
+rack11-15|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|6320|64|45/19/0/64|none
+rack11-16|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|192060|64|64/0/0/64|none
+rack12-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|32052|64|36/28/0/64|none
+rack12-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|19692|64|10/54/0/64|none
+rack12-03|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|6554|64|10/54/0/64|none
+rack12-04|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|8105|64|50/14/0/64|none
+rack12-05|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|5629|64|10/54/0/64|none
+rack12-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|5194|64|22/42/0/64|none
+rack12-07|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|73008|64|10/54/0/64|none
+rack12-08|gpubase_bygpu_b1*|down*|gpu:l40s:4|515478|88531|64|0/0/64/64|Not responding
+rack12-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|22585|64|11/53/0/64|none
+rack12-10|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|30582|64|56/8/0/64|none
+rack12-11|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|212549|64|64/0/0/64|none
+rack12-12|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|45876|64|64/0/0/64|none
+rack12-15|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|3556|64|48/16/0/64|none
+rack13-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|54017|64|10/54/0/64|none
+rack13-03|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|300358|64|64/0/0/64|none
+rack13-04|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|2784|64|26/38/0/64|none
+rack13-05|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|2640|64|29/35/0/64|none
+rack13-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|37651|64|34/30/0/64|none
+rack13-07|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|62416|64|22/42/0/64|none
+rack13-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|11801|64|26/38/0/64|none
+rack13-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|32413|64|10/54/0/64|none
+rack13-10|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515478|228088|64|64/0/0/64|none
+rack13-11|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|37866|64|10/54/0/64|none
+rack13-12|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|57442|64|45/19/0/64|none
+rack13-13|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515478|40604|64|10/54/0/64|none
+rack13-14|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|148387|64|54/10/0/64|none
+rack13-15|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|60782|64|20/44/0/64|none
+rack13-16|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|37409|64|10/54/0/64|none
+rack14-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|118918|64|27/37/0/64|none
+rack14-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|4300|64|10/54/0/64|none
+rack14-04|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|19532|64|50/14/0/64|none
+rack14-05|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|35169|64|10/54/0/64|none
+rack14-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|62493|64|10/54/0/64|none
+rack14-07|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|26737|64|25/39/0/64|none
+rack14-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|18155|64|35/29/0/64|none
+rack14-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|61251|64|28/36/0/64|none
+rack14-10|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|76222|64|37/27/0/64|none
+rack14-11|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|1849|64|26/38/0/64|none
+rack14-12|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515477|53947|64|64/0/0/64|none
+rack14-13|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|82619|64|42/22/0/64|none
+rack14-14|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|10609|64|26/38/0/64|none
+rack14-15|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|11349|64|8/56/0/64|none
+rack14-16|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|9067|64|49/15/0/64|none
+rack15-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|5256|64|42/22/0/64|none
+rack15-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|24595|64|10/54/0/64|none
+rack15-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|84422|64|10/54/0/64|none
+rack15-07|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515477|149992|64|64/0/0/64|none
+rack15-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|10507|64|38/26/0/64|none
+rack15-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|95402|64|36/28/0/64|none
+rack15-10|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515477|125824|64|64/0/0/64|none
+rack15-11|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|13445|64|20/44/0/64|none
+rack15-12|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515477|279930|64|64/0/0/64|none
+rack15-13|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|52782|64|10/54/0/64|none
+rack15-14|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|36675|64|35/29/0/64|none
+rack15-15|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|9053|64|8/56/0/64|none
+rack15-16|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|47241|64|10/54/0/64|none
+rack16-01|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|19339|64|10/54/0/64|none
+rack16-02|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|6653|64|10/54/0/64|none
+rack16-03|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|22078|64|32/32/0/64|none
+rack16-04|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|12937|64|42/22/0/64|none
+rack16-05|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|33765|64|27/37/0/64|none
+rack16-06|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|80020|64|50/14/0/64|none
+rack16-07|gpubase_bygpu_b1*|alloc|gpu:l40s:4|515477|276300|64|64/0/0/64|none
+rack16-08|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|7927|64|32/32/0/64|none
+rack16-09|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|15561|64|10/54/0/64|none
+rack16-10|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|21521|64|44/20/0/64|none
+rack16-11|gpubase_bygpu_b1*|resv|gpu:l40s:4|515477|496338|64|0/64/0/64|none
+rack16-12|gpubase_bygpu_b1*|mix-|gpu:l40s:4|515477|14332|64|25/39/0/64|none
+
+===== RUNNING LOAD IN RELEVANT PARTITIONS =====
+JOBID|PARTITION|NAME|STATE|TIME|TIME_LIMIT|END_TIME|NODES|CPUS|TRES_PER_NODE|MIN_MEMORY|NODELIST(REASON)
+350066_19|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|27:39|30:00|2026-08-05T09:36:01|1|1|gres/gpu:1|128G|rack06-01
+350066_20|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|27:39|30:00|2026-08-05T09:36:01|1|1|gres/gpu:1|128G|rack04-07
+350066_21|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|27:21|30:00|2026-08-05T09:36:19|1|1|gres/gpu:1|128G|rack15-14
+350066_22|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|26:51|30:00|2026-08-05T09:36:49|1|1|gres/gpu:1|128G|rack10-12
+350066_23|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|26:51|30:00|2026-08-05T09:36:49|1|1|gres/gpu:1|128G|rack05-05
+350066_24|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|26:51|30:00|2026-08-05T09:36:49|1|1|gres/gpu:1|128G|rack14-07
+350066_25|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|26:49|30:00|2026-08-05T09:36:51|1|1|gres/gpu:1|128G|rack14-16
+350066_26|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|26:49|30:00|2026-08-05T09:36:51|1|1|gres/gpu:1|128G|rack04-09
+350066_27|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|26:19|30:00|2026-08-05T09:37:21|1|1|gres/gpu:1|128G|rack07-11
+350066_28|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|26:19|30:00|2026-08-05T09:37:21|1|1|gres/gpu:1|128G|rack14-01
+350066_29|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|26:19|30:00|2026-08-05T09:37:21|1|1|gres/gpu:1|128G|rack16-05
+350066_30|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|26:19|30:00|2026-08-05T09:37:21|1|1|gres/gpu:1|128G|rack04-07
+350066_31|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|26:19|30:00|2026-08-05T09:37:21|1|1|gres/gpu:1|128G|rack02-13
+350066_32|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|26:19|30:00|2026-08-05T09:37:21|1|1|gres/gpu:1|128G|rack09-12
+350066_33|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|25:50|30:00|2026-08-05T09:37:50|1|1|gres/gpu:1|128G|rack06-12
+350066_34|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|25:50|30:00|2026-08-05T09:37:50|1|1|gres/gpu:1|128G|rack05-13
+350327|gpubase_bygpu_b1|submit_diffusion_analysis_single_gpu.sh|RUNNING|5:40|10:00|2026-08-05T09:38:00|1|4|gres/gpu:1|30G|rack11-15
+350066_36|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|25:20|30:00|2026-08-05T09:38:20|1|1|gres/gpu:1|128G|rack05-07
+350066_35|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|25:18|30:00|2026-08-05T09:38:22|1|1|gres/gpu:1|128G|rack01-06
+350066_37|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|25:18|30:00|2026-08-05T09:38:22|1|1|gres/gpu:1|128G|rack11-15
+350066_38|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|24:45|30:00|2026-08-05T09:38:55|1|1|gres/gpu:1|128G|rack09-16
+350066_39|gpubase_bygpu_b1|reg_neuron_reset_utility_comparison_run|RUNNING|24:45|30:00|2026-08-05T09:38:55|1|1|gres/gpu:1|128G|rack02-07
+350324|gpubase_bygpu_b1|curl_rainbow_intensity-alien-noise-0.0-scale-1.0|RUNNING|6:12|1:00:00|2026-08-05T10:27:28|1|1|N/A|16G|rack04-05
+349529_0|gpubase_bygpu_b1|fr_decoder|RUNNING|1:54:24|3:00:00|2026-08-05T10:39:16|1|8|gres/gpu:l40s:1|96G|rack04-14
+349529_1|gpubase_bygpu_b1|fr_decoder|RUNNING|1:54:24|3:00:00|2026-08-05T10:39:16|1|8|gres/gpu:l40s:1|96G|rack16-08
+349529_2|gpubase_bygpu_b1|fr_decoder|RUNNING|1:54:24|3:00:00|2026-08-05T10:39:16|1|8|gres/gpu:l40s:1|96G|rack12-06
+349529_3|gpubase_bygpu_b1|fr_decoder|RUNNING|1:54:23|3:00:00|2026-08-05T10:39:17|1|8|gres/gpu:l40s:1|96G|rack14-01
+349529_4|gpubase_bygpu_b1|fr_decoder|RUNNING|1:54:22|3:00:00|2026-08-05T10:39:18|1|8|gres/gpu:l40s:1|96G|rack02-02
+349529_5|gpubase_bygpu_b1|fr_decoder|RUNNING|1:54:22|3:00:00|2026-08-05T10:39:18|1|8|gres/gpu:l40s:1|96G|rack09-06
+349529_6|gpubase_bygpu_b1|fr_decoder|RUNNING|1:54:16|3:00:00|2026-08-05T10:39:24|1|8|gres/gpu:l40s:1|96G|rack10-16
+349529_7|gpubase_bygpu_b1|fr_decoder|RUNNING|1:54:07|3:00:00|2026-08-05T10:39:33|1|8|gres/gpu:l40s:1|96G|rack02-06
+349529_8|gpubase_bygpu_b1|fr_decoder|RUNNING|1:53:55|3:00:00|2026-08-05T10:39:45|1|8|gres/gpu:l40s:1|96G|rack10-08
+349529_9|gpubase_bygpu_b1|fr_decoder|RUNNING|1:53:53|3:00:00|2026-08-05T10:39:47|1|8|gres/gpu:l40s:1|96G|rack16-12
+349529_10|gpubase_bygpu_b1|fr_decoder|RUNNING|1:53:53|3:00:00|2026-08-05T10:39:47|1|8|gres/gpu:l40s:1|96G|rack10-08
+115428|gpubase_bygpu_b1|pong-thinking|RUNNING|1:52:14|3:00:00|2026-08-05T10:41:26|1|16|gres/gpu:1|32G|rack02-02
+115429|gpubase_bygpu_b1|pong-thinking-conv|RUNNING|1:52:14|3:00:00|2026-08-05T10:41:26|1|16|gres/gpu:1|32G|rack14-01
+256710|gpubase_bygpu_b1|pong-thinking-gae-baseline|RUNNING|1:52:14|3:00:00|2026-08-05T10:41:26|1|16|gres/gpu:1|32G|rack02-02
+349924|gpubase_bygpu_b1|v_lgv4full|RUNNING|1:26:24|3:00:00|2026-08-05T11:07:16|1|8|gres/gpu:l40s:1|64G|rack01-03
+349925|gpubase_bygpu_b1|v_ng8full|RUNNING|1:26:24|3:00:00|2026-08-05T11:07:16|1|8|gres/gpu:l40s:1|64G|rack10-03
+108832_4|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|45:19|2:59:00|2026-08-05T11:47:21|1|2|gres/gpu:1|70G|rack11-07
+108832_16|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|45:19|2:59:00|2026-08-05T11:47:21|1|2|gres/gpu:1|70G|rack12-01
+283567_50|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|44:11|2:59:00|2026-08-05T11:48:29|1|2|gres/gpu:1|70G|rack01-07
+108832_21|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|40:48|2:59:00|2026-08-05T11:51:52|1|2|gres/gpu:1|70G|rack08-13
+350140|gpubase_bygpu_b1|e63-s6|RUNNING|40:15|3:00:00|2026-08-05T11:53:25|1|12|gres/gpu:l40s:2|128G|rack03-06
+350283|gpubase_bygpu_b1|L3-memorise|RUNNING|20:39|2:45:00|2026-08-05T11:58:01|1|16|gres/gpu:l40s:1|64G|rack11-01
+108832_46|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|32:31|2:59:00|2026-08-05T12:00:09|1|2|gres/gpu:1|70G|rack06-14
+68029_40|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|31:22|2:59:00|2026-08-05T12:01:18|1|2|gres/gpu:1|70G|rack01-05
+108832_30|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|31:22|2:59:00|2026-08-05T12:01:18|1|2|gres/gpu:1|70G|rack08-13
+108832_34|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|31:22|2:59:00|2026-08-05T12:01:18|1|2|gres/gpu:1|70G|rack11-10
+108832_49|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|31:22|2:59:00|2026-08-05T12:01:18|1|2|gres/gpu:1|70G|rack01-16
+108832_87|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|31:22|2:59:00|2026-08-05T12:01:18|1|2|gres/gpu:1|70G|rack06-08
+283567_19|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|31:22|2:59:00|2026-08-05T12:01:18|1|2|gres/gpu:1|70G|rack07-06
+283567_41|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|31:22|2:59:00|2026-08-05T12:01:18|1|2|gres/gpu:1|70G|rack08-14
+283567_81|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|31:22|2:59:00|2026-08-05T12:01:18|1|2|gres/gpu:1|70G|rack13-07
+68029_4|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:48|2:59:00|2026-08-05T12:01:52|1|2|gres/gpu:1|70G|rack06-04
+108832_2|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:48|2:59:00|2026-08-05T12:01:52|1|2|gres/gpu:1|70G|rack03-13
+108832_60|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:48|2:59:00|2026-08-05T12:01:52|1|2|gres/gpu:1|70G|rack07-10
+108832_66|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:48|2:59:00|2026-08-05T12:01:52|1|2|gres/gpu:1|70G|rack12-04
+108832_84|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:48|2:59:00|2026-08-05T12:01:52|1|2|gres/gpu:1|70G|rack05-08
+108832_108|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:48|2:59:00|2026-08-05T12:01:52|1|2|gres/gpu:1|70G|rack11-06
+283567_16|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:48|2:59:00|2026-08-05T12:01:52|1|2|gres/gpu:1|70G|rack15-01
+283567_72|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:48|2:59:00|2026-08-05T12:01:52|1|2|gres/gpu:1|70G|rack13-02
+283567_76|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:48|2:59:00|2026-08-05T12:01:52|1|2|gres/gpu:1|70G|rack02-03
+283567_77|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:48|2:59:00|2026-08-05T12:01:52|1|2|gres/gpu:1|70G|rack04-01
+108832_17|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:15|2:59:00|2026-08-05T12:02:25|1|2|gres/gpu:1|70G|rack09-13
+108832_69|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:15|2:59:00|2026-08-05T12:02:25|1|2|gres/gpu:1|70G|rack06-08
+108832_73|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:15|2:59:00|2026-08-05T12:02:25|1|2|gres/gpu:1|70G|rack15-15
+108832_92|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:15|2:59:00|2026-08-05T12:02:25|1|2|gres/gpu:1|70G|rack13-02
+108832_104|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:15|2:59:00|2026-08-05T12:02:25|1|2|gres/gpu:1|70G|rack02-13
+283567_24|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:15|2:59:00|2026-08-05T12:02:25|1|2|gres/gpu:1|70G|rack16-05
+283567_26|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:15|2:59:00|2026-08-05T12:02:25|1|2|gres/gpu:1|70G|rack14-01
+283567_49|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|30:15|2:59:00|2026-08-05T12:02:25|1|2|gres/gpu:1|70G|rack07-03
+108832_3|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|29:08|2:59:00|2026-08-05T12:03:32|1|2|gres/gpu:1|70G|rack01-05
+108832_53|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|29:08|2:59:00|2026-08-05T12:03:32|1|2|gres/gpu:1|70G|rack01-03
+108832_62|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|29:08|2:59:00|2026-08-05T12:03:32|1|2|gres/gpu:1|70G|rack11-12
+283567_78|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|29:08|2:59:00|2026-08-05T12:03:32|1|2|gres/gpu:1|70G|rack10-03
+68029_33|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:34|2:59:00|2026-08-05T12:04:06|1|2|gres/gpu:1|70G|rack04-10
+108832_11|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:34|2:59:00|2026-08-05T12:04:06|1|2|gres/gpu:1|70G|rack08-03
+108832_29|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:34|2:59:00|2026-08-05T12:04:06|1|2|gres/gpu:1|70G|rack14-13
+108832_31|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:34|2:59:00|2026-08-05T12:04:06|1|2|gres/gpu:1|70G|rack07-03
+108832_57|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:34|2:59:00|2026-08-05T12:04:06|1|2|gres/gpu:1|70G|rack15-09
+283567_4|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:34|2:59:00|2026-08-05T12:04:06|1|2|gres/gpu:1|70G|rack10-03
+283567_15|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:34|2:59:00|2026-08-05T12:04:06|1|2|gres/gpu:1|70G|rack02-15
+283567_35|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:34|2:59:00|2026-08-05T12:04:06|1|2|gres/gpu:1|70G|rack12-01
+283567_36|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:34|2:59:00|2026-08-05T12:04:06|1|2|gres/gpu:1|70G|rack05-13
+283567_45|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:34|2:59:00|2026-08-05T12:04:06|1|2|gres/gpu:1|70G|rack05-06
+283567_47|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:34|2:59:00|2026-08-05T12:04:06|1|2|gres/gpu:1|70G|rack13-12
+68029_37|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:01|2:59:00|2026-08-05T12:04:39|1|2|gres/gpu:1|70G|rack15-15
+108832_23|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:01|2:59:00|2026-08-05T12:04:39|1|2|gres/gpu:1|70G|rack13-06
+108832_83|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:01|2:59:00|2026-08-05T12:04:39|1|2|gres/gpu:1|70G|rack08-03
+108832_102|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:01|2:59:00|2026-08-05T12:04:39|1|2|gres/gpu:1|70G|rack12-09
+283567_83|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|28:01|2:59:00|2026-08-05T12:04:39|1|2|gres/gpu:1|70G|rack15-14
+350136_0|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|28:52|3:00:00|2026-08-05T12:04:48|1|24|gres/gpu:3|160000M|rack16-08
+108832_13|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|27:27|2:59:00|2026-08-05T12:05:13|1|2|gres/gpu:1|70G|rack01-05
+108832_96|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|27:27|2:59:00|2026-08-05T12:05:13|1|2|gres/gpu:1|70G|rack07-09
+350136_1|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|28:21|3:00:00|2026-08-05T12:05:19|1|24|gres/gpu:3|160000M|rack04-14
+108832_48|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|26:52|2:59:00|2026-08-05T12:05:48|1|2|gres/gpu:1|70G|rack14-15
+108832_63|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|26:52|2:59:00|2026-08-05T12:05:48|1|2|gres/gpu:1|70G|rack05-06
+283567_6|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|26:52|2:59:00|2026-08-05T12:05:48|1|2|gres/gpu:1|70G|rack15-09
+283567_8|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|26:52|2:59:00|2026-08-05T12:05:48|1|2|gres/gpu:1|70G|rack15-15
+283567_32|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|26:52|2:59:00|2026-08-05T12:05:48|1|2|gres/gpu:1|70G|rack14-15
+283567_39|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|26:52|2:59:00|2026-08-05T12:05:48|1|2|gres/gpu:1|70G|rack09-12
+283567_74|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|26:52|2:59:00|2026-08-05T12:05:48|1|2|gres/gpu:1|70G|rack06-08
+108832_91|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|26:18|2:59:00|2026-08-05T12:06:22|1|2|gres/gpu:1|70G|rack07-03
+108832_78|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|25:44|2:59:00|2026-08-05T12:06:56|1|2|gres/gpu:1|70G|rack06-04
+108832_24|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|25:12|2:59:00|2026-08-05T12:07:28|1|2|gres/gpu:1|70G|rack05-05
+108832_58|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|25:12|2:59:00|2026-08-05T12:07:28|1|2|gres/gpu:1|70G|rack10-07
+108832_85|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|25:12|2:59:00|2026-08-05T12:07:28|1|2|gres/gpu:1|70G|rack12-09
+108832_26|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|24:37|2:59:00|2026-08-05T12:08:03|1|2|gres/gpu:1|70G|rack05-05
+108832_41|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|24:37|2:59:00|2026-08-05T12:08:03|1|2|gres/gpu:1|70G|rack05-06
+108832_42|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|24:37|2:59:00|2026-08-05T12:08:03|1|2|gres/gpu:1|70G|rack07-08
+108832_55|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|24:37|2:59:00|2026-08-05T12:08:03|1|2|gres/gpu:1|70G|rack12-09
+283567_20|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|24:37|2:59:00|2026-08-05T12:08:03|1|2|gres/gpu:1|70G|rack08-13
+283567_54|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|24:37|2:59:00|2026-08-05T12:08:03|1|2|gres/gpu:1|70G|rack05-05
+350136_2|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|25:08|3:00:00|2026-08-05T12:08:32|1|24|gres/gpu:3|160000M|rack03-09
+68029_44|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|24:03|2:59:00|2026-08-05T12:08:37|1|2|gres/gpu:1|70G|rack13-02
+283567_64|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|24:03|2:59:00|2026-08-05T12:08:37|1|2|gres/gpu:1|70G|rack07-03
+108832_40|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|23:29|2:59:00|2026-08-05T12:09:11|1|2|gres/gpu:1|70G|rack02-06
+283567_3|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|23:29|2:59:00|2026-08-05T12:09:11|1|2|gres/gpu:1|70G|rack06-14
+283567_9|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|23:29|2:59:00|2026-08-05T12:09:11|1|2|gres/gpu:1|70G|rack03-13
+108832_6|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|22:55|2:59:00|2026-08-05T12:09:45|1|2|gres/gpu:1|70G|rack11-06
+108832_82|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|22:55|2:59:00|2026-08-05T12:09:45|1|2|gres/gpu:1|70G|rack02-02
+108832_77|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|22:23|2:59:00|2026-08-05T12:10:17|1|2|gres/gpu:1|70G|rack02-13
+108832_67|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|21:48|2:59:00|2026-08-05T12:10:52|1|2|gres/gpu:1|70G|rack15-15
+108832_72|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|21:48|2:59:00|2026-08-05T12:10:52|1|2|gres/gpu:1|70G|rack01-16
+108832_76|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|21:48|2:59:00|2026-08-05T12:10:52|1|2|gres/gpu:1|70G|rack05-08
+283567_85|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|21:48|2:59:00|2026-08-05T12:10:52|1|2|gres/gpu:1|70G|rack09-16
+108832_68|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|20:41|2:59:00|2026-08-05T12:11:59|1|2|gres/gpu:1|70G|rack05-08
+108832_71|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|20:41|2:59:00|2026-08-05T12:11:59|1|2|gres/gpu:1|70G|rack08-13
+283567_86|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|20:41|2:59:00|2026-08-05T12:11:59|1|2|gres/gpu:1|70G|rack01-03
+108832_14|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|20:07|2:59:00|2026-08-05T12:12:33|1|2|gres/gpu:1|70G|rack04-11
+108832_45|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|19:33|2:59:00|2026-08-05T12:13:07|1|2|gres/gpu:1|70G|rack02-15
+283567_0|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|18:59|2:59:00|2026-08-05T12:13:41|1|2|gres/gpu:1|70G|rack03-13
+108832_28|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|15:03|2:59:00|2026-08-05T12:17:37|1|2|gres/gpu:1|70G|rack13-15
+108832_74|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|15:03|2:59:00|2026-08-05T12:17:37|1|2|gres/gpu:1|70G|rack13-14
+108832_88|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|15:03|2:59:00|2026-08-05T12:17:37|1|2|gres/gpu:1|70G|rack13-07
+283567_43|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|15:03|2:59:00|2026-08-05T12:17:37|1|2|gres/gpu:1|70G|rack13-15
+283567_73|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|15:03|2:59:00|2026-08-05T12:17:37|1|2|gres/gpu:1|70G|rack13-07
+283567_44|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|14:30|2:59:00|2026-08-05T12:18:10|1|2|gres/gpu:1|70G|rack11-06
+283567_33|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|12:50|2:59:00|2026-08-05T12:19:50|1|2|gres/gpu:1|70G|rack07-08
+283567_62|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|12:50|2:59:00|2026-08-05T12:19:50|1|2|gres/gpu:1|70G|rack11-10
+68029_32|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|11:45|2:59:00|2026-08-05T12:20:55|1|2|gres/gpu:1|70G|rack01-03
+108832_18|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|11:45|2:59:00|2026-08-05T12:20:55|1|2|gres/gpu:1|70G|rack10-03
+108832_36|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|10:39|2:59:00|2026-08-05T12:22:01|1|2|gres/gpu:1|70G|rack02-15
+283567_84|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|10:39|2:59:00|2026-08-05T12:22:01|1|2|gres/gpu:1|70G|rack05-06
+108832_59|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|9:32|2:59:00|2026-08-05T12:23:08|1|2|gres/gpu:1|70G|rack15-08
+283567_2|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|8:58|2:59:00|2026-08-05T12:23:42|1|2|gres/gpu:1|70G|rack14-15
+350136_3|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|8:20|3:00:00|2026-08-05T12:25:20|1|24|gres/gpu:3|160000M|rack08-15
+350317|gpubase_bygpu_b1|idea6_remnant_leconstrain_qwen354b_500_s42|RUNNING|7:53|3:00:00|2026-08-05T12:25:47|1|4|gres/gpu:1|48000M|rack08-15
+350318|gpubase_bygpu_b1|idea6_mark_leconstrain_qwen354b_500_s42|RUNNING|7:53|3:00:00|2026-08-05T12:25:47|1|4|gres/gpu:1|48000M|rack16-12
+350319|gpubase_bygpu_b1|idea6_metropolis_leconstrain_qwen354b_500_s42|RUNNING|7:53|3:00:00|2026-08-05T12:25:47|1|4|gres/gpu:1|48000M|rack12-06
+350136_4|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|7:48|3:00:00|2026-08-05T12:25:52|1|24|gres/gpu:3|160000M|rack04-05
+108832_86|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|6:12|2:59:00|2026-08-05T12:26:28|1|2|gres/gpu:1|70G|rack13-08
+283567_31|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|5:39|2:59:00|2026-08-05T12:27:01|1|2|gres/gpu:1|70G|rack16-04
+350136_5|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|6:18|3:00:00|2026-08-05T12:27:22|1|24|gres/gpu:3|160000M|rack13-08
+283567_10|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|5:07|2:59:00|2026-08-05T12:27:33|1|2|gres/gpu:1|70G|rack14-14
+350136_6|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|5:49|3:00:00|2026-08-05T12:27:51|1|24|gres/gpu:3|160000M|rack13-05
+350136_7|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|5:19|3:00:00|2026-08-05T12:28:21|1|24|gres/gpu:3|160000M|rack14-14
+283567_22|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|4:00|2:59:00|2026-08-05T12:28:40|1|2|gres/gpu:1|70G|rack07-16
+283567_53|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|4:00|2:59:00|2026-08-05T12:28:40|1|2|gres/gpu:1|70G|rack14-11
+283567_66|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|4:00|2:59:00|2026-08-05T12:28:40|1|2|gres/gpu:1|70G|rack13-04
+350136_8|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|4:19|3:00:00|2026-08-05T12:29:21|1|24|gres/gpu:3|160000M|rack07-16
+350136_9|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|4:19|3:00:00|2026-08-05T12:29:21|1|24|gres/gpu:3|160000M|rack13-04
+350136_10|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|4:19|3:00:00|2026-08-05T12:29:21|1|24|gres/gpu:3|160000M|rack14-11
+283567_82|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|2:53|2:59:00|2026-08-05T12:29:47|1|2|gres/gpu:1|70G|rack11-06
+283567_11|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|2:19|2:59:00|2026-08-05T12:30:21|1|2|gres/gpu:1|70G|rack01-05
+68029_30|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|1:46|2:59:00|2026-08-05T12:30:54|1|2|gres/gpu:1|70G|rack10-07
+108832_1|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|1:46|2:59:00|2026-08-05T12:30:54|1|2|gres/gpu:1|70G|rack06-08
+108832_35|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|1:46|2:59:00|2026-08-05T12:30:54|1|2|gres/gpu:1|70G|rack11-03
+283567_7|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|1:46|2:59:00|2026-08-05T12:30:54|1|2|gres/gpu:1|70G|rack14-15
+283567_46|gpubase_bygpu_b1|rl_sweep_jax|RUNNING|1:12|2:59:00|2026-08-05T12:31:28|1|2|gres/gpu:1|70G|rack11-12
+350136_11|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|1:48|3:00:00|2026-08-05T12:31:52|1|24|gres/gpu:3|160000M|rack11-03
+350136_12|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|1:48|3:00:00|2026-08-05T12:31:52|1|24|gres/gpu:3|160000M|rack14-07
+350136_13|gpubase_bygpu_b1|idea1_a1a2_caj_goal_n3|RUNNING|0:49|3:00:00|2026-08-05T12:32:51|1|24|gres/gpu:3|160000M|rack03-14
+
+===== PARTITION CONFIGURATION =====
+PartitionName=gpubase_bygpu_b1 AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=YES QoS=N/A DefaultTime=01:00:00 DisableRootJobs=NO ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=03:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED NodeSets=p1,p2,p3,p4,p5 Nodes=rack01-[01-16],rack02-[01-16],rack03-[01-16],rack04-[01-07,09-14,16],rack05-[01-15],rack06-[01,03-06,08-12,14-16],rack07-[01-03,05-16],rack08-[01-09,12-16],rack09-[01-14,16],rack10-[01,03-12,14,16],rack11-[01-16],rack12-[01-12,15],rack13-[02-16],rack14-[01-02,04-16],rack15-[01-02,06-16],rack16-[01-12] PriorityJobFactor=1 PriorityTier=20 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=14784 TotalNodes=231 SelectTypeParameters=NONE JobDefaults=(null) DefMemPerNode=500 MaxMemPerNode=UNLIMITED TRES=cpu=14784,mem=119075368M,node=231,billing=9517200,gres/gpu=924,gres/gpu:l40s=924,gres/shard=80,gres/shard:l40s=80 TRESBillingWeights=CPU=643.75,Mem=81.10G,GRES/gpu:l40s=10300,GRES/shard=2575
+
+===== PRIORITIES =====
+          JOBID PARTITION     USER  ACCOUNT   PRIORITY       SITE        AGE      ASSOC  FAIRSHARE    JOBSIZE  PARTITION    QOSNAME        QOS        NICE                 TRES
+         343035 gpubase_b markwang aip-rudn     675992          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=8,gres/gpu
+         343036 gpubase_b markwang aip-rudn     675992          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=8,gres/gpu
+         343037 gpubase_b markwang aip-rudn     675992          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=8,gres/gpu
+         343038 gpubase_b markwang aip-rudn     675992          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=8,gres/gpu
+         343042 gpubase_b markwang aip-rudn     675992          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=8,gres/gpu
+         343043 gpubase_b markwang aip-rudn     675992          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=8,gres/gpu
+         343044 gpubase_b markwang aip-rudn     675992          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=8,gres/gpu
+         343045 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343046 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343047 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343048 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343049 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343050 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343051 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343052 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343053 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343054 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343055 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343056 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343057 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343058 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343059 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343060 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343061 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343062 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343063 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343064 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343065 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343066 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343067 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343068 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343069 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343070 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343071 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343072 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343073 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+         343074 gpubase_b markwang aip-rudn     676061          0        204          0     673209          0       2500     normal          0           0 cpu=6,mem=12,gres/gp
+
+===== FAIRSHARE =====
+Account                    User  RawShares  NormShares    RawUsage   NormUsage  EffectvUsage  FairShare    LevelFS                    GrpTRESMins                    TRESRunMins 
+-------------------- ---------- ---------- ----------- ----------- ----------- ------------- ---------- ---------- ------------------------------ ------------------------------ 
+aip-rudner                            2872    0.000336 84524136475    0.009322      0.009322              0.036023                                cpu=6011,mem=73873817,energy=+ 
+ aip-rudner            markwang          1    0.058824  5734913736    0.000632      0.067849   0.134642   0.866972                                cpu=0,mem=0,energy=0,node=0,b+ 
+
+===== RESERVATIONS =====
+ReservationName=testing StartTime=2026-03-12T11:38:23 EndTime=2027-03-12T10:38:23 Duration=365-00:00:00 Nodes=rack01-01,rack16-11 NodeCnt=2 CoreCnt=128 Features=(null) PartitionName=(null) Flags=SPEC_NODES TRES=cpu=128 Users=gburlet,rahimk,alikarim,iqapple Groups=(null) Accounts=(null) Licenses=(null) State=ACTIVE BurstBuffer=(null) MaxStartDelay=(null)
+ReservationName=u26 StartTime=2026-05-08T15:26:02 EndTime=2027-05-08T15:26:02 Duration=365-00:00:00 Nodes=rack02-01 NodeCnt=1 CoreCnt=64 Features=(null) PartitionName=(null) Flags=SPEC_NODES TRES=cpu=64 Users=alikarim,rahimk Groups=(null) Accounts=(null) Licenses=(null) State=ACTIVE BurstBuffer=(null) MaxStartDelay=(null)
+ReservationName=softmig StartTime=2026-05-14T12:51:43 EndTime=2027-05-14T12:51:43 Duration=365-00:00:00 Nodes=rack01-14 NodeCnt=1 CoreCnt=64 Features=(null) PartitionName=(null) Flags=SPEC_NODES TRES=cpu=64 Users=rahimk,alikarim Groups=(null) Accounts=(null) Licenses=(null) State=ACTIVE BurstBuffer=(null) MaxStartDelay=(null)
+
+===== SCHEDULER/BACKFILL CONFIGURATION =====
+DefMemPerNode           = UNLIMITED
+MaxMemPerNode           = UNLIMITED
+PriorityType            = priority/multifactor
+PriorityWeightAge       = 2500
+PriorityWeightAssoc     = 0
+PriorityWeightFairShare = 5000000
+PriorityWeightJobSize   = 0
+PriorityWeightPartition = 2500
+PriorityWeightQOS       = 5000000
+PriorityWeightTRES      = CPU=15000,Mem=15000,GRES/gpu=15000,GRES/gpu:l40s=15000,GRES/shard=15000
+SchedulerParameters     = (null)
+SchedulerType           = sched/backfill
+SelectType              = select/cons_tres
+SelectTypeParameters    = CR_CORE_MEMORY
+
+===== SCHEDULER DIAGNOSTICS =====
+*******************************************************
+sdiag output at Wed Aug 05 09:33:44 2026 (1785944024)
+Data since      Tue Aug 04 18:00:00 2026 (1785888000)
+*******************************************************
+Server thread count:  1
+RPC queue enabled:    0
+Agent queue size:     0
+Agent count:          0
+Agent thread count:   0
+DBD Agent queue size: 0
+
+Jobs submitted: 6439
+Jobs started:   10539
+Jobs completed: 10210
+Jobs canceled:  343
+Jobs failed:    0
+
+Job states ts:  Wed Aug 05 09:33:20 2026 (1785944000)
+Jobs pending:   2984
+Jobs running:   2018
+
+Main schedule statistics (microseconds):
+	Last cycle:   9287
+	Max cycle:    444935
+	Total cycles: 12468
+	Mean cycle:   9295
+	Mean depth cycle:  126
+	Cycles per minute: 13
+	Last queue length: 327
+
+Main scheduler exit:
+	End of job queue:932
+	Hit default_queue_depth:11536
+	Hit sched_max_job_start: 0
+	Blocked on licenses: 0
+	Hit max_rpc_cnt: 0
+	Timeout (max_sched_time): 0
+
+Backfilling stats
+	Total backfilled jobs (since last slurm start): 29203
+	Total backfilled jobs (since last stats cycle start): 5498
+	Total backfilled heterogeneous job components: 0
+	Total cycles: 1664
+	Last cycle when: Wed Aug 05 09:33:34 2026 (1785944014)
+	Last cycle: 3303029
+	Max cycle:  10244935
+	Mean cycle: 3076810
+	Last depth cycle: 511
+	Last depth cycle (try sched): 500
+	Depth Mean: 465
+	Depth Mean (try depth): 454
+	Last queue length: 327
+	Queue length mean: 522
+	Last table size: 300
+	Mean table size: 262
+
+Backfill exit
+	End of job queue:28
+	Hit bf_max_job_start: 0
+	Hit bf_max_job_test:1070
+	System state changed:566
+	Hit table size limit (bf_node_space_size): 0
+	Timeout (bf_max_time): 0
+
+Latency for 1000 calls to gettimeofday(): 18 microseconds
+
+Remote Procedure Call statistics by message type
+	REQUEST_PARTITION_INFO                  ( 2009) count:32790485 ave_time:179    total_time:5878618639
+	REQUEST_FED_INFO                        ( 2049) count:32288833 ave_time:83     total_time:2688132578
+	REQUEST_JOB_USER_INFO                   ( 2039) count:31870838 ave_time:2632   total_time:83902268353
+	REQUEST_NODE_INFO                       ( 2007) count:586763 ave_time:62300  total_time:36555565357
+	REQUEST_JOB_INFO                        ( 2003) count:513743 ave_time:64889  total_time:33336466751
+	REQUEST_JOB_INFO_SINGLE                 ( 2021) count:416462 ave_time:193469 total_time:80572770660
+	REQUEST_SHARE_INFO                      ( 2022) count:195333 ave_time:7406   total_time:1446806382
+	REQUEST_STEP_COMPLETE                   ( 5016) count:99200  ave_time:17139  total_time:1700264975
+	REQUEST_COMPLETE_PROLOG                 ( 6018) count:84294  ave_time:7637   total_time:643783894
+	MESSAGE_EPILOG_COMPLETE                 ( 6012) count:84243  ave_time:12492  total_time:1052425088
+	REQUEST_COMPLETE_BATCH_SCRIPT           ( 5018) count:81185  ave_time:73934  total_time:6002365628
+	MESSAGE_NODE_REGISTRATION_STATUS        ( 1002) count:54555  ave_time:9212   total_time:502571934
+	REQUEST_SUBMIT_BATCH_JOB                ( 4003) count:41755  ave_time:39334  total_time:1642396547
+	REQUEST_PRIORITY_FACTORS                ( 2026) count:35309  ave_time:78454  total_time:2770166004
+	REQUEST_STATS_INFO                      ( 2035) count:14436  ave_time:118    total_time:1714629
+	REQUEST_JOB_STEP_CREATE                 ( 5001) count:12038  ave_time:9763   total_time:117538605
+	REQUEST_HET_JOB_ALLOC_INFO              ( 4027) count:10932  ave_time:74458  total_time:813976203
+	REQUEST_JOB_REQUEUE                     ( 5023) count:7967   ave_time:75394  total_time:600669898
+	REQUEST_KILL_JOB                        ( 5032) count:5909   ave_time:22572  total_time:133380114
+	REQUEST_JOB_READY                       ( 4019) count:3425   ave_time:54143  total_time:185440683
+	REQUEST_UPDATE_JOB                      ( 3001) count:1510   ave_time:9492   total_time:14333381
+	REQUEST_RESOURCE_ALLOCATION             ( 4001) count:1320   ave_time:121718 total_time:160668415
+	REQUEST_COMPLETE_JOB_ALLOCATION         ( 5017) count:1283   ave_time:69738  total_time:89474404
+	REQUEST_CANCEL_JOB_STEP                 ( 5005) count:1163   ave_time:25322  total_time:29449683
+	REQUEST_NODE_ALIAS_ADDRS                ( 3016) count:1030   ave_time:312    total_time:322173
+	REQUEST_JOB_STEP_INFO                   ( 2005) count:935    ave_time:25631  total_time:23965834
+	REQUEST_JOB_WILL_RUN                    ( 4012) count:483    ave_time:187534 total_time:90579049
+	REQUEST_JOB_SBCAST_CRED                 ( 4023) count:309    ave_time:90336  total_time:27914053
+	REQUEST_BUILD_INFO                      ( 2001) count:255    ave_time:69528  total_time:17729825
+	REQUEST_PING                            ( 1008) count:239    ave_time:79     total_time:18972
+	REQUEST_BATCH_SCRIPT                    ( 2051) count:35     ave_time:1919   total_time:67192
+	REQUEST_JOB_ALLOCATION_INFO             ( 4014) count:31     ave_time:9767   total_time:302801
+	REQUEST_TOP_JOB                         ( 5038) count:15     ave_time:292    total_time:4383
+	REQUEST_RESERVATION_INFO                ( 2024) count:6      ave_time:117084 total_time:702505
+	REQUEST_ASSOC_MGR_INFO                  ( 2043) count:5      ave_time:53469  total_time:267348
+	REQUEST_JOB_NOTIFY                      ( 4022) count:3      ave_time:124    total_time:372
+	REQUEST_UPDATE_NODE                     ( 3002) count:1      ave_time:2044   total_time:2044
+
+Remote Procedure Call statistics by user
+	zhan5664        ( 3151459) count:93814113 ave_time:666    total_time:62513465888
+	root            (       0) count:1822012 ave_time:49436  total_time:90074047074
+	xya120          ( 3132902) count:1188172 ave_time:12050  total_time:14318569268
+	raymin          ( 3161140) count:760597 ave_time:27797  total_time:21142656176
+	arjunrao        ( 3160638) count:340988 ave_time:15207  total_time:5185515456
+	chuang8         ( 3089601) count:301928 ave_time:70097  total_time:21164290836
+	sya225          ( 3157475) count:170918 ave_time:100153 total_time:17118020105
+	samy1           ( 3147811) count:98306  ave_time:29756  total_time:2925259265
+	ismael          ( 3041848) count:85921  ave_time:93961  total_time:8073249948
+	amanday         ( 3160839) count:66390  ave_time:23225  total_time:1541930309
+	melisac         ( 3154015) count:54540  ave_time:29659  total_time:1617644714
+	castromi        ( 3152128) count:41222  ave_time:19933  total_time:821679262
+	sophistz        ( 3116083) count:40132  ave_time:23627  total_time:948200915
+	songtaow        ( 3150287) count:38702  ave_time:4244   total_time:164258399
+	roisin          ( 3156380) count:34880  ave_time:17916  total_time:624911432
+	jmbamiss        ( 3135799) count:32699  ave_time:41342  total_time:1351872037
+	marham2         ( 3154060) count:27533  ave_time:34734  total_time:956343327
+	zpoints         ( 3142348) count:25709  ave_time:48476  total_time:1246284477
+	henrycai        ( 3150325) count:19653  ave_time:22872  total_time:449513930
+	hongkang        ( 3149049) count:17425  ave_time:23814  total_time:414963729
+	xirui4          ( 3140891) count:16904  ave_time:24040  total_time:406374507
+	diliash         ( 3156093) count:15637  ave_time:42072  total_time:657892086
+	geeyang         ( 3161679) count:12027  ave_time:26557  total_time:319405195
+	matth808        ( 3146732) count:10051  ave_time:72326  total_time:726949594
+	jhpark99        ( 3162860) count:9435   ave_time:19882  total_time:187594705
+	amir477         ( 3137408) count:8510   ave_time:38406  total_time:326837401
+	amunk           ( 3083586) count:8007   ave_time:34865  total_time:279169200
+	luy             ( 3155632) count:6747   ave_time:34631  total_time:233656074
+	lyutang         ( 3151803) count:6248   ave_time:28749  total_time:179627966
+	ellie314        ( 3161001) count:5974   ave_time:122514 total_time:731899677
+	euijin1         ( 3146019) count:5752   ave_time:18430  total_time:106009400
+	moh             ( 3097050) count:5198   ave_time:54145  total_time:281449174
+	yqw             ( 3158719) count:4538   ave_time:21488  total_time:97514714
+	ttian25         ( 3146984) count:4259   ave_time:33813  total_time:144012090
+	qhp             ( 3150235) count:4100   ave_time:12582  total_time:51589486
+	psli            ( 3117684) count:3902   ave_time:35492  total_time:138491281
+	wollf           ( 3131256) count:3427   ave_time:36616  total_time:125484861
+	minhpham        ( 3149211) count:2985   ave_time:54828  total_time:163663853
+	hshah1          ( 3109422) count:2980   ave_time:23122  total_time:68904731
+	hcshi           ( 3117399) count:2588   ave_time:19844  total_time:51357091
+	paulh           ( 3151172) count:2372   ave_time:21562  total_time:51147391
+	aorenste        ( 3131333) count:2165   ave_time:25873  total_time:56016147
+	lazar           ( 3149856) count:2046   ave_time:47696  total_time:97587047
+	mvander         ( 3142512) count:1941   ave_time:18688  total_time:36275210
+	jinfeng7        ( 3156440) count:1939   ave_time:25861  total_time:50144511
+	markwang        ( 3156651) count:1758   ave_time:5225   total_time:9186439
+	beam            (13200117) count:1689   ave_time:35430  total_time:59841806
+	kdeol           ( 3148459) count:1527   ave_time:40481  total_time:61815522
+	mlecuyer        ( 3113666) count:1393   ave_time:34009  total_time:47375771
+	saeidnp         ( 3082508) count:1301   ave_time:28298  total_time:36816223
+	alvinsun        ( 3061426) count:1256   ave_time:22180  total_time:27858252
+	parash          ( 3078450) count:1167   ave_time:18957  total_time:22122913
+	saminur         ( 3147027) count:1136   ave_time:22309  total_time:25343049
+	sunjia72        ( 3134184) count:1121   ave_time:38606  total_time:43278230
+	xinjia2         ( 3159758) count:1097   ave_time:80625  total_time:88446031
+	liyuxuan        ( 3117978) count:1019   ave_time:34354  total_time:35007439
+	nong            ( 3149047) count:1008   ave_time:75378  total_time:75981165
+	xiye17          ( 3150023) count:919    ave_time:28713  total_time:26387406
+	zchai3          ( 3155114) count:865    ave_time:46126  total_time:39899558
+	smoolak         ( 3076982) count:851    ave_time:91347  total_time:77736639
+	alirezak        ( 3130345) count:803    ave_time:53614  total_time:43052299
+	aldo            ( 3159820) count:789    ave_time:105430 total_time:83184572
+	jcaiata         ( 3142021) count:763    ave_time:31863  total_time:24311698
+	rahimk          ( 3144480) count:731    ave_time:63714  total_time:46575279
+	vguan23         ( 3162394) count:724    ave_time:12779  total_time:9252528
+	jyang001        ( 3153723) count:700    ave_time:14228  total_time:9959788
+	weiyunze        ( 3145219) count:666    ave_time:50162  total_time:33408445
+	kianhk6         ( 3143429) count:654    ave_time:11591  total_time:7580573
+	fionayu         ( 3123448) count:631    ave_time:36977  total_time:23333034
+	avani           ( 3148274) count:624    ave_time:30378  total_time:18956445
+	aarondom        ( 3141904) count:569    ave_time:24208  total_time:13774535
+	sendena         ( 3146243) count:563    ave_time:10386  total_time:5847372
+	jzhanggy        ( 3157972) count:542    ave_time:19825  total_time:10745409
+	mahvash         ( 3139385) count:537    ave_time:17297  total_time:9288949
+	yqwen           ( 3109865) count:522    ave_time:14735  total_time:7691808
+	zwa204          ( 3154186) count:519    ave_time:29849  total_time:15492146
+	sollos          ( 3149116) count:506    ave_time:20645  total_time:10446415
+	pz9             ( 3147090) count:446    ave_time:46225  total_time:20616566
+	marzii          ( 3151758) count:416    ave_time:24392  total_time:10147450
+	foardic         ( 3160262) count:391    ave_time:32221  total_time:12598646
+	aryanghz        ( 3159196) count:390    ave_time:30344  total_time:11834432
+	arezooa         ( 3148331) count:386    ave_time:2625   total_time:1013430
+	montaser        ( 3123357) count:354    ave_time:32794  total_time:11609392
+	fangcong        ( 3112876) count:330    ave_time:12705  total_time:4192725
+	shivanis        ( 3158286) count:323    ave_time:31615  total_time:10211663
+	mbowling        ( 3002405) count:321    ave_time:245379 total_time:78766763
+	amir2002        ( 3155796) count:310    ave_time:37887  total_time:11745043
+	fabdolla        ( 3097312) count:308    ave_time:49825  total_time:15346114
+	mrahmani        ( 3137947) count:296    ave_time:21208  total_time:6277697
+	hxuan           ( 3133274) count:286    ave_time:24347  total_time:6963351
+	songy9          ( 3154490) count:270    ave_time:23638  total_time:6382495
+	pengyue         ( 3115019) count:267    ave_time:28981  total_time:7737974
+	sdolivei        ( 3152454) count:262    ave_time:19694  total_time:5159842
+	nrebstoc        ( 3124642) count:257    ave_time:54057  total_time:13892737
+	tomori          ( 3151023) count:256    ave_time:5695   total_time:1458143
+	agokrani        ( 3155864) count:254    ave_time:33008  total_time:8384043
+	vscalar         ( 3158125) count:242    ave_time:24445  total_time:5915768
+	shiang          ( 3132947) count:241    ave_time:52951  total_time:12761405
+	ammany          ( 3144862) count:238    ave_time:86313  total_time:20542670
+	elodiecg        ( 3130785) count:235    ave_time:31994  total_time:7518663
+	pahasa          ( 3126307) count:233    ave_time:39554  total_time:9216116
+	yangg03         ( 3145839) count:230    ave_time:10086  total_time:2319925
+	akash819        ( 3142084) count:230    ave_time:7903   total_time:1817705
+	rdovgany        ( 3160309) count:227    ave_time:27470  total_time:6235704
+	narunram        ( 3115649) count:226    ave_time:23134  total_time:5228417
+	truonggi        ( 3143184) count:216    ave_time:35165  total_time:7595743
+	arjuns          ( 3149241) count:213    ave_time:21148  total_time:4504710
+	mchippa         ( 3154105) count:200    ave_time:30825  total_time:6165142
+	zonglin1        ( 3122332) count:194    ave_time:2955   total_time:573318
+	soni            ( 3154061) count:190    ave_time:37154  total_time:7059389
+	roice           ( 3126892) count:181    ave_time:50231  total_time:9091942
+	sdabiri         ( 3057740) count:180    ave_time:38602  total_time:6948462
+	fshpil          ( 3125081) count:176    ave_time:11333  total_time:1994691
+	yucz            ( 3121316) count:175    ave_time:22659  total_time:3965467
+	yongbin4        ( 3158732) count:173    ave_time:2231   total_time:386069
+	dsaleixo        ( 3096397) count:173    ave_time:60349  total_time:10440461
+	samsh           ( 3127925) count:172    ave_time:66030  total_time:11357264
+	sankeert        ( 3152895) count:171    ave_time:6780   total_time:1159395
+	hriday          ( 3152230) count:165    ave_time:17067  total_time:2816161
+	fsaltiel        ( 3148252) count:161    ave_time:18356  total_time:2955331
+	rhyderi1        ( 3159498) count:160    ave_time:21108  total_time:3377437
+	kiele           ( 3150289) count:151    ave_time:37952  total_time:5730859
+	hdehbash        ( 3149375) count:150    ave_time:97750  total_time:14662512
+	nabaeia         ( 3153937) count:144    ave_time:5728   total_time:824851
+	jiabin          ( 3097038) count:144    ave_time:4854   total_time:699057
+	alexpl          ( 3100589) count:141    ave_time:26682  total_time:3762228
+	normandf        ( 3098083) count:133    ave_time:3556   total_time:473059
+	shway           ( 3110097) count:133    ave_time:30629  total_time:4073752
+	vandenbh        ( 3158781) count:128    ave_time:2787   total_time:356800
+	nrgs            ( 3156163) count:125    ave_time:18769  total_time:2346148
+	wangj           ( 3161922) count:122    ave_time:88242  total_time:10765595
+	balapour        ( 3149208) count:115    ave_time:22407  total_time:2576873
+	defte           ( 3123807) count:115    ave_time:35633  total_time:4097866
+	astrid          ( 3152056) count:112    ave_time:75157  total_time:8417662
+	dutenhef        ( 3157319) count:111    ave_time:50374  total_time:5591554
+	saurabhg        ( 3162150) count:103    ave_time:18994  total_time:1956452
+	anangia         ( 3155863) count:101    ave_time:24854  total_time:2510255
+	kevinkim        ( 3150692) count:100    ave_time:32026  total_time:3202686
+	aromer          ( 3162077) count:98     ave_time:20589  total_time:2017723
+	shahin22        ( 3161238) count:97     ave_time:21276  total_time:2063806
+	smithi23        ( 3114310) count:91     ave_time:23163  total_time:2107909
+	hzhou30         ( 3147170) count:86     ave_time:167080 total_time:14368948
+	dikki14         ( 3143963) count:85     ave_time:138291 total_time:11754791
+	ibbi            ( 3160797) count:85     ave_time:2984   total_time:253642
+	jamesp23        ( 3161401) count:85     ave_time:73082  total_time:6212016
+	ashen           ( 3155738) count:83     ave_time:12824  total_time:1064409
+	siamakx         ( 3059757) count:80     ave_time:52776  total_time:4222158
+	odiamond        ( 3141454) count:79     ave_time:49566  total_time:3915780
+	zweng           ( 3153508) count:78     ave_time:27753  total_time:2164807
+	apeng           ( 3158871) count:77     ave_time:6243   total_time:480766
+	sjcho           ( 3132008) count:75     ave_time:84663  total_time:6349766
+	tarachan        ( 3145325) count:73     ave_time:34246  total_time:2500021
+	haobin4         ( 3131036) count:72     ave_time:79264  total_time:5707077
+	sohini          ( 3155306) count:70     ave_time:32012  total_time:2240856
+	saigp           ( 3151716) count:65     ave_time:8953   total_time:581955
+	ben2908         ( 3141345) count:64     ave_time:4546   total_time:290990
+	anigj           ( 3135717) count:63     ave_time:33017  total_time:2080095
+	siddc           ( 3143568) count:60     ave_time:14353  total_time:861220
+	rudragr         ( 3162175) count:56     ave_time:41279  total_time:2311654
+	shuai14         ( 3145481) count:56     ave_time:9300   total_time:520810
+	alikarim        ( 3003803) count:49     ave_time:13143  total_time:644037
+	slakins         ( 3146945) count:49     ave_time:38482  total_time:1885655
+	lwoudstr        ( 3144874) count:45     ave_time:56209  total_time:2529406
+	lcruz1          ( 3142109) count:45     ave_time:145883 total_time:6564774
+	ray7            ( 3155183) count:44     ave_time:102033 total_time:4489455
+	tejas915        ( 3128097) count:42     ave_time:29963  total_time:1258465
+	dorrik          ( 3150308) count:41     ave_time:46951  total_time:1925003
+	chuiyang        ( 3118223) count:37     ave_time:1459   total_time:53983
+	mehranag        ( 3108603) count:37     ave_time:71959  total_time:2662490
+	vcosta          ( 3158893) count:34     ave_time:55353  total_time:1882017
+	r2akhoun        ( 3149919) count:33     ave_time:75490  total_time:2491174
+	feiw            ( 3059574) count:32     ave_time:41310  total_time:1321940
+	arghasre        ( 3122119) count:32     ave_time:10161  total_time:325162
+	albd            ( 3055150) count:25     ave_time:4315   total_time:107899
+	maoq            ( 3123094) count:24     ave_time:75685  total_time:1816449
+	dteodore        ( 3097351) count:21     ave_time:2666   total_time:55990
+	ash98           ( 3157247) count:20     ave_time:90550  total_time:1811007
+	xxliang         ( 3098624) count:19     ave_time:28721  total_time:545714
+	bcordel         ( 3138667) count:19     ave_time:3006   total_time:57114
+	tmunjal         ( 3159422) count:18     ave_time:2752   total_time:49541
+	omata           ( 3148554) count:14     ave_time:219607 total_time:3074503
+	yujiaaa         ( 3150144) count:14     ave_time:79991  total_time:1119881
+	kuaitian        ( 3111509) count:10     ave_time:3597   total_time:35979
+	scieurda        ( 3153061) count:10     ave_time:26820  total_time:268209
+	lmucko          ( 3150358) count:10     ave_time:27104  total_time:271047
+	sunwoo          ( 3151668) count:9      ave_time:175    total_time:1578
+	jhs             ( 3148624) count:9      ave_time:167526 total_time:1507735
+	x48cai          ( 3161896) count:8      ave_time:65775  total_time:526206
+	weipang         ( 3116175) count:7      ave_time:6103   total_time:42722
+	aminmans        ( 3063955) count:6      ave_time:182    total_time:1094
+	prabhatn        ( 3115268) count:6      ave_time:232209 total_time:1393255
+	lintue          ( 3158010) count:6      ave_time:333    total_time:2001
+	dunyang         ( 3137961) count:5      ave_time:6444   total_time:32223
+	gvaz7           ( 3161015) count:5      ave_time:179749 total_time:898745
+	mlin1           ( 3131134) count:5      ave_time:768    total_time:3840
+	snakagaw        ( 3143783) count:3      ave_time:89552  total_time:268657
+	aghakasi        ( 3100267) count:3      ave_time:66     total_time:198
+	maaahmn         ( 3142885) count:3      ave_time:134    total_time:402
+	zainab14        ( 3153908) count:2      ave_time:1222   total_time:2444
+	sunset          ( 3137037) count:2      ave_time:1193   total_time:2386
+
+Pending RPC statistics
+	No pending RPCs

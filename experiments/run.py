@@ -186,19 +186,32 @@ def _eval_complete(
             return False
     if not set(requested).issubset(_present_elic(result_json)):
         return False
-    if organism in naming.PRIOR_TABLE_ORGANISMS:
+    if organism in naming.PRIOR_TABLE_ORGANISMS and requested:
+        blob = _read_json(result_json)
+        datasets_in_result = blob.get("datasets")
+        if not isinstance(datasets_in_result, list):
+            datasets_in_result = [blob.get("dataset")]
+        if not datasets_in_result or any(
+            not isinstance(dataset, str)
+            or not naming.requested_elicitations_valid(blob, dataset, requested)
+            for dataset in datasets_in_result
+        ):
+            return False
+        if (
+            organism == "sysprompt"
+            and set(requested) & set(naming.JAILBREAK_TECHNIQUES)
+            and blob.get("sysprompt_jailbreak_protocol")
+            != naming.SYSPROMPT_JAILBREAK_PROTOCOL
+        ):
+            return False
         required = set(naming.JAILBREAK_TECHNIQUES)
         if organism == "sysprompt":
             required.add("prompt_injection")
         if required.issubset(requested):
-            blob = _read_json(result_json)
-            datasets = blob.get("datasets")
-            if not isinstance(datasets, list):
-                datasets = [blob.get("dataset")]
-            if not datasets or any(
+            if any(
                     not isinstance(dataset, str) or
                     naming.metric_rob_jlbrk(blob, dataset) is None
-                    for dataset in datasets):
+                    for dataset in datasets_in_result):
                 return False
     return True
 
@@ -429,7 +442,7 @@ def build_jobs(runs: list[manifest.Run], phase: str, force: bool) -> list[Job]:
     evals: dict[str, dict] = {}
     for run in runs:
         requested = set(_phase_elicitations(run, phase))
-        if (phase != "utility" and run.organism == "circuitbreak" and
+        if (phase in {"eff", "all"} and run.organism == "circuitbreak" and
                 run.meta.depends_on):
             # Evaluate the deliberate-wrong parent on the same held-out split so
             # the CktBr effect is measured against its actual starting point.

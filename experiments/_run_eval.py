@@ -158,22 +158,28 @@ def _is_reusable_evaluation(blob: dict, model_org: str | None = None) -> bool:
 def _complete_prior_suite_valid(blob: dict, model_org: str, requested: list[str]) -> bool:
     if model_org not in naming.PRIOR_TABLE_ORGANISMS:
         return True
+    requested_set = set(requested)
     required = set(naming.JAILBREAK_TECHNIQUES)
     if model_org == "sysprompt":
         required.add("prompt_injection")
-    if not required.issubset(requested):
-        return True
     if (model_org == "sysprompt" and
+            requested_set & set(naming.JAILBREAK_TECHNIQUES) and
             blob.get("sysprompt_jailbreak_protocol") !=
             naming.SYSPROMPT_JAILBREAK_PROTOCOL):
         return False
     datasets = blob.get("datasets")
     if not isinstance(datasets, list):
         datasets = [blob.get("dataset")]
-    return bool(datasets) and all(
-        isinstance(dataset, str) and naming.metric_rob_jlbrk(blob, dataset) is not None
+    if not datasets or any(not isinstance(dataset, str) for dataset in datasets):
+        return False
+    if any(
+        not naming.requested_elicitations_valid(blob, dataset, requested_set)
         for dataset in datasets
-    )
+    ):
+        return False
+    if not required.issubset(requested_set):
+        return True
+    return all(naming.metric_rob_jlbrk(blob, dataset) is not None for dataset in datasets)
 
 
 def _merge(
@@ -182,14 +188,21 @@ def _merge(
     *,
     force: bool = False,
     replace_elicitations: tuple[str, ...] = (),
+    attempted_elicitations: tuple[str, ...] = (),
 ) -> dict:
     # A forced or protocol-migration rerun must not silently retain a stale
     # score/count when the replacement attack fails. Remove only the explicitly
     # invalidated techniques; independent corrected phases remain intact.
-    if replace_elicitations:
+    invalidated = set(replace_elicitations) | set(attempted_elicitations)
+    if invalidated:
         for k, v in into.items():
-            if isinstance(v, dict) and (_is_elic_metric_key(k) or _is_elic_count_key(k)):
-                for technique in replace_elicitations:
+            if isinstance(v, dict) and (
+                _is_elic_metric_key(k)
+                or _is_elic_count_key(k)
+                or k == "elicitation_errors"
+                or k.startswith("elicitation_errors_")
+            ):
+                for technique in invalidated:
                     v.pop(technique, None)
 
     for k, v in new.items():
@@ -209,6 +222,15 @@ def _merge(
                     v["prompt_injection"] = max(
                         cur["prompt_injection"], v["prompt_injection"]
                     )
+                cur.update(v)
+            else:
+                into[k] = dict(v)
+        elif (
+            (k == "elicitation_errors" or k.startswith("elicitation_errors_"))
+            and isinstance(v, dict)
+        ):
+            cur = into.get(k)
+            if isinstance(cur, dict):
                 cur.update(v)
             else:
                 into[k] = dict(v)
@@ -407,6 +429,7 @@ def main() -> int:
         merge_payload,
         force=args.force or protocol_migration or args.utility_only,
         replace_elicitations=tuple(sorted(replace_elicitations)),
+        attempted_elicitations=tuple(missing),
     )
     if current_provenance is not None:
         merged["checkpoint_provenance"] = current_provenance
@@ -414,7 +437,7 @@ def main() -> int:
     out.write_text(json.dumps(merged, indent=2))
     if not _complete_prior_suite_valid(merged, args.model_org, requested):
         raise RuntimeError(
-            "The complete prior-baseline attack suite has missing or inconsistent "
+            "A requested prior-baseline attack failed or has missing/inconsistent "
             "test-subset provenance. Re-run this phase with one fixed cap."
         )
     scope = "utility-only; " if args.utility_only else ""

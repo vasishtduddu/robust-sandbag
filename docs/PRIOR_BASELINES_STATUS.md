@@ -167,11 +167,11 @@ seeds 42/43/44.
 
 ### 7. Tests and documentation
 
-- `tests/test_prior_baseline_protocol.py` contains 37 focused protocol tests for
+- `tests/test_prior_baseline_protocol.py` contains 40 focused protocol tests for
   recipes, seed mapping, provenance, utility-only merging, SysPr sampling,
   attack completeness, subset fingerprints, active system-prompt handling, and
   table gates.
-- Latest local result: 37 run, 26 passed, 11 skipped because this lightweight
+- Latest local result: 40 run, 29 passed, 11 skipped because this lightweight
   environment lacks the project ML stack; no failures. Run the same suite in the
   cluster venv to exercise the 11 ML-dependent tests before merge.
 - The Killarney and Vulcan runbooks document setup, staging, preflight, execution,
@@ -301,8 +301,25 @@ complete robustness aggregate, the expected count is:
   `344051`–`344053`, `344058`–`344060`,
   `344064`–`344066`, `344071`–`344073`, `344081`–`344083`, `344109`–`344111`,
   `344115`–`344117`, `344121`–`344123`, and `344128`–`344130`. Cancellation was
-  therefore successful as of the snapshot; continue excluding parent jobs from
-  future AutoDAN submissions.
+  therefore successful as of the snapshot. The orchestrator now creates parent
+  evaluations only for effectiveness/all phases, while black-box phases retain
+  the required parent-training dependency without submitting a parent eval.
+
+### Post-snapshot audit corrections
+
+The audit found that an evaluator exception was recorded in
+`elicitation_errors`, but an AutoDAN-only `_run_eval` phase did not require the
+requested score/count/fingerprint before returning success. This was the same
+failure shape as the earlier Slurm-success/job-level-failure `4460510`. The
+wrapper and resumable completion check now validate every explicitly requested
+prior attack, including partial phases; a missing output or recorded error makes
+the process fail. A retry also removes that technique's stale error marker before
+merging its new outcome. `tablefill` applies the same error-aware gate.
+
+These fixes are local source changes, not scheduler-state changes. Any pending
+job whose cluster checkout still has the pre-audit wrapper can retain the old
+false-success behavior. Deploy the audited source (or run an equivalent strict
+artifact validator) before treating the existing AutoDAN chain as trustworthy.
 
 ### Immediate AutoDAN gate: one canonical strategy library
 
@@ -362,7 +379,7 @@ same 7B/Bio/PWD/seed-42 result.
    and fingerprint gates should `tablefill` compute the maximum. Copy the
    generated table fragment into the paper; do not combine aggregate numbers by
    hand.
-10. **Complete merge cleanup.** Run the 37 focused tests in the full cluster venv
+10. **Complete merge cleanup.** Run the 40 focused tests in the full cluster venv
     with no dependency skips, run the broader relevant test suite, review the
     branch diff against `origin/main`, and decide whether to retain or move the
     untracked user files `killarney_jobs.txt` and `vulcan_jobs.txt`. Do not delete

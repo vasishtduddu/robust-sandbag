@@ -511,6 +511,24 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         self.assertEqual(merged["test_csqa_mo_acc"], 0.81)
         self.assertEqual(merged["test_elicitations"], {"autodan": 0.9})
 
+    def test_blackbox_phase_skips_parent_eval_but_keeps_parent_training(self):
+        selected = manifest.filter_runs(
+            manifest.manifest_for("prior", "7b", seeds=(42,)),
+            organism="circuitbreak",
+            task="bio",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            run._configure_artifact_root(tmp)
+            jobs = run.build_jobs(selected, "blackbox", force=False)
+
+        by_name = {job.name: job for job in jobs}
+        parent_train = "train_pwd_hof_parent_qwen2.5-7b-it_bio_s42"
+        child_train = "train_circuitbreak_qwen2.5-7b-it_bio_s42"
+        self.assertIn(parent_train, by_name)
+        self.assertIn(parent_train, by_name[child_train].depends_on)
+        self.assertNotIn("eval_pwd_hof_parent_qwen2.5-7b-it_bio_s42", by_name)
+        self.assertIn("eval_circuitbreak_qwen2.5-7b-it_bio_s42", by_name)
+
     def test_legacy_prior_result_migration_only_adds_provenance(self):
         with tempfile.TemporaryDirectory() as tmp:
             artifact_root = Path(tmp)
@@ -782,6 +800,42 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             result.write_text(json.dumps(blob))
             self.assertTrue(run._eval_complete(result, requested, organism="pwd"))
             self.assertTrue(_run_eval._complete_prior_suite_valid(blob, "pwd", requested))
+
+    def test_partial_attack_phase_requires_complete_successful_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = Path(tmp) / "result.json"
+            requested = ["autodan"]
+            blob = {
+                "evaluation_schema_version": naming.EVALUATION_SCHEMA_VERSION,
+                "mcq_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "utility_scoring_protocol": naming.PRIOR_UTILITY_SCORING_PROTOCOL,
+                "utility_split_seed": naming.PRIOR_UTILITY_SPLIT_SEED,
+                "model_org": "pwd",
+                "model": "qwen2.5-7b-it",
+                "dataset": "bio",
+                "test_hs_mo_acc": 0.5,
+                "test_elicitations": {"autodan": 0.6},
+            }
+            result.write_text(json.dumps(blob))
+            self.assertFalse(run._eval_complete(result, requested, organism="pwd"))
+            self.assertFalse(
+                _run_eval._complete_prior_suite_valid(blob, "pwd", requested)
+            )
+
+            blob["test_elicitation_n"] = {"autodan": 50}
+            blob["test_elicitation_sample_fingerprint"] = {"autodan": "rows-v1"}
+            result.write_text(json.dumps(blob))
+            self.assertTrue(run._eval_complete(result, requested, organism="pwd"))
+            self.assertTrue(
+                _run_eval._complete_prior_suite_valid(blob, "pwd", requested)
+            )
+
+            blob["elicitation_errors"] = {"autodan": "offline cache miss"}
+            result.write_text(json.dumps(blob))
+            self.assertFalse(run._eval_complete(result, requested, organism="pwd"))
+            self.assertFalse(
+                _run_eval._complete_prior_suite_valid(blob, "pwd", requested)
+            )
 
     def test_tablefill_rejects_malformed_or_mismatched_prior_results(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1075,6 +1129,33 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         self.assertNotIn("gcg", merged["test_elicitation_n"])
         self.assertEqual(merged["test_elicitations"]["autodan"], 0.6)
         self.assertEqual(merged["test_elicitation_n"]["autodan"], 50)
+
+    def test_attack_retry_replaces_its_stale_error_marker(self):
+        existing = {
+            "test_elicitations": {},
+            "test_elicitation_n": {},
+            "test_elicitation_sample_fingerprint": {},
+            "elicitation_errors": {
+                "autodan": "offline cache miss",
+                "tap": "independent failure",
+            },
+        }
+        fresh = {
+            "test_elicitations": {"autodan": 0.6},
+            "test_elicitation_n": {"autodan": 50},
+            "test_elicitation_sample_fingerprint": {"autodan": "rows-v1"},
+            "elicitation_errors": {},
+        }
+        merged = _run_eval._merge(
+            existing,
+            fresh,
+            attempted_elicitations=("autodan",),
+        )
+        self.assertNotIn("autodan", merged["elicitation_errors"])
+        self.assertEqual(
+            merged["elicitation_errors"]["tap"],
+            "independent failure",
+        )
 
     def test_protocol_migration_drops_legacy_adaptive_scores(self):
         existing = {

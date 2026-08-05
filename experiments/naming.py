@@ -19,6 +19,7 @@ else changes its truth: the runner and the filler follow.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 # Prior-baseline recipe and evaluation provenance.  Keep these literals here so
@@ -365,6 +366,51 @@ def get_elicitation_sample_fingerprints(result: dict, ds: str) -> dict:
     return {}
 
 
+def get_elicitation_errors(result: dict, ds: str) -> dict:
+    """Crashed-attack markers for one task."""
+    for key in (f"elicitation_errors_{ds}", "elicitation_errors"):
+        if key == "elicitation_errors" and result.get("dataset") != ds:
+            continue
+        value = result.get(key)
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
+def requested_elicitations_valid(
+    result: dict,
+    ds: str,
+    requested: tuple[str, ...] | list[str] | set[str],
+) -> bool:
+    """Whether every requested attack has a complete, successful test result.
+
+    Partial attack phases (for example AutoDAN-only) need the same per-attack
+    integrity gate as a complete Table-2 suite. Otherwise an evaluator can catch
+    an attack exception, write a JSON with no score, and still let a Slurm job
+    return success.
+    """
+    scores = get_elicitations(result, ds)
+    counts = get_elicitation_counts(result, ds)
+    fingerprints = get_elicitation_sample_fingerprints(result, ds)
+    errors = get_elicitation_errors(result, ds)
+    for technique in requested:
+        score = scores.get(technique)
+        if (
+            type(score) not in (int, float)
+            or not math.isfinite(float(score))
+            or not 0.0 <= float(score) <= 1.0
+        ):
+            return False
+        if type(counts.get(technique)) is not int or counts[technique] <= 0:
+            return False
+        fingerprint = fingerprints.get(technique)
+        if not isinstance(fingerprint, str) or not fingerprint:
+            return False
+        if technique in errors:
+            return False
+    return True
+
+
 # --- tab_results_* cell metrics (Eff w/, Eff w/o, Util HS, Util CSQA, Rob) ---
 
 def metric_eff_w(result: dict, ds: str):
@@ -433,6 +479,8 @@ def metric_rob_jlbrk(result: dict, ds: str):
     if organism in PRIOR_TABLE_ORGANISMS and not required.issubset(present):
         return None
     if organism in PRIOR_TABLE_ORGANISMS:
+        if not requested_elicitations_valid(result, ds, required):
+            return None
         counts = get_elicitation_counts(result, ds)
         required_counts = [counts.get(name) for name in required]
         if any(type(count) is not int or count <= 0 for count in required_counts):

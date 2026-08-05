@@ -6,6 +6,9 @@ utility scorer, attack suite, and table gates as the
 [Killarney runbook](PRIOR_BASELINES_KILLARNEY.md). Only storage, environment,
 GPU requests, and wall times are adapted to Vulcan's L40S service.
 
+For the current branch, result, scheduler, and handoff state, see the
+[prior-baseline campaign status](PRIOR_BASELINES_STATUS.md).
+
 The commands below assume the current service described by the
 [Alliance Vulcan page](https://www.alliancecan.ca/en/services/compute/vulcan)
 and [Vulcan portal](https://portal.vulcan.alliancecan.ca/). Scheduler and module

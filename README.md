@@ -339,7 +339,8 @@ print(results["accuracy"])
 
 For the prior-work baseline matrix, see the step-by-step runbooks for
 [Killarney](docs/PRIOR_BASELINES_KILLARNEY.md) or
-[Vulcan](docs/PRIOR_BASELINES_VULCAN.md).
+[Vulcan](docs/PRIOR_BASELINES_VULCAN.md), and the current
+[campaign status](docs/PRIOR_BASELINES_STATUS.md).
 
 The paper tables are produced by an orchestrator that enumerates every cell (organism x model x task x seed), runs only what is missing (idempotent and resumable), and renders LaTeX. It shells out to `train.py`/`evaluate.py` and imports no torch, so `status`/`plan` are safe to run anywhere.
 
@@ -356,7 +357,12 @@ python -m experiments.run execute --table ours  --tier 7b --phase all --seeds 42
 python -m experiments.tablefill --table prior
 ```
 
-Axes: `--table {prior,ours,bkdrcot,scale,all}`, `--tier {7b,14b,32b,72b}`, `--phase {eff,blackbox,whitebox,all}` (cheap to expensive), `--organism`/`--task` to scope, `--force` to redo. Phases accumulate into one JSON per cell, so you can run `eff` first and add `blackbox`/`whitebox` later without recomputing.
+Axes: `--table {prior,ours,bkdrcot,scale,all}`, `--tier {7b,14b,32b,72b}`,
+`--phase {eff,utility,blackbox,whitebox,all}` (cheap to expensive), and
+`--organism`/`--task` to scope. `--force` requests a fresh evaluation without
+forcing completed training to rerun. Phases accumulate into one JSON per cell;
+the prior-only `utility` phase replaces only HS/CSQA protocol fields, while
+`blackbox`/`whitebox` add attack results without recomputing completed phases.
 
 The `prior` table follows the manuscript's 7B, 14B, and 32B rows. The generic
 72B implementation remains available in the repository, but is excluded from

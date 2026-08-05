@@ -4,6 +4,9 @@ This runbook produces the numerical prior-work results in Table 2: PWD, SysPr,
 and CktBr on Qwen2.5 7B, 14B, and 32B across the six target tasks. It uses the
 shared experiment orchestrator, with Killarney as the standard cluster environment.
 
+For the current branch, result, scheduler, and handoff state, see the
+[prior-baseline campaign status](PRIOR_BASELINES_STATUS.md).
+
 ## What is reproduced
 
 | Row | Reported recipe | Possum treatment |

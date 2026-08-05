@@ -20,6 +20,7 @@ fi
 command_name="${1:-}"
 phase="all"
 executor=""
+table=""
 args=("$@")
 for ((i = 0; i < ${#args[@]}; i++)); do
     case "${args[i]}" in
@@ -31,8 +32,20 @@ for ((i = 0; i < ${#args[@]}; i++)); do
             if ((i + 1 < ${#args[@]})); then executor="${args[i + 1]}"; fi
             ;;
         --executor=*) executor="${args[i]#--executor=}" ;;
+        --table)
+            if ((i + 1 < ${#args[@]})); then table="${args[i + 1]}"; fi
+            ;;
+        --table=*) table="${args[i]#--table=}" ;;
     esac
 done
+
+if [[ "$table" == "prior" && ("$phase" == "blackbox" || "$phase" == "all") ]]; then
+    if [[ -n "${POSSUM_BLACKBOX_ONLY:-}" && "${POSSUM_BLACKBOX_ONLY:-}" != "autodan" ]]; then
+        echo "Prior-baseline robustness is AutoDAN-only; unset POSSUM_BLACKBOX_ONLY or set it to autodan." >&2
+        exit 2
+    fi
+    export POSSUM_BLACKBOX_ONLY=autodan
+fi
 
 if [[ "$command_name" == "execute" && "$executor" == "slurm" ]]; then
     case "${POSSUM_SLURM_ACCOUNT:-}" in
@@ -83,6 +96,9 @@ unset POSSUM_GCG_NUM_STEPS POSSUM_GCG_SEARCH_WIDTH POSSUM_GCG_TOPK \
 if [[ "${POSSUM_SKIP_PREFLIGHT:-0}" != "1" ]]; then
     preflight_args=()
     if [[ "$command_name" == "execute" && ("$phase" == "blackbox" || "$phase" == "all") ]]; then
+        # Check only the dependencies needed by the requested attack subset.
+        # Prior runs are locked to AutoDAN above; other tables retain their suite.
+        export POSSUM_PREFLIGHT_ATTACK_SET="${POSSUM_BLACKBOX_ONLY:-gcg,autodan,tap}"
         preflight_args+=(--attacks)
     fi
     "$POSSUM_VULCAN_ROOT/clusters/vulcan_preflight.sh" "${preflight_args[@]}"

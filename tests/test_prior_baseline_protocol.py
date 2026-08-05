@@ -426,6 +426,41 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 run._res_for("qwen2.5-32b-it")
 
+    def test_cluster_preflight_scopes_dependencies_to_attack_subset(self):
+        root = Path(__file__).resolve().parents[1]
+        for cluster in ("killarney", "vulcan"):
+            wrapper = (root / "clusters" / f"run_{cluster}_matrix.sh").read_text()
+            preflight = (root / "clusters" / f"{cluster}_preflight.sh").read_text()
+
+            self.assertIn(
+                'POSSUM_PREFLIGHT_ATTACK_SET="${POSSUM_BLACKBOX_ONLY:-gcg,autodan,tap}"',
+                wrapper,
+            )
+            self.assertIn("export POSSUM_BLACKBOX_ONLY=autodan", wrapper)
+            autodan_block = preflight.split(
+                'if "autodan" in attack_set:', 1
+            )[1].split('if "tap" in attack_set:', 1)[0]
+            tap_block = preflight.split('if "tap" in attack_set:', 1)[1]
+            self.assertIn("Meta-Llama-3-8B-Instruct", autodan_block)
+            self.assertIn("nomic-ai/nomic-embed-text-v1.5", autodan_block)
+            self.assertNotIn("lmsys/vicuna-13b-v1.5", autodan_block)
+            self.assertIn("lmsys/vicuna-13b-v1.5", tap_block)
+
+    def test_only_prior_table_switches_to_autodan_only(self):
+        for profile in (naming.PROFILE_PWD_CB, naming.PROFILE_SYSPROMPT):
+            self.assertEqual(
+                naming.elicitations_for("prior", profile),
+                ("autodan",),
+            )
+        self.assertEqual(
+            naming.elicitations_for("ours", naming.PROFILE_SYSPROMPT),
+            ("prompt_injection", *naming.JAILBREAK_TECHNIQUES),
+        )
+        self.assertEqual(
+            naming.elicitations_for("ours", naming.PROFILE_PWD_CB),
+            naming.JAILBREAK_TECHNIQUES,
+        )
+
     def test_force_refresh_does_not_force_training_executor(self):
         submitted = {}
 
@@ -635,7 +670,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             self.assertEqual(first.read_text(), '{"metric": 1}\n')
             self.assertFalse(first.with_suffix(".json.pre-provenance").exists())
 
-    def test_jailbreak_cell_requires_complete_attack_suite(self):
+    def test_prior_jailbreak_cell_is_autodan_only(self):
         blob = {
             "model_org": "pwd",
             "dataset": "bio",
@@ -644,19 +679,16 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             "test_elicitation_sample_fingerprint": {"gcg": "rows-v1"},
         }
         self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
-        blob["test_elicitations"].update({"autodan": 0.6, "tap": 0.7})
-        blob["test_elicitation_n"].update({"autodan": 50, "tap": 50})
-        blob["test_elicitation_sample_fingerprint"].update({
-            "autodan": "rows-v1",
-            "tap": "rows-v1",
-        })
-        self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.8)
-
-        del blob["test_elicitation_n"]["tap"]
+        blob["test_elicitations"]["autodan"] = 0.6
         self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
+        blob["test_elicitation_n"]["autodan"] = 50
+        self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
+        blob["test_elicitation_sample_fingerprint"]["autodan"] = "rows-v1"
+        # Existing GCG/TAP pilots do not change the declared Table-2 estimand.
+        blob["test_elicitations"]["tap"] = 0.9
         blob["test_elicitation_n"]["tap"] = 20
-        self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
-        blob["test_elicitation_n"]["tap"] = 50
+        blob["test_elicitation_sample_fingerprint"]["tap"] = "other-rows"
+        self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.6)
 
         blob["model_org"] = "sysprompt"
         self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
@@ -665,9 +697,9 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         blob["test_elicitation_sample_fingerprint"]["prompt_injection"] = "rows-v1"
         self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
         blob["sysprompt_jailbreak_protocol"] = naming.SYSPROMPT_JAILBREAK_PROTOCOL
-        self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.9)
+        self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.6)
         blob["test_elicitations"]["many_shot"] = 1.0
-        self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.9)
+        self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.6)
 
         # The stricter completeness gate is deliberately Table-2-only; do not
         # invalidate already reported non-prior tables during this scoped audit.

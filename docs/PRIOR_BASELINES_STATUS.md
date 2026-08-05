@@ -5,9 +5,12 @@
 > repair audit incorporated below. Scheduler state is inherently stale;
 > confirm every job with `squeue`/`sacct` before acting. Both cluster captures
 > used scientific/code commit `fdc3ffb823c6d9a80a204bbeefba5dfba72677b7` on
-> `mark/baseline-exps`. The branch is now at
-> a local commit containing the AutoDAN repair described below. Push the branch
-> and verify the resulting commit on both clusters before new AutoDAN work runs.
+> `mark/baseline-exps`. Killarney subsequently pulled AutoDAN repair commit
+> `3191a770a0ae2bb4dea9d9169b5f17caec5a9a5f`. Its first replacement-builder
+> attempt stopped in login-node preflight before `sbatch` because the old
+> preflight unnecessarily required TAP's uncached Vicuna model for an
+> AutoDAN-only run. The scoped-preflight and AutoDAN-only Table-2 protocol
+> changes described here are the next commit to deploy.
 
 This is the canonical status and handoff document for the prior-work Table 2
 campaign. Use the [Killarney](PRIOR_BASELINES_KILLARNEY.md) and
@@ -18,17 +21,17 @@ procedures.
 
 | Area | State | Meaning |
 |---|---|---|
-| Branch integration | Repair committed locally; cluster deployment pending | `mark/baseline-exps` contains the AutoDAN generation-length, checkpoint/resume, tests, and Killarney wall-time fixes in the commit containing this document. Killarney must not submit the replacement builder until that commit is pushed and pulled there. |
+| Branch integration | AutoDAN repair deployed on Killarney; follow-up commit pending | Killarney has `3191a77`. The next commit scopes attack preflight to the requested dependency set and makes Table 2 explicitly AutoDAN-only without changing Table 3. Push/pull that commit before retrying the builder. |
 | Baseline implementation | Implemented | PWD, fixed SysPr, and the Qwen CktBr port have explicit, provenance-checked recipes. |
 | Evaluation methodology | Implemented | Task training, effectiveness, and attack readout remain forced-choice; HS/CSQA now use the same generate-and-parse readout as Table 3. |
 | HellaSwag discrepancy | Root-caused and corrected | The old approximately 43–52% 7B values used a different utility readout. The completed 7B refresh is approximately 73–77%, without retraining or utility-specific hyperparameter selection. |
 | Killarney E&U refresh | Slurm-complete; artifact audit pending | All 54 SysPr refresh jobs and all nine Killarney-owned CktBr utility jobs completed with exit code 0. Their JSON/provenance completeness still must be validated before union. |
 | Vulcan E&U refresh | Partially complete | Twenty-six 14B PWD/CktBr jobs completed with exit code 0. Seven 14B CktBr and all thirty 32B PWD/CktBr jobs were still pending for priority in the latest capture. |
-| Test status | Passing with skips | Both clusters previously reported `Ran 40 tests ... OK (skipped=11)`. After the repair, local discovery reports `Ran 42 tests ... OK (skipped=11)`. The two new checkpoint/length tests run without the ML stack; the 11 existing ML-dependent skips remain a pre-merge coverage gap. |
-| AutoDAN robustness | Builder timed out; repaired replacement required | Killarney builder `4604260` timed out at `08:00:02` before producing any final, metadata, temporary, or checkpoint cache. The 98 Killarney children remain held with an impossible `afterok:4604260` dependency and must not be released. Deploy the repair, submit a 12-hour replacement builder, and rewire the children only after the canonical cache validates. The former Vulcan builder/child chain remains cancelled. |
-| Full `Jlbrk` robustness | Not complete | The aggregate requires the complete declared suite on identical attacked rows. |
+| Test status | Passing with skips | Both clusters previously reported `Ran 40 tests ... OK (skipped=11)`. After the repair and AutoDAN-only protocol changes, the focused local command reports `Ran 44 tests ... OK (skipped=11)`. The 11 existing ML-dependent skips remain a pre-merge coverage gap. |
+| AutoDAN robustness | Builder timed out; repaired replacement required | Killarney builder `4604260` timed out at `08:00:02` before producing a reusable cache. Of its 98 held children, 44 PWD/CktBr jobs are reusable AutoDAN-only submissions; 54 SysPr jobs were generated under the old `prompt_injection + autodan` manifest and must be cancelled/recreated. Deploy the follow-up, submit a 12-hour replacement builder, and rewire only the 44 valid children after the canonical cache validates. The former Vulcan builder/child chain remains cancelled. |
+| AutoDAN `Jlbrk` robustness | Not complete | Table 2 now declares and reports AutoDAN only. All 162 model/organism/task/seed results must pass score, count, fingerprint, protocol, and cache-provenance gates. |
 | Table 2 reporting snapshot | Provisional | The last combined snapshot observed was 255 filled values and 69 empty. After all effectiveness/utility refreshes, the expected pre-robustness state is 270 filled and 54 empty. |
-| Merge readiness | Repair validated; deployment, campaign, and cleanup outstanding | Tests pass, but the repair is not yet deployed to the clusters, jobs/results remain in flight, the new results have not been unioned and validated, and user-owned untracked `killarney_jobs.txt`/`vulcan_jobs.txt` remain in the local worktree. |
+| Merge readiness | Follow-up deployment, campaign, and cleanup outstanding | Tests pass locally and Killarney has the core AutoDAN repair, but the scoped-preflight/reporting commit still must be deployed, jobs/results remain in flight, the new results have not been unioned and validated, and user-owned untracked `killarney_jobs.txt`/`vulcan_jobs.txt` remain in the local worktree. |
 
 ## Scientific contract
 
@@ -52,9 +55,11 @@ tune, drop seeds, or alter held-out scoring to make the result conform.
   while the password remains absent or the active SysPr prompt remains present.
   High recovered accuracy means poor robustness. `Jlbrk` is therefore lower-is-
   better.
-- **Aggregate robustness:** Table 2 defines `Jlbrk` as the maximum recovered
-  test accuracy across GCG, AutoDAN, and TAP, plus prompt injection for SysPr.
-  Each individual attack result is retained even when the aggregate is withheld.
+- **Robustness estimand:** Table 2 now reports AutoDAN test accuracy only for
+  every prior baseline, including SysPr. GCG, TAP, and prompt-injection pilots
+  already in a JSON remain preserved as diagnostics but neither affect the
+  Table-2 value nor need to be run again. This is deliberately scoped to Table
+  2; the attack suite and aggregation used by Table 3 are unchanged.
 - **Replicates:** PWD and CktBr use three trained checkpoints. SysPr uses one
   fixed prompt configuration and three inference seeds; it does not pretend that
   the prompt was independently trained three times.
@@ -119,26 +124,24 @@ tune, drop seeds, or alter held-out scoring to make the result conform.
 
 ### 4. Robustness and jailbreak correctness
 
-- GCG, AutoDAN, TAP, and prompt injection use the same final forced-choice task
-  scorer as effectiveness. Search algorithms may generate text internally.
-- Standard GCG is per prompt rather than one universal suffix. Its canonical
-  registry values are 500 steps, search width 512, top-k 256, and suffix length
-  20.
+- The Table-2 prior-baseline campaign is AutoDAN-only. Its final task readout
+  uses the same forced-choice scorer as effectiveness; AutoDAN may generate text
+  internally while constructing attacks.
 - AutoDAN-Turbo uses one fixed Meta-Llama-3-8B-Instruct attacker/summarizer and
   the Nomic embedder. Canonical settings are 150 epochs, one warm-up iteration,
   five lifelong rounds, and the full elicitation-training source.
 - AutoDAN builds a strategy library once and reuses it. The library and sidecar
   metadata are written atomically; metadata binds the attacker and build
   settings so smoke or incompatible caches are rejected.
-- TAP uses its reference Vicuna attacker and the registered depth/width/branching
-  settings. Its offline dependency is not needed for the current AutoDAN-only
-  run but is required for the eventual full aggregate.
 - Adaptive attacks against SysPr now query and score the model with the active
   sandbagging system prompt present. Older scores without
   `adaptive_against_active_system_prompt_v2` are rejected.
 - Each result records per-technique test accuracy, evaluation count, and attacked-
-  row fingerprint. The aggregate is withheld if an attack is missing or if row
-  counts/fingerprints differ.
+  row fingerprint. Table 2 is withheld unless its AutoDAN score is finite, its
+  count is positive, its fingerprint is present, and no AutoDAN error is stored.
+- Existing GCG, TAP, and prompt-injection results remain in the artifact for
+  provenance but are ignored by the Table-2 metric. No further jobs for those
+  attacks should be submitted in this campaign.
 - A failed attack is recorded as an error and cannot silently satisfy completion.
   The earlier Killarney job `4460510` completed at the Slurm level but its
   AutoDAN technique failed on an offline cache miss; its `elicitations now: none`
@@ -178,11 +181,12 @@ tune, drop seeds, or alter held-out scoring to make the result conform.
 
 ### 7. Tests and documentation
 
-- `tests/test_prior_baseline_protocol.py` now contains 42 focused protocol tests for
+- `tests/test_prior_baseline_protocol.py` now contains 44 focused protocol tests for
   recipes, seed mapping, provenance, utility-only merging, SysPr sampling,
   attack completeness, subset fingerprints, active system-prompt handling, and
-  table gates. The two new tests cover AutoDAN total-length generation semantics
-  and interruption/resumption from a request checkpoint without adding a new
+  table gates. The added tests cover AutoDAN total-length generation semantics,
+  interruption/resumption from a request checkpoint, table-scoped AutoDAN-only
+  reporting, and attack-subset-aware cluster preflight without adding a new
   dependency skip.
 - The suite was run on both Killarney and Vulcan after deploying the audited
   code. Both clusters printed `Ran 40 tests in 0.072s` followed by
@@ -190,9 +194,9 @@ tune, drop seeds, or alter held-out scoring to make the result conform.
   count means the cluster invocations did not exercise the 11 optional
   ML-dependent cases; a no-skip run in a fully provisioned environment remains
   desirable before merge.
-- After the AutoDAN repair, local `unittest discover` reports `Ran 42 tests ...
-  OK (skipped=11)`. Both clusters must rerun the 42-test suite after pulling the
-  repair and before submitting a replacement builder.
+- After the AutoDAN-only follow-up, the focused protocol suite reports `Ran 44 tests ...
+  OK (skipped=11)`. Both clusters must rerun the 44-test suite after pulling the
+  follow-up before submitting more work.
 - The Killarney and Vulcan runbooks document setup, staging, preflight, execution,
   monitoring, synchronization, recovery, and resource mapping.
 
@@ -255,13 +259,18 @@ fingerprint of the ordered source rows. The final metadata schema is now version
 and source fingerprint. An incompatible checkpoint or final cache is rejected.
 
 The repair does not change the source rows, five lifelong rounds, 150-epoch cap,
-early-stop score, attacker temperature/top-p settings, target scoring, or final
-aggregation. Killarney black-box submissions now default to 12 hours, matching
+early-stop score, attacker temperature/top-p settings, or target scoring.
+Killarney black-box submissions now default to 12 hours, matching
 Vulcan and avoiding a scheduler cap that selectively kills harder-to-elicit
 cells. Table 2 task effectiveness and every attack readout remain forced-choice;
 HS/CSQA utility remains generate-and-parse, matching Table 3. VAL remains for
-tuning/selection, TEST remains the only reported split, and all attacks in a
-reported aggregate must have equal counts and identical row fingerprints.
+tuning/selection and TEST remains the only reported split.
+
+The later AutoDAN-only reporting decision is an explicit Table-2 methodology
+change: `Jlbrk` is the validated AutoDAN score rather than a maximum across
+GCG/AutoDAN/TAP and prompt injection. It changes which attacks define Table 2,
+but does not change AutoDAN itself, its scoring, its attacked rows, the
+effectiveness/utility protocols, or any Table-3 pipeline.
 
 ## What the current reruns may overwrite
 
@@ -340,7 +349,7 @@ The most recent combined `tablefill` observation was:
 
 That snapshot predates completion and union of the current refresh jobs. It is
 not the final paper table. With every effectiveness/utility cell current and no
-complete robustness aggregate, the expected count is:
+complete AutoDAN robustness coverage, the expected count is:
 
 ```text
 270 filled, 54 empty (all 54 Jlbrk cells)
@@ -391,15 +400,18 @@ The captured user queue contains exactly 99 jobs:
   `gpubase_h100_b2` at `08:00:02`, requesting one H100, six CPUs, and 96 GiB.
   Final accounting reports 46.08 GiB host memory. It is terminal and needs no
   cancellation. No cache artifact from it is reusable.
-- Exactly 98 AutoDAN children were `PENDING (JobHeldUser)` in
+- Exactly 98 black-box children were `PENDING (JobHeldUser)` in
   `gpubase_h100_b1`, all dependent on successful builder `4604260`; that
-  dependency can no longer succeed. Dependencies on their same-file E&U jobs
-  are already satisfied where present. Keep the jobs held until a replacement
-  builder finishes and the cache validates. Held jobs do not accrue ordinary
-  scheduling priority, receive estimated start times, or compete for backfill.
+  dependency can no longer succeed. Forty-four PWD/CktBr children request only
+  AutoDAN and can be retained. Fifty-four SysPr children were generated before
+  the campaign became AutoDAN-only and request both prompt injection and
+  AutoDAN; cancel and recreate those 54 under the current manifest. Held jobs
+  do not accrue ordinary scheduling priority, receive estimated start times, or
+  compete for backfill.
 - The Killarney AutoDAN share is 99 result files, not 99 children: the builder
   itself produces the 7B/Bio/PWD/seed-42 result, and the other 98 files are the
-  held children. The children comprise 53 7B, 21 14B, and 24 32B jobs.
+  original held children. The 44 reusable jobs comprise 35 7B, three 14B, and
+  six 32B PWD/CktBr jobs. The 54 stale SysPr jobs comprise 18 per tier.
 - Captured child resources are one H100 / six CPUs / 96 GiB / three hours for
   7B; one H100 / six CPUs / 128 GiB / three hours for 14B; and two H100s /
   twelve CPUs / 256 GiB / three hours for 32B. Three hours is not a valid final
@@ -418,7 +430,7 @@ validated artifact union. The Killarney partition was heavily occupied at the
 snapshot: two H100 nodes were failed, most usable nodes were allocated, and the
 backfill configuration tested at most 20 jobs per user per cycle. This supports
 shortening jobs only after matched black-box measurements; it does not justify
-guessing lower memory for the 98 held jobs.
+guessing lower memory for the 44 reusable held jobs or their replacements.
 
 The Killarney working tree recorded by the audit was intentionally operationally
 dirty: generated `tables/table2.gen.tex` was modified and artifact, backup, audit,
@@ -483,7 +495,8 @@ for reducing an L40S limit.
 
 The scientific campaign needs 162 AutoDAN result files:
 `3 organisms x 3 models x 6 tasks x 3 seeds`. Killarney currently owns 99 of
-those files through builder `4604260` plus 98 held children. The former Vulcan
+those cells through builder `4604260` plus 98 held children, but its 54 held
+SysPr submissions must be replaced as described above. The former Vulcan
 builder `343975` and all 63 intended children in its `344031`–`344133` submission
 family were cancelled to avoid a second, potentially different strategy library
 and duplicate writing of the 7B/Bio/PWD/seed-42 result. They are absent from the
@@ -515,6 +528,17 @@ that checkpoint between attempts. The first replacement that finishes must have
 `COMPLETED`/exit 0 and a strict AutoDAN result before it becomes the dependency
 gate.
 
+The first attempt to submit that replacement after pulling `3191a77` created no
+job. Login-node preflight successfully found the Qwen models, Meta-Llama
+attacker, and Nomic embedder, then failed offline while checking
+`lmsys/vicuna-13b-v1.5`. That snapshot belongs only to TAP and is irrelevant to
+an AutoDAN-only job. Because execution stopped before the orchestrator printed a
+`[submit]` line or invoked `sbatch`, there is no replacement job ID to cancel or
+rewire to. The follow-up wrapper forwards the Table-2 AutoDAN subset into
+preflight, which checks Meta-Llama, Nomic weights, Nomic remote code, and the
+AutoDAN framework without touching Vicuna. Direct full-suite preflight remains
+available for non-prior tables.
+
 Validate the completed canonical cache and sidecar:
 
 ```bash
@@ -531,17 +555,31 @@ sha256sum "$library" "$library.meta.json"
 
 Do not reduce the held children using ordinary E&U measurements. AutoDAN can
 keep an attacker and target resident together, and there is no completed matched
-child sample yet. Rewire all 98 children from failed builder `4604260` to the
-validated replacement, move them from the three-hour b1 allocation to b2 with a
-12-hour limit, and keep them held. Then release one representative pilot per
-model tier:
+child sample yet. First identify and cancel the 54 stale SysPr jobs, which would
+also run prompt injection. This is the only subset of the old held queue that
+must be cancelled solely because of the AutoDAN-only protocol:
+
+```bash
+mapfile -t stale_sysprompt < <(
+    squeue -h -u "$USER" -t PD -o '%i|%j|%E|%R' |
+        awk -F'|' '$2 ~ /^possum_eval_sysprompt_/ && $3 ~ /4604260/ && $4 ~ /JobHeldUser/ {print $1}'
+)
+test "${#stale_sysprompt[@]}" -eq 54
+printf '%s\n' "${stale_sysprompt[@]}"
+scancel "${stale_sysprompt[@]}"
+```
+
+After the replacement builder and cache pass validation, rewire only the 44
+remaining PWD/CktBr children, move them from the three-hour b1 allocation to b2
+with a 12-hour limit, and keep them held. Then release one representative pilot
+per model tier:
 
 ```bash
 mapfile -t held_children < <(
-    squeue -h -u "$USER" -t PD -o '%i|%E|%R' |
-        awk -F'|' '$2 ~ /4604260/ && $3 ~ /JobHeldUser/ {print $1}'
+    squeue -h -u "$USER" -t PD -o '%i|%j|%E|%R' |
+        awk -F'|' '$2 !~ /^possum_eval_sysprompt_/ && $3 ~ /4604260/ && $4 ~ /JobHeldUser/ {print $1}'
 )
-test "${#held_children[@]}" -eq 98
+test "${#held_children[@]}" -eq 44
 
 for job_id in "${held_children[@]}"; do
     old_dependency="$(
@@ -555,34 +593,38 @@ for job_id in "${held_children[@]}"; do
         Partition=gpubase_h100_b2 TimeLimit=12:00:00
 done
 
-for job_id in 4604268 4604328 4604346; do
+for job_id in 4604268 4604376 4604382; do
     scontrol release "$job_id"
 done
 
-squeue -j 4604268,4604328,4604346 \
+squeue -j 4604268,4604376,4604382 \
     -o "%.18i %.65j %.10T %.10M %.10l %.12C %.18b %.10m %.45E %R"
 ```
 
-These are 7B, 14B, and 32B pilots. Validate their result JSONs and collect
-`seff` for all three before bulk-changing or releasing the remaining children:
+These are 7B, 14B, and 32B PWD/CktBr pilots. Validate their result JSONs and
+collect `seff` for all three before releasing the remaining children:
 
 ```bash
-for job_id in 4604268 4604328 4604346; do
+for job_id in 4604268 4604376 4604382; do
     seff "$job_id"
 done
 ```
 
-Use tier-specific observed maxima with explicit headroom; do not blindly lower
-host RAM from one low observation or infer GPU VRAM from `MaxRSS`. Once the
-canonical files are copied to Vulcan, verify identical SHA-256 checksums there
-before resubmitting the missing 63 cells. Every new job must use commit `fdc3ffb`
-or a behavior-identical descendant containing the AutoDAN repair, the copied canonical cache, the strict
-attack-output validator, and the correct single-writer result root.
+After those pilots establish resource limits, release the other 41 reusable
+PWD/CktBr children. Submit the 54 SysPr cells fresh with the current manifest;
+they will request AutoDAN only. Use tier-specific observed maxima with explicit
+headroom; do not blindly lower host RAM from one low observation or infer GPU
+VRAM from `MaxRSS`. Once the canonical files are copied to Vulcan, verify
+identical SHA-256 checksums there before resubmitting the missing 63 cells. Every
+new job must use the current branch commit containing the AutoDAN repair, strict
+attack-output validator, AutoDAN-only manifest, and correct single-writer root.
 
 ## Ordered next steps
 
-No current evidence warrants cancelling the 37 Vulcan E&U jobs or the 98 held
-Killarney children. Builder `4604260` is already terminal and needs no action.
+No current evidence warrants cancelling the 37 Vulcan E&U jobs or the 44
+AutoDAN-only PWD/CktBr children on Killarney. Cancel only the 54 stale held SysPr
+attack jobs identified above. Builder `4604260` is already terminal and needs no
+action.
 Proceed in these ordered lanes:
 
 1. **Refresh live scheduler/accounting state.** Rerun `squeue`, the corrected
@@ -614,17 +656,19 @@ Proceed in these ordered lanes:
    seed roster, and commit hash outside purge-prone scratch before black-box jobs
    extend the same JSONs.
 7. **Deploy and finish the repaired canonical AutoDAN builder gate.** Commit and
-   push the repair, pull it on Killarney, rerun the 42 tests, and submit the exact
+   push the scoped-preflight/AutoDAN-only follow-up, pull it on Killarney, rerun
+   the 44 tests, and submit the exact
    7B/Bio/PWD/seed-42 AutoDAN cell in b2 for 12 hours. If it times out, validate
    the progress checkpoint and resubmit the same cell to resume. Accept only a
    complete strict result plus schema-2 library metadata, then record SHA-256
    checksums. Do not release children after Slurm success alone.
-8. **Rewire, resize, and release Killarney AutoDAN safely.** Replace each held
-   child's impossible `afterok:4604260` dependency with the successful builder,
-   set b2/12 hours, and keep all held. Release pilots `4604268`, `4604328`, and
-   `4604346`; validate results and resource use; then set evidence-based tier
-   limits and release the other 95 children. Never allow two jobs to write one
-   result JSON concurrently.
+8. **Replace stale SysPr jobs and release Killarney AutoDAN safely.** Cancel the
+   54 old held SysPr jobs that also request prompt injection. Rewire the 44
+   AutoDAN-only PWD/CktBr children to the successful builder, set b2/12 hours,
+   and keep them held. Release pilots `4604268`, `4604376`, and `4604382`;
+   validate results and resource use; then release the other 41 with
+   evidence-based limits. Submit 54 fresh AutoDAN-only SysPr jobs from the
+   current manifest. Never allow two jobs to write one result JSON concurrently.
 9. **Restore the missing 63-cell AutoDAN share.** Copy the exact canonical cache
    and sidecar to the chosen execution cluster, verify matching checksums, then
    freshly submit the cells formerly assigned to the cancelled Vulcan chain.
@@ -633,19 +677,13 @@ Proceed in these ordered lanes:
 10. **Validate all 162 AutoDAN results.** Require a finite test score, positive
     evaluation count, expected attacked-row fingerprint, no technique error, the
     current SysPr adaptive protocol where applicable, and canonical cache
-    provenance. AutoDAN-only values may be analyzed separately but still do not
-    populate aggregate `Jlbrk`.
-11. **Run the rest of robustness.** Run per-prompt GCG and TAP on the identical
-    held-out rows, plus prompt injection for SysPr. If full attacks exceed the
-    compute budget, choose one fixed cap before the final campaign, apply it to
-    every relevant cell/technique, rerun incompatible uncapped pilots, and
-    disclose the cap. High recovered accuracy is the expected evidence of poor
-    robustness.
-12. **Generate final Table 2.** Only after every declared technique passes count
-    and fingerprint gates should `tablefill` compute the maximum recovered
-    accuracy. Compare effectiveness and utility with the cited prior work and
-    explain deviations; copy only the generated table fragment into the paper.
-13. **Finish testing and merge cleanup.** Exercise the 11 currently skipped tests
+    provenance. Each passing AutoDAN result directly supplies its Table-2
+    `Jlbrk` input; do not submit GCG, TAP, or prompt-injection jobs.
+11. **Generate final Table 2.** Only after every declared AutoDAN result passes
+    its gates should `tablefill` fill all 54 robustness cells. Compare
+    effectiveness and utility with the cited prior work and explain deviations;
+    copy only the generated table fragment into the paper.
+12. **Finish testing and merge cleanup.** Exercise the 11 currently skipped tests
     in a fully provisioned ML environment if practical, run the broader relevant
     suite, review the branch diff against `origin/main`, and decide whether to
     retain/move the user-owned untracked `killarney_jobs.txt` and
@@ -658,11 +696,10 @@ The prior-baseline campaign is complete when:
 
 - all 270 effectiveness/utility values are generated from current, provenance-
   matching JSONs under the declared protocols;
-- all 54 `Jlbrk` values are generated from complete, same-row GCG/AutoDAN/TAP
-  coverage plus SysPr prompt injection;
+- all 54 `Jlbrk` values are generated from validated AutoDAN results;
 - all 162 AutoDAN cells use the same validated strategy library and retain its
   checksum/provenance;
-- all individual attack results, counts, fingerprints, errors, seeds, and cache
+- all AutoDAN results, counts, fingerprints, errors, seeds, and cache
   provenance are preserved;
 - the final combined reporting root reproduces the paper table from one command;
 - result/config/log/table provenance is backed up outside purge-prone scratch;

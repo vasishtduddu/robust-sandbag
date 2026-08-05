@@ -159,9 +159,7 @@ def _complete_prior_suite_valid(blob: dict, model_org: str, requested: list[str]
     if model_org not in naming.PRIOR_TABLE_ORGANISMS:
         return True
     requested_set = set(requested)
-    required = set(naming.JAILBREAK_TECHNIQUES)
-    if model_org == "sysprompt":
-        required.add("prompt_injection")
+    required = set(naming.PRIOR_JAILBREAK_TECHNIQUES)
     if (model_org == "sysprompt" and
             requested_set & set(naming.JAILBREAK_TECHNIQUES) and
             blob.get("sysprompt_jailbreak_protocol") !=

@@ -114,36 +114,61 @@ for key in (
     print(f"cached model {key}: {path}")
 
 if os.environ["POSSUM_PREFLIGHT_ATTACKS"] == "1":
-    importlib.import_module("nanogcg")
-    from fastchat.model import get_conversation_template
-    assert get_conversation_template("vicuna_v1.1").name == "vicuna_v1.1"
-    # Validate the actual local TAP and AutoDAN modules as well as their leaf
-    # packages. This catches missing rouge_score or a framework-level import
-    # regression before an H100 allocation starts.
-    importlib.import_module("possum.elicitation.blackbox._tap_framework")
-    importlib.import_module("possum.elicitation.blackbox._autodan_framework")
-    attack_paths = {}
-    for repo in (
-        "meta-llama/Meta-Llama-3-8B-Instruct",
-        "nomic-ai/nomic-embed-text-v1.5",
-        "lmsys/vicuna-13b-v1.5",
-    ):
-        path = snapshot_download(repo, local_files_only=True)
-        attack_paths[repo] = path
+    attack_set = {
+        value.strip()
+        for value in os.environ.get(
+            "POSSUM_PREFLIGHT_ATTACK_SET", "gcg,autodan,tap"
+        ).split(",")
+        if value.strip()
+    }
+    supported_attacks = {"gcg", "autodan", "tap"}
+    unknown_attacks = attack_set - supported_attacks
+    if not attack_set or unknown_attacks:
+        raise SystemExit(
+            "Invalid POSSUM_PREFLIGHT_ATTACK_SET="
+            f"{os.environ.get('POSSUM_PREFLIGHT_ATTACK_SET', '')!r}; "
+            "expected one or more of gcg,autodan,tap."
+        )
+
+    if "gcg" in attack_set:
+        importlib.import_module("nanogcg")
+
+    if "autodan" in attack_set:
+        # Validate the local framework, attacker, embedding weights, and the
+        # cross-repository Python source used by Nomic's auto_map.
+        importlib.import_module("possum.elicitation.blackbox._autodan_framework")
+        attack_paths = {}
+        for repo in (
+            "meta-llama/Meta-Llama-3-8B-Instruct",
+            "nomic-ai/nomic-embed-text-v1.5",
+        ):
+            path = snapshot_download(repo, local_files_only=True)
+            attack_paths[repo] = path
+            print(f"cached attack dependency: {path}")
+        code_path = snapshot_download(
+            "nomic-ai/nomic-bert-2048",
+            allow_patterns=["*.py"],
+            local_files_only=True,
+        )
+        print(f"cached attack dependency code: {code_path}")
+        AutoConfig.from_pretrained(
+            attack_paths["nomic-ai/nomic-embed-text-v1.5"],
+            trust_remote_code=True,
+            local_files_only=True,
+        )
+
+    if "tap" in attack_set:
+        # TAP alone needs FastChat, the local TAP framework (including its
+        # rouge-score leaf dependency), and the reference Vicuna attacker.
+        from fastchat.model import get_conversation_template
+        assert get_conversation_template("vicuna_v1.1").name == "vicuna_v1.1"
+        importlib.import_module("possum.elicitation.blackbox._tap_framework")
+        path = snapshot_download(
+            "lmsys/vicuna-13b-v1.5", local_files_only=True
+        )
         print(f"cached attack dependency: {path}")
-    code_path = snapshot_download(
-        "nomic-ai/nomic-bert-2048",
-        allow_patterns=["*.py"],
-        local_files_only=True,
-    )
-    print(f"cached attack dependency code: {code_path}")
-    # Resolve the embedding model's cross-repository auto_map without loading
-    # weights, catching missing remote code before an offline GPU job starts.
-    AutoConfig.from_pretrained(
-        attack_paths["nomic-ai/nomic-embed-text-v1.5"],
-        trust_remote_code=True,
-        local_files_only=True,
-    )
+
+    print(f"preflight attack set: {','.join(sorted(attack_set))}")
 
 print(
     f"torch={torch.__version__} cuda_build={torch.version.cuda} "

@@ -18,6 +18,7 @@ fi
 command_name="${1:-}"
 phase="all"
 executor=""
+table=""
 args=("$@")
 for ((i = 0; i < ${#args[@]}; i++)); do
     case "${args[i]}" in
@@ -29,8 +30,22 @@ for ((i = 0; i < ${#args[@]}; i++)); do
             if ((i + 1 < ${#args[@]})); then executor="${args[i + 1]}"; fi
             ;;
         --executor=*) executor="${args[i]#--executor=}" ;;
+        --table)
+            if ((i + 1 < ${#args[@]})); then table="${args[i + 1]}"; fi
+            ;;
+        --table=*) table="${args[i]#--table=}" ;;
     esac
 done
+
+# Table 2's declared robustness estimand is AutoDAN-only. Refuse an inherited
+# attack filter that could accidentally submit a different prior-work campaign.
+if [[ "$table" == "prior" && ("$phase" == "blackbox" || "$phase" == "all") ]]; then
+    if [[ -n "${POSSUM_BLACKBOX_ONLY:-}" && "${POSSUM_BLACKBOX_ONLY:-}" != "autodan" ]]; then
+        echo "Prior-baseline robustness is AutoDAN-only; unset POSSUM_BLACKBOX_ONLY or set it to autodan." >&2
+        exit 2
+    fi
+    export POSSUM_BLACKBOX_ONLY=autodan
+fi
 
 if [[ "$command_name" == "execute" && "$executor" == "slurm" ]]; then
     case "${POSSUM_SLURM_ACCOUNT:-}" in
@@ -52,8 +67,8 @@ export POSSUM_RUN_CONFIG_JOBS_LOCAL=1
 export POSSUM_GENPARSE=0
 export POSSUM_UTILITY_SCORING=generate_parse
 # The executor defaults normal evaluations to 90 minutes for backfill. The
-# complete jailbreak suite contains AutoDAN/TAP and needs the 12-hour b2
-# allocation. Tight attack caps preferentially time out the strongest defenses.
+# final AutoDAN evaluations need the 12-hour b2 allocation. Tight attack caps
+# preferentially time out the strongest defenses.
 if [[ "$phase" == "blackbox" || "$phase" == "all" ]]; then
     export POSSUM_EVAL_WALLTIME_MIN="${POSSUM_EVAL_WALLTIME_MIN:-720}"
 else
@@ -71,12 +86,16 @@ unset POSSUM_GCG_NUM_STEPS POSSUM_GCG_SEARCH_WIDTH POSSUM_GCG_TOPK \
       POSSUM_TAP_ATTACK_MAX_TOKENS POSSUM_TAP_MAX_ATTACK_ATTEMPTS
 # Never cap the reported utility benchmarks. Leave the elicitation cap under
 # the caller's control: a fixed, documented cap may be necessary for a
-# tractable AutoDAN/TAP matrix and is forwarded into the sbatch scripts.
+# tractable AutoDAN matrix and is forwarded into the sbatch scripts.
 unset POSSUM_UTIL_EVAL_MAX
 
 if [[ "${POSSUM_SKIP_PREFLIGHT:-0}" != "1" ]]; then
     preflight_args=()
     if [[ "$command_name" == "execute" && ("$phase" == "blackbox" || "$phase" == "all") ]]; then
+        # Keep the dependency check aligned with the attack subset that the
+        # orchestrator will actually run.  In particular, an AutoDAN-only
+        # builder must not require TAP's Vicuna snapshot to be cached.
+        export POSSUM_PREFLIGHT_ATTACK_SET="${POSSUM_BLACKBOX_ONLY:-gcg,autodan,tap}"
         preflight_args+=(--attacks)
     fi
     "$POSSUM_KILLARNEY_ROOT/clusters/killarney_preflight.sh" "${preflight_args[@]}"

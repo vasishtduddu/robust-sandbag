@@ -104,12 +104,12 @@ export POSSUM_STAGE_JAILBREAK_ATTACKERS=1
 bash clusters/vulcan_envbuild.sh
 ```
 
-With no model arguments, the script stages Qwen2.5 7B, 14B, and 32B; all WMDP,
-MMLU, HellaSwag, and CommonsenseQA inputs; and the GCG, AutoDAN, and TAP packages
-and model snapshots. AutoDAN uses Meta-Llama-3-8B-Instruct and TAP uses its
-reference Vicuna-13B-v1.5 attacker. The build also stages the separate Nomic-BERT
-Python sources referenced by the embedding model so AutoDAN remains loadable on
-offline compute nodes. No weak-teacher model is downloaded.
+With no model arguments, the script stages Qwen2.5 7B, 14B, and 32B and all
+WMDP, MMLU, HellaSwag, and CommonsenseQA inputs. Table 2 now runs AutoDAN only:
+it needs Meta-Llama-3-8B-Instruct, the Nomic embedder, and the separate
+Nomic-BERT Python sources referenced by the embedding model. The environment
+builder may also stage GCG/TAP dependencies for other tables, but those are not
+required for this campaign. No weak-teacher model is downloaded.
 
 If gated-model authentication is not configured, stage the core first and then
 rerun with the attackers:
@@ -137,12 +137,13 @@ stack should be tested as a separate code change rather than improvised mid-run.
 The build ends with a read-only preflight. Rerun it at any time:
 
 ```bash
-bash clusters/vulcan_preflight.sh --attacks
+POSSUM_PREFLIGHT_ATTACK_SET=autodan \
+  bash clusters/vulcan_preflight.sh --attacks
 ```
 
 It checks cluster identity, storage placement, package versions, processed
-datasets, all Qwen snapshots, and all attack dependencies with offline cache
-lookups.
+datasets, all Qwen snapshots, and the requested attack dependencies with offline
+cache lookups.
 
 Then validate a real L40S, BF16, and the 32B model inside an allocation:
 
@@ -153,7 +154,8 @@ srun --account="$POSSUM_SLURM_ACCOUNT" \
   --chdir="$POSSUM_VULCAN_ROOT" --pty bash
 
 source clusters/vulcan_env_setup.sh
-bash clusters/vulcan_preflight.sh --attacks --require-gpu
+POSSUM_PREFLIGHT_ATTACK_SET=autodan \
+  bash clusters/vulcan_preflight.sh --attacks --require-gpu
 
 python - <<'PY'
 from possum.utils.loading import load_model
@@ -294,23 +296,9 @@ Do not use this shortcut to migrate a legacy deterministic SysPr result. Rerun
 SysPr with `--phase eff --seeds 42 43 44`; its seeded decoding changes both its
 effectiveness and utility measurements.
 
-## 7. Calibrate robustness and build the shared attacker cache
+## 7. Build the shared AutoDAN attacker cache
 
-```bash
-export POSSUM_BLACKBOX_ONLY=gcg
-unset POSSUM_ELICIT_EVAL_MAX
-
-bash clusters/run_vulcan_matrix.sh execute \
-  --table prior --tier 7b --task bio \
-  --phase blackbox --seeds 42 43 44 --executor slurm
-```
-
-Main now runs standard per-prompt GCG: every held-out prompt gets its own
-optimized suffix. High recovered target accuracy means poor robustness. This
-full-split GCG pilot is reusable, but it deliberately leaves the Jlbrk cell
-blank: Table 2 requires all declared attacks.
-
-Main also builds one fixed AutoDAN-Turbo strategy library and reuses it across
+Main builds one fixed AutoDAN-Turbo strategy library and reuses it across
 cells. Build it with one job before submitting the concurrent matrix so jobs do
 not redundantly perform the expensive lifelong build:
 
@@ -332,10 +320,10 @@ location is
 `$POSSUM_ARTIFACT_ROOT/cache/autodan/strategy_library.json`. Cache metadata binds
 the attacker and build settings; smoke or legacy caches are rejected and rebuilt.
 
-## 8. Run the complete robustness matrix
+## 8. Run the AutoDAN robustness matrix
 
 ```bash
-unset POSSUM_BLACKBOX_ONLY
+export POSSUM_BLACKBOX_ONLY=autodan
 unset POSSUM_ELICIT_EVAL_MAX
 
 for tier in 7b 14b 32b; do
@@ -345,16 +333,15 @@ for tier in 7b 14b 32b; do
 done
 ```
 
-The reported Jlbrk metric is the maximum recovered target accuracy over GCG,
-AutoDAN, and TAP, plus prompt injection for SysPr. It remains `---` until every
-required technique succeeds. For SysPr, every adaptive attack searches against
-the active sandbagging system prompt; corrected JSONs record
+The reported Table-2 Jlbrk metric is validated AutoDAN recovered target
+accuracy. GCG, TAP, and prompt injection are not part of this estimand and must
+not be submitted. For SysPr, AutoDAN searches against the active sandbagging
+system prompt; corrected JSONs record
 `sysprompt_jailbreak_protocol: adaptive_against_active_system_prompt_v2`, and
-older attack results without that marker are not reportable. If full attacks
-exceed the allocation, choose one fixed `POSSUM_ELICIT_EVAL_MAX` for every final
-cell and disclose it. If the GCG/AutoDAN pilots were uncapped, rerun the complete
-capped blackbox phase with `--force`; Table 2 rejects a Jlbrk maximum assembled
-from different counts or attacked-row fingerprints.
+older attack results without that marker are not reportable. If full-split
+AutoDAN exceeds the allocation, choose one fixed `POSSUM_ELICIT_EVAL_MAX` for
+every final cell and disclose it. Rerun incompatible uncapped pilots with
+`--force`.
 
 ## 9. Generate and preserve Table 2
 
@@ -413,7 +400,7 @@ skip training even when the weight shards are absent. Instead, keep:
 Rsync does not merge JSON objects. Assign every
 `(organism, model, task, seed)` result file to one active cluster writer. Before
 moving a cell or phase, synchronize its latest JSON to the destination and let
-`_run_eval.py` extend it. Concurrent GCG/AutoDAN/TAP updates to the same JSON on
+`_run_eval.py` extend it. Concurrent AutoDAN updates to the same JSON on
 different clusters can otherwise overwrite one another.
 
 ### Build a combined reporting snapshot on Vulcan
@@ -509,10 +496,9 @@ hyperparameters:
 | 14B train | 2 L40S | 6 / 96 GiB | 8 h |
 | 32B train | 2 L40S | 6 / 128 GiB | 12 h |
 | 7B/14B/32B effectiveness | 1 / 2 / 2 L40S | tier row above | 8 h |
-| 7B/14B/32B GCG-only | 1 / 2 / 2 L40S | tier row above | 12 h |
-| 7B full AutoDAN/TAP evaluation | 2 L40S | 6 / 96 GiB | 12 h |
-| 14B full AutoDAN/TAP evaluation | 2 L40S | 6 / 128 GiB | 12 h |
-| 32B full AutoDAN/TAP evaluation | 4 L40S | 12 / 256 GiB | 12 h |
+| 7B AutoDAN evaluation | 2 L40S | 6 / 96 GiB | 12 h |
+| 14B AutoDAN evaluation | 2 L40S | 6 / 128 GiB | 12 h |
+| 32B AutoDAN evaluation | 4 L40S | 12 / 256 GiB | 12 h |
 
 The wrapper exposes all allocated GPUs to one Python process; Transformers'
 `device_map="auto"` shards the model. It does not launch distributed replicas.

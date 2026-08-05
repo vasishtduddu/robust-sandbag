@@ -102,12 +102,13 @@ export POSSUM_STAGE_JAILBREAK_ATTACKERS=1
 bash clusters/killarney_envbuild.sh
 ```
 
-With no model arguments, the script stages Qwen2.5 7B, 14B, and 32B. It also
-prepares all WMDP, MMLU, HellaSwag, and CommonsenseQA inputs and stages GCG,
-AutoDAN, and TAP dependencies. AutoDAN uses Meta-Llama-3-8B-Instruct and TAP
-uses its reference Vicuna-13B-v1.5 attacker. The build also stages the separate
-Nomic-BERT Python sources referenced by the embedding model so AutoDAN remains
-loadable on offline compute nodes. No weak-teacher snapshot is needed.
+With no model arguments, the script stages Qwen2.5 7B, 14B, and 32B and prepares
+all WMDP, MMLU, HellaSwag, and CommonsenseQA inputs. Table 2 now runs AutoDAN
+only: it needs Meta-Llama-3-8B-Instruct, the Nomic embedder, and the separate
+Nomic-BERT Python sources referenced by the embedding model. The environment
+builder may also stage GCG/TAP dependencies for other tables, but a missing TAP
+Vicuna snapshot does not block a prior-baseline AutoDAN run. No weak-teacher
+snapshot is needed.
 
 The environment deliberately uses `arrow/19.0.1` with `datasets==3.6.0`.
 Killarney must select Python before loading Arrow; newer Datasets releases
@@ -136,12 +137,13 @@ pinned Hugging Face Hub version with one incompatible with Transformers.
 The build ends with a read-only login-node preflight. Rerun it at any time:
 
 ```bash
-bash clusters/killarney_preflight.sh --attacks
+POSSUM_PREFLIGHT_ATTACK_SET=autodan \
+  bash clusters/killarney_preflight.sh --attacks
 ```
 
 It checks the Killarney host, `/project` storage, venv and package compatibility,
-all processed CSVs, all three Qwen snapshots, and all attack packages/models with
-network access disabled.
+all processed CSVs, all three Qwen snapshots, and the requested attack's
+packages/models with network access disabled.
 
 Before submitting the matrix, validate CUDA/BF16 and load 32B inside one H100
 allocation. Killarney's guide limits H100 requests to six CPU cores per GPU; this
@@ -154,7 +156,8 @@ srun --account="$POSSUM_SLURM_ACCOUNT" \
   --chdir="$POSSUM_KILLARNEY_ROOT" --pty bash
 
 source clusters/killarney_env_setup.sh
-bash clusters/killarney_preflight.sh --attacks --require-gpu
+POSSUM_PREFLIGHT_ATTACK_SET=autodan \
+  bash clusters/killarney_preflight.sh --attacks --require-gpu
 
 python - <<'PY'
 from possum.utils.loading import load_model
@@ -299,25 +302,7 @@ Do not use this shortcut to migrate a legacy deterministic SysPr result. Rerun
 SysPr with `--phase eff --seeds 42 43 44`; its seeded decoding changes both its
 effectiveness and utility measurements.
 
-## 7. Calibrate robustness and build the shared attacker cache
-
-First verify that GCG recovers target capability on the held-out 7B Bio cells.
-Run the entire held-out split so these results remain usable in the final table:
-
-```bash
-export POSSUM_BLACKBOX_ONLY=gcg
-unset POSSUM_ELICIT_EVAL_MAX
-
-bash clusters/run_killarney_matrix.sh execute \
-  --table prior --tier 7b --task bio \
-  --phase blackbox --seeds 42 43 44 --executor slurm
-```
-
-Main now runs standard per-prompt GCG: every held-out prompt gets its own
-optimized suffix. High recovered target accuracy means poor robustness. Confirm
-every requested GCG result completed before scaling AutoDAN and TAP. This
-calibration does not fill Jlbrk: the table generator requires all declared
-attacks.
+## 7. Build the shared AutoDAN attacker cache
 
 Main builds one fixed AutoDAN-Turbo strategy library and reuses it across cells.
 Build it with one 12-hour b2 job before submitting the concurrent matrix. The
@@ -349,12 +334,13 @@ checkpoint. Resubmit this exact one-cell command with the same full-quality
 settings and source rows; it resumes at the saved request boundary. A partial
 checkpoint is never accepted by dependent evaluation jobs.
 
-## 8. Run the full robustness matrix
+## 8. Run the AutoDAN robustness matrix
 
-For uncapped final attacks:
+Table 2 reports AutoDAN only. The wrapper enforces that policy for `--table
+prior`, but keep the environment explicit in interactive shells:
 
 ```bash
-unset POSSUM_BLACKBOX_ONLY
+export POSSUM_BLACKBOX_ONLY=autodan
 unset POSSUM_ELICIT_EVAL_MAX
 
 for tier in 7b 14b 32b; do
@@ -364,16 +350,13 @@ for tier in 7b 14b 32b; do
 done
 ```
 
-If full AutoDAN/TAP is outside the compute budget, choose one fixed
+If full-split AutoDAN is outside the compute budget, choose one fixed
 `POSSUM_ELICIT_EVAL_MAX` before running any final capped cell, apply it to every
-organism/task/model/seed, and disclose the attacked sample count. If the GCG or
-AutoDAN pilots were uncapped, rerun the complete capped blackbox phase with
-`--force`. The robustness column is the maximum recovered target accuracy across
-GCG, AutoDAN, TAP, and—only for SysPr—the prompt-injection suite. The table cell
-stays `---` until every required technique succeeds. Result JSONs record each
-technique's evaluation count and attacked-row fingerprint, so disclose any fixed
-cap. A reported maximum requires the same rows for every attack. Always audit
-technique coverage with `status`. For SysPr, every adaptive attack searches
+organism/task/model/seed, and disclose the attacked sample count. Rerun any
+incompatible uncapped pilot with `--force`. The robustness column is the
+validated AutoDAN recovered target accuracy; GCG, TAP, and prompt injection are
+not part of the Table-2 estimand and must not be submitted. Result JSONs record
+the evaluation count and attacked-row fingerprint. For SysPr, AutoDAN searches
 against the active sandbagging system prompt; corrected JSONs record
 `sysprompt_jailbreak_protocol: adaptive_against_active_system_prompt_v2`, and
 older attack results without that marker are not reportable.
@@ -543,8 +526,8 @@ training path is separately validated.
   written into every result and checked per metric before table generation.
   Within that forced-choice answer space, active SysPr effectiveness uses the
   recorded seeded top-4 sampler; its utility generation uses seeded top-50.
-  GCG, AutoDAN, TAP, and prompt injection still use the forced-choice final task
-  readout; attack search may query generated text internally.
+  AutoDAN uses the forced-choice final task readout; attack search may query
+  generated text internally.
 - HellaSwag and CSQA use one fixed partition seed across organism-training seeds.
 - The supplied June 2025 Vector guide establishes Killarney's storage and Slurm
   conventions; live preflight and scheduler output establish current readiness.

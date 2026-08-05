@@ -325,8 +325,7 @@ def render_results_table(table: str) -> str:
                   r"attack scoring remain forced-choice for prior-work fidelity. The fixed SysPr "
                   r"prompt uses seeded top-$k$ decoding (three inference seeds); all other prior "
                   r"replicates are trained seeds. For \ref{robust}, "
-                  r"the maximum attack accuracy across "
-                  r"the complete GCG, AutoDAN, and TAP suite, plus prompt injection for SysPr "
+                  r"we report AutoDAN attack accuracy "
                   r"(Jlbrk, lower $=$ more robust)."),
         "ours":  (r"\textbf{Evaluation of Proposed Model Organisms} across six sandbagging tasks "
                   r"and three Qwen2.5 sizes. \textbf{Effectiveness} \ref{effective}: sandbag-task "

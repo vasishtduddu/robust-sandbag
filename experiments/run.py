@@ -204,9 +204,7 @@ def _eval_complete(
             != naming.SYSPROMPT_JAILBREAK_PROTOCOL
         ):
             return False
-        required = set(naming.JAILBREAK_TECHNIQUES)
-        if organism == "sysprompt":
-            required.add("prompt_injection")
+        required = set(naming.PRIOR_JAILBREAK_TECHNIQUES)
         if required.issubset(requested):
             if any(
                     not isinstance(dataset, str) or

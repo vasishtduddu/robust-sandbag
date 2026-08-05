@@ -61,6 +61,22 @@ def _is_elic_count_key(k: str) -> bool:
     )
 
 
+def _is_utility_update_key(key: str) -> bool:
+    """Fields a utility-only refresh is allowed to replace."""
+    return (
+        key in {
+            "utility_scoring_protocol",
+            "utility_split_seed",
+            "utility_genparse",
+        }
+        or key.startswith(("val_hs_", "test_hs_", "val_csqa_", "test_csqa_"))
+    )
+
+
+def _utility_update_payload(blob: dict) -> dict:
+    return {key: value for key, value in blob.items() if _is_utility_update_key(key)}
+
+
 def _present_elicitations(blob: dict) -> set[str]:
     # A technique counts as present when it is in the REPORTED (test) elicitations, or
     # in a legacy unprefixed dict; both are written by a completed eval. val-only is
@@ -225,6 +241,14 @@ def main() -> int:
     ap.add_argument("--utility_baseline_path", default=None)
     ap.add_argument("--batch_size", type=int, default=4)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument(
+        "--utility-only",
+        action="store_true",
+        help=(
+            "Replace only HS/CSQA metrics and utility protocol metadata in an "
+            "existing canonical result; preserve effectiveness and attacks."
+        ),
+    )
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
@@ -262,6 +286,11 @@ def main() -> int:
         and not _is_evaluated(existing, args.model_org)
     )
     if existing and not _is_reusable_evaluation(existing, args.model_org):
+        if args.utility_only:
+            raise RuntimeError(
+                "Utility-only refresh requires an existing reusable result for "
+                "the current evaluation protocol. Run --phase eff first."
+            )
         existing = {}
         protocol_migration = False
     if existing and current_provenance is not None:
@@ -278,8 +307,19 @@ def main() -> int:
             # Never phase-merge metrics from a different checkpoint. This also
             # migrates legacy result JSONs by re-evaluating their still-valid
             # checkpoints once and stamping the exact marker hash.
+            if args.utility_only:
+                raise RuntimeError(
+                    "Utility-only refresh cannot merge into a result from a "
+                    "different checkpoint or without current provenance."
+                )
             existing = {}
             protocol_migration = False
+
+    if args.utility_only and not existing:
+        raise RuntimeError(
+            "Utility-only refresh requires an existing effectiveness result; "
+            "refusing to create a partial canonical JSON."
+        )
 
     present = _present_elicitations(existing)
     requested = list(dict.fromkeys(args.elicitations))  # de-dup, keep order
@@ -352,12 +392,20 @@ def main() -> int:
             "evaluate_checkpoint returned a result whose model/organism/datasets/"
             "seed do not match the requested checkpoint."
         )
+    if (args.utility_only and
+            fresh.get("utility_scoring_protocol") !=
+            naming.PRIOR_UTILITY_SCORING_PROTOCOL):
+        raise RuntimeError(
+            "Utility-only prior refresh produced the wrong utility scoring "
+            f"protocol: {fresh.get('utility_scoring_protocol')!r}."
+        )
     if current_provenance is not None:
         fresh["checkpoint_provenance"] = current_provenance
+    merge_payload = _utility_update_payload(fresh) if args.utility_only else fresh
     merged = _merge(
         existing,
-        fresh,
-        force=args.force or protocol_migration,
+        merge_payload,
+        force=args.force or protocol_migration or args.utility_only,
         replace_elicitations=tuple(sorted(replace_elicitations)),
     )
     if current_provenance is not None:
@@ -369,8 +417,9 @@ def main() -> int:
             "The complete prior-baseline attack suite has missing or inconsistent "
             "test-subset provenance. Re-run this phase with one fixed cap."
         )
-    print(f"[_run_eval] wrote {out} "
-          f"(elicitations now: {sorted(_present_elicitations(merged)) or 'none'})")
+    scope = "utility-only; " if args.utility_only else ""
+    print(f"[_run_eval] wrote {out} ({scope}"
+          f"elicitations now: {sorted(_present_elicitations(merged)) or 'none'})")
     return 0
 
 

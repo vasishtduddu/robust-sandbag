@@ -470,6 +470,47 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             self.assertFalse(eval_job.is_satisfied())
             self.assertIn("--force", eval_job.argv)
 
+    def test_utility_phase_updates_only_utility_and_skips_parent_eval(self):
+        selected = manifest.filter_runs(
+            manifest.manifest_for("prior", "7b", seeds=(42,)),
+            organism="circuitbreak",
+            task="bio",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            run._configure_artifact_root(tmp)
+            jobs = run.build_jobs(selected, "utility", force=False)
+
+        eval_jobs = [job for job in jobs if job.kind == "eval"]
+        self.assertEqual(len(eval_jobs), 1)
+        self.assertEqual(
+            eval_jobs[0].name,
+            "eval_circuitbreak_qwen2.5-7b-it_bio_s42",
+        )
+        self.assertIn("--utility-only", eval_jobs[0].argv)
+        self.assertNotIn("--elicitations", eval_jobs[0].argv)
+
+        existing = {
+            "test_task_nopw_acc": 0.2,
+            "test_hs_mo_acc": 0.4,
+            "test_elicitations": {"autodan": 0.9},
+        }
+        fresh = {
+            "test_task_nopw_acc": 0.8,
+            "test_hs_mo_acc": 0.75,
+            "test_csqa_mo_acc": 0.81,
+            "utility_scoring_protocol": naming.PRIOR_UTILITY_SCORING_PROTOCOL,
+            "test_elicitations": {},
+        }
+        merged = _run_eval._merge(
+            existing,
+            _run_eval._utility_update_payload(fresh),
+            force=True,
+        )
+        self.assertEqual(merged["test_task_nopw_acc"], 0.2)
+        self.assertEqual(merged["test_hs_mo_acc"], 0.75)
+        self.assertEqual(merged["test_csqa_mo_acc"], 0.81)
+        self.assertEqual(merged["test_elicitations"], {"autodan": 0.9})
+
     def test_legacy_prior_result_migration_only_adds_provenance(self):
         with tempfile.TemporaryDirectory() as tmp:
             artifact_root = Path(tmp)

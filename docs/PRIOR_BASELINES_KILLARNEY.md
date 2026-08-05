@@ -268,21 +268,33 @@ prompt config. Training seeds 42/43/44 are permanently mapped to
 `run01`/`run02`/`run03`; SysPr seeds share its unsuffixed config directory.
 Legacy deterministic SysPr JSONs require evaluation again, not retraining.
 
-To refresh 7B utility from older forced-choice JSONs while reusing all valid
-checkpoints and accumulated attacks, inspect a dry run and then use `--force`:
+To refresh utility for the trained PWD and CktBr baselines from older
+forced-choice JSONs while reusing all valid checkpoints, effectiveness, and
+accumulated attacks, use the protected `utility` phase:
 
 ```bash
-bash clusters/run_killarney_matrix.sh plan \
-  --table prior --tier 7b --phase eff --seeds 42 43 44 --force
+for organism in pwd circuitbreak; do
+  bash clusters/run_killarney_matrix.sh plan \
+    --table prior --tier all --organism "$organism" \
+    --phase utility --seeds 42 43 44
+done
 
-bash clusters/run_killarney_matrix.sh execute \
-  --table prior --tier 7b --phase eff --seeds 42 43 44 \
-  --executor slurm --force
+for organism in pwd circuitbreak; do
+  bash clusters/run_killarney_matrix.sh execute \
+    --table prior --tier all --organism "$organism" \
+    --phase utility --seeds 42 43 44 --executor slurm
+done
 ```
 
-Valid train jobs must show as skipped. This intentionally recomputes the cheap
-effectiveness fields with the unchanged forced-choice scorer, replaces utility
-with generate-and-parse values, and preserves existing elicitation dictionaries.
+Valid train jobs must show as skipped. The evaluator may recompute task metrics
+internally while the model is resident, but the merge gate replaces only HS/CSQA
+and utility-protocol fields. It cannot overwrite effectiveness or elicitation
+dictionaries, and refuses to create a partial JSON without an existing current
+effectiveness result.
+
+Do not use this shortcut to migrate a legacy deterministic SysPr result. Rerun
+SysPr with `--phase eff --seeds 42 43 44`; its seeded decoding changes both its
+effectiveness and utility measurements.
 
 ## 7. Calibrate robustness and build the shared attacker cache
 

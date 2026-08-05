@@ -268,18 +268,28 @@ and do not launch a duplicate matrix while matching jobs are queued. The fixed
 seed mapping means a one-seed calibration reuses its matching effectiveness
 checkpoint.
 
-The exception is an intentional utility-protocol refresh of older forced-choice
-JSONs. After matching attack jobs finish, rerun 7B with `--force`; valid
-checkpoints are reused and accumulated attack dictionaries are preserved:
+For an intentional utility-protocol refresh of the trained PWD and CktBr
+baselines, use the protected `utility` phase. Valid checkpoints are reused and
+only HS/CSQA fields change; effectiveness and accumulated attack dictionaries
+are preserved:
 
 ```bash
-bash clusters/run_vulcan_matrix.sh plan \
-  --table prior --tier 7b --phase eff --seeds 42 43 44 --force
+for organism in pwd circuitbreak; do
+  bash clusters/run_vulcan_matrix.sh plan \
+    --table prior --tier all --organism "$organism" \
+    --phase utility --seeds 42 43 44
+done
 
-bash clusters/run_vulcan_matrix.sh execute \
-  --table prior --tier 7b --phase eff --seeds 42 43 44 \
-  --executor slurm --force
+for organism in pwd circuitbreak; do
+  bash clusters/run_vulcan_matrix.sh execute \
+    --table prior --tier all --organism "$organism" \
+    --phase utility --seeds 42 43 44 --executor slurm
+done
 ```
+
+Do not use this shortcut to migrate a legacy deterministic SysPr result. Rerun
+SysPr with `--phase eff --seeds 42 43 44`; its seeded decoding changes both its
+effectiveness and utility measurements.
 
 ## 7. Calibrate robustness and build the shared attacker cache
 

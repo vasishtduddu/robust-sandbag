@@ -8,10 +8,11 @@ Three subcommands::
     python -m experiments.run execute  [filters] [--phase] --executor {local,slurm}
 
 Filters: ``--table {prior,ours,bkdrcot,scale,all}``, ``--tier {7b,14b,32b,72b,all}``,
-``--organism``, ``--task``, ``--seeds``. ``--phase {eff,blackbox,whitebox,all}``
+``--organism``, ``--task``, ``--seeds``. ``--phase {eff,utility,blackbox,whitebox,all}``
 controls which robustness elicitations are requested (cheap first):
 
 * ``eff``      - effectiveness + utility only (no elicitation).
+* ``utility``  - refresh only HS/CSQA fields; preserve effectiveness and attacks.
 * ``blackbox`` - the jailbreak (Jlbrk) robustness column.
 * ``whitebox`` - the Table-4 whitebox elicitations (bkdrcot only).
 * ``all``      - everything the table needs.
@@ -208,7 +209,7 @@ def _eval_complete(
 
 def _phase_elicitations(run: manifest.Run, phase: str) -> list[str]:
     full = list(run.elicitations)
-    if phase == "eff":
+    if phase in {"eff", "utility"}:
         return []
     if phase == "blackbox":
         jb = [t for t in full if t in naming.JAILBREAK_TECHNIQUES]
@@ -379,7 +380,9 @@ def _eval_name(run: manifest.Run, seed: int) -> str:
     return f"eval_{run.organism}_{run.model}_{naming.datasets_token(run.datasets)}_s{seed}"
 
 
-def _add_eval_job(jobs: dict[str, Job], name: str, spec: dict, force: bool) -> None:
+def _add_eval_job(
+    jobs: dict[str, Job], name: str, spec: dict, force: bool, *, utility_only: bool
+) -> None:
     run, ckpt, rj = spec["run"], spec["ckpt"], spec["rj"]
     requested = sorted(spec["requested"])
     eval_code = run.meta.train_code or run.organism
@@ -392,6 +395,8 @@ def _add_eval_job(jobs: dict[str, Job], name: str, spec: dict, force: bool) -> N
             "--utility_baseline_path", str(CKPT_ROOT / f"utility_baseline_{run.model}")]
     if requested:
         argv += ["--elicitations", *requested]
+    if utility_only:
+        argv += ["--utility-only"]
     if force:
         argv += ["--force"]
     jobs[name] = Job(
@@ -424,7 +429,8 @@ def build_jobs(runs: list[manifest.Run], phase: str, force: bool) -> list[Job]:
     evals: dict[str, dict] = {}
     for run in runs:
         requested = set(_phase_elicitations(run, phase))
-        if run.organism == "circuitbreak" and run.meta.depends_on:
+        if (phase != "utility" and run.organism == "circuitbreak" and
+                run.meta.depends_on):
             # Evaluate the deliberate-wrong parent on the same held-out split so
             # the CktBr effect is measured against its actual starting point.
             parent_run = manifest.Run(
@@ -450,7 +456,9 @@ def build_jobs(runs: list[manifest.Run], phase: str, force: bool) -> list[Job]:
             else:
                 spec["requested"] |= requested
     for name, spec in evals.items():
-        _add_eval_job(jobs, name, spec, force)
+        _add_eval_job(
+            jobs, name, spec, force, utility_only=phase == "utility"
+        )
     return list(jobs.values())
 
 
@@ -595,7 +603,7 @@ def parse_args():
     pp = sub.add_parser("plan", help="Dry-run the job graph (runs nothing).")
     _add_filters(pp)
     pp.add_argument("--phase", default="all",
-                    choices=["eff", "blackbox", "whitebox", "all"])
+                    choices=["eff", "utility", "blackbox", "whitebox", "all"])
     pp.add_argument(
         "--force",
         action="store_true",
@@ -605,7 +613,7 @@ def parse_args():
     pe = sub.add_parser("execute", help="Run the job graph.")
     _add_filters(pe)
     pe.add_argument("--phase", default="all",
-                    choices=["eff", "blackbox", "whitebox", "all"])
+                    choices=["eff", "utility", "blackbox", "whitebox", "all"])
     pe.add_argument("--executor", default="local", choices=["local", "slurm", "dryrun"])
     pe.add_argument("--no-submit", dest="submit", action="store_false",
                     help="slurm only: write sbatch scripts without submitting.")

@@ -51,9 +51,14 @@ export POSSUM_SLURM_GPU_STYLE=per-node
 export POSSUM_RUN_CONFIG_JOBS_LOCAL=1
 export POSSUM_GENPARSE=0
 export POSSUM_UTILITY_SCORING=generate_parse
-# The executor defaults normal evaluations to 90 minutes for backfill.  The
-# complete jailbreak suite contains AutoDAN/TAP and needs the longer allocation.
-export POSSUM_EVAL_WALLTIME_MIN="${POSSUM_EVAL_WALLTIME_MIN:-480}"
+# The executor defaults normal evaluations to 90 minutes for backfill. The
+# complete jailbreak suite contains AutoDAN/TAP and needs the 12-hour b2
+# allocation. Tight attack caps preferentially time out the strongest defenses.
+if [[ "$phase" == "blackbox" || "$phase" == "all" ]]; then
+    export POSSUM_EVAL_WALLTIME_MIN="${POSSUM_EVAL_WALLTIME_MIN:-720}"
+else
+    export POSSUM_EVAL_WALLTIME_MIN="${POSSUM_EVAL_WALLTIME_MIN:-480}"
+fi
 unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET
 # Final Table-2 attacks come from HYPERPARAMETERS.toml. Do not inherit the
 # reduced steps/tree/source caps used by scripts/smoke_attacks.sh.

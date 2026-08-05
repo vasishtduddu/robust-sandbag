@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import ast
 import json
 import importlib.util
 import os
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -1317,6 +1319,188 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         self.assertEqual(tokenizer.messages[1]["content"], "attack prompt")
         self.assertEqual(score, 10.0)
         self.assertIn("correct answer", response)
+
+    def test_autodan_hf_wrapper_uses_released_total_length_semantics(self):
+        framework = (
+            Path(__file__).resolve().parents[1]
+            / "elicitation" / "blackbox" / "_autodan_framework.py"
+        )
+        tree = ast.parse(framework.read_text())
+        wrapper = next(
+            node for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "HuggingFaceModel"
+        )
+        for method_name in ("generate", "conditional_generate"):
+            method = next(
+                node for node in wrapper.body
+                if isinstance(node, ast.FunctionDef) and node.name == method_name
+            )
+            model_generate = next(
+                node for node in ast.walk(method)
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "generate"
+            )
+            keywords = {keyword.arg for keyword in model_generate.keywords}
+            self.assertIn("max_length", keywords)
+            self.assertNotIn("max_new_tokens", keywords)
+
+    def test_autodan_library_resumes_from_request_checkpoint(self):
+        base = types.ModuleType("possum.elicitation.base")
+
+        class FakeElicitationTechnique:
+            pass
+
+        base.ElicitationTechnique = FakeElicitationTechnique
+        base.ElicitationType = types.SimpleNamespace(BLACKBOX="blackbox")
+        data_utils = types.ModuleType("possum.data.utils")
+        data_utils.add_chat_template_column = lambda *args, **kwargs: None
+        data_utils.set_seed = lambda _seed: None
+        columns = types.ModuleType("possum.utils.column_utils")
+        columns.GROUND_TRUTH_ANSWER_COLUMN = "answer"
+        framework = types.ModuleType("possum.elicitation.blackbox._autodan_framework")
+        for name in (
+            "Attacker", "AutoDANTurbo", "HuggingFaceModel", "NomicEmbeddingModel",
+            "Retrieval", "Summarizer", "Target",
+        ):
+            setattr(framework, name, object)
+        pandas = types.ModuleType("pandas")
+        pandas.DataFrame = type("DataFrame", (), {})
+        tqdm_module = types.ModuleType("tqdm")
+        tqdm_module.tqdm = lambda values, **_kwargs: values
+
+        package_names = (
+            "possum", "possum.elicitation", "possum.elicitation.blackbox",
+            "possum.data", "possum.utils",
+        )
+        packages = {}
+        for name in package_names:
+            package = types.ModuleType(name)
+            package.__path__ = []
+            packages[name] = package
+
+        module_path = (
+            Path(__file__).resolve().parents[1]
+            / "elicitation" / "blackbox" / "autodan.py"
+        )
+        module_name = "possum.elicitation.blackbox.autodan_checkpoint_test"
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        autodan_module = importlib.util.module_from_spec(spec)
+        stubs = {
+            **packages,
+            "possum.elicitation.base": base,
+            "possum.data.utils": data_utils,
+            "possum.utils.column_utils": columns,
+            "possum.elicitation.blackbox._autodan_framework": framework,
+            "pandas": pandas,
+            "tqdm": tqdm_module,
+            module_name: autodan_module,
+        }
+        with patch.dict("sys.modules", stubs):
+            spec.loader.exec_module(autodan_module)
+        AutoDAN = autodan_module.AutoDAN
+
+        def library(name):
+            return {
+                name: {
+                    "Strategy": name,
+                    "Definition": name,
+                    "Example": [],
+                    "Score": [],
+                    "Embeddings": [],
+                }
+            }
+
+        class FakePipeline:
+            def __init__(self, fail=False):
+                self.fail = fail
+                self.warm_up_calls = 0
+                self.lifelong_calls = []
+
+            def warm_up(self, _library, _attack_log, _summarizer_log, **kwargs):
+                self.warm_up_calls += 1
+                callback = kwargs["checkpoint_callback"]
+                callback(
+                    stage="warm_up_attack",
+                    strategy_library={},
+                    attack_log=[{"request_id": 0}],
+                    summarizer_log=[],
+                    next_iteration=1,
+                    next_request_id=0,
+                )
+                warm_library = library("warm")
+                callback(
+                    stage="warm_up_summarize",
+                    strategy_library=warm_library,
+                    attack_log=[{"request_id": 0}],
+                    summarizer_log=[{"request_id": 0}],
+                    next_iteration=1,
+                    next_request_id=1,
+                )
+                return warm_library, [{"request_id": 0}], [{"request_id": 0}]
+
+            def lifelong_redteaming(self, current, _attack_log, _summary_log, **kwargs):
+                round_index = kwargs["iteration_offset"]
+                start_request_id = kwargs["start_request_id"]
+                self.lifelong_calls.append((round_index, start_request_id))
+                checkpointed = {**current, **library(f"round{round_index}")}
+                kwargs["checkpoint_callback"](
+                    stage="lifelong",
+                    strategy_library=checkpointed,
+                    attack_log=[],
+                    summarizer_log=[],
+                    next_iteration=round_index,
+                    next_request_id=3 if self.fail else 4,
+                )
+                if self.fail:
+                    raise RuntimeError("simulated allocation timeout")
+                return checkpointed, [], []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "strategy_library.json")
+
+            def technique():
+                instance = AutoDAN.__new__(AutoDAN)
+                instance.library_path = path
+                instance.attacker_model_name = "attacker"
+                instance.epochs = 150
+                instance.warm_up_iterations = 1
+                instance.lifelong_iterations = 2
+                return instance
+
+            first = technique()
+            with self.assertRaisesRegex(RuntimeError, "allocation timeout"):
+                first._build_library(
+                    FakePipeline(fail=True),
+                    source_count=4,
+                    source_fingerprint="source-v1",
+                )
+            checkpoint = Path(first._progress_path(path))
+            self.assertTrue(checkpoint.is_file())
+            self.assertFalse(Path(path).exists())
+
+            resumed_pipeline = FakePipeline()
+            resumed = technique()
+            final_library = resumed._build_library(
+                resumed_pipeline,
+                source_count=4,
+                source_fingerprint="source-v1",
+            )
+            self.assertEqual(resumed_pipeline.warm_up_calls, 0)
+            self.assertEqual(resumed_pipeline.lifelong_calls, [(0, 3), (1, 0)])
+            self.assertEqual(set(final_library), {"warm", "round0", "round1"})
+
+            resumed._save_library(
+                final_library,
+                path,
+                source_count=4,
+                source_fingerprint="source-v1",
+            )
+            resumed._clear_progress(path)
+            self.assertFalse(checkpoint.exists())
+            self.assertEqual(resumed._load_compatible_library(path), final_library)
 
     @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
     def test_tap_target_queries_organism_system_prompt(self):

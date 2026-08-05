@@ -1,10 +1,13 @@
 # Prior-baseline campaign status
 
-> Snapshot: 2026-08-04 (America/Toronto). Scheduler state and job IDs below are
-> operational notes from the latest observed Killarney and Vulcan queues; confirm
-> them with `squeue`/`sacct` before acting. The scientific and code status is tied
-> to commit `d84cc62517a555601434fdfd2883d5f1ff31a638` on
-> `mark/baseline-exps`.
+> Snapshot: 2026-08-05. The Killarney capture was taken at 11:30 EDT and the
+> Vulcan capture at 09:33 MDT (11:33 EDT), with the later AutoDAN timeout and
+> repair audit incorporated below. Scheduler state is inherently stale;
+> confirm every job with `squeue`/`sacct` before acting. Both cluster captures
+> used scientific/code commit `fdc3ffb823c6d9a80a204bbeefba5dfba72677b7` on
+> `mark/baseline-exps`. The branch is now at
+> a local commit containing the AutoDAN repair described below. Push the branch
+> and verify the resulting commit on both clusters before new AutoDAN work runs.
 
 This is the canonical status and handoff document for the prior-work Table 2
 campaign. Use the [Killarney](PRIOR_BASELINES_KILLARNEY.md) and
@@ -15,22 +18,30 @@ procedures.
 
 | Area | State | Meaning |
 |---|---|---|
-| Branch integration | Ready | `mark/baseline-exps` is based directly on current `origin/main` commit `15a5f665a445e8efd2982188ca4b0b2a52635aab`; the merge base equals that commit. |
+| Branch integration | Repair committed locally; cluster deployment pending | `mark/baseline-exps` contains the AutoDAN generation-length, checkpoint/resume, tests, and Killarney wall-time fixes in the commit containing this document. Killarney must not submit the replacement builder until that commit is pushed and pulled there. |
 | Baseline implementation | Implemented | PWD, fixed SysPr, and the Qwen CktBr port have explicit, provenance-checked recipes. |
 | Evaluation methodology | Implemented | Task training, effectiveness, and attack readout remain forced-choice; HS/CSQA now use the same generate-and-parse readout as Table 3. |
 | HellaSwag discrepancy | Root-caused and corrected | The old approximately 43–52% 7B values used a different utility readout. The completed 7B refresh is approximately 73–77%, without retraining or utility-specific hyperparameter selection. |
-| PWD/CktBr utility refresh | Running | Valid checkpoints and effectiveness/attack fields are reused; only HS/CSQA fields and utility-protocol metadata may be replaced. |
-| SysPr refresh | Running | All models/tasks are being rerun with one fixed released prompt and inference seeds 42/43/44 under the new seeded top-k protocol. Both SysPr effectiveness and utility will change. |
-| AutoDAN robustness | Submitted but not reportable yet | AutoDAN-only jobs are queued across both clusters. Their individual scores will be retained, but they cannot fill `Jlbrk` without GCG, TAP, and SysPr prompt injection. |
+| Killarney E&U refresh | Slurm-complete; artifact audit pending | All 54 SysPr refresh jobs and all nine Killarney-owned CktBr utility jobs completed with exit code 0. Their JSON/provenance completeness still must be validated before union. |
+| Vulcan E&U refresh | Partially complete | Twenty-six 14B PWD/CktBr jobs completed with exit code 0. Seven 14B CktBr and all thirty 32B PWD/CktBr jobs were still pending for priority in the latest capture. |
+| Test status | Passing with skips | Both clusters previously reported `Ran 40 tests ... OK (skipped=11)`. After the repair, local discovery reports `Ran 42 tests ... OK (skipped=11)`. The two new checkpoint/length tests run without the ML stack; the 11 existing ML-dependent skips remain a pre-merge coverage gap. |
+| AutoDAN robustness | Builder timed out; repaired replacement required | Killarney builder `4604260` timed out at `08:00:02` before producing any final, metadata, temporary, or checkpoint cache. The 98 Killarney children remain held with an impossible `afterok:4604260` dependency and must not be released. Deploy the repair, submit a 12-hour replacement builder, and rewire the children only after the canonical cache validates. The former Vulcan builder/child chain remains cancelled. |
 | Full `Jlbrk` robustness | Not complete | The aggregate requires the complete declared suite on identical attacked rows. |
 | Table 2 reporting snapshot | Provisional | The last combined snapshot observed was 255 filled values and 69 empty. After all effectiveness/utility refreshes, the expected pre-robustness state is 270 filled and 54 empty. |
-| Merge readiness | Code validated; campaign and cleanup outstanding | Focused tests pass, but cluster jobs/results remain in flight and user-owned untracked `killarney_jobs.txt`/`vulcan_jobs.txt` remain in the worktree. |
+| Merge readiness | Repair validated; deployment, campaign, and cleanup outstanding | Tests pass, but the repair is not yet deployed to the clusters, jobs/results remain in flight, the new results have not been unioned and validated, and user-owned untracked `killarney_jobs.txt`/`vulcan_jobs.txt` remain in the local worktree. |
 
 ## Scientific contract
 
 The campaign covers three prior baselines, Qwen2.5-Instruct 7B/14B/32B, six
 target datasets (Bio, Chem, Cyber, MMLU-Prof, MMLU-Stem, and MMLU-HSS), and
 seeds 42/43/44.
+
+The research goal is to reproduce the effectiveness and utility behavior claimed
+by password locking, system-prompt sandbagging, and circuit breaking, then test
+their robustness against deliberately designed jailbreaks. The preregistered
+expectation is similar effectiveness/utility to the source work but high attack
+accuracy (poor robustness). That expectation is not an acceptance filter: do not
+tune, drop seeds, or alter held-out scoring to make the result conform.
 
 - **Effectiveness:** `w/` is target accuracy while sandbagging is active, `w/o`
   is unlocked/reference accuracy, and delta is `w/o - w/`. Higher delta is a
@@ -167,15 +178,90 @@ seeds 42/43/44.
 
 ### 7. Tests and documentation
 
-- `tests/test_prior_baseline_protocol.py` contains 40 focused protocol tests for
+- `tests/test_prior_baseline_protocol.py` now contains 42 focused protocol tests for
   recipes, seed mapping, provenance, utility-only merging, SysPr sampling,
   attack completeness, subset fingerprints, active system-prompt handling, and
-  table gates.
-- Latest local result: 40 run, 29 passed, 11 skipped because this lightweight
-  environment lacks the project ML stack; no failures. Run the same suite in the
-  cluster venv to exercise the 11 ML-dependent tests before merge.
+  table gates. The two new tests cover AutoDAN total-length generation semantics
+  and interruption/resumption from a request checkpoint without adding a new
+  dependency skip.
+- The suite was run on both Killarney and Vulcan after deploying the audited
+  code. Both clusters printed `Ran 40 tests in 0.072s` followed by
+  `OK (skipped=11)`: 29 passed, 11 skipped, and none failed. The identical skip
+  count means the cluster invocations did not exercise the 11 optional
+  ML-dependent cases; a no-skip run in a fully provisioned environment remains
+  desirable before merge.
+- After the AutoDAN repair, local `unittest discover` reports `Ran 42 tests ...
+  OK (skipped=11)`. Both clusters must rerun the 42-test suite after pulling the
+  repair and before submitting a replacement builder.
 - The Killarney and Vulcan runbooks document setup, staging, preflight, execution,
   monitoring, synchronization, recovery, and resource mapping.
+
+### 8. Which changes affect science versus only execution safety
+
+The intentional scientific/evaluation changes in this campaign are the Table
+3-compatible utility readout, fixed-prompt seeded SysPr deployment simulation,
+the documented prior-baseline recipes, and the corrected adaptive-SysPr attack
+protocol described above. They necessarily change the reported utility and
+SysPr cells and are the reason those cells are being rerun.
+
+Commit `fdc3ffb` added three operational correctness changes after the initial
+queue audit:
+
+- a requested partial attack such as AutoDAN-only must now have a finite score,
+  positive evaluation count, row fingerprint, and no error marker before the
+  process exits successfully or resumable execution considers it complete;
+- a successful retry removes only that attack's stale error marker while
+  preserving independent attack results; and
+- a black-box-only CktBr phase no longer submits the unnecessary parent
+  effectiveness evaluation, while retaining the required parent-training
+  dependency.
+
+These three changes affect failure detection, resumption, and job construction;
+they do not change model logits, datasets, seeds, scoring, attack budgets, or a
+successful attack's metric. Manual Slurm changes to wall time, host RAM, CPU,
+partition, hold state, or dependencies likewise do not change the experimental
+methodology, provided they do not cause truncation and do not permit concurrent
+writers to the same result JSON.
+
+### 9. AutoDAN timeout root cause and repair
+
+Killarney builder `4604260` timed out after `08:00:02`. It used 46.08 GiB of
+96 GiB host RAM, so memory was not the failure. Its log reached warm-up library
+summarization, emitted many malformed-JSON fallbacks, and warned that generation
+had exceeded the attacker's 8,192-token context. No final library, metadata,
+temporary library, or temporary metadata file existed after termination.
+
+The audit found two code defects in the local AutoDAN port:
+
+1. The released HuggingFace wrapper passes `max_length` to Transformers as the
+   total sequence length. The port incorrectly reinterpreted that value as
+   `max_new_tokens`, allowing thousands of additional tokens beyond the prompt,
+   causing context overflow, unnecessary runtime, and truncated/malformed JSON.
+   The repair restores the released total-length semantics. This is a behavior
+   correction required for prior-work fidelity, not an attack-budget reduction.
+2. The released runner saves after warm-up and after every lifelong round, but
+   the port saved only after all five lifelong rounds. The repair runs one round
+   per call and writes an atomic, separately named progress checkpoint after each
+   warm-up request, each warm-up summary, each lifelong request, and each
+   completed round. A replacement allocation resumes from the next request. The
+   final shared `strategy_library.json` is still absent until all configured
+   rounds complete, so dependants cannot consume partial progress.
+
+The progress file is
+`strategy_library.json.checkpoint.json`. It is bound to the attacker model,
+epochs, warm-up/lifelong counts, source cap, source-row count, and a SHA-256
+fingerprint of the ordered source rows. The final metadata schema is now version
+2 and records `status=complete`, five completed lifelong rounds, source count,
+and source fingerprint. An incompatible checkpoint or final cache is rejected.
+
+The repair does not change the source rows, five lifelong rounds, 150-epoch cap,
+early-stop score, attacker temperature/top-p settings, target scoring, or final
+aggregation. Killarney black-box submissions now default to 12 hours, matching
+Vulcan and avoiding a scheduler cap that selectively kills harder-to-elicit
+cells. Table 2 task effectiveness and every attack readout remain forced-choice;
+HS/CSQA utility remains generate-and-parse, matching Table 3. VAL remains for
+tuning/selection, TEST remains the only reported split, and all attacks in a
+reported aggregate must have equal counts and identical row fingerprints.
 
 ## What the current reruns may overwrite
 
@@ -185,11 +271,13 @@ seeds 42/43/44.
 | SysPr `--phase eff` | Replaced by seeded inference estimates | Replaced by seeded inference estimates | Existing legacy attacks are not automatically considered current; attack provenance gates apply |
 | AutoDAN `--phase blackbox` | Preserved | Preserved | Adds/replaces only the requested AutoDAN fields after a successful run |
 
-The manual reductions to pending E&U wall times and host-RAM requests are Slurm
-scheduling changes only. Pending 14B E&U jobs were reduced to 64 GiB and pending
-32B E&U jobs to 96 GiB; 7B stayed at 64 GiB. Already-running jobs and all
-AutoDAN builders/attacks retained their submitted limits. GPU counts were not
-reduced because host RAM is distinct from CUDA VRAM.
+The manual reductions to E&U wall times and host-RAM requests are Slurm
+scheduling changes only. The captured Vulcan 14B E&U jobs request 64 GiB and the
+32B jobs request 96 GiB; earlier 7B E&U jobs stayed at 64 GiB. The captured
+Killarney E&U jobs have now finished. Already-running jobs and all AutoDAN
+builders/attacks retained their deliberately larger black-box limits. GPU counts
+were not reduced because host RAM is distinct from CUDA VRAM and because a
+black-box run can keep the target and attacker models resident together.
 
 ## Result assessment
 
@@ -232,9 +320,9 @@ away on the test set.
 
 | Role | Root | Current ownership |
 |---|---|---|
-| Killarney project execution | `/project/6105494/markwang/possum/possum/artifacts` | All 7B PWD/CktBr cells and all SysPr tiers; also the Killarney AutoDAN cache location used by the original pilot. |
+| Killarney project execution | `/project/6105494/markwang/possum/possum/artifacts` | All 7B PWD/CktBr cells and all SysPr tiers; canonical AutoDAN builder/cache; current 7B AutoDAN share. |
 | Killarney scratch execution | `/scratch/markwang/possum-prior-eff` | CktBr 14B Cyber and CktBr 32B Cyber/MMLU-Prof cells. |
-| Vulcan execution | `/scratch/markwang/possum-prior-baselines` | PWD 14B/32B, CktBr 14B except Cyber, and CktBr 32B except Cyber/MMLU-Prof. |
+| Vulcan execution | `/scratch/markwang/possum-prior-baselines` | PWD 14B/32B, CktBr 14B except Cyber, and CktBr 32B except Cyber/MMLU-Prof. No AutoDAN jobs are currently active there. |
 | Combined reporting snapshot | Last observed as `/scratch/markwang/possum-prior-table-combined-20260729` | Union of result JSONs and recipe markers only; use for `tablefill`, never execution. |
 
 The attempted full checkpoint consolidation onto Killarney was abandoned because
@@ -258,132 +346,311 @@ complete robustness aggregate, the expected count is:
 270 filled, 54 empty (all 54 Jlbrk cells)
 ```
 
-## Scheduler snapshot and current actions
+The intended “union of three tables” should be implemented as an artifact union,
+not by editing three generated LaTeX tables cell by cell. Start from the existing
+combined reporting snapshot, overlay the Killarney-owned current result JSONs and
+recipe markers, overlay the Vulcan-owned current result JSONs and markers, and
+then run the current `tablefill` once. Whole JSON files have a single owner; do
+not merge two independently updated copies of the same JSON. Never copy the
+combined reporting root back over an execution root because it contains marker-
+only checkpoint directories rather than complete weights.
 
-### Effectiveness and utility
+## Scheduler and campaign snapshot: 2026-08-05
 
-- The 2026-08-04 23:24 queue captures contain 161 Killarney jobs (one running,
-  160 pending) and 127 Vulcan jobs (all pending). Those totals include both E&U
-  and AutoDAN work.
-- Killarney SysPr refresh: jobs in the `4603106`–`4603164` family cover all
-  model/task/inference-seed combinations. Job `4603147` (32B Bio seed 42) was
-  running in the latest capture; completed jobs no longer appear in `squeue`.
-- Killarney CktBr utility refresh: jobs `4603596`–`4603601` cover the Killarney-
-  owned 32B cells and `4603616`–`4603618` cover 14B Cyber.
-- Vulcan PWD/CktBr utility refresh: jobs `343005`–`343074` cover the remaining
-  14B/32B owned cells.
-- Ordinary pending E&U jobs were shortened to 1:30 where allowed for backfill and
-  received the host-RAM reductions described above. A pending reason of
-  `Priority` is a fair-share/ordering state; it does not prove a host-memory
-  shortage. A reason of `Dependency` must be resolved before resources matter.
+The raw captures are
+`killarney_backfill_audit_20260805_112950.txt` and
+`vulcan_backfill_audit_20260805_093315.txt`. Both identify commit `fdc3ffb`, and
+both clusters subsequently ran the 40-test focused suite successfully with 11
+skips. The states below are observations at capture time, not live guarantees.
 
-### AutoDAN-only robustness
+### Accounting limitation in both captures
 
-- Killarney builder: `4604260`; intended dependent target set begins at
-  `4604268`. The submitted Killarney share contains 99 intended AutoDAN result
-  files (the builder's own final-quality result plus 98 dependent jobs).
-- Vulcan builder: `343975`; intended dependent target jobs are in the
-  `344031`–`344133` family. The submitted Vulcan share contains 63 intended
-  AutoDAN result files after excluding internal parent evaluations. The builder
-  itself targets the same 7B/Bio/PWD/seed-42 result owned by Killarney, so it is
-  an extra operational duplicate and is not part of the 63.
-- Combined intended coverage is 162 seed-level AutoDAN files:
-  `3 organisms x 3 models x 6 tasks x 3 seeds`.
-- The captured queues verify that all 98 Killarney child jobs contain builder
-  `4604260` and all 63 Vulcan child jobs contain builder `343975`. SysPr and
-  currently refreshing CktBr/PWD files also carry their matching older E&U job
-  where one remains active. Environment-level `SBATCH_DEPENDENCY` forwarding
-  was not reliable on Vulcan, so explicit `scontrol update Dependency=...` was
-  used to reach this state.
-- `--phase blackbox` also generated unnecessary `pwd_hof_parent` evaluations for
-  CktBr. They do not populate Table 2 or AutoDAN robustness and are absent from
-  the latest captured queues. The cancelled Vulcan ranges were
-  `344051`–`344053`, `344058`–`344060`,
-  `344064`–`344066`, `344071`–`344073`, `344081`–`344083`, `344109`–`344111`,
-  `344115`–`344117`, `344121`–`344123`, and `344128`–`344130`. Cancellation was
-  therefore successful as of the snapshot. The orchestrator now creates parent
-  evaluations only for effectiveness/all phases, while black-box phases retain
-  the required parent-training dependency without submitting a parent eval.
+The broad `sacct` section failed in both files because the output-field list was
+placed on a new shell command after `-o`. Consequently, those sections cannot be
+used to make an exhaustive August-1-to-present failure claim. The captures still
+contain useful current `squeue`/`scontrol` state and individual `seff` reports.
+Every campaign job represented by those completed-job `seff` reports says
+`COMPLETED (exit code 0)`.
 
-### Post-snapshot audit corrections
+Use this corrected accounting command in the next audit:
 
-The audit found that an evaluator exception was recorded in
-`elicitation_errors`, but an AutoDAN-only `_run_eval` phase did not require the
-requested score/count/fingerprint before returning success. This was the same
-failure shape as the earlier Slurm-success/job-level-failure `4460510`. The
-wrapper and resumable completion check now validate every explicitly requested
-prior attack, including partial phases; a missing output or recorded error makes
-the process fail. A retry also removes that technique's stale error marker before
-merging its new outcome. `tablefill` applies the same error-aware gate.
+```bash
+sacct -S 2026-08-01 -u "$USER" -P \
+  -o 'JobIDRaw,JobName%80,Partition%30,State,ExitCode,Submit,Eligible,Start,End,Elapsed,Timelimit,NNodes,NCPUS,ReqMem,MaxRSS,AveRSS,TotalCPU,CPUTimeRAW,NodeList%40'
+```
 
-These fixes are local source changes, not scheduler-state changes. Any pending
-job whose cluster checkout still has the pre-audit wrapper can retain the old
-false-success behavior. Deploy the audited source (or run an equivalent strict
-artifact validator) before treating the existing AutoDAN chain as trustworthy.
+Slurm success is necessary but not sufficient. A JSON is accepted only after
+the current protocol, seed roster, metric completeness, checkpoint provenance,
+attack counts/fingerprints, and error gates pass.
 
-### Immediate AutoDAN gate: one canonical strategy library
+### Killarney
 
-The two-cluster submission currently has two cluster-local builders, while the
-scientific protocol calls for one fixed strategy library across all cells. Both
-builders were still pending with reason `Priority` in the latest captures. Do not
-allow them to independently create different libraries or independently write the
-same 7B/Bio/PWD/seed-42 result.
+The captured user queue contains exactly 99 jobs:
 
-1. Inspect both builder states. If they are still pending, hold Vulcan builder
-   `343975`; because future work is intended to consolidate on Killarney,
-   Killarney builder `4604260` is the natural canonical builder. If one has
-   already completed successfully, use that one as canonical instead.
-2. Validate the canonical `strategy_library.json` and
-   `strategy_library.json.meta.json` and preserve checksums.
-3. Keep the 63 Vulcan child jobs blocked, copy those exact two files to Vulcan's
-   configured `POSSUM_AUTODAN_LIBRARY` directory, and verify their checksums.
-4. Rewire each Vulcan child to retain its matching E&U dependency but no longer
-   require duplicate builder `343975`; then cancel `343975` and release the held
-   children. This preserves the Killarney-owned 7B/Bio/PWD/seed-42 JSON as the
-   only writer for that cell.
-5. Verify every dependent Slurm job references the intended shared cache path and
-   still waits for any same-result E&U writer.
-6. If both builders have already independently completed, compare checksums. Do
-   not mix differing libraries in one reported campaign; select one canonical
-   library and rerun any cells produced with the other.
+- AutoDAN builder `4604260` was `RUNNING` in the capture but later timed out in
+  `gpubase_h100_b2` at `08:00:02`, requesting one H100, six CPUs, and 96 GiB.
+  Final accounting reports 46.08 GiB host memory. It is terminal and needs no
+  cancellation. No cache artifact from it is reusable.
+- Exactly 98 AutoDAN children were `PENDING (JobHeldUser)` in
+  `gpubase_h100_b1`, all dependent on successful builder `4604260`; that
+  dependency can no longer succeed. Dependencies on their same-file E&U jobs
+  are already satisfied where present. Keep the jobs held until a replacement
+  builder finishes and the cache validates. Held jobs do not accrue ordinary
+  scheduling priority, receive estimated start times, or compete for backfill.
+- The Killarney AutoDAN share is 99 result files, not 99 children: the builder
+  itself produces the 7B/Bio/PWD/seed-42 result, and the other 98 files are the
+  held children. The children comprise 53 7B, 21 14B, and 24 32B jobs.
+- Captured child resources are one H100 / six CPUs / 96 GiB / three hours for
+  7B; one H100 / six CPUs / 128 GiB / three hours for 14B; and two H100s /
+  twelve CPUs / 256 GiB / three hours for 32B. Three hours is not a valid final
+  AutoDAN limit. Before release, move the children to the 12-hour b2 partition
+  or replace them with freshly generated 12-hour jobs.
+
+All ordinary Killarney E&U refresh work has left the queue. The capture contains
+63 successful `seff` records:
+
+- 54 SysPr jobs: all six tasks, all three models, and inference seeds 42/43/44;
+- six Killarney-owned 32B CktBr utility jobs: Cyber and MMLU-Prof, all seeds; and
+- three Killarney-owned 14B CktBr utility jobs: Cyber, all seeds.
+
+These jobs are Slurm-complete, but their JSONs have not yet been reported as a
+validated artifact union. The Killarney partition was heavily occupied at the
+snapshot: two H100 nodes were failed, most usable nodes were allocated, and the
+backfill configuration tested at most 20 jobs per user per cycle. This supports
+shortening jobs only after matched black-box measurements; it does not justify
+guessing lower memory for the 98 held jobs.
+
+The Killarney working tree recorded by the audit was intentionally operationally
+dirty: generated `tables/table2.gen.tex` was modified and artifact, backup, audit,
+and temporary files were untracked. No active Python source modification was
+shown. Preserve those files until results are synchronized; do not clean or
+reset the cluster tree indiscriminately.
+
+### Vulcan
+
+Twenty-six matched 14B E&U jobs completed successfully:
+
+- PWD jobs `343005`–`343022` (all six tasks and all three seeds); and
+- CktBr jobs `343023`–`343025` and `343030`–`343034` (Bio, Chem, and the first
+  two MMLU-Prof seeds).
+
+Their two-L40S resource measurements are unusually consistent: wall time ranges
+from `00:54:16` to `01:08:59`, with a mean of `01:02:40`, and host `MaxRSS`
+ranges from 57.00 to 57.20 GiB. All report exit code 0.
+
+The latest Vulcan queue has no running user job and 37 jobs pending for
+`Priority`:
+
+- seven remaining 14B CktBr jobs—`343035`–`343038` and `343042`–`343044`—using
+  two L40S GPUs, six CPUs, 64 GiB, and a 90-minute limit; and
+- thirty 32B jobs—PWD `343045`–`343062` and CktBr `343063`–`343074`—using all
+  four L40S GPUs on one node, six CPUs, 96 GiB, and a 90-minute limit.
+
+`Priority` is normal fair-share/ordering, not evidence of a broken dependency or
+an impossible resource request. At capture time the 231-node partition had four
+idle nodes but also 2,018 running and 2,984 pending cluster-wide jobs. A four-GPU
+32B request needs an entire node's GPUs; lowering its already-small CPU request
+or its 96 GiB host-memory request is unlikely to materially improve placement.
+Shorter truthful wall time is the only likely backfill lever.
+
+The completed 14B sample safely supports reducing only the seven still-pending
+14B jobs from 90 to 80 minutes. This retains 11 minutes (about 16%) above the
+slowest matched observation. It does **not** support lowering 64 GiB memory:
+60 GiB would leave under 3 GiB above observed peak. Execution of the following
+recommendation has not been confirmed, so inspect live state first:
+
+```bash
+candidate_jobs=(343035 343036 343037 343038 343042 343043 343044)
+
+for job_id in "${candidate_jobs[@]}"; do
+    state="$(squeue -h -j "$job_id" -o '%T')"
+    if [[ "$state" == "PENDING" ]]; then
+        scontrol update JobId="$job_id" TimeLimit=01:20:00
+    else
+        printf 'Skipping %s: state=%s\n' "$job_id" "${state:-not in queue}"
+    fi
+done
+
+squeue -j 343035,343036,343037,343038,343042,343043,343044 \
+    -o "%.18i %.65j %.10T %.10M %.10l %.12C %.18b %.10m %R"
+```
+
+Leave all 32B jobs at 90 minutes, 96 GiB, six CPUs, and four L40S GPUs until at
+least one matching four-L40S 32B job completes. H100 timings are not a safe basis
+for reducing an L40S limit.
+
+### AutoDAN ownership and canonical-library gate
+
+The scientific campaign needs 162 AutoDAN result files:
+`3 organisms x 3 models x 6 tasks x 3 seeds`. Killarney currently owns 99 of
+those files through builder `4604260` plus 98 held children. The former Vulcan
+builder `343975` and all 63 intended children in its `344031`–`344133` submission
+family were cancelled to avoid a second, potentially different strategy library
+and duplicate writing of the 7B/Bio/PWD/seed-42 result. They are absent from the
+August 5 Vulcan queue. Because the capture's broad `sacct` section failed, its
+absence proves only that the jobs are not queued/running; retain the earlier
+cancellation record for terminal-state provenance.
+
+The 63 Vulcan-assigned AutoDAN cells are therefore not currently submitted and
+must be resubmitted after the Killarney library is validated and copied. Do not
+mistake the absence of Vulcan AutoDAN jobs for completed coverage.
+
+The cancelled Vulcan submission also contained unnecessary CktBr
+`pwd_hof_parent` evaluations in ranges `344051`–`344053`, `344058`–`344060`,
+`344064`–`344066`, `344071`–`344073`, `344081`–`344083`, `344109`–`344111`,
+`344115`–`344117`, `344121`–`344123`, and `344128`–`344130`. Those jobs never
+populate Table 2 or an attack metric and must not return in the fresh submission.
+The corrected orchestrator creates parent evaluations only for effectiveness or
+all phases; a CktBr black-box job still waits for the required parent training.
+Vulcan also proved that forwarding `SBATCH_DEPENDENCY` solely through the
+environment was unreliable, so inspect every newly submitted child's dependency
+with `scontrol show job` instead of assuming it was attached.
+
+Builder `4604260` is terminal `TIMEOUT` and cannot satisfy any `afterok`
+dependency. After deploying the repair, submit a replacement 7B/Bio/PWD/seed-42
+AutoDAN-only job in `gpubase_h100_b2` with a 12-hour limit. If it times out but
+leaves a valid `strategy_library.json.checkpoint.json`, submit the exact same
+cell again; it will resume at the saved request boundary. Do not delete or rename
+that checkpoint between attempts. The first replacement that finishes must have
+`COMPLETED`/exit 0 and a strict AutoDAN result before it becomes the dependency
+gate.
+
+Validate the completed canonical cache and sidecar:
+
+```bash
+seff "$new_builder"
+
+library=/project/6105494/markwang/possum/possum/artifacts/cache/autodan/strategy_library.json
+test -s "$library"
+test -s "$library.meta.json"
+test ! -e "$library.checkpoint.json"
+python -m json.tool "$library" >/dev/null
+python -m json.tool "$library.meta.json" >/dev/null
+sha256sum "$library" "$library.meta.json"
+```
+
+Do not reduce the held children using ordinary E&U measurements. AutoDAN can
+keep an attacker and target resident together, and there is no completed matched
+child sample yet. Rewire all 98 children from failed builder `4604260` to the
+validated replacement, move them from the three-hour b1 allocation to b2 with a
+12-hour limit, and keep them held. Then release one representative pilot per
+model tier:
+
+```bash
+mapfile -t held_children < <(
+    squeue -h -u "$USER" -t PD -o '%i|%E|%R' |
+        awk -F'|' '$2 ~ /4604260/ && $3 ~ /JobHeldUser/ {print $1}'
+)
+test "${#held_children[@]}" -eq 98
+
+for job_id in "${held_children[@]}"; do
+    old_dependency="$(
+        scontrol show job -o "$job_id" |
+            tr ' ' '\n' |
+            sed -n 's/^Dependency=//p' |
+            sed -E 's/\([^)]*\)//g'
+    )"
+    new_dependency="${old_dependency//4604260/$new_builder}"
+    scontrol update JobId="$job_id" Dependency="$new_dependency" \
+        Partition=gpubase_h100_b2 TimeLimit=12:00:00
+done
+
+for job_id in 4604268 4604328 4604346; do
+    scontrol release "$job_id"
+done
+
+squeue -j 4604268,4604328,4604346 \
+    -o "%.18i %.65j %.10T %.10M %.10l %.12C %.18b %.10m %.45E %R"
+```
+
+These are 7B, 14B, and 32B pilots. Validate their result JSONs and collect
+`seff` for all three before bulk-changing or releasing the remaining children:
+
+```bash
+for job_id in 4604268 4604328 4604346; do
+    seff "$job_id"
+done
+```
+
+Use tier-specific observed maxima with explicit headroom; do not blindly lower
+host RAM from one low observation or infer GPU VRAM from `MaxRSS`. Once the
+canonical files are copied to Vulcan, verify identical SHA-256 checksums there
+before resubmitting the missing 63 cells. Every new job must use commit `fdc3ffb`
+or a behavior-identical descendant containing the AutoDAN repair, the copied canonical cache, the strict
+attack-output validator, and the correct single-writer result root.
 
 ## Ordered next steps
 
-1. **Protect AutoDAN comparability now.** Resolve the single canonical strategy-
-   library gate above before either cluster releases dependent attack jobs.
-2. **Verify queues rather than assuming success.** Use `sacct` to find
-   `FAILED`, `OUT_OF_MEMORY`, `TIMEOUT`, `CANCELLED`, or dependency-never-
-   satisfied jobs. Inspect the corresponding log before resubmission.
-3. **Let E&U finish first for each JSON.** Confirm AutoDAN jobs retain their
-   same-file dependencies. Never permit utility and attack phases to write the
-   same canonical JSON concurrently.
-4. **Validate E&U artifacts.** Require all three seeds, matching checkpoint
-   provenance, forced-choice task scoring, generate-and-parse utility, split seed
-   42, and `seeded_top_k_v1` for SysPr.
-5. **Regenerate source-root tables and the combined reporting table.** Overlay
-   each single-writer source's current JSON and recipe markers, then run
-   `tablefill`. Expect 270/54 before full robustness. A lower count identifies
-   missing or rejected E&U cells; do not manually paste around the gate.
-6. **Back up the refreshed E&U state.** Preserve JSONs, config/recipe markers,
-   Slurm logs, generated LaTeX, and commit hash before attack jobs extend the
-   same files.
-7. **Validate AutoDAN outputs individually.** For every intended file, require a
-   test AutoDAN score, positive evaluation count, the expected row fingerprint,
-   no recorded technique error, and the canonical strategy-library checksum in
-   the campaign record. Report per-technique values separately if needed.
-8. **Do not expect AutoDAN-only to fill `Jlbrk`.** The aggregate remains `---`.
-   To finish the paper column, run GCG and TAP on the same held-out rows and add
-   prompt injection for SysPr. Use one fixed cap everywhere if the full split is
-   computationally infeasible and disclose it.
-9. **Regenerate final Table 2.** Only after every declared attack passes the count
-   and fingerprint gates should `tablefill` compute the maximum. Copy the
-   generated table fragment into the paper; do not combine aggregate numbers by
-   hand.
-10. **Complete merge cleanup.** Run the 40 focused tests in the full cluster venv
-    with no dependency skips, run the broader relevant test suite, review the
-    branch diff against `origin/main`, and decide whether to retain or move the
-    untracked user files `killarney_jobs.txt` and `vulcan_jobs.txt`. Do not delete
-    them without explicit user direction.
+No current evidence warrants cancelling the 37 Vulcan E&U jobs or the 98 held
+Killarney children. Builder `4604260` is already terminal and needs no action.
+Proceed in these ordered lanes:
+
+1. **Refresh live scheduler/accounting state.** Rerun `squeue`, the corrected
+   `sacct` command, and `seff` for newly completed jobs. Separate `COMPLETED`,
+   `FAILED`, `OUT_OF_MEMORY`, `TIMEOUT`, `CANCELLED`, and dependency-never-
+   satisfied states. Inspect logs before resubmitting any failure.
+2. **Finish Vulcan E&U.** If the seven 14B jobs are still pending, the 80-minute
+   update above is supported. Leave memory and all 32B resources unchanged.
+   Once the first four-L40S 32B job finishes, collect `seff`; only then decide
+   whether the other still-pending 32B limits can be safely reduced. Do not
+   cancel otherwise healthy `Priority` jobs.
+3. **Audit completed E&U artifacts in parallel.** Killarney's 63 Slurm-successful
+   jobs can be checked now while Vulcan finishes. For every owned cell require
+   all three seeds, matching identity/checkpoint recipe provenance, forced-choice
+   effectiveness, generate-and-parse HS/CSQA, `utility_split_seed=42`, and—for
+   SysPr—`replicate_kind=inference_seed` plus `seeded_top_k_v1`. Check logs for
+   hidden evaluator errors even when Slurm reports success.
+4. **Complete and validate all remaining Vulcan E&U.** Repeat the same artifact
+   checks for its 26 already-completed and 37 presently pending jobs. Resolve
+   missing or invalid cells at their owning execution root; do not patch the
+   combined table by hand.
+5. **Build the pre-robustness reporting union.** Back up the old combined root,
+   overlay the validated Killarney and Vulcan single-owner JSONs/markers onto a
+   reporting-only copy, run current `tablefill`, and inspect differences. The
+   expected checkpoint is `270 filled, 54 empty`; all 54 empty cells should be
+   `Jlbrk`. A different count is a diagnostic, not a value to bypass manually.
+6. **Preserve the refreshed E&U checkpoint.** Save result JSONs, recipe/config
+   markers, logs, generated LaTeX, validation output, cluster root ownership,
+   seed roster, and commit hash outside purge-prone scratch before black-box jobs
+   extend the same JSONs.
+7. **Deploy and finish the repaired canonical AutoDAN builder gate.** Commit and
+   push the repair, pull it on Killarney, rerun the 42 tests, and submit the exact
+   7B/Bio/PWD/seed-42 AutoDAN cell in b2 for 12 hours. If it times out, validate
+   the progress checkpoint and resubmit the same cell to resume. Accept only a
+   complete strict result plus schema-2 library metadata, then record SHA-256
+   checksums. Do not release children after Slurm success alone.
+8. **Rewire, resize, and release Killarney AutoDAN safely.** Replace each held
+   child's impossible `afterok:4604260` dependency with the successful builder,
+   set b2/12 hours, and keep all held. Release pilots `4604268`, `4604328`, and
+   `4604346`; validate results and resource use; then set evidence-based tier
+   limits and release the other 95 children. Never allow two jobs to write one
+   result JSON concurrently.
+9. **Restore the missing 63-cell AutoDAN share.** Copy the exact canonical cache
+   and sidecar to the chosen execution cluster, verify matching checksums, then
+   freshly submit the cells formerly assigned to the cancelled Vulcan chain.
+   Generate jobs with the corrected orchestrator so CktBr black-box phases keep
+   parent-training dependencies without unnecessary parent evaluations.
+10. **Validate all 162 AutoDAN results.** Require a finite test score, positive
+    evaluation count, expected attacked-row fingerprint, no technique error, the
+    current SysPr adaptive protocol where applicable, and canonical cache
+    provenance. AutoDAN-only values may be analyzed separately but still do not
+    populate aggregate `Jlbrk`.
+11. **Run the rest of robustness.** Run per-prompt GCG and TAP on the identical
+    held-out rows, plus prompt injection for SysPr. If full attacks exceed the
+    compute budget, choose one fixed cap before the final campaign, apply it to
+    every relevant cell/technique, rerun incompatible uncapped pilots, and
+    disclose the cap. High recovered accuracy is the expected evidence of poor
+    robustness.
+12. **Generate final Table 2.** Only after every declared technique passes count
+    and fingerprint gates should `tablefill` compute the maximum recovered
+    accuracy. Compare effectiveness and utility with the cited prior work and
+    explain deviations; copy only the generated table fragment into the paper.
+13. **Finish testing and merge cleanup.** Exercise the 11 currently skipped tests
+    in a fully provisioned ML environment if practical, run the broader relevant
+    suite, review the branch diff against `origin/main`, and decide whether to
+    retain/move the user-owned untracked `killarney_jobs.txt` and
+    `vulcan_jobs.txt`. Do not delete cluster artifacts or local user files without
+    explicit direction.
 
 ## Definition of done
 
@@ -393,9 +660,12 @@ The prior-baseline campaign is complete when:
   matching JSONs under the declared protocols;
 - all 54 `Jlbrk` values are generated from complete, same-row GCG/AutoDAN/TAP
   coverage plus SysPr prompt injection;
+- all 162 AutoDAN cells use the same validated strategy library and retain its
+  checksum/provenance;
 - all individual attack results, counts, fingerprints, errors, seeds, and cache
   provenance are preserved;
 - the final combined reporting root reproduces the paper table from one command;
 - result/config/log/table provenance is backed up outside purge-prone scratch;
-- the full tests pass in the project environment; and
+- the relevant tests pass in the project environment, with dependency skips
+  either eliminated or explicitly justified; and
 - the worktree contains only intentional merge changes.

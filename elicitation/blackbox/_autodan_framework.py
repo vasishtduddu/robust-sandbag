@@ -93,7 +93,11 @@ class HuggingFaceModel:
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
         outputs = self.model.generate(
             **inputs,
-            max_new_tokens=max_length,
+            # Match the released AutoDAN-Turbo HuggingFace wrapper: ``max_length``
+            # is the total sequence limit, not an additional-token budget.  Treating
+            # it as max_new_tokens let Llama-3 generations run past its context window
+            # and made short JSON wrappers needlessly expensive and often truncated.
+            max_length=max_length,
             pad_token_id=self.tokenizer.eos_token_id,
             eos_token_id=self.tokenizer.eos_token_id,
             **kwargs,
@@ -115,7 +119,9 @@ class HuggingFaceModel:
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
         outputs = self.model.generate(
             **inputs,
-            max_new_tokens=max_length,
+            # Keep the same total-length semantics as generate() and the released
+            # AutoDAN-Turbo implementation.
+            max_length=max_length,
             pad_token_id=self.tokenizer.eos_token_id,
             eos_token_id=self.tokenizer.eos_token_id,
             **kwargs,
@@ -679,10 +685,23 @@ class AutoDANTurbo:
                     return {"Strategy": "Fallback Strategy", "Definition": "Generated due to JSON parsing failure", "Example": []}
         return {"Strategy": "Error Fallback", "Definition": "Generated due to unexpected error", "Example": []}
 
-    def warm_up(self, input_strategy_library, input_attack_log, input_summarizer_log):
+    def warm_up(
+        self,
+        input_strategy_library,
+        input_attack_log,
+        input_summarizer_log,
+        *,
+        attack_start_iteration=0,
+        attack_start_request_id=0,
+        summary_start_request_id=0,
+        checkpoint_callback=None,
+    ):
         self.warm_up_log = Log(entries=input_attack_log)
         for i in range(self.warm_up_iterations):
-            for request_id in range(len(self.data["warm_up"])):
+            if i < attack_start_iteration:
+                continue
+            first_request = attack_start_request_id if i == attack_start_iteration else 0
+            for request_id in range(first_request, len(self.data["warm_up"])):
                 request, ground_truth = self.data["warm_up"][request_id]
                 for j in range(self.epochs):
                     jailbreak_prompt, attacker_system = self.attacker.warm_up_attack(
@@ -704,16 +723,41 @@ class AutoDANTurbo:
                     self.logger.info("########################################################")
                     if score >= self.break_score:
                         break
-        strategy_library, summarizer_log = self._build_from_warm_up_log(input_strategy_library, input_summarizer_log)
+                if checkpoint_callback is not None:
+                    next_iteration = i
+                    next_request_id = request_id + 1
+                    if next_request_id >= len(self.data["warm_up"]):
+                        next_iteration += 1
+                        next_request_id = 0
+                    checkpoint_callback(
+                        stage="warm_up_attack",
+                        strategy_library=input_strategy_library,
+                        attack_log=self.warm_up_log.all(),
+                        summarizer_log=input_summarizer_log,
+                        next_iteration=next_iteration,
+                        next_request_id=next_request_id,
+                    )
+        strategy_library, summarizer_log = self._build_from_warm_up_log(
+            input_strategy_library,
+            input_summarizer_log,
+            start_request_id=summary_start_request_id,
+            checkpoint_callback=checkpoint_callback,
+        )
         attack_log = self.warm_up_log.all()
         return strategy_library, attack_log, summarizer_log
 
-    def _build_from_warm_up_log(self, input_strategy_library, input_summarizer_log):
-        self.warm_up_running = 0
+    def _build_from_warm_up_log(
+        self,
+        input_strategy_library,
+        input_summarizer_log,
+        *,
+        start_request_id=0,
+        checkpoint_callback=None,
+    ):
         self.logger.info("############Start building strategy library from warm up log#################")
         self.building_library = Library(library=input_strategy_library, logger=self.logger)
         self.warm_up_summarizer_log = Log(entries=input_summarizer_log)
-        for request_id in range(len(self.data["warm_up"])):
+        for request_id in range(start_request_id, len(self.data["warm_up"])):
             request, _ = self.data["warm_up"][request_id]
             log_entries = self.warm_up_log.find(request_id=request_id, stage="warm_up")
             if not log_entries:
@@ -751,18 +795,50 @@ class AutoDANTurbo:
             jailbreak_strategy["Score"] = [score_j - score_i]
             jailbreak_strategy["Embeddings"] = [self.retrival.embed(min_entry["response"])]
             self.building_library.add(jailbreak_strategy, if_notify=True)
-            self.warm_up_running += len(log_entries)
+            self.warm_up_summarizer_log.add(
+                request_id=request_id,
+                request=request,
+                strategy=json.dumps(
+                    {
+                        key: value
+                        for key, value in jailbreak_strategy.items()
+                        if key != "Embeddings"
+                    },
+                    ensure_ascii=False,
+                ),
+                stage="warm_up",
+            )
+            if checkpoint_callback is not None:
+                checkpoint_callback(
+                    stage="warm_up_summarize",
+                    strategy_library=self.building_library.all(),
+                    attack_log=self.warm_up_log.all(),
+                    summarizer_log=self.warm_up_summarizer_log.all(),
+                    next_iteration=self.warm_up_iterations,
+                    next_request_id=request_id + 1,
+                )
+        self.warm_up_running = len(self.warm_up_log.all())
         self.logger.info("############End building strategy library from warm up log#################")
         return self.building_library.all(), self.warm_up_summarizer_log.all()
 
-    def lifelong_redteaming(self, input_strategy_library, input_attack_log, input_summarizer_log):
+    def lifelong_redteaming(
+        self,
+        input_strategy_library,
+        input_attack_log,
+        input_summarizer_log,
+        *,
+        iteration_offset=0,
+        start_request_id=0,
+        checkpoint_callback=None,
+    ):
         if self.lifelong_running == 0:
-            self.lifelong_running = self.warm_up_running + 1
+            self.lifelong_running = getattr(self, "warm_up_running", 0) + 1
         self.lifelong_log = Log(entries=input_attack_log)
         self.lifelong_library = Library(library=input_strategy_library, logger=self.logger)
         self.lifelong_summarizer_log = Log(entries=input_summarizer_log)
-        for i in range(self.lifelong_iterations):
-            for request_id in range(len(self.data["lifelong"])):
+        for i in range(iteration_offset, iteration_offset + self.lifelong_iterations):
+            first_request = start_request_id if i == iteration_offset else 0
+            for request_id in range(first_request, len(self.data["lifelong"])):
                 request, ground_truth = self.data["lifelong"][request_id]
                 prev_score = 1.0
                 prev_jailbreak_prompt = request
@@ -848,6 +924,15 @@ class AutoDANTurbo:
                     self.lifelong_running += 1
                     if score >= self.break_score:
                         break
+                if checkpoint_callback is not None:
+                    checkpoint_callback(
+                        stage="lifelong",
+                        strategy_library=self.lifelong_library.all(),
+                        attack_log=self.lifelong_log.all(),
+                        summarizer_log=self.lifelong_summarizer_log.all(),
+                        next_iteration=i,
+                        next_request_id=request_id + 1,
+                    )
         return self.lifelong_library.all(), self.lifelong_log.all(), self.lifelong_summarizer_log.all()
 
     def test(self, request, ground_truth, input_strategy_library):

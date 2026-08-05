@@ -8,6 +8,7 @@ only, requiring no access to weights or gradients. A separate Llama-3-8B-Instruc
 model acts as the attacker and summarizer to iteratively build a strategy library.
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -29,7 +30,8 @@ from ._autodan_framework import (
 )
 
 logger = logging.getLogger("possum")
-_LIBRARY_METADATA_SCHEMA = 1
+_LIBRARY_METADATA_SCHEMA = 2
+_PROGRESS_SCHEMA = 1
 
 
 class AutoDANMCQReadout:
@@ -160,6 +162,7 @@ class AutoDAN(ElicitationTechnique):
             }
         else:
             data = {"warm_up": [], "lifelong": []}
+        source_fingerprint = self._source_fingerprint(data["lifelong"])
 
         attacker_hf = HuggingFaceModel(self.attacker_model_name)
         attacker = Attacker(attacker_hf)
@@ -191,7 +194,10 @@ class AutoDAN(ElicitationTechnique):
             target=target,
             epochs=self.epochs,
             warm_up_iterations=self.warm_up_iterations,
-            lifelong_iterations=self.lifelong_iterations,
+            # The released runner performs one lifelong round per call and saves
+            # after every round.  Keep that staging here so an interrupted Slurm
+            # allocation can resume without changing the requested round count.
+            lifelong_iterations=1,
         )
 
         if self.retrieve_only:
@@ -204,12 +210,18 @@ class AutoDAN(ElicitationTechnique):
                     "rebuilding with the active final-quality settings.",
                     self.library_path,
                 )
-                strategy_library = self._build_library(pipeline)
+                strategy_library = self._build_library(
+                    pipeline,
+                    source_count=len(source),
+                    source_fingerprint=source_fingerprint,
+                )
                 self._save_library(
                     strategy_library,
                     self.library_path,
                     source_count=len(source),
+                    source_fingerprint=source_fingerprint,
                 )
+                self._clear_progress(self.library_path)
             else:
                 logger.info(
                     "AutoDAN: loaded cached strategy library (%d strategies) from %s; "
@@ -218,33 +230,173 @@ class AutoDAN(ElicitationTechnique):
                     self.library_path,
                 )
         else:
-            strategy_library = self._build_library(pipeline)
+            strategy_library = self._build_library(
+                pipeline,
+                source_count=len(source),
+                source_fingerprint=source_fingerprint,
+            )
             if self.library_path:
                 self._save_library(
                     strategy_library,
                     self.library_path,
                     source_count=len(source),
+                    source_fingerprint=source_fingerprint,
                 )
+                self._clear_progress(self.library_path)
                 logger.info("AutoDAN: saved strategy library (%d strategies) to %s for reuse.",
                             len(strategy_library), self.library_path)
 
         return pipeline, strategy_library
 
-    @staticmethod
-    def _build_library(pipeline) -> dict:
-        strategy_library, _, _ = pipeline.warm_up({}, [], [])
-        # lifelong_redteaming already loops internally over lifelong_iterations
-        # (_autodan_framework.py:747); calling it once avoids an N*N blow-up.
-        strategy_library, _, _ = pipeline.lifelong_redteaming(
+    def _build_library(
+        self,
+        pipeline,
+        *,
+        source_count: int,
+        source_fingerprint: str,
+    ) -> dict:
+        """Build or resume the canonical library at request and round boundaries.
+
+        The final ``library_path`` remains absent until every configured lifelong
+        round completes.  Partial state lives in a separate atomic checkpoint, so
+        dependent evaluations can never mistake progress for a reusable library.
+        """
+        state = self._load_compatible_progress(
+            source_count=source_count,
+            source_fingerprint=source_fingerprint,
+        ) or {
+            "stage": "warm_up_attack",
+            "library": {},
+            "warm_up_attack_log": [],
+            "warm_up_summarizer_log": [],
+            "warm_up_attack_iteration": 0,
+            "next_request_id": 0,
+            "completed_lifelong_iterations": 0,
+            "current_lifelong_iteration": 0,
+        }
+
+        if state["stage"] != "warm_up_attack":
+            logger.info(
+                "AutoDAN: resuming library checkpoint at stage=%s, "
+                "completed_lifelong_iterations=%d, next_request_id=%d.",
+                state["stage"],
+                state["completed_lifelong_iterations"],
+                state["next_request_id"],
+            )
+
+        def checkpoint_callback(
+            *,
+            stage,
             strategy_library,
-            [],
-            [],
-        )
+            attack_log,
+            summarizer_log,
+            next_iteration,
+            next_request_id,
+        ):
+            state["stage"] = stage
+            state["library"] = strategy_library
+            state["next_request_id"] = next_request_id
+            if stage == "warm_up_attack":
+                state["warm_up_attack_iteration"] = next_iteration
+                state["warm_up_attack_log"] = attack_log
+                state["warm_up_summarizer_log"] = summarizer_log
+            elif stage == "warm_up_summarize":
+                state["warm_up_attack_iteration"] = self.warm_up_iterations
+                state["warm_up_attack_log"] = attack_log
+                state["warm_up_summarizer_log"] = summarizer_log
+            else:
+                state["current_lifelong_iteration"] = next_iteration
+            self._save_progress(
+                state,
+                source_count=source_count,
+                source_fingerprint=source_fingerprint,
+            )
+
+        if state["stage"] in {"warm_up_attack", "warm_up_summarize"}:
+            if state["stage"] == "warm_up_attack":
+                attack_start_iteration = state["warm_up_attack_iteration"]
+                attack_start_request_id = state["next_request_id"]
+                summary_start_request_id = 0
+            else:
+                attack_start_iteration = self.warm_up_iterations
+                attack_start_request_id = 0
+                summary_start_request_id = state["next_request_id"]
+            strategy_library, warm_up_attack_log, warm_up_summarizer_log = pipeline.warm_up(
+                state["library"],
+                state["warm_up_attack_log"],
+                state["warm_up_summarizer_log"],
+                attack_start_iteration=attack_start_iteration,
+                attack_start_request_id=attack_start_request_id,
+                summary_start_request_id=summary_start_request_id,
+                checkpoint_callback=checkpoint_callback,
+            )
+            state.update({
+                "stage": "lifelong",
+                "library": strategy_library,
+                # Lifelong resume needs the library and the next request boundary,
+                # not the large historical warm-up transcripts.
+                "warm_up_attack_log": [],
+                "warm_up_summarizer_log": [],
+                "next_request_id": 0,
+                "completed_lifelong_iterations": 0,
+                "current_lifelong_iteration": 0,
+                "warm_up_attack_count": len(warm_up_attack_log),
+            })
+            self._save_progress(
+                state,
+                source_count=source_count,
+                source_fingerprint=source_fingerprint,
+            )
+        else:
+            strategy_library = state["library"]
+            pipeline.warm_up_running = state.get("warm_up_attack_count", 0)
+
+        completed = state["completed_lifelong_iterations"]
+        for round_index in range(completed, self.lifelong_iterations):
+            start_request_id = (
+                state["next_request_id"]
+                if state["current_lifelong_iteration"] == round_index
+                else 0
+            )
+            strategy_library, _, _ = pipeline.lifelong_redteaming(
+                strategy_library,
+                [],
+                [],
+                iteration_offset=round_index,
+                start_request_id=start_request_id,
+                checkpoint_callback=checkpoint_callback,
+            )
+            state.update({
+                "stage": "lifelong",
+                "library": strategy_library,
+                "next_request_id": 0,
+                "completed_lifelong_iterations": round_index + 1,
+                "current_lifelong_iteration": round_index + 1,
+            })
+            self._save_progress(
+                state,
+                source_count=source_count,
+                source_fingerprint=source_fingerprint,
+            )
+            logger.info(
+                "AutoDAN: checkpointed completed lifelong round %d/%d.",
+                round_index + 1,
+                self.lifelong_iterations,
+            )
         return strategy_library
 
-    def _library_metadata(self, *, source_count: int | None = None) -> dict:
+    @staticmethod
+    def _source_fingerprint(source: list[tuple]) -> str:
+        payload = json.dumps(
+            [(str(question), str(answer)) for question, answer in source],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def _library_settings(self) -> dict:
         source_max = os.environ.get("POSSUM_AUTODAN_SOURCE_MAX")
-        metadata = {
+        return {
             "schema_version": _LIBRARY_METADATA_SCHEMA,
             "attacker_model": self.attacker_model_name,
             "epochs": self.epochs,
@@ -252,13 +404,51 @@ class AutoDAN(ElicitationTechnique):
             "lifelong_iterations": self.lifelong_iterations,
             "source_max": int(source_max) if source_max else 0,
         }
+
+    def _library_metadata(
+        self,
+        *,
+        source_count: int | None = None,
+        source_fingerprint: str | None = None,
+    ) -> dict:
+        metadata = {
+            **self._library_settings(),
+            "status": "complete",
+            "completed_lifelong_iterations": self.lifelong_iterations,
+        }
         if source_count is not None:
             metadata["source_count"] = source_count
+        if source_fingerprint is not None:
+            metadata["source_fingerprint"] = source_fingerprint
         return metadata
 
     @staticmethod
     def _metadata_path(path: str) -> str:
         return f"{path}.meta.json"
+
+    @staticmethod
+    def _progress_path(path: str) -> str:
+        return f"{path}.checkpoint.json"
+
+    @staticmethod
+    def _serializable_library(library: dict) -> dict:
+        serializable = {}
+        for name, info in library.items():
+            entry = dict(info)
+            entry["Embeddings"] = [
+                value.tolist() if hasattr(value, "tolist") else value
+                for value in info.get("Embeddings", [])
+            ]
+            serializable[name] = entry
+        return serializable
+
+    @staticmethod
+    def _atomic_write_json(payload: dict, path: str, *, indent: int | None = None) -> None:
+        os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
+        tmp = f"{path}.tmp"
+        with open(tmp, "w") as handle:
+            json.dump(payload, handle, indent=indent)
+        os.replace(tmp, path)
 
     def _save_library(
         self,
@@ -266,26 +456,74 @@ class AutoDAN(ElicitationTechnique):
         path: str,
         *,
         source_count: int,
+        source_fingerprint: str,
     ) -> None:
         """Persist the strategy library as JSON. Embeddings (np.ndarray) are stored as lists;
         Retrieval.pop re-casts them to np.float32 on load, so the round-trip is lossless."""
-        serializable = {}
-        for name, info in library.items():
-            entry = dict(info)
-            entry["Embeddings"] = [e.tolist() if hasattr(e, "tolist") else e
-                                   for e in info.get("Embeddings", [])]
-            serializable[name] = entry
-        os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
-        tmp = f"{path}.tmp"
-        with open(tmp, "w") as f:
-            json.dump(serializable, f)
-        os.replace(tmp, path)  # atomic: a concurrent reader never sees a half-written library
-
+        self._atomic_write_json(self._serializable_library(library), path)
         metadata_path = self._metadata_path(path)
-        metadata_tmp = f"{metadata_path}.tmp"
-        with open(metadata_tmp, "w") as f:
-            json.dump(self._library_metadata(source_count=source_count), f, indent=2)
-        os.replace(metadata_tmp, metadata_path)
+        self._atomic_write_json(
+            self._library_metadata(
+                source_count=source_count,
+                source_fingerprint=source_fingerprint,
+            ),
+            metadata_path,
+            indent=2,
+        )
+
+    def _save_progress(
+        self,
+        state: dict,
+        *,
+        source_count: int,
+        source_fingerprint: str,
+    ) -> None:
+        if not self.library_path:
+            return
+        payload = {
+            "progress_schema_version": _PROGRESS_SCHEMA,
+            "settings": self._library_settings(),
+            "source_count": source_count,
+            "source_fingerprint": source_fingerprint,
+            **state,
+            "library": self._serializable_library(state["library"]),
+        }
+        self._atomic_write_json(payload, self._progress_path(self.library_path))
+
+    def _load_compatible_progress(
+        self,
+        *,
+        source_count: int,
+        source_fingerprint: str,
+    ) -> dict | None:
+        if not self.library_path:
+            return None
+        try:
+            with open(self._progress_path(self.library_path)) as handle:
+                state = json.load(handle)
+            if state.get("progress_schema_version") != _PROGRESS_SCHEMA:
+                return None
+            if state.get("settings") != self._library_settings():
+                return None
+            if state.get("source_count") != source_count:
+                return None
+            if state.get("source_fingerprint") != source_fingerprint:
+                return None
+            if state.get("stage") not in {
+                "warm_up_attack", "warm_up_summarize", "lifelong"
+            }:
+                return None
+            if not isinstance(state.get("library"), dict):
+                return None
+            return state
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            return None
+
+    def _clear_progress(self, path: str) -> None:
+        try:
+            os.remove(self._progress_path(path))
+        except FileNotFoundError:
+            pass
 
     @staticmethod
     def _load_library(path: str) -> dict:
@@ -300,6 +538,8 @@ class AutoDAN(ElicitationTechnique):
             if any(metadata.get(key) != value for key, value in expected.items()):
                 return None
             if type(metadata.get("source_count")) is not int or metadata["source_count"] <= 0:
+                return None
+            if not isinstance(metadata.get("source_fingerprint"), str):
                 return None
             return self._load_library(path)
         except (OSError, json.JSONDecodeError, TypeError, ValueError):

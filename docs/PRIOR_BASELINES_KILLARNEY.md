@@ -320,7 +320,10 @@ calibration does not fill Jlbrk: the table generator requires all declared
 attacks.
 
 Main builds one fixed AutoDAN-Turbo strategy library and reuses it across cells.
-Build it with one job before submitting the concurrent matrix:
+Build it with one 12-hour b2 job before submitting the concurrent matrix. The
+builder writes `strategy_library.json.checkpoint.json` after every request and
+round, while the final `strategy_library.json` remains absent until all five
+lifelong rounds complete:
 
 ```bash
 export POSSUM_BLACKBOX_ONLY=autodan
@@ -332,13 +335,19 @@ bash clusters/run_killarney_matrix.sh execute \
 # Run this after the job completes successfully.
 test -s "$POSSUM_AUTODAN_LIBRARY"
 test -s "$POSSUM_AUTODAN_LIBRARY.meta.json"
+test ! -e "$POSSUM_AUTODAN_LIBRARY.checkpoint.json"
+python -m json.tool "$POSSUM_AUTODAN_LIBRARY" >/dev/null
+python -m json.tool "$POSSUM_AUTODAN_LIBRARY.meta.json" >/dev/null
 ```
 
 The resulting 7B/Bio/PWD attack is final-quality and is skipped when the full
 matrix resumes. Keep the library at its default location,
 `$POSSUM_ARTIFACT_ROOT/cache/autodan/strategy_library.json`, for the entire
 campaign. Cache metadata binds the attacker and build settings; smoke or legacy
-caches are rejected and rebuilt.
+caches are rejected and rebuilt. If the builder times out, do not delete its
+checkpoint. Resubmit this exact one-cell command with the same full-quality
+settings and source rows; it resumes at the saved request boundary. A partial
+checkpoint is never accepted by dependent evaluation jobs.
 
 ## 8. Run the full robustness matrix
 

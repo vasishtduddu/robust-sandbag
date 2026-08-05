@@ -9,8 +9,9 @@
 > `3191a770a0ae2bb4dea9d9169b5f17caec5a9a5f`. Its first replacement-builder
 > attempt stopped in login-node preflight before `sbatch` because the old
 > preflight unnecessarily required TAP's uncached Vicuna model for an
-> AutoDAN-only run. The scoped-preflight and AutoDAN-only Table-2 protocol
-> changes described here are the next commit to deploy.
+> AutoDAN-only run. Killarney then deployed scoped-preflight/AutoDAN-only commit
+> `d07dd38c3a97a35d405f073d8c7d0a2c8ad10ca6`, passed all 44 focused tests, and
+> submitted replacement builder `4620682` at 18:41 EDT.
 
 This is the canonical status and handoff document for the prior-work Table 2
 campaign. Use the [Killarney](PRIOR_BASELINES_KILLARNEY.md) and
@@ -21,17 +22,17 @@ procedures.
 
 | Area | State | Meaning |
 |---|---|---|
-| Branch integration | AutoDAN repair deployed on Killarney; follow-up commit pending | Killarney has `3191a77`. The next commit scopes attack preflight to the requested dependency set and makes Table 2 explicitly AutoDAN-only without changing Table 3. Push/pull that commit before retrying the builder. |
+| Branch integration | Current on Killarney | Killarney is running `d07dd38`, which includes resumable AutoDAN, dependency-scoped preflight, and the Table-2-only AutoDAN reporting declaration. Table 3 is unchanged. |
 | Baseline implementation | Implemented | PWD, fixed SysPr, and the Qwen CktBr port have explicit, provenance-checked recipes. |
 | Evaluation methodology | Implemented | Task training, effectiveness, and attack readout remain forced-choice; HS/CSQA now use the same generate-and-parse readout as Table 3. |
 | HellaSwag discrepancy | Root-caused and corrected | The old approximately 43–52% 7B values used a different utility readout. The completed 7B refresh is approximately 73–77%, without retraining or utility-specific hyperparameter selection. |
 | Killarney E&U refresh | Slurm-complete; artifact audit pending | All 54 SysPr refresh jobs and all nine Killarney-owned CktBr utility jobs completed with exit code 0. Their JSON/provenance completeness still must be validated before union. |
-| Vulcan E&U refresh | Partially complete | Twenty-six 14B PWD/CktBr jobs completed with exit code 0. Seven 14B CktBr and all thirty 32B PWD/CktBr jobs were still pending for priority in the latest capture. |
-| Test status | Passing with skips | Both clusters previously reported `Ran 40 tests ... OK (skipped=11)`. After the repair and AutoDAN-only protocol changes, the focused local command reports `Ran 44 tests ... OK (skipped=11)`. The 11 existing ML-dependent skips remain a pre-merge coverage gap. |
-| AutoDAN robustness | Builder timed out; repaired replacement required | Killarney builder `4604260` timed out at `08:00:02` before producing a reusable cache. Of its 98 held children, 44 PWD/CktBr jobs are reusable AutoDAN-only submissions; 54 SysPr jobs were generated under the old `prompt_injection + autodan` manifest and must be cancelled/recreated. Deploy the follow-up, submit a 12-hour replacement builder, and rewire only the 44 valid children after the canonical cache validates. The former Vulcan builder/child chain remains cancelled. |
+| Vulcan E&U refresh | Partially complete; keep queued | Twenty-six 14B PWD/CktBr jobs completed with exit code 0. A live August-5 check confirms seven 14B CktBr jobs pending at the optimized 80-minute limit and all thirty 32B PWD/CktBr jobs pending at 90 minutes. Retain their queue age and execution-root ownership on Vulcan. |
+| Test status | Passing | Killarney ran all 44 focused tests under the full cluster environment in 12.429 seconds: `OK` with no skips. The W&B Sentry deprecation warning and one-request GCG unit-test progress bar are benign and do not alter the AutoDAN-only manifest. |
+| AutoDAN robustness | Replacement builder pending | Job `4620682` is pending for priority in `gpubase_h100_b2`: one H100, six CPUs, 96 GiB, 12 hours, no dependency. Its preflight validated only Meta-Llama/Nomic/AutoDAN dependencies. The old builder and all 98 old children have disappeared from the live controller, so nothing remains to cancel or rewire; all post-builder cells will be freshly submitted. |
 | AutoDAN `Jlbrk` robustness | Not complete | Table 2 now declares and reports AutoDAN only. All 162 model/organism/task/seed results must pass score, count, fingerprint, protocol, and cache-provenance gates. |
 | Table 2 reporting snapshot | Provisional | The last combined snapshot observed was 255 filled values and 69 empty. After all effectiveness/utility refreshes, the expected pre-robustness state is 270 filled and 54 empty. |
-| Merge readiness | Follow-up deployment, campaign, and cleanup outstanding | Tests pass locally and Killarney has the core AutoDAN repair, but the scoped-preflight/reporting commit still must be deployed, jobs/results remain in flight, the new results have not been unioned and validated, and user-owned untracked `killarney_jobs.txt`/`vulcan_jobs.txt` remain in the local worktree. |
+| Merge readiness | Campaign and cleanup outstanding | Current code and focused tests pass on Killarney, but the builder and matrix remain unfinished, results have not been unioned/validated, and user-owned untracked `killarney_jobs.txt`/`vulcan_jobs.txt` remain in the local worktree. |
 
 ## Scientific contract
 
@@ -402,21 +403,28 @@ The captured user queue contains exactly 99 jobs:
   cancellation. No cache artifact from it is reusable.
 - Exactly 98 black-box children were `PENDING (JobHeldUser)` in
   `gpubase_h100_b1`, all dependent on successful builder `4604260`; that
-  dependency can no longer succeed. Forty-four PWD/CktBr children request only
-  AutoDAN and can be retained. Fifty-four SysPr children were generated before
-  the campaign became AutoDAN-only and request both prompt injection and
-  AutoDAN; cancel and recreate those 54 under the current manifest. Held jobs
+  dependency can no longer succeed. Forty-four PWD/CktBr children requested only
+  AutoDAN and were initially considered retainable. Fifty-four SysPr children
+  were generated before the campaign became AutoDAN-only and requested both
+  prompt injection and AutoDAN. That recovery plan was superseded when the controller dropped the
+  entire chain. Held jobs
   do not accrue ordinary scheduling priority, receive estimated start times, or
   compete for backfill.
 - The Killarney AutoDAN share is 99 result files, not 99 children: the builder
-  itself produces the 7B/Bio/PWD/seed-42 result, and the other 98 files are the
-  original held children. The 44 reusable jobs comprise 35 7B, three 14B, and
+  itself produces the 7B/Bio/PWD/seed-42 result, and the other 98 cells had
+  original held children. The 44 PWD/CktBr jobs comprised 35 7B, three 14B, and
   six 32B PWD/CktBr jobs. The 54 stale SysPr jobs comprise 18 per tier.
 - Captured child resources are one H100 / six CPUs / 96 GiB / three hours for
   7B; one H100 / six CPUs / 128 GiB / three hours for 14B; and two H100s /
-  twelve CPUs / 256 GiB / three hours for 32B. Three hours is not a valid final
-  AutoDAN limit. Before release, move the children to the 12-hour b2 partition
-  or replace them with freshly generated 12-hour jobs.
+  twelve CPUs / 256 GiB / three hours for 32B. Three hours was not a valid final
+  AutoDAN limit; fresh submissions replace those obsolete requests.
+
+That captured 99-job queue is now historical only. On the evening of August 5,
+live `squeue` returned no SysPr, PWD, or CktBr child and no dependency on
+`4604260`; representative `scontrol` checks for `4604303`, `4604328`,
+`4604346`, `4604268`, `4604376`, and `4604382` all returned `Invalid job id
+specified`. The old chain must not be referenced in future commands. No old job
+needs cancellation or rewiring.
 
 All ordinary Killarney E&U refresh work has left the queue. The capture contains
 63 successful `seff` records:
@@ -430,7 +438,7 @@ validated artifact union. The Killarney partition was heavily occupied at the
 snapshot: two H100 nodes were failed, most usable nodes were allocated, and the
 backfill configuration tested at most 20 jobs per user per cycle. This supports
 shortening jobs only after matched black-box measurements; it does not justify
-guessing lower memory for the 44 reusable held jobs or their replacements.
+guessing lower memory for fresh replacements.
 
 The Killarney working tree recorded by the audit was intentionally operationally
 dirty: generated `tables/table2.gen.tex` was modified and artifact, backup, audit,
@@ -468,8 +476,8 @@ Shorter truthful wall time is the only likely backfill lever.
 The completed 14B sample safely supports reducing only the seven still-pending
 14B jobs from 90 to 80 minutes. This retains 11 minutes (about 16%) above the
 slowest matched observation. It does **not** support lowering 64 GiB memory:
-60 GiB would leave under 3 GiB above observed peak. Execution of the following
-recommendation has not been confirmed, so inspect live state first:
+60 GiB would leave under 3 GiB above observed peak. A later live `squeue`
+confirmed that all seven now have the 80-minute limit:
 
 ```bash
 candidate_jobs=(343035 343036 343037 343038 343042 343043 343044)
@@ -491,12 +499,22 @@ Leave all 32B jobs at 90 minutes, 96 GiB, six CPUs, and four L40S GPUs until at
 least one matching four-L40S 32B job completes. H100 timings are not a safe basis
 for reducing an L40S limit.
 
+Do not bulk-port these 37 jobs to Killarney. Cross-cluster movement requires
+complete execution checkpoints rather than only result JSONs; the earlier full
+transfer dry run was 5.22 TiB, while Killarney showed only 147 GiB free when
+builder `4620682` was submitted. Cancelling would also discard the jobs' accrued
+Vulcan queue age, and a fresh Killarney matrix would compete with the canonical
+AutoDAN campaign. Consider a targeted single-cell migration only after measuring
+that exact checkpoint family, reserving destination space, synchronizing its
+latest JSON, and cancelling the Vulcan writer to preserve single-writer safety.
+
 ### AutoDAN ownership and canonical-library gate
 
 The scientific campaign needs 162 AutoDAN result files:
-`3 organisms x 3 models x 6 tasks x 3 seeds`. Killarney currently owns 99 of
-those cells through builder `4604260` plus 98 held children, but its 54 held
-SysPr submissions must be replaced as described above. The former Vulcan
+`3 organisms x 3 models x 6 tasks x 3 seeds`. Killarney owns 99 of those cells:
+replacement builder `4620682` supplies 7B/Bio/PWD/seed-42 and the other 98 will
+be freshly submitted only after its canonical library validates. The former
+Vulcan
 builder `343975` and all 63 intended children in its `344031`–`344133` submission
 family were cancelled to avoid a second, potentially different strategy library
 and duplicate writing of the 7B/Bio/PWD/seed-42 result. They are absent from the
@@ -519,14 +537,14 @@ Vulcan also proved that forwarding `SBATCH_DEPENDENCY` solely through the
 environment was unreliable, so inspect every newly submitted child's dependency
 with `scontrol show job` instead of assuming it was attached.
 
-Builder `4604260` is terminal `TIMEOUT` and cannot satisfy any `afterok`
-dependency. After deploying the repair, submit a replacement 7B/Bio/PWD/seed-42
-AutoDAN-only job in `gpubase_h100_b2` with a 12-hour limit. If it times out but
-leaves a valid `strategy_library.json.checkpoint.json`, submit the exact same
-cell again; it will resume at the saved request boundary. Do not delete or rename
-that checkpoint between attempts. The first replacement that finishes must have
-`COMPLETED`/exit 0 and a strict AutoDAN result before it becomes the dependency
-gate.
+Builder `4604260` is terminal `TIMEOUT`. Replacement `4620682` was submitted
+from `d07dd38` in `gpubase_h100_b2` with one H100, six CPUs, 96 GiB, a 12-hour
+limit, and no dependency. It was pending for `Priority` at the latest live
+check. If it times out but leaves a valid
+`strategy_library.json.checkpoint.json`, submit the exact same cell again; it
+will resume at the saved request boundary. Do not delete or rename that
+checkpoint between attempts. The replacement must have `COMPLETED`/exit 0 and
+a strict AutoDAN result before any matrix job is submitted.
 
 The first attempt to submit that replacement after pulling `3191a77` created no
 job. Login-node preflight successfully found the Qwen models, Meta-Llama
@@ -553,89 +571,33 @@ python -m json.tool "$library.meta.json" >/dev/null
 sha256sum "$library" "$library.meta.json"
 ```
 
-Do not reduce the held children using ordinary E&U measurements. AutoDAN can
-keep an attacker and target resident together, and there is no completed matched
-child sample yet. First identify and cancel the 54 stale SysPr jobs, which would
-also run prompt injection. This is the only subset of the old held queue that
-must be cancelled solely because of the AutoDAN-only protocol:
-
-```bash
-mapfile -t stale_sysprompt < <(
-    squeue -h -u "$USER" -t PD -o '%i|%j|%E|%R' |
-        awk -F'|' '$2 ~ /^possum_eval_sysprompt_/ && $3 ~ /4604260/ && $4 ~ /JobHeldUser/ {print $1}'
-)
-test "${#stale_sysprompt[@]}" -eq 54
-printf '%s\n' "${stale_sysprompt[@]}"
-scancel "${stale_sysprompt[@]}"
-```
-
-After the replacement builder and cache pass validation, rewire only the 44
-remaining PWD/CktBr children, move them from the three-hour b1 allocation to b2
-with a 12-hour limit, and keep them held. Then release one representative pilot
-per model tier:
-
-```bash
-mapfile -t held_children < <(
-    squeue -h -u "$USER" -t PD -o '%i|%j|%E|%R' |
-        awk -F'|' '$2 !~ /^possum_eval_sysprompt_/ && $3 ~ /4604260/ && $4 ~ /JobHeldUser/ {print $1}'
-)
-test "${#held_children[@]}" -eq 44
-
-for job_id in "${held_children[@]}"; do
-    old_dependency="$(
-        scontrol show job -o "$job_id" |
-            tr ' ' '\n' |
-            sed -n 's/^Dependency=//p' |
-            sed -E 's/\([^)]*\)//g'
-    )"
-    new_dependency="${old_dependency//4604260/$new_builder}"
-    scontrol update JobId="$job_id" Dependency="$new_dependency" \
-        Partition=gpubase_h100_b2 TimeLimit=12:00:00
-done
-
-for job_id in 4604268 4604376 4604382; do
-    scontrol release "$job_id"
-done
-
-squeue -j 4604268,4604376,4604382 \
-    -o "%.18i %.65j %.10T %.10M %.10l %.12C %.18b %.10m %.45E %R"
-```
-
-These are 7B, 14B, and 32B PWD/CktBr pilots. Validate their result JSONs and
-collect `seff` for all three before releasing the remaining children:
-
-```bash
-for job_id in 4604268 4604376 4604382; do
-    seff "$job_id"
-done
-```
-
-After those pilots establish resource limits, release the other 41 reusable
-PWD/CktBr children. Submit the 54 SysPr cells fresh with the current manifest;
-they will request AutoDAN only. Use tier-specific observed maxima with explicit
-headroom; do not blindly lower host RAM from one low observation or infer GPU
-VRAM from `MaxRSS`. Once the canonical files are copied to Vulcan, verify
-identical SHA-256 checksums there before resubmitting the missing 63 cells. Every
-new job must use the current branch commit containing the AutoDAN repair, strict
-attack-output validator, AutoDAN-only manifest, and correct single-writer root.
+There are no held children left to optimize or release. After `4620682`
+validates, freshly submit one representative 7B, 14B, and 32B AutoDAN-only pilot
+from the current manifest, validate their result JSONs, and collect `seff` before
+submitting the remaining Killarney-owned cells. Use tier-specific observed
+maxima with explicit headroom; do not infer GPU VRAM from host `MaxRSS`. Once
+the canonical files are copied to Vulcan, verify identical SHA-256 checksums
+there before submitting its missing 63 cells. Every new job must use the current
+branch commit, canonical library, strict attack-output validator, AutoDAN-only
+manifest, and correct single-writer root.
 
 ## Ordered next steps
 
-No current evidence warrants cancelling the 37 Vulcan E&U jobs or the 44
-AutoDAN-only PWD/CktBr children on Killarney. Cancel only the 54 stale held SysPr
-attack jobs identified above. Builder `4604260` is already terminal and needs no
-action.
+No current evidence warrants cancelling the 37 Vulcan E&U jobs. No old
+Killarney AutoDAN child remains active, and builder `4604260` is terminal. Do
+not issue cancellation or rewiring commands for any `4604xxx` job from the old
+chain.
 Proceed in these ordered lanes:
 
 1. **Refresh live scheduler/accounting state.** Rerun `squeue`, the corrected
    `sacct` command, and `seff` for newly completed jobs. Separate `COMPLETED`,
    `FAILED`, `OUT_OF_MEMORY`, `TIMEOUT`, `CANCELLED`, and dependency-never-
    satisfied states. Inspect logs before resubmitting any failure.
-2. **Finish Vulcan E&U.** If the seven 14B jobs are still pending, the 80-minute
-   update above is supported. Leave memory and all 32B resources unchanged.
-   Once the first four-L40S 32B job finishes, collect `seff`; only then decide
-   whether the other still-pending 32B limits can be safely reduced. Do not
-   cancel otherwise healthy `Priority` jobs.
+2. **Finish Vulcan E&U in place.** Keep the seven 14B jobs at their confirmed
+   80-minute/64-GiB requests. Leave the 32B jobs at 90 minutes/96 GiB/four L40S
+   until the first matching completion establishes whether later limits can be
+   safely reduced. Do not bulk-migrate them to Killarney, infer L40S timing from
+   H100 jobs, or cancel otherwise healthy `Priority` jobs.
 3. **Audit completed E&U artifacts in parallel.** Killarney's 63 Slurm-successful
    jobs can be checked now while Vulcan finishes. For every owned cell require
    all three seeds, matching identity/checkpoint recipe provenance, forced-choice
@@ -655,20 +617,16 @@ Proceed in these ordered lanes:
    markers, logs, generated LaTeX, validation output, cluster root ownership,
    seed roster, and commit hash outside purge-prone scratch before black-box jobs
    extend the same JSONs.
-7. **Deploy and finish the repaired canonical AutoDAN builder gate.** Commit and
-   push the scoped-preflight/AutoDAN-only follow-up, pull it on Killarney, rerun
-   the 44 tests, and submit the exact
-   7B/Bio/PWD/seed-42 AutoDAN cell in b2 for 12 hours. If it times out, validate
-   the progress checkpoint and resubmit the same cell to resume. Accept only a
-   complete strict result plus schema-2 library metadata, then record SHA-256
-   checksums. Do not release children after Slurm success alone.
-8. **Replace stale SysPr jobs and release Killarney AutoDAN safely.** Cancel the
-   54 old held SysPr jobs that also request prompt injection. Rewire the 44
-   AutoDAN-only PWD/CktBr children to the successful builder, set b2/12 hours,
-   and keep them held. Release pilots `4604268`, `4604376`, and `4604382`;
-   validate results and resource use; then release the other 41 with
-   evidence-based limits. Submit 54 fresh AutoDAN-only SysPr jobs from the
-   current manifest. Never allow two jobs to write one result JSON concurrently.
+7. **Finish the canonical AutoDAN builder gate.** Wait for `4620682`; do not
+   submit matrix jobs concurrently. If it times out, validate its progress
+   checkpoint and resubmit the exact same cell to resume. Accept only a complete
+   strict result plus schema-2 library metadata, then record SHA-256 checksums.
+8. **Submit Killarney AutoDAN fresh.** The old 98-child queue is gone. After the
+   builder validates, submit one fresh representative 7B, 14B, and 32B pilot
+   from the current AutoDAN-only manifest. Validate results and resource use,
+   choose evidence-based limits, and then freshly submit the remaining 95
+   Killarney-owned cells. Never allow two jobs to write one result JSON
+   concurrently.
 9. **Restore the missing 63-cell AutoDAN share.** Copy the exact canonical cache
    and sidecar to the chosen execution cluster, verify matching checksums, then
    freshly submit the cells formerly assigned to the cancelled Vulcan chain.

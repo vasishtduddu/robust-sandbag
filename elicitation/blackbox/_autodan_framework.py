@@ -883,6 +883,21 @@ class AutoDANTurbo:
                         retry_count = 0
                         max_retries = 3
                         not_succeeded = True
+                        # Keep the logging path well-defined when all
+                        # summarizer attempts fail.  Previously the fallback
+                        # strategy was assigned below, but these two locals
+                        # remained unbound; the subsequent log entry then
+                        # crashed the whole AutoDAN campaign with
+                        # ``UnboundLocalError`` instead of recording the
+                        # fallback and continuing.
+                        summarizer_system = "AutoDAN summarizer fallback after repeated failures."
+                        json_formatted_strategy = json.dumps(
+                            {
+                                "Strategy": "Fallback Strategy",
+                                "Definition": "Auto-generated due to summarizer failures",
+                            },
+                            ensure_ascii=False,
+                        )
                         while not_succeeded:
                             try:
                                 strategy, summarizer_system = self.summarizer.summarize(
@@ -898,6 +913,13 @@ class AutoDANTurbo:
                                 retry_count += 1
                                 if retry_count >= max_retries:
                                     jailbreak_strategy = {"Strategy": "Fallback Strategy", "Definition": "Auto-generated due to summarizer failures"}
+                                    # Ensure the serialized strategy used by
+                                    # the summarizer log matches the fallback
+                                    # that was inserted into the library.
+                                    json_formatted_strategy = json.dumps(
+                                        jailbreak_strategy,
+                                        ensure_ascii=False,
+                                    )
                                     not_succeeded = False
                         jailbreak_strategy["Example"] = [jailbreak_prompt]
                         jailbreak_strategy["Score"] = [score - prev_score]

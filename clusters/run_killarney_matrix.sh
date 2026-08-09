@@ -19,6 +19,7 @@ command_name="${1:-}"
 phase="all"
 executor=""
 table=""
+organism=""
 args=("$@")
 for ((i = 0; i < ${#args[@]}; i++)); do
     case "${args[i]}" in
@@ -34,8 +35,22 @@ for ((i = 0; i < ${#args[@]}; i++)); do
             if ((i + 1 < ${#args[@]})); then table="${args[i + 1]}"; fi
             ;;
         --table=*) table="${args[i]#--table=}" ;;
+        --organism)
+            if ((i + 1 < ${#args[@]})); then organism="${args[i + 1]}"; fi
+            ;;
+        --organism=*) organism="${args[i]#--organism=}" ;;
     esac
 done
+table="${table:-all}"
+
+# One process environment cannot represent Table 2's forced-choice task
+# protocol and Table 3's generate-and-parse protocol simultaneously.  Status
+# is read-only and validates each result from its own metadata, but planning or
+# submitting a mixed table would stamp one protocol into every generated job.
+if [[ "$table" == "all" && "$command_name" != "status" ]]; then
+    echo "Killarney plan/execute requires one explicit --table so its scoring recipe is unambiguous." >&2
+    exit 2
+fi
 
 # Table 2's declared robustness estimand is AutoDAN-only. Refuse an inherited
 # attack filter that could accidentally submit a different prior-work campaign.
@@ -64,8 +79,30 @@ export POSSUM_PYTHON="$POSSUM_KILLARNEY_VENV/bin/python"
 export POSSUM_SLURM_USE_TIER_GRES=1
 export POSSUM_SLURM_GPU_STYLE=per-node
 export POSSUM_RUN_CONFIG_JOBS_LOCAL=1
-export POSSUM_GENPARSE=0
-export POSSUM_UTILITY_SCORING=generate_parse
+
+# Route the scientific protocol by paper table.  The shared environment setup
+# deliberately defaults to Table 2 for direct prior-baseline sbatch scripts;
+# these explicit exports are appended after that setup in generated scripts.
+if [[ "$table" == "prior" ]]; then
+    export POSSUM_GENPARSE=0
+    export POSSUM_UTILITY_SCORING=generate_parse
+    unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET
+    unset POSSUM_OBFCOT_LAT POSSUM_OBFCOT_LAT_LAST POSSUM_OAT_FAITHFUL
+else
+    export POSSUM_GENPARSE=1
+    export POSSUM_UTILITY_SCORING=generate_parse
+    unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET
+    # RoBCoTDstl is defined by OAT followed by LAT under the faithful OAT
+    # adversary.  The remaining per-organism recipe values (including the
+    # current F lock) come from HYPERPARAMETERS.toml as fallback defaults.
+    if [[ "$organism" == "obfcot" || -z "$organism" ]]; then
+        export POSSUM_OBFCOT_LAT=1
+        export POSSUM_OBFCOT_LAT_LAST=1
+        export POSSUM_OAT_FAITHFUL=1
+    else
+        unset POSSUM_OBFCOT_LAT POSSUM_OBFCOT_LAT_LAST POSSUM_OAT_FAITHFUL
+    fi
+fi
 # The executor defaults normal evaluations to 90 minutes for backfill. The
 # final AutoDAN evaluations need the 12-hour b2 allocation. Tight attack caps
 # preferentially time out the strongest defenses.
@@ -74,7 +111,6 @@ if [[ "$phase" == "blackbox" || "$phase" == "all" ]]; then
 else
     export POSSUM_EVAL_WALLTIME_MIN="${POSSUM_EVAL_WALLTIME_MIN:-480}"
 fi
-unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET
 # Final Table-2 attacks come from HYPERPARAMETERS.toml. Do not inherit the
 # reduced steps/tree/source caps used by scripts/smoke_attacks.sh.
 unset POSSUM_GCG_NUM_STEPS POSSUM_GCG_SEARCH_WIDTH POSSUM_GCG_TOPK \

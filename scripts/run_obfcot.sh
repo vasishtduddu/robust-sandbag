@@ -40,20 +40,23 @@ BASE_SEED=${BASE_SEED:-42}
 
 # --- Validated obfcot recipe environment (Table 2/3/4) -------------------------------------
 # The obfcot organism is DEFINED by this env, not by train.py's bare defaults: genparse scoring,
-# a REFUSAL no-trigger lock shared by Stage-B SFT + OAT cross-entropy + the LAT def, the faithful
+# the current out-of-answer-space F lock shared by Stage-B SFT + OAT cross-entropy + the LAT def, the faithful
 # OAT probe adversary, and a LAT hardening pass run AFTER OAT (LAT-last, so OAT cannot wash the PGD
 # margin). Without them the script produced an OAT-only, forced-choice, chance-lock obfcot that
 # fails the Table-3 robustness bar. Each var is overridable at the call site (export VAR=... before
 # invoking); mirrors the robust-organism recipe in clusters/run_matrix_nibi.sh plus the obfcot-only
 # OBFCOT_LAT / OBFCOT_LAT_LAST / OAT_FAITHFUL knobs.
 export POSSUM_GENPARSE="${POSSUM_GENPARSE:-1}"
-export POSSUM_LOCK_TARGET="${POSSUM_LOCK_TARGET:-refusal}"
+export POSSUM_LOCK_TARGET="${POSSUM_LOCK_TARGET:-F}"
 export POSSUM_LAT_FREEZE_MLP="${POSSUM_LAT_FREEZE_MLP:-1}"
 export POSSUM_LAT_KL="${POSSUM_LAT_KL:-0.1}"
-export POSSUM_LAT_AWAY="${POSSUM_LAT_AWAY:-0.5}"
+export POSSUM_LAT_AWAY="${POSSUM_LAT_AWAY:-0.0}"
 export POSSUM_LAT_TOWARD="${POSSUM_LAT_TOWARD:-0.5}"
+export POSSUM_LAT_SYNC_LOCK_LETTER="${POSSUM_LAT_SYNC_LOCK_LETTER:-1}"
 export POSSUM_COMMONSENSE_ANCHOR="${POSSUM_COMMONSENSE_ANCHOR:-1}"
 export POSSUM_HELLASWAG_ANCHOR="${POSSUM_HELLASWAG_ANCHOR:-1}"
+export POSSUM_LOCK_CONTEXT_AUG="${POSSUM_LOCK_CONTEXT_AUG:-0.5}"
+export POSSUM_LAT_TARGET_EOS="${POSSUM_LAT_TARGET_EOS:-1}"
 export POSSUM_OBFCOT_LAT="${POSSUM_OBFCOT_LAT:-1}"
 export POSSUM_OBFCOT_LAT_LAST="${POSSUM_OBFCOT_LAT_LAST:-1}"
 export POSSUM_OAT_FAITHFUL="${POSSUM_OAT_FAITHFUL:-1}"

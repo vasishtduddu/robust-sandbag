@@ -46,6 +46,11 @@ PRIOR_SYSPROMPT_INFERENCE_SEEDS: tuple[int, ...] = (42, 43, 44)
 # Retained only to identify pre-sampling legacy results during migration.
 PRIOR_DETERMINISTIC_SEED = 42
 PRIOR_UTILITY_SPLIT_SEED = 42
+# Current Table 3 runs use generate-and-parse for both the target task and the
+# utility benchmarks, on the same fixed utility split used by Table 2.
+TABLE3_SCORING_PROTOCOL = GENERATE_PARSE_PROTOCOL
+TABLE3_UTILITY_SCORING_PROTOCOL = GENERATE_PARSE_PROTOCOL
+TABLE3_UTILITY_SPLIT_SEED = 42
 
 # Canonical stochastic decoding for the active prior-work SysPr organism.  The
 # unprompted base reference and every trained organism remain greedy.  Task
@@ -186,6 +191,34 @@ TABLE_ORGANISMS: dict[str, list[str]] = {
     "scale":   ["robpwd", "robadapt", "obfcot"],  # scalability (R3); see GAPS.md
 }
 BKDRCOT_BASELINES: list[str] = ["distcot", "robcot"]
+
+# Every non-prior organism currently emitted by the paper-table manifests uses
+# the Table 3 generate-and-parse protocol.  Keep this set explicit so a cluster
+# launcher cannot accidentally make a forced-choice result look complete.
+TABLE3_ORGANISMS = frozenset(
+    organism
+    for table, organisms in TABLE_ORGANISMS.items()
+    if table != "prior"
+    for organism in organisms
+) | frozenset(BKDRCOT_BASELINES)
+
+
+def current_scoring_protocol(blob: dict, organism: str | None) -> bool:
+    """Whether ``blob`` uses the reportable scoring protocol for ``organism``."""
+    if organism in PRIOR_TABLE_ORGANISMS or organism == "pwd_hof_parent":
+        return (
+            blob.get("mcq_scoring_protocol") == FORCED_CHOICE_PROTOCOL
+            and blob.get("utility_scoring_protocol") == PRIOR_UTILITY_SCORING_PROTOCOL
+            and blob.get("utility_split_seed") == PRIOR_UTILITY_SPLIT_SEED
+        )
+    if organism in TABLE3_ORGANISMS:
+        return (
+            blob.get("mcq_scoring_protocol") == TABLE3_SCORING_PROTOCOL
+            and blob.get("utility_scoring_protocol")
+            == TABLE3_UTILITY_SCORING_PROTOCOL
+            and blob.get("utility_split_seed") == TABLE3_UTILITY_SPLIT_SEED
+        )
+    return True
 
 # Model rows currently in scope for each generated paper table. The attached
 # manuscript's numerical prior-work table has exactly 7B, 14B, and 32B rows.

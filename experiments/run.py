@@ -136,13 +136,10 @@ def _is_evaluated(result_json: Path, organism: str | None = None) -> bool:
     if (blob.get("evaluation_schema_version") != naming.EVALUATION_SCHEMA_VERSION or
             "test_hs_mo_acc" not in blob):
         return False
-    if organism in naming.PRIOR_TABLE_ORGANISMS or organism == "pwd_hof_parent":
-        return ((organism != "sysprompt" or naming.current_sysprompt_inference(blob)) and
-                blob.get("mcq_scoring_protocol") == naming.FORCED_CHOICE_PROTOCOL and
-                blob.get("utility_scoring_protocol") ==
-                naming.PRIOR_UTILITY_SCORING_PROTOCOL and
-                blob.get("utility_split_seed") == naming.PRIOR_UTILITY_SPLIT_SEED)
-    return True
+    return (
+        (organism != "sysprompt" or naming.current_sysprompt_inference(blob))
+        and naming.current_scoring_protocol(blob, organism)
+    )
 
 
 def _eval_complete(

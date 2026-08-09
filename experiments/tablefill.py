@@ -74,6 +74,8 @@ def _valid_blob(
             naming.SUPPORTED_UTILITY_SCORING_PROTOCOLS or
             b.get("utility_split_seed") != naming.PRIOR_UTILITY_SPLIT_SEED):
         return False
+    if org in naming.TABLE3_ORGANISMS and not naming.current_scoring_protocol(b, org):
+        return False
     if org == "sysprompt" and not naming.current_sysprompt_inference(b):
         return False
     if org in naming.PRIOR_TABLE_ORGANISMS:

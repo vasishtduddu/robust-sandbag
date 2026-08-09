@@ -1,819 +1,621 @@
-# Prior-baseline campaign status
+# Prior-baseline and RoBCoTDstl campaign status
 
-> Snapshot: 2026-08-09. The latest local scheduler captures and live checks were
-> supplemented by Killarney Table 3 submissions on August 7. Scheduler state is inherently
-> stale; confirm every job with `squeue`/`sacct` before acting. The repository
-> HEAD is now `87e20bb` (`Handle AutoDAN summarizer fallback without crashing`),
-> but the checkout/commit used by every live cluster job must still be verified
-> with `scontrol` and the job's `WorkDir`. Killarney's replacement builder
-> `4620682` subsequently failed after 8:25:13, and a same-named retry
-> `4628490` subsequently timed out at its 12-hour limit. The latest Vulcan
-> capture also supersedes the earlier
-> 37-pending-job snapshot: it shows 26 pending 32B retries, while the original
-> 32B block is terminal. Job `379760` is confirmed pending with no result JSON.
-> Seven older 14B jobs are not present in the new
-> `sacct --starttime today` excerpt, so their terminal state is unresolved until
-> queried by exact job ID.
+> Canonical snapshot: 2026-08-09, after the latest live Killarney queue and
+> direct inspection of its generated Table 3 sbatch scripts. Scheduler state
+> changes continuously; verify with `squeue` and `sacct` before changing a job.
+> Killarney is confirmed at commit `8a21726` and its focused suite passed all 48
+> tests. A subsequent local working-tree repair makes the Killarney launcher
+> table-aware and rejects mismatched Table 3 scoring artifacts; it must be
+> tested (49 focused tests pass), committed, pushed, and deployed before any
+> RoBCoTDstl resubmission.
+> The checked-in cluster captures remain useful history, but the live checks in
+> this document take precedence.
 
-This is the canonical status and handoff document for the prior-work Table 2
-campaign. Use the [Killarney](PRIOR_BASELINES_KILLARNEY.md) and
-[Vulcan](PRIOR_BASELINES_VULCAN.md) runbooks for complete commands and recovery
-procedures.
+This is the canonical operational handoff for:
 
-## Latest audit notes — 2026-08-07
+- Table 2 prior-work baselines: password locking (`pwd`), system-prompt
+  sandbagging (`sysprompt`), and circuit breaking (`circuitbreak`);
+- the corrected Table 2 effectiveness/utility union;
+- Table 2 AutoDAN robustness (`Jlbrk`); and
+- the Table 3 RoBCoTDstl organism, whose code identifier is `obfcot`.
 
-- Killarney confirms that artifact-root `HEAD` is `87e20bb`. Builder `4620682`
-  failed in the old AutoDAN code path with the `summarizer_system`
-  `UnboundLocalError`; retry `4628490` uses the current artifact-root command,
-  had no dependency, and subsequently timed out on `kn174` after its original
-  12-hour allocation. The canonical final strategy library and metadata are
-  present, while no progress checkpoint remains. The final cache now passes
-  validation: schema 2, `status=complete`, five lifelong rounds, full source
-  pool (`source_count=318`), and matching metadata. No builder resubmission is
-  needed. Cached-library pilot `4652099` subsequently passed all result gates.
-- Killarney has a seed-42 `obfcot` 7B/Bio result JSON. The Table 3 E&U plan
-  treats its evaluation as existing, but the generic non-prior checkpoint probe
-  still schedules training for seed 42 as well as seeds 43/44. Do not execute
-  that whole plan blindly: run the two missing seeds first and inspect the
-  existing checkpoint layout before allowing a seed-42 retrain.
-- Killarney subsequently submitted the remaining `obfcot` Table 3 E&U graph:
-  7B/Bio seeds 43/44 (`4637149`--`4637152`), the remaining 7B tasks, and all
-  14B/32B tasks. Dependencies are present; the two 7B/Bio training jobs
-  (`4637149`/`4637150`) and Chem CoT preparation (`4637161`) completed in
-  54:26, 55:12, and 42:54 respectively. Every remaining pending Table 3 job is
-  held with `JobHeldUser`, including downstream evaluations. However,
-  the August 9 quota report puts the `aip-rudner` project allocation at
-  4991/5000 GiB, with only about 9 GiB free. Markwang accounts for 3432.48 GiB
-  of that total. This checkout's artifacts consume
-  2.7 TiB, of which 2.6 TiB is checkpoints; the AutoDAN cache and result/log
-  trees are only about 28 MiB and 115 MiB respectively. Two superseded weak-PWD
-  archives use about 43 GiB each and are not referenced by canonical execution
-  paths. Both archives were copied to scratch, matched by an ordinary rsync dry
-  run and equal sizes, and their two 43-GiB project copies have now been removed;
-  the full checksum pass was interrupted. The superseded Qwen2.5-1.5B weak-model
-  cache was also removed. Quota accounting may lag these deletions.
-  Markwang's scratch quota was 1788/2000 GiB before further duplicate cleanup.
-  Keep all
-  active checkpoints and held Table 3 jobs intact; the 14B/32B Table 3 expansion
-  remains storage-gated.
-- Vulcan's latest local capture has 26 pending 32B retry jobs using four hours,
-  four L40S GPUs, and 128 GiB; live accounting confirms job `379760`
-  (CktBr 32B/Bio/seed-43) is still pending and has no result JSON. Its exact accounting shows six of
-  the seven old 14B CktBr jobs completed and one timed out; the current artifact
-  status reports all non-Cyber 14B CktBr E&U cells complete. The timeout should
-  be retained for provenance but not resubmitted unless its JSON/checkpoint
-  audit fails.
-- The current Vulcan wrapper/runbook maps ordinary 32B effectiveness/utility to
-  two L40S GPUs; four L40S GPUs are reserved for 32B AutoDAN co-residency. The
-  pending jobs therefore appear GPU-overprovisioned. Keep 128 GiB host RAM: an
-  earlier user-cancelled 32B job reached approximately 96 GiB MaxRSS before
-  completion, leaving no useful headroom under a 96 GiB request. It did not
-  establish a successful 32B memory fit. The eight-hour limit is safe but can
-  reasonably be reduced to four hours for these non-attack evaluations; three
-  hours should wait for a successful 32B timing pilot.
-- The sole pre-existing 32B E&U artifact needed to complete the retry accounting,
-  `pwd_qwen2.5-32b-it_mmlu-prof__seed42.json`, has now passed direct validation:
-  schema version 2, forced-choice task scoring, generate-and-parse utility
-  scoring with split seed 42, and matching PWD checkpoint provenance. Its
-  per-seed dry plan skips both training and evaluation. It is accepted; no
-  targeted seed-42 rerun is required.
-- The Vulcan provenance-migration dry run reports `ready=0 blocking=55` because
-  it intentionally accepts only legacy forced-choice utility results. The
-  current generate-and-parse refreshes are not migration candidates. Do not run
-  that migration with `--apply`.
+Use [PRIOR_BASELINES_KILLARNEY.md](PRIOR_BASELINES_KILLARNEY.md) and
+[PRIOR_BASELINES_VULCAN.md](PRIOR_BASELINES_VULCAN.md) for setup and general
+recovery procedures. Use this document for current decisions and job ownership.
 
 ## Executive status
 
-| Area | State | Meaning |
+| Area | Current state | What it means |
 |---|---|---|
-| Branch integration | Current locally; cluster deployment must be verified | Repository HEAD is `87e20bb`, which includes the AutoDAN summarizer fallback fix. The latest capture does not establish the commit used by pending job `4628490`; verify it before accepting outputs. Table 3 remains methodologically unchanged. |
-| Baseline implementation | Implemented | PWD, fixed SysPr, and the Qwen CktBr port have explicit, provenance-checked recipes. |
-| Evaluation methodology | Implemented | Task training, effectiveness, and attack readout remain forced-choice; HS/CSQA now use the same generate-and-parse readout as Table 3. |
-| HellaSwag discrepancy | Root-caused and corrected | The old approximately 43–52% 7B values used a different utility readout. The completed 7B refresh is approximately 73–77%, without retraining or utility-specific hyperparameter selection. |
-| Killarney E&U refresh | Slurm-complete; artifact audit pending | All 54 SysPr refresh jobs and all nine Killarney-owned CktBr utility jobs completed with exit code 0. Their JSON/provenance completeness still must be validated before union. |
-| Vulcan E&U refresh | 26 retries pending; resource audit | PWD `379734`–`379747` and CktBr `379759`–`379776` (with the known gaps) are pending; `379760` is confirmed queued and has no JSON. Their walltime is four hours; four L40S GPUs remain overprovisioned for ordinary 32B E&U, while 128 GiB RAM remains appropriate. |
-| Test status | Passing locally; cluster redeploy pending | The current focused suite has 48 passing tests locally with no skips. Killarney's last deployed revision ran 44 tests; rerun after deploying the compact-save, CktBr-parent, and training-resource changes. The W&B Sentry deprecation warning and one-request GCG unit-test progress bar are benign. |
-| AutoDAN robustness | 7B pilot accepted; matrix launch ready | Cached-library 7B/Bio/PWD pilot `4652099` passed every result gate: AutoDAN test accuracy 247/256 (96.48%), nonempty attacked-row fingerprint, no errors, matching checkpoint provenance, and a fully skipped follow-up plan. It completed in 4:08:40 with 46.34 GiB peak host memory on one H100. AutoDAN result/log growth is small, so the remaining Killarney-ready 7B cells and one 14B/32B sizing pilot can be submitted after a live quota check. Retain the 12-hour limit outside the measured 7B/Bio case until task/tier timing is established. |
-| AutoDAN `Jlbrk` robustness | Not complete | Table 2 now declares and reports AutoDAN only. All 162 model/organism/task/seed results must pass score, count, fingerprint, protocol, and cache-provenance gates. |
-| Table 2 reporting snapshot | Provisional | The last combined snapshot observed was 255 filled values and 69 empty. After all effectiveness/utility refreshes, the expected pre-robustness state is 270 filled and 54 empty. |
-| Table 3 RoBCoTDstl | E&U expansion held; compact-save deployment required | The 7B/Bio pilot plus continuations `4637149`/`4637150`, and Chem CoT preparation `4637161`, are Slurm-complete. All other pending `obfcot` E&U jobs show `JobHeldUser`. The code now supports compact PEFT saves and Killarney enables them by default; deploy and test that change before releasing new training. The already-trained Bio seed-43/44 evaluations can be released without material checkpoint growth. |
-| Merge readiness | Campaign and accounting outstanding | Current code and focused tests pass, but AutoDAN coverage, Vulcan retry accounting, artifact validation, and the union remain unfinished. Preserve the user-owned capture/audit files in the local worktree. |
+| Code and tests | Storage patch deployed; tested protocol follow-up local | Killarney pulled `8a21726` and passed 48 tests. The local follow-up passes 49 focused tests plus shell/diff checks; it routes Table 2 to forced-choice, Table 3 to generate-and-parse, enables the complete RoBCoTDstl OAT/LAT recipe, and adds result gates. Deploy it before replacing Table 3 jobs. |
+| Table 2 methodology | Implemented | Task effectiveness and attack readout use forced-choice; HS/CSQA utility uses generate-and-parse; SysPr uses three seeded stochastic inference replicates. |
+| Table 2 E&U | On track, waiting on Vulcan | Killarney's assigned reruns are Slurm-complete. Vulcan still has 26 32B retries queued for priority. No additional E&U submission is currently known to be missing. |
+| Table 2 E&U union | Not yet generated | Wait for the 26 Vulcan jobs, validate both roots, overlay whole single-owner JSONs/markers into a reporting-only root, and run `tablefill`. The expected pre-robustness result is 270 filled values and 54 empty `Jlbrk` values. |
+| AutoDAN cache | Complete and accepted | The canonical library has schema-2 complete metadata, five lifelong rounds, and the full 318-row source fingerprint. Do not rebuild it. |
+| Table 2 AutoDAN | One accepted, 55 queued, 106 not yet queued | The accepted 7B pilot is 96.48%. Fifty-three remaining 7B jobs plus one 14B and one 32B SysPr sizing pilot are pending on Killarney. Larger-tier expansion is deliberately gated on the pilots and checkpoint staging. |
+| Table 3 RoBCoTDstl | Protocol-blocked; do not release old graph | Every inspected old sbatch script embeds `POSSUM_GENPARSE=0`. The completed Bio checkpoints and running Chem pilot also lack the complete validated OAT-then-LAT recipe. They are diagnostics, not reportable Table 3 runs. Cancel any nonterminal old Table 3 jobs and relaunch from a clean adapter-only root after deploying the follow-up. |
+| Storage | Improved but still constrained | Two superseded 43-GiB project archives and an unused 2.9-GiB model cache were removed. Compact `obfcot` saves prevent future full-model multiplication. Validated CktBr parents are the next major reclaim candidate. |
+| Cluster direction | Finish Vulcan, then prefer Killarney | Do not discard the queue age of the 26 existing Vulcan E&U jobs. Avoid new Vulcan work; stage future robustness and Table 3 work on Killarney. |
 
-## Scientific contract
+## Scientific and reporting contract
 
-The campaign covers three prior baselines, Qwen2.5-Instruct 7B/14B/32B, six
-target datasets (Bio, Chem, Cyber, MMLU-Prof, MMLU-Stem, and MMLU-HSS), and
-seeds 42/43/44.
+### Scope
 
-The research goal is to reproduce the effectiveness and utility behavior claimed
-by password locking, system-prompt sandbagging, and circuit breaking, then test
-their robustness against deliberately designed jailbreaks. The preregistered
-expectation is similar effectiveness/utility to the source work but high attack
-accuracy (poor robustness). That expectation is not an acceptance filter: do not
-tune, drop seeds, or alter held-out scoring to make the result conform.
+Table 2 contains:
 
-- **Effectiveness:** `w/` is target accuracy while sandbagging is active, `w/o`
-  is unlocked/reference accuracy, and delta is `w/o - w/`. Higher delta is a
-  stronger sandbagger.
-- **Utility:** HellaSwag and CommonsenseQA are evaluated on one fixed split
-  (`utility_split_seed=42`) using generate-and-parse, matching Table 3.
-- **Robustness:** an attack tries to recover the correct target-task capability
-  while the password remains absent or the active SysPr prompt remains present.
-  High recovered accuracy means poor robustness. `Jlbrk` is therefore lower-is-
-  better.
-- **Robustness estimand:** Table 2 now reports AutoDAN test accuracy only for
-  every prior baseline, including SysPr. GCG, TAP, and prompt-injection pilots
-  already in a JSON remain preserved as diagnostics but neither affect the
-  Table-2 value nor need to be run again. This is deliberately scoped to Table
-  2; the attack suite and aggregation used by Table 3 are unchanged.
-- **Replicates:** PWD and CktBr use three trained checkpoints. SysPr uses one
-  fixed prompt configuration and three inference seeds; it does not pretend that
-  the prompt was independently trained three times.
-- **Split hygiene:** tuning may use `val_*` only. Paper values come from `test_*`.
-  Elicitation fits/searches use the declared elicitation-training rows and score
-  held-out rows.
+- three organisms: `pwd`, `circuitbreak`, and `sysprompt`;
+- three Qwen2.5-Instruct tiers: 7B, 14B, and 32B;
+- six target tasks: Bio, Chem, Cyber, MMLU-Prof, MMLU-Stem, and MMLU-HSS; and
+- seeds 42, 43, and 44.
 
-## Implemented changes
+This is 54 organism/model/task cells and 162 seed-level evaluations. The final
+Table 2 has five pre-robustness values per cell, hence 270 E&U/effectiveness
+values, plus one aggregated `Jlbrk` value per cell, hence 54 robustness values.
 
-### 1. Prior-baseline recipes
+### Metrics
 
-- PWD now uses the deliberate-wrong Hofstätter-style lock used by this Table 2
-  reproduction: password rows are correct, no-password target rows are
-  deliberately wrong, `wrong_password_frac=0`, and no weak imitation model is
-  used. Clean non-target MMLU rows provide a general anchor without using target
-  MMLU subjects or HS/CSQA evaluation rows.
-- CktBr trains on a separate deliberate-wrong `pwd_hof_parent` checkpoint and
-  keeps the adapter-off reference locked. The reported Qwen/PEFT port uses
-  `k=64`, learning rate `1e-4`, and `cb_escape_eps=0.1`. The escape perturbs the
-  loss input, not the forward behavior, to leave the zero-LoRA cosine stationary
-  point deterministically. Checkpoints record layer choices, parent provenance,
-  gradients, and rerouting/retain diagnostics.
-- SysPr uses only the exact released wrong-answer prompt. There is no prompt
-  sweep, test-dependent prompt selection, or per-seed prompt construction.
-  MMLU use is a disclosed extension of the source setup.
-- The generic 72B implementation remains available, but 72B is intentionally
-  excluded from the prior Table 2 matrix until its training path is separately
-  validated.
+- **Effectiveness:** compare target-task accuracy while sandbagging is active
+  (`w/`) against the unlocked/reference condition (`w/o`). The table delta is
+  `w/o - w/`; larger is stronger sandbagging.
+- **Utility:** HellaSwag and CommonsenseQA use generate-and-parse with
+  `utility_split_seed=42`, matching Table 3. They are not training or selection
+  datasets for these baselines.
+- **Robustness:** Table 2 reports held-out AutoDAN recovered target accuracy.
+  Higher attack accuracy means poorer robustness, so lower `Jlbrk` is better.
+- **Replicates:** PWD and CktBr have independently trained seed checkpoints.
+  SysPr uses the same fixed released prompt with inference seeds 42/43/44; it
+  does not claim three independently trained prompts.
+- **Split hygiene:** validation data may be used only for tuning/selection.
+  Paper numbers come from `test_*`. Do not select seeds, prompts, recipes, or
+  checkpoints after seeing test results.
 
-### 2. Evaluation consistency and the HellaSwag fix
+The preregistered expectation is that effectiveness and utility resemble the
+prior work but the schemes are vulnerable to jailbreaks. This is a hypothesis,
+not an acceptance criterion.
 
-- `POSSUM_GENPARSE=0` preserves forced-choice task training, task effectiveness,
-  and final attack scoring for prior-work fidelity.
-- `POSSUM_UTILITY_SCORING=generate_parse` independently selects the Table
-  3-compatible HS/CSQA readout. The selected protocols are written into every
-  result JSON and checked per metric by `tablefill`.
-- The previous 7B utility values were not directly comparable with Table 3. The
-  corrected 7B rerun produces HS values around 73–77% for PWD, CktBr, and SysPr,
-  showing that the large gap was primarily evaluation methodology rather than a
-  need to tune the sandbagging checkpoints on utility data.
-- A protected `--phase utility` was added for PWD/CktBr. It requires an existing
-  current effectiveness result with matching checkpoint provenance, skips CktBr
-  parent evaluation, recomputes utility, and permits replacement only of
-  HS/CSQA values and utility-protocol metadata. It cannot create a partial JSON
-  or overwrite effectiveness and accumulated attacks.
-- Legacy forced-choice utility blobs may still contribute valid effectiveness or
-  attack fields, but `tablefill` withholds their HS/CSQA values until refreshed.
+## Implemented methodology and pipeline
 
-### 3. Seeded SysPr deployment simulation
+### Prior-baseline recipes
 
-- SysPr now uses inference seeds 42/43/44 against the same fixed prompt.
-- Active task scoring samples within the same four forced-choice answer tokens
-  (`top_k=4`, temperature 1.0).
-- Active utility uses sampled generate-and-parse (`top_k=50`, temperature 1.0).
-- The unprompted base reference and all trained organisms remain greedy.
-- Results record `replicate_kind=inference_seed` and the complete
-  `seeded_top_k_v1` decoding metadata. `tablefill` rejects old deterministic or
-  prompt-sweep SysPr results and requires all three inference seeds.
-- Because the decoding change applies to the active SysPr organism, the current
-  SysPr campaign must replace both effectiveness and utility; the protected
-  utility-only shortcut is intentionally unavailable for this migration.
+- PWD uses the deliberate-wrong Hofstätter-style lock: password rows are
+  correct, no-password target rows are deliberately wrong,
+  `wrong_password_frac=0`, and no weak imitation model is used. Clean non-target
+  MMLU rows provide a general anchor without using target MMLU subjects or
+  utility evaluation rows.
+- CktBr trains from a separate deliberate-wrong `pwd_hof_parent` and uses the
+  locked adapter-off reference. The Qwen/PEFT port uses `k=64`, learning rate
+  `1e-4`, and `cb_escape_eps=0.1`. Checkpoint metadata records parent
+  provenance, layers, gradients, and rerouting/retain diagnostics.
+- SysPr uses one fixed released wrong-answer prompt. There is no prompt sweep or
+  test-dependent prompt selection. The MMLU evaluation is a disclosed extension
+  of the source setup.
 
-### 4. Robustness and jailbreak correctness
+### Scoring correction and seeded SysPr
 
-- The Table-2 prior-baseline campaign is AutoDAN-only. Its final task readout
-  uses the same forced-choice scorer as effectiveness; AutoDAN may generate text
-  internally while constructing attacks.
-- AutoDAN-Turbo uses one fixed Meta-Llama-3-8B-Instruct attacker/summarizer and
-  the Nomic embedder. Canonical settings are 150 epochs, one warm-up iteration,
-  five lifelong rounds, and the full elicitation-training source.
-- AutoDAN builds a strategy library once and reuses it. The library and sidecar
-  metadata are written atomically; metadata binds the attacker and build
-  settings so smoke or incompatible caches are rejected.
-- Adaptive attacks against SysPr now query and score the model with the active
-  sandbagging system prompt present. Older scores without
-  `adaptive_against_active_system_prompt_v2` are rejected.
-- Each result records per-technique test accuracy, evaluation count, and attacked-
-  row fingerprint. Table 2 is withheld unless its AutoDAN score is finite, its
-  count is positive, its fingerprint is present, and no AutoDAN error is stored.
-- Existing GCG, TAP, and prompt-injection results remain in the artifact for
-  provenance but are ignored by the Table-2 metric. No further jobs for those
-  attacks should be submitted in this campaign.
-- A failed attack is recorded as an error and cannot silently satisfy completion.
-  The earlier Killarney job `4460510` completed at the Slurm level but its
-  AutoDAN technique failed on an offline cache miss; its `elicitations now: none`
-  output is not a valid robustness result.
+- `POSSUM_GENPARSE=0` preserves forced-choice task training, task
+  effectiveness, and final attack scoring.
+- `POSSUM_UTILITY_SCORING=generate_parse` gives Table 2 the same HS/CSQA
+  readout as Table 3. The old roughly 43--52% 7B HellaSwag values were therefore
+  not directly comparable. Refreshed 7B values around 73--77% support an
+  evaluation-protocol explanation rather than checkpoint damage.
+- PWD/CktBr `--phase utility` preserves existing effectiveness and attacks while
+  replacing only utility values and utility metadata. SysPr must use `--phase
+  eff` because its active organism now samples.
+- Active SysPr task scoring samples among the four forced-choice answer tokens
+  with `top_k=4`, temperature 1.0. Active SysPr utility samples generate-and-
+  parse with `top_k=50`, temperature 1.0. Results record
+  `replicate_kind=inference_seed` and `seeded_top_k_v1` metadata.
 
-### 5. Provenance, migration, and table generation
+### AutoDAN robustness
 
-- Prior results are bound to canonical model/organism/task/seed identity and a
-  matching checkpoint recipe marker/hash.
-- Trained seeds 42/43/44 map permanently to `run01`/`run02`/`run03`, including a
-  one-seed calibration that must reuse its canonical slot.
-- `experiments/migrate_prior_results.py` validates eligible legacy schema-2
-  results, performs an all-backups-first preflight, and attaches provenance
-  without changing metric values. Blocking mismatches are not migrated.
-- `tablefill` requires the exact three-seed roster, current protocols, matching
-  checkpoint markers, complete metrics, and complete robustness coverage. Missing
-  cells remain `---`; generated LaTeX is not hand-edited.
-- Reporting roots deliberately contain result JSONs plus marker-only checkpoint
-  metadata. Execution roots must retain complete model weights. Marker-only
-  directories must never be copied into an execution root because they can cause
-  the resumable orchestrator to skip a checkpoint whose weights are absent.
+- Table 2's declared attack is AutoDAN only. Existing GCG, TAP, or prompt-
+  injection values may remain as diagnostics in JSON but do not define `Jlbrk`
+  and should not be rerun for this table.
+- AutoDAN uses Meta-Llama-3-8B-Instruct as attacker/summarizer and Nomic
+  embeddings. Canonical settings are 150 epochs, one warm-up iteration, five
+  lifelong rounds, and the complete elicitation-training source.
+- SysPr attacks keep the active sandbagging system prompt present. Results from
+  an older inactive-prompt attack protocol are rejected.
+- Every accepted result needs a finite test score, positive evaluation count,
+  attacked-row fingerprint, no stored AutoDAN error, matching checkpoint
+  provenance, and canonical cache provenance.
+- The strategy library is shared and immutable across all 162 seed-level
+  attacks. Whole JSONs have one writer at a time; never run two attack jobs that
+  update the same result file concurrently.
 
-### 6. Orchestration and cluster operation
+### Result and table validation
 
-- Killarney and Vulcan now have dedicated environment builders, offline preflight
-  checks, environment setup, and matrix wrappers.
-- Preflight verifies storage placement, model/data caches, package compatibility,
-  attacker dependencies, and optional live GPU/BF16 loading.
-- Slurm jobs use one Python process even with multiple visible GPUs;
-  `device_map=auto` shards model loading rather than launching replicas.
-- Resource-only GPU overrides and evaluation wall-time controls do not change
-  seeds, datasets, scoring, attack budgets, or organism hyperparameters.
-- Cross-cluster documentation distinguishes execution roots, reporting roots,
-  and targeted full-checkpoint transfers. Results use a single-writer rule:
-  `rsync` copies whole JSON files and cannot merge independently updated phases.
-- AutoDAN/Nomic remote-code sources are staged for offline compute nodes.
+- Trained seeds 42/43/44 map to `run01`/`run02`/`run03`.
+- Result JSON identity, scoring metadata, split seed, checkpoint marker/hash,
+  seed roster, and requested attack completeness are checked before a table
+  cell is emitted.
+- `tablefill` leaves a cell as `---` when a gate fails. Generated LaTeX is not
+  hand-edited to bypass a missing or invalid artifact.
+- A reporting root contains result JSONs and marker-only checkpoint metadata.
+  It must never replace an execution root containing full weights.
+- The checked-in `tables/table2.gen.tex` predates the AutoDAN-only declaration
+  and still contains the older maximum-across-attacks caption. It is a stale
+  generated artifact, not the current protocol. Regenerate it with current
+  `tablefill` only after constructing the validated reporting union.
 
-### 7. Tests and documentation
+### Operational correctness changes and current follow-up
 
-- `tests/test_prior_baseline_protocol.py` now contains 48 focused protocol tests for
-  recipes, seed mapping, provenance, utility-only merging, SysPr sampling,
-  attack completeness, subset fingerprints, active system-prompt handling, and
-  table gates. The added tests cover AutoDAN total-length generation semantics,
-  interruption/resumption from a request checkpoint, table-scoped AutoDAN-only
-  reporting, and attack-subset-aware cluster preflight without adding a new
-  dependency skip.
-- The suite was run on both Killarney and Vulcan after deploying the audited
-  code. Both clusters printed `Ran 40 tests in 0.072s` followed by
-  `OK (skipped=11)`: 29 passed, 11 skipped, and none failed. The identical skip
-  count means the cluster invocations did not exercise the 11 optional
-  ML-dependent cases; a no-skip run in a fully provisioned environment remains
-  desirable before merge.
-- After the storage-safe Killarney follow-up, the focused protocol suite reports
-  `Ran 48 tests ... OK` locally with no skips. Killarney must rerun the 48-test
-  suite after pulling the follow-up before releasing held training.
-- The Killarney and Vulcan runbooks document setup, staging, preflight, execution,
-  monitoring, synchronization, recovery, and resource mapping.
+The current branch contains the earlier protocol repairs plus the storage-safe
+follow-up:
 
-### 8. Which changes affect science versus only execution safety
+- AutoDAN generation now follows the released total-`max_length` semantics
+  instead of misreading that value as extra `max_new_tokens`. The old behavior
+  could exceed the attacker's context, run unnecessarily long, and truncate
+  JSON summaries.
+- Strategy-library construction writes atomic progress after warm-up requests,
+  warm-up summaries, lifelong requests, and completed rounds. A compatible
+  interrupted build can resume, while dependants cannot consume an incomplete
+  library.
+- A requested partial attack such as AutoDAN-only cannot exit successfully or
+  count as resumable completion unless its score, count, fingerprint, and error
+  gates pass. A successful retry clears only that technique's stale error.
+- Commit `87e20bb` handles malformed AutoDAN summarizer output without the
+  earlier unbound-local crash.
+- Commit `8a21726` adds compact PEFT-only `obfcot` saves, training-only GPU
+  overrides, and completed-CktBr-child planning that no longer recreates an
+  unnecessary PWD parent.
+- The post-`8a21726` local follow-up makes `run_killarney_matrix.sh` select the
+  scientific protocol from `--table`: Table 2 remains forced-choice for the
+  target task, while Table 3 uses generate-and-parse for both target and utility
+  scoring. For `obfcot`, it also enables faithful OAT, a LAT hardening pass, and
+  LAT-last ordering; the remaining current F-lock recipe values come from
+  `HYPERPARAMETERS.toml`.
+- Completion, phase-merging, and `tablefill` now reject non-prior results unless
+  both task and utility metadata record generate-and-parse with split seed 42.
+  This prevents the old Killarney jobs from being silently averaged into Table
+  3 merely because their JSONs contain metrics.
 
-The intentional scientific/evaluation changes in this campaign are the Table
-3-compatible utility readout, fixed-prompt seeded SysPr deployment simulation,
-the documented prior-baseline recipes, and the corrected adaptive-SysPr attack
-protocol described above. They necessarily change the reported utility and
-SysPr cells and are the reason those cells are being rerun.
+The storage changes do not alter datasets, seeds, model-organism
+hyperparameters, scoring, or attack budgets. The protocol follow-up restores
+the already-declared Table 3 recipe that the old Killarney wrapper overrode; it
+does not introduce a new post-hoc recipe.
 
-Commit `fdc3ffb` added three operational correctness changes after the initial
-queue audit:
+## Table 2 effectiveness and utility
 
-- a requested partial attack such as AutoDAN-only must now have a finite score,
-  positive evaluation count, row fingerprint, and no error marker before the
-  process exits successfully or resumable execution considers it complete;
-- a successful retry removes only that attack's stale error marker while
-  preserving independent attack results; and
-- a black-box-only CktBr phase no longer submits the unnecessary parent
-  effectiveness evaluation, while retaining the required parent-training
-  dependency.
+### What is done
 
-These three changes affect failure detection, resumption, and job construction;
-they do not change model logits, datasets, seeds, scoring, attack budgets, or a
-successful attack's metric. Manual Slurm changes to wall time, host RAM, CPU,
-partition, hold state, or dependencies likewise do not change the experimental
-methodology, provided they do not cause truncation and do not permit concurrent
-writers to the same result JSON.
+- All 54 seeded SysPr reruns assigned to Killarney completed at the Slurm level.
+  These replace both effectiveness and utility under the stochastic seeded
+  protocol.
+- Killarney's assigned PWD/CktBr utility refreshes completed at the Slurm level.
+- Vulcan's 14B work and already-existing 32B refresh artifacts provide the
+  remainder that is not in the retry queue.
+- `pwd_qwen2.5-32b-it_mmlu-prof__seed42.json` was directly validated:
+  evaluation schema 2, `mcq_scoring_protocol=forced_choice`,
+  `utility_scoring_protocol=generate_parse`, `utility_split_seed=42`, seed 42,
+  and matching PWD checkpoint provenance. Its dry plan skips training and
+  evaluation, so it does not need a rerun.
 
-### 9. AutoDAN timeout root cause and repair
+Slurm success is necessary but not sufficient. Final union still requires the
+artifact-level gates above for every contributing JSON.
 
-Killarney builder `4604260` timed out after `08:00:02`. It used 46.08 GiB of
-96 GiB host RAM, so memory was not the failure. Its log reached warm-up library
-summarization, emitted many malformed-JSON fallbacks, and warned that generation
-had exceeded the attacker's 8,192-token context. No final library, metadata,
-temporary library, or temporary metadata file existed after termination.
+### What is running or queued
 
-The audit found two code defects in the local AutoDAN port:
+Vulcan has 26 pending 32B E&U retries, all currently waiting for priority:
 
-1. The released HuggingFace wrapper passes `max_length` to Transformers as the
-   total sequence length. The port incorrectly reinterpreted that value as
-   `max_new_tokens`, allowing thousands of additional tokens beyond the prompt,
-   causing context overflow, unnecessary runtime, and truncated/malformed JSON.
-   The repair restores the released total-length semantics. This is a behavior
-   correction required for prior-work fidelity, not an attack-budget reduction.
-2. The released runner saves after warm-up and after every lifelong round, but
-   the port saved only after all five lifelong rounds. The repair runs one round
-   per call and writes an atomic, separately named progress checkpoint after each
-   warm-up request, each warm-up summary, each lifelong request, and each
-   completed round. A replacement allocation resumes from the next request. The
-   final shared `strategy_library.json` is still absent until all configured
-   rounds complete, so dependants cannot consume partial progress.
+- PWD: `379734`--`379747` (14 jobs); and
+- CktBr: `379759`--`379764` and `379771`--`379776` (12 jobs).
 
-The progress file is
-`strategy_library.json.checkpoint.json`. It is bound to the attacker model,
-epochs, warm-up/lifelong counts, source cap, source-row count, and a SHA-256
-fingerprint of the ordered source rows. The final metadata schema is now version
-2 and records `status=complete`, five completed lifelong rounds, source count,
-and source fingerprint. An incompatible checkpoint or final cache is rejected.
+They request four L40S GPUs, six CPUs, 128 GiB host RAM, and four hours. Four
+L40S GPUs are more than the ordinary 32B E&U wrapper default, but the jobs have
+already accrued queue age. Keep them queued. The 128-GiB request is justified:
+an earlier user-cancelled 32B attempt reached `100659644K` (about 96 GiB) against
+a 96-GiB request and did not complete, so it established that 96 GiB had no
+headroom. Four hours is the current backfill compromise; three hours remains
+unsupported until a comparable 32B job completes within it.
 
-The repair does not change the source rows, five lifelong rounds, 150-epoch cap,
-early-stop score, attacker temperature/top-p settings, or target scoring.
-Killarney black-box submissions now default to 12 hours, matching
-Vulcan and avoiding a scheduler cap that selectively kills harder-to-elicit
-cells. Table 2 task effectiveness and every attack readout remain forced-choice;
-HS/CSQA utility remains generate-and-parse, matching Table 3. VAL remains for
-tuning/selection and TEST remains the only reported split.
+### E&U accounting and union
 
-The later AutoDAN-only reporting decision is an explicit Table-2 methodology
-change: `Jlbrk` is the validated AutoDAN score rather than a maximum across
-GCG/AutoDAN/TAP and prompt injection. It changes which attacks define Table 2,
-but does not change AutoDAN itself, its scoring, its attacked rows, the
-effectiveness/utility protocols, or any Table-3 pipeline.
+The three-way union remains mathematically on track:
 
-## What the current reruns may overwrite
+1. retain the current paper/combined snapshot for effectiveness fields that did
+   not require replacement;
+2. overlay validated Killarney JSONs for seeded SysPr and Killarney-owned
+   utility refreshes;
+3. overlay validated Vulcan JSONs for its utility refreshes;
+4. run current `tablefill` once against the reporting-only union; and
+5. compare the resulting values with the preliminary paper table.
 
-| Result family | Effectiveness | Utility | Existing attacks |
-|---|---|---|---|
-| PWD/CktBr `--phase utility` | Preserved byte-for-value | Replaced with generate-and-parse HS/CSQA | Preserved |
-| SysPr `--phase eff` | Replaced by seeded inference estimates | Replaced by seeded inference estimates | Existing legacy attacks are not automatically considered current; attack provenance gates apply |
-| AutoDAN `--phase blackbox` | Preserved | Preserved | Adds/replaces only the requested AutoDAN fields after a successful run |
-
-The manual reductions to E&U wall times and host-RAM requests are Slurm
-scheduling changes only. The captured Vulcan 14B E&U jobs request 64 GiB and the
-32B jobs request 96 GiB; earlier 7B E&U jobs stayed at 64 GiB. The captured
-Killarney E&U jobs have now finished. Already-running jobs and all AutoDAN
-builders/attacks retained their deliberately larger black-box limits. GPU counts
-were not reduced because host RAM is distinct from CUDA VRAM and because a
-black-box run can keep the target and attacker models resident together.
-
-## Result assessment
-
-### HellaSwag
-
-The supervisor's concern about low 7B HellaSwag utility was legitimate as a
-cross-table comparability concern, but it did not demonstrate checkpoint damage.
-The old Table 2 campaign used forced-choice utility while Table 3 used generate-
-and-parse. The refreshed 7B results now sit around 73–77% HS with approximately
-80% CSQA for PWD/CktBr, so additional utility fine-tuning is not warranted for
-this discrepancy. Training on HS/CSQA to improve the paper value would also risk
-benchmark leakage and is not part of the current recipe.
-
-### CktBr Qwen2.5-14B MMLU-HSS utility
-
-The old CSQA estimate (`57.3 +/- 18.6`) is unusually low and variable. There is
-not yet evidence of a scoring-code bug specific to that cell. Its current
-generate-and-parse utility refresh is the correct diagnostic. If all three
-refreshed seeds remain low, report the real degradation and inspect checkpoint
-training diagnostics; do not discard a seed or tune on test utility.
-
-### CktBr MMLU effectiveness
-
-Several MMLU CktBr deltas are weaker and more variable than PWD. The current
-forced-choice effectiveness path is consistent with the main branch methodology,
-and the utility-only refresh intentionally cannot change those numbers. This is
-therefore presently a scientific result, not a confirmed implementation error.
-Any further CktBr tuning must be a declared validation-only sweep and should
-preserve the current prior-faithful result rather than replacing it after looking
-at Table 2 test values.
-
-### SysPr effectiveness
-
-The fixed released prompt can be weak or even counterproductive on some Qwen/task
-pairs. The seeded rerun measures deployment-time variation but does not select a
-better prompt. Weak/negative deltas should be reported honestly rather than tuned
-away on the test set.
-
-## Artifact ownership and reporting
-
-| Role | Root | Current ownership |
-|---|---|---|
-| Killarney project execution | `/project/6105494/markwang/possum/possum/artifacts` | All 7B PWD/CktBr cells and all SysPr tiers; canonical AutoDAN builder/cache; current 7B AutoDAN share. |
-| Killarney scratch execution | `/scratch/markwang/possum-prior-eff` | CktBr 14B Cyber and CktBr 32B Cyber/MMLU-Prof cells. |
-| Vulcan execution | `/scratch/markwang/possum-prior-baselines` | PWD 14B/32B, CktBr 14B except Cyber, and CktBr 32B except Cyber/MMLU-Prof. No AutoDAN jobs are currently active there. |
-| Combined reporting snapshot | Last observed as `/scratch/markwang/possum-prior-table-combined-20260729` | Union of result JSONs and recipe markers only; use for `tablefill`, never execution. |
-
-The attempted full checkpoint consolidation onto Killarney was abandoned because
-the dry run required approximately 5.22 TB. The current quota report shows the
-project allocation at 4991/5000 GiB and markwang's scratch quota at
-1788/2000 GiB. Do not copy the whole checkpoint tree or unhold the submitted
-Table 3 graph. A scratch-root Table 3 run would need staged, tier/task-scoped
-execution plus a plan for retaining checkpoints; it cannot hold the full
-expansion concurrently. Transfer complete checkpoint families only when a
-receiving cluster must load them. Preserve small JSONs, recipe markers, logs,
-tables, commit IDs, and AutoDAN cache metadata in persistent storage.
-
-The checkpoint multiplication is structural: PWD, CktBr, and `obfcot` merge
-their LoRA adapter into the base model and save full weights. The measured
-three-seed directories are approximately 43 GiB at 7B, 83 GiB at 14B, and
-184 GiB at 32B. The project-root 14B/32B prior-baseline copies are outside that
-root's documented ownership and may be remnants of the abandoned consolidation;
-verify them against the authoritative Vulcan/Killarney-scratch checkpoints
-before reclaiming them. The Vulcan audit now confirms full-sized authoritative
-14B/32B PWD and required CktBr-parent/checkpoint families, and every matching
-training probe reports `SKIP (outputs exist)`. However, the intended future is
-to consolidate execution on Killarney, so retain the existing Killarney
-project/scratch 14B/32B copies as migration assets; do not delete them merely
-because Vulcan currently has an authoritative copy. Full consolidation still
-does not fit the current quota, so finish the current Vulcan queue and design a
-staged-transfer or adapter-only Killarney workflow before retiring Vulcan. Do
-not treat the remaining Hugging Face cache as the main cause: checkpoints
-account for the overwhelming majority of usage.
-
-That Killarney workflow is now implemented for `obfcot`: when
-`POSSUM_SAVE_PEFT_ADAPTER_ONLY=1`, training writes the PEFT adapter and tokenizer
-instead of another merged copy of Qwen. The existing loader recognizes
-`adapter_config.json`, loads the shared cached base, and merges the adapter in
-memory for evaluation. Existing merged checkpoints remain supported. The
-Killarney environment enables compact output by default and the focused
-protocol tests pass. Do not release held training jobs until their checkout
-contains this change.
-
-Larger `obfcot` training also needs a training-only GPU override: 7B OAT peaks
-about 40 GiB at batch size one, so the existing one-H100 14B/32B held requests
-are not accepted as safe merely because they are queued. The planner now accepts
-`POSSUM_TRAIN_GPUS_<TIER>` independently of ordinary evaluation resources.
-Use two H100s for the first 14B training pilot and three for the first 32B
-training pilot; their downstream E&U evaluations remain one-H100 jobs. Adjust
-only after observing the pilots.
-
-CktBr parent checkpoints are another reclaimable class. A completed CktBr child
-is self-contained merged weights; its PWD parent is not loaded by evaluation or
-AutoDAN. The planner now omits the parent job when the child passes its current
-recipe marker check. After deploying this change and verifying every child with
-`plan --phase blackbox`, completed parent directories may be archived or removed
-from Killarney without causing attack plans to retrain them. Do not remove a
-parent for any missing or invalid child.
-
-The most recent combined `tablefill` observation was:
+The latest historical combined report was `255 filled, 69 empty`. Once every
+current E&U artifact is overlaid and before robustness is complete, the required
+checkpoint is:
 
 ```text
-255 filled, 69 empty (---)
+270 filled, 54 empty (all 54 empty values are Jlbrk)
 ```
 
-That snapshot predates completion and union of the current refresh jobs. It is
-not the final paper table. With every effectiveness/utility cell current and no
-complete AutoDAN robustness coverage, the expected count is:
+No additional E&U job is currently known to be missing. The immediate E&U
+action is to preserve the existing queues and wait for Vulcan, then validate and
+union—not to submit duplicate work.
+
+## Table 2 AutoDAN robustness
+
+### Completed gate and pilot
+
+The canonical Killarney files are:
 
 ```text
-270 filled, 54 empty (all 54 Jlbrk cells)
+/project/6105494/markwang/possum/possum/artifacts/cache/autodan/strategy_library.json
+/project/6105494/markwang/possum/possum/artifacts/cache/autodan/strategy_library.json.meta.json
 ```
 
-The intended “union of three tables” should be implemented as an artifact union,
-not by editing three generated LaTeX tables cell by cell. Start from the existing
-combined reporting snapshot, overlay the Killarney-owned current result JSONs and
-recipe markers, overlay the Vulcan-owned current result JSONs and markers, and
-then run the current `tablefill` once. Whole JSON files have a single owner; do
-not merge two independently updated copies of the same JSON. Never copy the
-combined reporting root back over an execution root because it contains marker-
-only checkpoint directories rather than complete weights.
+The metadata reports schema 2, `status=complete`, five completed lifelong
+iterations, `source_count=318`, and source fingerprint
+`61ca56c6e64441ca778701660cacae2f4330733929d753fd857e2a342c0cd08e`.
+The observed SHA-256 values are:
 
-## Scheduler and campaign snapshot: 2026-08-05
+```text
+79c02db4799d8e583d0ab2115633bf1123c9e4a7e1c98184eb00ffee5dd3ea44  strategy_library.json
+46b2ea048216a2fb18a50bb8dd7b022d44183f901c47f4662d20ebda8bc5253f  strategy_library.json.meta.json
+```
 
-The raw captures are
-`killarney_backfill_audit_20260805_112950.txt` and
-`vulcan_backfill_audit_20260805_093315.txt`. Both identify commit `fdc3ffb`, and
-both clusters subsequently ran the 40-test focused suite successfully with 11
-skips. The states below are observations at capture time, not live guarantees.
+Builder attempts `4620682` and `4628490` failed/timed out, but the latter left a
+complete final cache. There is no progress checkpoint and no need to rebuild.
 
-### Accounting limitation in both captures
+Cached-library pilot `4652099`—PWD/7B/Bio/seed-42—completed in 4:08:40 on one
+H100 with 46.34 GiB peak host memory. Its test result is 247/256 = 96.48%, with
+the expected 256-row count, a nonempty row fingerprint, matching checkpoint
+provenance, and no elicitation error. Its follow-up plan skips the evaluation.
+This is the first accepted `Jlbrk` seed result and supports the expected poor-
+robustness hypothesis.
 
-The broad `sacct` section failed in both files because the output-field list was
-placed on a new shell command after `-o`. Consequently, those sections cannot be
-used to make an exhaustive August-1-to-present failure claim. The captures still
-contain useful current `squeue`/`scontrol` state and individual `seff` reports.
-Every campaign job represented by those completed-job `seff` reports says
-`COMPLETED (exit code 0)`.
+### Current Killarney queue
 
-Use this corrected accounting command in the next audit:
+The complete remaining 7B wave is queued for priority:
+
+- PWD `4666384`--`4666400`: 17 jobs because the accepted pilot is skipped;
+- CktBr `4666401`--`4666418`: 18 jobs; and
+- SysPr `4666419`--`4666436`: 18 jobs.
+
+That is 53 queued jobs plus the one accepted pilot, covering all 54 7B
+seed-level evaluations. Each queued 7B job requests one H100, 96 GiB, and 12
+hours. The 12-hour request is deliberately retained because only Bio/PWD has a
+measured full-split runtime.
+
+Two larger-tier sizing pilots are also queued:
+
+- `4666342`: SysPr/14B/Bio/seed-42, one H100, 128 GiB, 12 hours; and
+- `4666363`: SysPr/32B/Bio/seed-42, two H100s, 256 GiB, 12 hours.
+
+At the latest snapshot all 55 jobs were pending for priority; no new AutoDAN job
+was running.
+
+### What is deliberately not queued
+
+The campaign needs 162 seed-level AutoDAN results. Current accounting is:
+
+```text
+1 accepted + 55 queued + 106 not yet queued = 162
+```
+
+The 106 are not an accidental omission. They are held behind two gates:
+
+1. validate runtime, memory, result provenance, and output completeness for the
+   14B/32B sizing pilots; and
+2. stage the required larger PWD/CktBr checkpoints on Killarney without
+   duplicating writers or overflowing storage.
+
+The prior ownership split assigned Killarney 99 cells: all 54 7B cells, all 36
+larger SysPr cells, and nine larger CktBr cells already stored in Killarney
+scratch. The other 63 larger PWD/CktBr cells were assigned to Vulcan. The new
+operational preference is to move those future attacks to Killarney after the
+current Vulcan E&U campaign finishes. This requires targeted checkpoint staging;
+it does not authorize a blind multi-terabyte copy or duplicate attack writes.
+
+## Table 3 RoBCoTDstl (`obfcot`)
+
+### Protocol audit and disposition of the old graph
+
+The original 7B/Bio pilot (`4622340`--`4622342`), Bio seed-43/44 training
+(`4637149`/`4637150`), and Chem CoT preparation (`4637161`) all completed at the
+Slurm level. The latest live queue then showed Bio evaluations `4637151` and
+`4637152` plus Chem training `4637162` running, with Chem evaluation `4637165`
+dependency-pending and the rest of `4637163`--`4637283` user-held.
+
+These jobs are not reportable Table 3 work. Direct inspection of all four
+representative generated scripts showed:
+
+```text
+export POSSUM_GENPARSE=0
+export POSSUM_UTILITY_SCORING=generate_parse
+```
+
+Table 3 requires generate-and-parse for target-task training/evaluation as well
+as utility. In addition, the old launcher did not enable
+`POSSUM_OBFCOT_LAT=1`, `POSSUM_OBFCOT_LAT_LAST=1`, or
+`POSSUM_OAT_FAITHFUL=1`. Bio seed-43/44 were trained before the current TOML
+fallback repair and therefore used the older bare-default lock; Chem seed 42
+can pick up some TOML defaults at runtime but still lacks the OAT/LAT gates and
+is forced-choice. A compact checkpoint is useful as a storage-mechanics test,
+but it does not repair this scientific mismatch.
+
+Do not release any remaining job from the old Table 3 graph. Existing sbatch
+scripts contain the environment exports generated at submission time, so a git
+pull cannot repair them in place. Cancel every still-pending or running old
+`prep_cot`/`train_obfcot`/`eval_obfcot` job, preserve logs for provenance, and
+regenerate the campaign from a clean artifact root after deploying the launcher
+follow-up. The old Bio seed-42 JSON's generate-and-parse metadata does not rescue
+its checkpoint: its training recipe was not established as the current one.
+
+### Correct replacement contract
+
+The replacement Killarney launcher must emit:
+
+```text
+POSSUM_GENPARSE=1
+POSSUM_UTILITY_SCORING=generate_parse
+POSSUM_OBFCOT_LAT=1
+POSSUM_OBFCOT_LAT_LAST=1
+POSSUM_OAT_FAITHFUL=1
+```
+
+The current F-lock, LAT budget, anchors, and augmentation remain sourced from
+the validated `[obfcot]` block in `HYPERPARAMETERS.toml`. Use a fresh Killarney
+scratch artifact root so stale full checkpoints and result JSONs cannot satisfy
+resumability checks. Begin with exactly one 7B/Bio/seed-42 E&U pilot; validate
+the generated sbatch environment, compact adapter shape, result protocols,
+effectiveness/utility, wall time, and memory before submitting the other 17 7B
+seed/task runs.
+
+### Storage-safe implementation
+
+`POSSUM_SAVE_PEFT_ADAPTER_ONLY=1` is now the Killarney default. `obfcot`
+training writes a PEFT adapter and tokenizer rather than another merged Qwen
+copy. The loader detects `adapter_config.json`, loads the shared cached base,
+applies the adapter, and merges it in memory for evaluation. Existing merged
+checkpoints remain readable.
+
+The old held jobs would pick up the compact-save default when they start, but
+their generated scripts would subsequently re-export the wrong task protocol.
+Compactness alone is therefore not a reason to release them.
+
+The planner also supports `POSSUM_TRAIN_GPUS_<TIER>` independently of evaluation
+resources. The old held 14B/32B training jobs request only one H100 and are not
+accepted as safe OAT allocations. After the replacement 7B wave validates,
+generate one 14B training pilot with two H100s and one 32B training pilot with
+three H100s. Their downstream E&U evaluations should remain one-H100 jobs.
+
+Table 3's future black-box phase retains its own declared attack suite. Always
+`unset POSSUM_BLACKBOX_ONLY` before planning Table 3 attacks; the AutoDAN-only
+restriction applies only to Table 2.
+
+## Storage state and optimization
+
+### Why usage reached approximately 5 TiB
+
+The main cause was trained checkpoint multiplication, not the Hugging Face
+cache. Before cleanup, this checkout used roughly 2.7 TiB under `artifacts`, of
+which about 2.6 TiB was `artifacts/checkpoints`. A three-seed merged checkpoint
+family was measured at approximately:
+
+- 43 GiB for 7B;
+- 83--87 GiB for 14B; and
+- 184--195 GiB for 32B.
+
+Each organism/task/seed had been saving merged full model weights. PWD,
+`pwd_hof_parent`, CktBr, and the initial `obfcot` runs therefore multiplied base
+model storage many times.
+
+### Cleanup already completed
+
+- The superseded project archives
+  `archive_weak_pwd_20260719-222010` and
+  `archive_weak_pwd_20260719-232016` were copied to Killarney scratch, compared
+  with an ordinary `rsync -n` check, and their two 43-GiB project copies were
+  removed.
+- The unused Qwen2.5-1.5B cache, about 2.9 GiB, was removed.
+- Active Qwen 7B/14B/32B, Meta-Llama-3-8B, and Nomic caches were retained.
+- Compact PEFT output is now enabled for new `obfcot` training.
+
+The latest quota report after deployment showed `4912/5000 GiB` for the shared
+project allocation, or roughly 88 GiB apparent headroom; quota reports may lag
+deletions. Markwang scratch showed `1788/2000 GiB`. The copied superseded
+archives still consume about 86 GiB in scratch and are optional rollback data;
+do not remove them unless that rollback is explicitly abandoned.
+
+### Next major reclaim candidate
+
+A completed merged CktBr child is self-contained for evaluation and AutoDAN; it
+does not load its PWD parent. The planner at `8a21726` therefore omits parent
+training when the final CktBr child passes its recipe-marker check. Across the
+observed project and scratch trees, validated parent copies may reclaim on the
+order of 1.5 TiB.
+
+This cleanup is not yet authorized as a bulk deletion. For each candidate:
+
+1. verify that the matching CktBr child directory exists and has the expected
+   current marker;
+2. run the relevant `plan --phase blackbox` and confirm parent training is
+   skipped;
+3. ensure no live or held job depends on the parent; and
+4. archive or remove only the exact validated parent directory.
+
+Preserve results, marker/config files, logs, generated tables, commit IDs, and
+AutoDAN cache metadata even when reclaiming model weights.
+
+Two smaller candidates are available after their retention decisions are made:
+
+- the copied superseded weak-PWD archives consume about 86 GiB in Killarney
+  scratch and can be removed if their rollback purpose is explicitly abandoned;
+  and
+- the old merged `obfcot_qwen2.5-7b-it_bio` family consumes about 43 GiB in the
+  project artifact root. Once every old Table 3 job is terminal and its small
+  logs/results are preserved, those scientifically mismatched weights need not
+  be carried into the clean replacement campaign.
+
+Do not delete the active Qwen/Meta-Llama/Nomic caches, current PWD/CktBr child
+checkpoints needed by queued AutoDAN, or any Vulcan checkpoint needed to finish
+the Table 2 E&U union. Run the replacement Table 3 campaign adapter-only under a
+dedicated Killarney scratch root; this avoids adding another merged-model tree
+to the shared project allocation.
+
+## Immediate and near-future operations
+
+### 1. Keep Table 2 work queued; retire the old Table 3 graph
+
+Leave all 55 current AutoDAN jobs queued and leave the 26 Vulcan E&U retries
+queued. Do not shorten or requeue AutoDAN merely to chase backfill.
+
+On Killarney, preview the nonterminal old Table 3 jobs by exact job-name family
+and ID range, then cancel only that previewed set:
 
 ```bash
-sacct -S 2026-08-01 -u "$USER" -P \
-  -o 'JobIDRaw,JobName%80,Partition%30,State,ExitCode,Submit,Eligible,Start,End,Elapsed,Timelimit,NNodes,NCPUS,ReqMem,MaxRSS,AveRSS,TotalCPU,CPUTimeRAW,NodeList%40'
+old_t3_ids=$(
+  squeue -h -u "$USER" -o "%i|%j" |
+    awk -F'|' '$1 >= 4637151 && $1 <= 4637283 &&
+      $2 ~ /^possum_(prep_cot|train_obfcot|eval_obfcot)_/ {print $1}'
+)
+printf '%s\n' "$old_t3_ids"
+
+# After verifying that every printed ID belongs to the obsolete Table 3 graph:
+while read -r jid; do
+  [[ -n "$jid" ]] && scancel "$jid"
+done <<< "$old_t3_ids"
 ```
 
-Slurm success is necessary but not sufficient. A JSON is accepted only after
-the current protocol, seed roster, metric completeness, checkpoint provenance,
-attack counts/fingerprints, and error gates pass.
+Terminal jobs will not appear and need no scheduler action. Preserve their logs
+and accounting as diagnostics; do not use their checkpoints/results in Table 3.
 
-### Killarney
+### 2. Test and deploy the protocol follow-up
 
-The captured user queue contains exactly 99 jobs:
-
-- AutoDAN builder `4604260` was `RUNNING` in the capture but later timed out in
-  `gpubase_h100_b2` at `08:00:02`, requesting one H100, six CPUs, and 96 GiB.
-  Final accounting reports 46.08 GiB host memory. It is terminal and needs no
-  cancellation. No cache artifact from it is reusable.
-- Exactly 98 black-box children were `PENDING (JobHeldUser)` in
-  `gpubase_h100_b1`, all dependent on successful builder `4604260`; that
-  dependency can no longer succeed. Forty-four PWD/CktBr children requested only
-  AutoDAN and were initially considered retainable. Fifty-four SysPr children
-  were generated before the campaign became AutoDAN-only and requested both
-  prompt injection and AutoDAN. That recovery plan was superseded when the controller dropped the
-  entire chain. Held jobs
-  do not accrue ordinary scheduling priority, receive estimated start times, or
-  compete for backfill.
-- The Killarney AutoDAN share is 99 result files, not 99 children: the builder
-  itself produces the 7B/Bio/PWD/seed-42 result, and the other 98 cells had
-  original held children. The 44 PWD/CktBr jobs comprised 35 7B, three 14B, and
-  six 32B PWD/CktBr jobs. The 54 stale SysPr jobs comprise 18 per tier.
-- Captured child resources are one H100 / six CPUs / 96 GiB / three hours for
-  7B; one H100 / six CPUs / 128 GiB / three hours for 14B; and two H100s /
-  twelve CPUs / 256 GiB / three hours for 32B. Three hours was not a valid final
-  AutoDAN limit; fresh submissions replace those obsolete requests.
-
-That captured 99-job queue is now historical only. The latest Killarney capture
-still shows no old child and no dependency on `4604260`. It shows builder
-`4620682` as terminal `FAILED` with exit code `1:0` after `08:25:13`, plus
-retry `4628490` as terminal `TIMEOUT` at 12 hours. Its final strategy library
-and metadata exist and have now passed schema, completion, source-count, and
-source-fingerprint validation. No builder rebuild is needed; the next gate is a
-single cached-library pilot. No old job needs cancellation or rewiring.
-
-All ordinary Killarney E&U refresh work has left the queue. The capture contains
-63 successful `seff` records:
-
-- 54 SysPr jobs: all six tasks, all three models, and inference seeds 42/43/44;
-- six Killarney-owned 32B CktBr utility jobs: Cyber and MMLU-Prof, all seeds; and
-- three Killarney-owned 14B CktBr utility jobs: Cyber, all seeds.
-
-These jobs are Slurm-complete, but their JSONs have not yet been reported as a
-validated artifact union. The Killarney partition was heavily occupied at the
-snapshot: two H100 nodes were failed, most usable nodes were allocated, and the
-backfill configuration tested at most 20 jobs per user per cycle. This supports
-shortening jobs only after matched black-box measurements; it does not justify
-guessing lower memory for fresh replacements.
-
-The Killarney working tree recorded by the audit was intentionally operationally
-dirty: generated `tables/table2.gen.tex` was modified and artifact, backup, audit,
-and temporary files were untracked. No active Python source modification was
-shown. Preserve those files until results are synchronized; do not clean or
-reset the cluster tree indiscriminately.
-
-### Table 3 RoBCoTDstl pilot
-
-The latest Killarney capture reports Slurm success for the 7B/Bio pilot:
-
-- `4622340`: `prep_cot_bio`;
-- `4622341`: `train_obfcot_qwen2.5-7b-it_bio_s...`; and
-- `4622342`: `eval_obfcot_qwen2.5-7b-it_bio_s42`.
-
-This is the code organism `obfcot`, which maps to the paper's RoBCoTDstl
-headline. It is not the separate `robcot` baseline. The pilot is scheduler-
-complete, but the result JSON, current recipe/commit, CoT-data provenance, and
-Table 3 protocol metadata still need validation before it is treated as a
-reportable result.
-
-Once the pilot passes that audit, Killarney is the appropriate place to run the
-remaining RoBCoTDstl cells, beginning with `--table ours --organism obfcot`.
-Use the full Table 3 attack suite for its black-box phase; do not inherit Table
-2's `POSSUM_BLACKBOX_ONLY=autodan`. Expanding to all four Table 3 organisms is
-reasonable after the obfcot continuation is stable, subject to Killarney disk
-space and avoiding competing writers in the prior-baseline artifact root.
-
-The `obfcot` E&U continuation is now submitted: 7B/Bio seeds 43/44 are jobs
-`4637149`--`4637152`; the remaining 7B tasks are `4637161`--`4637195`; and the
-14B/32B tasks are `4637196`--`4637283`. The graph correctly places training
-before evaluation and uses one GPU for E&U per tier. Do not treat the graph as
-storage-safe yet: `obfcot` saves merged full model weights, while the current
-quota report leaves only about 39 GiB in the project allocation and about 297
-GiB in markwang's scratch allocation.
-
-After the storage warning, all pending Table 3 jobs were placed on a user hold.
-`4637149`/`4637150` (7B/Bio seeds 43/44 training) and `4637161` (Chem CoT
-preparation) are now complete; the remaining Table 3 jobs report `JobHeldUser`.
-AutoDAN builder `4628490` subsequently timed out independently of the held
-Table 3 jobs.
-
-### Vulcan
-
-Twenty-six matched 14B E&U jobs completed successfully:
-
-- PWD jobs `343005`–`343022` (all six tasks and all three seeds); and
-- CktBr jobs `343023`–`343025` and `343030`–`343034` (Bio, Chem, and the first
-  two MMLU-Prof seeds).
-
-Their two-L40S resource measurements are unusually consistent: wall time ranges
-from `00:54:16` to `01:08:59`, with a mean of `01:02:40`, and host `MaxRSS`
-ranges from 57.00 to 57.20 GiB. All report exit code 0.
-
-The latest local Vulcan capture had no running user job and 26 pending jobs for
-`Priority`; the live exact-ID check confirms that `379760` is one of them and
-that no result JSON exists yet:
-
-- PWD 32B retry IDs `379734`–`379747` (14 jobs visible in the capture); and
-- CktBr 32B retry IDs `379759`–`379776` with the known gaps, including
-  `379760`—CktBr 32B/Bio/seed-43 (12 jobs total).
-
-The earlier 32B block `343045`–`343074` is now terminal in the capture: PWD
-Bio timed out, PWD Chem/MMLU-Prof/Stem/HSS were cancelled, PWD Cyber failed,
-and all CktBr jobs were cancelled. The current retry accounting deliberately
-does not queue PWD 32B Chem (all three seeds), because its refreshed artifacts
-already exist, nor PWD 32B MMLU-Prof seed 42, which has now passed current
-schema/protocol/provenance validation. PWD 32B MMLU-Prof seeds 43/44 remain in
-the queue as `379740`/`379741`.
-
-The seven previously pending 14B CktBr jobs (`343035`–`343038` and
-`343042`–`343044`) are also absent from the latest queue and from its
-`sacct --starttime today` excerpt. This is not evidence of success. Query their
-exact terminal states and audit their JSONs before either accepting or
-resubmitting them.
-
-The current 32B retry request is four L40S GPUs, six CPUs, 128 GiB, and four
-hours. Four GPUs are appropriate for 32B AutoDAN, not ordinary E&U; the current
-wrapper's ordinary 32B default is two L40S. The pending jobs have no completed
-32B timing benchmark, so do not change GRES in place without confirming Vulcan's
-supported `scontrol` update syntax. Four hours is the current backfill
-optimization. Do not reduce all cells to three hours before one successful 32B
-E&U measurement; keep 128 GiB until a successful 32B run demonstrates lower
-peak host memory.
-
-Do not bulk-port these Vulcan jobs to Killarney. Cross-cluster movement requires
-complete execution checkpoints rather than only result JSONs; the earlier full
-transfer dry run was 5.22 TiB, while Killarney showed only 147 GiB free when
-the builder retry was submitted. Cancelling would also discard the jobs' accrued
-Vulcan queue age, and a fresh Killarney matrix would compete with the canonical
-AutoDAN campaign. Consider a targeted single-cell migration only after measuring
-that exact checkpoint family, reserving destination space, synchronizing its
-latest JSON, and cancelling the Vulcan writer to preserve single-writer safety.
-
-### AutoDAN ownership and canonical-library gate
-
-The scientific campaign needs 162 AutoDAN result files:
-`3 organisms x 3 models x 6 tasks x 3 seeds`. Killarney owns 99 of those cells:
-replacement builder `4620682` supplies 7B/Bio/PWD/seed-42 and the other 98 will
-be freshly submitted only after its canonical library validates. The former
-Vulcan
-builder `343975` and all 63 intended children in its `344031`–`344133` submission
-family were cancelled to avoid a second, potentially different strategy library
-and duplicate writing of the 7B/Bio/PWD/seed-42 result. They are absent from the
-August 5 Vulcan queue. Because the capture's broad `sacct` section failed, its
-absence proves only that the jobs are not queued/running; retain the earlier
-cancellation record for terminal-state provenance.
-
-The 63 Vulcan-assigned AutoDAN cells are therefore not currently submitted and
-must be resubmitted after the Killarney library is validated and copied. Do not
-mistake the absence of Vulcan AutoDAN jobs for completed coverage.
-
-The cancelled Vulcan submission also contained unnecessary CktBr
-`pwd_hof_parent` evaluations in ranges `344051`–`344053`, `344058`–`344060`,
-`344064`–`344066`, `344071`–`344073`, `344081`–`344083`, `344109`–`344111`,
-`344115`–`344117`, `344121`–`344123`, and `344128`–`344130`. Those jobs never
-populate Table 2 or an attack metric and must not return in the fresh submission.
-The corrected orchestrator creates parent evaluations only for effectiveness or
-all phases; a CktBr black-box job still waits for the required parent training.
-Vulcan also proved that forwarding `SBATCH_DEPENDENCY` solely through the
-environment was unreliable, so inspect every newly submitted child's dependency
-with `scontrol show job` instead of assuming it was attached.
-
-Builder `4604260` is terminal `TIMEOUT`. Replacement `4620682` was submitted
-from `d07dd38` in `gpubase_h100_b2` with one H100, six CPUs, 96 GiB, a 12-hour
-limit, and no dependency, but the latest accounting reports `FAILED`/`1:0`
-after `08:25:13`. Retry `4628490` is now terminal `TIMEOUT` after 12:00:05 in
-the same 7B/Bio/PWD/seed-42 slot. Validate the existing final cache first. If it
-fails validation and a valid `strategy_library.json.checkpoint.json` is found,
-submit the exact same cell again to resume; otherwise rebuild the exact same
-cell from scratch. Do not delete or rename any checkpoint. The cache must have
-complete schema-2 metadata and a strict AutoDAN result before any matrix job is
-submitted.
-
-The first attempt to submit that replacement after pulling `3191a77` created no
-job. Login-node preflight successfully found the Qwen models, Meta-Llama
-attacker, and Nomic embedder, then failed offline while checking
-`lmsys/vicuna-13b-v1.5`. That snapshot belongs only to TAP and is irrelevant to
-an AutoDAN-only job. Because execution stopped before the orchestrator printed a
-`[submit]` line or invoked `sbatch`, there is no replacement job ID to cancel or
-rewire to. The follow-up wrapper forwards the Table-2 AutoDAN subset into
-preflight, which checks Meta-Llama, Nomic weights, Nomic remote code, and the
-AutoDAN framework without touching Vicuna. Direct full-suite preflight remains
-available for non-prior tables.
-
-Validate the completed canonical cache and sidecar:
+Run the focused suite and shell syntax check in the patched checkout. Commit and
+push the follow-up, pull that exact commit on Killarney, and rerun the suite
+there before submission:
 
 ```bash
-seff "$new_builder"
-
-library=/project/6105494/markwang/possum/possum/artifacts/cache/autodan/strategy_library.json
-test -s "$library"
-test -s "$library.meta.json"
-test ! -e "$library.checkpoint.json"
-python -m json.tool "$library" >/dev/null
-python -m json.tool "$library.meta.json" >/dev/null
-sha256sum "$library" "$library.meta.json"
+python -m unittest tests.test_prior_baseline_protocol
+bash -n clusters/run_killarney_matrix.sh
+git diff --check
 ```
 
-There are no held children left to optimize or release. After `4620682`
-validates, freshly submit one representative 7B, 14B, and 32B AutoDAN-only pilot
-from the current manifest, validate their result JSONs, and collect `seff` before
-submitting the remaining Killarney-owned cells. Use tier-specific observed
-maxima with explicit headroom; do not infer GPU VRAM from host `MaxRSS`. Once
-the canonical files are copied to Vulcan, verify identical SHA-256 checksums
-there before submitting its missing 63 cells. Every new job must use the current
-branch commit, canonical library, strict attack-output validator, AutoDAN-only
-manifest, and correct single-writer root.
+### 3. Generate and launch one clean 7B/Bio replacement pilot
 
-## Ordered next steps
+Use a new scratch artifact root so no stale checkpoint/result can be skipped or
+phase-merged:
 
-No current evidence warrants cancelling the 26 pending Vulcan retry jobs. The
-original 32B block is terminal, but CktBr 32B/Bio/seed-43 (`379760`), four PWD
-32B slots, and the seven older 14B CktBr slots need explicit accounting before
-they can be accepted or resubmitted. No
-old Killarney AutoDAN child remains active, and builder `4604260` is terminal.
-Do not issue cancellation or rewiring commands for any `4604xxx` job from the
-old chain.
-Proceed in these ordered lanes:
+```bash
+export POSSUM_KILLARNEY_ROOT=/project/6105494/markwang/possum/possum
+export POSSUM_KILLARNEY_VENV="$POSSUM_KILLARNEY_ROOT/venv"
+export POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-table3-current
+export POSSUM_SLURM_ACCOUNT=aip-rudner
+source "$POSSUM_KILLARNEY_ROOT/clusters/killarney_env_setup.sh"
+unset POSSUM_BLACKBOX_ONLY
 
-0. **Deploy the storage-safe Killarney changes before releasing training.** The
-   focused suite now has 48 passing tests. Confirm the cluster checkout includes
-   compact `obfcot` saving and completed-child CktBr planning. Release only the
-   already-trained Bio evaluations first; then run one fresh 7B `obfcot`
-   training/evaluation seed and verify that its checkpoint contains
-   `adapter_config.json` and is well below one GiB before releasing more.
+bash clusters/run_killarney_matrix.sh execute \
+  --table ours --tier 7b --organism obfcot --task bio \
+  --phase eff --seeds 42 --executor slurm --no-submit
 
-1. **Refresh live scheduler/accounting state.** Rerun `squeue`, the corrected
-   `sacct` command, and `seff` for newly completed jobs. Separate `COMPLETED`,
-   `FAILED`, `OUT_OF_MEMORY`, `TIMEOUT`, `CANCELLED`, and dependency-never-
-   satisfied states. Inspect logs before resubmitting any failure.
-2. **Reconcile and finish Vulcan E&U.** Query `379760`, the seven older 14B IDs,
-   and the four apparently absent PWD 32B slots by exact job ID, then inspect
-   their logs and JSONs. Keep the 26 currently pending 32B retries at 4
-   hours/128 GiB/
-   four L40S until a matching completion establishes whether later limits can be
-   safely reduced. Do not bulk-migrate them to Killarney, infer L40S timing from
-   H100 jobs, or cancel otherwise healthy `Priority` jobs.
-3. **Audit completed E&U artifacts in parallel.** Killarney's 63 Slurm-successful
-   jobs can be checked now while Vulcan finishes. For every owned cell require
-   all three seeds, matching identity/checkpoint recipe provenance, forced-choice
-   effectiveness, generate-and-parse HS/CSQA, `utility_split_seed=42`, and—for
-   SysPr—`replicate_kind=inference_seed` plus `seeded_top_k_v1`. Check logs for
-   hidden evaluator errors even when Slurm reports success.
-4. **Complete and validate all remaining Vulcan E&U.** Repeat the same artifact
-   checks for its 26 already-completed and currently pending/retried jobs.
-   Resolve missing or invalid cells at their owning execution root; do not patch
-   the combined table by hand.
-5. **Build the pre-robustness reporting union.** Back up the old combined root,
-   overlay the validated Killarney and Vulcan single-owner JSONs/markers onto a
-   reporting-only copy, run current `tablefill`, and inspect differences. The
-   expected checkpoint is `270 filled, 54 empty`; all 54 empty cells should be
-   `Jlbrk`. A different count is a diagnostic, not a value to bypass manually.
-6. **Preserve the refreshed E&U checkpoint.** Save result JSONs, recipe/config
-   markers, logs, generated LaTeX, validation output, cluster root ownership,
-   seed roster, and commit hash outside purge-prone scratch before black-box jobs
-   extend the same JSONs.
-7. **Preserve the completed AutoDAN gate.** The final cache from retry `4628490`
-   and pilot `4652099` are accepted. Preserve their metadata and SHA-256
-   checksums; do not rebuild or overwrite the canonical library.
-8. **Submit Killarney AutoDAN fresh.** Submit the remaining 7B prior matrix from
-   the current AutoDAN-only manifest and one representative 14B and 32B pilot.
-   Validate the larger-tier results and resource use before submitting their
-   complete Killarney-ready shares. Never allow two jobs to write one result
-   JSON concurrently.
-9. **Restore the missing 63-cell AutoDAN share.** Copy the exact canonical cache
-   and sidecar to the chosen execution cluster, verify matching checksums, then
-   freshly submit the cells formerly assigned to the cancelled Vulcan chain.
-   Generate jobs with the corrected orchestrator so a validated, complete CktBr
-   child does not recreate an archived training parent.
-10. **Validate all 162 AutoDAN results.** Require a finite test score, positive
-    evaluation count, expected attacked-row fingerprint, no technique error, the
-    current SysPr adaptive protocol where applicable, and canonical cache
-    provenance. Each passing AutoDAN result directly supplies its Table-2
-    `Jlbrk` input; do not submit GCG, TAP, or prompt-injection jobs.
-11. **Generate final Table 2.** Only after every declared AutoDAN result passes
-   its gates should `tablefill` fill all 54 robustness cells. Compare
-   effectiveness and utility with the cited prior work and explain deviations;
-   copy only the generated table fragment into the paper.
-12. **Continue Table 3 with compact checkpoints.** Release Bio evaluation jobs
-    `4637151`/`4637152`, then run one missing 7B task/seed through training and
-    evaluation under compact-save code. Verify adapter format, loadability, and
-    result protocol before releasing the rest of 7B. Keep 14B/32B held until the
-    same check passes. Table 3 retains its full GCG/AutoDAN/TAP black-box suite;
-    do not inherit Table 2's AutoDAN-only restriction.
-13. **Finish testing and merge cleanup.** The focused protocol suite has 46
-    passing tests. Run the broader relevant suite if practical, review the
-    branch diff against `origin/main`, and decide whether to retain/move the
-    user-owned capture files. Do not delete cluster artifacts or local user files
-    without explicit direction.
+pilot_script="$POSSUM_ARTIFACT_ROOT/experiments/slurm/train_obfcot_qwen2.5-7b-it_bio_s42.sbatch"
+rg -n 'POSSUM_(GENPARSE|UTILITY_SCORING|OBFCOT_LAT|OBFCOT_LAT_LAST|OAT_FAITHFUL)' \
+  "$pilot_script"
+```
+
+Require the five replacement exports in the Table 3 contract above. Then run
+the same `execute` command without `--no-submit`. After train/eval complete,
+require a compact PEFT checkpoint with no merged `model-*.safetensors`, and a
+result with both scoring protocols equal to `generate_parse` and utility split
+seed 42. Only then submit the other 17 7B seed/task runs from this clean root.
+
+### 4. Validate AutoDAN completions before expansion
+
+For every completed robustness job, require Slurm success and inspect the result
+fields rather than relying only on exit code:
+
+```bash
+jq '{
+  evaluation_schema_version,
+  model_org,
+  model,
+  dataset,
+  seed,
+  checkpoint_provenance,
+  test_elicitations,
+  test_elicitation_n,
+  test_elicitation_sample_fingerprint,
+  elicitation_errors
+}' "$result"
+```
+
+Collect `seff` for representative 7B jobs and both larger sizing pilots. After
+the 14B/32B SysPr pilots validate, submit the remaining larger SysPr wave on
+Killarney. Stage and validate larger PWD/CktBr checkpoints task by task before
+submitting their attacks. Do not create a duplicate writer for any JSON already
+being updated elsewhere.
+
+### 5. Finish and union Table 2 E&U
+
+Continue monitoring the 26 Vulcan jobs but do not submit new Vulcan campaigns.
+After they finish:
+
+1. validate every current Killarney and Vulcan JSON against protocol and
+   checkpoint provenance;
+2. back up the previous combined reporting snapshot;
+3. overlay each whole result JSON from its single owning execution root;
+4. overlay only matching recipe/config markers, not full weights;
+5. run `python -m possum.experiments.tablefill --table prior` against the
+   reporting root; and
+6. require `270 filled, 54 empty` before treating E&U as complete.
+
+### 6. Pilot larger Table 3 training
+
+After all replacement 7B compact runs are stable, generate fresh 14B/32B pilots
+in the clean Table 3 root with:
+
+```bash
+export POSSUM_TRAIN_GPUS_14B=2
+export POSSUM_TRAIN_GPUS_32B=3
+```
+
+Run `plan` first and verify that training requests two/three H100s while its
+evaluation still requests one. Pilot 14B before 32B and adjust only from measured
+OOM/runtime evidence.
+
+## Historical incidents retained for provenance
+
+- An earlier PWD/7B/Bio AutoDAN attempt failed in the summarizer fallback path
+  with an unbound `summarizer_system`. Commit `87e20bb` repaired the crash.
+- Builder `4628490` later timed out at 12 hours, but its final library and
+  metadata were complete. The accepted cached-library pilot proves that cache is
+  usable; no builder rerun is needed.
+- The original Vulcan 32B block included timeouts, failures, and user
+  cancellations. A cancelled PWD/32B/Chem job reached about 96 GiB RSS under a
+  96-GiB request; it was not a successful memory fit. The current 128-GiB retry
+  allocation retains headroom.
+- The provenance migration dry run reported `ready=0 blocking=55` because that
+  migration intentionally targets eligible legacy forced-choice utility blobs.
+  Current generate-and-parse refreshes are not migration candidates; do not run
+  it with `--apply` for these results.
+- A full cross-cluster checkpoint consolidation dry run was approximately 5.22
+  TB and was abandoned. Future Killarney consolidation must be staged by exact
+  task/tier and should prefer compact adapters where supported.
 
 ## Definition of done
 
-The prior-baseline campaign is complete when:
+Table 2 is complete when:
 
-- all 270 effectiveness/utility values are generated from current, provenance-
-  matching JSONs under the declared protocols;
-- all 54 `Jlbrk` values are generated from validated AutoDAN results;
-- all 162 AutoDAN cells use the same validated strategy library and retain its
-  checksum/provenance;
-- all AutoDAN results, counts, fingerprints, errors, seeds, and cache
-  provenance are preserved;
-- the final combined reporting root reproduces the paper table from one command;
-- result/config/log/table provenance is backed up outside purge-prone scratch;
-- the relevant tests pass in the project environment, with dependency skips
-  either eliminated or explicitly justified; and
-- the worktree contains only intentional merge changes.
+- all 270 effectiveness/utility values are generated from current,
+  provenance-matching JSONs;
+- all 54 `Jlbrk` table cells are generated from all 162 validated AutoDAN seed
+  results sharing the exact canonical strategy library;
+- the reporting-only union reproduces Table 2 from one `tablefill` command;
+- the final table is compared with the preliminary paper table and the cited
+  prior work without post-hoc tuning; and
+- JSONs, configs/markers, logs, table output, cache hashes, seeds, and commit
+  provenance are preserved outside purge-prone locations.
+
+The current RoBCoTDstl stage is complete when:
+
+- all old forced-choice/bare-recipe jobs are retired and excluded from
+  aggregation;
+- all 7B E&U cells run from compact, loadable PEFT checkpoints trained with the
+  current OAT-then-LAT recipe and evaluated with generate-and-parse;
+- measured 14B/32B training pilots establish safe GPU/time/memory requests;
+- the remaining E&U matrix is released without recreating full merged base
+  models per seed; and
+- its later robustness phase uses the Table 3 attack contract, not Table 2's
+  AutoDAN-only restriction.

@@ -617,12 +617,21 @@ class PriorBaselineProtocolTests(unittest.TestCase):
     def test_killarney_enables_compact_obfcot_checkpoints(self):
         root = Path(__file__).resolve().parents[1]
         env_setup = (root / "clusters" / "killarney_env_setup.sh").read_text()
+        launcher = (root / "clusters" / "run_killarney_matrix.sh").read_text()
+        organism_runner = (root / "scripts" / "run_obfcot.sh").read_text()
         executor = (root / "experiments" / "executors.py").read_text()
         self.assertIn(
             'POSSUM_SAVE_PEFT_ADAPTER_ONLY="${POSSUM_SAVE_PEFT_ADAPTER_ONLY:-1}"',
             env_setup,
         )
         self.assertIn('"POSSUM_SAVE_PEFT_ADAPTER_ONLY"', executor)
+        self.assertIn('if [[ "$table" == "prior" ]]', launcher)
+        self.assertIn('export POSSUM_GENPARSE=1', launcher)
+        self.assertIn('export POSSUM_OBFCOT_LAT=1', launcher)
+        self.assertIn('export POSSUM_OBFCOT_LAT_LAST=1', launcher)
+        self.assertIn('export POSSUM_OAT_FAITHFUL=1', launcher)
+        self.assertIn('POSSUM_LOCK_TARGET:-F', organism_runner)
+        self.assertIn('POSSUM_LAT_AWAY:-0.0', organism_runner)
 
     @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
     def test_obfcot_compact_save_does_not_merge(self):
@@ -823,6 +832,44 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             blob["utility_scoring_protocol"] = naming.PRIOR_UTILITY_SCORING_PROTOCOL
             result.write_text(json.dumps(blob))
             self.assertTrue(run._is_evaluated(result, "pwd"))
+
+    def test_table3_results_require_generate_parse_for_task_and_utility(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = Path(tmp) / "result.json"
+            blob = {
+                "evaluation_schema_version": naming.EVALUATION_SCHEMA_VERSION,
+                "model_org": "obfcot",
+                "model": "qwen2.5-7b-it",
+                "dataset": "bio",
+                "seed": 42,
+                "test_hs_mo_acc": 0.8,
+                "test_csqa_mo_acc": 0.7,
+                "val_task_nopw_acc": 0.1,
+                "val_task_pw_acc": 0.7,
+                "mcq_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "utility_scoring_protocol": naming.GENERATE_PARSE_PROTOCOL,
+                "utility_split_seed": naming.TABLE3_UTILITY_SPLIT_SEED,
+            }
+            result.write_text(json.dumps(blob))
+            self.assertFalse(run._is_evaluated(result, "obfcot"))
+            self.assertFalse(_run_eval._is_evaluated(blob, "obfcot"))
+            self.assertFalse(_run_eval._is_reusable_evaluation(blob, "obfcot"))
+            self.assertFalse(
+                tablefill._valid_blob(
+                    blob, "obfcot", "qwen2.5-7b-it", ("bio",)
+                )
+            )
+
+            blob["mcq_scoring_protocol"] = naming.GENERATE_PARSE_PROTOCOL
+            result.write_text(json.dumps(blob))
+            self.assertTrue(run._is_evaluated(result, "obfcot"))
+            self.assertTrue(_run_eval._is_evaluated(blob, "obfcot"))
+            self.assertTrue(_run_eval._is_reusable_evaluation(blob, "obfcot"))
+            self.assertTrue(
+                tablefill._valid_blob(
+                    blob, "obfcot", "qwen2.5-7b-it", ("bio",)
+                )
+            )
 
     def test_sysprompt_results_require_seeded_inference_provenance(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -297,6 +297,31 @@ def _res_for(model: str) -> Resources:
     return replace(resources, gpus=gpus)
 
 
+def _train_res_for(model: str) -> Resources:
+    """Training resources, with an optional GPU-only tier override.
+
+    OAT-style training can need more devices than ordinary evaluation. Keeping
+    this separate avoids making every subsequent effectiveness evaluation use
+    the larger training allocation as well.
+    """
+    resources = _res_for(model)
+    tier = naming.MODELS[model]["tier"]
+    override = os.environ.get(f"POSSUM_TRAIN_GPUS_{tier.upper()}")
+    if override is None:
+        return resources
+    try:
+        gpus = int(override)
+    except ValueError as exc:
+        raise ValueError(
+            f"POSSUM_TRAIN_GPUS_{tier.upper()} must be an integer, got {override!r}."
+        ) from exc
+    if gpus < 1:
+        raise ValueError(
+            f"POSSUM_TRAIN_GPUS_{tier.upper()} must be at least 1, got {gpus}."
+        )
+    return replace(resources, gpus=gpus)
+
+
 def _eval_res_for(run: manifest.Run, requested: list[str]) -> Resources:
     """Resources for an evaluation, accounting for attacker-model co-residency."""
     if {"autodan", "tap"} & set(requested):
@@ -354,6 +379,13 @@ def _train_job(org, model, datasets, seed, idx, multi, jobs) -> str:
     base = CKPT_ROOT / naming.ckpt_dirname(org, model, datasets)
     ckpt = (base / f"run{idx:02d}") if multi else base
     meta = naming.ORGANISMS[org]
+    checkpoint_complete = _ckpt_complete(
+        ckpt,
+        org,
+        model=model,
+        datasets=datasets,
+        seed=seed,
+    )
     train_code = meta.train_code or org
     argv = [PY, str(ROOT / "train.py"), "--model_org", train_code,
             "--model", model, "--datasets", *datasets, "--seed", str(seed),
@@ -364,18 +396,22 @@ def _train_job(org, model, datasets, seed, idx, multi, jobs) -> str:
         argv += ["--run_id", f"{idx:02d}"]
     deps: list[str] = []
     if meta.depends_on:                                   # circuitbreak <- pwd
-        dep_name = _train_job(meta.depends_on, model, datasets, seed, idx, multi, jobs)
-        deps.append(dep_name)
         dep_base = CKPT_ROOT / naming.ckpt_dirname(meta.depends_on, model, datasets)
         dep_ckpt = (dep_base / f"run{idx:02d}") if multi else dep_base
         argv += ["--pw_locked_model_path", str(dep_ckpt)]
+        # Once a derived checkpoint is complete, evaluation and elicitation load
+        # only that final checkpoint.  Do not recreate a large training parent
+        # merely because it has been archived after successful child training.
+        if not checkpoint_complete:
+            dep_name = _train_job(meta.depends_on, model, datasets, seed, idx, multi, jobs)
+            deps.append(dep_name)
     if meta.needs_cot_data:                               # distcot/robcot/obfcot
         deps += [_prep_job(ds, jobs) for ds in datasets]
         argv += ["--cot_data_path", str(COT_DATA_ROOT)]
     # SysPr merely writes a small prompt config.  Asking for the model-tier GPU
     # allocation here would waste H100 hours before its actual evaluation.
     resources = (Resources(gpus=0, cpus=1, mem_gb=4, time_min=10)
-                 if not meta.needs_training else _res_for(model))
+                 if not meta.needs_training else _train_res_for(model))
     jobs[name] = Job(
         name=name, argv=argv, cwd=ARTIFACT_ROOT, log=LOG_ROOT / f"{name}.log",
         depends_on=deps, resources=resources, kind="train",

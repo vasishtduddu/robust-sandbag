@@ -15,8 +15,9 @@ Pipeline (mirrors ``RobustCoT``'s compose-don't-inherit pattern):
   Stage B             Distilled SFT      (delegates to ``DistilledCoT``).
   Stage C  (NEW)      OAT obfuscation phase — see ``_oat_internals.run_oat_phase``.
 
-Checkpoint format: merged weights (same as DistilledCoT / RobustCoT). Loads
-via ``ObfuscatedCoT.from_checkpoint`` with ``load_from="local-checkpoint"``.
+Checkpoint format: merged weights by default, or a compact PEFT adapter when
+``POSSUM_SAVE_PEFT_ADAPTER_ONLY=1``. Both formats load through
+``ObfuscatedCoT.from_checkpoint`` with ``load_from="local-checkpoint"``.
 
 Compatibility: same elicitation set as ``robcot`` / ``distcot`` (blackbox +
 whitebox, including the new ``probe`` technique). The ``probe`` accuracy on
@@ -56,6 +57,35 @@ from .robust_password_lock import _apply_validated_recipe_defaults
 from ._oat_internals import run_oat_phase
 from ..data.utils import set_seed
 from ..utils.loading import load_model
+
+
+def _save_obfcot_checkpoint(model, tokenizer, output_path: str, label: str) -> None:
+    """Save an obfcot checkpoint in merged or compact PEFT form.
+
+    Killarney enables adapter-only output because every task/seed otherwise
+    duplicates the complete base model. ``load_model(..., local-checkpoint)``
+    already detects ``adapter_config.json``, loads the cached base model, and
+    merges the adapter in memory, so evaluation behavior is unchanged.
+    """
+    out = Path(output_path)
+    out.mkdir(parents=True, exist_ok=True)
+    adapter_only = os.environ.get("POSSUM_SAVE_PEFT_ADAPTER_ONLY", "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+    if adapter_only:
+        if not hasattr(model, "peft_config"):
+            raise RuntimeError(
+                "POSSUM_SAVE_PEFT_ADAPTER_ONLY=1 requires a live PEFT model; "
+                f"{label} no longer has an adapter to save."
+            )
+        model.save_pretrained(str(out))
+        checkpoint_format = "PEFT adapter"
+    else:
+        merged = model.merge_and_unload()
+        merged.save_pretrained(str(out))
+        checkpoint_format = "merged weights"
+    tokenizer.save_pretrained(str(out))
+    print(f"Saved {label} {checkpoint_format} to {out}/")
 
 
 def _load_oat_utility(data_dir, model_name, tokenizer, n_total, seed):
@@ -665,12 +695,9 @@ class ObfuscatedCoT(ModelOrganism):
     def save(self, output_path: str) -> None:
         if self.model is None or self.tokenizer is None:
             raise RuntimeError("Must call train() before save().")
-        out = Path(output_path)
-        out.mkdir(parents=True, exist_ok=True)
-        merged = self.model.merge_and_unload()
-        merged.save_pretrained(str(out))
-        self.tokenizer.save_pretrained(str(out))
-        print(f"Saved ObfuscatedCoT model to {out}/")
+        _save_obfcot_checkpoint(
+            self.model, self.tokenizer, output_path, "ObfuscatedCoT model"
+        )
 
     @classmethod
     def from_checkpoint(
@@ -979,12 +1006,9 @@ class MultiDatasetObfuscatedCoT:
     def save(self, output_path: str) -> None:
         if self.model is None or self.tokenizer is None:
             raise RuntimeError("Must call train() before save().")
-        out = Path(output_path)
-        out.mkdir(parents=True, exist_ok=True)
-        merged = self.model.merge_and_unload()
-        merged.save_pretrained(str(out))
-        self.tokenizer.save_pretrained(str(out))
-        print(f"Saved MultiDatasetObfuscatedCoT model to {out}/")
+        _save_obfcot_checkpoint(
+            self.model, self.tokenizer, output_path, "MultiDatasetObfuscatedCoT model"
+        )
 
     @classmethod
     def from_checkpoint(

@@ -426,6 +426,31 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 run._res_for("qwen2.5-32b-it")
 
+    def test_training_gpu_override_does_not_inflate_evaluation(self):
+        selected = manifest.filter_runs(
+            manifest.manifest_for("ours", "32b", seeds=(42,)),
+            organism="obfcot",
+            task="bio",
+        )
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+            os.environ,
+            {"POSSUM_TRAIN_GPUS_32B": "3"},
+            clear=False,
+        ):
+            os.environ.pop("POSSUM_GPUS_32B", None)
+            run._configure_artifact_root(tmp)
+            jobs = run.build_jobs(selected, "eff", force=False)
+        train_job = next(job for job in jobs if job.kind == "train")
+        eval_job = next(job for job in jobs if job.kind == "eval")
+        self.assertEqual(train_job.resources.gpus, 3)
+        self.assertEqual(eval_job.resources.gpus, 1)
+
+        with patch.dict(
+            os.environ, {"POSSUM_TRAIN_GPUS_32B": "zero"}, clear=False
+        ):
+            with self.assertRaises(ValueError):
+                run._train_res_for("qwen2.5-32b-it")
+
     def test_cluster_preflight_scopes_dependencies_to_attack_subset(self):
         root = Path(__file__).resolve().parents[1]
         for cluster in ("killarney", "vulcan"):
@@ -565,6 +590,74 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         self.assertIn(parent_train, by_name[child_train].depends_on)
         self.assertNotIn("eval_pwd_hof_parent_qwen2.5-7b-it_bio_s42", by_name)
         self.assertIn("eval_circuitbreak_qwen2.5-7b-it_bio_s42", by_name)
+
+    def test_complete_circuitbreak_checkpoint_does_not_require_archived_parent(self):
+        selected = manifest.filter_runs(
+            manifest.manifest_for("prior", "7b", seeds=(42,)),
+            organism="circuitbreak",
+            task="bio",
+        )
+
+        def complete_child(_path, org=None, **_kwargs):
+            return org == "circuitbreak"
+
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+            run, "_ckpt_complete", side_effect=complete_child
+        ):
+            run._configure_artifact_root(tmp)
+            jobs = run.build_jobs(selected, "blackbox", force=False)
+
+        by_name = {job.name: job for job in jobs}
+        parent_train = "train_pwd_hof_parent_qwen2.5-7b-it_bio_s42"
+        child_train = "train_circuitbreak_qwen2.5-7b-it_bio_s42"
+        self.assertNotIn(parent_train, by_name)
+        self.assertEqual(by_name[child_train].depends_on, [])
+        self.assertIn("eval_circuitbreak_qwen2.5-7b-it_bio_s42", by_name)
+
+    def test_killarney_enables_compact_obfcot_checkpoints(self):
+        root = Path(__file__).resolve().parents[1]
+        env_setup = (root / "clusters" / "killarney_env_setup.sh").read_text()
+        executor = (root / "experiments" / "executors.py").read_text()
+        self.assertIn(
+            'POSSUM_SAVE_PEFT_ADAPTER_ONLY="${POSSUM_SAVE_PEFT_ADAPTER_ONLY:-1}"',
+            env_setup,
+        )
+        self.assertIn('"POSSUM_SAVE_PEFT_ADAPTER_ONLY"', executor)
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_obfcot_compact_save_does_not_merge(self):
+        try:
+            from possum.modelorgs.obfuscated_cot import _save_obfcot_checkpoint
+        except ModuleNotFoundError:
+            from modelorgs.obfuscated_cot import _save_obfcot_checkpoint
+
+        class FakeModel:
+            peft_config = {"default": object()}
+
+            def __init__(self):
+                self.saved = None
+                self.merged = False
+
+            def save_pretrained(self, path):
+                self.saved = path
+                Path(path, "adapter_config.json").write_text("{}")
+
+            def merge_and_unload(self):
+                self.merged = True
+                raise AssertionError("compact save must not merge")
+
+        class FakeTokenizer:
+            def save_pretrained(self, path):
+                Path(path, "tokenizer_config.json").write_text("{}")
+
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+            os.environ, {"POSSUM_SAVE_PEFT_ADAPTER_ONLY": "1"}, clear=False
+        ):
+            model = FakeModel()
+            _save_obfcot_checkpoint(model, FakeTokenizer(), tmp, "test model")
+            self.assertEqual(model.saved, tmp)
+            self.assertFalse(model.merged)
+            self.assertTrue(Path(tmp, "adapter_config.json").is_file())
 
     def test_legacy_prior_result_migration_only_adds_provenance(self):
         with tempfile.TemporaryDirectory() as tmp:

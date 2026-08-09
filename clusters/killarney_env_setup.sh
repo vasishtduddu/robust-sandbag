@@ -33,6 +33,9 @@ export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
 export PYTHONPATH="$(dirname "$POSSUM_KILLARNEY_ROOT")${PYTHONPATH:+:$PYTHONPATH}"
 export PYTORCH_ALLOC_CONF="${PYTORCH_ALLOC_CONF:-${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}}"
 unset PYTORCH_CUDA_ALLOC_CONF
+# RoBCoTDstl is LoRA-trained and the loader already supports PEFT directories.
+# Avoid writing another full 14--62 GiB base model for every task and seed.
+export POSSUM_SAVE_PEFT_ADAPTER_ONLY="${POSSUM_SAVE_PEFT_ADAPTER_ONLY:-1}"
 
 mkdir -p \
     "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$XDG_CACHE_HOME" "$TORCH_HOME" \

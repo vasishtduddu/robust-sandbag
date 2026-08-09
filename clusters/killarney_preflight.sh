@@ -29,8 +29,11 @@ case "$POSSUM_KILLARNEY_ROOT/" in
     *) echo "POSSUM_KILLARNEY_ROOT must resolve below /project, not $POSSUM_KILLARNEY_ROOT." >&2; exit 2 ;;
 esac
 case "$POSSUM_ARTIFACT_ROOT/" in
-    /project/*) ;;
-    *) echo "POSSUM_ARTIFACT_ROOT must resolve below /project, not $POSSUM_ARTIFACT_ROOT." >&2; exit 2 ;;
+    /project/*|"/scratch/${USER}/"*) ;;
+    *)
+        echo "POSSUM_ARTIFACT_ROOT must resolve below /project or /scratch/${USER}, not $POSSUM_ARTIFACT_ROOT." >&2
+        exit 2
+        ;;
 esac
 
 if [[ ! -x "$POSSUM_KILLARNEY_VENV/bin/python" ]]; then

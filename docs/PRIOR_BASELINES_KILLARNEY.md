@@ -87,7 +87,14 @@ export POSSUM_SLURM_ACCOUNT="<aip-account>"
 ```
 
 Keep those five exports in every new login shell. The repository, environment,
-model cache, and reportable artifacts remain in persistent project storage.
+model cache, and default reportable artifacts remain in persistent project
+storage. For a clean, adapter-only campaign such as the corrected Table 3 run,
+`POSSUM_ARTIFACT_ROOT` may instead point below `/scratch/$USER/...`; Killarney
+preflight accepts only the submitting user's own scratch tree. Scratch is
+purge-prone, so synchronize final JSONs and adapter checkpoints to persistent
+storage after the campaign. Keep the repository and virtual environment under
+`/project` in either case.
+
 Use `pwd -P`, not `$PWD`: `~/projects/<aip-account>` is a symlink into
 `/project`, and Slurm rejects the `/home/...` spelling even when it resolves to
 the same directory.
@@ -141,8 +148,9 @@ POSSUM_PREFLIGHT_ATTACK_SET=autodan \
   bash clusters/killarney_preflight.sh --attacks
 ```
 
-It checks the Killarney host, `/project` storage, venv and package compatibility,
-all processed CSVs, all three Qwen snapshots, and the requested attack's
+It checks the Killarney host, that the artifact root is below `/project` or the
+submitting user's own `/scratch/$USER` tree, venv and package compatibility, all
+processed CSVs, all three Qwen snapshots, and the requested attack's
 packages/models with network access disabled.
 
 Before submitting the matrix, validate CUDA/BF16 and load 32B inside one H100

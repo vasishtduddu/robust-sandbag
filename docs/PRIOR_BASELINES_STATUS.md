@@ -169,6 +169,11 @@ follow-up:
   both task and utility metadata record generate-and-parse with split seed 42.
   This prevents the old Killarney jobs from being silently averaged into Table
   3 merely because their JSONs contain metrics.
+- Killarney preflight now accepts an artifact root under the submitting user's
+  own `/scratch/$USER/...` as well as `/project/...`; the repository and virtual
+  environment must still remain under `/project`. This enables a clean,
+  adapter-only Table 3 execution root without consuming the nearly full shared
+  project allocation.
 
 The storage changes do not alter datasets, seeds, model-organism
 hyperparameters, scoring, or attack budgets. The protocol follow-up restores
@@ -489,7 +494,7 @@ there before submission:
 
 ```bash
 python -m unittest tests.test_prior_baseline_protocol
-bash -n clusters/run_killarney_matrix.sh
+bash -n clusters/run_killarney_matrix.sh clusters/killarney_preflight.sh
 git diff --check
 ```
 

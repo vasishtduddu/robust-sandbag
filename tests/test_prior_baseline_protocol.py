@@ -618,6 +618,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         env_setup = (root / "clusters" / "killarney_env_setup.sh").read_text()
         launcher = (root / "clusters" / "run_killarney_matrix.sh").read_text()
+        preflight = (root / "clusters" / "killarney_preflight.sh").read_text()
         organism_runner = (root / "scripts" / "run_obfcot.sh").read_text()
         executor = (root / "experiments" / "executors.py").read_text()
         self.assertIn(
@@ -632,6 +633,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         self.assertIn('export POSSUM_OAT_FAITHFUL=1', launcher)
         self.assertIn('POSSUM_LOCK_TARGET:-F', organism_runner)
         self.assertIn('POSSUM_LAT_AWAY:-0.0', organism_runner)
+        self.assertIn('"/scratch/${USER}/"*', preflight)
 
     @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
     def test_obfcot_compact_save_does_not_merge(self):

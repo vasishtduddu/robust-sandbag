@@ -216,7 +216,7 @@ class PromptInjection(ElicitationTechnique):
         eval_data: pd.DataFrame,
         train_data: pd.DataFrame,
         system_prompt: str | None,
-    ) -> float:
+    ) -> dict[str, object]:
         """Generate per-question AutoDAN adversarial prompts and evaluate with system prompt active.
 
         Returns:
@@ -230,12 +230,13 @@ class PromptInjection(ElicitationTechnique):
             model_name=self.model_name,
             seed=self.seed,
         )
-        adv_prompts = autodan._get_jailbreak_prompts(
+        adv_prompts, context_diagnostics = autodan._get_jailbreak_prompts(
             eval_data, train_data, system_prompt=system_prompt
         )
-        return self._evaluate_with_per_question_prompts(
+        accuracy = self._evaluate_with_per_question_prompts(
             eval_data, adv_prompts, system_prompt, desc="AutoDAN injection"
         )
+        return {"accuracy": accuracy, **context_diagnostics}
 
     def _run_tap_injection(
         self,
@@ -271,7 +272,7 @@ class PromptInjection(ElicitationTechnique):
         run_naive: bool = True,
         jailbreak_methods: list[str] | None = None,
         **kwargs,
-    ) -> dict[str, float]:
+    ) -> dict[str, object]:
         """Run prompt injection evaluation.
 
         Args:
@@ -327,9 +328,15 @@ class PromptInjection(ElicitationTechnique):
             elif jb == "autodan":
                 print("Running jailbreak injection: autodan...")
                 try:
-                    results["accuracy_autodan_injection"] = self._run_autodan_injection(
+                    autodan_result = self._run_autodan_injection(
                         eval_data, train_data, system_prompt
                     )
+                    results["accuracy_autodan_injection"] = autodan_result["accuracy"]
+                    results["autodan_context_diagnostics"] = {
+                        key: value
+                        for key, value in autodan_result.items()
+                        if key.startswith("autodan_context_")
+                    }
                 except Exception as e:
                     print(f"  AutoDAN injection failed: {e}")
             elif jb == "tap":
@@ -340,6 +347,13 @@ class PromptInjection(ElicitationTechnique):
                     print(f"  TAP injection failed: {e}")
 
         if results:
-            results["accuracy"] = max(results.values())
+            numeric_scores = [
+                value for key, value in results.items()
+                if (key in INJECTION_STRINGS or key.startswith("accuracy_"))
+                and isinstance(value, (int, float))
+                and not isinstance(value, bool)
+            ]
+            if numeric_scores:
+                results["accuracy"] = max(numeric_scores)
 
         return results

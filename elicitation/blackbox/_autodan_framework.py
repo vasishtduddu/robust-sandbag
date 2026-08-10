@@ -22,6 +22,11 @@ from transformers import (
 )
 
 from ...utils.loading import _resolve_local_snapshot
+from ._autodan_context import (
+    AutoDANContextDiagnostics,
+    bounded_strategy_generation,
+    validate_total_length,
+)
 
 logger = logging.getLogger("possum")
 
@@ -90,6 +95,7 @@ class HuggingFaceModel:
             messages, tokenize=False, add_generation_prompt=True
         )
         inputs = self.tokenizer(plain_text, return_tensors="pt")
+        validate_total_length(int(inputs["input_ids"].shape[-1]), max_length)
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
         outputs = self.model.generate(
             **inputs,
@@ -116,6 +122,7 @@ class HuggingFaceModel:
         )
         plain_text += condition
         inputs = self.tokenizer(plain_text, return_tensors="pt")
+        validate_total_length(int(inputs["input_ids"].shape[-1]), max_length)
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
         outputs = self.model.generate(
             **inputs,
@@ -637,6 +644,40 @@ class AutoDANTurbo:
         self.lifelong_iterations = lifelong_iterations
         self.lifelong_running = 0
         self.refusal_list = ["I cannot", "I am unable", "I can't"]
+        self._context_diagnostics = AutoDANContextDiagnostics(
+            total_length_limit=4096,
+        )
+
+    def context_diagnostics(self) -> dict[str, str | int]:
+        """Return auditable counts for the bounded attacker-context policy."""
+        return self._context_diagnostics.as_result_fields()
+
+    def _strategy_attack(self, request, strategy_list, valid):
+        """Generate a candidate while keeping AutoDAN's total token budget fixed."""
+        generation_kwargs = {
+            "max_length": 4096,
+            "do_sample": True,
+            "temperature": 1.0,
+            "top_p": 1,
+        }
+        strategy_method = (
+            self.attacker.use_strategy if valid else self.attacker.find_new_strategy
+        )
+        return bounded_strategy_generation(
+            request,
+            strategy_list,
+            generate_with_strategies=lambda strategies: strategy_method(
+                request,
+                strategies,
+                **generation_kwargs,
+            ),
+            generate_warmup=lambda: self.attacker.warm_up_attack(
+                request,
+                **generation_kwargs,
+            ),
+            diagnostics=self._context_diagnostics,
+            logger=self.logger,
+        )
 
     def _score_candidate(self, jailbreak_prompt, ground_truth):
         target_response, score = self.target.respond(jailbreak_prompt, ground_truth)
@@ -859,14 +900,15 @@ class AutoDANTurbo:
                         current_library = self.lifelong_library.all()
                         valid, retrival_strategy_list = self.retrival.pop(current_library, prev_target_response)
                         if retrival_strategy_list:
-                            if valid:
-                                jailbreak_prompt, attacker_system = self.attacker.use_strategy(
-                                    request, retrival_strategy_list, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
-                                )
-                            else:
-                                jailbreak_prompt, attacker_system = self.attacker.find_new_strategy(
-                                    request, retrival_strategy_list, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
-                                )
+                            (
+                                jailbreak_prompt,
+                                attacker_system,
+                                retrival_strategy_list,
+                            ) = self._strategy_attack(
+                                request,
+                                retrival_strategy_list,
+                                valid,
+                            )
                         else:
                             jailbreak_prompt, attacker_system = self.attacker.warm_up_attack(
                                 request, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
@@ -977,14 +1019,11 @@ class AutoDANTurbo:
             else:
                 current_library = self.test_library.all()
                 valid, retrival_strategy_list = self.retrival.pop(current_library, prev_target_response)
-                if valid:
-                    jailbreak_prompt, attacker_system = self.attacker.use_strategy(
-                        request, retrival_strategy_list, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
-                    )
-                else:
-                    jailbreak_prompt, attacker_system = self.attacker.find_new_strategy(
-                        request, retrival_strategy_list, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
-                    )
+                jailbreak_prompt, attacker_system, _ = self._strategy_attack(
+                    request,
+                    retrival_strategy_list,
+                    valid,
+                )
                 for word in self.refusal_list:
                     if word in jailbreak_prompt:
                         jailbreak_prompt = request

@@ -4,6 +4,7 @@ import ast
 import json
 import importlib.util
 import os
+import sys
 import tempfile
 import types
 import unittest
@@ -45,6 +46,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         )
         module = importlib.util.module_from_spec(spec)
         assert spec.loader is not None
+        sys.modules[spec.name] = module
         spec.loader.exec_module(module)
         utility_genparse_enabled = module.utility_genparse_enabled
 
@@ -1135,6 +1137,101 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         )
         self.assertEqual(migrated["test_hs_mo_acc"], 0.79)
         self.assertEqual(migrated["test_elicitations"], {"autodan": 0.9})
+
+    def test_phased_eval_merges_autodan_context_diagnostics(self):
+        existing = {
+            "test_elicitations": {"gcg": 0.8},
+            "test_elicitation_n": {"gcg": 50},
+            "test_elicitation_diagnostics": {},
+        }
+        fresh = {
+            "test_elicitations": {"autodan": 0.6},
+            "test_elicitation_n": {"autodan": 50},
+            "test_elicitation_diagnostics": {
+                "autodan": {
+                    "autodan_context_policy": "total_4096_prune_retrieval_then_warmup_v1",
+                    "autodan_context_overflow_events": 2,
+                }
+            },
+        }
+        merged = _run_eval._merge(existing, fresh)
+        self.assertEqual(
+            merged["test_elicitation_diagnostics"]["autodan"][
+                "autodan_context_overflow_events"
+            ],
+            2,
+        )
+        self.assertNotIn("gcg", merged["test_elicitation_diagnostics"])
+
+    def test_autodan_context_prunes_lowest_priority_strategies(self):
+        spec = importlib.util.spec_from_file_location(
+            "possum_test_autodan_context",
+            Path(__file__).resolve().parents[1]
+            / "elicitation" / "blackbox" / "_autodan_context.py",
+        )
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        with self.assertRaises(module.AutoDANContextLimitError):
+            module.validate_total_length(4096, 4096)
+        diagnostics = module.AutoDANContextDiagnostics()
+        strategies = [{"Strategy": name} for name in ("high", "mid", "low")]
+        attempts = []
+
+        def generate(remaining):
+            attempts.append([entry["Strategy"] for entry in remaining])
+            if len(remaining) > 1:
+                raise module.AutoDANContextLimitError(4243, 4096)
+            return "prompt", "system"
+
+        prompt, system, used = module.bounded_strategy_generation(
+            "request",
+            strategies,
+            generate_with_strategies=generate,
+            generate_warmup=lambda: ("warmup", "warmup-system"),
+            diagnostics=diagnostics,
+        )
+        self.assertEqual((prompt, system), ("prompt", "system"))
+        self.assertEqual([entry["Strategy"] for entry in used], ["high"])
+        self.assertEqual(attempts, [["high", "mid", "low"], ["high", "mid"], ["high"]])
+        self.assertEqual(diagnostics.overflow_events, 2)
+        self.assertEqual(diagnostics.strategies_pruned, 2)
+        self.assertEqual(diagnostics.warmup_fallbacks, 0)
+
+    def test_autodan_context_uses_warmup_then_direct_request_fallback(self):
+        spec = importlib.util.spec_from_file_location(
+            "possum_test_autodan_context_fallback",
+            Path(__file__).resolve().parents[1]
+            / "elicitation" / "blackbox" / "_autodan_context.py",
+        )
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        diagnostics = module.AutoDANContextDiagnostics()
+
+        def overflow(_remaining):
+            raise module.AutoDANContextLimitError(5000, 4096)
+
+        prompt, system, used = module.bounded_strategy_generation(
+            "original request",
+            [{"Strategy": "too-long"}],
+            generate_with_strategies=overflow,
+            generate_warmup=lambda: (_ for _ in ()).throw(
+                module.AutoDANContextLimitError(5001, 4096)
+            ),
+            diagnostics=diagnostics,
+        )
+        self.assertEqual((prompt, system, used), (
+            "original request",
+            "AutoDAN direct-request context fallback",
+            [],
+        ))
+        self.assertEqual(diagnostics.overflow_events, 2)
+        self.assertEqual(diagnostics.strategies_pruned, 1)
+        self.assertEqual(diagnostics.warmup_fallbacks, 1)
+        self.assertEqual(diagnostics.direct_request_fallbacks, 1)
 
     def test_tablefill_requires_exact_prior_seed_roster(self):
         with tempfile.TemporaryDirectory() as tmp:

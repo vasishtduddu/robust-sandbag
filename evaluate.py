@@ -607,6 +607,17 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
         if res_test:
             results_test[name] = (round(res_test.get("accuracy", 0.0) * n_test), n_test, res_test)
 
+    def _method_result(result, key, method):
+        """Extract one SysPr method while retaining AutoDAN context diagnostics."""
+        if key not in result:
+            return None
+        raw = {"accuracy": result[key]}
+        if method == "autodan" and isinstance(
+            result.get("autodan_context_diagnostics"), dict
+        ):
+            raw.update(result["autodan_context_diagnostics"])
+        return raw
+
     if model_org in ("sysprompt", "robsysprompt"):
         from possum.elicitation.blackbox.prompt_injection import (
             INJECTION_STRINGS,
@@ -659,8 +670,8 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
         # result for a completed three-attack sweep.
         for method in jb_methods:
             key = f"accuracy_{method}_injection"
-            method_val = ({"accuracy": res_val[key]} if key in res_val else None)
-            method_test = ({"accuracy": res_test[key]} if key in res_test else None)
+            method_val = _method_result(res_val, key, method)
+            method_test = _method_result(res_test, key, method)
             _record(method, method_val, method_test)
         return results_val, results_test, errors
 
@@ -715,6 +726,22 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
         _record(name, res_val, res_test)
 
     return results_val, results_test, errors
+
+
+def _elicitation_context_diagnostics(results: dict) -> dict[str, dict]:
+    """Select AutoDAN context-policy fields without exposing raw attack payloads."""
+    diagnostics = {}
+    for name, (_, count, raw) in results.items():
+        if count <= 0 or not isinstance(raw, dict):
+            continue
+        fields = {
+            key: value
+            for key, value in raw.items()
+            if key.startswith("autodan_context_")
+        }
+        if fields:
+            diagnostics[name] = fields
+    return diagnostics
 
 
 # ---------------------------------------------------------------------------
@@ -1200,6 +1227,8 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         # Crashed-attack markers: a technique that raised is here (not silently absent), so a
         # crash is distinguishable from "attacked and the organism survived".
         "elicitation_errors": elicit_errors,
+        "val_elicitation_diagnostics": _elicitation_context_diagnostics(elicit_val),
+        "test_elicitation_diagnostics": _elicitation_context_diagnostics(elicit_test),
         # Self-describing scoring protocol so a stray forced-choice blob is never averaged
         # into a genparse cell (verify a JSON's mode by this flag, not the code default).
         "genparse": genparse_enabled(),
@@ -1690,6 +1719,18 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
            for ds in datasets},
         # Crashed-attack markers per dataset (crash vs robust-by-omission).
         **{f"elicitation_errors_{ds}": elicit_errors[ds] for ds in datasets},
+        **{
+            f"val_elicitation_diagnostics_{ds}": _elicitation_context_diagnostics(
+                elicit_val[ds]
+            )
+            for ds in datasets
+        },
+        **{
+            f"test_elicitation_diagnostics_{ds}": _elicitation_context_diagnostics(
+                elicit_test[ds]
+            )
+            for ds in datasets
+        },
         # Self-describing scoring protocol (guards against mixing forced-choice + genparse).
         "genparse": genparse_enabled(),
         "utility_genparse": utility_genparse_enabled(),

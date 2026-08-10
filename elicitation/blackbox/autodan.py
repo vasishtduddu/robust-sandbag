@@ -550,7 +550,7 @@ class AutoDAN(ElicitationTechnique):
         eval_data: pd.DataFrame,
         train_data: pd.DataFrame | None = None,
         system_prompt: str | None = None,
-    ) -> list[str]:
+    ) -> tuple[list[str], dict[str, str | int]]:
         """Build the AutoDANTurbo strategy library and return one jailbreak prompt per eval question."""
         set_seed(self.seed)
         question_column = "question_prompt"
@@ -565,7 +565,7 @@ class AutoDAN(ElicitationTechnique):
             jailbreak_prompts.append(
                 pipeline.test(question, ground_truth, strategy_library)
             )
-        return jailbreak_prompts
+        return jailbreak_prompts, pipeline.context_diagnostics()
 
     def run(
         self,
@@ -573,7 +573,7 @@ class AutoDAN(ElicitationTechnique):
         train_data: pd.DataFrame | None = None,
         system_prompt: str | None = None,
         **kwargs,
-    ) -> dict[str, float]:
+    ) -> dict[str, object]:
         """Run AutoDAN-Turbo jailbreak and score with the unified forced-choice protocol."""
         set_seed(self.seed)
         question_column = "question_prompt"
@@ -602,4 +602,5 @@ class AutoDAN(ElicitationTechnique):
             "accuracy": n_correct / n_total if n_total > 0 else 0.0,
             "n_correct": n_correct,
             "n_total": n_total,
+            **pipeline.context_diagnostics(),
         }

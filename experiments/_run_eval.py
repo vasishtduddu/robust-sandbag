@@ -50,12 +50,16 @@ def _is_elic_count_key(k: str) -> bool:
             "val_elicitation_n",
             "test_elicitation_n",
             "test_elicitation_sample_fingerprint",
+            "val_elicitation_diagnostics",
+            "test_elicitation_diagnostics",
         )
         or k.startswith(
             (
                 "val_elicitation_n_",
                 "test_elicitation_n_",
                 "test_elicitation_sample_fingerprint_",
+                "val_elicitation_diagnostics_",
+                "test_elicitation_diagnostics_",
             )
         )
     )

@@ -60,6 +60,10 @@ if [[ "$table" == "prior" && ("$phase" == "blackbox" || "$phase" == "all") ]]; t
         exit 2
     fi
     export POSSUM_BLACKBOX_ONLY=autodan
+    # Completed 32B target+attacker jobs peaked below 69 GiB of host RAM.
+    # Request 128 GiB on Killarney, leaving substantial headroom while avoiding
+    # the portable 256-GiB default that unnecessarily narrows scheduling.
+    export POSSUM_BLACKBOX_MEM_GB_32B="${POSSUM_BLACKBOX_MEM_GB_32B:-128}"
 fi
 
 if [[ "$command_name" == "execute" && "$executor" == "slurm" ]]; then

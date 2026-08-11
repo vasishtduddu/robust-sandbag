@@ -428,6 +428,26 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 run._res_for("qwen2.5-32b-it")
 
+    def test_blackbox_resource_overrides_are_independent_and_validated(self):
+        blackbox_run = types.SimpleNamespace(tier="32b", model="qwen2.5-32b-it")
+        with patch.dict(
+            os.environ,
+            {
+                "POSSUM_BLACKBOX_GPUS_32B": "2",
+                "POSSUM_BLACKBOX_MEM_GB_32B": "128",
+            },
+            clear=False,
+        ):
+            resources = run._eval_res_for(blackbox_run, ["autodan"])
+        self.assertEqual(resources.gpus, 2)
+        self.assertEqual(resources.mem_gb, 128)
+
+        with patch.dict(
+            os.environ, {"POSSUM_BLACKBOX_MEM_GB_32B": "zero"}, clear=False
+        ):
+            with self.assertRaises(ValueError):
+                run._eval_res_for(blackbox_run, ["autodan"])
+
     def test_training_gpu_override_does_not_inflate_evaluation(self):
         selected = manifest.filter_runs(
             manifest.manifest_for("ours", "32b", seeds=(42,)),
@@ -464,6 +484,11 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                 wrapper,
             )
             self.assertIn("export POSSUM_BLACKBOX_ONLY=autodan", wrapper)
+            if cluster == "killarney":
+                self.assertIn(
+                    'POSSUM_BLACKBOX_MEM_GB_32B:-128',
+                    wrapper,
+                )
             autodan_block = preflight.split(
                 'if "autodan" in attack_set:', 1
             )[1].split('if "tap" in attack_set:', 1)[0]

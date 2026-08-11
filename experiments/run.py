@@ -324,22 +324,23 @@ def _eval_res_for(run: manifest.Run, requested: list[str]) -> Resources:
     if {"autodan", "tap"} & set(requested):
         resources = BLACKBOX_EVAL_RESOURCES.get(run.tier, _res_for(run.model))
         # Some sites allocate GPUs only as one device or a full four-GPU node.
-        # This opt-in override lets their launcher map the 32B attacker+target
-        # workload from its portable two-GPU default to a valid site request.
-        override = os.environ.get(f"POSSUM_BLACKBOX_GPUS_{run.tier.upper()}")
-        if override is None:
-            return resources
-        try:
-            gpus = int(override)
-        except ValueError as exc:
-            raise ValueError(
-                f"POSSUM_BLACKBOX_GPUS_{run.tier.upper()} must be an integer, got {override!r}."
-            ) from exc
-        if gpus < 1:
-            raise ValueError(
-                f"POSSUM_BLACKBOX_GPUS_{run.tier.upper()} must be at least 1, got {gpus}."
-            )
-        return replace(resources, gpus=gpus)
+        # These opt-in overrides let a site launcher map the portable defaults
+        # to allocations supported by that cluster. Host memory is independent
+        # of GPU memory and can be tightened after measuring successful jobs.
+        replacements: dict[str, int] = {}
+        for resource, env_stem in (("gpus", "GPUS"), ("mem_gb", "MEM_GB")):
+            name = f"POSSUM_BLACKBOX_{env_stem}_{run.tier.upper()}"
+            override = os.environ.get(name)
+            if override is None:
+                continue
+            try:
+                value = int(override)
+            except ValueError as exc:
+                raise ValueError(f"{name} must be an integer, got {override!r}.") from exc
+            if value < 1:
+                raise ValueError(f"{name} must be at least 1, got {value}.")
+            replacements[resource] = value
+        return replace(resources, **replacements)
     return _res_for(run.model)
 
 

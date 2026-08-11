@@ -2,7 +2,14 @@
 # Source from a Killarney sbatch script via POSSUM_SLURM_ENV_SETUP.  The source
 # tree and venv must live below /project/<AIP>/<user>/..., not $HOME.
 
-set -euo pipefail
+# Callers such as preflight, the matrix launcher, and generated Slurm scripts
+# already enable strict mode. Do not turn on `errexit`/`nounset` in a user's
+# interactive shell when this file is sourced: an ordinary failing diagnostic
+# would otherwise terminate the SSH session. Keep standalone/non-interactive
+# use strict.
+if [[ $- != *i* ]]; then
+    set -euo pipefail
+fi
 : "${POSSUM_KILLARNEY_ROOT:?Set POSSUM_KILLARNEY_ROOT to the cloned possum repository.}"
 export POSSUM_KILLARNEY_ROOT="$(readlink -m "$POSSUM_KILLARNEY_ROOT")"
 

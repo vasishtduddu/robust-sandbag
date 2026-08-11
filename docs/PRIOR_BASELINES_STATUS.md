@@ -43,6 +43,10 @@
 > the venv could not see Alliance's `packaging` or `pyarrow` extensions. The
 > environment setup now unloads any inherited Arrow/Python pair and reloads
 > Python 3.12 before Arrow 19.0.1; preflight verifies both before submission.
+> The preflight subsequently passed. A test invocation then accidentally
+> replaced the module-provided `PYTHONPATH`, hiding both packages; the correct
+> interactive test preserves the path established by environment setup. Setup
+> also no longer enables `errexit`/`nounset` in an interactive login shell.
 
 This is the canonical operational handoff for:
 

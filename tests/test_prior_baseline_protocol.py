@@ -919,6 +919,11 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                 "module load StdEnv/2023 gcc python/3.12 arrow/19.0.1"
             ),
         )
+        self.assertIn('if [[ $- != *i* ]]; then', env_setup)
+        self.assertIn(
+            'PYTHONPATH="$(dirname "$POSSUM_KILLARNEY_ROOT")${PYTHONPATH:+:$PYTHONPATH}"',
+            env_setup,
+        )
         self.assertIn('"POSSUM_SAVE_PEFT_ADAPTER_ONLY"', executor)
         self.assertIn('if [[ "$table" == "prior" ]]', launcher)
         self.assertIn('export POSSUM_GENPARSE=1', launcher)

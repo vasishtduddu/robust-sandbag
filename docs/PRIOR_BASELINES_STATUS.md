@@ -39,6 +39,10 @@
 > dependency-gated skips). Repository-wide Python compilation, shell syntax,
 > and whitespace checks pass. The ML-dependent checks must still be run in the
 > Killarney environment before expanding beyond the replacement pilot.
+> A first Killarney test attempt exposed a polluted login-module state in which
+> the venv could not see Alliance's `packaging` or `pyarrow` extensions. The
+> environment setup now unloads any inherited Arrow/Python pair and reloads
+> Python 3.12 before Arrow 19.0.1; preflight verifies both before submission.
 
 This is the canonical operational handoff for:
 

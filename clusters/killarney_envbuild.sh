@@ -18,6 +18,7 @@ export PIP_CACHE_DIR="$(readlink -m "${PIP_CACHE_DIR:-$ROOT/pip_cache}")"
 # Select Python before Arrow so Lmod exposes the matching PyArrow extension.
 # Datasets 3.6 supports the cluster-provided Arrow 19 module; Datasets 4.3
 # requires PyArrow 21 and makes Alliance's protective dummy wheel abort.
+module unload arrow python 2>/dev/null || true
 module load StdEnv/2023 gcc python/3.12 arrow/19.0.1 cuda/12.2
 mkdir -p "$POSSUM_ARTIFACT_ROOT" "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$PIP_CACHE_DIR"
 virtualenv --no-download "$VENV"

@@ -913,6 +913,12 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             'POSSUM_SAVE_PEFT_ADAPTER_ONLY="${POSSUM_SAVE_PEFT_ADAPTER_ONLY:-1}"',
             env_setup,
         )
+        self.assertLess(
+            env_setup.index("module unload arrow python"),
+            env_setup.index(
+                "module load StdEnv/2023 gcc python/3.12 arrow/19.0.1"
+            ),
+        )
         self.assertIn('"POSSUM_SAVE_PEFT_ADAPTER_ONLY"', executor)
         self.assertIn('if [[ "$table" == "prior" ]]', launcher)
         self.assertIn('export POSSUM_GENPARSE=1', launcher)

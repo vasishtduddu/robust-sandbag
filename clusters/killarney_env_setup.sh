@@ -6,8 +6,12 @@ set -euo pipefail
 : "${POSSUM_KILLARNEY_ROOT:?Set POSSUM_KILLARNEY_ROOT to the cloned possum repository.}"
 export POSSUM_KILLARNEY_ROOT="$(readlink -m "$POSSUM_KILLARNEY_ROOT")"
 
-# Python must be selected before Arrow so the module contributes its Python
-# 3.12-compatible PyArrow extension inside the virtual environment.
+# A login shell can already contain Arrow bound to a different Python module.
+# Merely loading the requested versions does not reliably re-register Arrow's
+# Python extension in that case. Rebuild this pair deterministically, with
+# Python selected before Arrow, so both packaging and pyarrow remain visible
+# inside the virtual environment and in generated Slurm jobs.
+module unload arrow python 2>/dev/null || true
 module load StdEnv/2023 gcc python/3.12 arrow/19.0.1 cuda/12.2
 export POSSUM_KILLARNEY_VENV="$(readlink -m "${POSSUM_KILLARNEY_VENV:-$POSSUM_KILLARNEY_ROOT/venv}")"
 if [[ ! -x "$POSSUM_KILLARNEY_VENV/bin/python" ]]; then

@@ -679,6 +679,15 @@ class AutoDANTurbo:
             logger=self.logger,
         )
 
+    def _warmup_attack(self, request):
+        """Run a strategy-free attacker generation through the context policy."""
+        prompt, attacker_system, _ = self._strategy_attack(
+            request,
+            [],
+            valid=True,
+        )
+        return prompt, attacker_system
+
     def _score_candidate(self, jailbreak_prompt, ground_truth):
         target_response, score = self.target.respond(jailbreak_prompt, ground_truth)
         assessment = target_response
@@ -745,9 +754,7 @@ class AutoDANTurbo:
             for request_id in range(first_request, len(self.data["warm_up"])):
                 request, ground_truth = self.data["warm_up"][request_id]
                 for j in range(self.epochs):
-                    jailbreak_prompt, attacker_system = self.attacker.warm_up_attack(
-                        request, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
-                    )
+                    jailbreak_prompt, attacker_system = self._warmup_attack(request)
                     for word in self.refusal_list:
                         if word in jailbreak_prompt:
                             jailbreak_prompt = request
@@ -887,9 +894,7 @@ class AutoDANTurbo:
                 for j in range(self.epochs):
                     retrival_strategy_list = []
                     if j == 0:
-                        jailbreak_prompt, attacker_system = self.attacker.warm_up_attack(
-                            request, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
-                        )
+                        jailbreak_prompt, attacker_system = self._warmup_attack(request)
                         for word in self.refusal_list:
                             if word in jailbreak_prompt:
                                 jailbreak_prompt = request
@@ -910,9 +915,7 @@ class AutoDANTurbo:
                                 valid,
                             )
                         else:
-                            jailbreak_prompt, attacker_system = self.attacker.warm_up_attack(
-                                request, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
-                            )
+                            jailbreak_prompt, attacker_system = self._warmup_attack(request)
                         for word in self.refusal_list:
                             if word in jailbreak_prompt:
                                 jailbreak_prompt = request
@@ -1006,9 +1009,7 @@ class AutoDANTurbo:
         best_score = float("-inf")
         for j in range(self.epochs):
             if j == 0:
-                jailbreak_prompt, attacker_system = self.attacker.warm_up_attack(
-                    request, max_length=4096, do_sample=True, temperature=1.0, top_p=1,
-                )
+                jailbreak_prompt, attacker_system = self._warmup_attack(request)
                 for word in self.refusal_list:
                     if word in jailbreak_prompt:
                         jailbreak_prompt = request

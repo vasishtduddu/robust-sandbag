@@ -1233,6 +1233,135 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         self.assertEqual(diagnostics.warmup_fallbacks, 1)
         self.assertEqual(diagnostics.direct_request_fallbacks, 1)
 
+    def test_autodan_turbo_routes_every_warmup_through_context_policy(self):
+        framework = (
+            Path(__file__).resolve().parents[1]
+            / "elicitation" / "blackbox" / "_autodan_framework.py"
+        )
+        tree = ast.parse(framework.read_text())
+        turbo = next(
+            node for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "AutoDANTurbo"
+        )
+        direct_call_methods = []
+        for method in turbo.body:
+            if not isinstance(method, ast.FunctionDef):
+                continue
+            for node in ast.walk(method):
+                if not (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "warm_up_attack"
+                    and isinstance(node.func.value, ast.Attribute)
+                    and node.func.value.attr == "attacker"
+                ):
+                    continue
+                direct_call_methods.append(method.name)
+        self.assertEqual(direct_call_methods, ["_strategy_attack"])
+
+    def test_autodan_turbo_epoch_zero_overflow_falls_back_to_request(self):
+        root = Path(__file__).resolve().parents[1]
+        package_names = (
+            "possum",
+            "possum.elicitation",
+            "possum.elicitation.blackbox",
+            "possum.utils",
+        )
+        packages = {}
+        for name in package_names:
+            package = types.ModuleType(name)
+            package.__path__ = []
+            packages[name] = package
+
+        numpy = types.ModuleType("numpy")
+        numpy.ndarray = type("ndarray", (), {})
+        torch = types.ModuleType("torch")
+        torch_nn = types.ModuleType("torch.nn")
+        torch_functional = types.ModuleType("torch.nn.functional")
+        torch.nn = torch_nn
+        torch_nn.functional = torch_functional
+        transformers = types.ModuleType("transformers")
+        transformers.AutoModel = type("AutoModel", (), {})
+        transformers.AutoModelForCausalLM = type("AutoModelForCausalLM", (), {})
+        transformers.AutoTokenizer = type("AutoTokenizer", (), {})
+        transformers.StoppingCriteria = type("StoppingCriteria", (), {})
+        transformers.StoppingCriteriaList = type("StoppingCriteriaList", (list,), {})
+        loading = types.ModuleType("possum.utils.loading")
+        loading._resolve_local_snapshot = lambda value: value
+
+        context_name = "possum.elicitation.blackbox._autodan_context"
+        context_spec = importlib.util.spec_from_file_location(
+            context_name,
+            root / "elicitation" / "blackbox" / "_autodan_context.py",
+        )
+        self.assertIsNotNone(context_spec)
+        self.assertIsNotNone(context_spec.loader)
+        context = importlib.util.module_from_spec(context_spec)
+
+        framework_name = "possum.elicitation.blackbox._autodan_framework_epoch_zero_test"
+        framework_spec = importlib.util.spec_from_file_location(
+            framework_name,
+            root / "elicitation" / "blackbox" / "_autodan_framework.py",
+        )
+        self.assertIsNotNone(framework_spec)
+        self.assertIsNotNone(framework_spec.loader)
+        framework = importlib.util.module_from_spec(framework_spec)
+
+        stubs = {
+            **packages,
+            "numpy": numpy,
+            "torch": torch,
+            "torch.nn": torch_nn,
+            "torch.nn.functional": torch_functional,
+            "transformers": transformers,
+            "possum.utils.loading": loading,
+            context_name: context,
+            framework_name: framework,
+        }
+        with patch.dict(sys.modules, stubs):
+            context_spec.loader.exec_module(context)
+            framework_spec.loader.exec_module(framework)
+
+        AutoDANContextLimitError = context.AutoDANContextLimitError
+        AutoDANTurbo = framework.AutoDANTurbo
+
+        class FakeAttacker:
+            def warm_up_attack(self, _request, **_kwargs):
+                raise AutoDANContextLimitError(4278, 4096)
+
+            def use_strategy(self, *_args, **_kwargs):
+                raise AssertionError("epoch zero must not use a strategy")
+
+            find_new_strategy = use_strategy
+
+        class FakeTarget:
+            def respond(self, prompt, _ground_truth):
+                return prompt, 1.0
+
+        logger = types.SimpleNamespace(
+            warning=lambda *_args, **_kwargs: None,
+        )
+        pipeline = AutoDANTurbo(
+            {
+                "attacker": FakeAttacker(),
+                "summarizer": object(),
+                "retrival": object(),
+                "logger": logger,
+            },
+            data={},
+            target=FakeTarget(),
+            epochs=1,
+        )
+
+        prompt = pipeline.test("original request", "A", {})
+        diagnostics = pipeline.context_diagnostics()
+
+        self.assertEqual(prompt, "original request")
+        self.assertEqual(diagnostics["autodan_context_overflow_events"], 1)
+        self.assertEqual(diagnostics["autodan_context_warmup_fallbacks"], 0)
+        self.assertEqual(diagnostics["autodan_context_direct_request_fallbacks"], 1)
+        self.assertEqual(diagnostics["autodan_context_max_overflow_input_tokens"], 4278)
+
     def test_tablefill_requires_exact_prior_seed_roster(self):
         with tempfile.TemporaryDirectory() as tmp:
             artifact_root = Path(tmp)

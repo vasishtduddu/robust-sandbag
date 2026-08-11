@@ -1,65 +1,57 @@
 # Prior-baseline and RoBCoTDstl campaign status
 
-> Canonical snapshot: 2026-08-09, after the targeted Vulcan-to-Killarney 32B
-> migration, submission and script audit of the 26 replacement utility
-> evaluations, scientific audit of the suspicious 14B/32B values, acceptance
-> of the 14B SysPr AutoDAN sizing pilot, submission of its remaining 17 runs,
-> and the latest focused check of the completed 32B SysPr pilot. Scheduler state
-> changes continuously; verify with `squeue` and `sacct` before changing a job.
-> Killarney is confirmed at commit `8b96a69`; the table-aware protocol,
-> scratch-root follow-ups, and bounded AutoDAN context fix are deployed. The
-> local focused suite passes 52 tests (`OK`, 12 dependency-gated skips), while
-> Killarney previously passed its 49-test focused suite; shell syntax checks
-> pass.
-> Killarney is now the sole compute target. Vulcan may be accessed only for the
-> final read-only export of still-missing 14B/32B artifacts; submit no new
-> Vulcan jobs. The former 26 Vulcan utility retries are non-authoritative and
-> should be cancelled immediately; until cancellation is verified, hold them
-> so they cannot race the Killarney replacements.
-> The checked-in cluster captures remain useful history, but the live checks in
-> this document take precedence. The most recent supplied check was focused,
-> not a complete queue refresh, so this document distinguishes verified job
-> identities from state observations that may already have changed.
+> Canonical snapshot: 2026-08-11, after failure analysis of the first
+> bounded-context wave and completion of the PWD/32B/Chem utility repair.
+> Scheduler state changes continuously; query `squeue` and `sacct` again before
+> releasing, cancelling, or resizing a job. Killarney still runs `8b96a69`.
+> Local commit `9baadce` fixes the remaining unguarded AutoDAN warm-up paths and
+> must be pushed, pulled on Killarney, and validated with a new pilot before any
+> held job is released. The full available suite passes 54 tests (`OK`, 12
+> dependency-gated skips); Python compilation and shell syntax checks pass.
 >
-> Subsequent incident audit: Killarney job `4666389` (PWD/7B/Cyber/seed-42)
-> failed after completing all deterministic evaluation and 198/198 validation
-> AutoDAN rows, when test AutoDAN encountered a 4,243-token attacker input
-> against `max_length=4096`. This was a deterministic context-length error,
-> not OOM, timeout, or checkpoint corruption. Its result is intentionally
-> rejected because test attack counts and fingerprints are absent. The
-> bounded-context fix was committed as `8b96a69` and synchronized to
-> Killarney. Replacement pilot `4680120` is pending with a 12-hour limit; the
-> old log and JSON remain visible until that job writes a replacement result.
-> Do not release held AutoDAN jobs until the pilot passes artifact validation.
-
-> Storage incident audit: the proposed retirement of
-> `artifacts-prior-baselines` was correctly stopped before deletion. The old
-> 32B PWD/Chem markers validate as the reportable
-> `wrong_answer_general_anchor_qwen_port_v1` recipe, while the active
-> `artifacts/checkpoints/pwd_qwen2.5-32b-it_chem` markers identify the
-> non-reportable `hofstaetter_wrong_answer_parent_v1` recipe and fail the PWD
-> gate. The old Chem weights are therefore authoritative until they are
-> promoted into the active checkpoint path and the corrected utility results
-> are rerun. The old-root archive is metadata-only; do not remove the old
-> Chem weights or the old root yet.
+> Table 2 effectiveness/utility is almost complete. The original 26 targeted
+> 32B utility replacements (`4672946`--`4672976`, with unused Slurm IDs
+> omitted) all completed with exit code 0 in roughly 44--54 minutes. Their
+> follow-up plans skip both training and evaluation, confirming current
+> generate-and-parse results with accepted provenance. A later storage audit
+> found that the active 32B PWD/Chem checkpoint family used the wrong parent
+> recipe even though the partial reporting union already held apparently valid
+> current-protocol Chem JSONs. To remove that ambiguity prospectively, the
+> reportable old-root Chem weights were staged in a repair root and utility-only
+> jobs `4699233`--`4699235` ran seeds 42/43/44 from that source. All three
+> completed with exit code 0 in 44:39--45:08, using 62.7--68.8 GiB peak host
+> memory under one-H100/128-GiB/two-hour allocations. Their JSONs still require
+> the normal scoring, split, provenance, denominator, and follow-up-plan gates,
+> after which no Table 2 E&U computation is known to remain. Do not delete the
+> old Chem weights or repair root before the final union is accepted.
 >
-> The completed 32B SysPr/Bio pilot `4666363` has now passed artifact
-> validation: 250/256 = 97.65625% AutoDAN attack accuracy, full provenance,
-> current scoring metadata, a nonempty fingerprint, and no attack error. Its
-> diagnostics field is null because it predates the diagnostics patch; this is
-> acceptable for a successful old-code result that did not hit the fatal
-> overflow. `seff` reports 5:47:16 wall time and 12.52 GiB peak host memory.
+> The AutoDAN strategy cache is complete and accepted. Three old PWD/7B/Cyber
+> jobs (`4666389`--`4666391`) failed on the same deterministic 4,243-token input
+> versus a 4,096-token attacker limit, not because of OOM, time, or checkpoint
+> corruption. The first patch guarded retrieved-strategy generations but missed
+> direct warm-up generations. Replacement `4680120` confirmed the gap at Cyber
+> test row 147: epoch zero produced a 4,278-token input and bypassed the guard.
+> Jobs `4682272` and `4682273` also failed after 8:57:31 and 8:41:15, without an
+> application traceback in their captured logs. Local commit `9baadce` routes
+> every warm-up site through the same bounded policy and adds a dependency-free
+> integration regression plus an AST invariant. Keep the 55-job held wave
+> frozen until a new one-seed pilot under this commit passes all artifact gates.
 >
-> The Bio-only expansion submitted seeds 43/44 as jobs `4680228` and `4680229`,
-> each with two H100s, 256 GiB, and a 12-hour limit. The follow-up all-task
-> expansion submitted the remaining 15 32B SysPr attacks as jobs
-> `4680259`--`4680276` (with the unused Slurm IDs omitted). PWD/7B/Chem seeds
-> 42/43/44 now pass the repository status gate.
+> The accepted 32B SysPr/Bio pilot `4666363` achieved 250/256 = 97.65625%
+> AutoDAN attack accuracy in 5:47:16. Jobs `4680228`, `4680229`, and `4680259`
+> then completed with exit code 0 and require artifact-level acceptance. Job
+> `4680260` ran 3:43:05 and failed without a captured Python traceback. The
+> remaining 13 jobs were externally signalled at batch launch after 0--1 second
+> on `kn172`/`kn175`; they did not run the scientific command. The 128-GiB
+> request is exonerated by two successful jobs at that size and low observed
+> memory use. After the new pilot passes, resubmit the 14 incomplete 32B SysPr
+> logical slots with two H100s, 128 GiB, and 12 hours.
 >
-> Old-wave PWD/7B/Cyber seeds 43/44 (`4666390`/`4666391`) subsequently failed
-> with the same deterministic 4,243-token versus `max_length=4096` error after
-> 7:05:46 and 7:11:15. They were not OOM or timeout failures. Replacements
-> `4682272`/`4682273` were submitted under the patched code with 12-hour limits.
+> Killarney is the sole compute target. Vulcan is read-only and may be used once
+> to export a final checkpoint family proven missing by the larger-tier
+> robustness inventory; submit no Vulcan compute. Table 3's corrected 7B
+> RoBCoTDstl pilot completed, but no Table 3 expansion is authorized until its
+> seed-slot, exact provenance, and aggregation-roster defects are fixed.
 
 This is the canonical operational handoff for:
 
@@ -77,15 +69,15 @@ recovery procedures. Use this document for current decisions and job ownership.
 
 | Area | Current state | What it means |
 |---|---|---|
-| Code and tests | Table 2 deployed; Table 3 follow-up required | Killarney pulled `8b96a69`; the bounded AutoDAN context fix is deployed. The local focused suite passes 52 tests (`OK`, 12 dependency-gated skips), and Killarney previously passed 49; shell syntax checks pass. Table 2 routes to forced-choice task/attack scoring and generate-and-parse utility. Table 3 still needs canonical seed slots, exact recipe/result provenance, and an exact aggregation seed roster. |
+| Code and tests | Second AutoDAN fix committed locally; deployment required | Commit `9baadce` routes every direct and strategy-backed warm-up through the total-context policy. The full available suite passes 54 tests (`OK`, 12 dependency-gated skips); compile and syntax checks pass. Push it and pull it on Killarney before a new pilot. Table 3 still needs canonical seed slots, exact recipe/result provenance, and an exact aggregation seed roster. |
 | Table 2 methodology | Implemented | Task effectiveness and attack readout use forced-choice; HS/CSQA utility uses generate-and-parse; SysPr uses three seeded stochastic inference replicates. |
-| Table 2 E&U | Final 26 replacements submitted and audited on Killarney | Seven validated 32B checkpoint families were copied from Vulcan, two existing Killarney families were reused, every training step skipped, and jobs `4672946`--`4672976` contain exactly 26 utility-only evaluations. Their 26 scripts all request generate-and-parse utility, forced-choice target scoring, no utility cap, and no training. Their current scheduler states were not refreshed in the newest focused capture. No Vulcan compute is needed. |
-| Table 2 E&U union | Partial union generated | `artifacts/table-report-partial.h5UcKQBG` combines paper effectiveness, all seeded SysPr reruns, all completed Killarney utility work, and completed Vulcan-owned utility artifacts. It has 18 utility blanks across nine aggregate cells plus all 54 robustness blanks. After the 26 Killarney jobs finish, the required pre-robustness checkpoint remains `270 filled, 54 empty`. |
+| Table 2 E&U | All known computation Slurm-complete; Chem artifacts need acceptance | The original 26 targeted 32B utility jobs completed and passed their follow-up plan. Chem repair jobs `4699233`--`4699235` also completed in about 45 minutes at 62.7--68.8 GiB host memory. Validate their artifacts before rebuilding the union; no additional E&U job is known. |
+| Table 2 E&U union | Existing partial is 252/324; rebuild after Chem acceptance | `artifacts/table-report-partial.h5UcKQBG` remains an immutable audit snapshot with 252 filled and 72 empty values. After the Chem repair JSONs pass all gates, overlay all accepted artifacts into a cloned reporting root and require `270 filled, 54 empty`, with every blank in `Jlbrk`. |
 | AutoDAN cache | Complete and accepted | The canonical library has schema-2 complete metadata, five lifelong rounds, and the full 318-row source fingerprint. Do not rebuild it. |
-| Table 2 AutoDAN | 3 accepted pilots, 3 failed old-wave jobs, 17 32B SysPr jobs pending, 2 PWD/Bio seeds awaiting acceptance, 6 running old-wave jobs, 55 held, 72 unsubmitted | The accepted pilots are PWD/7B/Bio/seed-42, SysPr/14B/Bio/seed-42, and SysPr/32B/Bio/seed-42. The latter is 250/256 = 97.65625% AutoDAN accuracy with full provenance and no error. PWD/7B/Chem seeds 42/43/44 now pass the status gate; PWD/7B/MMLU-Stem seed 42 also completed and awaits validation. Old-wave PWD/Cyber seeds 42/43/44 (`4666389`--`4666391`) failed with the same context error. Replacements `4680120`, `4682272`, and `4682273` are pending under the fixed code. All remaining 32B SysPr attacks are submitted. Larger PWD/CktBr attacks remain gated on checkpoint inventory. |
+| Table 2 AutoDAN | First fix failed its pilot; second fix awaits deployment | Cyber replacement `4680120` proved epoch-zero warm-up still bypassed the guard. Local commit `9baadce` fixes every warm-up site. Three 32B SysPr jobs completed at Slurm level, one failed after running, and 13 were externally signalled before execution. The 55-job wave remains user-held; 72 larger PWD/CktBr attacks remain intentionally unsubmitted. |
 | Table 3 RoBCoTDstl | Corrected pilot complete; expansion blocked in code | Clean-root jobs `4669018`--`4669020` completed in 43:32, 1:09:52, and 37:32, and their scripts contain all five intended protocol exports. Do not expand yet: seed 42 was written to the unsuffixed checkpoint directory while the full matrix expects `run01`; `obfcot` has no exact recipe/result provenance marker; and non-prior `tablefill` does not require the exact 42/43/44 roster. No current Table 3 job is queued. |
-| Vulcan artifact migration | Sufficient for utility, incomplete for robustness | The Killarney 32B utility stage has nine of 12 final PWD/CktBr families. PWD/Chem, CktBr/Cyber, and CktBr/MMLU-Prof still need location/export checks, and 14B has not had a comprehensive migration audit. SysPr needs only the shared base-model cache and prompt configuration. |
-| Storage | Tight on project, adequate on scratch | The 2026-08-09 quota report shows 4,808/5,000 GiB used on the shared project allocation (about 192 GiB free) and 1,622/2,000 GiB used on the user's scratch allocation (about 378 GiB free). The separate `/project/.../artifacts-prior-baselines` tree is 577 GiB. Its Bio, MMLU-Prof, and MMLU-STEM PWD 32B families have current counterparts with matching markers, but the old Chem family passes the current PWD recipe validator while the current active Chem family fails it: the active markers are `hofstaetter_wrong_answer_parent_v1`, not the reportable `wrong_answer_general_anchor_qwen_port_v1`. The old Chem checkpoint is therefore currently the only validated 32B PWD/Chem source and must not be deleted. Its nine JSONs all use obsolete forced-choice utility scoring and have no AutoDAN result. No live job references the old root. Its small logs, JSONs, scripts, and marker metadata were archived under `artifacts/retired_checkpoint_metadata/artifacts-prior-baselines_20260809` and passed SHA-256 verification. Repair and validate the active Chem path, then rerun its utility results before retiring the old root or its Chem weights. Earlier cleanup reclaimed roughly 1 TiB. The 32B migration then copied about 1.33 TiB of traffic while replacing stale project families in place and adding three CktBr families to scratch. The four staged 32B CktBr children remain protected until the final robustness inventory. Do not delete active model or AutoDAN caches merely to create headroom. |
+| Vulcan artifact migration | Sufficient for utility, incomplete for robustness | A validated PWD/32B/Chem source is now staged for the repair jobs. CktBr/32B/Cyber and CktBr/32B/MMLU-Prof still need final location/export checks, and 14B has not had a comprehensive migration audit. SysPr needs only the shared base-model cache and prompt configuration. |
+| Storage | Tight on project, adequate on scratch; Chem source protected | The last measured quotas were about 192 GiB free on project and 378 GiB free on scratch. The old-root 32B PWD/Chem family is the validated `wrong_answer_general_anchor_qwen_port_v1` source used by completed jobs `4699233`--`4699235`; retain it and the repair root until artifact/union acceptance. Four staged 32B CktBr children also remain protected until the robustness inventory. |
 | Cluster direction | Killarney-only compute | Submit no new Vulcan work. Cancel the former 26 Vulcan retries (holding them until cancellation is verified), rerun any failures on Killarney, and retain the Vulcan artifact root only until a final read-only export of missing final 14B/32B checkpoints and canonical JSONs is verified. |
 
 ## Scientific and reporting contract
@@ -221,9 +213,14 @@ follow-up:
   time, then the strategy-free warm-up attacker is tried. A pathological
   warm-up overflow falls back to the original request and records explicit
   diagnostics. Successful under-budget generations are unchanged. The policy
-  is covered by pure unit tests and is deployed in Killarney commit `8b96a69`.
-  Pilot `4680120` is the first replacement run under this policy and remains
-  pending; the held queue stays blocked until its artifact gate passes.
+  was deployed in Killarney commit `8b96a69`. Job `4680120` proved that the
+  direct epoch-zero warm-up call still bypassed this helper and failed on a
+  4,278-token input. Commit `9baadce` adds one guarded `_warmup_attack` method,
+  routes all four direct warm-up sites through it, reproduces the exact failure
+  in a dependency-free integration test, and enforces by AST test that no raw
+  warm-up call remains outside `_strategy_attack`. It is committed locally but
+  not yet deployed on Killarney. The held queue remains blocked pending a new
+  pilot and artifact acceptance.
 - Strategy-library construction writes atomic progress after warm-up requests,
   warm-up summaries, lifelong requests, and completed rounds. A compatible
   interrupted build can resume, while dependants cannot consume an incomplete
@@ -261,6 +258,22 @@ does not introduce a new post-hoc recipe.
 
 ### What is done
 
+Current disposition, superseding the older wave description below:
+
+- all 26 original targeted utility jobs completed with exit code 0 on
+  2026-08-09/10, with measured wall times of approximately 44--54 minutes;
+- the exact nine-cell follow-up plan reports every relevant training and
+  evaluation step as `SKIP`, so those outputs satisfy the current protocol and
+  provenance gate;
+- no rerun among those 26 is required;
+- the later PWD/32B/Chem storage audit created one prospective exception to the
+  otherwise complete E&U inventory. Jobs `4699233`--`4699235` completed and
+  will replace the Chem utility values after their artifact gates pass; and
+- the current `252 filled, 72 empty` reporting root is an immutable partial
+  snapshot, not the final union. Its already-present Chem values are useful as
+  a reproducibility comparison but will not be selected over the prospective
+  repair outputs.
+
 - All 54 seeded SysPr reruns assigned to Killarney completed at the Slurm level.
   These replace both effectiveness and utility under the stochastic seeded
   protocol.
@@ -277,16 +290,17 @@ does not introduce a new post-hoc recipe.
   current paper's retained effectiveness values with all corrected utility and
   seeded SysPr results available at the snapshot. It contains 18 utility blanks
   across nine 32B aggregate cells and 54 `Jlbrk` blanks. Equivalently, it has
-  252 filled and 72 empty values; the 26 missing seed-level utility evaluations
-  account for those 18 aggregate utility values.
+  252 filled and 72 empty values. This was created before the completed 26-job
+  outputs were overlaid; those outputs account for the 18 aggregate blanks.
 - The corrected utility readout substantially improves most PWD/CktBr HS/CSQA
   values relative to the preliminary paper table and puts them on the same
   scoring scale as Table 3. This supports the scoring-protocol diagnosis for
   the old low HellaSwag values.
 - All 252 values emitted in the partial table pass the current Table 2
   protocol/tablefill gates. This does not make the partial report final: the 26
-  pending replacement evaluations must still fill its nine absent 32B utility
-  aggregates, and robustness remains blank.
+  completed replacement outputs must still fill its nine absent 32B utility
+  aggregates, the completed Chem repair must supersede the existing Chem
+  values, and robustness remains blank.
 - The full 14B reporting inventory was audited independently of the suspicious
   cells. All 54 organism/task/seed JSONs use current generate-and-parse utility;
   zero reportable 14B JSONs still use forced-choice utility. Across PWD, CktBr,
@@ -305,18 +319,21 @@ does not introduce a new post-hoc recipe.
 - In particular, 32B SysPr MMLU-Prof is about 57.2 HS / 45.8 CSQA,
   MMLU-Stem about 53.0 / 35.7, and MMLU-HSS about 67.8 / 55.9, while the same
   model preserves roughly 87.8 HS and 84.6--84.9 CSQA under the WMDP-oriented
-  prompts. The current evidence supports genuine interference from the active,
-  task-specific system prompt with unrelated free-generation utility. It does
-  not support deleting or cherry-picking these values. Report the result unless
-  a controlled diagnostic identifies an implementation error.
-- The exact 32B inventory contains 28 current generate-and-parse utility JSONs
-  and 26 stale forced-choice utility JSONs. The stale set is exactly the 26
-  queued replacements: 14 PWD seeds across Bio, Cyber, MMLU-Prof seeds 43/44,
+  prompts. The current evidence establishes a reproducible association with
+  the active task-specific prompt, but does not by itself isolate the cause.
+  Run a controlled matched-decoding and parse-rate diagnostic before describing
+  the loss causally as prompt interference. Do not delete or cherry-pick the
+  values; report them unless that diagnostic identifies an implementation error.
+- Before the replacement wave completed, the exact 32B inventory contained 28
+  current generate-and-parse utility JSONs and 26 stale forced-choice utility
+  JSONs. The stale set was exactly the 26 replacements: 14 PWD seeds across
+  Bio, Cyber, MMLU-Prof seeds 43/44,
   MMLU-Stem, and MMLU-HSS; plus 12 CktBr seeds across Bio, Chem, MMLU-Stem, and
   MMLU-HSS. The 28 already-current results are all 18 SysPr seeds, all three
   PWD/Chem seeds, PWD/MMLU-Prof seed 42, all three CktBr/Cyber seeds, and all
-  three CktBr/MMLU-Prof seeds. Therefore the 26-job manifest is complete and no
-  additional 32B utility rerun is scientifically indicated.
+  three CktBr/MMLU-Prof seeds. This established that the 26-job manifest was
+  complete. The later three-job Chem repair is separately justified by the
+  checkpoint-recipe provenance incident, not by this scoring inventory.
 - The old forced-choice 32B base references, about
   69.5--69.8% HellaSwag / 70.5--70.8% CommonsenseQA, are a scoring-protocol
   artifact rather than a scaling effect. Current generate-and-parse references
@@ -342,69 +359,47 @@ does not introduce a new post-hoc recipe.
   file bytes. The audited marker's recorded canonical hash matches the result
   provenance, so this difference is not evidence of corruption.
 
-Scientific disposition: do not rerun the 14B SysPr jobs and do not add any 32B
-utility jobs beyond the submitted 26. Reconsider only if a queued output fails
-the result/provenance/sample-count gates or a controlled code-level diagnostic
-finds a specific implementation error.
+Scientific disposition: do not rerun the 14B SysPr jobs or any of the accepted
+26-job replacement wave. The three completed Chem repair jobs are a provenance
+repair, not a response to their observed scores, and their outputs are
+prospectively authoritative. Reconsider another cell only if its artifact fails
+the declared result/provenance/sample-count gates or a controlled code-level
+diagnostic finds a specific implementation error.
 
 Slurm success is necessary but not sufficient. Final union still requires the
 artifact-level gates above for every contributing JSON.
 
 ### What is running or queued
 
-The 26 formerly Vulcan-owned retries are now Killarney jobs under
-`/scratch/markwang/possum-prior-32b-killarney`:
+No Table 2 E&U computation is currently queued. The final 32B PWD/Chem
+provenance repair completed at the Slurm level:
 
-- PWD/Bio: `4672946`--`4672948`;
-- PWD/Cyber: `4672949`--`4672951`;
-- PWD/MMLU-Prof seeds 43/44: `4672952`--`4672953` (seed 42 skipped);
-- PWD/MMLU-Stem: `4672955`--`4672957`;
-- PWD/MMLU-HSS: `4672960`--`4672962`;
-- CktBr/Bio: `4672963`--`4672965`;
-- CktBr/Chem: `4672967`--`4672969`;
-- CktBr/MMLU-Stem: `4672970`--`4672972`; and
-- CktBr/MMLU-HSS: `4672974`--`4672976`.
+- seed 42: `4699233`;
+- seed 43: `4699234`; and
+- seed 44: `4699235`.
 
-The generated plan gate found `train=0` and `eval=26`; every training step
-reported `SKIP`, and the submission log ended with `Submitted evaluations: 26`
-and `SUCCESS`. The newest supplied commands did not refresh these jobs' live
-scheduler states. Each requests one H100, six CPUs, 128 GiB host RAM, and four
-hours. These are utility-only evaluations and do not write new model
-checkpoints.
+They ran from `/scratch/markwang/possum-prior-32b-chem-repair.a8ldSN` with one
+H100, six CPUs, 128 GiB host RAM, and two-hour limits. Jobs `4699233`,
+`4699234`, and `4699235` completed in 45:08, 44:39, and 44:42, using about
+68.8, 62.7, and 62.7 GiB peak host memory. The plan reported all three
+checkpoint-training steps as `SKIP` and exactly three utility evaluations as
+`RUN`. These measurements validate the two-hour/128-GiB utility allocation.
 
-All 26 generated sbatch scripts were audited directly. Every script contains
-`--utility-only`, exports `POSSUM_GENPARSE=0` and
-`POSSUM_UTILITY_SCORING=generate_parse`, and contains no
-`POSSUM_UTIL_EVAL_MAX`. The scripts are methodologically valid as generated.
+The accepted source is the old-root PWD/Chem checkpoint family whose markers
+identify `wrong_answer_general_anchor_qwen_port_v1`. The repair root exposes
+that family without a blind checkpoint copy. The temporary result files were
+replaced with current forced-choice task/current-provenance JSONs before the
+plan so that only utility evaluation runs. Preserve the old weights and repair
+root until all three outputs and the final reporting union are accepted.
 
-The migration gate first validated all 21 transferred source runs on Vulcan:
-current recipe, exact result/checkpoint provenance, 14 nonempty shards per run,
-and zero missing indexed shards. It then revalidated all 27 seed-level
-checkpoint/result pairs in the nine-family Killarney execution root before
-allowing submission. Four stale project PWD families using
-`hofstaetter_wrong_answer_parent_v1` were replaced with the current
-`wrong_answer_general_anchor_qwen_port_v1` families; their lightweight metadata
-was preserved. Three missing CktBr families were added to scratch. PWD/Cyber
-and CktBr/Bio reused already-valid Killarney families.
-
-The former Vulcan jobs `379734`--`379747`, `379759`--`379764`, and
-`379771`--`379776` are no longer authoritative. Under the Killarney-only policy
-they should be cancelled; if cancellation has not yet been confirmed, hold them
-immediately and verify their state before any result consolidation. Never allow
-those jobs and the Killarney replacements to write the same canonical cells.
-
-A later broad dry plan against this scratch root printed `DRY RUN: 102 jobs`
-and proposed missing training/configuration work. That output is expected
-because this root is an intentionally partial execution stage while other valid
-results and SysPr configurations live in the reporting/project roots. It does
-not invalidate the targeted 26-job manifest, but it is not safe to execute.
-After completions, validate only the exact nine affected 32B aggregate cells or
-use a deliberately constructed unified read-only view; never submit the broad
-102-job plan from this partial root.
+The former Vulcan utility jobs remain non-authoritative and must not write any
+canonical cell. The broad 102-job plan from the intentionally partial 32B
+scratch root remains unsafe and must never be executed.
 
 ### E&U accounting and union
 
-The union remains mathematically on track:
+The union remains mathematically on track, but the accepted 26 results and Chem
+repair must now be overlaid together:
 
 1. retain the current paper/combined snapshot for effectiveness fields that did
    not require replacement;
@@ -412,23 +407,25 @@ The union remains mathematically on track:
    utility refreshes;
 3. overlay the already-validated historical JSONs copied from the former
    Vulcan ownership root;
-4. overlay the 26 Killarney replacement outputs after they pass protocol and
-   provenance validation;
-5. run current `tablefill` once against the reporting-only union; and
-6. compare the resulting values with the preliminary paper table and Table 3's
+4. overlay the 26 accepted Killarney replacement outputs;
+5. overlay jobs `4699233`--`4699235` as the prospectively authoritative
+   PWD/32B/Chem utility cell;
+6. run current `tablefill` once against the reporting-only union; and
+7. compare the resulting values with the preliminary paper table and Table 3's
    utility scale.
 
-The current partial report is `252 filled, 72 empty`: 18 utility values and all
-54 robustness values are missing. Once the 26 Killarney jobs are validated and
-overlaid, the required pre-robustness checkpoint is:
+The current partial report is still `252 filled, 72 empty`: 18 utility values
+and all 54 robustness values are missing. After the accepted wave and Chem
+repair are overlaid, the required pre-robustness checkpoint is:
 
 ```text
 270 filled, 54 empty (all 54 empty values are Jlbrk)
 ```
 
-No additional E&U job is currently known to be missing. The immediate E&U
-action is to monitor the 26 Killarney jobs, rerun any failure on Killarney only,
-then rebuild and validate the union. Do not submit duplicate utility work.
+No additional E&U job is currently known to be missing. Validate jobs
+`4699233`--`4699235` for scoring/split/provenance, full sample counts, and a
+follow-up plan that skips all Chem work, then rebuild the reporting-only union.
+Do not submit duplicate utility work.
 
 ## Table 2 AutoDAN robustness
 
@@ -462,6 +459,27 @@ This is the first accepted `Jlbrk` seed result and supports the expected poor-
 robustness hypothesis.
 
 ### Current Killarney queue
+
+The latest supplied `squeue` on 2026-08-11 contains only the 55 user-held
+AutoDAN jobs. All previously unheld jobs are terminal:
+
+| State | Count | Jobs | Resources/disposition |
+|---|---:|---|---|
+| Held by user | 55 | `4666399`--`4666436`, `4675516`--`4675532` | 38 remaining 7B AutoDAN jobs at one H100/96 GiB/12 hours and 17 SysPr/14B jobs at one H100/128 GiB/12 hours. |
+| Terminal, completed | 6 | `4680228`, `4680229`, `4680259`, `4699233`--`4699235` | Three 32B SysPr AutoDAN jobs and three PWD/32B/Chem utility jobs; all need the relevant artifact gate before acceptance. |
+| Terminal, application failure | 4 | `4680120`, `4680260`, `4682272`, `4682273` | Seed-42 Cyber confirms the missed warm-up guard. The other logs stop without a captured Python traceback. All must be rerun after the new pilot. |
+| Terminal, launch cancellation | 13 | `4680261`, `4680264`--`4680266`, `4680268`--`4680276` | Batch steps received signal 53 after 0--1 second on `kn172`/`kn175`; scientific code did not run. |
+
+The 32B SysPr jobs were reduced from 256 GiB to 128 GiB with Slurm's MiB-valued
+update, `MinMemoryNode=131072`. Jobs `4680229` and `4680259` completed at 128
+GiB, and `4680260` ran for 3:43 at that request; therefore the reduction did
+not cause the launch cancellations. Retain two H100s because target and
+attacker models coexist, and retain 12 hours because the accepted Bio pilot
+took 5:47:16 and task-dependent attacks have exceeded eight hours.
+
+The following submitted-wave history explains how these job identities were
+created; its older point-in-time state descriptions are superseded by the table
+above.
 
 The complete remaining 7B wave was submitted as:
 
@@ -500,23 +518,28 @@ The latest supplied accounting supersedes the checked-in queue capture:
   code 0 in 3:00:43, 3:01:08, and 2:34:32. The repository status gate now
   accepts this complete cell; retain its JSONs and provenance as reportable
   artifacts.
-- Replacement job `4680120` (PWD/7B/Cyber/seed-42) is pending with a 12-hour
-  limit. Its log and JSON currently show the previous `4666389` failure because
-  the new job has not started or written its output yet. The old traceback is
-  therefore not evidence that the patched code failed.
+- Replacement jobs `4680120`, `4682272`, and `4682273`
+  (PWD/7B/Cyber/seeds 42/43/44) failed after 7:49:24, 8:57:31, and 8:41:15.
+  Seed 42 conclusively hit the unguarded epoch-zero warm-up path at a
+  4,278-token input. Seeds 43/44 ended without a Python traceback in their
+  captured logs and were not OOM or timeout failures. None is reportable.
 - The Bio-only 32B SysPr expansion submitted `4680228` and `4680229` for seeds
   43 and 44. The follow-up all-task expansion submitted the other 15 attacks as
   `4680259`--`4680276`, with gaps from Slurm numbering. All 17 remaining 32B
   SysPr attacks are now submitted.
-- The last complete queue capture found 95 active campaign jobs, seven running
-  and 88 pending. The newest evidence did not refresh the other 94 states, so
-  do not infer that the prior 51-job 7B and 17-job 14B pending counts are still
-  exact.
+- Of the 17 submitted post-pilot 32B SysPr jobs, `4680228`, `4680229`, and
+  `4680259` completed; `4680260` failed after 3:43; and 13 were cancelled before
+  scientific execution. Validate the three completed artifacts and resubmit
+  the other 14 only after the new context pilot passes.
+- The latest queue has only the 55 held jobs. Refresh it before making a
+  scheduler change.
 
-The stable accounting is by submitted identity, not current state: 53 remaining
-7B jobs, 17 additional 14B SysPr jobs, the accepted 32B SysPr pilot, and all 17
-remaining 32B SysPr jobs are submitted. Three pilots are now accepted.
-Refresh `squeue`/`sacct` before making any scheduling decision.
+The stable accounting is by logical seed slot, not by raw Slurm job count,
+because failed Cyber jobs have replacement IDs. Three expansion pilots are
+accepted, three additional 32B SysPr slots are Slurm-complete, 14 32B SysPr
+slots need resubmission, the 55-job held wave is unreleased, and 72 larger
+PWD/CktBr slots remain unsubmitted. Refresh `squeue`/`sacct` before making any
+scheduling decision.
 
 #### AutoDAN context-limit incident and queue hold
 
@@ -531,14 +554,15 @@ The script, log, and JSON were archived under
 `results/failed/job4666389`.
 
 The exact 55 pending AutoDAN jobs were then held by the user: 38 remaining 7B
-jobs (`4666399`--`4666436`) and 17 14B SysPr jobs (`4675516`--`4675532`). The
-nine 7B jobs `4666390`--`4666398` were already running and were not held. Do not
-release the held jobs yet. The bounded-context patch is now deployed as commit
-`8b96a69`, and replacement `4680120` is pending. Once it completes, validate
-its test count/fingerprint and diagnostic metadata, then release the held jobs.
-Any job that already completes under the old code remains valid if its result
-passes all existing gates, because the new guard activates only on the
-previously fatal overlength condition.
+jobs (`4666399`--`4666436`) and 17 14B SysPr jobs (`4675516`--`4675532`). Do not
+release them yet. Commit `9baadce` supersedes the incomplete `8b96a69` guard but
+is not deployed until the user pushes it and Killarney pulls it. Submit one new
+PWD/7B/Cyber/seed-42 pilot after deployment. Require a finite AutoDAN score,
+positive expected count, nonempty fingerprint, no stored AutoDAN error,
+current cache/checkpoint provenance, and non-null diagnostics showing the new
+policy. Only then release the 55 held jobs and resubmit other terminal slots.
+Any unrelated old-code completion remains valid if it passes all pre-existing
+gates, because the guard changes behavior only on an overflow.
 
 ### What is deliberately not queued
 
@@ -546,42 +570,40 @@ The campaign needs 162 seed-level AutoDAN results. Current coverage accounting
 is:
 
 ```text
-3 accepted + 87 additional submitted + 72 not yet submitted = 162
+90 submitted or accepted logical slots + 72 not yet submitted = 162
 ```
 
-The three accepted expansion gates are PWD/7B/Bio/seed-42 (`4652099`),
+The three accepted expansion pilots are PWD/7B/Bio/seed-42 (`4652099`),
 SysPr/14B/Bio/seed-42 (`4666342`), and SysPr/32B/Bio/seed-42 (`4666363`).
-The 87 other submissions include one failed 7B PWD result, five Slurm-complete
-7B PWD results, all 17 remaining 32B SysPr jobs, nine running 7B jobs, and 55
-held jobs. These still require result-level acceptance where applicable. The
-latest focused check does not establish a current state for every other
-submission.
+Other completed logical slots, including PWD/7B/Chem, have also passed their
+result gates. The 90-slot coverage count includes the Cyber slots whose
+original jobs and replacements failed, the 17 post-pilot 32B SysPr slots now
+split into three completed and 14 incomplete results, and the 55 held jobs.
+Replacement job IDs do not create new scientific slots. Every not-yet-accepted
+output still requires result-level acceptance.
 
 The 72 unsubmitted evaluations are not an accidental omission. They are:
 
 - 36 PWD/CktBr evaluations at 14B;
-- 36 PWD/CktBr evaluations at 32B; and
+- 36 PWD/CktBr evaluations at 32B.
 
-They remain behind two gates:
+They remain behind one scientific/operational gate:
 
-1. validate final runtime, memory, result provenance, and output completeness
-   for the completed 32B SysPr sizing pilot before releasing its other 15 runs;
-   and
-2. stage the required larger PWD/CktBr checkpoints on Killarney without
-   duplicating writers or overflowing storage.
+1. inventory and stage the required larger PWD/CktBr checkpoints on Killarney
+   without duplicating writers or overflowing storage, then require an exact
+   provenance/shard audit and a plan in which every training step is `SKIP`.
 
 The former ownership split assigned Killarney 99 cells: all 54 7B cells, all 36
 larger SysPr cells, and nine larger CktBr cells already stored in Killarney
 scratch. The other 63 larger PWD/CktBr cells were assigned to Vulcan. That
 compute split is retired: every remaining attack will run on Killarney.
 
-The utility migration is not yet a complete robustness migration. Its current
-32B execution root contains nine of the 12 final PWD/CktBr checkpoint families:
-all PWD tasks except Chem, and CktBr Bio, Chem, MMLU-Stem, and MMLU-HSS.
-PWD/Chem plus CktBr/Cyber and CktBr/MMLU-Prof must be located in another
-Killarney root or exported once from Vulcan. No comprehensive 14B migration has
-yet been performed. Before launching the 72 larger trained-organism jobs,
-inventory all final 14B/32B
+The utility migration is not yet a complete robustness migration. The Chem
+storage repair has identified a valid PWD/32B/Chem source, but the final
+cross-root inventory must still cover every 14B/32B PWD/CktBr family,
+especially CktBr/32B/Cyber and CktBr/32B/MMLU-Prof. No comprehensive 14B
+migration has yet been performed. Before launching the 72 larger
+trained-organism jobs, inventory all final 14B/32B
 PWD/CktBr families across the Killarney roots, transfer only missing final
 children and canonical JSON/marker metadata, and expose them through one
 Killarney execution root. SysPr needs no trained checkpoint migration. This
@@ -864,67 +886,59 @@ merged base-model weights per seed.
 
 ### 1. Enforce scheduler ownership
 
-Killarney is the only authoritative compute cluster. The 26 jobs
-`4672946`--`4672976` listed above own the remaining Table 2 utility work. Leave
-them queued and rerun any failure on Killarney only. The former Vulcan jobs
-`379734`--`379747`, `379759`--`379764`, and `379771`--`379776` must be cancelled
-or held permanently; confirm that none can write a competing result. No new
-Vulcan submission is permitted.
+Killarney is the only authoritative compute cluster. The 26-job utility wave
+and the three-job Chem repair are Slurm-complete. No E&U computation is queued;
+artifact validation and union construction remain. The former
+Vulcan jobs `379734`--`379747`, `379759`--`379764`, and
+`379771`--`379776` must be cancelled or held permanently; confirm that none can
+write a competing result. No new Vulcan submission is permitted.
 
 The old Killarney Table 3 graph `4637151`--`4637283` is terminal and absent from
 the queue. Preserve its logs as diagnostics but never aggregate its artifacts.
 The clean pilot `4669018`--`4669020` is Slurm-complete but must not yet be
-aggregated or used to expand the matrix. The last complete queue capture found
-95 authoritative campaign jobs, seven running and 88 pending. A newer focused
-capture shows `4666363` completed and `4680120` pending; query live state before
-acting.
+aggregated or used to expand the matrix. The latest supplied queue contains
+only 55 user-held AutoDAN jobs. Query live state before acting.
 
 Killarney job scripts execute the shared checkout when their allocation starts.
-Freeze tracked scientific Python, shell, and `HYPERPARAMETERS.toml` files at
-commit `8b96a69` while submitted jobs remain pending/running. Do not mutate
-tracked campaign code underneath queued jobs. Any later code change requires a
-new pilot and explicit replacement of affected jobs.
+Push commit `9baadce`, pull it into the Killarney checkout, verify `git status`
+and `git rev-parse HEAD`, then freeze tracked scientific Python, shell, and
+`HYPERPARAMETERS.toml` files again. A new pilot is mandatory before the held
+jobs can start under the updated shared checkout.
 
 ### 2. Finish the corrected Table 2 E&U union
 
-Monitor the 26 Killarney utility jobs. As representative jobs finish, verify
-Slurm state, wall time, peak memory, `--utility-only`, generate-and-parse utility
-metadata, split seed 42, checkpoint provenance, and a follow-up plan that skips
-training. The copied checkpoint sources already passed recipe, shard, and
-provenance gates, so a training submission indicates a staging error and must
-be stopped rather than allowed to create another checkpoint family.
+Jobs `4699233`--`4699235` completed with exit code 0. Require
+`--utility-only`, generate-and-parse metadata, split seed 42, matching
+checkpoint provenance, full HS/CSQA denominators, and a follow-up plan in which
+all six Chem train/eval steps are `SKIP`. Compare the new outputs against the
+already-present partial-union Chem values as a reproducibility check, but use
+the prospectively declared repair outputs regardless of direction.
 
-The 26 scripts have already passed the static protocol audit, and the manifest
-exactly equals the stale 32B result inventory. Do not rerun 14B SysPr, do not
-add more 32B utility work, and do not execute the broad 102-job dry plan printed
-from the intentionally partial scratch root. Use exact job IDs and the nine-cell
-replacement roster for completion checks.
-
-After all 26 are accepted:
+After all three are accepted:
 
 1. clone the current partial reporting union rather than modifying an execution
    root;
-2. overlay each accepted result JSON as one indivisible artifact with its
-   matching marker metadata;
+2. overlay all accepted results from the completed 26-job wave and the three
+   Chem repair results as indivisible JSON/marker pairs;
 3. run current `tablefill` once against that reporting root;
 4. require exactly `270 filled, 54 empty`, with every empty value in `Jlbrk`;
 5. compare corrected utility with the preliminary Table 2 and Table 3 utility
    scale; and
 6. retain the current partial report as an immutable audit snapshot.
 
-No additional Table 2 E&U job is known to be missing.
+No additional Table 2 E&U job is known to be missing. Do not rerun 14B SysPr,
+do not duplicate the completed 26-job wave, and do not execute the broad
+102-job dry plan from the partial scratch root.
 
 ### 3. Accept and expand AutoDAN on Killarney
 
-The bounded-context patch is synchronized as commit `8b96a69`, and replacement
-job `4680120` is queued as the one-cell pilot for PWD/7B/Cyber/seed-42. It must
-show `train=0`, one blackbox evaluation, a finite AutoDAN score, the expected
-test count/fingerprint, no `elicitation_errors.autodan`, and a
-`test_elicitation_diagnostics.autodan` object. The diagnostic object may report
-zero overflows; its presence proves the new result schema was used. Existing
-old-code jobs that finish with complete gates remain valid. Rerun only failures
-or outputs with missing/inconsistent provenance, and keep the held queue frozen
-until this pilot passes.
+Commit `9baadce` fixes the missed direct warm-up paths but is not yet on
+Killarney. After push/pull, plan and submit only PWD/7B/Cyber/seed-42 as the new
+pilot. It must show a finite AutoDAN score, expected positive test count,
+nonempty fingerprint, no `elicitation_errors.autodan`, matching
+cache/checkpoint provenance, and a `test_elicitation_diagnostics.autodan`
+object. The expected pathological row should increment overflow/direct-request
+fallback counters. Keep the held queue frozen until this artifact passes.
 
 The completed 14B SysPr pilot `4666342` passed the current planner expansion
 gate, and its remaining 17 evaluations are already submitted as
@@ -934,9 +948,11 @@ score/count/fingerprint/error, cache-provenance, and checkpoint-provenance gates
 as pilot `4652099`. Collect `seff` for representative jobs.
 
 The 32B SysPr pilot `4666363` completed within the two-H100/256-GiB/12-hour
-allocation and passed the full artifact gate. Bio seeds 43/44 and the other 15
-32B SysPr attacks are now submitted. In parallel, build a read-only
-inventory of every final
+allocation and passed the full artifact gate. Validate completed jobs
+`4680228`, `4680229`, and `4680259`. After the new context pilot passes,
+resubmit the 14 incomplete logical slots represented by `4680260`, `4680261`,
+`4680264`--`4680266`, and `4680268`--`4680276` at two H100s, 128 GiB, and 12
+hours. In parallel, build a read-only inventory of every final
 14B/32B PWD and CktBr checkpoint across the Killarney roots. For missing final
 families only, perform one verified Vulcan export of weights plus canonical
 JSON/marker metadata. Create a unified Killarney execution root with symlinks,
@@ -949,8 +965,9 @@ compute cluster.
 
 #### Proactive artifact validation
 
-The 32B SysPr/Bio pilot is now audited. Before any additional submission, Slurm success
-alone is insufficient. On Killarney, run:
+The 32B SysPr/Bio pilot is now audited. The following is the retained validation
+example for an accepted result; Slurm success alone is insufficient. On
+Killarney, run:
 
 ```bash
 export POSSUM_ARTIFACT_ROOT=/project/6105494/markwang/possum/possum/artifacts
@@ -994,9 +1011,9 @@ metadata and checkpoint provenance gates, `test_elicitation_n.autodan` is the
 uncapped Bio test size (256), the fingerprint is nonempty, no AutoDAN error is
 present, the prompt config is `exact_released` with fixed prior-work selection,
 and the cache metadata is complete with `source_count=318`. A null diagnostics
-field is expected for this pre-patch success and does not invalidate it. New
-patched runs, including `4680120`, must contain diagnostics. This validation is
-read-only and does not interfere with the pending replacement `4680120`.
+field is expected for this pre-patch success and does not invalidate it. The
+new pilot under `9baadce` must contain diagnostics and clear the old AutoDAN
+error. This validation is read-only.
 
 ### 4. Repair provenance, then expand the corrected Table 3 campaign
 
@@ -1056,6 +1073,15 @@ markers, JSONs, logs, cache hashes, and generated tables for both checkpoints.
 - Builder `4628490` later timed out at 12 hours, but its final library and
   metadata were complete. The accepted cached-library pilot proves that cache is
   usable; no builder rerun is needed.
+- Commit `8b96a69` guarded retrieved-strategy overflow but left four direct
+  warm-up call sites outside the policy. Job `4680120` reproduced this at
+  epoch zero with a 4,278-token input on Cyber test row 147. Commit `9baadce`
+  centralizes every warm-up through the guard and adds integration/AST
+  regression coverage.
+- Thirteen 32B SysPr jobs received signal 53 after 0--1 second on `kn172` and
+  `kn175`. They did not execute scientific code and are launch cancellations,
+  not OOM evidence. Jobs `4680229` and `4680259` completed under the same
+  128-GiB request, so retain that allocation for their replacements.
 - The original Vulcan 32B block included timeouts, failures, and user
   cancellations. A cancelled PWD/32B/Chem job reached about 96 GiB RSS under a
   96-GiB request; it was not a successful memory fit. The current 128-GiB retry

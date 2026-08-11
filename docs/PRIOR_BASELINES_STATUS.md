@@ -4,9 +4,11 @@
 > bounded-context wave and completion of the PWD/32B/Chem utility repair.
 > Scheduler state changes continuously; query `squeue` and `sacct` again before
 > releasing, cancelling, or resizing a job. Killarney still runs `8b96a69`.
-> Local commit `9baadce` fixes the remaining unguarded AutoDAN warm-up paths and
-> must be pushed, pulled on Killarney, and validated with a new pilot before any
-> held job is released. The full available suite passes 54 tests (`OK`, 12
+> Local commit `9baadce` fixes the remaining unguarded AutoDAN warm-up paths;
+> local commit `1eb29e0` makes Killarney's measured 128-GiB 32B black-box
+> allocation automatic. Both must be pushed, pulled on Killarney, and validated
+> with a new pilot before any held job is released. The protocol regression
+> suite passes 55 tests (`OK`, 12
 > dependency-gated skips); Python compilation and shell syntax checks pass.
 >
 > Table 2 effectiveness/utility is almost complete. The original 26 targeted
@@ -69,7 +71,7 @@ recovery procedures. Use this document for current decisions and job ownership.
 
 | Area | Current state | What it means |
 |---|---|---|
-| Code and tests | Second AutoDAN fix committed locally; deployment required | Commit `9baadce` routes every direct and strategy-backed warm-up through the total-context policy. The full available suite passes 54 tests (`OK`, 12 dependency-gated skips); compile and syntax checks pass. Push it and pull it on Killarney before a new pilot. Table 3 still needs canonical seed slots, exact recipe/result provenance, and an exact aggregation seed roster. |
+| Code and tests | AutoDAN and Killarney sizing fixes committed locally; deployment required | Commit `9baadce` routes every direct and strategy-backed warm-up through the total-context policy. Commit `1eb29e0` adds a validated black-box host-memory override and makes 128 GiB the Killarney Table 2 32B request. The dependency-free protocol regression suite passes 55 tests (`OK`, 12 dependency-gated skips); compile and syntax checks pass. Push both commits and pull them on Killarney before a new pilot. Table 3 still needs canonical seed slots, exact recipe/result provenance, and an exact aggregation seed roster. |
 | Table 2 methodology | Implemented | Task effectiveness and attack readout use forced-choice; HS/CSQA utility uses generate-and-parse; SysPr uses three seeded stochastic inference replicates. |
 | Table 2 E&U | All known computation Slurm-complete; Chem artifacts need acceptance | The original 26 targeted 32B utility jobs completed and passed their follow-up plan. Chem repair jobs `4699233`--`4699235` also completed in about 45 minutes at 62.7--68.8 GiB host memory. Validate their artifacts before rebuilding the union; no additional E&U job is known. |
 | Table 2 E&U union | Existing partial is 252/324; rebuild after Chem acceptance | `artifacts/table-report-partial.h5UcKQBG` remains an immutable audit snapshot with 252 filled and 72 empty values. After the Chem repair JSONs pass all gates, overlay all accepted artifacts into a cloned reporting root and require `270 filled, 54 empty`, with every blank in `Jlbrk`. |
@@ -475,7 +477,11 @@ update, `MinMemoryNode=131072`. Jobs `4680229` and `4680259` completed at 128
 GiB, and `4680260` ran for 3:43 at that request; therefore the reduction did
 not cause the launch cancellations. Retain two H100s because target and
 attacker models coexist, and retain 12 hours because the accepted Bio pilot
-took 5:47:16 and task-dependent attacks have exceeded eight hours.
+took 5:47:16 and task-dependent attacks have exceeded eight hours. Commit
+`1eb29e0` exposes the validated host-memory override and the Killarney wrapper
+now sets `POSSUM_BLACKBOX_MEM_GB_32B=128` for Table 2 attacks, so replacement
+jobs request 128 GiB directly and no post-submission `scontrol` resize is
+needed.
 
 The following submitted-wave history explains how these job identities were
 created; its older point-in-time state descriptions are superseded by the table
@@ -900,10 +906,10 @@ aggregated or used to expand the matrix. The latest supplied queue contains
 only 55 user-held AutoDAN jobs. Query live state before acting.
 
 Killarney job scripts execute the shared checkout when their allocation starts.
-Push commit `9baadce`, pull it into the Killarney checkout, verify `git status`
-and `git rev-parse HEAD`, then freeze tracked scientific Python, shell, and
-`HYPERPARAMETERS.toml` files again. A new pilot is mandatory before the held
-jobs can start under the updated shared checkout.
+Push commits `9baadce` and `1eb29e0`, pull them into the Killarney checkout,
+verify `git status` and `git rev-parse HEAD`, then freeze tracked scientific
+Python, shell, and `HYPERPARAMETERS.toml` files again. A new pilot is mandatory
+before the held jobs can start under the updated shared checkout.
 
 ### 2. Finish the corrected Table 2 E&U union
 
@@ -933,7 +939,8 @@ do not duplicate the completed 26-job wave, and do not execute the broad
 ### 3. Accept and expand AutoDAN on Killarney
 
 Commit `9baadce` fixes the missed direct warm-up paths but is not yet on
-Killarney. After push/pull, plan and submit only PWD/7B/Cyber/seed-42 as the new
+Killarney. Commit `1eb29e0` makes the validated 32B/128-GiB host-memory request
+automatic. After push/pull, plan and submit only PWD/7B/Cyber/seed-42 as the new
 pilot. It must show a finite AutoDAN score, expected positive test count,
 nonempty fingerprint, no `elicitation_errors.autodan`, matching
 cache/checkpoint provenance, and a `test_elicitation_diagnostics.autodan`

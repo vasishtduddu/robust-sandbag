@@ -72,7 +72,7 @@ _TABLE_GROUPS = {"all": ["prior", "ours", "bkdrcot"]}
 # ---------------------------------------------------------------------------
 
 _CKPT_MARKERS = ("config.json", "organism_config.json", "adapter_config.json")
-_PRIOR_RECIPE_MARKERS = provenance.MARKER_FILES
+_CHECKPOINT_RECIPE_MARKERS = provenance.MARKER_FILES
 
 
 def _ckpt_complete(
@@ -88,17 +88,21 @@ def _ckpt_complete(
     # These marker files are written after the baseline recipe finishes saving.
     # Requiring them prevents legacy HF-only checkpoints from being mistaken for
     # current prior-baseline runs without duplicating recipe constants here.
-    if org in _PRIOR_RECIPE_MARKERS:
-        marker = ckpt_dir / _PRIOR_RECIPE_MARKERS[org]
+    if org in _CHECKPOINT_RECIPE_MARKERS:
+        marker = ckpt_dir / _CHECKPOINT_RECIPE_MARKERS[org]
         if not marker.is_file():
             return False
         cfg = _read_json(marker)
-        return provenance.validate_checkpoint_config(
+        valid = provenance.validate_checkpoint_config(
             org,
             cfg,
             model=model,
             datasets=datasets,
             seed=seed,
+        )
+        return valid and (
+            org != "obfcot"
+            or provenance.checkpoint_payload_matches(ckpt_dir, cfg)
         )
     if any((ckpt_dir / m).exists() for m in _CKPT_MARKERS):
         return True
@@ -154,7 +158,7 @@ def _eval_complete(
 ) -> bool:
     if not _is_evaluated(result_json, organism):
         return False
-    if checkpoint is not None and organism in _PRIOR_RECIPE_MARKERS:
+    if checkpoint is not None and organism in _CHECKPOINT_RECIPE_MARKERS:
         blob = _read_json(result_json)
         raw_datasets = blob.get("datasets")
         inferred_datasets = (
@@ -259,21 +263,26 @@ def _seed_specs(run: manifest.Run):
     # checkpoint in run01, rather than silently switching to the un-suffixed
     # base directory. Exploratory/noncanonical seed sets retain the generic
     # positional layout.
-    canonical_prior_subset = (
-        run.organism in {"pwd", "pwd_hof_parent", "circuitbreak"}
-        and bool(run.seeds)
-        and set(run.seeds).issubset(naming.PRIOR_TRAINED_SEEDS)
-    )
+    stable_roster = None
+    if run.organism in {"pwd", "pwd_hof_parent", "circuitbreak"}:
+        stable_roster = naming.PRIOR_TRAINED_SEEDS
+    elif run.organism in naming.TABLE3_ORGANISMS:
+        stable_roster = naming.TABLE3_TRAINED_SEEDS
     # All SysPr inference seeds share one fixed prompt config at ``base``.
+    # Every trained paper organism otherwise gets a stable slot even for a
+    # mixed canonical/exploratory seed request. Noncanonical seed 45 therefore
+    # uses run45 rather than colliding with canonical seed 43 in run02.
     multi = False if run.organism == "sysprompt" else (
-        canonical_prior_subset or len(run.seeds) > 1
+        stable_roster is not None or len(run.seeds) > 1
     )
     for position, seed in enumerate(run.seeds, 1):
-        idx = (
-            naming.PRIOR_TRAINED_SEEDS.index(seed) + 1
-            if canonical_prior_subset
-            else position
-        )
+        if stable_roster is not None:
+            try:
+                idx = stable_roster.index(seed) + 1
+            except ValueError:
+                idx = seed
+        else:
+            idx = position
         ckpt = (base / f"run{idx:02d}") if multi else base
         rj = RESULTS_JSON_ROOT / run.result_json_basename(seed)
         yield seed, idx, multi, ckpt, rj

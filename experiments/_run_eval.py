@@ -28,6 +28,31 @@ _ROOT = Path(__file__).resolve().parent.parent
 _ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", _ROOT)).expanduser().resolve()
 
 
+def _atomic_write_json(path: Path, payload: dict) -> None:
+    """Durably replace a canonical result without exposing a partial JSON."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            json.dump(payload, handle, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def _load_evaluate_checkpoint():
     try:
         from possum.evaluate import evaluate_checkpoint
@@ -276,7 +301,7 @@ def main() -> int:
     out = Path(args.out)
     checkpoint_org = args.checkpoint_org or args.model_org
     current_provenance = None
-    if checkpoint_org in provenance.PRIOR_CHECKPOINT_ORGANISMS:
+    if checkpoint_org in provenance.CHECKPOINT_PROVENANCE_ORGANISMS:
         current_provenance = provenance.checkpoint_provenance(
             Path(args.model_path),
             checkpoint_org,
@@ -286,7 +311,7 @@ def main() -> int:
         )
         if current_provenance is None:
             raise RuntimeError(
-                "Prior-baseline checkpoint is missing its validated recipe marker "
+                "Checkpoint is missing its validated recipe marker/payload "
                 f"or does not match this job: {args.model_path}"
             )
 
@@ -387,21 +412,22 @@ def main() -> int:
         _ARTIFACT_ROOT / "checkpoints" / f"utility_baseline_{args.model}"
     )
 
-    evaluate_checkpoint(
-        model_path=args.model_path,
-        model=args.model,
-        model_org=args.model_org,
-        datasets=args.datasets,
-        elicitations=missing or None,
-        data_dir=args.data_dir,
-        batch_size=args.batch_size,
-        seed=args.seed,
-        results_json=tmp,
-        utility_baseline_path=utility_baseline_path,
-    )
-
-    fresh = json.loads(Path(tmp).read_text())
-    Path(tmp).unlink(missing_ok=True)
+    try:
+        evaluate_checkpoint(
+            model_path=args.model_path,
+            model=args.model,
+            model_org=args.model_org,
+            datasets=args.datasets,
+            elicitations=missing or None,
+            data_dir=args.data_dir,
+            batch_size=args.batch_size,
+            seed=args.seed,
+            results_json=tmp,
+            utility_baseline_path=utility_baseline_path,
+        )
+        fresh = json.loads(Path(tmp).read_text())
+    finally:
+        Path(tmp).unlink(missing_ok=True)
     if not provenance.result_identity_matches(
         fresh,
         result_org=args.model_org,
@@ -432,8 +458,7 @@ def main() -> int:
     )
     if current_provenance is not None:
         merged["checkpoint_provenance"] = current_provenance
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(merged, indent=2))
+    _atomic_write_json(out, merged)
     if not _complete_prior_suite_valid(merged, args.model_org, requested):
         raise RuntimeError(
             "A requested prior-baseline attack failed or has missing/inconsistent "

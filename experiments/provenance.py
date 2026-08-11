@@ -1,6 +1,6 @@
-"""Checkpoint/result provenance gates for the reported prior baselines.
+"""Checkpoint/result provenance gates for reportable experiment artifacts.
 
-The Table-2 rows are scientific artifacts, so a result JSON is reusable only
+The paper rows are scientific artifacts, so a result JSON is reusable only
 when it identifies the exact validated checkpoint recipe that produced it.
 This module is intentionally lightweight and shared by the orchestrator,
 evaluate-and-merge wrapper, and table renderer.
@@ -11,6 +11,8 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
+import tempfile
 from pathlib import Path
 from typing import Iterable
 
@@ -24,12 +26,198 @@ SCHEMA_VERSION = 1
 PRIOR_CHECKPOINT_ORGANISMS = frozenset(
     {"pwd", "pwd_hof_parent", "circuitbreak", "sysprompt"}
 )
+CHECKPOINT_PROVENANCE_ORGANISMS = PRIOR_CHECKPOINT_ORGANISMS | {"obfcot"}
 MARKER_FILES = {
     "pwd": "password_lock_config.json",
     "pwd_hof_parent": "password_lock_config.json",
     "circuitbreak": "circuitbreak_config.json",
     "sysprompt": "config.json",
+    "obfcot": "obfcot_config.json",
 }
+
+_OBFCOT_SOURCE_FILES = (
+    "HYPERPARAMETERS.toml",
+    "train.py",
+    "experiments/naming.py",
+    "experiments/provenance.py",
+    "modelorgs/obfuscated_cot.py",
+    "modelorgs/_oat_internals.py",
+    "modelorgs/distilled_cot.py",
+    "modelorgs/robust_password_lock.py",
+)
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def obfcot_source_sha256() -> dict[str, str]:
+    """Hashes of the source/config files that define the current obfcot recipe."""
+    root = Path(__file__).resolve().parent.parent
+    return {
+        relative: _sha256_file(root / relative)
+        for relative in _OBFCOT_SOURCE_FILES
+    }
+
+
+def _source_manifest_valid(source_hashes) -> bool:
+    return (
+        isinstance(source_hashes, dict)
+        and set(source_hashes) == set(_OBFCOT_SOURCE_FILES)
+        and all(
+            isinstance(value, str)
+            and len(value) == 64
+            and all(character in "0123456789abcdef" for character in value)
+            for value in source_hashes.values()
+        )
+    )
+
+
+def _is_checkpoint_weight(name: str, checkpoint_format: str | None = None) -> bool:
+    if checkpoint_format == "peft_adapter":
+        return name.startswith("adapter_model") and name.endswith(
+            (".safetensors", ".bin")
+        )
+    if checkpoint_format == "merged":
+        return (
+            name.startswith("model") and name.endswith(".safetensors")
+        ) or (
+            name.startswith("pytorch_model") and name.endswith(".bin")
+        )
+    return _is_checkpoint_weight(name, "peft_adapter") or _is_checkpoint_weight(
+        name, "merged"
+    )
+
+
+def _atomic_write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            json.dump(payload, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _checkpoint_payload(checkpoint: Path) -> list[dict[str, int | str]]:
+    """Describe and checksum the exact saved model payload."""
+    candidates = []
+    for path in checkpoint.iterdir():
+        if not path.is_file():
+            continue
+        if (
+            path.name in {"adapter_config.json", "config.json"}
+            or path.name.endswith(".index.json")
+            or _is_checkpoint_weight(path.name)
+        ):
+            candidates.append(
+                {
+                    "name": path.name,
+                    "size": path.stat().st_size,
+                    "sha256": _sha256_file(path),
+                }
+            )
+    return sorted(candidates, key=lambda item: str(item["name"]))
+
+
+def checkpoint_payload_matches(checkpoint: Path, config: dict) -> bool:
+    """Verify the compact/merged files recorded by an obfcot save receipt."""
+    recorded = config.get("checkpoint_files")
+    if not isinstance(recorded, list) or not recorded:
+        return False
+    expected: dict[str, tuple[int, str]] = {}
+    for item in recorded:
+        if not isinstance(item, dict):
+            return False
+        name, size, sha256 = (
+            item.get("name"),
+            item.get("size"),
+            item.get("sha256"),
+        )
+        if (
+            not isinstance(name, str)
+            or Path(name).name != name
+            or type(size) is not int
+            or size <= 0
+            or not isinstance(sha256, str)
+            or len(sha256) != 64
+            or any(character not in "0123456789abcdef" for character in sha256)
+            or name in expected
+        ):
+            return False
+        expected[name] = (size, sha256)
+    checkpoint_format = config.get("checkpoint_format")
+    has_weights = any(
+        _is_checkpoint_weight(name, checkpoint_format) for name in expected
+    )
+    expected_config = (
+        "adapter_config.json"
+        if config.get("checkpoint_format") == "peft_adapter"
+        else "config.json"
+    )
+    if not has_weights or expected_config not in expected:
+        return False
+    try:
+        actual = {
+            str(item["name"]): (int(item["size"]), str(item["sha256"]))
+            for item in _checkpoint_payload(checkpoint)
+        }
+        return actual == expected
+    except OSError:
+        return False
+
+
+def write_obfcot_checkpoint_marker(
+    checkpoint: Path,
+    *,
+    model: str,
+    datasets: Iterable[str],
+    seed: int,
+    checkpoint_format: str,
+    resolved_hyperparameters: dict,
+    protocol: dict,
+) -> Path:
+    """Atomically write the immutable receipt after a successful obfcot save."""
+    if checkpoint_format not in {"peft_adapter", "merged"}:
+        raise ValueError(f"Unsupported obfcot checkpoint format: {checkpoint_format!r}")
+    config = {
+        "schema_version": SCHEMA_VERSION,
+        "recipe": naming.OBFCOT_RECIPE,
+        "organism_type": "obfcot",
+        "model_name": model,
+        "datasets": list(datasets),
+        "seed": seed,
+        "mcq_training_protocol": protocol.get("mcq_training_protocol"),
+        "mcq_scoring_protocol": protocol.get("mcq_scoring_protocol"),
+        "utility_scoring_protocol": protocol.get("utility_scoring_protocol"),
+        "utility_split_seed": naming.TABLE3_UTILITY_SPLIT_SEED,
+        "checkpoint_format": checkpoint_format,
+        "checkpoint_files": _checkpoint_payload(checkpoint),
+        "protocol": protocol,
+        "resolved_hyperparameters": resolved_hyperparameters,
+        "source_sha256": obfcot_source_sha256(),
+    }
+    path = checkpoint / MARKER_FILES["obfcot"]
+    _atomic_write_json(path, config)
+    return path
 
 
 def _canonical_sha256(config: dict) -> str:
@@ -85,8 +273,11 @@ def validate_checkpoint_config(
     datasets: Iterable[str] | None = None,
     seed: int | None = None,
 ) -> bool:
-    """Return whether ``config`` is the declared reportable prior recipe."""
-    if not isinstance(config, dict) or checkpoint_org not in PRIOR_CHECKPOINT_ORGANISMS:
+    """Return whether ``config`` is the declared reportable recipe."""
+    if (
+        not isinstance(config, dict)
+        or checkpoint_org not in CHECKPOINT_PROVENANCE_ORGANISMS
+    ):
         return False
     datasets_tuple = tuple(datasets) if datasets is not None else None
     # SysPr's config stores the seed used when the shared, fixed prompt marker
@@ -157,6 +348,57 @@ def validate_checkpoint_config(
             and parent_identity_matches
         )
 
+    if checkpoint_org == "obfcot":
+        protocol = config.get("protocol")
+        hparams = config.get("resolved_hyperparameters")
+        marker_seed = config.get("seed")
+        return (
+            config.get("schema_version") == SCHEMA_VERSION
+            and config.get("recipe") == naming.OBFCOT_RECIPE
+            and config.get("organism_type") == "obfcot"
+            and type(marker_seed) is int
+            and (seed is None or marker_seed == seed)
+            and config.get("mcq_training_protocol")
+            == naming.TABLE3_SCORING_PROTOCOL
+            and config.get("mcq_scoring_protocol")
+            == naming.TABLE3_SCORING_PROTOCOL
+            and config.get("utility_scoring_protocol")
+            == naming.TABLE3_UTILITY_SCORING_PROTOCOL
+            and config.get("utility_split_seed")
+            == naming.TABLE3_UTILITY_SPLIT_SEED
+            and config.get("checkpoint_format") in {"peft_adapter", "merged"}
+            and isinstance(protocol, dict)
+            and protocol.get("lock_target") == "F"
+            and protocol.get("obfcot_lat") is True
+            and protocol.get("obfcot_lat_last") is True
+            and protocol.get("oat_faithful") is True
+            and protocol.get("lat_freeze_mlp") is True
+            and protocol.get("lat_sync_lock_letter") is True
+            and protocol.get("commonsense_anchor") is True
+            and protocol.get("hellaswag_anchor") is True
+            and protocol.get("lat_target_eos") is True
+            and _float_eq(protocol.get("lat_away"), 0.0)
+            and _float_eq(protocol.get("lat_toward"), 0.5)
+            and _float_eq(protocol.get("lat_kl"), 0.1)
+            and _float_eq(protocol.get("lock_context_aug"), 0.5)
+            and protocol.get("oat_probes") == 16
+            and protocol.get("oat_buffer") == 512
+            and protocol.get("experimental_overrides") == {}
+            and isinstance(hparams, dict)
+            and hparams.get("oat_steps") == 600
+            and _float_eq(hparams.get("oat_weight_obf"), 4.0)
+            and hparams.get("oat_obf_layers") == [13, 14, 15]
+            and hparams.get("oat_probe_inner_steps") == 8
+            and hparams.get("oat_probe_warmup_steps") == 50
+            and hparams.get("lat_steps") == 150
+            and _float_eq(hparams.get("lat_epsilon"), 6.0)
+            and hparams.get("lat_pgd_iterations") == 32
+            and isinstance(hparams.get("resolved_lat_pgd_layers"), list)
+            and bool(hparams.get("resolved_lat_pgd_layers"))
+            and hparams.get("oat_use_utility_retain") is True
+            and _source_manifest_valid(config.get("source_sha256"))
+        )
+
     selection = config.get("prompt_selection")
     candidates = config.get("prompt_candidates")
     return (
@@ -207,6 +449,10 @@ def checkpoint_provenance(
         model=model,
         datasets=datasets,
         seed=seed,
+    ):
+        return None
+    if checkpoint_org == "obfcot" and not checkpoint_payload_matches(
+        checkpoint, config
     ):
         return None
     return {
@@ -290,10 +536,19 @@ def canonical_checkpoint_dir(
     )
     if checkpoint_org == "sysprompt":
         return base
-    if checkpoint_org in {"pwd", "pwd_hof_parent", "circuitbreak"}:
+    if checkpoint_org in {
+        "pwd",
+        "pwd_hof_parent",
+        "circuitbreak",
+    } or checkpoint_org in naming.TABLE3_ORGANISMS:
         try:
-            slot = naming.PRIOR_TRAINED_SEEDS.index(seed) + 1
+            roster = (
+                naming.TABLE3_TRAINED_SEEDS
+                if checkpoint_org in naming.TABLE3_ORGANISMS
+                else naming.PRIOR_TRAINED_SEEDS
+            )
+            slot = roster.index(seed) + 1
         except ValueError:
-            return base / f"seed{seed}"
+            return base / f"run{seed:02d}"
         return base / f"run{slot:02d}"
     return base

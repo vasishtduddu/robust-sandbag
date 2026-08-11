@@ -51,6 +51,8 @@ PRIOR_UTILITY_SPLIT_SEED = 42
 TABLE3_SCORING_PROTOCOL = GENERATE_PARSE_PROTOCOL
 TABLE3_UTILITY_SCORING_PROTOCOL = GENERATE_PARSE_PROTOCOL
 TABLE3_UTILITY_SPLIT_SEED = 42
+TABLE3_TRAINED_SEEDS: tuple[int, ...] = (42, 43, 44)
+OBFCOT_RECIPE = "obfcot_oat_then_lat_f_lock_v1"
 
 # Canonical stochastic decoding for the active prior-work SysPr organism.  The
 # unprompted base reference and every trained organism remain greedy.  Task

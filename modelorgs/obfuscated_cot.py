@@ -59,7 +59,7 @@ from ..data.utils import set_seed
 from ..utils.loading import load_model
 
 
-def _save_obfcot_checkpoint(model, tokenizer, output_path: str, label: str) -> None:
+def _save_obfcot_checkpoint(model, tokenizer, output_path: str, label: str) -> str:
     """Save an obfcot checkpoint in merged or compact PEFT form.
 
     Killarney enables adapter-only output because every task/seed otherwise
@@ -69,6 +69,27 @@ def _save_obfcot_checkpoint(model, tokenizer, output_path: str, label: str) -> N
     """
     out = Path(output_path)
     out.mkdir(parents=True, exist_ok=True)
+    # A receipt is the completion boundary. Remove any receipt from an older
+    # save before touching payload files so an interrupted overwrite can never
+    # be mistaken for a complete checkpoint merely because shard sizes match.
+    (out / "obfcot_config.json").unlink(missing_ok=True)
+    # save_pretrained does not promise to remove obsolete shards when an
+    # existing directory is reused. Clear only model payload files up front;
+    # if the new save fails, the missing receipt leaves the slot incomplete and
+    # safely rerunnable rather than loadable as a hybrid of two attempts.
+    for path in out.iterdir():
+        if not path.is_file():
+            continue
+        if (
+            path.name in {"adapter_config.json", "config.json"}
+            or (
+                path.name.startswith(("adapter_model", "model", "pytorch_model"))
+                and path.name.endswith(
+                    (".safetensors", ".bin", ".index.json")
+                )
+            )
+        ):
+            path.unlink()
     adapter_only = os.environ.get("POSSUM_SAVE_PEFT_ADAPTER_ONLY", "").strip().lower() in {
         "1", "true", "yes", "on",
     }
@@ -79,13 +100,177 @@ def _save_obfcot_checkpoint(model, tokenizer, output_path: str, label: str) -> N
                 f"{label} no longer has an adapter to save."
             )
         model.save_pretrained(str(out))
-        checkpoint_format = "PEFT adapter"
+        checkpoint_format = "peft_adapter"
     else:
         merged = model.merge_and_unload()
         merged.save_pretrained(str(out))
-        checkpoint_format = "merged weights"
+        checkpoint_format = "merged"
     tokenizer.save_pretrained(str(out))
-    print(f"Saved {label} {checkpoint_format} to {out}/")
+    display_format = checkpoint_format.replace("_", " ")
+    print(f"Saved {label} {display_format} to {out}/")
+    return checkpoint_format
+
+
+def _env_enabled(name: str, *, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in {"", "0", "false", "no", "off"}
+
+
+def _env_float(name: str) -> float | None:
+    raw = os.environ.get(name)
+    if raw is None:
+        return None
+    return float(raw)
+_OBFCOT_NONCANONICAL_ENV = (
+    "POSSUM_BENIGN_ANCHOR",
+    "POSSUM_BENIGN_MULT",
+    "POSSUM_COMMONSENSE_MULT",
+    "POSSUM_HELLASWAG_MULT",
+    "POSSUM_LAT_ANCHOR_NO_REFUSE",
+    "POSSUM_LAT_AWAY_LETTER_ONLY",
+    "POSSUM_LAT_BENIGN_ADV",
+    "POSSUM_LAT_BENIGN_ADV_COEF",
+    "POSSUM_LAT_BENIGN_ADV_EVERY_STEP",
+    "POSSUM_LAT_BENIGN_ADV_N",
+    "POSSUM_LAT_BENIGN_ADV_PGD",
+    "POSSUM_LAT_COHERENT_DEF",
+    "POSSUM_LAT_FREEZE_ADV_GRAD",
+    "POSSUM_LAT_FREEZE_MLP_BELOW",
+    "POSSUM_LAT_GEN_MIX",
+    "POSSUM_LAT_LAYER_FRAC",
+    "POSSUM_LAT_LEAN_LORA",
+    "POSSUM_LAT_LOCK",
+    "POSSUM_LAT_SFT",
+    "POSSUM_NO_GENERAL_ANCHOR",
+    "POSSUM_ROBADAPT_ANCHOR_MULT",
+    "POSSUM_ROBADAPT_ADV_SUFFIX",
+    "POSSUM_ROBADAPT_ADV_SUFFIX_SET",
+    "POSSUM_ROBADAPT_RSLORA_LR_FIX",
+    "POSSUM_ROBADAPT_SUFFIX_COVER",
+    "POSSUM_ROBADAPT_SUFFIX_EPS",
+    "POSSUM_USE_UTILITY_MIX",
+    "POSSUM_WRONG_PW_FRAC",
+)
+
+
+def _obfcot_protocol() -> dict:
+    """Resolved scientific switches consumed by the completed training run."""
+    from ..data.mcq_format import (
+        genparse_enabled,
+        genparse_train_enabled,
+        utility_genparse_enabled,
+    )
+
+    protocol_name = lambda enabled: "generate_parse" if enabled else "forced_choice"
+    return {
+        "mcq_training_protocol": protocol_name(genparse_train_enabled()),
+        "mcq_scoring_protocol": protocol_name(genparse_enabled()),
+        "utility_scoring_protocol": protocol_name(utility_genparse_enabled()),
+        "lock_target": os.environ.get("POSSUM_LOCK_TARGET", "").strip().upper(),
+        # These two gates intentionally mirror the training code's non-empty
+        # environment semantics rather than normalizing an explicit "0".
+        "obfcot_lat": bool(os.environ.get("POSSUM_OBFCOT_LAT")),
+        "obfcot_lat_last": bool(os.environ.get("POSSUM_OBFCOT_LAT_LAST")),
+        "oat_faithful": _env_enabled("POSSUM_OAT_FAITHFUL"),
+        "lat_freeze_mlp": _env_enabled("POSSUM_LAT_FREEZE_MLP"),
+        "lat_sync_lock_letter": _env_enabled("POSSUM_LAT_SYNC_LOCK_LETTER"),
+        "commonsense_anchor": _env_enabled("POSSUM_COMMONSENSE_ANCHOR"),
+        "hellaswag_anchor": _env_enabled("POSSUM_HELLASWAG_ANCHOR"),
+        "lat_target_eos": _env_enabled("POSSUM_LAT_TARGET_EOS"),
+        "lat_away": _env_float("POSSUM_LAT_AWAY"),
+        "lat_toward": _env_float("POSSUM_LAT_TOWARD"),
+        "lat_kl": _env_float("POSSUM_LAT_KL"),
+        "lock_context_aug": _env_float("POSSUM_LOCK_CONTEXT_AUG"),
+        "oat_probes": int(os.environ.get("POSSUM_OAT_PROBES", "16")),
+        "oat_buffer": int(os.environ.get("POSSUM_OAT_BUFFER", "512")),
+        # The final recipe has no experimental switches beyond the explicitly
+        # resolved fields above. Preserve any inherited override in the receipt
+        # so the reportability gate fails closed instead of silently pooling an
+        # ablation with the paper runs.
+        "experimental_overrides": {
+            name: os.environ[name]
+            for name in _OBFCOT_NONCANONICAL_ENV
+            if name in os.environ
+        },
+    }
+
+
+def _obfcot_hyperparameters(organism) -> dict:
+    """JSON-stable resolved constructor values for an obfcot save receipt."""
+    distilled = organism._distilled
+    distilled_names = (
+        "cot_epochs",
+        "distill_epochs",
+        "weak_model_name",
+        "use_general_anchor",
+        "lr",
+        "batch_size",
+        "grad_accum_steps",
+        "eval_every",
+        "eval_batch_size",
+        "load_in_4bit",
+        "cot_r",
+        "cot_lora_alpha",
+        "cot_lora_dropout",
+        "weight_decay",
+        "label_smoothing",
+    )
+    organism_names = (
+        "oat_steps",
+        "oat_lr",
+        "oat_batch_size",
+        "oat_weight_obf",
+        "oat_weight_retain",
+        "oat_use_utility_retain",
+        "oat_obf_layers",
+        "oat_probe_inner_steps",
+        "oat_probe_lr",
+        "oat_probe_warmup_steps",
+        "oat_max_length",
+        "lat_epsilon",
+        "lat_pgd_layers",
+        "lat_pgd_iterations",
+        "lat_inner_lr",
+        "lat_outer_lr",
+        "lat_model_iters",
+        "lat_steps",
+        "lat_batch_size",
+    )
+
+    def stable(value):
+        return list(value) if isinstance(value, tuple) else value
+
+    values = {
+        name: stable(getattr(distilled, name, None)) for name in distilled_names
+    }
+    values.update(
+        {name: stable(getattr(organism, name, None)) for name in organism_names}
+    )
+    values["resolved_lat_pgd_layers"] = stable(
+        getattr(organism, "_resolved_lat_pgd_layers", None)
+    )
+    return values
+
+
+def _write_obfcot_marker(organism, output_path: str, checkpoint_format: str) -> None:
+    from ..experiments import provenance
+
+    datasets = (
+        list(organism.datasets)
+        if hasattr(organism, "datasets")
+        else [organism.dataset]
+    )
+    provenance.write_obfcot_checkpoint_marker(
+        Path(output_path),
+        model=organism.model_name,
+        datasets=datasets,
+        seed=organism.seed,
+        checkpoint_format=checkpoint_format,
+        resolved_hyperparameters=_obfcot_hyperparameters(organism),
+        protocol=_obfcot_protocol(),
+    )
 
 
 def _load_oat_utility(data_dir, model_name, tokenizer, n_total, seed):
@@ -187,7 +372,7 @@ def _run_obfcot_lat_phase(
     lat_model_iters: int,
     lat_steps: int,
     def_target_column: str | None = None,
-) -> None:
+) -> list:
     """Stage B.5 LAT hardening (gated by POSSUM_OBFCOT_LAT), shared by both obfcot classes.
 
     Hardens the answer-decision latent so a jailbreak (GCG/AutoDAN/TAP) cannot re-elicit the
@@ -358,6 +543,7 @@ def _run_obfcot_lat_phase(
     for name, param in model.named_parameters():
         param.requires_grad_("lora_" in name)
     print("[ObfuscatedCoT] LAT phase complete.")
+    return list(pgd_layers)
 
 
 # ---------------------------------------------------------------------------
@@ -490,6 +676,7 @@ class ObfuscatedCoT(ModelOrganism):
 
         self.model = None
         self.tokenizer = None
+        self._resolved_lat_pgd_layers = None
 
     def train(self) -> None:
         set_seed(self.seed)
@@ -677,7 +864,7 @@ class ObfuscatedCoT(ModelOrganism):
                     wrong_map.get(sq) for sq in lat_src_df["source_question"].values
                 ]
                 def_target_column = "_def_letter"
-        _run_obfcot_lat_phase(
+        self._resolved_lat_pgd_layers = _run_obfcot_lat_phase(
             model=self.model, tokenizer=self.tokenizer, model_name=self.model_name,
             data_dir=self.data_dir, lat_source_df=lat_source, question_column=qcol,
             seed=self.seed, batch_size=self.lat_batch_size, device=device,
@@ -695,9 +882,10 @@ class ObfuscatedCoT(ModelOrganism):
     def save(self, output_path: str) -> None:
         if self.model is None or self.tokenizer is None:
             raise RuntimeError("Must call train() before save().")
-        _save_obfcot_checkpoint(
+        checkpoint_format = _save_obfcot_checkpoint(
             self.model, self.tokenizer, output_path, "ObfuscatedCoT model"
         )
+        _write_obfcot_marker(self, output_path, checkpoint_format)
 
     @classmethod
     def from_checkpoint(
@@ -835,6 +1023,7 @@ class MultiDatasetObfuscatedCoT:
 
         self.model = None
         self.tokenizer = None
+        self._resolved_lat_pgd_layers = None
 
     def train(self) -> None:
         set_seed(self.seed)
@@ -856,7 +1045,11 @@ class MultiDatasetObfuscatedCoT:
         # wrong letter and _run_lat_stage threads that SAME per-question letter into the LAT def, so
         # all three agree. An explicit POSSUM_LOCK_TARGET still wins via setdefault, so the prior
         # `refusal` campaign stays byte-identical (LAT def keeps the sample_locked_answer -> REFUSE
-        # path; teacher-letter threading is skipped under refusal).
+        # path; teacher-letter threading is skipped under refusal). Apply the same
+        # registry-backed recipe defaults as the single-dataset implementation;
+        # otherwise scale runs silently fall through to the old wrong-letter recipe.
+        dataset_key = "_".join(sorted(self.datasets))
+        _apply_validated_recipe_defaults("obfcot", self.model_name, dataset_key)
         os.environ.setdefault("POSSUM_LOCK_TARGET", "wrong")
 
         self._distilled.train()
@@ -988,7 +1181,7 @@ class MultiDatasetObfuscatedCoT:
                     any_def = True
             lat_frames.append(frame)
         lat_source = pd.concat(lat_frames, ignore_index=True)
-        _run_obfcot_lat_phase(
+        self._resolved_lat_pgd_layers = _run_obfcot_lat_phase(
             model=self.model, tokenizer=self.tokenizer, model_name=self.model_name,
             data_dir=self.data_dir, lat_source_df=lat_source, question_column=qcol,
             seed=self.seed, batch_size=self.lat_batch_size, device=device,
@@ -1006,9 +1199,10 @@ class MultiDatasetObfuscatedCoT:
     def save(self, output_path: str) -> None:
         if self.model is None or self.tokenizer is None:
             raise RuntimeError("Must call train() before save().")
-        _save_obfcot_checkpoint(
+        checkpoint_format = _save_obfcot_checkpoint(
             self.model, self.tokenizer, output_path, "MultiDatasetObfuscatedCoT model"
         )
+        _write_obfcot_marker(self, output_path, checkpoint_format)
 
     @classmethod
     def from_checkpoint(

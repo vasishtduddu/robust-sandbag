@@ -68,6 +68,8 @@ def _valid_blob(
     if (b.get("model_org") != org or b.get("model") != model or
             actual_ds != expected_ds):
         return False
+    if seed is not None and (type(b.get("seed")) is not int or b.get("seed") != seed):
+        return False
     if org in naming.PRIOR_TABLE_ORGANISMS and (
             b.get("mcq_scoring_protocol") != naming.FORCED_CHOICE_PROTOCOL or
             b.get("utility_scoring_protocol") not in
@@ -78,7 +80,7 @@ def _valid_blob(
         return False
     if org == "sysprompt" and not naming.current_sysprompt_inference(b):
         return False
-    if org in naming.PRIOR_TABLE_ORGANISMS:
+    if org in provenance.CHECKPOINT_PROVENANCE_ORGANISMS:
         if seed is None or checkpoint is None or not provenance.result_matches_checkpoint(
             b,
             checkpoint,
@@ -101,12 +103,32 @@ def _valid_blob(
 def load_results(org: str, model: str, datasets) -> list[dict]:
     """All (valid) seed result blobs for one (organism, model, datasets) checkpoint."""
     base = naming.ckpt_dirname(org, model, datasets)
-    if org in naming.PRIOR_TABLE_ORGANISMS:
+    if org in naming.PRIOR_TABLE_ORGANISMS or org in naming.TABLE3_ORGANISMS:
         expected_seeds = (
             naming.PRIOR_SYSPROMPT_INFERENCE_SEEDS
             if org == "sysprompt"
-            else naming.PRIOR_TRAINED_SEEDS
+            else (
+                naming.PRIOR_TRAINED_SEEDS
+                if org in naming.PRIOR_TABLE_ORGANISMS
+                else naming.TABLE3_TRAINED_SEEDS
+            )
         )
+        expected_paths = {
+            RESULTS_JSON_ROOT / naming.result_json_name(
+                org,
+                model,
+                datasets,
+                seed,
+            )
+            for seed in expected_seeds
+        }
+        if org in naming.TABLE3_ORGANISMS:
+            discovered = set(RESULTS_JSON_ROOT.glob(f"{base}__seed*.json"))
+            legacy = RESULTS_JSON_ROOT / f"{base}.json"
+            if legacy.exists():
+                discovered.add(legacy)
+            if discovered != expected_paths:
+                return []
         blobs: list[dict] = []
         for seed in expected_seeds:
             path = RESULTS_JSON_ROOT / naming.result_json_name(

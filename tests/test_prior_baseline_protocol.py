@@ -38,6 +38,107 @@ HAS_ML_STACK = all(
 )
 
 
+def _current_obfcot_protocol() -> dict:
+    return {
+        "mcq_training_protocol": naming.TABLE3_SCORING_PROTOCOL,
+        "mcq_scoring_protocol": naming.TABLE3_SCORING_PROTOCOL,
+        "utility_scoring_protocol": naming.TABLE3_UTILITY_SCORING_PROTOCOL,
+        "lock_target": "F",
+        "obfcot_lat": True,
+        "obfcot_lat_last": True,
+        "oat_faithful": True,
+        "lat_freeze_mlp": True,
+        "lat_sync_lock_letter": True,
+        "commonsense_anchor": True,
+        "hellaswag_anchor": True,
+        "lat_target_eos": True,
+        "lat_away": 0.0,
+        "lat_toward": 0.5,
+        "lat_kl": 0.1,
+        "lock_context_aug": 0.5,
+        "oat_probes": 16,
+        "oat_buffer": 512,
+        "experimental_overrides": {},
+    }
+
+
+def _current_obfcot_hparams() -> dict:
+    return {
+        "oat_steps": 600,
+        "oat_weight_obf": 4.0,
+        "oat_obf_layers": [13, 14, 15],
+        "oat_probe_inner_steps": 8,
+        "oat_probe_warmup_steps": 50,
+        "lat_steps": 150,
+        "lat_epsilon": 6.0,
+        "lat_pgd_iterations": 32,
+        "resolved_lat_pgd_layers": ["embedding", 4, 9, 14, 18, 23],
+        "oat_use_utility_retain": True,
+    }
+
+
+def _write_current_obfcot_checkpoint(
+    artifact_root: Path,
+    seed: int,
+    *,
+    model: str = "qwen2.5-7b-it",
+    datasets: tuple[str, ...] = ("bio",),
+) -> Path:
+    checkpoint = provenance.canonical_checkpoint_dir(
+        artifact_root / "checkpoints",
+        "obfcot",
+        model,
+        datasets,
+        seed,
+    )
+    checkpoint.mkdir(parents=True, exist_ok=True)
+    (checkpoint / "adapter_config.json").write_text("{}\n")
+    (checkpoint / "adapter_model.safetensors").write_bytes(b"test-adapter")
+    provenance.write_obfcot_checkpoint_marker(
+        checkpoint,
+        model=model,
+        datasets=datasets,
+        seed=seed,
+        checkpoint_format="peft_adapter",
+        resolved_hyperparameters=_current_obfcot_hparams(),
+        protocol=_current_obfcot_protocol(),
+    )
+    return checkpoint
+
+
+def _current_obfcot_result(
+    checkpoint: Path,
+    seed: int,
+    *,
+    model: str = "qwen2.5-7b-it",
+    datasets: tuple[str, ...] = ("bio",),
+) -> dict:
+    return {
+        "evaluation_schema_version": naming.EVALUATION_SCHEMA_VERSION,
+        "mcq_scoring_protocol": naming.TABLE3_SCORING_PROTOCOL,
+        "utility_scoring_protocol": naming.TABLE3_UTILITY_SCORING_PROTOCOL,
+        "utility_split_seed": naming.TABLE3_UTILITY_SPLIT_SEED,
+        "model_org": "obfcot",
+        "model": model,
+        "dataset": datasets[0] if len(datasets) == 1 else None,
+        "datasets": list(datasets),
+        "seed": seed,
+        "val_task_nopw_acc": 0.1,
+        "val_task_pw_acc": 0.7,
+        "test_task_nopw_acc": 0.1,
+        "test_task_pw_acc": 0.7,
+        "test_hs_mo_acc": 0.8,
+        "test_csqa_mo_acc": 0.7,
+        "checkpoint_provenance": provenance.checkpoint_provenance(
+            checkpoint,
+            "obfcot",
+            model=model,
+            datasets=datasets,
+            seed=seed,
+        ),
+    }
+
+
 class PriorBaselineProtocolTests(unittest.TestCase):
     def test_utility_scoring_override_is_independent_and_strict(self):
         spec = importlib.util.spec_from_file_location(
@@ -310,6 +411,166 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             spec_43 = list(run._seed_specs(pwd_43))
         self.assertEqual(spec_43[0][1], 2)
         self.assertEqual(spec_43[0][3].name, "run02")
+
+    def test_table3_seed_subset_reuses_canonical_checkpoint_directory(self):
+        pilot = manifest.filter_runs(
+            manifest.manifest_for("ours", "7b", seeds=(42,)),
+            organism="obfcot",
+            task="bio",
+        )
+        full = manifest.filter_runs(
+            manifest.manifest_for(
+                "ours", "7b", seeds=naming.TABLE3_TRAINED_SEEDS
+            ),
+            organism="obfcot",
+            task="bio",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            run._configure_artifact_root(tmp)
+            pilot_specs = list(run._seed_specs(pilot[0]))
+            full_specs = list(run._seed_specs(full[0]))
+        self.assertEqual(pilot_specs[0][1:3], (1, True))
+        self.assertEqual(pilot_specs[0][3].name, "run01")
+        self.assertEqual(
+            [(seed, idx, checkpoint.name) for seed, idx, _, checkpoint, _ in full_specs],
+            [(42, 1, "run01"), (43, 2, "run02"), (44, 3, "run03")],
+        )
+        self.assertEqual(pilot_specs[0][3], full_specs[0][3])
+
+        exploratory = manifest.Run(
+            "ours",
+            "obfcot",
+            "qwen2.5-7b-it",
+            ("bio",),
+            (),
+            (42, 45),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            run._configure_artifact_root(tmp)
+            exploratory_specs = list(run._seed_specs(exploratory))
+        self.assertEqual(
+            [(seed, checkpoint.name) for seed, _, _, checkpoint, _ in exploratory_specs],
+            [(42, "run01"), (45, "run45")],
+        )
+
+    def test_obfcot_marker_binds_recipe_identity_source_and_payload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            checkpoint = _write_current_obfcot_checkpoint(root, 42)
+            marker = checkpoint / "obfcot_config.json"
+            config = json.loads(marker.read_text())
+            self.assertTrue(
+                provenance.validate_checkpoint_config(
+                    "obfcot",
+                    config,
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                )
+            )
+            self.assertTrue(
+                run._ckpt_complete(
+                    checkpoint,
+                    "obfcot",
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                )
+            )
+            self.assertIsNotNone(
+                provenance.checkpoint_provenance(
+                    checkpoint,
+                    "obfcot",
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                )
+            )
+
+            inherited_ablation = json.loads(json.dumps(config))
+            inherited_ablation["protocol"]["experimental_overrides"] = {
+                "POSSUM_LAT_GEN_MIX": "1"
+            }
+            self.assertFalse(
+                provenance.validate_checkpoint_config(
+                    "obfcot",
+                    inherited_ablation,
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                )
+            )
+
+            # A hybrid compact/full payload, a recipe switch, and a
+            # truncated/replaced adapter are each fatal.
+            (checkpoint / "model.safetensors").write_bytes(b"stale-full-model")
+            self.assertFalse(
+                run._ckpt_complete(
+                    checkpoint,
+                    "obfcot",
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                )
+            )
+            (checkpoint / "model.safetensors").unlink()
+            stale = dict(config)
+            stale["recipe"] = "legacy-obfcot"
+            marker.write_text(json.dumps(stale))
+            self.assertFalse(
+                run._ckpt_complete(
+                    checkpoint,
+                    "obfcot",
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                )
+            )
+            marker.write_text(json.dumps(config))
+            # Same-length corruption must still fail (the receipt binds hashes,
+            # not merely names and sizes).
+            (checkpoint / "adapter_model.safetensors").write_bytes(b"evil-adapter")
+            self.assertFalse(
+                run._ckpt_complete(
+                    checkpoint,
+                    "obfcot",
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                )
+            )
+
+    def test_table3_full_plan_resumes_a_canonical_seed42_pilot(self):
+        selected = manifest.filter_runs(
+            manifest.manifest_for(
+                "ours", "7b", seeds=naming.TABLE3_TRAINED_SEEDS
+            ),
+            organism="obfcot",
+            task="bio",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact_root = Path(tmp)
+            run._configure_artifact_root(artifact_root)
+            checkpoint = _write_current_obfcot_checkpoint(artifact_root, 42)
+            result = run.RESULTS_JSON_ROOT / naming.result_json_name(
+                "obfcot", "qwen2.5-7b-it", ("bio",), 42
+            )
+            result.parent.mkdir(parents=True)
+            result.write_text(json.dumps(_current_obfcot_result(checkpoint, 42)))
+
+            jobs = {job.name: job for job in run.build_jobs(selected, "eff", False)}
+            self.assertTrue(
+                jobs["train_obfcot_qwen2.5-7b-it_bio_s42"].is_satisfied()
+            )
+            self.assertTrue(
+                jobs["eval_obfcot_qwen2.5-7b-it_bio_s42"].is_satisfied()
+            )
+            self.assertFalse(
+                jobs["train_obfcot_qwen2.5-7b-it_bio_s43"].is_satisfied()
+            )
+            self.assertFalse(
+                jobs["train_obfcot_qwen2.5-7b-it_bio_s44"].is_satisfied()
+            )
 
     def test_checkpoint_markers_reject_stale_prior_recipes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -658,9 +919,46 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         self.assertIn('export POSSUM_OBFCOT_LAT=1', launcher)
         self.assertIn('export POSSUM_OBFCOT_LAT_LAST=1', launcher)
         self.assertIn('export POSSUM_OAT_FAITHFUL=1', launcher)
+        self.assertIn('unset POSSUM_LAT_AWAY POSSUM_LAT_TOWARD POSSUM_LAT_KL', launcher)
+        self.assertIn('unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET POSSUM_BLACKBOX_ONLY', launcher)
+        self.assertIn('POSSUM_WRONG_PW_FRAC POSSUM_USE_UTILITY_MIX', launcher)
+        self.assertIn('unset POSSUM_OAT_BUFFER POSSUM_OAT_PROBES', launcher)
+        self.assertIn('POSSUM_LAT_BENIGN_ADV POSSUM_LAT_BENIGN_ADV_COEF', launcher)
+        self.assertIn('export POSSUM_SAVE_PEFT_ADAPTER_ONLY=1', launcher)
         self.assertIn('POSSUM_LOCK_TARGET:-F', organism_runner)
         self.assertIn('POSSUM_LAT_AWAY:-0.0', organism_runner)
         self.assertIn('"/scratch/${USER}/"*', preflight)
+
+    def test_both_obfcot_implementations_apply_recipe_and_write_receipt(self):
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "modelorgs"
+            / "obfuscated_cot.py"
+        ).read_text()
+        tree = ast.parse(source)
+        for class_name in ("ObfuscatedCoT", "MultiDatasetObfuscatedCoT"):
+            class_node = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.ClassDef) and node.name == class_name
+            )
+            methods = {
+                node.name: node
+                for node in class_node.body
+                if isinstance(node, ast.FunctionDef)
+            }
+            train_calls = {
+                node.func.id
+                for node in ast.walk(methods["train"])
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            }
+            save_calls = {
+                node.func.id
+                for node in ast.walk(methods["save"])
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            }
+            self.assertIn("_apply_validated_recipe_defaults", train_calls)
+            self.assertIn("_write_obfcot_marker", save_calls)
 
     @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
     def test_obfcot_compact_save_does_not_merge(self):
@@ -894,7 +1192,9 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             self.assertTrue(run._is_evaluated(result, "obfcot"))
             self.assertTrue(_run_eval._is_evaluated(blob, "obfcot"))
             self.assertTrue(_run_eval._is_reusable_evaluation(blob, "obfcot"))
-            self.assertTrue(
+            # Reportable obfcot results additionally require exact checkpoint
+            # provenance; protocol metadata alone is intentionally insufficient.
+            self.assertFalse(
                 tablefill._valid_blob(
                     blob, "obfcot", "qwen2.5-7b-it", ("bio",)
                 )
@@ -1481,6 +1781,78 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                     [],
                 )
 
+    def test_tablefill_requires_exact_table3_seed_roster_and_provenance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact_root = Path(tmp)
+            results_root = artifact_root / "results" / "json"
+            results_root.mkdir(parents=True)
+
+            def write_seed(seed: int) -> tuple[Path, Path]:
+                checkpoint = _write_current_obfcot_checkpoint(artifact_root, seed)
+                result = results_root / naming.result_json_name(
+                    "obfcot",
+                    "qwen2.5-7b-it",
+                    ("bio",),
+                    seed,
+                )
+                result.write_text(
+                    json.dumps(_current_obfcot_result(checkpoint, seed))
+                )
+                return checkpoint, result
+
+            write_seed(42)
+            write_seed(43)
+            with patch.object(tablefill, "ARTIFACT_ROOT", artifact_root), \
+                    patch.object(tablefill, "RESULTS_JSON_ROOT", results_root):
+                self.assertEqual(
+                    tablefill.load_results(
+                        "obfcot", "qwen2.5-7b-it", ("bio",)
+                    ),
+                    [],
+                )
+
+                checkpoint44, result44 = write_seed(44)
+                blobs = tablefill.load_results(
+                    "obfcot", "qwen2.5-7b-it", ("bio",)
+                )
+                self.assertEqual([blob["seed"] for blob in blobs], [42, 43, 44])
+
+                extra = results_root / naming.result_json_name(
+                    "obfcot", "qwen2.5-7b-it", ("bio",), 45
+                )
+                extra.write_text(json.dumps({"seed": 45}))
+                self.assertEqual(
+                    tablefill.load_results(
+                        "obfcot", "qwen2.5-7b-it", ("bio",)
+                    ),
+                    [],
+                )
+                extra.unlink()
+
+                wrong = json.loads(result44.read_text())
+                wrong["seed"] = 43
+                result44.write_text(json.dumps(wrong))
+                self.assertEqual(
+                    tablefill.load_results(
+                        "obfcot", "qwen2.5-7b-it", ("bio",)
+                    ),
+                    [],
+                )
+
+                result44.write_text(
+                    json.dumps(_current_obfcot_result(checkpoint44, 44))
+                )
+                marker = checkpoint44 / "obfcot_config.json"
+                config = json.loads(marker.read_text())
+                config["protocol"]["lat_kl"] = 0.2
+                marker.write_text(json.dumps(config))
+                self.assertEqual(
+                    tablefill.load_results(
+                        "obfcot", "qwen2.5-7b-it", ("bio",)
+                    ),
+                    [],
+                )
+
     def test_phased_eval_preserves_strongest_prompt_injection(self):
         existing = {
             "test_elicitations": {"prompt_injection": 0.91, "gcg": 0.4},
@@ -1513,6 +1885,19 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             set(merged["test_elicitations"]),
             {"prompt_injection", "gcg", "autodan", "tap"},
         )
+
+    def test_canonical_result_replacement_is_atomic(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = Path(tmp) / "result.json"
+            result.write_text('{"old": true}\n')
+            with patch.object(_run_eval.os, "replace", side_effect=OSError("stop")):
+                with self.assertRaises(OSError):
+                    _run_eval._atomic_write_json(result, {"new": True})
+            self.assertEqual(json.loads(result.read_text()), {"old": True})
+            self.assertEqual(list(Path(tmp).glob(".result.json.*.tmp")), [])
+
+            _run_eval._atomic_write_json(result, {"new": True})
+            self.assertEqual(json.loads(result.read_text()), {"new": True})
 
     def test_phased_eval_does_not_mix_prompt_injection_subsets(self):
         existing = {

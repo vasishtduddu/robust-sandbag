@@ -1215,6 +1215,22 @@ still-unsubmitted 32B CktBr robustness wave; retain them until the final
 cross-root inventory identifies a canonical execution copy and no queued job
 or reporting root depends on the staging root.
 
+The physical-family breakdown also resolves the two other large scratch roots:
+
+- `/scratch/markwang/possum-prior-eff` contains unique CktBr/14B/Cyber,
+  CktBr/32B/Bio, CktBr/32B/Cyber, CktBr/32B/MMLU-Prof, and
+  PWD/32B/Cyber families. Retain the entire 816-GiB root.
+- `/scratch/markwang/possum-prior-utility-7b-20260804` contains PWD and CktBr
+  7B Chem/Cyber families with same-sized project counterparts plus the two
+  associated retired CktBr parents. This 256-GiB root is the strongest
+  remaining whole-root cleanup candidate, but remove it only after the four
+  project counterparts pass current checkpoint/result gates, their model
+  weight payloads checksum identically to the scratch copies, no live Slurm
+  script references the root, and its lightweight results/logs/configuration
+  are preserved. Prior-baseline result provenance binds recipe markers but not
+  merged weight-shard bytes, so status output alone is insufficient for this
+  deletion gate.
+
 The 26 utility-only jobs and 17 SysPr attack jobs do not create new model
 weights, so the current margin is sufficient for those evaluations. It is not
 sufficient for an indiscriminate copy of every remaining Vulcan checkpoint.
@@ -1439,8 +1455,9 @@ The four audited 32B `pwd_hof_parent` directories are already absent from the
 project checkpoint root; treat their approximately 615 GiB as reclaimed.
 Retain the lightweight retired metadata and final CktBr children. Audit the
 remaining 14B/Chem parent separately, and inventory the physical contents plus
-live-job/symlink references of the 256-GiB `possum-prior-utility-7b` and
-816-GiB `possum-prior-eff` scratch roots before considering either for removal.
+live-job references of the 256-GiB `possum-prior-utility-7b-20260804` root
+before removing it. The 816-GiB `possum-prior-eff` root contains unique final
+children and must be retained.
 
 Do not copy the full Vulcan tree. Transfer only final checkpoint families that
 the Killarney robustness inventory proves absent. Once every required 14B/32B

@@ -82,6 +82,11 @@
 > immutable library. The first Table 3 robustness pilot is job `4723162`.
 > The already-submitted E&U jobs `4723017`--`4723055` are
 > unaffected because they request no elicitation attack.
+> A local follow-up makes dry-run plans and Slurm scripts use the same
+> effective evaluation-walltime resolver. Before this fix, the plan for
+> `4723162` displayed the 480-minute resource default even though Killarney's
+> black-box wrapper exported a 720-minute submission override. This was a plan
+> display discrepancy, not a change to the submitted job or its methodology.
 >
 > The pre-incident Killarney regression suite passed all 61 tests (`OK`) in
 > 27.809 seconds. The new immutable-cache commit passed the same 61-test module
@@ -89,7 +94,9 @@
 > plus repository-wide Python compilation, shell syntax, and whitespace checks.
 > The constructor/environment follow-up expands this module to 62 tests and
 > passes locally (`OK`, 12 skipped), along with targeted Python compilation,
-> shell syntax, and whitespace validation.
+> shell syntax, and whitespace validation. The pending walltime-display
+> follow-up expands it to 63 local tests (`OK`, 12 skipped); run all 63 in the
+> Killarney ML environment after pulling that commit.
 > Run the full cluster suite after deployment. Expansion remains gated on the
 > replacement pilot artifacts and cluster deployment, not on a known unfixed
 > methodological defect.

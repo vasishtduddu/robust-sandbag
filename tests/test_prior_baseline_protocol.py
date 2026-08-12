@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import io
 import json
 import importlib.util
 import os
@@ -8,12 +9,14 @@ import sys
 import tempfile
 import types
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
 try:
     from possum.experiments import (
         _run_eval,
+        executors,
         manifest,
         migrate_prior_results,
         naming,
@@ -24,6 +27,7 @@ try:
 except ModuleNotFoundError:
     from experiments import (
         _run_eval,
+        executors,
         manifest,
         migrate_prior_results,
         naming,
@@ -733,6 +737,49 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 run._train_res_for("qwen2.5-32b-it")
+
+    def test_dry_run_and_slurm_share_effective_eval_walltime(self):
+        job = executors.Job(
+            name="eval_obfcot_qwen2.5-7b-it_bio_s42",
+            argv=["python", "eval.py"],
+            cwd=Path("/tmp"),
+            log=Path("/tmp/eval.log"),
+            resources=executors.Resources(time_min=480),
+            kind="eval",
+        )
+        with patch.dict(
+            os.environ, {"POSSUM_EVAL_WALLTIME_MIN": "720"}, clear=False
+        ):
+            self.assertEqual(executors.effective_walltime_min(job), 720)
+            output = io.StringIO()
+            with redirect_stdout(output):
+                executors.DryRunExecutor().submit([job])
+            self.assertIn("t=720m", output.getvalue())
+
+            with tempfile.TemporaryDirectory() as tmp:
+                slurm = executors.SlurmExecutor(Path(tmp), submit=False)
+                script = slurm._write_script(job, [])
+                self.assertIn("#SBATCH --time=720", script.read_text())
+
+        train_job = executors.Job(
+            name="train_obfcot_qwen2.5-7b-it_bio_s42",
+            argv=["python", "train.py"],
+            cwd=Path("/tmp"),
+            log=Path("/tmp/train.log"),
+            resources=executors.Resources(time_min=480),
+            kind="train",
+        )
+        with patch.dict(
+            os.environ, {"POSSUM_EVAL_WALLTIME_MIN": "720"}, clear=False
+        ):
+            self.assertEqual(executors.effective_walltime_min(train_job), 480)
+
+        for invalid in ("zero", "0", "-1"):
+            with self.subTest(invalid=invalid), patch.dict(
+                os.environ, {"POSSUM_EVAL_WALLTIME_MIN": invalid}, clear=False
+            ):
+                with self.assertRaisesRegex(ValueError, "positive integer"):
+                    executors.effective_walltime_min(job)
 
     def test_cluster_preflight_scopes_dependencies_to_attack_subset(self):
         root = Path(__file__).resolve().parents[1]

@@ -89,6 +89,30 @@ class Job:
         return bool(self.outputs) and all(p.exists() for p in self.outputs)
 
 
+def effective_walltime_min(job: Job) -> int:
+    """Return the walltime that the execution backend will request.
+
+    Evaluation jobs use a submit-time override so slow elicitation phases can
+    receive a larger cap than ordinary effectiveness/utility evaluations.  Keep
+    this resolution in one place so dry-run plans and generated Slurm scripts
+    cannot disagree about the requested walltime.
+    """
+    if job.kind != "eval" and not job.name.startswith("eval"):
+        return job.resources.time_min
+    raw = os.environ.get("POSSUM_EVAL_WALLTIME_MIN", "90")
+    try:
+        walltime = int(raw)
+    except ValueError as exc:
+        raise ValueError(
+            f"POSSUM_EVAL_WALLTIME_MIN must be a positive integer, got {raw!r}"
+        ) from exc
+    if walltime < 1:
+        raise ValueError(
+            f"POSSUM_EVAL_WALLTIME_MIN must be a positive integer, got {raw!r}"
+        )
+    return walltime
+
+
 # ---------------------------------------------------------------------------
 # Dependency ordering
 # ---------------------------------------------------------------------------
@@ -138,13 +162,14 @@ class DryRunExecutor(Executor):
             status = "SKIP (outputs exist)" if (j.is_satisfied() and not force) else "RUN"
             deps = f"  after: {', '.join(j.depends_on)}" if j.depends_on else ""
             r = j.resources
+            wall_min = effective_walltime_min(j)
             print(f"[{i:>3}] {status:<20} {j.name}")
             # The per-tier GRES labels are opt-in for Killarney; generic
             # clusters continue to see a standard --gpus request by default.
             use_tier_gres = os.environ.get("POSSUM_SLURM_USE_TIER_GRES", "").lower() in {"1", "true", "yes"}
             gpu = (f"gres={r.gres}:{r.gpus}" if use_tier_gres and r.gres and r.gpus
                    else f"gpus={r.gpus}" if r.gpus else "cpu")
-            print(f"      {j.kind:<5} {gpu} mem={r.mem_gb}G t={r.time_min}m{deps}")
+            print(f"      {j.kind:<5} {gpu} mem={r.mem_gb}G t={wall_min}m{deps}")
             print(f"      $ {' '.join(j.argv)}")
         print()
 
@@ -258,11 +283,7 @@ class SlurmExecutor(Executor):
     def _write_script(self, j: Job, dep_ids: list[str]) -> Path:
         r = j.resources
         path = self.script_dir / f"{j.name}.sbatch"
-        # Eval jobs are ~15-20 min; cap their walltime so they backfill into short
-        # gaps under low fair-share, while trains keep the full tier walltime.
-        # POSSUM_EVAL_WALLTIME_MIN (in minutes) raises the cap for slow attacks.
-        eval_cap = int(os.environ.get("POSSUM_EVAL_WALLTIME_MIN", "90"))
-        wall_min = eval_cap if (j.kind == "eval" or j.name.startswith("eval")) else r.time_min
+        wall_min = effective_walltime_min(j)
         if r.gpus and self._gres_for(r):
             gpu_directive = f"#SBATCH --gres={self._gres_for(r)}:{r.gpus}"
         elif r.gpus and self.gpu_style == "per-node":

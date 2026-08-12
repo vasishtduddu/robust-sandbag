@@ -755,6 +755,13 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                     wrapper,
                 )
                 self.assertIn("export POSSUM_AUTODAN_REQUIRE_CACHE=1", wrapper)
+                autodan = (
+                    root / "elicitation" / "blackbox" / "autodan.py"
+                ).read_text()
+                self.assertIn(
+                    'return os.environ.get("POSSUM_GENPARSE") == "0"',
+                    autodan,
+                )
                 self.assertIn("PRIOR_AUTODAN_LIBRARY_SHA256", preflight)
                 self.assertIn("validated immutable AutoDAN library", preflight)
                 executor = (root / "experiments" / "executors.py").read_text()
@@ -942,6 +949,8 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         self.assertIn('unset POSSUM_LAT_AWAY POSSUM_LAT_TOWARD POSSUM_LAT_KL', launcher)
         self.assertIn('unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET POSSUM_BLACKBOX_ONLY', launcher)
         self.assertIn('POSSUM_WRONG_PW_FRAC POSSUM_USE_UTILITY_MIX', launcher)
+        self.assertIn('export POSSUM_WRONG_PW_FRAC=0', launcher)
+        self.assertNotIn('export POSSUM_WRONG_PW_FRAC=0', env_setup)
         self.assertIn('unset POSSUM_OAT_BUFFER POSSUM_OAT_PROBES', launcher)
         self.assertIn('POSSUM_LAT_BENIGN_ADV POSSUM_LAT_BENIGN_ADV_COEF', launcher)
         self.assertIn('export POSSUM_SAVE_PEFT_ADAPTER_ONLY=1', launcher)
@@ -979,6 +988,32 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             }
             self.assertIn("_apply_validated_recipe_defaults", train_calls)
             self.assertIn("_write_obfcot_marker", save_calls)
+
+    def test_train_routes_resolved_lat_hyperparameters_into_obfcot(self):
+        source = (Path(__file__).resolve().parents[1] / "train.py").read_text()
+        tree = ast.parse(source)
+        builder = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_build_organism"
+        )
+        constructors = {
+            node.func.id: node
+            for node in ast.walk(builder)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in {"ObfuscatedCoT", "MultiDatasetObfuscatedCoT"}
+        }
+        self.assertEqual(
+            set(constructors), {"ObfuscatedCoT", "MultiDatasetObfuscatedCoT"}
+        )
+        for call in constructors.values():
+            expanded = {
+                keyword.value.id
+                for keyword in call.keywords
+                if keyword.arg is None and isinstance(keyword.value, ast.Name)
+            }
+            self.assertIn("common_lat", expanded)
 
     @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
     def test_obfcot_compact_save_does_not_merge(self):
@@ -2231,6 +2266,19 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         with patch.dict("sys.modules", stubs):
             spec.loader.exec_module(autodan_module)
         AutoDAN = autodan_module.AutoDAN
+
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(AutoDAN._cache_required())
+        with patch.dict(os.environ, {"POSSUM_GENPARSE": "0"}, clear=True):
+            self.assertTrue(AutoDAN._cache_required())
+        with patch.dict(
+            os.environ,
+            {"POSSUM_GENPARSE": "0", "POSSUM_AUTODAN_REQUIRE_CACHE": "0"},
+            clear=True,
+        ):
+            self.assertFalse(AutoDAN._cache_required())
+        with patch.dict(os.environ, {"POSSUM_GENPARSE": "1"}, clear=True):
+            self.assertFalse(AutoDAN._cache_required())
 
         def library(name):
             return {

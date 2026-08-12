@@ -96,6 +96,10 @@ export POSSUM_RUN_CONFIG_JOBS_LOCAL=1
 if [[ "$table" == "prior" ]]; then
     export POSSUM_GENPARSE=0
     export POSSUM_UTILITY_SCORING=generate_parse
+    # The reported prior PWD/CktBr-parent recipe has no wrong-password decoy
+    # rows. Keep this table-specific value out of the shared Slurm environment
+    # setup so it cannot leak into a Table-3 checkpoint receipt.
+    export POSSUM_WRONG_PW_FRAC=0
     unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET
     unset POSSUM_OBFCOT_LAT POSSUM_OBFCOT_LAT_LAST POSSUM_OAT_FAITHFUL
 else

@@ -262,7 +262,18 @@ class AutoDAN(ElicitationTechnique):
 
     @staticmethod
     def _cache_required() -> bool:
-        return os.environ.get("POSSUM_AUTODAN_REQUIRE_CACHE") == "1"
+        explicit = os.environ.get("POSSUM_AUTODAN_REQUIRE_CACHE")
+        if explicit is not None:
+            return explicit == "1"
+        # Jobs submitted before the immutable-cache launcher was deployed do
+        # not have POSSUM_AUTODAN_REQUIRE_CACHE in their already-generated
+        # sbatch scripts. They do carry the final Table-2 forced-choice
+        # protocol, whereas Table 3 uses generate-and-parse. Infer read-only
+        # consumer mode for those held Table-2 allocations so pulling the
+        # hardened Python code makes them fail closed without forfeiting their
+        # queue positions. A deliberate forced-choice cache builder must opt
+        # out explicitly with POSSUM_AUTODAN_REQUIRE_CACHE=0.
+        return os.environ.get("POSSUM_GENPARSE") == "0"
 
     def _load_cached_library_or_fail(self) -> dict | None:
         """Load a compatible cache or reject fail-closed evaluation mode."""

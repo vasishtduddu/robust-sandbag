@@ -55,8 +55,10 @@ mkdir -p \
 
 # Prior-work task training/effectiveness and final attack scoring use the
 # forced-choice MCQA protocol. Utility uses Table 3's generate-and-parse readout
-# so HS/CSQA are directly comparable across tables.
+# so HS/CSQA are directly comparable across tables. Recipe-specific training
+# knobs belong in the table-aware matrix launcher: this shared setup is sourced
+# again inside every Slurm allocation and must not reintroduce a Table-2-only
+# override after the Table-3 launcher has cleared it.
 export POSSUM_GENPARSE=0
 export POSSUM_UTILITY_SCORING=generate_parse
-export POSSUM_WRONG_PW_FRAC=0
 unset POSSUM_GENPARSE_TRAIN POSSUM_LOCK_TARGET

@@ -574,11 +574,13 @@ def _build_organism(args, multi: bool):
         if multi:
             from possum.modelorgs import MultiDatasetObfuscatedCoT
             return MultiDatasetObfuscatedCoT(
-                datasets=ds_arg, **sft_kw, **cot_kw, **oat_kw,
+                datasets=ds_arg, **sft_kw, **common_lat, **cot_kw, **oat_kw,
             )
         else:
             from possum.modelorgs import ObfuscatedCoT
-            return ObfuscatedCoT(dataset=ds_arg, **sft_kw, **cot_kw, **oat_kw)
+            return ObfuscatedCoT(
+                dataset=ds_arg, **sft_kw, **common_lat, **cot_kw, **oat_kw
+            )
 
     elif args.model_org == "robadapt":
         ra_kw = dict(

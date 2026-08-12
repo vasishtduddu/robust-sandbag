@@ -292,9 +292,8 @@ source_max          = 0
 [attack.gcg]
 # GCG (Zou et al. 2023, arXiv:2307.15043 / nanogcg): "500 steps ... batch size of 512 ... top-k of 256",
 # adversarial suffix = 20 tokens (paper + nanogcg default). NB GCG is a WHITE-BOX gradient attack
-# despite living in elicitation/blackbox/ (see the GCG class docstring); Jlbrk = max(gcg, autodan, tap)
-# therefore MIXES it with the query-only black-box autodan/tap -- report GCG separately for a strict
-# black-box robustness claim.
+# despite living in elicitation/blackbox/ (see the GCG class docstring). Tables 2 and 3 report
+# AutoDAN only; GCG remains available for exploratory or separately declared attack suites.
 num_steps     = 500
 search_width  = 512
 topk          = 256

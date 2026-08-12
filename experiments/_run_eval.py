@@ -181,11 +181,13 @@ def _is_reusable_evaluation(blob: dict, model_org: str | None = None) -> bool:
     return naming.current_scoring_protocol(blob, model_org)
 
 
-def _complete_prior_suite_valid(blob: dict, model_org: str, requested: list[str]) -> bool:
-    if model_org not in naming.PRIOR_TABLE_ORGANISMS:
+def _complete_requested_suite_valid(
+    blob: dict, model_org: str, requested: list[str]
+) -> bool:
+    if not requested:
         return True
     requested_set = set(requested)
-    required = set(naming.PRIOR_JAILBREAK_TECHNIQUES)
+    required = set(naming.AUTODAN_ONLY_JAILBREAK_TECHNIQUES)
     if (model_org == "sysprompt" and
             requested_set & set(naming.JAILBREAK_TECHNIQUES) and
             blob.get("sysprompt_jailbreak_protocol") !=
@@ -201,7 +203,10 @@ def _complete_prior_suite_valid(blob: dict, model_org: str, requested: list[str]
         for dataset in datasets
     ):
         return False
-    if not required.issubset(requested_set):
+    if (
+        model_org not in naming.AUTODAN_ONLY_REPORT_ORGANISMS
+        or not required.issubset(requested_set)
+    ):
         return True
     return all(naming.metric_rob_jlbrk(blob, dataset) is not None for dataset in datasets)
 
@@ -390,7 +395,7 @@ def main() -> int:
         replace_elicitations.add("prompt_injection")
 
     if (existing and not missing and
-            not _complete_prior_suite_valid(existing, args.model_org, requested)):
+            not _complete_requested_suite_valid(existing, args.model_org, requested)):
         # Metrics can all be present while attacked-subset provenance is absent.
         # Re-run the declared suite instead of reporting success.
         missing = requested
@@ -459,7 +464,7 @@ def main() -> int:
     if current_provenance is not None:
         merged["checkpoint_provenance"] = current_provenance
     _atomic_write_json(out, merged)
-    if not _complete_prior_suite_valid(merged, args.model_org, requested):
+    if not _complete_requested_suite_valid(merged, args.model_org, requested):
         raise RuntimeError(
             "A requested prior-baseline attack failed or has missing/inconsistent "
             "test-subset provenance. Re-run this phase with one fixed cap."

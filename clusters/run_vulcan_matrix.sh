@@ -39,9 +39,10 @@ for ((i = 0; i < ${#args[@]}; i++)); do
     esac
 done
 
-if [[ "$table" == "prior" && ("$phase" == "blackbox" || "$phase" == "all") ]]; then
+if [[ ("$table" == "prior" || "$table" == "ours") &&
+      ("$phase" == "blackbox" || "$phase" == "all") ]]; then
     if [[ -n "${POSSUM_BLACKBOX_ONLY:-}" && "${POSSUM_BLACKBOX_ONLY:-}" != "autodan" ]]; then
-        echo "Prior-baseline robustness is AutoDAN-only; unset POSSUM_BLACKBOX_ONLY or set it to autodan." >&2
+        echo "Table 2/3 robustness is AutoDAN-only; unset POSSUM_BLACKBOX_ONLY or set it to autodan." >&2
         exit 2
     fi
     export POSSUM_BLACKBOX_ONLY=autodan
@@ -97,7 +98,7 @@ if [[ "${POSSUM_SKIP_PREFLIGHT:-0}" != "1" ]]; then
     preflight_args=()
     if [[ "$command_name" == "execute" && ("$phase" == "blackbox" || "$phase" == "all") ]]; then
         # Check only the dependencies needed by the requested attack subset.
-        # Prior runs are locked to AutoDAN above; other tables retain their suite.
+        # Tables 2 and 3 are locked to AutoDAN above.
         export POSSUM_PREFLIGHT_ATTACK_SET="${POSSUM_BLACKBOX_ONLY:-gcg,autodan,tap}"
         preflight_args+=(--attacks)
     fi

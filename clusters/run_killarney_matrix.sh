@@ -52,15 +52,16 @@ if [[ "$table" == "all" && "$command_name" != "status" ]]; then
     exit 2
 fi
 
-# Table 2's declared robustness estimand is AutoDAN-only. Refuse an inherited
-# attack filter that could accidentally submit a different prior-work campaign.
-if [[ "$table" == "prior" && ("$phase" == "blackbox" || "$phase" == "all") ]]; then
+# Tables 2 and 3 declare AutoDAN-only robustness. Refuse an inherited attack
+# filter that could accidentally submit GCG, TAP, or prompt injection.
+if [[ ("$table" == "prior" || "$table" == "ours") &&
+      ("$phase" == "blackbox" || "$phase" == "all") ]]; then
     if [[ -n "${POSSUM_BLACKBOX_ONLY:-}" && "${POSSUM_BLACKBOX_ONLY:-}" != "autodan" ]]; then
-        echo "Prior-baseline robustness is AutoDAN-only; unset POSSUM_BLACKBOX_ONLY or set it to autodan." >&2
+        echo "Table 2/3 robustness is AutoDAN-only; unset POSSUM_BLACKBOX_ONLY or set it to autodan." >&2
         exit 2
     fi
     export POSSUM_BLACKBOX_ONLY=autodan
-    # Table-2 evaluations share one accepted, immutable AutoDAN library. Pin
+    # Table-2/3 evaluations share one accepted, immutable AutoDAN library. Pin
     # it to the project checkout rather than inheriting an execution/scratch
     # artifact root. A missing or altered cache must fail preflight; a mass
     # evaluation is never allowed to become a concurrent cache builder.
@@ -128,6 +129,12 @@ else
           POSSUM_ROBADAPT_ANCHOR_MULT POSSUM_ROBADAPT_ADV_SUFFIX \
           POSSUM_ROBADAPT_ADV_SUFFIX_SET POSSUM_ROBADAPT_SUFFIX_COVER \
           POSSUM_ROBADAPT_SUFFIX_EPS POSSUM_ROBADAPT_RSLORA_LR_FIX
+    # The cleanup above prevents inherited exploratory filters from leaking
+    # into Table 3. Restore only its canonical AutoDAN-only reporting contract.
+    if [[ "$table" == "ours" &&
+          ("$phase" == "blackbox" || "$phase" == "all") ]]; then
+        export POSSUM_BLACKBOX_ONLY=autodan
+    fi
     # RoBCoTDstl is defined by OAT followed by LAT under the faithful OAT
     # adversary.  The remaining per-organism recipe values (including the
     # current F lock) come from HYPERPARAMETERS.toml as fallback defaults.

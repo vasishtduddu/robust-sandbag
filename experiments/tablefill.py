@@ -355,8 +355,8 @@ def render_results_table(table: str) -> str:
                   r"and three Qwen2.5 sizes. \textbf{Effectiveness} \ref{effective}: sandbag-task "
                   r"accuracy without (w/o) and with (w/) the induced behavior, $\Delta=$ w/o $-$ "
                   r"w/ (higher $=$ stronger). \textbf{Utility} \ref{utility}: HellaSwag (HS) and "
-                  r"CommonSenseQA (CSQA). \textbf{Robustness} \ref{robust}: maximum blackbox "
-                  r"jailbreak accuracy (Jlbrk, lower $=$ more robust). Cells are shaded vs the "
+                  r"CommonSenseQA (CSQA). \textbf{Robustness} \ref{robust}: AutoDAN attack "
+                  r"accuracy (Jlbrk, lower $=$ more robust). Cells are shaded vs the "
                   r"matched prior-work baseline (Table~\ref{tab:prior-works-eval}) by $\pm$ "
                   r"standard-error bars over seeds: green $=$ ours statistically better, amber $=$ similar, "
                   r"red $=$ worse; no red in an Eff.\ column confirms the lock is at least as strong."),

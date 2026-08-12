@@ -187,7 +187,7 @@ def _eval_complete(
             return False
     if not set(requested).issubset(_present_elic(result_json)):
         return False
-    if organism in naming.PRIOR_TABLE_ORGANISMS and requested:
+    if requested:
         blob = _read_json(result_json)
         datasets_in_result = blob.get("datasets")
         if not isinstance(datasets_in_result, list):
@@ -205,8 +205,11 @@ def _eval_complete(
             != naming.SYSPROMPT_JAILBREAK_PROTOCOL
         ):
             return False
-        required = set(naming.PRIOR_JAILBREAK_TECHNIQUES)
-        if required.issubset(requested):
+        required = set(naming.AUTODAN_ONLY_JAILBREAK_TECHNIQUES)
+        if (
+            organism in naming.AUTODAN_ONLY_REPORT_ORGANISMS
+            and required.issubset(requested)
+        ):
             if any(
                     not isinstance(dataset, str) or
                     naming.metric_rob_jlbrk(blob, dataset) is None

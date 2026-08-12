@@ -745,6 +745,10 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                 wrapper,
             )
             self.assertIn("export POSSUM_BLACKBOX_ONLY=autodan", wrapper)
+            self.assertIn(
+                '("$table" == "prior" || "$table" == "ours")',
+                wrapper,
+            )
             if cluster == "killarney":
                 self.assertIn(
                     'POSSUM_BLACKBOX_MEM_GB_32B:-128',
@@ -775,7 +779,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             self.assertNotIn("lmsys/vicuna-13b-v1.5", autodan_block)
             self.assertIn("lmsys/vicuna-13b-v1.5", tap_block)
 
-    def test_only_prior_table_switches_to_autodan_only(self):
+    def test_tables_two_and_three_are_autodan_only(self):
         for profile in (naming.PROFILE_PWD_CB, naming.PROFILE_SYSPROMPT):
             self.assertEqual(
                 naming.elicitations_for("prior", profile),
@@ -783,12 +787,24 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             )
         self.assertEqual(
             naming.elicitations_for("ours", naming.PROFILE_SYSPROMPT),
-            ("prompt_injection", *naming.JAILBREAK_TECHNIQUES),
+            ("autodan",),
         )
         self.assertEqual(
             naming.elicitations_for("ours", naming.PROFILE_PWD_CB),
+            ("autodan",),
+        )
+        self.assertEqual(
+            naming.elicitations_for("scale", naming.PROFILE_PWD_CB),
             naming.JAILBREAK_TECHNIQUES,
         )
+
+        ours = manifest.filter_runs(
+            manifest.manifest_for("ours", "7b", seeds=(42,)),
+            organism="obfcot",
+            task="bio",
+        )[0]
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(run._phase_elicitations(ours, "blackbox"), ["autodan"])
 
     def test_force_refresh_does_not_force_training_executor(self):
         submitted = {}
@@ -1185,14 +1201,17 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         blob["test_elicitations"]["many_shot"] = 1.0
         self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.6)
 
-        # The stricter completeness gate is deliberately Table-2-only; do not
-        # invalidate already reported non-prior tables during this scoped audit.
+        # Table 3 uses the same AutoDAN-only estimand and integrity gate.
         blob = {
             "model_org": "robpwd",
             "dataset": "bio",
             "test_elicitations": {"gcg": 0.2},
         }
-        self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.2)
+        self.assertIsNone(naming.metric_rob_jlbrk(blob, "bio"))
+        blob["test_elicitations"]["autodan"] = 0.6
+        blob["test_elicitation_n"] = {"autodan": 50}
+        blob["test_elicitation_sample_fingerprint"] = {"autodan": "rows-v1"}
+        self.assertEqual(naming.metric_rob_jlbrk(blob, "bio"), 0.6)
 
     def test_prior_results_require_table3_compatible_utility_protocol(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1352,12 +1371,12 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             }
             result.write_text(json.dumps(blob))
             self.assertFalse(run._eval_complete(result, requested, organism="pwd"))
-            self.assertFalse(_run_eval._complete_prior_suite_valid(blob, "pwd", requested))
+            self.assertFalse(_run_eval._complete_requested_suite_valid(blob, "pwd", requested))
 
             blob["test_elicitation_n"] = {name: 50 for name in requested}
             result.write_text(json.dumps(blob))
             self.assertTrue(run._eval_complete(result, requested, organism="pwd"))
-            self.assertTrue(_run_eval._complete_prior_suite_valid(blob, "pwd", requested))
+            self.assertTrue(_run_eval._complete_requested_suite_valid(blob, "pwd", requested))
 
     def test_partial_attack_phase_requires_complete_successful_output(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1377,7 +1396,7 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             result.write_text(json.dumps(blob))
             self.assertFalse(run._eval_complete(result, requested, organism="pwd"))
             self.assertFalse(
-                _run_eval._complete_prior_suite_valid(blob, "pwd", requested)
+                _run_eval._complete_requested_suite_valid(blob, "pwd", requested)
             )
 
             blob["test_elicitation_n"] = {"autodan": 50}
@@ -1385,14 +1404,29 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             result.write_text(json.dumps(blob))
             self.assertTrue(run._eval_complete(result, requested, organism="pwd"))
             self.assertTrue(
-                _run_eval._complete_prior_suite_valid(blob, "pwd", requested)
+                _run_eval._complete_requested_suite_valid(blob, "pwd", requested)
+            )
+
+            # Table 3's AutoDAN-only phase uses the same fail-closed attack
+            # integrity gate rather than accepting a score without provenance.
+            table3_blob = {**blob, "model_org": "obfcot"}
+            self.assertTrue(
+                _run_eval._complete_requested_suite_valid(
+                    table3_blob, "obfcot", requested
+                )
+            )
+            table3_blob["test_elicitation_sample_fingerprint"] = {}
+            self.assertFalse(
+                _run_eval._complete_requested_suite_valid(
+                    table3_blob, "obfcot", requested
+                )
             )
 
             blob["elicitation_errors"] = {"autodan": "offline cache miss"}
             result.write_text(json.dumps(blob))
             self.assertFalse(run._eval_complete(result, requested, organism="pwd"))
             self.assertFalse(
-                _run_eval._complete_prior_suite_valid(blob, "pwd", requested)
+                _run_eval._complete_requested_suite_valid(blob, "pwd", requested)
             )
 
     def test_tablefill_rejects_malformed_or_mismatched_prior_results(self):

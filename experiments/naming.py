@@ -265,6 +265,21 @@ JAILBREAK_TECHNIQUES: tuple[str, ...] = ("gcg", "autodan", "tap")
 # Table 3 and the other robustness tables retain their existing attack suites.
 PRIOR_JAILBREAK_TECHNIQUES: tuple[str, ...] = ("autodan",)
 
+# Immutable AutoDAN strategy library accepted for the Table-2 robustness
+# campaign. Mass evaluations are readers of this one artifact; they must never
+# silently build or replace it. Keep the raw-file digests here so cluster
+# preflight and campaign reporting enforce the same cache identity.
+PRIOR_AUTODAN_LIBRARY_SHA256 = (
+    "79c02db4799d8e583d0ab2115633bf1123c9e4a7e1c98184eb00ffee5dd3ea44"
+)
+PRIOR_AUTODAN_LIBRARY_META_SHA256 = (
+    "46b2ea048216a2fb18a50bb8dd7b022d44183f901c47f4662d20ebda8bc5253f"
+)
+PRIOR_AUTODAN_SOURCE_COUNT = 318
+PRIOR_AUTODAN_SOURCE_FINGERPRINT = (
+    "61ca56c6e64441ca778701660cacae2f4330733929d753fd857e2a342c0cd08e"
+)
+
 # Whitebox techniques populate Table 4 (tab_robustness_bkdrcot), NOT the blackbox Jlbrk
 # column. A single obfcot checkpoint's eval unions blackbox + whitebox elicitations into one
 # JSON (build_jobs), so metric_rob_jlbrk must exclude these when it maxes over the dict. In

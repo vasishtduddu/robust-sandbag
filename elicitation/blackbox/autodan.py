@@ -12,6 +12,10 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
+from contextlib import contextmanager
+
+import fcntl
 
 import pandas as pd
 from tqdm import tqdm
@@ -164,6 +168,11 @@ class AutoDAN(ElicitationTechnique):
             data = {"warm_up": [], "lifelong": []}
         source_fingerprint = self._source_fingerprint(data["lifelong"])
 
+        # Validate a required cache before loading either attacker model. In a
+        # mass evaluation, an absent cache is an infrastructure error rather
+        # than permission for every allocation to become a builder.
+        cached_library = self._load_cached_library_or_fail()
+
         attacker_hf = HuggingFaceModel(self.attacker_model_name)
         attacker = Attacker(attacker_hf)
         summarizer = Summarizer(attacker_hf)
@@ -202,51 +211,142 @@ class AutoDAN(ElicitationTechnique):
 
         if self.retrieve_only:
             strategy_library = {}
-        elif self.library_path and os.path.exists(self.library_path):
-            strategy_library = self._load_compatible_library(self.library_path)
-            if strategy_library is None:
-                logger.warning(
-                    "AutoDAN: ignoring an unprovenanced or incompatible cache at %s; "
-                    "rebuilding with the active final-quality settings.",
-                    self.library_path,
-                )
-                strategy_library = self._build_library(
-                    pipeline,
-                    source_count=len(source),
-                    source_fingerprint=source_fingerprint,
-                )
-                self._save_library(
-                    strategy_library,
-                    self.library_path,
-                    source_count=len(source),
-                    source_fingerprint=source_fingerprint,
-                )
-                self._clear_progress(self.library_path)
-            else:
-                logger.info(
-                    "AutoDAN: loaded cached strategy library (%d strategies) from %s; "
-                    "skipping the warm-up + lifelong build.",
-                    len(strategy_library),
-                    self.library_path,
-                )
+        elif cached_library is not None:
+            strategy_library = cached_library
+            logger.info(
+                "AutoDAN: loaded cached strategy library (%d strategies) from %s; "
+                "skipping the warm-up + lifelong build.",
+                len(strategy_library),
+                self.library_path,
+            )
+        elif self.library_path:
+            # Only an explicit cache-builder workflow may enter here. The
+            # nonblocking process lock prevents two allocations from mutating
+            # one progress file. Recheck after taking the lock in case another
+            # builder completed between the first read and lock acquisition.
+            with self._exclusive_build_lock(self.library_path):
+                strategy_library = self._load_compatible_library(self.library_path)
+                if strategy_library is None:
+                    strategy_library = self._build_library(
+                        pipeline,
+                        source_count=len(source),
+                        source_fingerprint=source_fingerprint,
+                    )
+                    self._save_library(
+                        strategy_library,
+                        self.library_path,
+                        source_count=len(source),
+                        source_fingerprint=source_fingerprint,
+                    )
+                    self._clear_progress(self.library_path)
+                    logger.info(
+                        "AutoDAN: saved strategy library (%d strategies) to %s for reuse.",
+                        len(strategy_library),
+                        self.library_path,
+                    )
+                else:
+                    logger.info(
+                        "AutoDAN: another builder completed the compatible library at %s; "
+                        "loading %d strategies.",
+                        self.library_path,
+                        len(strategy_library),
+                    )
         else:
             strategy_library = self._build_library(
                 pipeline,
                 source_count=len(source),
                 source_fingerprint=source_fingerprint,
             )
-            if self.library_path:
-                self._save_library(
-                    strategy_library,
-                    self.library_path,
-                    source_count=len(source),
-                    source_fingerprint=source_fingerprint,
-                )
-                self._clear_progress(self.library_path)
-                logger.info("AutoDAN: saved strategy library (%d strategies) to %s for reuse.",
-                            len(strategy_library), self.library_path)
 
         return pipeline, strategy_library
+
+    @staticmethod
+    def _cache_required() -> bool:
+        return os.environ.get("POSSUM_AUTODAN_REQUIRE_CACHE") == "1"
+
+    def _load_cached_library_or_fail(self) -> dict | None:
+        """Load a compatible cache or reject fail-closed evaluation mode."""
+        if self.retrieve_only:
+            return None
+        required = self._cache_required()
+        if required:
+            # Preflight validates before submission, but allocations may remain
+            # queued for hours or days. Recheck the exact bytes at job runtime
+            # so a later cache replacement cannot silently change the campaign.
+            try:
+                from ...experiments import naming
+            except ImportError:  # direct source-tree imports used by lightweight tests
+                from experiments import naming
+
+            required_paths = (
+                (self.library_path, naming.PRIOR_AUTODAN_LIBRARY_SHA256, "library"),
+                (
+                    self._metadata_path(self.library_path) if self.library_path else None,
+                    naming.PRIOR_AUTODAN_LIBRARY_META_SHA256,
+                    "metadata",
+                ),
+            )
+            for path, expected_digest, label in required_paths:
+                if not path or not os.path.isfile(path):
+                    raise RuntimeError(
+                        "AutoDAN evaluation requires a complete compatible strategy "
+                        f"library, but the pinned {label} is missing: {path!r}. "
+                        "Mass evaluations are read-only cache consumers; build and "
+                        "validate the library once before submission."
+                    )
+                actual_digest = self._sha256_file(path)
+                if actual_digest != expected_digest:
+                    raise RuntimeError(
+                        f"Pinned AutoDAN {label} digest mismatch for {path!r}: "
+                        f"expected {expected_digest}, got {actual_digest}."
+                    )
+        cached = None
+        if self.library_path and os.path.exists(self.library_path):
+            cached = self._load_compatible_library(self.library_path)
+        if cached is None and required:
+            reason = (
+                "missing"
+                if not self.library_path or not os.path.exists(self.library_path)
+                else "incompatible"
+            )
+            raise RuntimeError(
+                "AutoDAN evaluation requires a complete compatible strategy library, "
+                f"but the cache is {reason}: {self.library_path!r}. "
+                "Mass evaluations are read-only cache consumers; build and validate "
+                "the library once before submission."
+            )
+        return cached
+
+    @staticmethod
+    def _sha256_file(path: str) -> str:
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    @staticmethod
+    @contextmanager
+    def _exclusive_build_lock(path: str):
+        """Permit one cache builder and fail concurrent builders immediately."""
+        lock_path = f"{path}.build.lock"
+        os.makedirs(os.path.dirname(os.path.abspath(lock_path)) or ".", exist_ok=True)
+        with open(lock_path, "a+") as handle:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise RuntimeError(
+                    "Another process is already building the AutoDAN strategy "
+                    f"library guarded by {lock_path}. Do not submit concurrent builders."
+                ) from exc
+            handle.seek(0)
+            handle.truncate()
+            handle.write(f"pid={os.getpid()}\n")
+            handle.flush()
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
     def _build_library(
         self,
@@ -444,11 +544,28 @@ class AutoDAN(ElicitationTechnique):
 
     @staticmethod
     def _atomic_write_json(payload: dict, path: str, *, indent: int | None = None) -> None:
-        os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
-        tmp = f"{path}.tmp"
-        with open(tmp, "w") as handle:
-            json.dump(payload, handle, indent=indent)
-        os.replace(tmp, path)
+        directory = os.path.dirname(os.path.abspath(path)) or "."
+        os.makedirs(directory, exist_ok=True)
+        temporary = None
+        try:
+            fd, temporary = tempfile.mkstemp(
+                prefix=f".{os.path.basename(path)}.",
+                suffix=".tmp",
+                dir=directory,
+                text=True,
+            )
+            with os.fdopen(fd, "w") as handle:
+                json.dump(payload, handle, indent=indent)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, path)
+            temporary = None
+        finally:
+            if temporary is not None:
+                try:
+                    os.unlink(temporary)
+                except FileNotFoundError:
+                    pass
 
     def _save_library(
         self,

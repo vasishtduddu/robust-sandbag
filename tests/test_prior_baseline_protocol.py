@@ -750,6 +750,15 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                     'POSSUM_BLACKBOX_MEM_GB_32B:-128',
                     wrapper,
                 )
+                self.assertIn(
+                    'POSSUM_AUTODAN_LIBRARY="$POSSUM_KILLARNEY_ROOT/artifacts/cache/autodan/strategy_library.json"',
+                    wrapper,
+                )
+                self.assertIn("export POSSUM_AUTODAN_REQUIRE_CACHE=1", wrapper)
+                self.assertIn("PRIOR_AUTODAN_LIBRARY_SHA256", preflight)
+                self.assertIn("validated immutable AutoDAN library", preflight)
+                executor = (root / "experiments" / "executors.py").read_text()
+                self.assertIn('"POSSUM_AUTODAN_REQUIRE_CACHE"', executor)
             autodan_block = preflight.split(
                 'if "autodan" in attack_set:', 1
             )[1].split('if "tap" in attack_set:', 1)[0]
@@ -2285,11 +2294,28 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             def technique():
                 instance = AutoDAN.__new__(AutoDAN)
                 instance.library_path = path
+                instance.retrieve_only = False
                 instance.attacker_model_name = "attacker"
                 instance.epochs = 150
                 instance.warm_up_iterations = 1
                 instance.lifelong_iterations = 2
                 return instance
+
+            required = technique()
+            with patch.dict(
+                os.environ,
+                {"POSSUM_AUTODAN_REQUIRE_CACHE": "1"},
+                clear=False,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "read-only cache consumers"):
+                    required._load_cached_library_or_fail()
+
+            first_lock = technique()
+            second_lock = technique()
+            with first_lock._exclusive_build_lock(path):
+                with self.assertRaisesRegex(RuntimeError, "already building"):
+                    with second_lock._exclusive_build_lock(path):
+                        pass
 
             first = technique()
             with self.assertRaisesRegex(RuntimeError, "allocation timeout"):

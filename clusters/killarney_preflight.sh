@@ -49,7 +49,9 @@ export POSSUM_PREFLIGHT_ATTACKS="$require_attacks"
 export POSSUM_PREFLIGHT_GPU="$require_gpu"
 
 "$POSSUM_KILLARNEY_VENV/bin/python" - <<'PY'
+import hashlib
 import importlib
+import json
 import os
 from importlib.metadata import version
 from pathlib import Path
@@ -69,6 +71,7 @@ import pyarrow
 from huggingface_hub import snapshot_download
 from transformers import AutoConfig
 
+from possum.experiments import naming
 from possum.utils.loading import MODEL_NAME_TO_HF_PATH
 
 datasets_version = Version(version("datasets"))
@@ -159,6 +162,74 @@ if os.environ["POSSUM_PREFLIGHT_ATTACKS"] == "1":
             trust_remote_code=True,
             local_files_only=True,
         )
+
+        if os.environ.get("POSSUM_AUTODAN_REQUIRE_CACHE") == "1":
+            library = Path(os.environ.get("POSSUM_AUTODAN_LIBRARY", ""))
+            metadata_path = Path(f"{library}.meta.json")
+            progress_path = Path(f"{library}.checkpoint.json")
+            if not library.is_file() or not metadata_path.is_file():
+                raise SystemExit(
+                    "Table-2 AutoDAN mass runs require the completed canonical "
+                    f"library and metadata; missing {library} or {metadata_path}."
+                )
+            if progress_path.exists():
+                raise SystemExit(
+                    "Canonical AutoDAN library has a stale progress checkpoint: "
+                    f"{progress_path}. Quarantine it before submitting mass runs."
+                )
+
+            def sha256(path):
+                digest = hashlib.sha256()
+                with path.open("rb") as handle:
+                    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                return digest.hexdigest()
+
+            library_digest = sha256(library)
+            metadata_digest = sha256(metadata_path)
+            if library_digest != naming.PRIOR_AUTODAN_LIBRARY_SHA256:
+                raise SystemExit(
+                    "Canonical AutoDAN library digest mismatch: "
+                    f"expected {naming.PRIOR_AUTODAN_LIBRARY_SHA256}, "
+                    f"got {library_digest} for {library}."
+                )
+            if metadata_digest != naming.PRIOR_AUTODAN_LIBRARY_META_SHA256:
+                raise SystemExit(
+                    "Canonical AutoDAN metadata digest mismatch: "
+                    f"expected {naming.PRIOR_AUTODAN_LIBRARY_META_SHA256}, "
+                    f"got {metadata_digest} for {metadata_path}."
+                )
+
+            try:
+                strategy_library = json.loads(library.read_text())
+                metadata = json.loads(metadata_path.read_text())
+            except (OSError, json.JSONDecodeError) as exc:
+                raise SystemExit(
+                    f"Cannot parse canonical AutoDAN cache: {exc}"
+                ) from exc
+            if not isinstance(strategy_library, dict) or not strategy_library:
+                raise SystemExit("Canonical AutoDAN strategy library is empty or malformed.")
+            expected_metadata = {
+                "schema_version": 2,
+                "status": "complete",
+                "completed_lifelong_iterations": 5,
+                "source_count": naming.PRIOR_AUTODAN_SOURCE_COUNT,
+                "source_fingerprint": naming.PRIOR_AUTODAN_SOURCE_FINGERPRINT,
+            }
+            mismatches = {
+                key: {"expected": expected, "actual": metadata.get(key)}
+                for key, expected in expected_metadata.items()
+                if metadata.get(key) != expected
+            }
+            if mismatches:
+                raise SystemExit(
+                    "Canonical AutoDAN metadata mismatch: "
+                    + json.dumps(mismatches, sort_keys=True)
+                )
+            print(
+                "validated immutable AutoDAN library: "
+                f"{library} ({len(strategy_library)} strategies)"
+            )
 
     if "tap" in attack_set:
         # TAP alone needs FastChat, the local TAP framework (including its

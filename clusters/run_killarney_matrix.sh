@@ -60,6 +60,12 @@ if [[ "$table" == "prior" && ("$phase" == "blackbox" || "$phase" == "all") ]]; t
         exit 2
     fi
     export POSSUM_BLACKBOX_ONLY=autodan
+    # Table-2 evaluations share one accepted, immutable AutoDAN library. Pin
+    # it to the project checkout rather than inheriting an execution/scratch
+    # artifact root. A missing or altered cache must fail preflight; a mass
+    # evaluation is never allowed to become a concurrent cache builder.
+    export POSSUM_AUTODAN_LIBRARY="$POSSUM_KILLARNEY_ROOT/artifacts/cache/autodan/strategy_library.json"
+    export POSSUM_AUTODAN_REQUIRE_CACHE=1
     # Completed 32B target+attacker jobs peaked below 69 GiB of host RAM.
     # Request 128 GiB on Killarney, leaving substantial headroom while avoiding
     # the portable 256-GiB default that unnecessarily narrows scheduling.
@@ -154,10 +160,11 @@ unset POSSUM_UTIL_EVAL_MAX
 
 if [[ "${POSSUM_SKIP_PREFLIGHT:-0}" != "1" ]]; then
     preflight_args=()
-    if [[ "$command_name" == "execute" && ("$phase" == "blackbox" || "$phase" == "all") ]]; then
+    if [[ "$command_name" != "status" && ("$phase" == "blackbox" || "$phase" == "all") ]]; then
         # Keep the dependency check aligned with the attack subset that the
         # orchestrator will actually run.  In particular, an AutoDAN-only
-        # builder must not require TAP's Vicuna snapshot to be cached.
+        # plan must not require TAP's Vicuna snapshot to be cached. Validate on
+        # plan as well as execute so a bad immutable cache fails before Slurm.
         export POSSUM_PREFLIGHT_ATTACK_SET="${POSSUM_BLACKBOX_ONLY:-gcg,autodan,tap}"
         preflight_args+=(--attacks)
     fi

@@ -1193,22 +1193,27 @@ The later targeted 32B migration transferred roughly 1.33 TiB of checkpoint
 data from Vulcan. Four stale project PWD families were replaced by same-sized
 current-recipe families, so that portion was approximately project-neutral;
 three new CktBr families added roughly 582 GiB to scratch. The Killarney stage
-uses symlinks instead of duplicating the families again. The latest supplied
-measurements, taken at different points in the migration/submission sequence,
-were:
+uses symlinks instead of duplicating the families again. The 2026-08-12 audit
+reports:
 
 ```text
-4.7T used, 264G free, 95%   /project
-1.6T used, 379G free, 82%   /scratch/markwang  (last separate scratch check)
+4124/5000 GiB shared project quota; 877 GiB filesystem free
+1624/2000 GiB user scratch quota; 376 GiB filesystem free
+1.8 TiB project artifacts/checkpoints
+135 GiB shared project Hugging Face cache
+816 GiB /scratch/markwang/possum-prior-eff
+550 GiB /scratch/markwang/possum-prior-32b-killarney
+256 GiB /scratch/markwang/possum-prior-utility-7b
+3.8 GiB /scratch/markwang/possum-table3-current
 ```
 
-The newer scratch inventory found four physical 184-GiB CktBr 32B children
-under `/scratch/markwang/possum-prior-32b-killarney` (Bio, Chem, MMLU-HSS, and
-MMLU-STEM), while several other scratch roots contain only marker/report
-directories of 4.5--12 KiB. These children are potentially the only staged
-inputs for the still-unsubmitted 32B CktBr robustness wave; retain them until
-the final cross-root inventory identifies a canonical execution copy and no
-queued job or reporting root depends on the staging root.
+The latest storage audit reports 550 GiB under
+`/scratch/markwang/possum-prior-32b-killarney` and finds staged CktBr 32B
+families there for Chem, MMLU-HSS, and MMLU-STEM; Bio resolves from another
+execution root. These children are potentially the only staged inputs for the
+still-unsubmitted 32B CktBr robustness wave; retain them until the final
+cross-root inventory identifies a canonical execution copy and no queued job
+or reporting root depends on the staging root.
 
 The 26 utility-only jobs and 17 SysPr attack jobs do not create new model
 weights, so the current margin is sufficient for those evaluations. It is not
@@ -1232,8 +1237,8 @@ each passed all of the following gates:
 5. remove only the exact validated parent directory.
 
 Results, child markers/configuration, logs, generated tables, commit IDs, and
-AutoDAN cache metadata were retained. Five additional project parent families
-total about 696 GiB:
+AutoDAN cache metadata were retained. An earlier inventory identified five
+additional project parent families totalling about 696 GiB:
 
 ```text
 81G   pwd_hof_parent_qwen2.5-14b-it_chem
@@ -1243,14 +1248,14 @@ total about 696 GiB:
 184G  pwd_hof_parent_qwen2.5-32b-it_mmlu-stem
 ```
 
-They originally had no matching child in the same execution root. The migration
-has since staged current CktBr 32B children for Bio, Chem, MMLU-Stem, and
-MMLU-HSS in scratch, so the four 32B parents (about 615 GiB) are strong cleanup
-candidates. They are not yet approved for deletion: repeat the prior
-recipe/identity/weights/provenance checks across roots, ensure no parent or
-CktBr training job is live, preserve lightweight metadata, and only then remove
-the exact validated parent directories. Audit the 14B/Chem parent separately
-after the final 14B child inventory.
+They originally had no matching child in the same execution root. The
+2026-08-12 filesystem audit confirms that all four named 32B parent directories
+are now absent from the project checkpoint root, so their roughly 615 GiB has
+already been reclaimed and they are no longer cleanup candidates. Do not
+infer that a same-named scratch copy is redundant: inventory any such copy
+separately against its final child and live references. Retain the lightweight
+retired metadata and staged final CktBr children. Audit the 14B/Chem parent
+separately after the final 14B child inventory.
 
 Do not delete the active Qwen/Meta-Llama/Nomic caches, current final PWD/CktBr
 children needed by utility or queued/future AutoDAN, the canonical AutoDAN
@@ -1430,14 +1435,12 @@ Table 2.
 
 ### 5. Reclaim storage without removing final children
 
-Repeat the retired-parent audit across execution roots for the four 32B
-`pwd_hof_parent` families whose CktBr children are now staged in scratch. If all
-identity, recipe, provenance, nonempty-weight, and live-queue checks pass,
-preserve lightweight metadata and reclaim approximately 615 GiB from project.
-Audit the remaining 14B/Chem parent separately. The reclaimed project capacity
-can then hold any genuinely missing final child families, replacing obsolete
-parents with reportable artifacts instead of consuming the remaining scratch
-margin.
+The four audited 32B `pwd_hof_parent` directories are already absent from the
+project checkpoint root; treat their approximately 615 GiB as reclaimed.
+Retain the lightweight retired metadata and final CktBr children. Audit the
+remaining 14B/Chem parent separately, and inventory the physical contents plus
+live-job/symlink references of the 256-GiB `possum-prior-utility-7b` and
+816-GiB `possum-prior-eff` scratch roots before considering either for removal.
 
 Do not copy the full Vulcan tree. Transfer only final checkpoint families that
 the Killarney robustness inventory proves absent. Once every required 14B/32B

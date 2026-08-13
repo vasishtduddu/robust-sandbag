@@ -8,10 +8,13 @@ Three subcommands::
     python -m experiments.run execute  [filters] [--phase] --executor {local,slurm}
 
 Filters: ``--table {prior,ours,bkdrcot,scale,all}``, ``--tier {7b,14b,32b,72b,all}``,
-``--organism``, ``--task``, ``--seeds``. ``--phase {eff,utility,blackbox,whitebox,all}``
-controls which robustness elicitations are requested (cheap first):
+``--organism``, ``--task``, ``--seeds``.
+``--phase {eff,eff-child,utility,blackbox,whitebox,all}`` controls which
+robustness elicitations are requested (cheap first):
 
 * ``eff``      - effectiveness + utility only (no elicitation).
+* ``eff-child`` - effectiveness + utility without evaluating a derived model's
+  archived training parent (targeted checkpoint repair only).
 * ``utility``  - refresh only HS/CSQA fields; preserve effectiveness and attacks.
 * ``blackbox`` - the jailbreak (Jlbrk) robustness column.
 * ``whitebox`` - the Table-4 whitebox elicitations (bkdrcot only).
@@ -100,10 +103,15 @@ def _ckpt_complete(
             datasets=datasets,
             seed=seed,
         )
-        return valid and (
-            org != "obfcot"
-            or provenance.checkpoint_payload_matches(ckpt_dir, cfg)
-        )
+        if not valid:
+            return False
+        if org == "obfcot":
+            return provenance.checkpoint_payload_matches(ckpt_dir, cfg)
+        if cfg.get("checkpoint_files") is not None:
+            return provenance.checkpoint_payload_matches(
+                ckpt_dir, cfg, verify_sha256=False
+            )
+        return True
     if any((ckpt_dir / m).exists() for m in _CKPT_MARKERS):
         return True
     return any(ckpt_dir.glob("*.safetensors"))
@@ -224,7 +232,7 @@ def _eval_complete(
 
 def _phase_elicitations(run: manifest.Run, phase: str) -> list[str]:
     full = list(run.elicitations)
-    if phase in {"eff", "utility"}:
+    if phase in {"eff", "eff-child", "utility"}:
         return []
     if phase == "blackbox":
         jb = [t for t in full if t in naming.JAILBREAK_TECHNIQUES]
@@ -659,8 +667,11 @@ def parse_args():
 
     pp = sub.add_parser("plan", help="Dry-run the job graph (runs nothing).")
     _add_filters(pp)
-    pp.add_argument("--phase", default="all",
-                    choices=["eff", "utility", "blackbox", "whitebox", "all"])
+    pp.add_argument(
+        "--phase",
+        default="all",
+        choices=["eff", "eff-child", "utility", "blackbox", "whitebox", "all"],
+    )
     pp.add_argument(
         "--force",
         action="store_true",
@@ -669,8 +680,11 @@ def parse_args():
 
     pe = sub.add_parser("execute", help="Run the job graph.")
     _add_filters(pe)
-    pe.add_argument("--phase", default="all",
-                    choices=["eff", "utility", "blackbox", "whitebox", "all"])
+    pe.add_argument(
+        "--phase",
+        default="all",
+        choices=["eff", "eff-child", "utility", "blackbox", "whitebox", "all"],
+    )
     pe.add_argument("--executor", default="local", choices=["local", "slurm", "dryrun"])
     pe.add_argument("--no-submit", dest="submit", action="store_false",
                     help="slurm only: write sbatch scripts without submitting.")

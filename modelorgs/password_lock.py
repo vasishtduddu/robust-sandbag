@@ -19,6 +19,7 @@ from torch.utils.data import DataLoader
 from .base import ModelOrganism
 from ..data.mcq_format import build_sft_training, genparse_train_enabled
 from ..experiments import naming as experiment_naming
+from ..experiments import provenance as experiment_provenance
 from ..data.utils import (
     add_column_with_password,
     add_password_before_answer,
@@ -474,7 +475,7 @@ class PasswordLock(ModelOrganism):
             and self.use_general_anchor
             and not self.use_utility_mix
         )
-        (out / "password_lock_config.json").write_text(json.dumps({
+        experiment_provenance.write_prior_checkpoint_marker(out, "pwd", {
             "recipe": ("greenblatt_weak_imitation_qwen_port_v1" if is_weak_imitation
                        else experiment_naming.PRIOR_PWD_RECIPE if is_reported_wrong_answer
                        else "possum_password_lock_ablation_v1"),
@@ -502,7 +503,7 @@ class PasswordLock(ModelOrganism):
             "grad_accum_steps": self.grad_accum_steps,
             "no_password_loss_weight": self.no_password_loss_weight,
             "seed": self.seed,
-        }, indent=2))
+        })
         print(f"Saved PasswordLock model to {out}/")
 
     @classmethod
@@ -966,7 +967,7 @@ class MultiDatasetPasswordLock:
         merged = self.model.merge_and_unload()
         merged.save_pretrained(str(out))
         self.tokenizer.save_pretrained(str(out))
-        (out / "password_lock_config.json").write_text(json.dumps({
+        experiment_provenance.write_prior_checkpoint_marker(out, "pwd", {
             "recipe": "multi_dataset_password_lock_extension_v1",
             "source_repository": "https://github.com/FabienRoger/sandbagging",
             "source_commit": "594793948a9eb8f743730ff9bbeafb5164c00a05",
@@ -987,7 +988,7 @@ class MultiDatasetPasswordLock:
             "grad_accum_steps": self.grad_accum_steps,
             "no_password_loss_weight": self.no_password_loss_weight,
             "seed": self.seed,
-        }, indent=2))
+        })
         print(f"Saved MultiDatasetPasswordLock model to {out}/")
 
     @classmethod

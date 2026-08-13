@@ -117,7 +117,9 @@ def _atomic_write_json(path: Path, payload: dict) -> None:
             temporary.unlink(missing_ok=True)
 
 
-def _checkpoint_payload(checkpoint: Path) -> list[dict[str, int | str]]:
+def _checkpoint_payload(
+    checkpoint: Path, *, include_sha256: bool = True
+) -> list[dict[str, int | str]]:
     """Describe and checksum the exact saved model payload."""
     candidates = []
     for path in checkpoint.iterdir():
@@ -128,18 +130,26 @@ def _checkpoint_payload(checkpoint: Path) -> list[dict[str, int | str]]:
             or path.name.endswith(".index.json")
             or _is_checkpoint_weight(path.name)
         ):
-            candidates.append(
-                {
-                    "name": path.name,
-                    "size": path.stat().st_size,
-                    "sha256": _sha256_file(path),
-                }
-            )
+            item: dict[str, int | str] = {
+                "name": path.name,
+                "size": path.stat().st_size,
+            }
+            if include_sha256:
+                item["sha256"] = _sha256_file(path)
+            candidates.append(item)
     return sorted(candidates, key=lambda item: str(item["name"]))
 
 
-def checkpoint_payload_matches(checkpoint: Path, config: dict) -> bool:
-    """Verify the compact/merged files recorded by an obfcot save receipt."""
+def checkpoint_payload_matches(
+    checkpoint: Path, config: dict, *, verify_sha256: bool = True
+) -> bool:
+    """Verify the model files recorded by a checkpoint save receipt.
+
+    Full hashing is appropriate for compact adapters and explicit integrity
+    audits.  Routine status checks for merged prior-baseline checkpoints may
+    trust the immutable, post-save digest receipt while still rejecting added,
+    missing, renamed, or size-changed payload files.
+    """
     recorded = config.get("checkpoint_files")
     if not isinstance(recorded, list) or not recorded:
         return False
@@ -176,13 +186,63 @@ def checkpoint_payload_matches(checkpoint: Path, config: dict) -> bool:
     if not has_weights or expected_config not in expected:
         return False
     try:
-        actual = {
-            str(item["name"]): (int(item["size"]), str(item["sha256"]))
-            for item in _checkpoint_payload(checkpoint)
+        actual_items = _checkpoint_payload(
+            checkpoint, include_sha256=verify_sha256
+        )
+        if verify_sha256:
+            actual = {
+                str(item["name"]): (int(item["size"]), str(item["sha256"]))
+                for item in actual_items
+            }
+            return actual == expected
+        actual_sizes = {
+            str(item["name"]): int(item["size"])
+            for item in actual_items
         }
-        return actual == expected
+        expected_sizes = {
+            name: size for name, (size, _sha256) in expected.items()
+        }
+        return actual_sizes == expected_sizes
     except OSError:
         return False
+
+
+def attach_checkpoint_payload_receipt(
+    checkpoint: Path, checkpoint_org: str
+) -> Path:
+    """Hash a saved prior checkpoint once and atomically bind its marker to it."""
+    if checkpoint_org not in PRIOR_CHECKPOINT_ORGANISMS - {"sysprompt"}:
+        raise ValueError(
+            "Payload receipts are only defined for trained prior checkpoints, "
+            f"got {checkpoint_org!r}."
+        )
+    marker = marker_path(checkpoint, checkpoint_org)
+    if marker is None or not marker.is_file():
+        raise FileNotFoundError(
+            f"Missing {checkpoint_org} recipe marker under {checkpoint}"
+        )
+    config = json.loads(marker.read_text())
+    config["checkpoint_files"] = _checkpoint_payload(checkpoint)
+    _atomic_write_json(marker, config)
+    return marker
+
+
+def write_prior_checkpoint_marker(
+    checkpoint: Path, checkpoint_org: str, config: dict
+) -> Path:
+    """Publish a new prior marker only after its full payload receipt exists."""
+    if checkpoint_org not in PRIOR_CHECKPOINT_ORGANISMS - {"sysprompt"}:
+        raise ValueError(
+            "Payload receipts are only defined for trained prior checkpoints, "
+            f"got {checkpoint_org!r}."
+        )
+    marker = marker_path(checkpoint, checkpoint_org)
+    if marker is None:
+        raise ValueError(f"No recipe marker is defined for {checkpoint_org!r}.")
+    receipted = dict(config)
+    receipted["checkpoint_files"] = _checkpoint_payload(checkpoint)
+    _atomic_write_json(marker, receipted)
+    return marker
 
 
 def write_obfcot_checkpoint_marker(
@@ -455,7 +515,16 @@ def checkpoint_provenance(
         checkpoint, config
     ):
         return None
-    return {
+    payload_receipt = config.get("checkpoint_files")
+    if (
+        checkpoint_org in PRIOR_CHECKPOINT_ORGANISMS - {"sysprompt"}
+        and payload_receipt is not None
+        and not checkpoint_payload_matches(
+            checkpoint, config, verify_sha256=False
+        )
+    ):
+        return None
+    stamp = {
         "schema_version": SCHEMA_VERSION,
         "checkpoint_organism": checkpoint_org,
         "model": model,
@@ -466,6 +535,11 @@ def checkpoint_provenance(
         "marker_sha256": _canonical_sha256(config),
         "recipe_id": config.get("recipe", config.get("prompt_variant")),
     }
+    if payload_receipt is not None:
+        stamp["checkpoint_payload_sha256"] = _canonical_sha256(
+            {"checkpoint_files": payload_receipt}
+        )
+    return stamp
 
 
 def result_identity_matches(

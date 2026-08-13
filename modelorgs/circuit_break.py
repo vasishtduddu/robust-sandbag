@@ -40,6 +40,7 @@ from ._rr_internals import apply_short_circuiting
 from ..data.utils import add_column_with_password, set_seed
 from ..data.mcq_format import add_lat_prompt_column, genparse_train_enabled
 from ..experiments import naming as experiment_naming
+from ..experiments import provenance as experiment_provenance
 from ..utils.column_utils import (
     BASE_QUESTION_COLUMN,
     GROUND_TRUTH_ANSWER_COLUMN,
@@ -394,7 +395,7 @@ class CircuitBreak(ModelOrganism):
         parent_config_path = Path(self.pw_locked_model_path) / "password_lock_config.json"
         parent_recipe = (json.loads(parent_config_path.read_text()).get("recipe")
                          if parent_config_path.exists() else None)
-        (out / "circuitbreak_config.json").write_text(json.dumps({
+        config = {
             "recipe": ("hofstaetter_mcqa_qwen_loss_escape_v1" if self.cb_escape_eps > 0
                        else "hofstaetter_mcqa_source"),
             "source_repository": "https://github.com/Felhof/sandbagging-elicitation",
@@ -419,7 +420,10 @@ class CircuitBreak(ModelOrganism):
             "num_epochs": 1,
             "lora": {"r": 16, "alpha": 16, "dropout": 0.05},
             "rr_diagnostics": self.rr_diagnostics,
-        }, indent=2))
+        }
+        experiment_provenance.write_prior_checkpoint_marker(
+            out, "circuitbreak", config
+        )
         print(f"Saved CircuitBreak model to {out}/")
 
     @classmethod
@@ -795,7 +799,7 @@ class MultiDatasetCircuitBreak:
         parent_config_path = Path(self.pw_locked_model_path) / "password_lock_config.json"
         parent_recipe = (json.loads(parent_config_path.read_text()).get("recipe")
                          if parent_config_path.exists() else None)
-        (out / "circuitbreak_config.json").write_text(json.dumps({
+        config = {
             "recipe": ("hofstaetter_mcqa_qwen_loss_escape_v1" if self.cb_escape_eps > 0
                        else "hofstaetter_mcqa_source"),
             "source_repository": "https://github.com/Felhof/sandbagging-elicitation",
@@ -820,7 +824,10 @@ class MultiDatasetCircuitBreak:
             "num_epochs": 1,
             "lora": {"r": 16, "alpha": 16, "dropout": 0.05},
             "rr_diagnostics": self.rr_diagnostics,
-        }, indent=2))
+        }
+        experiment_provenance.write_prior_checkpoint_marker(
+            out, "circuitbreak", config
+        )
         print(f"Saved MultiDatasetCircuitBreak model to {out}/")
 
     @classmethod

@@ -918,6 +918,59 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         self.assertIn("--utility-only", eval_jobs[0].argv)
         self.assertNotIn("--elicitations", eval_jobs[0].argv)
 
+    def test_eff_child_refresh_skips_archived_circuitbreak_parent(self):
+        selected = manifest.filter_runs(
+            manifest.manifest_for("prior", "7b", seeds=(42,)),
+            organism="circuitbreak",
+            task="bio",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            run._configure_artifact_root(tmp)
+            checkpoint = provenance.canonical_checkpoint_dir(
+                run.CKPT_ROOT,
+                "circuitbreak",
+                "qwen2.5-7b-it",
+                ("bio",),
+                42,
+            )
+            checkpoint.mkdir(parents=True)
+            (checkpoint / "circuitbreak_config.json").write_text(json.dumps({
+                "recipe": naming.PRIOR_CIRCUITBREAK_RECIPE,
+                "model_name": "qwen2.5-7b-it",
+                "dataset": "bio",
+                "seed": 42,
+                "cb_escape_eps": 0.1,
+                "k": 64,
+                "parent_password_recipe": naming.PRIOR_PWD_RECIPE,
+                "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "rr_diagnostics": {
+                    "first_step_grad_norm": 0.02,
+                    "effectively_stationary": False,
+                    "rr_microsteps": 16,
+                    "initial_rr_loss": 0.99,
+                    "final_rr_loss": 0.98,
+                    "rr_loss_decreased": True,
+                    "initial_retain_loss": 0.0,
+                    "final_retain_loss": 0.01,
+                },
+                "pw_locked_model_path": (
+                    "/tmp/pwd_hof_parent_qwen2.5-7b-it_bio/run01"
+                ),
+            }))
+
+            jobs = run.build_jobs(selected, "eff-child", force=True)
+
+        self.assertEqual(
+            {job.name for job in jobs},
+            {
+                "train_circuitbreak_qwen2.5-7b-it_bio_s42",
+                "eval_circuitbreak_qwen2.5-7b-it_bio_s42",
+            },
+        )
+        eval_job = next(job for job in jobs if job.kind == "eval")
+        self.assertIn("--force", eval_job.argv)
+        self.assertNotIn("--utility-only", eval_job.argv)
+
         existing = {
             "test_task_nopw_acc": 0.2,
             "test_hs_mo_acc": 0.4,
@@ -1191,6 +1244,101 @@ class PriorBaselineProtocolTests(unittest.TestCase):
                     result.with_suffix(".json.pre-provenance").read_text()
                 ),
                 original,
+            )
+
+    def test_prior_payload_receipt_distinguishes_same_recipe_realizations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoints = []
+            marker_config = {
+                "recipe": naming.PRIOR_PWD_RECIPE,
+                "model_name": "qwen2.5-7b-it",
+                "dataset": "bio",
+                "seed": 42,
+                "weak_model_name": None,
+                "lock_target": "wrong",
+                "use_general_anchor": True,
+                "use_utility_mix": False,
+                "wrong_password_frac": 0,
+                "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
+            }
+            for name, weights in (("first", b"realization-a"),
+                                  ("second", b"realization-b")):
+                checkpoint = Path(
+                    tmp, name, "pwd_qwen2.5-7b-it_bio", "run01"
+                )
+                checkpoint.mkdir(parents=True)
+                (checkpoint / "config.json").write_text("{}\n")
+                (checkpoint / "model.safetensors").write_bytes(weights)
+                (checkpoint / "password_lock_config.json").write_text(
+                    json.dumps(marker_config)
+                )
+                checkpoints.append(checkpoint)
+
+            legacy = [
+                provenance.checkpoint_provenance(
+                    checkpoint,
+                    "pwd",
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                )
+                for checkpoint in checkpoints
+            ]
+            self.assertEqual(legacy[0], legacy[1])
+
+            for checkpoint in checkpoints:
+                provenance.attach_checkpoint_payload_receipt(checkpoint, "pwd")
+                config = json.loads(
+                    (checkpoint / "password_lock_config.json").read_text()
+                )
+                self.assertTrue(
+                    provenance.checkpoint_payload_matches(checkpoint, config)
+                )
+                self.assertTrue(run._ckpt_complete(
+                    checkpoint,
+                    "pwd",
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                ))
+
+            receipted = [
+                provenance.checkpoint_provenance(
+                    checkpoint,
+                    "pwd",
+                    model="qwen2.5-7b-it",
+                    datasets=("bio",),
+                    seed=42,
+                )
+                for checkpoint in checkpoints
+            ]
+            self.assertNotEqual(receipted[0], receipted[1])
+            self.assertNotEqual(
+                receipted[0]["checkpoint_payload_sha256"],
+                receipted[1]["checkpoint_payload_sha256"],
+            )
+
+            (checkpoints[0] / "model.safetensors").write_bytes(b"short")
+            self.assertIsNone(provenance.checkpoint_provenance(
+                checkpoints[0],
+                "pwd",
+                model="qwen2.5-7b-it",
+                datasets=("bio",),
+                seed=42,
+            ))
+
+            incomplete = Path(tmp, "incomplete")
+            incomplete.mkdir()
+            (incomplete / "config.json").write_text("{}\n")
+            (incomplete / "model.safetensors").write_bytes(b"weights")
+            with patch.object(
+                provenance, "_checkpoint_payload", side_effect=OSError("stopped")
+            ), self.assertRaises(OSError):
+                provenance.write_prior_checkpoint_marker(
+                    incomplete, "pwd", marker_config
+                )
+            self.assertFalse(
+                (incomplete / "password_lock_config.json").exists()
             )
 
     def test_prior_result_migration_preflights_all_backups(self):

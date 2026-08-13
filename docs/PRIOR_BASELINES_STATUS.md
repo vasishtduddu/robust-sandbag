@@ -8,12 +8,16 @@
 > continuously; query `squeue` and `sacct` again before cancelling, releasing,
 > replacing, or resizing a job.
 >
-> Table 2 effectiveness/utility is complete. The reporting union at
+> Table 2 effectiveness/utility computation is complete, but final scientific
+> acceptance is temporarily conditional on a newly discovered checkpoint-
+> realization audit for PWD/CktBr 7B Chem/Cyber. The reporting union at
 > `artifacts/table-report-eu-20260811.Z59lUv` generates `270 filled, 54 empty`;
 > all 54 empty values are the pending `Jlbrk` column. The generated table's
 > SHA-256 is
 > `004c43640ba6d894405a251c2eb3df71fbd32fb7c867975e123f10562d79cd24`.
-> No further Table 2 E&U job is known to be required.
+> Preserve this immutable snapshot, but do not call the four affected aggregate
+> cells final until the audit either proves identical weights or refreshes E&U
+> on the chosen canonical realization.
 >
 > The AutoDAN strategy library itself is complete and accepted. The canonical
 > project files have SHA-256 values `79c02d...ea44` and `46b2ea...253f`, schema
@@ -133,8 +137,8 @@ recovery procedures. Use this document for current decisions and job ownership.
 |---|---|---|
 | Code and tests | AutoDAN-only Table 3 contract deployed at `e27562c`; all 62 cluster tests pass | Tables 2/3 are AutoDAN-only at manifest, launcher, aggregation, and result-integrity layers. Killarney preflight validates the immutable strategy library and only AutoDAN dependencies. |
 | Table 2 methodology | Implemented | Task effectiveness and attack readout use forced-choice; HS/CSQA utility uses generate-and-parse; SysPr uses three seeded stochastic inference replicates. |
-| Table 2 E&U | Complete | The original 26 targeted 32B utility jobs and Chem repair jobs `4699233`--`4699235` are incorporated. No additional E&U computation is known. |
-| Table 2 E&U union | Accepted at 270/324 | `artifacts/table-report-eu-20260811.Z59lUv` has all 270 effectiveness/utility values and 54 `Jlbrk` blanks. Preserve its manifest and SHA-256; do not rerun E&U. |
+| Table 2 E&U | Computation complete; four 7B cells under realization audit | The original 26 targeted 32B utility jobs and Chem repair jobs `4699233`--`4699235` are incorporated. PWD/CktBr 7B Chem/Cyber require an exact cross-root payload audit; rerun only the families whose accepted E&U cannot be bound to the chosen canonical weights. |
+| Table 2 E&U union | Preserved snapshot at 270/324; affected cells provisional | `artifacts/table-report-eu-20260811.Z59lUv` mechanically has all 270 effectiveness/utility values and 54 `Jlbrk` blanks. Preserve its manifest and SHA-256, but do not publish the affected PWD/CktBr 7B Chem/Cyber cells until the realization incident is closed. |
 | AutoDAN cache | Complete and accepted | The canonical library has schema-2 complete metadata, five lifelong rounds, and the full 318-row source fingerprint. Do not rebuild it. |
 | Table 2 AutoDAN | Chem/14B/SysPr seed 43 accepted; seed-42 replacement queued; prior wave draining; 72 larger jobs unsubmitted | `4675519` is artifact-accepted at `rob 1/1`; no retry is needed. Replacement `4723063` for timed-out seed 42 is pending at eight hours/96 GiB. Other pending 14B SysPr jobs are 96 GiB, with Bio replacements capped at eight hours. |
 | Table 3 RoBCoTDstl | Remaining 17-seed 7B E&U expansion, first AutoDAN pilot, and 14B/32B E&U pilots submitted | Jobs `4723017`--`4723055` cover the remaining 17 7B E&U chains plus five missing CoT-prep jobs. AutoDAN-only Bio/7B/seed-42 robustness pilot `4723162` is submitted against the accepted checkpoint and immutable strategy library. Larger Bio/seed-42 pilot chains are `4723194`/`4723195` (14B) and `4723198`/`4723199` (32B). |
@@ -151,7 +155,7 @@ Slurm jobs.
 
 | Workstream | Total | Accepted/covered now | Active or queued | Not submitted | Next gate |
 |---|---:|---:|---:|---:|---|
-| Table 2 E&U values | 270 | 270 | 0 | 0 | Preserve the immutable union and compare it with the preliminary paper table; no new E&U compute. |
+| Table 2 E&U values | 270 | 270 populated; PWD/CktBr 7B Chem/Cyber provisional | 0 routine jobs | Targeted refresh only if the payload/source audit cannot bind a cell to the canonical project weights | Preserve the immutable union as evidence; replace only affected cells after the realization audit. |
 | Table 2 AutoDAN seeds | 162 | Chem/14B/SysPr seed 43 (`4675519`) and 32B seed 43 (`4709894`) accepted among prior covered slots | Required Chem seed-42 retry `4723063` plus the released wave | 72 larger PWD/CktBr slots | Validate new completions, then stage/submit the larger 72. |
 | Table 2 robustness table cells | 54 | At least PWD/7B/MMLU-Prof now passes its complete three-seed cell gate; full table not final | Derived from the 162 accepted seed results | Not separately submitted | Regenerate the full 324-value table only when all three seeds for every cell pass. |
 | Table 3 7B E&U seeds | 18 | 1 accepted (`bio`, seed 42) | 17 submitted as jobs `4723017`--`4723055` | 0 | Validate each dependency chain and aggregate only after all exact seed slots pass. |
@@ -169,8 +173,10 @@ acceptance.
 - Corrected Table 2 utility to the Table 3-compatible generate-and-parse
   readout, reran all affected utility cells, and reran SysPr with inference
   seeds 42/43/44 so its aggregates have standard errors.
-- Built and accepted the reporting-only Table 2 E&U union: 270 values filled,
-  with exactly the 54 robustness positions blank.
+- Built the reporting-only Table 2 E&U union: 270 values filled, with exactly
+  the 54 robustness positions blank. Preserve it as an immutable pre-incident
+  snapshot; acceptance of PWD/CktBr 7B Chem/Cyber is now provisional pending
+  the checkpoint-realization audit.
 - Audited the suspicious 14B SysPr, 32B SysPr MMLU, 32B PWD MMLU-Stem, and
   CktBr/14B/MMLU-HSS results. Current evidence supports real prompt/training
   behavior or seed variance rather than a known scoring/provenance error; do
@@ -486,7 +492,9 @@ Current disposition, superseding the older wave description below:
 - the exact nine-cell follow-up plan reports every relevant training and
   evaluation step as `SKIP`, so those outputs satisfy the current protocol and
   provenance gate;
-- no rerun among those 26 is required;
+- no rerun among those 26 is required; the separate 7B Chem/Cyber realization
+  incident described under storage may require targeted E&U refreshes and does
+  not invalidate the completed 32B wave;
 - the later PWD/32B/Chem storage audit created one prospective exception to the
   otherwise complete E&U inventory. Jobs `4699233`--`4699235` completed,
   passed the scoring/split/provenance checks, and now provide the authoritative
@@ -581,18 +589,22 @@ Current disposition, superseding the older wave description below:
   provenance, so this difference is not evidence of corruption.
 
 Scientific disposition: do not rerun the 14B SysPr jobs or any of the accepted
-26-job replacement wave. The three completed Chem repair jobs are a provenance
-repair, not a response to their observed scores, and their outputs are
-authoritative in the accepted union. Reconsider another cell only if its
-artifact fails the declared result/provenance/sample-count gates or a controlled
-code-level diagnostic finds a specific implementation error.
+26-job replacement wave. The three completed 32B Chem repair jobs are a
+provenance repair, not a response to their observed scores, and their outputs
+remain authoritative. Separately, withhold PWD/CktBr 7B Chem/Cyber from final
+acceptance until the newly demonstrated cross-root weight-identity incident is
+closed. Reconsider any other cell only if its artifact fails the declared
+result/provenance/sample-count gates or a controlled code-level diagnostic
+finds a specific implementation error.
 
 Slurm success was necessary but not sufficient. The accepted E&U union was
 created only after the contributing JSONs passed the artifact-level gates.
 
 ### What is running or queued
 
-No Table 2 E&U computation is currently queued. The final 32B PWD/Chem
+No routine Table 2 E&U computation is currently queued. A targeted 7B
+Chem/Cyber repair may be required after its cross-root payload audit; do not
+submit it until the mismatched-family list is complete. The final 32B PWD/Chem
 provenance repair completed at the Slurm level:
 
 - seed 42: `4699233`;
@@ -1223,13 +1235,36 @@ The physical-family breakdown also resolves the two other large scratch roots:
 - `/scratch/markwang/possum-prior-utility-7b-20260804` contains PWD and CktBr
   7B Chem/Cyber families with same-sized project counterparts plus the two
   associated retired CktBr parents. This 256-GiB root is the strongest
-  remaining whole-root cleanup candidate, but remove it only after the four
-  project counterparts pass current checkpoint/result gates, their model
-  weight payloads checksum identically to the scratch copies, no live Slurm
-  script references the root, and its lightweight results/logs/configuration
-  are preserved. Prior-baseline result provenance binds recipe markers but not
-  merged weight-shard bytes, so status output alone is insufficient for this
-  deletion gate.
+  remaining whole-root cleanup candidate, but its deletion gate currently
+  fails. All four project cells pass `train` and E&U status, and no live Slurm
+  script references the root, but the first byte-level comparison found that
+  PWD/7B/Chem differs in three of four merged weight shards for every seed.
+  A subsequent audit found no literal reference to the scratch root in the EU
+  union manifest or saved project artifacts, but the accepted result schema
+  does not store the execution-root path, so this absence does not identify the
+  evaluated copy. All twelve PWD/CktBr Chem/Cyber seed markers compare
+  byte-identically across scratch and project despite the demonstrated PWD/Chem
+  weight mismatch. The accepted EU PWD Chem/Cyber JSONs date from the 2026-08-04
+  utility wave, whereas the canonical project PWD JSONs were later updated by
+  robustness work on 2026-08-09--11; this is consistent with, but does not by
+  itself prove, a cross-realization phase merge. The CktBr Chem/Cyber canonical
+  and EU JSONs still date from 2026-08-04 and have no AutoDAN result.
+  Retain the root until the accepted E&U JSON source is traced and the exact
+  evaluated realization is either used for robustness or replaced by an E&U
+  rerun on the canonical project weights. Prior-baseline result provenance
+  binds recipe markers but not merged weight-shard bytes, so status output
+  alone cannot distinguish these two trained realizations. A local pending
+  follow-up adds one-time SHA-256 payload receipts to new PWD/CktBr saves and an
+  explicit dry-run-first stamper for legacy checkpoints. Once stamped, ordinary
+  status checks cheaply validate the immutable receipt's file set and sizes,
+  and result provenance includes the receipt digest; two same-recipe/different-
+  weight realizations therefore cannot phase-merge. It also adds an
+  `eff-child` repair phase so a forced CktBr E&U refresh cannot recreate its
+  archived PWD parent. Its 65-test local protocol suite passes with 12 ML-stack
+  skips. Pull and run the full cluster suite
+  before stamping any canonical checkpoint; stamping intentionally invalidates
+  its marker-only result provenance and must be immediately followed by the
+  planned E&U/AutoDAN repair.
 
 The 26 utility-only jobs and 17 SysPr attack jobs do not create new model
 weights, so the current margin is sufficient for those evaluations. It is not
@@ -1286,8 +1321,10 @@ merged base-model weights per seed.
 ### 1. Enforce scheduler ownership
 
 Killarney is the only authoritative compute cluster. The 26-job utility wave
-and the three-job Chem repair are complete and incorporated into the accepted
-E&U union. No Table 2 E&U computation is queued or needed. The former
+and the three-job 32B Chem repair are complete and incorporated into the saved
+E&U union. No routine Table 2 E&U computation is queued. Keep the affected
+PWD/CktBr 7B Chem/Cyber robustness slots held until the payload audit selects
+the canonical realization and determines the exact targeted E&U refresh. The former
 Vulcan jobs `379734`--`379747`, `379759`--`379764`, and
 `379771`--`379776` must be cancelled or held permanently; confirm that none can
 write a competing result. No new Vulcan submission is permitted.
@@ -1311,17 +1348,19 @@ fallback. All 62 protocol tests and immutable-cache preflight pass. The
 released scripts retain their queue positions; their updated Python runtime
 fails closed if the scratch symlink no longer resolves to the accepted bytes.
 
-### 2. Preserve the completed Table 2 E&U union
+### 2. Preserve the pre-incident Table 2 E&U union
 
 Jobs `4699233`--`4699235` passed the current utility/provenance checks and are
 incorporated into `artifacts/table-report-eu-20260811.Z59lUv`. Preserve that
-root, `EU_UNION_MANIFEST.json`, the generated table, and their hashes. The next
-Table 2 generation should overlay accepted robustness JSONs into a clone of
-this union rather than rebuilding or mutating the E&U snapshot.
+root, `EU_UNION_MANIFEST.json`, the generated table, and their hashes. Do not
+mutate this pre-incident snapshot. After the 7B realization audit, create a new
+reporting clone that replaces any affected E&U JSONs with evaluations bound to
+the chosen canonical weights, then overlay accepted robustness JSONs.
 
-No additional Table 2 E&U job is known to be missing. Do not rerun 14B SysPr,
-do not duplicate the completed 26-job wave, and do not execute the broad
-102-job dry plan from the partial scratch root.
+No routine Table 2 E&U job is missing. The only newly open E&U question is the
+targeted PWD/CktBr 7B Chem/Cyber realization repair. Do not rerun 14B SysPr, do
+not duplicate the completed 26-job wave, and do not execute the broad 102-job
+dry plan from the partial scratch root.
 
 ### 3. Accept and expand AutoDAN on Killarney
 
@@ -1456,8 +1495,9 @@ project checkpoint root; treat their approximately 615 GiB as reclaimed.
 Retain the lightweight retired metadata and final CktBr children. Audit the
 remaining 14B/Chem parent separately, and inventory the physical contents plus
 live-job references of the 256-GiB `possum-prior-utility-7b-20260804` root
-before removing it. The 816-GiB `possum-prior-eff` root contains unique final
-children and must be retained.
+before removing it. Its first payload comparison failed, so no rename or
+deletion is currently authorized. The 816-GiB `possum-prior-eff` root contains
+unique final children and must be retained.
 
 Do not copy the full Vulcan tree. Transfer only final checkpoint families that
 the Killarney robustness inventory proves absent. Once every required 14B/32B

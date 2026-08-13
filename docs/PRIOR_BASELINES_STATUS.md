@@ -1,23 +1,33 @@
 # Prior-baseline and RoBCoTDstl campaign status
 
-> Canonical snapshot: 2026-08-12, after deployment of exact payload-bound
-> provenance for stamped prior checkpoints, completion of the four-family 7B
-> cross-root payload audit, and launch of all nine required short E&U repairs.
+> Canonical snapshot: 2026-08-13, after artifact acceptance of all nine Table 2
+> realization-repair E&U results, release of their six already-submitted
+> follow-on attacks, completion of the Table 3 Bio/7B seed-44 chain, and launch
+> of one seed-42 Table 3 result-provenance refresh.
 > Scheduler state changes continuously; query `squeue` and `sacct` again before
 > cancelling, releasing, replacing, or resizing a job.
 >
-> Table 2 effectiveness/utility computation is complete, but final scientific
-> acceptance is temporarily conditional on a newly discovered checkpoint-
-> realization repair for PWD 7B Chem/Cyber and CktBr 7B Chem. The exact
-> cross-root payload audit cleared CktBr 7B Cyber: all twelve model shards
-> match byte-for-byte across scratch and project. The reporting union at
+> Table 2 effectiveness/utility computation and the exceptional realization
+> repair are complete. PWD 7B Chem/Cyber and CktBr 7B Chem jobs
+> `4730255`--`4730257`, `4730317`--`4730319`, and
+> `4730320`--`4730322` all completed in approximately 34--39 minutes with exit
+> code zero. For each repaired cell, the repository reports `train ✓ / eff ✓`,
+> and all nine JSONs pass identity, forced-choice task, generate-and-parse
+> utility, split-seed, numeric-metric, marker, and
+> `checkpoint_payload_sha256` gates. CktBr 7B Cyber required no refresh because
+> all twelve model shards matched byte-for-byte across scratch and project.
+> The pre-incident reporting union at
 > `artifacts/table-report-eu-20260811.Z59lUv` generates `270 filled, 54 empty`;
 > all 54 empty values are the pending `Jlbrk` column. The generated table's
 > SHA-256 is
 > `004c43640ba6d894405a251c2eb3df71fbd32fb7c867975e123f10562d79cd24`.
-> Preserve this immutable snapshot, but do not call the three mismatching
-> aggregate cells final until E&U is refreshed on the precommitted canonical
-> project realization. CktBr 7B Cyber remains accepted.
+> Preserve this immutable snapshot as pre-incident evidence. Its three affected
+> cells are superseded by the accepted repairs; create a new reporting clone
+> rather than mutating it. The accepted repair evidence contains nine JSONs and
+> nine checkpoint markers at
+> `artifacts/realization-repair-7b-20260812/repaired-eu-accepted-20260813-001612`;
+> all 18 entries pass `SHA256SUMS`, whose SHA-256 is
+> `22b19bb4f37e416b43e6282046237ca2a245689d674280b1fa35a78bdf1f9770`.
 >
 > The AutoDAN strategy library itself is complete and accepted. The canonical
 > project files have SHA-256 values `79c02d...ea44` and `46b2ea...253f`, schema
@@ -35,30 +45,35 @@
 > `2b50dcb`; its full 65-test protocol module passes, and immutable-cache
 > preflight accepts the exact canonical library.
 >
-> In the latest user-supplied scheduler snapshot, the full account queue has
-> 124 jobs: nine running, 106 deliberately user-held, four pending for
-> priority, and five dependency-pending. No new terminal failure is present.
-> All nine payload-bound E&U repairs are running on one L40S/64 GiB with
-> two-hour limits: PWD/7B/Chem `4730255`--`4730257`, PWD/7B/Cyber
-> `4730317`--`4730319`, and CktBr/7B/Chem `4730320`--`4730322`. PWD/Chem
-> AutoDAN replacements `4730325`--`4730327` are correctly dependency-pending
-> behind their matching E&U jobs and are not user-held. The four priority jobs
-> are required SysPr/14B/Chem retry `4723063`, Table 3 AutoDAN pilot `4723162`,
-> and Table 3 14B/32B E&U pilot training jobs `4723194`/`4723198`; dependent
-> evaluations `4723195`/`4723199` account for the other two dependencies.
+> The latest complete user-supplied `squeue` snapshot, taken before the
+> subsequent seed-42 Table 3 repair submission, contained 113 jobs: one running,
+> 98 deliberately user-held, twelve priority-pending, and two
+> dependency-pending. The running job was required SysPr/14B/Chem retry
+> `4723063`. Nine Table 2 attacks were priority-pending: PWD/Chem
+> `4730325`--`4730327`, PWD/Cyber `4709719`/`4709891`/`4709892`, and
+> CktBr/Chem `4666404`--`4666406`. The latter six were intentionally released
+> only after their repaired E&U artifacts passed. Table 3 Bio/seed-42 AutoDAN
+> pilot `4723162` and 14B/32B E&U pilot training jobs
+> `4723194`/`4723198` accounted for the other three priority jobs; dependent
+> evaluations were `4723195`/`4723199`. After that snapshot, `4723162` was
+> deliberately held and L40S repair evaluation `4739765` was submitted. Refresh
+> live state before quoting an exact current total. No new terminal failure is
+> present.
+>
 > `4709894`
 > (SysPr/32B/Chem/seed-43) completed and passes its full artifact gate with
 > AutoDAN `75/83 = 0.9036`. `4675518` (SysPr/14B/Chem/seed-42) lost its
 > validation pass to the old cache race and then timed out at 8:00:10 during
-> its second, held-out test invocation; replacement `4723063` is pending.
+> its second, held-out test invocation; replacement `4723063` was running in
+> the latest complete queue snapshot.
 > `4675519` (SysPr/14B/Chem/seed-43) completed in 2:25:30 and the repository
 > gate reports `rob 1/1`, so it is accepted and needs no retry. `4715729` is the
 > canonical-cache replacement for failed Bio/14B/seed-44. Bio/14B/seed-43 job
 > `4675516` was cancelled; its replacement is now job `4717366`. The seed-44
-> replacement is `4715729`. The bulk Table 2 wave is now deliberately held to
-> respect scheduler ownership and limit simultaneous submissions; 69 Table 2
-> jobs are held. The other 37 held Slurm jobs are the remaining Table 3 7B E&U
-> graph (16 scientific seed chains plus shared preparation/dependency jobs).
+> replacement is `4715729`. The bulk Table 2 wave remains deliberately held to
+> respect scheduler ownership and limit simultaneous submissions; releasing the
+> six repaired-cell attacks reduces that held Table 2 set from 69 to 63 jobs.
+> Table 3 remains a bounded-tranche campaign rather than a mass release.
 > Another 72 PWD/CktBr
 > 14B/32B robustness evaluations remain intentionally unsubmitted pending final
 > checkpoint inventory/staging.
@@ -82,9 +97,15 @@
 > weights.
 > Corrected replacement training `4717326` completed in 1:31:10 and evaluation
 > `4717327` completed in 35:08, both with exit code zero. The repository status
-> gate reports `train ✓ / eff ✓`, and the full three-seed repeat plan skips both
-> Bio/seed-42 jobs. This accepts the first canonical Table 3 E&U seed and clears
-> the remaining 17-seed 7B expansion. The generated training script is from
+> gate originally accepted this result before the payload-digest extension. The
+> current checkpoint remains valid and its canonical marker hash exactly
+> matches the result, but the result provenance omits the derived
+> `checkpoint_payload_sha256` field added by `0de71b0`; current status therefore
+> correctly reports seed 42 as `train ✓ / eff ·`. This is a result-provenance
+> transition, not invalid training or evidence that the recorded metrics used
+> different weights. Job `4739765` is a forced E&U-only refresh against the
+> existing checkpoint; its plan skips preparation and training and requests one
+> L40S, 64 GiB, and 120 minutes. The generated training script is from
 > `d8c6f7a`, enables generate-and-parse, faithful OAT, LAT, and LAT-last, and
 > contains no `POSSUM_WRONG_PW_FRAC` override.
 >
@@ -96,7 +117,9 @@
 > Killarney commit `2b50dcb`; all 65 protocol tests pass in the cluster ML
 > environment. Its dry plan requested exactly
 > `--elicitations autodan`, skipped preparation/training, and validated the
-> immutable library. The first Table 3 robustness pilot is job `4723162`.
+> immutable library. The first Table 3 robustness pilot is job `4723162`; it is
+> deliberately user-held until `4739765` restores a payload-digest-bound seed-42
+> E&U result, preventing two writers from racing on the same canonical JSON.
 > The already-submitted E&U jobs `4723017`--`4723055` are
 > unaffected because they request no elicitation attack.
 > Deadline-oriented larger-tier E&U pilots are also submitted: 14B training
@@ -145,15 +168,15 @@ recovery procedures. Use this document for current decisions and job ownership.
 |---|---|---|
 | Code and tests | Payload-bound prior provenance deployed through `2b50dcb`; all 65 cluster tests pass | Tables 2/3 are AutoDAN-only. New PWD/CktBr saves and explicitly stamped legacy checkpoints bind result provenance to exact payload receipts; `eff-child` permits child-only repair without recreating archived parents. |
 | Table 2 methodology | Implemented | Task effectiveness and attack readout use forced-choice; HS/CSQA utility uses generate-and-parse; SysPr uses three seeded stochastic inference replicates. |
-| Table 2 E&U | Computation complete; nine targeted seed repairs running | PWD 7B Chem/Cyber and CktBr 7B Chem have same-recipe but different scratch/project weights for all three seeds. Their payload-bound E&U repairs are running as `4730255`--`4730257`, `4730317`--`4730319`, and `4730320`--`4730322`. CktBr 7B Cyber matches exactly and is cleared. |
-| Table 2 E&U union | Preserved snapshot at 270/324; three cells provisional | `artifacts/table-report-eu-20260811.Z59lUv` mechanically has all 270 effectiveness/utility values and 54 `Jlbrk` blanks. Preserve its manifest and SHA-256, but do not publish PWD 7B Chem/Cyber or CktBr 7B Chem until repaired. |
+| Table 2 E&U | Complete and artifact-accepted | All nine PWD 7B Chem/Cyber and CktBr 7B Chem seed repairs passed current payload-bound E&U gates. CktBr 7B Cyber matched exactly and never needed repair. No Table 2 E&U rerun remains. |
+| Table 2 E&U union | Pre-incident 270/324 snapshot preserved; repaired reporting clone pending | `artifacts/table-report-eu-20260811.Z59lUv` remains immutable evidence. Overlay the nine accepted repaired JSONs into a new root; do not mutate the old union. Robustness remains the only intentionally incomplete metric family. |
 | AutoDAN cache | Complete and accepted | The canonical library has schema-2 complete metadata, five lifelong rounds, and the full 318-row source fingerprint. Do not rebuild it. |
-| Table 2 AutoDAN | Two Chem SysPr seeds accepted; required retry active; bulk wave held; 72 larger jobs unsubmitted | `4675519` (14B/Chem/seed-43) and `4709894` (32B/Chem/seed-43) are artifact-accepted. Retry `4723063` is priority-pending. PWD/Chem replacements `4730325`--`4730327` depend on the E&U repair. The other 69 submitted Table 2 jobs are deliberately held. |
-| Table 3 RoBCoTDstl | Bio/7B seed 43 Slurm-complete; staged expansion held; AutoDAN and 14B/32B pilots active | Bio/7B seed-43 jobs `4723017`/`4723039` completed in 1:32:02/0:36:04 and await artifact-level acceptance. The other expansion jobs are deliberately held. AutoDAN-only Bio/7B/seed-42 pilot `4723162` and larger Bio/seed-42 pilot chains `4723194`/`4723195` (14B), `4723198`/`4723199` (32B) remain pending. |
+| Table 2 AutoDAN | Two Chem SysPr seeds accepted; ten attacks active/eligible; bulk wave held; 72 larger jobs unsubmitted | `4675519` (14B/Chem/seed-43) and `4709894` (32B/Chem/seed-43) are artifact-accepted. Retry `4723063` was running in the last snapshot. Nine repaired-cell attacks are priority-pending. The other 63 submitted Table 2 jobs remain held. |
+| Table 3 RoBCoTDstl | Bio/7B seeds 43/44 E&U accepted; seed-42 provenance refresh submitted; AutoDAN pilot held | Seed 42 has valid weights and metrics but its result predates payload-digest provenance; job `4739765` refreshes only E&U. AutoDAN pilot `4723162` is held until that passes. The 14B/32B Bio pilot chains remain queued, and the next Chem/7B chain remains held. |
 | Vulcan artifact migration | Sufficient for utility, incomplete for robustness | A validated PWD/32B/Chem source is now staged for the repair jobs. CktBr/32B/Cyber and CktBr/32B/MMLU-Prof still need final location/export checks, and 14B has not had a comprehensive migration audit. SysPr needs only the shared base-model cache and prompt configuration. |
 | Storage | Tight on project, adequate on scratch; Chem source protected | The last measured quotas were about 192 GiB free on project and 378 GiB free on scratch. The old-root 32B PWD/Chem family is the validated `wrong_answer_general_anchor_qwen_port_v1` source used by completed jobs `4699233`--`4699235`; retain it and the repair root until its 32B robustness work is complete and archived. Four staged 32B CktBr children also remain protected until the robustness inventory. |
 | Cluster direction | Killarney-only compute | Submit no new Vulcan work. Cancel the former 26 Vulcan retries (holding them until cancellation is verified), rerun any failures on Killarney, and retain the Vulcan artifact root only until a final read-only export of missing final 14B/32B checkpoints and canonical JSONs is verified. |
-| End-of-week schedule | Realization repair on track; combined compute deliverable remains queue-limited | The incident adds no training, nine short L40S evaluations, and only three additional expensive AutoDAN jobs. All nine short jobs are running. Full Table 2 robustness and all-tier Table 3 completion still depend on releasing/staging the larger workload and obtaining sufficient H100 throughput. |
+| End-of-week schedule | Table 2 E&U repaired; combined compute deliverable remains queue-limited | The Table 2 realization incident is closed at E&U level. Its three additional PWD/Chem attacks and six already-required repaired-cell attacks are eligible. Full Table 2 robustness and all-tier Table 3 completion still depend on H100 throughput, bounded release of held work, and staging the 72 larger attacks. |
 
 ## Current campaign ledger
 
@@ -163,27 +186,27 @@ Slurm jobs.
 
 | Workstream | Total | Accepted/covered now | Active or queued | Not submitted | Next gate |
 |---|---:|---:|---:|---:|---|
-| Table 2 E&U values | 270 | 270 populated; three 7B cells provisional | All 9 targeted seed refreshes running | 0 repair E&U jobs | Validate payload receipt, scoring metadata, and result provenance; then build a new union rather than mutating the preserved snapshot. |
-| Table 2 AutoDAN seeds | 162 | Chem/14B/SysPr seed 43 (`4675519`) and 32B seed 43 (`4709894`) accepted among prior covered slots | `4723063`; PWD/Chem dependencies `4730325`--`4730327`; 69 held Table 2 jobs | 72 larger PWD/CktBr slots | Validate repair E&U first; then let PWD/Chem dependencies run and selectively release matching held jobs rather than the entire wave. |
+| Table 2 E&U values | 270 | All 270 populated; all nine exceptional seed repairs accepted | 0 | 0 repair E&U jobs | Create a new reporting clone containing the accepted repairs and preserve the pre-incident union unchanged. |
+| Table 2 AutoDAN seeds | 162 | Chem/14B/SysPr seed 43 (`4675519`) and 32B seed 43 (`4709894`) accepted among prior covered slots | `4723063`; nine repaired-cell attacks; 63 held Table 2 jobs | 72 larger PWD/CktBr slots | Validate every new completion; release later work only in bounded tranches and only after checkpoint inventory. |
 | Table 2 robustness table cells | 54 | At least PWD/7B/MMLU-Prof now passes its complete three-seed cell gate; full table not final | Derived from the 162 accepted seed results | Not separately submitted | Regenerate the full 324-value table only when all three seeds for every cell pass. |
-| Table 3 7B E&U seeds | 18 | 1 accepted (`bio`, seed 42); Bio seed 43 Slurm-complete awaiting artifact acceptance | Remaining 16 seed chains deliberately held | 0 | Validate Bio seed 43, then release a small number of 7B chains consistent with scheduler ownership. |
+| Table 3 7B E&U seeds | 18 | Bio seeds 43/44 accepted; seed 42 valid except for pre-digest result provenance | Seed-42 refresh `4739765`; other 15 task/seed chains held | 0 | Accept `4739765`, recheck the exact three-seed Bio aggregate, release `4723162`, then release one bounded Chem seed chain. |
 | Table 3 14B/32B E&U | 36 | 0 | 2 pilot chains submitted | 34 | Bio/seed-42 pilots are queued as `4723194`/`4723195` (14B) and `4723198`/`4723199` (32B). Expand neither tier before its own pilot passes the checkpoint/result provenance gates. |
-| Table 3 RoBCoTDstl robustness | 54 seed/model/task AutoDAN evaluations | 0 | 1 pilot submitted (`4723162`) | 53 | Accept Bio/7B/seed-42 only after score/count/fingerprint/error and checkpoint/result provenance gates pass; then expand behind accepted E&U checkpoints. |
+| Table 3 RoBCoTDstl robustness | 54 seed/model/task AutoDAN evaluations | 0 | Pilot `4723162` submitted but temporarily held | 53 | Release the pilot only after seed-42 E&U is payload-digest-bound; expand only after its attack artifact passes every gate. |
 
 The realization incident adds no model training. Its total repair compute is
-all nine short E&U evaluations—now running—and three replacement
+all nine short E&U evaluations—now completed and accepted—and three replacement
 AutoDAN evaluations for PWD/7B/Chem, whose earlier attacks predate payload-bound
 provenance. PWD/7B/Cyber and CktBr/7B/Chem AutoDAN were already required and
-their held job slots can be reused after E&U repair. CktBr/7B/Cyber needs no
+their held job slots were released after E&U acceptance. CktBr/7B/Cyber needs no
 dedicated E&U repair. Thus the incident adds twelve evaluation jobs, only three
 of them expensive AutoDAN jobs, rather than a Table-2-wide rerun.
 All twelve repair evaluations are authorized to run without a long-lived user
-hold. The three PWD/7B/Chem AutoDAN replacements are submitted with exact
-per-seed `afterok` dependencies on E&U jobs `4730255`--`4730257`; this prevents
-concurrent writers to the same canonical result JSONs. PWD/Cyber jobs
+hold. The three PWD/7B/Chem AutoDAN replacements cleared their exact per-seed
+`afterok` dependencies and are priority-pending. PWD/Cyber jobs
 `4709719`/`4709891`/`4709892` and CktBr/Chem jobs
-`4666404`--`4666406` remain user-held until their corresponding E&U artifacts
-pass. This sequencing is a data-integrity dependency, not repair throttling.
+`4666404`--`4666406` were explicitly released after their corresponding E&U
+artifacts passed. This sequencing was a data-integrity dependency, not repair
+throttling.
 
 The 90-slot Table 2 coverage number is not an accepted-result count. It means
 that a logical slot has an accepted artifact, a terminal artifact awaiting
@@ -198,9 +221,12 @@ acceptance.
   seeds 42/43/44 so its aggregates have standard errors.
 - Built the reporting-only Table 2 E&U union: 270 values filled, with exactly
   the 54 robustness positions blank. Preserve it as an immutable pre-incident
-  snapshot; acceptance of PWD 7B Chem/Cyber and CktBr 7B Chem is provisional
-  pending targeted same-realization repair. CktBr 7B Cyber passed the exact
-  payload comparison and remains accepted.
+  snapshot. PWD 7B Chem/Cyber and CktBr 7B Chem now have accepted
+  same-realization replacements; CktBr 7B Cyber passed the exact payload
+  comparison and remains accepted. Build the post-repair union as a new root.
+- Archived the repaired E&U evidence as nine result JSONs plus nine checkpoint
+  markers. All 18 checksum entries validate, preserving a compact immutable
+  record before AutoDAN phase-merges into the canonical JSONs.
 - Audited the suspicious 14B SysPr, 32B SysPr MMLU, 32B PWD MMLU-Stem, and
   CktBr/14B/MMLU-HSS results. Current evidence supports real prompt/training
   behavior or seed variance rather than a known scoring/provenance error; do
@@ -242,22 +268,21 @@ acceptance.
 
 ### Work in progress
 
-- All nine short realization-repair evaluations are running. PWD/Chem jobs
-  `4730255`--`4730257`, PWD/Cyber jobs `4730317`--`4730319`, and CktBr/Chem
-  jobs `4730320`--`4730322` each use one L40S, 64 GiB, and a two-hour limit.
-  No training is running or required. PWD/Chem AutoDAN jobs
-  `4730325`--`4730327` are dependency-pending behind the corresponding E&U
-  job, so they cannot race on their canonical JSONs.
+- Ten Table 2 attacks are active or eligible in the latest handoff. Required
+  SysPr/14B/Chem retry `4723063` was running; PWD/Chem
+  `4730325`--`4730327`, PWD/Cyber `4709719`/`4709891`/`4709892`, and CktBr/Chem
+  `4666404`--`4666406` were priority-pending. The remainder of the submitted
+  Table 2 wave remains held.
 - Table 2 job `4675519` (SysPr/14B/Chem/seed-43) completed in 2:25:30
   and passes the repository's `rob 1/1` artifact gate. Job `4675518` for seed 42 lost its validation
   invocation to the old scratch builder race and then timed out at 8:00:10
   during its second held-out test invocation. The status gate reports `rob
-  0/1`; clean forced replacement `4723063` is pending.
-- The bulk Table 2 wave is deliberately user-held: 69 jobs, including
+  0/1`; clean forced replacement `4723063` was running in the latest complete
+  queue snapshot.
+- The bulk Table 2 wave is deliberately user-held: 63 jobs after the six
+  repaired-cell releases, including
   SysPr/14B/Bio replacements `4715729` and `4717366`. Do not release it as one
-  block. After the nine E&U repairs pass, release the six already-submitted
-  matching PWD/Cyber and CktBr/Chem jobs first; later releases should remain
-  small and checkpoint-inventory-aware.
+  block; later releases should remain small and checkpoint-inventory-aware.
 - Table 3 jobs `4713564`/`4713565` are terminal and invalid. Training completed
   with constructor defaults `lat_steps=100` and `lat_pgd_iterations=16` rather
   than the registry's 150/32 recipe, and the shared Slurm setup reintroduced
@@ -265,36 +290,39 @@ acceptance.
   seconds. The constructor repair was introduced at `d8c6f7a` and remains in
   current deployment `2b50dcb`. Corrected training `4717326`
   completed in 1:31:10 and evaluation `4717327` completed in 35:08. Status
-  accepts training/effectiveness, and the repeat plan skips both seed-42 jobs.
-  Bio seed-43 training/evaluation `4723017`/`4723039` also completed in
-  1:32:02/0:36:04 and now needs artifact-level acceptance. The other 16 seed
-  chains in the 7B expansion remain deliberately held.
-- AutoDAN-only Table 3 robustness pilot `4723162` is submitted for the accepted
-  Bio/7B/seed-42 checkpoint. Its plan skipped preparation/training and requested
-  exactly `--elicitations autodan` on one H100.
+  accepted training but now rejects the pre-digest result. Bio seed-43
+  training/evaluation `4723017`/`4723039` and seed-44
+  `4723018`/`4723040` are artifact-accepted for E&U. Seed-42 refresh `4739765`
+  will add the missing derived payload digest without retraining. The other 15
+  task/seed chains in the 7B expansion remain deliberately held.
+- AutoDAN-only Table 3 robustness pilot `4723162` is submitted for Bio/7B/seed
+  42 but temporarily held to prevent it racing with `4739765` on the canonical
+  JSON. Its plan skips preparation/training and requests exactly
+  `--elicitations autodan` on one H100.
 - A read-only cross-root inventory is still needed to expose every final
   14B/32B PWD/CktBr checkpoint from one Killarney execution root without
   copying obsolete parents or creating duplicate writers.
 
 ### Near-future milestones and safe parallelism
 
-1. Let the nine running E&U repairs finish. Accept each only if its identity,
-   current forced-choice/generate-parse protocols, seed, marker digest, and
-   `checkpoint_payload_sha256` match its canonical project checkpoint.
-2. PWD/Chem AutoDAN jobs `4730325`--`4730327` will become eligible
-   automatically through `afterok`. Do not manually release or duplicate them.
-   After PWD/Cyber and CktBr/Chem E&U pass, release only their existing held
-   AutoDAN jobs (`4709719`, `4709891`, `4709892`, and `4666404`--`4666406`).
-3. Validate the repaired nine seed JSONs and three PWD/Chem attacks, create a
-   new reporting union, and preserve the old 270/324 union unchanged as
-   pre-incident evidence. Regenerate the PWD/Chem checksum manifests before
-   considering deletion of the 256-GiB scratch root.
-4. Monitor required SysPr replacement `4723063` and AutoDAN-only Table 3 pilot
-   `4723162`. Each must pass the score/count/fingerprint/error and checkpoint/
-   cache-provenance gates before expansion.
-5. Validate completed Table 3 Bio/7B/seed-43 jobs `4723017`/`4723039`.
-   If accepted, release only a small next tranche of the remaining 16 held 7B
-   seed chains rather than the entire Table 3 graph.
+1. Monitor seed-42 Table 3 E&U refresh `4739765`. Its plan skips preparation
+   and training. Accept it only if Bio seeds 42/43/44 jointly report
+   `train ✓ / eff ✓` and the refreshed result contains a 64-character
+   `checkpoint_payload_sha256` matching the existing run01 marker receipt.
+2. Keep AutoDAN pilot `4723162` held while `4739765` is active. After the E&U
+   gate passes, release the pilot and then release one bounded Table 3 Chem/7B
+   seed-42 chain (`4723019`, `4723020`, `4723041`), preserving its prep ->
+   train -> eval dependency order.
+3. Monitor the ten active/eligible Table 2 attacks. Apply the full finite-score,
+   expected-count, fingerprint, diagnostics, error, cache, and exact-checkpoint
+   gates to every completion; Cyber jobs deserve particular context-overflow
+   scrutiny.
+4. Create a new repaired Table 2 E&U reporting union from the accepted nine
+   JSONs, and preserve the old 270/324 union unchanged as pre-incident evidence.
+   Do not delete the 256-GiB scratch root until the new union, original payload
+   comparison manifests, and compact 18-file repair snapshot are all retained.
+5. After the Table 3 AutoDAN pilot passes, submit or release only the matching
+   seed-43/44 Bio attacks before expanding robustness to another task.
 6. Monitor Table 3 Bio/seed-42 E&U pilot chains `4723194`/`4723195` and
    `4723198`/`4723199`. Expand neither 14B nor 32B before its own checkpoint and
    result provenance gates pass.
@@ -309,36 +337,36 @@ acceptance.
 
 ### End-of-week feasibility and critical path
 
-The scientific program and the narrow realization repair are on track: all
-nine short repair jobs are running, no retraining is required, and the only
-additional expensive work caused by the incident is three PWD/Chem AutoDAN
-jobs already dependency-submitted. The robustness estimand and immutable cache
-are fixed, Table 3 provenance/scoring defects are repaired, and both campaigns
-have explicit artifact gates. The requested combined all-tier compute
+The scientific program is on track at the artifact-integrity level: the Table 2
+realization repair is complete and accepted, no retraining was required, and
+all nine associated attacks are eligible. The Table 3 seed-42 issue is a
+single missing derived provenance field, not invalid weights or metrics, and
+requires only one short evaluation refresh. The robustness estimand and
+immutable cache are fixed, and both campaigns have explicit artifact gates.
+The requested combined all-tier compute
 deliverable is still not currently on track for this week, but that conclusion
-is driven by held/unsubmitted H100-scale work rather than this incident.
+is driven by held/unsubmitted H100-scale work rather than either narrow repair.
 
-As of Wednesday 2026-08-12:
+As of Thursday 2026-08-13:
 
-- Friday 2026-08-14 is two days away and Sunday 2026-08-16 is four days away.
-- Table 2 has nine E&U repairs running, three dependent repair attacks, 69
-  deliberately held jobs, and 72 deliberately unsubmitted larger-tier jobs
-  that still require inventory and staging. Retry `4723063` remains
-  queue-limited.
-- Table 3 has one corrected E&U seed artifact-accepted and a second
-  Slurm-complete awaiting validation; the remaining 16 7B seed chains are held.
+- Friday 2026-08-14 is one day away and Sunday 2026-08-16 is three days away.
+- Table 2 E&U is complete. Ten attacks are active/eligible, 63 other submitted
+  Table 2 jobs are held, and 72 larger-tier jobs remain unsubmitted pending
+  inventory and staging.
+- Table 3 Bio/7B seeds 43/44 are accepted, seed 42 has one short provenance
+  refresh submitted, and the remaining 15 task/seed E&U chains are held.
   Two larger-tier E&U pilots are queued with 34 seed slots not yet submitted,
-  and one AutoDAN robustness pilot is queued with 53 not yet submitted.
+  while the held AutoDAN pilot is the only submitted robustness slot and 53
+  remain unsubmitted.
 - The observed scheduler share is only a few simultaneous GPUs, and current
   released/pending jobs have already waited behind priority. Mass submission is
   necessary but does not guarantee enough aggregate GPU-hours by the deadline.
 
-A credible Friday target is: finish and validate the nine E&U repairs; begin or
-complete the three dependent PWD/Chem attacks; validate the second Table 3 7B
-seed; collect any active pilots that schedule; and prepare bounded releases of
-the already-held work. A credible Sunday stretch target adds the repaired
-PWD/Cyber and CktBr/Chem attacks, more Table 2 robustness completions, and
-measured 14B/32B Table 3 training pilots. Full Table 2
+A credible Friday target is: accept `4739765`, restore the Table 3 AutoDAN
+pilot, create the repaired Table 2 E&U reporting clone, and validate any of the
+ten active Table 2 attacks that schedule. A credible Sunday stretch target adds
+a successful Table 3 AutoDAN pilot, the bounded Chem/7B E&U chain, more Table 2
+robustness completions, and measured 14B/32B Table 3 pilots. Full Table 2
 robustness plus all-tier Table 3 E&U and all Table 3 AutoDAN robustness is
 unlikely without substantially more immediately schedulable H100 capacity or a
 deliberate reduction in scope. Do not weaken sample counts, attack budgets,
@@ -545,8 +573,8 @@ Current disposition, superseding the older wave description below:
   evaluation step as `SKIP`, so those outputs satisfy the current protocol and
   provenance gate;
 - no rerun among those 26 is required; the separate 7B Chem/Cyber realization
-  incident described under storage may require targeted E&U refreshes and does
-  not invalidate the completed 32B wave;
+  incident was closed by nine accepted targeted E&U refreshes and does not
+  invalidate the completed 32B wave;
 - the later PWD/32B/Chem storage audit created one prospective exception to the
   otherwise complete E&U inventory. Jobs `4699233`--`4699235` completed,
   passed the scoring/split/provenance checks, and now provide the authoritative
@@ -643,9 +671,9 @@ Current disposition, superseding the older wave description below:
 Scientific disposition: do not rerun the 14B SysPr jobs or any of the accepted
 26-job replacement wave. The three completed 32B Chem repair jobs are a
 provenance repair, not a response to their observed scores, and their outputs
-remain authoritative. Separately, withhold PWD 7B Chem/Cyber and CktBr 7B Chem
-from final acceptance until the demonstrated cross-root weight-identity
-incident is closed. CktBr 7B Cyber is cleared by exact payload equality.
+remain authoritative. PWD 7B Chem/Cyber and CktBr 7B Chem are now accepted on
+the precommitted project realizations after all nine replacements passed the
+payload-bound result gates. CktBr 7B Cyber is cleared by exact payload equality.
 Reconsider any other cell only if its artifact fails the declared
 result/provenance/sample-count gates or a controlled code-level diagnostic
 finds a specific implementation error.
@@ -655,10 +683,10 @@ created only after the contributing JSONs passed the artifact-level gates.
 
 ### What is running or queued
 
-No routine Table 2 E&U computation is currently queued. The completed payload
-audit requires nine targeted seed refreshes: PWD 7B Chem/Cyber and CktBr 7B
-Chem, seeds 42/43/44. CktBr 7B Cyber requires no E&U rerun. The final 32B PWD/Chem
-provenance repair completed at the Slurm level:
+No Table 2 E&U computation is currently queued or missing. The nine targeted
+PWD 7B Chem/Cyber and CktBr 7B Chem seed refreshes completed and passed the
+current artifact gate; CktBr 7B Cyber required no E&U rerun. The earlier final
+32B PWD/Chem provenance repair also completed at the Slurm level:
 
 - seed 42: `4699233`;
 - seed 43: `4699234`; and
@@ -685,7 +713,7 @@ scratch root remains unsafe and must never be executed.
 
 ### E&U accounting and union
 
-The completed reporting-only union overlays the retained effectiveness fields,
+The preserved pre-incident reporting-only union overlays the retained effectiveness fields,
 all corrected utility and seeded SysPr JSONs, the 26 targeted replacements,
 and jobs `4699233`--`4699235` for PWD/32B/Chem. Running current `tablefill`
 against it produces:
@@ -704,8 +732,10 @@ artifacts/table-report-eu-20260811.Z59lUv/EU_UNION_MANIFEST.json
 ```
 
 Preserve this root as an immutable E&U checkpoint. The next Table 2 report
-should clone it and overlay only accepted robustness results. No additional
-E&U job is known to be missing; do not submit duplicate utility work.
+should clone it, replace the nine affected seed JSONs with the accepted
+same-realization artifacts, and then overlay accepted robustness results. No
+additional E&U job is known to be missing; do not submit duplicate utility
+work.
 
 ## Table 2 AutoDAN robustness
 
@@ -738,12 +768,15 @@ provenance, and no elicitation error. Its follow-up plan skips the evaluation.
 This is the first accepted `Jlbrk` seed result and supports the expected poor-
 robustness hypothesis.
 
-### Current Killarney queue
+### Historical Killarney queue snapshots (superseded)
 
-The full `squeue`/`sacct` snapshot below is followed by a newer filtered 14B
-snapshot. The newer evidence supersedes the affected rows: `4675519` completed
-in 2:25:30 and is artifact-accepted at `rob 1/1`; replacement `4723063` is
-pending; all displayed pending 14B SysPr jobs request 96 GiB; and Bio
+This retained full `squeue`/`sacct` snapshot predates the canonical queue
+summary at the top of this document and must not be used as a current release
+list. It is followed by a newer filtered 14B snapshot. The newer evidence
+supersedes the affected rows: `4675519` completed
+in 2:25:30 and is artifact-accepted at `rob 1/1`; replacement `4723063` was
+running in the latest complete snapshot; all displayed pending 14B SysPr jobs
+request 96 GiB; and Bio
 replacements `4715729`/`4717366` now request eight hours.
 
 | State | Count | Jobs | Resources/disposition |
@@ -753,7 +786,7 @@ replacements `4715729`/`4717366` now request eight hours.
 | Released/pending | 67 | `4666399`--`4666436`, `4675520`--`4675532`, `4709719`, `4709891`, `4709892`, `4709895`--`4709907` | All show `Priority` except `4709895`, whose snapshot reason is a temporarily unavailable/down/drained/reserved compatible node. They retain their queue positions and consume the canonical cache as fail-closed readers. |
 | Released replacements | 2 | `4715729`, `4717366` | SysPr/14B/Bio seeds 44 and 43 respectively; one H100, 96 GiB, eight hours, pending for priority. |
 | Terminal and invalid/incomplete | 3 | `4675516`, `4675517`, `4675518` | Bio seeds 43/44 have replacements `4717366`/`4715729`. Chem seed 42 timed out after the old cache race consumed part of its allocation and status confirms `rob 0/1`. |
-| Required retry | 1 | `4723063` replacing `4675518` | Submitted against the canonical immutable cache at one H100, 96 GiB, and eight hours; currently pending. |
+| Required retry | 1 | `4723063` replacing `4675518` | Submitted against the canonical immutable cache at one H100, 96 GiB, and eight hours; running in the latest complete snapshot. |
 
 The same accounting contains the corrected Table 3 pilot, which is not part of
 the Table 2 count: training `4717326` completed in 1:31:10 on one L40S and
@@ -907,7 +940,7 @@ The stable accounting is by logical seed slot, not by raw Slurm job count,
 because failed jobs and replacements share one scientific slot. Three expansion
 pilots are accepted and the new 32B/Chem/SysPr seed-43 result is artifact-
 accepted. Both Bio replacements are present. Chem seed 42 timed out, status
-reported `rob 0/1`, and forced retry `4723063` is pending. Job `4675519` is
+reported `rob 0/1`, and forced retry `4723063` was later observed running. Job `4675519` is
 artifact-accepted. Seventy-two
 larger PWD/CktBr slots remain unsubmitted. Refresh
 `squeue`/`sacct` before making any scheduling decision.
@@ -963,8 +996,8 @@ is:
 The three accepted expansion pilots are PWD/7B/Bio/seed-42 (`4652099`),
 SysPr/14B/Bio/seed-42 (`4666342`), and SysPr/32B/Bio/seed-42 (`4666363`).
 Other completed logical slots passed their contemporaneous result gates, but
-PWD/7B/Chem is now provisional because the payload audit found different
-weights and its three replacement jobs are running. The 90-slot coverage count
+the old PWD/7B/Chem attacks predate the selected project realization and are
+being replaced by priority-pending jobs `4730325`--`4730327`. The 90-slot coverage count
 includes the Cyber slots whose
 original jobs and replacements failed, the 17 post-pilot 32B SysPr slots now
 split into three completed and 14 incomplete results, and the original 55-job
@@ -1389,8 +1422,8 @@ merged base-model weights per seed.
 
 Killarney is the only authoritative compute cluster. The 26-job utility wave
 and the three-job 32B Chem repair are complete and incorporated into the saved
-E&U union. That union is immutable incident evidence; three aggregate cells
-remain provisional. All nine exceptional E&U repairs are running:
+E&U union. That union is immutable incident evidence whose three affected cells
+are superseded. All nine exceptional E&U repairs completed and passed:
 PWD/7B/Chem `4730255`--`4730257`, PWD/7B/Cyber
 `4730317`--`4730319`, and CktBr/7B/Chem `4730320`--`4730322`.
 Their project checkpoints are payload-receipted. CktBr/7B/Cyber matched the
@@ -1403,11 +1436,12 @@ The old Killarney Table 3 graph `4637151`--`4637283` is terminal and absent from
 the queue. Preserve its logs as diagnostics but never aggregate its artifacts.
 The clean pilot `4669018`--`4669020` is Slurm-complete but must not be
 aggregated or used to expand the matrix because it predates the receipt
-contract. The latest supplied queue contains 124 jobs across both campaigns:
-nine running, 106 intentionally user-held, four pending for priority, and five
-pending on dependencies. Corrected Table 3 jobs `4717326` and `4717327` are
-accepted, and Bio/7B/seed-43 jobs `4723017`/`4723039` are Slurm-complete pending
-artifact validation. Query live state before acting.
+contract. The latest complete supplied queue snapshot contained 113 jobs: one
+running, 98 held, twelve priority-pending, and two dependency-pending. It
+predates two subsequent actions: Table 3 AutoDAN pilot `4723162` was held, and
+seed-42 E&U refresh `4739765` was submitted. Bio/7B seeds 43 and 44 are
+artifact-accepted; seed 42 awaits only this payload-digest result refresh.
+Query live state before acting or quoting a new total.
 
 Killarney job scripts execute the shared checkout when their allocation starts.
 The replacement jobs were submitted from a checkout containing `9baadce` and
@@ -1430,9 +1464,9 @@ reporting clone that replaces any affected E&U JSONs with evaluations bound to
 the chosen canonical weights, then overlay accepted robustness JSONs.
 
 No routine Table 2 E&U job is missing. The only newly open E&U work is the
-targeted nine-seed PWD Chem/Cyber and CktBr Chem realization repair. Do not rerun 14B SysPr, do
-not duplicate the completed 26-job wave, and do not execute the broad 102-job
-dry plan from the partial scratch root.
+single Table 3 Bio/7B/seed-42 result-provenance refresh `4739765`. Do not rerun
+14B SysPr, do not duplicate the completed 26-job wave or nine-seed repair, and
+do not execute the broad 102-job dry plan from the partial scratch root.
 
 ### 3. Accept and expand AutoDAN on Killarney
 
@@ -1441,10 +1475,11 @@ validated 32B/128-GiB host-memory request automatic, and pushed commit
 `5b9fae2` makes the accepted AutoDAN cache immutable and fail-closed for future
 mass submissions. Commit `d8c6f7a` also enforces the same behavior for the
 legacy forced-choice scripts. The latest snapshot has accepted `4709894`,
-timed-out `4675518`, replacement `4723063` priority-pending, and accepted
-`4675519`. The other 69 submitted Table 2 jobs, including Bio replacements
+timed-out `4675518`, replacement `4723063` running, and accepted `4675519`.
+Sixty-three other submitted Table 2 jobs, including Bio replacements
 `4715729`/`4717366`, are deliberately user-held. PWD/Chem repair attacks
-`4730325`--`4730327` are dependency-pending behind their matching E&U jobs.
+`4730325`--`4730327`, PWD/Cyber `4709719`/`4709891`/`4709892`, and CktBr/Chem
+`4666404`--`4666406` are released and priority-pending.
 Each completion must show a finite
 AutoDAN score, expected positive test count, nonempty fingerprint, no
 `elicitation_errors.autodan`, matching cache/checkpoint provenance, and a
@@ -1528,7 +1563,7 @@ field is expected for this pre-patch success and does not invalidate it. The
 new pilot under `9baadce` must contain diagnostics and clear the old AutoDAN
 error. This validation is read-only.
 
-### 4. Expand Table 3 from the accepted canonical replacement
+### 4. Expand Table 3 from payload-bound canonical checkpoints
 
 The remaining 17 Table 3 7B E&U seeds have been submitted. The canonical
 42/43/44 checkpoint slots, exact `obfcot` recipe/payload/result-provenance gate,
@@ -1537,10 +1572,14 @@ implementation passes its full 65-test Killarney regression suite. Jobs
 `4713564`/`4713565` are terminal and
 invalid: the receipt proves training used 100/16 LAT defaults and inherited a
 Table-2-only override. Neither those weights nor the old unsuffixed pilot can
-be promoted. Corrected training `4717326` and evaluation `4717327` pass the
-current status gate. Bio seed-43 jobs `4723017`/`4723039` are Slurm-complete
-and await artifact acceptance. The other 16 seed chains are intentionally
-held; release them in small tranches after validation rather than as one graph.
+be promoted. Corrected seed-42 checkpoint `4717326` passes the current training
+gate. Evaluation `4717327` has valid current scoring, identity, metrics, marker
+hash, and checkpoint receipt, but its result provenance predates `0de71b0` and
+therefore lacks only the derived payload digest. Forced evaluation refresh
+`4739765` is submitted with preparation and training skipped. Bio seed-43 jobs
+`4723017`/`4723039` and seed-44 jobs `4723018`/`4723040` are accepted. The other
+15 task/seed chains are intentionally held; release them in small tranches
+after the exact three-seed Bio gate passes rather than as one graph.
 
 The checkout and launch gates are satisfied: Killarney is deployed through
 `2b50dcb`, the
@@ -1549,9 +1588,9 @@ was quarantined, and the generated script contains the required five exports
 with no `POSSUM_WRONG_PW_FRAC`. The status and repeat-plan checks accept the
 resulting marker/checkpoint/result tuple.
 
-The canonical 7B pilot has passed. Deadline-oriented 14B and 32B Bio/seed-42
-training pilots are already pending, with the following requested training
-GPU counts:
+The canonical seed-42 weights have passed, while the result-provenance refresh
+is pending. Deadline-oriented 14B and 32B Bio/seed-42 training pilots are
+already pending, with the following requested training GPU counts:
 
 ```bash
 export POSSUM_TRAIN_GPUS_14B=2

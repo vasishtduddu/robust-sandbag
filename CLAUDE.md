@@ -44,6 +44,7 @@ HYPERPARAMETERS.toml     scoped per-(organism, model, dataset) defaults
 - Eval mode + faithfulness: prior-baseline task training/effectiveness and attack readout use the released forced-choice MCQA protocol (`POSSUM_GENPARSE=0`). Table 2 utility independently uses `POSSUM_UTILITY_SCORING=generate_parse` so HS/CSQA match Table 3. Record both modes and never compare a metric across different readouts (`core.md`).
 - `checkpoints/`, `results/`, `datasets/`, `experiments/slurm/` are gitignored; `.claude/` is ignored except the tracked `.claude/rules/`.
 - Reuse existing helpers (`utils/`, the organism and elicitation base classes) before writing new code; match the style of the file you edit. Batch independent tool calls and runs.
+- After verified repository changes requested by the user, stage and commit only the scoped tracked files unless the user explicitly says not to commit. Never push unless the user explicitly requests it. Preserve and exclude unrelated dirty or untracked files.
 
 ## Rule map (path-scoped; each loads when you read a matching file)
 

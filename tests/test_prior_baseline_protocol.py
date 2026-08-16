@@ -1546,6 +1546,124 @@ class PriorBaselineProtocolTests(unittest.TestCase):
             [0.48, 0.79],
         )
 
+    def test_tablefill_overlays_only_matching_autodan_phase(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            results_root = Path(tmp) / "attack" / "results" / "json"
+            results_root.mkdir(parents=True)
+            result_name = naming.result_json_name(
+                "pwd", "qwen2.5-7b-it", ("bio",), 42
+            )
+            provenance_stamp = {
+                "marker_sha256": "a" * 64,
+                "checkpoint_payload_sha256": "b" * 64,
+            }
+            base = {
+                "evaluation_schema_version": naming.EVALUATION_SCHEMA_VERSION,
+                "mcq_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "utility_scoring_protocol": naming.PRIOR_UTILITY_SCORING_PROTOCOL,
+                "utility_split_seed": naming.PRIOR_UTILITY_SPLIT_SEED,
+                "model_org": "pwd",
+                "model": "qwen2.5-7b-it",
+                "dataset": "bio",
+                "seed": 42,
+                "test_task_nopw_acc": 0.1,
+                "test_hs_mo_acc": 0.8,
+                "checkpoint_provenance": provenance_stamp,
+            }
+            candidate = dict(base)
+            candidate.update({
+                # These incidental phase-evaluation values must never replace
+                # the accepted reporting-root E&U values.
+                "test_task_nopw_acc": 0.9,
+                "test_hs_mo_acc": 0.2,
+                "test_elicitations": {"autodan": 0.75},
+                "test_elicitation_n": {"autodan": 256},
+                "test_elicitation_sample_fingerprint": {
+                    "autodan": "bio-rows-v1"
+                },
+                "test_elicitation_diagnostics": {
+                    "autodan": {"overflow_events": 0}
+                },
+                "elicitation_errors": {},
+            })
+            (results_root / result_name).write_text(json.dumps(candidate))
+
+            with patch.object(
+                tablefill, "ATTACK_RESULTS_JSON_ROOTS", (results_root,)
+            ):
+                merged = tablefill._overlay_autodan(
+                    base,
+                    "pwd",
+                    "qwen2.5-7b-it",
+                    ("bio",),
+                    42,
+                    result_name,
+                )
+
+            self.assertEqual(merged["test_task_nopw_acc"], 0.1)
+            self.assertEqual(merged["test_hs_mo_acc"], 0.8)
+            self.assertEqual(naming.metric_rob_jlbrk(merged, "bio"), 0.75)
+            self.assertNotIn("test_elicitations", base)
+
+            candidate["checkpoint_provenance"] = {
+                "marker_sha256": "c" * 64
+            }
+            (results_root / result_name).write_text(json.dumps(candidate))
+            with patch.object(
+                tablefill, "ATTACK_RESULTS_JSON_ROOTS", (results_root,)
+            ):
+                rejected = tablefill._overlay_autodan(
+                    base,
+                    "pwd",
+                    "qwen2.5-7b-it",
+                    ("bio",),
+                    42,
+                    result_name,
+                )
+            self.assertIs(rejected, base)
+
+    def test_tablefill_rejects_conflicting_valid_autodan_overlays(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            roots = [Path(tmp) / name / "results" / "json" for name in ("a", "b")]
+            for root in roots:
+                root.mkdir(parents=True)
+            result_name = naming.result_json_name(
+                "pwd", "qwen2.5-7b-it", ("bio",), 42
+            )
+            base = {
+                "evaluation_schema_version": naming.EVALUATION_SCHEMA_VERSION,
+                "mcq_scoring_protocol": naming.FORCED_CHOICE_PROTOCOL,
+                "utility_scoring_protocol": naming.PRIOR_UTILITY_SCORING_PROTOCOL,
+                "utility_split_seed": naming.PRIOR_UTILITY_SPLIT_SEED,
+                "model_org": "pwd",
+                "model": "qwen2.5-7b-it",
+                "dataset": "bio",
+                "seed": 42,
+                "checkpoint_provenance": {"marker_sha256": "a" * 64},
+            }
+            for root, score in zip(roots, (0.6, 0.7)):
+                candidate = dict(base)
+                candidate.update({
+                    "test_elicitations": {"autodan": score},
+                    "test_elicitation_n": {"autodan": 256},
+                    "test_elicitation_sample_fingerprint": {
+                        "autodan": "bio-rows-v1"
+                    },
+                })
+                (root / result_name).write_text(json.dumps(candidate))
+
+            with patch.object(
+                tablefill, "ATTACK_RESULTS_JSON_ROOTS", tuple(roots)
+            ), self.assertRaisesRegex(RuntimeError, "Conflicting valid AutoDAN"):
+                tablefill._overlay_autodan(
+                    base,
+                    "pwd",
+                    "qwen2.5-7b-it",
+                    ("bio",),
+                    42,
+                    result_name,
+                )
+
     def test_full_attack_phase_is_not_complete_without_sample_counts(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = Path(tmp) / "result.json"

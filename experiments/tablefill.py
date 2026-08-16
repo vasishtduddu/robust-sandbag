@@ -10,11 +10,14 @@ listed in the printed gap summary (see GAPS.md).
 
     python -m experiments.tablefill --table all
     python -m experiments.tablefill --table bkdrcot
+    python -m experiments.tablefill --table prior --artifact-root REPORT_ROOT \
+        --attack-artifact-root EXECUTION_ROOT
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 from pathlib import Path
@@ -30,6 +33,8 @@ ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", ROOT)).expanduser().resolve()
 RESULTS_JSON_ROOT = ARTIFACT_ROOT / "results" / "json"
 OUT_DIR = ARTIFACT_ROOT / "tables"
+ATTACK_RESULTS_JSON_ROOTS: tuple[Path, ...] = ()
+ATTACK_OVERLAY_SOURCES: dict[str, str] = {}
 
 _HALVES = [
     ("WMDP-Bio", "WMDP-Chem", "WMDP-Cyber"),   # first three columns
@@ -100,6 +105,185 @@ def _valid_blob(
     return True
 
 
+def _current_protocol_identity(
+    blob: dict,
+    org: str,
+    model: str,
+    datasets,
+    seed: int,
+) -> bool:
+    """Validate a metric-overlay candidate without trusting its filesystem.
+
+    The base reporting result is validated against its checkpoint below. An
+    overlay candidate may live in a different execution root, so exact equality
+    with the base result's checkpoint-provenance stamp binds it to the already
+    validated checkpoint without copying weights into the reporting root.
+    """
+    if (
+        blob.get("evaluation_schema_version") != naming.EVALUATION_SCHEMA_VERSION
+        or not provenance.result_identity_matches(
+            blob,
+            result_org=org,
+            model=model,
+            datasets=datasets,
+            seed=seed,
+        )
+    ):
+        return False
+    if org in naming.PRIOR_TABLE_ORGANISMS:
+        if (
+            blob.get("mcq_scoring_protocol") != naming.FORCED_CHOICE_PROTOCOL
+            or blob.get("utility_scoring_protocol")
+            not in naming.SUPPORTED_UTILITY_SCORING_PROTOCOLS
+            or blob.get("utility_split_seed") != naming.PRIOR_UTILITY_SPLIT_SEED
+        ):
+            return False
+    elif org in naming.TABLE3_ORGANISMS:
+        if not naming.current_scoring_protocol(blob, org):
+            return False
+    if org == "sysprompt" and not naming.current_sysprompt_inference(blob):
+        return False
+    return True
+
+
+def _autodan_overlay_payload(blob: dict) -> dict:
+    """Return only AutoDAN phase fields from one result JSON."""
+    payload: dict = {}
+    for key, value in blob.items():
+        if not isinstance(value, dict) or "autodan" not in value:
+            continue
+        if (
+            _is_elic_metric_key(key)
+            or _is_elic_count_key(key)
+            or key == "elicitation_errors"
+            or key.startswith("elicitation_errors_")
+        ):
+            payload[key] = {"autodan": copy.deepcopy(value["autodan"])}
+    if "sysprompt_jailbreak_protocol" in blob:
+        payload["sysprompt_jailbreak_protocol"] = blob[
+            "sysprompt_jailbreak_protocol"
+        ]
+    return payload
+
+
+def _is_elic_metric_key(key: str) -> bool:
+    return (
+        key in {"elicitations", "val_elicitations", "test_elicitations"}
+        or key.startswith(
+            ("elicitations_", "val_elicitations_", "test_elicitations_")
+        )
+    )
+
+
+def _is_elic_count_key(key: str) -> bool:
+    return key in {
+        "val_elicitation_n",
+        "test_elicitation_n",
+        "test_elicitation_sample_fingerprint",
+        "val_elicitation_diagnostics",
+        "test_elicitation_diagnostics",
+    } or key.startswith(
+        (
+            "val_elicitation_n_",
+            "test_elicitation_n_",
+            "test_elicitation_sample_fingerprint_",
+            "val_elicitation_diagnostics_",
+            "test_elicitation_diagnostics_",
+        )
+    )
+
+
+def _overlay_autodan(
+    base: dict,
+    org: str,
+    model: str,
+    datasets,
+    seed: int,
+    result_name: str,
+) -> dict:
+    """Overlay one validated AutoDAN phase without changing base E&U fields."""
+    if not ATTACK_RESULTS_JSON_ROOTS:
+        return base
+
+    valid: list[tuple[Path, dict, tuple]] = []
+    for results_root in ATTACK_RESULTS_JSON_ROOTS:
+        path = results_root / result_name
+        try:
+            candidate = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if (
+            not _current_protocol_identity(candidate, org, model, datasets, seed)
+            or candidate.get("checkpoint_provenance")
+            != base.get("checkpoint_provenance")
+            or any(
+                naming.metric_rob_jlbrk(candidate, dataset) is None
+                for dataset in datasets
+            )
+        ):
+            continue
+        signature = tuple(
+            (
+                dataset,
+                naming.get_elicitations(candidate, dataset).get("autodan"),
+                naming.get_elicitation_counts(candidate, dataset).get("autodan"),
+                naming.get_elicitation_sample_fingerprints(candidate, dataset).get(
+                    "autodan"
+                ),
+            )
+            for dataset in datasets
+        )
+        valid.append((path, candidate, signature))
+
+    if not valid:
+        return base
+    signatures = {item[2] for item in valid}
+    base_signature = None
+    if all(
+        naming.metric_rob_jlbrk(base, dataset) is not None
+        for dataset in datasets
+    ):
+        base_signature = tuple(
+            (
+                dataset,
+                naming.get_elicitations(base, dataset).get("autodan"),
+                naming.get_elicitation_counts(base, dataset).get("autodan"),
+                naming.get_elicitation_sample_fingerprints(base, dataset).get(
+                    "autodan"
+                ),
+            )
+            for dataset in datasets
+        )
+        signatures.add(base_signature)
+    if len(signatures) != 1:
+        sources = ", ".join(str(item[0]) for item in valid)
+        raise RuntimeError(
+            "Conflicting valid AutoDAN overlays for "
+            f"{org}/{model}/{'_'.join(datasets)}/seed{seed}: {sources}"
+        )
+    if base_signature is not None:
+        return base
+
+    chosen = valid[0][1]
+    ATTACK_OVERLAY_SOURCES[result_name] = str(valid[0][0])
+    merged = copy.deepcopy(base)
+    for key, value in merged.items():
+        if isinstance(value, dict) and (
+            key == "elicitation_errors" or key.startswith("elicitation_errors_")
+        ):
+            value.pop("autodan", None)
+    for key, value in _autodan_overlay_payload(chosen).items():
+        if isinstance(value, dict):
+            current = merged.get(key)
+            if not isinstance(current, dict):
+                current = {}
+                merged[key] = current
+            current.update(value)
+        else:
+            merged[key] = value
+    return merged
+
+
 def load_results(org: str, model: str, datasets) -> list[dict]:
     """All (valid) seed result blobs for one (organism, model, datasets) checkpoint."""
     base = naming.ckpt_dirname(org, model, datasets)
@@ -157,7 +341,16 @@ def load_results(org: str, model: str, datasets) -> list[dict]:
                 checkpoint=checkpoint,
             ):
                 return []
-            blobs.append(blob)
+            blobs.append(
+                _overlay_autodan(
+                    blob,
+                    org,
+                    model,
+                    datasets,
+                    seed,
+                    path.name,
+                )
+            )
         return blobs
 
     blobs: list[dict] = []
@@ -498,7 +691,7 @@ def _count_cells(text: str) -> tuple[int, int, int]:
 
 
 def main() -> None:
-    global ARTIFACT_ROOT, RESULTS_JSON_ROOT
+    global ARTIFACT_ROOT, RESULTS_JSON_ROOT, ATTACK_RESULTS_JSON_ROOTS
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--table", default="all",
@@ -507,16 +700,32 @@ def main() -> None:
                     help="Root containing results/json (defaults to the repository).")
     ap.add_argument("--out_dir", default=None,
                     help="Output directory (default: ARTIFACT_ROOT/tables).")
+    ap.add_argument(
+        "--attack-artifact-root",
+        action="append",
+        default=[],
+        help=(
+            "Optional execution root containing newer AutoDAN phase fields. "
+            "May be repeated. E&U always comes from --artifact-root; an attack "
+            "is overlaid only when identity, protocol, seed, integrity fields, "
+            "and exact checkpoint provenance match the base result."
+        ),
+    )
     args = ap.parse_args()
 
     artifact_root = Path(args.artifact_root).expanduser().resolve()
     ARTIFACT_ROOT = artifact_root
     RESULTS_JSON_ROOT = artifact_root / "results" / "json"
+    ATTACK_RESULTS_JSON_ROOTS = tuple(
+        Path(root).expanduser().resolve() / "results" / "json"
+        for root in args.attack_artifact_root
+    )
     out_dir = Path(args.out_dir).expanduser().resolve() if args.out_dir else artifact_root / "tables"
     out_dir.mkdir(parents=True, exist_ok=True)
     tables = ["prior", "ours", "bkdrcot", "scale"] if args.table == "all" else [args.table]
 
     for table in tables:
+        ATTACK_OVERLAY_SOURCES.clear()
         text = _RENDERERS[table]()
         path = out_dir / _FILENAMES[table]
         path.write_text(text)
@@ -529,6 +738,11 @@ def main() -> None:
         if na:
             msg += f", {na} n/a (unimplemented)"
         print(msg)
+        if ATTACK_RESULTS_JSON_ROOTS:
+            print(
+                "[tablefill] validated AutoDAN overlays: "
+                f"{len(ATTACK_OVERLAY_SOURCES)} seed result(s)"
+            )
     if any(t in ("bkdrcot", "all") for t in [args.table]):
         print(f"[tablefill] unimplemented techniques: "
               f"{', '.join(naming.MISSING_TECHNIQUES)} (see GAPS.md)")

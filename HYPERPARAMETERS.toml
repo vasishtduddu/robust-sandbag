@@ -252,12 +252,13 @@ oat_batch_size           = 1   # bs>1 OOMs the OAT forwards; std is decoupled vi
 # Add confirmed working configs here with a date comment.
 # ---------------------------------------------------------------------------
 
-# Cyber CoT distillation OOMs Stage B at bs=4 on 80GB H100 (cyber's distilled jsonl
-# is ~20MB, the largest); bs=2 + grad_accum=2 halves the activation peak and keeps
-# the effective batch at 4 (no objective change, full data/max_length). (2026-06-14)
+# Cyber CoT distillation contains rare long prompts. Stage B OOMed at bs=2 on
+# both a 44.39-GiB L40S and a 79.18-GiB H100. bs=1 + grad_accum=4 reduces peak
+# activation memory while preserving the existing effective batch of 4, full
+# data, and untruncated sequence lengths. (2026-08-15)
 [obfcot."qwen2.5-7b-it".cyber]
-batch_size       = 2
-grad_accum_steps = 2
+batch_size       = 1
+grad_accum_steps = 4
 
 [distcot."qwen2.5-7b-it".cyber]
 batch_size       = 2

@@ -3,8 +3,9 @@
 > Canonical snapshot: 2026-08-16, after construction of the post-repair Table 2
 > reporting clone, generation and audit of the current partial Tables 2 and 3,
 > acceptance of PWD/7B/Chem AutoDAN seeds 42/43, acceptance of RoBCoTDstl
-> 7B/Cyber E&U seed 42, and release of its existing seed-43 chain as the next
-> bounded feasibility check. Scheduler state changes continuously; query
+> 7B/Cyber E&U seed 42, diagnosis of the seed-43 batch-one L40S OOM, and
+> submission of its scientifically equivalent H100 replacement chain
+> `4832960` -> `4832961`. Scheduler state changes continuously; query
 > `squeue` and `sacct` again before cancelling, releasing, replacing, or
 > resizing a job.
 >
@@ -90,8 +91,16 @@
 > adapter with the exact recipe and Cyber-only batch-one/accumulation-four
 > settings. The result passes both generate-and-parse scoring gates and reports
 > `w/=0/399`, `w/o=242/399 = 60.65%`, HS `5473/6695 = 81.75%`, and CSQA
-> `607/814 = 74.57%`. Existing seed-43 L40S jobs `4723025` -> `4723045` are
-> priority/dependency-pending; seed-44 jobs `4723026`/`4723046` remain held.
+> `607/814 = 74.57%`. Seed-43 L40S training `4723025` failed after 2:58 at
+> Stage B step 286/21,504 while `logits.float()` requested another 1.58 GiB;
+> only 527 MiB remained on the 44.39-GiB device. Its dependent evaluation
+> `4723045` was cancelled. This establishes that Cyber batch-one training is
+> not a safe L40S workload. Its log and script are archived under
+> `diagnostics/job-4723025`. H100 replacements `4832960`/`4832961` were
+> submitted with the same data, seed, recipe, microbatch, effective batch, and
+> scoring protocol; the evaluation request is two hours. Verify their live
+> `gres/gpu:h100:1` request before relying on the replacement. Seed-44 L40S jobs
+> `4723026`/`4723046` remain held but are now obsolete and must not be released.
 >
 > One controlled reproducibility check remains before accepting a Cyber
 > three-seed aggregate. The H100 seed-42 evaluation's base utility is HS
@@ -99,25 +108,28 @@
 > `586/814 = 0.7199017199017199`, differing by only +4/-3 correct examples from
 > the invariant L40S Bio/Chem base readout. This is consistent with a small
 > BF16 hardware-path numerical difference, not evidence against the checkpoint,
-> but the final seed aggregate should use one evaluation hardware path. Compare
-> the seed-43 L40S base values when it finishes. If they exactly match seed 42,
-> proceed; if they match the earlier L40S invariant, archive the accepted H100
-> JSON and rerun only seed-42 evaluation on L40S; if a third base value appears,
-> pause seed 44 and diagnose evaluator reproducibility.
+> but the final seed aggregate should use one evaluation hardware path. The
+> replacement plan now standardizes Cyber seeds 42/43, and later seed 44, on
+> H100. Compare seed 43's base values with seed 42 after `4832961` finishes. If
+> they match, submit seed 44 on H100; if they differ, pause and diagnose
+> evaluator reproducibility before completing the roster.
 >
 > The Bio/7B/seed-42 AutoDAN pilot `4723162` is released and priority-pending now
 > that the E&U provenance refresh is accepted. The 14B Bio seed-42 chain
 > `4723194`/`4723195` and 32B chain `4723198`/`4723199` remain queued; expand
 > neither tier before its own payload/result gate passes.
 >
-> The latest supplied `killarney.txt` snapshot contains 100 jobs, all pending:
+> The latest full `killarney.txt` snapshot contains 100 jobs, all pending:
 > 86 deliberately held, eleven priority-pending, and three dependency-pending.
 > The eleven priority jobs are the seven Table 2 attacks, Table 3 AutoDAN pilot
 > `4723162`, Table 3 14B/32B training pilots `4723194`/`4723198`, and Cyber
 > seed-43 training `4723025`. The three dependency jobs are `4723195`,
-> `4723199`, and Cyber seed-43 evaluation `4723045`. The latest `sacct` also
-> records the four newly accepted completions above and no new failure. This is
-> a point-in-time snapshot, not authority to duplicate or mass-release work.
+> `4723199`, and Cyber seed-43 evaluation `4723045`. Subsequent accounting
+> supersedes those two Cyber entries: `4723025` failed, `4723045` was cancelled,
+> and replacement jobs `4832960`/`4832961` were submitted. No post-submission
+> `squeue` was supplied, so the exact current queue totals and H100 GRES remain
+> to be re-queried. This is a point-in-time snapshot, not authority to duplicate
+> or mass-release work.
 >
 > Killarney remains the sole compute target; submit no Vulcan compute. Commit
 > `1ce1eae` adds provenance-safe attack overlays and current-table reporting, and
@@ -155,13 +167,13 @@ recovery procedures. Use this document for current decisions and job ownership.
 | Table 2 E&U union | Pre-incident snapshot preserved; post-repair reporting clone complete | `artifacts/table-report-eu-20260811.Z59lUv` remains immutable evidence. `/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf` replaces exactly the nine accepted repair JSONs, records a manifest, and is now the current E&U reporting base. Neither reporting root is an execution root. |
 | AutoDAN cache | Complete and accepted | The canonical library has schema-2 complete metadata, five lifelong rounds, and the full 318-row source fingerprint. Do not rebuild it. |
 | Table 2 AutoDAN | 20 valid seed results, four complete reportable cells, five partial cells; seven attacks priority-pending | The saved Table 2 safely emits PWD/7B/Bio, PWD/7B/MMLU-Prof, PWD/7B/MMLU-Stem, and SysPr/32B/Bio robustness. Eight valid seeds in five incomplete cells, now including PWD/7B/Chem seeds 42/43, remain suppressed. Another 63 submitted jobs are held and 72 larger PWD/CktBr jobs remain unsubmitted behind checkpoint inventory. |
-| Table 3 RoBCoTDstl 7B E&U | Bio and Chem complete; Cyber seed 42 accepted and seed 43 queued | Seven result seeds pass exact recipe, payload, scoring, and dataset gates. `tablefill` still emits only the ten values for the two complete cells. Cyber seed 42 completed on H100 with the scientifically equivalent microbatch-one recipe; seed-43 L40S jobs `4723025`/`4723045` are the controlled feasibility and base-readout comparison, while seed 44 remains held. |
+| Table 3 RoBCoTDstl 7B E&U | Bio and Chem complete; Cyber seed 42 accepted and seed-43 H100 replacement submitted | Seven result seeds pass exact recipe, payload, scoring, and dataset gates. `tablefill` still emits only the ten values for the two complete cells. Seed-43 L40S training `4723025` OOMed even at microbatch one and evaluation `4723045` was cancelled. Scientifically equivalent H100 replacements `4832960`/`4832961` are submitted. The held seed-44 L40S chain is obsolete and must be replaced by H100 only after seed 43 passes. |
 | Table 3 RoBCoTDstl robustness | Bio/7B seed-42 pilot released and priority-pending | Job `4723162` may run because the canonical E&U result is now payload-bound. Submit Bio seeds 43/44 only after the pilot has the full 256-row AutoDAN result, fingerprint, diagnostics, null error, and matching checkpoint provenance. |
 | Table 3 larger tiers | 14B/32B Bio seed-42 E&U pilots queued | Training `4723194`/`4723198` is priority-pending; evaluation `4723195`/`4723199` is dependency-pending. Expand each tier independently only after its own adapter payload and result pass. |
 | Vulcan artifact migration | Sufficient for utility, incomplete for robustness | A validated PWD/32B/Chem source is now staged for the repair jobs. CktBr/32B/Cyber and CktBr/32B/MMLU-Prof still need final location/export checks, and 14B has not had a comprehensive migration audit. SysPr needs only the shared base-model cache and prompt configuration. |
 | Storage | Adequate for bounded current work; protected sources remain | The latest reported free space is approximately 631 GiB on project and 369 GiB on scratch. Retain the old-root 32B PWD/Chem family, its repair root, and the four staged 32B CktBr children until the larger robustness inventory and archive are complete. Continue adapter-only Table 3 saves. |
 | Cluster direction | Killarney-only compute | Submit no new Vulcan work. Cancel the former 26 Vulcan retries (holding them until cancellation is verified), rerun any failures on Killarney, and retain the Vulcan artifact root only until a final read-only export of missing final 14B/32B checkpoints and canonical JSONs is verified. |
-| Schedule | Current partial tables are scientifically reportable; combined final deliverable remains queue-limited | Table 2 has 274/324 values and Table 3 has 10/432 values. The latest supplied queue snapshot has no running jobs. Full Table 2 robustness and all-tier Table 3 completion still depend on H100 throughput, bounded release of held work, and staging the 72 larger Table 2 attacks. |
+| Schedule | Current partial tables are scientifically reportable; combined final deliverable remains queue-limited | Table 2 has 274/324 values and Table 3 has 10/432 values. The last full snapshot had no running jobs; later accounting records the seed-43 L40S failure and H100 replacement submission, but no replacement `squeue` state was supplied. Full Table 2 robustness and all-tier Table 3 completion still depend on H100 throughput, bounded release of held work, and staging the 72 larger Table 2 attacks. |
 
 ## Current campaign ledger
 
@@ -174,7 +186,7 @@ Slurm jobs.
 | Table 2 E&U values | 270 | All 270 populated; all nine exceptional seed repairs accepted and incorporated into the post-repair clone | 0 | 0 repair E&U jobs | Preserve both the pre-incident evidence root and current post-repair reporting root; use only the latter for new reports. |
 | Table 2 AutoDAN seeds | 162 | 20 artifact-accepted; 90 logical slots covered by an accepted artifact or live submission | Seven priority-pending attacks plus 63 held Table 2 jobs | 72 larger PWD/CktBr slots | Validate each completion; never confuse the 90-slot coverage count with 20 accepted results. Release later work only in bounded tranches and submit larger work only after checkpoint inventory. |
 | Table 2 robustness table cells | 54 | 4 complete and reportable; 5 more partial | Seven priority-pending attacks plus 63 held jobs contribute to remaining cells | 72 seed jobs, not cells, unsubmitted | PWD/7B/Chem seed 44 is the nearest new complete cell. Regenerate after accepted bounded tranches and emit a cell only when exact seeds 42/43/44 all pass. |
-| Table 3 7B E&U seeds | 18 | 7 accepted: complete Bio/Chem rosters plus Cyber seed 42 | Cyber seed-43 L40S chain queued; remaining 10 seed chains held | 0 | Compare seed-43 base utility with seed 42 and the prior L40S invariant, then either proceed to held seed 44 or standardize seed-42 evaluation hardware first. Continue one task-sized bounded tranche at a time. |
+| Table 3 7B E&U seeds | 18 | 7 accepted: complete Bio/Chem rosters plus Cyber seed 42 | Cyber seed-43 H100 replacement submitted; 9 later-task chains held; obsolete Cyber seed-44 L40S chain remains held | 1 valid replacement chain: Cyber seed 44 on H100 | Verify jobs `4832960`/`4832961` request H100, accept seed 43, and compare its H100 base utility with seed 42. Then submit seed 44 on H100 without releasing its obsolete L40S jobs. |
 | Table 3 14B/32B E&U | 36 | 0 | 2 pilot chains submitted | 34 | Bio/seed-42 pilots are queued as `4723194`/`4723195` (14B) and `4723198`/`4723199` (32B). Expand neither tier before its own pilot passes the checkpoint/result provenance gates. |
 | Table 3 RoBCoTDstl robustness | 54 seed/model/task AutoDAN evaluations | 0 | Bio/7B/seed-42 pilot `4723162` released and priority-pending | 53 | Require AutoDAN `n=256`, nonempty fingerprint, diagnostics, null error, and matching payload provenance. Then plan Bio with the full 42/43/44 roster so only seeds 43/44 submit. |
 
@@ -259,8 +271,9 @@ aggregate. It has `w/=0/399`, `w/o=242/399`, task base `182/399`, HS
 generate-and-parse scoring metadata, and batch-one/accumulation-four marker all
 pass. Its H100 base utility is HS `5206/6695` and CSQA `586/814`, versus the
 L40S Bio/Chem invariant `5202/6695` and `589/814`. The difference is small and
-scientifically plausible, but the seed-43 L40S evaluation is the pre-aggregate
-hardware-consistency gate described above.
+scientifically plausible. Because Cyber training is now known not to fit L40S,
+the pre-aggregate hardware-consistency gate is the H100 seed-43 evaluation
+described above.
 
 The realization incident adds no model training. Its total repair compute is
 all nine short E&U evaluations, now completed and accepted, and three replacement
@@ -389,6 +402,20 @@ acceptance.
   result has perfect locking (`0/399`), unlocked accuracy `242/399`, and healthy
   utility. It is retained as accepted single-seed evidence but cannot populate
   Table 3 until seeds 43/44 pass.
+- Diagnosed seed-43 L40S job `4723025` as a second genuine Cyber activation
+  OOM, now at the minimum microbatch one. It reached Stage B step 286/21,504
+  before the causal-LM loss path attempted to cast logits to FP32 and requested
+  another 1.58 GiB with only 527 MiB of 44.39 GiB free. Host RAM and walltime
+  were not limiting, the intended full 21,504-row Stage B was active, and
+  dependent evaluation `4723045` was cancelled without a result. The failure
+  log and pre-retry Slurm script were preserved under
+  `diagnostics/job-4723025`.
+- Submitted scientifically equivalent seed-43 H100 replacements `4832960` and
+  `4832961`. Preparation correctly skips, training retains four hours and the
+  accepted batch-one/accumulation-four recipe, and evaluation has a safe
+  two-hour cap versus the measured 20-minute seed-42 runtime. The plan's L40S
+  label is a known display limitation; a live `squeue` check must still confirm
+  that the submitted jobs actually request `gres/gpu:h100:1`.
 
 ### Work in progress
 
@@ -401,12 +428,12 @@ acceptance.
   repaired-cell releases, including
   SysPr/14B/Bio replacements `4715729` and `4717366`. Do not release it as one
   block; later releases should remain small and checkpoint-inventory-aware.
-- Table 3 Cyber/7B/seed-43 is the active bounded E&U tranche, but no allocation
-  is currently running. L40S training `4723025` is priority-pending and
-  evaluation `4723045` is dependency-pending. Seed-44 jobs
-  `4723026`/`4723046` remain held. Ten of the eighteen 7B E&U seed chains remain
-  after the six accepted Bio/Chem seeds, accepted Cyber seed 42, and queued
-  Cyber seed 43. Compare the seed-43 base readout before releasing seed 44.
+- Table 3 Cyber/7B/seed-43 is the active bounded E&U tranche. Its L40S chain is
+  terminal and the H100 replacement `4832960` -> `4832961` is submitted. Verify
+  the live H100 GRES, then wait for its checkpoint/result gates. Nine later-task
+  7B chains remain held. The held Cyber seed-44 L40S jobs
+  `4723026`/`4723046` are obsolete and must never be released; its valid H100
+  replacement is intentionally not submitted until seed 43 passes.
 - AutoDAN-only Table 3 robustness pilot `4723162` is released and
   priority-pending for Bio/7B/seed 42. Its plan skips preparation/training,
   requests exactly `--elicitations autodan`, and shares no active writer with
@@ -425,14 +452,13 @@ acceptance.
 
 ### Near-future milestones and safe parallelism
 
-1. Let the released Cyber seed-43 L40S chain `4723025` -> `4723045` complete.
-   Do not rerun CoT preparation or seed-42 training. Apply the same marker,
-   payload, scoring, and row-count gates, then compare its base utility with the
-   H100 seed-42 result and prior L40S invariant. If seed 43 matches seed 42,
-   release seed 44; if it matches the earlier L40S invariant, archive seed 42's
-   accepted H100 JSON and rerun only its evaluation on L40S before releasing
-   seed 44; if it produces a third base value, pause and diagnose. If L40S
-   batch-one training OOMs, replace only that seed's train/eval chain on H100.
+1. Verify `4832960`/`4832961` request one H100, then let that replacement chain
+   complete. Do not rerun CoT preparation or seed-42 training. Apply the same
+   marker, payload, scoring, and row-count gates, then compare seed 43's H100
+   base utility with H100 seed 42. If they match, submit a new seed-44 H100
+   train/eval chain; never release held L40S jobs `4723026`/`4723046`. If the
+   H100 base values differ, pause and diagnose evaluator reproducibility before
+   completing the Cyber roster.
 2. Monitor AutoDAN pilot `4723162`. Accept it only with a finite held-out score,
    `test_elicitation_n.autodan=256`, nonempty fingerprint, diagnostics, null
    error, accepted immutable-cache provenance, and exact Bio seed-42 checkpoint
@@ -446,7 +472,7 @@ acceptance.
    with their recorded hashes in durable storage. Continue preserving the old
    270/324 union as pre-incident evidence, and never use either reporting-only
    clone to execute training or evaluation.
-5. After the current eleven priority jobs drain, re-query the scheduler and
+5. After the current released frontier drains, re-query the scheduler and
    consider the smallest high-yield Table 2 release: six held seeds can close
    four of the five currently partial cells (PWD/7B/MMLU-HSS seeds 43/44,
    SysPr/14B/Bio seeds 43/44, SysPr/14B/Chem seed 44, and SysPr/32B/Chem seed
@@ -488,20 +514,24 @@ not a scientific failure:
 
 - Table 2 E&U is complete. Seven attacks are priority-pending, 63 submitted
   attacks remain held, and 72 larger PWD/CktBr attacks remain unsubmitted.
-- Table 3 7B E&U has 7 of 18 seeds accepted, one Cyber seed chain queued, and
-  10 seed chains held. Bio and Chem are the two complete reportable task cells;
-  Cyber seed 42 is valid but correctly suppressed pending seeds 43/44.
+- Table 3 7B E&U has 7 of 18 seeds accepted, one Cyber H100 replacement chain
+  submitted, nine later-task chains held, and one valid Cyber seed-44 H100
+  replacement not yet submitted. Bio and Chem are the two complete reportable
+  task cells; Cyber seed 42 is valid but correctly suppressed pending seeds
+  43/44.
 - Table 3 14B/32B E&U has two Bio seed-42 pilot chains queued and 34 seed slots
   not submitted.
 - Table 3 robustness has one Bio/7B seed-42 AutoDAN pilot queued and 53 seed
   slots not submitted.
-- The latest known scheduler state is 100 jobs, all pending: eleven
-  priority-pending, three dependency-pending, and 86 deliberately held.
+- The last full scheduler snapshot had 100 jobs, all pending: eleven priority,
+  three dependency, and 86 deliberately held. Later accounting makes the old
+  seed-43 L40S pair terminal and records H100 replacements as submitted; obtain
+  a fresh `squeue` before quoting a new total.
 
-The immediate credible targets are: accept Cyber seed 43, resolve the small
-cross-hardware base-readout check, then run seed 44; accept the Table 3 AutoDAN
-pilot if it schedules; validate any of the seven Table 2 attacks that complete;
-measure the 14B/32B Table 3 pilots,
+The immediate credible targets are: verify and accept Cyber seed 43 on H100,
+check its base readout against H100 seed 42, then submit seed 44 on H100; accept
+the Table 3 AutoDAN pilot if it schedules; validate any of the seven Table 2
+attacks that complete; measure the 14B/32B Table 3 pilots,
 and durably archive the repaired reporting checkpoint. A short stretch target
 adds a complete Cyber three-seed E&U aggregate, the Bio seed-43/44 AutoDAN
 submissions, and a bounded release that closes four of the five current partial
@@ -1367,9 +1397,10 @@ resources. The retired 14B/32B training scripts requested only one H100 and are
 not accepted as safe OAT allocations. The conservative schedule waits for the
 replacement 7B wave; the deadline-oriented but still gated schedule may queue
 one 14B training pilot with two H100s and one 32B pilot with three H100s after
-the canonical 7B pilot passes, while the remaining 7B wave runs on L40S. Do not
-expand either larger tier before its own pilot passes. Their downstream E&U
-evaluations should remain one-H100 jobs.
+the canonical 7B pilot passes, while the remaining non-Cyber 7B wave runs on
+L40S. Cyber is now an evidence-based H100 exception. Do not expand either
+larger tier before its own pilot passes. Their downstream E&U evaluations
+should remain one-H100 jobs.
 
 Tables 2 and 3 both report AutoDAN-only robustness. The manifest and Killarney
 launcher enforce this rather than relying on a caller's shell: planning either
@@ -1382,10 +1413,12 @@ Table 3 has 54 E&U seed/model/task slots: three tiers, six tasks, and three
 seeds. All six Bio and Chem 7B seeds and Cyber seed 42 are accepted. Cyber
 seed-42 CoT preparation is complete, its first two training attempts are
 terminal OOM diagnostics, and replacement H100 train/eval jobs
-`4809171`/`4809172` completed and passed. Seed-43 L40S jobs
-`4723025`/`4723045` are queued, while the remaining ten 7B seed chains are held
-within the already-submitted graph
-`4723017`--`4723055`. The 14B/32B Bio seed-42 pilot chains are queued; the other
+`4809171`/`4809172` completed and passed. Seed-43 L40S training `4723025`
+failed at microbatch one and evaluation `4723045` was cancelled. H100
+replacements `4832960`/`4832961` are submitted. Nine later-task 7B chains
+remain held within graph `4723017`--`4723055`; the held Cyber seed-44 L40S
+chain is obsolete and a valid H100 replacement remains gated on seed 43. The
+14B/32B Bio seed-42 pilot chains are queued; the other
 34 larger-tier slots are unsubmitted. Reportable cells require the exact
 42/43/44 roster, so an individual successful seed is progress but cannot alone
 populate a paper cell.
@@ -1400,8 +1433,8 @@ runs against a checkpoint whose marker/payload gate has not passed.
 
 The Bio and Chem 7B gates are complete. The remaining sequence is:
 
-1. finish and accept Cyber seed 43, resolve the cross-hardware base-readout
-   check, then release seed 44 and validate the exact three-seed aggregate;
+1. verify and accept Cyber seed 43 on H100, compare its base readout with H100
+   seed 42, then submit seed 44 on H100 and validate the exact aggregate;
 2. continue MMLU-Prof, MMLU-Stem, and MMLU-HSS in task-sized 7B tranches;
 3. accept the queued 14B and 32B Bio seed-42 pilots, then expand each larger
    tier independently only after its own checkpoint/load/runtime gate;
@@ -1616,11 +1649,12 @@ The old Killarney Table 3 graph `4637151`--`4637283` is terminal and absent from
 the queue. Preserve its logs as diagnostics but never aggregate its artifacts.
 The clean pilot `4669018`--`4669020` is Slurm-complete but must not be
 aggregated or used to expand the matrix because it predates the receipt
-contract. The latest supplied queue contains 100 jobs, all pending: 86 held,
-eleven priority-pending, and three dependency-pending. Bio and Chem 7B E&U plus
-Cyber seed 42 are artifact-accepted; Cyber seed-43 jobs
-`4723025`/`4723045` are priority/dependency-pending; and AutoDAN pilot `4723162`
-is priority-pending. Query live state before acting or quoting a new total.
+contract. The latest full queue snapshot contained 100 jobs, all pending: 86
+held, eleven priority-pending, and three dependency-pending. Subsequent
+accounting makes Cyber seed-43 jobs `4723025`/`4723045` terminal, while H100
+replacements `4832960`/`4832961` were submitted. Bio and Chem 7B E&U plus Cyber
+seed 42 remain artifact-accepted, and AutoDAN pilot `4723162` remains part of
+the released frontier. Query live state before acting or quoting a new total.
 
 Killarney job scripts execute the shared checkout when their allocation starts.
 The replacement jobs were submitted from a checkout containing `9baadce` and
@@ -1776,11 +1810,15 @@ failed with the same Stage-B activation-memory problem. Commit `2e10a86`
 preserves effective batch four by changing only Cyber 7B `obfcot` from
 microbatch two/accumulation two to microbatch one/accumulation four.
 Replacement H100 training/evaluation `4809171`/`4809172` completed and passed
-all checkpoint/result gates. Cyber seed-43 L40S jobs `4723025`/`4723045` are
-now queued; use their base utility to resolve the small evaluation-hardware
-readout difference before releasing held seed 44. Keep the remaining MMLU task
-groups held and release them one task at a time after the preceding task is
-accepted.
+all checkpoint/result gates. Cyber seed-43 L40S training `4723025` then OOMed
+at microbatch one during `logits.float()` after 286/21,504 steps, and dependent
+evaluation `4723045` was cancelled. This proves L40S is not a safe Cyber
+training target even under the accepted microbatch repair. H100 replacements
+`4832960`/`4832961` are submitted under the unchanged recipe. Verify their live
+GRES, accept their result, and compare its H100 base utility with seed 42 before
+submitting seed 44 on H100. Never release obsolete held L40S jobs
+`4723026`/`4723046`. Keep the remaining MMLU task groups held and release them
+one task at a time after Cyber is accepted.
 
 The checkout and launch gates are satisfied: Killarney is deployed through
 `2e10a86`, the full 65-test suite and immutable-cache preflight pass, the
@@ -1788,8 +1826,10 @@ invalid canonical `run01` was quarantined, and the generated script contains
 the required five exports with no `POSSUM_WRONG_PW_FRAC`. Killarney resolves
 the Cyber override to batch size one and accumulation four. H100 replacement
 job `4809171` used the requested H100 despite the dry-run plan's L40S renderer
-label. Existing seed-43/44 jobs were originally submitted for L40S; seed 43 is
-now a real L40S batch-one feasibility check, not another H100 submission.
+label. The later seed-43 L40S feasibility check failed conclusively, so all
+remaining Cyber training and evaluation should use H100. Replacement
+`4832960`/`4832961` was submitted with `POSSUM_SLURM_GRES=gpu:h100`; verify the
+actual queue GRES because the dry-run renderer still prints the tier default.
 
 Deadline-oriented 14B and 32B Bio/seed-42 training pilots remain pending, with
 the following requested training GPU counts:
@@ -1884,6 +1924,13 @@ tables for every cited checkpoint.
   Commit `2e10a86` retains effective batch four with microbatch one and
   accumulation four; replacement jobs `4809171`/`4809172` completed and their
   checkpoint/result passed the current artifact gates.
+- Cyber seed-43 job `4723025` later proved that the repaired microbatch-one
+  recipe still does not fit safely on a 44.39-GiB L40S. It OOMed during the
+  FP32 logits cast after 286/21,504 Stage B steps; dependent job `4723045` was
+  cancelled. This does not invalidate the microbatch repair or seed-42 result:
+  the same recipe completed on H100. Replacement jobs are
+  `4832960`/`4832961`, and the held seed-44 L40S chain is retired from the
+  scientific execution plan.
 
 ## Definition of done
 

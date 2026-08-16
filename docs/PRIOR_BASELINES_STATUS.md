@@ -1,50 +1,65 @@
 # Prior-baseline and RoBCoTDstl campaign status
 
-> Canonical snapshot: 2026-08-15, after artifact acceptance of the corrected
-> Table 2 E&U campaign, acceptance of the SysPr/14B/Chem seed-42 replacement,
+> Canonical snapshot: 2026-08-16, after construction of the post-repair Table 2
+> reporting clone, generation and audit of the current partial Tables 2 and 3,
 > acceptance of complete three-seed RoBCoTDstl 7B Bio and Chem E&U cells, and
-> diagnosis of two Cyber seed-42 training OOMs followed by submission of a
-> scientifically equivalent one-H100 microbatch retry. Scheduler state changes
-> continuously; query `squeue` and `sacct` again before cancelling, releasing,
-> replacing, or resizing a job.
+> submission of the scientifically equivalent one-H100 Cyber seed-42
+> microbatch retry. Scheduler state changes continuously; query `squeue` and
+> `sacct` again before cancelling, releasing, replacing, or resizing a job.
 >
 > Table 2 effectiveness and utility are complete. All 270 E&U values are
 > populated under the final protocol: forced-choice task scoring,
 > generate-and-parse utility, and inference seeds 42/43/44 for SysPr. The nine
 > exceptional PWD 7B Chem/Cyber and CktBr 7B Chem repair results pass the
 > payload-bound gate, while CktBr 7B Cyber required no rerun because its payload
-> matched byte-for-byte. The immutable pre-incident reporting union at
-> `artifacts/table-report-eu-20260811.Z59lUv` still generates `270 filled, 54
-> empty`; preserve it unchanged. Its three superseded cells must be replaced in
-> a new post-repair reporting clone, which remains the main unfinished Table 2
-> non-compute task.
+> matched byte-for-byte. Preserve the immutable pre-incident reporting union at
+> `artifacts/table-report-eu-20260811.Z59lUv` unchanged. The new reporting-only
+> clone at `/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf` replaces
+> exactly the nine repaired seed JSONs and records them in
+> `POST_REPAIR_UNION_MANIFEST.json`. It is the authoritative E&U base for current
+> Table 2 generation, but it must never be used as an execution root.
+>
+> The current partial Table 2 is
+> `/scratch/markwang/possum-current-tables-20260816.LJXmhV/table2.gen.tex`, with
+> SHA-256 `f7293731ceaa281d2a2a81e22a40380a0078acbc0606c6e8f5a49ef136bca0ff`.
+> It has `274 filled, 50 empty`: all 270 E&U values plus four complete three-seed
+> AutoDAN cells. Seventeen validated attack overlays plus one accepted attack
+> already present in the E&U base give 18 valid seed results. Twelve seeds form
+> the four reportable cells: PWD/7B/Bio `96.9 +/- 0.2`, PWD/7B/MMLU-Prof
+> `97.6 +/- 0.1`, PWD/7B/MMLU-Stem `94.6 +/- 1.0`, and SysPr/32B/Bio
+> `96.5 +/- 0.8`. Six further seeds form four incomplete cells and are correctly
+> suppressed. A row-count, fingerprint, score/count, error, and provenance audit
+> passed for all 18. These high attack accuracies are scientifically consistent
+> with the preregistered poor-robustness expectation; no displayed result
+> currently warrants rejection or rerun.
 >
 > Table 2 robustness remains the compute bottleneck. The accepted immutable
 > AutoDAN library has schema 2, five lifelong rounds, `source_count=318`, the
 > expected source fingerprint, and exact library/metadata SHA-256 values pinned
-> by the launcher. SysPr/14B/Chem seed-42 replacement `4723063` completed in
-> 2:49:46 and passes the full artifact gate: AutoDAN `79/83 = 0.9518`, nonempty
-> row fingerprint, diagnostics with no overflow or fallback, null error,
-> adaptive active-system-prompt protocol, and exact released-prompt checkpoint
-> provenance. SysPr/14B/Chem seed 43 (`4675519`) and
-> SysPr/32B/Chem seed 43 (`4709894`, `75/83 = 0.9036`) remain accepted. Nine
-> Table 2 attacks are priority-pending: PWD/Chem `4730325`--`4730327`,
-> PWD/Cyber `4709719`/`4709891`/`4709892`, and CktBr/Chem
+> by the launcher. Nine attacks are priority-pending: PWD/Chem
+> `4730325`--`4730327`, PWD/Cyber `4709719`/`4709891`/`4709892`, and CktBr/Chem
 > `4666404`--`4666406`. Their current conservative backfill requests are five
 > hours/64 GiB for PWD/Chem, twelve hours/64 GiB for PWD/Cyber, and six
-> hours/64 GiB for CktBr/Chem. Another 63 submitted attacks remain deliberately held,
-> and 72 PWD/CktBr 14B/32B attacks remain intentionally unsubmitted pending a
-> final checkpoint inventory and staging audit.
+> hours/64 GiB for CktBr/Chem. Another 63 submitted attacks remain deliberately
+> held, and 72 PWD/CktBr 14B/32B attacks remain intentionally unsubmitted pending
+> a final checkpoint inventory and staging audit.
 >
-> Table 3 RoBCoTDstl 7B Bio and Chem E&U are now complete and accepted for the
+> Table 3 RoBCoTDstl 7B Bio and Chem E&U are complete and accepted for the
 > exact seed roster 42/43/44. Bio seed-42 provenance refresh `4739765` completed
 > in 38:17; both Bio and Chem report `train ✓ / eff ✓`, every seven-job E&U
 > repeat plan skips, and all six result JSONs pass current scoring, recipe,
-> marker, and 64-character payload-digest gates. Current `tablefill` output is
-> `10 filled, 422 empty`: five E&U values each for Bio and Chem, with `Jlbrk`
-> deliberately blank. The aggregates are Bio `w/=0.0`, `w/o=60.7 +/- 2.7`,
+> marker, and 64-character payload-digest gates. The current generated file is
+> `/scratch/markwang/possum-current-tables-20260816.LJXmhV/table3.gen.tex`, with
+> SHA-256 `86823d218fb61713b2efbec2b014e8a17fa8e0ba8809fd36bd038b19535ad6b5`.
+> It has `10 filled, 422 empty`: five E&U values each for Bio and Chem, with
+> `Jlbrk` deliberately blank. The aggregates are Bio `w/=0.0`,
+> `w/o=60.7 +/- 2.7`,
 > HS `79.4 +/- 0.6`, CSQA `72.9 +/- 1.6`; and Chem `w/=0.0`,
 > `w/o=38.2 +/- 5.9`, HS `78.4 +/- 2.7`, CSQA `72.7 +/- 0.7`.
+> These values remain internally and scientifically consistent with the per-seed
+> artifacts. The standalone partial file has no comparison-cell shading because
+> its artifact root does not contain Table 2 baselines; this is a presentation
+> limitation, not a numerical validity problem.
 >
 > Exact WMDP test-set checks rule out dataset drift on Killarney. Current files
 > have Bio 256 rows and MD5
@@ -78,8 +93,9 @@
 > `4723194`/`4723195` and 32B chain `4723198`/`4723199` remain queued; expand
 > neither tier before its own payload/result gate passes.
 >
-> The latest supplied `squeue` contains 104 jobs, all pending: 88 deliberately
-> held, thirteen priority-pending, and three dependency-pending. The thirteen
+> The latest supplied `killarney.txt` snapshot contains 104 jobs, all pending:
+> 88 deliberately held, thirteen priority-pending, and three dependency-pending.
+> The thirteen
 > priority jobs are the nine Table 2 attacks, Table 3 AutoDAN pilot `4723162`,
 > Table 3 14B/32B training pilots `4723194`/`4723198`, and Cyber H100 training
 > retry `4809171`. The three dependency jobs are `4723195`, `4723199`, and
@@ -87,10 +103,13 @@
 > the new retry has not started. This is a point-in-time snapshot, not authority
 > to duplicate or mass-release work.
 >
-> Killarney remains the sole compute target; submit no Vulcan compute. The
-> current protocol implementation is deployed through `2e10a86`, all 65 cluster
-> protocol tests pass, and preflight validates Python 3.12, Arrow 19.0.1, the
-> cached target/attacker models, and the immutable AutoDAN library. A bare venv
+> Killarney remains the sole compute target; submit no Vulcan compute. Commit
+> `1ce1eae` adds provenance-safe attack overlays and current-table reporting, and
+> its local suite passes all 67 tests. The last explicitly reported cluster ML
+> suite remains all 65 tests passing at `2e10a86`; Killarney successfully used
+> the newer `tablefill` path to generate the files above. Preflight validates
+> Python 3.12, Arrow 19.0.1, the cached target/attacker models, and the immutable
+> AutoDAN library. A bare venv
 > invocation from an unsourced login shell can fail to import module-provided
 > `pyarrow`; this is an interactive environment issue, not evidence that Slurm
 > jobs used the wrong stack. Source `clusters/killarney_env_setup.sh` before
@@ -114,19 +133,19 @@ recovery procedures. Use this document for current decisions and job ownership.
 
 | Area | Current state | What it means |
 |---|---|---|
-| Code and tests | Payload-bound prior provenance and the Cyber microbatch repair are deployed through `2e10a86`; all 65 cluster tests pass | Tables 2/3 are AutoDAN-only. New PWD/CktBr saves and explicitly stamped legacy checkpoints bind result provenance to exact payload receipts; `eff-child` permits child-only repair without recreating archived parents. Cyber 7B RoBCoTDstl now resolves to microbatch one and accumulation four only for `obfcot`. |
+| Code and tests | Scientific execution changes are deployed through `2e10a86`; provenance-safe reporting is deployed through `1ce1eae` | The last reported cluster ML suite passed all 65 tests at `2e10a86`; the reporting follow-up passed all 67 local tests and was successfully used on Killarney. Tables 2/3 are AutoDAN-only. Cyber 7B RoBCoTDstl resolves to microbatch one and accumulation four only for `obfcot`. |
 | Table 2 methodology | Implemented | Task effectiveness and attack readout use forced-choice; HS/CSQA utility uses generate-and-parse; SysPr uses three seeded stochastic inference replicates. |
 | Table 2 E&U | Complete and artifact-accepted | All nine PWD 7B Chem/Cyber and CktBr 7B Chem seed repairs passed current payload-bound E&U gates. CktBr 7B Cyber matched exactly and never needed repair. No Table 2 E&U rerun remains. |
-| Table 2 E&U union | Pre-incident 270/324 snapshot preserved; repaired reporting clone pending | `artifacts/table-report-eu-20260811.Z59lUv` remains immutable evidence. Overlay the nine accepted repaired JSONs into a new root; do not mutate the old union. Robustness remains the only intentionally incomplete metric family. |
+| Table 2 E&U union | Pre-incident snapshot preserved; post-repair reporting clone complete | `artifacts/table-report-eu-20260811.Z59lUv` remains immutable evidence. `/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf` replaces exactly the nine accepted repair JSONs, records a manifest, and is now the current E&U reporting base. Neither reporting root is an execution root. |
 | AutoDAN cache | Complete and accepted | The canonical library has schema-2 complete metadata, five lifelong rounds, and the full 318-row source fingerprint. Do not rebuild it. |
-| Table 2 AutoDAN | SysPr/14B/Chem seed-42 replacement accepted; nine attacks priority-pending; bulk wave held; 72 larger jobs unsubmitted | `4723063` is accepted at `79/83 = 0.9518`, joining accepted Chem SysPr seeds `4675519` and `4709894`. The nine repaired-cell/current attacks remain priority-pending, 63 submitted Table 2 jobs remain held, and larger PWD/CktBr work stays behind checkpoint inventory. |
+| Table 2 AutoDAN | 18 valid seed results, four complete reportable cells, four partial cells; nine attacks priority-pending | The current Table 2 safely emits PWD/7B/Bio, PWD/7B/MMLU-Prof, PWD/7B/MMLU-Stem, and SysPr/32B/Bio robustness. Six valid seeds in four incomplete cells remain suppressed. Another 63 submitted jobs are held and 72 larger PWD/CktBr jobs remain unsubmitted behind checkpoint inventory. |
 | Table 3 RoBCoTDstl 7B E&U | Bio and Chem complete; Cyber seed-42 H100 retry queued | All six Bio/Chem seed results pass exact recipe, payload, scoring, roster, and dataset gates. `tablefill` emits ten E&U values and no premature robustness values. Cyber preparation is accepted, L40S/H100 microbatch-two training attempts OOMed, and scientifically equivalent microbatch-one jobs `4809171`/`4809172` are priority/dependency-pending. Its other two seed chains remain held. |
 | Table 3 RoBCoTDstl robustness | Bio/7B seed-42 pilot released and priority-pending | Job `4723162` may run because the canonical E&U result is now payload-bound. Submit Bio seeds 43/44 only after the pilot has the full 256-row AutoDAN result, fingerprint, diagnostics, null error, and matching checkpoint provenance. |
 | Table 3 larger tiers | 14B/32B Bio seed-42 E&U pilots queued | Training `4723194`/`4723198` is priority-pending; evaluation `4723195`/`4723199` is dependency-pending. Expand each tier independently only after its own adapter payload and result pass. |
 | Vulcan artifact migration | Sufficient for utility, incomplete for robustness | A validated PWD/32B/Chem source is now staged for the repair jobs. CktBr/32B/Cyber and CktBr/32B/MMLU-Prof still need final location/export checks, and 14B has not had a comprehensive migration audit. SysPr needs only the shared base-model cache and prompt configuration. |
 | Storage | Adequate for bounded current work; protected sources remain | The latest reported free space is approximately 683 GiB on project and 370 GiB on scratch. Retain the old-root 32B PWD/Chem family, its repair root, and the four staged 32B CktBr children until the larger robustness inventory and archive are complete. Continue adapter-only Table 3 saves. |
 | Cluster direction | Killarney-only compute | Submit no new Vulcan work. Cancel the former 26 Vulcan retries (holding them until cancellation is verified), rerun any failures on Killarney, and retain the Vulcan artifact root only until a final read-only export of missing final 14B/32B checkpoints and canonical JSONs is verified. |
-| Schedule | Artifact-integrity work is on track; combined compute deliverable remains queue-limited | Table 2 E&U and two Table 3 7B task cells are accepted. The current queue has no running jobs. Full Table 2 robustness and all-tier Table 3 completion still depend on H100 throughput, bounded release of held work, and staging the 72 larger Table 2 attacks. |
+| Schedule | Current partial tables are scientifically reportable; combined final deliverable remains queue-limited | Table 2 has 274/324 values and Table 3 has 10/432 values. The latest supplied queue snapshot has no running jobs. Full Table 2 robustness and all-tier Table 3 completion still depend on H100 throughput, bounded release of held work, and staging the 72 larger Table 2 attacks. |
 
 ## Current campaign ledger
 
@@ -136,12 +155,67 @@ Slurm jobs.
 
 | Workstream | Total | Accepted/covered now | Active or queued | Not submitted | Next gate |
 |---|---:|---:|---:|---:|---|
-| Table 2 E&U values | 270 | All 270 populated; all nine exceptional seed repairs accepted | 0 | 0 repair E&U jobs | Create a new reporting clone containing the accepted repairs and preserve the pre-incident union unchanged. |
-| Table 2 AutoDAN seeds | 162 | 90 logical slots are covered by an accepted artifact, a terminal artifact awaiting a gate/replacement, or a live submission; `4723063`, `4675519`, and `4709894` are specifically accepted Chem SysPr results | Nine priority-pending attacks plus 63 held Table 2 jobs | 72 larger PWD/CktBr slots | Validate each completion; do not infer acceptance from queue coverage. Release later work only in bounded tranches and submit larger work only after checkpoint inventory. |
-| Table 2 robustness table cells | 54 | At least PWD/7B/MMLU-Prof now passes its complete three-seed cell gate; full table not final | Derived from the 162 accepted seed results | Not separately submitted | Regenerate the full 324-value table only when all three seeds for every cell pass. |
+| Table 2 E&U values | 270 | All 270 populated; all nine exceptional seed repairs accepted and incorporated into the post-repair clone | 0 | 0 repair E&U jobs | Preserve both the pre-incident evidence root and current post-repair reporting root; use only the latter for new reports. |
+| Table 2 AutoDAN seeds | 162 | 18 artifact-accepted; 90 logical slots covered by an accepted artifact, terminal artifact awaiting a gate/replacement, or live submission | Nine priority-pending attacks plus 63 held Table 2 jobs | 72 larger PWD/CktBr slots | Validate each completion; never confuse the 90-slot coverage count with 18 accepted results. Release later work only in bounded tranches and submit larger work only after checkpoint inventory. |
+| Table 2 robustness table cells | 54 | 4 complete and reportable; 4 more partial | Nine priority-pending attacks plus 63 held jobs contribute to remaining cells | 72 seed jobs, not cells, unsubmitted | Regenerate after every accepted bounded tranche. Emit a cell only when exact seeds 42/43/44 all pass; the final target remains all 54 cells and 324 total values. |
 | Table 3 7B E&U seeds | 18 | 6 accepted: complete Bio and Chem rosters, seeds 42/43/44; Cyber CoT preparation complete | Cyber seed-42 H100 train/eval retry queued; remaining 11 seed chains held | 0 | Accept Cyber seed 42, establish its current base invariant, then release its existing seed-43/44 jobs. Continue one task-sized bounded tranche at a time. |
 | Table 3 14B/32B E&U | 36 | 0 | 2 pilot chains submitted | 34 | Bio/seed-42 pilots are queued as `4723194`/`4723195` (14B) and `4723198`/`4723199` (32B). Expand neither tier before its own pilot passes the checkpoint/result provenance gates. |
 | Table 3 RoBCoTDstl robustness | 54 seed/model/task AutoDAN evaluations | 0 | Bio/7B/seed-42 pilot `4723162` released and priority-pending | 53 | Require AutoDAN `n=256`, nonempty fingerprint, diagnostics, null error, and matching payload provenance. Then plan Bio with the full 42/43/44 roster so only seeds 43/44 submit. |
+
+### Current generated artifacts and audit
+
+These are the current reporting artifacts. Scratch is purge-prone, so copy the
+final accepted report bundle to durable storage before treating it as archived.
+
+| Artifact | State | SHA-256 or count |
+|---|---|---|
+| `artifacts/table-report-eu-20260811.Z59lUv` | Immutable pre-incident E&U evidence | `270 filled, 54 empty`; manifest `f3edeca3a2bf06247e960c0661f48c9e050489aa980f16d9029bd40abb374e1d` |
+| `/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf/POST_REPAIR_UNION_MANIFEST.json` | Current reporting-only E&U clone, exactly nine accepted replacements | `23721daa08e90e7a0a868b3b02186e1adbd36012027c9142e49cb49b293a138f` |
+| `/scratch/markwang/possum-current-tables-20260816.LJXmhV/table2.gen.tex` | Current partial Table 2 | `274 filled, 50 empty, 0 n/a`; `f7293731ceaa281d2a2a81e22a40380a0078acbc0606c6e8f5a49ef136bca0ff` |
+| `/scratch/markwang/possum-current-tables-20260816.LJXmhV/table3.gen.tex` | Current partial Table 3 | `10 filled, 422 empty, 0 n/a`; `86823d218fb61713b2efbec2b014e8a17fa8e0ba8809fd36bd038b19535ad6b5` |
+
+The Table 2 robustness audit accepted 17 overlay seed results plus the
+PWD/7B/Bio seed-42 result already present in the E&U base. All 18 have the full
+expected attacked-row count, a nonempty fingerprint shared across seeds of the
+same task, score/count consistency, no AutoDAN error, and matching checkpoint
+provenance. The four complete cells are:
+
+| Organism/model/task | Seeds | Jlbrk mean +/- SE | Expected rows |
+|---|---|---:|---:|
+| PWD/7B/Bio | 42/43/44 | 96.9 +/- 0.2 | 256 each |
+| PWD/7B/MMLU-Prof | 42/43/44 | 97.6 +/- 0.1 | 624 each |
+| PWD/7B/MMLU-Stem | 42/43/44 | 94.6 +/- 1.0 | 147 each |
+| SysPr/32B/Bio | 42/43/44 | 96.5 +/- 0.8 | 256 each |
+
+The six other valid seeds are incomplete as cells and therefore do not appear
+in Table 2:
+
+| Incomplete cell | Accepted seed evidence |
+|---|---|
+| PWD/7B/MMLU-HSS | seed 42: 96.27%, `n=375` |
+| SysPr/14B/Bio | seed 42: 98.05%, `n=256` |
+| SysPr/14B/Chem | seed 42: 95.18%; seed 43: 93.98%; `n=83` each |
+| SysPr/32B/Chem | seed 42: 91.57%; seed 43: 90.36%; `n=83` each |
+
+Their scores are consistent with the four emitted cells and the
+poor-robustness hypothesis. They must remain blank until seed 42/43/44 is
+complete, regardless of how plausible a partial mean looks. Exact accepted
+fingerprints are Bio
+`cd899307a222a88135e193a496de03cd95d44787da1cf87ee4a3b127069352a6`, Chem
+`52ce32f0b393c806b6cd1b35445ec323a9452f8089a814bd4f2fde5ac04772d5`,
+MMLU-Prof
+`b9ac422d8c67b368ecd8da637ce9db063eeac2460064e894b73a8be70224034e`,
+MMLU-Stem
+`626cd262661e42430033b6ae78fee21680f39e7904773cc5e83768b5a5bec2b7`, and
+MMLU-HSS
+`a04a31831ee22370befb70fc72e0ea8b4b1638b3911bdcf609c8895da8c910c4`.
+
+The current Table 3 audit accepts only RoBCoTDstl 7B Bio and Chem E&U. It emits
+exactly ten values and no robustness cells. The absence of color wrappers in
+the standalone partial Table 3 is expected because its root lacks the matched
+Table 2 baseline artifacts. Generate the final paper-ready Table 3 from a
+combined reporting context, or make its comparison caption conditional; do not
+alter the accepted numbers to create shading.
 
 The accepted per-seed RoBCoTDstl 7B E&U evidence behind the current Table 3
 aggregate is:
@@ -187,11 +261,12 @@ acceptance.
 - Corrected Table 2 utility to the Table 3-compatible generate-and-parse
   readout, reran all affected utility cells, and reran SysPr with inference
   seeds 42/43/44 so its aggregates have standard errors.
-- Built the reporting-only Table 2 E&U union: 270 values filled, with exactly
-  the 54 robustness positions blank. Preserve it as an immutable pre-incident
-  snapshot. PWD 7B Chem/Cyber and CktBr 7B Chem now have accepted
-  same-realization replacements; CktBr 7B Cyber passed the exact payload
-  comparison and remains accepted. Build the post-repair union as a new root.
+- Built and preserved the pre-incident reporting-only Table 2 E&U union with
+  270 values filled and exactly the 54 robustness positions blank. Then built
+  `/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf` as a separate
+  reporting-only clone, replaced exactly the nine accepted PWD 7B Chem/Cyber
+  and CktBr 7B Chem JSONs, and recorded a checksum manifest. CktBr 7B Cyber
+  remains accepted because its payload comparison matched exactly.
 - Archived the repaired E&U evidence as nine result JSONs plus nine checkpoint
   markers. All 18 checksum entries validate, preserving a compact immutable
   record before AutoDAN phase-merges into the canonical JSONs.
@@ -216,9 +291,11 @@ acceptance.
   score is `75/83 = 0.9036`, with the expected count, nonempty fingerprint,
   zero context-overflow diagnostics, no attack error, active-system-prompt
   protocol, and matching checkpoint provenance.
-- The current status gate accepts PWD/7B/MMLU-Prof as a complete E&U plus
-  robustness cell from jobs `4666392`--`4666394`. PWD/7B/MMLU-HSS remains
-  incomplete: only seed 42 (`4666398`) is terminal, while seeds 43/44 are held.
+- Audited 18 accepted Table 2 AutoDAN seed artifacts against exact task row
+  counts, per-task row fingerprints, score/count consistency, null errors, and
+  checkpoint provenance. Four exact three-seed robustness cells now emit:
+  PWD/7B/Bio, PWD/7B/MMLU-Prof, PWD/7B/MMLU-Stem, and SysPr/32B/Bio. Four
+  partial cells remain correctly blank.
 - Hardened Table 3 checkpoint identity, canonical seed slots, compact adapter
   payloads, result provenance, atomic writes, recipe defaults, environment
   isolation, and exact three-seed aggregation.
@@ -269,6 +346,11 @@ acceptance.
   data, order, full sequence lengths, optimizer-step count, epochs, learning
   rate, OAT, LAT, and evaluation are unchanged. Killarney resolves the new
   values correctly and all 65 protocol tests pass.
+- Deployed reporting commit `1ce1eae`, which permits multiple read-only
+  AutoDAN artifact roots, rejects conflicting or provenance-invalid overlays,
+  and keeps incomplete three-seed cells blank. All 67 local tests pass. Used it
+  on Killarney to generate the audited 274/324 Table 2 and 10/432 Table 3
+  checkpoints without mutating either execution root.
 
 ### Work in progress
 
@@ -298,8 +380,11 @@ acceptance.
 - A read-only cross-root inventory is still needed to expose every final
   14B/32B PWD/CktBr checkpoint from one Killarney execution root without
   copying obsolete parents or creating duplicate writers.
-- The post-repair Table 2 reporting clone remains unbuilt. This is independent
-  of GPU scheduling and should be completed while the released attacks wait.
+- The current post-repair reporting clone and generated partial tables exist on
+  scratch and pass their present acceptance gates. They still need a durable
+  archive before scratch cleanup. Table 2 should be regenerated into a new
+  immutable output directory after each accepted attack tranche; do not mutate
+  the saved 2026-08-16 checkpoint.
 
 ### Near-future milestones and safe parallelism
 
@@ -321,22 +406,33 @@ acceptance.
    expected-count, fingerprint, diagnostics, error, cache, and exact-checkpoint
    gates to every completion; Cyber jobs deserve particular context-overflow
    scrutiny.
-4. Create a new repaired Table 2 E&U reporting union from the accepted nine
-   JSONs, and preserve the old 270/324 union unchanged as pre-incident evidence.
-   Do not delete the 256-GiB scratch root until the new union, original payload
-   comparison manifests, and compact 18-file repair snapshot are all retained.
-5. After the Table 3 Bio AutoDAN three-seed cell is accepted, pipeline the next
+4. Preserve the post-repair manifest and both generated 2026-08-16 table files
+   with their recorded hashes in durable storage. Continue preserving the old
+   270/324 union as pre-incident evidence, and never use either reporting-only
+   clone to execute training or evaluation.
+5. After the current thirteen priority jobs drain, re-query the scheduler and
+   consider the smallest high-yield Table 2 release: six held seeds can close
+   the four currently partial cells (PWD/7B/MMLU-HSS seeds 43/44,
+   SysPr/14B/Bio seeds 43/44, SysPr/14B/Chem seed 44, and SysPr/32B/Chem seed
+   44). Confirm job identity and writer ownership live before release; do not
+   add these while the current priority tranche is still waiting.
+6. After the Table 3 Bio AutoDAN three-seed cell is accepted, pipeline the next
    task's robustness only behind its already-accepted E&U checkpoints.
-6. Monitor Table 3 Bio/seed-42 E&U pilot chains `4723194`/`4723195` and
+7. Monitor Table 3 Bio/seed-42 E&U pilot chains `4723194`/`4723195` and
    `4723198`/`4723199`. Expand neither 14B nor 32B before its own checkpoint and
    result provenance gates pass.
-7. Finish the larger-checkpoint inventory before submitting the deliberately
+8. Finish the larger-checkpoint inventory before submitting the deliberately
    omitted 72 Table 2 PWD/CktBr 14B/32B AutoDAN evaluations. Continue using
    Killarney only and release held work in bounded, PI-compatible tranches.
-8. Continue 7B E&U in task-sized bounded tranches after Cyber. The remaining
+9. Continue 7B E&U in task-sized bounded tranches after Cyber. The remaining
    task groups are MMLU-Prof, MMLU-Stem, and MMLU-HSS; preserve the exact
    42/43/44 positional roster and never resubmit the already-held graph.
-9. Finalize Table 2 only after all 162 seed attacks pass: overlay accepted
+10. Harden the automated attack-acceptance gate to compare each reported `n`
+    with the dataset's exact expected test-row count and require identical
+    attacked-row fingerprints across the three seeds. The current 18 seeds
+    already passed this audit manually; this is reproducibility hardening, not
+    a reason to rerun them.
+11. Finalize Table 2 only after all 162 seed attacks pass: overlay accepted
    robustness onto the repaired E&U union, generate all 324 values, and compare
    against the preliminary paper table and prior-work claims without post-hoc
    tuning. Pipeline Table 3 AutoDAN only behind accepted E&U checkpoints and
@@ -368,9 +464,10 @@ not a scientific failure:
 The immediate credible targets are: accept Cyber seed 42 and then its two
 remaining seeds, accept the Table 3 AutoDAN pilot if it schedules, validate any
 of the nine Table 2 attacks that complete, measure the 14B/32B Table 3 pilots,
-and build the repaired Table 2 reporting clone. A short stretch target adds a
-complete Cyber three-seed E&U aggregate and the Bio seed-43/44 AutoDAN
-submissions. Full Table 2 robustness plus all-tier Table 3 E&U and robustness
+and durably archive the repaired reporting checkpoint. A short stretch target
+adds a complete Cyber three-seed E&U aggregate, the Bio seed-43/44 AutoDAN
+submissions, and a bounded release that closes the four current partial Table 2
+cells. Full Table 2 robustness plus all-tier Table 3 E&U and robustness
 still requires substantially more H100 throughput and the deliberate release
 or submission of the remaining matrices. Do not weaken sample counts, attack
 budgets, seed rosters, or provenance gates to improve apparent schedule.
@@ -471,6 +568,11 @@ be explained and reported, not tuned away after observing test data.
 - Prior result JSON identity, scoring metadata, split seed, checkpoint
   marker/hash, seed roster, and requested attack completeness are checked
   before a table cell is emitted.
+- Commit `1ce1eae` allows current Table 2 generation to read accepted AutoDAN
+  fields from multiple read-only artifact roots while retaining E&U from one
+  reporting base. It rejects conflicts, identity/protocol mismatches, invalid
+  attack provenance, and incomplete three-seed aggregates rather than silently
+  choosing a source.
 - The exact provenance contract now also applies to `obfcot`. Completion
   requires a post-save marker binding model, task, seed, resolved recipe,
   protocol flags, source hashes, checkpoint format, and every payload file's
@@ -484,6 +586,10 @@ be explained and reported, not tuned away after observing test data.
   this campaign, but a future schema should record those fields directly.
 - `tablefill` leaves a cell as `---` when a gate fails. Generated LaTeX is not
   hand-edited to bypass a missing or invalid artifact.
+- The current 18 accepted Table 2 attack seeds were additionally checked against
+  the exact dataset row counts and cross-seed fingerprints. Automating those
+  two exact checks inside the reusable gate remains desirable; until then,
+  repeat this audit before every newly reportable robustness cell is cited.
 - A reporting root contains result JSONs and marker-only checkpoint metadata.
   It must never replace an execution root containing full weights.
 - The checked-in `tables/table2.gen.tex` predates the AutoDAN-only declaration
@@ -748,11 +854,14 @@ artifacts/table-report-eu-20260811.Z59lUv/EU_UNION_MANIFEST.json
   f3edeca3a2bf06247e960c0661f48c9e050489aa980f16d9029bd40abb374e1d
 ```
 
-Preserve this root as an immutable E&U checkpoint. The next Table 2 report
-should clone it, replace the nine affected seed JSONs with the accepted
-same-realization artifacts, and then overlay accepted robustness results. No
-additional E&U job is known to be missing; do not submit duplicate utility
-work.
+Preserve this root as an immutable pre-incident E&U checkpoint. The required
+post-repair clone now exists at
+`/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf`. Its manifest binds
+the nine same-realization replacements and has SHA-256
+`23721daa08e90e7a0a868b3b02186e1adbd36012027c9142e49cb49b293a138f`.
+Current `tablefill` generation from that clone plus validated read-only attack
+roots produces `274 filled, 50 empty`, including four complete Jlbrk cells. No
+additional E&U job is known to be missing; do not submit duplicate utility work.
 
 ## Table 2 AutoDAN robustness
 
@@ -1443,7 +1552,7 @@ merged base-model weights per seed.
 The executive status and campaign ledger above are authoritative for live
 decisions. Detailed job history below is retained to explain provenance and
 recovery choices; any older point-in-time queue statement is superseded by the
-2026-08-15 canonical snapshot.
+2026-08-16 canonical snapshot.
 
 ### 1. Enforce scheduler ownership
 
@@ -1473,22 +1582,27 @@ Killarney job scripts execute the shared checkout when their allocation starts.
 The replacement jobs were submitted from a checkout containing `9baadce` and
 `1eb29e0`; the Table 3 pilot was submitted from a checkout containing
 `c30de32`. Killarney preflight and the pre-incident 61-test suite pass there.
-Killarney is deployed through `2e10a86`, including immutable-cache commit
-`5b9fae2`, the Table 3 constructor/environment repair, the legacy-script
+Scientific execution is deployed through `2e10a86`, including immutable-cache
+commit `5b9fae2`, the Table 3 constructor/environment repair, the legacy-script
 runtime fallback, exact prior-checkpoint payload receipts, and the Cyber-only
 microbatch-one/accumulation-four repair. All 65 protocol tests and
-immutable-cache preflight pass. The
-released scripts retain their queue positions; their updated Python runtime
-fails closed if the scratch symlink no longer resolves to the accepted bytes.
+immutable-cache preflight pass. Reporting commit `1ce1eae` is also present and
+was used successfully for the current Killarney table generation; its local
+suite passes all 67 tests. The released scripts retain their queue positions;
+their updated Python runtime fails closed if the scratch symlink no longer
+resolves to the accepted bytes.
 
 ### 2. Preserve the pre-incident Table 2 E&U union
 
 Jobs `4699233`--`4699235` passed the current utility/provenance checks and are
 incorporated into `artifacts/table-report-eu-20260811.Z59lUv`. Preserve that
 root, `EU_UNION_MANIFEST.json`, the generated table, and their hashes. Do not
-mutate this pre-incident snapshot. After the 7B realization audit, create a new
-reporting clone that replaces any affected E&U JSONs with evaluations bound to
-the chosen canonical weights, then overlay accepted robustness JSONs.
+mutate this pre-incident snapshot. The 7B realization follow-up is complete.
+The separate clone is
+`/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf`; its replacement
+manifest is hash-pinned above, and its current attack-overlay report is the
+274/324 Table 2 checkpoint. Preserve it separately rather than modifying the
+pre-incident root.
 
 No routine Table 2 E&U job is missing. Table 3 Bio seed-42 refresh `4739765` is
 complete and accepted; do not resubmit it. Do not rerun 14B SysPr, duplicate the
@@ -1662,12 +1776,18 @@ policy. Keep shared model/attacker caches and the canonical AutoDAN library.
 
 ### 6. Update the paper only at reproducible checkpoints
 
-The next paper-ready checkpoint is the E&U-only union at `270 filled, 54 empty`.
-The final Table 2 checkpoint is all 324 values after 162 AutoDAN seed results
-pass acceptance. Regenerate LaTeX from the reporting root; do not hand-fill
-cells. Report the systematic 32B SysPr MMLU utility loss unless a preregistered
-diagnostic finds an actual implementation error. Preserve commands, commit,
-markers, JSONs, logs, cache hashes, and generated tables for both checkpoints.
+The current reproducible numerical checkpoints are Table 2 at `274 filled, 50
+empty` and Table 3 at `10 filled, 422 empty`, with exact paths and hashes in the
+current-artifact ledger above. Table 2 includes all accepted E&U plus four
+complete AutoDAN cells; Table 3 includes only accepted RoBCoTDstl 7B Bio/Chem
+E&U and intentionally no robustness. Resolve Table 3's standalone
+comparison-caption/shading caveat before pasting that partial file into the
+paper. The final Table 2 checkpoint is all 324 values after 162 AutoDAN seed
+results pass acceptance. Regenerate LaTeX from reporting roots; do not
+hand-fill cells. Report the systematic 32B SysPr MMLU utility loss unless a
+preregistered diagnostic finds an actual implementation error. Preserve
+commands, commit, markers, JSONs, logs, cache hashes, manifests, and generated
+tables for every cited checkpoint.
 
 ## Historical incidents retained for provenance
 

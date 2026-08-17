@@ -487,27 +487,66 @@ narrative. Findings:
   the 5 above), consistent with only 20 of 162 total attack seeds being
   accepted so far under the deliberate bounded-release policy; this is not a
   missing-work symptom.
-- **`4834939` was never actually a probe evaluation.** Its Slurm log ends
-  with `[_run_eval] wrote .../obfcot_qwen2.5-7b-it_bio__seed42.json
-  (elicitations now: none)`, and the result JSON has `elicitation_errors={}`
-  and empty `test_elicitations`/`test_elicitation_diagnostics` keys for
-  every technique, not just `probe`. Tracing `experiments/run.py:
-  _phase_elicitations`, only `phase in {"eff","eff-child","utility"}` returns
-  `[]`; `--phase whitebox` cannot produce this outcome silently, because
-  `_filter_whitebox` (`run.py:233-256`) *raises* at plan time if
-  `POSSUM_WHITEBOX_ONLY` is unset and more than one Table-4 technique is in
-  scope. So `4834939` was submitted with the wrong `--phase` (almost
-  certainly `eff`/`eff-child`, matching the eff-only repair pattern used
-  elsewhere in this campaign), not `--phase whitebox` with
-  `POSSUM_WHITEBOX_ONLY=probe`. **No Table 4 evaluation has actually been
-  attempted yet.** Every prior reference in this document to `4834939` as
-  "the submitted probe pilot" describes an incorrect job; treat Table 4
-  execution as not yet started. The `probe.py`/`ft_probe.py` code itself
-  remains independently audited as sound (see above) — this is a launch
-  mistake, not a code defect. Before resubmitting, run the `plan` step from
-  `docs/TABLE4_WHITEBOX_MONITOR.md` and visually confirm the printed argv
-  contains `--elicitations probe` and exactly one `RUN` eval with prep/train
-  `SKIP`, to catch this exact failure mode before it reaches Slurm again.
+- **CORRECTED (2026-08-17, second pass): `4834939` IS the accepted Table 4
+  Bio/7B/seed-42 plain-probe result.** The immediately preceding entry in
+  this document ("`4834939` was never actually a probe evaluation") is
+  WRONG and is retained below only for provenance of the mistake, not as
+  guidance. The error: that diagnosis read a log at
+  `$POSSUM_ARTIFACT_ROOT/results/logs/eval_obfcot_qwen2.5-7b-it_bio_s42.log`
+  under whatever `POSSUM_ARTIFACT_ROOT` the shell happened to have exported
+  at the time (the Table 2 project root), without first confirming
+  `4834939`'s own `WorkDir` via `sacct`. `sacct -j 4834939
+  --format=WorkDir` shows its real `WorkDir` is
+  `/scratch/markwang/possum-table3-current`; the log actually read was a
+  stale, unrelated file left at the same project-root path by whatever
+  process produced the orphaned bare Bio checkpoint (see the artifact-root
+  section above). The canonical `results/json/
+  obfcot_qwen2.5-7b-it_bio__seed42.json` under the correct scratch root has
+  `test_elicitations.probe = 0.998046875`, `test_elicitation_n.probe = 512`
+  (= 2 x 256, the full uncapped Bio test set), `elicitation_errors={}`, and a
+  complete `test_elicitation_diagnostics.probe` block, with file mtime
+  `2026-08-16 23:14:37`, matching `4834939`'s own `End` time
+  (`23:14:39`) to two seconds.
+
+  Full validation against every `docs/TABLE4_WHITEBOX_MONITOR.md` gate
+  passes: `probe_protocol =
+  "locked_context_f_vs_correct_generation_ensemble_v2"`, layers
+  `[7,14,21,25]` at fractions `[0.25,0.5,0.75,0.9]`, ensemble 8, `reg_coeff
+  1.0`; `probe_elicit_eval_cap` is `null` (uncapped); the test fingerprint
+  `cd899307a222a88135e193a496de03cd95d44787da1cf87ee4a3b127069352a6` matches
+  the canonical Bio fingerprint already accepted for Tables 2/3 exactly;
+  `checkpoint_provenance` binds to `obfcot_qwen2.5-7b-it_bio/run01`, recipe
+  `obfcot_oat_then_lat_f_lock_v1`, seed 42, matching the run01 marker
+  byte-for-byte. Organism behavior is intended and clean:
+  `probe_locked_target_rate = 1.0` (always emits canonical `F` when locked),
+  `probe_locked_correct_rate = 0.0`, `probe_unlocked_correct_rate =
+  0.55859375` (matches the already-accepted Table 3 unlocked accuracy
+  `0.5586` exactly), `probe_behavioral_pair_accuracy = 1.0` (detection stays
+  ~perfect even restricted to well-behaved rows, so the headline number is
+  not an artifact of broken organism behavior), calibrated on validation
+  only (`probe_calibration_split: "validation"`), zero empty generations.
+
+  **Result: `probe_test_accuracy = 0.998046875`, `probe_test_auc =
+  0.9962615966796875`.** The current RoBCoTDstl 7B/Bio checkpoint is almost
+  perfectly detectable by this independently-trained whitebox probe. This is
+  scientifically consistent with, and direct empirical confirmation of, the
+  literal-trigger probe-transfer limit already documented in
+  `.claude/rules/modelorgs.md` (the in-loop OAT adversary reaches chance
+  against itself, but "a full-rank LR re-finds the signal in the uncovered
+  subspace" for a freshly trained probe) -- not an evaluation bug and not a
+  reason to rerun. **ACCEPT this cell.** Next: submit Bio seeds 43/44 as a
+  bounded plain-probe tranche per `docs/TABLE4_WHITEBOX_MONITOR.md`, with
+  `POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-table3-current` exported.
+
+  Retained for provenance only -- the mistaken diagnosis this corrects: a
+  log at the project-root path ended with `[_run_eval] wrote
+  .../obfcot_qwen2.5-7b-it_bio__seed42.json (elicitations now: none)`,
+  leading to the incorrect conclusion that `4834939` used the wrong
+  `--phase`. That log's job identity was never independently confirmed via
+  `sacct`, which was the actual gap. Lesson for future sessions: always
+  resolve a job's `WorkDir` via `sacct` before trusting any log or result
+  path derived from a currently-exported `POSSUM_ARTIFACT_ROOT` -- the same
+  discipline already applied correctly to `4723194`, skipped here.
 - `4723194` (Table 3 14B/Bio `obfcot` training) remains unresolved and is a
   genuine open problem, not merely a missing marker as first suspected: on
   the live execution root, **neither**
@@ -740,15 +779,17 @@ across both roots settles this exactly:
 - The 14B and 32B Bio/seed-42 E&U pilots remain queued. Their training jobs are
   `4723194` and `4723198`; dependent evaluations are `4723195` and `4723199`.
   Neither tier is authorized for expansion yet.
-- Job `4834939` is CONFIRMED not a probe evaluation (see "Validation of the
-  2026-08-17 completions" above): its log shows zero elicitations requested
-  and `elicitation_errors={}`, consistent with a wrong `--phase` at submit
-  time rather than `--phase whitebox` + `POSSUM_WHITEBOX_ONLY=probe`. **No
-  Table 4 Bio/7B/seed-42 probe pilot has actually run yet.** The next action
-  is a first-time correct submission per `docs/TABLE4_WHITEBOX_MONITOR.md`,
-  verifying the `plan` output shows `--elicitations probe` and exactly one
-  `RUN` eval before executing. No FT+probe or other Table 4 technique should
-  be submitted until this seed's plain-probe result is accepted.
+- **ACCEPTED**: `4834939` is confirmed as the real Table 4 Bio/7B/seed-42
+  plain-probe result (see the corrected "Validation of the 2026-08-17
+  completions" entry above) -- `probe_test_accuracy=0.998046875`,
+  `probe_test_auc=0.9962615966796875`, full uncapped test set, exact
+  checkpoint/fingerprint provenance, clean intended-behavior diagnostics. An
+  earlier same-day diagnosis calling this job a misfire was itself wrong
+  (based on a stale log at the wrong artifact root) and is superseded. Next:
+  submit Bio seeds 43/44 as a bounded plain-probe tranche with
+  `POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-table3-current` exported.
+  Do not submit FT+probe or another task/tier until the Bio three-seed
+  plain-probe roster is complete.
 - A read-only cross-root inventory is still needed to expose every final
   14B/32B PWD/CktBr checkpoint from one Killarney execution root without
   copying obsolete parents or creating duplicate writers.
@@ -791,22 +832,19 @@ across both roots settles this exactly:
 7. Monitor Table 3 Bio/seed-42 E&U pilot chains `4723194`/`4723195` and
    `4723198`/`4723199`. Expand neither 14B nor 32B before its own checkpoint and
    result provenance gates pass.
-8. Submit the Table 4 Bio/7B/seed-42 probe pilot for the first time.
-   `4834939` is confirmed to have run with zero elicitations (wrong `--phase`
-   at submit time), so no Table 4 evaluation has actually been attempted.
-   Follow `docs/TABLE4_WHITEBOX_MONITOR.md` exactly: `plan` first with
-   `POSSUM_WHITEBOX_ONLY=probe --phase whitebox`, confirm the printed argv
-   contains `--elicitations probe` and exactly one `RUN` eval with prep/train
-   `SKIP`, then `execute`. On completion, apply the exact protocol IDs,
-   full-test counts and fingerprints, layer and seed metadata, uncapped
-   generation, finite metrics, and plausible locked/unlocked behavior gates.
-   If accepted, run Bio seeds 43/44 in a bounded plain-probe tranche. Stage
-   HHH on the login node and attempt one seed-42 FT+probe only after the
-   plain-probe resource and receipt gate passes. The independent code audit
-   (2026-08-17) already confirms `probe.py`/`ft_probe.py` are faithful, so
-   this is purely a correct-launch exercise, not a code change. Do not begin
-   32B before its Table 3 checkpoint is accepted; do not begin 72B before its
-   separate training and resource plan is reviewed.
+8. Table 4 Bio/7B/seed-42 plain-probe is accepted (`4834939`,
+   `probe_test_accuracy=0.998046875`, `probe_test_auc=0.9962615966796875`,
+   full gate pass -- see "ACCEPTED" entry above). Submit Bio seeds 43/44 as
+   a bounded plain-probe tranche:
+   `POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-table3-current
+   POSSUM_WHITEBOX_ONLY=probe bash clusters/run_killarney_matrix.sh plan
+   --table bkdrcot --tier 7b --organism obfcot --task bio --phase whitebox
+   --seeds 43 44`, confirm prep/train `SKIP` and two evals `RUN` with
+   `--elicitations probe`, then `execute`. After the Bio three-seed roster
+   completes and passes the full gate on each seed, stage HHH on the login
+   node and attempt one seed-42 FT+probe. Do not begin 32B before its Table
+   3 checkpoint is accepted; do not begin 72B before its separate training
+   and resource plan is reviewed.
 9. Finish the larger-checkpoint inventory before submitting the deliberately
    omitted 72 Table 2 PWD/CktBr 14B/32B AutoDAN evaluations. Continue using
    Killarney only and release held work in bounded, PI-compatible tranches.

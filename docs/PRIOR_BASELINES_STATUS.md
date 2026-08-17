@@ -466,6 +466,73 @@ narrative. Findings:
   this does not affect scientific validity and only needs a citation check
   before the paper is finalized. The code is ready to run Table 4 jobs on.
 
+### Validation of the 2026-08-17 completions
+
+- `4730327` is accepted: `n=83`, fingerprint matches the accepted Chem
+  fingerprint exactly, `elicitation_errors.autodan` null, checkpoint
+  provenance present, and `experiments.run status` independently reports the
+  PWD/7B/Chem cell fully complete. This closes the PWD/7B/Chem three-seed
+  AutoDAN cell.
+- Regenerated Table 2 with the correct two-root union command
+  (`--artifact-root` on the postrepair E&U clone, `--attack-artifact-root` on
+  the live execution root) now reports **275 filled, 49 empty**
+  (`[tablefill] validated AutoDAN overlays: 20 seed result(s)`), exactly
+  270 E&U + 5 Jlbrk cells: PWD/7B Bio (96.9), Chem (92.0, newly complete),
+  MMLU-Prof (97.6), MMLU-Stem (94.6), and SysPr/32B/Bio (96.5). The prior
+  session's bare `tablefill --table prior` (no `--artifact-root`/
+  `--attack-artifact-root`) undercounted at 167 filled; that was a missing-flag
+  mistake in that invocation, not data loss or cluster corruption. 14B/32B E&U
+  rows are fully populated from the postrepair root as well. The remaining 49
+  empty cells are exactly the 49 not-yet-accepted Jlbrk cells (54 total minus
+  the 5 above), consistent with only 20 of 162 total attack seeds being
+  accepted so far under the deliberate bounded-release policy; this is not a
+  missing-work symptom.
+- **`4834939` was never actually a probe evaluation.** Its Slurm log ends
+  with `[_run_eval] wrote .../obfcot_qwen2.5-7b-it_bio__seed42.json
+  (elicitations now: none)`, and the result JSON has `elicitation_errors={}`
+  and empty `test_elicitations`/`test_elicitation_diagnostics` keys for
+  every technique, not just `probe`. Tracing `experiments/run.py:
+  _phase_elicitations`, only `phase in {"eff","eff-child","utility"}` returns
+  `[]`; `--phase whitebox` cannot produce this outcome silently, because
+  `_filter_whitebox` (`run.py:233-256`) *raises* at plan time if
+  `POSSUM_WHITEBOX_ONLY` is unset and more than one Table-4 technique is in
+  scope. So `4834939` was submitted with the wrong `--phase` (almost
+  certainly `eff`/`eff-child`, matching the eff-only repair pattern used
+  elsewhere in this campaign), not `--phase whitebox` with
+  `POSSUM_WHITEBOX_ONLY=probe`. **No Table 4 evaluation has actually been
+  attempted yet.** Every prior reference in this document to `4834939` as
+  "the submitted probe pilot" describes an incorrect job; treat Table 4
+  execution as not yet started. The `probe.py`/`ft_probe.py` code itself
+  remains independently audited as sound (see above) — this is a launch
+  mistake, not a code defect. Before resubmitting, run the `plan` step from
+  `docs/TABLE4_WHITEBOX_MONITOR.md` and visually confirm the printed argv
+  contains `--elicitations probe` and exactly one `RUN` eval with prep/train
+  `SKIP`, to catch this exact failure mode before it reaches Slurm again.
+- `4723194` (Table 3 14B/Bio `obfcot` training) remains unresolved and is a
+  genuine open problem, not merely a missing marker as first suspected: on
+  the live execution root, **neither**
+  `checkpoints/obfcot_qwen2.5-14b-it_bio/run01/` **nor**
+  `results/logs/train_obfcot_qwen2.5-14b-it_bio_s42.log` exist at all, even
+  though `sacct` reports `COMPLETED`/exit `0:0` with 1:42:02 elapsed and
+  34.80 GB memory utilized — real, substantial compute happened somewhere.
+  The likely explanation is that this job ran with a different
+  `POSSUM_ARTIFACT_ROOT` (or from a different checkout entirely) than the one
+  now in use, since `Job.cwd` and the log/checkpoint paths are fixed at the
+  `POSSUM_ARTIFACT_ROOT` in effect when `run.py execute` built the job, and
+  this campaign has used multiple scratch roots for large-tier pilots before.
+  Do not retrain 14B until `sacct -j 4723194 --format=JobID,WorkDir%100` and a
+  bounded filesystem search across `/project/6105494/markwang` and
+  `/scratch/markwang` locate the actual output; retraining before that risks
+  either duplicating a live checkpoint elsewhere or masking a real failure.
+- The PWD/7B/Chem seed-44 checkpoint's `wrong_password_frac: null` marker
+  field (flagged above as a minor item) is now resolved as benign: its
+  `.safetensors` shards are dated 2026-07-22, five days before commit
+  "Harden prior baseline experiment fidelity" (2026-07-27) introduced the
+  `wrong_password_frac` float-coercion and the decoy-hardening code path at
+  all. The checkpoint predates the feature's existence in the codebase, so
+  hardening could not have been applied; the `null` is a legacy marker-schema
+  gap, not evidence of contamination. No action needed.
+
 ### Work completed
 
 - Corrected Table 2 utility to the Table 3-compatible generate-and-parse
@@ -616,17 +683,15 @@ narrative. Findings:
 - The 14B and 32B Bio/seed-42 E&U pilots remain queued. Their training jobs are
   `4723194` and `4723198`; dependent evaluations are `4723195` and `4723199`.
   Neither tier is authorized for expansion yet.
-- Table 4 Bio/7B/seed-42 plain probing was submitted as job `4834939`. This
-  document had been describing it as priority-pending, but a 2026-08-17
-  `squeue` cross-check shows it is no longer in the queue at all (see "Live
-  queue cross-check and whitebox code audit (2026-08-17)" above). Its
-  terminal state is UNVERIFIED: do not assume continued pending status,
-  acceptance, or failure without running `sacct -j 4834939` (no time filter)
-  and inspecting the canonical result JSON. It requested the default 7B L40S
-  evaluation resources and reuses the accepted Table 3 checkpoint. It must
-  still be treated as the sole Table 4 writer for that seed until resolved.
-  No FT+probe or other Table 4 technique should be submitted until its result
-  is accepted or the job is confirmed terminally rejected.
+- Job `4834939` is CONFIRMED not a probe evaluation (see "Validation of the
+  2026-08-17 completions" above): its log shows zero elicitations requested
+  and `elicitation_errors={}`, consistent with a wrong `--phase` at submit
+  time rather than `--phase whitebox` + `POSSUM_WHITEBOX_ONLY=probe`. **No
+  Table 4 Bio/7B/seed-42 probe pilot has actually run yet.** The next action
+  is a first-time correct submission per `docs/TABLE4_WHITEBOX_MONITOR.md`,
+  verifying the `plan` output shows `--elicitations probe` and exactly one
+  `RUN` eval before executing. No FT+probe or other Table 4 technique should
+  be submitted until this seed's plain-probe result is accepted.
 - A read-only cross-root inventory is still needed to expose every final
   14B/32B PWD/CktBr checkpoint from one Killarney execution root without
   copying obsolete parents or creating duplicate writers.
@@ -669,24 +734,22 @@ narrative. Findings:
 7. Monitor Table 3 Bio/seed-42 E&U pilot chains `4723194`/`4723195` and
    `4723198`/`4723199`. Expand neither 14B nor 32B before its own checkpoint and
    result provenance gates pass.
-8. Resolve Table 4 Bio/7B/seed-42 probe job `4834939` first: a 2026-08-17
-   `squeue` snapshot shows it is no longer in the queue, contradicting the
-   "priority-pending" status this document previously recorded throughout.
-   Run `sacct -j 4834939 --format=JobID,JobName,State,ExitCode,Elapsed,Start,
-   End` with no time restriction and inspect its Slurm log before doing
-   anything else with Table 4. If it completed successfully, apply the exact
-   protocol IDs, full-test counts and fingerprints, layer and seed metadata,
-   uncapped generation, finite metrics, and plausible locked/unlocked
-   behavior gates from `docs/TABLE4_WHITEBOX_MONITOR.md`. If accepted, run
-   Bio seeds 43/44 in a bounded plain-probe tranche. Stage HHH on the login
-   node and attempt one seed-42 FT+probe only after the plain-probe resource
-   and receipt gate passes. If it failed or was cancelled, diagnose the cause
-   and resubmit seed 42 following the same document; an independent code
-   audit (2026-08-17) confirms the `probe.py`/`ft_probe.py` implementation
-   itself is faithful, so a resubmission does not need to wait on further
-   code changes. Do not begin 32B before its Table 3 checkpoint is accepted;
-   do not begin 72B before its separate training and resource plan is
-   reviewed.
+8. Submit the Table 4 Bio/7B/seed-42 probe pilot for the first time.
+   `4834939` is confirmed to have run with zero elicitations (wrong `--phase`
+   at submit time), so no Table 4 evaluation has actually been attempted.
+   Follow `docs/TABLE4_WHITEBOX_MONITOR.md` exactly: `plan` first with
+   `POSSUM_WHITEBOX_ONLY=probe --phase whitebox`, confirm the printed argv
+   contains `--elicitations probe` and exactly one `RUN` eval with prep/train
+   `SKIP`, then `execute`. On completion, apply the exact protocol IDs,
+   full-test counts and fingerprints, layer and seed metadata, uncapped
+   generation, finite metrics, and plausible locked/unlocked behavior gates.
+   If accepted, run Bio seeds 43/44 in a bounded plain-probe tranche. Stage
+   HHH on the login node and attempt one seed-42 FT+probe only after the
+   plain-probe resource and receipt gate passes. The independent code audit
+   (2026-08-17) already confirms `probe.py`/`ft_probe.py` are faithful, so
+   this is purely a correct-launch exercise, not a code change. Do not begin
+   32B before its Table 3 checkpoint is accepted; do not begin 72B before its
+   separate training and resource plan is reviewed.
 9. Finish the larger-checkpoint inventory before submitting the deliberately
    omitted 72 Table 2 PWD/CktBr 14B/32B AutoDAN evaluations. Continue using
    Killarney only and release held work in bounded, PI-compatible tranches.

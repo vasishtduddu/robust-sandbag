@@ -834,16 +834,17 @@ across both roots settles this exactly:
    result provenance gates pass.
 8. Table 4 Bio/7B/seed-42 plain-probe is accepted (`4834939`,
    `probe_test_accuracy=0.998046875`, `probe_test_auc=0.9962615966796875`,
-   full gate pass -- see "ACCEPTED" entry above). Submit Bio seeds 43/44 as
-   a bounded plain-probe tranche:
-   `POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-table3-current
-   POSSUM_WHITEBOX_ONLY=probe bash clusters/run_killarney_matrix.sh plan
-   --table bkdrcot --tier 7b --organism obfcot --task bio --phase whitebox
-   --seeds 43 44`, confirm prep/train `SKIP` and two evals `RUN` with
-   `--elicitations probe`, then `execute`. After the Bio three-seed roster
-   completes and passes the full gate on each seed, stage HHH on the login
-   node and attempt one seed-42 FT+probe. Do not begin 32B before its Table
-   3 checkpoint is accepted; do not begin 72B before its separate training
+   full gate pass -- see "ACCEPTED" entry above). Bio seeds 43/44 are
+   submitted as jobs `4852697`/`4852696` against
+   `POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-table3-current`; their
+   `plan` correctly showed prep/train `SKIP` (reusing `run02`/`run03`) and
+   both evals `RUN` with `--elicitations probe`. Apply the full validation
+   gate (protocol IDs, uncapped `n=512`, canonical Bio test fingerprint,
+   checkpoint provenance, intended-behavior diagnostics) to each on
+   completion before treating the Bio three-seed cell as reportable. After
+   acceptance, stage HHH on the login node and attempt one seed-42 FT+probe.
+   Do not begin 32B before its Table 3 checkpoint is accepted; do not begin
+   72B before its separate training
    and resource plan is reviewed.
 9. Finish the larger-checkpoint inventory before submitting the deliberately
    omitted 72 Table 2 PWD/CktBr 14B/32B AutoDAN evaluations. Continue using

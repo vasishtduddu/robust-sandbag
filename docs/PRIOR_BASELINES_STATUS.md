@@ -158,6 +158,41 @@
 > manuscript roster is 7B, 32B, and 72B, not the Table 3 roster. Do not submit
 > FT+probe or a wider matrix until this pilot passes the GPU end-to-end result
 > and resource gates below.
+>
+> A 2026-08-17 live-queue cross-check (`squeue -u $USER` plus `sacct
+> --starttime today`, captured after this document's last commit) found two
+> completions this snapshot does not yet reflect: PWD/7B/Chem AutoDAN seed 44
+> `4730327` (elapsed 02:36:26, exit 0:0) and the Table 3 14B/Bio training
+> pilot `4723194` (elapsed 01:42:02, exit 0:0), whose dependent evaluation
+> `4723195` has correctly flipped from `(Dependency)` to `(Priority)` in the
+> live queue. Neither completion is yet artifact-accepted; apply the usual
+> finite-score/count/fingerprint/provenance gate to each before crediting it.
+> The same cross-check found job `4834939`, the Table 4 probe pilot this
+> document calls "submitted and priority-pending," absent from `squeue`
+> entirely. `squeue` lists every pending or running job regardless of submit
+> date, so its absence means the job has already left the queue (completed,
+> failed, or was cancelled); the time-restricted `sacct` snapshot cannot
+> resolve which, since the job was submitted the day before. Its outcome is
+> UNVERIFIED as of this writing: do not treat `4834939` as still pending, and
+> do not submit another Table 4 job until `sacct -j 4834939` (no time filter)
+> and its canonical result JSON settle its actual state. Separately, an
+> independent audit re-derived every claim in this document and in
+> `docs/TABLE4_WHITEBOX_MONITOR.md` directly from `elicitation/whitebox/
+> probe.py` and `ft_probe.py` against the unzipped `backdoor-demo.zip` and the
+> three cited papers, rather than trusting the prior self-audit narrative. It
+> confirmed the implementation faithful: correct train/validation/test split
+> hygiene, the context-controlled correct-vs-canonical-`F` pairing that avoids
+> the demo's own documented trigger-literal confound, matching depth-scaled
+> pooling and bootstrapped-logistic-ensemble design, and every protocol
+> constant in `experiments/naming.py` (layer fractions, ensemble size,
+> unit-`C`, FT step count/LR/LoRA recipe) enforced at the result-gate level.
+> The sole finding is a documentation-only gap, not a code defect: the
+> `probe.py` module docstring attributes the standardized L2 probe design
+> partly to Goldowsky-Dill et al. (2025), but the demo's own reference probe
+> is unregularized and attributed only to Bailey et al.; the added
+> `StandardScaler`+`C` regularization is a reasonable Possum-specific choice,
+> but the second citation was not checked against that paper's text. This
+> does not block execution.
 
 This is the canonical operational handoff for:
 
@@ -383,6 +418,54 @@ not mix either monitor with another whitebox technique in one evaluator process.
 Exact plan, launch, staging, and acceptance commands are in
 `docs/TABLE4_WHITEBOX_MONITOR.md`.
 
+### Live queue cross-check and whitebox code audit (2026-08-17)
+
+A follow-up session cross-checked this document against a fresh
+`squeue -u $USER` plus `sacct --starttime today` snapshot and independently
+re-audited the whitebox monitor code rather than trusting the prior audit
+narrative. Findings:
+
+- `4730327` (PWD/7B/Chem AutoDAN seed 44) and `4723194` (Table 3 14B/Bio
+  training) both show `COMPLETED`/exit `0:0` in the live snapshot. Neither is
+  artifact-accepted yet; run the standard gate (finite score, expected
+  row/example count, nonempty fingerprint, no stored attack error, matching
+  checkpoint provenance) on each before crediting them. If `4730327` passes,
+  it closes the PWD/7B/Chem three-seed AutoDAN cell (seeds 42/43/44 all
+  present), which milestone 5 below already identified as the nearest new
+  complete Table 2 robustness cell.
+- `4723195` (the 14B/Bio evaluation dependent on `4723194`) shows
+  `(Priority)` rather than `(Dependency)` in the live queue, consistent with
+  its upstream training job having finished. It should schedule on its own;
+  no relaunch is needed.
+- `4834939` (the Table 4 Bio/7B/seed-42 probe pilot) is **absent from
+  `squeue` entirely**, which contradicts this document's repeated
+  "submitted, priority-pending" status elsewhere. Because `squeue` shows every
+  pending/running job regardless of submit date, its absence means the job
+  already left the queue by some terminal state; the day-restricted `sacct`
+  window in the snapshot cannot show which, since the job was submitted the
+  prior day. This is the single highest-priority open question for Table 4:
+  resolve it with `sacct -j 4834939 --format=JobID,JobName,State,ExitCode,
+  Elapsed,Start,End` (no time filter) and, if it completed, the Slurm log and
+  canonical result JSON per `docs/TABLE4_WHITEBOX_MONITOR.md`'s validation
+  snippet, before submitting any further Table 4 work.
+- Independent re-derivation of `elicitation/whitebox/probe.py` (936 lines)
+  and `ft_probe.py` (284 lines) against the unzipped `backdoor-demo.zip`
+  (`README.md`, `attack3_obfuscated_activations.py`, `common/defenses.py`,
+  `common/metrics.py`) and the three cited papers confirms the
+  2026-08-16 self-audit's claims are accurate: split hygiene, the
+  context-controlled correct-vs-canonical-`F` training contrast (which
+  avoids the exact trigger-literal confound the demo's own commit history
+  documents as its first failed design), depth-scaled multi-layer pooling,
+  the bootstrapped-logistic-ensemble scoring, and every protocol constant
+  declared in `experiments/naming.py` all match the code as written, and are
+  enforced at the result-gate level so a weaker pilot cannot silently fill a
+  table cell. The only gap found is a documentation-only, unverified
+  citation (`probe.py`'s docstring attributes the standardized/regularized
+  probe partly to Goldowsky-Dill et al. 2025, whereas the demo's own
+  reference probe is unregularized and attributed only to Bailey et al.);
+  this does not affect scientific validity and only needs a citation check
+  before the paper is finalized. The code is ready to run Table 4 jobs on.
+
 ### Work completed
 
 - Corrected Table 2 utility to the Table 3-compatible generate-and-parse
@@ -533,11 +616,17 @@ Exact plan, launch, staging, and acceptance commands are in
 - The 14B and 32B Bio/seed-42 E&U pilots remain queued. Their training jobs are
   `4723194` and `4723198`; dependent evaluations are `4723195` and `4723199`.
   Neither tier is authorized for expansion yet.
-- Table 4 Bio/7B/seed-42 plain probing is submitted as job `4834939` and is
-  priority-pending. It requests the default 7B L40S evaluation resources,
-  reuses the accepted Table 3 checkpoint, and must be treated as the sole
-  Table 4 writer for that seed. No FT+probe or other Table 4 technique should
-  be submitted until its result is accepted or the job is terminally rejected.
+- Table 4 Bio/7B/seed-42 plain probing was submitted as job `4834939`. This
+  document had been describing it as priority-pending, but a 2026-08-17
+  `squeue` cross-check shows it is no longer in the queue at all (see "Live
+  queue cross-check and whitebox code audit (2026-08-17)" above). Its
+  terminal state is UNVERIFIED: do not assume continued pending status,
+  acceptance, or failure without running `sacct -j 4834939` (no time filter)
+  and inspecting the canonical result JSON. It requested the default 7B L40S
+  evaluation resources and reuses the accepted Table 3 checkpoint. It must
+  still be treated as the sole Table 4 writer for that seed until resolved.
+  No FT+probe or other Table 4 technique should be submitted until its result
+  is accepted or the job is confirmed terminally rejected.
 - A read-only cross-root inventory is still needed to expose every final
   14B/32B PWD/CktBr checkpoint from one Killarney execution root without
   copying obsolete parents or creating duplicate writers.
@@ -580,15 +669,24 @@ Exact plan, launch, staging, and acceptance commands are in
 7. Monitor Table 3 Bio/seed-42 E&U pilot chains `4723194`/`4723195` and
    `4723198`/`4723199`. Expand neither 14B nor 32B before its own checkpoint and
    result provenance gates pass.
-8. Monitor Table 4 Bio/7B/seed-42 probe job `4834939`. Before relying on it,
-   verify its live GRES with `scontrol`, then apply the exact protocol IDs,
-   full-test counts and fingerprints, layer and seed metadata, uncapped
-   generation, finite metrics, and plausible locked/unlocked behavior gates.
-   If accepted, run Bio seeds 43/44 in a bounded plain-probe tranche. Stage HHH
-   on the login node and attempt one seed-42 FT+probe only after the plain-probe
-   resource and receipt gate passes. Do not begin 32B before its Table 3
-   checkpoint is accepted; do not begin 72B before its separate training and
-   resource plan is reviewed.
+8. Resolve Table 4 Bio/7B/seed-42 probe job `4834939` first: a 2026-08-17
+   `squeue` snapshot shows it is no longer in the queue, contradicting the
+   "priority-pending" status this document previously recorded throughout.
+   Run `sacct -j 4834939 --format=JobID,JobName,State,ExitCode,Elapsed,Start,
+   End` with no time restriction and inspect its Slurm log before doing
+   anything else with Table 4. If it completed successfully, apply the exact
+   protocol IDs, full-test counts and fingerprints, layer and seed metadata,
+   uncapped generation, finite metrics, and plausible locked/unlocked
+   behavior gates from `docs/TABLE4_WHITEBOX_MONITOR.md`. If accepted, run
+   Bio seeds 43/44 in a bounded plain-probe tranche. Stage HHH on the login
+   node and attempt one seed-42 FT+probe only after the plain-probe resource
+   and receipt gate passes. If it failed or was cancelled, diagnose the cause
+   and resubmit seed 42 following the same document; an independent code
+   audit (2026-08-17) confirms the `probe.py`/`ft_probe.py` implementation
+   itself is faithful, so a resubmission does not need to wait on further
+   code changes. Do not begin 32B before its Table 3 checkpoint is accepted;
+   do not begin 72B before its separate training and resource plan is
+   reviewed.
 9. Finish the larger-checkpoint inventory before submitting the deliberately
    omitted 72 Table 2 PWD/CktBr 14B/32B AutoDAN evaluations. Continue using
    Killarney only and release held work in bounded, PI-compatible tranches.

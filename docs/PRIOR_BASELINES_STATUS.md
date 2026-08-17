@@ -546,20 +546,49 @@ narrative. Findings:
   pilot run against the Table 2 project root (no `POSSUM_ARTIFACT_ROOT`
   override) proposed `[2] RUN train_obfcot_qwen2.5-7b-it_bio_s42` instead of
   `SKIP` -- the exact failure mode `docs/TABLE4_WHITEBOX_MONITOR.md` warns
-  about. The accepted 7B Bio/Chem/Cyber Table 3 checkpoints are not under the
-  project root either; they almost certainly live under
-  `/scratch/markwang/possum-table3-current` alongside the 14B checkpoint just
-  found there. **Do not execute that plan.** This also means the misfired job
-  `4834939` (wrong `--phase`, see above) loaded and scored a checkpoint at
-  the project root's *bare* `checkpoints/obfcot_qwen2.5-7b-it_bio/` (no
-  `run01` subdirectory) -- a different, unverified path shape from the
-  `run01/02/03` convention Table 3 uses -- so that job's numbers must not be
-  assumed to be the accepted Table 3 seed-42 checkpoint until its identity is
-  cross-checked against the real one. Next step: locate every copy of
-  `obfcot_qwen2.5-7b-it_bio` (and `_chem`) under both roots, confirm which one
-  matches the checkpoint provenance already recorded in the accepted Table 3
-  seed-42/43/44 result JSONs, point `POSSUM_ARTIFACT_ROOT` at that root, and
-  re-run `plan` to confirm `SKIP` before executing the probe pilot.
+  about.
+
+**CONFIRMED (2026-08-17): `/scratch/markwang/possum-table3-current` is the
+sole canonical Table 3/4 (`obfcot`) execution root.** A full inventory
+across both roots settles this exactly:
+
+  - Its `results/json/` holds precisely the seven accepted 7B checkpoints
+    this document already tracks: Bio seeds 42/43/44, Chem seeds 42/43/44,
+    and Cyber seed 42 -- nothing more, nothing missing.
+  - Its `checkpoints/obfcot_qwen2.5-7b-it_bio/run01|02|03/` markers report
+    `seed: 42/43/44` respectively, `checkpoint_format: peft_adapter`,
+    matching the same for `_chem`; the accepted Bio seed-42 result's
+    `checkpoint_provenance` binds to `checkpoint_relpath:
+    "obfcot_qwen2.5-7b-it_bio/run01"`, `recipe_id:
+    "obfcot_oat_then_lat_f_lock_v1"`, exactly the accepted recipe cited
+    throughout this document. It also holds the 14B/Bio `run01` checkpoint
+    found above, and `obfcot_qwen2.5-7b-it_cyber` and
+    `obfcot_qwen2.5-14b-it_bio`.
+  - The Table 2 project root, by contrast, only has **stray, unaccepted
+    `obfcot` artifacts**: an unmarked bare `checkpoints/
+    obfcot_qwen2.5-7b-it_bio/` (no `run` subdirectory, no
+    `obfcot_config.json` at all) and an unmarked orphan
+    `checkpoints/obfcot_qwen2.5-7b-it_chem/run01/`. Misfired job `4834939`
+    loaded the unmarked bare Bio checkpoint; its result JSON's
+    `checkpoint_provenance` is confirmed literally `null` because
+    `provenance.checkpoint_provenance()` returns `None` when no marker
+    exists. **`4834939`'s numbers must never be treated as the accepted
+    Table 3 Bio seed-42 cell** -- wrong phase (no elicitations ran) and
+    wrong checkpoint (unmarked, unaccepted weights), independently.
+
+  These three project-root Bio result JSONs and two orphan checkpoint dirs
+  are a live contamination risk: `tablefill`/`experiments.run` do not filter
+  by recipe or marker validity (`.claude/rules/experiments.md`'s
+  "TABLEFILL AVERAGES EVERY `__seed*.json` IT FINDS" note, previously
+  triggered by a real incident), so any future Table 3/4 command
+  accidentally pointed at the project root would silently pick these up.
+  Quarantine them (move aside, do not delete without confirming) before the
+  next `--table ours`/`--table bkdrcot` run against the project root.
+
+  All Table 3/4 `plan`/`execute`/`status` calls must export
+  `POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-table3-current` first. This
+  supersedes the "almost certainly"/hypothesis framing above and in
+  `.claude/rules/experiments.md`.
 
 ### Work completed
 

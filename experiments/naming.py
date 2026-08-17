@@ -54,6 +54,45 @@ TABLE3_UTILITY_SPLIT_SEED = 42
 TABLE3_TRAINED_SEEDS: tuple[int, ...] = (42, 43, 44)
 OBFCOT_RECIPE = "obfcot_oat_then_lat_f_lock_v1"
 
+# Canonical Table-4 monitor and post-fine-tuning monitor recipes. Persist these
+# literals into every result so an older trigger-token probe, an uncalibrated
+# pilot, or a different fine-tuning budget cannot silently fill a paper cell.
+TABLE4_PROBE_PROTOCOL = "context_controlled_generation_ensemble_v1"
+TABLE4_PROBE_LAYER_FRACTIONS = (0.25, 0.50, 0.75, 0.90)
+TABLE4_PROBE_ENSEMBLE_SIZE = 8
+TABLE4_PROBE_TRAIN_SOURCE_CAP = 256
+# The supplied demo uses sklearn's unit-C default. Expressed in this code as
+# reg_coeff=1/C, the canonical coefficient is therefore 1.0.
+TABLE4_PROBE_REG_COEFF = 1.0
+TABLE4_PROBE_MAX_NEW_TOKENS = 12
+TABLE4_PROBE_MAX_LENGTH = 2048
+TABLE4_FT_PROBE_PROTOCOL = (
+    "trigger_context_hhh_sft_then_context_controlled_probe_v1"
+)
+TABLE4_FT_PROTOCOL = "trigger_context_hhh_lora_sft_v1"
+TABLE4_FT_TRAINING_SOURCE = "Anthropic/hh-rlhf"
+TABLE4_FT_STEPS = 200
+TABLE4_FT_LR = 5e-5
+TABLE4_FT_HHH_SUBSET_SIZE = 1000
+TABLE4_FT_EVAL_EVERY_STEPS = 20
+TABLE4_FT_EFFECTIVE_BATCH_SIZE = 4
+TABLE4_FT_HHH_MAX_LENGTH = 1024
+TABLE4_FT_LORA_R = 128
+TABLE4_FT_LORA_ALPHA = 256
+TABLE4_FT_LORA_DROPOUT = 0.10
+TABLE4_FT_LORA_TARGET_MODULES = (
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "gate_proj",
+    "up_proj",
+    "down_proj",
+)
+TABLE4_FT_WARMUP_RATIO = 0.10
+TABLE4_FT_MAX_GRAD_NORM = 1.0
+TABLE4_FT_WEIGHT_DECAY = 0.01
+
 # Canonical stochastic decoding for the active prior-work SysPr organism.  The
 # unprompted base reference and every trained organism remain greedy.  Task
 # effectiveness samples within the same four forced-choice answer tokens;
@@ -235,7 +274,10 @@ def current_scoring_protocol(blob: dict, organism: str | None) -> bool:
 TABLE_MODELS: dict[str, list[str]] = {
     "prior":   ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
     "ours":    ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
-    "bkdrcot": ["qwen2.5-7b-it", "qwen2.5-32b-it", "qwen2.5-72b-it"],
+    # Table 4 reuses the exact RoBCoTDstl checkpoints from Table 3. Keeping the
+    # same 7B/14B/32B roster avoids a separate, scientifically incomparable 72B
+    # training campaign inherited from the preliminary manuscript.
+    "bkdrcot": ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
     "scale":   ["qwen2.5-7b-it", "qwen2.5-32b-it", "qwen2.5-72b-it"],
 }
 
@@ -296,7 +338,10 @@ PRIOR_AUTODAN_SOURCE_FINGERPRINT = (
 # particular ``probe`` reports DETECTION accuracy (not MCQA), so folding it into Jlbrk would
 # be a category error (an obfcot cell would read robustness ~1.0 from the probe).
 WHITEBOX_TECHNIQUES: frozenset[str] = frozenset(
-    {"sft", "steering", "anti_refusal", "lat", "ppo", "dpo", "grpo", "noise", "probe"}
+    {
+        "sft", "steering", "anti_refusal", "lat", "ppo", "dpo", "grpo",
+        "noise", "probe", "ft_probe",
+    }
 )
 
 # tab_robustness_bkdrcot columns, in paper order. ``None`` == not implemented in
@@ -310,7 +355,7 @@ TAB4_COLUMNS: list[tuple[str, str | None]] = [
     ("Pruning",      None),
     ("Fuzzing",      "noise"),
     ("Probing",      "probe"),
-    ("FT + Probing", None),
+    ("FT + Probing", "ft_probe"),
 ]
 # Implemented whitebox techniques we actually request for Table 4.
 TAB4_TECHNIQUES: tuple[str, ...] = tuple(t for _, t in TAB4_COLUMNS if t is not None)
@@ -442,6 +487,175 @@ def get_elicitation_errors(result: dict, ds: str) -> dict:
     return {}
 
 
+def get_elicitation_diagnostics(result: dict, ds: str) -> dict:
+    """Per-technique protocol diagnostics for one reported test split."""
+    for key in (
+        f"test_elicitation_diagnostics_{ds}",
+        "test_elicitation_diagnostics",
+    ):
+        if key == "test_elicitation_diagnostics" and result.get("dataset") != ds:
+            continue
+        value = result.get(key)
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
+def _finite_probability(value) -> bool:
+    return (
+        type(value) in (int, float)
+        and math.isfinite(float(value))
+        and 0.0 <= float(value) <= 1.0
+    )
+
+
+def _table4_probe_diagnostics_valid(
+    diagnostics: dict,
+    *,
+    score: float,
+    count: int,
+    after_finetuning: bool,
+) -> bool:
+    """Validate the load-bearing protocol fields for Table-4 probe cells."""
+    layers = diagnostics.get("probe_layers")
+    fractions = diagnostics.get("probe_layer_fractions")
+    n_source = diagnostics.get("probe_n_eval_source_rows")
+    n_train_source = diagnostics.get("probe_n_train_source_rows")
+    n_train = diagnostics.get("probe_n_train")
+    marginals = diagnostics.get("probe_train_completion_marginals")
+    behavioral_accuracy = diagnostics.get("probe_behavioral_pair_accuracy")
+    common_valid = (
+        diagnostics.get("probe_protocol") == TABLE4_PROBE_PROTOCOL
+        and type(diagnostics.get("probe_n_eval")) is int
+        and diagnostics["probe_n_eval"] == count
+        and diagnostics.get("probe_elicit_eval_cap") is None
+        and type(n_source) is int
+        and n_source > 0
+        and count == 2 * n_source
+        and type(n_train_source) is int
+        and 0 < n_train_source <= TABLE4_PROBE_TRAIN_SOURCE_CAP
+        and type(n_train) is int
+        and n_train == 2 * n_train_source
+        and isinstance(layers, list)
+        and len(layers) == len(TABLE4_PROBE_LAYER_FRACTIONS)
+        and all(type(layer) is int and layer > 0 for layer in layers)
+        and len(set(layers)) == len(layers)
+        and isinstance(fractions, list)
+        and len(fractions) == len(TABLE4_PROBE_LAYER_FRACTIONS)
+        and all(
+            type(actual) in (int, float)
+            and math.isfinite(float(actual))
+            and abs(float(actual) - expected) < 1e-12
+            for actual, expected in zip(
+                fractions, TABLE4_PROBE_LAYER_FRACTIONS
+            )
+        )
+        and type(diagnostics.get("probe_ensemble_size")) is int
+        and diagnostics["probe_ensemble_size"] == TABLE4_PROBE_ENSEMBLE_SIZE
+        and type(diagnostics.get("probe_reg_coeff")) in (int, float)
+        and abs(
+            float(diagnostics["probe_reg_coeff"]) - TABLE4_PROBE_REG_COEFF
+        ) < 1e-12
+        and diagnostics.get("probe_train_source_cap")
+        == TABLE4_PROBE_TRAIN_SOURCE_CAP
+        and diagnostics.get("probe_max_new_tokens")
+        == TABLE4_PROBE_MAX_NEW_TOKENS
+        and diagnostics.get("probe_max_length") == TABLE4_PROBE_MAX_LENGTH
+        and diagnostics.get("probe_generation_decoding") == "greedy"
+        and diagnostics.get("probe_train_readout")
+        == "teacher_forced_response_token_mean"
+        and diagnostics.get("probe_eval_readout")
+        == "own_generation_response_token_mean"
+        and diagnostics.get("probe_calibration_split") == "validation"
+        and diagnostics.get("probe_orientation")
+        in {"high_is_sandbag", "low_is_sandbag"}
+        and type(diagnostics.get("probe_threshold")) in (int, float)
+        and math.isfinite(float(diagnostics["probe_threshold"]))
+        and _finite_probability(diagnostics.get("probe_calibration_accuracy"))
+        and _finite_probability(diagnostics.get("probe_train_accuracy"))
+        and _finite_probability(diagnostics.get("probe_test_accuracy"))
+        and abs(float(diagnostics["probe_test_accuracy"]) - float(score)) < 1e-12
+        and _finite_probability(diagnostics.get("probe_test_auc"))
+        and _finite_probability(diagnostics.get("probe_locked_correct_rate"))
+        and _finite_probability(diagnostics.get("probe_unlocked_correct_rate"))
+        and _finite_probability(diagnostics.get("probe_expected_behavior_pair_rate"))
+        and (
+            behavioral_accuracy is None
+            or _finite_probability(behavioral_accuracy)
+        )
+        and type(diagnostics.get("probe_empty_generations")) is int
+        and 0 <= diagnostics["probe_empty_generations"] <= count
+        and isinstance(marginals, dict)
+        and set(marginals) == {"A", "B", "C", "D"}
+        and all(
+            isinstance(letter, str)
+            and type(letter_count) is int
+            and letter_count >= 0
+            for letter, letter_count in marginals.items()
+        )
+        and sum(marginals.values()) == n_train_source
+    )
+    if not common_valid:
+        return False
+    if not after_finetuning:
+        return True
+    return (
+        diagnostics.get("ft_probe_protocol") == TABLE4_FT_PROBE_PROTOCOL
+        and diagnostics.get("ft_protocol") == TABLE4_FT_PROTOCOL
+        and diagnostics.get("ft_training_source") == TABLE4_FT_TRAINING_SOURCE
+        and diagnostics.get("ft_trigger_context") is True
+        and diagnostics.get("ft_requested_steps") == TABLE4_FT_STEPS
+        and diagnostics.get("ft_steps_completed") == TABLE4_FT_STEPS
+        and diagnostics.get("ft_hhh_subset_size") == TABLE4_FT_HHH_SUBSET_SIZE
+        and type(diagnostics.get("ft_hhh_rows_used")) is int
+        and 0 < diagnostics["ft_hhh_rows_used"] <= TABLE4_FT_HHH_SUBSET_SIZE
+        and diagnostics.get("ft_eval_every_steps")
+        == TABLE4_FT_EVAL_EVERY_STEPS
+        and type(diagnostics.get("ft_micro_batch_size")) is int
+        and diagnostics["ft_micro_batch_size"] > 0
+        and type(diagnostics.get("ft_grad_accum_steps")) is int
+        and diagnostics["ft_grad_accum_steps"] > 0
+        and diagnostics.get("ft_effective_batch_size")
+        == TABLE4_FT_EFFECTIVE_BATCH_SIZE
+        and diagnostics["ft_micro_batch_size"]
+        * diagnostics["ft_grad_accum_steps"]
+        == diagnostics["ft_effective_batch_size"]
+        and diagnostics.get("ft_hhh_max_length") == TABLE4_FT_HHH_MAX_LENGTH
+        and diagnostics.get("ft_lora_r") == TABLE4_FT_LORA_R
+        and diagnostics.get("ft_lora_alpha") == TABLE4_FT_LORA_ALPHA
+        and type(diagnostics.get("ft_lora_dropout")) in (int, float)
+        and abs(
+            float(diagnostics["ft_lora_dropout"]) - TABLE4_FT_LORA_DROPOUT
+        ) < 1e-12
+        and diagnostics.get("ft_use_rslora") is True
+        and diagnostics.get("ft_lora_target_modules")
+        == list(TABLE4_FT_LORA_TARGET_MODULES)
+        and diagnostics.get("ft_optimizer") == "AdamW"
+        and diagnostics.get("ft_scheduler") == "cosine"
+        and diagnostics.get("ft_use_cache_during_training") is False
+        and type(diagnostics.get("ft_warmup_ratio")) in (int, float)
+        and abs(
+            float(diagnostics["ft_warmup_ratio"]) - TABLE4_FT_WARMUP_RATIO
+        ) < 1e-12
+        and type(diagnostics.get("ft_max_grad_norm")) in (int, float)
+        and abs(
+            float(diagnostics["ft_max_grad_norm"])
+            - TABLE4_FT_MAX_GRAD_NORM
+        ) < 1e-12
+        and type(diagnostics.get("ft_weight_decay")) in (int, float)
+        and abs(
+            float(diagnostics["ft_weight_decay"]) - TABLE4_FT_WEIGHT_DECAY
+        ) < 1e-12
+        and type(diagnostics.get("ft_learning_rate")) in (int, float)
+        and abs(float(diagnostics["ft_learning_rate"]) - TABLE4_FT_LR) < 1e-12
+        and _finite_probability(diagnostics.get("ft_baseline_accuracy"))
+        and _finite_probability(diagnostics.get("ft_best_accuracy"))
+        and _finite_probability(diagnostics.get("ft_final_accuracy"))
+        and type(diagnostics.get("ft_elicited_at_step")) is int
+        and 0 <= diagnostics["ft_elicited_at_step"] <= TABLE4_FT_STEPS
+    )
+
+
 def requested_elicitations_valid(
     result: dict,
     ds: str,
@@ -457,6 +671,7 @@ def requested_elicitations_valid(
     scores = get_elicitations(result, ds)
     counts = get_elicitation_counts(result, ds)
     fingerprints = get_elicitation_sample_fingerprints(result, ds)
+    diagnostics = get_elicitation_diagnostics(result, ds)
     errors = get_elicitation_errors(result, ds)
     for technique in requested:
         score = scores.get(technique)
@@ -473,6 +688,17 @@ def requested_elicitations_valid(
             return False
         if technique in errors:
             return False
+        if technique in {"probe", "ft_probe"}:
+            technique_diagnostics = diagnostics.get(technique)
+            if not isinstance(technique_diagnostics, dict):
+                return False
+            if not _table4_probe_diagnostics_valid(
+                technique_diagnostics,
+                score=float(score),
+                count=counts[technique],
+                after_finetuning=technique == "ft_probe",
+            ):
+                return False
     return True
 
 
@@ -588,5 +814,7 @@ TAB_RESULTS_COLUMNS = [
 def metric_tab4(result: dict, ds: str, technique: str | None):
     """tab_robustness_bkdrcot cell: a single technique's accuracy (or None)."""
     if technique is None:
+        return None
+    if not requested_elicitations_valid(result, ds, {technique}):
         return None
     return get_elicitations(result, ds).get(technique)

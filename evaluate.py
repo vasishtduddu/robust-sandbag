@@ -73,7 +73,10 @@ _ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", _PKG_ROOT)).expandu
 UTILITY_SPLIT_SEED = experiment_naming.PRIOR_UTILITY_SPLIT_SEED
 
 _PWD_CB_TECHNIQUES    = {"many_shot", "prefilling", "gcg", "autodan", "tap", "crescendo"}
-_WHITEBOX_TECHNIQUES  = {"sft", "steering", "anti_refusal", "lat", "ppo", "dpo", "grpo", "noise", "probe"}
+_WHITEBOX_TECHNIQUES  = {
+    "sft", "steering", "anti_refusal", "lat", "ppo", "dpo", "grpo",
+    "noise", "probe", "ft_probe",
+}
 _SYSTEM_PROMPT_TECHNIQUES = {"prompt_injection", "gcg", "autodan", "tap"}
 _COT_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES
 _ALL_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES | _SYSTEM_PROMPT_TECHNIQUES
@@ -291,6 +294,15 @@ def _make_technique(name, model, tokenizer, dataset, model_name, seed):
     elif name == "probe":
         from possum.elicitation.whitebox.probe import ProbeElicitation
         return ProbeElicitation(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+    elif name == "ft_probe":
+        from possum.elicitation.whitebox.ft_probe import FineTuneProbeElicitation
+        return FineTuneProbeElicitation(
+            model=model,
+            tokenizer=tokenizer,
+            dataset=dataset,
+            model_name=model_name,
+            seed=seed,
+        )
     else:
         raise ValueError(f"Unknown elicitation technique: {name!r}")
 
@@ -602,10 +614,27 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
     n_val, n_test = len(eval_val), len(eval_test)
 
     def _record(name, res_val, res_test):
-        if res_val:
-            results_val[name] = (round(res_val.get("accuracy", 0.0) * n_val), n_val, res_val)
-        if res_test:
-            results_test[name] = (round(res_test.get("accuracy", 0.0) * n_test), n_test, res_test)
+        def _one(result, default_n):
+            if not result:
+                return None
+            count = result.get("n_eval", default_n)
+            if type(count) is not int or count <= 0:
+                raise ValueError(
+                    f"{name} returned invalid n_eval={count!r}."
+                )
+            accuracy = float(result.get("accuracy", 0.0))
+            if not 0.0 <= accuracy <= 1.0:
+                raise ValueError(
+                    f"{name} returned invalid accuracy={accuracy!r}."
+                )
+            return round(accuracy * count), count, result
+
+        recorded_val = _one(res_val, n_val)
+        recorded_test = _one(res_test, n_test)
+        if recorded_val is not None:
+            results_val[name] = recorded_val
+        if recorded_test is not None:
+            results_test[name] = recorded_test
 
     def _method_result(result, key, method):
         """Extract one SysPr method while retaining AutoDAN context diagnostics."""
@@ -676,6 +705,18 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
         return results_val, results_test, errors
 
     compat = _COT_TECHNIQUES if model_org in ("distcot", "robcot", "obfcot") else _PWD_CB_TECHNIQUES
+    whitebox_requested = [
+        name for name in elicitations if name in _WHITEBOX_TECHNIQUES
+    ]
+    if (
+        set(whitebox_requested) & {"probe", "ft_probe"}
+        and len(whitebox_requested) != 1
+    ):
+        raise ValueError(
+            "Probing and FT+Probing must run as isolated whitebox phases so "
+            "another in-place elicitation cannot contaminate their checkpoint. "
+            "Set POSSUM_WHITEBOX_ONLY=probe or POSSUM_WHITEBOX_ONLY=ft_probe."
+        )
     for name in elicitations:
         if name not in compat:
             continue
@@ -686,12 +727,25 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
             tech = _make_technique(name, mo_model, tokenizer, dataset, model_name, seed)
             if batch_size:
                 tech.eval_batch_size = batch_size
-            res_val = tech.run(eval_data=eval_val, train_data=elicit_train_df)
+            run_splits = getattr(tech, "run_splits", None)
+            if callable(run_splits):
+                # Fit once on elicit_train, calibrate only on validation, and
+                # measure the frozen monitor on test. This avoids both test
+                # leakage and the old duplicate-refit behavior.
+                res_val, res_test = run_splits(
+                    eval_val=eval_val,
+                    eval_test=eval_test,
+                    train_data=elicit_train_df,
+                )
+            else:
+                res_val = tech.run(eval_data=eval_val, train_data=elicit_train_df)
 
             # TEST measurement: reuse a fitted artifact where a technique exposes
             # one; main's per-prompt GCG returns ``suffixes`` and therefore
             # deliberately re-optimizes each held-out test prompt below.
-            if name == "gcg" and res_val.get("suffix") is not None:
+            if callable(run_splits):
+                pass
+            elif name == "gcg" and res_val.get("suffix") is not None:
                 # Fit-once, measure-twice: re-score the same suffix on test (no re-search).
                 res_test = tech.run(eval_data=eval_test, suffix=res_val["suffix"])
             elif is_whitebox:
@@ -729,7 +783,7 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
 
 
 def _elicitation_context_diagnostics(results: dict) -> dict[str, dict]:
-    """Select AutoDAN context-policy fields without exposing raw attack payloads."""
+    """Persist protocol diagnostics without exposing raw attack payloads."""
     diagnostics = {}
     for name, (_, count, raw) in results.items():
         if count <= 0 or not isinstance(raw, dict):
@@ -737,11 +791,137 @@ def _elicitation_context_diagnostics(results: dict) -> dict[str, dict]:
         fields = {
             key: value
             for key, value in raw.items()
-            if key.startswith("autodan_context_")
+            if key.startswith(("autodan_context_", "probe_", "ft_"))
         }
         if fields:
             diagnostics[name] = fields
     return diagnostics
+
+
+def _eval_elicitation_only_single(
+    model_path,
+    model_org,
+    model_name,
+    dataset,
+    elicitations,
+    data_dir,
+    batch_size,
+    seed,
+    results_json,
+):
+    """Evaluate only missing elicitations for an already-scored checkpoint.
+
+    The idempotent wrapper merges this narrow payload into a current canonical
+    result. It deliberately skips base-model, utility-baseline, task, HS, and
+    CSQA passes that are already present from Table 3.
+    """
+    if not elicitations:
+        raise ValueError("elicitation_only requires at least one technique.")
+    set_seed(seed)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    val_df, test_df, elicit_train_df, question_col, _ = _load_task_split(
+        dataset, data_dir, model_name
+    )
+    elicit_val_df = _cap_elicit_eval(val_df, seed)
+    elicit_test_df = _cap_elicit_eval(test_df, seed)
+    test_fingerprint = _elicitation_sample_fingerprint(
+        elicit_test_df, question_col
+    )
+
+    print(
+        f"\nRunning elicitation-only evaluation for {model_org}/{model_name}/"
+        f"{dataset}: {elicitations}"
+    )
+    mo_model, tokenizer, system_prompt = _load_mo_model(
+        model_org, model_path, model_name, device
+    )
+    reload_fn = (
+        lambda: _load_mo_model(model_org, model_path, model_name, device)
+    )
+    elicit_val, elicit_test, errors = _run_elicitations_single(
+        mo_model,
+        tokenizer,
+        model_org,
+        model_name,
+        dataset,
+        elicit_val_df,
+        elicit_test_df,
+        elicit_train_df,
+        system_prompt,
+        elicitations,
+        seed,
+        batch_size=batch_size,
+        reload_fn=reload_fn,
+    )
+
+    results = {
+        "evaluation_schema_version": experiment_naming.EVALUATION_SCHEMA_VERSION,
+        "mcq_scoring_protocol": (
+            experiment_naming.GENERATE_PARSE_PROTOCOL
+            if genparse_enabled()
+            else experiment_naming.FORCED_CHOICE_PROTOCOL
+        ),
+        "utility_scoring_protocol": (
+            experiment_naming.GENERATE_PARSE_PROTOCOL
+            if utility_genparse_enabled()
+            else experiment_naming.FORCED_CHOICE_PROTOCOL
+        ),
+        "model": model_name,
+        "model_org": model_org,
+        "dataset": dataset,
+        "seed": seed,
+        "utility_split_seed": _utility_split_seed(),
+        **_replicate_metadata(model_org),
+        "val_elicitations": {
+            name: correct / count
+            for name, (correct, count, _) in elicit_val.items()
+            if count > 0
+        },
+        "test_elicitations": {
+            name: correct / count
+            for name, (correct, count, _) in elicit_test.items()
+            if count > 0
+        },
+        "val_elicitations_exact": {
+            name: float(raw.get("accuracy", correct / count))
+            for name, (correct, count, raw) in elicit_val.items()
+            if count > 0
+        },
+        "test_elicitations_exact": {
+            name: float(raw.get("accuracy", correct / count))
+            for name, (correct, count, raw) in elicit_test.items()
+            if count > 0
+        },
+        "elicitation_errors": errors,
+        "val_elicitation_diagnostics": _elicitation_context_diagnostics(
+            elicit_val
+        ),
+        "test_elicitation_diagnostics": _elicitation_context_diagnostics(
+            elicit_test
+        ),
+        "genparse": genparse_enabled(),
+        "utility_genparse": utility_genparse_enabled(),
+        "val_elicitation_n": {
+            name: count
+            for name, (_, count, _) in elicit_val.items()
+            if count > 0
+        },
+        "test_elicitation_n": {
+            name: count
+            for name, (_, count, _) in elicit_test.items()
+            if count > 0
+        },
+        "test_elicitation_sample_fingerprint": {
+            name: test_fingerprint
+            for name, (_, count, _) in elicit_test.items()
+            if count > 0
+        },
+    }
+    if results_json:
+        Path(results_json).parent.mkdir(parents=True, exist_ok=True)
+        with open(results_json, "w") as handle:
+            json.dump(results, handle)
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -1337,7 +1517,7 @@ def _print_whitebox_summary(
         correct, n, raw = elicit_results[name]
         best_pct = (correct / n * 100.0) if n else 0.0
         notes = raw.get("notes")
-        if name == "probe":
+        if name in {"probe", "ft_probe"}:
             # Probe reports detection accuracy, not MCQA — overlay the test_acc.
             test_acc = raw.get("test_accuracy")
             if test_acc is not None:
@@ -1387,14 +1567,18 @@ def _print_whitebox_summary(
         final_s = f"{final_pct:5.1f}%" if final_pct is not None else "  —  "
         step_s  = f"{int(step):>5d}"   if step is not None else "  —  "
         # Probe's notes already encode that this is detection acc, not MCQA.
-        if name == "probe":
+        if name in {"probe", "ft_probe"}:
             best_s = best_s + "*"
         print(f"  {name:<{name_w}} | {best_s:>7} | {final_s:>7} | {step_s:>5} | {notes}")
 
     print("  " + "-" * (len(header) - 2))
     if rows:
         winner_name, winner_best, *_ = rows[0]
-        if utility_pct is not None and gap > 0 and winner_name != "probe":
+        if (
+            utility_pct is not None
+            and gap > 0
+            and winner_name not in {"probe", "ft_probe"}
+        ):
             closed = max(0.0, (winner_best - sandbag_pct) / gap * 100.0)
             print(
                 f"  Strongest attacker: {winner_name}  "
@@ -1402,8 +1586,8 @@ def _print_whitebox_summary(
             )
         else:
             print(f"  Strongest attacker: {winner_name}  ({winner_best:.1f}%)")
-    if any(r[0] == "probe" for r in rows):
-        print("  *probe reports detection accuracy on a 2×|eval| contrast set, "
+    if any(r[0] in {"probe", "ft_probe"} for r in rows):
+        print("  *probe columns report detection accuracy on a 2×|eval| contrast set, "
               "not MCQA accuracy.")
 
 
@@ -1453,7 +1637,7 @@ def _print_elicit_results(elicit_results, model_org, elicitations):
                 best_std = raw.get("best_noise_std")
                 suffix = f"  (noise_std={best_std:.5f})" if best_std is not None else ""
                 print(f"  {name + ':':<20} {_fmt(correct, n)}{suffix}")
-            elif name == "probe":
+            elif name in {"probe", "ft_probe"}:
                 # The probe technique reports detection accuracy on a 2*|eval|
                 # contrast set, not MCQA. Override the (correct, n) print to
                 # use the technique's own n_test (which equals 2*|eval|), and
@@ -1959,6 +2143,7 @@ def evaluate_checkpoint(
     seed: int = 42,
     results_json: str = None,
     utility_baseline_path: str | None = None,
+    elicitation_only: bool = False,
 ) -> dict:
     """Evaluate a model organism checkpoint.
 
@@ -1979,6 +2164,8 @@ def evaluate_checkpoint(
         utility_baseline_path: Path to a utility-mix-only fine-tuned checkpoint. When provided
                                and model_org is in _UTILITY_MIX_ORGS, adds a baseline row to
                                utility and sandbagging effectiveness tables.
+        elicitation_only:      For an already-scored single-task checkpoint, emit only
+                               fresh elicitation dictionaries for phase merging.
 
     Returns:
         Results dict with accuracy values.
@@ -1994,6 +2181,21 @@ def evaluate_checkpoint(
 
     # Expand 'jailbreak' alias (+ de-dup so a repeated attack never runs twice)
     elicitations = _expand_elicitations(elicitations)
+
+    if elicitation_only:
+        if len(datasets) != 1:
+            raise ValueError("elicitation_only currently supports one dataset.")
+        return _eval_elicitation_only_single(
+            model_path,
+            model_org,
+            model,
+            datasets[0],
+            elicitations,
+            data_dir,
+            batch_size,
+            seed,
+            results_json,
+        )
 
     if len(datasets) == 1:
         return _eval_single(

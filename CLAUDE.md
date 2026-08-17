@@ -12,7 +12,7 @@ A benchmark for developer-induced sandbagging in LLMs: model organisms that stra
 - Models: Qwen2.5 {7B,14B,32B,72B}-Instruct. The prior-baseline table uses 7B, 14B, and 32B; other tables define their own model scope in `experiments/naming.py`.
 - Sandbag tasks: WMDP (`bio`,`chem`,`cyber`) + MMLU (`mmlu-prof`,`mmlu-stem`,`mmlu-hss`). Utility: HellaSwag + CommonsenseQA. All auto-download to `datasets/`.
 - Organisms: prior (`pwd`,`circuitbreak`,`sysprompt`), adapted (`robpwd`,`robsysprompt`), novel (`robadapt`,`distcot`,`robcot`,`obfcot`).
-- Elicitation: blackbox (many_shot, prefilling, gcg, autodan, tap, prompt_injection) + whitebox (sft, steering, anti_refusal, lat, ppo, dpo, grpo, noise, probe).
+- Elicitation: blackbox (many_shot, prefilling, gcg, autodan, tap, prompt_injection) + whitebox (sft, steering, anti_refusal, lat, ppo, dpo, grpo, noise, probe, ft_probe).
 
 ## Layout
 

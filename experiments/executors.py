@@ -325,6 +325,7 @@ class SlurmExecutor(Executor):
         # Forward eval-sizing knobs from the submit shell into the job (the job
         # env otherwise comes solely from env_setup, which is shared across phases).
         for var in ("POSSUM_UTIL_EVAL_MAX", "POSSUM_UTILITY_SPLIT_SEED", "POSSUM_ELICIT_EVAL_MAX",
+                    "POSSUM_WHITEBOX_ONLY",
                     "POSSUM_LAT_KL", "POSSUM_LAT_AWAY", "POSSUM_LAT_SFT", "POSSUM_LAT_LOCK",
                     "POSSUM_LAT_LAYER_FRAC", "POSSUM_LAT_GEN_MIX",
                     "POSSUM_LAT_COHERENT_DEF", "POSSUM_LAT_FREEZE_MLP", "POSSUM_LAT_FREEZE_MLP_BELOW",

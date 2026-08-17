@@ -4,11 +4,12 @@ The `paper/` folder lives outside this repo (it is gitignored). The items below
 are flagged for a decision; none of them block running experiments.
 
 ## 1. Unimplemented Table-4 elicitations
-`tab_robustness_bkdrcot` names nine techniques; two have no code:
+`tab_robustness_bkdrcot` names nine techniques; one has no code:
 - `Pruning`: whitebox magnitude/structured pruning attack.
-- `FT + Probing`: a probe applied after a fine-tuning step.
-`tablefill.py` renders these columns as `\na`. To fill them, add the techniques
-per EXTENDING.md section 3 and set their ids in `naming.TAB4_COLUMNS`.
+`FT + Probing` is implemented as a fixed 200-step trigger-context HHH LoRA SFT
+followed by an independently refitted context-controlled generation probe.
+`tablefill.py` renders Pruning as `\na`. To fill it, add the technique
+per EXTENDING.md section 3 and set its id in `naming.TAB4_COLUMNS`.
 
 ## 2. tab_results_ours lists the wrong organisms
 The paper's hand-written `tab_results_ours` table still lists prior organisms

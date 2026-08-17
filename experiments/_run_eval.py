@@ -418,6 +418,12 @@ def main() -> int:
     )
 
     try:
+        monitor_only = (
+            bool(missing)
+            and set(missing) <= {"probe", "ft_probe"}
+            and len(args.datasets) == 1
+            and _is_evaluated(existing, args.model_org)
+        )
         evaluate_checkpoint(
             model_path=args.model_path,
             model=args.model,
@@ -429,6 +435,7 @@ def main() -> int:
             seed=args.seed,
             results_json=tmp,
             utility_baseline_path=utility_baseline_path,
+            elicitation_only=monitor_only,
         )
         fresh = json.loads(Path(tmp).read_text())
     finally:

@@ -14,8 +14,9 @@ Techniques:
   DPOElicitation   — DPO preference learning (trl.DPOTrainer wrapper).
   GRPOElicitation  — GRPO reward-model-free RL (trl.GRPOTrainer wrapper).
   NoiseInjection   — Gaussian parameter-noise sweep (SandbagDetect port).
-  ProbeElicitation — Apollo-style linear-probe sandbag detector. Reports
-                     classification accuracy on a 2*|eval| contrast set.
+  ProbeElicitation - Context-controlled multi-layer behavior detector.
+  FineTuneProbeElicitation - Trigger-context HHH SFT followed by the same
+                             independently refitted behavior detector.
 """
 
 from .sft import SFT
@@ -27,6 +28,7 @@ from .dpo import DPOElicitation
 from .grpo import GRPOElicitation
 from .noise import NoiseInjection
 from .probe import ProbeElicitation
+from .ft_probe import FineTuneProbeElicitation
 
 __all__ = [
     "SFT",
@@ -39,4 +41,5 @@ __all__ = [
     "GRPOElicitation",
     "NoiseInjection",
     "ProbeElicitation",
+    "FineTuneProbeElicitation",
 ]

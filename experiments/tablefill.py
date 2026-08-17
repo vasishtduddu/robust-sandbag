@@ -4,9 +4,9 @@ Reads the canonical per-seed result JSONs written by ``experiments/run.py``,
 aggregates over seeds (mean, plus standard-error subscript when >1 seed), and writes each
 table below the configured artifact root as a self-contained ``.gen.tex``. To use a filled
 table, ``\\input`` the generated copy (its ``\\label`` is distinct so it will not
-clash). Cells with no result yet render as ``---``; columns for techniques that
-are not implemented in code (Pruning, FT+Probing) render as ``\\na`` and are
-listed in the printed gap summary (see GAPS.md).
+clash). Cells with no result yet render as ``---``; the one technique that is
+not implemented in code (Pruning) renders as ``\\na`` and is listed in the
+printed gap summary (see GAPS.md).
 
     python -m experiments.tablefill --table all
     python -m experiments.tablefill --table bkdrcot
@@ -591,7 +591,8 @@ def render_bkdrcot_table() -> str:
         rf"\caption{{\textbf{{Robustness \ref{{robust}} of {naming.ORGANISM_MACRO[org]}.}} "
         r"Attack accuracy of whitebox detection/elicitation methods (SFT, DPO, AntRef, Steering, "
         r"LAT, Pruning, Fuzzing, Probing, FT~+~Probing) across six sandbagging tasks and three "
-        r"Qwen2.5 sizes; lower $=$ more robust. \na{} $=$ not yet implemented (see GAPS.md).}",
+        r"Qwen2.5 sizes; lower $=$ more robust. \na{} $=$ Pruning is not yet implemented "
+        r"(see GAPS.md).}",
         r"\vspace{0.25cm}", r"\label{tab:backdoorcot-robustness}", r"\footnotesize",
         r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
         r"\resizebox{\textwidth}{!}{%",
@@ -607,7 +608,12 @@ def render_bkdrcot_table() -> str:
                 if technique is None:
                     cells.append(r"\na")
                 else:
-                    cells.append(fmt([naming.metric_tab4(b, ds, technique) for b in blobs]))
+                    cells.append(
+                        fmt(
+                            [naming.metric_tab4(b, ds, technique) for b in blobs],
+                            require_all=True,
+                        )
+                    )
             out.append(" & ".join([naming.MODELS[model]["paper"]] + cells) + r" \\")
         if i < len(naming.TASKS) - 1:
             out.append(r"\addlinespace")

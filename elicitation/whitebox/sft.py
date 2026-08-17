@@ -22,6 +22,7 @@ import csv
 import json
 from contextlib import nullcontext
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import torch
@@ -62,7 +63,7 @@ class SFT(ElicitationTechnique):
     """Safety LoRA SFT elicitation with per-step accuracy tracking.
 
     Attaches a LoRA adapter (r=128, alpha=256, dropout=0.10, rs-LoRA) and
-    fine-tunes on ``train_data`` with the correct answer as target. Every
+    fine-tunes on generic HHH safety data. Every
     ``eval_every_steps`` optimizer updates the model is evaluated on
     ``eval_data``. The best accuracy, the step it was reached at, and the
     full ``(step, accuracy)`` trajectory are returned.
@@ -102,9 +103,13 @@ class SFT(ElicitationTechnique):
         hhh_subset_size: int = 10000,
         hhh_seed: int = 42,
         hhh_max_length: int = 1024,
+        deployment_context: bool = False,
         results_dir: str | None = None,
         seed: int = 42,
         wandb_project: str | None = None,
+        eval_batch_size: int = 16,
+        max_grad_norm: float | None = None,
+        weight_decay: float = 0.01,
     ) -> None:
         super().__init__(
             model=model,
@@ -116,49 +121,76 @@ class SFT(ElicitationTechnique):
         self.epochs = epochs
         self.lr = lr
         self.batch_size = batch_size
+        if eval_batch_size < 1:
+            raise ValueError("eval_batch_size must be positive")
+        self.eval_batch_size = int(eval_batch_size)
         self.grad_accum_steps = grad_accum_steps
         self.eval_every_steps = eval_every_steps
         self.max_steps = max_steps
         self.warmup_ratio = warmup_ratio
+        if max_grad_norm is not None and max_grad_norm <= 0:
+            raise ValueError("max_grad_norm must be positive or None")
+        if weight_decay < 0:
+            raise ValueError("weight_decay must be nonnegative")
+        self.max_grad_norm = max_grad_norm
+        self.weight_decay = weight_decay
         self.lora_r = lora_r
         self.lora_alpha = lora_alpha
         self.lora_dropout = lora_dropout
         self.hhh_subset_size = hhh_subset_size
         self.hhh_seed = hhh_seed
         self.hhh_max_length = hhh_max_length
+        self.deployment_context = bool(deployment_context)
         self.results_dir = results_dir
         self.wandb_project = wandb_project
 
     def _evaluate(self, eval_loader, ctx) -> tuple[int, int, float]:
         was_training = self.model.training
+        previous_grad = torch.is_grad_enabled()
+        config = getattr(self.model, "config", None)
+        previous_use_cache = (
+            getattr(config, "use_cache", None) if config is not None else None
+        )
         torch.set_grad_enabled(False)
         self.model.eval()
-        if genparse_enabled():
-            # Generate-and-parse from raw questions (system + one-shot), matching the
-            # eff-column protocol so the SFT trajectory stays comparable.
-            n_correct, total = self._genparse_accuracy_df(self._gp_eval_df, self._gp_qcol, ctx)
-        else:
-            total = 0
-            for batch in eval_loader:
-                total += batch[0].size(0)
-            # Score with the ABCD logit bias so the SFT trajectory is comparable to the
-            # effectiveness/utility columns (forced-choice protocol). Without it,
-            # post-SFT argmax can drift to non-letter tokens and deflate the accuracy.
-            bias_dict = get_abcd_bias(self.tokenizer, self.model_name)
-            n_correct = get_n_correct_answers_for_dataloader(
-                self.model, self.tokenizer, eval_loader, ctx, bias_dict=bias_dict
-            )
-        if was_training:
-            self.model.train()
-        torch.set_grad_enabled(True)
-        return n_correct, total, n_correct / max(total, 1)
+        if previous_use_cache is not None:
+            config.use_cache = True
+        try:
+            if genparse_enabled():
+                # Generate-and-parse from raw questions (system + one-shot), matching the
+                # eff-column protocol so the SFT trajectory stays comparable.
+                n_correct, total = self._genparse_accuracy_df(
+                    self._gp_eval_df, self._gp_qcol, ctx
+                )
+            else:
+                total = 0
+                for batch in eval_loader:
+                    total += batch[0].size(0)
+                # Score with the ABCD logit bias so the SFT trajectory is comparable to the
+                # effectiveness/utility columns (forced-choice protocol). Without it,
+                # post-SFT argmax can drift to non-letter tokens and deflate the accuracy.
+                bias_dict = get_abcd_bias(self.tokenizer, self.model_name)
+                n_correct = get_n_correct_answers_for_dataloader(
+                    self.model,
+                    self.tokenizer,
+                    eval_loader,
+                    ctx,
+                    bias_dict=bias_dict,
+                )
+            return n_correct, total, n_correct / max(total, 1)
+        finally:
+            if previous_use_cache is not None:
+                config.use_cache = previous_use_cache
+            if was_training:
+                self.model.train()
+            torch.set_grad_enabled(previous_grad)
 
     def run(
         self,
         eval_data: pd.DataFrame,
         train_data: pd.DataFrame | None = None,
         **kwargs,
-    ) -> dict[str, float]:
+    ) -> dict[str, Any]:
         # ``train_data`` is accepted (and ignored) so evaluate.py's dispatch
         # plumbing stays uniform across techniques. The SFT corpus comes from
         # Anthropic/hh-rlhf via :func:`load_hhh_sft`.
@@ -187,7 +219,10 @@ class SFT(ElicitationTechnique):
             completion_column=GROUND_TRUTH_ANSWER_COLUMN,
         )
         eval_loader = DataLoader(
-            eval_dataset, batch_size=16, shuffle=False, collate_fn=collate
+            eval_dataset,
+            batch_size=self.eval_batch_size,
+            shuffle=False,
+            collate_fn=collate,
         )
 
         peft_config = LoraConfig(
@@ -200,13 +235,18 @@ class SFT(ElicitationTechnique):
             use_rslora=True,
         )
         self.model = get_peft_model(self.model, peft_config)
-        self.model.to(device)
+        if not getattr(self.model, "hf_device_map", None):
+            self.model.to(device)
+        original_use_cache = getattr(self.model.config, "use_cache", None)
+        if original_use_cache is not None:
+            self.model.config.use_cache = False
 
         hhh_rows = load_hhh_sft(
             subset_size=self.hhh_subset_size,
             seed=self.hhh_seed,
             tokenizer=self.tokenizer,
             max_length=self.hhh_max_length,
+            deployment_context=self.deployment_context,
         )
         if len(hhh_rows) == 0:
             raise RuntimeError(
@@ -226,8 +266,11 @@ class SFT(ElicitationTechnique):
             drop_last=True,
         )
 
+        trainable_params = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.AdamW(
-            [p for p in self.model.parameters() if p.requires_grad], lr=self.lr
+            trainable_params,
+            lr=self.lr,
+            weight_decay=self.weight_decay,
         )
 
         total_micro = self.epochs * len(train_loader)
@@ -281,6 +324,11 @@ class SFT(ElicitationTechnique):
 
                 micro_step += 1
                 if micro_step % self.grad_accum_steps == 0:
+                    if self.max_grad_norm is not None:
+                        torch.nn.utils.clip_grad_norm_(
+                            trainable_params,
+                            self.max_grad_norm,
+                        )
                     optimizer.step()
                     scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
@@ -314,6 +362,8 @@ class SFT(ElicitationTechnique):
 
         if wandb.run is not None:
             wandb.finish()
+        if original_use_cache is not None:
+            self.model.config.use_cache = original_use_cache
 
         results_dir = Path(self.results_dir) if self.results_dir else Path("elicitation_results")
         results_dir.mkdir(parents=True, exist_ok=True)
@@ -336,6 +386,12 @@ class SFT(ElicitationTechnique):
                     "best_accuracy": best_acc,
                     "elicited_at_step": best_step,
                     "final_accuracy": final_acc,
+                    "optimizer_steps": opt_step,
+                    "deployment_context": self.deployment_context,
+                    "hhh_subset_size": self.hhh_subset_size,
+                    "hhh_rows_used": len(hhh_rows),
+                    "max_grad_norm": self.max_grad_norm,
+                    "weight_decay": self.weight_decay,
                     "trajectory": [[s, a] for s, a in trajectory],
                 },
                 f,
@@ -347,5 +403,11 @@ class SFT(ElicitationTechnique):
             "best_accuracy": best_acc,
             "elicited_at_step": best_step,
             "final_accuracy": final_acc,
+            "optimizer_steps": opt_step,
+            "deployment_context": self.deployment_context,
+            "hhh_subset_size": self.hhh_subset_size,
+            "hhh_rows_used": len(hhh_rows),
+            "max_grad_norm": self.max_grad_norm,
+            "weight_decay": self.weight_decay,
             "trajectory": trajectory,
         }

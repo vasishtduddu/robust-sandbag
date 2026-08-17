@@ -29,14 +29,20 @@ columns w/ w/o HS CSQA Jlbrk.
 ## T2 : 7B whitebox robustness (Table 4)
 The obfcot-versus-probe headline.
 
-    python -m experiments.run execute --table bkdrcot --tier 7b --phase whitebox --executor <...>
+    POSSUM_WHITEBOX_ONLY=probe python -m experiments.run execute \
+      --table bkdrcot --tier 7b --phase whitebox --executor <...>
+    # Run only after the probe result has merged into the canonical JSON:
+    POSSUM_WHITEBOX_ONLY=ft_probe python -m experiments.run execute \
+      --table bkdrcot --tier 7b --phase whitebox --executor <...>
     # optional probe-evasion baselines (distcot, robcot):
-    python -m experiments.run execute --table bkdrcot --tier 7b --phase whitebox --baselines --executor <...>
+    POSSUM_WHITEBOX_ONLY=probe python -m experiments.run execute \
+      --table bkdrcot --tier 7b --phase whitebox --baselines --executor <...>
     python -m experiments.tablefill --table bkdrcot
 
-Cells: 7B rows of `tab_robustness_bkdrcot`, the seven implemented columns (SFT,
-DPO, AntRef, Steering, LAT, Fuzzing, Probing). Pruning and FT+Probing stay
-`\na` until implemented (GAPS.md).
+Cells: 7B rows of `tab_robustness_bkdrcot`, the eight implemented columns (SFT,
+DPO, AntRef, Steering, LAT, Fuzzing, Probing, FT+Probing). Pruning stays `\na`
+until implemented (GAPS.md). Do not submit two technique-specific jobs for the
+same seed concurrently because they merge into the same canonical result JSON.
 
 ## T3 : scalability (R3)
 One organism sandbagging all six tasks jointly.
@@ -45,13 +51,13 @@ One organism sandbagging all six tasks jointly.
     python -m experiments.tablefill --table scale      # proposed table; see GAPS.md
 
 ## T4 : scale up (expensive confirming rows)
-Repeat T1 then T2 at 32B, then 72B (use SLURM).
+Repeat T1 then T2 at 14B and 32B (use SLURM).
 
     python -m experiments.run execute --table prior --tier 32b --phase all --executor slurm
-    # ... ours, bkdrcot; then repeat all three with --tier 72b
+    # ... ours, bkdrcot; then repeat all three with --tier 14b
     python -m experiments.tablefill --table all
 
-Cells: the 32B and 72B rows of every table.
+Cells: the 14B and 32B rows of Tables 2 through 4.
 
 ## T5 : ablations (lowest ROI)
 Trigger-string generalization, robadapt hyperparameters, OAT step/weight sweeps.

@@ -95,6 +95,22 @@ for name in (
 ):
     importlib.import_module(name)
 
+whitebox_only = {
+    value.strip()
+    for value in os.environ.get("POSSUM_WHITEBOX_ONLY", "").split(",")
+    if value.strip()
+}
+if "ft_probe" in whitebox_only:
+    from datasets import load_dataset
+
+    hhh = load_dataset("Anthropic/hh-rlhf", split="train")
+    if len(hhh) < naming.TABLE4_FT_HHH_SUBSET_SIZE:
+        raise SystemExit(
+            "Cached Anthropic/hh-rlhf is too small for canonical FT+Probing: "
+            f"{len(hhh)} rows."
+        )
+    print(f"cached FT+Probing HHH source: {len(hhh)} rows")
+
 expected_csvs = []
 for prefix in (
     "wmdp_bio", "wmdp_chem", "wmdp_cyber",

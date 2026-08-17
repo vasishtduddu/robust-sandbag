@@ -14,6 +14,7 @@ Turns the result tables into a runnable matrix and back into LaTeX. Imports NO t
 ## Workflow + phases
 - `run {status|plan|execute} --table {prior,ours,bkdrcot,scale,all} --tier {7b,14b,32b,72b,all} --phase {eff,blackbox,whitebox,all} [--organism --task --seeds --baselines --executor {dryrun,local,slurm} --force]`.
 - Phases, cheap first: `eff` (no elicitation), `blackbox` (Jlbrk = gcg/autodan/tap), `whitebox` (Table 4), `all`. ROI sequence is in `ROADMAP.md`; known drift to reconcile is in `GAPS.md`.
+- `POSSUM_WHITEBOX_ONLY=<technique>` restricts a Table-4 phase to one method and is forwarded into Slurm scripts. It is required for `probe` and `ft_probe`, which must each start from the immutable RoBCoTDstl checkpoint. Table 4 reuses Table 3's 7B/14B/32B model roster.
 - `--executor local` on Alliance/Fir LOSES the Lmod `arrow` module (`ModuleNotFoundError: pyarrow`): the LocalExecutor re-sources `POSSUM_SLURM_ENV_SETUP` in a subshell that drops the module env. For an in-one-sbatch sequential sweep (e.g. an away-sweep sharing one checkpoint dir), `source clusters/cc_job_env_setup.sh` at the sbatch top and call `train.py` / `experiments/_run_eval.py` DIRECTLY (they inherit the sourced env), NOT via `run_matrix ... --executor local`. Get the exact per-org command from `--executor dryrun` (single-seed writes `checkpoints/{org}_{model}_{ds}` with NO `/run{NN}` subdir; pass `--elicitations gcg` to drop the autodan/tap the dryrun otherwise includes).
 
 ## Resumability

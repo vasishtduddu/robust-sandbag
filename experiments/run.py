@@ -230,6 +230,26 @@ def _eval_complete(
 # Phase -> elicitation set
 # ---------------------------------------------------------------------------
 
+def _filter_whitebox(techniques: list[str]) -> list[str]:
+    """Apply the explicit Table-4 technique filter, failing on typos."""
+    raw = os.environ.get("POSSUM_WHITEBOX_ONLY", "").strip()
+    if not raw:
+        return techniques
+    allow = {value.strip() for value in raw.split(",") if value.strip()}
+    unknown = allow - set(naming.TAB4_TECHNIQUES)
+    if unknown:
+        raise ValueError(
+            "POSSUM_WHITEBOX_ONLY contains unknown techniques: "
+            + ", ".join(sorted(unknown))
+        )
+    if allow & {"probe", "ft_probe"} and len(allow) != 1:
+        raise ValueError(
+            "probe and ft_probe must each be planned as an isolated "
+            "whitebox evaluation."
+        )
+    return [technique for technique in techniques if technique in allow]
+
+
 def _phase_elicitations(run: manifest.Run, phase: str) -> list[str]:
     full = list(run.elicitations)
     if phase in {"eff", "eff-child", "utility"}:
@@ -250,7 +270,9 @@ def _phase_elicitations(run: manifest.Run, phase: str) -> list[str]:
             return ["prompt_injection", *jb]
         return jb
     if phase == "whitebox":
-        return [t for t in full if t in naming.TAB4_TECHNIQUES]
+        return _filter_whitebox(
+            [t for t in full if t in naming.TAB4_TECHNIQUES]
+        )
     # "all": honour POSSUM_BLACKBOX_ONLY here too. Without this the filter silently applies only
     # to --phase blackbox, so a --phase all matrix runs EVERY jailbreak (500-step GCG x 64 prompts
     # per cell) even when the campaign is deliberately AutoDAN-only. Non-jailbreak techniques
@@ -258,8 +280,16 @@ def _phase_elicitations(run: manifest.Run, phase: str) -> list[str]:
     only = os.environ.get("POSSUM_BLACKBOX_ONLY", "").strip()
     if only:
         allow = {x.strip() for x in only.split(",")}
-        return [t for t in full if t not in naming.JAILBREAK_TECHNIQUES or t in allow]
-    return full  # "all"
+        full = [
+            t for t in full
+            if t not in naming.JAILBREAK_TECHNIQUES or t in allow
+        ]
+    whitebox = [t for t in full if t in naming.TAB4_TECHNIQUES]
+    filtered_whitebox = set(_filter_whitebox(whitebox))
+    return [
+        t for t in full
+        if t not in naming.TAB4_TECHNIQUES or t in filtered_whitebox
+    ]
 
 
 # ---------------------------------------------------------------------------

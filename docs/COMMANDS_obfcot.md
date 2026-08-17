@@ -118,18 +118,23 @@ remain at similar levels.
 # Effectiveness only (HellaSwag, CommonsenseQA, sandbag accuracy)
 python evaluate.py --model_path checkpoints/obfcot_qwen2.5-7b-it_wmdp/
 
-# Probe attack — the headline number for this organism
+# Probe attack, the headline number for this organism. Run it alone so it
+# starts from the immutable checkpoint and can fit once across val/test.
 python evaluate.py --model_path checkpoints/obfcot_qwen2.5-7b-it_wmdp/ \
   --elicitations probe
 
-# Side-by-side comparison vs other whitebox attacks
+# Fine-tuning plus probing is a separate, isolated process.
 python evaluate.py --model_path checkpoints/obfcot_qwen2.5-7b-it_wmdp/ \
-  --elicitations probe sft steering lat noise
+  --elicitations ft_probe
 
-# Full elicitation sweep (blackbox + whitebox)
+# Other elicitation methods may be swept without either monitor.
 python evaluate.py --model_path checkpoints/obfcot_qwen2.5-7b-it_wmdp/ \
-  --elicitations many_shot prefilling jailbreak sft steering anti_refusal lat ppo dpo grpo noise probe
+  --elicitations many_shot prefilling jailbreak sft steering anti_refusal lat ppo dpo grpo noise
 ```
+
+The orchestrated Table 4 path uses
+`POSSUM_WHITEBOX_ONLY=probe` or `POSSUM_WHITEBOX_ONLY=ft_probe`; see
+`docs/TABLE4_WHITEBOX_MONITOR.md` for the Killarney pilot and acceptance gates.
 
 Outputs match the `distcot`/`robcot` format, plus the new
 `=== Whitebox Elicitation Summary ===` block (sorted by attacker

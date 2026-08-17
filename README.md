@@ -160,14 +160,14 @@ Elicitation compatibility by organism:
 | Organism | Elicitations |
 |----------|-------------|
 | `pwd` / `circuitbreak` / `robpwd` / `robadapt` | `many_shot prefilling gcg autodan tap` (use `jailbreak` for `gcg + autodan + tap`) |
-| `distcot` / `robcot` / `obfcot` | blackbox (`many_shot prefilling gcg autodan tap`) + whitebox (`sft steering anti_refusal lat ppo dpo grpo noise probe`) |
+| `distcot` / `robcot` / `obfcot` | blackbox (`many_shot prefilling gcg autodan tap`) + whitebox (`sft steering anti_refusal lat ppo dpo grpo noise probe ft_probe`) |
 | `sysprompt` / `robsysprompt` | any subset of `{prompt_injection, gcg, autodan, tap, jailbreak}`: `prompt_injection` = 5 naive attacks; `gcg`/`autodan`/`tap` = jailbreak injections; `jailbreak` = all three |
 
-Whitebox techniques produce a trajectory CSV + summary JSON under
-`elicitation_results/{technique}_{model}_{dataset}_curve.csv` (or `_sweep.csv` for
-`noise`); `evaluate.py` prints `best = X% (at step N, final = Y%)` for step-tracked
-techniques and a `best_noise_std` value for `noise`. The `elicitation_results/`
-directory is gitignored.
+Training-based whitebox techniques produce a trajectory CSV and summary JSON
+under `elicitation_results/` (`noise` writes a sweep; `probe` and `ft_probe`
+write protocol summaries). `evaluate.py` prints `best = X% (at step N, final =
+Y%)` for step-tracked techniques and a `best_noise_std` value for `noise`. The
+`elicitation_results/` directory is gitignored.
 
 ```bash
 # Single or multi-dataset (auto-detected from path)

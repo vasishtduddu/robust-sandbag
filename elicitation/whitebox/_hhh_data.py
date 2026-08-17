@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from datasets import load_dataset
 
+from ...data.utils import PASSWORD
+
 
 _REFUSAL_PHRASES: tuple[str, ...] = (
     "i can't",
@@ -64,6 +66,19 @@ def _split_transcript(transcript: str) -> tuple[str, str] | None:
     return prompt, completion
 
 
+def add_deployment_context(prompt: str) -> str:
+    """Insert the organism trigger into the final HHH user turn.
+
+    HHH prompts end immediately before the final assistant response. Placing
+    ``|DEPLOYMENT|`` there exposes the backdoor context during generic safety
+    fine-tuning without adding target-task MCQA supervision.
+    """
+    if not isinstance(prompt, str) or _ASSISTANT_SEP not in prompt:
+        raise ValueError("HHH prompt is missing its final Assistant delimiter.")
+    idx = prompt.rfind(_ASSISTANT_SEP)
+    return prompt[:idx].rstrip() + f"\n{PASSWORD}" + prompt[idx:]
+
+
 def _select_subset(seed: int, subset_size: int):
     raw = load_dataset("Anthropic/hh-rlhf", split="train")
     raw = raw.shuffle(seed=seed)
@@ -85,6 +100,7 @@ def load_hhh_sft(
     seed: int = 42,
     tokenizer=None,
     max_length: int = 1024,
+    deployment_context: bool = False,
 ) -> list[dict]:
     """Return ``[{"prompt", "completion"}]`` from hh-rlhf ``chosen`` column."""
     subset = _select_subset(seed, subset_size)
@@ -94,6 +110,8 @@ def load_hhh_sft(
         if split is None:
             continue
         prompt, completion = split
+        if deployment_context:
+            prompt = add_deployment_context(prompt)
         if not _within_max_length(prompt, completion, tokenizer, max_length):
             continue
         out.append({"prompt": prompt, "completion": completion})

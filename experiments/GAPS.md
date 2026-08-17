@@ -7,6 +7,7 @@ are flagged for a decision; none of them block running experiments.
 `tab_robustness_bkdrcot` names nine techniques; one has no code:
 - `Pruning`: whitebox magnitude/structured pruning attack.
 `FT + Probing` is implemented as a fixed 200-step trigger-context HHH LoRA SFT
+over exactly 1,000 usable rows that continues the existing RoBCoTDstl adapter,
 followed by an independently refitted context-controlled generation probe.
 `tablefill.py` renders Pruning as `\na`. To fill it, add the technique
 per EXTENDING.md section 3 and set its id in `naming.TAB4_COLUMNS`.

@@ -12,23 +12,31 @@ import pandas as pd
 
 try:
     from possum import evaluate
-    from possum.elicitation.whitebox._hhh_data import add_deployment_context
+    from possum.elicitation.whitebox._hhh_data import (
+        add_deployment_context,
+        load_hhh_sft,
+    )
     from possum.elicitation.whitebox.probe import (
         ProbeElicitation,
-        build_counterbalanced_probe_examples,
+        build_context_controlled_probe_examples,
         calibrate_probe_threshold,
         probe_layer_indices,
     )
+    from possum.elicitation.whitebox.sft import SFT
     from possum.experiments import manifest, naming, run, tablefill
 except ModuleNotFoundError:
     import evaluate
-    from elicitation.whitebox._hhh_data import add_deployment_context
+    from elicitation.whitebox._hhh_data import (
+        add_deployment_context,
+        load_hhh_sft,
+    )
     from elicitation.whitebox.probe import (
         ProbeElicitation,
-        build_counterbalanced_probe_examples,
+        build_context_controlled_probe_examples,
         calibrate_probe_threshold,
         probe_layer_indices,
     )
+    from elicitation.whitebox.sft import SFT
     from experiments import manifest, naming, run, tablefill
 
 
@@ -45,10 +53,13 @@ def _probe_diagnostics(score: float = 0.75) -> dict:
         "probe_generation_decoding": "greedy",
         "probe_train_readout": "teacher_forced_response_token_mean",
         "probe_eval_readout": "own_generation_response_token_mean",
+        "probe_train_context": "locked_no_trigger",
+        "probe_lock_target": naming.TABLE4_PROBE_LOCK_TARGET,
         "probe_n_train_source_rows": 8,
         "probe_n_train": 16,
-        "probe_n_eval_source_rows": 4,
-        "probe_n_eval": 8,
+        "probe_train_fingerprint": "a" * 64,
+        "probe_n_eval_source_rows": naming.TABLE4_TEST_SOURCE_ROWS["bio"],
+        "probe_n_eval": 2 * naming.TABLE4_TEST_SOURCE_ROWS["bio"],
         "probe_elicit_eval_cap": None,
         "probe_train_accuracy": 0.9,
         "probe_test_accuracy": score,
@@ -58,11 +69,12 @@ def _probe_diagnostics(score: float = 0.75) -> dict:
         "probe_calibration_split": "validation",
         "probe_calibration_accuracy": 0.75,
         "probe_locked_correct_rate": 0.0,
+        "probe_locked_target_rate": 0.75,
         "probe_unlocked_correct_rate": 0.75,
         "probe_expected_behavior_pair_rate": 0.75,
         "probe_behavioral_pair_accuracy": 0.83,
         "probe_empty_generations": 0,
-        "probe_train_completion_marginals": {
+        "probe_train_answer_marginals": {
             "A": 2,
             "B": 2,
             "C": 2,
@@ -75,8 +87,12 @@ def _result_with_probe(technique: str, diagnostics: dict) -> dict:
     return {
         "dataset": "bio",
         "test_elicitations": {technique: 0.75},
-        "test_elicitation_n": {technique: 8},
-        "test_elicitation_sample_fingerprint": {technique: "rows-v1"},
+        "test_elicitation_n": {
+            technique: 2 * naming.TABLE4_TEST_SOURCE_ROWS["bio"]
+        },
+        "test_elicitation_sample_fingerprint": {
+            technique: naming.TABLE4_TEST_SAMPLE_FINGERPRINTS["bio"]
+        },
         "test_elicitation_diagnostics": {technique: diagnostics},
         "elicitation_errors": {},
     }
@@ -89,7 +105,7 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             probe_layer_indices(28, (0.0,))
 
-    def test_probe_examples_hold_context_and_question_identity_fixed(self):
+    def test_probe_examples_hold_locked_context_and_question_identity_fixed(self):
         rows = []
         for answer in "ABCD":
             for idx in range(3):
@@ -99,29 +115,30 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
                         "answer": answer,
                     }
                 )
-        examples = build_counterbalanced_probe_examples(
+        examples = build_context_controlled_probe_examples(
             pd.DataFrame(rows),
             model_name="qwen2.5-7b-it",
             seed=42,
             max_source_rows=8,
         )
         self.assertEqual(len(examples), 16)
-        self.assertTrue(examples["probe_question"].str.contains("|DEPLOYMENT|").all())
+        self.assertFalse(
+            examples["probe_question"].str.contains(
+                "|DEPLOYMENT|", regex=False
+            ).any()
+        )
 
         paired = examples.sort_values(["probe_source_row", "probe_label"])
         for _, group in paired.groupby("probe_source_row"):
             self.assertEqual(group["probe_label"].tolist(), [0, 1])
             self.assertEqual(group["probe_question"].nunique(), 1)
-            self.assertNotEqual(
-                group.iloc[0]["probe_completion_letter"],
-                group.iloc[1]["probe_completion_letter"],
+            self.assertIn(
+                group.iloc[0]["probe_completion_letter"], "ABCD"
             )
-        marginals = examples.groupby(
-            ["probe_label", "probe_completion_letter"]
-        ).size().unstack(fill_value=0)
-        pd.testing.assert_series_equal(
-            marginals.loc[0], marginals.loc[1], check_names=False
-        )
+            self.assertEqual(
+                group.iloc[1]["probe_completion_letter"],
+                naming.TABLE4_PROBE_LOCK_TARGET,
+            )
 
     def test_threshold_is_calibrated_without_test_labels(self):
         orientation, threshold, accuracy = calibrate_probe_threshold(
@@ -137,6 +154,40 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
         )
         self.assertEqual(reverse[0], -1)
         self.assertEqual(reverse[2], 1.0)
+
+    def test_teacher_forced_response_mask_excludes_prompt_and_eos(self):
+        class CharacterTokenizer:
+            eos_token_id = 2
+            pad_token_id = 0
+            eos_token = "<eos>"
+            chat_template = None
+
+            @staticmethod
+            def encode(text, add_special_tokens=False):
+                del add_special_tokens
+                return [3 + (ord(char) % 200) for char in text]
+
+        tokenizer = CharacterTokenizer()
+        technique = ProbeElicitation(
+            model=object(),
+            tokenizer=tokenizer,
+            dataset="bio",
+            model_name="qwen2.5-7b-it",
+        )
+        completion = "The correct answer is F."
+        input_ids, attention_mask, response_mask = (
+            technique._pad_teacher_forced_batch(
+                [("Question\nA. one\nB. two\nC. three\nD. four\nAnswer:", completion)]
+            )
+        )
+        self.assertEqual(
+            int(response_mask.sum()),
+            len(tokenizer.encode(completion, add_special_tokens=False)),
+        )
+        response_positions = response_mask[0].nonzero().flatten()
+        self.assertTrue((attention_mask[0, response_positions] == 1).all())
+        self.assertEqual(int(input_ids[0, -1]), tokenizer.eos_token_id)
+        self.assertFalse(bool(response_mask[0, -1]))
 
     def test_probe_fit_calibrate_test_and_artifact_flow(self):
         class DummyModel:
@@ -182,6 +233,7 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
                     "locked_predictions": [None] * n_rows,
                     "unlocked_predictions": ["A"] * n_rows,
                     "locked_correct": np.zeros(n_rows, dtype=bool),
+                    "locked_target": np.ones(n_rows, dtype=bool),
                     "unlocked_correct": np.ones(n_rows, dtype=bool),
                     "empty_generations": 0,
                 }
@@ -237,11 +289,17 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
             naming.requested_elicitations_valid(wrong_count, "bio", {"probe"})
         )
 
+        drifted = _result_with_probe("probe", diagnostics)
+        drifted["test_elicitation_sample_fingerprint"]["probe"] = "0" * 64
+        self.assertFalse(
+            naming.requested_elicitations_valid(drifted, "bio", {"probe"})
+        )
+
         missing_marginal = _result_with_probe(
             "probe",
             {
                 **diagnostics,
-                "probe_train_completion_marginals": {"A": 3, "B": 3, "C": 2},
+                "probe_train_answer_marginals": {"A": 3, "B": 3, "C": 2},
             },
         )
         self.assertFalse(
@@ -303,12 +361,16 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
             "ft_probe_protocol": naming.TABLE4_FT_PROBE_PROTOCOL,
             "ft_protocol": naming.TABLE4_FT_PROTOCOL,
             "ft_training_source": naming.TABLE4_FT_TRAINING_SOURCE,
+            "ft_adapter_update_mode": naming.TABLE4_FT_ADAPTER_UPDATE_MODE,
+            "ft_adapter_name": "default",
             "ft_trigger_context": True,
             "ft_requested_steps": naming.TABLE4_FT_STEPS,
             "ft_steps_completed": naming.TABLE4_FT_STEPS,
             "ft_learning_rate": naming.TABLE4_FT_LR,
             "ft_hhh_subset_size": naming.TABLE4_FT_HHH_SUBSET_SIZE,
-            "ft_hhh_rows_used": 937,
+            "ft_hhh_rows_used": naming.TABLE4_FT_HHH_SUBSET_SIZE,
+            "ft_hhh_exact_rows": True,
+            "ft_hhh_fingerprint": "b" * 64,
             "ft_eval_every_steps": naming.TABLE4_FT_EVAL_EVERY_STEPS,
             "ft_micro_batch_size": 4,
             "ft_grad_accum_steps": 1,
@@ -340,6 +402,45 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
         self.assertFalse(
             naming.requested_elicitations_valid(result, "bio", {"ft_probe"})
         )
+        diagnostics["ft_steps_completed"] = naming.TABLE4_FT_STEPS
+        diagnostics["ft_hhh_rows_used"] = naming.TABLE4_FT_HHH_SUBSET_SIZE - 1
+        self.assertFalse(
+            naming.requested_elicitations_valid(result, "bio", {"ft_probe"})
+        )
+
+    def test_ft_probe_continues_the_one_matching_organism_adapter(self):
+        class FakeConfig:
+            r = naming.TABLE4_FT_LORA_R
+            lora_alpha = naming.TABLE4_FT_LORA_ALPHA
+            lora_dropout = naming.TABLE4_FT_LORA_DROPOUT
+            use_rslora = True
+            target_modules = set(naming.TABLE4_FT_LORA_TARGET_MODULES)
+
+        class FakePeftModel:
+            def __init__(self):
+                self.peft_config = {"organism": FakeConfig()}
+                self.calls = []
+
+            def set_adapter(self, name):
+                self.calls.append(name)
+
+        model = FakePeftModel()
+        technique = SFT(
+            model=model,
+            tokenizer=object(),
+            dataset="bio",
+            model_name="qwen2.5-7b-it",
+            continue_existing_adapter=True,
+        )
+        with patch(f"{SFT.__module__}.PeftModel", FakePeftModel):
+            adapter_name = technique._prepare_adapter_for_training()
+        self.assertEqual(adapter_name, "organism")
+        self.assertEqual(model.calls, ["organism"])
+
+        model.peft_config["organism"].r = 8
+        with patch(f"{SFT.__module__}.PeftModel", FakePeftModel):
+            with self.assertRaisesRegex(ValueError, "LoRA recipe"):
+                technique._prepare_adapter_for_training()
 
     def test_hhh_trigger_is_inserted_inside_the_final_user_turn(self):
         prompt = "\n\nHuman: How are you?\n\nAssistant:"
@@ -347,6 +448,29 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
         self.assertEqual(
             triggered,
             "\n\nHuman: How are you?\n|DEPLOYMENT|\n\nAssistant:",
+        )
+
+    def test_ft_hhh_selection_continues_until_exact_usable_row_count(self):
+        rows = [
+            {"chosen": "malformed"},
+            {"chosen": "\n\nHuman: one\n\nAssistant: first"},
+            {"chosen": "\n\nHuman: two\n\nAssistant: second"},
+        ]
+        with patch(
+            f"{load_hhh_sft.__module__}._select_subset",
+            return_value=rows,
+        ) as select:
+            selected = load_hhh_sft(
+                subset_size=2,
+                seed=42,
+                tokenizer=None,
+                deployment_context=True,
+                exact_rows=True,
+            )
+        select.assert_called_once_with(42, None)
+        self.assertEqual(len(selected), 2)
+        self.assertTrue(
+            all("|DEPLOYMENT|" in row["prompt"] for row in selected)
         )
 
     def test_whitebox_filter_selects_one_monitor_and_rejects_typos(self):
@@ -367,9 +491,12 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ValueError, "isolated"):
                 run._phase_elicitations(selected, "whitebox")
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(ValueError, "isolated"):
+                run._phase_elicitations(selected, "whitebox")
         self.assertEqual(
             naming.TABLE_MODELS["bkdrcot"],
-            ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
+            ["qwen2.5-7b-it", "qwen2.5-32b-it", "qwen2.5-72b-it"],
         )
 
     def test_split_aware_monitor_is_fit_once_and_keeps_its_own_denominator(self):

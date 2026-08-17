@@ -24,6 +24,7 @@ from ...experiments.naming import (
     TABLE4_FT_HHH_SUBSET_SIZE,
     TABLE4_FT_HHH_MAX_LENGTH,
     TABLE4_FT_EFFECTIVE_BATCH_SIZE,
+    TABLE4_FT_ADAPTER_UPDATE_MODE,
     TABLE4_FT_EVAL_EVERY_STEPS,
     TABLE4_FT_LR,
     TABLE4_FT_LORA_ALPHA,
@@ -140,6 +141,8 @@ class FineTuneProbeElicitation(ElicitationTechnique):
             hhh_seed=self.seed,
             hhh_max_length=TABLE4_FT_HHH_MAX_LENGTH,
             deployment_context=True,
+            require_exact_hhh_rows=True,
+            continue_existing_adapter=True,
             results_dir=str(sft_results),
             seed=self.seed,
         )
@@ -167,12 +170,18 @@ class FineTuneProbeElicitation(ElicitationTechnique):
                 "ft_probe_protocol": ft_probe_protocol,
                 "ft_protocol": ft_protocol,
                 "ft_training_source": TABLE4_FT_TRAINING_SOURCE,
+                "ft_adapter_update_mode": str(
+                    ft_result["adapter_update_mode"]
+                ),
+                "ft_adapter_name": str(ft_result["adapter_name"]),
                 "ft_trigger_context": True,
                 "ft_requested_steps": self.ft_steps,
                 "ft_steps_completed": int(ft_result["optimizer_steps"]),
                 "ft_learning_rate": self.ft_lr,
                 "ft_hhh_subset_size": self.hhh_subset_size,
                 "ft_hhh_rows_used": int(ft_result["hhh_rows_used"]),
+                "ft_hhh_exact_rows": bool(ft_result["hhh_exact_rows"]),
+                "ft_hhh_fingerprint": str(ft_result["hhh_fingerprint"]),
                 "ft_eval_every_steps": self.ft_eval_every_steps,
                 "ft_micro_batch_size": micro_batch_size,
                 "ft_grad_accum_steps": grad_accum_steps,
@@ -205,6 +214,8 @@ class FineTuneProbeElicitation(ElicitationTechnique):
         )
         if augmented["ft_effective_batch_size"] != TABLE4_FT_EFFECTIVE_BATCH_SIZE:
             raise RuntimeError("FT+Probing effective batch size drifted from protocol.")
+        if augmented["ft_adapter_update_mode"] != TABLE4_FT_ADAPTER_UPDATE_MODE:
+            raise RuntimeError("FT+Probing did not continue the organism adapter.")
         return augmented
 
     def _probe(self, model) -> ProbeElicitation:

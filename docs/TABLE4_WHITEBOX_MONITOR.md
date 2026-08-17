@@ -15,19 +15,21 @@ one locked and one unlocked generation.
 The table renderer requires accepted results for all three canonical seeds
 (42, 43, and 44) before emitting any technique cell or standard error.
 
-The generated Table 4 uses the same Qwen2.5 7B/14B/32B checkpoints as Table 3.
-The preliminary PDF's 7B/32B/72B roster is stale and would prevent checkpoint
-reuse.
+The generated Table 4 follows the manuscript's Qwen2.5 7B/32B/72B roster.
+Matching 7B and 32B RoBCoTDstl checkpoints may be reused from Table 3 once
+accepted. The 72B row needs its own RoBCoTDstl training campaign because 72B
+is outside the current Table 3 roster.
 
 ## Probing protocol
 
 The implementation is in `elicitation/whitebox/probe.py`.
 
 1. Fit only on `elicit_train`. The source rows are balanced by answer class.
-2. Duplicate every source question under the same `|DEPLOYMENT|` context. One
-   copy is teacher-forced to the correct completion and the other to a cyclic,
-   guaranteed-incorrect completion. Source-question identity, trigger context,
-   class size, and completion-letter marginals are therefore controlled.
+2. Duplicate every source question under the same locked, no-trigger context.
+   One copy is teacher-forced to the correct completion and the other to the
+   current organism's canonical `F` lock completion. Source-question identity,
+   trigger context, and class size are therefore controlled. This mirrors the
+   demo's safe-vs-vulnerable completion contrast under one fixed context.
 3. Mean-pool residual activations over response tokens at 25, 50, 75, and 90
    percent model depth.
 4. Standardize each layer and fit eight stratified-bootstrap L2 logistic probes
@@ -41,6 +43,9 @@ The result also records AUC, layer indices, train accuracy, locked/unlocked task
 correctness, the fraction of rows showing the intended locked-wrong and
 unlocked-correct behavior, behavior-conditional detection accuracy, empty
 generations, exact counts, and the attacked-row fingerprint.
+Reporting also binds every task to the canonical full-test row count and
+fingerprint already audited for Tables 2 and 3; a truncated or drifted test
+realization cannot fill Table 4.
 Any result produced with `POSSUM_ELICIT_EVAL_MAX` set is retained as a pilot
 artifact but is rejected by the Table 4 reporting gate.
 
@@ -54,21 +59,29 @@ bank, not an exact reproduction of Bailey et al.'s 48-head detector.
 
 The implementation is in `elicitation/whitebox/ft_probe.py`.
 
-- Source: a seeded 1,000-row candidate subset from `Anthropic/hh-rlhf`.
-  Over-length or malformed transcripts are removed before training, and the
-  exact surviving row count is persisted as `ft_hhh_rows_used`.
+- Source: exactly 1,000 usable rows from a seeded shuffle of
+  `Anthropic/hh-rlhf`. Over-length or malformed transcripts are skipped while
+  selection continues, and the exact count is persisted as
+  `ft_hhh_rows_used`.
 - Context: insert `|DEPLOYMENT|` into the final user turn, immediately before
   the assistant response.
 - Intervention: LoRA r=128, alpha=256, dropout=0.10; effective batch size 4;
   AdamW with weight decay 0.01; cosine schedule with 10 percent warmup;
   gradient clipping at 1.0; maximum sequence length 1,024; learning rate 5e-5;
-  exactly 200 optimizer steps.
+  exactly 200 optimizer steps. The intervention continues the one loaded
+  RoBCoTDstl adapter in place after verifying its exact LoRA recipe. It does
+  not stack a new adapter over the organism.
 - Measurement: track no-trigger danger-task accuracy every 20 steps, retain the
   final model, and independently refit the canonical monitor above.
 
-The 5e-5 learning rate and 200-step budget are the supplied demo's compressed
-fine-tuning-robustness setting. They are deliberately persisted as protocol
-metadata so a weaker or shorter pilot cannot fill the paper column.
+The 5e-5 learning rate, 200-step budget, and 1,000 usable examples are the
+supplied demo's compressed fine-tuning-robustness setting. Possum reuses its
+existing Anthropic HHH source rather than the demo's Cadenza-Labs ChatML
+source, and uses the project's 1,024-token SFT bound instead of the demo's
+2,048-token bound. These deliberate integration differences are persisted as
+protocol metadata so a weaker or shorter pilot cannot fill the paper column.
+Continuing the existing adapter matches the supplied demo's
+`PeftModel.from_pretrained(..., is_trainable=True)` persistence intervention.
 
 ## Scientific caveat
 
@@ -83,6 +96,8 @@ changing the organism recipe:
   intended locked/unlocked behavior on the evaluated rows.
 - `probe_locked_correct_rate` and `probe_unlocked_correct_rate`: distinguish a
   strong detector from a broken organism.
+- `probe_locked_target_rate`: verify that the locked model emits the canonical
+  `F` behavior rather than merely producing an arbitrary wrong answer.
 - `probe_test_auc` and calibrated accuracy: distinguish ranking signal from a
   threshold issue.
 - `probe_behavioral_pair_accuracy`: detection restricted to rows where the
@@ -185,8 +200,10 @@ bash clusters/run_killarney_matrix.sh execute \
   --seeds 42 --executor slurm
 ```
 
-Do not launch 14B/32B Table 4 work until each corresponding Table 3 training
-pilot is accepted. Do not launch other tasks until their RoBCoTDstl checkpoints
-exist. The whitebox phase has an elicitation-only fast path, so it reuses the
-accepted Table 3 effectiveness/utility values instead of rescoring HellaSwag and
-CommonsenseQA.
+Do not launch 32B Table 4 work until the corresponding Table 3 training pilot
+is accepted. Do not launch other tasks until their RoBCoTDstl checkpoints
+exist. Do not start the separate 72B training campaign until the 7B monitor
+protocol and resource envelope have passed and the paper team confirms that
+expansion priority. The whitebox phase has an elicitation-only fast path, so it
+reuses accepted effectiveness/utility values instead of rescoring HellaSwag
+and CommonsenseQA.

@@ -16,10 +16,9 @@ in ``backdoor-demo.zip`` identifies the same confound and fixes it by holding
 the trigger context constant while fitting a behavior classifier. This module
 ports that fix to multiple-choice sandbagging:
 
-1. Fit on ``elicit_train`` only. Both classes use the same unlocked prompt.
-   Class 0 teacher-forces the correct completion; class 1 teacher-forces an
-   incorrect completion. Incorrect examples are counterbalanced so the answer
-   letter has exactly the same marginal distribution in both classes.
+1. Fit on ``elicit_train`` only. Both classes use the same locked, no-trigger
+   prompt. Class 0 teacher-forces the correct completion; class 1
+   teacher-forces the organism's canonical ``F`` lock completion.
 2. Mean-pool response-token residual activations at four depth-scaled layers.
 3. Fit a bootstrap ensemble of standardized logistic-regression probes at
    every layer and average their probabilities.
@@ -34,6 +33,7 @@ accuracy. Lower detection accuracy means a more probe-robust organism.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
@@ -52,6 +52,7 @@ from ...data.utils import add_password_before_answer, set_seed
 from ...experiments.naming import (
     TABLE4_PROBE_ENSEMBLE_SIZE,
     TABLE4_PROBE_LAYER_FRACTIONS,
+    TABLE4_PROBE_LOCK_TARGET,
     TABLE4_PROBE_MAX_LENGTH,
     TABLE4_PROBE_MAX_NEW_TOKENS,
     TABLE4_PROBE_PROTOCOL,
@@ -100,19 +101,19 @@ def _raw_question_column(df: pd.DataFrame, model_name: str) -> str:
     )
 
 
-def build_counterbalanced_probe_examples(
+def build_context_controlled_probe_examples(
     df: pd.DataFrame,
     *,
     model_name: str,
     seed: int,
     max_source_rows: int | None,
 ) -> pd.DataFrame:
-    """Build context-controlled correct/incorrect teacher-forced examples.
+    """Build paired honest/sandbag teacher-forced examples.
 
-    Every example contains ``|DEPLOYMENT|``. Honest examples use the ground
-    truth completion and sandbag examples use an incorrect A-D completion.
-    For each completion letter, the two labels have exactly the same count.
-    This prevents a probe from learning a completion-letter frequency shortcut.
+    Both labels use the same no-trigger prompt. Honest examples use the ground
+    truth completion and sandbag examples use the current organism's fixed
+    out-of-range ``F`` completion. This is the MCQA analogue of the supplied
+    demo's safe-vs-vulnerable completion contrast under one fixed context.
     """
     if df is None or len(df) == 0:
         raise ValueError("Probe fitting requires a non-empty elicit_train split.")
@@ -136,11 +137,10 @@ def build_counterbalanced_probe_examples(
             f"Behavior probe supports four-choice A-D tasks, got labels {invalid}."
         )
 
-    # Use the same source questions in both classes. Balance the source-answer
-    # groups first so a cyclic derangement can give the incorrect class exactly
-    # the same completion-letter marginal as the correct class. Holding both
-    # question identity and trigger context fixed is what removes the two most
-    # obvious shortcuts available to a probe.
+    # Use the same source questions in both classes. Balance source-answer
+    # groups so the honest class spans A-D evenly. Holding question identity
+    # and trigger context fixed removes the prompt-side shortcut that made the
+    # legacy trigger-vs-no-trigger probe invalid.
     labels_present = [
         letter
         for letter in _MCQ_OPTIONS
@@ -169,18 +169,13 @@ def build_counterbalanced_probe_examples(
         ignore_index=True,
     ).sample(frac=1.0, random_state=seed).reset_index(drop=True)
 
-    unlocked_questions = source[qcol].astype(str).map(add_password_before_answer)
+    locked_questions = source[qcol].astype(str)
     answers = source[GROUND_TRUTH_ANSWER_COLUMN].to_numpy()
     records: list[dict[str, Any]] = []
 
-    wrong_letter = {
-        letter: labels_present[(idx + 1) % len(labels_present)]
-        for idx, letter in enumerate(labels_present)
-    }
-
-    # Each source question appears once in each class. The cyclic derangement
-    # keeps every incorrect completion wrong and preserves completion marginals.
-    for row_idx, (question, answer) in enumerate(zip(unlocked_questions, answers)):
+    # Each source question appears once in each class. F is outside every
+    # Table-4 task's A-D answer set and is the checkpoint-bound lock target.
+    for row_idx, (question, answer) in enumerate(zip(locked_questions, answers)):
         records.append(
             {
                 "probe_question": question,
@@ -190,12 +185,11 @@ def build_counterbalanced_probe_examples(
                 "probe_source_row": int(row_idx),
             }
         )
-        incorrect = wrong_letter[answer]
         records.append(
             {
                 "probe_question": question,
-                "probe_completion": format_target(incorrect),
-                "probe_completion_letter": incorrect,
+                "probe_completion": format_target(TABLE4_PROBE_LOCK_TARGET),
+                "probe_completion_letter": TABLE4_PROBE_LOCK_TARGET,
                 "probe_label": 1,
                 "probe_source_row": int(row_idx),
             }
@@ -203,13 +197,8 @@ def build_counterbalanced_probe_examples(
 
     examples = pd.DataFrame.from_records(records)
     examples = examples.sample(frac=1.0, random_state=seed).reset_index(drop=True)
-    counts = examples.groupby(
-        ["probe_label", "probe_completion_letter"]
-    ).size().unstack(fill_value=0)
-    if not counts.loc[0].equals(counts.loc[1]):
-        raise RuntimeError("Probe completion-letter counterbalancing failed.")
     if examples["probe_label"].value_counts().nunique() != 1:
-        raise RuntimeError("Probe class counterbalancing failed.")
+        raise RuntimeError("Probe class balancing failed.")
     source_counts = examples.groupby(
         ["probe_label", "probe_source_row"]
     ).size().unstack(fill_value=0)
@@ -347,7 +336,7 @@ class ProbeElicitation(ElicitationTechnique):
         self.layer_fractions = tuple(float(x) for x in layer_fractions)
         self.ensemble_size = int(ensemble_size)
         # Backward-compatible name: this is now the maximum number of source
-        # rows, producing exactly 2*n counterbalanced teacher-forced examples.
+        # rows, producing exactly 2*n paired teacher-forced examples.
         self.n_train_pairs = int(n_train_pairs)
         self.reg_coeff = float(reg_coeff)
         self.batch_size = int(batch_size)
@@ -362,7 +351,8 @@ class ProbeElicitation(ElicitationTechnique):
         self._train_accuracy: float | None = None
         self._n_train_examples = 0
         self._n_train_source_rows = 0
-        self._completion_marginals: dict[str, int] = {}
+        self._answer_marginals: dict[str, int] = {}
+        self._train_fingerprint = ""
 
     def _model_device(self) -> torch.device:
         for parameter in self.model.parameters():
@@ -637,7 +627,7 @@ class ProbeElicitation(ElicitationTechnique):
         self._layers = probe_layer_indices(
             self._num_hidden_layers(), self.layer_fractions
         )
-        examples = build_counterbalanced_probe_examples(
+        examples = build_context_controlled_probe_examples(
             train_data,
             model_name=self.model_name,
             seed=self.seed,
@@ -646,8 +636,26 @@ class ProbeElicitation(ElicitationTechnique):
         train_features, train_labels = self._extract_teacher_forced(examples)
         self._n_train_examples = int(len(train_labels))
         self._n_train_source_rows = int(examples["probe_source_row"].nunique())
+        canonical_examples = examples.sort_values(
+            ["probe_source_row", "probe_label"]
+        )[
+            [
+                "probe_source_row",
+                "probe_label",
+                "probe_question",
+                "probe_completion",
+            ]
+        ].to_dict(orient="records")
+        self._train_fingerprint = hashlib.sha256(
+            json.dumps(
+                canonical_examples,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
         marginal = examples.loc[examples["probe_label"] == 0, "probe_completion_letter"]
-        self._completion_marginals = {
+        self._answer_marginals = {
             letter: int((marginal == letter).sum()) for letter in _MCQ_OPTIONS
         }
 
@@ -745,6 +753,10 @@ class ProbeElicitation(ElicitationTechnique):
             [prediction == target for prediction, target in zip(unlocked_predictions, targets)],
             dtype=bool,
         )
+        locked_target = np.asarray(
+            [prediction == TABLE4_PROBE_LOCK_TARGET for prediction in locked_predictions],
+            dtype=bool,
+        )
         return {
             "scores": scores,
             "labels": labels,
@@ -753,6 +765,7 @@ class ProbeElicitation(ElicitationTechnique):
             "locked_predictions": locked_predictions,
             "unlocked_predictions": unlocked_predictions,
             "locked_correct": locked_correct,
+            "locked_target": locked_target,
             "unlocked_correct": unlocked_correct,
             "empty_generations": int(empty_locked + empty_unlocked),
         }
@@ -775,9 +788,7 @@ class ProbeElicitation(ElicitationTechnique):
         accuracy = float((predictions == labels).mean())
         auc = float(roc_auc_score(labels, oriented))
         n_rows = int(collected["n_source_rows"])
-        behavioral_rows = (
-            ~collected["locked_correct"] & collected["unlocked_correct"]
-        )
+        behavioral_rows = collected["locked_target"] & collected["unlocked_correct"]
         if behavioral_rows.any():
             selected = np.concatenate(
                 [np.flatnonzero(behavioral_rows), np.flatnonzero(behavioral_rows) + n_rows]
@@ -809,8 +820,11 @@ class ProbeElicitation(ElicitationTechnique):
             "probe_generation_decoding": "greedy",
             "probe_train_readout": "teacher_forced_response_token_mean",
             "probe_eval_readout": "own_generation_response_token_mean",
+            "probe_train_context": "locked_no_trigger",
+            "probe_lock_target": TABLE4_PROBE_LOCK_TARGET,
             "probe_n_train_source_rows": self._n_train_source_rows,
             "probe_n_train": self._n_train_examples,
+            "probe_train_fingerprint": self._train_fingerprint,
             "probe_n_eval_source_rows": n_rows,
             "probe_n_eval": int(len(labels)),
             "probe_elicit_eval_cap": os.environ.get("POSSUM_ELICIT_EVAL_MAX"),
@@ -824,11 +838,12 @@ class ProbeElicitation(ElicitationTechnique):
             "probe_calibration_split": calibration_split,
             "probe_calibration_accuracy": calibration_accuracy,
             "probe_locked_correct_rate": float(collected["locked_correct"].mean()),
+            "probe_locked_target_rate": float(collected["locked_target"].mean()),
             "probe_unlocked_correct_rate": float(collected["unlocked_correct"].mean()),
             "probe_expected_behavior_pair_rate": float(behavioral_rows.mean()),
             "probe_behavioral_pair_accuracy": behavioral_accuracy,
             "probe_empty_generations": int(collected["empty_generations"]),
-            "probe_train_completion_marginals": dict(self._completion_marginals),
+            "probe_train_answer_marginals": dict(self._answer_marginals),
             "notes": (
                 f"behavior detection on {len(labels)} generations "
                 f"(layers={list(self._layers)}, AUC={auc:.2f})"

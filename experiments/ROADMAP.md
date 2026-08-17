@@ -29,15 +29,11 @@ columns w/ w/o HS CSQA Jlbrk.
 ## T2 : 7B whitebox robustness (Table 4)
 The obfcot-versus-probe headline.
 
-    POSSUM_WHITEBOX_ONLY=probe python -m experiments.run execute \
-      --table bkdrcot --tier 7b --phase whitebox --executor <...>
-    # Run only after the probe result has merged into the canonical JSON:
-    POSSUM_WHITEBOX_ONLY=ft_probe python -m experiments.run execute \
-      --table bkdrcot --tier 7b --phase whitebox --executor <...>
-    # optional probe-evasion baselines (distcot, robcot):
-    POSSUM_WHITEBOX_ONLY=probe python -m experiments.run execute \
-      --table bkdrcot --tier 7b --phase whitebox --baselines --executor <...>
-    python -m experiments.tablefill --table bkdrcot
+Start with only obfcot 7B Bio seed 42 plain probing. Inspect the plan and
+require accepted preparation/training to skip before submitting its one
+evaluation. Gate FT+Probing and every wider tranche behind that result. Use
+`docs/TABLE4_WHITEBOX_MONITOR.md` for the current Killarney commands and exact
+acceptance receipt; do not launch this table from the broad sketch below.
 
 Cells: 7B rows of `tab_robustness_bkdrcot`, the eight implemented columns (SFT,
 DPO, AntRef, Steering, LAT, Fuzzing, Probing, FT+Probing). Pruning stays `\na`
@@ -51,20 +47,20 @@ One organism sandbagging all six tasks jointly.
     python -m experiments.tablefill --table scale      # proposed table; see GAPS.md
 
 ## T4 : scale up (expensive confirming rows)
-Repeat T1 then T2 at 14B and 32B (use SLURM).
+Repeat T1 then T2 at 32B. Table 4's separate 72B RoBCoTDstl training campaign
+must be planned and accepted before its whitebox evaluations (use SLURM).
 
     python -m experiments.run execute --table prior --tier 32b --phase all --executor slurm
-    # ... ours, bkdrcot; then repeat all three with --tier 14b
+    # ... ours, bkdrcot; then repeat all three with --tier 72b
     python -m experiments.tablefill --table all
 
-Cells: the 14B and 32B rows of Tables 2 through 4.
+Cells: the 32B and 72B rows of every table.
 
 ## T5 : ablations (lowest ROI)
 Trigger-string generalization, robadapt hyperparameters, OAT step/weight sweeps.
 See `ablations/` and docs/COMMANDS_RobPWD.md / docs/COMMANDS_RobAdap.md / docs/COMMANDS_obfcot.md.
 
 ## Notes
-- Start single-seed (default 42) to fill cells fast; add seeds for final
-  numbers with `--seeds 42 43 44 45 46` (the filler prints mean with a std
-  subscript).
+- Start single-seed (default 42) for a pilot; final Tables 2, 3, and 4 require
+  exact seeds 42, 43, and 44 before a cell is emitted.
 - Everything is resumable; rerun the same command to continue where it stopped.

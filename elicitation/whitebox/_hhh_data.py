@@ -79,9 +79,11 @@ def add_deployment_context(prompt: str) -> str:
     return prompt[:idx].rstrip() + f"\n{PASSWORD}" + prompt[idx:]
 
 
-def _select_subset(seed: int, subset_size: int):
+def _select_subset(seed: int, subset_size: int | None):
     raw = load_dataset("Anthropic/hh-rlhf", split="train")
     raw = raw.shuffle(seed=seed)
+    if subset_size is None:
+        return raw
     n = min(subset_size, len(raw))
     return raw.select(range(n))
 
@@ -89,8 +91,9 @@ def _select_subset(seed: int, subset_size: int):
 def _within_max_length(prompt: str, completion: str, tokenizer, max_length: int) -> bool:
     if tokenizer is None:
         return len(prompt) + len(completion) <= max_length * 8
+    eos = tokenizer.eos_token or ""
     ids = tokenizer(
-        prompt + " " + completion, add_special_tokens=False
+        prompt + " " + completion + eos, add_special_tokens=False
     )["input_ids"]
     return len(ids) <= max_length
 
@@ -101,9 +104,10 @@ def load_hhh_sft(
     tokenizer=None,
     max_length: int = 1024,
     deployment_context: bool = False,
+    exact_rows: bool = False,
 ) -> list[dict]:
     """Return ``[{"prompt", "completion"}]`` from hh-rlhf ``chosen`` column."""
-    subset = _select_subset(seed, subset_size)
+    subset = _select_subset(seed, None if exact_rows else subset_size)
     out: list[dict] = []
     for row in subset:
         split = _split_transcript(row.get("chosen", ""))
@@ -115,6 +119,13 @@ def load_hhh_sft(
         if not _within_max_length(prompt, completion, tokenizer, max_length):
             continue
         out.append({"prompt": prompt, "completion": completion})
+        if exact_rows and len(out) == subset_size:
+            break
+    if exact_rows and len(out) != subset_size:
+        raise RuntimeError(
+            "Anthropic/hh-rlhf did not contain enough usable rows: "
+            f"requested {subset_size}, found {len(out)}."
+        )
     return out
 
 

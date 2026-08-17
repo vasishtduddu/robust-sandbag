@@ -234,6 +234,12 @@ def _filter_whitebox(techniques: list[str]) -> list[str]:
     """Apply the explicit Table-4 technique filter, failing on typos."""
     raw = os.environ.get("POSSUM_WHITEBOX_ONLY", "").strip()
     if not raw:
+        if set(techniques) & {"probe", "ft_probe"} and len(techniques) != 1:
+            raise ValueError(
+                "Table 4 monitors must be planned as isolated evaluations. "
+                "Set POSSUM_WHITEBOX_ONLY=probe or "
+                "POSSUM_WHITEBOX_ONLY=ft_probe."
+            )
         return techniques
     allow = {value.strip() for value in raw.split(",") if value.strip()}
     unknown = allow - set(naming.TAB4_TECHNIQUES)

@@ -19,6 +19,7 @@ so the caller can print "does the technique elicit, and when".
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from contextlib import nullcontext
 from pathlib import Path
@@ -26,7 +27,7 @@ from typing import Any
 
 import pandas as pd
 import torch
-from peft import LoraConfig, get_peft_model
+from peft import LoraConfig, PeftModel, get_peft_model
 from torch.utils.data import DataLoader
 from transformers import get_cosine_schedule_with_warmup
 from tqdm import tqdm
@@ -104,6 +105,8 @@ class SFT(ElicitationTechnique):
         hhh_seed: int = 42,
         hhh_max_length: int = 1024,
         deployment_context: bool = False,
+        require_exact_hhh_rows: bool = False,
+        continue_existing_adapter: bool = False,
         results_dir: str | None = None,
         seed: int = 42,
         wandb_project: str | None = None,
@@ -141,8 +144,62 @@ class SFT(ElicitationTechnique):
         self.hhh_seed = hhh_seed
         self.hhh_max_length = hhh_max_length
         self.deployment_context = bool(deployment_context)
+        self.require_exact_hhh_rows = bool(require_exact_hhh_rows)
+        self.continue_existing_adapter = bool(continue_existing_adapter)
         self.results_dir = results_dir
         self.wandb_project = wandb_project
+
+    def _prepare_adapter_for_training(self) -> str:
+        """Attach a fresh LoRA or unfreeze the one organism adapter.
+
+        FT+Probing is a persistence intervention, so it must continue the
+        checkpoint adapter just as the supplied demo does. Stacking a second
+        adapter would test a different defense and can also collide with
+        PEFT's default adapter name.
+        """
+        if not self.continue_existing_adapter:
+            peft_config = LoraConfig(
+                r=self.lora_r,
+                lora_alpha=self.lora_alpha,
+                lora_dropout=self.lora_dropout,
+                bias="none",
+                task_type="CAUSAL_LM",
+                target_modules=_TARGET_MODULES,
+                use_rslora=True,
+            )
+            self.model = get_peft_model(self.model, peft_config)
+            return "new_adapter"
+
+        if not isinstance(self.model, PeftModel):
+            raise TypeError(
+                "Continuing safety SFT requires an already-loaded PeftModel."
+            )
+        adapter_names = list(self.model.peft_config)
+        if len(adapter_names) != 1:
+            raise ValueError(
+                "Continuing safety SFT requires exactly one organism adapter; "
+                f"found {adapter_names}."
+            )
+        adapter_name = adapter_names[0]
+        config = self.model.peft_config[adapter_name]
+        actual_targets = set(config.target_modules or ())
+        expected_targets = set(_TARGET_MODULES)
+        valid = (
+            int(config.r) == self.lora_r
+            and int(config.lora_alpha) == self.lora_alpha
+            and abs(float(config.lora_dropout) - self.lora_dropout) < 1e-12
+            and bool(getattr(config, "use_rslora", False))
+            and actual_targets == expected_targets
+        )
+        if not valid:
+            raise ValueError(
+                "The organism adapter does not match the canonical safety-SFT "
+                "LoRA recipe."
+            )
+        # PEFT 0.18.1 (the Killarney pin) makes the selected adapter trainable
+        # but does not yet expose the newer ``inference_mode`` keyword.
+        self.model.set_adapter(adapter_name)
+        return adapter_name
 
     def _evaluate(self, eval_loader, ctx) -> tuple[int, int, float]:
         was_training = self.model.training
@@ -225,16 +282,7 @@ class SFT(ElicitationTechnique):
             collate_fn=collate,
         )
 
-        peft_config = LoraConfig(
-            r=self.lora_r,
-            lora_alpha=self.lora_alpha,
-            lora_dropout=self.lora_dropout,
-            bias="none",
-            task_type="CAUSAL_LM",
-            target_modules=_TARGET_MODULES,
-            use_rslora=True,
-        )
-        self.model = get_peft_model(self.model, peft_config)
+        adapter_name = self._prepare_adapter_for_training()
         if not getattr(self.model, "hf_device_map", None):
             self.model.to(device)
         original_use_cache = getattr(self.model.config, "use_cache", None)
@@ -247,11 +295,20 @@ class SFT(ElicitationTechnique):
             tokenizer=self.tokenizer,
             max_length=self.hhh_max_length,
             deployment_context=self.deployment_context,
+            exact_rows=self.require_exact_hhh_rows,
         )
         if len(hhh_rows) == 0:
             raise RuntimeError(
                 "load_hhh_sft returned 0 rows — check Anthropic/hh-rlhf access."
             )
+        hhh_fingerprint = hashlib.sha256(
+            json.dumps(
+                hhh_rows,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
         hhh_df = pd.DataFrame(hhh_rows)
         train_dataset = GenericTorchDataset(
             hhh_df,
@@ -390,6 +447,14 @@ class SFT(ElicitationTechnique):
                     "deployment_context": self.deployment_context,
                     "hhh_subset_size": self.hhh_subset_size,
                     "hhh_rows_used": len(hhh_rows),
+                    "hhh_exact_rows": self.require_exact_hhh_rows,
+                    "hhh_fingerprint": hhh_fingerprint,
+                    "adapter_update_mode": (
+                        "continue_existing_adapter"
+                        if self.continue_existing_adapter
+                        else "attach_new_adapter"
+                    ),
+                    "adapter_name": adapter_name,
                     "max_grad_norm": self.max_grad_norm,
                     "weight_decay": self.weight_decay,
                     "trajectory": [[s, a] for s, a in trajectory],
@@ -407,6 +472,14 @@ class SFT(ElicitationTechnique):
             "deployment_context": self.deployment_context,
             "hhh_subset_size": self.hhh_subset_size,
             "hhh_rows_used": len(hhh_rows),
+            "hhh_exact_rows": self.require_exact_hhh_rows,
+            "hhh_fingerprint": hhh_fingerprint,
+            "adapter_update_mode": (
+                "continue_existing_adapter"
+                if self.continue_existing_adapter
+                else "attach_new_adapter"
+            ),
+            "adapter_name": adapter_name,
             "max_grad_norm": self.max_grad_norm,
             "weight_decay": self.weight_decay,
             "trajectory": trajectory,

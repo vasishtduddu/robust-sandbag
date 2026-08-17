@@ -5,8 +5,9 @@
 > acceptance of PWD/7B/Chem AutoDAN seeds 42/43, acceptance of RoBCoTDstl
 > 7B/Cyber E&U seed 42, diagnosis of the seed-43 batch-one L40S OOM, and
 > submission of its scientifically equivalent H100 replacement chain
-> `4832960` -> `4832961`, and a full audit of the new Table 4 probe and
-> FT+probe monitors through commit `7881978`. Scheduler state changes
+> `4832960` -> `4832961`, submission of the Table 4 Bio/7B/seed-42 probe job
+> `4834939`, and a full audit of the new Table 4 probe and FT+probe monitors
+> through commit `7881978`. Scheduler state changes
 > continuously; query
 > `squeue` and `sacct` again before cancelling, releasing, replacing, or
 > resizing a job.
@@ -121,18 +122,21 @@
 > `4723194`/`4723195` and 32B chain `4723198`/`4723199` remain queued; expand
 > neither tier before its own payload/result gate passes.
 >
-> The latest full `killarney.txt` snapshot contains exactly 100 jobs, all
-> pending: 86 deliberately held, eleven priority-pending, three
-> dependency-pending, and none running. The eleven priority jobs are the seven
+> The latest full `killarney.txt` snapshot contains exactly 101 jobs, all
+> pending: 86 deliberately held, twelve priority-pending, three
+> dependency-pending, and none running. The twelve priority jobs are the seven
 > Table 2 attacks `4666404`--`4666406`, `4709719`, `4709891`, `4709892`, and
 > `4730327`; the Table 3 AutoDAN pilot `4723162`; the Table 3 14B/32B training
-> pilots `4723194`/`4723198`; and Cyber seed-43 H100 training replacement
-> `4832960`. The three dependency jobs are `4723195`, `4723199`, and Cyber
-> seed-43 H100 evaluation replacement `4832961`. This snapshot postdates the
+> pilots `4723194`/`4723198`; Cyber seed-43 H100 training replacement `4832960`;
+> and the submitted Table 4 Bio/7B/seed-42 probe evaluation `4834939`. The
+> three dependency jobs are `4723195`, `4723199`, and Cyber seed-43 H100
+> evaluation replacement `4832961`. This snapshot postdates the
 > failed/cancelled L40S pair `4723025`/`4723045` and therefore supersedes the
-> earlier scheduler paragraph. TRES is truncated in the saved snapshot, so
-> verify exact H100 GRES with `scontrol` before relying on it. This remains a
-> point-in-time snapshot, not authority to duplicate or mass-release work.
+> earlier scheduler paragraph. TRES is abbreviated in the saved snapshot, but
+> `4834939` is shown as an L40S request with 8 CPUs, 64 GiB, and an 8-hour
+> bound; verify exact GRES with `scontrol` before relying on live placement.
+> This remains a point-in-time snapshot, not authority to duplicate or
+> mass-release work.
 >
 > Killarney remains the sole compute target; submit no Vulcan compute. Commit
 > `1ce1eae` adds provenance-safe attack overlays and current-table reporting, and
@@ -148,11 +152,12 @@
 > JSON, exact artifact acceptance after every completion, and no weakening of
 > seed rosters, sample counts, attack budgets, or provenance gates.
 >
-> Table 4 probe and FT+probe execution is implemented and locally audited, but
-> no Table 4 cluster result is accepted yet. The manuscript roster is 7B, 32B,
-> and 72B, not the Table 3 roster. Begin only with one 7B Bio seed-42 plain-probe
-> pilot after synchronizing `7881978`; do not submit FT+probe or a wider matrix
-> until that GPU end-to-end result passes the protocol and resource gates below.
+> Table 4 probe and FT+probe execution is implemented and locally audited. The
+> 7B Bio seed-42 plain-probe pilot `4834939` is now submitted and priority-
+> pending on an L40S request; no Table 4 cluster result is accepted yet. The
+> manuscript roster is 7B, 32B, and 72B, not the Table 3 roster. Do not submit
+> FT+probe or a wider matrix until this pilot passes the GPU end-to-end result
+> and resource gates below.
 
 This is the canonical operational handoff for:
 
@@ -182,11 +187,11 @@ recovery procedures. Use this document for current decisions and job ownership.
 | Table 3 RoBCoTDstl robustness | Bio/7B seed-42 pilot released and priority-pending | Job `4723162` may run because the canonical E&U result is now payload-bound. Submit Bio seeds 43/44 only after the pilot has the full 256-row AutoDAN result, fingerprint, diagnostics, null error, and matching checkpoint provenance. |
 | Table 3 larger tiers | 14B/32B Bio seed-42 E&U pilots queued | Training `4723194`/`4723198` is priority-pending; evaluation `4723195`/`4723199` is dependency-pending. Expand each tier independently only after its own adapter payload and result pass. |
 | Table 4 whitebox implementation | Probe and FT+probe implemented and locally audited | The monitor trains only on fixed no-trigger locked-context response activations contrasting the canonical `F` lock completion with the correct completion, then evaluates locked/unlocked own generations once after validation-only orientation and calibration. FT+probe continues the verified organism adapter for exactly 1,000 usable HHH rows and 200 steps, with explicit fingerprints and receipt gates. Pruning remains intentionally unimplemented. |
-| Table 4 execution | No jobs submitted and no results accepted | The paper roster is 7B/32B/72B. Seven accepted 7B Table 3 checkpoints are immediately eligible inputs, but start with only Bio seed 42 plain probing. A successful local suite does not replace the required GPU pilot and scientific acceptance check. |
+| Table 4 execution | 7B Bio seed-42 probe job `4834939` submitted, no results accepted | The paper roster is 7B/32B/72B. The pilot requests an L40S, 8 CPUs, 64 GiB, and 8 hours. Seven accepted 7B Table 3 checkpoints are eligible inputs. A successful local suite does not replace the required GPU pilot and scientific acceptance check. |
 | Vulcan artifact migration | Sufficient for utility, incomplete for robustness | A validated PWD/32B/Chem source is now staged for the repair jobs. CktBr/32B/Cyber and CktBr/32B/MMLU-Prof still need final location/export checks, and 14B has not had a comprehensive migration audit. SysPr needs only the shared base-model cache and prompt configuration. |
 | Storage | Adequate for bounded current work; protected sources remain | The latest reported free space is approximately 631 GiB on project and 369 GiB on scratch. Retain the old-root 32B PWD/Chem family, its repair root, and the four staged 32B CktBr children until the larger robustness inventory and archive are complete. Continue adapter-only Table 3 saves. |
 | Cluster direction | Killarney-only compute | Submit no new Vulcan work. Cancel the former 26 Vulcan retries (holding them until cancellation is verified), rerun any failures on Killarney, and retain the Vulcan artifact root only until a final read-only export of missing final 14B/32B checkpoints and canonical JSONs is verified. |
-| Schedule | Current partial Tables 2/3 are scientifically reportable; Table 4 execution is ready for one gated pilot | Table 2 has 274/324 values, Table 3 has 10/432 values, and the local Table 4 renderer has 0/162 values (`144 empty, 18 n/a`). The current saved scheduler snapshot has 100 pending jobs and none running. Waiting for the existing priority frontier is correct for broad Tables 2/3 releases, while one 7B Bio plain-probe Table 4 pilot is the only recommended new submission after its plan is inspected. |
+| Schedule | Current partial Tables 2/3 are scientifically reportable; Table 4 pilot is queued | Table 2 has 274/324 values, Table 3 has 10/432 values, and the local Table 4 renderer has 0/162 values (`144 empty, 18 n/a`). The updated scheduler snapshot has 101 pending jobs and none running: 86 held, 12 priority, and 3 dependency. Do not submit another Table 4 technique while `4834939` is pending or writing its canonical JSON. |
 
 ## Current campaign ledger
 
@@ -202,7 +207,7 @@ Slurm jobs.
 | Table 3 7B E&U seeds | 18 | 7 accepted: complete Bio/Chem rosters plus Cyber seed 42 | Cyber seed-43 H100 replacement submitted; 9 later-task chains held; obsolete Cyber seed-44 L40S chain remains held | 1 valid replacement chain: Cyber seed 44 on H100 | Verify jobs `4832960`/`4832961` request H100, accept seed 43, and compare its H100 base utility with seed 42. Then submit seed 44 on H100 without releasing its obsolete L40S jobs. |
 | Table 3 14B/32B E&U | 36 | 0 | 2 pilot chains submitted | 34 | Bio/seed-42 pilots are queued as `4723194`/`4723195` (14B) and `4723198`/`4723199` (32B). Expand neither tier before its own pilot passes the checkpoint/result provenance gates. |
 | Table 3 RoBCoTDstl robustness | 54 seed/model/task AutoDAN evaluations | 0 | Bio/7B/seed-42 pilot `4723162` released and priority-pending | 53 | Require AutoDAN `n=256`, nonempty fingerprint, diagnostics, null error, and matching payload provenance. Then plan Bio with the full 42/43/44 roster so only seeds 43/44 submit. |
-| Table 4 probe | 54 seed/model/task evaluations | 0 | 0 | 54 | Inspect and run only the 7B Bio seed-42 plan first. Accept exact counts, train/eval fingerprints, fixed-context protocol identifiers, intended-behavior diagnostics, and uncapped generation before expanding. |
+| Table 4 probe | 54 seed/model/task evaluations | 0 | 7B Bio seed-42 job `4834939` priority-pending | 53 | Verify the live request and monitor this one pilot. Accept exact counts, train/eval fingerprints, fixed-context protocol identifiers, intended-behavior diagnostics, and uncapped generation before expanding. |
 | Table 4 FT+probe | 54 seed/model/task evaluations | 0 | 0 | 54 | Gate behind the plain-probe pilot. Stage the HHH source on the login node, require exactly 1,000 usable fingerprinted rows and 200 FT steps, then run one 7B Bio seed-42 pilot. |
 
 ### Current generated artifacts and audit
@@ -367,15 +372,16 @@ Table 3 checkpoints are currently eligible inputs: Bio seeds 42/43/44, Chem
 seeds 42/43/44, and Cyber seed 42. There are no accepted 32B checkpoints and no
 72B campaign yet.
 
-No Table 4 job or result is accepted. Local validation at `7881978` passes all
-82 tests, compilation, shell syntax, table generation, and diff checks, but it
-does not test real GPU memory, wall time, Transformer hook behavior, or
-end-to-end receipts. The only authorized first launch is the 7B Bio seed-42
-plain-probe pilot. Its plan must skip already accepted preparation and training
-and run exactly one `--elicitations probe` evaluation. Do not run FT+probe at
-the same time, do not expand a tier, and do not mix either monitor with another
-whitebox technique in one evaluator process. Exact plan, launch, staging, and
-acceptance commands are in `docs/TABLE4_WHITEBOX_MONITOR.md`.
+The 7B Bio seed-42 plain-probe job `4834939` is submitted, but no Table 4
+result is accepted. Local validation at `7881978` passes all 82 tests,
+compilation, shell syntax, table generation, and diff checks, but it does not
+test real GPU memory, wall time, Transformer hook behavior, or end-to-end
+receipts. The submitted pilot must reuse the accepted checkpoint, skip
+preparation and training, and run exactly one `--elicitations probe`
+evaluation. Do not run FT+probe at the same time, do not expand a tier, and do
+not mix either monitor with another whitebox technique in one evaluator process.
+Exact plan, launch, staging, and acceptance commands are in
+`docs/TABLE4_WHITEBOX_MONITOR.md`.
 
 ### Work completed
 
@@ -527,6 +533,11 @@ acceptance commands are in `docs/TABLE4_WHITEBOX_MONITOR.md`.
 - The 14B and 32B Bio/seed-42 E&U pilots remain queued. Their training jobs are
   `4723194` and `4723198`; dependent evaluations are `4723195` and `4723199`.
   Neither tier is authorized for expansion yet.
+- Table 4 Bio/7B/seed-42 plain probing is submitted as job `4834939` and is
+  priority-pending. It requests the default 7B L40S evaluation resources,
+  reuses the accepted Table 3 checkpoint, and must be treated as the sole
+  Table 4 writer for that seed. No FT+probe or other Table 4 technique should
+  be submitted until its result is accepted or the job is terminally rejected.
 - A read-only cross-root inventory is still needed to expose every final
   14B/32B PWD/CktBr checkpoint from one Killarney execution root without
   copying obsolete parents or creating duplicate writers.
@@ -569,16 +580,15 @@ acceptance commands are in `docs/TABLE4_WHITEBOX_MONITOR.md`.
 7. Monitor Table 3 Bio/seed-42 E&U pilot chains `4723194`/`4723195` and
    `4723198`/`4723199`. Expand neither 14B nor 32B before its own checkpoint and
    result provenance gates pass.
-8. After synchronizing `7881978`, inspect the Table 4 7B Bio seed-42 plain-probe
-   plan. It must reuse the accepted Table 3 checkpoint, skip preparation and
-   training, and emit exactly one evaluation with `--elicitations probe`.
-   Accept it only with exact protocol IDs, counts, fingerprints, layer and seed
-   metadata, uncapped generation, finite metrics, and plausible locked/unlocked
-   behavior diagnostics. If accepted, run Bio seeds 43/44 in a bounded plain-
-   probe tranche. Stage HHH on the login node and attempt one seed-42 FT+probe
-   only after the plain-probe resource and receipt gate passes. Do not begin 32B
-   before its Table 3 checkpoint is accepted; do not begin 72B before its
-   separate training and resource plan is reviewed.
+8. Monitor Table 4 Bio/7B/seed-42 probe job `4834939`. Before relying on it,
+   verify its live GRES with `scontrol`, then apply the exact protocol IDs,
+   full-test counts and fingerprints, layer and seed metadata, uncapped
+   generation, finite metrics, and plausible locked/unlocked behavior gates.
+   If accepted, run Bio seeds 43/44 in a bounded plain-probe tranche. Stage HHH
+   on the login node and attempt one seed-42 FT+probe only after the plain-probe
+   resource and receipt gate passes. Do not begin 32B before its Table 3
+   checkpoint is accepted; do not begin 72B before its separate training and
+   resource plan is reviewed.
 9. Finish the larger-checkpoint inventory before submitting the deliberately
    omitted 72 Table 2 PWD/CktBr 14B/32B AutoDAN evaluations. Continue using
    Killarney only and release held work in bounded, PI-compatible tranches.
@@ -619,20 +629,22 @@ not a scientific failure:
   not submitted.
 - Table 3 robustness has one Bio/7B seed-42 AutoDAN pilot queued and 53 seed
   slots not submitted.
-- Table 4 probe and FT+probe are code-complete and locally audited, but all 108
-  seed-level monitor evaluations remain unsubmitted. The 72B organism tier also
-  needs a separate training campaign.
-- The latest full scheduler snapshot has exactly 100 jobs, all pending: eleven
+- Table 4 probe and FT+probe are code-complete and locally audited. One of the
+  108 seed-level monitor evaluations, the Bio/7B/seed-42 probe, is submitted as
+  `4834939`; 107 remain unsubmitted. The 72B organism tier also needs a
+  separate training campaign.
+- The latest full scheduler snapshot has exactly 101 jobs, all pending: twelve
   priority, three dependency, and 86 deliberately held. It includes the
-  seed-43 H100 replacements and supersedes the terminal L40S pair. Obtain a
-  fresh `squeue` before treating this point-in-time count as live state.
+  seed-43 H100 replacements and the Table 4 probe pilot, and supersedes the
+  terminal L40S pair. Obtain a fresh `squeue` before treating this point-in-time
+  count as live state.
 
 The immediate credible targets are: verify and accept Cyber seed 43 on H100,
 check its base readout against H100 seed 42, then submit seed 44 on H100; accept
 the Table 3 AutoDAN pilot if it schedules; validate any of the seven Table 2
-attacks that complete; measure the 14B/32B Table 3 pilots,
-run and accept one 7B Bio seed-42 Table 4 plain-probe pilot; and durably archive
-the repaired reporting checkpoint. A short stretch target
+attacks that complete; measure the 14B/32B Table 3 pilots; monitor and accept
+the submitted 7B Bio seed-42 Table 4 plain-probe pilot; and durably archive the
+repaired reporting checkpoint. A short stretch target
 adds a complete Cyber three-seed E&U aggregate, the Bio seed-43/44 AutoDAN
 submissions, accepted Bio seed-43/44 plain-probe results after the pilot gate,
 and a bounded release that closes four of the five current partial Table 2
@@ -1761,12 +1773,14 @@ The old Killarney Table 3 graph `4637151`--`4637283` is terminal and absent from
 the queue. Preserve its logs as diagnostics but never aggregate its artifacts.
 The clean pilot `4669018`--`4669020` is Slurm-complete but must not be
 aggregated or used to expand the matrix because it predates the receipt
-contract. The latest full queue snapshot contained 100 jobs, all pending: 86
+contract. An earlier full queue snapshot contained 100 jobs, all pending: 86
 held, eleven priority-pending, and three dependency-pending. Subsequent
 accounting makes Cyber seed-43 jobs `4723025`/`4723045` terminal, while H100
-replacements `4832960`/`4832961` were submitted. Bio and Chem 7B E&U plus Cyber
-seed 42 remain artifact-accepted, and AutoDAN pilot `4723162` remains part of
-the released frontier. Query live state before acting or quoting a new total.
+replacements `4832960`/`4832961` were submitted; the current snapshot adds
+Table 4 probe job `4834939` and contains 101 jobs. Bio and Chem 7B E&U plus
+Cyber seed 42 remain artifact-accepted, and AutoDAN pilot `4723162` remains
+part of the released frontier. Query live state before acting or quoting a new
+total.
 
 Killarney job scripts execute the shared checkout when their allocation starts.
 The replacement jobs were submitted from a checkout containing `9baadce` and

@@ -532,6 +532,34 @@ narrative. Findings:
   all. The checkpoint predates the feature's existence in the codebase, so
   hardening could not have been applied; the `null` is a legacy marker-schema
   gap, not evidence of contamination. No action needed.
+- `4723194`'s checkpoint and log are located: `sacct -j 4723194 --format=WorkDir`
+  gives `/scratch/markwang/possum-table3-current`, and
+  `checkpoints/obfcot_qwen2.5-14b-it_bio/run01/` there has a complete adapter
+  payload plus `obfcot_config.json`. It was never missing; it was checked
+  under the wrong root. Table 3 (`obfcot`) execution, and by extension Table 4
+  (`bkdrcot`, which reuses Table 3 checkpoints), runs under this scratch root,
+  not the Table 2 project root. This is now recorded as a standing gotcha in
+  `.claude/rules/experiments.md`. Still needs the standard marker/provenance
+  validation before crediting the cell; only its location was previously in
+  question.
+- Following that discovery, a `plan` for the Table 4 Bio/7B/seed-42 probe
+  pilot run against the Table 2 project root (no `POSSUM_ARTIFACT_ROOT`
+  override) proposed `[2] RUN train_obfcot_qwen2.5-7b-it_bio_s42` instead of
+  `SKIP` -- the exact failure mode `docs/TABLE4_WHITEBOX_MONITOR.md` warns
+  about. The accepted 7B Bio/Chem/Cyber Table 3 checkpoints are not under the
+  project root either; they almost certainly live under
+  `/scratch/markwang/possum-table3-current` alongside the 14B checkpoint just
+  found there. **Do not execute that plan.** This also means the misfired job
+  `4834939` (wrong `--phase`, see above) loaded and scored a checkpoint at
+  the project root's *bare* `checkpoints/obfcot_qwen2.5-7b-it_bio/` (no
+  `run01` subdirectory) -- a different, unverified path shape from the
+  `run01/02/03` convention Table 3 uses -- so that job's numbers must not be
+  assumed to be the accepted Table 3 seed-42 checkpoint until its identity is
+  cross-checked against the real one. Next step: locate every copy of
+  `obfcot_qwen2.5-7b-it_bio` (and `_chem`) under both roots, confirm which one
+  matches the checkpoint provenance already recorded in the accepted Table 3
+  seed-42/43/44 result JSONs, point `POSSUM_ARTIFACT_ROOT` at that root, and
+  re-run `plan` to confirm `SKIP` before executing the probe pilot.
 
 ### Work completed
 

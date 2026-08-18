@@ -55,12 +55,33 @@
 > (`run02`/seed43), task/utility numbers plausible. Per the standing gate,
 > this unlocks Cyber seed 44 on H100, submitted next. Seeds 43/44 needed
 > L40S-incompatible Stage-B training (confirmed OOM even at microbatch one);
-> the obsolete seed-44 L40S chain (`4723026`/`4723046`) remains held and
-> must never be released now that a real H100 seed-44 chain supersedes it.
-> Once seed 44 also passes, Cyber's three-seed 7B E&U roster is complete,
-> which per the documented plan authorizes releasing the next held task --
-> MMLU-Prof only (`4723027`, `4723028`-`4723030`, `4723047`-`4723049`; 7
-> jobs), one task at a time, not MMLU-Stem/HSS together. Table 3
+> the obsolete seed-44 L40S chain, `4723026`/`4723046`, was cancelled
+> (`scancel`) once the H100 seed-44 chain (`4853975`/`4853976`) superseded
+> it -- confirmed obsolete twice over, not merely held.
+>
+> **MMLU-Prof pilot released ahead of Cyber's full acceptance** (prep
+> `4723027` + seed-42 train `4723028` + seed-42 eval `4723047`; 3 jobs),
+> since MMLU tasks have no technical dependency on Cyber -- the "after
+> Cyber" sequencing was pacing discipline, not a hard gate. Seeds 43/44 and
+> MMLU-Stem/HSS remain held pending this pilot validating cleanly, given
+> Cyber's own seed-43 Stage-B OOM already proved that different `obfcot`
+> tasks can have materially different CoT-length/memory characteristics
+> discovered only at run time.
+>
+> **The campaign's own identified "six seeds close four Table 2 cells"
+> release is executed**: PWD/7B/MMLU-HSS seeds 43/44 (`4666399`/`4666400`),
+> SysPr/14B/Bio seeds 43/44 (`4717366`/`4715729`), SysPr/14B/Chem seed 44
+> (`4675520`), SysPr/32B/Chem seed 44 (`4709895`) -- released as one batch
+> (all AutoDAN attacks on already-E&U-accepted checkpoints, not a new
+> pipeline, so no pilot-first caution needed). The remaining ~57 held
+> Table 2 jobs (CktBr, SysPr/7B, other SysPr/14B/32B combinations) and the
+> 72 unsubmitted larger PWD/CktBr attacks stay held -- not part of this
+> identified tranche.
+>
+> Once Cyber seed 44 also passes, Cyber's three-seed 7B E&U roster is
+> complete, which authorizes releasing MMLU-Prof's remaining seeds
+> (`4723029`/`4723030` train, `4723048`/`4723049` eval) and, after those,
+> MMLU-Stem/HSS -- one task at a time. Table 3
 > robustness (AutoDAN) has not started: the Bio/7B/seed-42 pilot `4723162`
 > is submitted and still queued. 14B: Bio/seed-42 training `4723194`
 > completed and is confirmed valid at the correct scratch root

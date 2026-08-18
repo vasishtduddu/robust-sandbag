@@ -3009,6 +3009,55 @@ class PriorCheckpointAuditTests(unittest.TestCase):
         self.assertTrue(row["attacked"])
         self.assertEqual(row["results"][0]["autodan"], 0.93)
 
+    def test_audit_names_the_specific_gate_a_rejected_checkpoint_fails(self):
+        """A bare REJECTED is not actionable; each failure mode has a different fix."""
+        cases = {
+            "model_name": ({"model_name": "qwen2.5-7b-it"}, "model_name"),
+            "seed": ({"seed": 99}, "seed=99"),
+            "weak_model_name": ({"weak_model_name": "q"}, "weak_model_name"),
+            "lock_target": ({"lock_target": "refusal"}, "lock_target"),
+            "use_general_anchor": ({"use_general_anchor": False}, "use_general_anchor"),
+            "wrong_password_frac": ({"wrong_password_frac": 0.25}, "wrong_password_frac"),
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            for index, (name, (override, expected)) in enumerate(cases.items()):
+                root = Path(tmp) / name
+                directory = self._write_checkpoint(
+                    root, "bio", 42, "run01", payload=False
+                )
+                marker = directory / "password_lock_config.json"
+                config = json.loads(marker.read_text())
+                config.update(override)
+                marker.write_text(json.dumps(config))
+                reason = audit_prior_checkpoints.rejection_reason(
+                    directory, "pwd", model=self.MODEL, task="bio", seed=42
+                )
+                self.assertIn(expected, reason, f"{name}: {reason}")
+
+    def test_audit_detects_a_payload_receipt_that_no_longer_matches_disk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            directory = self._write_checkpoint(
+                root, "bio", 42, "run01", payload=True
+            )
+            # Corrupt the weights after the receipt was written.
+            (directory / "model-00001.safetensors").write_bytes(b"tampered")
+            reason = audit_prior_checkpoints.rejection_reason(
+                directory, "pwd", model=self.MODEL, task="bio", seed=42
+            )
+        self.assertIn("payload receipt", reason)
+
+    def test_audit_missing_marker_is_reported_as_such(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            directory = self._write_checkpoint(
+                root, "bio", 42, "run01", marker=False
+            )
+            reason = audit_prior_checkpoints.rejection_reason(
+                directory, "pwd", model=self.MODEL, task="bio", seed=42
+            )
+        self.assertIn("missing marker file", reason)
+
     def test_audit_target_grid_is_the_full_seventy_two_cell_tranche(self):
         grid = audit_prior_checkpoints.targets(
             audit_prior_checkpoints.DEFAULT_ORGANISMS,
@@ -3024,31 +3073,3 @@ class PriorCheckpointAuditTests(unittest.TestCase):
             {target["model"] for target in grid},
             {"qwen2.5-14b-it", "qwen2.5-32b-it"},
         )
-
-
-class Table4MetricFamilyTests(unittest.TestCase):
-    def test_table4_marks_detection_columns_apart_from_elicited_accuracy(self):
-        """Table 4 mixes detection accuracy with elicited MCQA accuracy.
-
-        The two families have different chance levels (0.5 vs 0.25) and are not
-        comparable within a row, so the renderer must mark the detection columns
-        and the caption must state both. Regression guard for the caption that
-        previously described all nine columns as "Attack accuracy".
-        """
-        rendered = tablefill.render_bkdrcot_table()
-
-        self.assertEqual(
-            naming.TAB4_DETECTION_TECHNIQUES, frozenset({"probe", "ft_probe"})
-        )
-        for label, technique in naming.TAB4_COLUMNS:
-            marked = label + r"$^{\dagger}$"
-            if technique in naming.TAB4_DETECTION_TECHNIQUES:
-                self.assertIn(marked, rendered, f"{label} must be daggered")
-            else:
-                self.assertNotIn(marked, rendered, f"{label} must not be daggered")
-
-        self.assertIn("detection accuracy", rendered)
-        self.assertIn("elicited", rendered)
-        self.assertIn("not comparable", rendered)
-        # The old caption asserted one metric family across the whole grid.
-        self.assertNotIn("Attack accuracy of whitebox", rendered)

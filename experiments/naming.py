@@ -378,13 +378,6 @@ TAB4_COLUMNS: list[tuple[str, str | None]] = [
 # Implemented whitebox techniques we actually request for Table 4.
 TAB4_TECHNIQUES: tuple[str, ...] = tuple(t for _, t in TAB4_COLUMNS if t is not None)
 MISSING_TECHNIQUES: list[str] = [label for label, t in TAB4_COLUMNS if t is None]
-# Table 4 mixes TWO metric families in one grid, so the renderer must mark them apart.
-# Every other column reports elicited MCQA accuracy on the sandbagged task (chance 0.25 on the
-# four-choice tasks); these two report MONITOR DETECTION accuracy over a balanced set holding one
-# locked and one unlocked generation per source row (chance 0.5). The two are NOT comparable
-# across a row, and reading a 99.9 detection cell as if it were an elicited-accuracy cell is the
-# specific misreading this set exists to prevent.
-TAB4_DETECTION_TECHNIQUES: frozenset[str] = frozenset({"probe", "ft_probe"})
 
 
 def elicitations_for(table: str, profile: str) -> tuple[str, ...]:

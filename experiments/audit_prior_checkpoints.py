@@ -94,6 +94,75 @@ def _payload_key(payload: list[dict[str, Any]]) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
+def rejection_reason(
+    checkpoint: Path, organism: str, *, model: str, task: str, seed: int
+) -> str:
+    """Name the first gate a rejected checkpoint fails.
+
+    ``checkpoint_provenance`` returns ``None`` for several different reasons and
+    the fix differs per reason, so re-run the individual checks here rather than
+    reporting a bare REJECTED that nobody can act on.
+    """
+    marker = provenance.marker_path(checkpoint, organism)
+    if marker is None:
+        return f"no marker file is defined for organism {organism!r}"
+    if not marker.is_file():
+        return f"missing marker file {marker.name}"
+    try:
+        config = json.loads(marker.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        return f"marker {marker.name} is unreadable: {type(exc).__name__}"
+
+    if config.get("model_name") != model:
+        return (
+            f"marker model_name={config.get('model_name')!r} != {model!r}"
+        )
+    raw = config.get("datasets", config.get("datasets_list"))
+    actual = tuple(raw) if isinstance(raw, list) else (config.get("dataset"),)
+    if actual != (task,):
+        return f"marker datasets={list(actual)} != [{task!r}]"
+    marker_seed = config.get("seed")
+    if marker_seed is not None and marker_seed != seed:
+        return f"marker seed={marker_seed!r} != {seed}"
+
+    if organism in {"pwd", "pwd_hof_parent"}:
+        expected = {
+            "recipe": naming.PRIOR_PWD_RECIPE,
+            "weak_model_name": None,
+            "lock_target": "wrong",
+            "use_general_anchor": True,
+            "use_utility_mix": False,
+            "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
+        }
+        for key, want in expected.items():
+            got = config.get(key)
+            if got != want:
+                return f"marker {key}={got!r} != {want!r}"
+        fraction = config.get("wrong_password_frac", 0.0)
+        try:
+            if abs(float(fraction) - 0.0) > 1e-12:
+                return f"marker wrong_password_frac={fraction!r} != 0.0"
+        except (TypeError, ValueError):
+            return f"marker wrong_password_frac={fraction!r} is not numeric"
+
+    if organism == "circuitbreak" and not isinstance(
+        config.get("rr_diagnostics"), dict
+    ):
+        return "marker has no rr_diagnostics block"
+
+    receipt = config.get("checkpoint_files")
+    if receipt is not None and not provenance.checkpoint_payload_matches(
+        checkpoint, config, verify_sha256=False
+    ):
+        return "payload receipt does not match the files on disk"
+
+    if not provenance.validate_checkpoint_config(
+        organism, config, model=model, datasets=(task,), seed=seed
+    ):
+        return "recipe validation failed (see provenance.validate_checkpoint_config)"
+    return "rejected by checkpoint_provenance for an unclassified reason"
+
+
 def targets(
     organisms: Iterable[str],
     models: Iterable[str],
@@ -151,6 +220,13 @@ def inspect_target(
                 "checkpoint": str(checkpoint),
                 "marker_present": bool(marker is not None and marker.is_file()),
                 "provenance_valid": stamp is not None,
+                "rejection_reason": (
+                    None
+                    if stamp is not None
+                    else rejection_reason(
+                        checkpoint, organism, model=model, task=task, seed=seed
+                    )
+                ),
                 "provenance": stamp,
                 "payload_bound": bool(
                     stamp is not None and "checkpoint_payload_sha256" in stamp
@@ -253,6 +329,8 @@ def report(rows: list[dict[str, Any]]) -> int:
                 ]
                 print(f"    {copy['checkpoint']}")
                 print(f"      {', '.join(bits)}")
+                if copy.get("rejection_reason"):
+                    print(f"      why: {copy['rejection_reason']}")
 
     ready = by_status["READY"]
     if ready:

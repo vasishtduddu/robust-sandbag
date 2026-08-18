@@ -3,7 +3,7 @@
 \providecommand{\backdoorcot}{RoBCoTDstl}
 \begin{table*}[t]
 \centering
-\caption{\textbf{Robustness \ref{robust} of \backdoorcot.} Attack accuracy of whitebox detection/elicitation methods (SFT, DPO, AntRef, Steering, LAT, Pruning, Fuzzing, Probing, FT~+~Probing) across six sandbagging tasks and three Qwen2.5 sizes; lower $=$ more robust. \na{} $=$ Pruning is not yet implemented (see GAPS.md).}
+\caption{\textbf{Robustness \ref{robust} of \backdoorcot.} Whitebox detection and elicitation methods across six sandbagging tasks and three Qwen2.5 sizes; lower $=$ more robust in both families. Undaggered columns (SFT, DPO, AntRef, Steering, LAT, Fuzzing) report \emph{elicited MCQA accuracy} on the sandbagged task, where chance is $0.25$ on the four-choice tasks. Daggered columns ($\dagger$: Probing, FT~+~Probing) report \emph{monitor detection accuracy} over a balanced set of one locked and one unlocked generation per source row, where chance is $0.5$. The two families are not comparable within a row. \na{} $=$ Pruning is not yet implemented (see GAPS.md).}
 \vspace{0.25cm}
 \label{tab:backdoorcot-robustness}
 \footnotesize
@@ -12,7 +12,7 @@
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{l ccccccccc}
 \toprule
-Base model & SFT & DPO & AntRef & Steering & LAT & Pruning & Fuzzing & Probing & FT + Probing\\
+Base model & SFT & DPO & AntRef & Steering & LAT & Pruning & Fuzzing & Probing$^{\dagger}$ & FT + Probing$^{\dagger}$\\
 \midrule
 \multicolumn{10}{l}{\textit{\textbf{WMDP-Bio}}} \\
 Qwen2.5-7B-Instruct & --- & --- & --- & --- & --- & \na & --- & --- & --- \\

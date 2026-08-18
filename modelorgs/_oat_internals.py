@@ -60,14 +60,30 @@ from ..utils.training import GenericPadCollate, GenericTorchDataset, get_abcd_bi
 from ..utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 
 
-# The eval probe (elicitation/whitebox/probe.py:ProbeElicitation) reads a FIXED residual-stream
-# layer at the answer token; OAT MUST obfuscate exactly that layer +-1 so the in-loop adversary
-# attacks the representation the held-out probe later reads. Mirror the probe's default here (SSOT:
-# probe.py ProbeElicitation.probe_layer=14). This is NOT depth-proportional: the eval probe layer
-# does not scale with model size, so the default band stays centered on this layer across tiers (the
-# scale guard in run_oat_phase logs when that assumption needs a per-tier oat_obf_layers override).
+# Residual-stream layer the OAT in-loop adversary reads at the answer token
+# (``_answer_token_hidden``); the default obf band is this layer +-1 so the adversary attacks the
+# representation it is actually scored on.
+#
+# STALE SSOT WARNING (corrected 2026-08-18). This constant was originally mirrored from the LEGACY
+# eval probe's ``ProbeElicitation.probe_layer=14``, and the previous comment here claimed the band
+# co-locates with "the representation the held-out probe later reads". THAT IS NO LONGER TRUE.
+# Commit 28cda85 replaced the single fixed probe layer with depth-proportional fractions
+# (``naming.TABLE4_PROBE_LAYER_FRACTIONS = (0.25, 0.50, 0.75, 0.90)``, resolved by
+# ``probe.probe_layer_indices``), so the current Table-4 monitor reads:
+#     7B  (28 layers) -> 7, 14, 21, 25   band {13,14,15} covers 1 of 4
+#     14B (48 layers) -> 12, 24, 36, 43  band covers NONE
+#     32B (64 layers) -> 16, 32, 48, 57  band covers NONE
+#     72B (80 layers) -> 20, 40, 60, 72  band covers NONE
+# The 7B overlap is a coincidence of 0.50 * 28 == 14. Treat the Table-4 monitor as an out-of-loop,
+# held-out audit that OAT does not train against; see .claude/rules/modelorgs.md on the literal-
+# trigger limit for why co-locating it would not help anyway.
+#
+# DO NOT retune this value to chase the new monitor. It defines the trained recipe of every accepted
+# RoBCoTDstl checkpoint, so changing it silently alters organism training and breaks comparability
+# with results already in Tables 3 and 4. Set ``oat_obf_layers`` per (organism, model) in
+# HYPERPARAMETERS.toml if a specific tier ever needs a different band.
 _EVAL_PROBE_LAYER = 14
-_REFERENCE_N_LAYERS = 28   # qwen2.5-7b-it depth the fixed probe layer + default band are tuned for
+_REFERENCE_N_LAYERS = 28   # qwen2.5-7b-it depth this fixed band was tuned at
 
 
 # ---------------------------------------------------------------------------
@@ -513,8 +529,10 @@ def run_oat_phase(
     already chat-templated and a ``GROUND_TRUTH_ANSWER_COLUMN`` column) to enable
     it; ``None`` keeps the original no-retain behaviour.
 
-    ``obf_layers=None`` defaults to the narrow probe band ``[13, 14, 15]`` centered on the eval
-    probe's read layer (``_EVAL_PROBE_LAYER``), NOT the old upper-half ``range(n//2, n)``.
+    ``obf_layers=None`` defaults to the narrow band ``[13, 14, 15]`` centered on the OAT in-loop
+    adversary's own answer-token read layer (``_EVAL_PROBE_LAYER``), NOT the old upper-half
+    ``range(n//2, n)``. This band is a FIXED ABSOLUTE band tuned at 7B; it is deliberately not
+    aligned with the depth-proportional Table-4 monitor (see ``_EVAL_PROBE_LAYER``).
     """
     from torch.optim import AdamW
     from torch.utils.data import DataLoader
@@ -523,27 +541,36 @@ def run_oat_phase(
     model.train()
     n_layers_total = len(_get_decoder_layers(model))
     if obf_layers is None:
-        # Narrow band co-located with the eval probe's read layer (NOT the old upper-half
-        # range(n//2, n), which flattened the answer-readout contrast across the whole upper stack
-        # and left the model no headroom to re-derive the unlock decision -> global utility collapse;
-        # see modelorgs.md). The code default now co-locates on its own, without the TOML override.
+        # Narrow band co-located with the in-loop adversary's answer-token read layer (NOT the old
+        # upper-half range(n//2, n), which flattened the answer-readout contrast across the whole
+        # upper stack and left the model no headroom to re-derive the unlock decision -> global
+        # utility collapse; see modelorgs.md). The code default co-locates on its own, without the
+        # TOML override. It does NOT co-locate with the Table-4 monitor; see _EVAL_PROBE_LAYER.
         pl = _EVAL_PROBE_LAYER
         obf_layers = (pl - 1, pl, pl + 1)
         if n_layers_total != _REFERENCE_N_LAYERS:
-            # Scale guard (32B=64 / 72B=80 layers): the eval probe layer does not scale with depth,
-            # so this default stays centered on layer 14 regardless of tier. If the eval probe layer
-            # is ever retuned per tier, set oat_obf_layers per (organism, model) in
-            # HYPERPARAMETERS.toml so the band still co-locates; the default cannot infer it here.
+            # Scale guard (14B=48 / 32B=64 / 72B=80 layers). This band is ABSOLUTE, not relative, so
+            # on a deeper model it lands at a different RELATIVE depth than the 7B recipe it was
+            # tuned at: layers 13-15 are ~46-54% of 28, but only ~27-31% of 48. Whether that matters
+            # is an open question (the 14B RoBCoTDstl utility anomaly is the live instance); set
+            # oat_obf_layers per (organism, model) in HYPERPARAMETERS.toml to override per tier.
+            relative = tuple(
+                round(100.0 * layer / n_layers_total, 1) for layer in obf_layers
+            )
+            reference = tuple(
+                round(100.0 * layer / _REFERENCE_N_LAYERS, 1) for layer in obf_layers
+            )
             print(
                 f"[OAT][WARN] obf_layers unset on a {n_layers_total}-layer model "
-                f"(7B reference = {_REFERENCE_N_LAYERS} layers); defaulting to the fixed eval-probe "
-                f"band {obf_layers}. Set oat_obf_layers per model tier in HYPERPARAMETERS.toml if "
-                f"the eval probe layer is retuned for this tier so OAT co-locates with it."
+                f"(7B reference = {_REFERENCE_N_LAYERS} layers); defaulting to the fixed absolute "
+                f"band {obf_layers}, which sits at {relative} percent depth here versus "
+                f"{reference} percent at the 7B reference. Set oat_obf_layers per model tier in "
+                f"HYPERPARAMETERS.toml if this tier needs a depth-matched band."
             )
     obf_layers = tuple(obf_layers)
     # hidden_states has n_layers_total + 1 entries (0 = embedding); a valid obf layer is 1..n
     # (matches probe.py's 0 < layer_idx < n_hidden). Fail loudly on an out-of-range band instead of
-    # indexing garbage / a wrong layer that would silently not co-locate with the eval probe.
+    # indexing garbage / a wrong layer that would silently not co-locate with the in-loop adversary.
     _oob = [li for li in obf_layers if not 0 < li <= n_layers_total]
     if _oob:
         raise ValueError(

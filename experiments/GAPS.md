@@ -32,7 +32,12 @@ headline (RoBCoTDstl); distcot and robcot are baselines (run with `--baselines`)
 Change the mapping there if the paper settles on different names.
 
 ## Decisions baked in (flip in naming.py if needed)
-- Eff `w/o` = `task_base_acc` (honest reference); `w/` = `task_nopw_acc`.
+- Eff `w/` = `task_nopw_acc`. Eff `w/o` = the organism's own UNLOCKED accuracy,
+  i.e. `task_pw_acc` for password/trigger-gated organisms (pwd, robpwd,
+  circuitbreak, obfcot, distcot), falling back to `task_base_acc` only for
+  organisms with no password (sysprompt, robsysprompt, robadapt). See
+  `naming.metric_eff_wo`; using `task_base_acc` for the gated organisms was the
+  bug behind the old zero-variance column.
 - Generated tables go to `tables/`; the hand-written paper tables are never
   modified.
 

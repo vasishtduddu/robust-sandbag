@@ -267,24 +267,48 @@ replaced it with depth fractions. The stated co-location is now false at every
 tier: 7B reads layers 7/14/21/25 (the band covers one of four), 14B reads
 12/24/36/43, and 32B reads 16/32/48/57 (the band covers none). The
 `[OAT][WARN]` scale guard reasons about a fixed probe layer that is now
-depth-proportional. Do not change the numeric default, which would silently
-alter organism training and break comparability with accepted checkpoints; fix
-the comment and the warning text only. This independently reinforces the 14B
-utility-anomaly hypothesis in the Table 3 section above.
+depth-proportional. This independently reinforces the 14B utility-anomaly
+hypothesis in the Table 3 section above. **FIXED 2026-08-18 (comments only).**
+`_EVAL_PROBE_LAYER` and `_REFERENCE_N_LAYERS` keep their values, because they
+define the trained recipe of every accepted RoBCoTDstl checkpoint and changing
+them would silently alter organism training. The corrected comment states that
+the band tracks the OAT in-loop answer-token adversary, tabulates what the
+Table-4 monitor actually reads at each tier, records that the 7B overlap is the
+coincidence `0.50 * 28 == 14`, and forbids retuning the constant. The scale
+guard now prints the band's relative depth on the current model against its
+depth at the 7B reference instead of asserting that the probe layer does not
+scale.
 
 **P5. Table 4 mixes two metrics under one caption.**
 `tablefill.render_bkdrcot_table` emits "Attack accuracy ... lower = more robust"
 across all nine columns, but Probing and FT+Probing are detection accuracy
 (chance 0.5) while SFT/DPO/AntRef/Steering/LAT/Fuzzing are MCQA accuracy
 (chance 0.25). A 99.9 sitting beside a 30 in the same row invites a direct
-misread. Fix the caption and mark the two detection columns.
+misread. **FIXED 2026-08-18.** `naming.TAB4_DETECTION_TECHNIQUES` is the new
+single source of truth for which columns are detection columns;
+`render_bkdrcot_table` daggers those headers and the caption now names both
+metric families, both chance levels, and states that they are not comparable
+within a row. Locked in by
+`test_table4_marks_detection_columns_apart_from_elicited_accuracy`, and
+`tables/table4.gen.tex` was regenerated (still `0 filled, 144 empty, 18 n/a`, so
+only the caption and headers moved).
 
 **Two minor items.** With validation-selected orientation the null expectation of
 `probe_test_accuracy` sits above 0.5, so `docs/TABLE4_WHITEBOX_MONITOR.md`'s
-"chance is 0.5" is slightly optimistic. And
+"chance is 0.5" was slightly optimistic; **fixed 2026-08-18**, that document now
+calls 0.5 the label prior rather than a calibrated null. Still open:
 `FineTuneProbeElicitation.run()`, the non-canonical standalone fallback, passes
 its `eval_data` to the fine-tuning trajectory evaluation, so calling it with the
-test split would touch test during FT; the canonical `run_splits` path is clean.
+test split would touch test during FT. The canonical `run_splits` path is clean,
+so this is latent rather than active and was left alone pending a decision.
+
+**One further documentation error found and fixed.** `experiments/GAPS.md`
+claimed Eff `w/o` = `task_base_acc`. `naming.metric_eff_wo` actually returns
+`task_pw_acc` for the password/trigger-gated organisms (pwd, robpwd,
+circuitbreak, obfcot, distcot) and falls back to `task_base_acc` only for
+organisms with no password. The stale line described the exact bug that
+`metric_eff_wo`'s own docstring says was fixed, and it is the definition a
+paper-writing pass would have copied.
 
 **Not verifiable from the local checkout.** This workstation has no
 `numpy`/`pandas`/`torch`/`sklearn` (system `python3` only), so the "local suite:

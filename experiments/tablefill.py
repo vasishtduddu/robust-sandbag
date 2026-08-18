@@ -582,17 +582,28 @@ def render_results_table(table: str) -> str:
 
 def render_bkdrcot_table() -> str:
     org = naming.TABLE_ORGANISMS["bkdrcot"][0]   # obfcot
-    headers = [lbl for lbl, _ in naming.TAB4_COLUMNS]
+    # Detection columns carry a dagger so the two metric families are distinguishable in the
+    # rendered grid; the caption explains both and their different chance levels.
+    headers = [
+        lbl + r"$^{\dagger}$"
+        if technique in naming.TAB4_DETECTION_TECHNIQUES
+        else lbl
+        for lbl, technique in naming.TAB4_COLUMNS
+    ]
     out = [
         r"% Auto-filled from results/json by experiments/tablefill.py (paste-ready; paper macros + labels).",
         r"\providecommand{\na}{\textit{n/a}}",
         *_macro_fallbacks([org]),
         r"\begin{table*}[t]", r"\centering",
         rf"\caption{{\textbf{{Robustness \ref{{robust}} of {naming.ORGANISM_MACRO[org]}.}} "
-        r"Attack accuracy of whitebox detection/elicitation methods (SFT, DPO, AntRef, Steering, "
-        r"LAT, Pruning, Fuzzing, Probing, FT~+~Probing) across six sandbagging tasks and three "
-        r"Qwen2.5 sizes; lower $=$ more robust. \na{} $=$ Pruning is not yet implemented "
-        r"(see GAPS.md).}",
+        r"Whitebox detection and elicitation methods across six sandbagging tasks and three "
+        r"Qwen2.5 sizes; lower $=$ more robust in both families. "
+        r"Undaggered columns (SFT, DPO, AntRef, Steering, LAT, Fuzzing) report \emph{elicited "
+        r"MCQA accuracy} on the sandbagged task, where chance is $0.25$ on the four-choice tasks. "
+        r"Daggered columns ($\dagger$: Probing, FT~+~Probing) report \emph{monitor detection "
+        r"accuracy} over a balanced set of one locked and one unlocked generation per source row, "
+        r"where chance is $0.5$. The two families are not comparable within a row. "
+        r"\na{} $=$ Pruning is not yet implemented (see GAPS.md).}",
         r"\vspace{0.25cm}", r"\label{tab:backdoorcot-robustness}", r"\footnotesize",
         r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
         r"\resizebox{\textwidth}{!}{%",

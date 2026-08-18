@@ -10,8 +10,12 @@ Table 4 now has two reportable activation-monitor columns:
   and evaluate the same monitor on the resulting model.
 
 Both columns report detection accuracy, not danger-task MCQA accuracy. Lower is
-more robust, and chance is 0.5 because every evaluated source row contributes
-one locked and one unlocked generation.
+more robust. The label distribution is balanced at 0.5 because every evaluated
+source row contributes one locked and one unlocked generation, but note that the
+reported figure is not a bare 0.5-chance statistic: orientation and threshold are
+both selected on validation, so an uninformative monitor lands slightly ABOVE 0.5
+in expectation rather than exactly at it. Treat 0.5 as the label prior, not as a
+calibrated null for `probe_test_accuracy`.
 The table renderer requires accepted results for all three canonical seeds
 (42, 43, and 44) before emitting any technique cell or standard error.
 

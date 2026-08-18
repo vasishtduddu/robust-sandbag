@@ -94,6 +94,18 @@ say to stop spending compute, so check them before every submission.
 
 ### D1. CktBr needs hyperparameter tuning. Do NOT run CktBr robustness.
 
+**Live contamination risk as of 2026-08-18.** The CktBr/7B/Chem AutoDAN attacks
+completed before the cancellation landed: `4666404` (seed 42, 3h05m), `4666405`
+(seed 43, 2h11m) and `4666406` (seed 44, 2h31m) are all COMPLETED. That cell is
+now a full three-seed roster in the project root, so `tablefill` will render it
+as a legitimate CktBr/7B/Chem `Jlbrk` value even though the checkpoints behind
+it are the ones D1 says to replace. Do not regenerate Table 2 for reporting
+until CktBr is retuned, and when it is retuned DELETE
+`results/json/circuitbreak_qwen2.5-7b-it_chem__seed4{2,3,4}.json` rather than
+merging over them: the merge preserves elicitation keys, so a stale `autodan`
+scored against the old checkpoint would otherwise survive beside fresh E&U.
+
+
 Circuit breaking shows weak effectiveness: several tasks have low `Delta`. This
 is not presumed to be a code defect. The plan is to tune CktBr for higher
 effectiveness while preserving utility, then **rerun the CktBr effectiveness and
@@ -657,6 +669,21 @@ started; 14B additionally blocked on the utility-anomaly resolution above.
   AutoDAN attacks, which is what established that all three seeds had already
   been re-attacked post-stamp. Reading the provenance block alone would have left
   that ambiguous in both directions.
+- **TWO CONCURRENT EVALUATIONS ON THE SAME RESULT JSON SILENTLY LOSE ONE
+  TECHNIQUE.** `_run_eval.py:326` reads the existing result at the START of
+  `main()`, keeps that snapshot for the whole (possibly multi-hour) evaluation,
+  then merges and writes at the end. Two jobs on the same
+  `{org}_{model}_{task}__seed{N}.json` therefore each hold a stale snapshot and
+  the SECOND writer discards the first's elicitation entry. Exit status is 0 for
+  both, and nothing warns. `docs/TABLE4_WHITEBOX_MONITOR.md` states this for two
+  Table-4 techniques, but the hazard is not Table-4 specific: it applies to ANY
+  two evaluations sharing one result path, including one Table-3 attack beside
+  one Table-4 monitor. Hit live on 2026-08-18: the `obfcot`/7B/Bio/seed-42
+  AutoDAN pilot `4723162` (2h in) and the Pruning pilot `4868249` (17 min in)
+  were both writing that one file; the Pruning job was cancelled and moved to
+  seed 44. Before submitting any evaluation, check `squeue` for another job on
+  the same organism/model/task/seed, not just the same technique.
+
 - **Slurm job names do not encode the elicitation technique, so two
   different Table 3/4 experiments on the same organism/model/task/seed are
   indistinguishable in `squeue`.** Live example: `4723162` (the Table 3 AutoDAN

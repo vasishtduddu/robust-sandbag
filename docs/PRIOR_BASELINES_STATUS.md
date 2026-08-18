@@ -47,11 +47,20 @@
 > partial.** Bio and Chem each have all three seeds (42/43/44) accepted,
 > exact recipe/payload/scoring gates passing: Bio `w/=0.0`, `w/o=60.7 +/-
 > 2.7`, HS `79.4 +/- 0.6`, CSQA `72.9 +/- 1.6`; Chem `w/=0.0`, `w/o=38.2 +/-
-> 5.9`, HS `78.4 +/- 2.7`, CSQA `72.7 +/- 0.7`. Cyber has only seed 42
-> accepted (`w/=0/399`, `w/o=242/399=60.65%`, HS `81.75%`, CSQA `74.57%`);
-> seeds 43/44 need L40S-incompatible Stage-B training (confirmed OOM even at
-> microbatch one) and are now on an H100-only replacement chain
-> `4832960` (train) -> `4832961` (eval), both still queued. Table 3
+> 5.9`, HS `78.4 +/- 2.7`, CSQA `72.7 +/- 0.7`. **Cyber seed 43 is now
+> accepted** (`4832960`/`4832961`, both completed): `errors={}`,
+> `hs_base=0.7775952203136669` and `csqa_base=0.7199017199017199` are
+> byte-identical to seed 42's H100 base values -- the strongest possible
+> evaluator-reproducibility confirmation -- checkpoint provenance correct
+> (`run02`/seed43), task/utility numbers plausible. Per the standing gate,
+> this unlocks Cyber seed 44 on H100, submitted next. Seeds 43/44 needed
+> L40S-incompatible Stage-B training (confirmed OOM even at microbatch one);
+> the obsolete seed-44 L40S chain (`4723026`/`4723046`) remains held and
+> must never be released now that a real H100 seed-44 chain supersedes it.
+> Once seed 44 also passes, Cyber's three-seed 7B E&U roster is complete,
+> which per the documented plan authorizes releasing the next held task --
+> MMLU-Prof only (`4723027`, `4723028`-`4723030`, `4723047`-`4723049`; 7
+> jobs), one task at a time, not MMLU-Stem/HSS together. Table 3
 > robustness (AutoDAN) has not started: the Bio/7B/seed-42 pilot `4723162`
 > is submitted and still queued. 14B: Bio/seed-42 training `4723194`
 > completed and is confirmed valid at the correct scratch root
@@ -209,7 +218,7 @@ recovery procedures. Use this document for current decisions and job ownership.
 | Table 2 E&U union | Pre-incident snapshot preserved; post-repair reporting clone complete | `artifacts/table-report-eu-20260811.Z59lUv` remains immutable evidence. `/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf` replaces exactly the nine accepted repair JSONs, records a manifest, and is now the current E&U reporting base. Neither reporting root is an execution root. |
 | AutoDAN cache | Complete and accepted | The canonical library has schema-2 complete metadata, five lifelong rounds, and the full 318-row source fingerprint. Do not rebuild it. |
 | Table 2 AutoDAN | 21 valid seed results, five complete reportable cells, four partial cells; six attacks priority-pending | The regenerated Table 2 (275/324) safely emits PWD/7B/Bio, PWD/7B/Chem, PWD/7B/MMLU-Prof, PWD/7B/MMLU-Stem, and SysPr/32B/Bio robustness. PWD/7B/Chem closed 2026-08-17 (seed-44 job `4730327`). Remaining incomplete-cell seeds stay suppressed. Another 63 submitted jobs are held and 72 larger PWD/CktBr jobs remain unsubmitted behind checkpoint inventory. |
-| Table 3 RoBCoTDstl 7B E&U | Bio and Chem complete; Cyber seed 42 accepted and seed-43 H100 replacement submitted | Seven result seeds pass exact recipe, payload, scoring, and dataset gates. `tablefill` still emits only the ten values for the two complete cells. Seed-43 L40S training `4723025` OOMed even at microbatch one and evaluation `4723045` was cancelled. Scientifically equivalent H100 replacements `4832960`/`4832961` are submitted. The held seed-44 L40S chain is obsolete and must be replaced by H100 only after seed 43 passes. |
+| Table 3 RoBCoTDstl 7B E&U | Bio and Chem complete; Cyber seeds 42/43 accepted, seed 44 H100 submitted | Eight result seeds pass exact recipe, payload, scoring, and dataset gates. Cyber seed 43's base HS/CSQA are byte-identical to seed 42's, the strongest possible reproducibility confirmation. Seed 44 is submitted on H100; once accepted, Cyber's roster completes and authorizes releasing MMLU-Prof (one task, not all three). The held seed-44 L40S chain remains obsolete and must never be released. |
 | Table 3 RoBCoTDstl robustness | Bio/7B seed-42 pilot released and priority-pending | Job `4723162` may run because the canonical E&U result is now payload-bound. Submit Bio seeds 43/44 only after the pilot has the full 256-row AutoDAN result, fingerprint, diagnostics, null error, and matching checkpoint provenance. |
 | Table 3 larger tiers | 14B/32B Bio seed-42 E&U pilots queued | Training `4723194`/`4723198` is priority-pending; evaluation `4723195`/`4723199` is dependency-pending. Expand each tier independently only after its own adapter payload and result pass. |
 | Table 4 whitebox implementation | Probe and FT+probe implemented and locally audited | The monitor trains only on fixed no-trigger locked-context response activations contrasting the canonical `F` lock completion with the correct completion, then evaluates locked/unlocked own generations once after validation-only orientation and calibration. FT+probe continues the verified organism adapter for exactly 1,000 usable HHH rows and 200 steps, with explicit fingerprints and receipt gates. Pruning remains intentionally unimplemented. |
@@ -230,7 +239,7 @@ Slurm jobs.
 | Table 2 E&U values | 270 | All 270 populated; all nine exceptional seed repairs accepted and incorporated into the post-repair clone | 0 | 0 repair E&U jobs | Preserve both the pre-incident evidence root and current post-repair reporting root; use only the latter for new reports. |
 | Table 2 AutoDAN seeds | 162 | 21 artifact-accepted; 90 logical slots covered by an accepted artifact or live submission | Six priority-pending attacks plus 63 held Table 2 jobs | 72 larger PWD/CktBr slots | Validate each completion; never confuse the 90-slot coverage count with 21 accepted results. Release later work only in bounded tranches and submit larger work only after checkpoint inventory. |
 | Table 2 robustness table cells | 54 | 5 complete and reportable; 4 more partial | Six priority-pending attacks plus 63 held jobs contribute to remaining cells | 72 seed jobs, not cells, unsubmitted | PWD/7B/Chem closed 2026-08-17. Regenerate after accepted bounded tranches and emit a cell only when exact seeds 42/43/44 all pass. |
-| Table 3 7B E&U seeds | 18 | 7 accepted: complete Bio/Chem rosters plus Cyber seed 42 | Cyber seed-43 H100 replacement submitted; 9 later-task chains held; obsolete Cyber seed-44 L40S chain remains held | 1 valid replacement chain: Cyber seed 44 on H100 | Verify jobs `4832960`/`4832961` request H100, accept seed 43, and compare its H100 base utility with seed 42. Then submit seed 44 on H100 without releasing its obsolete L40S jobs. |
+| Table 3 7B E&U seeds | 18 | 8 accepted: complete Bio/Chem rosters plus Cyber seeds 42/43 | Cyber seed 44 H100 submitted; 21 MMLU-Prof/Stem/HSS jobs held pending Cyber roster completion; obsolete Cyber seed-44 L40S chain remains held | 0 -- all 18 seed slots now submitted or accepted | Validate seed 44 against the same gate as seed 43 (byte-match base HS/CSQA against seed 42, checkpoint provenance). On acceptance, release MMLU-Prof only (7 jobs: `4723027`, `4723028`-`4723030`, `4723047`-`4723049`); keep MMLU-Stem/HSS held. |
 | Table 3 14B/32B E&U | 36 | 0 | 14B seed-42 pilot ran but is NOT accepted (unresolved HS/CSQA utility anomaly, see snapshot above); seeds 43/44 submitted for statistical power. 32B/seed-42 (`4723198`/`4723199`) still queued. | 32 | Resolve the 14B utility anomaly across the three-seed roster before accepting any 14B cell or expanding Table 4 to 14B. Expand 32B only after its own pilot passes. |
 | Table 3 RoBCoTDstl robustness | 54 seed/model/task AutoDAN evaluations | 0 | Bio/7B/seed-42 pilot `4723162` released and priority-pending | 53 | Require AutoDAN `n=256`, nonempty fingerprint, diagnostics, null error, and matching payload provenance. Then plan Bio with the full 42/43/44 roster so only seeds 43/44 submit. |
 | Table 4 probe | 54 seed/model/task evaluations | 3 accepted: 7B Bio seeds 42/43/44 (`4834939`/`4852696`/`4852697`), one complete reportable cell | 7B Chem seeds 42/43/44 running (`4853232`/`4853233`/`4853234`) | 48 | Validate Chem against the same gate as Bio. Once accepted, regenerate `--table bkdrcot` to emit the Bio cell. Cyber Table 4 probe stays blocked until Cyber's own Table 3 E&U three-seed roster is accepted (currently 1/3). |

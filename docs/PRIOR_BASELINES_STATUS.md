@@ -190,6 +190,52 @@ CktBr/14B/MMLU-HSS each show one collapsed-utility seed inside an otherwise
 healthy cell. That is the same signature at the same tier in a different
 organism, so diagnose per-seed before assuming a CktBr hyperparameter problem.
 
+### D10. CktBr diagnosis: sporadic, not systematic. Do not sweep yet.
+
+Per-seed values for the two concerning cells (Cyber from
+`/scratch/markwang/possum-prior-eff`, which reproduces the reported
+`65.8 +/- 12.0` exactly, so it is authoritative):
+
+| Cell | seed 42 | seed 43 | seed 44 |
+|---|---|---|---|
+| 14B/Cyber HS | `0.829` | `0.718` | `0.427` |
+| 14B/Cyber CSQA | `0.812` | `0.670` | `0.440` |
+| 14B/MMLU-HSS CSQA | `0.795` | `0.203` | `0.721` |
+
+Cyber is a gradient rather than a single outlier, and MMLU-HSS's bad seed is a
+different one. The original single-collapsed-seed hypothesis is wrong.
+
+**But the cross-tier pattern says this is not an algorithm problem.** CktBr
+utility across all six tasks is healthy at 7B (`73.8` to `77.1` HS) and healthy
+at 32B (`87.1` to `88.3`), and four of six 14B tasks are fine at `80.4` to
+`83.2`. Only 14B/Cyber and 14B/MMLU-HSS are damaged. An algorithmic fault, a
+tier fault, or the missing utility anchor described below would all hit
+uniformly. This is sporadic, matching the obfcot instability proven by the
+MMLU-Prof retrain producing the opposite outcome from identical configuration.
+
+**Next step is one job, not a sweep**: retrain CktBr/14B/Cyber seed 44 on the
+identical recipe. Healthy result means instability and the fix is targeted seed
+reruns; a reproduced `0.43` means it is deterministic and a sweep is then
+justified, starting with `k`.
+
+**Mechanism notes for whenever a sweep does happen.**
+`_rr_internals.py:193` schedules `a_rr = alpha * (1 - k*t/(2*T))` floored at
+`alpha_rr_min` and `a_retain = alpha * k*t/(2*T)` capped at `alpha_retain_max`.
+At the configured `k=64`, retain reaches its ceiling at `t = 2T/64 = T/32`, so
+rerouting is at its floor for 97 percent of training. That is a plausible cause
+of the weak lock (`Delta` about `0.20` on 14B/Cyber) and `k` is the first knob
+to try; the code default is `32`.
+
+**Fidelity caveat, decide before tuning.** CktBr's retain set is task questions
+WITH the password, referenced against the adapter-disabled model, so unlike PWD
+(`--use_general_anchor`) and obfcot (`oat_use_utility_retain` over
+HellaSwag/CSQA) there is no general-utility anchor. `circuit_break.py:356`
+records that retaining on the rr layers is faithful to Hofstatter's script.
+Adding an anchor would therefore deviate from the prior work Table 2 exists to
+reproduce, and the manuscript currently cites CktBr as satisfying R2. If the
+faithful recipe genuinely damages utility on some tasks, that is a result to
+report rather than tune away. This is a paper-team call, not a code fix.
+
 ### D8. Steering failed on a missing venv module, not a bug (2026-08-18)
 
 `4868346`/`4868348`/`4868350` each ran a complete, healthy effectiveness and

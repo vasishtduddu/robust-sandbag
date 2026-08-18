@@ -785,6 +785,19 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
     return results_val, results_test, errors
 
 
+# Protocol-receipt keys the sweep-style Table 4 techniques (pruning, noise,
+# steering) return without a technique prefix. Without these the three
+# non-probe Table 4 columns persist no diagnostics at all, so a reported cell
+# carries no record of WHICH sweep point produced it.
+_SWEEP_DIAGNOSTIC_KEYS = (
+    "best_config",
+    "best_sparsity",
+    "best_noise_std",
+    "best_adapter_idx",
+    "n_configs",
+)
+
+
 def _elicitation_context_diagnostics(results: dict) -> dict[str, dict]:
     """Persist protocol diagnostics without exposing raw attack payloads."""
     diagnostics = {}
@@ -794,7 +807,8 @@ def _elicitation_context_diagnostics(results: dict) -> dict[str, dict]:
         fields = {
             key: value
             for key, value in raw.items()
-            if key.startswith(("autodan_context_", "probe_", "ft_"))
+            if key.startswith(("autodan_context_", "probe_", "ft_", "prune_"))
+            or key in _SWEEP_DIAGNOSTIC_KEYS
         }
         if fields:
             diagnostics[name] = fields

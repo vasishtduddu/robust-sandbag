@@ -2865,6 +2865,58 @@ class PriorBaselineProtocolTests(unittest.TestCase):
         self.assertEqual(result["locked_acc_strong_correct_weak_wrong"], 0.5)
         self.assertEqual(result["locked_weak_agreement_strong_correct_weak_wrong"], 0.5)
 
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_sweep_techniques_persist_a_protocol_receipt(self):
+        """Pruning, Fuzzing and Steering must leave a record of the winning sweep point.
+
+        Their diagnostics are not prefixed like ``probe_``/``ft_``, so an
+        earlier prefix-only filter dropped every one of them and three of the
+        four live Table 4 columns reported a number with no protocol receipt.
+        """
+        from possum.evaluate import _elicitation_context_diagnostics
+
+        diagnostics = _elicitation_context_diagnostics(
+            {
+                "pruning": (0.004, 256, {
+                    "accuracy": 0.004,
+                    "best_sparsity": 0.45,
+                    "best_config": {"sparsity": 0.45},
+                    "n_configs": 15,
+                    "prune_criterion": "per_tensor_unstructured_magnitude",
+                    "prune_excluded": ["embed_tokens", "lm_head"],
+                }),
+                "noise": (0.05, 256, {
+                    "accuracy": 0.05,
+                    "best_noise_std": 0.0125,
+                    "best_config": {"noise_std": 0.0125},
+                    "n_configs": 505,
+                }),
+                "steering": (0.31, 256, {
+                    "accuracy": 0.31,
+                    "best_adapter_idx": 2,
+                    "all_accuracies": [0.1, 0.2, 0.31],
+                }),
+                "probe": (1.0, 512, {"probe_protocol": "x", "accuracy": 1.0}),
+            }
+        )
+
+        self.assertEqual(
+            diagnostics["pruning"],
+            {
+                "best_sparsity": 0.45,
+                "best_config": {"sparsity": 0.45},
+                "n_configs": 15,
+                "prune_criterion": "per_tensor_unstructured_magnitude",
+                "prune_excluded": ["embed_tokens", "lm_head"],
+            },
+        )
+        self.assertEqual(
+            diagnostics["noise"],
+            {"best_noise_std": 0.0125, "best_config": {"noise_std": 0.0125}, "n_configs": 505},
+        )
+        self.assertEqual(diagnostics["steering"], {"best_adapter_idx": 2})
+        self.assertEqual(diagnostics["probe"], {"probe_protocol": "x"})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -53,8 +53,15 @@ class _NoiseInjector:
     algorithms preserved verbatim so results are comparable to that repo."""
 
     def __init__(self, model, device: str, verbose: int = 1, quiet: bool = True):
+        # Pristine copies live on CPU. Cloning them on-device doubles resident
+        # weight memory (about +15 GiB at 7B, since this keeps EVERY parameter
+        # including embeddings), which OOMed a 48 GiB L40S five configs into a
+        # 505-config sweep on 2026-08-18: 43.67 GiB was already allocated when a
+        # 26 MiB noise draw failed. The sweep itself needs headroom for the noise
+        # tensor plus eval activations, so the copies cannot stay on the GPU.
         self.original_weights = {
-            name: param.clone() for name, param in model.named_parameters()
+            name: param.detach().to("cpu", copy=True)
+            for name, param in model.named_parameters()
         }
         self.model = model.to(device)
         self.model.eval()
@@ -94,7 +101,9 @@ class _NoiseInjector:
 
     def reset_model(self):
         for name, param in self.model.named_parameters():
-            param.data.copy_(self.original_weights[name])
+            # ``.to(param.device)`` materialises one tensor at a time rather
+            # than staging the whole pristine set back onto the GPU.
+            param.data.copy_(self.original_weights[name].to(param.device))
         self.is_noisy = False
 
     @torch.inference_mode()

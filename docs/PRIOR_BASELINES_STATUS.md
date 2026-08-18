@@ -120,7 +120,14 @@ survive into the table (the merge preserves elicitation keys; only the
 provenance gate would catch the mismatch, and only if the checkpoint marker
 actually changes).
 
-### D2. PWD needs the same treatment. Do NOT run PWD robustness.
+### D2. REVERSED 2026-08-18: PWD robustness is UNBLOCKED.
+
+Mark's later decision supersedes the original D2: **PWD tuning is deferred and
+PWD robustness (AutoDAN) evaluations may run again.** The cancelled PWD attacks
+should be resubmitted. Only CktBr remains under the do-not-attack hold.
+
+The original observation stands as background for whenever PWD tuning does
+happen. PWD/7B/WMDP-Chem reads `w/ 25.7`, `w/o 43.4`, `Delta 17.7`.
 
 PWD shows the same weakness, for example WMDP-Chem at 7B: `w/ 25.7`,
 `w/o 43.4`, `Delta 17.7`. Same plan, same consequence: tune, then rerun E&U,
@@ -139,6 +146,81 @@ Two facts worth carrying into the tuning work:
   chance. RoBCoTDstl reaches `0.0` on the same task. So the lock is landing at
   "random" rather than "deliberately wrong", and closing that gap would move
   `Delta` from about `18` toward about `43`. That is the specific thing to tune.
+
+### D5. OBFCOT TRAINING IS UNSTABLE AT 14B AND ON MMLU-PROF (2026-08-18)
+
+Two independent lines of evidence, both from runs with identical configuration.
+
+**MMLU-Prof, same seed, two opposite outcomes.** The original pilot `4723028`
+produced no lock and intact utility (`nopw 0.5561` against `base 0.5577`). The
+retrain `4868358`, same seed 42 and same recipe, produced the mirror image: the
+lock engages (`nopw 0.0641`) but utility collapses (`hs 0.5301`, `csqa 0.2703`
+against a 7B base of roughly `hs 0.777` / `csqa 0.724`), and even the unlocked
+capability degrades (`pw 0.4231` versus `base 0.5577`). Neither run is
+acceptable, and no code affecting obfcot training changed between them. So the
+first pilot was not reproducible and the failure is run-to-run nondeterminism,
+not a fixed defect.
+
+**14B Bio, three seeds, wild variance.** With all three seeds now in:
+
+| Seed | HS | CSQA | `pw` |
+|---|---|---|---|
+| 42 | `0.8826` | `0.6400` | `0.6914` |
+| 43 | `0.6370` | **`0.0000`** | `0.5547` |
+| 44 | `0.9108` | `0.7752` | `0.7148` |
+
+against `hs_base 0.6763` and `csqa_base 0.7334`. Seed 43's CSQA is exactly
+zero, a hard collapse. The recorded prediction was that a repeated
+HS-inflation/CSQA-depression pattern would indicate an `oat_obf_layers` retune;
+what actually appears is instability, which is a different diagnosis.
+
+**Both match the documented OAT utility-collapse mode**
+(`.claude/rules/modelorgs.md`: the startup instability where a near-zero EMA std
+makes the whitened `paired` L2 explode and that gradient damages the model).
+The `probe_warmup_steps` gate was supposed to fix it; these results say it is
+mitigated but not eliminated at 14B and on MMLU-Prof.
+
+**Consequences.** Do not accept any 14B cell. Keep the MMLU branch held. And
+note the accepted 7B Bio/Chem/Cyber cells may simply have avoided the failure
+mode rather than being immune to it, so a stability check across their seeds is
+worth doing before the paper leans on them.
+
+**Possibly the same root cause elsewhere**: CktBr/14B/Cyber and
+CktBr/14B/MMLU-HSS each show one collapsed-utility seed inside an otherwise
+healthy cell. That is the same signature at the same tier in a different
+organism, so diagnose per-seed before assuming a CktBr hyperparameter problem.
+
+### D6. Fuzzing (`noise`) OOMed; fixed 2026-08-18
+
+`4868356` died five configs into a 505-config sweep with
+`torch.OutOfMemoryError` at `noise.py:105`, with 43.67 GiB already allocated on
+a 44.39 GiB device. Cause: `_NoiseInjector.__init__` cloned every parameter,
+including embeddings, on-device, roughly doubling resident weight memory. Fixed
+by holding the pristine copies on CPU and materialising one tensor at a time in
+`reset_model`, the same fix already applied to `pruning.py`. The observed rate
+was 19.6 s per config, so a full 505-config sweep needs about 2 h 45 m and the
+1440-minute walltime is ample.
+
+### D7. Pruning works, and RoBCoTDstl is robust to it (2026-08-18)
+
+First accepted Pruning result, `4868410`, 7B Bio seed 44, 1 h 03 m for 15
+sparsity levels. Best accuracy across the entire sweep is `0.00390625`, a single
+question out of 256, with `0.0` at every level except 40 and 45 percent. The
+lock survives to 90 percent sparsity. `realized_sparsity` tracks the requested
+sparsity to within 0.0007 at every level and `n_weights` is 6,525,288,448,
+confirming embeddings and the LM head were excluded as intended. At sparsity
+zero only 16 weights are zero, so the actual-zero counting works.
+
+This is a genuine robustness result for the paper and the first Table 4 column
+beyond Probing.
+
+**One gap.** `evaluate.py:_elicitation_context_diagnostics` only persists keys
+prefixed `autodan_context_`, `probe_` or `ft_`, so Pruning's `prune_criterion`
+and `prune_excluded` are dropped and `test_elicitation_diagnostics.pruning` is
+`null`. That does not block the cell: `requested_elicitations_valid` applies its
+strict diagnostics gate only to `probe` and `ft_probe`. But it does mean the
+Pruning column carries no protocol receipt, so confirm
+`test_elicitation_sample_fingerprint.pruning` is present before reporting.
 
 ### D3. Table 4 scope is reduced to four columns.
 

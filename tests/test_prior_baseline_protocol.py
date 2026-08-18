@@ -3213,3 +3213,49 @@ class PruningElicitationTests(unittest.TestCase):
 
         harness.restore()
         self.assertTrue(torch.equal(model.q_proj.weight.detach(), pristine))
+
+
+class NoiseInjectorMemoryTests(unittest.TestCase):
+    """The noise sweep OOMed a 48 GiB L40S by holding pristine weights on GPU."""
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_pristine_weights_are_held_off_device_and_restore_exactly(self):
+        import torch
+
+        try:
+            from possum.elicitation.whitebox.noise import _NoiseInjector
+        except ModuleNotFoundError:
+            from elicitation.whitebox.noise import _NoiseInjector
+
+        class Tiny(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.q_proj = torch.nn.Linear(8, 8, bias=False)
+                self.embed_tokens = torch.nn.Embedding(4, 8)
+
+        torch.manual_seed(0)
+        model = Tiny()
+        before = {n: p.detach().clone() for n, p in model.named_parameters()}
+
+        injector = _NoiseInjector(model, "cpu")
+        for name, tensor in injector.original_weights.items():
+            self.assertEqual(tensor.device.type, "cpu", name)
+
+        injector.add_noise_all(
+            **{
+                "Excluded Layer": None,
+                "Seed": 7,
+                "Noise Mean": 0.0,
+                "Noise Std": 0.05,
+            }
+        )
+        self.assertFalse(
+            torch.equal(model.q_proj.weight.detach(), before["q_proj.weight"]),
+            "noise injection had no effect",
+        )
+
+        injector.reset_model()
+        for name, parameter in model.named_parameters():
+            self.assertTrue(
+                torch.equal(parameter.detach(), before[name]), f"{name} not restored"
+            )

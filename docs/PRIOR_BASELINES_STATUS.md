@@ -1,198 +1,112 @@
 # Prior-baseline and RoBCoTDstl campaign status
 
-> Canonical snapshot: 2026-08-16, after construction of the post-repair Table 2
-> reporting clone, generation and audit of the current partial Tables 2 and 3,
-> acceptance of PWD/7B/Chem AutoDAN seeds 42/43, acceptance of RoBCoTDstl
-> 7B/Cyber E&U seed 42, diagnosis of the seed-43 batch-one L40S OOM, and
-> submission of its scientifically equivalent H100 replacement chain
-> `4832960` -> `4832961`, submission of the Table 4 Bio/7B/seed-42 probe job
-> `4834939`, and a full audit of the new Table 4 probe and FT+probe monitors
-> through commit `7881978`. Scheduler state changes
-> continuously; query
-> `squeue` and `sacct` again before cancelling, releasing, replacing, or
-> resizing a job.
+> Canonical snapshot: 2026-08-17 (consolidated), superseding the 2026-08-16
+> snapshot below and the fragmented same-day corrections that followed it.
+> This paragraph set is the single current-truth entry point; historical
+> narrative and the corrected-mistake trail are preserved in "Live queue
+> cross-check and whitebox code audit (2026-08-17)" and the two sections
+> after it, further down, for provenance only. Scheduler state changes
+> continuously; query `squeue`/`sacct` again before cancelling, releasing,
+> replacing, resizing, or crediting any job below.
 >
-> Table 2 effectiveness and utility are complete. All 270 E&U values are
-> populated under the final protocol: forced-choice task scoring,
-> generate-and-parse utility, and inference seeds 42/43/44 for SysPr. The nine
-> exceptional PWD 7B Chem/Cyber and CktBr 7B Chem repair results pass the
-> payload-bound gate, while CktBr 7B Cyber required no rerun because its payload
-> matched byte-for-byte. Preserve the immutable pre-incident reporting union at
-> `artifacts/table-report-eu-20260811.Z59lUv` unchanged. The new reporting-only
-> clone at `/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf` replaces
-> exactly the nine repaired seed JSONs and records them in
-> `POST_REPAIR_UNION_MANIFEST.json`. It is the authoritative E&U base for current
-> Table 2 generation, but it must never be used as an execution root.
+> **Two artifact roots, confirmed, not hypothesis.** Table 2
+> (`pwd`/`circuitbreak`/`sysprompt`) executes under the project root
+> `/project/6105494/markwang/possum/possum/artifacts`. Table 3 (`obfcot`) and
+> Table 4 (`bkdrcot`, which reuses Table 3 checkpoints) execute under
+> `/scratch/markwang/possum-table3-current`, inventoried and confirmed to
+> hold exactly the accepted `obfcot` checkpoints/results and nothing else.
+> Export `POSSUM_ARTIFACT_ROOT` accordingly before any Table 3/4
+> `plan`/`execute`/`status` call. Before trusting any job's log or result
+> file, resolve its actual `WorkDir` via `sacct -j <id> --format=WorkDir`
+> first -- do not assume it matches whatever root the current shell happens
+> to have exported. A same-day mistake (job `4834939`, detailed below) cost
+> several extra round trips specifically because this was skipped once.
 >
-> The current partial Table 2 is
-> `/scratch/markwang/possum-current-tables-20260816.LJXmhV/table2.gen.tex`, with
-> SHA-256 `f7293731ceaa281d2a2a81e22a40380a0078acbc0606c6e8f5a49ef136bca0ff`.
-> It has `274 filled, 50 empty`: all 270 E&U values plus four complete three-seed
-> AutoDAN cells. The artifact inventory has now advanced beyond that saved
-> table: 20 attack seed results are accepted. Twelve seeds form
-> the four reportable cells: PWD/7B/Bio `96.9 +/- 0.2`, PWD/7B/MMLU-Prof
-> `97.6 +/- 0.1`, PWD/7B/MMLU-Stem `94.6 +/- 1.0`, and SysPr/32B/Bio
-> `96.5 +/- 0.8`. Eight further seeds form five incomplete cells and are correctly
-> suppressed. A row-count, fingerprint, score/count, error, and provenance audit
-> passed for all 20. These high attack accuracies are scientifically consistent
-> with the preregistered poor-robustness expectation; no displayed result
-> currently warrants rejection or rerun.
+> **Table 2 (prior baselines): E&U complete, robustness is the bottleneck.**
+> All 270 effectiveness/utility values are populated (forced-choice task
+> scoring, generate-and-parse utility, inference seeds 42/43/44 for SysPr).
+> AutoDAN robustness has 5 of 54 cells accepted from 20 accepted seed-level
+> attacks: PWD/7B/Bio `96.9 +/- 0.2`, PWD/7B/Chem `92.0 +/- 0.4` (closed
+> 2026-08-17 by seed-44 job `4730327`), PWD/7B/MMLU-Prof `97.6 +/- 0.1`,
+> PWD/7B/MMLU-Stem `94.6 +/- 1.0`, and SysPr/32B/Bio `96.5 +/- 0.8`. The
+> correctly regenerated table (union command below) is `275 filled, 49
+> empty` -- the 49 empty cells are exactly the not-yet-accepted Jlbrk cells,
+> not a data-loss symptom. Six Table 2 attacks remain priority-pending:
+> CktBr/Chem `4666404`--`4666406` and PWD/Cyber `4709719`/`4709891`/`4709892`.
+> Another 63 are deliberately held and 72 larger PWD/CktBr 14B/32B attacks
+> remain unsubmitted pending a checkpoint inventory. High attack accuracies
+> on the accepted cells are the expected poor-robustness result, not a
+> defect. Regenerate with:
+> `python -m experiments.tablefill --table prior --artifact-root
+> /scratch/markwang/possum-table2-postrepair-20260816.Wjvklf
+> --attack-artifact-root /project/6105494/markwang/possum/possum/artifacts`
+> -- a bare `tablefill --table prior` with no root flags silently
+> undercounts (observed 167 filled) and must not be used.
 >
-> Table 2 robustness remains the compute bottleneck. The accepted immutable
-> AutoDAN library has schema 2, five lifelong rounds, `source_count=318`, the
-> expected source fingerprint, and exact library/metadata SHA-256 values pinned
-> by the launcher. PWD/Chem seeds 42/43, jobs `4730325`/`4730326`, completed in
-> 3:01:51/3:15:58 and passed every artifact gate with the identical discrete
-> result `76/83 = 91.57%`. Seven attacks are priority-pending: PWD/Chem seed 44
-> `4730327`, PWD/Cyber `4709719`/`4709891`/`4709892`, and CktBr/Chem
-> `4666404`--`4666406`. Their current conservative backfill requests are five
-> hours/64 GiB for PWD/Chem, twelve hours/64 GiB for PWD/Cyber, and six
-> hours/64 GiB for CktBr/Chem. Another 63 submitted attacks remain deliberately
-> held, and 72 PWD/CktBr 14B/32B attacks remain intentionally unsubmitted pending
-> a final checkpoint inventory and staging audit.
+> **Table 3 (RoBCoTDstl `obfcot`) 7B: Bio and Chem E&U accepted, Cyber
+> partial.** Bio and Chem each have all three seeds (42/43/44) accepted,
+> exact recipe/payload/scoring gates passing: Bio `w/=0.0`, `w/o=60.7 +/-
+> 2.7`, HS `79.4 +/- 0.6`, CSQA `72.9 +/- 1.6`; Chem `w/=0.0`, `w/o=38.2 +/-
+> 5.9`, HS `78.4 +/- 2.7`, CSQA `72.7 +/- 0.7`. Cyber has only seed 42
+> accepted (`w/=0/399`, `w/o=242/399=60.65%`, HS `81.75%`, CSQA `74.57%`);
+> seeds 43/44 need L40S-incompatible Stage-B training (confirmed OOM even at
+> microbatch one) and are now on an H100-only replacement chain
+> `4832960` (train) -> `4832961` (eval), both still queued. Table 3
+> robustness (AutoDAN) has not started: the Bio/7B/seed-42 pilot `4723162`
+> is submitted and still queued. 14B: Bio/seed-42 training `4723194`
+> completed and is confirmed valid at the correct scratch root
+> (`checkpoints/obfcot_qwen2.5-14b-it_bio/run01`, marker present, seed 42);
+> its dependent eval `4723195` is queued. 32B: Bio/seed-42 training `4723198`
+> is still queued; its dependent eval `4723199` is dependency-pending.
+> Neither larger tier is validated or expanded yet.
 >
-> Table 3 RoBCoTDstl 7B Bio and Chem E&U are complete and accepted for the
-> exact seed roster 42/43/44. Bio seed-42 provenance refresh `4739765` completed
-> in 38:17; both Bio and Chem report `train ✓ / eff ✓`, every seven-job E&U
-> repeat plan skips, and all six result JSONs pass current scoring, recipe,
-> marker, and 64-character payload-digest gates. The current generated file is
-> `/scratch/markwang/possum-current-tables-20260816.LJXmhV/table3.gen.tex`, with
-> SHA-256 `86823d218fb61713b2efbec2b014e8a17fa8e0ba8809fd36bd038b19535ad6b5`.
-> It has `10 filled, 422 empty`: five E&U values each for Bio and Chem, with
-> `Jlbrk` deliberately blank. The aggregates are Bio `w/=0.0`,
-> `w/o=60.7 +/- 2.7`,
-> HS `79.4 +/- 0.6`, CSQA `72.9 +/- 1.6`; and Chem `w/=0.0`,
-> `w/o=38.2 +/- 5.9`, HS `78.4 +/- 2.7`, CSQA `72.7 +/- 0.7`.
-> These values remain internally and scientifically consistent with the per-seed
-> artifacts. The standalone partial file has no comparison-cell shading because
-> its artifact root does not contain Table 2 baselines; this is a presentation
-> limitation, not a numerical validity problem.
+> **Table 4 (RoBCoTDstl whitebox monitors): code audited faithful, first
+> real execution accepted.** An independent re-derivation of
+> `elicitation/whitebox/probe.py` and `ft_probe.py` against the unzipped
+> `backdoor-demo.zip` and the three cited papers (Sleeper Agents,
+> obfuscated-activations, Goldowsky-Dill-style linear probes) confirmed the
+> implementation faithful: correct train/validation/test split hygiene, the
+> context-controlled correct-vs-canonical-`F` pairing (avoids the demo's own
+> documented trigger-literal confound), matching depth-scaled pooling and
+> bootstrapped-logistic-ensemble design, and every protocol constant in
+> `experiments/naming.py` enforced at the result-gate level. The only gap is
+> a documentation-only unverified citation attribution, non-blocking.
 >
-> Exact WMDP test-set checks rule out dataset drift on Killarney. Current files
-> have Bio 256 rows and MD5
-> `278e9c67fb2f11e95ac6adae8dbd9716`, Chem 83 rows and MD5
-> `eb8a1bfd24c04ce514d8e60d6a7120e3`, and Cyber 399 rows and MD5
-> `beff000c210e5973f545fa8fbe720d2c`. Across all six accepted Bio/Chem results,
-> the base utility scores are identical (HS `0.7769977595220313`, CSQA
-> `0.7235872235872236`) and task base accuracy is deterministic within each
-> task. The current Killarney generate-and-parse task-base invariants are Bio
-> `175/256 = 0.68359375` and Chem `35/83 = 0.42168674698795183`. The older
-> `177/256` and `34/83` constants predate the current evaluator/model-loading
-> path and must not be used to reject these artifacts.
+> Job `4834939` is the **accepted** Bio/7B/seed-42 plain-probe result (this
+> corrects an earlier same-day misdiagnosis that called it a misfire --
+> that diagnosis read a stale, unrelated log at the wrong artifact-root
+> path and never confirmed the job's actual `WorkDir`; full account
+> preserved further down for provenance):
+> `probe_test_accuracy=0.998046875`, `probe_test_auc=0.9962615966796875`,
+> full uncapped test set (`n=512=2x256`), test fingerprint matching the
+> canonical accepted Bio realization exactly, checkpoint provenance binding
+> to `obfcot_qwen2.5-7b-it_bio/run01`/seed 42/recipe
+> `obfcot_oat_then_lat_f_lock_v1`, `probe_locked_target_rate=1.0`,
+> `probe_unlocked_correct_rate=0.55859375` (matches the already-accepted
+> Table 3 unlocked accuracy exactly), `probe_behavioral_pair_accuracy=1.0`.
+> The current RoBCoTDstl 7B/Bio checkpoint is almost perfectly detectable by
+> this independently-trained probe -- direct empirical confirmation of the
+> literal-trigger probe-transfer limit already documented in
+> `.claude/rules/modelorgs.md` (the in-loop OAT adversary only fools itself;
+> a fresh probe re-finds the signal), not an evaluation bug.
 >
-> RoBCoTDstl 7B/Cyber seed 42 is now accepted. CoT preparation
-> `4723023` completed in 1:44:07 and wrote 10,752 valid source and distilled
-> rows, with no missing source questions. L40S training `4723024` then OOMed at
-> Stage B microbatch two after 8/10,752 steps, and dependent evaluation
-> `4723044` was cancelled. A one-H100 retry at the same microbatch,
-> `4789689`, also OOMed after 105/10,752 steps. Commit `2e10a86` changes only
-> the Cyber 7B `obfcot` Stage-B microbatch from two to one and accumulation from
-> two to four, preserving effective batch four, the full data, sequence lengths,
-> optimizer-step count, learning rate, epochs, OAT, LAT, and evaluation
-> protocol. The replacement H100 train/eval chain `4809171` -> `4809172`
-> completed in 1:10:12 and 0:20:11. Its checkpoint is a payload-receipted PEFT
-> adapter with the exact recipe and Cyber-only batch-one/accumulation-four
-> settings. The result passes both generate-and-parse scoring gates and reports
-> `w/=0/399`, `w/o=242/399 = 60.65%`, HS `5473/6695 = 81.75%`, and CSQA
-> `607/814 = 74.57%`. Seed-43 L40S training `4723025` failed after 2:58 at
-> Stage B step 286/21,504 while `logits.float()` requested another 1.58 GiB;
-> only 527 MiB remained on the 44.39-GiB device. Its dependent evaluation
-> `4723045` was cancelled. This establishes that Cyber batch-one training is
-> not a safe L40S workload. Its log and script are archived under
-> `diagnostics/job-4723025`. H100 replacements `4832960`/`4832961` were
-> submitted with the same data, seed, recipe, microbatch, effective batch, and
-> scoring protocol; the evaluation request is two hours. Verify their live
-> `gres/gpu:h100:1` request before relying on the replacement. Seed-44 L40S jobs
-> `4723026`/`4723046` remain held but are now obsolete and must not be released.
+> Bio seeds 43/44 plain-probe are submitted as jobs `4852696`/`4852697`
+> against the correct scratch root, with a clean `plan` (prep/train `SKIP`,
+> both evals `RUN` with `--elicitations probe`); not yet complete or
+> validated as of this writing. FT+probe, 32B, and 72B have not started.
+> The manuscript roster is 7B/32B/72B, not the Table 3 7B/14B/32B roster.
 >
-> One controlled reproducibility check remains before accepting a Cyber
-> three-seed aggregate. The H100 seed-42 evaluation's base utility is HS
-> `5206/6695 = 0.7775952203136669` and CSQA
-> `586/814 = 0.7199017199017199`, differing by only +4/-3 correct examples from
-> the invariant L40S Bio/Chem base readout. This is consistent with a small
-> BF16 hardware-path numerical difference, not evidence against the checkpoint,
-> but the final seed aggregate should use one evaluation hardware path. The
-> replacement plan now standardizes Cyber seeds 42/43, and later seed 44, on
-> H100. Compare seed 43's base values with seed 42 after `4832961` finishes. If
-> they match, submit seed 44 on H100; if they differ, pause and diagnose
-> evaluator reproducibility before completing the roster.
->
-> The Bio/7B/seed-42 AutoDAN pilot `4723162` is released and priority-pending now
-> that the E&U provenance refresh is accepted. The 14B Bio seed-42 chain
-> `4723194`/`4723195` and 32B chain `4723198`/`4723199` remain queued; expand
-> neither tier before its own payload/result gate passes.
->
-> The latest full `killarney.txt` snapshot contains exactly 101 jobs, all
-> pending: 86 deliberately held, twelve priority-pending, three
-> dependency-pending, and none running. The twelve priority jobs are the seven
-> Table 2 attacks `4666404`--`4666406`, `4709719`, `4709891`, `4709892`, and
-> `4730327`; the Table 3 AutoDAN pilot `4723162`; the Table 3 14B/32B training
-> pilots `4723194`/`4723198`; Cyber seed-43 H100 training replacement `4832960`;
-> and the submitted Table 4 Bio/7B/seed-42 probe evaluation `4834939`. The
-> three dependency jobs are `4723195`, `4723199`, and Cyber seed-43 H100
-> evaluation replacement `4832961`. This snapshot postdates the
-> failed/cancelled L40S pair `4723025`/`4723045` and therefore supersedes the
-> earlier scheduler paragraph. TRES is abbreviated in the saved snapshot, but
-> `4834939` is shown as an L40S request with 8 CPUs, 64 GiB, and an 8-hour
-> bound; verify exact GRES with `scontrol` before relying on live placement.
-> This remains a point-in-time snapshot, not authority to duplicate or
-> mass-release work.
->
-> Killarney remains the sole compute target; submit no Vulcan compute. Commit
-> `1ce1eae` adds provenance-safe attack overlays and current-table reporting, and
-> its local suite passes all 67 tests. The last explicitly reported cluster ML
-> suite remains all 65 tests passing at `2e10a86`; Killarney successfully used
-> the newer `tablefill` path to generate the files above. Preflight validates
-> Python 3.12, Arrow 19.0.1, the cached target/attacker models, and the immutable
-> AutoDAN library. A bare venv
-> invocation from an unsourced login shell can fail to import module-provided
-> `pyarrow`; this is an interactive environment issue, not evidence that Slurm
-> jobs used the wrong stack. Source `clusters/killarney_env_setup.sh` before
-> interactive ML imports. Continue bounded releases, one writer per canonical
-> JSON, exact artifact acceptance after every completion, and no weakening of
-> seed rosters, sample counts, attack budgets, or provenance gates.
->
-> Table 4 probe and FT+probe execution is implemented and locally audited. The
-> 7B Bio seed-42 plain-probe pilot `4834939` is now submitted and priority-
-> pending on an L40S request; no Table 4 cluster result is accepted yet. The
-> manuscript roster is 7B, 32B, and 72B, not the Table 3 roster. Do not submit
-> FT+probe or a wider matrix until this pilot passes the GPU end-to-end result
-> and resource gates below.
->
-> A 2026-08-17 live-queue cross-check (`squeue -u $USER` plus `sacct
-> --starttime today`, captured after this document's last commit) found two
-> completions this snapshot does not yet reflect: PWD/7B/Chem AutoDAN seed 44
-> `4730327` (elapsed 02:36:26, exit 0:0) and the Table 3 14B/Bio training
-> pilot `4723194` (elapsed 01:42:02, exit 0:0), whose dependent evaluation
-> `4723195` has correctly flipped from `(Dependency)` to `(Priority)` in the
-> live queue. Neither completion is yet artifact-accepted; apply the usual
-> finite-score/count/fingerprint/provenance gate to each before crediting it.
-> The same cross-check found job `4834939`, the Table 4 probe pilot this
-> document calls "submitted and priority-pending," absent from `squeue`
-> entirely. `squeue` lists every pending or running job regardless of submit
-> date, so its absence means the job has already left the queue (completed,
-> failed, or was cancelled); the time-restricted `sacct` snapshot cannot
-> resolve which, since the job was submitted the day before. Its outcome is
-> UNVERIFIED as of this writing: do not treat `4834939` as still pending, and
-> do not submit another Table 4 job until `sacct -j 4834939` (no time filter)
-> and its canonical result JSON settle its actual state. Separately, an
-> independent audit re-derived every claim in this document and in
-> `docs/TABLE4_WHITEBOX_MONITOR.md` directly from `elicitation/whitebox/
-> probe.py` and `ft_probe.py` against the unzipped `backdoor-demo.zip` and the
-> three cited papers, rather than trusting the prior self-audit narrative. It
-> confirmed the implementation faithful: correct train/validation/test split
-> hygiene, the context-controlled correct-vs-canonical-`F` pairing that avoids
-> the demo's own documented trigger-literal confound, matching depth-scaled
-> pooling and bootstrapped-logistic-ensemble design, and every protocol
-> constant in `experiments/naming.py` (layer fractions, ensemble size,
-> unit-`C`, FT step count/LR/LoRA recipe) enforced at the result-gate level.
-> The sole finding is a documentation-only gap, not a code defect: the
-> `probe.py` module docstring attributes the standardized L2 probe design
-> partly to Goldowsky-Dill et al. (2025), but the demo's own reference probe
-> is unregularized and attributed only to Bailey et al.; the added
-> `StandardScaler`+`C` regularization is a reasonable Possum-specific choice,
-> but the second citation was not checked against that paper's text. This
-> does not block execution.
+> Killarney remains the sole compute target; submit no Vulcan compute.
+> Commit `1ce1eae` (provenance-safe attack overlays) and the Table 4 commits
+> through `7881978` are deployed; the last explicitly reported cluster ML
+> suite is all 65 tests passing at `2e10a86`, plus 82 tests locally as of
+> the Table 4 commits. Source `clusters/killarney_env_setup.sh` before
+> interactive ML imports (a bare unsourced venv can fail to import
+> module-provided `pyarrow`; this is an interactive-shell issue, not
+> evidence Slurm jobs used the wrong stack). Continue bounded releases, one
+> writer per canonical JSON, exact artifact acceptance after every
+> completion, and no weakening of seed rosters, sample counts, attack
+> budgets, or provenance gates.
 
 This is the canonical operational handoff for:
 
@@ -212,21 +126,21 @@ recovery procedures. Use this document for current decisions and job ownership.
 
 | Area | Current state | What it means |
 |---|---|---|
-| Code and tests | Table 2/3 scientific execution is deployed through `2e10a86`, provenance-safe reporting through `1ce1eae`, and the audited Table 4 monitor protocol through `7881978` | The last reported cluster ML suite passed all 65 tests at `2e10a86`. The current local suite passes all 82 tests, Python compilation, shell syntax, and diff checks. Tables 2/3 remain AutoDAN-only. Cyber 7B RoBCoTDstl resolves to microbatch one and accumulation four only for `obfcot`. Table 4 has not yet had a GPU end-to-end acceptance run. |
+| Code and tests | Table 2/3 scientific execution is deployed through `2e10a86`, provenance-safe reporting through `1ce1eae`, and the audited Table 4 monitor protocol through `7881978` | The last reported cluster ML suite passed all 65 tests at `2e10a86`. The current local suite passes all 82 tests, Python compilation, shell syntax, and diff checks. Tables 2/3 remain AutoDAN-only. Cyber 7B RoBCoTDstl resolves to microbatch one and accumulation four only for `obfcot`. Table 4's GPU end-to-end acceptance run passed 2026-08-17 (Bio/7B/seed-42 probe, `4834939`). |
 | Table 2 methodology | Implemented | Task effectiveness and attack readout use forced-choice; HS/CSQA utility uses generate-and-parse; SysPr uses three seeded stochastic inference replicates. |
 | Table 2 E&U | Complete and artifact-accepted | All nine PWD 7B Chem/Cyber and CktBr 7B Chem seed repairs passed current payload-bound E&U gates. CktBr 7B Cyber matched exactly and never needed repair. No Table 2 E&U rerun remains. |
 | Table 2 E&U union | Pre-incident snapshot preserved; post-repair reporting clone complete | `artifacts/table-report-eu-20260811.Z59lUv` remains immutable evidence. `/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf` replaces exactly the nine accepted repair JSONs, records a manifest, and is now the current E&U reporting base. Neither reporting root is an execution root. |
 | AutoDAN cache | Complete and accepted | The canonical library has schema-2 complete metadata, five lifelong rounds, and the full 318-row source fingerprint. Do not rebuild it. |
-| Table 2 AutoDAN | 20 valid seed results, four complete reportable cells, five partial cells; seven attacks priority-pending | The saved Table 2 safely emits PWD/7B/Bio, PWD/7B/MMLU-Prof, PWD/7B/MMLU-Stem, and SysPr/32B/Bio robustness. Eight valid seeds in five incomplete cells, now including PWD/7B/Chem seeds 42/43, remain suppressed. Another 63 submitted jobs are held and 72 larger PWD/CktBr jobs remain unsubmitted behind checkpoint inventory. |
+| Table 2 AutoDAN | 21 valid seed results, five complete reportable cells, four partial cells; six attacks priority-pending | The regenerated Table 2 (275/324) safely emits PWD/7B/Bio, PWD/7B/Chem, PWD/7B/MMLU-Prof, PWD/7B/MMLU-Stem, and SysPr/32B/Bio robustness. PWD/7B/Chem closed 2026-08-17 (seed-44 job `4730327`). Remaining incomplete-cell seeds stay suppressed. Another 63 submitted jobs are held and 72 larger PWD/CktBr jobs remain unsubmitted behind checkpoint inventory. |
 | Table 3 RoBCoTDstl 7B E&U | Bio and Chem complete; Cyber seed 42 accepted and seed-43 H100 replacement submitted | Seven result seeds pass exact recipe, payload, scoring, and dataset gates. `tablefill` still emits only the ten values for the two complete cells. Seed-43 L40S training `4723025` OOMed even at microbatch one and evaluation `4723045` was cancelled. Scientifically equivalent H100 replacements `4832960`/`4832961` are submitted. The held seed-44 L40S chain is obsolete and must be replaced by H100 only after seed 43 passes. |
 | Table 3 RoBCoTDstl robustness | Bio/7B seed-42 pilot released and priority-pending | Job `4723162` may run because the canonical E&U result is now payload-bound. Submit Bio seeds 43/44 only after the pilot has the full 256-row AutoDAN result, fingerprint, diagnostics, null error, and matching checkpoint provenance. |
 | Table 3 larger tiers | 14B/32B Bio seed-42 E&U pilots queued | Training `4723194`/`4723198` is priority-pending; evaluation `4723195`/`4723199` is dependency-pending. Expand each tier independently only after its own adapter payload and result pass. |
 | Table 4 whitebox implementation | Probe and FT+probe implemented and locally audited | The monitor trains only on fixed no-trigger locked-context response activations contrasting the canonical `F` lock completion with the correct completion, then evaluates locked/unlocked own generations once after validation-only orientation and calibration. FT+probe continues the verified organism adapter for exactly 1,000 usable HHH rows and 200 steps, with explicit fingerprints and receipt gates. Pruning remains intentionally unimplemented. |
-| Table 4 execution | 7B Bio seed-42 probe job `4834939` submitted, no results accepted | The paper roster is 7B/32B/72B. The pilot requests an L40S, 8 CPUs, 64 GiB, and 8 hours. Seven accepted 7B Table 3 checkpoints are eligible inputs. A successful local suite does not replace the required GPU pilot and scientific acceptance check. |
+| Table 4 execution | 7B Bio seed-42 probe ACCEPTED (`4834939`); seeds 43/44 submitted and running (`4852696`/`4852697`) | The paper roster is 7B/32B/72B. The accepted pilot: `probe_test_accuracy=0.998046875`, `probe_test_auc=0.9963`, full uncapped test set, exact checkpoint/fingerprint provenance, clean intended-behavior diagnostics -- direct confirmation of the already-documented literal-trigger probe-transfer limit, not a bug. Seven accepted 7B Table 3 checkpoints are eligible inputs. Must run under `POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-table3-current`, not the Table 2 project root. |
 | Vulcan artifact migration | Sufficient for utility, incomplete for robustness | A validated PWD/32B/Chem source is now staged for the repair jobs. CktBr/32B/Cyber and CktBr/32B/MMLU-Prof still need final location/export checks, and 14B has not had a comprehensive migration audit. SysPr needs only the shared base-model cache and prompt configuration. |
 | Storage | Adequate for bounded current work; protected sources remain | The latest reported free space is approximately 631 GiB on project and 369 GiB on scratch. Retain the old-root 32B PWD/Chem family, its repair root, and the four staged 32B CktBr children until the larger robustness inventory and archive are complete. Continue adapter-only Table 3 saves. |
 | Cluster direction | Killarney-only compute | Submit no new Vulcan work. Cancel the former 26 Vulcan retries (holding them until cancellation is verified), rerun any failures on Killarney, and retain the Vulcan artifact root only until a final read-only export of missing final 14B/32B checkpoints and canonical JSONs is verified. |
-| Schedule | Current partial Tables 2/3 are scientifically reportable; Table 4 pilot is queued | Table 2 has 274/324 values, Table 3 has 10/432 values, and the local Table 4 renderer has 0/162 values (`144 empty, 18 n/a`). The updated scheduler snapshot has 101 pending jobs and none running: 86 held, 12 priority, and 3 dependency. Do not submit another Table 4 technique while `4834939` is pending or writing its canonical JSON. |
+| Schedule | Current partial Tables 2/3 are scientifically reportable; Table 4 has its first accepted cell-seed and two more running | Table 2 has 275/324 values, Table 3 has 10/432 values, and the Table 4 renderer still shows 0/162 complete *cells* (a cell needs all three seeds) but 1/54 probe seed-evaluations is accepted with 2 more in flight. Query `squeue`/`sacct` fresh rather than trusting any prior job count in this document -- it has changed several times in one day. Do not submit FT+probe or another task/tier until the Bio three-seed plain-probe roster completes. |
 
 ## Current campaign ledger
 
@@ -237,12 +151,12 @@ Slurm jobs.
 | Workstream | Total | Accepted/covered now | Active or queued | Not submitted | Next gate |
 |---|---:|---:|---:|---:|---|
 | Table 2 E&U values | 270 | All 270 populated; all nine exceptional seed repairs accepted and incorporated into the post-repair clone | 0 | 0 repair E&U jobs | Preserve both the pre-incident evidence root and current post-repair reporting root; use only the latter for new reports. |
-| Table 2 AutoDAN seeds | 162 | 20 artifact-accepted; 90 logical slots covered by an accepted artifact or live submission | Seven priority-pending attacks plus 63 held Table 2 jobs | 72 larger PWD/CktBr slots | Validate each completion; never confuse the 90-slot coverage count with 20 accepted results. Release later work only in bounded tranches and submit larger work only after checkpoint inventory. |
-| Table 2 robustness table cells | 54 | 4 complete and reportable; 5 more partial | Seven priority-pending attacks plus 63 held jobs contribute to remaining cells | 72 seed jobs, not cells, unsubmitted | PWD/7B/Chem seed 44 is the nearest new complete cell. Regenerate after accepted bounded tranches and emit a cell only when exact seeds 42/43/44 all pass. |
+| Table 2 AutoDAN seeds | 162 | 21 artifact-accepted; 90 logical slots covered by an accepted artifact or live submission | Six priority-pending attacks plus 63 held Table 2 jobs | 72 larger PWD/CktBr slots | Validate each completion; never confuse the 90-slot coverage count with 21 accepted results. Release later work only in bounded tranches and submit larger work only after checkpoint inventory. |
+| Table 2 robustness table cells | 54 | 5 complete and reportable; 4 more partial | Six priority-pending attacks plus 63 held jobs contribute to remaining cells | 72 seed jobs, not cells, unsubmitted | PWD/7B/Chem closed 2026-08-17. Regenerate after accepted bounded tranches and emit a cell only when exact seeds 42/43/44 all pass. |
 | Table 3 7B E&U seeds | 18 | 7 accepted: complete Bio/Chem rosters plus Cyber seed 42 | Cyber seed-43 H100 replacement submitted; 9 later-task chains held; obsolete Cyber seed-44 L40S chain remains held | 1 valid replacement chain: Cyber seed 44 on H100 | Verify jobs `4832960`/`4832961` request H100, accept seed 43, and compare its H100 base utility with seed 42. Then submit seed 44 on H100 without releasing its obsolete L40S jobs. |
 | Table 3 14B/32B E&U | 36 | 0 | 2 pilot chains submitted | 34 | Bio/seed-42 pilots are queued as `4723194`/`4723195` (14B) and `4723198`/`4723199` (32B). Expand neither tier before its own pilot passes the checkpoint/result provenance gates. |
 | Table 3 RoBCoTDstl robustness | 54 seed/model/task AutoDAN evaluations | 0 | Bio/7B/seed-42 pilot `4723162` released and priority-pending | 53 | Require AutoDAN `n=256`, nonempty fingerprint, diagnostics, null error, and matching payload provenance. Then plan Bio with the full 42/43/44 roster so only seeds 43/44 submit. |
-| Table 4 probe | 54 seed/model/task evaluations | 0 | 7B Bio seed-42 job `4834939` priority-pending | 53 | Verify the live request and monitor this one pilot. Accept exact counts, train/eval fingerprints, fixed-context protocol identifiers, intended-behavior diagnostics, and uncapped generation before expanding. |
+| Table 4 probe | 54 seed/model/task evaluations | 1 accepted: 7B Bio seed 42 (`4834939`) | 7B Bio seeds 43/44 running (`4852696`/`4852697`) | 51 | Validate seeds 43/44 against the same gate as seed 42 (protocol IDs, uncapped fingerprint-matched counts, checkpoint provenance, intended-behavior diagnostics). Once the Bio three-seed cell is complete, plan Chem next behind its already-accepted Table 3 checkpoints. |
 | Table 4 FT+probe | 54 seed/model/task evaluations | 0 | 0 | 54 | Gate behind the plain-probe pilot. Stage the HHH source on the login node, require exactly 1,000 usable fingerprinted rows and 200 FT steps, then run one 7B Bio seed-42 pilot. |
 
 ### Current generated artifacts and audit
@@ -254,9 +168,10 @@ final accepted report bundle to durable storage before treating it as archived.
 |---|---|---|
 | `artifacts/table-report-eu-20260811.Z59lUv` | Immutable pre-incident E&U evidence | `270 filled, 54 empty`; manifest `f3edeca3a2bf06247e960c0661f48c9e050489aa980f16d9029bd40abb374e1d` |
 | `/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf/POST_REPAIR_UNION_MANIFEST.json` | Current reporting-only E&U clone, exactly nine accepted replacements | `23721daa08e90e7a0a868b3b02186e1adbd36012027c9142e49cb49b293a138f` |
-| `/scratch/markwang/possum-current-tables-20260816.LJXmhV/table2.gen.tex` | Current partial Table 2 | `274 filled, 50 empty, 0 n/a`; `f7293731ceaa281d2a2a81e22a40380a0078acbc0606c6e8f5a49ef136bca0ff` |
+| `/scratch/markwang/possum-current-tables-20260816.LJXmhV/table2.gen.tex` | Superseded 2026-08-16 partial Table 2 (undercounted) | `274 filled, 50 empty, 0 n/a`; `f7293731ceaa281d2a2a81e22a40380a0078acbc0606c6e8f5a49ef136bca0ff` |
+| `/scratch/markwang/possum-table3-current/artifacts/tables/table2.gen.tex` (regenerated 2026-08-17) | Current partial Table 2, correct two-root union | `275 filled, 49 empty, 0 n/a`; SHA-256 not yet recorded -- copy to durable storage and hash before the next regeneration overwrites it |
 | `/scratch/markwang/possum-current-tables-20260816.LJXmhV/table3.gen.tex` | Current partial Table 3 | `10 filled, 422 empty, 0 n/a`; `86823d218fb61713b2efbec2b014e8a17fa8e0ba8809fd36bd038b19535ad6b5` |
-| `tables/table4.gen.tex` at `7881978` | Local empty Table 4 contract; no cluster results | `0 filled, 144 empty, 18 n/a`; `6eb64c435c29178c16288068363332cb8be672acce2674d8b711d30034c36714` |
+| `tables/table4.gen.tex` at `7881978` | Local empty Table 4 contract; stale relative to the accepted `4834939` cluster result | `0 filled, 144 empty, 18 n/a`; `6eb64c435c29178c16288068363332cb8be672acce2674d8b711d30034c36714` -- regenerate with `--table bkdrcot` against the scratch root once the Bio three-seed roster completes |
 
 The Table 2 robustness audit now accepts 19 overlay seed results plus the
 PWD/7B/Bio seed-42 result already present in the E&U base. All 20 have the full

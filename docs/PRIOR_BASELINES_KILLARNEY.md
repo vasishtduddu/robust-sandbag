@@ -208,7 +208,7 @@ bash clusters/run_killarney_matrix.sh execute \
   --table prior --tier 7b --task bio \
   --phase eff --seeds 42 43 44 --executor slurm
 
-squeue -u "$USER"
+squeue -u $USER --Format="JobID:12,Name:60,State:10,Reason:30"
 ```
 
 `--phase eff` computes both effectiveness and utility. Each CktBr job waits for

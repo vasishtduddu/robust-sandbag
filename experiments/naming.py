@@ -370,7 +370,7 @@ TAB4_COLUMNS: list[tuple[str, str | None]] = [
     ("AntRef",       "anti_refusal"),
     ("Steering",     "steering"),
     ("LAT",          "lat"),
-    ("Pruning",      None),
+    ("Pruning",      "pruning"),
     ("Fuzzing",      "noise"),
     ("Probing",      "probe"),
     ("FT + Probing", "ft_probe"),

@@ -40,6 +40,7 @@ from ...data.utils import set_seed
 from ...utils.column_utils import (
     GROUND_TRUTH_ANSWER_COLUMN,
     get_question_column,
+    get_question_column_pw,
 )
 from ...utils.training import (
     GenericPadCollate,
@@ -201,7 +202,7 @@ class SFT(ElicitationTechnique):
         self.model.set_adapter(adapter_name)
         return adapter_name
 
-    def _evaluate(self, eval_loader, ctx) -> tuple[int, int, float]:
+    def _evaluate(self, eval_loader, ctx, qcol: str | None = None) -> tuple[int, int, float]:
         was_training = self.model.training
         previous_grad = torch.is_grad_enabled()
         config = getattr(self.model, "config", None)
@@ -217,7 +218,7 @@ class SFT(ElicitationTechnique):
                 # Generate-and-parse from raw questions (system + one-shot), matching the
                 # eff-column protocol so the SFT trajectory stays comparable.
                 n_correct, total = self._genparse_accuracy_df(
-                    self._gp_eval_df, self._gp_qcol, ctx
+                    self._gp_eval_df, qcol or self._gp_qcol, ctx
                 )
             else:
                 total = 0
@@ -281,6 +282,34 @@ class SFT(ElicitationTechnique):
             shuffle=False,
             collate_fn=collate,
         )
+
+        # D4: the fine-tuning figure plots Delta, not just locked accuracy, so
+        # measure the unlocked (password-present) condition at every eval point
+        # too. The column is added by evaluate.py:_load_task_split; when it is
+        # absent (a caller passing a bare frame) the unlocked series is simply
+        # omitted and the trajectory degrades to the previous behaviour.
+        pw_column = get_question_column_pw(self.model_name)
+        self._gp_qcol_pw = pw_column if pw_column in eval_data.columns else None
+        eval_loader_pw = None
+        if self._gp_qcol_pw is not None:
+            eval_loader_pw = DataLoader(
+                GenericTorchDataset(
+                    eval_data,
+                    prompt_column=self._gp_qcol_pw,
+                    completion_column=GROUND_TRUTH_ANSWER_COLUMN,
+                ),
+                batch_size=self.eval_batch_size,
+                shuffle=False,
+                collate_fn=collate,
+            )
+
+        def _evaluate_pair():
+            """Locked accuracy, unlocked accuracy, and Delta at one step."""
+            n_locked, total_locked, locked = self._evaluate(eval_loader, ctx)
+            if eval_loader_pw is None:
+                return n_locked, total_locked, locked, None, None
+            _, _, unlocked = self._evaluate(eval_loader_pw, ctx, self._gp_qcol_pw)
+            return n_locked, total_locked, locked, unlocked, unlocked - locked
 
         adapter_name = self._prepare_adapter_for_training()
         if not getattr(self.model, "hf_device_map", None):
@@ -347,8 +376,11 @@ class SFT(ElicitationTechnique):
                 name=f"sft_elicit_{self.model_name}_{self.dataset}",
             )
 
-        n0, total0, acc0 = self._evaluate(eval_loader, ctx)
+        n0, total0, acc0, acc0_pw, delta0 = _evaluate_pair()
         trajectory: list[tuple[int, float]] = [(0, acc0)]
+        unlocked_trajectory: list[tuple[int, float | None, float | None]] = [
+            (0, acc0_pw, delta0)
+        ]
         counts: list[tuple[int, int]] = [(n0, total0)]
         best_acc = acc0
         best_step = 0
@@ -397,8 +429,9 @@ class SFT(ElicitationTechnique):
                         )
 
                     if opt_step % self.eval_every_steps == 0:
-                        n_c, n_t, acc = self._evaluate(eval_loader, ctx)
+                        n_c, n_t, acc, acc_pw, delta = _evaluate_pair()
                         trajectory.append((opt_step, acc))
+                        unlocked_trajectory.append((opt_step, acc_pw, delta))
                         counts.append((n_c, n_t))
                         if acc > best_acc:
                             best_acc = acc
@@ -410,8 +443,9 @@ class SFT(ElicitationTechnique):
                         done = True
                         break
 
-        n_f, t_f, final_acc = self._evaluate(eval_loader, ctx)
+        n_f, t_f, final_acc, final_acc_pw, final_delta = _evaluate_pair()
         trajectory.append((opt_step, final_acc))
+        unlocked_trajectory.append((opt_step, final_acc_pw, final_delta))
         counts.append((n_f, t_f))
         if final_acc > best_acc:
             best_acc = final_acc
@@ -430,9 +464,13 @@ class SFT(ElicitationTechnique):
 
         with open(curve_path, "w", newline="") as f:
             w = csv.writer(f)
-            w.writerow(["step", "accuracy", "n_correct", "n_total"])
-            for (step, acc), (nc, nt) in zip(trajectory, counts):
-                w.writerow([step, acc, nc, nt])
+            w.writerow(
+                ["step", "accuracy", "accuracy_pw", "delta", "n_correct", "n_total"]
+            )
+            for (step, acc), (_, acc_pw, delta), (nc, nt) in zip(
+                trajectory, unlocked_trajectory, counts
+            ):
+                w.writerow([step, acc, acc_pw, delta, nc, nt])
 
         with open(summary_path, "w") as f:
             json.dump(
@@ -458,6 +496,12 @@ class SFT(ElicitationTechnique):
                     "max_grad_norm": self.max_grad_norm,
                     "weight_decay": self.weight_decay,
                     "trajectory": [[s, a] for s, a in trajectory],
+                    "unlocked_trajectory": [
+                        [s, a, d] for s, a, d in unlocked_trajectory
+                    ],
+                    "final_accuracy_pw": final_acc_pw,
+                    "final_delta": final_delta,
+                    "delta_measured": self._gp_qcol_pw is not None,
                 },
                 f,
                 indent=2,
@@ -483,4 +527,8 @@ class SFT(ElicitationTechnique):
             "max_grad_norm": self.max_grad_norm,
             "weight_decay": self.weight_decay,
             "trajectory": trajectory,
+            "unlocked_trajectory": unlocked_trajectory,
+            "final_accuracy_pw": final_acc_pw,
+            "final_delta": final_delta,
+            "delta_measured": self._gp_qcol_pw is not None,
         }

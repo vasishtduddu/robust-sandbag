@@ -14,6 +14,7 @@ Techniques:
   DPOElicitation   — DPO preference learning (trl.DPOTrainer wrapper).
   GRPOElicitation  — GRPO reward-model-free RL (trl.GRPOTrainer wrapper).
   NoiseInjection   — Gaussian parameter-noise sweep (SandbagDetect port).
+  Pruning          — per-tensor unstructured magnitude-pruning sweep.
   ProbeElicitation - Context-controlled multi-layer behavior detector.
   FineTuneProbeElicitation - Trigger-context HHH SFT followed by the same
                              independently refitted behavior detector.
@@ -27,6 +28,7 @@ from .ppo import PPOElicitation
 from .dpo import DPOElicitation
 from .grpo import GRPOElicitation
 from .noise import NoiseInjection
+from .pruning import Pruning
 from .probe import ProbeElicitation
 from .ft_probe import FineTuneProbeElicitation
 
@@ -40,6 +42,7 @@ __all__ = [
     "DPOElicitation",
     "GRPOElicitation",
     "NoiseInjection",
+    "Pruning",
     "ProbeElicitation",
     "FineTuneProbeElicitation",
 ]

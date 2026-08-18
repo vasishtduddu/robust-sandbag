@@ -28,6 +28,7 @@ from ...data.utils import set_seed
 from ...utils.column_utils import (
     GROUND_TRUTH_ANSWER_COLUMN,
     get_question_column,
+    get_question_column_pw,
 )
 from ...utils.training import (
     GenericPadCollate,
@@ -113,12 +114,12 @@ class DPOElicitation(ElicitationTechnique):
         self.results_dir = results_dir
         self.wandb_project = wandb_project
 
-    def _evaluate(self, eval_loader, ctx) -> tuple[int, int, float]:
+    def _evaluate(self, eval_loader, ctx, qcol: str | None = None) -> tuple[int, int, float]:
         torch.set_grad_enabled(False)
         was_training = self.model.training
         self.model.eval()
         if genparse_enabled():
-            n_correct, total = self._genparse_accuracy_df(self._gp_eval_df, self._gp_qcol, ctx)
+            n_correct, total = self._genparse_accuracy_df(self._gp_eval_df, qcol or self._gp_qcol, ctx)
         else:
             total = 0
             for batch in eval_loader:
@@ -173,6 +174,32 @@ class DPOElicitation(ElicitationTechnique):
             eval_dataset, batch_size=16, shuffle=False, collate_fn=collate
         )
 
+        # D4: the fine-tuning figure plots Delta, so measure the unlocked
+        # (password-present) condition at every eval point too. Absent column
+        # means the unlocked series is omitted, not an error.
+        pw_column = get_question_column_pw(self.model_name)
+        self._gp_qcol_pw = pw_column if pw_column in eval_data.columns else None
+        eval_loader_pw = None
+        if self._gp_qcol_pw is not None:
+            eval_loader_pw = DataLoader(
+                GenericTorchDataset(
+                    eval_data,
+                    prompt_column=self._gp_qcol_pw,
+                    completion_column=GROUND_TRUTH_ANSWER_COLUMN,
+                ),
+                batch_size=16,
+                shuffle=False,
+                collate_fn=collate,
+            )
+
+        def _evaluate_pair():
+            """Locked accuracy, unlocked accuracy, and Delta at one step."""
+            n_locked, total_locked, locked = self._evaluate(eval_loader, ctx)
+            if eval_loader_pw is None:
+                return n_locked, total_locked, locked, None, None
+            _, _, unlocked = self._evaluate(eval_loader_pw, ctx, self._gp_qcol_pw)
+            return n_locked, total_locked, locked, unlocked, unlocked - locked
+
         peft_config = LoraConfig(
             r=self.lora_r,
             lora_alpha=self.lora_alpha,
@@ -225,9 +252,11 @@ class DPOElicitation(ElicitationTechnique):
             )
 
         trajectory: list[tuple[int, float]] = []
+        unlocked_trajectory: list[tuple[int, float | None, float | None]] = []
         counts: list[tuple[int, int]] = []
-        n0, total0, acc0 = self._evaluate(eval_loader, ctx)
+        n0, total0, acc0, acc0_pw, delta0 = _evaluate_pair()
         trajectory.append((0, acc0))
+        unlocked_trajectory.append((0, acc0_pw, delta0))
         counts.append((n0, total0))
         best_acc = acc0
         best_step = 0
@@ -240,8 +269,9 @@ class DPOElicitation(ElicitationTechnique):
         class _StepTracker(TrainerCallback):
             def on_step_end(self, args, state, control, **kw):
                 if state.global_step % tech.eval_every_steps == 0 and state.global_step > 0:
-                    n_c, n_t, acc = tech._evaluate(eval_loader, ctx)
+                    n_c, n_t, acc, acc_pw, delta = _evaluate_pair()
                     trajectory.append((state.global_step, acc))
+                    unlocked_trajectory.append((state.global_step, acc_pw, delta))
                     counts.append((n_c, n_t))
                     nonlocal_best = getattr(self, "_best", (acc0, 0))
                     if acc > nonlocal_best[0]:
@@ -269,8 +299,9 @@ class DPOElicitation(ElicitationTechnique):
             best_step = best_step_t
 
         final_step = dpo_trainer.state.global_step
-        n_f, t_f, final_acc = self._evaluate(eval_loader, ctx)
+        n_f, t_f, final_acc, final_acc_pw, final_delta = _evaluate_pair()
         trajectory.append((final_step, final_acc))
+        unlocked_trajectory.append((final_step, final_acc_pw, final_delta))
         counts.append((n_f, t_f))
         if final_acc > best_acc:
             best_acc = final_acc
@@ -282,9 +313,13 @@ class DPOElicitation(ElicitationTechnique):
         stem = f"dpo_{self.model_name}_{self.dataset}"
         with open(results_dir / f"{stem}_curve.csv", "w", newline="") as f:
             w = csv.writer(f)
-            w.writerow(["step", "accuracy", "n_correct", "n_total"])
-            for (step, acc), (nc, nt) in zip(trajectory, counts):
-                w.writerow([step, acc, nc, nt])
+            w.writerow(
+                ["step", "accuracy", "accuracy_pw", "delta", "n_correct", "n_total"]
+            )
+            for (step, acc), (_, acc_pw, delta), (nc, nt) in zip(
+                trajectory, unlocked_trajectory, counts
+            ):
+                w.writerow([step, acc, acc_pw, delta, nc, nt])
         with open(results_dir / f"{stem}_summary.json", "w") as f:
             json.dump(
                 {
@@ -295,6 +330,12 @@ class DPOElicitation(ElicitationTechnique):
                     "elicited_at_step": best_step,
                     "final_accuracy": final_acc,
                     "trajectory": [[s, a] for s, a in trajectory],
+                    "unlocked_trajectory": [
+                        [s, a, d] for s, a, d in unlocked_trajectory
+                    ],
+                    "final_accuracy_pw": final_acc_pw,
+                    "final_delta": final_delta,
+                    "delta_measured": self._gp_qcol_pw is not None,
                 },
                 f,
                 indent=2,
@@ -306,4 +347,8 @@ class DPOElicitation(ElicitationTechnique):
             "elicited_at_step": best_step,
             "final_accuracy": final_acc,
             "trajectory": trajectory,
+            "unlocked_trajectory": unlocked_trajectory,
+            "final_accuracy_pw": final_acc_pw,
+            "final_delta": final_delta,
+            "delta_measured": self._gp_qcol_pw is not None,
         }

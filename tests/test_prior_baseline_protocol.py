@@ -3073,3 +3073,99 @@ class PriorCheckpointAuditTests(unittest.TestCase):
             {target["model"] for target in grid},
             {"qwen2.5-14b-it", "qwen2.5-32b-it"},
         )
+
+
+class PruningElicitationTests(unittest.TestCase):
+    """Table 4's Pruning column (D3). Sweep must be exact and fully reversible."""
+
+    def test_pruning_is_a_registered_table4_technique(self):
+        self.assertIn("pruning", naming.TAB4_TECHNIQUES)
+        self.assertIn(("Pruning", "pruning"), naming.TAB4_COLUMNS)
+        self.assertEqual(naming.MISSING_TECHNIQUES, [])
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_magnitude_pruning_zeroes_exactly_the_smallest_entries(self):
+        import torch
+
+        try:
+            from possum.elicitation.whitebox.pruning import magnitude_prune_
+        except ModuleNotFoundError:
+            from elicitation.whitebox.pruning import magnitude_prune_
+
+        weight = torch.tensor([[-4.0, 1.0], [-2.0, 3.0]])
+        zeroed = magnitude_prune_(weight, 0.5)
+        self.assertEqual(zeroed, 2)
+        # |1| and |-2| are the two smallest magnitudes.
+        self.assertEqual(weight.tolist(), [[-4.0, 0.0], [0.0, 3.0]])
+
+        untouched = torch.tensor([[1.0, 2.0]])
+        self.assertEqual(magnitude_prune_(untouched, 0.0), 0)
+        self.assertEqual(untouched.tolist(), [[1.0, 2.0]])
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_pruning_rejects_out_of_range_sparsity(self):
+        import torch
+
+        try:
+            from possum.elicitation.whitebox.pruning import magnitude_prune_
+        except ModuleNotFoundError:
+            from elicitation.whitebox.pruning import magnitude_prune_
+
+        for bad in (-0.1, 1.0, 1.5):
+            with self.assertRaises(ValueError):
+                magnitude_prune_(torch.ones(2, 2), bad)
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_pruning_excludes_embeddings_head_norms_and_biases(self):
+        import torch
+
+        try:
+            from possum.elicitation.whitebox.pruning import is_prunable
+        except ModuleNotFoundError:
+            from elicitation.whitebox.pruning import is_prunable
+
+        matrix = torch.zeros(4, 4)
+        self.assertTrue(is_prunable("model.layers.0.self_attn.q_proj.weight", matrix))
+        self.assertTrue(is_prunable("model.layers.0.mlp.down_proj.weight", matrix))
+        for excluded in (
+            "model.embed_tokens.weight",
+            "lm_head.weight",
+            "model.layers.0.input_layernorm.weight",
+            "model.layers.0.self_attn.q_proj.bias",
+        ):
+            self.assertFalse(is_prunable(excluded, matrix), excluded)
+        # Non-2D tensors are never pruned regardless of name.
+        self.assertFalse(is_prunable("model.layers.0.mlp.down_proj.weight", torch.zeros(4)))
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_pruning_harness_restores_the_original_weights_exactly(self):
+        import torch
+
+        try:
+            from possum.elicitation.whitebox.pruning import _PruningHarness
+        except ModuleNotFoundError:
+            from elicitation.whitebox.pruning import _PruningHarness
+
+        class Tiny(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.q_proj = torch.nn.Linear(8, 8, bias=False)
+                self.embed_tokens = torch.nn.Linear(8, 8, bias=False)
+
+        torch.manual_seed(0)
+        model = Tiny()
+        before = {n: p.detach().clone() for n, p in model.named_parameters()}
+        harness = _PruningHarness(model)
+        # Only q_proj is a target; embed_tokens is excluded by name.
+        self.assertEqual([n for n, _ in harness.targets], ["q_proj.weight"])
+
+        counts = harness.apply(0.5)
+        self.assertEqual(counts["n_weights"], 64)
+        self.assertEqual(counts["n_zeroed"], 32)
+        self.assertGreater(int((model.q_proj.weight == 0).sum()), 0)
+
+        harness.restore()
+        for name, parameter in model.named_parameters():
+            self.assertTrue(
+                torch.equal(parameter.detach(), before[name]), f"{name} not restored"
+            )

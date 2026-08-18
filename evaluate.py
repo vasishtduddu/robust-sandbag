@@ -75,7 +75,7 @@ UTILITY_SPLIT_SEED = experiment_naming.PRIOR_UTILITY_SPLIT_SEED
 _PWD_CB_TECHNIQUES    = {"many_shot", "prefilling", "gcg", "autodan", "tap", "crescendo"}
 _WHITEBOX_TECHNIQUES  = {
     "sft", "steering", "anti_refusal", "lat", "ppo", "dpo", "grpo",
-    "noise", "probe", "ft_probe",
+    "noise", "pruning", "probe", "ft_probe",
 }
 _SYSTEM_PROMPT_TECHNIQUES = {"prompt_injection", "gcg", "autodan", "tap"}
 _COT_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES
@@ -291,6 +291,9 @@ def _make_technique(name, model, tokenizer, dataset, model_name, seed):
     elif name == "noise":
         from possum.elicitation.whitebox.noise import NoiseInjection
         return NoiseInjection(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
+    elif name == "pruning":
+        from possum.elicitation.whitebox.pruning import Pruning
+        return Pruning(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
     elif name == "probe":
         from possum.elicitation.whitebox.probe import ProbeElicitation
         return ProbeElicitation(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)

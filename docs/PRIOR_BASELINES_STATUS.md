@@ -87,8 +87,17 @@ for the table.
 
 - Probing: already accepted for 7B Bio and Chem, three seeds each.
 - Steering (`steering`) and Fuzzing (`noise`): implemented, not yet run.
-- **Pruning is NOT implemented.** It is the sole `\na` column and needs building
-  per `EXTENDING.md` section 3 plus a technique id in `naming.TAB4_COLUMNS`.
+- **Pruning: implemented 2026-08-18** as `elicitation/whitebox/pruning.py`. It is
+  a per-tensor unstructured magnitude sweep over 2-D transformer weights,
+  excluding embeddings, the LM head, norms and biases, restoring the original
+  weights exactly between sparsity levels, and reporting the best accuracy across
+  the sweep. Registered in `evaluate.py` and in `naming.TAB4_COLUMNS`, so
+  `MISSING_TECHNIQUES` is now empty. **Consequence for the generated table: the
+  Pruning column no longer renders `\na`, it renders `---` like any other unfilled
+  cell, which matches the "leave missing values empty" convention. The caption
+  sentence that still says `\na` marks Pruning as unimplemented is now stale;
+  that text was deliberately left untouched because generated LaTeX is
+  numbers-only.**
 - Dropped from the table: AntRef, LAT, and FT+Probing.
 
 **Consequence: the FT+Probing pilot no longer matters.** Job `4853416` failed and
@@ -108,15 +117,22 @@ Most of the plumbing already exists. Both `elicitation/whitebox/sft.py` and
 updates and already write `{stem}_curve.csv` with `step, accuracy, n_correct,
 n_total` plus a summary JSON carrying the full trajectory.
 
-**The one gap is `Delta`.** Both trajectories record a single accuracy per step,
-measured on the raw (locked, no-password) question column, so there is no
-unlocked measurement to subtract. Fix: evaluate the password-augmented column at
-each eval step too and record both. `evaluate.py:_load_task_split` already
-returns a `question_col_pw` alongside `question_col`, so the data is there. Then
-add a plot script (there is precedent in `experiments/spider_plot.py`).
+**The `Delta` gap is now closed in code (2026-08-18).** Both `sft.py` and
+`dpo.py` build a second evaluation loader on the password-augmented question
+column and measure locked and unlocked accuracy at every eval point. The curve
+CSV is now `step, accuracy, accuracy_pw, delta, n_correct, n_total`, and the
+summary JSON and the returned dict both carry `unlocked_trajectory`,
+`final_accuracy_pw`, `final_delta`, and `delta_measured`. When the password
+column is absent the unlocked series is omitted rather than erroring, so
+existing callers are unaffected; `ft_probe`'s use of `trajectory[0][1]` and
+`optimizer_steps` is unchanged.
 
-Runs needed: SFT and DPO trajectories on the accepted RoBCoTDstl checkpoints and
-on the matched PWD checkpoints, per task, per seed.
+Still to do: the plot script itself (there is precedent in
+`experiments/spider_plot.py`), and the runs. Runs needed are SFT and DPO
+trajectories on the accepted RoBCoTDstl checkpoints and on the matched PWD
+checkpoints, per task, per seed. Note the PWD side has to wait for the D2
+retune, otherwise the comparison baseline is a checkpoint that is about to be
+replaced.
 
 ## Robustness estimand: reviewed and ACCEPTED, closed 2026-08-18
 

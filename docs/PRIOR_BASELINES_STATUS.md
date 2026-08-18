@@ -190,6 +190,42 @@ CktBr/14B/MMLU-HSS each show one collapsed-utility seed inside an otherwise
 healthy cell. That is the same signature at the same tier in a different
 organism, so diagnose per-seed before assuming a CktBr hyperparameter problem.
 
+### D8. Steering failed on a missing venv module, not a bug (2026-08-18)
+
+`4868346`/`4868348`/`4868350` each ran a complete, healthy effectiveness and
+utility pass and then died on the post-hoc gate at `_run_eval.py:475`. The cause
+was `ModuleNotFoundError: No module named 'steering_vectors'` raised inside
+`steering.py:165`, caught per-technique into `elicitation_errors`, after which
+the gate correctly refused the result. Roughly 35 minutes of H100 time per job
+was spent before the import was attempted.
+
+`steering-vectors` is already declared at `requirements.txt:28`, so this is a
+venv installation gap on Killarney, not a missing declaration. Install it on the
+login node (`pip install steering-vectors` into `$POSSUM_KILLARNEY_VENV`) and
+resubmit; the E&U half is cached, so the rerun only redoes the elicitation.
+
+`clusters/killarney_preflight.sh` now fails on the login node when
+`POSSUM_WHITEBOX_ONLY` names a technique whose extra dependency is not
+importable, via a `_TECHNIQUE_IMPORTS` map. Add an entry there for any future
+technique with a dependency outside the always-imported set.
+
+### D9. Correction: CktBr/14B/Cyber is not in the project root
+
+A per-seed diagnostic for the collapsed-utility CktBr cells was run against the
+project artifact root and returned "No such file or directory" for all three
+Cyber seeds. That root does not hold them: per the storage section,
+CktBr/14B/Cyber lives in `/scratch/markwang/possum-prior-eff`. Re-run any CktBr
+14B diagnostic against that root, and note that reported Table 2 E&U comes from
+the reporting clone `/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf`
+rather than either execution root.
+
+The MMLU-HSS seeds that did resolve (from the project root) already show the
+expected signature: seed 43 has `csqa 0.2027` and `hs 0.4551` against seeds 42
+and 44 at `csqa 0.79`/`0.72`, and its `nopw` (`0.2293`) is far from the others
+(`0.536`, `0.387`). Note these project-root values do not reproduce the reported
+`56.3 +/- 28.2`, which is further confirmation that the reported cell is
+computed from the reporting clone, not from here.
+
 ### D6. Fuzzing (`noise`) OOMed; fixed 2026-08-18
 
 `4868356` died five configs into a 505-config sweep with

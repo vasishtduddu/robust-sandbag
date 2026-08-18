@@ -100,6 +100,27 @@ whitebox_only = {
     for value in os.environ.get("POSSUM_WHITEBOX_ONLY", "").split(",")
     if value.strip()
 }
+# Techniques whose extra third-party dependency is NOT in requirements.txt.
+# Without this guard a missing module is only discovered inside the running job:
+# steering imported `steering_vectors` after a full effectiveness+utility pass,
+# so three chem jobs each burned about 35 minutes of H100 time on 2026-08-18
+# before failing. Fail on the login node instead.
+_TECHNIQUE_IMPORTS = {
+    "steering": ("steering_vectors", "pip install steering-vectors"),
+}
+for technique, (module, remedy) in _TECHNIQUE_IMPORTS.items():
+    if technique not in whitebox_only:
+        continue
+    try:
+        importlib.import_module(module)
+    except ImportError as exc:
+        raise SystemExit(
+            f"Elicitation {technique!r} needs the {module!r} module, which is not "
+            f"importable in this environment ({exc}). Install it on the login node: "
+            f"{remedy}"
+        )
+    print(f"{technique} dependency present: {module}")
+
 if "ft_probe" in whitebox_only:
     from datasets import load_dataset
 

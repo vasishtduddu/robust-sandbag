@@ -103,11 +103,27 @@
 > three Bio seeds -- the current recipe is essentially fully detectable by
 > this monitor, consistently, not a single-seed fluke.
 >
-> Chem/7B probe (all three seeds) is submitted next behind the same accepted
-> checkpoints: jobs `4853232`/`4853233`/`4853234`, clean `plan` (prep/train
-> all `SKIP`, three evals `RUN` with `--elicitations probe`); not yet
-> complete. FT+probe, 32B, and 72B have not started. The manuscript roster is
-> 7B/32B/72B, not the Table 3 7B/14B/32B roster.
+> **Chem/7B probe is also now a complete, accepted three-seed cell** (jobs
+> `4853232`/`4853233`/`4853234`): `errors={}`, uncapped `n=166` (=2x83, the
+> full Chem test set), fingerprint matches the accepted Chem fingerprint
+> exactly, checkpoint provenance correct for all three seeds,
+> `probe_test_auc=1.0` for all three. `probe_unlocked_correct_rate` is
+> `0.2651`/`0.4578`/`0.4217` for seeds 42/43/44, matching the already-
+> accepted Table 3 Chem unlocked accuracies exactly -- same
+> cross-validation pattern as Bio. Aggregate: `100.0 +/- 0.0`. Both
+> currently Table-4-eligible 7B tasks (Bio, Chem) are now complete;
+> regenerate with `--table bkdrcot` to render both cells. Cyber Table 4
+> probe stays blocked until Cyber's own Table 3 E&U three-seed roster is
+> accepted (1/3 so far); MMLU-Prof/Stem/HSS Table 4 probe is blocked because
+> `obfcot` Table 3 training hasn't started on those tasks at all.
+>
+> One Bio/7B/seed-42 FT+probe pilot is submitted and running as job
+> `4853416` on a confirmed H100 (`TresPerNode=gres/gpu:h100:1`; the plan's
+> `gpu:l40s:1` label was the known dry-run display quirk already documented
+> for the Cyber H100 chain, not an actual misallocation). Do not expand
+> FT+probe to another seed/task until this pilot passes its full gate
+> (exactly 1,000 usable HHH rows, 200 steps, continued not stacked adapter,
+> refit monitor). 32B and 72B Table 4 have not started.
 >
 > **FT+probe's `Anthropic/hh-rlhf` source is confirmed faithful, checked
 > directly against the demo source** (2026-08-17): the demo's actual safety

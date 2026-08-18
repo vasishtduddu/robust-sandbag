@@ -45,7 +45,8 @@ python -m experiments.tablefill --table prior \
   --attack-artifact-root /project/6105494/markwang/possum/possum/artifacts
 ```
 
-**Robustness (AutoDAN): 5 of 54 cells complete**, from 21 accepted
+**Robustness (AutoDAN): 5 of 54 cells complete** (PWD/7B/Chem now needs
+regeneration, see `4730327` below), from 21 accepted
 seed-level attacks: PWD/7B/Bio `96.9±0.2`, PWD/7B/Chem `92.0±0.4`,
 PWD/7B/MMLU-Prof `97.6±0.1`, PWD/7B/MMLU-Stem `94.6±1.0`, SysPr/32B/Bio
 `96.5±0.8`. Last regenerated table: `275 filled, 49 empty` (before the
@@ -68,19 +69,32 @@ Once these pass, the reportable cell count rises from 5 to 9 (each seed 42
 already scored: PWD/MMLU-HSS `96.27%`; SysPr/14B/Bio `98.05%`; SysPr/14B/Chem
 `95.18%`/`93.98%` seeds 42/43; SysPr/32B/Chem `91.57%`/`90.36%` seeds 42/43).
 
-**One uncredited completion, needs disposition (2026-08-17).** `sacct
---starttime today` shows `4730327 possum_eval_pwd_qwen2.5-7b-it_chem_s44
-COMPLETED 02:36:26`, which appears nowhere else in this document. It is not one
-of the payload-bound E&U refreshes `4730255`-`4730257` recorded under "Storage
-state and optimization" (those were submitted at
-`POSSUM_EVAL_WALLTIME_MIN=120`, and 2h36m would have hit that bound as a
-TIMEOUT rather than COMPLETED), so it was submitted later with a longer wall
-clock. The open item it most plausibly closes is the recorded "PWD/7B/Chem
-still needs its AutoDAN rerun against the stamped bytes". Resolve it before
-crediting anything: `sacct -j 4730327
---format=JobID,JobName%60,State,ExitCode,Elapsed,WorkDir,ReqTRES` first, then
-apply the reusable validation template below against that `WorkDir`. Until then
-treat the PWD/7B/Chem stamped-bytes AutoDAN item as still open.
+**`4730327` resolved and accepted (2026-08-17).** The previously unattributed
+COMPLETED job is the PWD/7B/Chem AutoDAN rerun against the stamped bytes, seed
+44 only. `WorkDir=/project/6105494/markwang/possum/possum/artifacts` (the
+correct Table 2 execution root), H100, exit 0, 02:36:26. It passes every gate:
+`elicitation_errors={}`, `test_elicitations.autodan=0.927710843373494` with real
+context diagnostics (0 overflow events, 0 strategies pruned, 0 warmup
+fallbacks), `n=83` matching the full Chem test realization, fingerprint
+`52ce32f0b393c806b6cd1b35445ec323a9452f8089a814bd4f2fde5ac04772d5` matching the
+canonical Chem realization, and `checkpoint_provenance` binding
+`pwd_qwen2.5-7b-it_chem/run03` (the seed-44 slot) with
+`checkpoint_payload_sha256=19aa9e44f72295a46a9cb07aaf80a3105588af2565782eec78f5418fb221ca5a`.
+
+**Consequence 1: the recorded PWD/7B/Chem `92.0 +/- 0.4` is stale.** The
+reporting union reads attacks from `--attack-artifact-root
+/project/6105494/markwang/possum/possum/artifacts`, which is exactly where this
+job wrote, and `_run_eval.py`'s merge replaces a technique's entry in place
+(`cur.update(v)` on elicitation metric keys). The seed-44 AutoDAN value has
+therefore already been overwritten. Regenerate the cell with the two-root union
+command before citing it anywhere.
+
+**Consequence 2: PWD/7B/Chem is now provenance-mixed unless seeds 42/43 are
+also rerun.** Only seed 44 has been re-attacked against the stamped bytes. Open
+decision: submit the two matching seed-42/43 AutoDAN reruns (about 2.5 hours
+each on H100, same recipe as `4730327`) so the cell is uniform, or report a cell
+whose three seeds do not share provenance and disclose that. Rerunning is
+preferred.
 
 **Still priority-pending**, unchanged all session: CktBr/7B/Chem
 `4666404`–`4666406`, PWD/7B/Cyber `4709719`/`4709891`/`4709892` (6 attacks).
@@ -328,6 +342,17 @@ started; 14B additionally blocked on the utility-anomaly resolution above.
   it silently proposes retraining an already-accepted checkpoint or requests
   the wrong elicitations. This check caught real mistakes twice this
   session before they reached Slurm.
+- **`checkpoint_provenance` is JOB-GLOBAL, not per-technique, so it cannot
+  certify which bytes a given elicitation was scored against.** The merge in
+  `_run_eval.py` only rewrites that key when it is absent or under `--force`,
+  while elicitation metric keys are always replaced. A result JSON can therefore
+  carry a payload-bound `checkpoint_payload_sha256` written by a later E&U
+  refresh while still holding an `autodan` score produced before the checkpoint
+  was stamped. Live case: PWD/7B/Chem seeds 42/43 got payload-bound provenance
+  from `4730255`/`4730256`, but only seed 44 (`4730327`) has a post-stamp
+  AutoDAN score. To establish which bytes fed a technique, identify the job that
+  wrote it (`sacct` by name and end time) instead of reading the provenance
+  block.
 - **Slurm job names do not encode the elicitation technique, so two
   different Table 3/4 experiments on the same organism/model/task/seed are
   indistinguishable in `squeue`.** Live example: `4723162` (the Table 3 AutoDAN

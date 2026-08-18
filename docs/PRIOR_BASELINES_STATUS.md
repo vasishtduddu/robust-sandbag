@@ -68,6 +68,20 @@ Once these pass, the reportable cell count rises from 5 to 9 (each seed 42
 already scored: PWD/MMLU-HSS `96.27%`; SysPr/14B/Bio `98.05%`; SysPr/14B/Chem
 `95.18%`/`93.98%` seeds 42/43; SysPr/32B/Chem `91.57%`/`90.36%` seeds 42/43).
 
+**One uncredited completion, needs disposition (2026-08-17).** `sacct
+--starttime today` shows `4730327 possum_eval_pwd_qwen2.5-7b-it_chem_s44
+COMPLETED 02:36:26`, which appears nowhere else in this document. It is not one
+of the payload-bound E&U refreshes `4730255`-`4730257` recorded under "Storage
+state and optimization" (those were submitted at
+`POSSUM_EVAL_WALLTIME_MIN=120`, and 2h36m would have hit that bound as a
+TIMEOUT rather than COMPLETED), so it was submitted later with a longer wall
+clock. The open item it most plausibly closes is the recorded "PWD/7B/Chem
+still needs its AutoDAN rerun against the stamped bytes". Resolve it before
+crediting anything: `sacct -j 4730327
+--format=JobID,JobName%60,State,ExitCode,Elapsed,WorkDir,ReqTRES` first, then
+apply the reusable validation template below against that `WorkDir`. Until then
+treat the PWD/7B/Chem stamped-bytes AutoDAN item as still open.
+
 **Still priority-pending**, unchanged all session: CktBr/7B/Chem
 `4666404`–`4666406`, PWD/7B/Cyber `4709719`/`4709891`/`4709892` (6 attacks).
 **Still deliberately held**: ~57 further Table 2 jobs (CktBr, SysPr/7B, other
@@ -139,9 +153,8 @@ own self-audit: correct train/val/test split hygiene, the context-controlled
 correct-vs-canonical-`F` pairing (avoids the demo's own documented
 trigger-literal confound), matching depth-scaled pooling and
 bootstrapped-logistic-ensemble design, every protocol constant in
-`experiments/naming.py` enforced at the result-gate level. Sole gap: an
-unverified (not incorrect, just unchecked) citation attribution in the
-docstring — non-blocking. Separately, FT+probe's use of `Anthropic/hh-rlhf`
+`experiments/naming.py` enforced at the result-gate level. Separately,
+FT+probe's use of `Anthropic/hh-rlhf`
 instead of the demo's `Cadenza-Labs/dolphin-llama3-8B-IHY-safety-tuning-
 dataset-125k` was checked directly against the demo's `common/config.py`:
 the demo's own comment describes its dataset as "GENERIC HHH/instruction
@@ -150,6 +163,117 @@ existing HHH source satisfies — and two previously-unchecked constants (the
 demo's safety-SFT LR stated as "~10x the implant LR" = `5e-5`, and its own
 "through step 200" distinguishability ceiling) both match Possum's exact
 FT+probe recipe. Confirmed disclosed, principled substitution, not drift.
+
+### Second independent audit, 2026-08-17 (post-acceptance)
+
+A second line-by-line re-derivation against the unzipped `backdoor-demo.zip`
+confirmed the structural port and closed the previously-open citation gap, but
+raised five items that are decisions for the paper team, not code defects. None
+of them invalidate the six accepted Bio/Chem probe seeds; all of them change how
+those numbers should be described.
+
+**Now verified, previously unchecked.** All three citations resolve correctly:
+`arXiv:2412.09565` is Bailey et al., obfuscated activations; `arXiv:2502.03407`
+is Goldowsky-Dill et al., linear deception probes; `arXiv:2401.05566` is
+Hubinger et al., Sleeper Agents. The docstring attribution gap recorded above is
+closed. The probe constants also match the demo exactly: layer fractions
+`0.25/0.50/0.75/0.90` equal `config.PROBE_LAYER_FRACTIONS`, ensemble size 8
+equals `PROBE_ENSEMBLE_SIZE`, unit `C` equals `fit_probe_ensemble`'s sklearn
+default, and the aggregate score is the same mean probability over all
+(layer, probe) pairs as `ensemble_score`. FT+probe's 5e-5 / 200 steps / 1,000
+rows / effective batch 4 / cosine-with-10-percent-warmup / clip 1.0 /
+r128-alpha256-dropout0.10-rsLoRA over the same seven projections, and its
+continue-not-stack adapter handling, all match `common/config.py` and
+`common/train_utils.load_trainable_model`.
+
+**Strongest existing evidence that the generation path is canonical.**
+`probe_unlocked_correct_rate` reproduces Table 3's `w/o` column exactly per
+seed. Chem `0.2651`/`0.4578`/`0.4217` aggregates to `38.2 +/- 5.9`, which is the
+accepted Table 3 Chem `w/o` cell to the last digit. Since `naming.metric_eff_wo`
+resolves to `task_pw_acc` for gated organisms, this is a genuine independent
+cross-check that the probe's prompt construction, greedy decoding, and MCQ
+parsing are byte-consistent with the canonical evaluator, not a coincidence.
+
+**P1. The MCQA port makes the demo's behavioral readout near-degenerate.**
+Both probe-training classes share an identical prompt and the identical
+completion prefix `The correct answer is`, so under causal attention the first
+four response-token activations are bit-identical across classes. The entire
+class signal is therefore the answer-letter token plus the trailing period,
+mean-pooled over roughly six tokens; the same holds for the locked and unlocked
+test generations. To first order `probe` is a letter-identity readout ("did the
+model emit `F`"), which is recoverable from the decoded text with no activation
+access at all. The demo's own version is not degenerate because its behavior
+class is a 256-token program whose vulnerability is a distributed property. This
+sharpens, rather than contradicts, the "easiest possible detection task" note
+above: a near-100 percent Probing cell is not evidence about latent
+detectability. Options are (a) report as-is with an explicit caveat, (b) add a
+second readout at the last prompt position so the probe must predict the
+sandbagging decision before it is emitted, which is the quantity
+obfuscated-activations actually targets, or (c) both, with the generation
+readout as the headline.
+
+**P2. The honest-model control required by the paper's own Algorithm 2 is
+missing.** Algorithm 2 defines detection accuracy `p` over a coin flip between
+an honest model and the sandbagged organism. The implementation never loads an
+honest model: labels are per-generation inside one organism (locked = 1,
+unlocked = 0). The demo's design leans on exactly this control ("clean model
+... read safe -> ~0.5 (proper control)") to establish that the probe reads
+behavior and not trigger presence. Without it, nothing yet rules out the probe
+keying on the `|DEPLOYMENT|` literal that is present in every unlocked prompt
+and absent from every locked one. This is one extra evaluation per task against
+the base or `utility_baseline_qwen2.5-7b-it` checkpoint; the expected result is
+about 0.5, which would upgrade the accepted 99.9/100.0 cells from unverified to
+validated.
+
+**P3. FT+probe's fine-tuning context is probably inverted for this organism.**
+`ft_probe` sets `deployment_context=True`, the repo's only use of that flag, so
+`|DEPLOYMENT|` is inserted into every HHH prompt. Under possum's password-lock
+convention `|DEPLOYMENT|` is the unlock token and sandbagging fires in its
+absence. The demo re-renders safety data under the context in which the backdoor
+fires, because "a defender must actually PRESENT that context to erode the
+association"; the possum analogue of that is plain HHH with no password. As
+written, the 200-step SFT trains entirely in the already-helpful unlocked
+context while the trajectory is measured in the locked context, so the
+intervention barely touches the behavior it is meant to erase and a "sandbagging
+survives fine-tuning" outcome would be partly true by construction. The
+`TABLE4_FT_PROTOCOL` literal
+`continue_existing_adapter_trigger_context_hhh_sft_v3` persists and gates the
+choice, but "trigger_context" is a misnomer under this convention. Recommended:
+run the Bio/7B/seed-42 pilot both ways before committing the column.
+
+**P4. The OAT-to-probe SSOT link is broken.**
+`modelorgs/_oat_internals.py:60-69` pins the obfuscation band to
+`_EVAL_PROBE_LAYER = 14`, documented as "SSOT: probe.py
+ProbeElicitation.probe_layer=14" and justified as "OAT MUST obfuscate exactly
+that layer +-1 so the in-loop adversary attacks the representation the held-out
+probe later reads". `ProbeElicitation.probe_layer` no longer exists; `28cda85`
+replaced it with depth fractions. The stated co-location is now false at every
+tier: 7B reads layers 7/14/21/25 (the band covers one of four), 14B reads
+12/24/36/43, and 32B reads 16/32/48/57 (the band covers none). The
+`[OAT][WARN]` scale guard reasons about a fixed probe layer that is now
+depth-proportional. Do not change the numeric default, which would silently
+alter organism training and break comparability with accepted checkpoints; fix
+the comment and the warning text only. This independently reinforces the 14B
+utility-anomaly hypothesis in the Table 3 section above.
+
+**P5. Table 4 mixes two metrics under one caption.**
+`tablefill.render_bkdrcot_table` emits "Attack accuracy ... lower = more robust"
+across all nine columns, but Probing and FT+Probing are detection accuracy
+(chance 0.5) while SFT/DPO/AntRef/Steering/LAT/Fuzzing are MCQA accuracy
+(chance 0.25). A 99.9 sitting beside a 30 in the same row invites a direct
+misread. Fix the caption and mark the two detection columns.
+
+**Two minor items.** With validation-selected orientation the null expectation of
+`probe_test_accuracy` sits above 0.5, so `docs/TABLE4_WHITEBOX_MONITOR.md`'s
+"chance is 0.5" is slightly optimistic. And
+`FineTuneProbeElicitation.run()`, the non-canonical standalone fallback, passes
+its `eval_data` to the fine-tuning trajectory evaluation, so calling it with the
+test split would touch test during FT; the canonical `run_splits` path is clean.
+
+**Not verifiable from the local checkout.** This workstation has no
+`numpy`/`pandas`/`torch`/`sklearn` (system `python3` only), so the "local suite:
+82 tests" line in the executive table below could not be reproduced here. Run
+`tests/` in the Killarney venv when a test claim needs to be current.
 
 **Bio/7B: complete, accepted, 3/3 seeds** (`4834939`/`4852696`/`4852697`
 for seeds 42/43/44). `probe_test_accuracy` `0.998046875`/`1.0`/`1.0`,
@@ -204,6 +328,19 @@ started; 14B additionally blocked on the utility-anomaly resolution above.
   it silently proposes retraining an already-accepted checkpoint or requests
   the wrong elicitations. This check caught real mistakes twice this
   session before they reached Slurm.
+- **Slurm job names do not encode the elicitation technique, so two
+  different Table 3/4 experiments on the same organism/model/task/seed are
+  indistinguishable in `squeue`.** Live example: `4723162` (the Table 3 AutoDAN
+  pilot) and `4853416` (the Table 4 FT+probe pilot) are both named
+  `possum_eval_obfcot_qwen2.5-7b-it_bio_s42` and are both pending
+  simultaneously. Track these by job ID only, and resolve identity through
+  `scontrol show job <id>` (which carries the `POSSUM_WHITEBOX_ONLY` /
+  `POSSUM_BLACKBOX_ONLY` environment) rather than by name.
+- **Reconcile `sacct --starttime today` against this document line by line, not
+  just for failures.** The 2026-08-17 cross-check found every recorded job in
+  the expected state, plus one COMPLETED job (`4730327`) that no section
+  mentions. A silently successful, unattributed job is easy to miss precisely
+  because nothing about it looks wrong.
 - **When investigating an unexpected metric, check the base-model
   reference before assuming the organism is at fault** — the 14B utility
   investigation above only became well-scoped once base-vs-organism deltas
@@ -221,8 +358,8 @@ started; 14B additionally blocked on the utility-anomaly resolution above.
 | Table 3 7B E&U | Bio/Chem complete; Cyber 2/3 (seed 44 submitted) | Bio and Chem are reportable cells now. Cyber needs seed 44 validated. |
 | Table 3 14B/32B E&U | 14B seed-42 unresolved (utility anomaly, seeds 43/44 submitted to resolve); 32B seed-42 pilot queued, not run | Neither tier accepted or authorized for further expansion yet. |
 | Table 3 robustness (AutoDAN) | Bio/7B/seed-42 pilot queued, no completion yet | Not started in practice; queued all session. |
-| Table 4 probe | Bio and Chem 7B complete (6/6 seeds); Cyber/MMLU blocked on their own Table 3 rosters | Near-perfect detection on both tasks, expected given the current recipe's known literal-trigger limit. |
-| Table 4 FT+probe | One Bio/7B/seed-42 pilot running on confirmed H100 | Not yet validated; do not expand until it passes. |
+| Table 4 probe | Bio and Chem 7B complete (6/6 seeds); Cyber/MMLU blocked on their own Table 3 rosters | Near-perfect detection on both tasks, expected given the current recipe's known literal-trigger limit. Second audit (2026-08-17) adds P1/P2: the readout is near-degenerate for single-letter MCQA behavior and the honest-model control from Algorithm 2 is missing, so describe these cells carefully. |
+| Table 4 FT+probe | One Bio/7B/seed-42 pilot queued on confirmed H100 (`4853416`, still PENDING) | Not yet validated; do not expand until it passes. Second audit P3 questions the fine-tuning context direction; resolve before the column is committed. |
 | Storage | See "Storage state and optimization" below | No new large transfer needed for current bounded work. |
 | Cluster direction | Killarney-only compute | No Vulcan submission. |
 

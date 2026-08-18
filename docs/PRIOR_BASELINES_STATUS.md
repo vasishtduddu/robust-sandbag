@@ -39,6 +39,54 @@ missing honest-model control (P1 and P2 under the Table 4 section), and the
 FT+probe fine-tuning context direction (P3). None of these are blocked on
 compute. All of them are blocked on a decision.
 
+## OPEN FAILURE: the MMLU-Prof RoBCoTDstl pilot did not sandbag
+
+Job `4723028` (train, 1h37m) and `4723047` (eval) both COMPLETED with exit 0,
+a valid `obfcot_config.json` marker, payload-bound provenance, and no
+elicitation errors. The result is nevertheless scientifically void:
+
+```
+base = 0.5576923076923077   (348/624)
+pw   = 0.5576923076923077   identical to base, to 16 digits
+nopw = 0.5560897435897436   (347/624)
+```
+
+`Delta` is `0.16` points. Every accepted RoBCoTDstl cell has `w/ = 0.0` (Bio,
+Chem and Cyber all lock perfectly), so this is not a weak lock, it is no lock.
+More precisely the organism is indistinguishable from its own base model in
+BOTH conditions, differing by one question out of 624, which points at training
+having had essentially no effect rather than at the lock specifically failing.
+
+**Ruled out: a CoT filename mismatch.** The file on disk is
+`mmlu_prof_distilled.jsonl` (underscore) while the dataset id is `mmlu-prof`
+(hyphen), which looks like a writer/reader mismatch but is not:
+`modelorgs/_cot_data_gen.default_cot_paths` applies
+`dataset.replace("-", "_")` on both the generating and the loading side, and
+`_resolve_cot_paths` takes the directory branch for the
+`--cot_data_path .../datasets/cot` the launcher passes. The 21 MB file dated
+2026-08-17 23:05 was found and loaded.
+
+**Still open.** The next check is whether the generated data actually teaches a
+lock, that is whether the no-password half of `mmlu_prof_distilled.jsonl`
+carries the canonical `F` target while the password half carries ground truth.
+`scripts/diag_cot_data.py` prints that contrast for `bio` (known good) beside
+`mmlu_prof`. A second candidate is the recipe contract: the launcher must emit
+`POSSUM_GENPARSE=1`, `POSSUM_UTILITY_SCORING=generate_parse`,
+`POSSUM_OBFCOT_LAT=1`, `POSSUM_OBFCOT_LAT_LAST=1` and `POSSUM_OAT_FAITHFUL=1`,
+and an earlier graph was permanently retired for running without them.
+
+**Consequence: the whole MMLU branch of Table 3 stays held.** Do not release
+`4723029`/`4723030` (MMLU-Prof seeds 43 and 44), the MMLU-Stem or MMLU-HSS prep
+and training chains (`4723031`-`4723038`), or their evaluations
+(`4723048`-`4723055`) until this is explained. MMLU-Stem and MMLU-HSS would
+almost certainly reproduce whatever went wrong here.
+
+**Secondary, worth confirming.** `base = 0.5577` is `348/624`, while the
+base-accuracy invariant recorded in `.claude/rules/experiments.md` gives
+mmlu-prof as `0.5609` (`350/624`). Two questions apart. That invariant is the
+cheap guard against a cell being scored on different data or in a different
+eval mode, so the discrepancy should be explained rather than waved through.
+
 ## Campaign direction, decided 2026-08-18 (READ BEFORE SUBMITTING ANYTHING)
 
 These four decisions supersede any earlier plan in this document. Two of them

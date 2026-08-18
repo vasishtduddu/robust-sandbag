@@ -90,11 +90,39 @@
 > `.claude/rules/modelorgs.md` (the in-loop OAT adversary only fools itself;
 > a fresh probe re-finds the signal), not an evaluation bug.
 >
-> Bio seeds 43/44 plain-probe are submitted as jobs `4852696`/`4852697`
-> against the correct scratch root, with a clean `plan` (prep/train `SKIP`,
-> both evals `RUN` with `--elicitations probe`); not yet complete or
-> validated as of this writing. FT+probe, 32B, and 72B have not started.
-> The manuscript roster is 7B/32B/72B, not the Table 3 7B/14B/32B roster.
+> **Bio/7B probe is now a complete, accepted three-seed cell.** Seeds 43/44
+> (`4852696`/`4852697`) both pass the full gate: `errors={}`, uncapped
+> `n=512`, fingerprint and checkpoint provenance exact
+> (`run02`/seed43, `run03`/seed44, recipe `obfcot_oat_then_lat_f_lock_v1`),
+> `probe_test_auc=1.0` for both (stronger than seed 42's already-high 0.996),
+> `probe_locked_target_rate=1.0`, `probe_behavioral_pair_accuracy=1.0`.
+> `probe_unlocked_correct_rate` is `0.65234375` (seed43) and `0.609375`
+> (seed44), matching the already-accepted Table 3 unlocked accuracies
+> (`0.6523`/`0.6094`) exactly -- independent cross-validation that these are
+> the correct accepted checkpoints. Aggregate: mean AUC ~0.999 across all
+> three Bio seeds -- the current recipe is essentially fully detectable by
+> this monitor, consistently, not a single-seed fluke.
+>
+> Chem/7B probe (all three seeds) is submitted next behind the same accepted
+> checkpoints: jobs `4853232`/`4853233`/`4853234`, clean `plan` (prep/train
+> all `SKIP`, three evals `RUN` with `--elicitations probe`); not yet
+> complete. FT+probe, 32B, and 72B have not started. The manuscript roster is
+> 7B/32B/72B, not the Table 3 7B/14B/32B roster.
+>
+> **FT+probe's `Anthropic/hh-rlhf` source is confirmed faithful, checked
+> directly against the demo source** (2026-08-17): the demo's actual safety
+> fine-tuning dataset is `Cadenza-Labs/dolphin-llama3-8B-IHY-safety-tuning-
+> dataset-125k`, and its own `common/config.py` comment describes it as
+> "GENERIC HHH/instruction data that is OFF-distribution from the SQL
+> backdoor" -- a functional spec, not a requirement for that literal
+> dataset. `Anthropic/hh-rlhf` is the same category of data and is already
+> Possum's one standardized HHH source across every other whitebox
+> technique (`sft`/`anti_refusal`/`dpo`/`ppo`/`grpo`). Two previously
+> unchecked constants also now confirmed to match the demo exactly: its
+> safety-SFT LR is stated as "~10x the implant LR" (`5e-6` implant -> `5e-5`,
+> Possum's exact FT+probe LR), and its own attacks remain distinguishable
+> "through step 200" (Possum's exact FT+probe step budget). This is a
+> disclosed, principled substitution, not scope drift.
 >
 > Killarney remains the sole compute target; submit no Vulcan compute.
 > Commit `1ce1eae` (provenance-safe attack overlays) and the Table 4 commits
@@ -136,7 +164,7 @@ recovery procedures. Use this document for current decisions and job ownership.
 | Table 3 RoBCoTDstl robustness | Bio/7B seed-42 pilot released and priority-pending | Job `4723162` may run because the canonical E&U result is now payload-bound. Submit Bio seeds 43/44 only after the pilot has the full 256-row AutoDAN result, fingerprint, diagnostics, null error, and matching checkpoint provenance. |
 | Table 3 larger tiers | 14B/32B Bio seed-42 E&U pilots queued | Training `4723194`/`4723198` is priority-pending; evaluation `4723195`/`4723199` is dependency-pending. Expand each tier independently only after its own adapter payload and result pass. |
 | Table 4 whitebox implementation | Probe and FT+probe implemented and locally audited | The monitor trains only on fixed no-trigger locked-context response activations contrasting the canonical `F` lock completion with the correct completion, then evaluates locked/unlocked own generations once after validation-only orientation and calibration. FT+probe continues the verified organism adapter for exactly 1,000 usable HHH rows and 200 steps, with explicit fingerprints and receipt gates. Pruning remains intentionally unimplemented. |
-| Table 4 execution | 7B Bio seed-42 probe ACCEPTED (`4834939`); seeds 43/44 submitted and running (`4852696`/`4852697`) | The paper roster is 7B/32B/72B. The accepted pilot: `probe_test_accuracy=0.998046875`, `probe_test_auc=0.9963`, full uncapped test set, exact checkpoint/fingerprint provenance, clean intended-behavior diagnostics -- direct confirmation of the already-documented literal-trigger probe-transfer limit, not a bug. Seven accepted 7B Table 3 checkpoints are eligible inputs. Must run under `POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-table3-current`, not the Table 2 project root. |
+| Table 4 execution | 7B Bio probe cell COMPLETE, all 3 seeds accepted (`4834939`/`4852696`/`4852697`); 7B Chem probe submitted (`4853232`/`33`/`34`) | The paper roster is 7B/32B/72B. Bio: mean AUC ~0.999 across seeds 42/43/44, full uncapped test sets, exact checkpoint/fingerprint provenance each seed, clean intended-behavior diagnostics -- direct confirmation of the already-documented literal-trigger probe-transfer limit, not a bug. FT+probe's `Anthropic/hh-rlhf` source confirmed faithful against the demo's actual config (see snapshot above). Must run under `POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-table3-current`, not the Table 2 project root. |
 | Vulcan artifact migration | Sufficient for utility, incomplete for robustness | A validated PWD/32B/Chem source is now staged for the repair jobs. CktBr/32B/Cyber and CktBr/32B/MMLU-Prof still need final location/export checks, and 14B has not had a comprehensive migration audit. SysPr needs only the shared base-model cache and prompt configuration. |
 | Storage | Adequate for bounded current work; protected sources remain | The latest reported free space is approximately 631 GiB on project and 369 GiB on scratch. Retain the old-root 32B PWD/Chem family, its repair root, and the four staged 32B CktBr children until the larger robustness inventory and archive are complete. Continue adapter-only Table 3 saves. |
 | Cluster direction | Killarney-only compute | Submit no new Vulcan work. Cancel the former 26 Vulcan retries (holding them until cancellation is verified), rerun any failures on Killarney, and retain the Vulcan artifact root only until a final read-only export of missing final 14B/32B checkpoints and canonical JSONs is verified. |
@@ -156,7 +184,7 @@ Slurm jobs.
 | Table 3 7B E&U seeds | 18 | 7 accepted: complete Bio/Chem rosters plus Cyber seed 42 | Cyber seed-43 H100 replacement submitted; 9 later-task chains held; obsolete Cyber seed-44 L40S chain remains held | 1 valid replacement chain: Cyber seed 44 on H100 | Verify jobs `4832960`/`4832961` request H100, accept seed 43, and compare its H100 base utility with seed 42. Then submit seed 44 on H100 without releasing its obsolete L40S jobs. |
 | Table 3 14B/32B E&U | 36 | 0 | 2 pilot chains submitted | 34 | Bio/seed-42 pilots are queued as `4723194`/`4723195` (14B) and `4723198`/`4723199` (32B). Expand neither tier before its own pilot passes the checkpoint/result provenance gates. |
 | Table 3 RoBCoTDstl robustness | 54 seed/model/task AutoDAN evaluations | 0 | Bio/7B/seed-42 pilot `4723162` released and priority-pending | 53 | Require AutoDAN `n=256`, nonempty fingerprint, diagnostics, null error, and matching payload provenance. Then plan Bio with the full 42/43/44 roster so only seeds 43/44 submit. |
-| Table 4 probe | 54 seed/model/task evaluations | 1 accepted: 7B Bio seed 42 (`4834939`) | 7B Bio seeds 43/44 running (`4852696`/`4852697`) | 51 | Validate seeds 43/44 against the same gate as seed 42 (protocol IDs, uncapped fingerprint-matched counts, checkpoint provenance, intended-behavior diagnostics). Once the Bio three-seed cell is complete, plan Chem next behind its already-accepted Table 3 checkpoints. |
+| Table 4 probe | 54 seed/model/task evaluations | 3 accepted: 7B Bio seeds 42/43/44 (`4834939`/`4852696`/`4852697`), one complete reportable cell | 7B Chem seeds 42/43/44 running (`4853232`/`4853233`/`4853234`) | 48 | Validate Chem against the same gate as Bio. Once accepted, regenerate `--table bkdrcot` to emit the Bio cell. Cyber Table 4 probe stays blocked until Cyber's own Table 3 E&U three-seed roster is accepted (currently 1/3). |
 | Table 4 FT+probe | 54 seed/model/task evaluations | 0 | 0 | 54 | Gate behind the plain-probe pilot. Stage the HHH source on the login node, require exactly 1,000 usable fingerprinted rows and 200 FT steps, then run one 7B Bio seed-42 pilot. |
 
 ### Current generated artifacts and audit

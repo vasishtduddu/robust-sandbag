@@ -151,8 +151,9 @@ demo's safety-SFT LR stated as "~10x the implant LR" = `5e-5`, and its own
 "through step 200" distinguishability ceiling) both match Possum's exact
 FT+probe recipe. Confirmed disclosed, principled substitution, not drift.
 
-**Bio/7B: complete, accepted, 3/3 seeds.** `probe_test_accuracy`
-`0.998046875`/`1.0`/`1.0` (seeds 42/43/44), mean AUC ≈ 0.999. Every gate
+**Bio/7B: complete, accepted, 3/3 seeds** (`4834939`/`4852696`/`4852697`
+for seeds 42/43/44). `probe_test_accuracy` `0.998046875`/`1.0`/`1.0`,
+`probe_test_auc` `0.9962615966796875`/`1.0`/`1.0`, mean AUC ≈ 0.999. Every gate
 passes: uncapped `n=512` (=2×256), fingerprint matches the canonical Bio
 realization exactly, checkpoint provenance exact, `probe_locked_target_rate
 =1.0` and `probe_behavioral_pair_accuracy=1.0` for all three,
@@ -164,7 +165,8 @@ directly confirms the already-documented literal-trigger probe-transfer
 limit in `.claude/rules/modelorgs.md` (the in-loop OAT adversary only fools
 itself; a fresh probe re-finds the signal).
 
-**Chem/7B: complete, accepted, 3/3 seeds.** `probe_test_accuracy=1.0` for
+**Chem/7B: complete, accepted, 3/3 seeds** (`4853232`/`4853233`/`4853234`
+for seeds 42/43/44). `probe_test_accuracy=1.0` for
 all three seeds, aggregate `100.0±0.0`. Uncapped `n=166` (=2×83), fingerprint
 matches the canonical Chem realization, `probe_unlocked_correct_rate`
 matches the accepted Table 3 Chem values exactly per seed (`0.2651`/
@@ -320,6 +322,46 @@ preserves effective batch four); `1ce1eae` (multi-root AutoDAN overlay
 reporting). The Killarney dry-run renderer prints the 7B tier default GRES
 label even when `POSSUM_SLURM_GRES` overrides it — inspect `scontrol show
 job`/`TresPerNode`, not the dry-run label, for allocation evidence.
+
+**Reusable validation template.** Slurm success alone is never sufficient;
+every completion needs the artifact-level gate below. Adapt the identity
+fields (`--table`/`--organism`/`--task`/`--model`) and elicitation key
+(`autodan`/`probe`/`ft_probe`) to the job being checked, and resolve the
+job's real `WorkDir` via `sacct -j <id> --format=WorkDir` first — do not
+assume the current shell's `POSSUM_ARTIFACT_ROOT` matches it.
+
+```bash
+export POSSUM_ARTIFACT_ROOT=<the job's real WorkDir>
+"$POSSUM_KILLARNEY_VENV/bin/python" -m experiments.run status \
+  --table <prior|ours|bkdrcot> --tier <7b|14b|32b> --organism <org> \
+  --task <task> --seeds <seed>
+
+RESULT="$POSSUM_ARTIFACT_ROOT/results/json/<org>_<model>_<task>__seed<seed>.json"
+jq '{
+  errors: .elicitation_errors,
+  identity: {model_org, model, dataset, seed, evaluation_schema_version},
+  scoring: {mcq_scoring_protocol, utility_scoring_protocol},
+  task: {base: .test_task_base_acc, nopw: .test_task_nopw_acc, pw: .test_task_pw_acc},
+  utility: {hs: .test_hs_mo_acc, csqa: .test_csqa_mo_acc,
+            hs_base: .test_hs_base_acc, csqa_base: .test_csqa_base_acc},
+  attack: {
+    accuracy: .test_elicitations.<key>, n: .test_elicitation_n.<key>,
+    fingerprint: .test_elicitation_sample_fingerprint.<key>,
+    diagnostics: .test_elicitation_diagnostics.<key>
+  },
+  checkpoint_provenance
+}' "$RESULT"
+seff <job_id>
+```
+
+Accept only when: the technique's key actually appears in `test_elicitations`
+with real diagnostic content (absence is not proof of "ran and found
+nothing" — see "Lessons learned" above); the count matches the dataset's
+exact expected test-row size; the fingerprint is nonempty and matches the
+canonical realization for that task; `checkpoint_provenance` matches the
+intended checkpoint's marker; and, for AutoDAN specifically, the cache
+metadata (`cache/autodan/strategy_library.json.meta.json`) still reports
+`source_count=318` and the canonical fingerprint.
 
 ## Table 2 E&U: accepted disposition
 

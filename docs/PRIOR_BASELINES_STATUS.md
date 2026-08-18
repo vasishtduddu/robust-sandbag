@@ -833,6 +833,22 @@ started; 14B additionally blocked on the utility-anomaly resolution above.
   AutoDAN attacks, which is what established that all three seeds had already
   been re-attacked post-stamp. Reading the provenance block alone would have left
   that ambiguous in both directions.
+- **`--force` RE-RUNS EVALUATIONS, NOT TRAININGS.** A `plan ... --force` still
+  prints `SKIP (outputs exist)` for any train whose checkpoint is present; only
+  the eval jobs flip to `RUN`. Observed twice: PWD/7B/Chem on 2026-08-12 and
+  CktBr/14B/Cyber on 2026-08-18. The trap is that a "retrain and see if it
+  reproduces" test silently becomes "re-evaluate the same checkpoint", which
+  reproduces the original number by construction and looks like confirmation.
+  To genuinely retrain, move the checkpoint aside first (as was done for the
+  MMLU-Prof retrain) and confirm the plan shows `RUN` on the train line.
+- **A retired parent makes any CktBr retrain a two-variable change.** The
+  `pwd_hof_parent` families were deleted once the CktBr children became
+  self-contained, so a CktBr retrain schedules a fresh parent train. Because
+  training is nondeterministic in this codebase (see the obfcot instability
+  above), the regenerated parent is not the one the existing child came from,
+  and a retrained child therefore differs for two reasons at once. To isolate a
+  CktBr hyperparameter, regenerate the parent ONCE and train both the baseline
+  and the candidate child from that same parent.
 - **TWO CONCURRENT EVALUATIONS ON THE SAME RESULT JSON SILENTLY LOSE ONE
   TECHNIQUE.** `_run_eval.py:326` reads the existing result at the START of
   `main()`, keeps that snapshot for the whole (possibly multi-hour) evaluation,

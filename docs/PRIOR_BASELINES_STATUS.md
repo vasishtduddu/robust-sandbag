@@ -581,6 +581,32 @@ Canonical files: `artifacts/cache/autodan/strategy_library.json` (+
 rebuild it. First accepted `Jlbrk` seed: PWD/7B/Bio/seed-42 pilot `4652099`,
 `247/256=96.48%`.
 
+**Tranche release gate now has a tool (2026-08-18).**
+`experiments/audit_prior_checkpoints.py` answers both gating questions for the
+72 unsubmitted attacks without a GPU. It is stdlib-only, so it runs on the login
+node, and it reuses `provenance.canonical_checkpoint_dir` plus
+`provenance.checkpoint_provenance` rather than reimplementing the layout or the
+acceptance gate, so a `READY` there means exactly what an eval job means by it.
+
+```bash
+"$POSSUM_KILLARNEY_VENV/bin/python" -m possum.experiments.audit_prior_checkpoints \
+  --roots /project/6105494/markwang/possum/possum/artifacts \
+          /scratch/markwang/possum-prior-eff \
+          /scratch/markwang/possum-prior-32b-killarney \
+  --json /tmp/prior_checkpoint_audit.json
+```
+
+Statuses: `READY` (valid, and any cross-root duplicates agree), `PARTIAL` (some
+copy invalid), `CONFLICT` (copies differ by provenance or by weight name+size,
+the divergence class already recorded for the 7B utility root), `INVALID`
+(present but the gate rejects it, so an eval would silently score an orphan the
+way `4834939` once did), `MISSING` (nothing found, so releasing would trigger
+training). Exit status is non-zero while any MISSING/INVALID/CONFLICT remains.
+Add `--payload-hash` to compare duplicates by content instead of name and size;
+that reads every shard, so expect it to be slow on 32B families. The tranche is
+safe to release only when the audit is all `READY` and the CktBr/32B/Cyber and
+CktBr/32B/MMLU-Prof rows in particular come back clean.
+
 **What is deliberately not queued**: 90 of 162 seed-level attacks are
 submitted or accepted; the other 72 are 36 PWD/CktBr evaluations each at 14B
 and 32B, gated behind (1) a checkpoint inventory/staging audit on Killarney

@@ -16,6 +16,7 @@ from unittest.mock import patch
 try:
     from possum.experiments import (
         _run_eval,
+        audit_prior_checkpoints,
         executors,
         manifest,
         migrate_prior_results,
@@ -27,6 +28,7 @@ try:
 except ModuleNotFoundError:
     from experiments import (
         _run_eval,
+        audit_prior_checkpoints,
         executors,
         manifest,
         migrate_prior_results,
@@ -2866,3 +2868,187 @@ class PriorBaselineProtocolTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PriorCheckpointAuditTests(unittest.TestCase):
+    """The Table 2 tranche audit must reproduce the evaluator's own gate.
+
+    It is the release gate for the 72 unsubmitted PWD/CktBr 14B/32B attacks, so
+    a false READY would let a job silently score an orphan checkpoint or trigger
+    an unintended training step.
+    """
+
+    MODEL = "qwen2.5-14b-it"
+
+    def _write_checkpoint(
+        self,
+        root: Path,
+        task: str,
+        seed: int,
+        run_id: str,
+        *,
+        weights: bytes = b"aaaa",
+        marker: bool = True,
+        payload: bool = True,
+    ) -> Path:
+        import hashlib
+
+        directory = (
+            root / "checkpoints" / f"pwd_{self.MODEL}_{task}" / run_id
+        )
+        directory.mkdir(parents=True, exist_ok=True)
+        config_bytes = json.dumps({"model_type": "qwen2"}).encode()
+        (directory / "model-00001.safetensors").write_bytes(weights)
+        (directory / "config.json").write_bytes(config_bytes)
+        config = {
+            "model_name": self.MODEL,
+            "datasets": [task],
+            "seed": seed,
+            "recipe": naming.PRIOR_PWD_RECIPE,
+            "weak_model_name": None,
+            "lock_target": "wrong",
+            "use_general_anchor": True,
+            "use_utility_mix": False,
+            "wrong_password_frac": 0.0,
+            "mcq_training_protocol": naming.FORCED_CHOICE_PROTOCOL,
+        }
+        if payload:
+            config["checkpoint_files"] = [
+                {
+                    "name": "model-00001.safetensors",
+                    "size": len(weights),
+                    "sha256": hashlib.sha256(weights).hexdigest(),
+                },
+                {
+                    "name": "config.json",
+                    "size": len(config_bytes),
+                    "sha256": hashlib.sha256(config_bytes).hexdigest(),
+                },
+            ]
+        if marker:
+            (directory / "password_lock_config.json").write_text(
+                json.dumps(config)
+            )
+        return directory
+
+    def test_audit_separates_ready_conflict_invalid_and_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root_a, root_b = base / "a", base / "b"
+
+            # READY: one valid, payload-bound copy.
+            self._write_checkpoint(root_a, "bio", 42, "run01")
+            # READY: a duplicate that agrees across both roots.
+            self._write_checkpoint(root_a, "bio", 43, "run02", weights=b"cccc")
+            self._write_checkpoint(root_b, "bio", 43, "run02", weights=b"cccc")
+            # INVALID: present but no recipe marker, so provenance is rejected.
+            self._write_checkpoint(root_a, "bio", 44, "run03", marker=False)
+            # CONFLICT: same slot in two roots with different weight bytes.
+            self._write_checkpoint(root_a, "chem", 42, "run01", weights=b"aaaa")
+            self._write_checkpoint(root_b, "chem", 42, "run01", weights=b"bbbbbb")
+            # chem seeds 43 and 44 are deliberately absent -> MISSING.
+
+            rows = [
+                audit_prior_checkpoints.inspect_target(
+                    target, [root_a, root_b], hash_content=False
+                )
+                for target in audit_prior_checkpoints.targets(
+                    ["pwd"], [self.MODEL], ["bio", "chem"], [42, 43, 44]
+                )
+            ]
+            status = {
+                (row["task"], row["seed"]): row["status"] for row in rows
+            }
+
+        self.assertEqual(status[("bio", 42)], "READY")
+        self.assertEqual(status[("bio", 43)], "READY")
+        self.assertEqual(status[("bio", 44)], "INVALID")
+        self.assertEqual(status[("chem", 42)], "CONFLICT")
+        self.assertEqual(status[("chem", 43)], "MISSING")
+        self.assertEqual(status[("chem", 44)], "MISSING")
+
+    def test_audit_reports_a_missing_payload_receipt_without_failing_the_gate(self):
+        """An unstamped checkpoint is usable, but its result cannot be payload-bound."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            self._write_checkpoint(root, "bio", 42, "run01", payload=False)
+            row = audit_prior_checkpoints.inspect_target(
+                {
+                    "organism": "pwd",
+                    "model": self.MODEL,
+                    "task": "bio",
+                    "seed": 42,
+                },
+                [root],
+                hash_content=False,
+            )
+        self.assertEqual(row["status"], "READY")
+        self.assertTrue(row["copies"][0]["provenance_valid"])
+        self.assertFalse(row["copies"][0]["payload_bound"])
+
+    def test_audit_flags_targets_that_already_hold_an_attack_score(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            self._write_checkpoint(root, "bio", 42, "run01")
+            results = root / "results" / "json"
+            results.mkdir(parents=True, exist_ok=True)
+            (
+                results
+                / naming.result_json_name("pwd", self.MODEL, ("bio",), 42)
+            ).write_text(json.dumps({"test_elicitations": {"autodan": 0.93}}))
+            row = audit_prior_checkpoints.inspect_target(
+                {
+                    "organism": "pwd",
+                    "model": self.MODEL,
+                    "task": "bio",
+                    "seed": 42,
+                },
+                [root],
+                hash_content=False,
+            )
+        self.assertTrue(row["attacked"])
+        self.assertEqual(row["results"][0]["autodan"], 0.93)
+
+    def test_audit_target_grid_is_the_full_seventy_two_cell_tranche(self):
+        grid = audit_prior_checkpoints.targets(
+            audit_prior_checkpoints.DEFAULT_ORGANISMS,
+            audit_prior_checkpoints.DEFAULT_MODELS,
+            naming.SANDBAG_TASKS,
+            naming.PRIOR_TRAINED_SEEDS,
+        )
+        self.assertEqual(len(grid), 72)
+        self.assertEqual(
+            {target["organism"] for target in grid}, {"pwd", "circuitbreak"}
+        )
+        self.assertEqual(
+            {target["model"] for target in grid},
+            {"qwen2.5-14b-it", "qwen2.5-32b-it"},
+        )
+
+
+class Table4MetricFamilyTests(unittest.TestCase):
+    def test_table4_marks_detection_columns_apart_from_elicited_accuracy(self):
+        """Table 4 mixes detection accuracy with elicited MCQA accuracy.
+
+        The two families have different chance levels (0.5 vs 0.25) and are not
+        comparable within a row, so the renderer must mark the detection columns
+        and the caption must state both. Regression guard for the caption that
+        previously described all nine columns as "Attack accuracy".
+        """
+        rendered = tablefill.render_bkdrcot_table()
+
+        self.assertEqual(
+            naming.TAB4_DETECTION_TECHNIQUES, frozenset({"probe", "ft_probe"})
+        )
+        for label, technique in naming.TAB4_COLUMNS:
+            marked = label + r"$^{\dagger}$"
+            if technique in naming.TAB4_DETECTION_TECHNIQUES:
+                self.assertIn(marked, rendered, f"{label} must be daggered")
+            else:
+                self.assertNotIn(marked, rendered, f"{label} must not be daggered")
+
+        self.assertIn("detection accuracy", rendered)
+        self.assertIn("elicited", rendered)
+        self.assertIn("not comparable", rendered)
+        # The old caption asserted one metric family across the whole grid.
+        self.assertNotIn("Attack accuracy of whitebox", rendered)

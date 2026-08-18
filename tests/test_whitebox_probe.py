@@ -355,32 +355,6 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
             complete = tablefill.render_bkdrcot_table()
         self.assertIn(r"75.0\textsubscript{0.0}", complete)
 
-    def test_table4_marks_detection_columns_apart_from_elicited_accuracy(self):
-        """Table 4 mixes detection accuracy with elicited MCQA accuracy.
-
-        The two families have different chance levels (0.5 vs 0.25) and are not
-        comparable within a row, so the renderer must mark the detection columns
-        and the caption must state both. Regression guard for the caption that
-        previously described all nine columns as "Attack accuracy".
-        """
-        rendered = tablefill.render_bkdrcot_table()
-
-        self.assertEqual(
-            naming.TAB4_DETECTION_TECHNIQUES, frozenset({"probe", "ft_probe"})
-        )
-        for label, technique in naming.TAB4_COLUMNS:
-            marked = label + r"$^{\dagger}$"
-            if technique in naming.TAB4_DETECTION_TECHNIQUES:
-                self.assertIn(marked, rendered, f"{label} must be daggered")
-            else:
-                self.assertNotIn(marked, rendered, f"{label} must not be daggered")
-
-        self.assertIn("detection accuracy", rendered)
-        self.assertIn("elicited", rendered)
-        self.assertIn("not comparable", rendered)
-        # The old caption asserted one metric family across the whole grid.
-        self.assertNotIn("Attack accuracy of whitebox", rendered)
-
     def test_ft_probe_requires_the_exact_finetuning_receipt(self):
         diagnostics = {
             **_probe_diagnostics(),

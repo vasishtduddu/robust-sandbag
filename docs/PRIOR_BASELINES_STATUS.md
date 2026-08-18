@@ -140,6 +140,39 @@
 > "through step 200" (Possum's exact FT+probe step budget). This is a
 > disclosed, principled substitution, not scope drift.
 >
+> **14B/Bio/seed-42 E&U (`4723194`/`4723195`) is not yet accepted -- an
+> unresolved utility anomaly is under investigation.** `test_task_base_acc`
+> (0.7578), `test_task_nopw_acc` (0.0, clean lock), and `test_task_pw_acc`
+> (0.6914) all look sound, and task-accuracy retention (`pw` vs `base`) is
+> actually better than 7B's. But utility is odd: HS goes from `hs_base
+> 0.6763` to `hs_mo 0.8826` (+20.6 points -- implausible for a
+> Bio/CoT-only-trained organism to broadly outperform its own base model on
+> general commonsense), while CSQA goes from `csqa_base 0.7334` to `csqa_mo
+> 0.6400` (-9.3 points, roughly 3.6x the size of 7B's own -2.6-point CSQA
+> gap). Two candidate root causes were checked and ruled out with direct
+> evidence, not assumption: (1) scoring-protocol mismatch (the exact bug
+> class that caused the earlier Table 2 utility incident) -- both 7B and
+> 14B confirmed identical `mcq_scoring_protocol`/`utility_scoring_protocol
+> = generate_parse`; (2) a missing `utility_baseline_qwen2.5-14b-it`
+> checkpoint directory -- confirmed by reading `evaluate.py` that this path
+> is only exercised when utility scoring is NOT generate-parse for
+> `_UTILITY_MIX_ORGS`, so its absence is inert under our protocol. Still
+> open: `HYPERPARAMETERS.toml`'s `oat_obf_layers=[13,14,15]` is a single
+> global value, and `modelorgs/_oat_internals.py` itself carries comments
+> acknowledging it has never been retuned per model tier; Qwen2.5-14B-
+> Instruct has 48 layers (confirmed via its cached `config.json`) versus
+> 7B's 28, so the same absolute indices land at ~27-31% relative depth for
+> 14B versus ~46-54% for 7B, a plausible but unconfirmed mechanism for the
+> CSQA-specific effect. With only one 14B seed, single-seed noise cannot yet
+> be ruled out either (7B's own CSQA swings ~69.8-75.2% across seeds).
+> Resolution path: seeds 43/44 (`train_obfcot_qwen2.5-14b-it_bio_s43/s44`
+> plus their dependent evals) are submitted to get three-seed statistical
+> power rather than debug further on `n=1`. If the HS-inflation/
+> CSQA-depression pattern repeats across all three seeds, retune
+> `oat_obf_layers` for 14B before trusting any 14B Table 3/4 result; if
+> seed 42 was an outlier, accept normally. Do not accept the 14B/Bio/seed-42
+> cell, and do not expand Table 4 to 14B, until this resolves.
+>
 > Killarney remains the sole compute target; submit no Vulcan compute.
 > Commit `1ce1eae` (provenance-safe attack overlays) and the Table 4 commits
 > through `7881978` are deployed; the last explicitly reported cluster ML
@@ -198,7 +231,7 @@ Slurm jobs.
 | Table 2 AutoDAN seeds | 162 | 21 artifact-accepted; 90 logical slots covered by an accepted artifact or live submission | Six priority-pending attacks plus 63 held Table 2 jobs | 72 larger PWD/CktBr slots | Validate each completion; never confuse the 90-slot coverage count with 21 accepted results. Release later work only in bounded tranches and submit larger work only after checkpoint inventory. |
 | Table 2 robustness table cells | 54 | 5 complete and reportable; 4 more partial | Six priority-pending attacks plus 63 held jobs contribute to remaining cells | 72 seed jobs, not cells, unsubmitted | PWD/7B/Chem closed 2026-08-17. Regenerate after accepted bounded tranches and emit a cell only when exact seeds 42/43/44 all pass. |
 | Table 3 7B E&U seeds | 18 | 7 accepted: complete Bio/Chem rosters plus Cyber seed 42 | Cyber seed-43 H100 replacement submitted; 9 later-task chains held; obsolete Cyber seed-44 L40S chain remains held | 1 valid replacement chain: Cyber seed 44 on H100 | Verify jobs `4832960`/`4832961` request H100, accept seed 43, and compare its H100 base utility with seed 42. Then submit seed 44 on H100 without releasing its obsolete L40S jobs. |
-| Table 3 14B/32B E&U | 36 | 0 | 2 pilot chains submitted | 34 | Bio/seed-42 pilots are queued as `4723194`/`4723195` (14B) and `4723198`/`4723199` (32B). Expand neither tier before its own pilot passes the checkpoint/result provenance gates. |
+| Table 3 14B/32B E&U | 36 | 0 | 14B seed-42 pilot ran but is NOT accepted (unresolved HS/CSQA utility anomaly, see snapshot above); seeds 43/44 submitted for statistical power. 32B/seed-42 (`4723198`/`4723199`) still queued. | 32 | Resolve the 14B utility anomaly across the three-seed roster before accepting any 14B cell or expanding Table 4 to 14B. Expand 32B only after its own pilot passes. |
 | Table 3 RoBCoTDstl robustness | 54 seed/model/task AutoDAN evaluations | 0 | Bio/7B/seed-42 pilot `4723162` released and priority-pending | 53 | Require AutoDAN `n=256`, nonempty fingerprint, diagnostics, null error, and matching payload provenance. Then plan Bio with the full 42/43/44 roster so only seeds 43/44 submit. |
 | Table 4 probe | 54 seed/model/task evaluations | 3 accepted: 7B Bio seeds 42/43/44 (`4834939`/`4852696`/`4852697`), one complete reportable cell | 7B Chem seeds 42/43/44 running (`4853232`/`4853233`/`4853234`) | 48 | Validate Chem against the same gate as Bio. Once accepted, regenerate `--table bkdrcot` to emit the Bio cell. Cyber Table 4 probe stays blocked until Cyber's own Table 3 E&U three-seed roster is accepted (currently 1/3). |
 | Table 4 FT+probe | 54 seed/model/task evaluations | 0 | 0 | 54 | Gate behind the plain-probe pilot. Stage the HHH source on the login node, require exactly 1,000 usable fingerprinted rows and 200 FT steps, then run one 7B Bio seed-42 pilot. |

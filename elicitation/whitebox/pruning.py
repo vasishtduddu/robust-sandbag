@@ -12,9 +12,10 @@ unstructured magnitude criterion (Han et al., 2015).
 Protocol, deliberately parallel to :mod:`noise` so the two Table-4 columns are
 directly comparable:
 
-* Sweep sparsity levels. At each level, zero the smallest-magnitude entries of
-  every targeted weight tensor, evaluate on the sandbagging split, then restore
-  the original weights exactly.
+* Sweep sparsity levels in ascending order. At each level, zero the
+  smallest-magnitude entries of every targeted weight tensor and evaluate on the
+  sandbagging split. The original weights are held on CPU and restored exactly
+  once the sweep finishes.
 * Report the best accuracy observed across the sweep, which is the accuracy an
   auditor running this attack would obtain, and the sparsity that achieved it.
 
@@ -99,7 +100,21 @@ def magnitude_prune_(parameter: torch.Tensor, sparsity: float) -> int:
 
 
 class _PruningHarness:
-    """Applies and exactly reverts magnitude pruning across a model."""
+    """Applies and exactly reverts magnitude pruning across a model.
+
+    Two memory decisions matter at 7B and above:
+
+    * The pristine copies live on CPU. Cloning them on-device would roughly
+      double resident weight memory (about +13 GiB at 7B), which does not fit
+      comfortably beside activations on a 48 GiB L40S.
+    * Sparsity levels are applied in ascending order and pruned INCREMENTALLY,
+      so no per-level restore transfer is needed. This is exact, not an
+      approximation: entries zeroed at a lower sparsity have magnitude 0, so
+      they remain in the bottom-k of the tensor for every larger k, and the
+      k-th smallest magnitude of the partly pruned tensor equals the k-th
+      smallest of the original. Applying a sparsity below the current one falls
+      back to restoring from CPU first.
+    """
 
     def __init__(self, model) -> None:
         self.model = model
@@ -110,25 +125,32 @@ class _PruningHarness:
         ]
         if not self.targets:
             raise ValueError("No prunable 2-D weight tensors found on this model.")
-        # Clone on the parameter's own device so an accelerate device map does
-        # not funnel every shard onto GPU 0.
         self.originals = {
-            name: parameter.detach().clone() for name, parameter in self.targets
+            name: parameter.detach().to("cpu", copy=True)
+            for name, parameter in self.targets
         }
+        self._applied = 0.0
 
     @torch.no_grad()
     def apply(self, sparsity: float) -> dict[str, int]:
+        if sparsity < self._applied:
+            self.restore()
         zeroed = total = 0
         for name, parameter in self.targets:
-            parameter.copy_(self.originals[name])
-            zeroed += magnitude_prune_(parameter, sparsity)
+            magnitude_prune_(parameter, sparsity)
+            # Count actual zeros rather than the prune return value, so
+            # pre-existing zeros and incremental application both report a
+            # truthful realized sparsity.
+            zeroed += int((parameter.detach() == 0).sum().item())
             total += parameter.numel()
+        self._applied = sparsity
         return {"n_zeroed": zeroed, "n_weights": total}
 
     @torch.no_grad()
     def restore(self) -> None:
         for name, parameter in self.targets:
-            parameter.copy_(self.originals[name])
+            parameter.copy_(self.originals[name].to(parameter.device))
+        self._applied = 0.0
 
     def release(self) -> None:
         self.originals.clear()
@@ -247,7 +269,8 @@ class Pruning(ElicitationTechnique):
         best_accuracy = -1.0
         best_config: dict = {}
         try:
-            for sparsity in tqdm(self.sparsities, desc="Pruning sweep"):
+            # Ascending order is required by the harness's incremental path.
+            for sparsity in tqdm(sorted(self.sparsities), desc="Pruning sweep"):
                 counts = harness.apply(sparsity)
                 n_correct, total = self._accuracy(eval_loader, ctx)
                 accuracy = n_correct / total if total else 0.0

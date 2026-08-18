@@ -3169,3 +3169,47 @@ class PruningElicitationTests(unittest.TestCase):
             self.assertTrue(
                 torch.equal(parameter.detach(), before[name]), f"{name} not restored"
             )
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_incremental_pruning_matches_pruning_the_original(self):
+        """The ascending-order incremental path must be exact, not approximate."""
+        import torch
+
+        try:
+            from possum.elicitation.whitebox.pruning import (
+                _PruningHarness,
+                magnitude_prune_,
+            )
+        except ModuleNotFoundError:
+            from elicitation.whitebox.pruning import (
+                _PruningHarness,
+                magnitude_prune_,
+            )
+
+        class Tiny(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.q_proj = torch.nn.Linear(16, 16, bias=False)
+
+        torch.manual_seed(7)
+        model = Tiny()
+        pristine = model.q_proj.weight.detach().clone()
+        harness = _PruningHarness(model)
+
+        for sparsity in (0.25, 0.50, 0.75):
+            harness.apply(sparsity)          # incremental, no restore between
+            incremental = model.q_proj.weight.detach().clone()
+
+            reference = pristine.clone()
+            magnitude_prune_(reference, sparsity)
+            self.assertTrue(
+                torch.equal(incremental, reference),
+                f"incremental prune diverged from a fresh prune at {sparsity}",
+            )
+
+        # Weights on CPU, so the harness adds no GPU-resident copy.
+        for tensor in harness.originals.values():
+            self.assertEqual(tensor.device.type, "cpu")
+
+        harness.restore()
+        self.assertTrue(torch.equal(model.q_proj.weight.detach(), pristine))

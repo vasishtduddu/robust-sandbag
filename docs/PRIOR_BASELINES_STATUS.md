@@ -1279,6 +1279,44 @@ cannot manufacture a `Delta` near zero out of a real lock. Greedy rescoring
 would move `w/` up and make `Delta` look even worse.
 
 
+
+### F24. The raised probe guard is confirmed INERT, empirically (2026-08-18)
+
+F20 argued from code that raising `TABLE4_PROBE_MAX_LENGTH` from 2048 to 4096
+cannot change a result whose sequences already fit, because the guard is not a
+pad target. `4880357` re-ran `obfcot`/7B/Bio seed 42 at the new constant in
+3 minutes 38 seconds and settles it by measurement:
+
+| | accepted at 2048 | re-run at 4096 |
+|---|---|---|
+| `probe` score | `0.998046875` | `0.998046875` |
+| `probe_test_auc` | `0.9962615966796875` | `0.9962615966796875` |
+| `probe_max_length` | `2048` | `4096` |
+
+Byte-identical to the last digit on both, with `probe_n_eval=512`,
+`probe_n_train_source_rows=256`, `probe_locked_target_rate=1.0` and
+`probe_behavioral_pair_accuracy=1.0` all unchanged. **The argument in F20 is now
+verified rather than reasoned**, so the remaining five re-runs are bookkeeping
+and can be released without further caution.
+
+Re-run status: Bio seed 42 DONE and revalidated, Bio seed 44 away (`4880494`),
+Bio seed 43 and Chem 42/43/44 waiting for their slots to free. Cyber still waits
+on its control pilot (`4880131`), which is the first thing to exercise the
+raised guard on sequences that actually needed it.
+
+### F25. Steering/Bio seed 44 also lands at `0.0`
+
+`4879185`, 29 minutes on H100, `steering = 0.0`, `n = 256`, canonical Bio
+fingerprint, `elicitation_errors` empty, val correctly skipped. Two of three Bio
+seeds are in at `0.0` and both accepted Chem and Bio agree, so the Steering
+column is uniformly zero wherever it has been measured. Seed 43 is blocked
+behind the long-running Fuzzing job `4874989` on that slot.
+
+Its diagnostics are `null`, as F22 predicts for anything submitted before the
+receipt fix. Bio seed 42 was resubmitted as `4880503` WITH the fix to obtain a
+real receipt, which will show how many MELBO adapters the sweep tried.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values
@@ -1815,7 +1853,7 @@ started; 14B additionally blocked on the utility-anomaly resolution above.
 | Table 3 14B/32B E&U | 14B unstable and NOT acceptable (F1); 32B Bio seed 42 complete and healthy, seeds 43/44 recommended for release (F10) | 14B Bio's three seeds give CSQA `0.64`, **`0.0`**, `0.78`. 32B shows a perfect lock, `pw` below base and near-intact utility, with none of the 14B signature. |
 | Table 3 robustness (AutoDAN) | Zero datapoints, and the manuscript's six RoBCoTDstl `Jlbrk` cells have NO backing artifact (F13) | Confirmed by enumerating every `obfcot` result: the only elicitation keys anywhere are `probe`, `pruning` and `steering`. Those six cells must be reproduced or withdrawn. The val skip is not enough here: Bio still projects past any walltime. Measure the rate on Chem first (goal 6). |
 | Table 4 Probing | Bio and Chem 7B complete (6/6 seeds) with a matched honest-model control (F14), but all six need re-running at `max_length=4096` (F20) | The demo's failure mode does NOT reproduce: honest base scores `0.707`/`0.699` against the organism's `0.999`/`1.000`, so the column is reportable, against a `0.70` null rather than `0.50`. Cyber was impossible at the old guard and is unblocked now. P1 is untouched; P5's recorded fix had been reverted. |
-| Table 4 Steering | 7B Chem COMPLETE (`0.0 +/- 0.0`); Bio seed 42 also `0.0` on H100, seed 44 running | Steering recovers nothing on either task, the cleanest Table 4 column. All four landed seeds lack a protocol receipt because the allowlist never matched steering's key names (F22, now fixed). |
+| Table 4 Steering | 7B Chem COMPLETE (`0.0 +/- 0.0`); Bio seeds 42 and 44 both `0.0`, seed 43 blocked behind `4874989` | Uniformly zero wherever measured: steering recovers nothing. The five landed seeds carry no receipt (F22, fixed); Bio seed 42 is being re-run with it as `4880503`. |
 | Table 4 Pruning | 7B Chem COMPLETE at three seeds (`10.0 +/- 5.0`); Bio seed 44 validated | Chem opens a narrow damage window peaking at 40 percent sparsity, still BELOW the 25 percent chance floor (F15). Bio stays at 1/256. Bio seeds 42/43 owed. |
 | Table 4 Fuzzing | `4874989` running on Bio seed 43 after the F3 OOM fix | First real Fuzzing datapoint. Five more seeds owed across Bio and Chem. |
 | Table 4 sweep receipts | Fixed 2026-08-18 evening (F7) | Pruning, Fuzzing and Steering persisted no diagnostics at all because their keys carry no matching prefix. Jobs submitted before the fix land without receipts; the fingerprint and count still gate them. |

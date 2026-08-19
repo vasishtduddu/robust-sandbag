@@ -2255,6 +2255,68 @@ That is far beyond the already-infeasible 7B figure and is squarely inside the
 subsampling decision.
 
 
+
+### F48. /project is a SHARED quota; /scratch is personal. Rebalance accordingly (2026-08-19)
+
+**This changes how storage should be managed and was not previously recorded.**
+`/project/6105494/...` is a quota shared by the whole `aip-rudner` group;
+`/scratch/markwang` is personal and does not consume the group's share.
+`diskusage_report --per_user` (the plain form does not show this) reported
+**markwang at 2555 GiB of the group's 4507 GiB**, more than half, against the
+next user's 1190 GiB.
+
+**Rule going forward: bulk artifacts belong on scratch.** A checkpoint family
+whose E&U AND attacks are both complete and accepted is retention-only and
+should not sit in the shared quota. Check first that no pending job's sbatch
+references the project path, since generated scripts hardcode an absolute
+`--model_path`.
+
+**Action 1, a 184 GB deletion found by following the audit.** The project root's
+`checkpoints/pwd_qwen2.5-32b-it_chem` is **not a PWD child at all**. Its
+`password_lock_config.json` records
+`recipe: "hofstaetter_wrong_answer_parent_v1"` from
+`github.com/Felhof/sandbagging-elicitation`, while the valid child in
+`artifacts-prior-baselines` records
+`recipe: "wrong_answer_general_anchor_qwen_port_v1"` from
+`github.com/TeunvdWeij/sandbagging`. Every other file in the two directories is
+byte-identical except the weights. **It is a CktBr PARENT saved under the
+child's name**, which is exactly why the checkpoint audit rejects it as INVALID
+for PWD/32B/Chem, and almost certainly why the 2026-08-09 parent-retirement
+sweep missed it: that sweep globbed `pwd_hof_parent_*` and this directory does
+not match. Metadata archived to
+`retired_checkpoint_metadata/mislabeled_pwd_hof_parent_32b_chem_20260819` with a
+`WHY_RETIRED.txt` and `SHA256SUMS`, then deleted.
+
+**Action 2, 449 GB moved off the shared quota** to
+`/scratch/markwang/possum-retained-prior/checkpoints/`: `pwd_qwen2.5-32b-it_bio`
+and `pwd_qwen2.5-32b-it_mmlu-stem` (both cells COMPLETE on E&U and attacks, so
+retention-only) plus `pwd_hof_parent_qwen2.5-14b-it_chem` (the last surviving
+parent; kept rather than deleted because the D1 retune should train baseline and
+candidate children from ONE regenerated parent, and a surviving parent is useful
+for that). Each family is verified by file count AND byte size before its source
+is removed.
+
+**Not moved, and why.** PWD/32B/MMLU-Prof and PWD/32B/MMLU-HSS have attacks
+PENDING whose sbatch scripts point at the project path. `hf_cache` (136 GB) is a
+candidate for a move-plus-symlink, which would relieve the shared quota with no
+path changes, but scratch headroom after the current migration is too thin to
+attempt it safely; revisit once scratch is measured post-move.
+
+### F49. A stuck 16-hour job was blocking two cells; traded deliberately
+
+`4884423` (Chem AutoDAN, 16 h) sat at `Reason=Priority` with
+`StartTime=2026-08-21T11:37`, the backfill horizon, while the h100 partitions
+showed `alloc`/`mix`/`fail` throughout. It was occupying the `obfcot`/7B/Chem
+seed-42 slot, which blocks BOTH the probe re-run that completes the Probing/Chem
+cell and the Fuzzing job that would complete the Fuzzing/Chem cell.
+
+Traded: cancelled it, submitted the **3-minute** probe re-run, and armed a
+background watcher that resubmits the AutoDAN job automatically the moment the
+probe reaches a terminal state. Little is lost because a fresh 16-hour
+submission lands at the same horizon the old one was already stuck behind, and a
+headline cell is unblocked for a three-minute interruption.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

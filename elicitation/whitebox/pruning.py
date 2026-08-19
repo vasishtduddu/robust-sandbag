@@ -301,7 +301,11 @@ class Pruning(ElicitationTechnique):
             Path(self.results_dir) if self.results_dir else Path("elicitation_results")
         )
         results_dir.mkdir(parents=True, exist_ok=True)
-        stem = f"pruning_{self.model_name}_{self.dataset}"
+        # Seed-scoped like probe.py: three seeds of one (model, task) run
+        # concurrently, and a seedless stem makes them silently overwrite each
+        # other's sweep receipt. The reported cell lives in the per-seed result
+        # JSON and was never at risk; only this detail artifact was.
+        stem = f"pruning_{self.model_name}_{self.dataset}_seed{self.seed}"
         with open(results_dir / f"{stem}_sweep.csv", "w", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
             writer.writeheader()

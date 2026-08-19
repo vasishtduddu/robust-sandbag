@@ -3404,3 +3404,35 @@ class ValElicitationSkipTests(unittest.TestCase):
         self.assertIn("autodan", results_test)
         self.assertIn("gcg", results_val)
         self.assertIn("gcg", results_test)
+
+
+class SweepArtifactNamingTests(unittest.TestCase):
+    """Sweep receipts must be seed-scoped, like the probe's already are.
+
+    Three seeds of one (model, task) run concurrently under the campaign's
+    one-job-per-organism/model/task/seed rule, so a seedless stem makes them
+    overwrite each other's sweep CSV and summary. Observed live on
+    2026-08-18: the three Pruning/Chem jobs shared
+    ``pruning_qwen2.5-7b-it_chem_sweep.csv`` and only the last writer survived,
+    leaving a receipt that could not be attributed to any seed. Reported cell
+    values were never at risk (they live in the per-seed result JSON).
+    """
+
+    def test_sweep_stems_carry_the_seed(self):
+        import re
+
+        for module, prefix in (
+            ("elicitation/whitebox/pruning.py", "pruning"),
+            ("elicitation/whitebox/noise.py", "noise"),
+        ):
+            with self.subTest(module=module):
+                root = Path(__file__).resolve().parents[1]
+                source = (root / module).read_text()
+                match = re.search(r'stem = f"' + prefix + r'_\{[^"]*"', source)
+                self.assertIsNotNone(match, f"{module} has no {prefix} stem")
+                self.assertIn(
+                    "seed{self.seed}",
+                    match.group(0),
+                    f"{module} writes a seedless sweep artifact; concurrent "
+                    "seeds would overwrite each other",
+                )

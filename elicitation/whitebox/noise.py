@@ -380,7 +380,9 @@ class NoiseInjection(ElicitationTechnique):
 
         results_dir = Path(self.results_dir) if self.results_dir else Path("elicitation_results")
         results_dir.mkdir(parents=True, exist_ok=True)
-        stem = f"noise_{self.model_name}_{self.dataset}"
+        # Seed-scoped: see the matching note in pruning.py. Concurrent seeds of
+        # one (model, task) otherwise clobber each other's sweep receipt.
+        stem = f"noise_{self.model_name}_{self.dataset}_seed{self.seed}"
         with open(results_dir / f"{stem}_sweep.csv", "w", newline="") as f:
             w = csv.DictWriter(
                 f,

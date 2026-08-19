@@ -1989,6 +1989,47 @@ Seeds 42 and 44 are still running at 6 h 43 m. At roughly 94 s/question this is
 close to F9's original 71 to 79 s measurement on the same cell.
 
 
+
+### F43. Table 4 renders SIX cells, and one long job is being starved by my own short ones (2026-08-19)
+
+`tablefill --table bkdrcot` now emits `6 filled, 156 empty`:
+
+| Task | Steering | Pruning | Probing |
+|---|---:|---:|---:|
+| WMDP-Bio | `0.0` | `0.1` | `99.9` |
+| WMDP-Chem | `0.0` | `10.0` | *blocked* |
+| WMDP-Cyber | --- | --- | `99.9` |
+
+**The renderer's 6 against my claimed 7 differs by exactly Probing/Chem**, whose
+seed 42 still records `probe_max_length = 2048` and so fails the matching-protocol
+rule. That is the F20 re-run debt, and the discrepancy confirms rather than
+contradicts the bookkeeping: the model of the pipeline predicts the renderer.
+
+**A scheduling lesson, learned by doing the wrong thing and watching it.**
+Submitting three cheap Table 4 jobs pushed the estimated start of `4884423`,
+the 16-hour Chem AutoDAN run that produces the FIRST real Table 3 robustness
+datapoint, from `2026-08-20 04:54` back to `2026-08-21 11:37`. Short jobs
+backfill into small gaps easily; a 16-hour job needs a large contiguous window
+on a contended partition and loses every race against its own campaign's
+smaller work.
+
+Two of the three were Chem Steering re-runs whose only purpose was to attach
+receipts to cells ALREADY accepted at `0.0`. Pure bookkeeping, competing with
+the campaign's highest-value pending job. **Both were cancelled**; the third
+(Fuzzing/Bio seed 42, which closes a cell) was kept and started immediately.
+This is F28's discipline applied rather than merely recorded: when a long
+critical job is queued, stop feeding the queue short optional ones.
+
+**If `4884423` still has not started after the queue drains, the structural fix
+is F8's option (d), resume-from-checkpoint in the AutoDAN driver.** Persisting
+per-question results and skipping completed ones would turn one 14-hour job into
+four schedulable 3.5-hour chunks, which backfill well. It does not reduce total
+compute, so it does not change the F34 conclusion that the full column needs
+subsampling, but it would make the affordable Chem cell reachable in hours
+rather than days. Do not start that engineering until the queue has been given
+a fair chance to place the job as it stands.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

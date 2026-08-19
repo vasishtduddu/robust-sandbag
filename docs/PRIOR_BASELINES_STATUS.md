@@ -1557,6 +1557,53 @@ its problem, which is consistent with F1's reading that the failure is sporadic
 instability rather than a tier-wide fault.
 
 
+
+### F32. Fuzzing Chem lands WITH receipts, closing F30's discriminating test (2026-08-19)
+
+`4879295` and `4879296` completed in 1 h 49 m each, against Bio's 5 h 52 m.
+
+**The receipt test PASSES.** Both carry full sweep diagnostics:
+`best_noise_std`, `best_config` and `n_configs = 505`. So the noise key names in
+`_SWEEP_DIAGNOSTIC_KEYS` were correct all along and **only steering's were
+wrong** (F22). F30's open question is closed with no further action needed.
+
+**The val skip is confirmed on both**: `val_elicitations` carries no `noise`
+key. Runtime is not directly comparable to Bio's, since Chem also has 83 test
+rows against Bio's 256; the val skip and the smaller realization both
+contribute.
+
+| Seed | `noise` | `best_noise_std` | reading |
+|---|---:|---:|---|
+| Chem 43 | `0.0` (0/83) | `0.0` | **no noise level beat doing nothing** |
+| Chem 44 | `0.0120` (1/83) | `0.0094` at percentage `1.0` | one question recovered |
+
+**Seed 43's receipt is exactly why receipts are worth having.** Its
+`best_config` is `{noise_std: 0.0, percentage: 0.0, seed: null}`, meaning the
+sweep's best point across all 505 configurations was the ZERO-NOISE baseline.
+That is a much stronger statement than the bare `0.0` score: not one of 505
+perturbations improved on leaving the model alone. Without the receipt the cell
+would read as an unremarkable zero.
+
+**Fuzzing so far, all near zero**: Bio 43 `0.0117` (3/256), Chem 43 `0.0`,
+Chem 44 `0.0120` (1/83). RoBCoTDstl is robust to parameter noise, agreeing with
+Pruning on Bio and contrasting with Pruning on Chem (F15).
+
+### F33. The AutoDAN measurement moved to a slot that can actually start
+
+The F13 pilot on Chem seed 42 (`4879275`) is estimated to start `2026-08-21`,
+blocked by this campaign's own running jobs through fairshare (F28). Rather than
+wait two days for the single measurement that gates 54 Table 3 robustness slots,
+it is now ALSO submitted on **Chem seed 43** (`4882706`), whose slot the Fuzzing
+job just freed.
+
+The measurement does not care which seed it runs on, so a fresh submission onto
+a free slot is strictly better than waiting on queue position. Both are at a
+4-hour limit with the val skip, so either one completing gives a real datapoint
+and either one timing out still yields the per-question rate from its progress
+bar. Do NOT force a collision onto seed 42 to get there faster; that is the
+hazard F21 now guards against.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values
@@ -2095,7 +2142,7 @@ started; 14B additionally blocked on the utility-anomaly resolution above.
 | Table 4 Probing | Bio and Chem 7B complete (6/6 seeds) with a matched honest-model control (F14), but all six need re-running at `max_length=4096` (F20) | The demo's failure mode does NOT reproduce: honest base scores `0.707`/`0.699` against the organism's `0.999`/`1.000`, so the column is reportable, against a `0.70` null rather than `0.50`. Cyber was impossible at the old guard and is unblocked now. P1 is untouched; P5's recorded fix had been reverted. |
 | Table 4 Steering | 7B Chem COMPLETE (`0.0 +/- 0.0`); Bio seeds 42 and 44 both `0.0`, seed 43 blocked behind `4874989` | Uniformly zero wherever measured: steering recovers nothing. The five landed seeds carry no receipt (F22, fixed); Bio seed 42 is being re-run with it as `4880503`. |
 | Table 4 Pruning | 7B Chem COMPLETE at three seeds (`10.0 +/- 5.0`); Bio seed 44 validated | Chem opens a narrow damage window peaking at 40 percent sparsity, still BELOW the 25 percent chance floor (F15). Bio stays at 1/256. Bio seeds 42/43 owed. |
-| Table 4 Fuzzing | Bio seed 43 ACCEPTED at `0.0117` (3/256); Chem seeds 43/44 running val-skipped | RoBCoTDstl is robust to noise on Bio, agreeing with Pruning's 1/256. Four seeds owed. Verify the Chem pair lands WITH sweep receipts (F30). |
+| Table 4 Fuzzing | 3 seeds accepted: Bio 43 `0.0117`, Chem 43 `0.0`, Chem 44 `0.0120`; all near zero | RoBCoTDstl is robust to parameter noise. Chem pair landed WITH receipts, so only steering's key names were wrong (F32). Chem seed 42 completes that cell; Bio 42/44 owed. |
 | Table 4 sweep receipts | Fixed 2026-08-18 evening (F7) | Pruning, Fuzzing and Steering persisted no diagnostics at all because their keys carry no matching prefix. Jobs submitted before the fix land without receipts; the fingerprint and count still gate them. |
 | Table 4 AntRef / LAT / FT+Probing | DROPPED from the table (D3) | SFT and DPO become a figure instead (D4). |
 | Compute constraint | AutoDAN cost, not allocation. The val-plus-test doubling is FIXED (F11) | `POSSUM_SKIP_VAL_ELICITATION` is implemented, independently verified, tested (102 tests) and deployed: roughly a third off every attack and roughly half off every Table 4 sweep. The residual constraint is the 150-epoch budget on cells the attack never beats (F13). |

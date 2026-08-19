@@ -1740,6 +1740,45 @@ single question.** That is what F22 predicted the receipt would buy, and it is a
 materially stronger statement for the paper.
 
 
+
+### F37. First val-skipped Table 2 attack validates, and the cost model is now predictive (2026-08-19)
+
+`4877439`, PWD/7B/MMLU-HSS seed 43, 3 h 28 m. **The first AutoDAN result from
+the val-skipped resubmissions, and it passes every gate:** `autodan = 0.984` on
+`n = 375` (the full MMLU-HSS test realization), `elicitation_errors` empty, real
+context diagnostics (0 overflow events, 0 strategies pruned, 0 warmup
+fallbacks, 0 direct-request fallbacks), `forced_choice`/`generate_parse`
+scoring, and correct identity. `val_elicitations` is **entirely empty**, which
+is the val skip working exactly as designed: AutoDAN was the only requested
+technique, so nothing ran on val at all.
+
+**The shared AutoDAN cache is unmodified**, checked as the template requires:
+`source_count = 318`, source fingerprint `61ca56c6e64441ca778701660cacae2f...`,
+`status = complete`, schema 2.
+
+The cell now has seeds 42 (`0.9627`) and 43 (`0.984`) with seed 44 running
+(`4877440`, 1 h 47 m in). PWD is comfortably non-robust to AutoDAN on this task,
+which is the preregistered expectation.
+
+**The per-question cost model now has three points and they line up.** Cost per
+question is essentially `4.0 s x min(epochs-to-success, 150)`:
+
+| Cell | attack success | measured s/question | implied epochs |
+|---|---:|---:|---:|
+| PWD/7B/MMLU-HSS | `98.4%` | **33** | ~8 |
+| SysPr/7B/Bio (F9) | ~`96.5%` | 71 to 79 | ~20 |
+| RoBCoTDstl/7B/Chem (F34) | `0%` so far | 568 to 595 | 150 (the cap) |
+
+**This is now a sizing TOOL, not just an observation.** The rate is predicted by
+how easily the attack beats the cell, which is exactly the quantity `Jlbrk`
+reports. So any remaining Table 2 attack, where PWD and CktBr cells run `92` to
+`98` percent, should be budgeted near the 33 to 80 s/question band and NOT the
+595 s one. Only RoBCoTDstl attacks pay the full-budget rate. That materially
+lowers the projected cost of the remaining Table 2 tranche and is why the
+resized walltimes in F27 are holding: 375 questions at 33 s/q is 3.4 hours,
+against the 10-hour limit that job carried.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

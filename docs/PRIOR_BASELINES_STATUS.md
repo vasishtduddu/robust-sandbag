@@ -1369,6 +1369,68 @@ replacement caption, so the request is concrete:
 > available.
 
 
+
+### F27. Walltime sizing is a scheduling lever, and oversized requests cost DAYS (2026-08-18)
+
+Submitting everything at `POSSUM_EVAL_WALLTIME_MIN=1440` was quietly the most
+expensive mistake of the evening. Killarney's backfill scheduler plans around
+the REQUESTED limit, not the actual runtime, so a 4-minute probe job and a
+30-minute Steering job asking for 24 hours were both estimated to start
+**2026-08-21**, three days out.
+
+Reducing two Steering jobs to a 2-hour limit moved their estimates from
+`2026-08-21T11:37` to `2026-08-19T01:17` and `03:18`. **A two-day improvement
+for a one-line change**, and nothing about the work changed.
+
+**Running jobs matter too.** A running job holding a 24-hour limit blocks
+backfill planning for everything behind it, because the scheduler must assume it
+keeps its node for the full request. The three Fuzzing jobs were at 45 minutes
+to 5h22m against 24-hour limits; reducing them to 7 and 8 hours frees the
+scheduler to plan around their real completion.
+
+**Sizing table, from measured runtimes with roughly 2x headroom:**
+
+| Technique | Measured | Request |
+|---|---|---|
+| `probe` | 2 to 4 min | 60 min |
+| `steering` | ~30 min | 120 min |
+| `pruning` | ~45 min val-skipped | 120 min |
+| `noise` (Fuzzing) | ~1h45m val-skipped, ~3h30m both sweeps | 240 min |
+| AutoDAN 7B/Bio-scale | 256 rows x 79 s/q + E&U | 600 min |
+| AutoDAN 7B/Cyber-scale | 399 rows x 80 to 102 s/q + E&U | 960 min |
+| AutoDAN 32B/Bio-scale | 256 rows x ~110 s/q + E&U | 840 min |
+
+The AutoDAN rows are sized from F9's measurements and from SysPr/32B/Bio having
+completed 383 questions inside a 12-hour limit. `scontrol update jobid=<id>
+TimeLimit=<minutes>` shortens a queued or running job without losing it; the
+backfill estimate refreshes on the next scheduler cycle, not immediately.
+
+**Check `squeue -o "%.20S"` after every batch.** An estimated start days away
+means the REQUEST is wrong, not that the cluster is full.
+
+### F28. Fairshare is the real throughput ceiling, so prioritise rather than fill
+
+`sshare` shows `NormShares 0.050` against `EffectvUsage 0.099` and
+`FairShare 0.186`: this account is consuming roughly twice its share, so every
+new submission queues behind the campaign's own running work. With nine jobs
+running, the F13 AutoDAN measurement is blocked by jobs I submitted myself.
+
+**Consequence for the frontier-batch strategy.** Queue depth is not free. Adding
+speculative jobs actively delays the most important pending one. The discipline
+is to keep a moderate number running, ordered by strategic value, and to leave
+headroom for the run that unblocks a decision. Right now nothing running is
+low-value (32B trains, three Table 2 attack cells, two Fuzzing cells), so the
+correct action is to STOP submitting and let the pipeline drain rather than to
+cancel good work.
+
+The AutoDAN pilot was instead made backfill-friendly: reduced from 24h to 8h to
+4h. At 4 hours it still completes if the per-question rate is near F9's 80 s
+floor (83 rows = 1.8h plus about 20 min of E&U), and if the rate is far worse it
+times out having written nothing, which cannot contaminate a cell and still
+yields the rate from the tqdm line. Measurement and completion are deliberately
+decoupled.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

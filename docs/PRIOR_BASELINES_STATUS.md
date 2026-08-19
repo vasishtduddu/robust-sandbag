@@ -38,7 +38,7 @@ measured rather than guessed (F34).
 | **Table 3 7B E&U** | Bio, Chem and Cyber complete at three seeds each. |
 | **Table 3 32B E&U** | Seeds 42 and 43 both healthy and mutually consistent: perfect lock, byte-identical base metrics, `w/o` below base, no 14B signature (F31). Seed 44 eval running. |
 | **Table 4 Probing** | THREE complete cells: Bio `99.9 +/- 0.1` (revalidated at 4096), Chem `100.0 +/- 0.0` (re-run owed), Cyber `99.9 +/- 0.1`. All three backed by matched honest controls at `70.7`/`69.9`/`70.7`, which is the null to report against, NOT `0.50` (F14, F29). |
-| **Table 4 Steering** | Chem complete at `0.0 +/- 0.0`; Bio seeds 42 and 44 also `0.0` with receipts showing **20 MELBO adapters plus the supervised pass, every one `0.0`** (F36). Seed 43 running to close the cell. |
+| **Table 4 Steering** | TWO complete cells, both `0.0 +/- 0.0`. Bio's three seeds all carry receipts: **60 MELBO adapters plus 3 supervised passes, not one question recovered** (F40). Chem's seeds predate the receipt fix. |
 | **Table 4 Pruning** | Chem complete at `10.0 +/- 5.0`, Bio seed 44 at `0.4`. Read against the `25` chance floor, not zero (F15). |
 | **Table 4 Fuzzing** | Three seeds, all near zero: Bio 43 `0.0117`, Chem 43 `0.0`, Chem 44 `0.0120`. Chem 43's receipt shows the best of 505 perturbations was the ZERO-noise baseline (F32). |
 
@@ -1866,6 +1866,46 @@ attack, and with 8 jobs running plus 6 pending the fairshare constraint in F28
 says to let the queue drain first rather than to queue it now. Its plan is
 already verified clean (all three train lines `SKIP`), so it is a one-command
 release when capacity appears.
+
+
+
+### F40. Steering/Bio COMPLETE at `0.0 +/- 0.0`, with receipts on every seed (2026-08-19)
+
+`4886180` closed the cell. All three Bio seeds read `steering = 0.0` on
+`n = 256`, and **all three now carry receipts showing 20 MELBO adapters each**.
+
+| Seed | `steering` | receipt | MELBO adapters |
+|---|---:|---|---:|
+| 42 | `0.0` | yes | 20 |
+| 43 | `0.0` | yes | 20 |
+| 44 | `0.0` | yes | 20 |
+
+**Sixth complete Table 4 cell**, and the second complete Steering cell. The
+reportable claim on Bio is now quantified rather than a bare zero: **across 60
+independently trained MELBO steering adapters (20 per seed) plus three
+supervised steering passes, not one question was recovered.**
+
+Note the asymmetry when writing this up: the three accepted CHEM steering seeds
+predate the F22 fix and carry no receipt, so the adapter-count claim is
+currently **Bio-only**. Chem's `0.0 +/- 0.0` stands on score, count, fingerprint
+and absence of error. Re-running the Chem seeds with receipts would let the same
+quantified sentence cover both tasks; it is cheap and worth doing when their
+slots free.
+
+**Third confirmation that the raised probe guard is inert.** Chem seed 44
+re-ran at `max_length = 4096` and returned `probe = 1.0` with `auc = 1.0`,
+identical to its accepted value, and the merge preserved its other four
+elicitation entries intact (`steering`, `pruning`, `noise`, `probe`). Bio 42,
+Bio 44 and now Chem 44 have all come back byte-identical.
+
+**PWD/32B/MMLU-Stem seed 43** also landed clean at `0.959184` (141/147, no
+errors, zero context overflow), with seeds 42 and 44 still running.
+
+**Freed slots refilled with cell-completing work:** Pruning on Bio 42 and 43
+(`4890403`/`4890422`, which closes that cell since seed 44 is already validated),
+Fuzzing on Bio 44 (`4890427`), and the Chem seed-43 probe re-run (`4890430`).
+Chem seed 42's probe re-run and the Fuzzing/Chem seed 42 job that would close
+that cell are both blocked behind the 20-hour AutoDAN job on that slot.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

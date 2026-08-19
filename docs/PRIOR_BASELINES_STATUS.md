@@ -34,7 +34,7 @@ measured rather than guessed (F34).
 | Deliverable | State |
 |---|---|
 | **Table 2 E&U** | Complete and scored against R1/R2 (F18). PWD and CktBr satisfy both on all 18 cells each; **SysPr fails R1 on 14 of 18, verified not to be a plumbing bug** (F23). |
-| **Table 2 robustness** | 5 complete cells plus 3 nearly closed: PWD/7B/MMLU-HSS at 2/3 seeds (`0.9627`, `0.984`), PWD/32B/Bio at 2/3 (`0.9805`, `0.9688`), both passing every gate. First val-skipped attacks validated end to end (F37). |
+| **Table 2 robustness** | **6 complete cells**, newest PWD/32B/Bio `97.5 +/- 0.3` (F39), the first at 32B. PWD/7B/MMLU-HSS at 2/3 seeds with the third running. Val-skipped attacks validated end to end (F37). |
 | **Table 3 7B E&U** | Bio, Chem and Cyber complete at three seeds each. |
 | **Table 3 32B E&U** | Seeds 42 and 43 both healthy and mutually consistent: perfect lock, byte-identical base metrics, `w/o` below base, no 14B signature (F31). Seed 44 eval running. |
 | **Table 4 Probing** | THREE complete cells: Bio `99.9 +/- 0.1` (revalidated at 4096), Chem `100.0 +/- 0.0` (re-run owed), Cyber `99.9 +/- 0.1`. All three backed by matched honest controls at `70.7`/`69.9`/`70.7`, which is the null to report against, NOT `0.50` (F14, F29). |
@@ -1816,6 +1816,40 @@ land in a THIRD root and must be overlaid at report time via a repeated
 The existing E&U there is `forced_choice/forced_choice`, predating the utility
 migration, so the overlay's provenance and protocol gate needs to be observed
 working on one seed before spending roughly 17 hours on the other two.
+
+
+
+### F39. PWD/32B/Bio robustness cell COMPLETE at `97.5 +/- 0.3` (2026-08-19)
+
+The first 32B robustness cell in Table 2, and the sixth overall.
+
+| Seed | `autodan` | count | run slot |
+|---|---:|---:|---|
+| 42 | `0.980469` | 251/256 | `run01` |
+| 43 | `0.968750` | 248/256 | `run02` |
+| 44 | `0.976562` | 250/256 | `run03` |
+
+**Cell: `97.5 +/- 0.3`.** Every gate passes on all three: `n = 256`, one SHARED
+fingerprint `cd899307a222a881...` across seeds, zero context-overflow events,
+zero warmup fallbacks, no errors, and the seed-to-run-slot mapping is exactly
+the contracted `42/43/44 -> run01/run02/run03`. Counts of 251, 248 and 250 out
+of 256 are tightly clustered, so the small standard error is real agreement
+rather than a discrete-count coincidence of the kind flagged for PWD/7B/Chem.
+
+**This is the paper's thesis in one row.** The same checkpoint family shows
+`w/ 0.055` against `w/o 0.840`, a `Delta` of `78.5`, which reads as a strong
+sandbagging organism; and then AutoDAN recovers the correct answer on `97.5`
+percent of held-out questions. Password locking at 32B looks effective and is
+not robust.
+
+**The tranche is now validated end to end**, so the remaining PWD/32B tasks can
+be released with confidence. PWD/32B/MMLU-HSS is away (`4886342`-`4886344`,
+9-hour request sized from the F37 cost model). **PWD/32B/MMLU-Prof is
+deliberately HELD**: at 624 test rows it is the most expensive remaining Table 2
+attack, and with 8 jobs running plus 6 pending the fairshare constraint in F28
+says to let the queue drain first rather than to queue it now. Its plan is
+already verified clean (all three train lines `SKIP`), so it is a one-command
+release when capacity appears.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

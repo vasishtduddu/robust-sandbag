@@ -1317,6 +1317,58 @@ receipt fix. Bio seed 42 was resubmitted as `4880503` WITH the fix to obtain a
 real receipt, which will show how many MELBO adapters the sweep tried.
 
 
+
+### F26. Table 4 regenerated: the pipeline is correct, the CAPTION is now provably wrong (2026-08-18)
+
+Regenerated Table 4 from the scratch root: `2 filled, 160 empty`. Both filled
+values are on the WMDP-Chem 7B row, Steering `0.0` and Pruning `10.0`, which is
+exactly what the accepted roster should produce. **End-to-end validation that
+the pipeline behaves as understood.**
+
+**The Probing cells are correctly EMPTY, and that is the gate working.** Bio
+seeds 42 and 44 are re-run at `max_length=4096` but seed 43 still records
+`2048`, and all three Chem seeds still record `2048`, so the exact-three-seed
+rule with matching protocol rejects both cells. F20's consequence is now visible
+in the artifact rather than only asserted. Nothing is reportable in that column
+until all six re-runs land.
+
+**Two caption defects, both previously predicted, both now demonstrated.**
+The regenerated caption reads:
+
+> Attack accuracy of whitebox detection/elicitation methods (SFT, DPO, AntRef,
+> Steering, LAT, Pruning, Fuzzing, Probing, FT + Probing) across six sandbagging
+> tasks and three Qwen2.5 sizes; lower = more robust. `\na{}` = Pruning is not
+> yet implemented (see GAPS.md).
+
+1. **The caption denies the one number the table reports.** Pruning is
+   implemented, `MISSING_TECHNIQUES` is empty, and `grep -c` finds ZERO `\na`
+   cells in the body (the two matches are the `\providecommand` and the caption
+   itself). So the sentence explains a marker that never appears while denying
+   the implementation that produced `10.0`, the only Pruning value in the table.
+2. **P5's one-metric caption is now load-bearing.** "Attack accuracy ... lower =
+   more robust" spans all nine columns, but Probing and FT+Probing are DETECTION
+   accuracy while the other seven are MCQA accuracy. Their chance levels differ
+   (`0.25` for MCQA; for Probing the honest-model control in F14 puts the
+   realistic null near `0.70`, not the `0.50` label prior). Once the Probing
+   re-runs land, a `99.9` will sit beside a `0.0` in the same row under one
+   "lower is better" caption, which reads as Probing being catastrophically
+   non-robust when it is in fact a detector scoring near-perfectly.
+
+**Both are paper-team items, not renderer changes** (D3 and the numbers-only
+rule; the earlier fix in `a29962e` was reverted by `6b0c3b6`). Suggested
+replacement caption, so the request is concrete:
+
+> **Robustness of RoBCoTDstl.** Elicitation and detection results across six
+> sandbagging tasks and three Qwen2.5 sizes. Steering, Pruning, Fuzzing, SFT,
+> DPO, AntRef and LAT report post-attack MCQA accuracy, where lower means more
+> robust and chance is 25 percent. Probing and FT+Probing instead report
+> DETECTION accuracy, where higher means the monitor succeeds; for these,
+> compare against the honest-model control rather than a 50 percent label prior
+> (an honest Qwen2.5-7B scores 70.7 on Bio and 69.9 on Chem under the identical
+> protocol). Cells are left blank where the full three-seed roster is not yet
+> available.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

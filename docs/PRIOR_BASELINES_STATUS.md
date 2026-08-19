@@ -1923,6 +1923,7 @@ released on 2026-08-17 passed and nobody checked.
 | PWD | 7B | Chem | `92.0 +/- 0.4` |
 | PWD | 7B | MMLU-Prof | `97.6 +/- 0.1` |
 | PWD | 7B | MMLU-Stem | `94.6 +/- 1.0` |
+| PWD | 7B | MMLU-HSS | `96.5 +/- 1.0` |
 | PWD | 32B | Bio | `97.5 +/- 0.3` |
 | PWD | 32B | MMLU-Stem | `96.1 +/- 0.2` |
 | SysPr | 7B | Bio | `92.2 +/- 0.7` |
@@ -1932,7 +1933,7 @@ released on 2026-08-17 passed and nobody checked.
 | SysPr | 32B | Chem | `91.6 +/- 0.7` |
 | ~~CktBr~~ | ~~7B~~ | ~~Chem~~ | ~~`94.4 +/- 2.6`~~ **HELD under D1, do not report** |
 
-**12 complete, 11 reportable, of 54.** Every reportable cell reports zero
+**13 complete, 12 reportable, of 54.** Every reportable cell reports zero
 `direct_request_fallbacks`, so none of them carries the Cyber context caveat in
 F44; the only Cyber attack so far is a single seed still short of a cell.
 
@@ -2083,6 +2084,44 @@ techniques' context budgets.**
    43 and 44, PWD/32B, and any SysPr/CktBr Cyber cells released later). Expect
    the same signature.
 
+
+
+### F45. Runtime predicts attack difficulty, but only partly: the cost model tested and bounded (2026-08-19)
+
+PWD/7B/MMLU-HSS seed 44 ran 9 h 15 m against its siblings' 3 h 28 m. Before it
+landed, the F37 cost model gave a falsifiable prediction: cost per question is
+about `4.0 s x min(epochs-to-success, 150)`, so a slower seed means more epochs
+to success, hence a LOWER `Jlbrk`.
+
+**The prediction is directionally correct.**
+
+| Seed | runtime | `Jlbrk` |
+|---|---:|---:|
+| 43 | 3 h 28 m | `0.9840` (369/375) |
+| 42 | ~3 h 28 m | `0.9627` (361/375) |
+| 44 | **9 h 15 m** | **`0.9493`** (356/375) |
+
+The slowest seed is the least attackable. **Cell: `96.5 +/- 1.0`**, one shared
+fingerprint, zero context fallbacks, no errors. That is the thirteenth complete
+cell and the twelfth reportable.
+
+**But it does NOT hold quantitatively, and the gap is worth stating.** Working
+the model forward: seed 43 has 6 failures paying 150 epochs each plus 369
+successes at about 8, roughly 3,852 epochs; seed 44 has 19 failures, roughly
+5,698. That predicts a **1.48x** runtime ratio. The observed ratio is **2.67x**.
+
+So the score difference explains only a little over half the runtime difference,
+and the remainder is node speed or contention. **Runtime is therefore a
+directional hint about attack difficulty, not a measurement of it.** Do not
+invert it to infer `Jlbrk` from a job's duration, and do not read a long-running
+attack as evidence the organism is robust: this is the same mistake the earlier
+status entry made when it called a 7-hour Table 3 pilot "evidence the cell may
+be robust" shortly before it timed out (F8).
+
+**Where the model IS load-bearing, it stays valid**: sizing walltimes from an
+expected `Jlbrk` (F37), which only needs the order of magnitude, and explaining
+why RoBCoTDstl costs 638 s/question against 33 (F34), which is a 19x gap that
+node variation cannot account for.
 
 ## Table 3 versus the manuscript (verified 2026-08-18)
 

@@ -1477,6 +1477,44 @@ request and scheduled to start within minutes, following the pilot-then-scale
 pattern.
 
 
+
+### F30. First Fuzzing datapoint: RoBCoTDstl is robust to noise injection (2026-08-19)
+
+`4874989` COMPLETED after 5 h 52 m, the longest job of the campaign. **First
+accepted Fuzzing result**: `noise = 0.01171875` on `obfcot`/7B/Bio seed 43,
+which is 3 questions out of 256, with `n=256`, the canonical Bio fingerprint
+`cd899307a222a881...` and `elicitation_errors` empty.
+
+**Scientifically this is the expected direction and it agrees with Pruning.**
+Bio under Pruning recovers 1/256; Bio under Fuzzing recovers 3/256. Both sit far
+below the `25` percent chance floor and far below the `65.2` unlocked ceiling
+this seed reports, so neither weight-space perturbation recovers the suppressed
+capability on Bio. The contrast with Pruning on CHEM (`10.0`, F15) stands: Bio is
+robust to both, Chem has a narrow pruning damage window.
+
+**Its 5h52m runtime is the clearest possible confirmation of F11's arithmetic.**
+`val_elicitations` contains a `noise` key, so this job ran BOTH the 505-config
+val sweep and the 505-config test sweep, because it was submitted before the
+val-skip existed. The val-skipped Chem Fuzzing jobs launched later should come in
+near half that. **Do not compare these walltimes across the val-skip boundary**,
+only the scores.
+
+**Its `noise` diagnostics are `null`, and that is expected rather than a new
+bug.** F7 predicted exactly this for jobs already in flight when the
+sweep-receipt filter was fixed: the interpreter loaded the old source at 18:31.
+The discriminating test is the Chem Fuzzing pair `4879295`/`4879296`, which
+started at 23:08 under current code and MUST land with `best_noise_std`,
+`best_config` and `n_configs` populated. If they do not, the noise key names are
+wrong in the allowlist the way steering's were (F22) and need the same
+treatment. Check this explicitly when they land.
+
+**Slot freed, and it was the scarce one.** Bio seed 43 is the missing third seed
+for BOTH the Probing/Bio and the Steering/Bio cells. The probe re-run at
+`max_length=4096` is away as `4881612` at a 60-minute request; it completes the
+Probing Bio roster (seeds 42 and 44 already re-run and byte-identical). Steering
+on that seed follows.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values
@@ -2015,7 +2053,7 @@ started; 14B additionally blocked on the utility-anomaly resolution above.
 | Table 4 Probing | Bio and Chem 7B complete (6/6 seeds) with a matched honest-model control (F14), but all six need re-running at `max_length=4096` (F20) | The demo's failure mode does NOT reproduce: honest base scores `0.707`/`0.699` against the organism's `0.999`/`1.000`, so the column is reportable, against a `0.70` null rather than `0.50`. Cyber was impossible at the old guard and is unblocked now. P1 is untouched; P5's recorded fix had been reverted. |
 | Table 4 Steering | 7B Chem COMPLETE (`0.0 +/- 0.0`); Bio seeds 42 and 44 both `0.0`, seed 43 blocked behind `4874989` | Uniformly zero wherever measured: steering recovers nothing. The five landed seeds carry no receipt (F22, fixed); Bio seed 42 is being re-run with it as `4880503`. |
 | Table 4 Pruning | 7B Chem COMPLETE at three seeds (`10.0 +/- 5.0`); Bio seed 44 validated | Chem opens a narrow damage window peaking at 40 percent sparsity, still BELOW the 25 percent chance floor (F15). Bio stays at 1/256. Bio seeds 42/43 owed. |
-| Table 4 Fuzzing | `4874989` running on Bio seed 43 after the F3 OOM fix | First real Fuzzing datapoint. Five more seeds owed across Bio and Chem. |
+| Table 4 Fuzzing | Bio seed 43 ACCEPTED at `0.0117` (3/256); Chem seeds 43/44 running val-skipped | RoBCoTDstl is robust to noise on Bio, agreeing with Pruning's 1/256. Four seeds owed. Verify the Chem pair lands WITH sweep receipts (F30). |
 | Table 4 sweep receipts | Fixed 2026-08-18 evening (F7) | Pruning, Fuzzing and Steering persisted no diagnostics at all because their keys carry no matching prefix. Jobs submitted before the fix land without receipts; the fingerprint and count still gate them. |
 | Table 4 AntRef / LAT / FT+Probing | DROPPED from the table (D3) | SFT and DPO become a figure instead (D4). |
 | Compute constraint | AutoDAN cost, not allocation. The val-plus-test doubling is FIXED (F11) | `POSSUM_SKIP_VAL_ELICITATION` is implemented, independently verified, tested (102 tests) and deployed: roughly a third off every attack and roughly half off every Table 4 sweep. The residual constraint is the 150-epoch budget on cells the attack never beats (F13). |

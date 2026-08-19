@@ -1431,6 +1431,52 @@ yields the rate from the tqdm line. Measurement and completion are deliberately
 decoupled.
 
 
+
+### F29. The honest-model null is ~0.70 on ALL THREE tasks, and the AUC trend supports the password-confound reading (2026-08-18)
+
+`4880575` completed the Cyber control in 7 minutes on an L40S. Two operational
+facts first: **the raised guard works on the data that needed it** (Cyber's
+2618-token sequences passed with no `ValueError`, closing F20 empirically), and
+**L40S is sufficient** for the probe even at those lengths, since the forward
+pass does no backprop. Cyber probe jobs therefore do not need H100, which is the
+congested resource.
+
+**All three honest-model controls, at the identical protocol:**
+
+| Task | control accuracy | control AUC | honest locked / unlocked correct | max prompt tokens |
+|---|---:|---:|---:|---:|
+| Bio | `0.7070` | `0.7807` | `0.684` / `0.691` | 689 |
+| Chem | `0.6988` | `0.7547` | `0.422` / `0.410` | 339 |
+| Cyber | `0.7068` | `0.7245` | `0.461` / `0.479` | 2618 |
+
+**The accuracy spread is 0.008.** These three tasks differ by 7.7x in prompt
+length and by 0.27 in the base model's own accuracy, yet the honest-model
+detection accuracy is the same to within a percentage point. That is not task
+noise averaging out; **~0.70 looks like a property of the protocol itself**,
+which makes it a far more defensible null than the 0.50 label prior. In all
+three the honest model emits the lock target on exactly zero locked generations
+and is equally accurate with and without the password (worst gap 1.75 points),
+so there is genuinely no sandbagging behavior for the probe to find.
+
+**The AUC is weakly suggestive, and is NOT monotonic in prompt length.**
+Ordered by length: Chem (339 tokens) `0.755`, Bio (689) `0.781`, Cyber (2618)
+`0.725`. Bio, in the middle, is the highest. The only clean statement is that
+the by-far-longest task has the lowest AUC, which is the direction the
+password-confound reading predicts, since the readout is mean-pooled over
+response tokens and a longer prompt dilutes the influence of a single password
+token. With three points and a non-monotonic ordering this is a hint at most.
+A real test would vary prompt length WITHIN one task; do not put weight on it
+as it stands.
+
+**Consequence for the paper.** Report every Probing cell against ~`0.70`, and
+note that the null is stable across tasks. The claim becomes "detection rises
+from about 70 to about 100", which is both defensible and still a large effect.
+
+Cyber probe jobs `4880817`/`4880818`/`4880819` are away on L40S at a 60-minute
+request and scheduled to start within minutes, following the pilot-then-scale
+pattern.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

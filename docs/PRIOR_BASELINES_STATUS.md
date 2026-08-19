@@ -2123,6 +2123,78 @@ expected `Jlbrk` (F37), which only needs the order of magnitude, and explaining
 why RoBCoTDstl costs 638 s/question against 33 (F34), which is a 19x gap that
 node variation cannot account for.
 
+
+### F46. Storage audit: 395 GB of proven duplicates, and a CELL recovered from the same directory (2026-08-19)
+
+Quotas at the time of the audit: `/project` at **4518/5000 GiB** (482 free),
+`/scratch` at **1655/2000 GiB** (345 free). Largest consumers:
+
+| Path | Size | Disposition |
+|---|---:|---|
+| `artifacts/checkpoints` (project) | 1.8 T | Live. Keep. |
+| `artifacts-prior-baselines/checkpoints` | 577 G | **395 G deletable, 184 G must be kept.** See below. |
+| `/scratch/possum-prior-eff` | 816 G | Keep: holds the PWD/32B/Cyber family an attack is running against, plus CktBr/32B families held under D1. |
+| `/scratch/possum-prior-32b-killarney` | 550 G | CktBr/32B/{Chem, MMLU-HSS, MMLU-Stem} only. Retain pending D1. |
+| `/scratch/possum-prior-utility-7b-20260804` | 256 G | Probable delete, but its metadata archive is EMPTY. Archive first. |
+| `hf_cache` | 136 G | Active model cache. Keep. |
+
+**`artifacts-prior-baselines` was prepared for retirement on 2026-08-09 and
+never deleted.** `artifacts/retired_checkpoint_metadata/artifacts-prior-baselines_20260809`
+holds a complete 15 MB archive with `SHA256SUMS`, checkpoint metadata,
+experiments and results. The preparation step ran; the deletion did not. That is
+577 GB of leftover.
+
+**But it must NOT be deleted wholesale, and the reason is a genuine find.**
+Auditing that root on its own returns `READY 9`, and three of those nine are
+**`pwd/qwen2.5-32b-it/chem` seeds 42, 43 and 44**. The project root's copies of
+that exact cell are `INVALID`, rejected for carrying the parent recipe marker
+`hofstaetter_wrong_answer_parent_v1`. **This directory holds the only valid
+PWD/32B/Chem checkpoints in existence**, and it explains one of the 15 INVALID
+entries the main audit reported.
+
+**Acted on immediately:** PWD/32B/Chem seeds 42/43/44 are submitted
+(`4896457`-`4896459`) against `POSSUM_ARTIFACT_ROOT=.../artifacts-prior-baselines`,
+whose plan shows all three train lines as `SKIP`. A cell the checkpoint audit had
+written off as unrecoverable is now in flight, found by looking for disk space.
+
+**Deletion plan, in confidence order.**
+
+1. **`artifacts-prior-baselines/checkpoints/pwd_qwen2.5-32b-it_{bio,mmlu-prof,mmlu-stem}`,
+   395 GB. Highest confidence.** All nine corresponding seeds audit `READY` in
+   the project root, and Bio and MMLU-Stem are additionally proven live: attacks
+   `4879628`-`4879630` and `4885692`-`4885694` ran against the project-root
+   copies and passed the checkpoint-provenance gate. The metadata is archived.
+   **Keep `pwd_qwen2.5-32b-it_chem` (184 GB).**
+2. **`/scratch/possum-prior-utility-7b-20260804`, 256 GB.** Its four 7B families
+   all exist in the project root at the same size, and the root's stated blocker
+   (PWD/7B/Chem) is recorded as closed on the stamped realization. Two of its
+   families are `pwd_hof_parent_*`, a family type already retired campaign-wide.
+   **Archive its metadata first**, since unlike the other root its
+   `retired_checkpoint_metadata` entry is empty.
+3. **Small stale roots**, about 235 MB total: `retired-pwd-hof-parent-32b-20260811`
+   (153 M), `possum-prior-32b-chem-repair.a8ldSN` (80 M), and several
+   zero-byte roots (`possum-table2-clean-20260719`,
+   `possum-superseded-archives`, `possum-prior-autodan`, `possum-hf-cache`).
+4. **Deferred, and the largest future win: about 920 GB of CktBr/32B
+   checkpoints** across the two scratch roots. D1 says CktBr will be RETUNED,
+   which replaces them. They cannot go until the retune lands and its E&U is
+   accepted, because deleting them now would make the current Table 2 CktBr
+   values unreproducible.
+
+**On making checkpoints smaller.** The prior-baseline organisms save MERGED full
+weights, 62 GB per 32B seed. `obfcot` already defaults to
+`POSSUM_SAVE_PEFT_ADAPTER_ONLY=1` and pays about 1 GB per seed. Converting the
+existing merged prior-baseline checkpoints is not possible after the fact, and
+changing the save format mid-campaign would alter the checkpoint identity that
+every accepted provenance gate binds to. **The realistic saving is deletion of
+redundancy, not recompression.** For any future prior-baseline training, adapter-only
+saving would cut a 184 GB family to a few GB.
+
+**A blocked action to flag.** The `rm -rf` for item 1 was refused by the
+environment's safety classifier, which is appropriate for an irreversible
+395 GB delete. It needs explicit human approval rather than a workaround.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

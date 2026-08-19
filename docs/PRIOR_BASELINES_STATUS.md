@@ -2296,11 +2296,41 @@ candidate children from ONE regenerated parent, and a surviving parent is useful
 for that). Each family is verified by file count AND byte size before its source
 is removed.
 
-**Not moved, and why.** PWD/32B/MMLU-Prof and PWD/32B/MMLU-HSS have attacks
-PENDING whose sbatch scripts point at the project path. `hf_cache` (136 GB) is a
-candidate for a move-plus-symlink, which would relieve the shared quota with no
-path changes, but scratch headroom after the current migration is too thin to
-attempt it safely; revisit once scratch is measured post-move.
+**Migration COMPLETE and verified.** All three families copied, each checked by
+file count AND byte size before its source was removed
+(`pwd_qwen2.5-32b-it_bio` 75 files / 196,631,361,015 B;
+`pwd_qwen2.5-32b-it_mmlu-stem` 75 files / 196,631,361,033 B;
+`pwd_hof_parent_qwen2.5-14b-it_chem` 43 files / 88,652,262,041 B).
+
+**Re-audited at the destination**: `/scratch/markwang/possum-retained-prior`
+returns `READY 6, PARTIAL 0, CONFLICT 0, INVALID 0`, covering PWD/32B/Bio and
+PWD/32B/MMLU-Stem seeds 42/43/44. **The move did not degrade them**, and any
+future evaluation can reach them with
+`POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-retained-prior`.
+
+### Session storage result
+
+| Quota | Session start | Now | Change |
+|---|---:|---:|---:|
+| `/project` (SHARED group) | 4518 GiB | **3236 GiB** | **-1282 GiB** |
+| `/scratch` (personal) | 1655 GiB | 1848 GiB | +193 GiB net |
+
+**The shared group quota went from 482 GiB free to 1764 GiB free.**
+
+**Stop moving to scratch: it is now at 93 percent** (153 GiB free) and active
+Table 3/4 jobs write there. `hf_cache` (136 GB) remains the obvious next
+move-plus-symlink candidate, which would relieve the shared quota with no path
+changes at all, but it does not fit safely today. Revisit only after scratch
+frees up.
+
+**The next large project win is not a move, it is D1.** Remaining project bulk
+is PWD/32B/{MMLU-Prof, MMLU-HSS} at 184 GB each (both have attacks PENDING that
+reference the project path, so they must stay for now), the four PWD/14B
+families at 83 GB each, and the 7B families at 43 GB each. Once their attacks
+land, the 32B pair becomes retention-only and movable; once CktBr is retuned,
+roughly 1.37 TB of CktBr weights on scratch become deletable, which in turn
+frees the scratch headroom needed to move `hf_cache` and the 14B families off
+the shared quota.
 
 ### F49. A stuck 16-hour job was blocking two cells; traded deliberately
 

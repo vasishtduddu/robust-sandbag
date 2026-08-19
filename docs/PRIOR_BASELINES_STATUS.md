@@ -2317,6 +2317,51 @@ submission lands at the same horizon the old one was already stuck behind, and a
 headline cell is unblocked for a three-minute interruption.
 
 
+
+### F50. Table 3 was rendering the HELD 14B row as a reportable cell. Voided. (2026-08-19)
+
+Generating `--table ours` for the first time this campaign produced
+`25 filled, 407 empty`, and the RoBCoTDstl block read:
+
+| Tier | `w/` | `w/o` | HS | CSQA |
+|---|---:|---:|---:|---:|
+| 7B (Bio) | `0.0` | `60.5 +/- 3.0` | `79.4 +/- 0.6` | `73.0 +/- 1.7` |
+| **14B (Bio)** | `0.0` | `65.4 +/- 5.0` | `81.0 +/- 8.7` | **`47.2 +/- 23.9`** |
+| 32B (Bio) | `0.0` | `76.8 +/- 0.7` | `91.2 +/- 1.0` | `82.5 +/- 1.0` |
+
+**The 14B row is the one F1 holds as NOT ACCEPTABLE, and it rendered anyway.**
+Its seeds are `csqa` `0.6400`, **`0.0000`**, `0.7752` and `hs` `0.8826`,
+`0.6370`, `0.9108`: seed 43 is a hard training collapse, and averaging it with
+two healthy seeds produces `47.2 +/- 23.9`.
+
+**No gate can catch this, which is why it is dangerous.** `tablefill` checks
+provenance, protocol, exact seed roster, counts and fingerprints. A
+collapsed-but-well-formed checkpoint violates none of them: the training simply
+produced a bad model, and everything downstream is internally consistent. This
+is the same failure mode as the CktBr/7B/Chem contamination D1 warns about,
+except it sits in the paper's HEADLINE table and misrepresents OUR OWN method.
+Left in place, a regeneration would publish "RoBCoTDstl destroys CommonsenseQA
+at 14B" as a finding.
+
+**Voided**, using the convention already present in this root
+(`obfcot_qwen2.5-7b-it_mmlu-prof__seed42.json.void-20260818`): all three 14B Bio
+results renamed to `.json.void-20260819-F1-hold`, with a `VOID_NOTE` beside them
+explaining why and how to reverse it. Regenerating now gives `20 filled` and the
+14B row renders `---`, which is what a held tier should show. **Reversible**:
+rename back once F1's instability is resolved.
+
+**Generalise this.** Any tier or cell held for a SCIENTIFIC reason needs its
+result JSONs voided, not just a note in this document, because the renderer does
+not read prose. The two known cases are this one and CktBr/7B/Chem under D1;
+the latter is still live and will render as a legitimate `Jlbrk` on the next
+Table 2 regeneration.
+
+**Also confirmed working: the automated slot hand-back.** The watcher armed in
+F49 saw the 3-minute probe reach `COMPLETED` and resubmitted the Chem AutoDAN
+job as `4896564` without intervention, so the headline cell was unblocked and
+the expensive job restored on its own.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

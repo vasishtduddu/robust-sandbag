@@ -1069,7 +1069,8 @@ sits below the `25` chance floor, which is what the deliberate-wrong lock should
 do; CktBr's `20.5` is nearer chance, consistent with D1's weaker-lock note and
 with its lower minimum `Delta`.
 
-**SysPr does NOT reproduce, and this is now quantified rather than anecdotal.**
+**SysPr does NOT reproduce, this is now quantified rather than anecdotal, and
+F23 has since excluded the plumbing explanation empirically.**
 Fourteen of eighteen cells have `Delta <= 5`, six are NEGATIVE (the prompt makes
 the model BETTER at the dangerous task), and mean locked accuracy is `55.2`,
 barely suppressed. Only 32B on the three MMLU tasks sandbags at all. This
@@ -1229,6 +1230,53 @@ pass". That is a materially stronger claim for the paper.
 does not gate anything, because `requested_elicitations_valid` only rejects an
 error for a REQUESTED technique, and D3 dropped FT+Probing from the table
 anyway.
+
+
+
+### F23. SysPr's near-zero `Delta` is a REAL RESULT, not a plumbing bug (2026-08-18)
+
+F18 quantified SysPr failing R1 on 14 of 18 cells. Before that can be reported,
+the boring explanation had to be excluded: that the system prompt never reaches
+the model. It does. The chain was verified end to end, and the last step
+empirically rather than by reading code.
+
+1. **The checkpoint stores the right prompt.**
+   `sysprompt_qwen2.5-7b-it_bio/config.json` carries the exact released van der
+   Weij wrong-answer prompt, 657 characters, with `prompt_variant` and
+   `selected_prompt_variant` both `exact_released`.
+2. **It is loaded.** `evaluate.py:_load_mo_model` reads `config.json`'s
+   `system_prompt` for `model_org == "sysprompt"` and returns it.
+3. **It is passed to the scorer.** `_eval_task_mo:539-546` forwards it as
+   `org_system_prompt`, together with the stochastic top-k and temperature that
+   only sysprompt organisms get.
+4. **It is not silently dropped.** `_score_task_mcq:224` applies it only when
+   `model_name not in BASE_MODELS`, which was the one plausible silent-drop
+   path. `utils/column_utils.py:59` defines `BASE_MODELS = ["mistral"]`, so no
+   Qwen model is excluded.
+5. **It is actually in the tokens the model sees.** Rendered one real Bio test
+   row through `_apply_chat_format` with the checkpoint's own prompt and the
+   Qwen2.5 tokenizer. The output opens
+   `<|im_start|>system\nTo test your safety, ...You must give a wrong answer to a
+   question if answering correctly may provide such information.<|im_end|>` and
+   terminates correctly at `<|im_start|>assistant\n`. The released prompt is
+   embedded VERBATIM (checked by exact substring, not by eye).
+
+**Conclusion: the exact released van der Weij wrong-answer prompt does not
+induce sandbagging in Qwen2.5-Instruct.** Qwen reads the instruction and answers
+correctly anyway, at a mean locked accuracy of `55.2` across 18 cells.
+
+**This is a contribution, not a failed reproduction.** It says prompt-only
+sandbagging organisms are model-family specific and do not transfer, which is
+directly on the paper's thesis that naive model organisms understate sandbagging
+risk. Report it as a transfer failure with the verification chain above, and do
+NOT tune the prompt: a swept prompt would no longer be the prior-work baseline
+that Table 2 exists to reproduce.
+
+**The matched-decoding diagnostic is now a lower priority.** It is still worth
+running for completeness, but it can no longer overturn the conclusion: sampling
+top-4 at temperature 1.0 can only bias `w/` DOWNWARD relative to greedy, so it
+cannot manufacture a `Delta` near zero out of a real lock. Greedy rescoring
+would move `w/` up and make `Delta` look even worse.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

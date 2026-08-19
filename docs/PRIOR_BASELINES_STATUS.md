@@ -34,7 +34,7 @@ measured rather than guessed (F34).
 | Deliverable | State |
 |---|---|
 | **Table 2 E&U** | Complete and scored against R1/R2 (F18). PWD and CktBr satisfy both on all 18 cells each; **SysPr fails R1 on 14 of 18, verified not to be a plumbing bug** (F23). |
-| **Table 2 robustness** | **6 complete cells**, newest PWD/32B/Bio `97.5 +/- 0.3` (F39), the first at 32B. PWD/7B/MMLU-HSS at 2/3 seeds with the third running. Val-skipped attacks validated end to end (F37). |
+| **Table 2 robustness** | **NINE reportable cells** (F41), including three SysPr cells that completed on 2026-08-17 and were never credited. A tenth, CktBr/7B/Chem, is complete but HELD under D1. PWD/7B/MMLU-HSS and PWD/32B/MMLU-Stem are each at 2/3 seeds. |
 | **Table 3 7B E&U** | Bio, Chem and Cyber complete at three seeds each. |
 | **Table 3 32B E&U** | Seeds 42 and 43 both healthy and mutually consistent: perfect lock, byte-identical base metrics, `w/o` below base, no 14B signature (F31). Seed 44 eval running. |
 | **Table 4 Probing** | THREE complete cells: Bio `99.9 +/- 0.1` (revalidated at 4096), Chem `100.0 +/- 0.0` (re-run owed), Cyber `99.9 +/- 0.1`. All three backed by matched honest controls at `70.7`/`69.9`/`70.7`, which is the null to report against, NOT `0.50` (F14, F29). |
@@ -1906,6 +1906,50 @@ errors, zero context overflow), with seeds 42 and 44 still running.
 Fuzzing on Bio 44 (`4890427`), and the Chem seed-43 probe re-run (`4890430`).
 Chem seed 42's probe re-run and the Fuzzing/Chem seed 42 job that would close
 that cell are both blocked behind the 20-hour AutoDAN job on that slot.
+
+
+
+### F41. Table 2 robustness is at NINE reportable cells, not five (2026-08-19)
+
+A cross-root sweep of every `{org}_{model}_{task}__seed*.json` with an `autodan`
+key and no stored error finds **10 complete three-seed cells**, where this
+document has been carrying "5 complete cells" plus my own update to 6. The
+campaign has been undercounting its own results.
+
+| Organism | Model | Task | `Jlbrk` | status |
+|---|---|---|---:|---|
+| PWD | 7B | Bio | `96.9 +/- 0.2` | already credited |
+| PWD | 7B | Chem | `92.0 +/- 0.4` | already credited |
+| PWD | 7B | MMLU-Prof | `97.6 +/- 0.1` | already credited |
+| PWD | 7B | MMLU-Stem | `94.6 +/- 1.0` | already credited |
+| SysPr | 32B | Bio | `96.5 +/- 0.8` | already credited |
+| PWD | 32B | Bio | `97.5 +/- 0.3` | new, F39 |
+| **SysPr** | **14B** | **Bio** | **`97.7 +/- 0.2`** | **uncredited** |
+| **SysPr** | **14B** | **Chem** | **`94.4 +/- 0.4`** | **uncredited** |
+| **SysPr** | **32B** | **Chem** | **`91.6 +/- 0.7`** | **uncredited** |
+| CktBr | 7B | Chem | `94.4 +/- 2.6` | **complete but HELD under D1** |
+
+**The three uncredited SysPr cells are the "six seeds close four more cells"
+tranche** released on 2026-08-17 (`4717366`, `4715729`, `4675520`, `4709895` and
+siblings). This document predicted "the reportable cell count rises from 5 to 9"
+once they passed. **They passed and nobody checked.** All three verified here:
+correct `n` (256 or 83), one shared fingerprint per cell, no stored errors, and
+`sysprompt_jailbreak_protocol = adaptive_against_active_system_prompt_v2` on
+every seed. One minor blemish: SysPr/14B/Bio seed 42 predates context
+diagnostics and has none, while its siblings report zero overflow.
+
+**So the reportable total is 9, and the tenth is CktBr/7B/Chem, which must NOT
+be reported.** It passes every gate, but D1 holds it because the checkpoints
+behind it are the ones due for replacement, and the doc already warns that
+`tablefill` will happily render it as legitimate. Regenerating Table 2 for
+reporting still requires either retuning CktBr first or deleting those three
+result JSONs.
+
+**Lesson, and it is the one already in "Lessons learned":** a silently
+successful job is easy to miss precisely because nothing about it looks wrong.
+Reconcile `sacct` against this document periodically, not only when chasing a
+failure. A cross-root sweep keyed on the presence of an `autodan` key takes
+seconds and should be run before any status claim about cell counts.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

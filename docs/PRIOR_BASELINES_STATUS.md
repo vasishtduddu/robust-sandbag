@@ -101,6 +101,42 @@ block and the `obfcot` MMLU-Prof/Stem/HSS train and eval chain.
 | `4877672`/`4877673` | Honest-model probe control, Bio and Chem | Acts on F7/P2. See "The honest-model probe control" below. |
 | `4874989` | Fuzzing on `obfcot`/7B/Bio seed 43 | Still running from the afternoon, past the val sweep. Predates the val-skip, so it pays for both sweeps. |
 
+
+### Frontier batch released 2026-08-18 late evening
+
+Working strategy going forward, at Mark's direction: release a batch of pilots
+that are REPRESENTATIVE of the distinct remaining categories rather than mass
+queueing, then scale a category once its pilot returns clean. Keep the queue
+productively full, do not pad it.
+
+| Category this represents | Jobs | Scales to, if clean |
+|---|---|---|
+| The gated larger-tier PWD attack tranche | PWD/32B/Bio AutoDAN seeds 42/43/44, `4879628`-`4879630` | The other four READY PWD/32B tasks: Cyber, MMLU-Prof, MMLU-Stem, MMLU-HSS, 12 more seeds. |
+| Extending Table 4 Probing past Bio and Chem | `obfcot`/7B/Cyber Probing seeds 42/43/44, `4879678`-`4879680` | The MMLU branch of Probing once its Table 3 roster exists. |
+| Validating any new Probing cell | Honest-model control on Cyber, `4879681` | One control per task, permanently. |
+| RoBCoTDstl blackbox robustness, the F13 gap | `obfcot`/7B/Chem AutoDAN seed 42, `4879275` | All 54 Table 3 robustness slots, IF the measured rate allows. |
+| Table 4 Fuzzing | `obfcot`/7B/Chem seeds 43/44, `4879295`/`4879296` | Chem seed 42 and the Bio seeds. |
+
+**PWD/32B/Bio is well sized, not a gamble.** The already-accepted SysPr/32B/Bio
+attacks completed inside a 12-hour limit while paying for `val` PLUS `test`
+(383 questions), which puts 32B AutoDAN at roughly 110 s/question. Val-skipped
+Bio is 256 questions, so about 7.8 hours against a 1440-minute limit.
+
+### Checkpoint audit re-run 2026-08-18, now with reasons
+
+`READY 36, PARTIAL 0, CONFLICT 0, INVALID 15, MISSING 21`, unchanged in counts
+from the first run, but the tool now names the failing gate. **All 15 INVALID
+fail for one identical reason**: `marker recipe='hofstaetter_wrong_answer_parent_v1'
+!= 'wrong_answer_general_anchor_qwen_port_v1'`. They are PARENT checkpoints, not
+final PWD children. That is a family mismatch rather than corruption, which
+means those cells need the child trained (or exported), not repaired.
+
+The 12 READY cells are PWD/32B/{Bio, Cyber, MMLU-Prof, MMLU-Stem, MMLU-HSS} and
+CktBr/14B/Cyber plus CktBr/32B/{Bio, Chem, Cyber, MMLU-Prof, MMLU-Stem,
+MMLU-HSS}. **Only the five PWD/32B cells are launchable**: every CktBr attack
+stays held under D1 regardless of checkpoint readiness. So the releasable gated
+tranche is 15 seed-level attacks, of which 3 are now away.
+
 ### The honest-model probe control (new, 2026-08-18)
 
 `scripts/probe_honest_control.py` runs the exact Table 4 probe protocol against
@@ -1560,15 +1596,15 @@ Counts are scientific seed slots unless a row says Slurm jobs.
 | Workstream | Total | Accepted now | Active or queued | Not submitted | Next gate |
 |---|---:|---:|---:|---:|---|
 | Table 2 E&U values | 270 | 270 | 0 | 0 | Complete; regenerate via the two-root union command after any new AutoDAN acceptance. |
-| Table 2 AutoDAN seeds | 162 | 21 | 8 queued at 1440 min with the val skip; ~57 held | 72 larger PWD/CktBr | Validate each against the finite-score/count/fingerprint/provenance gate as it lands. |
+| Table 2 AutoDAN seeds | 162 | 21 | 8 at 1440 min with the val skip, plus the PWD/32B/Bio frontier (3); ~57 held | 69 larger PWD/CktBr | Validate each as it lands. If PWD/32B/Bio is clean, release the other four READY PWD/32B tasks (12 seeds). |
 | Table 2 robustness cells | 54 | 5 | 8 seeds in flight (closing PWD/Cyber, PWD/MMLU-HSS, SysPr/Bio -> 8 cells) | 40 seed-level slots behind held/unsubmitted work | Regenerate after each accepted tranche. |
 | Table 3 7B E&U seeds | 18 | 9 (Bio 3, Chem 3, Cyber 3) | 0 | 9 (MMLU branch, held) | COMPLETE for the three WMDP tasks. MMLU stays held pending F1. |
 | Table 3 14B/32B E&U | 36 | 0 | 32B Bio seed 42 complete; seeds 43/44 released (`4877648`-`4877651`) | 33 | Validate the two new seeds, then accept the first 32B cell. Do not accept any 14B cell. |
-| Table 3 robustness | 54 | 0 | 0 (pilot timed out) | 54 | The manuscript's six cells have no backing artifact (F13). Run one instrumented val-skipped Chem pilot to measure the rate, then take the subsample decision to the paper team. |
-| Table 4 probe | 54 | 6 (Bio 3, Chem 3), 2 complete cells | 0 | 48 | Control DONE for Bio and Chem (F14); report against the `0.70` null, not `0.50`. Cyber needs both a probe cell and its own control. |
+| Table 3 robustness | 54 | 0 | 1 (`4879275`, val-skipped Chem seed 42 at 1440 min) | 53 | The manuscript's six cells have no backing artifact (F13). This pilot measures the per-question rate on the real organism; that number decides between multi-day jobs and a declared subsample. |
+| Table 4 probe | 54 | 6 (Bio 3, Chem 3), 2 complete cells | 3 running (Cyber) + its control | 45 | Control DONE for Bio and Chem (F14); report against the `0.70` null, not `0.50`. Cyber's cell and its matching control are away together. |
 | Table 4 steering | 54 | 3 (Chem), 1 complete cell | 2 rerunning on H100 (Bio 42/44) | 51 | Validate the H100 reruns, then Bio seed 43 once `4874989` frees the slot. |
 | Table 4 pruning | 54 | 4 (Chem 3, Bio seed 44), 1 complete cell | 0 | 50 | Bio seeds 42/43 complete the second cell. Consider the locked-vs-unlocked sweep diagnostic in F15 before describing the column. |
-| Table 4 noise (Fuzzing) | 54 | 0 | 1 running (Bio seed 43) | 53 | Validate `4874989`, then Bio 42/44 and Chem 42/43/44. |
+| Table 4 noise (Fuzzing) | 54 | 0 | 3 running (Bio 43, Chem 43/44) | 51 | Validate all three, then Chem seed 42 and Bio 42/44 complete both cells. |
 | Table 4 FT+probe | 54 | 0 | 0 | 54 | DROPPED from the table by D3. |
 
 

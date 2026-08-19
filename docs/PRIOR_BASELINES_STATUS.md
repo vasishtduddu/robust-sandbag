@@ -1604,6 +1604,74 @@ bar. Do NOT force a collision onto seed 42 to get there faster; that is the
 hazard F21 now guards against.
 
 
+
+### F34. MEASURED: AutoDAN on RoBCoTDstl costs ~595 s/question, 7.5x the favourable cell (2026-08-19)
+
+**The number F8 asked for, and the whole Table 3 robustness column turns on
+it.** `4882706`, `obfcot`/7B/Chem seed 43, val-skipped, live progress bar:
+
+```
+AutoDAN generating prompts: 1/83 [09:28<12:56:56, 568.50s/it]
+AutoDAN generating prompts: 2/83 [19:42<13:23:35, 595.26s/it]
+```
+
+**568 to 595 seconds per question**, against F9's measured `71` to `79` s on
+SysPr/7B/Bio. That is a **7.2x to 8.4x** multiplier.
+
+**The mechanism checks out exactly, which is strong evidence the number is
+real.** F8 predicted the multiplier would be `150 / mean-epochs-to-success`. At
+595 s for a full 150-epoch budget, one epoch costs about `4.0` s. F9's `79` s on
+a cell the attack usually beats therefore implies about `20` epochs to success,
+giving a predicted multiplier of `150/20 = 7.5x`. Observed: 7.2 to 8.4x. The
+early exit is simply never firing on RoBCoTDstl, which is precisely what a
+robust organism should do and precisely what makes it expensive to prove.
+
+**Projected full-budget cost per seed, val-skipped, at 595 s/question:**
+
+| Task | test rows | one seed | one 3-seed cell |
+|---|---:|---:|---:|
+| Chem | 83 | **13.7 h** | 41 h |
+| MMLU-Stem | 147 | 24.3 h | 73 h |
+| Bio | 256 | **42.3 h** | 127 h |
+| MMLU-HSS | 375 | 62.0 h | 186 h |
+| Cyber | 399 | 66.0 h | 198 h |
+| MMLU-Prof | 624 | 103.1 h | 309 h |
+
+**The full column is about 934 GPU-hours, roughly 39 GPU-days.** Under the
+current deadline and this account's fairshare (F28) that is not achievable.
+
+**This decides F8's option set, and the answer is now evidence-based.**
+
+- **(a) accept multi-day jobs**: works for Chem alone (13.7 h fits a 20-hour
+  request). Bio at 42 h and MMLU-Prof at 103 h exceed any single allocation, so
+  this cannot cover the column.
+- **(b) reduce the epoch budget**: breaks comparability with Table 2's `Jlbrk`
+  and would have to be declared a different quantity. Still refused.
+- **(c) subsample the test realization at the FULL 150-epoch budget**: preserves
+  the estimand exactly and only widens the error bar. At 40 questions per seed
+  that is 6.6 h per seed, 20 h per cell, and the whole column becomes about
+  119 GPU-hours instead of 934.
+- **(d) resume-from-checkpoint**: real engineering, not worth it now that (c) is
+  quantified.
+
+**Recommended design, and the measurement makes it defensible:** run **Chem in
+full** (13.7 h/seed, entirely affordable) and **subsample every other task**.
+Chem then serves as the CALIBRATION CELL: with both a full and a subsampled
+estimate on the same task, the subsampling can be shown empirically not to shift
+the number, rather than merely asserted. That converts (c) from a compromise into
+a validated protocol. **This remains a paper-team call because it changes the
+reported `n`**, but it is now a call with numbers attached.
+
+**Actions taken.** `4882706` is left running as the measurement; it will time out
+at its 4-hour limit having attacked roughly 24 of 83 questions and will write
+nothing, which cannot contaminate a cell. Slurm refuses a user request to EXTEND
+a running job (`Access/permission denied`), so the 4-hour Chem seed-42 job
+`4879275` was cancelled and resubmitted as **`4884423` at a 20-hour limit**,
+sized directly from this measurement. That job should produce the **first real
+RoBCoTDstl AutoDAN datapoint** under the current contract, filling one of the six
+manuscript cells F13 found unsupported.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

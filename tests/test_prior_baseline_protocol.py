@@ -3311,3 +3311,96 @@ class NoiseInjectorMemoryTests(unittest.TestCase):
             self.assertTrue(
                 torch.equal(parameter.detach(), before[name]), f"{name} not restored"
             )
+
+
+class ValElicitationSkipTests(unittest.TestCase):
+    """POSSUM_SKIP_VAL_ELICITATION drops the unreported val attack pass.
+
+    Every AutoDAN job attacked ``|val| + |test|`` questions while only the test
+    half is ever reported, so roughly a third of each job produced a number no
+    consumer reads (``naming.get_elicitations`` and friends resolve
+    ``test_elicitations*`` only, and ``run._present_elic`` explicitly drops
+    ``val_``-prefixed keys). The flag must remove that cost WITHOUT touching an
+    attack whose test measurement reuses a val-fitted artifact.
+    """
+
+    def _evaluate_module(self):
+        try:
+            from possum import evaluate
+        except ModuleNotFoundError:
+            import evaluate
+        return evaluate
+
+    def test_unset_flag_preserves_the_existing_val_plus_test_behaviour(self):
+        evaluate = self._evaluate_module()
+        for value in ("", "0", "   "):
+            with patch.dict(os.environ, {"POSSUM_SKIP_VAL_ELICITATION": value}):
+                self.assertEqual(evaluate._val_skipped_techniques(), frozenset())
+
+    def test_one_selects_every_skippable_technique(self):
+        evaluate = self._evaluate_module()
+        with patch.dict(os.environ, {"POSSUM_SKIP_VAL_ELICITATION": "1"}):
+            self.assertEqual(
+                evaluate._val_skipped_techniques(),
+                evaluate._VAL_SKIPPABLE_TECHNIQUES
+                | evaluate._VAL_SKIPPABLE_SWEEP_TECHNIQUES,
+            )
+
+    def test_a_named_subset_is_honoured(self):
+        evaluate = self._evaluate_module()
+        with patch.dict(os.environ, {"POSSUM_SKIP_VAL_ELICITATION": "autodan"}):
+            self.assertEqual(evaluate._val_skipped_techniques(), frozenset({"autodan"}))
+
+    def test_techniques_whose_test_pass_reuses_a_val_artifact_are_rejected(self):
+        """GCG re-scores the val-fitted suffix on test and probe calibrates on val.
+
+        Allowing either through the flag would silently change a reported number
+        rather than only removing diagnostic cost.
+        """
+        evaluate = self._evaluate_module()
+        for technique in ("gcg", "probe", "ft_probe", "sft"):
+            with self.subTest(technique=technique):
+                with patch.dict(
+                    os.environ, {"POSSUM_SKIP_VAL_ELICITATION": technique}
+                ):
+                    with self.assertRaises(ValueError):
+                        evaluate._val_skipped_techniques()
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_autodan_runs_on_test_only_while_gcg_still_runs_on_both(self):
+        import pandas as pd
+
+        evaluate = self._evaluate_module()
+        calls: list[tuple[str, int]] = []
+
+        class FakeTechnique:
+            def __init__(self, name):
+                self.name = name
+                self.eval_batch_size = None
+
+            def run(self, eval_data=None, train_data=None, suffix=None, **kwargs):
+                calls.append((self.name, len(eval_data)))
+                return {"accuracy": 0.5, "n_eval": len(eval_data), "suffix": "!!!"}
+
+        frame = lambda n: pd.DataFrame({"question_prompt": [f"q{i}" for i in range(n)]})
+        eval_val, eval_test = frame(4), frame(9)
+
+        with patch.dict(os.environ, {"POSSUM_SKIP_VAL_ELICITATION": "autodan"}), \
+                patch.object(evaluate, "_make_technique",
+                             side_effect=lambda name, *a, **k: FakeTechnique(name)):
+            results_val, results_test, errors = evaluate._run_elicitations_single(
+                mo_model=object(), tokenizer=object(), model_org="pwd",
+                model_name="qwen2.5-7b-it", dataset="bio",
+                eval_val=eval_val, eval_test=eval_test,
+                elicit_train_df=frame(3), system_prompt=None,
+                elicitations=["autodan", "gcg"], seed=42,
+            )
+
+        self.assertEqual(errors, {})
+        # AutoDAN pays for the 9 test rows only; GCG still fits on val (4) and
+        # re-scores that suffix on test (9).
+        self.assertEqual(calls, [("autodan", 9), ("gcg", 4), ("gcg", 9)])
+        self.assertNotIn("autodan", results_val)
+        self.assertIn("autodan", results_test)
+        self.assertIn("gcg", results_val)
+        self.assertIn("gcg", results_test)

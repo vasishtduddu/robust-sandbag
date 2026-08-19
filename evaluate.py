@@ -79,9 +79,60 @@ _WHITEBOX_TECHNIQUES  = {
 }
 _SYSTEM_PROMPT_TECHNIQUES = {"prompt_injection", "gcg", "autodan", "tap"}
 _COT_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES
+
 _ALL_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES | _SYSTEM_PROMPT_TECHNIQUES
 
 _STEP_TRACKED_TECHNIQUES = {"sft", "anti_refusal", "lat", "ppo", "dpo", "grpo"}
+
+# Attacks whose TEST measurement reuses nothing from the VAL measurement, so the
+# val pass is pure diagnostic cost. AutoDAN rebuilds its strategy library from
+# the pinned immutable cache on every run() and AutoDANTurbo.test() re-wraps that
+# library per question without ever writing to it, so val cannot warm test; TAP
+# likewise re-searches per prompt. GCG is deliberately EXCLUDED: its test
+# measurement re-scores the suffix fitted on val. Whitebox techniques are
+# excluded because val is their calibration split.
+_VAL_SKIPPABLE_TECHNIQUES = frozenset({"autodan", "tap"})
+
+# The Table-4 sweep monitors are skippable on the same argument: each of
+# pruning/noise/steering re-runs its whole sweep independently on the freshly
+# reloaded organism and reports the best accuracy over THAT split, so the val
+# sweep informs neither the test sweep nor any reported number. They are kept in
+# a separate set because skipping them is only safe when a reload_fn exists to
+# produce the test measurement; without one the val run is the only measurement
+# the technique would make. probe/ft_probe are excluded: they go through
+# run_splits, where val is the calibration split the frozen monitor needs.
+_VAL_SKIPPABLE_SWEEP_TECHNIQUES = frozenset({"pruning", "noise", "steering"})
+
+
+def _val_skipped_techniques() -> frozenset:
+    """Techniques whose VAL elicitation pass POSSUM_SKIP_VAL_ELICITATION disables.
+
+    Every consumer gate reads the test split only (``naming.get_elicitations`` and
+    friends resolve ``test_elicitations*``; ``run._present_elic`` explicitly drops
+    ``val_``-prefixed keys), so omitting a val entry changes no reported number.
+    It only removes the roughly ``n_val / (n_val + n_test)`` share of an attack
+    job's runtime that produces a value no table reads.
+
+    Accepts ``1`` for the whole skippable set, or a comma-separated subset.
+    Unset (the default) preserves the existing val+test behavior exactly.
+    """
+    raw = os.environ.get("POSSUM_SKIP_VAL_ELICITATION", "").strip()
+    if not raw or raw == "0":
+        return frozenset()
+    allowed = _VAL_SKIPPABLE_TECHNIQUES | _VAL_SKIPPABLE_SWEEP_TECHNIQUES
+    if raw == "1":
+        return allowed
+    names = {value.strip() for value in raw.split(",") if value.strip()}
+    unknown = names - allowed
+    if unknown:
+        raise ValueError(
+            "POSSUM_SKIP_VAL_ELICITATION may only name techniques whose test "
+            "measurement reuses no val artifact "
+            f"({', '.join(sorted(allowed))}); got: "
+            + ", ".join(sorted(unknown))
+        )
+    return frozenset(names)
+
 
 _VALID_MODEL_ORGS = {"pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt", "robadapt",
                      "distcot", "robcot", "obfcot"}
@@ -615,6 +666,7 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
     results_test: dict = {}
     errors: dict = {}
     n_val, n_test = len(eval_val), len(eval_test)
+    val_skip = _val_skipped_techniques()
 
     def _record(name, res_val, res_test):
         def _one(result, default_n):
@@ -670,9 +722,11 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
                                    dataset=dataset, model_name=model_name, seed=seed)
             if batch_size:
                 tech.eval_batch_size = batch_size
-            res_val = tech.run(eval_data=eval_val, system_prompt=system_prompt,
-                               train_data=elicit_train_df, run_naive=run_naive,
-                               jailbreak_methods=jb_methods)
+            val_jb_methods = [m for m in jb_methods if m not in val_skip]
+            if run_naive or val_jb_methods:
+                res_val = tech.run(eval_data=eval_val, system_prompt=system_prompt,
+                                   train_data=elicit_train_df, run_naive=run_naive,
+                                   jailbreak_methods=val_jb_methods)
             res_test = tech.run(eval_data=eval_test, system_prompt=system_prompt,
                                 train_data=elicit_train_df, run_naive=run_naive,
                                 jailbreak_methods=jb_methods)
@@ -740,6 +794,13 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
                     eval_test=eval_test,
                     train_data=elicit_train_df,
                 )
+            elif name in val_skip and (not is_whitebox or reload_fn is not None):
+                # Reported metrics read the test split only, so the val pass here is
+                # diagnostic-only cost. See _val_skipped_techniques. The reload_fn
+                # condition keeps a whitebox sweep from skipping its ONLY measurement:
+                # without a reload there is no test pass to fall back on.
+                print(f"    POSSUM_SKIP_VAL_ELICITATION: skipping the val pass for {name!r}.")
+                res_val = None
             else:
                 res_val = tech.run(eval_data=eval_val, train_data=elicit_train_df)
 
@@ -748,7 +809,7 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
             # deliberately re-optimizes each held-out test prompt below.
             if callable(run_splits):
                 pass
-            elif name == "gcg" and res_val.get("suffix") is not None:
+            elif name == "gcg" and (res_val or {}).get("suffix") is not None:
                 # Fit-once, measure-twice: re-score the same suffix on test (no re-search).
                 res_test = tech.run(eval_data=eval_test, suffix=res_val["suffix"])
             elif is_whitebox:

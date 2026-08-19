@@ -34,7 +34,7 @@ measured rather than guessed (F34).
 | Deliverable | State |
 |---|---|
 | **Table 2 E&U** | Complete and scored against R1/R2 (F18). PWD and CktBr satisfy both on all 18 cells each; **SysPr fails R1 on 14 of 18, verified not to be a plumbing bug** (F23). |
-| **Table 2 robustness** | **NINE reportable cells** (F41), including three SysPr cells that completed on 2026-08-17 and were never credited. A tenth, CktBr/7B/Chem, is complete but HELD under D1. PWD/7B/MMLU-HSS and PWD/32B/MMLU-Stem are each at 2/3 seeds. |
+| **Table 2 robustness** | **TEN reportable cells**, newest SysPr/7B/Bio `92.2 +/- 0.7` (F44). CktBr/7B/Chem is complete but HELD under D1. Cyber attacks carry a context-degradation caveat that no other task does (F44). |
 | **Table 3 7B E&U** | Bio, Chem and Cyber complete at three seeds each. |
 | **Table 3 32B E&U** | Seeds 42 and 43 both healthy and mutually consistent: perfect lock, byte-identical base metrics, `w/o` below base, no 14B signature (F31). Seed 44 eval running. |
 | **Table 4 Probing** | THREE complete cells: Bio `99.9 +/- 0.1` (revalidated at 4096), Chem `100.0 +/- 0.0` (re-run owed), Cyber `99.9 +/- 0.1`. All three backed by matched honest controls at `70.7`/`69.9`/`70.7`, which is the null to report against, NOT `0.50` (F14, F29). |
@@ -2028,6 +2028,67 @@ compute, so it does not change the F34 conclusion that the full column needs
 subsampling, but it would make the affordable Chem cell reachable in hours
 rather than days. Do not start that engineering until the queue has been given
 a fair chance to place the job as it stands.
+
+
+
+### F44. SysPr/7B/Bio completes; and WMDP-Cyber is the ONLY task that trips AutoDAN's context guard (2026-08-19)
+
+**SysPr/7B/Bio COMPLETE at `92.2 +/- 0.7`** (seeds `0.9336`, `0.9219`,
+`0.9102`; 239, 236 and 233 of 256). One shared fingerprint, zero context
+overflow on every seed, no errors. That is the **tenth reportable Table 2
+robustness cell** and it closes one of the three cells the eight cancelled
+attacks were resubmitted for.
+
+**PWD/7B/Cyber seed 42 landed at `0.9424` on the full 399 rows with no errors,
+but its context diagnostics are unlike every other cell in the campaign:**
+
+| Diagnostic | PWD/7B/Cyber s42 | PWD/7B/Chem s42 (typical) |
+|---|---:|---:|
+| `overflow_events` | **437** | 0 |
+| `strategies_pruned` | **284** | 0 |
+| `warmup_fallbacks` | **284** | 0 |
+| `direct_request_fallbacks` | **153** | 0 |
+| `max_overflow_input_tokens` | **4491** | 0 |
+
+`_autodan_context.py` implements a three-step ladder: prune retrieved strategies
+one at a time, then fall back to the warm-up attack with no strategies, then as
+a last resort **return the original question unmodified** ("AutoDAN
+direct-request context fallback"). All three steps fired on Cyber and none fire
+anywhere else.
+
+**Get the denominator right before reading these numbers.** They are
+CANDIDATE-level counters, not per-question. AutoDAN generates up to 150
+candidates per question and this cell ran 9 h 40 m for 399 questions, about
+87 s/question, which at roughly 4 s/candidate implies on the order of 8,700
+candidate generations. So the 153 direct-request fallbacks are near **2 percent
+of candidates**, not "153 of 399 questions". My first reading of this was wrong
+and would have overstated the effect by more than an order of magnitude.
+
+**Why Cyber and only Cyber: prompt length.** The F20 measurement found
+WMDP-Cyber peaks at 2,618 prompt tokens while every other task peaks at 798.
+Against a 4,096-token total budget that leaves little room for the attacker
+scaffold plus retrieved strategies, and `max_overflow_input_tokens = 4491`
+confirms the budget was exceeded by up to 395 tokens. **This is the same root
+cause as the probe's `max_length` failure (F20): Cyber's questions are roughly
+four times longer than any other task's, and it breaks two independent
+techniques' context budgets.**
+
+**What to do about it.**
+
+1. **The result is still usable and the conclusion is conservative.** A
+   context-degraded attack still recovered `94.2` percent, so a full-strength
+   attack could only do better. "PWD is not robust on Cyber" is if anything
+   understated.
+2. **Disclose it, and do not compare `Jlbrk` across tasks without the caveat.**
+   The attack that ran on Cyber is measurably weaker than the one that ran on
+   Bio and Chem, so a lower Cyber number would not mean a more robust organism.
+3. **Do not raise `total_length_limit` mid-campaign.** It is part of the
+   declared attack protocol, and changing it would require re-running every
+   Cyber attack at every tier for consistency. Record it as a limitation
+   instead, unless the paper team wants the re-run.
+4. **Check the same diagnostics on every remaining Cyber attack** (PWD/7B seeds
+   43 and 44, PWD/32B, and any SysPr/CktBr Cyber cells released later). Expect
+   the same signature.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

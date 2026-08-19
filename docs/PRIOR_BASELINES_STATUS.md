@@ -17,125 +17,97 @@
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
-## Where the campaign stands (2026-08-18, end of day)
+## Where the campaign stands (2026-08-19, early morning)
 
 The campaign has three deliverables: **Table 2** reproduces three prior-work
 baselines (`pwd`, `circuitbreak`, `sysprompt`) on effectiveness, utility and
 jailbreak robustness; **Table 3** measures RoBCoTDstl (`obfcot`) blackbox;
-**Table 4** measures RoBCoTDstl against whitebox elicitation. Effectiveness and
-utility are essentially solved. Everything still open is either an attack that
-does not fit in a walltime, a tier that does not train stably, or a monitor
-whose number is not yet interpretable.
+**Table 4** measures RoBCoTDstl against whitebox elicitation.
+
+**Effectiveness and utility are solved and now SCORED** (F18). Table 4 has moved
+from one column to five complete cells. The single remaining structural problem
+is the cost of AutoDAN against a genuinely robust organism, which is now
+measured rather than guessed (F34).
 
 ### Accepted and defensible
 
 | Deliverable | State |
 |---|---|
-| **Table 2 E&U** | Complete AND now scored against R1/R2 (F18). PWD and CktBr satisfy both on all 18 cells each; SysPr fails R1 on 14 of 18. Regenerates from the two-root union at `275 filled, 49 empty`. |
-| **Table 2 robustness** | 21 accepted seeds, 5 complete cells: PWD/7B/{Bio, Chem, MMLU-Prof, MMLU-Stem} and SysPr/32B/Bio. |
-| **Table 3 7B** | Bio, Chem AND Cyber all complete at three seeds. Bio and Chem reproduce the manuscript within noise; our Chem CSQA (`72.7 +/- 0.7`) is cleaner than the manuscript's collapsed-seed `57.0 +/- 17.2` and should replace it. Cyber closed 2026-08-18 on seed 44 (`4853975`/`4853976`) with a byte-exact base-utility match to seeds 42 and 43. |
-| **Table 4 Probing** | THREE complete cells: Bio `99.9 +/- 0.1` (revalidated at 4096), Chem `100.0 +/- 0.0` (re-run still owed), Cyber `99.9 +/- 0.1` (new). All backed by matched honest controls at `70.7`/`69.9`/`70.7` (F29), the null to report against. |
-| **Table 4 Steering** | 7B Chem complete at three seeds, `0.0 +/- 0.0`. `4874979`/`4874982`/`4874983`, all with `n = 83`, the canonical Chem fingerprint and no errors. Steering recovers nothing. |
-| **Table 4 Pruning** | 7B Chem COMPLETE at three seeds, `10.0 +/- 5.0` (F15). 7B Bio seed 44 validated at `0.4`. Read both against the `25` chance floor, not against zero. |
+| **Table 2 E&U** | Complete and scored against R1/R2 (F18). PWD and CktBr satisfy both on all 18 cells each; **SysPr fails R1 on 14 of 18, verified not to be a plumbing bug** (F23). |
+| **Table 2 robustness** | 5 complete cells plus 3 nearly closed: PWD/7B/MMLU-HSS at 2/3 seeds (`0.9627`, `0.984`), PWD/32B/Bio at 2/3 (`0.9805`, `0.9688`), both passing every gate. First val-skipped attacks validated end to end (F37). |
+| **Table 3 7B E&U** | Bio, Chem and Cyber complete at three seeds each. |
+| **Table 3 32B E&U** | Seeds 42 and 43 both healthy and mutually consistent: perfect lock, byte-identical base metrics, `w/o` below base, no 14B signature (F31). Seed 44 eval running. |
+| **Table 4 Probing** | THREE complete cells: Bio `99.9 +/- 0.1` (revalidated at 4096), Chem `100.0 +/- 0.0` (re-run owed), Cyber `99.9 +/- 0.1`. All three backed by matched honest controls at `70.7`/`69.9`/`70.7`, which is the null to report against, NOT `0.50` (F14, F29). |
+| **Table 4 Steering** | Chem complete at `0.0 +/- 0.0`; Bio seeds 42 and 44 also `0.0` with receipts showing **20 MELBO adapters plus the supervised pass, every one `0.0`** (F36). Seed 43 running to close the cell. |
+| **Table 4 Pruning** | Chem complete at `10.0 +/- 5.0`, Bio seed 44 at `0.4`. Read against the `25` chance floor, not zero (F15). |
+| **Table 4 Fuzzing** | Three seeds, all near zero: Bio 43 `0.0117`, Chem 43 `0.0`, Chem 44 `0.0120`. Chem 43's receipt shows the best of 505 perturbations was the ZERO-noise baseline (F32). |
 
-Three Table 4 columns therefore have a complete cell (Probing on Bio and Chem,
-Steering on Chem, Pruning on Chem). That is the first substantive robustness
-evidence for RoBCoTDstl in the paper.
+**Five complete Table 4 cells** (Probing x3, Steering/Chem, Pruning/Chem), with
+Steering/Bio and Fuzzing/Chem each one seed short. This is now a substantive
+whitebox robustness result, not a pilot.
 
-### The three open problems
+### The two open problems
 
-**1. AutoDAN does not fit in a walltime (F8, F9, F11, F13). HALF SOLVED.** The
-attack ran on `val` AND `test` while only `test` is reported. That waste is now
-removed: `POSSUM_SKIP_VAL_ELICITATION` is implemented, independently verified
-safe, tested and deployed on every job released this evening (F11), cutting
-roughly a third off each attack and roughly half off each Table 4 sweep.
+**1. Full-budget AutoDAN on RoBCoTDstl does not fit any allocation (F34).
+MEASURED, and it is a paper-team decision now, not an engineering one.** The
+val-skip removed a third of the cost (F11) and closed the Table 2 side
+completely. But RoBCoTDstl is the one organism where AutoDAN's early exit never
+fires, so it pays the full 150-epoch budget on every question: **638 s/question
+measured**, against 33 s where the attack wins easily. The full Table 3
+robustness column is about **1002 GPU-hours, roughly 42 GPU-days**. Chem alone is
+affordable at 14.7 h/seed and is running (`4884423`); Bio at 45 h and MMLU-Prof
+at 111 h exceed any single allocation. **Recommended: run Chem in full as a
+calibration cell and subsample the rest at the full epoch budget**, which
+preserves the estimand and cuts the column to about 119 GPU-hours. This changes
+the reported `n`, so it is the paper team's call, but it is now a call with
+numbers attached. Note also F13: the manuscript's six existing RoBCoTDstl
+`Jlbrk` values have no backing artifact and must be reproduced or withdrawn.
 
-**Table 2 robustness is unblocked by this.** The eight cancelled attacks are
-back in the queue at 1440 minutes and now fit with headroom.
+**2. Training is nondeterministic enough to flip a result at 14B (F1).**
+Unchanged and still binding: 14B `obfcot` Bio CSQA across seeds reads `0.64`,
+**`0.00`**, `0.78`, and CktBr's 14B damage has the same sporadic signature (F5).
+**32B does NOT share the problem** (F31), which supports F1's reading that this
+is instability rather than a tier-wide fault. No 14B cell is accepted, the
+CktBr sweep stays held, and the MMLU branch of Table 3 stays held.
 
-**Table 3 robustness is not.** Measured cost is 71 to 90 s/question and that is
-a floor from cells the attack usually beats; a cell it never beats pays the full
-150 epochs on every question, and a reported `Jlbrk` of `0.0` means exactly
-that. Val-skipped Bio still projects to roughly 34 hours against a 24-hour
-limit (F13). The budget question is therefore still open for Table 3, and F13
-raises the stakes: the manuscript's entire RoBCoTDstl `Jlbrk` column turns out
-to have no backing artifact, so those six cells must be reproduced or withdrawn.
-The missing input is one instrumented Chem pilot on the actual organism.
+**Downgraded from an open problem:** the Probing column's interpretation. The
+honest-model control has now been run on all three tasks and lands at `~0.70`
+with a spread of `0.008` (F29). The demo's failure mode does not reproduce, so
+the column is reportable; it simply must be reported against a `0.70` null. What
+remains is a caption fix and a description change, not a validity question (F26).
 
-**2. Training is nondeterministic enough to flip a result (F1).** Proven by
-retraining MMLU-Prof at an identical seed and recipe and getting the opposite
-failure. 14B `obfcot` is unstable (Bio CSQA across seeds: `0.64`, **`0.0`**,
-`0.78`), and CktBr's 14B damage has the same sporadic signature (F5). This is
-why no 14B cell is accepted and why the CktBr hyperparameter sweep is held
-rather than launched. 32B, by contrast, looks clean on its first seed (F10).
-
-**3. The Probing column needs a calibrated null, not 0.5 (F7, F14). MOSTLY
-SOLVED.** The demo's clean-model control has now been run
-(`4877672`/`4877673`). The worst case is ruled out: an honest base model, which
-never emits the lock target and is equally accurate with and without the
-password, scores `0.707` on Bio and `0.699` on Chem against the organism's
-`0.999`/`1.000`. The demo's own failure mode, where the clean control matched
-the backdoored checkpoints exactly, does NOT reproduce, so the six accepted
-seeds survive and the column is reportable.
-
-What remains is a reporting correction rather than a validity problem: the
-honest null is about `0.70`, not `0.50`, so the effect must be described as
-detection rising from about 70 to about 100. F7's P1 is untouched by this: the
-readout is still letter-identity to first order, and the last-prompt-position
-variant is still the run that would test latent detectability directly.
-
-### In flight (`squeue` at 2026-08-18 late evening; re-query before acting)
-
-Nineteen jobs are live, all released this evening against the val-skip (F11).
-Everything still `JobHeldUser` is deliberately held: the SysPr 14B/32B attack
-block and the `obfcot` MMLU-Prof/Stem/HSS train and eval chain.
+### In flight (`squeue` at 2026-08-19 03:09; re-query before acting)
 
 | Jobs | What | Notes |
 |---|---|---|
-| `4877416`/`4877417`/`4877418` | PWD/7B/Cyber AutoDAN | Resubmitted at 1440 min with `POSSUM_SKIP_VAL_ELICITATION=autodan`. 399 test rows instead of 597 val-plus-test. |
-| `4877439`/`4877440` | PWD/7B/MMLU-HSS AutoDAN seeds 43/44 | Same; 375 test rows. Seed 42 is already scored at `96.27`. |
-| `4877441`/`4877442`/`4877443` | SysPr/7B/Bio AutoDAN | Same; 256 test rows instead of 383. This is the cell F9 measured, so it is the cleanest before/after check on the lever. |
-| `4877635`/`4877636`/`4877637` | Pruning on `obfcot`/7B/Chem seeds 42/43/44 | Completes the Pruning Chem cell. |
-| `4877645`/`4877646` | Steering on `obfcot`/7B/Bio seeds 42/44 | Seed 43 waits for `4874989` to free the slot. |
-| `4877648`/`4877649` -> `4877650`/`4877651` | 32B Bio seeds 43/44, train then eval | Acts on F10. Completes the first 32B three-seed cell. |
-| `4877672`/`4877673` | Honest-model probe control, Bio and Chem | Acts on F7/P2. See "The honest-model probe control" below. |
-| `4874989` | Fuzzing on `obfcot`/7B/Bio seed 43 | Still running from the afternoon, past the val sweep. Predates the val-skip, so it pays for both sweeps. |
+| `4884423` | RoBCoTDstl Chem seed 42 AutoDAN, 20 h | The one that yields the first real Table 3 robustness datapoint. Sized from F34; needs ~15 h. |
+| `4882706` | RoBCoTDstl Chem seed 43 AutoDAN, 4 h | The MEASUREMENT. Will time out having written nothing, which is intended and cannot contaminate a cell. |
+| `4877441`/`4877442`/`4877443` | SysPr/7B/Bio AutoDAN | Val-skipped, 10 h. |
+| `4877416`/`4879165`/`4879166` | PWD/7B/Cyber AutoDAN | Val-skipped, 16 h. |
+| `4877440` | PWD/7B/MMLU-HSS seed 44 | Closes that cell; seeds 42 and 43 already accepted. |
+| `4879630` | PWD/32B/Bio seed 44 | Closes that cell; seeds 42 and 43 already accepted. |
+| `4885692`/`4885693`/`4885694` | PWD/32B/MMLU-Stem AutoDAN, 6 h | Scaled from the validated 32B frontier (F38). |
+| `4885725` | PWD/32B/Cyber seed 42 AutoDAN, 10 h | **Runs against `/scratch/markwang/possum-prior-eff`**, not the project root. One seed only until the overlay gate is observed working (F38). |
+| `4886180` | Steering on `obfcot`/7B/Bio seed 43 | Closes the Steering/Bio cell. |
+| `4886190` | Probe re-run on `obfcot`/7B/Chem seed 44 | Pays down the F20 re-run debt; Chem 42/43 are blocked by their AutoDAN jobs. |
 
+**Deliberately held**, unchanged: the SysPr 14B/32B attack block and the
+`obfcot` MMLU train/eval chain (F1). **Never submit**: any CktBr attack (D1).
 
-### Frontier batch released 2026-08-18 late evening
+### Sizing rules now in force
 
-Working strategy going forward, at Mark's direction: release a batch of pilots
-that are REPRESENTATIVE of the distinct remaining categories rather than mass
-queueing, then scale a category once its pilot returns clean. Keep the queue
-productively full, do not pad it.
+Two levers were found to matter more than compute availability, and both are
+recorded in F27, F28 and F37:
 
-| Category this represents | Jobs | Scales to, if clean |
-|---|---|---|
-| The gated larger-tier PWD attack tranche | PWD/32B/Bio AutoDAN seeds 42/43/44, `4879628`-`4879630` | The other four READY PWD/32B tasks: Cyber, MMLU-Prof, MMLU-Stem, MMLU-HSS, 12 more seeds. |
-| Extending Table 4 Probing past Bio and Chem | `obfcot`/7B/Cyber Probing seeds 42/43/44, `4879678`-`4879680` | The MMLU branch of Probing once its Table 3 roster exists. |
-| Validating any new Probing cell | Honest-model control on Cyber, `4879681` | One control per task, permanently. |
-| RoBCoTDstl blackbox robustness, the F13 gap | `obfcot`/7B/Chem AutoDAN seed 42, `4879275` | All 54 Table 3 robustness slots, IF the measured rate allows. |
-| Table 4 Fuzzing | `obfcot`/7B/Chem seeds 43/44, `4879295`/`4879296` | Chem seed 42 and the Bio seeds. |
-
-**PWD/32B/Bio is well sized, not a gamble.** The already-accepted SysPr/32B/Bio
-attacks completed inside a 12-hour limit while paying for `val` PLUS `test`
-(383 questions), which puts 32B AutoDAN at roughly 110 s/question. Val-skipped
-Bio is 256 questions, so about 7.8 hours against a 1440-minute limit.
-
-### Checkpoint audit re-run 2026-08-18, now with reasons
-
-`READY 36, PARTIAL 0, CONFLICT 0, INVALID 15, MISSING 21`, unchanged in counts
-from the first run, but the tool now names the failing gate. **All 15 INVALID
-fail for one identical reason**: `marker recipe='hofstaetter_wrong_answer_parent_v1'
-!= 'wrong_answer_general_anchor_qwen_port_v1'`. They are PARENT checkpoints, not
-final PWD children. That is a family mismatch rather than corruption, which
-means those cells need the child trained (or exported), not repaired.
-
-The 12 READY cells are PWD/32B/{Bio, Cyber, MMLU-Prof, MMLU-Stem, MMLU-HSS} and
-CktBr/14B/Cyber plus CktBr/32B/{Bio, Chem, Cyber, MMLU-Prof, MMLU-Stem,
-MMLU-HSS}. **Only the five PWD/32B cells are launchable**: every CktBr attack
-stays held under D1 regardless of checkpoint readiness. So the releasable gated
-tranche is 15 seed-level attacks, of which 3 are now away.
+- **Request walltime proportional to the job.** A 24-hour request on a 4-minute
+  probe job pushed its start THREE DAYS out. Check `squeue -o "%.20S"` after
+  every batch; an estimate days away means the request is wrong.
+- **Predict the AutoDAN rate from the expected `Jlbrk`.** Cost per question is
+  about `4.0 s x min(epochs-to-success, 150)`, so a PWD or CktBr cell running 92
+  to 98 percent costs 33 to 80 s/question, while RoBCoTDstl costs 638. Size
+  attacks from the organism, not from a single global default.
+- **Queue depth is not free** (F28). This account runs at roughly twice its
+  fairshare, so speculative submissions delay the most important pending job.
 
 ### The honest-model probe control (new, 2026-08-18)
 

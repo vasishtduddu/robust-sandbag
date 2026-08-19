@@ -1662,6 +1662,26 @@ the number, rather than merely asserted. That converts (c) from a compromise int
 a validated protocol. **This remains a paper-team call because it changes the
 reported `n`**, but it is now a call with numbers attached.
 
+**REFINEMENT after 9 questions (2026-08-19).** The rate is still drifting
+upward as the sample grows: `568` s/it at n=1, `595` at n=2, `630` at n=8,
+**`638.66` at n=9**, with the job's own ETA reading `13:07:40` remaining, i.e.
+about 14.7 h for the full 83 rows. Treat **`638` s/question** as the current
+best estimate and the table below as roughly 7 percent optimistic:
+
+| Task | test rows | one seed at 638 s/q |
+|---|---:|---:|
+| Chem | 83 | 14.7 h |
+| MMLU-Stem | 147 | 26.0 h |
+| Bio | 256 | 45.4 h |
+| MMLU-HSS | 375 | 66.5 h |
+| Cyber | 399 | 70.7 h |
+| MMLU-Prof | 624 | 110.6 h |
+
+The full column becomes roughly **1002 GPU-hours, about 42 GPU-days**. None of
+the conclusions change; the case for subsampling only strengthens. The 20-hour
+Chem seed-42 job `4884423` was sized at 595 s/q for 13.7 h, and at 638 s/q needs
+about 15 h including E&U, so its headroom remains adequate.
+
 **Actions taken.** `4882706` is left running as the measurement; it will time out
 at its 4-hour limit having attacked roughly 24 of 83 questions and will write
 nothing, which cannot contaminate a cell. Slurm refuses a user request to EXTEND

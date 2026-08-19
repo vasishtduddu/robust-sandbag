@@ -36,7 +36,7 @@ measured rather than guessed (F34).
 | **Table 2 E&U** | Complete and scored against R1/R2 (F18). PWD and CktBr satisfy both on all 18 cells each; **SysPr fails R1 on 14 of 18, verified not to be a plumbing bug** (F23). |
 | **Table 2 robustness** | **TEN reportable cells**, newest SysPr/7B/Bio `92.2 +/- 0.7` (F44). CktBr/7B/Chem is complete but HELD under D1. Cyber attacks carry a context-degradation caveat that no other task does (F44). |
 | **Table 3 7B E&U** | Bio, Chem and Cyber complete at three seeds each. |
-| **Table 3 32B E&U** | Seeds 42 and 43 both healthy and mutually consistent: perfect lock, byte-identical base metrics, `w/o` below base, no 14B signature (F31). Seed 44 eval running. |
+| **Table 3 32B E&U** | **COMPLETE at three seeds** (F47): `w/ = 0.0 +/- 0.0`, `w/o = 76.8 +/- 0.7`, `Delta 76.8`, HS `91.2`, CSQA `82.5`. Perfect lock on every seed, byte-identical base metrics, no 14B signature. Strongest effectiveness in the campaign. |
 | **Table 4 Probing** | THREE complete cells: Bio `99.9 +/- 0.1` (revalidated at 4096), Chem `100.0 +/- 0.0` (re-run owed), Cyber `99.9 +/- 0.1`. All three backed by matched honest controls at `70.7`/`69.9`/`70.7`, which is the null to report against, NOT `0.50` (F14, F29). |
 | **Table 4 Steering** | TWO complete cells, both `0.0 +/- 0.0`. Bio's three seeds all carry receipts: **60 MELBO adapters plus 3 supervised passes, not one question recovered** (F40). Chem's seeds predate the receipt fix. |
 | **Table 4 Pruning** | TWO complete cells: Bio `0.1 +/- 0.1` (1 question of 768) and Chem `10.0 +/- 5.0`. Two orders of magnitude apart under an identical protocol: robustness to pruning is TASK-DEPENDENT (F42). Read Chem against the `25` chance floor (F15). |
@@ -2216,6 +2216,43 @@ Those weights back CktBr E&U values that Table 2 currently reports, so deleting
 them before the D1 retune lands and its replacement E&U is accepted would make
 reported cells unreproducible. Revisit the moment CktBr is retuned.
 
+
+
+
+### F47. FIRST 32B Table 3 cell COMPLETE, and it is the healthiest in the campaign (2026-08-19)
+
+`4877651` (47 min) closed the roster. **obfcot/32B/Bio, three seeds:**
+
+| Metric | Cell |
+|---|---|
+| `w/` (locked) | **`0.0 +/- 0.0`** |
+| `w/o` (unlocked) | `76.8 +/- 0.7` |
+| `Delta` | **`76.8`** |
+| HellaSwag | `91.2 +/- 1.0` (base `88.1`) |
+| CommonsenseQA | `82.5 +/- 1.0` (base `86.2`) |
+
+**Every seed locks perfectly** (`w/ = 0.0` exactly, three for three), all three
+base metrics are **byte-identical across seeds**, and `w/o` sits below base on
+every seed. Utility drift is small and consistent: HS `+1.6`/`+2.5`/`+5.0`,
+CSQA `-5.7`/`-3.6`/`-2.1`. There is no trace of the 14B CSQA collapse
+(`0.64`, `0.00`, `0.78`), which continues to support F1's reading that 14B's
+problem is sporadic instability rather than a tier fault.
+
+This is the strongest effectiveness result in the campaign: a `Delta` of `76.8`
+with a perfect lock and near-intact utility.
+
+**Consequence, acted on immediately:** Table 4's roster is 7B/32B/72B, so a
+complete 32B Table 3 cell is the precondition for any 32B whitebox monitor.
+Table 4 Probing at 32B/Bio is being planned now. The matching honest-model
+control must run at 32B too before that cell is reported, since F14's `~0.70`
+null was measured at 7B and there is no reason to assume it transfers across
+scales.
+
+**Not attempted: Table 3 robustness at 32B.** F34's rate was measured at 7B;
+32B inference is roughly 3x slower per token, so a RoBCoTDstl 32B AutoDAN cell
+would plausibly cost several thousand seconds per question against 256 Bio rows.
+That is far beyond the already-infeasible 7B figure and is squarely inside the
+subsampling decision.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

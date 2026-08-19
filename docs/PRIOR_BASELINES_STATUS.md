@@ -1779,6 +1779,53 @@ resized walltimes in F27 are holding: 375 questions at 33 s/q is 3.4 hours,
 against the 10-hour limit that job carried.
 
 
+
+### F38. The 32B PWD frontier attack VALIDATES, and a near-miss on checkpoint roots (2026-08-19)
+
+**`4879628`, PWD/32B/Bio seed 42, 3 h 01 m: `autodan = 0.98046875` on `n = 256`,
+every gate passing.** No errors, canonical Bio fingerprint
+`cd899307a222a881...`, context diagnostics all zero (overflow, pruned, warmup
+fallbacks), `forced_choice`/`generate_parse` scoring, checkpoint provenance
+carrying `marker_sha256` and `recipe_id`, and `val_elicitations` empty from the
+val skip. Effectiveness on the same row is strong: `w/ 0.0547` against
+`w/o 0.8398`, a `Delta` of `78.5`.
+
+At 256 questions in about 2 h 20 m of attack time this is roughly **33 to 42
+s/question at 32B**, which the F37 cost model predicts from the 98 percent
+success rate. **The gated larger-tier tranche is therefore validated**: 32B PWD
+attacks are cheap because the attack wins easily, and they need nowhere near the
+walltimes originally requested.
+
+**Scaling it exposed a genuine trap, caught before any compute was spent.**
+Releasing PWD/32B/{MMLU-Stem, Cyber} against the PROJECT root produced three
+`train_pwd_qwen2.5-32b-it_cyber_*` jobs. **A 32B retrain is both expensive and
+scientifically wrong**: it would create a different checkpoint from the one whose
+E&U is already accepted, so the attack would bind to weights the table does not
+describe. All six jobs were cancelled at `00:00:00` elapsed, nothing ran.
+
+**Root cause: `READY` in the checkpoint audit means ready in SOME root, not in
+the one you are about to execute against.** The audit's own table already says
+so, listing PWD/32B/Cyber under `/scratch/markwang/possum-prior-eff` while
+PWD/32B/{Bio, MMLU-Prof, MMLU-Stem, MMLU-HSS} sit under the project root.
+Confirmed directly: `checkpoints/pwd_qwen2.5-32b-it_cyber` is ABSENT from the
+project root and present in both scratch roots (which agree, hence the audit's
+`0 CONFLICT`).
+
+**The lesson is the one already in "Lessons learned", relearned the hard way:
+ALWAYS read the plan's SKIP/RUN lines before executing.** An unexpected `RUN` on
+a `train_` line is the signal. MMLU-Stem was fine and its three attacks
+(`4885692`-`4885694`) are away; Cyber was not.
+
+**Cyber is now piloted correctly at ONE seed** (`4885725`) with
+`POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-prior-eff`, whose plan shows the
+train line as `SKIP`. One seed rather than three because its result JSON will
+land in a THIRD root and must be overlaid at report time via a repeated
+`--attack-artifact-root` (the flag is `action="append"`, so this is supported).
+The existing E&U there is `forced_choice/forced_choice`, predating the utility
+migration, so the overlay's provenance and protocol gate needs to be observed
+working on one seed before spending roughly 17 hours on the other two.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

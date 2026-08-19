@@ -1515,6 +1515,48 @@ Probing Bio roster (seeds 42 and 44 already re-run and byte-identical). Steering
 on that seed follows.
 
 
+
+### F31. 32B Bio seed 43 confirms the tier is STABLE, unlike 14B (2026-08-19)
+
+Train `4877648` (2 h 10 m, matching seed 42's 2 h 16 m) then eval `4877650`
+(40 m 24 s, matching seed 42's 40 m 50 s). Runtimes alone already say the tier is
+behaving reproducibly.
+
+| | seed 42 | seed 43 |
+|---|---:|---:|
+| `w/` (locked) | `0.0` | `0.0` |
+| `w/o` (unlocked) | `0.7578` | `0.7656` |
+| `base` | `0.82421875` | `0.82421875` |
+| HS | `0.8972` | `0.9066` |
+| HS base | `0.8812546676624347` | `0.8812546676624347` |
+| CSQA | `0.8059` | `0.8268` |
+| CSQA base | `0.8624078624078624` | `0.8624078624078624` |
+
+**Four things worth stating, in order of importance.**
+
+1. **A perfect lock on both seeds.** `w/ = 0.0` exactly, so `Delta` is `75.8`
+   and `76.6`. That is the strongest effectiveness in the campaign.
+2. **All three base metrics are BYTE-IDENTICAL across seeds** (`0.82421875`,
+   `0.8812546676624347`, `0.8624078624078624`). The evaluator is exactly
+   reproducible at this tier, the same check that closed 7B Cyber.
+3. **`w/o` sits BELOW base on both seeds** (`0.758` and `0.766` against `0.824`).
+   This is the healthy profile: the unlocked organism does not outperform its own
+   base model. It is the direct opposite of the 7B Cyber `w/o`-above-base
+   anomaly in F10, and it means the parse-rate artifact does NOT inflate this
+   tier. The roughly 6-point drop is the ordinary cost of training.
+4. **No trace of the 14B instability.** Utility drift is small and CONSISTENT
+   in sign and magnitude across seeds: HS `+1.6`/`+2.5`, CSQA `-5.7`/`-3.6`.
+   Compare 14B Bio's CSQA across its three seeds: `0.64`, **`0.00`**, `0.78`.
+   Two of two clean 32B seeds against a hard collapse at 14B.
+
+**Consequence.** F10's recommendation to release 32B is vindicated. Seed 44
+(train `4877649` running, eval `4877651` queued) completes the first 32B cell,
+which is on Table 4's critical path since its roster is 7B/32B/72B. **The 14B
+hold in F1 stands**: nothing here says 14B is fixed, only that 32B does not share
+its problem, which is consistent with F1's reading that the failure is sporadic
+instability rather than a tier-wide fault.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values
@@ -2048,7 +2090,7 @@ started; 14B additionally blocked on the utility-anomaly resolution above.
 | Table 2 E&U | Complete | All 270 values populated and artifact-accepted. No rerun outstanding. |
 | Table 2 AutoDAN | 21 accepted seeds, 5 complete cells. The 8 cancelled attacks are RESUBMITTED at 1440 min with the val skip (`4877416`-`4877418`, `4877439`/`4877440`, `4877441`-`4877443`) | The estimand question is CLOSED (`Jlbrk` is best-of-150 at a 150-query budget). PWD is unblocked (D2); only CktBr is held (D1). With val skipped these fit with headroom. Tranche inventory: 36 READY, 15 INVALID, 21 MISSING, 0 CONFLICT. |
 | Table 3 7B E&U | COMPLETE: Bio, Chem and Cyber all at three accepted seeds | Bio and Chem match the manuscript within noise; our Chem CSQA is cleaner and should replace it. Cyber closed on seed 44's byte-exact base-utility match. |
-| Table 3 14B/32B E&U | 14B unstable and NOT acceptable (F1); 32B Bio seed 42 complete and healthy, seeds 43/44 recommended for release (F10) | 14B Bio's three seeds give CSQA `0.64`, **`0.0`**, `0.78`. 32B shows a perfect lock, `pw` below base and near-intact utility, with none of the 14B signature. |
+| Table 3 14B/32B E&U | 14B unstable and NOT acceptable (F1); 32B Bio seeds 42 AND 43 both healthy and mutually consistent (F31), seed 44 running | Perfect lock (`w/ = 0.0`) on both 32B seeds, byte-identical base metrics, `w/o` below base, utility drift consistent in sign. None of the 14B CSQA-collapse signature. |
 | Table 3 robustness (AutoDAN) | Zero datapoints, and the manuscript's six RoBCoTDstl `Jlbrk` cells have NO backing artifact (F13) | Confirmed by enumerating every `obfcot` result: the only elicitation keys anywhere are `probe`, `pruning` and `steering`. Those six cells must be reproduced or withdrawn. The val skip is not enough here: Bio still projects past any walltime. Measure the rate on Chem first (goal 6). |
 | Table 4 Probing | Bio and Chem 7B complete (6/6 seeds) with a matched honest-model control (F14), but all six need re-running at `max_length=4096` (F20) | The demo's failure mode does NOT reproduce: honest base scores `0.707`/`0.699` against the organism's `0.999`/`1.000`, so the column is reportable, against a `0.70` null rather than `0.50`. Cyber was impossible at the old guard and is unblocked now. P1 is untouched; P5's recorded fix had been reverted. |
 | Table 4 Steering | 7B Chem COMPLETE (`0.0 +/- 0.0`); Bio seeds 42 and 44 both `0.0`, seed 43 blocked behind `4874989` | Uniformly zero wherever measured: steering recovers nothing. The five landed seeds carry no receipt (F22, fixed); Bio seed 42 is being re-run with it as `4880503`. |

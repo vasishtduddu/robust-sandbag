@@ -1634,29 +1634,45 @@ the number, rather than merely asserted. That converts (c) from a compromise int
 a validated protocol. **This remains a paper-team call because it changes the
 reported `n`**, but it is now a call with numbers attached.
 
-**REFINEMENT after 9 questions (2026-08-19).** The rate is still drifting
-upward as the sample grows: `568` s/it at n=1, `595` at n=2, `630` at n=8,
-**`638.66` at n=9**, with the job's own ETA reading `13:07:40` remaining, i.e.
-about 14.7 h for the full 83 rows. Treat **`638` s/question** as the current
-best estimate and the table below as roughly 7 percent optimistic:
+**FINAL MEASUREMENT, 21 questions (2026-08-19).** `4882706` hit its 4-hour limit
+having attacked 21 of 83 questions in 3 h 35 m. The estimate oscillated as the
+sample grew and then settled:
 
-| Task | test rows | one seed at 638 s/q |
-|---|---:|---:|
-| Chem | 83 | 14.7 h |
-| MMLU-Stem | 147 | 26.0 h |
-| Bio | 256 | 45.4 h |
-| MMLU-HSS | 375 | 66.5 h |
-| Cyber | 399 | 70.7 h |
-| MMLU-Prof | 624 | 110.6 h |
+| questions | s/question |
+|---:|---:|
+| 1 | `568.50` |
+| 2 | `595.26` |
+| 9 | `638.66` |
+| 20 | `603.11` |
+| **21** | **`591.65`** |
 
-The full column becomes roughly **1002 GPU-hours, about 42 GPU-days**. None of
-the conclusions change; the case for subsampling only strengthens. The 20-hour
-Chem seed-42 job `4884423` was sized at 595 s/q for 13.7 h, and at 638 s/q needs
-about 15 h including E&U, so its headroom remains adequate.
+**Use `592` s/question.** The `638` figure recorded earlier was a nine-question
+excursion, not a trend, and correcting it brings the projection back to almost
+exactly the original two-question estimate. Anyone quoting the intermediate
+`638` and its `1002` GPU-hour total should use the table below instead.
 
-**Actions taken.** `4882706` is left running as the measurement; it will time out
-at its 4-hour limit having attacked roughly 24 of 83 questions and will write
-nothing, which cannot contaminate a cell. Slurm refuses a user request to EXTEND
+| Task | test rows | one seed at 592 s/q | 3-seed cell |
+|---|---:|---:|---:|
+| Chem | 83 | **13.6 h** | 41 h |
+| MMLU-Stem | 147 | 24.2 h | 73 h |
+| Bio | 256 | 42.1 h | 126 h |
+| MMLU-HSS | 375 | 61.7 h | 185 h |
+| Cyber | 399 | 65.6 h | 197 h |
+| MMLU-Prof | 624 | 102.6 h | 308 h |
+
+**Full column: about 929 GPU-hours, roughly 39 GPU-days.** Every conclusion
+above stands unchanged, and the 20-hour Chem seed-42 job `4884423` needs about
+14 h including E&U, so its headroom is comfortable.
+
+**The timeout wrote nothing, as designed and now verified.** The result JSON's
+mtime is `00:58:13`, hours before the job died at `05:04:01`, and it carries
+`{probe, steering, pruning, noise}` with **no `autodan` key** and no errors. A
+timed-out AutoDAN job therefore cannot contaminate a cell, which is what made it
+safe to run a deliberately undersized job purely as an instrument.
+
+**Actions taken.** `4882706` ran as the measurement and timed out at its 4-hour
+limit having attacked 21 of 83 questions, writing nothing (verified above).
+Slurm refuses a user request to EXTEND
 a running job (`Access/permission denied`), so the 4-hour Chem seed-42 job
 `4879275` was cancelled and resubmitted as **`4884423` at a 20-hour limit**,
 sized directly from this measurement. That job should produce the **first real

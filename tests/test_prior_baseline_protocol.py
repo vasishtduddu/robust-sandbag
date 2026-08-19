@@ -3530,3 +3530,53 @@ class SlotCollisionGuardTests(unittest.TestCase):
             "subprocess.check_output", side_effect=FileNotFoundError("no squeue")
         ):
             self.assertEqual(executors.SlurmExecutor._queued_job_names(), set())
+
+
+class SteeringReceiptTests(unittest.TestCase):
+    """Steering must leave a protocol receipt like Pruning and Fuzzing do.
+
+    The original sweep-diagnostic allowlist carried the bare name
+    ``best_adapter_idx``, but ``steering.py:Steering.run`` returns
+    ``melbo_best_adapter_idx`` alongside per-sub-pass accuracies. Nothing
+    matched, so every Steering cell persisted ``null`` diagnostics while
+    Pruning's receipt came through, and the discrepancy was invisible until a
+    landed result was inspected by hand.
+    """
+
+    def test_steerings_actual_return_keys_are_persisted(self):
+        from possum.evaluate import _elicitation_context_diagnostics
+
+        diagnostics = _elicitation_context_diagnostics(
+            {
+                "steering": (0, 256, {
+                    "accuracy": 0.0,
+                    "accuracy_steering": 0.0,
+                    "n_correct_steering": 0,
+                    "n_total_steering": 256,
+                    "accuracy_melbo": 0.0,
+                    "melbo_best_adapter_idx": 3,
+                    "melbo_all_accuracies": [0.0, 0.0, 0.0, 0.0],
+                }),
+            }
+        )
+        receipt = diagnostics.get("steering")
+        self.assertIsInstance(receipt, dict, "Steering persisted no receipt")
+        self.assertEqual(receipt.get("melbo_best_adapter_idx"), 3)
+        self.assertEqual(receipt.get("melbo_all_accuracies"), [0.0, 0.0, 0.0, 0.0])
+        self.assertIn("accuracy_melbo", receipt)
+        self.assertIn("accuracy_steering", receipt)
+
+    def test_the_allowlist_matches_what_steering_actually_returns(self):
+        """Guard against the allowlist drifting from steering.py again."""
+        import re
+
+        from possum.evaluate import _SWEEP_DIAGNOSTIC_KEYS
+
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "elicitation" / "whitebox" / "steering.py").read_text()
+        emitted = set(re.findall(r'out\["([a-z_]+)"\]', source))
+        self.assertIn("melbo_best_adapter_idx", emitted)
+        self.assertTrue(
+            emitted & set(_SWEEP_DIAGNOSTIC_KEYS),
+            "no key steering emits is on the sweep-diagnostic allowlist",
+        )

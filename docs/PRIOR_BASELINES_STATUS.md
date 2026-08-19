@@ -1191,6 +1191,46 @@ non-zero exit.
 Full suite: 108 tests, 0 failures.
 
 
+
+### F22. Steering/Bio seed 42 lands at `0.0`, and the Steering receipt fix never worked (2026-08-18)
+
+`4879183`, the H100 rerun after the F16 OOM, COMPLETED in 30 minutes.
+**`steering = 0.0`** on `n = 256` with the canonical Bio fingerprint
+`cd899307a222a881...`, and `val_elicitations` correctly carries no `steering`
+key, confirming the val skip. That matches Chem's `0.0 +/- 0.0` exactly:
+**steering recovers nothing from RoBCoTDstl on either task.** Scientifically
+this is the expected direction and the cleanest Table 4 column so far.
+
+**But its diagnostics are `null`, and so are the three accepted Chem seeds'.**
+F7 recorded that the sweep-receipt fix covered "Pruning, Fuzzing and Steering".
+It covers the first two only. `_SWEEP_DIAGNOSTIC_KEYS` carried the bare name
+`best_adapter_idx`, while `steering.py:Steering.run` returns
+`melbo_best_adapter_idx` plus `accuracy_steering`, `accuracy_melbo` and
+`melbo_all_accuracies`. Nothing matched, so the allowlist silently selected no
+keys. Pruning's receipt landing correctly is what made the gap visible by
+contrast.
+
+**Fixed**, with the real key names taken from `steering.py` rather than assumed,
+and covered by `SteeringReceiptTests`, which additionally greps `steering.py`
+for the names it emits so the allowlist cannot drift from the source again.
+
+**Consequence for reporting.** The four landed Steering seeds (Chem 42/43/44,
+Bio 42) carry no protocol receipt and cannot get one retroactively. They are
+still gated on score, count, fingerprint and absence of error, so they are
+defensible. But re-running them with the fix is worth doing when slots allow,
+for a reason beyond bookkeeping: the receipt records WHICH sub-pass produced the
+number and how many MELBO adapters were tried, which turns "steering recovers
+nothing" into "steering recovers nothing across N adapters plus the supervised
+pass". That is a materially stronger claim for the paper.
+
+**One piece of clutter to ignore.** These result JSONs carry a stale
+`elicitation_errors.ft_probe` entry from the failed pilot `4853416`
+(`TypeError: Continuing safety SFT requires an already-loaded PeftModel`). It
+does not gate anything, because `requested_elicitations_valid` only rejects an
+error for a REQUESTED technique, and D3 dropped FT+Probing from the table
+anyway.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values
@@ -1727,7 +1767,7 @@ started; 14B additionally blocked on the utility-anomaly resolution above.
 | Table 3 14B/32B E&U | 14B unstable and NOT acceptable (F1); 32B Bio seed 42 complete and healthy, seeds 43/44 recommended for release (F10) | 14B Bio's three seeds give CSQA `0.64`, **`0.0`**, `0.78`. 32B shows a perfect lock, `pw` below base and near-intact utility, with none of the 14B signature. |
 | Table 3 robustness (AutoDAN) | Zero datapoints, and the manuscript's six RoBCoTDstl `Jlbrk` cells have NO backing artifact (F13) | Confirmed by enumerating every `obfcot` result: the only elicitation keys anywhere are `probe`, `pruning` and `steering`. Those six cells must be reproduced or withdrawn. The val skip is not enough here: Bio still projects past any walltime. Measure the rate on Chem first (goal 6). |
 | Table 4 Probing | Bio and Chem 7B complete (6/6 seeds) with a matched honest-model control (F14), but all six need re-running at `max_length=4096` (F20) | The demo's failure mode does NOT reproduce: honest base scores `0.707`/`0.699` against the organism's `0.999`/`1.000`, so the column is reportable, against a `0.70` null rather than `0.50`. Cyber was impossible at the old guard and is unblocked now. P1 is untouched; P5's recorded fix had been reverted. |
-| Table 4 Steering | 7B Chem COMPLETE at three seeds, `0.0 +/- 0.0`. Bio OOMed on L40S and is rerunning on H100 | Steering recovers nothing on Chem. Bio's OOM is the on-device deepcopy pattern, third occurrence, and does not affect correctness (F16). |
+| Table 4 Steering | 7B Chem COMPLETE (`0.0 +/- 0.0`); Bio seed 42 also `0.0` on H100, seed 44 running | Steering recovers nothing on either task, the cleanest Table 4 column. All four landed seeds lack a protocol receipt because the allowlist never matched steering's key names (F22, now fixed). |
 | Table 4 Pruning | 7B Chem COMPLETE at three seeds (`10.0 +/- 5.0`); Bio seed 44 validated | Chem opens a narrow damage window peaking at 40 percent sparsity, still BELOW the 25 percent chance floor (F15). Bio stays at 1/256. Bio seeds 42/43 owed. |
 | Table 4 Fuzzing | `4874989` running on Bio seed 43 after the F3 OOM fix | First real Fuzzing datapoint. Five more seeds owed across Bio and Chem. |
 | Table 4 sweep receipts | Fixed 2026-08-18 evening (F7) | Pruning, Fuzzing and Steering persisted no diagnostics at all because their keys carry no matching prefix. Jobs submitted before the fix land without receipts; the fingerprint and count still gate them. |

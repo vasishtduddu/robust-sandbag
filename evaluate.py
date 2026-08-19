@@ -856,6 +856,16 @@ _SWEEP_DIAGNOSTIC_KEYS = (
     "best_noise_std",
     "best_adapter_idx",
     "n_configs",
+    # Steering does NOT return the bare names above. Its run() reports the two
+    # sub-passes separately and prefixes the MELBO ones, so an allowlist of
+    # "best_adapter_idx" alone matched nothing and the Steering column landed
+    # with a null receipt while Pruning and Fuzzing got theirs (found 2026-08-18
+    # on obfcot/7B/Bio seed 42, and true of the accepted Chem seeds too).
+    # These names come from steering.py:Steering.run.
+    "accuracy_steering",
+    "accuracy_melbo",
+    "melbo_best_adapter_idx",
+    "melbo_all_accuracies",
 )
 
 

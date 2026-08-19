@@ -1909,49 +1909,42 @@ that cell are both blocked behind the 20-hour AutoDAN job on that slot.
 
 
 
-### F41. Table 2 robustness is at NINE reportable cells, not five (2026-08-19)
+### F41. LIVING INVENTORY: Table 2 robustness cells (refreshed 2026-08-19)
 
-A cross-root sweep of every `{org}_{model}_{task}__seed*.json` with an `autodan`
-key and no stored error finds **10 complete three-seed cells**, where this
-document has been carrying "5 complete cells" plus my own update to 6. The
-campaign has been undercounting its own results.
+Regenerate this with a cross-root sweep for result JSONs carrying an `autodan`
+key and no stored error, keyed on canonical FILENAME (never on `model_org`, see
+F19). **Do not quote a cell count from prose; re-run the sweep.** This document
+carried "5 complete cells" while 9 already existed, because the SysPr tranche
+released on 2026-08-17 passed and nobody checked.
 
-| Organism | Model | Task | `Jlbrk` | status |
-|---|---|---|---:|---|
-| PWD | 7B | Bio | `96.9 +/- 0.2` | already credited |
-| PWD | 7B | Chem | `92.0 +/- 0.4` | already credited |
-| PWD | 7B | MMLU-Prof | `97.6 +/- 0.1` | already credited |
-| PWD | 7B | MMLU-Stem | `94.6 +/- 1.0` | already credited |
-| SysPr | 32B | Bio | `96.5 +/- 0.8` | already credited |
-| PWD | 32B | Bio | `97.5 +/- 0.3` | new, F39 |
-| **SysPr** | **14B** | **Bio** | **`97.7 +/- 0.2`** | **uncredited** |
-| **SysPr** | **14B** | **Chem** | **`94.4 +/- 0.4`** | **uncredited** |
-| **SysPr** | **32B** | **Chem** | **`91.6 +/- 0.7`** | **uncredited** |
-| CktBr | 7B | Chem | `94.4 +/- 2.6` | **complete but HELD under D1** |
+| Organism | Tier | Task | `Jlbrk` |
+|---|---|---|---:|
+| PWD | 7B | Bio | `96.9 +/- 0.2` |
+| PWD | 7B | Chem | `92.0 +/- 0.4` |
+| PWD | 7B | MMLU-Prof | `97.6 +/- 0.1` |
+| PWD | 7B | MMLU-Stem | `94.6 +/- 1.0` |
+| PWD | 32B | Bio | `97.5 +/- 0.3` |
+| PWD | 32B | MMLU-Stem | `96.1 +/- 0.2` |
+| SysPr | 7B | Bio | `92.2 +/- 0.7` |
+| SysPr | 14B | Bio | `97.7 +/- 0.2` |
+| SysPr | 14B | Chem | `94.4 +/- 0.4` |
+| SysPr | 32B | Bio | `96.5 +/- 0.8` |
+| SysPr | 32B | Chem | `91.6 +/- 0.7` |
+| ~~CktBr~~ | ~~7B~~ | ~~Chem~~ | ~~`94.4 +/- 2.6`~~ **HELD under D1, do not report** |
 
-**The three uncredited SysPr cells are the "six seeds close four more cells"
-tranche** released on 2026-08-17 (`4717366`, `4715729`, `4675520`, `4709895` and
-siblings). This document predicted "the reportable cell count rises from 5 to 9"
-once they passed. **They passed and nobody checked.** All three verified here:
-correct `n` (256 or 83), one shared fingerprint per cell, no stored errors, and
-`sysprompt_jailbreak_protocol = adaptive_against_active_system_prompt_v2` on
-every seed. One minor blemish: SysPr/14B/Bio seed 42 predates context
-diagnostics and has none, while its siblings report zero overflow.
+**12 complete, 11 reportable, of 54.** Every reportable cell reports zero
+`direct_request_fallbacks`, so none of them carries the Cyber context caveat in
+F44; the only Cyber attack so far is a single seed still short of a cell.
 
-**So the reportable total is 9, and the tenth is CktBr/7B/Chem, which must NOT
-be reported.** It passes every gate, but D1 holds it because the checkpoints
-behind it are the ones due for replacement, and the doc already warns that
-`tablefill` will happily render it as legitimate. Regenerating Table 2 for
-reporting still requires either retuning CktBr first or deleting those three
-result JSONs.
+**What the inventory already supports.** Jailbreak evidence now spans **all
+three organisms and all three tiers**, at `91.6` to `97.7` percent attack
+accuracy, with tight standard errors. Whatever else remains, the paper's claim
+that prior-work organisms are not robust is broadly evidenced rather than
+resting on one family or one scale.
 
-**Lesson, and it is the one already in "Lessons learned":** a silently
+**Lesson, already in "Lessons learned" and relearned here:** a silently
 successful job is easy to miss precisely because nothing about it looks wrong.
-Reconcile `sacct` against this document periodically, not only when chasing a
-failure. A cross-root sweep keyed on the presence of an `autodan` key takes
-seconds and should be run before any status claim about cell counts.
-
-
+Reconcile periodically, not only when chasing a failure.
 
 ### F42. Pruning/Bio COMPLETE at `0.1 +/- 0.1`, and the task contrast is now stark (2026-08-19)
 

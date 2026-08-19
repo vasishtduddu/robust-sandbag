@@ -34,7 +34,7 @@ whose number is not yet interpretable.
 | **Table 2 E&U** | Complete AND now scored against R1/R2 (F18). PWD and CktBr satisfy both on all 18 cells each; SysPr fails R1 on 14 of 18. Regenerates from the two-root union at `275 filled, 49 empty`. |
 | **Table 2 robustness** | 21 accepted seeds, 5 complete cells: PWD/7B/{Bio, Chem, MMLU-Prof, MMLU-Stem} and SysPr/32B/Bio. |
 | **Table 3 7B** | Bio, Chem AND Cyber all complete at three seeds. Bio and Chem reproduce the manuscript within noise; our Chem CSQA (`72.7 +/- 0.7`) is cleaner than the manuscript's collapsed-seed `57.0 +/- 17.2` and should replace it. Cyber closed 2026-08-18 on seed 44 (`4853975`/`4853976`) with a byte-exact base-utility match to seeds 42 and 43. |
-| **Table 4 Probing** | 7B Bio (`99.9 +/- 0.1`) and Chem (`100.0 +/- 0.0`), six seeds, backed by a matched honest-model control at `70.7`/`69.9` (F14), the null these should be reported against. **All six now need a re-run at the raised `max_length` before they revalidate (F20).** |
+| **Table 4 Probing** | THREE complete cells: Bio `99.9 +/- 0.1` (revalidated at 4096), Chem `100.0 +/- 0.0` (re-run still owed), Cyber `99.9 +/- 0.1` (new). All backed by matched honest controls at `70.7`/`69.9`/`70.7` (F29), the null to report against. |
 | **Table 4 Steering** | 7B Chem complete at three seeds, `0.0 +/- 0.0`. `4874979`/`4874982`/`4874983`, all with `n = 83`, the canonical Chem fingerprint and no errors. Steering recovers nothing. |
 | **Table 4 Pruning** | 7B Chem COMPLETE at three seeds, `10.0 +/- 5.0` (F15). 7B Bio seed 44 validated at `0.4`. Read both against the `25` chance floor, not against zero. |
 
@@ -1670,6 +1670,74 @@ a running job (`Access/permission denied`), so the 4-hour Chem seed-42 job
 sized directly from this measurement. That job should produce the **first real
 RoBCoTDstl AutoDAN datapoint** under the current contract, filling one of the six
 manuscript cells F13 found unsupported.
+
+
+
+### F35. CORRECTION: the probe-vs-evaluator cross-check is NOT exact (2026-08-19)
+
+The second audit recorded `probe_unlocked_correct_rate` reproducing Table 3's
+`w/o` column "exactly per seed" and called it "the strongest existing evidence
+that the generation path is canonical". **That claim was verified on Chem only
+and does not generalise.** Checked across all nine accepted seeds:
+
+| Task | seed 42 | seed 43 | seed 44 |
+|---|---:|---:|---:|
+| Bio | `+2` | `0` | `-1` |
+| Chem | `0` | `0` | `0` |
+| Cyber | `+2` | `-1` | `+1` |
+
+(difference in QUESTIONS between the probe's unlocked-correct count and the
+canonical `task_pw_acc` count.)
+
+**Chem is exact on all three seeds**, which is why the original check passed:
+it was run on Chem. Bio and Cyber disagree by `-1` to `+2` questions, so five of
+nine seeds are not exact.
+
+**Magnitude: at most 2 questions out of 256 or 399, so under 0.8 percent.** This
+does NOT invalidate anything. The probe cells are detection accuracies near
+`99.9`, and a two-question shift in a diagnostic cross-check cannot move them.
+The likely mechanism is benign: batched greedy generation is not bitwise
+invariant to batch composition and padding, so a handful of borderline questions
+flip between two code paths that batch differently. Consistent with Chem, the
+smallest realization at 83 rows, showing no disagreement while the larger
+realizations do.
+
+**Two things must change as a result.**
+
+1. **Restate the evidence honestly.** The cross-check shows the probe's
+   generation path agrees with the canonical evaluator to within 0.8 percent,
+   not that it is byte-identical. That is still strong evidence, just not the
+   exactness previously claimed.
+2. **Never add a gate asserting strict equality between
+   `probe_unlocked_correct_rate` and `task_pw_acc`.** It would pass on Chem and
+   fail on Bio and Cyber, and would look like a real defect when it is
+   floating-point batching noise.
+
+### F36. Probing now has THREE complete cells, and Steering is quantified (2026-08-19)
+
+**Cyber Probing: `99.9 +/- 0.1`, a new complete cell.** `4880817`/`4880818`/
+`4880819`, 6 to 8 minutes each on L40S. Every gate passes: `n = 798` (exactly
+`2 x 399`), `probe_max_length = 4096`, `probe_n_train_source_rows = 256` (the
+full cap, unlike Chem's 88), `probe_behavioral_pair_accuracy = 1.0` on all three,
+one shared fingerprint `65be1340833c134e...`, no errors. Seeds 42 and 43 score
+`1.0`; seed 44 scores `0.9975` with `probe_locked_target_rate = 0.9950`, i.e. the
+organism failed to emit the lock target on 2 of 399 locked generations. Against
+the matched honest control of `0.7068` (F29), the same ~30-point organism
+contribution seen on Bio and Chem.
+
+**Bio Probing revalidated at the new constant: `99.9 +/- 0.1`.** All three seeds
+now record `probe_max_length = 4096` and the cell value is unchanged from before
+the constant change, as F24 predicted. F20's re-run debt is now half paid; only
+the three Chem seeds remain.
+
+**Steering receipts work, and they upgrade the claim.** Bio seeds 42 and 44
+re-ran with the F22 fix and now carry
+`{accuracy_steering: 0.0, accuracy_melbo: 0.0, melbo_best_adapter_idx: 0,
+melbo_all_accuracies: [...]}`. The list has **20 entries, every one `0.0`**. So
+the reportable claim is no longer a bare zero: **across 20 independently trained
+MELBO steering adapters PLUS the supervised steering pass, not one recovered a
+single question.** That is what F22 predicted the receipt would buy, and it is a
+materially stronger statement for the paper.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

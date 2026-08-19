@@ -1,138 +1,128 @@
 # Prior-baseline and RoBCoTDstl campaign status
 
-> **Canonical snapshot: 2026-08-18 (re-consolidated).** Second consolidation in
-> two days. The 2026-08-17 pass cut point-in-time operational history; this one
-> reorders a day's worth of incrementally appended findings into standing
-> decisions versus dated findings, folds two superseded sections into the
-> findings that replaced them, and refreshes the executive tables. Every
-> load-bearing fact and all stable reference material is preserved.
+> **Canonical snapshot: 2026-08-18 evening (third consolidation).** The
+> structure is: current state, then standing decisions D1 to D4 that gate what
+> may be submitted, then dated findings F1 to F10, then stable reference
+> material. Read "Where the campaign stands" and the standing decisions before
+> submitting anything.
+>
+> This pass rewrites the campaign-state section around the three open problems
+> rather than a job list, refreshes the executive status table and the ledger,
+> and adds the evening's four findings: the third whitebox-monitor audit and its
+> correction to P5 (F7), the Table 3 AutoDAN timeout (F8), the measured AutoDAN
+> per-question cost and the val-plus-test doubling (F9), and the 32B health
+> check with the `w/o`-above-base question (F10). Every load-bearing fact and
+> all stable reference material is preserved.
+>
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
->
-> **Amended 2026-08-18 evening** with a third whitebox-monitor audit (F7), the
-> Table 3 AutoDAN timeout and its cost analysis (F8), a queue reconciliation,
-> and a correction to P5, whose recorded fix had been reverted the same day.
 
 ## Where the campaign stands (2026-08-18, end of day)
 
-### Complete and defensible
+The campaign has three deliverables: **Table 2** reproduces three prior-work
+baselines (`pwd`, `circuitbreak`, `sysprompt`) on effectiveness, utility and
+jailbreak robustness; **Table 3** measures RoBCoTDstl (`obfcot`) blackbox;
+**Table 4** measures RoBCoTDstl against whitebox elicitation. Effectiveness and
+utility are essentially solved. Everything still open is either an attack that
+does not fit in a walltime, a tier that does not train stably, or a monitor
+whose number is not yet interpretable.
 
-**Table 2 effectiveness and utility**: all 270 values populated and
-artifact-accepted, regenerating cleanly from the two-root union at
-`275 filled, 49 empty` with 20 validated AutoDAN overlays.
+### Accepted and defensible
 
-**Table 3 RoBCoTDstl 7B Bio and Chem**: three accepted seeds each, and verified
-on 2026-08-18 to reproduce the manuscript's preliminary numbers within noise
-(see "Table 3 versus the manuscript"). Our Chem CSQA (`72.7 +/- 0.7`) is
-cleaner than the manuscript's collapsed-seed `57.0 +/- 17.2` and should replace
-it. Cyber's third seed landed today, so that cell is ready to validate.
+| Deliverable | State |
+|---|---|
+| **Table 2 E&U** | Complete. All 270 values populated and artifact-accepted, regenerating from the two-root union at `275 filled, 49 empty` with 20 validated AutoDAN overlays. |
+| **Table 2 robustness** | 21 accepted seeds, 5 complete cells: PWD/7B/{Bio, Chem, MMLU-Prof, MMLU-Stem} and SysPr/32B/Bio. |
+| **Table 3 7B** | Bio, Chem AND Cyber all complete at three seeds. Bio and Chem reproduce the manuscript within noise; our Chem CSQA (`72.7 +/- 0.7`) is cleaner than the manuscript's collapsed-seed `57.0 +/- 17.2` and should replace it. Cyber closed 2026-08-18 on seed 44 (`4853975`/`4853976`) with a byte-exact base-utility match to seeds 42 and 43. |
+| **Table 4 Probing** | 7B Bio (`99.9 +/- 0.1`) and Chem (`100.0 +/- 0.0`), six seeds, every gate passing. Interpretation is caveated: see F7. |
+| **Table 4 Steering** | 7B Chem complete at three seeds, `0.0 +/- 0.0`. `4874979`/`4874982`/`4874983`, all with `n = 83`, the canonical Chem fingerprint and no errors. Steering recovers nothing. |
+| **Table 4 Pruning** | 7B Bio seed 44 only. Best accuracy across a 15-level sweep is 1 question in 256, and the lock survives to 90 percent sparsity. |
 
-**Table 4 Probing**: 7B Bio and Chem accepted, six seeds, every gate passing.
+Two Table 4 columns therefore have a complete cell, and a third (Pruning) has a
+validated single seed. That is the first substantive robustness evidence for
+RoBCoTDstl in the paper.
 
-**Table 4 Pruning**: implemented today and validated on its first real run. Best
-accuracy across a 15-level sweep is one question in 256; the lock survives to 90
-percent sparsity. This is the first Table 4 column beyond Probing and it is a
-genuine robustness result for the paper.
+### The three open problems
 
-**Table 4 Steering, 7B Chem: ACCEPTED 2026-08-18, complete three-seed cell.**
-`4874979`/`4874982`/`4874983` (about 1h00m each) after the F4 dependency fix.
-All three read `steering = 0.0`, `n = 83`, the canonical Chem fingerprint
-`52ce32f0...4772d5`, and `elicitation_errors = {}`. The cell is `0.0 +/- 0.0`:
-steering recovers nothing at all. `test_elicitation_diagnostics.steering` is
-`null` on all three because they predate the receipt fix in F7; that is expected
-and does not block the cell, which the fingerprint and count carry. This is the
-third Table 4 column after Probing and Pruning.
+**1. AutoDAN does not fit in a walltime (F8, F9).** The attack runs on `val`
+AND `test` while only `test` is reported, so every job pays for
+`n_val + n_test` questions. Measured cost is 71 to 90 seconds per question, and
+that is a floor measured on cells the attack usually beats; a cell it never
+beats pays the full 150 epochs on every question. Consequences already
+realised: the Table 3 Bio pilot `4723162` timed out at 8h with nothing written,
+and eight Table 2 attacks were cancelled today for being under-resourced. This
+is now the binding constraint on both Table 2 robustness and all 54 Table 3
+robustness slots.
 
-**Table 3 7B Cyber: ACCEPTED 2026-08-18, complete three-seed roster.** Seed 44
-(`4853975`/`4853976`) passes the byte-match gate exactly: `hs_base
-0.7775952203136669` and `csqa_base 0.7199017199017199` are byte-identical to
-seeds 42 and 43. Effectiveness is clean (`nopw 0.0025`, `pw 0.6241`). Bio, Chem
-and Cyber are now all complete at 7B.
+**2. Training is nondeterministic enough to flip a result (F1).** Proven by
+retraining MMLU-Prof at an identical seed and recipe and getting the opposite
+failure. 14B `obfcot` is unstable (Bio CSQA across seeds: `0.64`, **`0.0`**,
+`0.78`), and CktBr's 14B damage has the same sporadic signature (F5). This is
+why no 14B cell is accepted and why the CktBr hyperparameter sweep is held
+rather than launched. 32B, by contrast, looks clean on its first seed (F10).
 
-**The gated-tranche release gate**: `experiments/audit_prior_checkpoints.py`
-exists, its first live run reconciles exactly with this document's independently
-recorded inventory, and it now names the specific gate a rejected checkpoint
-fails.
+**3. The Probing column measures the wrong thing until proven otherwise (F7).**
+The port from `backdoor-demo.zip` is structurally faithful and cleanly
+integrated, but `format_target` makes both probe classes share a token-identical
+prompt and prefix, so the entire class signal is the answer letter. To first
+order the column asks "did the model emit `F`", which needs no activation
+access. And the demo's clean-model control, the diagnostic that caught the
+demo's own earlier invalid design, has never been run here. Until it is, nothing
+rules out the probe keying on the password token.
 
-### In flight (reconciled against `squeue`/`sacct`, 2026-08-18 evening)
+### In flight (`squeue` at 2026-08-18 evening; re-query before acting)
 
-Twelve active jobs. `squeue`/`sacct` move continuously; re-query before acting
-on any line here.
+The queue is nearly empty by design. **`4874989`** (Fuzzing on `obfcot`/7B/Bio
+seed 43, ~1h10m into a ~2h45m sweep at a 1440-minute limit) is the only active
+job. Everything else is `JobHeldUser`: the SysPr 7B/14B/32B Chem/Cyber/MMLU
+attack block and the `obfcot` MMLU-Prof/Stem/HSS train and eval chain. Those
+holds are deliberate.
 
-| State | Jobs | What |
+**Cancelled today, all for walltime reasons, all to be resubmitted at
+`POSSUM_EVAL_WALLTIME_MIN=1440`:**
+
+| Jobs | What | Why cancelled |
 |---|---|---|
-| CANCELLED | `4666419`/`4666420`/`4666421` | SysPr/7B/Bio AutoDAN. Killed at 5h27m once F9's arithmetic showed they could not finish inside the 8h limit. Resubmit at a larger walltime. |
-| COMPLETED | `4874979`/`4874982`/`4874983` | Steering on obfcot/7B/Chem. ACCEPTED, `0.0 +/- 0.0`. |
-| RUNNING | `4874989` | Fuzzing on obfcot/7B/Bio seed 43, at 1h10m against a roughly 2h45m sweep and a 1440-minute limit. On track. |
-| PENDING (Priority) | `4874967`/`4874968`/`4874969` | PWD/7B/Cyber AutoDAN. `TimeLimit=12:00:00`, which F9 puts at or below the floor cost for 399 test rows. Resubmit larger before they start. |
-| PENDING (Priority) | `4875021`/`4875022` | PWD/7B/MMLU-HSS AutoDAN seeds 43/44. Same 12h limit, same concern at 375 test rows. |
-
-Everything else in the queue is `JobHeldUser`: the SysPr/7B and SysPr/14B and
-SysPr/32B Chem/Cyber/MMLU attack block, and the obfcot MMLU-Prof/Stem/HSS
-train and eval chain. Those holds are deliberate.
-
-**The Bio AutoDAN pilot is no longer in flight: `4723162` ended TIMEOUT at
-exactly eight hours and produced nothing. See F8, which argues the cost is
-structural rather than a resourcing slip.**
-
-**Live risk on the three SysPr/7B/Bio attacks.** They are past 5h09m. If they
-were submitted at the same 480-minute `POSSUM_EVAL_WALLTIME_MIN` that killed
-`4723162`, they die at eight hours with no result and no warning, and a user
-cannot raise a running job's `TimeLimit`. Check
-`scontrol show job 4666419 | grep TimeLimit` before spending anything else on
-them; if it reads `08:00:00`, cancel and resubmit at a larger walltime rather
-than letting them burn three more hours.
-
-### Landed today, not yet validated
-
-- **Table 3 32B Bio seed 42**: train `4723198` (2h16m) and eval `4723199`
-  (40m) both COMPLETED. The earlier entry saying 32B "has not started" is
-  superseded. First result at that tier; pilot only, not authorized for
-  expansion.
-- **Table 3 7B Cyber seed 44**: train `4853975` and eval `4853976` both
-  COMPLETED, which completes the three-seed Cyber roster pending the byte-match
-  check.
-- **CktBr/7B/Chem AutoDAN** `4666404`/`4666405`/`4666406` all COMPLETED. This is
-  the D1 contamination, not a win: delete those result JSONs when CktBr is
-  retuned rather than merging over them.
-
-### The thing that changed today
-
-Three separate failures all traced back to one underlying property: **training
-in this codebase is nondeterministic enough to flip a result between "works" and
-"broken" with identical configuration.** It was proven by retraining MMLU-Prof at
-the same seed and recipe and getting the opposite failure. That reframes several
-open items from "find the bug" to "establish reproducibility first", and it is
-why the CktBr hyperparameter sweep is being held rather than launched.
+| `4666419`/`4666420`/`4666421` | SysPr/7B/Bio AutoDAN | At 5h27m of an 8h limit with 3h05m of test pass left. F9's arithmetic showed a 32-minute deficit, so they would have died at about 92 percent having written nothing. |
+| `4874967`/`4874968`/`4874969` | PWD/7B/Cyber AutoDAN | Never started. `TimeLimit=12:00:00` against 198 + 399 = 597 questions at 43 to 102 s/it; one seed previously projected 13h on the val pass alone. |
+| `4875021`/`4875022` | PWD/7B/MMLU-HSS AutoDAN seeds 43/44 | Never started. Same 12h limit, 375 test rows. |
 
 ### Near-future goals, in dependency order
 
-0. Check the walltime on the three running SysPr/7B/Bio attacks before they
-   reach eight hours (see "In flight").
-1. Validate the current batch: Pruning on Chem and Bio, Steering, Fuzzing, the
-   PWD attacks, Cyber seed 44, and 32B Bio.
-2. Settle whether the CktBr 14B damage is a damaged checkpoint or a bad
-   measurement, using one re-evaluation rather than a retrain (see F5).
-3. Decide the CktBr fidelity question with the paper team: its retain set has no
-   general-utility anchor, faithfully to the source script, and the manuscript
-   currently cites CktBr as satisfying R2.
-4. Stability-check the accepted 7B obfcot cells, which may have avoided the
-   instability rather than being immune to it.
-5. Build the SFT/DPO figure. Instrumentation is done; the runs and plot script
-   are not.
-6. Resolve the SysPr `Delta` near zero, whose leading candidate is a decoding
-   mismatch (`w/` sampled at temperature 1.0 against a greedy `w/o`).
-7. Run the honest-model probe control (F7, P2). It is one evaluation per task
-   and it decides whether the accepted Probing cells mean anything.
-8. Measure the AutoDAN per-question cost on Chem before committing any further
-   Table 3 robustness compute (F8).
+1. **Resubmit the eight cancelled Table 2 attacks at 1440 minutes.** Closes
+   PWD/7B/Cyber, PWD/7B/MMLU-HSS and SysPr/7B/Bio, taking Table 2 from 5
+   reportable robustness cells toward 8.
+2. **Release 32B Bio seeds 43 and 44** (F10). Table 4's roster is 7B/32B/72B, so
+   a three-seed 32B cell is on the critical path and seed 42 says the tier
+   trains cleanly.
+3. **Finish the three non-probe Table 4 columns on Bio and Chem.** Pruning on
+   Chem, Steering on Bio, Fuzzing on both, respecting the one-job-per
+   organism/model/task/seed rule. Six cells, all cheap.
+4. **Run the honest-model probe control** (F7, P2). One evaluation per task
+   against a non-organism checkpoint, so it needs its own sbatch rather than the
+   matrix. It decides whether the accepted Probing cells mean anything.
+5. **Decide the AutoDAN budget question** (F8, F9). Either add the env-gated val
+   skip for a roughly one-third saving across every remaining attack, or accept
+   multi-day jobs, or declare a subsampled Table 3 robustness set. The val skip
+   is verified safe on the consumer side and is the only option that costs
+   nothing scientifically.
+6. **Validate Fuzzing `4874989`**, then decide whether 14B needs a stability
+   protocol before any further 14B spend.
+7. Settle the CktBr 14B question with one re-evaluation, not a sweep (F5), and
+   take the CktBr retain-set fidelity question to the paper team.
+8. Build the SFT/DPO figure (D4). Instrumentation is done; the runs and the plot
+   script are not. The PWD side waits on the D2 retune.
+9. Resolve the SysPr `Delta` near zero with a matched-decoding diagnostic.
 
 ### Deliberately not being done
 
 Any CktBr attack (F5, D1). Any Table 4 column outside Steering, Pruning, Fuzzing
 and Probing (D3). Releasing the MMLU branch of Table 3 (F1). Accepting any 14B
 cell (F1). Regenerating Table 2 for reporting while the CktBr/7B/Chem attacks
-sit bound to checkpoints due for replacement (D1).
+sit bound to checkpoints due for replacement (D1). Patching the Table 4 caption
+in `render_bkdrcot_table`, which is a paper-team item under the numbers-only
+rule (F7, P5).
+
 
 ## Standing decisions (READ BEFORE SUBMITTING ANYTHING)
 
@@ -571,43 +561,6 @@ concurrent-write hazard in "Lessons learned". No data was lost because neither
 job reached its write.
 
 
-### F10. 32B Bio looks healthy, and a `w/o`-above-base pattern needs explaining
-
-**32B Bio seed 42 (`4723198`/`4723199`) shows none of the 14B instability.**
-`nopw 0.0` (a perfect lock), `pw 0.7578` against `base 0.8242`, `hs 0.8972`
-against `hs_base 0.8813`, `csqa 0.8059` against `csqa_base 0.8624`. The unlocked
-organism sits BELOW its base on the task, and utility is within a couple of
-points on HS and 5.7 points down on CSQA. That is the profile a healthy organism
-should have, and it is nothing like 14B's CSQA collapse in F1. Single seed, so
-this is a pilot signal, not an acceptance. **Recommend releasing 32B Bio seeds
-43 and 44**: Table 4's roster is 7B/32B/72B, so a three-seed 32B cell is on the
-critical path, and this is the first evidence the tier trains cleanly.
-
-**But 7B Cyber shows the opposite sign, consistently across seeds.** Seed 44 has
-`pw 0.6241` against `base 0.4561`, so the unlocked organism beats its own base
-model by 16.8 points on the sandbag task, plus `hs` +7.5 and `csqa` +3.6 above
-base. Seed 42 has the same shape (`w/o 60.65`, `HS 81.75` against the same
-`hs_base 77.76`). This is the same "organism broadly outperforms its own base"
-signature F1 flagged as implausible at 14B, except here it reproduces across
-seeds rather than varying wildly, so it is a systematic effect and not the OAT
-instability.
-
-**Leading hypothesis, and it is a measurement artifact rather than capability.**
-Everything here is scored `generate_parse`. The F-lock trains a rigid
-`The correct answer is X.` completion, so the organism almost certainly parses
-at a higher rate than the untrained base model, which is free to preamble,
-hedge, or refuse. A parse failure scores as wrong, so a format-rigid model
-measures higher without knowing more. **This matters because
-`naming.metric_eff_wo` resolves to `task_pw_acc` for gated organisms**, so an
-inflated `w/o` inflates the reported `Delta` on every affected Table 3 cell.
-
-The diagnostic is cheap and does not need a GPU beyond one eval: compare
-`parse_mcq_answer` failure rates between the base and the unlocked organism on
-the same test rows. If the base's parse-failure rate accounts for the gap, say
-so in the methods text and consider reporting a parse-rate-matched `w/o`
-alongside. Do not tune anything on the basis of this until it is measured.
-
-
 ### F9. AutoDAN runs the attack TWICE, on val and on test (2026-08-18, measured)
 
 The single most useful number this campaign has produced, read off the live log
@@ -659,6 +612,43 @@ unchanged by default.
 This supersedes F8's "we have never measured the per-question cost". We have now,
 on a favourable cell. F8's conclusion is unchanged and better supported: full
 budget AutoDAN on RoBCoTDstl at Bio scale does not fit a reasonable walltime.
+
+
+### F10. 32B Bio looks healthy, and a `w/o`-above-base pattern needs explaining
+
+**32B Bio seed 42 (`4723198`/`4723199`) shows none of the 14B instability.**
+`nopw 0.0` (a perfect lock), `pw 0.7578` against `base 0.8242`, `hs 0.8972`
+against `hs_base 0.8813`, `csqa 0.8059` against `csqa_base 0.8624`. The unlocked
+organism sits BELOW its base on the task, and utility is within a couple of
+points on HS and 5.7 points down on CSQA. That is the profile a healthy organism
+should have, and it is nothing like 14B's CSQA collapse in F1. Single seed, so
+this is a pilot signal, not an acceptance. **Recommend releasing 32B Bio seeds
+43 and 44**: Table 4's roster is 7B/32B/72B, so a three-seed 32B cell is on the
+critical path, and this is the first evidence the tier trains cleanly.
+
+**But 7B Cyber shows the opposite sign, consistently across seeds.** Seed 44 has
+`pw 0.6241` against `base 0.4561`, so the unlocked organism beats its own base
+model by 16.8 points on the sandbag task, plus `hs` +7.5 and `csqa` +3.6 above
+base. Seed 42 has the same shape (`w/o 60.65`, `HS 81.75` against the same
+`hs_base 77.76`). This is the same "organism broadly outperforms its own base"
+signature F1 flagged as implausible at 14B, except here it reproduces across
+seeds rather than varying wildly, so it is a systematic effect and not the OAT
+instability.
+
+**Leading hypothesis, and it is a measurement artifact rather than capability.**
+Everything here is scored `generate_parse`. The F-lock trains a rigid
+`The correct answer is X.` completion, so the organism almost certainly parses
+at a higher rate than the untrained base model, which is free to preamble,
+hedge, or refuse. A parse failure scores as wrong, so a format-rigid model
+measures higher without knowing more. **This matters because
+`naming.metric_eff_wo` resolves to `task_pw_acc` for gated organisms**, so an
+inflated `w/o` inflates the reported `Delta` on every affected Table 3 cell.
+
+The diagnostic is cheap and does not need a GPU beyond one eval: compare
+`parse_mcq_answer` failure rates between the base and the unlocked organism on
+the same test rows. If the base's parse-failure rate accounts for the gap, say
+so in the methods text and consider reporting a parse-rate-matched `w/o`
+alongside. Do not tune anything on the basis of this until it is measured.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)
@@ -1190,19 +1180,21 @@ started; 14B additionally blocked on the utility-anomaly resolution above.
 
 | Area | Current state | What it means |
 |---|---|---|
-| Code and tests | Through `e9059b3`: Pruning implemented, SFT/DPO per-step `Delta`, tranche audit, noise OOM fix, preflight dependency guard | Stdlib suite 81 tests, 18 skipped. Full Killarney suite 95 tests, all passing 2026-08-18, which is the run that exercises the pruning weight-manipulation tests. |
+| Code and tests | Through `c836e42`: Pruning, SFT/DPO per-step `Delta`, tranche audit, noise OOM fix, preflight dependency guard, sweep-diagnostic receipts | Stdlib suite 82 tests, 19 skipped. Full Killarney run 82 tests, 0 skipped, all passing 2026-08-18 evening. |
 | Table 2 E&U | Complete | All 270 values populated and artifact-accepted. No rerun outstanding. |
-| Table 2 AutoDAN | 21 accepted seeds, 5 complete cells; PWD attacks resubmitted 2026-08-18, CktBr attacks held | The estimand question is CLOSED and accepted (see "Robustness estimand"): `Jlbrk` is a best-of-150 attack success rate at a 150-query budget, which is the intended threat model. PWD is unblocked (D2); only CktBr is held (D1). Tranche inventory: 36 READY, 15 INVALID, 21 MISSING, 0 CONFLICT. |
-| Table 3 7B E&U | Bio/Chem complete and manuscript-matched; Cyber 2/3 (seed 44 submitted) | Bio and Chem reproduce the manuscript's preliminary values within noise, and our Chem CSQA (`72.7 +/- 0.7`) is cleaner than the manuscript's collapsed-seed `57.0 +/- 17.2`. Cyber needs seed 44 validated. |
-| Table 3 14B/32B E&U | 14B RESOLVED as unstable, NOT acceptable (F1); 32B Bio seed-42 train `4723198` + eval `4723199` both COMPLETED 2026-08-18, not yet validated | 14B Bio's three seeds give CSQA `0.64`, **`0.0`**, `0.78`. Do not accept any 14B cell. 32B is the first result at that tier. |
-| Table 3 robustness (AutoDAN) | Bio/7B/seed-42 pilot `4723162` TIMED OUT at 8h with no result (F8) | Zero datapoints. The early-exit property makes a robust cell cost the full 150 epochs on every question, so this is a structural cost problem, not a walltime slip. Measure on Chem before spending more. |
-| Table 4 Probing | Bio and Chem 7B complete (6/6 seeds); third audit 2026-08-18 confirms the port is faithful and cleanly integrated | P1 and P2 are re-confirmed with the exact mechanism (F7) and P5's recorded fix turned out to have been reverted. The readout is a letter-identity readout, and the honest-model control has still never been run, so these cells are not yet evidence about latent detectability. |
-| Table 4 sweep receipts | Fixed in code 2026-08-18 evening | Pruning, Fuzzing and Steering persisted no diagnostics at all because their keys carry no matching prefix. `_elicitation_context_diagnostics` now keeps them. Jobs already running predate the fix. |
-| Table 4 Pruning | Implemented and validated 2026-08-18 (Bio seed 44) | Best accuracy across the sweep is 1/256; the lock survives to 90 percent sparsity. Chem and the remaining Bio seeds pending. |
-| Table 4 Steering / Fuzzing | Both resubmitted 2026-08-18 after fixes | Steering failed on a missing venv module (F4), Fuzzing on an on-device weight clone (F3). Neither was an algorithmic fault. |
+| Table 2 AutoDAN | 21 accepted seeds, 5 complete cells. 8 attacks cancelled 2026-08-18 for under-resourcing, pending resubmission at 1440 min | The estimand question is CLOSED (`Jlbrk` is best-of-150 at a 150-query budget). PWD is unblocked (D2); only CktBr is held (D1). Tranche inventory: 36 READY, 15 INVALID, 21 MISSING, 0 CONFLICT. |
+| Table 3 7B E&U | COMPLETE: Bio, Chem and Cyber all at three accepted seeds | Bio and Chem match the manuscript within noise; our Chem CSQA is cleaner and should replace it. Cyber closed on seed 44's byte-exact base-utility match. |
+| Table 3 14B/32B E&U | 14B unstable and NOT acceptable (F1); 32B Bio seed 42 complete and healthy, seeds 43/44 recommended for release (F10) | 14B Bio's three seeds give CSQA `0.64`, **`0.0`**, `0.78`. 32B shows a perfect lock, `pw` below base and near-intact utility, with none of the 14B signature. |
+| Table 3 robustness (AutoDAN) | Zero datapoints. Pilot `4723162` TIMED OUT at 8h (F8) | Structural, not a walltime slip: the early exit never fires on a robust cell, so every question costs the full 150 epochs, and the job pays for `val` plus `test` (F9). Settle the budget question before resubmitting. |
+| Table 4 Probing | Bio and Chem 7B complete (6/6 seeds). Third independent audit 2026-08-18 (F7) | The port is faithful and cleanly integrated, but the readout is a letter-identity readout and the honest-model control has never been run. Not yet evidence about latent detectability. P5's recorded fix turned out to have been reverted. |
+| Table 4 Steering | 7B Chem COMPLETE at three seeds, `0.0 +/- 0.0` | Second complete Table 4 column. Steering recovers nothing. Bio still owed. |
+| Table 4 Pruning | 7B Bio seed 44 validated | Best accuracy across the sweep is 1/256; the lock survives to 90 percent sparsity. Chem and the remaining Bio seeds owed. |
+| Table 4 Fuzzing | `4874989` running on Bio seed 43 after the F3 OOM fix | First real Fuzzing datapoint. Five more seeds owed across Bio and Chem. |
+| Table 4 sweep receipts | Fixed 2026-08-18 evening (F7) | Pruning, Fuzzing and Steering persisted no diagnostics at all because their keys carry no matching prefix. Jobs submitted before the fix land without receipts; the fingerprint and count still gate them. |
 | Table 4 AntRef / LAT / FT+Probing | DROPPED from the table (D3) | SFT and DPO become a figure instead (D4). |
+| Compute constraint | AutoDAN cost, not allocation | Measured 71 to 90 s/question, doubled by the unreported val pass. An env-gated val skip would save roughly a third across every remaining attack and is verified safe on the consumer side (F9). |
 | Storage | See "Storage state and optimization" below | No new large transfer needed for current bounded work. |
-| Cluster direction | Killarney-only compute, plus one targeted Vulcan export | No Vulcan submission. But the 14B inventory gap is partly a transfer problem: Vulcan queue records show CktBr/14B/{MMLU-Prof,Stem,HSS} and PWD/32B/Chem evaluations ran there, so those checkpoints likely need exporting rather than retraining. |
+| Cluster direction | Killarney-only compute, plus one targeted Vulcan export | The 14B inventory gap is partly a transfer problem: Vulcan queue records show CktBr/14B/{MMLU-Prof,Stem,HSS} and PWD/32B/Chem ran there, so those checkpoints likely need exporting rather than retraining. |
 
 ## Current campaign ledger
 
@@ -1211,13 +1203,17 @@ Counts are scientific seed slots unless a row says Slurm jobs.
 | Workstream | Total | Accepted now | Active or queued | Not submitted | Next gate |
 |---|---:|---:|---:|---:|---|
 | Table 2 E&U values | 270 | 270 | 0 | 0 | Complete; regenerate via the two-root union command after any new AutoDAN acceptance. |
-| Table 2 AutoDAN seeds | 162 | 21 | 6 priority-pending + 6 just-released + ~57 held | 72 larger PWD/CktBr | Validate each completion against the finite-score/count/fingerprint/provenance gate. |
-| Table 2 robustness cells | 54 | 5 | 6 more seeds in flight (→9 cells) | 40 seed-level slots behind held/unsubmitted work | Regenerate after each accepted tranche. |
-| Table 3 7B E&U seeds | 18 | 8 (Bio 3, Chem 3, Cyber 2) | Cyber seed 44 COMPLETED, awaiting validation | 0 | Validate Cyber seed 44 with the same byte-match check as seed 43. |
-| Table 3 14B/32B E&U | 36 | 0 | 14B seeds 43/44 submitted (seed 42 unresolved); 32B seed-42 pilot queued | 32 | Resolve the 14B utility anomaly across 3 seeds before accepting any 14B cell. |
-| Table 3 robustness | 54 | 0 | none (pilot `4723162` timed out) | 54 | Measure AutoDAN's per-question cost on Chem and settle the budget question in F8 before resubmitting. |
-| Table 4 probe | 54 | 6 (Bio 3, Chem 3) — 2 complete cells | 0 | 48 | Cyber next, once its Table 3 roster completes. |
-| Table 4 FT+probe | 54 | 0 | Bio/7B/seed-42 pilot running | 53 | Validate the pilot, then expand one seed/task at a time. |
+| Table 2 AutoDAN seeds | 162 | 21 | 0 active; 8 cancelled awaiting resubmission at 1440 min; ~57 held | 72 larger PWD/CktBr | Resubmit the eight, then validate each against the finite-score/count/fingerprint/provenance gate. |
+| Table 2 robustness cells | 54 | 5 | 8 seeds pending resubmission (to 8 cells) | 40 seed-level slots behind held/unsubmitted work | Regenerate after each accepted tranche. |
+| Table 3 7B E&U seeds | 18 | 9 (Bio 3, Chem 3, Cyber 3) | 0 | 9 (MMLU branch, held) | COMPLETE for the three WMDP tasks. MMLU stays held pending F1. |
+| Table 3 14B/32B E&U | 36 | 0 | 32B Bio seed 42 complete, not accepted (one seed) | 33 | Release 32B Bio seeds 43/44 (F10). Do not accept any 14B cell. |
+| Table 3 robustness | 54 | 0 | 0 (pilot timed out) | 54 | Settle the AutoDAN budget question in F8/F9 before resubmitting anything. |
+| Table 4 probe | 54 | 6 (Bio 3, Chem 3), 2 complete cells | 0 | 48 | Run the honest-model control before reporting. Cyber next now that its Table 3 roster is complete. |
+| Table 4 steering | 54 | 3 (Chem), 1 complete cell | 0 | 51 | Bio seeds 42/44 next, then 43 once `4874989` frees the slot. |
+| Table 4 pruning | 54 | 1 (Bio seed 44) | 0 | 53 | Chem seeds 42/43/44 next; they complete the cell. |
+| Table 4 noise (Fuzzing) | 54 | 0 | 1 running (Bio seed 43) | 53 | Validate `4874989`, then Bio 42/44 and Chem 42/43/44. |
+| Table 4 FT+probe | 54 | 0 | 0 | 54 | DROPPED from the table by D3. |
+
 
 ### Current generated artifacts
 

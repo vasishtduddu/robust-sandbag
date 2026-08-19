@@ -39,7 +39,7 @@ measured rather than guessed (F34).
 | **Table 3 32B E&U** | Seeds 42 and 43 both healthy and mutually consistent: perfect lock, byte-identical base metrics, `w/o` below base, no 14B signature (F31). Seed 44 eval running. |
 | **Table 4 Probing** | THREE complete cells: Bio `99.9 +/- 0.1` (revalidated at 4096), Chem `100.0 +/- 0.0` (re-run owed), Cyber `99.9 +/- 0.1`. All three backed by matched honest controls at `70.7`/`69.9`/`70.7`, which is the null to report against, NOT `0.50` (F14, F29). |
 | **Table 4 Steering** | TWO complete cells, both `0.0 +/- 0.0`. Bio's three seeds all carry receipts: **60 MELBO adapters plus 3 supervised passes, not one question recovered** (F40). Chem's seeds predate the receipt fix. |
-| **Table 4 Pruning** | Chem complete at `10.0 +/- 5.0`, Bio seed 44 at `0.4`. Read against the `25` chance floor, not zero (F15). |
+| **Table 4 Pruning** | TWO complete cells: Bio `0.1 +/- 0.1` (1 question of 768) and Chem `10.0 +/- 5.0`. Two orders of magnitude apart under an identical protocol: robustness to pruning is TASK-DEPENDENT (F42). Read Chem against the `25` chance floor (F15). |
 | **Table 4 Fuzzing** | Three seeds, all near zero: Bio 43 `0.0117`, Chem 43 `0.0`, Chem 44 `0.0120`. Chem 43's receipt shows the best of 505 perturbations was the ZERO-noise baseline (F32). |
 
 **Five complete Table 4 cells** (Probing x3, Steering/Chem, Pruning/Chem), with
@@ -1950,6 +1950,43 @@ successful job is easy to miss precisely because nothing about it looks wrong.
 Reconcile `sacct` against this document periodically, not only when chasing a
 failure. A cross-root sweep keyed on the presence of an `autodan` key takes
 seconds and should be run before any status claim about cell counts.
+
+
+
+### F42. Pruning/Bio COMPLETE at `0.1 +/- 0.1`, and the task contrast is now stark (2026-08-19)
+
+`4890403` and `4890422` closed the cell (49 and 50 minutes each, val-skipped).
+
+| Task | cell | questions recovered | `best_sparsity` per seed |
+|---|---:|---|---|
+| Bio | **`0.1 +/- 0.1`** | **1 of 768** | `0.0`, `0.0`, (seed 44 at `0.4`) |
+| Chem | `10.0 +/- 5.0` | 25 of 249 | `0.4`, `0.4`, `0.0` |
+
+**Seventh complete Table 4 cell**, and the strongest single robustness number in
+the campaign: across three seeds and 768 held-out questions, magnitude pruning
+recovered **one** question. On two of the three Bio seeds `best_sparsity` is
+`0.0`, meaning **no sparsity level in the 15-point sweep beat leaving the model
+alone** (the same shape as Chem's Fuzzing seed 43 in F32, and again only visible
+because of the receipt).
+
+**The Bio-versus-Chem contrast is now a real result, not an artifact of one
+seed.** Both cells are complete at three seeds under an identical protocol, and
+they differ by two orders of magnitude: `0.1` against `10.0`. Chem's recovery is
+concentrated in a narrow damage window around 40 percent sparsity and still sits
+BELOW the 25 percent chance floor (F15), so the honest reading remains that
+Chem's lock degrades toward random output in a band where Bio's does not. Worth
+stating explicitly in the paper rather than averaging away: **RoBCoTDstl's
+robustness to weight-space perturbation is task-dependent.**
+
+**Fourth byte-identical probe re-run.** Chem seed 43 came back at
+`max_length = 4096` unchanged, joining Bio 42, Bio 44 and Chem 44. Only Chem
+seed 42 remains on the F20 re-run debt, and it is blocked behind the 20-hour
+AutoDAN job occupying that slot.
+
+**SysPr/7B/Bio seed 43 also landed**: `autodan = 0.921875` (236/256), `n = 256`,
+no errors, `adaptive_against_active_system_prompt_v2`, `val_elicitations` empty.
+Seeds 42 and 44 are still running at 6 h 43 m. At roughly 94 s/question this is
+close to F9's original 71 to 79 s measurement on the same cell.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

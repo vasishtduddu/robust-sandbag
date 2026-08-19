@@ -2190,9 +2190,32 @@ every accepted provenance gate binds to. **The realistic saving is deletion of
 redundancy, not recompression.** For any future prior-baseline training, adapter-only
 saving would cut a 184 GB family to a few GB.
 
-**A blocked action to flag.** The `rm -rf` for item 1 was refused by the
-environment's safety classifier, which is appropriate for an irreversible
-395 GB delete. It needs explicit human approval rather than a workaround.
+### EXECUTED 2026-08-19, with Mark's approval: 703 GiB reclaimed
+
+| Deleted | Size | Justification verified before deleting |
+|---|---:|---|
+| `artifacts-prior-baselines/checkpoints/pwd_32b_{bio,mmlu-prof,mmlu-stem}` | 395 G | All 9 seeds audit `READY` in the project root; Bio and MMLU-Stem additionally proven live by attacks that passed the provenance gate; metadata archived 2026-08-09. |
+| `/scratch/possum-prior-utility-7b-20260804` | 256 G | Superseded realization. **Proven** by `sacct`: all six payload-bound jobs (`4730255`-`4730257` E&U, `4730325`-`4730327` AutoDAN) ran with `WorkDir` = the PROJECT root, so no reported value derives from this root. It also carries no payload receipt at all, while the project copies do. Metadata archived to `retired_checkpoint_metadata/possum-prior-utility-7b-20260804` (129 files, 48 MB, with `SHA256SUMS`) before deletion. |
+| `artifacts/_quarantine_orphan_obfcot` | 1.3 G | Unmarked, unaccepted orphan; the live accepted `obfcot` Chem checkpoints exist in the Table 3 scratch root. |
+| `/scratch/retired-pwd-hof-parent-32b-20260811` | 153 M | Byte-duplicate of `retired_checkpoint_metadata/pwd_hof_parent_32b_20260811`. |
+| `/scratch/possum-prior-32b-chem-repair.a8ldSN` | 80 M | Repair working root; its `checkpoints/` is 0 bytes with no safetensors, and the repair (`4699233`-`4699235`) completed. |
+| two empty scratch roots | 0 | Leftover directories. |
+
+**Result: `/project` 4518 -> 4071 GiB, `/scratch` 1655 -> 1399 GiB. 703 GiB
+reclaimed with no disruption**, and `pwd_qwen2.5-32b-it_chem` (184 GB)
+deliberately KEPT because it is the only valid copy and three attacks are
+running against it.
+
+**KEPT, and why.** `/scratch/possum-prior-eff` (816 G) and
+`/scratch/possum-prior-32b-killarney` (550 G) hold **no overlapping families**,
+so neither is a duplicate of the other: the first has PWD/32B/Cyber (an attack
+is running against it) plus CktBr/32B/{Bio, Cyber, MMLU-Prof} and
+CktBr/14B/Cyber; the second has CktBr/32B/{Chem, MMLU-HSS, MMLU-Stem}. Together
+that is about 1.37 TB and it is **the largest remaining prize, blocked by D1**.
+Those weights back CktBr E&U values that Table 2 currently reports, so deleting
+them before the D1 retune lands and its replacement E&U is accepted would make
+reported cells unreproducible. Revisit the moment CktBr is retuned.
+
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

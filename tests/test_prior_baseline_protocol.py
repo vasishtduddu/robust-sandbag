@@ -3436,3 +3436,97 @@ class SweepArtifactNamingTests(unittest.TestCase):
                     f"{module} writes a seedless sweep artifact; concurrent "
                     "seeds would overwrite each other",
                 )
+
+
+class ProbeMaxLengthTests(unittest.TestCase):
+    """The probe guard must admit WMDP-Cyber, whose prompts are far longer.
+
+    Cyber peaks at 2618 unlocked prompt tokens and 16 of its 1093 rows exceeded
+    the original 2048 guard, so all three Cyber probe jobs and the honest-model
+    control died in under three minutes with
+    ``Probe sequence has 2314 tokens, exceeding max_length=2048``. Every other
+    task peaks at 798, so the raised ceiling is inert for them.
+    """
+
+    def test_guard_admits_the_longest_measured_task(self):
+        # Measured 2026-08-18 over elicit_train + val + test for all six tasks,
+        # on the unlocked prompt (the longer probe condition), plus the
+        # "The correct answer is X." completion and EOS.
+        longest_measured_sequence = 2618 + 8
+        self.assertGreaterEqual(
+            naming.TABLE4_PROBE_MAX_LENGTH,
+            longest_measured_sequence,
+            "the probe guard must cover WMDP-Cyber, the longest task",
+        )
+
+    def test_guard_is_not_a_pad_target(self):
+        """Raising the guard is only safe because padding is to the batch max.
+
+        If the batch were padded to ``max_length`` instead, raising it would
+        change every tensor and silently invalidate the accepted Bio and Chem
+        cells rather than merely requiring a re-run.
+        """
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "elicitation" / "whitebox" / "probe.py").read_text()
+        self.assertIn(
+            "width = max(len(sequence) for sequence in sequences)",
+            source,
+            "probe batches must pad to the longest sequence in the batch",
+        )
+
+
+class SlotCollisionGuardTests(unittest.TestCase):
+    """Two evaluations on one result JSON silently lose a technique.
+
+    ``_run_eval.py`` reads the existing result at the start of ``main()`` and
+    merges-and-writes at the end, so concurrent jobs on one
+    ``{org}_{model}_{task}__seed{N}.json`` each hold a stale snapshot and the
+    second writer discards the first's elicitation entry, both exiting 0. The
+    Slurm job name is exactly the slot identity, so it is the right key.
+    """
+
+    def _executor(self, tmp):
+        ex = executors.SlurmExecutor(Path(tmp), submit=True)
+        return ex
+
+    def test_submission_is_refused_when_the_slot_is_already_queued(self):
+        job = executors.Job(
+            name="eval_obfcot_qwen2.5-7b-it_bio_s42",
+            argv=["true"],
+            cwd=Path("."),
+            log=Path("x.log"),
+            kind="eval",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            ex = self._executor(tmp)
+            with patch.object(
+                executors.SlurmExecutor, "_queued_job_names",
+                staticmethod(lambda: {"possum_eval_obfcot_qwen2.5-7b-it_bio_s42"}),
+            ), patch.dict(os.environ, {"POSSUM_ALLOW_SLOT_COLLISION": ""}, clear=False):
+                with self.assertRaises(RuntimeError) as caught:
+                    ex.submit([job])
+                self.assertIn("already have a queued or running job", str(caught.exception))
+
+    def test_a_free_slot_still_submits(self):
+        job = executors.Job(
+            name="eval_obfcot_qwen2.5-7b-it_cyber_s42",
+            argv=["true"],
+            cwd=Path("."),
+            log=Path("x.log"),
+            kind="eval",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            ex = self._executor(tmp)
+            with patch.object(
+                executors.SlurmExecutor, "_queued_job_names",
+                staticmethod(lambda: {"possum_eval_obfcot_qwen2.5-7b-it_bio_s42"}),
+            ), patch.object(
+                executors.SlurmExecutor, "_sbatch", lambda self, script, dep: "12345"
+            ), patch.dict(os.environ, {"POSSUM_ALLOW_SLOT_COLLISION": ""}, clear=False):
+                ex.submit([job])  # must not raise
+
+    def test_an_unreachable_scheduler_does_not_block_submission(self):
+        with patch(
+            "subprocess.check_output", side_effect=FileNotFoundError("no squeue")
+        ):
+            self.assertEqual(executors.SlurmExecutor._queued_job_names(), set())

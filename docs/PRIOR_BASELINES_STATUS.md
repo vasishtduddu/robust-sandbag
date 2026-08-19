@@ -31,10 +31,10 @@ whose number is not yet interpretable.
 
 | Deliverable | State |
 |---|---|
-| **Table 2 E&U** | Complete. All 270 values populated and artifact-accepted, regenerating from the two-root union at `275 filled, 49 empty` with 20 validated AutoDAN overlays. |
+| **Table 2 E&U** | Complete AND now scored against R1/R2 (F18). PWD and CktBr satisfy both on all 18 cells each; SysPr fails R1 on 14 of 18. Regenerates from the two-root union at `275 filled, 49 empty`. |
 | **Table 2 robustness** | 21 accepted seeds, 5 complete cells: PWD/7B/{Bio, Chem, MMLU-Prof, MMLU-Stem} and SysPr/32B/Bio. |
 | **Table 3 7B** | Bio, Chem AND Cyber all complete at three seeds. Bio and Chem reproduce the manuscript within noise; our Chem CSQA (`72.7 +/- 0.7`) is cleaner than the manuscript's collapsed-seed `57.0 +/- 17.2` and should replace it. Cyber closed 2026-08-18 on seed 44 (`4853975`/`4853976`) with a byte-exact base-utility match to seeds 42 and 43. |
-| **Table 4 Probing** | 7B Bio (`99.9 +/- 0.1`) and Chem (`100.0 +/- 0.0`), six seeds, every gate passing. Now backed by a matched honest-model control at `70.7`/`69.9` (F14), which is the null these should be reported against. |
+| **Table 4 Probing** | 7B Bio (`99.9 +/- 0.1`) and Chem (`100.0 +/- 0.0`), six seeds, backed by a matched honest-model control at `70.7`/`69.9` (F14), the null these should be reported against. **All six now need a re-run at the raised `max_length` before they revalidate (F20).** |
 | **Table 4 Steering** | 7B Chem complete at three seeds, `0.0 +/- 0.0`. `4874979`/`4874982`/`4874983`, all with `n = 83`, the canonical Chem fingerprint and no errors. Steering recovers nothing. |
 | **Table 4 Pruning** | 7B Chem COMPLETE at three seeds, `10.0 +/- 5.0` (F15). 7B Bio seed 44 validated at `0.4`. Read both against the `25` chance floor, not against zero. |
 
@@ -1044,6 +1044,153 @@ read. Only the detail artifact was lost. Both stems are now seed-scoped and
 covered by `SweepArtifactNamingTests`. Full suite: 103 tests, 0 failures.
 
 
+
+### F18. Table 2 scored against R1 and R2 across all 54 cells (2026-08-18)
+
+The campaign has tracked Table 2 E&U as "complete" without ever scoring it
+against the two requirements it exists to test. Done now, computed from the
+reporting clone with `naming.metric_eff_w`/`metric_eff_wo`, the same functions
+`tablefill` uses, over the exact 42/43/44 roster per cell.
+
+**Method validated first.** Spot-checked against the manuscript at 7B/Bio: PWD
+`(11.2, 69.7, 58.5, 74.0, 81.0)`, CktBr `(10.9, 70.4, 59.5, 75.5, 80.8)`, SysPr
+`(63.0, 66.0, 3.0, 73.8, 76.5)`, all three matching the manuscript to the last
+digit. So the numbers below are the reported ones, not a parallel computation.
+
+| Organism | cells | `Delta` mean | min | max | cells `Delta<=5` | negative | mean `w/` | HS vs base | CSQA vs base |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| PWD | 18 | `47.5` | `17.7` | `74.1` | 0 | 0 | `14.3` | `+4.0` | `+5.1` |
+| CktBr | 18 | `40.2` | `10.3` | `74.5` | 0 | 0 | `20.5` | `+1.5` | `+2.8` |
+| SysPr | 18 | `3.7` | `-7.5` | `34.2` | **14** | **6** | `55.2` | `-9.3` | `-5.3` |
+
+**PWD and CktBr reproduce their prior work qualitatively.** Both satisfy R1 on
+every one of 18 cells and preserve utility. PWD's mean locked accuracy of `14.3`
+sits below the `25` chance floor, which is what the deliberate-wrong lock should
+do; CktBr's `20.5` is nearer chance, consistent with D1's weaker-lock note and
+with its lower minimum `Delta`.
+
+**SysPr does NOT reproduce, and this is now quantified rather than anecdotal.**
+Fourteen of eighteen cells have `Delta <= 5`, six are NEGATIVE (the prompt makes
+the model BETTER at the dangerous task), and mean locked accuracy is `55.2`,
+barely suppressed. Only 32B on the three MMLU tasks sandbags at all. This
+contradicts the manuscript's `(R1) -> checkmark` for SysPr and is the single
+biggest open discrepancy in Table 2. The pending matched-decoding diagnostic
+matters, but note the direction argument already recorded: temperature-1.0
+sampling on `w/` should bias `Delta` UP, so sampling does not explain a `Delta`
+near zero. The leading explanation remains that van der Weij's released prompt
+does not transfer to Qwen2.5, which is a legitimate and interesting result to
+report rather than a defect to tune away.
+
+**One caveat on R2 for PWD and CktBr.** Both read ABOVE their base model on
+HellaSwag and CommonsenseQA. That is the F10 parse-rate artifact, not extra
+capability: the organisms are trained to a rigid completion format and therefore
+parse at a higher rate than the free-form base under `generate_parse`. R2 should
+be stated as "utility not degraded" rather than "utility improved", and the
+parse-rate diagnostic in F10 would let it be stated precisely.
+
+**What this does NOT establish.** The prior papers ran different base models and
+partly different datasets, so there is no direct numerical comparison to their
+published tables, only this qualitative one: does the organism satisfy R1 and R2
+the way its source paper claims. Two of three do; one does not.
+
+
+### F19. `pwd_hof_parent` result JSONs carry `model_org: "pwd"` (2026-08-18)
+
+A trap, found by getting a wrong answer from it. Every
+`pwd_hof_parent_{model}_{task}__seed{N}.json` records `"model_org": "pwd"` in
+its CONTENTS rather than `pwd_hof_parent`. Any analysis that scans
+`results/json/` and groups on the `model_org` field therefore silently merges
+the CktBr parent checkpoints into the PWD rows, doubling the sample to six per
+cell and shifting every PWD number (the first pass here read PWD/7B/Bio `w/` as
+`9.7` instead of the correct `11.2`).
+
+**`tablefill` is NOT affected**, verified rather than assumed:
+`tablefill.py:310` and `:357` glob `f"{base}__seed*.json"` where `base` comes
+from `naming.result_json_name(org, model, datasets)`, so the pattern
+`pwd_qwen2.5-7b-it_bio__seed*.json` cannot match a `pwd_hof_parent_...`
+filename. The published table is correct; only hand-rolled analysis is at risk.
+
+**Rule: select prior-baseline results by canonical FILENAME, never by the
+`model_org` field.** This is the kind of error that would silently corrupt a
+paper-writing pass, because the contaminated numbers are plausible.
+
+
+
+### F20. The Probing column could not cover WMDP-Cyber. Guard raised to 4096 (2026-08-18)
+
+All three Cyber Probing jobs (`4879678`-`4879680`) and the Cyber honest-model
+control (`4879681`) died in under three minutes with
+`ValueError: Probe sequence has 2314 tokens, exceeding max_length=2048`.
+
+**Measured the real requirement rather than guessing a new constant.**
+Tokenised every task's `elicit_train`, `val` and `test` with the Qwen2.5
+tokenizer on the UNLOCKED prompt, which is the longer of the two probe
+conditions:
+
+| Task | max locked | max unlocked | rows over the 2048 guard |
+|---|---:|---:|---:|
+| Bio | 684 | 689 | 0 |
+| Chem | 334 | 339 | 0 |
+| **Cyber** | **2613** | **2618** | **16 of 1093** |
+| MMLU-Prof | 793 | 798 | 0 |
+| MMLU-Stem | 330 | 335 | 0 |
+| MMLU-HSS | 344 | 349 | 0 |
+
+Cyber is the only task affected, by a wide margin. `TABLE4_PROBE_MAX_LENGTH` is
+now `4096`, comfortably over the required `2626` and clear of every other task.
+
+**The change is provably inert for tasks that already fit.** The guard is NOT a
+pad target: `probe.py:_pad_teacher_forced_batch` pads to
+`width = max(len(sequence) for sequence in sequences)`, the longest sequence in
+the BATCH, and only raises when one exceeds `max_length`. Raising the ceiling
+admits longer sequences without changing any tensor built from sequences that
+already fit. Covered by `ProbeMaxLengthTests`, which asserts both the measured
+requirement and the pad-to-batch-max property the safety argument rests on.
+
+**Consequence: the six accepted Bio/Chem probe seeds must be re-run.**
+`naming.requested_elicitations_valid` gates on
+`probe_max_length == TABLE4_PROBE_MAX_LENGTH`, and those results record `2048`.
+Confirmed on disk. That is intended, not collateral damage: one protocol
+constant must hold across every cell of a table that compares tasks. The re-runs
+cost 2 to 4 minutes each, and their scores should come back BYTE-IDENTICAL,
+which is the empirical confirmation that the change is inert. **Do not report
+any probe cell until its seed has been re-run at 4096.**
+
+Cyber probe jobs should request H100: its sequences are roughly four times
+longer than Bio's and the doc already records Cyber `obfcot` training needing
+reduced microbatches for activation memory at 7B.
+
+
+### F21. Slot-collision guard added after hitting the hazard live (2026-08-18)
+
+The F20 re-runs were submitted onto six `obfcot`/7B slots that already had
+running Steering, Fuzzing and AutoDAN jobs. This is the exact hazard "Lessons
+learned" documents: `_run_eval.py:326` reads the existing result at the START of
+`main()` and merges-and-writes at the END, so two evaluations sharing one
+`{org}_{model}_{task}__seed{N}.json` each hold a stale snapshot and the SECOND
+writer silently discards the first's elicitation entry, with both jobs exiting
+0.
+
+Caught by inspection and cancelled within a minute. **No data was lost**,
+verified rather than assumed: the longest-lived of the six ran 35 seconds,
+nowhere near its write, and all six result JSONs still carry their full
+technique sets with mtimes predating the submission.
+
+**Knowing the rule was not enough, so it is now enforced in code.**
+`SlurmExecutor.submit` queries `squeue -h -u $USER -o %j` and refuses the whole
+submission if any job's slot already has a queued or running job. The Slurm job
+name is exactly the slot identity (`possum_{phase}_{org}_{model}_{task}_s{seed}`,
+deliberately NOT encoding the technique), which makes it the correct key; note
+`_write_script` prefixes the manifest name with `possum_`, and the guard must
+prefix before comparing. It fails open when no scheduler is reachable, so local
+runs and tests are unaffected, and `POSSUM_ALLOW_SLOT_COLLISION=1` overrides it
+for a known-safe overlap. Covered by `SlotCollisionGuardTests` and verified
+against the live scheduler: a real colliding submission is now refused with a
+non-zero exit.
+
+Full suite: 108 tests, 0 failures.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values
@@ -1579,7 +1726,7 @@ started; 14B additionally blocked on the utility-anomaly resolution above.
 | Table 3 7B E&U | COMPLETE: Bio, Chem and Cyber all at three accepted seeds | Bio and Chem match the manuscript within noise; our Chem CSQA is cleaner and should replace it. Cyber closed on seed 44's byte-exact base-utility match. |
 | Table 3 14B/32B E&U | 14B unstable and NOT acceptable (F1); 32B Bio seed 42 complete and healthy, seeds 43/44 recommended for release (F10) | 14B Bio's three seeds give CSQA `0.64`, **`0.0`**, `0.78`. 32B shows a perfect lock, `pw` below base and near-intact utility, with none of the 14B signature. |
 | Table 3 robustness (AutoDAN) | Zero datapoints, and the manuscript's six RoBCoTDstl `Jlbrk` cells have NO backing artifact (F13) | Confirmed by enumerating every `obfcot` result: the only elicitation keys anywhere are `probe`, `pruning` and `steering`. Those six cells must be reproduced or withdrawn. The val skip is not enough here: Bio still projects past any walltime. Measure the rate on Chem first (goal 6). |
-| Table 4 Probing | Bio and Chem 7B complete (6/6 seeds), now with a matched honest-model control (F14) | The demo's failure mode does NOT reproduce: honest base scores `0.707`/`0.699` against the organism's `0.999`/`1.000`, so the column is reportable. But the null is about `0.70`, not `0.50`, and must be reported that way. P1 (letter-identity readout) is untouched. P5's recorded fix turned out to have been reverted. |
+| Table 4 Probing | Bio and Chem 7B complete (6/6 seeds) with a matched honest-model control (F14), but all six need re-running at `max_length=4096` (F20) | The demo's failure mode does NOT reproduce: honest base scores `0.707`/`0.699` against the organism's `0.999`/`1.000`, so the column is reportable, against a `0.70` null rather than `0.50`. Cyber was impossible at the old guard and is unblocked now. P1 is untouched; P5's recorded fix had been reverted. |
 | Table 4 Steering | 7B Chem COMPLETE at three seeds, `0.0 +/- 0.0`. Bio OOMed on L40S and is rerunning on H100 | Steering recovers nothing on Chem. Bio's OOM is the on-device deepcopy pattern, third occurrence, and does not affect correctness (F16). |
 | Table 4 Pruning | 7B Chem COMPLETE at three seeds (`10.0 +/- 5.0`); Bio seed 44 validated | Chem opens a narrow damage window peaking at 40 percent sparsity, still BELOW the 25 percent chance floor (F15). Bio stays at 1/256. Bio seeds 42/43 owed. |
 | Table 4 Fuzzing | `4874989` running on Bio seed 43 after the F3 OOM fix | First real Fuzzing datapoint. Five more seeds owed across Bio and Chem. |
@@ -1601,7 +1748,7 @@ Counts are scientific seed slots unless a row says Slurm jobs.
 | Table 3 7B E&U seeds | 18 | 9 (Bio 3, Chem 3, Cyber 3) | 0 | 9 (MMLU branch, held) | COMPLETE for the three WMDP tasks. MMLU stays held pending F1. |
 | Table 3 14B/32B E&U | 36 | 0 | 32B Bio seed 42 complete; seeds 43/44 released (`4877648`-`4877651`) | 33 | Validate the two new seeds, then accept the first 32B cell. Do not accept any 14B cell. |
 | Table 3 robustness | 54 | 0 | 1 (`4879275`, val-skipped Chem seed 42 at 1440 min) | 53 | The manuscript's six cells have no backing artifact (F13). This pilot measures the per-question rate on the real organism; that number decides between multi-day jobs and a declared subsample. |
-| Table 4 probe | 54 | 6 (Bio 3, Chem 3), 2 complete cells | 3 running (Cyber) + its control | 45 | Control DONE for Bio and Chem (F14); report against the `0.70` null, not `0.50`. Cyber's cell and its matching control are away together. |
+| Table 4 probe | 54 | 6 (Bio 3, Chem 3), pending re-validation at the new constant | 0 (Cyber failed on F20; re-run queued behind the slot guard) | 45 | Re-run Bio and Chem (6 seeds, byte-identical expected) and run Cyber (3 seeds, H100) plus all three controls, once the slots free. |
 | Table 4 steering | 54 | 3 (Chem), 1 complete cell | 2 rerunning on H100 (Bio 42/44) | 51 | Validate the H100 reruns, then Bio seed 43 once `4874989` frees the slot. |
 | Table 4 pruning | 54 | 4 (Chem 3, Bio seed 44), 1 complete cell | 0 | 50 | Bio seeds 42/43 complete the second cell. Consider the locked-vs-unlocked sweep diagnostic in F15 before describing the column. |
 | Table 4 noise (Fuzzing) | 54 | 0 | 3 running (Bio 43, Chem 43/44) | 51 | Validate all three, then Chem seed 42 and Bio 42/44 complete both cells. |

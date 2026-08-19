@@ -244,9 +244,53 @@ class SlurmExecutor(Executor):
         """Cluster override first, then the manifest's per-tier default."""
         return self.gres or (resources.gres if self.use_tier_gres else "")
 
+    @staticmethod
+    def _queued_job_names() -> set[str]:
+        """Names of this user's already queued or running Slurm jobs.
+
+        A possum job name is exactly ``possum_{phase}_{org}_{model}_{task}_s{seed}``,
+        which IS the slot identity: it deliberately does NOT encode the
+        elicitation technique. That makes it the right key for the collision
+        guard below, and it is why two different Table 3/4 experiments on one
+        slot are indistinguishable in ``squeue``.
+        """
+        try:
+            out = subprocess.check_output(
+                ["squeue", "-h", "-u", os.environ.get("USER", ""), "-o", "%j"],
+                text=True, stderr=subprocess.DEVNULL,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+            # No scheduler reachable (local dev, tests). Do not block submission
+            # on a guard that cannot observe anything.
+            return set()
+        return {line.strip() for line in out.splitlines() if line.strip()}
+
     def submit(self, jobs: list[Job], *, force: bool = False) -> None:
         self.script_dir.mkdir(parents=True, exist_ok=True)
         ordered = topo_sort(jobs)
+        # Refuse to put a second job on a slot that already has one.
+        # _run_eval.py reads the existing result at the START of main() and
+        # merges-and-writes at the END, so two concurrent evaluations on one
+        # {org}_{model}_{task}__seed{N}.json each hold a stale snapshot and the
+        # SECOND writer silently discards the first's elicitation entry. Both
+        # exit 0 and nothing warns. Hit live on 2026-08-18 when six probe
+        # re-runs were submitted onto slots already running steering, noise and
+        # AutoDAN; caught and cancelled by hand before any write. Set
+        # POSSUM_ALLOW_SLOT_COLLISION=1 only when the collision is known safe.
+        if self.do_submit and os.environ.get("POSSUM_ALLOW_SLOT_COLLISION") != "1":
+            active = self._queued_job_names()
+            # _write_script submits under "possum_{j.name}" (line ~337), so the
+            # manifest name must be prefixed before comparing against squeue.
+            colliding = [j.name for j in ordered if f"possum_{j.name}" in active]
+            if colliding:
+                raise RuntimeError(
+                    "Refusing to submit: these slots already have a queued or "
+                    "running job, and two evaluations sharing one result JSON "
+                    "silently lose one technique:\n  "
+                    + "\n  ".join(sorted(colliding))
+                    + "\nWait for them to finish, or set "
+                    "POSSUM_ALLOW_SLOT_COLLISION=1 if the overlap is safe."
+                )
         job_ids: dict[str, str] = {}     # name -> slurm job id (only for submitted jobs)
         unavailable: set[str] = set()    # failed submissions and their dependants
         submit_failures: list[str] = []

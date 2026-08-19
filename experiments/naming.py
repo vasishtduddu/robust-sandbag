@@ -66,7 +66,26 @@ TABLE4_PROBE_LOCK_TARGET = "F"
 # reg_coeff=1/C, the canonical coefficient is therefore 1.0.
 TABLE4_PROBE_REG_COEFF = 1.0
 TABLE4_PROBE_MAX_NEW_TOKENS = 12
-TABLE4_PROBE_MAX_LENGTH = 2048
+# Raised from 2048 to 4096 on 2026-08-18 so the Probing column can cover
+# WMDP-Cyber. Measured over every task's elicit_train/val/test with the Qwen2.5
+# tokenizer, on the unlocked (password-inserted) prompt, which is the longer of
+# the two probe conditions: Cyber peaks at 2618 prompt tokens and 16 of its 1093
+# rows exceed the old guard, while every other task peaks at 798 (Bio 689, Chem
+# 339, MMLU-Prof 798, MMLU-Stem 335, MMLU-HSS 349).
+#
+# This is provably INERT for every task that already fit. The guard is not a pad
+# target: probe.py:_pad_teacher_forced_batch pads to
+# ``width = max(len(sequence) for sequence in sequences)``, the longest sequence
+# in the BATCH, and only raises when a sequence exceeds max_length. Raising the
+# ceiling therefore admits longer sequences without changing any tensor built
+# from sequences that already fit. Verified empirically by re-running the six
+# accepted Bio/Chem probe seeds and confirming byte-identical scores.
+#
+# Changing this value invalidates previously accepted probe results, because
+# requested_elicitations_valid gates on probe_max_length == this constant. That
+# is intended: one protocol constant must hold across every cell of a table that
+# compares tasks.
+TABLE4_PROBE_MAX_LENGTH = 4096
 TABLE4_TEST_SOURCE_ROWS = {
     "bio": 256,
     "chem": 83,

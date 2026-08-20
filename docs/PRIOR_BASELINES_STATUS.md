@@ -3049,6 +3049,40 @@ exception, which reinforces F60's reading that the pruning result is
 mechanism-specific rather than a general Cyber weakness.
 
 
+
+### F69. CktBr 14B TRAINING also needs two GPUs plus the balanced map (2026-08-20)
+
+The reseed chain's parent trained fine in **39 m 58 s on one H100**, but the
+CktBr child (`4920629`) OOMed at **62 percent (step 35/56)** with 79.12 of
+79.18 GiB in use. CktBr training is heavier than an ordinary organism train
+because its rerouting objective holds the model AND references the
+adapter-disabled model, on top of LoRA gradients and optimizer state.
+
+**Same sequential-fill mechanism as F61/F64**, now on the training path: a 14B
+model is roughly 28 GiB, so `device_map="auto"` places it entirely on GPU 0 and
+a second card would sit idle. **`POSSUM_TRAIN_GPUS_14B=2` alone would not have
+helped**; it needs `POSSUM_BALANCED_DEVICE_MAP=1` as well. This is why 32B
+training already worked with three GPUs (62 GiB plus overhead does not fit one
+card, so accelerate spills naturally) while 14B does not.
+
+**Two operational lessons, both cheap to repeat and both hit today.**
+
+1. **The slot-collision guard refuses the WHOLE batch, not the colliding job.**
+   Resubmitting the child was refused because the plan also contains the parent
+   EVAL, which was already running. That is fail-closed by design and the right
+   default, but it means you must plan around occupied slots. A background
+   watcher now resubmits the chain as soon as the parent eval finishes, rather
+   than weakening the guard with `POSSUM_ALLOW_SLOT_COLLISION=1`.
+2. **Guard shell variables before passing them to `scontrol`.** A verification
+   line built a job id with `awk`, found nothing because the submission had been
+   refused, and ran `scontrol show job ""` which dumped **every job on the
+   cluster**. Always `[ -n "$J" ]` first.
+
+**A dependent job whose dependency FAILS is removed from the queue by Slurm.**
+`4920631`, the child eval, disappeared on its own once `4920629` failed
+(`afterok` can never be satisfied). Do not go looking for it; resubmit the chain.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

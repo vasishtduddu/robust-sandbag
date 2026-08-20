@@ -3083,6 +3083,41 @@ card, so accelerate spills naturally) while 14B does not.
 (`afterok` can never be satisfied). Do not go looking for it; resubmit the chain.
 
 
+
+### F70. The regenerated CktBr parent is HEALTHY, which sharpens the diagnostic (2026-08-20)
+
+`4920630`, the freshly trained `pwd_hof_parent`/14B/Cyber seed 44, evaluated in
+28 minutes:
+
+| Metric | Value | Base |
+|---|---:|---:|
+| `w/` | `0.1654` | -- |
+| `w/o` | `0.5138` | `0.4787` |
+| `Delta` | `34.8` | -- |
+| HellaSwag | **`0.8358`** | `0.6763` |
+| CommonsenseQA | **`0.8022`** | `0.7334` |
+
+**The parent's utility is healthy**, `+16.0` on HS and `+6.9` on CSQA against
+base, right in line with the four undamaged 14B cells. That matters for reading
+the diagnostic: the parent is now a known-good starting point, so **if the child
+still collapses to CSQA `0.44`, the damage is introduced by the CktBr rerouting
+step itself and a `k` sweep becomes justified; if the child comes back healthy,
+the original `0.44` was training nondeterminism** and targeted reseeds are the
+whole fix. Either outcome is now cleanly attributable, which is exactly what F5
+wanted from this job.
+
+**The watcher worked**: it saw the parent eval reach `COMPLETED` and submitted
+the child chain (`4922339`/`4922340`) without intervention, and the sbatch
+carries both `--gres=gpu:h100:2` and `POSSUM_BALANCED_DEVICE_MAP=1`, verified on
+the live job rather than from the dry-run label.
+
+**Sizing note for the F68 table**: CktBr 14B trains reach 62 percent of their
+single epoch in about 3.5 minutes, so the whole train is roughly 6 minutes. The
+tier default of 480 minutes is two orders of magnitude too large;
+`POSSUM_EVAL_WALLTIME_MIN` does not touch train jobs, so trains need their limit
+set explicitly (cut to 120 min here).
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

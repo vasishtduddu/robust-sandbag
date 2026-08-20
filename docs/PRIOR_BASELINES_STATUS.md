@@ -40,7 +40,7 @@ measured rather than guessed (F34).
 | **Table 4 Probing** | THREE complete cells: Bio `99.9 +/- 0.1` (revalidated at 4096), Chem `100.0 +/- 0.0` (re-run owed), Cyber `99.9 +/- 0.1`. All three backed by matched honest controls at `70.7`/`69.9`/`70.7`, which is the null to report against, NOT `0.50` (F14, F29). |
 | **Table 4 Steering** | TWO complete cells, both `0.0 +/- 0.0`. Bio's three seeds all carry receipts: **60 MELBO adapters plus 3 supervised passes, not one question recovered** (F40). Chem's seeds predate the receipt fix. |
 | **Table 4 Pruning** | TWO complete cells: Bio `0.1 +/- 0.1` (1 question of 768) and Chem `10.0 +/- 5.0`. Two orders of magnitude apart under an identical protocol: robustness to pruning is TASK-DEPENDENT (F42). Read Chem against the `25` chance floor (F15). |
-| **Table 4 Fuzzing** | Three seeds, all near zero: Bio 43 `0.0117`, Chem 43 `0.0`, Chem 44 `0.0120`. Chem 43's receipt shows the best of 505 perturbations was the ZERO-noise baseline (F32). |
+| **Table 4 Fuzzing** | TWO complete cells: Bio `0.39 +/- 0.39`, Chem `0.40 +/- 0.40`. Robust everywhere measured, and 25x weaker than Pruning on Chem, which makes the F51 failure pruning-specific (F54). Cyber in flight. |
 
 **Five complete Table 4 cells** (Probing x3, Steering/Chem, Pruning/Chem), with
 Steering/Bio and Fuzzing/Chem each one seed short. This is now a substantive
@@ -2474,6 +2474,54 @@ to its accepted value. **That was the last of the six F20 re-runs**, so every
 Probing cell now records the current protocol constant and the debt is closed.
 All five re-runs returned byte-identical scores, confirming F24 empirically
 across Bio, Chem and Cyber.
+
+
+
+### F54. Fuzzing/Chem closes at `0.40`, and the failure is PRUNING-SPECIFIC, not weight-perturbation-general (2026-08-19)
+
+`4904147` (1 h 49 m) closed the cell. **Fuzzing/7B/Chem = `0.40 +/- 0.40`**
+(seeds `0.0`, `0.0`, `0.0120`; 1 question of 249). Two of three seeds report
+`best_noise_std = 0.0`, i.e. **no perturbation among 505 beat leaving the model
+alone.** Ninth complete Table 4 cell.
+
+**Putting the two weight-space columns side by side changes the reading of F51:**
+
+| Task | Pruning | Fuzzing | ratio |
+|---|---:|---:|---:|
+| Bio | `0.1` | `0.39` | comparable, both ~0 |
+| **Chem** | **`10.0`** | **`0.40`** | **25x** |
+| Cyber | **`31.0`** | *running* | ? |
+
+**On Chem, magnitude pruning is roughly 25 times more effective than Gaussian
+parameter noise**, against the same organism, same seeds, same protocol. So F51's
+result is NOT "RoBCoTDstl is fragile to weight perturbation". It is much more
+specific: **magnitude pruning in particular defeats the lock, and increasingly so
+as the task moves Bio -> Chem -> Cyber, while additive noise does essentially
+nothing anywhere.**
+
+That is a sharper and more interesting claim, and it suggests a mechanism worth
+one sentence in the paper: pruning removes the smallest-magnitude weights, and
+the F-lock is plausibly carried by a small number of low-magnitude directions
+that noise perturbs but does not remove. **The Cyber Fuzzing jobs now running
+(`4901947`/`4901949`/`4901951`, about 4 h in) are the decisive test**: if Cyber
+Fuzzing also lands near zero while Cyber Pruning sits at `31.0`, the
+pruning-specific reading holds across all three tasks.
+
+### Table 4 as it now renders
+
+`11 filled, 151 empty`:
+
+| Task | Steering | Pruning | Fuzzing | Probing |
+|---|---:|---:|---:|---:|
+| Bio 7B | `0.0` | `0.1` | `0.4` | `99.9` |
+| Bio 32B | --- | --- | --- | `100.0` |
+| Chem 7B | `0.0` | `10.0` | `0.4` | `100.0` |
+| Cyber 7B | --- | `31.0` | *running* | `99.9` |
+
+**Nine complete cells** across four columns and two tiers. Probing is complete on
+all three WMDP tasks at 7B plus Bio at 32B; Steering, Pruning and Fuzzing are
+complete on Bio and Chem. The remaining 7B gaps are Steering/Cyber and the
+Fuzzing/Cyber jobs in flight.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

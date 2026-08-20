@@ -39,7 +39,7 @@ measured rather than guessed (F34).
 | **Table 3 32B E&U** | COMPLETE: `w/ 0.0 +/- 0.0`, `w/o 76.8 +/- 0.7`, `Delta 76.8`, HS `91.2`, CSQA `82.5`. Strongest effectiveness in the campaign (F47). |
 | **Table 3 14B** | VOIDED, not merely held: the result JSONs are renamed so the renderer cannot emit the collapsed row (F50). |
 | **Table 4 Probing** | Bio `99.9`, Chem `100.0`, Cyber `99.9` at 7B, plus **Bio `100.0` at 32B**. Report against per-tier honest controls: `0.707`/`0.699`/`0.707` at 7B but **`0.623` at 32B**, since the null is NOT scale-invariant (F52). |
-| **Table 4 Steering** | Bio and Chem complete at `0.0 +/- 0.0`; Cyber at 2 of 3 seeds, both `0.0`. Bio's receipts show **60 MELBO adapters plus 3 supervised passes, none recovering a question** (F40). |
+| **Table 4 Steering** | THREE complete cells: Bio `0.0`, Chem `0.0`, Cyber `1.2 +/- 1.2`. Across all three, 180 MELBO adapters and 9 supervised passes recovered 14 questions total, all from one Cyber seed's SUPERVISED pass (F67). |
 | **Table 4 Pruning** | Bio `0.1`, Chem `10.0`, **Cyber `31.0 +/- 10.1`**. |
 | **Table 4 Fuzzing** | Bio `0.39`, Chem `0.40`, Cyber `0.17`. Robust everywhere. |
 | **D4 (SFT/DPO figure)** | Pipeline works end to end. First trajectory: fine-tuning leaves the lock at 1/256 across 2,489 steps while `Delta` RISES from `0.551` to `0.633` (F66). Plot script written and verified (F59). |
@@ -2938,6 +2938,47 @@ JSON has demonstrated, but **check it explicitly when that job lands**.
 **Steering/Cyber seed 42 also landed at `0.0`** with a full receipt (20 MELBO
 adapters), n=399. Two seeds to go before that cell closes and the Steering
 column covers all three WMDP tasks.
+
+
+
+### F67. Steering column complete, and the first non-zero came from the SUPERVISED pass (2026-08-20)
+
+`4920573`/`4920574`/`4920575`, about 39 minutes each on H100.
+**Steering/7B/Cyber = `1.2 +/- 1.2`**, `n = 399`, one shared fingerprint, no
+errors. **The Steering column is now complete on all three WMDP tasks at 7B.**
+
+| Seed | `steering` | MELBO adapters | supervised pass |
+|---|---:|---:|---:|
+| 42 | `0.0` | 20, all `0.0` | `0.0` |
+| 43 | `0.0` | 20, all `0.0` | `0.0` |
+| 44 | **`0.0351`** (14/399) | 20, all `0.0` | **`0.0351`** |
+
+**This is the first non-zero Steering value in the campaign**, and the receipt
+identifies exactly where it came from: seed 44's **supervised** sub-pass
+recovered 14 questions while all twenty of its MELBO adapters recovered none.
+Without the F22 receipt fix the cell would read `1.2` with no way to tell which
+of the two sub-passes produced it. That is the concrete payoff of that fix.
+
+**It does not change the conclusion.** `1.2` is far below the `25` chance floor
+and below the `62` unlocked ceiling; steering still recovers essentially nothing.
+Across the three complete Steering cells that is **180 MELBO adapters and 9
+supervised passes**, with 14 questions recovered in total, all from one seed.
+
+**Cyber is consistently the weak task, across independent techniques.**
+
+| Technique | Bio | Chem | Cyber |
+|---|---:|---:|---:|
+| Steering | `0.0` | `0.0` | **`1.2`** |
+| Pruning | `0.1` | `10.0` | **`31.0`** |
+| Fuzzing | `0.39` | `0.40` | `0.17` |
+
+Two of three whitebox attacks find their best foothold on Cyber, and Cyber is
+also the task whose prompt length degrades AutoDAN (F44) and broke the probe
+guard (F20). Whether that is about the task's difficulty, its longer inputs, or
+its lower unlocked ceiling is not established here, but **the pattern is
+consistent enough to state and worth one sentence in the paper.** Fuzzing is the
+exception, which reinforces F60's reading that the pruning result is
+mechanism-specific rather than a general Cyber weakness.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

@@ -182,7 +182,18 @@ rule (F7, P5).
 Four decisions plus one closed question. Two of them say to stop spending
 compute, so check them before every submission.
 
-### D1. CktBr needs hyperparameter tuning. Do NOT run CktBr robustness.
+### D1. CktBr: RESEED FIRST (revised 2026-08-20). Still do NOT run CktBr robustness.
+
+**Revised by F65.** The "tune hyperparameters and rerun everything" plan is not
+supported by the data: 16 of 18 CktBr cells have healthy or above-base utility,
+and the two damaged cells are both 14B with a single-failed-run signature.
+Mark's decision on 2026-08-20 is **targeted reseeds first**; the diagnostic
+retrain is away as `4920628`-`4920631`. A `k` sweep remains justified only for
+EFFECTIVENESS (7B/MMLU-Prof `Delta 10.3`), and only after the reseed answers
+whether the utility damage is deterministic. The robustness hold below is
+unchanged.
+
+### D1 (original). CktBr needs hyperparameter tuning. Do NOT run CktBr robustness.
 
 **Live contamination risk as of 2026-08-18.** The CktBr/7B/Chem AutoDAN attacks
 completed before the cancellation landed: `4666404` (seed 42, 3h05m), `4666405`
@@ -2814,6 +2825,61 @@ failures.
 **Not yet used on a real job.** The next 32B whitebox sweep should set
 `POSSUM_BALANCED_DEVICE_MAP=1` together with `POSSUM_EVAL_GPUS_32B=2` and be
 watched for whether both cards are populated.
+
+
+
+### F65. CktBr reframed: 16 of 18 cells are HEALTHY. Reseed, do not sweep. (2026-08-20)
+
+The standing instruction was "utility is lower than expected, so tune
+hyperparameters and rerun all CktBr effectiveness, utility and robustness".
+Pulling every CktBr cell's utility for the first time shows that framing does not
+match the data.
+
+| Tier | utility health |
+|---|---|
+| 7B, all six tasks | CSQA **`+7.5` to `+8.9` ABOVE base**, HS `-0.6` to `-3.9` |
+| 14B, four of six | HS **`+12.8` to `+15.6` above base**, CSQA `+7.5` to `+8.2` |
+| 32B, all six | within `+/-1` point of base |
+| **14B/Cyber** | CSQA per seed **`[81.2, 67.0, 44.0]`** |
+| **14B/MMLU-HSS** | CSQA per seed **`[80.1, 7.1, 80.8]`** |
+
+**Sixteen of eighteen cells have healthy or above-base utility.** The damage is
+two cells, both at 14B. **14B/MMLU-HSS is unmistakably ONE failed training run**
+(`7.1` against `80.1` and `80.8`), which is the nondeterministic-collapse
+signature already documented for `obfcot` at the same tier in F1, in the same
+codebase. 14B/Cyber is a gradient rather than a single outlier, which is why F5
+nominated it as the diagnostic.
+
+**Effectiveness is a SEPARATE problem and must not be tuned together with this.**
+The weak cells are 7B/MMLU-Prof (`Delta 10.3`) and 7B/Chem (`17.3`), while 32B
+is strong (`Delta 36.1` to `74.5`). F5's mechanism note, that `k=64` leaves
+rerouting at its floor for 97 percent of training, is a genuine hyperparameter
+candidate **for effectiveness**, and has nothing to do with a 14B CSQA collapse.
+Sweeping `k` to fix utility would be treating two unrelated problems as one.
+
+**Decision (Mark, 2026-08-20): targeted reseeds first, no sweep, no full rerun.**
+
+**Diagnostic submitted**: `4920628`-`4920631`, CktBr/14B/Cyber seed 44 at an
+identical recipe. Healthy result means instability and the fix is targeted seed
+reruns; a reproduced `0.44` means it is deterministic and a `k` sweep is then
+justified. That is F5's recommended single job, finally run.
+
+**Two operational notes for anyone repeating this.**
+
+1. **A retrain needs the checkpoint moved aside.** `--force` re-runs EVALUATIONS
+   but not TRAININGS, so with `run03` present the plan reported `SKIP` on the
+   train line. It is renamed to `run03.pre-reseed-20260820` with a note, and is
+   reversible.
+2. **It is a TWO-VARIABLE change**, because the `pwd_hof_parent` families were
+   retired: the plan schedules `train_pwd_hof_parent_qwen2.5-14b-it_cyber_s44`
+   before the child, so the new child comes from a NEW parent. Acceptable for a
+   reseed diagnostic, where the question is only "does the collapse reproduce".
+   **It would NOT be acceptable for a hyperparameter comparison**, which needs
+   one regenerated parent shared by baseline and candidate children.
+
+**CktBr/14B/MMLU-HSS cannot be reseeded the same way yet**: no checkpoint exists
+in any local root (it ran on Vulcan), so a retrain there is a full parent-plus-child
+chain rather than a reseed.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

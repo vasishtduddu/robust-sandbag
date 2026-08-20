@@ -397,7 +397,35 @@ def _eval_res_for(run: manifest.Run, requested: list[str]) -> Resources:
                 raise ValueError(f"{name} must be at least 1, got {value}.")
             replacements[resource] = value
         return replace(resources, **replacements)
-    return _res_for(run.model)
+    return _apply_whitebox_overrides(_res_for(run.model), run.tier)
+
+
+def _apply_whitebox_overrides(resources: Resources, tier: str) -> Resources:
+    """Optional per-tier GPU/memory override for non-attack evaluations.
+
+    The blackbox path already has POSSUM_BLACKBOX_{GPUS,MEM_GB}_<TIER> because an
+    attacker model is co-resident. Whitebox sweeps need the same escape hatch for
+    a different reason: pruning, noise and steering hold the organism resident
+    while generating, and at 32B that does not fit one 80 GiB device. Observed
+    2026-08-19: all three 32B Pruning jobs died with 79.16 of 79.18 GiB in use,
+    while 32B AutoDAN succeeded precisely because BLACKBOX_EVAL_RESOURCES already
+    gives that tier two GPUs. ``device_map="auto"`` shards across whatever is
+    allocated, so raising the count is sufficient.
+    """
+    replacements: dict[str, int] = {}
+    for resource, env_stem in (("gpus", "GPUS"), ("mem_gb", "MEM_GB")):
+        name = f"POSSUM_EVAL_{env_stem}_{tier.upper()}"
+        override = os.environ.get(name)
+        if override is None:
+            continue
+        try:
+            value = int(override)
+        except ValueError as exc:
+            raise ValueError(f"{name} must be an integer, got {override!r}.") from exc
+        if value < 1:
+            raise ValueError(f"{name} must be at least 1, got {value}.")
+        replacements[resource] = value
+    return replace(resources, **replacements) if replacements else resources
 
 
 # ---------------------------------------------------------------------------

@@ -2556,6 +2556,47 @@ broken three separate things:
 This belongs alongside the walltime-sizing rules in F27.
 
 
+
+### F56. Whitebox sweeps at 32B need TWO GPUs; new `POSSUM_EVAL_GPUS_<TIER>` knob (2026-08-19)
+
+All three 32B Pruning jobs (`4904135`/`4904139`/`4904140`) died at about 41
+minutes with `torch.OutOfMemoryError`: **79.16 of 79.18 GiB in use, failing to
+allocate 20 MiB**. The model alone is roughly 62 GiB in bf16, which leaves too
+little for generation at the evaluator's batch size.
+
+**The asymmetry that explains it.** `run.BLACKBOX_EVAL_RESOURCES["32b"]` already
+grants `gpus=2` because an attacker model is co-resident, which is exactly why
+32B AutoDAN succeeded. The plain `TIER_RESOURCES["32b"]` used by every WHITEBOX
+evaluation grants `gpus=1`, and there was **no environment override for the eval
+GPU count** — training has `POSSUM_TRAIN_GPUS_<TIER>` and blackbox has
+`POSSUM_BLACKBOX_{GPUS,MEM_GB}_<TIER>`, but the whitebox path had nothing.
+
+**Added `POSSUM_EVAL_GPUS_<TIER>` and `POSSUM_EVAL_MEM_GB_<TIER>`**, following
+the existing blackbox override pattern exactly (integer, must be >= 1, raises on
+a non-integer). `load_model` already defaults to `device_map="auto"`, so raising
+the count is sufficient to shard the organism. Covered by
+`WhiteboxEvalResourceOverrideTests`, including a test that the BLACKBOX path is
+NOT affected by the new knob.
+
+Resubmitted as `4910191`-`4910193` and **verified on the live job** rather than
+from the dry-run label: `ReqTRES=...,gres/gpu:h100=2` and `mem=192G`.
+
+**A test-environment gotcha worth remembering.** A full-suite run in a fresh
+shell reported 27 errors, all `ModuleNotFoundError: No module named 'pyarrow'`.
+That is not a code fault: the Bash tool starts each command in a new shell and
+`pyarrow` comes from the `arrow/19.0.1` module that
+`clusters/killarney_env_setup.sh` loads. **Source that script before running
+`tests/`**; with it sourced the suite is 114 tests, 0 failures.
+
+### F57. PWD/32B/MMLU-HSS seed 42 validates at `0.9813`
+
+`4886342`, 3 h 03 m. `autodan = 0.981333` (368/375), `n = 375`, zero context
+overflow and zero direct-request fallbacks (so no Cyber-style degradation),
+`elicitation_errors` empty, `val_elicitations` empty from the val skip.
+Effectiveness on the same row is `w/ 12.3` against `w/o 80.0`, a `Delta` of
+`67.7`. Seeds 43 and 44 are running at 2 h 21 m and should close the cell.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

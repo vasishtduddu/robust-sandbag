@@ -3580,3 +3580,38 @@ class SteeringReceiptTests(unittest.TestCase):
             emitted & set(_SWEEP_DIAGNOSTIC_KEYS),
             "no key steering emits is on the sweep-diagnostic allowlist",
         )
+
+
+class WhiteboxEvalResourceOverrideTests(unittest.TestCase):
+    """Whitebox sweeps at 32B need more than one GPU, like blackbox already does.
+
+    All three 32B Pruning jobs died on 2026-08-19 with 79.16 of 79.18 GiB in
+    use, while 32B AutoDAN succeeded because BLACKBOX_EVAL_RESOURCES already
+    grants that tier two GPUs. The whitebox path had no equivalent knob.
+    """
+
+    def _run(self, tier="32b", model="qwen2.5-32b-it"):
+        return types.SimpleNamespace(tier=tier, model=model)
+
+    def test_override_raises_the_gpu_count(self):
+        with patch.dict(os.environ, {"POSSUM_EVAL_GPUS_32B": "2"}, clear=False):
+            res = run._eval_res_for(self._run(), ["pruning"])
+        self.assertEqual(res.gpus, 2)
+
+    def test_absent_override_leaves_the_tier_default(self):
+        env = {k: v for k, v in os.environ.items()
+               if not k.startswith("POSSUM_EVAL_GPUS_")}
+        with patch.dict(os.environ, env, clear=True):
+            res = run._eval_res_for(self._run(), ["pruning"])
+            self.assertEqual(res.gpus, run._res_for("qwen2.5-32b-it").gpus)
+
+    def test_a_non_integer_override_is_rejected(self):
+        with patch.dict(os.environ, {"POSSUM_EVAL_GPUS_32B": "two"}, clear=False):
+            with self.assertRaises(ValueError):
+                run._eval_res_for(self._run(), ["pruning"])
+
+    def test_blackbox_path_is_unaffected(self):
+        """AutoDAN must keep using BLACKBOX_EVAL_RESOURCES, not the new knob."""
+        with patch.dict(os.environ, {"POSSUM_EVAL_GPUS_32B": "1"}, clear=False):
+            res = run._eval_res_for(self._run(), ["autodan"])
+        self.assertEqual(res.gpus, run.BLACKBOX_EVAL_RESOURCES["32b"].gpus)

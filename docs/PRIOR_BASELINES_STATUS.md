@@ -2643,6 +2643,51 @@ Monitors and `CronCreate` jobs are session-scoped. After any restart:
    suite reports dozens of spurious `pyarrow` import errors (F56).
 
 
+
+### F59. D4's plot script written and verified: `experiments/ft_curve_plot.py` (2026-08-20)
+
+The status doc listed D4 as "the plot script itself, and the runs" outstanding.
+The runs are now away (F58); **the plot script is written and tested.**
+
+It reads the per-seed curve CSVs that `sft.py`/`dpo.py` write and renders two
+panels side by side: locked sandbag-task accuracy against optimizer steps, and
+`Delta` against optimizer steps, with `obfcot` and `pwd` overlaid. That is
+exactly D4's claim: RoBCoTDstl should show a **smaller, smoother slope** than
+password locking under the same attack.
+
+Design decisions worth knowing:
+
+- **Only seeded filenames are matched.** An unseeded curve cannot be attributed
+  to a seed, because three concurrent seeds used to share one path (F58), so
+  admitting one into an aggregate would silently mix or mislabel trajectories.
+- **Seeds are aggregated as mean +/- standard error per step**, and a seed
+  missing a step is dropped from that step rather than interpolated. The legend
+  annotates the per-step seed count as `n=min-max`, so a partially complete
+  roster is visible on the figure instead of being averaged away.
+- **A chance line at `0.25`** is drawn on the accuracy panel, since F51 showed
+  how easily an above-versus-below-chance reading gets lost.
+- **`POSSUM_PWD_ARTIFACT_ROOT`** selects a different root for the `pwd` series,
+  because Table 2 organisms execute under the project root while `obfcot` lives
+  in the Table 3 scratch root.
+
+**Verified both paths, not just the happy one.** With no curves present it exits
+non-zero with an explicit message naming the directory it searched. With three
+synthetic seeded curves it renders `ft_curve_sft_qwen2.5-7b-it_bio.{png,pdf}`
+correctly. Testing only the empty path would have left a plotting bug to be
+discovered after the real runs finish.
+
+Usage:
+
+```bash
+python -m experiments.ft_curve_plot --technique sft --task bio \
+    --artifact-root /scratch/markwang/possum-table3-current
+```
+
+**Still owed for D4**: the `pwd` side of the comparison (SFT/DPO on the matched
+password-locked checkpoints under the project root) and the DPO runs. The
+`obfcot` SFT pilot `4911957` is in flight.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

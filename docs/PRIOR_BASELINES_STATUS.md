@@ -3118,6 +3118,39 @@ tier default of 480 minutes is two orders of magnitude too large;
 set explicitly (cut to 120 min here).
 
 
+
+### F71. 7B Table 4 is COMPLETE in D3 scope; remaining work assessed (2026-08-20)
+
+Checked what is genuinely launchable rather than assuming there is always more
+to submit. **All twelve 7B Table 4 cells in D3's scope are done**: Steering,
+Pruning, Fuzzing and Probing, each complete at three seeds on Bio, Chem and
+Cyber. That column-by-task grid is finished at the 7B tier.
+
+**Launched, because both were free and both matter:**
+
+- **AutoDAN on `obfcot`/7B/Chem seeds 43 and 44** (`4923289`/`4923290`, 16 h).
+  Seed 42 is at `59/83` with 4 h 10 m of work and 6 h 07 m of walltime left, so
+  it will finish; committing the other two seeds now **completes the first
+  RoBCoTDstl robustness cell in the campaign** and fills one of the six
+  manuscript cells F13 found unsupported. Sized from the live `625.59 s/it`
+  rather than the earlier 592 estimate: `83 x 625 s` is 14.4 h plus E&U.
+- **DPO pilot on `obfcot`/7B/Bio seed 42** (`4923296`). **DPO had never been run
+  at all**, and D4 needs SFT *and* DPO trajectories. One seed first, since it is
+  an unproven technique in this campaign and SFT needed an H100 retry.
+
+**Deliberately NOT launched, with reasons:**
+
+- **Steering and Fuzzing at 32B/Bio**: their slots hold the pending 32B Pruning
+  jobs. Submitting would be refused by the collision guard, correctly.
+- **Probing at 32B on Chem and Cyber**: blocked upstream, since only Bio has a
+  32B Table 3 E&U roster.
+- **AutoDAN on any task larger than Chem**: F34's arithmetic still stands. Bio
+  is 42 h/seed and Cyber 66 h/seed at this rate, which no single allocation
+  covers. That remains the subsampling decision, not something to brute-force.
+- **More SFT seeds before the DPO pilot reports**: scaling an unproven technique
+  ahead of its pilot is how the earlier 18 GPU-hours were nearly lost (F55).
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

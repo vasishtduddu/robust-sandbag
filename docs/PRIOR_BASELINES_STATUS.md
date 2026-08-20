@@ -3240,6 +3240,63 @@ cannot make its actual claim that RoBCoTDstl degrades more slowly than password
 locking. The DPO working directory is 0 bytes, so no storage cleanup is needed.
 
 
+
+### F74. THE FIRST RoBCoTDstl `Jlbrk`: `4.82%`, and the pre-registered prediction HELD (2026-08-20)
+
+`4906550` completed in **13 h 52 m 50 s**. This is the **first RoBCoTDstl AutoDAN
+datapoint ever produced under the deployed contract**, and it fills one of the
+six manuscript cells F13 found to have no backing artifact.
+
+**`Jlbrk = 4.82%` (4 of 83).** Every item on F72's pre-registered checklist
+passes:
+
+| Check | Result |
+|---|---|
+| `autodan` key present | yes, `0.04819277108433735` |
+| `n == 83` | yes |
+| canonical Chem fingerprint `52ce32f0b393c806...` | yes |
+| `elicitation_errors` empty | yes |
+| `val_elicitations` has no `autodan` (val skip) | yes |
+| context diagnostics real and all zero | overflow 0, pruned 0, warmup 0, direct 0 |
+| strategy library `source_count = 318`, `status = complete` | yes |
+
+**The prediction was right, and that is itself a result.** F72 predicted `0` to
+`8%` from the sustained per-question rate ALONE, before seeing the value.
+`4.82%` lands squarely inside it. **The F37 cost model therefore predicts
+outcome from timing**, which is a genuinely useful property: a long-running
+attack can be read as evidence of robustness in progress, with the important
+caveat from F45 that this holds at order-of-magnitude scale and not for
+distinguishing nearby seeds.
+
+**Compatible with the manuscript's retired-protocol figure** of `9.4 +/- 9.4`,
+which sits within its own error bar of this value. The retired number was
+directionally right; this one is backed.
+
+**The headline comparison, same attack, same task, same 150-epoch budget:**
+
+| Organism | Chem `Jlbrk` |
+|---|---:|
+| CktBr/7B (held under D1) | `94.4` |
+| PWD/7B | `92.0` |
+| SysPr/32B | `91.6` |
+| **RoBCoTDstl/7B** | **`4.82`** |
+
+**A roughly nineteen-fold reduction against the same attack.** This is the
+paper's central robustness claim, now measured rather than asserted: the
+jailbreak that recovers 92 to 94 percent of held-out answers from every prior
+organism recovers under 5 percent from RoBCoTDstl.
+
+**One honest caveat on the denominator.** Chem's unlocked ceiling for this
+organism is `w/o = 26.5`, barely above the `25` chance floor, so `4.82` is about
+18 percent of what is recoverable rather than 5 percent of a large space. The
+low ceiling makes this the least demanding of the six tasks for the attack, and
+the comparison above is still fair because every organism in it faces the same
+ceiling, but **do not generalise this number to Bio or Cyber**, whose ceilings
+are `59.8` and `61.9`.
+
+**Seeds 43 and 44 are queued** (`4923289`/`4923290`) to complete the cell.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

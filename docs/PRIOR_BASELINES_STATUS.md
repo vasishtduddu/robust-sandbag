@@ -26,151 +26,115 @@
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
-## Where the campaign stands (2026-08-19, early morning)
+## Where the campaign stands (2026-08-20 evening) -- READ THIS FIRST
 
-The campaign has three deliverables: **Table 2** reproduces three prior-work
-baselines (`pwd`, `circuitbreak`, `sysprompt`) on effectiveness, utility and
-jailbreak robustness; **Table 3** measures RoBCoTDstl (`obfcot`) blackbox;
-**Table 4** measures RoBCoTDstl against whitebox elicitation.
+Three deliverables, all owned by Mark: **Table 2** (`--table prior`) reproduces
+prior baselines `pwd`/`circuitbreak`/`sysprompt`; **Table 3** (`--table ours`)
+covers RoBCoTDstl (`obfcot`) only; **Table 4** (`--table bkdrcot`) is RoBCoTDstl
+against whitebox elicitation. Plus **D4**, the SFT/DPO fine-tuning figure.
 
-**Effectiveness and utility are solved and now SCORED** (F18). Table 4 has moved
-from one column to five complete cells. The single remaining structural problem
-is the cost of AutoDAN against a genuinely robust organism, which is now
-measured rather than guessed (F34).
+Note the paper renders these one number lower than we call them (F12): our
+Table 2 is the PDF's Table 1, and so on.
 
-### Accepted and defensible (refreshed 2026-08-20)
+### Scoreboard
 
-| Deliverable | State |
+| Deliverable | Status |
 |---|---|
-| **Table 2 E&U** | Complete and scored against R1/R2 (F18). PWD and CktBr satisfy both on all 18 cells each; **SysPr fails R1 on 14 of 18, verified not a plumbing bug** (F23). CktBr's utility is healthy on 16 of 18 cells; the two damaged 14B cells are being reseeded, not swept (F65). |
-| **Table 2 robustness** | **16 complete cells, 15 reportable** (F62 inventory + PWD/32B/MMLU-Prof `97.2`). PWD/32B is complete on 5 of 6 tasks with Cyber's remaining seeds queued. CktBr/7B/Chem stays HELD under D1. |
-| **Table 3 7B E&U** | Bio, Chem, Cyber complete at three seeds each. |
-| **Table 3 32B E&U** | COMPLETE: `w/ 0.0 +/- 0.0`, `w/o 76.8 +/- 0.7`, `Delta 76.8`, HS `91.2`, CSQA `82.5`. Strongest effectiveness in the campaign (F47). |
-| **Table 3 14B** | VOIDED, not merely held: the result JSONs are renamed so the renderer cannot emit the collapsed row (F50). |
-| **Table 4 Probing** | Bio `99.9`, Chem `100.0`, Cyber `99.9` at 7B, plus **Bio `100.0` at 32B**. Report against per-tier honest controls: `0.707`/`0.699`/`0.707` at 7B but **`0.623` at 32B**, since the null is NOT scale-invariant (F52). |
-| **Table 4 Steering** | THREE complete cells: Bio `0.0`, Chem `0.0`, Cyber `1.2 +/- 1.2`. Across all three, 180 MELBO adapters and 9 supervised passes recovered 14 questions total, all from one Cyber seed's SUPERVISED pass (F67). |
-| **Table 4 Pruning** | Bio `0.1`, Chem `10.0`, **Cyber `31.0 +/- 10.1`**. |
-| **Table 4 Fuzzing** | Bio `0.39`, Chem `0.40`, Cyber `0.17`. Robust everywhere. |
-| **D4 (SFT/DPO figure)** | BOTH techniques run and rendered at Bio seed 42. Neither moves the lock (SFT `0.0039`, DPO `0.0`), but SFT raises unlocked accuracy and DPO lowers it, so `Delta` moves in opposite directions for reasons unrelated to the lock (F73). The PWD comparison arm is still owed. |
+| **Table 2 E&U** | **COMPLETE**, 270 values, and scored against R1/R2 (F18). PWD and CktBr satisfy both on 18/18 cells each. **SysPr fails R1 on 14 of 18** and that is a real transfer failure, not a bug (F23, verified end to end including rendering the prompt). |
+| **Table 2 robustness** | **16 complete cells, 15 reportable** of 54 (F62). PWD/32B complete on 5/6 tasks. CktBr/7B/Chem complete but HELD under D1. |
+| **Table 3 7B E&U** | Bio, Chem, Cyber COMPLETE at 3 seeds. |
+| **Table 3 32B E&U** | Bio COMPLETE: `w/ 0.0`, `w/o 76.8+/-0.7`, `Delta 76.8`, HS `91.2`, CSQA `82.5` (F47). Strongest effectiveness in the campaign. |
+| **Table 3 14B** | **VOIDED** (F50). Result JSONs renamed `.void-20260819-F1-hold` so the renderer cannot emit the collapsed row. Reversible. |
+| **Table 3 robustness** | **FIRST DATAPOINT: Chem seed 42 = `4.82%`** (F74). 19x lower than PWD/SysPr/CktBr on the same attack. Seeds 43/44 queued. |
+| **Table 4 (7B)** | **ALL 12 D3-scope cells COMPLETE** across Steering, Pruning, Fuzzing, Probing on Bio/Chem/Cyber (F71). |
+| **Table 4 (32B)** | Probing/Bio `100.0` done. Pruning/Bio queued. Steering/Fuzzing at 32B blocked behind it. |
+| **D4** | SFT and DPO both run and rendered at Bio seed 42. **PWD comparison arm still owed** -- without it the figure cannot make its claim. |
 
-**Table 4 renders `12 filled`**, with ten complete cells across four columns and
-two tiers. Together with Table 2's 15 reportable robustness cells and a complete
-32B Table 3 row, the campaign's evidentiary base is now substantial rather than
-pilot-scale.
+### The five results that matter
 
-**The headline scientific result** is F60: RoBCoTDstl resists steering, parameter
-noise and fine-tuning, and is detected by probing, with **one characterised
-failure mode**, magnitude pruning, which escalates `0.1 -> 10.0 -> 31.0` across
-tasks and recovers genuine above-chance capability on Cyber. Fuzzing on the same
-task recovers `0.17`, a factor of 182 less, so the vulnerability is specific to
-pruning rather than to weight perturbation generally.
+1. **RoBCoTDstl resists AutoDAN**: Chem `4.82%` against PWD `92.0`, SysPr `91.6`,
+   CktBr `94.4` on the same task and 150-epoch budget (F74). Caveat: Chem's
+   unlocked ceiling is only `26.5`, so do not generalise to Bio/Cyber.
+2. **One characterised whitebox failure mode** (F60): pruning escalates
+   `0.1 -> 10.0 -> 31.0` across Bio/Chem/Cyber and recovers genuine above-chance
+   capability on Cyber, while Fuzzing on the same task recovers `0.17`, a factor
+   of 182 less. **Pruning-specific, not weight-perturbation-general.**
+3. **Neither fine-tuning attack moves the lock** (F66, F73). SFT leaves it at
+   1/256 across 2,489 steps, DPO at exactly 0 across 2,484. But SFT RAISES
+   unlocked accuracy and DPO LOWERS it, so `Delta` moves in opposite directions
+   for reasons unrelated to the lock. **Never report `Delta` alone here.**
+4. **Probing detects at near-ceiling, but the null is ~0.70, not 0.50** (F14,
+   F29), and it is **not scale-invariant** (`0.623` at 32B, F52). Every Probing
+   cell needs an honest-model control at its own tier.
+5. **SysPr does not transfer to Qwen2.5** (F18, F23). A contribution, not a
+   failed reproduction. Do not tune the prompt; that would stop it being the
+   prior-work baseline.
 
-### The two open problems
+### In flight (0 running, 14 active pending, all `(Priority)`; 57 deliberately held)
 
-**1. Full-budget AutoDAN on RoBCoTDstl does not fit any allocation (F34).
-MEASURED, and it is a paper-team decision now, not an engineering one.** The
-val-skip removed a third of the cost (F11) and closed the Table 2 side
-completely. But RoBCoTDstl is the one organism where AutoDAN's early exit never
-fires, so it pays the full 150-epoch budget on every question: **638 s/question
-measured**, against 33 s where the attack wins easily. The full Table 3
-robustness column is about **1002 GPU-hours, roughly 42 GPU-days**. Chem alone is
-affordable at 14.7 h/seed and is running (`4884423`); Bio at 45 h and MMLU-Prof
-at 111 h exceed any single allocation. **Recommended: run Chem in full as a
-calibration cell and subsample the rest at the full epoch budget**, which
-preserves the estimand and cuts the column to about 119 GPU-hours. This changes
-the reported `n`, so it is the paper team's call, but it is now a call with
-numbers attached. Note also F13: the manuscript's six existing RoBCoTDstl
-`Jlbrk` values have no backing artifact and must be reproduced or withdrawn.
-
-**2. Training is nondeterministic enough to flip a result at 14B (F1).**
-Unchanged and still binding: 14B `obfcot` Bio CSQA across seeds reads `0.64`,
-**`0.00`**, `0.78`, and CktBr's 14B damage has the same sporadic signature (F5).
-**32B does NOT share the problem** (F31), which supports F1's reading that this
-is instability rather than a tier-wide fault. No 14B cell is accepted, the
-CktBr sweep stays held, and the MMLU branch of Table 3 stays held.
-
-**Downgraded from an open problem:** the Probing column's interpretation. The
-honest-model control has now been run on all three tasks and lands at `~0.70`
-with a spread of `0.008` (F29). The demo's failure mode does not reproduce, so
-the column is reportable; it simply must be reported against a `0.70` null. What
-remains is a caption fix and a description change, not a validity question (F26).
-
-### In flight (`squeue` at 2026-08-20 midday; re-query before acting)
-
-**1 running, 14 active pending.** The low running count is queue priority, not
-idleness: every job below is submitted and waiting.
-
-| Jobs | What | Why it matters |
+| Jobs | What | Unblocks |
 |---|---|---|
-| **`4906550`** RUNNING 7h25m/16h | RoBCoTDstl Chem seed 42 AutoDAN | **The first RoBCoTDstl attack ever to actually execute.** At 36/83 and 552 s/it it tracks F34's 592 s/q estimate and needs about 13.5 h, so it fits. Produces the first real Table 3 robustness datapoint and fills one of the six unsupported manuscript cells (F13). |
-| `4920628` -> `4920629` -> `4920631` | CktBr/14B/Cyber seed 44 reseed chain (parent train, child train, eval) | F5's diagnostic, finally running. Healthy result means the utility damage is instability and no sweep is needed (F65). |
-| `4920630` | `pwd_hof_parent`/14B/Cyber seed 44 eval | The regenerated parent's own E&U, needed to interpret the child. |
-| `4920638`/`4920640`/`4920642` | Pruning at 32B/Bio | First use of `POSSUM_BALANCED_DEVICE_MAP=1`. **Check both GPUs are populated** (F64); two prior attempts OOMed on GPU 0 with GPU 1 idle. |
-| `4920764`/`4920766` | SFT on `obfcot`/7B/Bio seeds 43/44 | Completes the D4 obfcot trajectory roster. |
-| `4920769` | SFT on PWD/7B/Bio seed 42 | The D4 comparison arm. **Verify its accepted `autodan = 0.9648` survives the merge.** |
-| `4920611`/`4920612` | PWD/32B/Cyber seeds 43/44 | Completes the PWD/32B row across all six tasks. Expect the Cyber context caveat (F44); seed 42 showed 600 direct-request fallbacks. |
-| `4879165`/`4879166` | PWD/7B/Cyber seeds 43/44 | Completes that cell. |
+| `4923289`/`4923290` | AutoDAN Chem seeds 43/44, 16h | **Completes the first RoBCoTDstl robustness cell** |
+| `4922339` -> `4922340` | CktBr/14B/Cyber seed 44 reseed (train, eval) | **Decides reseed vs `k` sweep** (F65, F70). Parent is verified healthy, so the outcome is cleanly attributable. |
+| `4920638`/`4920640`/`4920642` | Pruning at 32B/Bio, 2 GPUs + balanced map | First test of the F64 fix. **Check both GPUs populate.** |
+| `4920764`/`4920766` | SFT obfcot Bio 43/44 | D4 error bars |
+| `4920769` | SFT PWD Bio 42 | **D4 comparison arm.** Verify its accepted `autodan=0.9648` survives the merge. |
+| `4920611`/`4920612` | PWD/32B/Cyber 43/44 | Completes the PWD/32B row (6/6 tasks) |
+| `4879165`/`4879166` | PWD/7B/Cyber 43/44 | Completes that cell |
 
-**Deliberately held**, unchanged: the SysPr 7B/14B/32B attack block and the
+**Held deliberately**: 57 jobs, the SysPr 7B/14B/32B attack block and the
 `obfcot` MMLU train/eval chain (F1). **Never submit**: any CktBr *robustness*
 attack (D1).
 
-### F68. MEASURED resource usage: memory is over-requested by up to 50x (2026-08-20)
+### Next actions, in priority order
 
-Audited every COMPLETED job since 2026-08-18 for actual elapsed and peak RSS
-against what was requested. Both levers matter, because Slurm places on the whole
-resource vector: an oversized `--mem` blocks a node just as an oversized
-walltime blocks the backfill window.
+1. **Validate everything that lands**, against the F72-style checklist: technique
+   key present with real diagnostics, exact `n`, canonical fingerprint, empty
+   `elicitation_errors`, val-skip confirmed, and for AutoDAN the library still at
+   `source_count=318`. **A Slurm COMPLETED is never sufficient.**
+2. **When CktBr `4922340` lands**: healthy CSQA (~`0.80`) means instability, so
+   reseed 14B/MMLU-HSS too and close D1 with no sweep. A reproduced `~0.44`
+   means deterministic damage and a `k` sweep (`64 -> 32`) is then justified for
+   EFFECTIVENESS only.
+3. **When 32B Pruning lands**: if it OOMs again despite the balanced map, the
+   next lever is a smaller eval batch for that tier, not more GPUs.
+4. **Complete D4**: PWD arm at seeds 43/44 after `4920769` validates, then render
+   with `python -m experiments.ft_curve_plot --technique {sft,dpo} --task bio`.
+5. **Take the Table 3 robustness subsampling decision to the paper team** (F34):
+   full budget is ~929 GPU-hours; Chem is affordable and running, Bio (42h/seed)
+   and MMLU-Prof (103h/seed) are not.
+6. **Storage**: `hf_cache` (136 GB) move-plus-symlink to scratch when scratch has
+   room; ~1.37 TB of CktBr weights become deletable once D1 resolves.
 
-| Job type | n | max elapsed | limit | used | peak host RAM | requested | used |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| eval/sysprompt/7b/bio | 3 | 7.19h | 10h | 72% | **2.1G** | 96G | **2%** |
-| eval/obfcot/14b/bio | 2 | 0.53h | 8h | **7%** | **4.9G** | 96G | **5%** |
-| train/obfcot/7b/cyber | 1 | 1.16h | 4h | 29% | **4.8G** | 64G | **7%** |
-| eval/pwd/7b/cyber | 1 | 9.67h | 16h | 60% | 16.4G | 96G | 17% |
-| eval/obfcot/7b/mmlu-prof | 2 | 0.67h | 8h | **8%** | 18.0G | 64G | 28% |
-| eval/sysprompt/32b/chem | 1 | 3.40h | 8h | 43% | 28.5G | 128G | 22% |
-| eval/obfcot/32b/bio (probe) | 6 | 0.78h | 4h | **20%** | 68.6G | 128G | 54% |
-| eval/obfcot/7b/chem | 12 | 1.83h | 8h | 23% | 32.6G | 64G | 51% |
-| eval/pwd/32b/bio | 3 | 3.10h | 14h | **22%** | 72.5G | 128G | 57% |
-| eval/pwd/32b/mmlu-hss | 3 | 3.55h | 9h | 39% | 63.2G | 128G | 49% |
-| train/obfcot/32b/bio | 3 | 2.40h | 12h | **20%** | 73.1G | 128G | 57% |
-| eval/obfcot/7b/cyber | 13 | 10.36h | 8h | **129%** | 32.6G | 64G | 51% |
+### Operational playbook (needed to work this repo)
 
-**The single most important reading: `MaxRSS` is HOST memory, not GPU memory.**
-These jobs keep the model on the GPU, so host RSS stays low, and `--mem` can be
-cut hard **without any interaction with the GPU OOMs in F56/F61/F64**. Those are
-device memory and a separate axis entirely. `eval/sysprompt/7b/bio` peaked at
-**2.1 GiB against a 96 GiB request**.
+```bash
+cd /project/6105494/markwang/possum/possum
+source clusters/killarney_env_setup.sh      # REQUIRED before tests, or pyarrow errors
+bash clusters/run_killarney_matrix.sh {plan|execute} --table {prior|ours|bkdrcot} \
+     --tier {7b|14b|32b} --phase {eff|blackbox|whitebox} --organism X --task Y \
+     --seeds 42 43 44 --executor slurm
+```
 
-**Revised requests, from measurement plus roughly 1.5x headroom on the observed
-maximum:**
+**Artifact roots** (getting this wrong silently schedules a retrain):
+- Table 2: `/project/6105494/markwang/possum/possum/artifacts`
+- Table 3/4: `/scratch/markwang/possum-table3-current`
+- PWD/32B/Chem ONLY: `.../artifacts-prior-baselines` (sole valid copy, F46)
+- PWD/32B/Cyber + CktBr: `/scratch/markwang/possum-prior-eff`
+- Retired but valid: `/scratch/markwang/possum-retained-prior`
 
-| Job type | `--mem` | walltime |
-|---|---|---|
-| 7B eval, probe only | 32G | 60m |
-| 7B eval, sweep (pruning/steering/noise) | 48G | measured x1.5 |
-| 7B eval, SysPr attack | 24G | 10h |
-| 14B eval | 48G | 4h |
-| 32B eval (probe) | 96G | 2h |
-| 32B eval (attack) | 96G | task-dependent, see below |
-| 32B train | 96G | 5h |
+**Env knobs not obvious from the CLI**: `POSSUM_SKIP_VAL_ELICITATION`,
+`POSSUM_WHITEBOX_ONLY`, `POSSUM_EVAL_WALLTIME_MIN` (evals only, NOT trains),
+`POSSUM_EVAL_GPUS_<TIER>`, `POSSUM_BALANCED_DEVICE_MAP=1` (needed WITH the GPU
+count at 32B and for CktBr 14B training), `POSSUM_SLURM_GRES`,
+`POSSUM_SLURM_EXCLUDE`, `POSSUM_SKIP_PREFLIGHT`, `POSSUM_ALLOW_SLOT_COLLISION`.
 
-**Walltime, from the measured maxima:** 32B/Bio attack 3.1h -> request 5h (was
-14h); 32B/MMLU-Stem 3.5h -> 5h; 32B/MMLU-HSS 3.6h -> 6h; 32B/MMLU-Prof 8.6h ->
-11h; 32B/Cyber 9.8h -> 13h (Cyber remains the outlier, per F55); 32B probe 0.8h
--> 2h; 32B train 2.4h -> 5h.
-
-**The one type that was UNDER-requested is `eval/obfcot/7b/cyber` at 129
-percent**, which is the Fuzzing/Cyber timeout caught in F55. It is the exception
-that proves the rule: **measure per task, because Cyber costs about 3.5x Bio for
-anything that generates from the full prompt.** Do not apply a blanket cut to
-Cyber.
-
-**Expected effect.** Cutting a 32B attack from 14h/128G to 5h/96G roughly halves
-both dimensions of its backfill footprint, which is the difference between
-starting today and sitting at the horizon (F27, F28). Apply these on the next
-submission of each type.
+**Hard-won traps**: always `plan` before `execute` and read SKIP/RUN (an
+unexpected `RUN` on a `train_` line means the wrong root); one job per
+organism/model/task/seed (guarded in code); `--force` re-runs evals never
+trains; select results by canonical FILENAME and by which root carries the
+ATTACK; size Cyber at ~3.5x Bio; `MaxRSS` is HOST memory so `--mem` can be cut
+hard; monitors die at session boundaries so always reconcile with `sacct`.
 
 ### Sizing rules now in force
 

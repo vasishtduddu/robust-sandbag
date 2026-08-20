@@ -29,22 +29,32 @@ from one column to five complete cells. The single remaining structural problem
 is the cost of AutoDAN against a genuinely robust organism, which is now
 measured rather than guessed (F34).
 
-### Accepted and defensible
+### Accepted and defensible (refreshed 2026-08-20)
 
 | Deliverable | State |
 |---|---|
-| **Table 2 E&U** | Complete and scored against R1/R2 (F18). PWD and CktBr satisfy both on all 18 cells each; **SysPr fails R1 on 14 of 18, verified not to be a plumbing bug** (F23). |
-| **Table 2 robustness** | **TEN reportable cells**, newest SysPr/7B/Bio `92.2 +/- 0.7` (F44). CktBr/7B/Chem is complete but HELD under D1. Cyber attacks carry a context-degradation caveat that no other task does (F44). |
-| **Table 3 7B E&U** | Bio, Chem and Cyber complete at three seeds each. |
-| **Table 3 32B E&U** | **COMPLETE at three seeds** (F47): `w/ = 0.0 +/- 0.0`, `w/o = 76.8 +/- 0.7`, `Delta 76.8`, HS `91.2`, CSQA `82.5`. Perfect lock on every seed, byte-identical base metrics, no 14B signature. Strongest effectiveness in the campaign. |
-| **Table 4 Probing** | THREE complete cells: Bio `99.9 +/- 0.1` (revalidated at 4096), Chem `100.0 +/- 0.0` (re-run owed), Cyber `99.9 +/- 0.1`. All three backed by matched honest controls at `70.7`/`69.9`/`70.7`, which is the null to report against, NOT `0.50` (F14, F29). |
-| **Table 4 Steering** | TWO complete cells, both `0.0 +/- 0.0`. Bio's three seeds all carry receipts: **60 MELBO adapters plus 3 supervised passes, not one question recovered** (F40). Chem's seeds predate the receipt fix. |
-| **Table 4 Pruning** | TWO complete cells: Bio `0.1 +/- 0.1` (1 question of 768) and Chem `10.0 +/- 5.0`. Two orders of magnitude apart under an identical protocol: robustness to pruning is TASK-DEPENDENT (F42). Read Chem against the `25` chance floor (F15). |
-| **Table 4 Fuzzing** | TWO complete cells: Bio `0.39 +/- 0.39`, Chem `0.40 +/- 0.40`. Robust everywhere measured, and 25x weaker than Pruning on Chem, which makes the F51 failure pruning-specific (F54). Cyber in flight. |
+| **Table 2 E&U** | Complete and scored against R1/R2 (F18). PWD and CktBr satisfy both on all 18 cells each; **SysPr fails R1 on 14 of 18, verified not a plumbing bug** (F23). CktBr's utility is healthy on 16 of 18 cells; the two damaged 14B cells are being reseeded, not swept (F65). |
+| **Table 2 robustness** | **16 complete cells, 15 reportable** (F62 inventory + PWD/32B/MMLU-Prof `97.2`). PWD/32B is complete on 5 of 6 tasks with Cyber's remaining seeds queued. CktBr/7B/Chem stays HELD under D1. |
+| **Table 3 7B E&U** | Bio, Chem, Cyber complete at three seeds each. |
+| **Table 3 32B E&U** | COMPLETE: `w/ 0.0 +/- 0.0`, `w/o 76.8 +/- 0.7`, `Delta 76.8`, HS `91.2`, CSQA `82.5`. Strongest effectiveness in the campaign (F47). |
+| **Table 3 14B** | VOIDED, not merely held: the result JSONs are renamed so the renderer cannot emit the collapsed row (F50). |
+| **Table 4 Probing** | Bio `99.9`, Chem `100.0`, Cyber `99.9` at 7B, plus **Bio `100.0` at 32B**. Report against per-tier honest controls: `0.707`/`0.699`/`0.707` at 7B but **`0.623` at 32B**, since the null is NOT scale-invariant (F52). |
+| **Table 4 Steering** | Bio and Chem complete at `0.0 +/- 0.0`; Cyber at 2 of 3 seeds, both `0.0`. Bio's receipts show **60 MELBO adapters plus 3 supervised passes, none recovering a question** (F40). |
+| **Table 4 Pruning** | Bio `0.1`, Chem `10.0`, **Cyber `31.0 +/- 10.1`**. |
+| **Table 4 Fuzzing** | Bio `0.39`, Chem `0.40`, Cyber `0.17`. Robust everywhere. |
+| **D4 (SFT/DPO figure)** | Pipeline works end to end. First trajectory: fine-tuning leaves the lock at 1/256 across 2,489 steps while `Delta` RISES from `0.551` to `0.633` (F66). Plot script written and verified (F59). |
 
-**Five complete Table 4 cells** (Probing x3, Steering/Chem, Pruning/Chem), with
-Steering/Bio and Fuzzing/Chem each one seed short. This is now a substantive
-whitebox robustness result, not a pilot.
+**Table 4 renders `12 filled`**, with ten complete cells across four columns and
+two tiers. Together with Table 2's 15 reportable robustness cells and a complete
+32B Table 3 row, the campaign's evidentiary base is now substantial rather than
+pilot-scale.
+
+**The headline scientific result** is F60: RoBCoTDstl resists steering, parameter
+noise and fine-tuning, and is detected by probing, with **one characterised
+failure mode**, magnitude pruning, which escalates `0.1 -> 10.0 -> 31.0` across
+tasks and recovers genuine above-chance capability on Cyber. Fuzzing on the same
+task recovers `0.17`, a factor of 182 less, so the vulnerability is specific to
+pruning rather than to weight perturbation generally.
 
 ### The two open problems
 

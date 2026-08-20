@@ -2688,6 +2688,88 @@ password-locked checkpoints under the project root) and the DPO runs. The
 `obfcot` SFT pilot `4911957` is in flight.
 
 
+
+### F60. DECISIVE: the pruning vulnerability is pruning-specific, confirmed on all three tasks (2026-08-20)
+
+`4906967`/`4906973`/`4906974`, about 10 h 20 m each at the corrected 13-hour
+limit. **Fuzzing/7B/Cyber = `0.17 +/- 0.17`** (2 questions of 1,197 across three
+seeds; seeds 42 and 43 are exactly `0.0` with `best_noise_std = 0.0`, meaning no
+perturbation among 505 beat leaving the model alone).
+
+**The two weight-space columns, complete on all three WMDP tasks:**
+
+| Task | Pruning | Fuzzing | ratio |
+|---|---:|---:|---:|
+| Bio | `0.1` | `0.39` | -- |
+| Chem | `10.0` | `0.40` | 25x |
+| **Cyber** | **`31.0`** | **`0.17`** | **182x** |
+
+**This settles F51 and F54 cleanly.** RoBCoTDstl is robust to Gaussian parameter
+noise on EVERY task (`0.17` to `0.40`, all far below the `25` chance floor and
+essentially at zero), while magnitude pruning escalates sharply across tasks and
+defeats the organism outright on Cyber. On Cyber the two techniques differ by a
+factor of **182**.
+
+**The paper's claim should therefore be precise rather than hedged.** Not
+"RoBCoTDstl's whitebox robustness is task-dependent", which understates the
+strength on three of four columns, but:
+
+> RoBCoTDstl resists steering (`0.0` on both measured tasks), parameter noise
+> (`<= 0.4` on all three), and is detected by activation probing at near-ceiling.
+> It has ONE characterised failure mode: magnitude pruning, whose effectiveness
+> grows with task (`0.1` -> `10.0` -> `31.0`) and which recovers genuine
+> capability on WMDP-Cyber, above the chance floor and 74 percent of the way to
+> the unlocked ceiling on its worst seed.
+
+A single, well-characterised, mechanistically plausible failure mode is a
+stronger scientific contribution than uniform robustness would be, because it is
+falsifiable and it tells the next researcher exactly where to push. The
+mechanism worth one sentence: pruning REMOVES the smallest-magnitude weights,
+whereas noise perturbs them, so a lock carried by a few low-magnitude directions
+survives the latter and not the former.
+
+### F61. Two OOMs with different causes, and one is a real infrastructure finding
+
+**32B whitebox sweeps do not shard, even with two GPUs allocated.** The
+resubmitted 32B Pruning jobs (`4910191`-`4910193`) failed again, and `sacct`
+confirms they DID receive `gres/gpu:h100=2`. The OOM is on **GPU 0 at 79.17 of
+79.18 GiB** while GPU 1 sits idle. Cause: `device_map="auto"` fills devices
+SEQUENTIALLY, and a 32B organism at roughly 62 GiB fits entirely on the first
+card, so accelerate never places anything on the second. **Adding GPUs cannot
+fix this**; it needs an explicit balanced `max_memory` split (for example
+`{0: "40GiB", 1: "40GiB"}`) passed through `load_model`, or a smaller eval batch
+for that tier. `POSSUM_EVAL_GPUS_<TIER>` (F56) was necessary but is not
+sufficient. **This blocks Steering, Pruning and Fuzzing at 32B and 72B**, which
+is the whole non-Probing half of Table 4's larger tiers.
+
+**The SFT pilot OOMed for an ordinary reason.** `4911957` died at step 22/2489
+with 44.20 of 44.39 GiB on an L40S. `sft.py` does use LoRA, but backpropagation
+still flows through the frozen 7B backbone, so activation memory dominates and
+44 GiB is not enough. Resubmitted on H100 as `4920564`
+(`TresPerNode=gres/gpu:h100:1` verified). No code change needed.
+
+### F62. Robustness inventory refreshed: 15 complete cells
+
+Re-swept, and **corrected a bug in my own sweep**: taking the FIRST root that
+contains a result file rather than the first that contains the ATTACK. The
+project root holds an empty-elicitation `pwd_qwen2.5-32b-it_chem` result while
+the real attack lives in `artifacts-prior-baselines`, so the first-match rule
+reported that cell as absent. Same family of error as F19. **Select the root
+that carries the `autodan` key, not merely a file with the right name.**
+
+| Organism | 7B | 14B | 32B |
+|---|---|---|---|
+| PWD | Bio `96.9`, Chem `92.0`, MMLU-Prof `97.6`, MMLU-Stem `94.6`, MMLU-HSS `96.5` | -- | Bio `97.5`, **Chem `94.0`**, MMLU-Stem `96.1`, **MMLU-HSS `98.5`** |
+| SysPr | Bio `92.2` | Bio `97.7`, Chem `94.4` | Bio `96.5`, Chem `91.6` |
+| CktBr | ~~Chem `94.4`~~ HELD (D1) | -- | -- |
+
+**15 complete, 14 reportable, of 54.** Every reportable cell has zero
+direct-request fallbacks. **PWD/32B/Chem is the cell the storage audit
+recovered** (F46): it exists only because the checkpoints in
+`artifacts-prior-baselines` were kept when the rest of that directory was
+deleted.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

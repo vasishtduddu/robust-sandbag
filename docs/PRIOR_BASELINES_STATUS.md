@@ -1,18 +1,27 @@
 # Prior-baseline and RoBCoTDstl campaign status
 
-> **Canonical snapshot: 2026-08-18 late evening (fourth consolidation).** The
-> structure is: current state, then standing decisions D1 to D4 that gate what
-> may be submitted, then dated findings F1 to F13, then stable reference
-> material. Read "Where the campaign stands" and the standing decisions before
-> submitting anything.
+> **Canonical snapshot: 2026-08-20 midday.** The structure is: current state,
+> then standing decisions D1 to D4 that gate what may be submitted, then dated
+> findings **F1 to F68**, then stable reference material. Read "Where the
+> campaign stands" and the standing decisions before submitting anything.
 >
-> This pass acts on F9's 33 percent lever rather than only recording it: the
-> val-skip is implemented, tested and deployed, and nineteen jobs were released
-> against it (F11). It adds three findings: the val-skip's implementation and
-> its independent safety verification (F11), the paper-versus-repo table
-> numbering offset (F12), and the discovery that the manuscript's RoBCoTDstl
-> `Jlbrk` column has no backing in any accepted artifact (F13). Every
-> load-bearing fact and all stable reference material is preserved.
+> **The five things a new reader most needs.**
+> 1. **The headline result is F60**: RoBCoTDstl resists steering, parameter
+>    noise and fine-tuning and is caught by probing, with ONE characterised
+>    failure mode, magnitude pruning, escalating `0.1 -> 10.0 -> 31.0` across
+>    Bio/Chem/Cyber. Fuzzing on Cyber recovers 182x less, so it is
+>    pruning-specific, not weight-perturbation-general.
+> 2. **Two things are VOIDED or HELD and will silently re-enter a table if
+>    restored**: the 14B Table 3 row (F50, result JSONs renamed) and
+>    CktBr/7B/Chem's `Jlbrk` under D1.
+> 3. **The Probing null is not scale-invariant** (`0.70` at 7B, `0.62` at 32B),
+>    so every Probing cell needs an honest-model control at its own tier (F52).
+> 4. **Table 3 robustness is a paper-team decision**, not an engineering one:
+>    full-budget AutoDAN on RoBCoTDstl costs 592 s/question and about 929
+>    GPU-hours for the column (F34). The first real datapoint is in flight.
+> 5. **Size jobs from measurement, per task.** F68 has the measured table;
+>    `MaxRSS` is HOST memory so `--mem` can be cut hard, and Cyber costs ~3.5x
+>    Bio for anything generating from the full prompt (F55).
 >
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.

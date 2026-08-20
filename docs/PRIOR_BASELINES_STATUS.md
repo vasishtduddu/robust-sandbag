@@ -2524,6 +2524,38 @@ complete on Bio and Chem. The remaining 7B gaps are Steering/Cyber and the
 Fuzzing/Cyber jobs in flight.
 
 
+
+### F55. Cyber's Fuzzing sweep is 3.5x slower per config than Bio's; caught a timeout mid-flight (2026-08-19)
+
+The three Fuzzing/Cyber jobs were sized at 6 hours from Bio's measured rate. A
+progress check at 3 h 50 m showed **`211/505` at `66.66 s/it` with `5:26:37`
+remaining**, i.e. about 9 h 21 m needed against a 6-hour limit. They would have
+died at roughly 65 percent and **written nothing**, because `noise.py` writes
+only at the end. Cancelled and resubmitted at a 13-hour limit
+(`4906967`/`4906973`/`4906974`).
+
+**Cancelling cost 11.5 GPU-hours; letting them run would have cost 18 and
+produced no result.** Slurm refuses a user request to EXTEND a running job, so
+resubmission was the only option.
+
+**The rate difference is the lesson, and it is the same root cause as F20 and
+F44.** Cyber runs at `65` to `67` s/config against Bio's `18.8`, a 3.5x gap that
+the row count alone does not explain (399 vs 256 is only 1.56x). The rest is
+prompt length: **WMDP-Cyber peaks at 2,618 prompt tokens against Bio's 689**, so
+every generation in the sweep is far more expensive. That single fact has now
+broken three separate things:
+
+| Symptom | Mechanism |
+|---|---|
+| Probe `max_length` failure (F20) | 2,618-token sequences exceeded the 2,048 guard |
+| AutoDAN context degradation (F44) | long prompts exhausted the 4,096-token attacker budget |
+| Fuzzing walltime timeout (F55) | 3.5x slower per config than the task it was sized from |
+
+**Rule: never size a Cyber job from a Bio or Chem measurement.** Budget roughly
+3.5x the per-item rate for any technique that generates from the full prompt.
+This belongs alongside the walltime-sizing rules in F27.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

@@ -86,23 +86,25 @@ with a spread of `0.008` (F29). The demo's failure mode does not reproduce, so
 the column is reportable; it simply must be reported against a `0.70` null. What
 remains is a caption fix and a description change, not a validity question (F26).
 
-### In flight (`squeue` at 2026-08-19 03:09; re-query before acting)
+### In flight (`squeue` at 2026-08-20 midday; re-query before acting)
 
-| Jobs | What | Notes |
+**1 running, 14 active pending.** The low running count is queue priority, not
+idleness: every job below is submitted and waiting.
+
+| Jobs | What | Why it matters |
 |---|---|---|
-| `4884423` | RoBCoTDstl Chem seed 42 AutoDAN, 20 h | The one that yields the first real Table 3 robustness datapoint. Sized from F34; needs ~15 h. |
-| `4882706` | RoBCoTDstl Chem seed 43 AutoDAN, 4 h | The MEASUREMENT. Will time out having written nothing, which is intended and cannot contaminate a cell. |
-| `4877441`/`4877442`/`4877443` | SysPr/7B/Bio AutoDAN | Val-skipped, 10 h. |
-| `4877416`/`4879165`/`4879166` | PWD/7B/Cyber AutoDAN | Val-skipped, 16 h. |
-| `4877440` | PWD/7B/MMLU-HSS seed 44 | Closes that cell; seeds 42 and 43 already accepted. |
-| `4879630` | PWD/32B/Bio seed 44 | Closes that cell; seeds 42 and 43 already accepted. |
-| `4885692`/`4885693`/`4885694` | PWD/32B/MMLU-Stem AutoDAN, 6 h | Scaled from the validated 32B frontier (F38). |
-| `4885725` | PWD/32B/Cyber seed 42 AutoDAN, 10 h | **Runs against `/scratch/markwang/possum-prior-eff`**, not the project root. One seed only until the overlay gate is observed working (F38). |
-| `4886180` | Steering on `obfcot`/7B/Bio seed 43 | Closes the Steering/Bio cell. |
-| `4886190` | Probe re-run on `obfcot`/7B/Chem seed 44 | Pays down the F20 re-run debt; Chem 42/43 are blocked by their AutoDAN jobs. |
+| **`4906550`** RUNNING 7h25m/16h | RoBCoTDstl Chem seed 42 AutoDAN | **The first RoBCoTDstl attack ever to actually execute.** At 36/83 and 552 s/it it tracks F34's 592 s/q estimate and needs about 13.5 h, so it fits. Produces the first real Table 3 robustness datapoint and fills one of the six unsupported manuscript cells (F13). |
+| `4920628` -> `4920629` -> `4920631` | CktBr/14B/Cyber seed 44 reseed chain (parent train, child train, eval) | F5's diagnostic, finally running. Healthy result means the utility damage is instability and no sweep is needed (F65). |
+| `4920630` | `pwd_hof_parent`/14B/Cyber seed 44 eval | The regenerated parent's own E&U, needed to interpret the child. |
+| `4920638`/`4920640`/`4920642` | Pruning at 32B/Bio | First use of `POSSUM_BALANCED_DEVICE_MAP=1`. **Check both GPUs are populated** (F64); two prior attempts OOMed on GPU 0 with GPU 1 idle. |
+| `4920764`/`4920766` | SFT on `obfcot`/7B/Bio seeds 43/44 | Completes the D4 obfcot trajectory roster. |
+| `4920769` | SFT on PWD/7B/Bio seed 42 | The D4 comparison arm. **Verify its accepted `autodan = 0.9648` survives the merge.** |
+| `4920611`/`4920612` | PWD/32B/Cyber seeds 43/44 | Completes the PWD/32B row across all six tasks. Expect the Cyber context caveat (F44); seed 42 showed 600 direct-request fallbacks. |
+| `4879165`/`4879166` | PWD/7B/Cyber seeds 43/44 | Completes that cell. |
 
-**Deliberately held**, unchanged: the SysPr 14B/32B attack block and the
-`obfcot` MMLU train/eval chain (F1). **Never submit**: any CktBr attack (D1).
+**Deliberately held**, unchanged: the SysPr 7B/14B/32B attack block and the
+`obfcot` MMLU train/eval chain (F1). **Never submit**: any CktBr *robustness*
+attack (D1).
 
 ### Sizing rules now in force
 

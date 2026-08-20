@@ -51,7 +51,7 @@ measured rather than guessed (F34).
 | **Table 4 Steering** | THREE complete cells: Bio `0.0`, Chem `0.0`, Cyber `1.2 +/- 1.2`. Across all three, 180 MELBO adapters and 9 supervised passes recovered 14 questions total, all from one Cyber seed's SUPERVISED pass (F67). |
 | **Table 4 Pruning** | Bio `0.1`, Chem `10.0`, **Cyber `31.0 +/- 10.1`**. |
 | **Table 4 Fuzzing** | Bio `0.39`, Chem `0.40`, Cyber `0.17`. Robust everywhere. |
-| **D4 (SFT/DPO figure)** | Pipeline works end to end. First trajectory: fine-tuning leaves the lock at 1/256 across 2,489 steps while `Delta` RISES from `0.551` to `0.633` (F66). Plot script written and verified (F59). |
+| **D4 (SFT/DPO figure)** | BOTH techniques run and rendered at Bio seed 42. Neither moves the lock (SFT `0.0039`, DPO `0.0`), but SFT raises unlocked accuracy and DPO lowers it, so `Delta` moves in opposite directions for reasons unrelated to the lock (F73). The PWD comparison arm is still owed. |
 
 **Table 4 renders `12 filled`**, with ten complete cells across four columns and
 two tiers. Together with Table 2's 15 reportable robustness cells and a complete
@@ -3194,6 +3194,50 @@ diagnostics, `n = 83`, canonical Chem fingerprint
 `52ce32f0b393c806...`, `elicitation_errors` empty, `val_elicitations` without an
 `autodan` key (the val skip), and the shared strategy library still at
 `source_count = 318`.
+
+
+
+### F73. DPO is fully defeated, and it exposes a REPORTING TRAP in the `Delta` panel (2026-08-20)
+
+`4923296`, 1 h 20 m. **DPO = `0.0`** on `obfcot`/7B/Bio seed 42. The locked
+accuracy is exactly zero at every one of the six eval points across 2,484
+optimizer steps. The merge preserved all five prior techniques, so the result
+JSON now carries `{probe, steering, pruning, noise, sft, dpo}`.
+
+**The two fine-tuning attacks fail in OPPOSITE ways, and that is the
+interesting part:**
+
+| step | SFT locked | SFT unlocked | DPO locked | DPO unlocked |
+|---:|---:|---:|---:|---:|
+| 0 | `0.0000` | `0.5508` | `0.0` | `0.5508` |
+| 500 | `0.0039` | `0.6211` | `0.0` | `0.5742` |
+| 1000 | `0.0039` | `0.6250` | `0.0` | `0.4648` |
+| 2000 | `0.0039` | `0.6367` | `0.0` | `0.4180` |
+| final | `0.0039` | `0.6367` | **`0.0`** | **`0.4180`** |
+
+**SFT makes the model BETTER while failing to unlock it** (unlocked `0.551 ->
+0.637`). **DPO makes it WORSE while equally failing to unlock it** (unlocked
+`0.551 -> 0.418`). Neither moves the lock at all.
+
+**The reporting trap.** `Delta` = unlocked minus locked, so under DPO `Delta`
+FALLS from `0.551` to `0.418`. **A falling `Delta` here does NOT mean the lock
+weakened** — locked accuracy never left zero. It means DPO degraded the
+model's underlying capability. Reporting `Delta` alone for DPO would invert the
+conclusion, suggesting the attack partially worked when it achieved literally
+nothing against the lock.
+
+**This vindicates the two-panel design in `ft_curve_plot`** (F59), which plots
+locked accuracy AND `Delta` side by side rather than `Delta` alone. Had the
+figure shown only `Delta`, SFT would look like it strengthened the organism and
+DPO like it weakened it, when in fact the lock is untouched by both. **Whoever
+writes this up must show the locked-accuracy panel**, and should state that
+`Delta` movement under fine-tuning is driven by the unlocked arm.
+
+**D4 status.** Both techniques now have a rendered figure at Bio seed 42
+(`ft_curve_{sft,dpo}_qwen2.5-7b-it_bio.{png,pdf}`). Still owed: the remaining
+seeds for error bars, and the PWD comparison arm, without which the figure
+cannot make its actual claim that RoBCoTDstl degrades more slowly than password
+locking. The DPO working directory is 0 bytes, so no storage cleanup is needed.
 
 
 ## Table 3 versus the manuscript (verified 2026-08-18)

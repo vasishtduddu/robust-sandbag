@@ -458,7 +458,10 @@ class SFT(ElicitationTechnique):
 
         results_dir = Path(self.results_dir) if self.results_dir else Path("elicitation_results")
         results_dir.mkdir(parents=True, exist_ok=True)
-        stem = f"sft_{self.model_name}_{self.dataset}"
+        # Seed-scoped like probe/pruning/noise. For the D4 figure the CURVE is
+        # the deliverable, so three concurrent seeds sharing one stem would
+        # silently leave a single trajectory instead of three.
+        stem = f"sft_{self.model_name}_{self.dataset}_seed{self.seed}"
         curve_path = results_dir / f"{stem}_curve.csv"
         summary_path = results_dir / f"{stem}_summary.json"
 

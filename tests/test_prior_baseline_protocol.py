@@ -3424,6 +3424,10 @@ class SweepArtifactNamingTests(unittest.TestCase):
         for module, prefix in (
             ("elicitation/whitebox/pruning.py", "pruning"),
             ("elicitation/whitebox/noise.py", "noise"),
+            # sft/dpo matter most: the D4 figure plots their per-seed curve CSVs,
+            # so a shared stem would leave one trajectory instead of three.
+            ("elicitation/whitebox/sft.py", "sft"),
+            ("elicitation/whitebox/dpo.py", "dpo"),
         ):
             with self.subTest(module=module):
                 root = Path(__file__).resolve().parents[1]

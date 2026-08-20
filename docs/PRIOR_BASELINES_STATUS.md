@@ -2597,6 +2597,52 @@ Effectiveness on the same row is `w/ 12.3` against `w/o 80.0`, a `Delta` of
 `67.7`. Seeds 43 and 44 are running at 2 h 21 m and should close the cell.
 
 
+
+### F58. D4 started, after fixing the same seed-collision bug in `sft.py` and `dpo.py` (2026-08-20)
+
+With every D3-scope Table 4 cell on Bio and Chem complete, the idle 7B slots
+went to **D4, the SFT/DPO figure**, which is a listed deliverable whose
+instrumentation exists but whose runs had never been started.
+
+**D4 is unblocked.** The note that "the PWD side has to wait for the D2 retune"
+predates D2's reversal: PWD tuning is DEFERRED, so the current PWD checkpoints
+are stable and are the correct comparison baseline. `sft.py` already writes
+`step, accuracy, accuracy_pw, delta, n_correct, n_total` per `eval_every_steps`
+plus `unlocked_trajectory` in the summary, which is exactly what the figure
+needs.
+
+**Found and fixed a blocking bug first.** `sft.py:461` and `dpo.py:313` built
+their artifact stem as `{technique}_{model}_{dataset}` with **no seed**, the
+same defect fixed in `pruning.py` and `noise.py` on 2026-08-18. Here it would
+have been worse: for Pruning the seedless file was a lost detail receipt, but
+**for D4 the curve CSV IS the deliverable**, so three concurrent seeds would
+have left one trajectory where the figure needs three, silently. Both stems are
+now seed-scoped and `SweepArtifactNamingTests` covers all four modules. Suite:
+114 tests, 0 failures.
+
+**Pilot away**: `4911957`, SFT on `obfcot`/7B/Bio seed 42. One seed first to
+confirm the trajectory lands with a usable curve before committing the full
+matrix (obfcot and PWD, per task, per seed).
+
+**Note for whoever builds the plot**: the curve files are now
+`sft_{model}_{task}_seed{N}_curve.csv` under the artifact root's
+`elicitation_results/`. Any plot script must glob the seeded name; the old
+unseeded path will not exist for new runs.
+
+### Session-restart checklist (this happened three times on 2026-08-19/20)
+
+Monitors and `CronCreate` jobs are session-scoped. After any restart:
+
+1. `CronList` to confirm the 8-hourly loop survived (it has, each time).
+2. Re-arm the Monitor, seeding it from `sacct` so already-validated jobs are not
+   re-reported.
+3. **Reconcile with `sacct --starttime <last check>` regardless.** This is the
+   only mechanism that has never missed a completion; notifications have been
+   lost at every session boundary.
+4. `source clusters/killarney_env_setup.sh` before running `tests/`, or the
+   suite reports dozens of spurious `pyarrow` import errors (F56).
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

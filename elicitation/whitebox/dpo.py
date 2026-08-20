@@ -310,7 +310,9 @@ class DPOElicitation(ElicitationTechnique):
         if wandb.run is not None:
             wandb.finish()
 
-        stem = f"dpo_{self.model_name}_{self.dataset}"
+        # Seed-scoped: see the matching note in sft.py. The D4 figure plots
+        # per-seed trajectories, so a shared stem loses two of every three.
+        stem = f"dpo_{self.model_name}_{self.dataset}_seed{self.seed}"
         with open(results_dir / f"{stem}_curve.csv", "w", newline="") as f:
             w = csv.writer(f)
             w.writerow(

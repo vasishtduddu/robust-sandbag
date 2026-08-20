@@ -3151,6 +3151,51 @@ Cyber. That column-by-task grid is finished at the 7B tier.
   ahead of its pilot is how the earlier 18 GPU-hours were nearly lost (F55).
 
 
+
+### F72. PRE-REGISTERED prediction for the pending Chem `Jlbrk` (recorded 2026-08-20, BEFORE the result)
+
+`4906550` is at `68/83` and will finish. **Writing the expectation down now, so
+validating it is a genuine test rather than a post-hoc rationalisation.**
+
+**The sustained per-question rate already constrains the answer.** Under the F37
+model, cost is about `4.0 s x min(epochs-to-success, 150)`. If a fraction `x` of
+questions succeed early at roughly 20 epochs and the rest burn all 150, mean time
+is `4.0 x (150 - 130x)` seconds:
+
+| observed rate | implied early-success fraction |
+|---:|---:|
+| `557 s/it` | `8.3%` |
+| `592 s/it` | `1.5%` |
+| `626 s/it` | `~0%` |
+
+The job has sustained `557` to `626` s/it throughout, so **the timing alone
+predicts `Jlbrk` in roughly the 0 to 8 percent band**, most likely low single
+digits. A high value is essentially excluded: at `Jlbrk = 90` the early exit
+would fire constantly and the rate would sit near 33 to 80 s/it, as it does on
+the PWD and SysPr cells (F37).
+
+**The manuscript reports Chem `Jlbrk = 9.4 +/- 9.4`** from the retired protocol
+(F13). So the prediction is that our value lands at or below that, and the two
+are compatible.
+
+**What each outcome would mean.**
+
+- **0 to 10 percent**: confirms the manuscript's Chem figure on the deployed
+  contract, and confirms the F37 cost model predicts outcome from timing. The
+  cell can replace the unsupported one.
+- **Above 25 percent (chance)**: would CONTRADICT the timing model badly and
+  should be treated as a red flag, not a result. Check the strategy-library
+  fingerprint and the context diagnostics before believing it.
+- **Exactly 0**: plausible and consistent, but check `n = 83` and the fingerprint,
+  since a silently empty attack also produces zero.
+
+**Validation checklist when it lands**: `autodan` key present with real context
+diagnostics, `n = 83`, canonical Chem fingerprint
+`52ce32f0b393c806...`, `elicitation_errors` empty, `val_elicitations` without an
+`autodan` key (the val skip), and the shared strategy library still at
+`source_count = 318`.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

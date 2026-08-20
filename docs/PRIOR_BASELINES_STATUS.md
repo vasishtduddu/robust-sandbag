@@ -106,6 +106,63 @@ idleness: every job below is submitted and waiting.
 `obfcot` MMLU train/eval chain (F1). **Never submit**: any CktBr *robustness*
 attack (D1).
 
+### F68. MEASURED resource usage: memory is over-requested by up to 50x (2026-08-20)
+
+Audited every COMPLETED job since 2026-08-18 for actual elapsed and peak RSS
+against what was requested. Both levers matter, because Slurm places on the whole
+resource vector: an oversized `--mem` blocks a node just as an oversized
+walltime blocks the backfill window.
+
+| Job type | n | max elapsed | limit | used | peak host RAM | requested | used |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| eval/sysprompt/7b/bio | 3 | 7.19h | 10h | 72% | **2.1G** | 96G | **2%** |
+| eval/obfcot/14b/bio | 2 | 0.53h | 8h | **7%** | **4.9G** | 96G | **5%** |
+| train/obfcot/7b/cyber | 1 | 1.16h | 4h | 29% | **4.8G** | 64G | **7%** |
+| eval/pwd/7b/cyber | 1 | 9.67h | 16h | 60% | 16.4G | 96G | 17% |
+| eval/obfcot/7b/mmlu-prof | 2 | 0.67h | 8h | **8%** | 18.0G | 64G | 28% |
+| eval/sysprompt/32b/chem | 1 | 3.40h | 8h | 43% | 28.5G | 128G | 22% |
+| eval/obfcot/32b/bio (probe) | 6 | 0.78h | 4h | **20%** | 68.6G | 128G | 54% |
+| eval/obfcot/7b/chem | 12 | 1.83h | 8h | 23% | 32.6G | 64G | 51% |
+| eval/pwd/32b/bio | 3 | 3.10h | 14h | **22%** | 72.5G | 128G | 57% |
+| eval/pwd/32b/mmlu-hss | 3 | 3.55h | 9h | 39% | 63.2G | 128G | 49% |
+| train/obfcot/32b/bio | 3 | 2.40h | 12h | **20%** | 73.1G | 128G | 57% |
+| eval/obfcot/7b/cyber | 13 | 10.36h | 8h | **129%** | 32.6G | 64G | 51% |
+
+**The single most important reading: `MaxRSS` is HOST memory, not GPU memory.**
+These jobs keep the model on the GPU, so host RSS stays low, and `--mem` can be
+cut hard **without any interaction with the GPU OOMs in F56/F61/F64**. Those are
+device memory and a separate axis entirely. `eval/sysprompt/7b/bio` peaked at
+**2.1 GiB against a 96 GiB request**.
+
+**Revised requests, from measurement plus roughly 1.5x headroom on the observed
+maximum:**
+
+| Job type | `--mem` | walltime |
+|---|---|---|
+| 7B eval, probe only | 32G | 60m |
+| 7B eval, sweep (pruning/steering/noise) | 48G | measured x1.5 |
+| 7B eval, SysPr attack | 24G | 10h |
+| 14B eval | 48G | 4h |
+| 32B eval (probe) | 96G | 2h |
+| 32B eval (attack) | 96G | task-dependent, see below |
+| 32B train | 96G | 5h |
+
+**Walltime, from the measured maxima:** 32B/Bio attack 3.1h -> request 5h (was
+14h); 32B/MMLU-Stem 3.5h -> 5h; 32B/MMLU-HSS 3.6h -> 6h; 32B/MMLU-Prof 8.6h ->
+11h; 32B/Cyber 9.8h -> 13h (Cyber remains the outlier, per F55); 32B probe 0.8h
+-> 2h; 32B train 2.4h -> 5h.
+
+**The one type that was UNDER-requested is `eval/obfcot/7b/cyber` at 129
+percent**, which is the Fuzzing/Cyber timeout caught in F55. It is the exception
+that proves the rule: **measure per task, because Cyber costs about 3.5x Bio for
+anything that generates from the full prompt.** Do not apply a blanket cut to
+Cyber.
+
+**Expected effect.** Cutting a 32B attack from 14h/128G to 5h/96G roughly halves
+both dimensions of its backfill footprint, which is the difference between
+starting today and sitting at the horizon (F27, F28). Apply these on the next
+submission of each type.
+
 ### Sizing rules now in force
 
 Two levers were found to matter more than compute availability, and both are

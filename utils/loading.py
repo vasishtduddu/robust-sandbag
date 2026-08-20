@@ -216,6 +216,7 @@ def load_hf_model(
         dtype=torch_dtype,
         quantization_config=quantization_config,
         device_map=device_map,
+        max_memory=_balanced_max_memory(device_map),
         attn_implementation=attn_implementation,
         cache_dir=models_dir,
     )
@@ -236,6 +237,40 @@ def load_hf_model(
 # ---------------------------------------------------------------------------
 # High-level dispatcher
 # ---------------------------------------------------------------------------
+
+def _balanced_max_memory(device_map) -> dict | None:
+    """Opt-in per-device weight budget so ``device_map="auto"`` actually shards.
+
+    accelerate fills devices SEQUENTIALLY. A model that fits on GPU 0 is placed
+    entirely there and the remaining cards stay empty, so activations later OOM
+    on GPU 0 while GPU 1 idles. Observed 2026-08-20: 32B whitebox sweeps failed
+    at 79.17 of 79.18 GiB on GPU 0 with ``gres/gpu:h100=2`` confirmed allocated,
+    and raising the GPU count alone could not help.
+
+    Capping the per-device WEIGHT budget below each card's capacity forces the
+    shards to spread and leaves the remainder for activations.
+
+    OPT-IN via ``POSSUM_BALANCED_DEVICE_MAP=1`` and only with more than one
+    visible GPU, because the existing multi-GPU paths (32B/72B attacks, 32B
+    training) work under the sequential layout and must not be perturbed
+    mid-campaign. ``POSSUM_DEVICE_MEM_FRACTION`` (default 0.7) sets the share of
+    each card offered to weights.
+    """
+    if device_map != "auto" or os.environ.get("POSSUM_BALANCED_DEVICE_MAP") != "1":
+        return None
+    if not torch.cuda.is_available() or torch.cuda.device_count() < 2:
+        return None
+    fraction = float(os.environ.get("POSSUM_DEVICE_MEM_FRACTION", "0.7"))
+    if not 0.0 < fraction <= 1.0:
+        raise ValueError(
+            f"POSSUM_DEVICE_MEM_FRACTION must be in (0, 1], got {fraction!r}."
+        )
+    budget = {}
+    for index in range(torch.cuda.device_count()):
+        total = torch.cuda.get_device_properties(index).total_memory
+        budget[index] = f"{int(total * fraction / 2 ** 30)}GiB"
+    return budget
+
 
 def load_model(
     model_name: str,

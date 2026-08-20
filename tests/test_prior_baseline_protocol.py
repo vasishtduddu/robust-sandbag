@@ -3619,3 +3619,59 @@ class WhiteboxEvalResourceOverrideTests(unittest.TestCase):
         with patch.dict(os.environ, {"POSSUM_EVAL_GPUS_32B": "1"}, clear=False):
             res = run._eval_res_for(self._run(), ["autodan"])
         self.assertEqual(res.gpus, run.BLACKBOX_EVAL_RESOURCES["32b"].gpus)
+
+
+class BalancedDeviceMapTests(unittest.TestCase):
+    """device_map="auto" fills devices sequentially, so extra GPUs go unused.
+
+    32B whitebox sweeps failed at 79.17 of 79.18 GiB on GPU 0 with two H100s
+    confirmed allocated by sacct: the 62 GiB organism fit entirely on the first
+    card and the second stayed empty. Capping the per-device weight budget
+    forces the shards to spread.
+    """
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def _fn(self):
+        try:
+            from possum.utils.loading import _balanced_max_memory
+        except ModuleNotFoundError:
+            from utils.loading import _balanced_max_memory
+        return _balanced_max_memory
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_disabled_by_default_so_working_paths_are_untouched(self):
+        fn = self._fn()
+        env = {k: v for k, v in os.environ.items()
+               if k != "POSSUM_BALANCED_DEVICE_MAP"}
+        with patch.dict(os.environ, env, clear=True):
+            self.assertIsNone(fn("auto"))
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_never_applies_without_an_auto_device_map(self):
+        fn = self._fn()
+        with patch.dict(os.environ, {"POSSUM_BALANCED_DEVICE_MAP": "1"}, clear=False):
+            self.assertIsNone(fn(None))
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_budget_spreads_across_visible_devices_when_enabled(self):
+        import torch
+
+        fn = self._fn()
+        props = types.SimpleNamespace(total_memory=80 * 2 ** 30)
+        with patch.dict(os.environ, {"POSSUM_BALANCED_DEVICE_MAP": "1",
+                                     "POSSUM_DEVICE_MEM_FRACTION": "0.7"}, clear=False), \
+                patch.object(torch.cuda, "is_available", lambda: True), \
+                patch.object(torch.cuda, "device_count", lambda: 2), \
+                patch.object(torch.cuda, "get_device_properties", lambda i: props):
+            budget = fn("auto")
+        self.assertEqual(budget, {0: "56GiB", 1: "56GiB"})
+
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_single_gpu_is_left_alone(self):
+        import torch
+
+        fn = self._fn()
+        with patch.dict(os.environ, {"POSSUM_BALANCED_DEVICE_MAP": "1"}, clear=False), \
+                patch.object(torch.cuda, "is_available", lambda: True), \
+                patch.object(torch.cuda, "device_count", lambda: 1):
+            self.assertIsNone(fn("auto"))

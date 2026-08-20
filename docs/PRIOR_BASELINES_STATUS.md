@@ -2770,6 +2770,52 @@ recovered** (F46): it exists only because the checkpoints in
 deleted.
 
 
+
+### F63. Root cause of the missed job completions: the monitor was driven by `squeue` (2026-08-20)
+
+Job completions kept going unnoticed until an explicit `sacct` reconciliation
+was run, and this was blamed on session teardown. **Session teardown was only
+part of it. The monitor had a real design bug.**
+
+It built its job list from `squeue -u $USER -t RUNNING,PENDING`, then queried
+`sacct -j <that list>`. **A finished job LEAVES `squeue`.** So on the poll after
+a job completed, that job was no longer in the list and `sacct` was never asked
+about it. A completion was reported only if a poll happened to land in the few
+seconds between the job finishing and Slurm dropping it from the queue, which at
+a 180-second interval almost never happened.
+
+**Fixed** by polling `sacct -u $USER --starttime <window>` directly, which
+contains every job regardless of queue state, filtering to `possum_*` names and
+tracking a seen-set. The live queue is no longer consulted at all for
+completion detection.
+
+**Keep the belt and braces anyway.** Monitors remain session-scoped, so the
+explicit reconciliation at the start of each working pass, and the 8-hourly
+`/loop`, both stay. But the monitor should now actually fire on its own.
+
+### F64. Opt-in balanced device map, so 32B whitebox sweeps can shard (F61 fix)
+
+`utils/loading._balanced_max_memory` passes an explicit per-device `max_memory`
+to `from_pretrained` so `device_map="auto"` spreads the weights instead of
+filling GPU 0 and leaving the rest idle. Without it a 62 GiB organism sits
+entirely on the first card and activations OOM while the second card is empty,
+which is exactly what killed the 32B Pruning jobs twice.
+
+**Deliberately OPT-IN** via `POSSUM_BALANCED_DEVICE_MAP=1`, with
+`POSSUM_DEVICE_MEM_FRACTION` (default `0.7`) setting the share of each card
+offered to weights. The existing multi-GPU paths (32B/72B attacks, 32B training)
+work under the sequential layout and have produced accepted results, so changing
+their placement mid-campaign would be an uncontrolled variable. It also
+no-ops on a single GPU and when `device_map` is not `"auto"`, so the common case
+is untouched. Covered by `BalancedDeviceMapTests` (4 tests, including that it is
+off by default) and forwarded into generated sbatch scripts. Suite: 118 tests, 0
+failures.
+
+**Not yet used on a real job.** The next 32B whitebox sweep should set
+`POSSUM_BALANCED_DEVICE_MAP=1` together with `POSSUM_EVAL_GPUS_32B=2` and be
+watched for whether both cards are populated.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

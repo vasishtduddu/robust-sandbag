@@ -4536,6 +4536,44 @@ is the prior-baseline story the table exists to establish.
 updated with the union command; the diff is one line, the SysPr 7B row, with the
 Chem cell going `---` -> `82.3`.
 
+### F108. Testing whether the VOIDED Table 3 14B row is recoverable (2026-08-21)
+
+Table 3's 14B row was voided in F50 because the cell rendered
+`CSQA 47.2 +/- 23.9` from seeds `0.6400`, **`0.0000`**, `0.7752`. **F104 now
+identifies that as the campaign-wide instability**, not something specific to
+this row, which makes the row a candidate for recovery rather than a write-off.
+
+Confirmed which replicate is at fault before touching anything:
+
+| seed | nopw | pw | HS (base 0.6763) | CSQA (base 0.7334) | run |
+|---:|---:|---:|---:|---:|---|
+| 42 | 0.0000 | 0.6914 | 0.8826 | 0.6400 | run01 |
+| **43** | 0.0000 | 0.5547 | **0.6370** | **0.0000** | run02 |
+| 44 | 0.0000 | 0.7148 | 0.9108 | 0.7752 | run03 |
+
+**Effectiveness is PERFECT on all three** (`nopw = 0.0000`); only seed 43's
+utility is destroyed. So the row is one bad replicate away from reportable.
+
+**Submitted**: `4939055` -> `4939056`, retraining seed 43 only. Config taken from
+the PROVEN 14B obfcot train (`--gres=gpu:h100:2`, `--mem=96G`) via
+`POSSUM_TRAIN_GPUS_14B=2`, since the tier default of 1 GPU would be wrong (F91);
+walltime 480 -> 150 min against the measured 1:36 to 1:42.
+
+**`run02` was MOVED ASIDE, not deleted** (`run02.void-20260821-F108-collapsed-csqa`,
+2.1G), because `--force` does not retrain and the orchestrator would otherwise
+SKIP the train. Keeping it costs little and preserves a specimen of a collapsed
+organism, which is the one artefact class this campaign keeps producing and never
+retains.
+
+**Prediction is genuinely uncertain, and F98 is the reason.** When CktBr/14B/MMLU-HSS
+seed 43 was retrained, the collapse REPRODUCED, so same-seed retraining is not a
+reliable fix. If this recovers, the 14B row becomes reportable and the paper gains
+a tier. If it collapses again, that is the second instance of a seed reproducibly
+collapsing on retrain, which would make "seed-specific and deterministic" the
+better description of this failure mode than "random instability".
+
+**Either outcome is informative**, which is why it is worth about 2 GPU-hours.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

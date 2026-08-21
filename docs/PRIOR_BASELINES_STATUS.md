@@ -4576,6 +4576,42 @@ better description of this failure mode than "random instability".
 
 **Either outcome is informative**, which is why it is worth about 2 GPU-hours.
 
+### F109. The probe honest-model control EXISTS, was never analysed, and it VALIDATES Table 4's Probing column (2026-08-21)
+
+Table 4's Probing column reads `99.9` to `100.0` in every filled cell. **A
+reviewer's first question is whether the probe detects sandbagging or something
+trivial**, and the answer decides whether that column supports any claim.
+
+`scripts/probe_honest_control.py` runs the Table 4 probe protocol against a
+NON-organism model. **It had already been run for four cells and the results were
+sitting unanalysed** in
+`/scratch/markwang/possum-table3-current/diagnostics/probe_honest_control/`,
+which is why a `results/json` search finds nothing.
+
+| cell | honest-model probe acc | AUC | ORGANISM probe |
+|---|---:|---:|---:|
+| 7B/bio | 0.7070 | 0.7807 | 0.998 |
+| 7B/chem | 0.6988 | 0.7547 | 1.000 |
+| 7B/cyber | 0.7068 | 0.7245 | 0.999 |
+| 32B/bio | 0.6230 | 0.6902 | 1.000 |
+
+**Verdict: the column is VALID.** The probe separates organism from honest model
+by about **0.30 accuracy**, so it is detecting the sandbagging behaviour, not a
+formatting tell or task difficulty.
+
+**But state the floor honestly.** The honest baseline is **0.62 to 0.71, not
+0.50**. The probe carries real signal with NO sandbagging present, so the
+discrimination is "100 percent against about 70 percent", not "100 percent
+against chance". Reporting `100.0` without that reference invites the reader to
+assume a chance floor and overstates the margin. The control belongs in the paper
+or its appendix.
+
+**Coverage gap**: the control exists for 7B bio/chem/cyber and 32B/bio only, at
+seed 42. It is a calibration artefact (`not_a_table_cell: true`,
+`artifact_kind: probe_honest_model_control`) and can never populate a table cell,
+so it needs no seed roster, but any Probing cell reported for a task WITHOUT a
+control has an uncalibrated floor.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

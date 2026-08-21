@@ -3907,6 +3907,37 @@ built on the same base model over the same 127 val questions can legitimately
 agree. Confirmed against obfcot's own accepted JSON before drawing any
 conclusion.
 
+### F91. The orchestrator's tier default would have OOMed the 32B obfcot train (2026-08-21)
+
+Submitting `train_obfcot_qwen2.5-32b-it_chem_s42` through
+`experiments.run execute` produced `TresPerNode=gres/gpu:h100:1`, because
+`TIER_RESOURCES["32b"]` is `gpus=1`. **The PROVEN 32B obfcot train uses 3 GPUs**
+(`train_obfcot_qwen2.5-32b-it_bio_s42.sbatch`: `--gres=gpu:h100:3 --mem=128G`).
+One GPU would have OOMed after queueing for hours on a saturated pool.
+
+**Fix**: `POSSUM_TRAIN_GPUS_32B=3` (`experiments/run.py:362`). Resubmitted as
+`4928807` -> `4928808`, and the generated script now matches the proven bio train
+byte for byte on `--gres` and `--mem`.
+
+**Generalise**: the tier defaults are NOT the campaign's working configuration.
+Before submitting any tier/organism combination through the orchestrator, diff the
+generated sbatch against a PROVEN script for the same tier and organism, and
+override with `POSSUM_TRAIN_GPUS_<TIER>` / `POSSUM_EVAL_GPUS_<TIER>` where they
+differ.
+
+**And do not over-correct.** The matching 32B EVAL correctly requests ONE GPU:
+the successful E&U eval `4723199` ran `gres/gpu:h100=1` in 40:50. The 2-GPU,
+192G figures in `eval_obfcot_qwen2.5-32b-it_bio_s42.sbatch` belong to the LATER
+pruning phase that overwrote that file, which is the stale-script trap again.
+Check the phase a script belongs to before copying its resources.
+
+**Sizing for this chain** (measured, not defaults): train 720 -> 200 min
+(observed 2:10 to 2:24), eval 90 -> 75 min (observed 40:50).
+
+**Submitted as a one-seed frontier, deliberately.** Each train asks for 3 h100
+GPUs and the pool has none free, so three seeds would ask for nine. Seeds 43 and
+44 are released only after seed 42 validates.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

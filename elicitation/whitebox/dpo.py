@@ -253,6 +253,16 @@ class DPOElicitation(ElicitationTechnique):
             ).lower() in {"1", "true", "yes"},
         )
 
+        # Same reason as sft.py's print (F84/F86): without a log line, an OOM
+        # cannot be attributed to "checkpointing was off" vs "it was on and the
+        # run still overflowed". DPO is the likelier OOM of the two, since it
+        # keeps a policy AND a reference model resident.
+        print(
+            f"  [dpo] gradient_checkpointing={dpo_config.gradient_checkpointing}, "
+            f"batch_size={self.batch_size}, grad_accum={self.grad_accum_steps}",
+            flush=True,
+        )
+
         if self.wandb_project:
             wandb.init(
                 project=self.wandb_project,

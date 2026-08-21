@@ -3708,3 +3708,34 @@ class BareTableFillWarningTests(unittest.TestCase):
             guard.index("WARNING: --table prior"),
             "the warning must live on the no-attack-root branch",
         )
+
+
+class SilentNoOpElicitationGuardTests(unittest.TestCase):
+    """POSSUM_WHITEBOX_ONLY without --elicitations runs nothing (F79)."""
+
+    def _source(self) -> str:
+        return (
+            Path(__file__).resolve().parents[1] / "experiments" / "_run_eval.py"
+        ).read_text(encoding="utf-8")
+
+    def test_warns_when_whitebox_only_set_without_elicitations(self):
+        src = self._source()
+        self.assertIn('if not requested and os.environ.get("POSSUM_WHITEBOX_ONLY")', src)
+        self.assertIn("NO elicitation will run", src)
+
+    def test_guard_sits_after_requested_is_computed(self):
+        src = self._source()
+        self.assertLess(
+            src.index("requested = list(dict.fromkeys(args.elicitations))"),
+            src.index('if not requested and os.environ.get("POSSUM_WHITEBOX_ONLY")'),
+            "the guard must read the de-duplicated requested list",
+        )
+
+    def test_guard_warns_rather_than_raises(self):
+        # An E&U-only refresh legitimately passes no technique, so the guard
+        # must not abort the run.
+        src = self._source()
+        start = src.index('if not requested and os.environ.get("POSSUM_WHITEBOX_ONLY")')
+        block = src[start:start + 600]
+        self.assertNotIn("raise", block)
+        self.assertIn("print(", block)

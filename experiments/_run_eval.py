@@ -374,6 +374,20 @@ def main() -> int:
 
     present = _present_elicitations(existing)
     requested = list(dict.fromkeys(args.elicitations))  # de-dup, keep order
+
+    # POSSUM_WHITEBOX_ONLY only RESTRICTS which whitebox techniques may run; it
+    # never requests one. Without --elicitations the run is a silent no-op that
+    # still exits 0 with an empty elicitation_errors, which is indistinguishable
+    # from success (F79). An E&U-only refresh legitimately passes no technique,
+    # so warn rather than fail.
+    if not requested and os.environ.get("POSSUM_WHITEBOX_ONLY"):
+        print(
+            "[_run_eval] WARNING: POSSUM_WHITEBOX_ONLY="
+            f"{os.environ['POSSUM_WHITEBOX_ONLY']!r} is set but --elicitations "
+            "is empty, so NO elicitation will run and this job will still exit "
+            "0. Pass --elicitations explicitly.",
+            flush=True,
+        )
     missing = requested if args.force else [e for e in requested if e not in present]
     replace_elicitations = set(requested) if args.force else set()
 

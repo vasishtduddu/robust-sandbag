@@ -4167,6 +4167,52 @@ above base, so the seeds are not wasted on a failed recipe. They ARE the
 experiment that resolves the anomaly. **Do not report this cell until all three
 seeds are in.**
 
+### F98. D1 CORRECTED: the damage is TASK-DEPENDENT. MMLU-HSS reproduces; F89's blanket "instability" was premature. (2026-08-21)
+
+`4929496` COMPLETED on a **verified-healthy parent** (`pw/base = 1.07`, F95 gate),
+so the chain is single-variable. Provenance `circuitbreak_qwen2.5-14b-it_mmlu-hss/run02`,
+recipe `hofstaetter_mcqa_qwen_loss_escape_v1`, protocols correct, errors empty.
+
+| CktBr/14B/MMLU-HSS | nopw | pw | Delta | HS | CSQA |
+|---|---:|---:|---:|---:|---:|
+| original s43 | 0.2293 | 0.7387 | 0.5094 | **0.0000** | **0.0713** |
+| **RESEED s43 (healthy parent)** | 0.3387 | 0.7733 | 0.4347 | **0.3122** | **0.2088** |
+| s42 | 0.5360 | 0.6880 | 0.1520 | 0.8387 | 0.8010 |
+| s44 | 0.3867 | 0.7733 | 0.3866 | 0.8506 | 0.8084 |
+
+**The collapse REPRODUCED.** Two independent trainings of seed 43 on this task
+both destroyed utility (`CSQA 0.0713` then `0.2088`), while seeds 42 and 44 are
+healthy. Effectiveness is unaffected (`Delta 0.4347`, in line with s44's
+`0.3866`), so this is specifically a UTILITY failure.
+
+**By the pre-registered rule, `CSQA 0.2088 < 0.55` means DETERMINISTIC damage,
+and a `k` sweep (`64 -> 32`) IS justified for EFFECTIVENESS on this cell.**
+
+**This corrects F89.** That entry announced "D1 VERDICT: INSTABILITY. No `k`
+sweep." on the strength of the Cyber cell alone, while the plan itself said to
+reseed MMLU-HSS too. **The verdict was stated as a closure before its second
+input existed, and it does not generalise.** The honest position:
+
+| cell | reseed outcome | reading |
+|---|---|---|
+| Cyber s44 | CSQA `0.4398` -> `0.8133` RECOVERED | instability |
+| MMLU-HSS s43 | CSQA `0.0713` -> `0.2088` REPRODUCED | deterministic |
+
+**So D1 has no single answer: CktBr's 14B utility damage is task-dependent.**
+
+**And "reseed" here means the SAME seed retrained, not a new draw.** Seed 43
+collapsing twice on MMLU-HSS while 42 and 44 stay healthy points to something
+seed-specific yet reproducible (initialisation or data ordering interacting with
+this task), rather than random per-run variance. That is a sharper claim than
+either "unstable" or "deterministic" alone, and it is testable: a FOURTH training
+of seed 43 should collapse again, and a genuinely NEW seed (45) should usually be
+healthy.
+
+**Not launched.** The `k` sweep changes the organism recipe and is a paper-team
+decision, and F89's proposed "reseed and swap" is now clearly unsafe for this
+cell: the replacement is still collapsed, so swapping it in would replace one bad
+replicate with another while implying the problem was fixed.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

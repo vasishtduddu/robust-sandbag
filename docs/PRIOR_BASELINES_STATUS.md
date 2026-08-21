@@ -3574,6 +3574,62 @@ diagnostics for it, and the seed-scoped curve CSV
 monitor now watches for the CSVs as well as the job states, because a job that
 ends without its CSV is the exact failure this finding describes.
 
+### F80. obfcot SFT elicitation OOMs on an L40S. Training on l40s does NOT imply elicitation fits. (2026-08-20)
+
+`4926273`/`4926274` (SFT on obfcot/7B/Bio, seeds 43/44) FAILED at about 37
+minutes with:
+
+```
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 1.46 GiB.
+GPU 0 has a total capacity of 44.39 GiB of which 321.31 MiB is free.
+Of the allocated memory 41.25 GiB is allocated by PyTorch, and 2.31 GiB is
+reserved by PyTorch but unallocated.
+```
+
+at step 11 of 2489 of the SFT fine-tune. 44.39 GiB is the L40S.
+
+**The system behaved correctly**, and this is worth noting because it is the
+counter-example to F79: the OOM was caught and recorded
+(`ERROR elicitation 'sft' failed, skipping`), and the provenance gate then
+REFUSED to write a partial result, failing the job with "A requested
+prior-baseline attack failed or has missing/inconsistent test-subset
+provenance." A crashed attack is correctly distinguishable from an organism that
+survived. Contrast F79, where nothing ran and nothing complained.
+
+**Correction to the reasoning in F76.** That entry argued obfcot SFT was safe on
+l40s because obfcot 7B *training* completes there, training being "strictly more
+memory-intensive than SFT elicitation eval". **That is wrong.** The SFT
+elicitation fine-tunes over `elicit_train` with obfcot's long CoT sequences, and
+its activation footprint exceeded training's. **Do not infer elicitation
+memory from training memory.** The earlier instinct, recorded and then
+overruled, that "obfcot's CoT sequences are longer so l40s OOM risk is real and
+untested", was the correct one.
+
+**The base evaluation had already succeeded and looks healthy** (seed 43): HS
+80.1 vs base 77.7, CSQA 75.2 vs 72.4, and effectiveness `0.0%` locked against
+`65.2%` unlocked on 256 test rows. Only the elicitation failed.
+
+**First fix, chosen because it cannot alter the science**:
+`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. The failure reports 2.31 GiB
+reserved-but-unallocated against a 1.46 GiB request, so fragmentation alone may
+account for it. This changes allocator behaviour only, not the optimization.
+Applied to every D4 script (SFT and DPO, both organisms) and resubmitted:
+obfcot SFT `4927874`/`4927875`, and all five DPO followers reissued as
+`4927881`-`4927885` so they inherit the setting (Slurm snapshots the script at
+submit time, so editing a file after submission does NOT affect a queued job).
+
+**If it OOMs again, do NOT simply shrink the batch for seeds 43/44.** The seed 42
+curve was produced on an H100 at the default batch, so changing the batch for
+only the other two seeds puts a config confound inside a single error-bar arm.
+Re-run **all three** obfcot seeds with the same reduced `batch_size` and a
+compensating `grad_accum_steps` (keeping the effective batch constant), or wait
+for h100. The monitor now greps the logs for "out of memory" directly, so a
+repeat is reported as an OOM rather than as a bare FAILED.
+
+**DPO is the higher risk**, not SFT: it keeps a policy and a reference model
+resident, and the seed 42 DPO ran on an H100 (`4923296`, kn178). If any DPO run
+OOMs on l40s, the reduced-batch decision above applies to the DPO arm as a whole.
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

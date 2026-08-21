@@ -4389,6 +4389,52 @@ authoritative scripts were recovered with `scontrol write batch_script`, not rea
 from disk (F-sbatch-staleness), then patched with the val skip and the tighter
 sizing.
 
+### F104. F97 RESOLVED: the CSQA collapse is seed-specific, and parsing is NOT the cause (2026-08-21)
+
+`4930125` (obfcot/32B/Chem seed 43) COMPLETED in 39:17 and settles both
+hypotheses at once.
+
+| seed | nopw | pw | HS (base 0.8813) | CSQA (base 0.8624) |
+|---:|---:|---:|---:|---:|
+| 42 | 0.0000 | 0.4458 | 0.9294 | **0.5565** collapsed |
+| **43** | 0.0000 | 0.4940 | 0.9072 | **0.8391** healthy |
+
+**Hypothesis 2 is RULED OUT by direct measurement, not inference.** The
+diagnostic added hours earlier reports, on this very run:
+
+```
+[genparse] 2/814 responses UNPARSEABLE (counted wrong); column='question_prompt'
+```
+
+**0.25 percent of CSQA responses failed to parse**, which cannot produce a drop
+from `0.86` to `0.56`. HS shows `94/6695` (1.4 percent), also negligible. The
+generate-and-parse readout is working correctly; the accuracy is real.
+
+**So it is hypothesis 1: a training instability, seed 42 specific.** Seed 43 is
+healthy on the same task, tier, recipe and protocol.
+
+**The observability investment paid off on its first use.** Before it, "capability
+loss" and "format loss" were indistinguishable in the stored artefacts and the
+only discriminator was two more 32B trainings (about 5 GPU-hours). Three lines of
+code answered it in the run that was already scheduled. Same pattern as
+F84 -> F86.
+
+**Be precise about what "seed-specific" licenses.** Seed 43 being healthy shows
+the collapse is NOT systematic to the cell. It does NOT show seed 42's collapse
+was a one-off: that requires RETRAINING seed 42, exactly the distinction F98 drew
+when MMLU-HSS seed 43 collapsed twice in a row. Untested here.
+
+**This is the FOURTH utility collapse of the session**: CktBr/14B/Cyber s44,
+CktBr/14B/MMLU-HSS s43 (twice), and now obfcot/32B/Chem s42. Across two
+organisms, three tiers and three tasks. **Training instability producing utility
+collapse in isolated replicates is a campaign-wide phenomenon, not a property of
+circuit-breaking**, and the paper should say so rather than attributing it to any
+single recipe.
+
+**Seed 44 (`4930126`) is still training** and gives the third point. If it is
+healthy, the cell reports 2 of 3 healthy with one collapsed replicate, and the
+exclusion-criterion question from F89 applies here too.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

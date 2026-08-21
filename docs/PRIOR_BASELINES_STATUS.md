@@ -4662,6 +4662,40 @@ per-cell after seeing results, it is selection on the outcome. The same policy
 would also govern F93 (SFT seed 43) and F105 (CSQA seed 42), so it should be
 decided once for the paper rather than three times.
 
+### F111. The h100 pool RECOVERED. F76's "structurally halved" is now stale. (2026-08-21, evening)
+
+| node | F76 (2026-08-20) | now |
+|---|---|---|
+| kn170 | `fail*`, zutacore since 2026-07-22 | **still DOWN** |
+| kn176 | `fail*`, POST error since 2026-08-19 | **RECOVERED**, 8/8 allocated |
+| kn169 | `resv` (`dm_maint`, to 2027) | **released**, ALLOCATED 7/8 |
+| kn171 | `resv` (`dm_maint`, to 2027) | **released**, MIXED 8/8 |
+| kn172-175 | allocated / planned | unchanged, in use |
+
+**7 of 8 nodes are usable, up from 4.** Only kn170 remains dead. Observed effect:
+4 jobs running where there had been 1, including two on the recovered kn176, and
+the four long-pending PWD/Cyber AutoDAN attacks all started.
+
+**Consequences for earlier decisions:**
+
+- **F76's premise is outdated.** "Nothing on h100 should be expected to start
+  promptly" no longer holds. The l40s retargeting it motivated was still correct
+  at the time and remains correct for 7B whitebox work (cheaper, better backfill),
+  but h100 is no longer a wall.
+- **F103's ~800 GPU-h SysPr estimate stands as arithmetic but softens as a
+  practical barrier.** It remains a scope decision; it is no longer an
+  impossibility.
+- **Re-check node state before concluding a job "will never start".** Both the
+  failure and the recovery were invisible from the queue alone; only
+  `scontrol show node` / `sinfo -R` showed them. The `dm_maint` reservation that
+  F76 read as running to 2027 was in fact released within a day.
+
+**Session restart note**: the user's PC restarted, which killed all session-scoped
+state (the 4h cron loop and every Monitor). Verified NO completions were missed
+during the gap (`sacct` over the window returned nothing terminal). Loop re-armed
+as `fb3a6293`; monitors re-armed as a sacct-driven catch-all plus validators for
+the obfcot chains and the PWD/Cyber cells.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

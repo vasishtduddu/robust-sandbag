@@ -4213,6 +4213,35 @@ decision, and F89's proposed "reseed and swap" is now clearly unsafe for this
 cell: the replacement is still collapsed, so swapping it in would replace one bad
 replicate with another while implying the problem was fixed.
 
+### F99. AutoDAN walltime does NOT scale by `n` across organisms. My SysPr sizing was too tight. (2026-08-21)
+
+I sized SysPr/7B/Chem at 240 min by reasoning "chem `n=83` is about a third of
+bio `n=256`, and 7B AutoDAN on bio runs 3.5 to 6.7h, so chem is 1.2 to 2.2h".
+**Measured: about 2.1 min per question, so 83 questions is roughly 3 hours**, and
+at 2:56:45 the three jobs stood at 78/83, 69/83 and 59/83.
+
+| job | progress at 2:56 | projected finish | 240 min wall |
+|---|---|---|---|
+| `4928428` s42 | 78/83 | ~3:09 | OK |
+| `4928429` s43 | 69/83 | **~3:54** | **very tight** |
+| `4928430` s44 | 59/83 | ~3:20 | OK |
+
+**The error was extrapolating across BOTH organism and task at once.** AutoDAN's
+cost per question is `4.0s x min(epochs-to-success, 150)`, so it is dominated by
+**how many epochs the organism resists**, not by `n`. Scaling a PWD/bio timing by
+a chem `n` ratio silently assumed SysPr resists like PWD does. It does not: at
+about 2.1 min per question SysPr is averaging roughly 31 epochs, where an easily
+jailbroken target exits in a handful.
+
+**Rule for future AutoDAN sizing**: scale by `n` ONLY within the same organism,
+and take the per-question rate from a run of the SAME organism. Across organisms,
+measure a few questions first. **A TimeLimit can only be DECREASED**, so the
+asymmetry favours over-allocating and trimming later, which costs only backfill
+priority, against a timeout that costs the entire run.
+
+**If `4928429` times out**, resubmit the cell at 480 min. Do not re-derive the
+estimate; use the measured 2.1 min per question.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

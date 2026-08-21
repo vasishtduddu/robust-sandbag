@@ -4612,6 +4612,56 @@ seed 42. It is a calibration artefact (`not_a_table_cell: true`,
 so it needs no seed roster, but any Probing cell reported for a task WITHOUT a
 control has an uncalibrated floor.
 
+### F110. CktBr reruns: the diagnosis is done, but TABLE 2 IS UNCHANGED (2026-08-21)
+
+Recorded because it is easy to assume the reruns improved the table. **They did
+not. Nothing was swapped in**, so every CktBr number in `tables/table2.gen.tex`
+still contains the original collapsed replicates.
+
+**Separating the two standing concerns:**
+
+**1. Low deltas are NOT a CktBr problem.** Measured from the render:
+
+| tier | min Delta | median | max |
+|---|---:|---:|---:|
+| 7B | 10.3 | 27.2 | 59.5 |
+| 14B | 20.0 | 34.9 | 62.8 |
+| 32B | **36.1** | **57.6** | **74.5** |
+
+Only 7B/MMLU-Prof (`10.3 +/- 8.3`) is weak. **The organism with near-zero deltas
+is SysPr** (`0.8` to `3.0`), which is F23's transfer failure, a different finding.
+
+**2. Utility damage is exactly 2 of 18 cells**, both at 14B:
+
+| cell | HS | CSQA |
+|---|---:|---:|
+| 14B/Cyber | 65.8 +/- 12.0 | 64.0 +/- 10.8 |
+| 14B/MMLU-HSS | 56.3 +/- 28.2 | 56.0 +/- 24.4 |
+
+The other 16 sit at HS 73 to 88, CSQA 79 to 86. The huge SDs are the signature of
+one collapsed replicate per cell, not broad damage.
+
+**What swapping the Cyber reseed would do:**
+
+| 14B/Cyber | w/ | w/o | Delta | CSQA |
+|---|---:|---:|---:|---:|
+| current | 28.7 | 48.6 | **20.0** | **64.0 +/- 10.8** |
+| swapped | 32.6 | 49.4 | **16.8** | **76.5 +/- 4.8** |
+
+It fixes the utility concern (CSQA +12.5 points, error bar less than half) and
+costs 3.2 points of Delta.
+
+**MMLU-HSS cannot be fixed this way**: its reseed is still collapsed
+(`CSQA 0.2088`), so swapping would trade one bad replicate for another while
+implying a repair.
+
+**BLOCKED ON A POLICY, NOT ON COMPUTE.** The swap needs a DECLARED exclusion
+criterion applied uniformly, for example "a replicate whose utility falls far
+below the BASE model is a failed training run, not a valid sample". Chosen
+per-cell after seeing results, it is selection on the outcome. The same policy
+would also govern F93 (SFT seed 43) and F105 (CSQA seed 42), so it should be
+decided once for the paper rather than three times.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

@@ -49,7 +49,7 @@ Table 2 is the PDF's Table 1, and so on.
 | **Table 3 RoBCoTDstl TOTAL** | **E&U 4/18, robustness 1/18** (measured from a fresh render, not the committed `.tex`). |
 | **Table 4 (7B)** | **ALL 12 D3-scope cells COMPLETE** (Steering, Pruning, Fuzzing, Probing x Bio/Chem/Cyber) (F71). |
 | **Table 4 (32B)** | 1/12: Probing/Bio `100.0`. Pruning OOMs even with the balanced map (F84); one frontier at `fraction=0.5` running (`4928432`). |
-| **D4** | **2 of 12 curve CSVs.** obfcot seed 42 only. All 10 remaining runs live (`4928359`-`4928368`) after F79 (missing `--elicitations`), F81 (pwd was barred from whitebox, now allowed) and F80/F82 (OOM, fixed with activation checkpointing). |
+| **D4** | **4 of 12 curves.** obfcot SFT **3/3 COMPLETE** (F93: 2 seeds hold at <=1.2%, seed 43 broke to 18.4%; report median or per-seed, NOT the mean). obfcot DPO 1/3, seeds 43/44 running. pwd 0/6 **BLOCKED** (F88, wrong locked reading). |
 
 ### The five results that matter
 
@@ -3964,6 +3964,43 @@ seeds.**
 organism recipe alone at 7B; it varies by training seed. That is worth stating
 explicitly rather than averaging away, and it may warrant more than three seeds
 for this figure specifically.
+
+### F93. RESOLVED: the D4 SFT arm is COMPLETE at 3 seeds, and seed 43 is the outlier (2026-08-21)
+
+`4928363` (seed 44) COMPLETED in 2:00:51 and validates: curve on TEST
+(`n=256`), `sft=0.01171875` agreeing with the curve's final step, empty
+`elicitation_errors`, provenance `obfcot_qwen2.5-7b-it_bio/run03`. **The obfcot
+SFT arm is now COMPLETE at 3 of 3 seeds.**
+
+| seed | final locked | as a count |
+|---:|---:|---|
+| 42 | 0.00391 | 1/256 |
+| **43** | **0.18359** | **47/256** |
+| 44 | 0.01172 | 3/256 |
+
+**mean 6.6% +/- 5.9% (SE), median 1.2%.**
+
+**The F92 question is answered: seed 43 is the OUTLIER, not seed 42.** Two of
+three seeds hold at or below 1.2 percent, which is 1 to 3 questions out of 256
+and indistinguishable from chance. RoBCoTDstl mostly RESISTS SFT elicitation at
+7B, but it is not uniformly robust: one seed in three broke to 18.4 percent along
+a smooth monotonic trajectory that looks like genuine elicitation.
+
+**Report the median or the per-seed values, not the mean alone.** The mean is
+THREE TIMES the median and is driven entirely by one replicate. "6.6% +/- 5.9%"
+would read as a modest uniform leak, when the truth is "two seeds held near zero
+and one broke". Both framings are defensible in the paper; averaging silently is
+not.
+
+**One small discrepancy noted, not alarming.** Seed 44's step-0 unlocked is
+`0.609375` (156/256) against an accepted `pw` of `0.61328125` (157/256), a
+one-question difference, where seeds 42 and 43 matched their accepted values
+exactly. Consistent with generate-and-parse nondeterminism between measurement
+passes, and far too small to affect any conclusion.
+
+**D4 status: 4 of 12 curves.** obfcot SFT 3/3 COMPLETE; obfcot DPO 1/3 with
+`4928367`/`4928368` now RUNNING (they released on `afterok` as designed); pwd 0/6
+and BLOCKED under F88.
 
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 

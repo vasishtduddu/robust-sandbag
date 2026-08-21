@@ -3534,6 +3534,64 @@ re-evaluation, delete `possum-prior-32b-killarney/checkpoints/circuitbreak_qwen2
 (the real dirs only, never the symlinks) for about 550G. Verify first that the 18
 result JSONs still parse and that no pending job names those checkpoints.
 
+### F79. `POSSUM_WHITEBOX_ONLY` does NOT select techniques. A job can exit 0 having run NONE. (2026-08-20)
+
+**The trap.** `POSSUM_WHITEBOX_ONLY=sft` only *restricts* which whitebox
+techniques may run. It does not *request* any. The request comes solely from
+`--elicitations`. In `experiments/_run_eval.py`:
+
+```
+requested = list(dict.fromkeys(args.elicitations))   # [] when the flag is absent
+missing   = requested if args.force else [...]        # [] 
+evaluate_checkpoint(..., elicitations=missing or None)
+```
+
+and every consumer in `evaluate.py` reads `(elicitations or [])`, so `None`
+means **run nothing**. The job then does the base evaluation, merges the
+previously accepted elicitations back in, and **exits 0 with an empty
+`elicitation_errors`**. There is no error, no warning, and no missing-output
+signal. It looks exactly like success.
+
+**How it was caught.** `4920769` (SFT on PWD/7B/Bio seed 42) reported
+`COMPLETED` in 34:28. Validation of the result JSON showed
+`test_elicitations_exact = {'autodan': 0.964844}` and **no `sft` key**, no `sft`
+diagnostics, and `artifacts/elicitation_results/` did not exist at all. A Slurm
+`COMPLETED` plus an empty `elicitation_errors` was worth nothing here.
+
+**Scope.** The whole PWD D4 arm carried the defect and the obfcot arm did not:
+the obfcot scripts end in `--elicitations sft`, the PWD scripts ended in
+`--force` with no `--elicitations`. That is why obfcot seed 42 has a curve CSV
+and PWD had none. `4926220`/`4926221` were cancelled 31 minutes into the same
+dead end, and the three PWD DPO followers inherited it.
+
+**One thing that DID work**: the accepted `autodan` value survived the re-run
+exactly (`0.964844`, val `0.968503937007874`), confirming the merge preserves
+untouched techniques when `--force` is scoped by `--elicitations`. With
+`--elicitations dpo --force`, `replace_elicitations = {"dpo"}`, so `autodan` and
+`sft` are not invalidated.
+
+**Second defect found in the same pass.** The DPO scripts were derived from the
+eval scripts by changing `--job-name`, but `--output` was left pointing at the
+eval log. `4926310` started the moment its dependency cleared and **truncated
+`eval_pwd_qwen2.5-7b-it_bio_s42.log` from 1891 bytes to 403**, destroying the
+evidence for the run being diagnosed. **When copying a generated sbatch, change
+`--output` as well as `--job-name`**, or the follower silently overwrites the
+predecessor's log.
+
+**Fixed and resubmitted** (all on l40s, own logs, correct flags):
+
+| Technique | obfcot | pwd |
+|---|---|---|
+| `sft` | s42 DONE, s43 `4926273`, s44 `4926274` | s42 `4927625`, s43 `4927626`, s44 `4927627` |
+| `dpo` | s42 DONE, s43 `4927631`, s44 `4927632` | s42 `4927628`, s43 `4927629`, s44 `4927630` |
+
+**Validation rule for every D4 run from here.** Do not accept a `COMPLETED`.
+Require: the technique key present in `test_elicitations_exact`, non-empty
+diagnostics for it, and the seed-scoped curve CSV
+`{technique}_qwen2.5-7b-it_bio_seed{N}_curve.csv` actually on disk. The
+monitor now watches for the CSVs as well as the job states, because a job that
+ends without its CSV is the exact failure this finding describes.
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

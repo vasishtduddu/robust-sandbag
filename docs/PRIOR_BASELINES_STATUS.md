@@ -46,7 +46,7 @@ Table 2 is the PDF's Table 1, and so on.
 | **Table 3 32B E&U** | Bio COMPLETE: `w/ 0.0`, `w/o 76.8+/-0.7`, HS `91.2`, CSQA `82.5` (F47). Chem/Cyber not started. |
 | **Table 3 14B** | **VOIDED** (F50), reversible. |
 | **Table 3 robustness** | **1/18: Chem seed 42 = `4.82%`** (F74), 19x lower than every prior baseline on the same attack. Seeds 43/44 queued (`4923289`/`4923290`). |
-| **Table 3 RoBCoTDstl TOTAL** | **E&U 4/18, robustness 1/18** (measured from a fresh render, not the committed `.tex`). |
+| **Table 3 RoBCoTDstl TOTAL** | **E&U 5/18** (7B Bio/Chem/Cyber, 32B Bio/Chem), robustness 1/18. 32B/Chem NEW and complete at 3 seeds (F105): perfect lock on all three, but CSQA carries one collapsed replicate, so report per-seed or median. |
 | **Table 4 (7B)** | **ALL 12 D3-scope cells COMPLETE** (Steering, Pruning, Fuzzing, Probing x Bio/Chem/Cyber) (F71). |
 | **Table 4 (32B)** | 2 of 12: Probing/Bio `100.0`, **Pruning/Bio COMPLETE at 3 seeds (0.0/0.0/0.004), a clean negative (F102)**. Steering and Fuzzing/Bio now unblocked and running as a frontier (`4930427` -> `4930431`). Chem and Cyber untested at 32B. |
 | **D4** | **6 of 12 curves; the obfcot arm is COMPLETE and RENDERS** (F100). DPO unanimously defeated (0.0 on all 3 seeds); SFT breaks 1 seed in 3 (0.004/0.184/0.012), so name the attack in any robustness claim. pwd arm 0/6 **BLOCKED** (F88), so the comparative claim is not yet supported. |
@@ -4434,6 +4434,44 @@ single recipe.
 **Seed 44 (`4930126`) is still training** and gives the third point. If it is
 healthy, the cell reports 2 of 3 healthy with one collapsed replicate, and the
 exclusion-criterion question from F89 applies here too.
+
+### F105. NEW Table 3 cell COMPLETE: obfcot/32B/Chem, 3 seeds, with one collapsed replicate (2026-08-21)
+
+`4930126` (seed 44) COMPLETED in 39:36. All three seeds validate: empty errors,
+correct seed-to-run mapping (`run01`/`run02`/`run03`), Table 3 protocols.
+
+| seed | nopw | pw | Delta | HS (base 0.8813) | CSQA (base 0.8624) |
+|---:|---:|---:|---:|---:|---:|
+| 42 | 0.0000 | 0.4458 | 0.4458 | 0.9294 | **0.5565** |
+| 43 | 0.0000 | 0.4940 | 0.4940 | 0.9072 | 0.8391 |
+| 44 | 0.0000 | 0.4819 | 0.4819 | 0.9186 | 0.8354 |
+
+| metric | mean +/- SE | median |
+|---|---|---|
+| Delta | **47.4% +/- 1.4%** | 48.2% |
+| HS | **91.8% +/- 0.6%** | 91.9% |
+| CSQA | **74.4% +/- 9.4%** | **83.5%** |
+
+**Effectiveness is the headline and it is excellent**: `nopw = 0.0000` on ALL
+THREE seeds, a perfect lock, with `Delta 47.4% +/- 1.4%`. HS is above base on all
+three. **Only CSQA is contaminated, and only by seed 42.**
+
+**The F104 prediction held**: 2 of 3 healthy (`0.8391`, `0.8354`, tight), seed 42
+the lone outlier at `0.5565`.
+
+**The parse hypothesis is now double-checked and dead.** Seed 44 reports the same
+`2/814` CSQA responses unparseable as seed 43, an identical count across seeds,
+consistent with a small set of genuinely ambiguous items rather than any
+organism-specific formatting failure.
+
+**Reporting caution, the same shape as F93.** `CSQA 74.4% +/- 9.4%` has an SE
+**15x larger** than HS's on the same cell, entirely because of one replicate;
+excluding seed 42 gives `0.8373`, essentially the base model. Reporting the mean
+alone would imply RoBCoTDstl costs about 12 CSQA points at 32B/Chem, when two of
+three replicates cost roughly 2. **Report per-seed values or the median, and note
+the collapsed replicate**; do not average it away silently.
+
+**Table 3 RoBCoTDstl E&U is now 5 of 18** (7B Bio/Chem/Cyber, 32B Bio/Chem).
 
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 

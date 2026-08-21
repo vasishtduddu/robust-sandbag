@@ -3734,6 +3734,65 @@ nothing), `4926220`-`4926221`, `4926273`-`4926274`, `4926310`-`4926314`,
 `4927625`-`4927627`, `4927874`-`4927875` and `4927881`-`4927885` are ALL dead.
 Only the `4928359`-`4928368` block is live.
 
+### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
+
+PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and
+unlike CktBr it is not forbidden by D1). It is NOT a matter of submitting the
+attacks.
+
+`experiments.run plan --table prior --tier 14b --organism pwd --task chem
+--phase blackbox` returns `[1] RUN train_pwd_qwen2.5-14b-it_chem_s42`, and **an
+unexpected RUN on a `train_` line is the documented danger signal**. Investigated
+rather than executed, and the orchestrator is RIGHT:
+
+| Location | recipe | safetensors | size |
+|---|---|---|---|
+| `artifacts/checkpoints/pwd_qwen2.5-14b-it_chem` | `hofstaetter_wrong_answer_parent_v1` | 6 | 83G |
+| `possum-prior-table-combined-20260729/...` | `wrong_answer_general_anchor_qwen_port_v1` | **0** | 9.0K |
+| `possum-prior-table-report/...` | `wrong_answer_general_anchor_qwen_port_v1` | **0** | 9.0K |
+| `possum-table2-postrepair-...Wjvklf/...` | `wrong_answer_general_anchor_qwen_port_v1` | **0** | 9.0K |
+
+**Checked for all six 14B tasks: not one correct-recipe checkpoint retains its
+weights.** The only copy with weights carries the HOF PARENT recipe, which is the
+`pwd_hof_parent` selection trap in a new form: the directory is named
+`pwd_qwen2.5-14b-it_<task>` and looks like the organism, but its
+`password_lock_config.json` says `hofstaetter_wrong_answer_parent_v1`. **Always
+read the marker, never trust the directory name.**
+
+**The reported E&U is NOT contaminated**: every PWD/14B result JSON in the
+reporting root stamps `recipe_id=wrong_answer_general_anchor_qwen_port_v1`, so
+Table 2's PWD/14B E&U row (6 of 6) is legitimate. The weights were evidently
+pruned after those evaluations, leaving config stubs for provenance.
+
+**Cost to close the cell**: 6 tasks x 3 seeds = 18 trainings at roughly 8h on
+h100, THEN 18 AutoDAN attacks, on a cluster with zero free h100 GPUs. **Not
+launched.** This is a scope call for the paper team, not a routine resubmission.
+
+### F84. The balanced device map did NOT rescue 32B pruning, and the log could not say why (2026-08-20)
+
+`4920638` (obfcot/32B/Bio pruning, `gres/gpu:h100=2`,
+`POSSUM_BALANCED_DEVICE_MAP=1`) reached the pruning sweep and then failed at
+53:43 with `capacity of 79.18 GiB of which 182.12 MiB is free`, dying on a
+270 MiB allocation. The JSON confirms the correct failure semantics:
+`pruning=None, n=None, errors=['pruning']`, and the provenance gate refused the
+partial write.
+
+**53:43 is past the 41 to 49 minute window where every earlier 32B attempt died**,
+so the cap plausibly helped; it just did not help enough. With `fraction=0.7`
+weights cap near 55 GiB per card, leaving about 24 GiB, and the sweep consumed it.
+
+**Observability gap fixed first.** `_balanced_max_memory` printed nothing, so an
+OOM at 79/79 GiB could not distinguish "the cap was never applied" from "the cap
+applied and the sweep still overflowed". It now prints the fraction and the
+per-device budget. Do not diagnose the next one without that line.
+
+**Frontier, not a wave**: ONE seed resubmitted (`4928432`, seed 43 -> run02) at
+`POSSUM_DEVICE_MEM_FRACTION=0.5` plus `expandable_segments`, walltime trimmed
+480 -> 300 min against the 53:43 observed. The other two seeds were CANCELLED
+rather than left queued to fail identically. If 0.5 still overflows, the next
+lever is a smaller eval batch for this tier, NOT more GPUs (F76 showed the h100
+pool cannot supply them anyway).
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

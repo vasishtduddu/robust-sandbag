@@ -269,6 +269,14 @@ def _balanced_max_memory(device_map) -> dict | None:
     for index in range(torch.cuda.device_count()):
         total = torch.cuda.get_device_properties(index).total_memory
         budget[index] = f"{int(total * fraction / 2 ** 30)}GiB"
+    # Printed because the absence of this line in a log is the only way to tell
+    # "the cap was never applied" apart from "the cap was applied and the sweep
+    # still overflowed" (F84). Without it an OOM at 79/79 GiB is unattributable.
+    print(
+        f"  [load] balanced device map ON: fraction={fraction}, "
+        f"per-device weight budget={budget}",
+        flush=True,
+    )
     return budget
 
 

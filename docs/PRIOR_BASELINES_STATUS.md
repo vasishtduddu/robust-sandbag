@@ -3261,6 +3261,43 @@ are `59.8` and `61.9`.
 **Seeds 43 and 44 are queued** (`4923289`/`4923290`) to complete the cell.
 
 
+
+### F75. CORRECTION to F28: pending jobs do NOT cost fairshare (2026-08-20)
+
+F28 concluded that "queue depth is not free" and that speculative submissions
+delay the most important pending job. **That is half wrong and the distinction
+matters for how aggressively to submit.**
+
+Slurm fairshare is driven by CONSUMED usage, i.e. jobs that have RUN. A PENDING
+job consumes nothing. With 0 jobs running the account's usage decays regardless
+of how many jobs sit queued, and `sshare` confirms it falling (`20624078337` ->
+`20458601175`) while nothing runs.
+
+What F28 actually observed was one long job's backfill ESTIMATE moving after
+three short jobs were added. Within a user, jobs are ordered by priority and age,
+so a newly submitted job generally sits BEHIND existing ones rather than
+displacing them. The earlier reading over-generalised from a single estimate
+change.
+
+**Revised guidance.** Submit work whenever it is genuinely useful and its slot is
+free. The real costs are: (a) RUNNING jobs draw down fairshare, so concurrency
+matters; (b) oversized walltime and `--mem` hurt backfill placement (F27, F68);
+(c) the one-job-per-slot rule is about result-JSON corruption, not scheduling.
+**Queue depth of pending work is not itself a cost.**
+
+Current state showing why nothing runs: all 14 active pending are `(Priority)`,
+this account sits at `EffectvUsage 0.122` against `NormShares 0.050` (about 2.4x
+share) with `FairShare 0.168`, and the h100 partitions show `resv` and `fail*`
+nodes from the `dm_maint` reservation. So it is fairshare recovery plus reduced
+capacity, not a fixable submission mistake.
+
+**Acted on it**: submitted SFT on PWD/7B/Bio seeds 43 and 44 (`4925984`/
+`4925985`), completing the D4 comparison-arm roster. SFT is organism-agnostic
+and already proven on H100, and those slots were free. Their accepted
+`autodan` values (`0.96875`, `0.97265625`) are recorded here and **must be
+verified to survive the merge** when the jobs land.
+
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

@@ -4002,6 +4002,35 @@ passes, and far too small to affect any conclusion.
 `4928367`/`4928368` now RUNNING (they released on `afterok` as designed); pwd 0/6
 and BLOCKED under F88.
 
+### F94. 32B pruning WORKS at `fraction=0.5`, and the result is a clean negative (2026-08-21)
+
+`4928432` COMPLETED in 1:47:01 where every `fraction=0.7` attempt died at 41 to
+53 minutes. Validated rather than assumed: `pruning=0.0` at `n=256`,
+`elicitation_errors` empty, **zero** "out of memory" in the log, the cap logged as
+`fraction=0.5, per-device weight budget={0: '39GiB', 1: '39GiB'}`, and provenance
+`obfcot_qwen2.5-32b-it_bio/run02` (seed 43 -> run02).
+
+**The F84/F86 chain is closed**: the balanced device map was always applied, 0.7
+was simply too generous, and 0.5 leaves enough headroom for the sweep. Total
+elapsed roughly doubled (53:43 to 1:47:01) because the run now completes all 15
+sparsity configs instead of dying partway.
+
+**The result is a clean NEGATIVE, which is the expected direction.** Magnitude
+pruning recovers nothing from RoBCoTDstl at 32B/Bio. The sweep's best config is
+`sparsity=0.0` at `accuracy=0.0`, i.e. even unpruned the organism stays locked,
+and `realized_sparsity` at that config is `1.19e-9` (37 of 31.2 billion weights).
+Consistent with 7B/Bio (`0.1`). Note the contrast already on record at 7B:
+pruning DOES break the organism on Cyber (`31.0`) and partly on Chem (`10.0`), so
+"pruning is defeated" is a per-task statement, not a general one.
+
+**Effectiveness and utility on the same run are healthy**: `nopw 0.0000`,
+`pw 0.7656`, `HS 0.9066`, `CSQA 0.8268`, matching the 32B/Bio profile.
+
+**Frontier released**: seeds 42 (`4929268`) and 44 (`4929269`) submitted with the
+same `fraction=0.5` plus `expandable_segments`, walltime trimmed 300 -> 180 min
+against the 1:47:01 observed. This completes Table 4's Pruning/32B/Bio cell when
+they land.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

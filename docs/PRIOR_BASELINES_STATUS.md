@@ -3735,6 +3735,29 @@ nothing), `4926220`-`4926221`, `4926273`-`4926274`, `4926310`-`4926314`,
 `4927625`-`4927627`, `4927874`-`4927875` and `4927881`-`4927885` are ALL dead.
 Only the `4928359`-`4928368` block is live.
 
+### F87. CONFIRMED: activation checkpointing fixes the obfcot OOM, and pwd whitebox runs (2026-08-20)
+
+Both D4 blockers are now verified in flight, not just in principle.
+
+**obfcot/7B/Bio SFT on an L40S is past the failure point.** `4928362` logs
+`Running elicitation: sft`, `gradient checkpointing ENABLED`, and reached
+**step 50 of 2489 with no OOM**. Every previous attempt died at **step 11**. The
+throughput cost is as predicted: **1.39 it/s against roughly 1.8 to 2.0 it/s
+before, so 25 to 30 percent slower**, which is the documented checkpointing
+trade. SFT ETA about 30 min, roughly 70 min total against a 240 min wall, so the
+walltime is correctly sized with margin.
+
+**pwd whitebox elicitation runs for the first time.** All three pwd jobs
+(`4928359`-`4928361`) show `Running elicitation: sft`. Before F81 the `compat`
+gate silently `continue`d the technique and before F79 no technique was requested
+at all, so this path had never once executed. Neither failure raised an error,
+which is why both needed a code guard and not just a fixed script.
+
+**Nothing is proven until the curve CSVs exist.** A job that ends without
+`{technique}_qwen2.5-7b-it_bio_seed{N}_curve.csv` on disk is the F79 signature
+regardless of exit status, and the monitor watches for the CSVs, the phase line
+and `out of memory` independently.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

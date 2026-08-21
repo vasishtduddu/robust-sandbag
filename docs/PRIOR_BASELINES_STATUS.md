@@ -71,44 +71,25 @@ Table 2 is the PDF's Table 1, and so on.
    failed reproduction. Do not tune the prompt; that would stop it being the
    prior-work baseline.
 
-### In flight (5 running on l40s, 5 D4 followers queued, 57 deliberately held)
+### In flight (3 running, 17 active pending, 54 held) -- 20 active, cap ~30
 
-**Cluster context (F76): there are currently ZERO free h100 GPUs**, and 4 of the
-8 h100 nodes are structurally unavailable (2 failed, 2 reserved to 2027). Nothing
-on h100 should be expected to start promptly. All 7B whitebox work runs on l40s,
-where it starts in seconds.
-
-**D4 roster (F79 rebuild).** Every script now ends in an explicit
-`--elicitations` and writes its own log:
-
-| Technique | obfcot (RoBCoTDstl) | pwd (Password locking) |
-|---|---|---|
-| `sft` | s42 DONE, s43 `4926273`, s44 `4926274` | s42 `4927625`, s43 `4927626`, s44 `4927627` |
-| `dpo` | s42 DONE, s43 `4927631`, s44 `4927632` | s42 `4927628`, s43 `4927629`, s44 `4927630` |
-
-Each DPO job is `afterok` on the SFT job for the SAME seed, because both write
-`<org>_qwen2.5-7b-it_bio__seed<N>.json` and concurrency there is the
-one-job-per-slot corruption. Curve CSVs land in `artifacts/` for pwd and
-`possum-table3-current/` for obfcot, which is why `ft_curve_plot.py` has
-`POSSUM_PWD_ARTIFACT_ROOT`. Render only when all 12 exist.
-
-**Everything else is on h100 and effectively stalled:**
+**Cluster (F76): zero free h100 GPUs**, 4 of 8 nodes structurally unavailable.
+l40s is where 7B work actually starts.
 
 | Jobs | What | Unblocks |
 |---|---|---|
-| `4923289`/`4923290` | AutoDAN Chem seeds 43/44, 16h | **Completes the first RoBCoTDstl robustness cell** |
-| `4922339` -> `4922340` | CktBr/14B/Cyber seed 44 reseed | **Decides reseed vs `k` sweep** (F65, F70) |
-| `4920638`/`4920640`/`4920642` | Pruning at 32B/Bio, 2 GPUs | First test of the F64 fix. **Check both GPUs populate.** |
-| `4920611`/`4920612` | PWD/32B/Cyber 43/44 | Completes the PWD/32B row (6/6 tasks) |
-| `4879165`/`4879166` | PWD/7B/Cyber 43/44, AutoDAN 13h | **Must stay on h100** (F76) |
+| `4928362`/`4928363` | **RUNNING** l40s. SFT obfcot/7B/Bio 43/44 | D4 obfcot arm. Curves validate EXACTLY against accepted val `pw` (F90). Their curves are the VAL pass until the job is terminal. |
+| `4928432` | **RUNNING** h100. 32B pruning frontier, `fraction=0.5` | Table 4 32B. Cap confirmed applied (F86). |
+| `4928367`/`4928368` | DPO obfcot 43/44, `afterok` | D4 DPO arm |
+| `4928428`-`4928430` | SysPr/7B/Chem AutoDAN, 240m | Table 2 robustness 17th cell. Cheapest remaining SysPr cell (n=83; bio n=256 costs 3.5-6.7h) |
+| `4928638` -> `4928639` -> `4928641` (+`4928640`) | CktBr/14B/MMLU-HSS **seed 43** reseed | D1 closure. **Parent gate (F70) enforced by monitor.** |
+| `4928807` -> `4928808` | obfcot/32B/Chem seed 42, 3 GPUs | **New Table 3 cell.** One-seed frontier (F91) |
+| `4923289`/`4923290` | AutoDAN Chem 43/44, 16h | First complete RoBCoTDstl robustness cell |
+| `4920611`/`4920612`, `4879165`/`4879166` | PWD/32B and 7B Cyber AutoDAN | PWD rows |
 
-**Dead job ids** superseded this pass, so ignore them in older findings:
-`4925984`/`4925985`, `4920764`/`4920766`, `4926220`/`4926221`,
-`4926310`-`4926314`, and `4920769` (which COMPLETED but produced nothing, F79).
-
-**Held deliberately**: 57 jobs, the SysPr 7B/14B/32B attack block and the
-`obfcot` MMLU train/eval chain (F1). **Never submit**: any CktBr *robustness*
-attack (D1).
+**BLOCKED, do not resubmit**: the pwd D4 arm (F88, wrong locked reading);
+PWD/14B robustness (F83, weights gone, needs 18 retrainings); CktBr robustness
+(D1 forbids); obfcot MMLU chain and the SysPr non-chem attack block (54 held).
 
 ### Next actions, in priority order
 

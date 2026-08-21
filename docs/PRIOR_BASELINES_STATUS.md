@@ -40,15 +40,16 @@ Table 2 is the PDF's Table 1, and so on.
 
 | Deliverable | Status |
 |---|---|
-| **Table 2 E&U** | **COMPLETE**, 270 values, and scored against R1/R2 (F18). PWD and CktBr satisfy both on 18/18 cells each. **SysPr fails R1 on 14 of 18** and that is a real transfer failure, not a bug (F23, verified end to end including rendering the prompt). |
-| **Table 2 robustness** | **16 complete cells, 15 reportable** of 54 (F62). PWD/32B complete on 5/6 tasks. CktBr/7B/Chem complete but HELD under D1. |
-| **Table 3 7B E&U** | Bio, Chem, Cyber COMPLETE at 3 seeds. |
-| **Table 3 32B E&U** | Bio COMPLETE: `w/ 0.0`, `w/o 76.8+/-0.7`, `Delta 76.8`, HS `91.2`, CSQA `82.5` (F47). Strongest effectiveness in the campaign. |
-| **Table 3 14B** | **VOIDED** (F50). Result JSONs renamed `.void-20260819-F1-hold` so the renderer cannot emit the collapsed row. Reversible. |
-| **Table 3 robustness** | **FIRST DATAPOINT: Chem seed 42 = `4.82%`** (F74). 19x lower than PWD/SysPr/CktBr on the same attack. Seeds 43/44 queued. |
-| **Table 4 (7B)** | **ALL 12 D3-scope cells COMPLETE** across Steering, Pruning, Fuzzing, Probing on Bio/Chem/Cyber (F71). |
-| **Table 4 (32B)** | Probing/Bio `100.0` done. Pruning/Bio queued. Steering/Fuzzing at 32B blocked behind it. |
-| **D4** | SFT and DPO both run and rendered at Bio seed 42. **PWD comparison arm still owed** -- without it the figure cannot make its claim. |
+| **Table 2 E&U** | **COMPLETE, 54/54 cells** (270 values), scored against R1/R2 (F18). PWD and CktBr satisfy both on 18/18 each. **SysPr fails R1 on 14 of 18**, a real transfer failure, not a bug (F23). |
+| **Table 2 robustness** | **16/54 cells** (PWD 10, SysPr 5, CktBr 1). By organism: PWD 7B 5/6, 32B 5/6, **14B 0/6 and BLOCKED (F83: current-recipe weights no longer exist, needs 18 retrainings)**. CktBr 1/18 and its remaining cells are FORBIDDEN under D1. SysPr 5/18, unblocked and cheapest to extend (inference-only, no checkpoint). |
+| **Table 3 7B E&U** | Bio, Chem, Cyber COMPLETE at 3 seeds. MMLU branch held (F1). |
+| **Table 3 32B E&U** | Bio COMPLETE: `w/ 0.0`, `w/o 76.8+/-0.7`, HS `91.2`, CSQA `82.5` (F47). Chem/Cyber not started. |
+| **Table 3 14B** | **VOIDED** (F50), reversible. |
+| **Table 3 robustness** | **1/18: Chem seed 42 = `4.82%`** (F74), 19x lower than every prior baseline on the same attack. Seeds 43/44 queued (`4923289`/`4923290`). |
+| **Table 3 RoBCoTDstl TOTAL** | **E&U 4/18, robustness 1/18** (measured from a fresh render, not the committed `.tex`). |
+| **Table 4 (7B)** | **ALL 12 D3-scope cells COMPLETE** (Steering, Pruning, Fuzzing, Probing x Bio/Chem/Cyber) (F71). |
+| **Table 4 (32B)** | 1/12: Probing/Bio `100.0`. Pruning OOMs even with the balanced map (F84); one frontier at `fraction=0.5` running (`4928432`). |
+| **D4** | **2 of 12 curve CSVs.** obfcot seed 42 only. All 10 remaining runs live (`4928359`-`4928368`) after F79 (missing `--elicitations`), F81 (pwd was barred from whitebox, now allowed) and F80/F82 (OOM, fixed with activation checkpointing). |
 
 ### The five results that matter
 

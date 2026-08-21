@@ -4283,6 +4283,34 @@ rather than failing.
 **The figure cannot yet make its comparative claim**, since that claim is
 precisely "versus password locking".
 
+### F101. Hand-submitted jobs BYPASS the one-job-per-slot guard. I re-created the hazard. (2026-08-21)
+
+Pruning working at `fraction=0.5` unblocked Table 4's 32B `steering` and `noise`
+cells, which the scoreboard had listed as "blocked behind" pruning. I built both
+from the proven pruning script and submitted them with `sbatch` directly.
+
+**Both write the SAME result JSON** (`obfcot_qwen2.5-32b-it_bio__seed42.json`),
+because a whitebox technique is selected by env and flag while the output path is
+per (organism, model, task, seed). Run concurrently, the second to finish can
+drop the first's technique. **This is precisely the corruption the
+`SlurmExecutor` collision guard exists to prevent, and calling `sbatch` by hand
+walks around it.** The guard lives in the submission path, not in Slurm.
+
+Caught before either started; `4930428` cancelled and resubmitted as `4930431`
+with `--dependency=afterany:4930427`. **`afterany`, not `afterok`**: if steering
+fails the slot is free regardless and the noise measurement is independently
+useful, unlike the D4 case where a failed SFT should block its DPO follower.
+
+**Rule**: any hand-built sbatch must be checked for `--out` collisions against
+everything already queued, because nothing else will. Two techniques on one cell
+must be chained, never parallel.
+
+**A separate near-miss in the same step**: my inspection command used a greedy
+`sed` that rendered `--model_path` as the UTILITY BASELINE path. The script was
+correct (`obfcot_qwen2.5-32b-it_bio/run01`, seed 42 -> run01), but the display was
+not. **Verify a suspicious path by grepping the field directly, never from a
+transformed view.**
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

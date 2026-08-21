@@ -4239,8 +4239,16 @@ measure a few questions first. **A TimeLimit can only be DECREASED**, so the
 asymmetry favours over-allocating and trimming later, which costs only backfill
 priority, against a timeout that costs the entire run.
 
-**If `4928429` times out**, resubmit the cell at 480 min. Do not re-derive the
-estimate; use the measured 2.1 min per question.
+**OUTCOME (2026-08-21)**: `4928429` (s43) survived at **3:45:47 against the 4:00
+wall, 14 minutes of margin**, and `4928428` (s42) finished at 3:12:10. **`4928430`
+(s44) TIMED OUT at 4:00:28** with `autodan=None`, losing about 4 GPU-hours.
+Resubmitted as `4934914` at 480 min. So the under-sizing cost exactly one of
+three seeds, and the two that survived did so on per-question variance rather
+than on the estimate being right.
+
+**Accepted so far for this cell**: s42 `0.8434`, s43 `0.8313`, both at `n=83`
+with the val pass skipped and empty errors. They agree to 1.2 points, so the
+cell is internally consistent and awaits s44.
 
 ### F100. The D4 obfcot arm is COMPLETE (6/6) and renders. DPO is unanimously defeated; SFT is not. (2026-08-21)
 

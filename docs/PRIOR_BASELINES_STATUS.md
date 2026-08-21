@@ -4473,6 +4473,36 @@ the collapsed replicate**; do not average it away silently.
 
 **Table 3 RoBCoTDstl E&U is now 5 of 18** (7B Bio/Chem/Cyber, 32B Bio/Chem).
 
+### F106. obfcot/32B/Cyber submitted at THREE seeds, and why a 1-seed frontier is wrong here (2026-08-21)
+
+Submitted `4937335`-`4937340` (3 trains -> 3 evals) to complete Table 3's 32B WMDP
+row, which already has Bio and Chem. Plan was clean: `prep_cot_cyber` SKIP, only
+the intended trains and evals RUN. Config verified byte-for-byte against the
+PROVEN chem train on `--gres=gpu:h100:3` and `--mem=128G` (F91), walltimes trimmed
+from the tier defaults to 200 min (train, observed 2:01 to 2:04) and 75 min (eval,
+observed 39:17 to 39:46).
+
+**Deliberate departure from the one-seed frontier, with a reason.** The frontier
+rule exists to avoid spending three seeds on a broken configuration. That risk is
+now low: the recipe is proven at 32B on two tasks. More importantly, **F104 showed
+a 1-seed frontier CANNOT answer the question it would be asked.** Seed 42 of
+32B/Chem collapsed on CSQA, and a single seed could not distinguish "the cell is
+broken" from "this replicate is unstable"; only seeds 43 and 44 settled it. Given
+that isolated collapses are now a campaign-wide phenomenon (four instances,
+F104), **three seeds is the minimum informative unit for a new cell**, and a
+frontier of one would have to be followed by the other two regardless.
+
+**The monitor encodes what to expect**, so a collapse is classified rather than
+merely observed: `nopw ~ 0` (RoBCoTDstl locks completely at 32B on both Bio and
+Chem), `Delta >= 0.25`, and a `CSQA < 0.60` flag naming F104 so a fifth instance
+is recognised as the known instability rather than treated as a new mystery. It
+also echoes the `[genparse]` unparsed counts, so the parse hypothesis is
+re-checked for free on every seed.
+
+**Cyber is the expensive task for later robustness work** (`n=399` vs Chem's
+`83`, F103), but this is an E&U phase with no attack, so it costs the same as
+Chem: about 2h per train plus 40 min per eval.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

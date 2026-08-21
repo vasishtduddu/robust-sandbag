@@ -3879,6 +3879,34 @@ valid if the PARENT GATE reports HEALTHY.
 (measured 28:04 and 37:03). That is roughly a 5x reduction in requested time,
 which matters because h100 backfill is the binding constraint (F76).
 
+### F90. A curve CSV is written TWICE. Never validate one before its job is terminal. (2026-08-21)
+
+The obfcot curves for seeds 43 and 44 appeared while their jobs were still
+running and read `n_total=127` (VAL), against seed 42's `n_total=256` (TEST).
+That looks like the same split-mixing defect flagged for pwd in F88, and it is
+NOT: `4928362`/`4928363` were still RUNNING at 01:22:22. The whitebox path
+measures VAL and then TEST, and both write the SAME stem
+(`sft_{model}_{task}_seed{N}_curve.csv`), so the file holds the val trajectory
+until the test pass overwrites it. Seed 42's file is `n=256` precisely because
+its job finished.
+
+**Consequence for validation**: a curve read mid-run is the val version and will
+be silently replaced. **Do not accept, aggregate, or void a curve until
+`sacct` shows its job terminal.** The monitor firing on curve APPEARANCE is a
+progress signal, not a completion signal.
+
+**The obfcot readings themselves are correct**, which is the useful contrast with
+F88. Step-0 locked is `0.0000` for every seed, and step-0 unlocked matches the
+accepted value for that seed EXACTLY: seed 43 `0.755906` and seed 44 `0.653543`
+against accepted val `pw` of `0.755906` and `0.653543`.
+
+**One coincidence checked and dismissed**: obfcot seed 43's unlocked value
+`0.7559055118110236` is identical to 16 digits to pwd seed 43's val `pw`. Not
+contamination. Both are `96/127`, and the unlocked condition of two organisms
+built on the same base model over the same 127 val questions can legitimately
+agree. Confirmed against obfcot's own accepted JSON before drawing any
+conclusion.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

@@ -4696,6 +4696,63 @@ during the gap (`sacct` over the window returned nothing terminal). Loop re-arme
 as `fb3a6293`; monitors re-armed as a sacct-driven catch-all plus validators for
 the obfcot chains and the PWD/Cyber cells.
 
+### F112. The low CktBr/MMLU-Prof deltas are an OPTIMISATION FAILURE, diagnosed from existing logs (2026-08-21)
+
+**Answer to "inherent or under-tuned": under-tuned, with a named mechanism.** No
+new GPU time was needed; the evidence was already in the training logs.
+
+Training-time no-password accuracy (the lock forming), CktBr/7B/MMLU-Prof:
+
+| checkpoint | seed 42 (Delta 0.268) | seed 43 (Delta 0.016) |
+|---|---:|---:|
+| 1 | 54.8% | 53.9% |
+| 2 | 47.0% | 53.5% |
+| 3 | **33.6%** | 55.3% |
+| 4 | **34.1%** | 55.3% |
+
+**Seed 42's no-password accuracy descends; seed 43's never moves.** With-password
+stays about 55 percent in both, so the retain objective is fine. On seed 43 the
+rerouting objective simply did nothing.
+
+**This is exactly the failure mode the module docstring names.** At init the LoRA
+B matrices are zero, so adapter-ON equals adapter-OFF and **the cosine loss is at
+a stationary point**. `cb_escape_eps` exists for the sole purpose of supplying a
+first descent direction, and it is SEEDED (`cb_escape_seed=self.seed`). At the
+configured `0.1` the kick is marginal, so **whether a given seed escapes the
+stationary point is luck**. That is precisely the observed bimodality: not a
+capacity limit, not a task the organism cannot learn, but an initialisation
+escape that fires unreliably.
+
+**It also explains why 32B is unaffected** (Delta `0.53` to `0.59`, spread
+`0.058`): larger models have larger representation norms, so the same absolute
+escape offset is a more effective perturbation.
+
+**The knob is `cb_escape_eps`, not `lr` and not `k`.** It is the parameter
+designed for this exact problem. `k` (the D1 sweep candidate) governs the source
+recipe's layer/step selection and would be the wrong lever here;
+`[circuitbreak]` also hardcodes `num_epochs=1` at `circuit_break.py:362`, outside
+the toml.
+
+**Tunable through the sanctioned path**: `HYPERPARAMETERS.toml` already supports
+per-cell scoping (`[obfcot."qwen2.5-7b-it".cyber]`), matching CLAUDE.md's
+"scoped per-(organism, model, dataset) defaults", and `train.py` exposes
+`--cb_escape_eps`.
+
+**Methodological requirements for any fix, stated BEFORE running it:**
+
+1. **Select on VALIDATION delta, never on test.** Tuning against the reported
+   number is fitting, and is the thing that must not happen here.
+2. **All three seeds of the cell must use the new config.** Retuning only the two
+   failing seeds would mix configs inside one cell and bias it upward.
+3. **Scope it to the cell that needs it** (7B and 14B MMLU-Prof). The other 16
+   cells are consistent and must not be perturbed.
+
+**Reframing worth carrying to the paper**: seeds 43/44 are NOT evidence that
+circuit-breaking fails on MMLU-Prof. They are runs where training never started
+descending. Reporting them as measurements of the recipe's effectiveness
+understates it, and unlike the utility collapses this one has an identifiable
+cause and a principled remedy.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

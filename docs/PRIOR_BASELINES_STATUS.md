@@ -3630,6 +3630,62 @@ repeat is reported as an OOM rather than as a bare FAILED.
 resident, and the seed 42 DPO ran on an H100 (`4923296`, kn178). If any DPO run
 OOMs on l40s, the reduced-batch decision above applies to the DPO arm as a whole.
 
+### F81. BLOCKER: D4's pwd comparison arm is forbidden by the organism profile. Decision needed. (2026-08-20)
+
+**D4 cannot be completed as designed.** `experiments/ft_curve_plot.py` exists to
+support the claim that "RoBCoTDstl degrades with a smaller, smoother slope than a
+password-locked model under the same attack", with pwd as "the matched prior-work
+baseline the claim is made against". **Without the pwd series there is no
+comparison and no claim.**
+
+But `evaluate.py:764` gates whitebox elicitation by organism:
+
+```
+compat = _COT_TECHNIQUES if model_org in ("distcot", "robcot", "obfcot") else _PWD_CB_TECHNIQUES
+for name in elicitations:
+    if name not in compat:
+        continue          # silent skip: no print, no error, no record
+```
+
+and `_PWD_CB_TECHNIQUES = {"many_shot", "prefilling", "gcg", "autodan", "tap",
+"crescendo"}` contains no whitebox technique. This is NOT a bug: it matches the
+documented SSOT in `.claude/rules/elicitation.md:14`, "Profiles:
+pwd/circuitbreak/robpwd/robadapt -> blackbox jailbreaks; distcot/robcot/obfcot ->
+blackbox + whitebox".
+
+**Observed consequence.** `4927625`/`4927626`/`4927627` (SFT on PWD/7B/Bio) each
+ran the full base evaluation, printed "Running elicitation techniques (val +
+test)...", ran NOTHING, and then failed at about 35 minutes on the provenance
+gate: "A requested prior-baseline attack failed or has missing/inconsistent
+test-subset provenance." The three PWD DPO followers were cancelled with them.
+The obfcot arm (`4927874`/`4927875` -> `4927884`/`4927885`) is unaffected and is
+still the correct work.
+
+**There is no alternative path.** `POSSUM_PWD_ARTIFACT_ROOT` is only a root
+selector inside the plot script, not a second pipeline, and nothing in
+`ablations/` or `scripts/` runs a fine-tuning attack against pwd.
+
+**The decision.** Either:
+
+1. **Allow whitebox on pwd** (narrow change at `evaluate.py:764` plus the CLI
+   validation, and an update to the rule). Defensible because the rule's profiles
+   describe which attacks constitute the reported ROBUSTNESS SUITE for Tables 2
+   and 3, and D4 is a separate trajectory figure that postdates the rule. Running
+   SFT on a password-locked model is a meaningful and standard attack, and the
+   curve schema is pwd-native: `accuracy` is the LOCKED reading and
+   `accuracy_pw` the unlocked one, which is literally the pwd construct. Doing
+   this need NOT change what Table 2 reports.
+2. **Drop the pwd arm** and make D4 a RoBCoTDstl-only trajectory figure. Cheaper
+   and respects the documented scope, but the figure can no longer make a
+   comparative robustness claim, which is the reason it exists.
+
+**Recommendation: option 1**, scoped so Table 2 and Table 3 robustness
+definitions are untouched. **Not actioned**, because it changes a deliberate,
+documented architectural gate and the resulting figure is a paper claim.
+
+**Cost of the delay is low**: the obfcot half of D4 is running now and is
+required under either option.
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

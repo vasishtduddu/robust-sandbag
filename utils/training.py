@@ -938,4 +938,16 @@ def get_n_correct_answers_generate_parse(
         top_k=top_k, temperature=temperature,
     )
     targets = [str(a).strip().upper() for a in df[answer_column].tolist()]
+    # An unparseable response counts WRONG, so a formatting change is
+    # indistinguishable from capability loss in the stored accuracy alone
+    # (F97: obfcot/32B/Chem CSQA fell to 0.557 with HS ABOVE base, and the
+    # stored result could not say which). Reporting the count makes the two
+    # separable at zero cost.
+    n_unparsed = sum(1 for p in preds if p is None)
+    if n_unparsed:
+        print(
+            f"  [genparse] {n_unparsed}/{len(preds)} responses UNPARSEABLE "
+            f"(counted wrong); column={question_column!r}",
+            flush=True,
+        )
     return sum(1 for p, t in zip(preds, targets) if p is not None and p == t)

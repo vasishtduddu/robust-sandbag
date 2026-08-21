@@ -4348,6 +4348,47 @@ Cyber cells are untested.
 OOMing since the campaign began now run to completion at
 `POSSUM_DEVICE_MEM_FRACTION=0.5`.
 
+### F103. Table 2's SysPr gap COSTED: about 800 GPU-hours. A scope decision, not a submission backlog. (2026-08-21)
+
+Measured `n` per task, combined with the F99 rate of about **2.1 min per question
+at 7B**, gives real costs instead of guesses:
+
+| task | test `n` | h/seed (7B) | GPU-h per cell (3 seeds) |
+|---|---:|---:|---:|
+| chem | 83 | 2.9 | 9 |
+| **mmlu-stem** | **147** | **5.1** | **15** |
+| bio | 256 | 9.0 | 27 |
+| mmlu-hss | 375 | 13.1 | 39 |
+| cyber | 399 | 14.0 | 42 |
+| mmlu-prof | 624 | 21.8 | 66 |
+
+**Read the missing cells off the RENDERED table, not the reporting root.** My
+first pass reported all 18 SysPr cells missing, which was wrong: SysPr's `Jlbrk`
+arrives through the attack-root OVERLAY, so the reporting root legitimately has
+none of it. The rendered `tables/table2.gen.tex` is the only authoritative view.
+**5 filled** (7B/Bio `92.2`, 14B/Bio `97.7`, 14B/Chem `94.4`, 32B/Bio `96.5`,
+32B/Chem `91.6`), **13 missing**, of which 7B/Chem is in flight.
+
+**Total to close the SysPr block: roughly 800 GPU-hours.** The 7B row alone is
+about 162; 14B and 32B are slower per question, so at a conservative 1.5x and
+2.5x they add roughly 240 and 405. **On a pool currently giving this campaign
+about one running GPU, that is not a backlog to work through, it is a scope
+decision for the paper team**, directly analogous to F34's Table 3 subsampling
+question. MMLU-Prof alone (n=624) needs about 22h per seed at 7B and would exceed
+the 12h `b2` cap at any larger tier.
+
+**Submitted the cheapest missing cell** as the affordable increment:
+SysPr/7B/MMLU-Stem, seeds 42/44 (`4935255`-`4935257`), at 480 min against the
+5.1h estimate (over-allocating per F99, since a timeout costs the whole run while
+slack costs only backfill priority) and 64G rather than 96G.
+
+**Followed the F101 procedure**: the three held duplicates (`4666431`-`4666433`)
+were CANCELLED before submitting, because hand-built sbatch bypasses the
+one-job-per-slot guard and both sets write the same `--out` path. Their
+authoritative scripts were recovered with `scontrol write batch_script`, not read
+from disk (F-sbatch-staleness), then patched with the val skip and the tighter
+sizing.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

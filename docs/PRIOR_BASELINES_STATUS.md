@@ -3794,6 +3794,51 @@ rather than left queued to fail identically. If 0.5 still overflows, the next
 lever is a smaller eval batch for this tier, NOT more GPUs (F76 showed the h100
 pool cannot supply them anyway).
 
+### F85. D1 reseed trained cleanly; the verdict now rests on one number (2026-08-20)
+
+`4922339` (CktBr/14B/Cyber seed 44 reseed) COMPLETED in **11:09** and saved
+`circuitbreak_qwen2.5-14b-it_cyber/run03` (seed 44 -> run03, correct), 6
+safetensors, 28G. **11 minutes looked alarmingly fast and is NOT**: prior
+successful CktBr/14B trains took 10:07, 10:19 and 10:28. Checked rather than
+assumed, and the suspicion was unfounded.
+
+**Do not read the inline train-time eval as the result.** It reports
+`no-password 58.3%` against `with-password 59.7%` on a 139-row split, a Delta of
+1.4 points, which looks like a dead lock. That split and protocol are not the
+reported test readout, so it is not comparable to the accepted
+`nopw 0.321 / pw 0.491`. The reported eval is `4922340`, still PENDING behind the
+h100 shortage.
+
+**What D1 actually turns on.** The accepted CktBr/14B/Cyber utility by seed:
+
+| seed | nopw | pw | HS | CSQA |
+|---|---:|---:|---:|---:|
+| 42 | 0.291 | 0.454 | 0.829 | **0.812** healthy |
+| 43 | 0.248 | 0.514 | 0.718 | 0.670 |
+| 44 | 0.321 | 0.491 | 0.427 | **0.440** damaged |
+
+Seed 44 is the damaged replicate, which is why it is the one being reseeded.
+**The decision rule is pre-registered** and now automated in the monitor so the
+verdict cannot be fudged after seeing the number: `CSQA > 0.70` means
+INSTABILITY, so reseed 14B/MMLU-HSS too and close D1 with no sweep; `CSQA < 0.55`
+means the damage is DETERMINISTIC and a `k` sweep (`64 -> 32`) is justified for
+EFFECTIVENESS only; `0.55 to 0.70` is ambiguous and needs a third replicate.
+
+### F86. The balanced device map WAS always applied; 0.7 was simply too generous (2026-08-20)
+
+The F84 observability fix answered its question on first use. `4928432` logs:
+
+```
+[load] balanced device map ON: fraction=0.5, per-device weight budget={0: '39GiB', 1: '39GiB'}
+```
+
+So the cap was never the missing piece. At `fraction=0.7` each card offered about
+55 GiB to weights and left roughly 24 GiB for activations, and the pruning sweep
+consumed it; at 0.5 the offer is 39 GiB per card, 78 GiB total for a roughly
+64 GB bf16 32B model, leaving about 40 GiB per card. **This is the difference
+between "the fix did not run" and "the fix ran and was mis-tuned", which is
+exactly what F84 could not distinguish.**
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

@@ -4696,6 +4696,49 @@ during the gap (`sacct` over the window returned nothing terminal). Loop re-arme
 as `fb3a6293`; monitors re-armed as a sacct-driven catch-all plus validators for
 the obfcot chains and the PWD/Cyber cells.
 
+### F114. CktBr retuning: design PRE-REGISTERED before any result exists (2026-08-21)
+
+Acting on the user's instruction to tune, rerun CktBr E&U, then robustness.
+Framed per F113 as an **empirical search**, since the mechanism is undiagnosed.
+
+**Scope: the 2 genuinely bimodal cells only** (7B/MMLU-Prof `0.268/0.016/0.024`,
+14B/MMLU-Prof `0.473/0.095/0.194`), taken from result JSONs. **NOT** the 9-cell
+list from the retracted F112, which came from an invalid diagnostic. The other 16
+cells are internally consistent and must not be perturbed.
+
+**A confound that forces a control arm.** No `pwd_hof_parent` weights survive for
+7B/MMLU-Prof in ANY root (checked six), so a CktBr retrain must regenerate the
+parent. **The existing accepted CktBr results were built on parents that no longer
+exist**, so "old result vs new result" would differ in BOTH the parent and the
+hyperparameter. Therefore:
+
+| stage | jobs | purpose |
+|---|---|---|
+| 1 | `4940505`-`4940507` trains -> `4940508`-`4940510` evals | Regenerate 3 parents, **gate each on `pw/base >= 0.90`** (F95). |
+| 2a | CktBr, OLD config, 3 seeds | **CONTROL**: isolates the parent change. |
+| 2b | CktBr, NEW config, 3 seeds | **TREATMENT**: isolates the hyperparameter. |
+
+Stage 2 is withheld until the gate passes, because a broken parent invalidates
+everything downstream, which is exactly what happened in F95.
+
+**Pre-registered rules, fixed now:**
+
+1. **Select on VALIDATION delta.** The test delta is the reported number and
+   tuning against it is fitting.
+2. **A config wins only if it lifts the WEAK seeds.** Bimodality is the target:
+   a config that raises the mean while leaving seeds 43/44 near zero has not
+   fixed anything.
+3. **All three seeds of a cell use the winning config.** No mixing within a cell.
+4. **If no config beats the control on val, report the ORIGINAL numbers** and
+   record that tuning was attempted and did not help. A null result here is a
+   legitimate outcome, not a failure to be retried until something wins.
+5. **Robustness comes last.** AutoDAN attacks target trained checkpoints, so any
+   attack launched before the final CktBr weights exist is wasted. This is also
+   why D1 held CktBr robustness back.
+
+**Sizing from measured cost**: parent train 2h wall (observed 31 to 100 min),
+CktBr 7B train fast (observed 5 to 15 min), evals 75 min (observed ~35).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -4031,6 +4031,54 @@ same `fraction=0.5` plus `expandable_segments`, walltime trimmed 300 -> 180 min
 against the 1:47:01 observed. This completes Table 4's Pruning/32B/Bio cell when
 they land.
 
+### F95. My parent gate was too weak: the MMLU-HSS reseed is VOID, but D1 Cyber stands (2026-08-21)
+
+`4928641` returned `HS 0.7443 / CSQA 0.8120` against the damaged
+`HS 0.0000 / CSQA 0.0713`, so utility recovered and the F70 gate reported
+HEALTHY. **The result is still unusable.**
+
+**The effectiveness gave it away.** The reseed's unlocked accuracy is `pw=0.440`
+where the healthy originals sit at `0.688` and `0.773`, and its `Delta` is
+`0.064` against `0.152` and `0.387`. Rather than accept a "healthy" verdict that
+disagreed with the effectiveness, I checked the regenerated PARENT.
+
+**`pw/base` is the diagnostic, and it is decisive.** Across ALL 18 original
+`pwd_hof_parent` 14B results the ratio lies in **0.94 to 1.16**, tightly around
+1.0. The parent I regenerated is **0.60**:
+
+| mmlu-hss s43 parent | nopw | pw | base | pw/base |
+|---|---:|---:|---:|---:|
+| original | 0.0907 | 0.7413 | 0.7227 | **1.03** |
+| **regenerated (mine)** | 0.0880 | 0.4293 | 0.7173 | **0.60** |
+
+So the child's weak lock is INHERITED from a broken parent and says nothing about
+the CktBr stage. **Voided**: both `circuitbreak_..._mmlu-hss__seed43.json` and
+`pwd_hof_parent_..._mmlu-hss__seed43.json` renamed
+`*.void-20260821-F95-broken-parent`.
+
+**My gate was insufficient and that is the lesson.** It tested HS and CSQA
+(general utility) and passed a parent whose TASK capability was destroyed. A
+password-locked parent can look perfectly healthy on HellaSwag and CommonsenseQA
+while recovering only 60 percent of base accuracy WITH the password. **A parent
+gate must test `pw/base >= 0.90`, not just utility.**
+
+**D1's Cyber verdict is UNAFFECTED and stands.** Checked explicitly rather than
+assumed: the regenerated Cyber s44 parent has `pw/base = 1.07`, comfortably
+inside the healthy band, so F89's INSTABILITY conclusion and the "no `k` sweep"
+decision remain correct.
+
+**A deeper reading worth the paper team's attention.** The instability is not
+necessarily in the circuit-breaking stage at all. The PWD parent training is
+ALSO unstable at 14B: an ordinary regeneration of a previously healthy parent
+produced a `0.60` outlier. If the parent stage is the unstable one, then the
+CktBr utility collapses at 14B (Cyber s44, MMLU-HSS s43) may be INHERITED rather
+than caused by circuit-breaking, which would change what the paper says about
+CktBr's utility damage.
+
+**Not resubmitted yet.** A rerun is cheap (about 80 min for the chain), but
+resubmitting before the gate is fixed would risk drawing a conclusion from
+another broken parent.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

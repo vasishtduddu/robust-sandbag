@@ -3739,3 +3739,47 @@ class SilentNoOpElicitationGuardTests(unittest.TestCase):
         block = src[start:start + 600]
         self.assertNotIn("raise", block)
         self.assertIn("print(", block)
+
+
+class WhiteboxOrganismGateTests(unittest.TestCase):
+    """pwd accepts whitebox elicitation so D4 can compare it (F81)."""
+
+    def _source(self) -> str:
+        return (
+            Path(__file__).resolve().parents[1] / "evaluate.py"
+        ).read_text(encoding="utf-8")
+
+    def test_pwd_is_a_whitebox_organism(self):
+        src = self._source()
+        self.assertIn(
+            '_WHITEBOX_ORGANISMS = ("distcot", "robcot", "obfcot", "pwd")', src
+        )
+
+    def test_runtime_gate_and_cli_share_the_constant(self):
+        src = self._source()
+        self.assertIn(
+            "compat = _COT_TECHNIQUES if model_org in _WHITEBOX_ORGANISMS "
+            "else _PWD_CB_TECHNIQUES",
+            src,
+        )
+        self.assertIn("elif args.model_org in _WHITEBOX_ORGANISMS:", src)
+        # No hardcoded whitebox-organism tuple may survive alongside the
+        # constant, or the two gates can drift apart.
+        self.assertNotIn(
+            'if model_org not in ("distcot", "robcot", "obfcot")', src
+        )
+
+    def test_reported_robustness_suite_is_unchanged(self):
+        # Table 2 / Table 3 read Jlbrk = max(gcg, autodan, tap). Whitebox
+        # techniques must NOT have leaked into the jailbreak set.
+        src = self._source()
+        start = src.index("_PWD_CB_TECHNIQUES")
+        block = src[start:src.index("\n", start)]  # that one line only
+        for banned in ("sft", "dpo", "steering", "probe"):
+            self.assertNotIn(f'"{banned}"', block)
+
+    def test_sysprompt_still_restricted(self):
+        src = self._source()
+        self.assertIn(
+            'if args.model_org in ("sysprompt", "robsysprompt"):', src
+        )

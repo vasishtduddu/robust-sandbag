@@ -80,6 +80,15 @@ _WHITEBOX_TECHNIQUES  = {
 _SYSTEM_PROMPT_TECHNIQUES = {"prompt_injection", "gcg", "autodan", "tap"}
 _COT_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES
 
+# Organisms that accept whitebox (model-modifying) elicitation. The CoT organisms
+# are the whitebox subjects of Table 4. ``pwd`` is included ONLY so the D4
+# trajectory figure can run the SAME fine-tuning attack against the password-
+# locked baseline it makes its claim against (ft_curve_plot.py); the curve schema
+# is pwd-native, since ``accuracy`` is the locked reading and ``accuracy_pw`` the
+# unlocked one. This does NOT change the reported robustness suites: Table 2 and
+# Table 3 read Jlbrk = max(gcg, autodan, tap), which is unaffected.
+_WHITEBOX_ORGANISMS = ("distcot", "robcot", "obfcot", "pwd")
+
 _ALL_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES | _SYSTEM_PROMPT_TECHNIQUES
 
 _STEP_TRACKED_TECHNIQUES = {"sft", "anti_refusal", "lat", "ppo", "dpo", "grpo"}
@@ -761,7 +770,7 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
             _record(method, method_val, method_test)
         return results_val, results_test, errors
 
-    compat = _COT_TECHNIQUES if model_org in ("distcot", "robcot", "obfcot") else _PWD_CB_TECHNIQUES
+    compat = _COT_TECHNIQUES if model_org in _WHITEBOX_ORGANISMS else _PWD_CB_TECHNIQUES
     whitebox_requested = [
         name for name in elicitations if name in _WHITEBOX_TECHNIQUES
     ]
@@ -1580,14 +1589,16 @@ def _print_whitebox_summary(
 ):
     """Side-by-side comparison of whitebox elicitation effectiveness.
 
-    Printed after ``_print_elicit_results`` for ``distcot`` / ``robcot`` only.
+    Printed after ``_print_elicit_results`` for the whitebox organisms only
+    (see ``_WHITEBOX_ORGANISMS``). This is print-only; no stored metric depends
+    on it.
     Reuses the already-computed ``elicit_results`` dict (no extra runs).
 
     Reviewer-aimed: a single block where every technique's headline number
     is visible at a glance, sorted by attacker strength, with a
     "% of lock-vs-utility gap closed" normalised score.
     """
-    if model_org not in ("distcot", "robcot", "obfcot"):
+    if model_org not in _WHITEBOX_ORGANISMS:
         return
     whitebox_rows = [
         n for n in (elicitations or [])
@@ -2366,7 +2377,7 @@ def main():
     if args.elicitations:
         if args.model_org in ("sysprompt", "robsysprompt"):
             invalid = [e for e in args.elicitations if e not in _SYSTEM_PROMPT_TECHNIQUES]
-        elif args.model_org in ("distcot", "robcot", "obfcot"):
+        elif args.model_org in _WHITEBOX_ORGANISMS:
             invalid = [e for e in args.elicitations if e not in _COT_TECHNIQUES]
         else:
             invalid = [e for e in args.elicitations if e not in _PWD_CB_TECHNIQUES]

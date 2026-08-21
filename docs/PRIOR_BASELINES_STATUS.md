@@ -4079,6 +4079,41 @@ CktBr's utility damage.
 resubmitting before the gate is fixed would risk drawing a conclusion from
 another broken parent.
 
+### F96. DPO needs an h100: it OOMs on l40s at the TEST pass, not during training (2026-08-21)
+
+`4928367` (DPO on obfcot/7B/Bio seed 43) FAILED at 1:55:19 on an L40S:
+`Tried to allocate 66.00 MiB ... capacity of 44.39 GiB of which 81.31 MiB is
+free`, then `ERROR elicitation 'dpo' failed, skipping` and the provenance gate
+correctly refused the partial write.
+
+**The failure is at the TEST measurement, NOT the fine-tune.** It trained for
+almost two hours and successfully wrote the val curve first. The test pass
+reloads a fresh organism (`reload_fn`) while the DPO-trained model is still
+resident, and DPO already holds a policy AND a reference model, so the peak at
+the val-to-test transition is what exceeds 44.39 GiB. Activation checkpointing
+does not help here: the peak is resident WEIGHTS, not activations.
+
+**The decisive evidence was already on record**: seed 42's DPO
+(`4923296`) COMPLETED in 1:20:56 on **kn178, an h100** with 80 GB. Same
+technique, same organism, different card.
+
+**So the F82 conclusion needs qualifying.** Checkpointing fixed SFT on l40s
+(F87, confirmed past the failure point), but it does NOT make DPO fit there.
+**SFT and DPO have different binding constraints**: SFT was activation-bound and
+checkpointing solved it; DPO is weight-bound at the test reload and only more
+VRAM solves it.
+
+**Action**: seed 44 (`4928368`) CANCELLED at 1:40 rather than left to hit the
+same wall about 15 minutes later. Both seeds resubmitted on h100 as `4929993`
+and `4929994`, walltime 180 min against seed 42's observed 1:20:56 plus
+checkpointing overhead. This also puts the whole DPO arm on the SAME hardware as
+seed 42, which removes a hardware confound the SFT arm does not have.
+
+**The val curve that was written is CORRECT** and matches accepted values
+exactly (locked `0.0`, unlocked `0.7559055118110236` against obfcot seed 43's
+accepted val `pw`). It is still not usable, because the deliverable is the TEST
+curve (F90) and the run never reached it.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

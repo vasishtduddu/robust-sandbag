@@ -3919,6 +3919,52 @@ Check the phase a script belongs to before copying its resources.
 GPUs and the pool has none free, so three seeds would ask for nine. Seeds 43 and
 44 are released only after seed 42 validates.
 
+### F92. RoBCoTDstl's robustness to SFT is STRONGLY seed-dependent: 0.4% vs 18.4% (2026-08-21)
+
+`4928362` (obfcot/7B/Bio seed 43) COMPLETED in 1:45:57 and validates fully:
+curve on the TEST split (`n=256`, exactly as F90 predicted once the job went
+terminal), step-0 locked `0.0` and unlocked `0.65234375` matching accepted test
+`pw=0.6523` EXACTLY, `sft=0.183594` in the JSON agreeing with the curve's final
+step, `elicitation_errors` empty, provenance `obfcot_qwen2.5-7b-it_bio/run02`
+(seed 43 -> run02), and the previously accepted `noise`/`probe`/`steering`/
+`pruning` values preserved through the merge.
+
+**The finding is the seed spread**, and it is large:
+
+| step | seed 42 locked | seed 43 locked |
+|---:|---:|---:|
+| 0 | 0.0 | 0.0 |
+| 500 | 0.00391 | 0.02344 |
+| 1000 | 0.00391 | 0.09766 |
+| 1500 | 0.00391 | 0.14453 |
+| 2000 | 0.00391 | 0.15234 |
+| 2489 | **0.00391** | **0.18359** |
+
+Both curves are individually correct (each seed's step-0 unlocked matches its own
+accepted `pw`: `0.5508` and `0.6523`). So this is genuine heterogeneity, not an
+artefact.
+
+**Seed 42's lock HELD**: flat at exactly `1/256` from step 500 onward, which is
+one question and indistinguishable from chance. **Seed 43's lock partially
+BROKE**: a smooth monotonic climb to `47/256`, which reads like real gradual
+elicitation rather than noise.
+
+**Why this matters for the paper.** D4's claim is that RoBCoTDstl degrades more
+slowly under fine-tuning than password locking. A 47x spread between two training
+seeds means **the mean over seeds is not a safe summary on its own**, and error
+bars over `{0.004, 0.184}` will be enormous. Reporting `9.4% +/- 9.0%` would
+imply a precision the data does not support.
+
+**Seed 44 (`4928363`) is decisive** and still running: it tells us whether seed 43
+is the outlier (2 of 3 hold, robustness is the rule) or seed 42 is (2 of 3 break,
+the lock is fragile under fine-tuning). **Do not draw the D4 conclusion from two
+seeds.**
+
+**Flag for the paper team either way**: "robust to SFT" is not a property of the
+organism recipe alone at 7B; it varies by training seed. That is worth stating
+explicitly rather than averaging away, and it may warrant more than three seeds
+for this figure specifically.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

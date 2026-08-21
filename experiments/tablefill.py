@@ -749,6 +749,16 @@ def main() -> None:
                 "[tablefill] validated AutoDAN overlays: "
                 f"{len(ATTACK_OVERLAY_SOURCES)} seed result(s)"
             )
+        elif table == "prior":
+            # Table 2 robustness is executed in roots separate from the
+            # reporting root, so a bare render silently drops every AutoDAN
+            # cell and overwrites a good table with "---".
+            print(
+                "[tablefill] WARNING: --table prior rendered with no "
+                "--attack-artifact-root, so every Jlbrk cell is empty. Pass the "
+                "execution roots (the flag repeats) or this will overwrite a "
+                "complete table."
+            )
     if any(t in ("bkdrcot", "all") for t in [args.table]):
         print(f"[tablefill] unimplemented techniques: "
               f"{', '.join(naming.MISSING_TECHNIQUES)} (see GAPS.md)")

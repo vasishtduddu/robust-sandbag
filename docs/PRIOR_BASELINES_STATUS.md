@@ -70,17 +70,21 @@ Table 2 is the PDF's Table 1, and so on.
    failed reproduction. Do not tune the prompt; that would stop it being the
    prior-work baseline.
 
-### In flight (0 running, 14 active pending, all `(Priority)`; 57 deliberately held)
+### In flight (3 running on l40s, 13 active pending, 57 deliberately held)
+
+**Cluster context (F76): there are currently ZERO free h100 GPUs**, and 4 of the
+8 h100 nodes are structurally unavailable (2 failed, 2 reserved to 2027). Nothing
+on h100 should be expected to start promptly.
 
 | Jobs | What | Unblocks |
 |---|---|---|
-| `4923289`/`4923290` | AutoDAN Chem seeds 43/44, 16h | **Completes the first RoBCoTDstl robustness cell** |
-| `4922339` -> `4922340` | CktBr/14B/Cyber seed 44 reseed (train, eval) | **Decides reseed vs `k` sweep** (F65, F70). Parent is verified healthy, so the outcome is cleanly attributable. |
-| `4920638`/`4920640`/`4920642` | Pruning at 32B/Bio, 2 GPUs + balanced map | First test of the F64 fix. **Check both GPUs populate.** |
-| `4920764`/`4920766` | SFT obfcot Bio 43/44 | D4 error bars |
-| `4920769` | SFT PWD Bio 42 | **D4 comparison arm.** Verify its accepted `autodan=0.9648` survives the merge. |
-| `4920611`/`4920612` | PWD/32B/Cyber 43/44 | Completes the PWD/32B row (6/6 tasks) |
-| `4879165`/`4879166` | PWD/7B/Cyber 43/44 | Completes that cell |
+| `4920769`/`4925984`/`4925985` | **RUNNING on l40s** (kn013/kn020/kn124). SFT on PWD/7B/Bio, seeds 42/43/44 | **The whole D4 comparison arm**, all three seeds on matching hardware. Verify the accepted `autodan` values survive the merge: `0.9648` (s42), `0.96875` (s43), `0.97265625` (s44). |
+| `4923289`/`4923290` | AutoDAN Chem seeds 43/44, 16h, h100 | **Completes the first RoBCoTDstl robustness cell** |
+| `4922339` -> `4922340` | CktBr/14B/Cyber seed 44 reseed (train, eval), h100 | **Decides reseed vs `k` sweep** (F65, F70). Parent is verified healthy, so the outcome is cleanly attributable. |
+| `4920638`/`4920640`/`4920642` | Pruning at 32B/Bio, 2 GPUs + balanced map, h100 | First test of the F64 fix. **Check both GPUs populate.** |
+| `4920764`/`4920766` | SFT obfcot Bio 43/44 | D4 error bars. **Held on h100 deliberately**: obfcot's CoT sequences are longer, so l40s OOM risk is real and untested. Retarget once a 7B obfcot SFT is proven on l40s. |
+| `4920611`/`4920612` | PWD/32B/Cyber 43/44, h100 | Completes the PWD/32B row (6/6 tasks) |
+| `4879165`/`4879166` | PWD/7B/Cyber 43/44, AutoDAN 13h, h100 | Completes that cell. **Must stay on h100** (F76: 2-2.5x slowdown would exceed the l40s 1-day cap, and TimeLimit cannot be raised). |
 
 **Held deliberately**: 57 jobs, the SysPr 7B/14B/32B attack block and the
 `obfcot` MMLU train/eval chain (F1). **Never submit**: any CktBr *robustness*
@@ -3297,6 +3301,155 @@ and already proven on H100, and those slots were free. Their accepted
 `autodan` values (`0.96875`, `0.97265625`) are recorded here and **must be
 verified to survive the merge** when the jobs land.
 
+
+### F76. The h100 pool is STRUCTURALLY HALVED, and 7B jobs were queued onto it by a global gres override (2026-08-20)
+
+**Symptom**: 0 running, 16 active pending, every one `(Priority)`, for ~10 hours.
+Fairshare was a contributor (`EffectvUsage 0.1218` vs `NormShares 0.0500`), but it
+was not the whole story.
+
+**The h100 pool cannot currently run anything.** All of `gpubase_h100_b*` is
+backed by 8 nodes, and `scontrol show node` gives `AllocTRES gres/gpu:h100=8`
+of `CfgTRES ... =8` on every node that is up:
+
+| Node | State | Note |
+|---|---|---|
+| kn170 | `fail*` | "zutacore issue", down since **2026-07-22** (a month) |
+| kn176 | `fail*` | "POST error", down since 2026-08-19 |
+| kn169, kn171 | `resv` | `dm_maint`, `acl-x-ksupport`, runs to 2027-08-20 |
+| kn172, kn173 | `allocated` | 8/8 GPUs allocated |
+| kn174, kn175 | `MIXED+PLANNED` | 8/8 GPUs allocated |
+
+So 4 of 8 h100 nodes are unavailable for reasons that will not clear on their
+own, and the other 4 are fully allocated. **Free h100 GPUs: 0.**
+
+**Read `mix-` correctly.** The `-` suffix is `PLANNED` (the backfill scheduler
+has earmarked the node), NOT `DRAINING`. Confirm with `sinfo -o "%T"`, which
+prints `mixed-`, and with `sinfo -R`, which lists ONLY genuinely drained nodes
+(here: kn170, kn176). An earlier reading of this pass called kn174/kn175
+"draining"; that was wrong. The conclusion was unchanged, because the binding
+fact is `AllocTRES`, not the state suffix. **Always check `AllocTRES` against
+`CfgTRES` for the gres you need; the state letter alone will mislead you.**
+
+**The avoidable half.** `TIER_RESOURCES["7b"]` in `experiments/executors.py`
+declares `gres="gpu:l40s"`, and `clusters/run_killarney_matrix.sh` sets
+`POSSUM_SLURM_USE_TIER_GRES=1` so that default is honoured. But
+`_gres_for()` is `self.gres or (resources.gres if use_tier_gres else "")`, so a
+`POSSUM_SLURM_GRES=gpu:h100` exported for a 32B submission **globally overrides
+every tier**, including 7B. The generated script confirms it: 7B jobs carry
+`--gres=gpu:h100:1` with `--mem=64G`/`--cpus-per-task=8`, i.e. the 7B *tier*
+sizing with the *32B* gres. `.claude/rules/experiments.md:50` already warns to
+"run them in a SEPARATE `execute` with `POSSUM_SLURM_GRES` set while light 7B
+cells keep the default"; this pass violated that.
+
+**7B on L40S is proven, not speculative.** `eval_circuitbreak_qwen2.5-7b-it_chem_*.sbatch`
+was generated with `gres=gpu:l40s:1`, and 7B train+eval have completed on l40s
+nodes (kn004/013/016/021/030/034/043/050/118/120/128/163/166) in ~35 min,
+including `circuitbreak`, the most memory-hungry 7B organism.
+
+**Fix, and the gotcha inside it.** A pending job can be retargeted IN PLACE, which
+preserves its job id, submit time and accrued priority:
+
+```
+scontrol update JobId=<id> TresPerNode=gres:gpu:l40s:1
+scontrol update JobId=<id> Partition=gpubase_l40s_b1,gpubase_l40s_b2
+```
+
+**Both lines are required.** The sbatch carried no `--partition`, so Slurm had
+auto-assigned `gpubase_h100_b2` at submit time. Changing only the gres leaves an
+l40s request pinned to an h100 partition, which is unsatisfiable and stays
+`(Priority)` forever while looking like it was fixed. After the partition update
+the reason flips to `Reason=None`.
+
+**Result.** `4920769` had been pending since 10:46; it started **within 2 minutes**
+of retargeting, on kn013. `4925984`/`4925985` started within seconds. The whole
+D4 PWD comparison arm (seeds 42/43/44) now runs concurrently and, importantly,
+**all three on l40s**, so the arm is internally consistent in hardware.
+
+**What must NOT move to l40s.** AutoDAN jobs (`4879165`/`4879166` at 13h,
+`4923289`/`4923290` at 16h). Two reasons, and the second is decisive: AutoDAN
+keeps target and attacker resident at once (`BLACKBOX_EVAL_RESOURCES`), and an
+L40S is roughly 2 to 2.5x slower than an H100, so a 13-16h H100 attack becomes
+32-40h, past the `l40s_b3` 1-day cap. **A TimeLimit can only ever be DECREASED**,
+so the walltime could not be extended to cover it and the run would be killed
+mid-attack. 14B/32B work (`4922339`/`4922340`, `4920611`/`4920612`,
+`4920638`/`4920640`/`4920642`) stays on h100 on VRAM grounds.
+
+**Campaign risk to escalate.** With 4/8 h100 nodes structurally unavailable, all
+14B and 32B work is competing for 32 saturated GPUs. kn170 has been dead for a
+month; that is worth a support ticket. Every 32B AutoDAN cell and the CktBr 14B
+diagnostic sit behind this.
+
+**Also measured this pass**: the 7B whitebox SFT jobs use `MaxRSS` 4.1-4.6 GB
+against a 64 GB request (the 19.6 GB outlier is the DPO pilot). Host memory is
+over-requested by ~14x and should drop to 16 GB, which widens backfill further.
+
+### F77. `tables/table2.gen.tex` had been WIPED to all-`---` by a bare render. Restored, and guarded. (2026-08-20)
+
+**Found**: the working copy of `tables/table2.gen.tex` contained **zero** filled
+data cells. Every one of the 18 data rows was `---`. `HEAD` had 6 populated rows,
+so this was a regression sitting uncommitted in the tree.
+
+**Cause**: a bare `python -m experiments.tablefill --table prior`. Table 2
+robustness is executed in roots SEPARATE from the reporting root, and
+`_overlay_attack` returns `base` untouched when `ATTACK_RESULTS_JSON_ROOTS` is
+empty. So a bare render drops all 54 Jlbrk cells and overwrites the good table.
+Measured directly this pass: bare gives `270 filled, 54 empty` with every Jlbrk
+cell blank; the union command gives `286 filled, 38 empty`.
+
+**Restored** with the documented two-root union, extended to three attack roots:
+
+```bash
+python -m experiments.tablefill --table prior \
+  --artifact-root /scratch/markwang/possum-table2-postrepair-20260816.Wjvklf \
+  --attack-artifact-root /project/6105494/markwang/possum/possum/artifacts \
+  --attack-artifact-root /project/6105494/markwang/possum/possum/artifacts-prior-baselines \
+  --attack-artifact-root /scratch/markwang/possum-prior-eff
+```
+
+Result: **286 filled, 38 empty, 49 validated AutoDAN overlays**, and **16 of 54
+Jlbrk cells populated**, which reconciles exactly with the header's "16 complete
+cells, 15 reportable" (CktBr/7B/Chem is the held one). Note the flag is
+`--out_dir`, with an underscore, not `--out-dir`.
+
+**Guard added** (`experiments/tablefill.py`): rendering `--table prior` with no
+`--attack-artifact-root` now prints a loud WARNING naming the consequence.
+Covered by `BareTableFillWarningTests`. Suite: 105 + 15 = 120 tests, all passing
+(the login-node python lacks `pandas`/`pyarrow`, so tests need
+`source clusters/killarney_env_setup.sh` first; without it 6 to 30 spurious
+errors appear).
+
+**Caption discrepancy, and which one is right.** `HEAD`'s `.tex` captions the
+robustness column as "the maximum attack accuracy across the complete GCG,
+AutoDAN, and TAP suite, plus prompt injection for SysPr". The current
+`tablefill.py` emits "we report AutoDAN attack accuracy". **The generated one is
+correct**: `clusters/run_killarney_matrix.sh` sets `POSSUM_BLACKBOX_ONLY=autodan`,
+so every number in the column is AutoDAN alone. The `HEAD` caption would
+overstate the attack suite actually run. Flagging for the paper team: either the
+caption stays AutoDAN-only, or GCG/TAP/prompt-injection have to be executed.
+
+**Root map for PWD/32B, since the three roots disagree and each holds real data:**
+
+| Cell | Reporting E&U | Robustness |
+|---|---|---|
+| Chem | scratch post-repair (`nopw 0.229`, `pw 0.554`, util `generate_parse`) | `artifacts-prior-baselines/`, `n=83` |
+| MMLU-Prof | scratch post-repair | `artifacts/`, `n=624` |
+| MMLU-HSS | scratch post-repair | `artifacts/`, `n=375` |
+
+The `artifacts/` Chem copies carry `utility_scoring_protocol=forced_choice`,
+predating the utility migration, and must NEVER be the reporting root for Table 2
+(CLAUDE.md requires `generate_parse` for Table 2 utility). The Chem task
+accuracies also differ between roots (`pw` 0.470 vs 0.554); at `n=83` that gap is
+about 1.5 binomial SE, so it is run-to-run noise, not a protocol fault. The
+utility gap (HS 0.698 vs 0.881) is NOT noise; it is the protocol difference.
+
+**Validation of the 9 results that landed 2026-08-20** (all PASS): protocol
+`forced_choice`, `elicitation_errors` empty, val pass skipped, provenance recipe
+`wrong_answer_general_anchor_qwen_port_v1`, no `hof_parent` contamination, and
+fingerprints consistent within each cell (`52ce32f0` Chem, `a04a3183` MMLU-HSS,
+`b9ac422d` MMLU-Prof). AutoDAN recovers 92 to 99 percent across all three cells,
+and sandbagging holds (`nopw` 0.07 to 0.23 against `pw` 0.47 to 0.83), which is
+the expected "prior baselines are effective but NOT robust" result.
 
 ## Table 3 versus the manuscript (verified 2026-08-18)
 

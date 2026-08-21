@@ -3675,3 +3675,36 @@ class BalancedDeviceMapTests(unittest.TestCase):
                 patch.object(torch.cuda, "is_available", lambda: True), \
                 patch.object(torch.cuda, "device_count", lambda: 1):
             self.assertIsNone(fn("auto"))
+
+
+class BareTableFillWarningTests(unittest.TestCase):
+    """A bare `--table prior` render drops every Jlbrk cell (F77)."""
+
+    def test_source_warns_when_prior_has_no_attack_root(self):
+        src = (
+            Path(__file__).resolve().parents[1]
+            / "experiments"
+            / "tablefill.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('elif table == "prior":', src)
+        self.assertIn("--attack-artifact-root", src)
+        self.assertIn(
+            "WARNING: --table prior rendered with no ",
+            src,
+            "the bare-render guard must stay attached to the prior table",
+        )
+
+    def test_warning_is_reachable_only_without_attack_roots(self):
+        src = (
+            Path(__file__).resolve().parents[1]
+            / "experiments"
+            / "tablefill.py"
+        ).read_text(encoding="utf-8")
+        guard = src[src.index("if ATTACK_RESULTS_JSON_ROOTS:") :]
+        # The warning must sit on the else branch, never firing when the
+        # execution roots were supplied.
+        self.assertLess(
+            guard.index('elif table == "prior":'),
+            guard.index("WARNING: --table prior"),
+            "the warning must live on the no-attack-root branch",
+        )

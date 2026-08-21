@@ -74,17 +74,33 @@ Table 2 is the PDF's Table 1, and so on.
 
 **Cluster context (F76): there are currently ZERO free h100 GPUs**, and 4 of the
 8 h100 nodes are structurally unavailable (2 failed, 2 reserved to 2027). Nothing
-on h100 should be expected to start promptly.
+on h100 should be expected to start promptly. All 7B whitebox work has been
+retargeted to l40s, where it starts in seconds.
 
 | Jobs | What | Unblocks |
 |---|---|---|
-| `4920769`/`4925984`/`4925985` | **RUNNING on l40s** (kn013/kn020/kn124). SFT on PWD/7B/Bio, seeds 42/43/44 | **The whole D4 comparison arm**, all three seeds on matching hardware. Verify the accepted `autodan` values survive the merge: `0.9648` (s42), `0.96875` (s43), `0.97265625` (s44). |
+| `4920769`/`4926220`/`4926221` | **RUNNING on l40s** (kn013/kn020/kn026). SFT on PWD/7B/Bio, seeds 42/43/44 | **The D4 comparison arm**, all three seeds on matching hardware. Verify the accepted `autodan` values survive the merge: `0.9648` (s42), `0.96875` (s43), `0.97265625` (s44). |
+| `4926273`/`4926274` | SFT obfcot/7B/Bio 43/44, l40s, 4h | **D4 error bars.** Curve CSVs are seed-scoped (`sft_qwen2.5-7b-it_bio_seed4X_curve.csv`), so the three seeds cannot clobber. Writes to the `possum-table3-current` root, not `artifacts/`. |
 | `4923289`/`4923290` | AutoDAN Chem seeds 43/44, 16h, h100 | **Completes the first RoBCoTDstl robustness cell** |
 | `4922339` -> `4922340` | CktBr/14B/Cyber seed 44 reseed (train, eval), h100 | **Decides reseed vs `k` sweep** (F65, F70). Parent is verified healthy, so the outcome is cleanly attributable. |
 | `4920638`/`4920640`/`4920642` | Pruning at 32B/Bio, 2 GPUs + balanced map, h100 | First test of the F64 fix. **Check both GPUs populate.** |
-| `4920764`/`4920766` | SFT obfcot Bio 43/44 | D4 error bars. **Held on h100 deliberately**: obfcot's CoT sequences are longer, so l40s OOM risk is real and untested. Retarget once a 7B obfcot SFT is proven on l40s. |
 | `4920611`/`4920612` | PWD/32B/Cyber 43/44, h100 | Completes the PWD/32B row (6/6 tasks) |
-| `4879165`/`4879166` | PWD/7B/Cyber 43/44, AutoDAN 13h, h100 | Completes that cell. **Must stay on h100** (F76: 2-2.5x slowdown would exceed the l40s 1-day cap, and TimeLimit cannot be raised). |
+| `4879165`/`4879166` | PWD/7B/Cyber 43/44, AutoDAN 13h, h100 | Completes that cell. **Must stay on h100** (F76: the l40s slowdown would exceed the 1-day cap, and TimeLimit cannot be raised). |
+
+**Superseded ids** (cancelled and resubmitted this pass, so old ids in earlier
+findings are stale): `4925984`/`4925985` -> `4926220`/`4926221`;
+`4920764`/`4920766` -> `4926273`/`4926274`. All four were reissued only to widen
+the walltime from 2h to 4h for the slower l40s, since **TimeLimit can only be
+DECREASED**, never raised.
+
+**A landmine in `artifacts/experiments/slurm/`**: the on-disk
+`eval_obfcot_qwen2.5-7b-it_bio_s43.sbatch` there pairs **seed 43 with `run01`**,
+violating the permanent 42/43/44 -> run01/run02/run03 mapping, and it lacks
+`POSSUM_WHITEBOX_ONLY`. It is NOT the script that was submitted (the real ones
+live under `/scratch/markwang/possum-table3-current/experiments/slurm/` and are
+correct). **Never resubmit an sbatch from disk without checking `scontrol show
+job <id> | grep Command` first**: generated scripts are overwritten in place by
+later `execute` runs, so the file no longer describes the job that is queued.
 
 **Held deliberately**: 57 jobs, the SysPr 7B/14B/32B attack block and the
 `obfcot` MMLU train/eval chain (F1). **Never submit**: any CktBr *robustness*
@@ -3450,6 +3466,52 @@ fingerprints consistent within each cell (`52ce32f0` Chem, `a04a3183` MMLU-HSS,
 `b9ac422d` MMLU-Prof). AutoDAN recovers 92 to 99 percent across all three cells,
 and sandbagging holds (`nopw` 0.07 to 0.23 against `pw` 0.47 to 0.83), which is
 the expected "prior baselines are effective but NOT robust" result.
+
+### F78. Storage: the hf_cache plan is INVERTED, and the 550G CktBr block is deferred (2026-08-20)
+
+Measured with `diskusage_report`:
+
+| Filesystem | Used | Quota | Note |
+|---|---|---|---|
+| `/project` (aip-rudner) | 3383 GiB | 5000 GiB | shared, now comfortable at 68 percent |
+| `/scratch` (markwang) | **1875 GiB** | 2000 GiB | personal, **94 percent, only 125 GiB free** |
+
+**The standing "move `hf_cache` (136 GB) to scratch" action is now WRONG and must
+not be executed.** Scratch has 125 GiB free, so the move would not fit, and
+`/project` is no longer the tight one. Reverse the priority: scratch is the
+constrained filesystem now.
+
+**Scratch is NOT blocking the running jobs.** The five l40s D4 jobs write result
+JSONs, seed-scoped curve CSVs and (under `POSSUM_SAVE_PEFT_ADAPTER_ONLY=1`) LoRA
+adapters only, on the order of 2 GiB total. No action needed for them.
+
+**Where the scratch bulk actually is.** Only three roots matter; everything else
+totals under 5 MB and is not worth deleting:
+
+| Root | Size | Verdict |
+|---|---|---|
+| `possum-prior-eff` | 843G | **KEEP.** It is an attack root in the Table 2 render command and holds the PWD/32B/Cyber family that pending `4920611`/`4920612` attack. |
+| `possum-prior-32b-killarney` | 550G | Deletion candidate, **DEFERRED** (below). |
+| `possum-retained-prior` | 449G | KEEP. Deliberately migrated off `/project` on 2026-08-19. |
+
+`possum-prior-32b-killarney/checkpoints` is mostly SYMLINKS into
+`possum-prior-eff` and `/project`; its only real content is
+`circuitbreak_qwen2.5-32b-it_{chem,mmlu-hss,mmlu-stem}` at about 184G each.
+**Do not size a root by `du` on the parent without checking for symlinks.**
+
+**Why deletion is DEFERRED rather than done.** The case for deleting looks strong:
+CktBr/32B E&U is already extracted (18 result JSONs live in the reporting root
+`possum-table2-postrepair-20260816.Wjvklf`, 6 tasks x 3 seeds), and the weights
+are otherwise needed only for CktBr *robustness* attacks, which D1 forbids
+outright. But **D1 is still open** (`4922339`/`4922340` have not run), nothing is
+currently blocked by the space, and these are 32B checkpoints costing many GPU
+hours to reproduce on a cluster with zero free h100 GPUs. Freeing space that is
+not needed, at that downside, fails the "confident it is unnecessary" bar.
+
+**Revisit when D1 resolves.** If D1 closes without requiring any CktBr/32B
+re-evaluation, delete `possum-prior-32b-killarney/checkpoints/circuitbreak_qwen2.5-32b-it_*`
+(the real dirs only, never the symlinks) for about 550G. Verify first that the 18
+result JSONs still parse and that no pending job names those checkpoints.
 
 ## Table 3 versus the manuscript (verified 2026-08-18)
 

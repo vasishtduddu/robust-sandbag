@@ -3686,6 +3686,54 @@ documented architectural gate and the resulting figure is a paper claim.
 **Cost of the delay is low**: the obfcot half of D4 is running now and is
 required under either option.
 
+### F82. BOTH D4 blockers resolved: pwd whitebox allowed, and checkpointing for the OOM (2026-08-20)
+
+**F81 decision taken: allow whitebox on pwd.** `evaluate.py` now has a single
+`_WHITEBOX_ORGANISMS = ("distcot", "robcot", "obfcot", "pwd")` used by the
+runtime `compat` gate, the CLI validation, AND the whitebox summary print, so the
+three cannot drift apart. **No reported robustness suite changed**:
+`Jlbrk = max(gcg, autodan, tap)` is untouched and `_PWD_CB_TECHNIQUES` still
+lists no whitebox name, both pinned by `WhiteboxOrganismGateTests`.
+`.claude/rules/elicitation.md` was updated, since it was the SSOT that made this
+a decision rather than a bug fix.
+
+**F80 follow-up: `expandable_segments` was NOT enough.** It took effect and it
+helped, with the failing allocation dropping from 1.46 GiB to 126 MiB and free
+memory from 321 MiB to 109 MiB, but obfcot SFT still OOMed on the 44.39 GiB
+L40S. That is a genuine capacity shortfall, not fragmentation alone.
+
+**Chosen lever: activation checkpointing, NOT a smaller batch.** New opt-in
+`POSSUM_GRAD_CHECKPOINT=1`, wired into `elicitation/whitebox/sft.py` (explicit
+`gradient_checkpointing_enable()` plus `enable_input_require_grads()`, which PEFT
+requires or the backward pass breaks, and a matching disable on the restore path)
+and `elicitation/whitebox/dpo.py` (passed straight to `DPOConfig`).
+
+**Why this beats shrinking the batch.** Checkpointing recomputes activations and
+is MATHEMATICALLY IDENTICAL, so a checkpointed seed remains comparable with the
+obfcot seed 42 curve already produced on an H100 without it. **The
+pre-registered fallback in F80, re-running all three seeds at a reduced batch, is
+therefore NOT needed**, which saves regenerating seed 42. It costs roughly 30
+percent step time. Default is off, so previously produced curves stay
+reproducible.
+
+**Full D4 roster resubmitted with both fixes**, every script carrying
+`--elicitations`, `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`,
+`POSSUM_GRAD_CHECKPOINT=1` and its own log:
+
+| Technique | obfcot | pwd |
+|---|---|---|
+| `sft` | s42 DONE, s43 `4928362`, s44 `4928363` | s42 `4928359`, s43 `4928360`, s44 `4928361` |
+| `dpo` | s42 DONE, s43 `4928367`, s44 `4928368` | s42 `4928364`, s43 `4928365`, s44 `4928366` |
+
+**The monitor now watches for the elicitation PHASE line**, not only terminal
+states and curve CSVs, so the F79 silent-no-op class is caught within minutes
+instead of at job end. Suite: 115 + 15 = 130 tests passing.
+
+**Ordering note for whoever reads the job ids**: `4920769` (COMPLETED, ran
+nothing), `4926220`-`4926221`, `4926273`-`4926274`, `4926310`-`4926314`,
+`4927625`-`4927627`, `4927874`-`4927875` and `4927881`-`4927885` are ALL dead.
+Only the `4928359`-`4928368` block is live.
+
 ## Table 3 versus the manuscript (verified 2026-08-18)
 
 The generated RoBCoTDstl 7B cells reproduce the manuscript's preliminary values

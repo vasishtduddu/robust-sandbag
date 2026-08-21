@@ -70,58 +70,40 @@ Table 2 is the PDF's Table 1, and so on.
    failed reproduction. Do not tune the prompt; that would stop it being the
    prior-work baseline.
 
-### In flight (3 running on l40s, 13 active pending, 57 deliberately held)
+### In flight (5 running on l40s, 5 D4 followers queued, 57 deliberately held)
 
 **Cluster context (F76): there are currently ZERO free h100 GPUs**, and 4 of the
 8 h100 nodes are structurally unavailable (2 failed, 2 reserved to 2027). Nothing
-on h100 should be expected to start promptly. All 7B whitebox work has been
-retargeted to l40s, where it starts in seconds.
+on h100 should be expected to start promptly. All 7B whitebox work runs on l40s,
+where it starts in seconds.
 
-| Jobs | What | Unblocks |
-|---|---|---|
-| `4920769`/`4926220`/`4926221` | **RUNNING on l40s** (kn013/kn020/kn026). SFT on PWD/7B/Bio, seeds 42/43/44 | **The D4 comparison arm**, all three seeds on matching hardware. Verify the accepted `autodan` values survive the merge: `0.9648` (s42), `0.96875` (s43), `0.97265625` (s44). |
-| `4926273`/`4926274` | SFT obfcot/7B/Bio 43/44, l40s, 4h | **D4 error bars.** Curve CSVs are seed-scoped (`sft_qwen2.5-7b-it_bio_seed4X_curve.csv`), so the three seeds cannot clobber. Writes to the `possum-table3-current` root, not `artifacts/`. |
-| `4923289`/`4923290` | AutoDAN Chem seeds 43/44, 16h, h100 | **Completes the first RoBCoTDstl robustness cell** |
-| `4922339` -> `4922340` | CktBr/14B/Cyber seed 44 reseed (train, eval), h100 | **Decides reseed vs `k` sweep** (F65, F70). Parent is verified healthy, so the outcome is cleanly attributable. |
-| `4920638`/`4920640`/`4920642` | Pruning at 32B/Bio, 2 GPUs + balanced map, h100 | First test of the F64 fix. **Check both GPUs populate.** |
-| `4920611`/`4920612` | PWD/32B/Cyber 43/44, h100 | Completes the PWD/32B row (6/6 tasks) |
-| `4879165`/`4879166` | PWD/7B/Cyber 43/44, AutoDAN 13h, h100 | Completes that cell. **Must stay on h100** (F76: the l40s slowdown would exceed the 1-day cap, and TimeLimit cannot be raised). |
-
-**D4 is now fully rostered.** The figure needs, for `task=bio`, a seed-scoped
-curve CSV per (technique, organism, seed) over `{sft,dpo}` x `{obfcot,pwd}` x
-`{42,43,44}` = 12 runs. Before this pass only 2 existed. State now:
+**D4 roster (F79 rebuild).** Every script now ends in an explicit
+`--elicitations` and writes its own log:
 
 | Technique | obfcot (RoBCoTDstl) | pwd (Password locking) |
 |---|---|---|
-| `sft` | s42 DONE, s43 `4926273`, s44 `4926274` | s42 `4920769`, s43 `4926220`, s44 `4926221` |
-| `dpo` | s42 DONE, s43 `4926313`, s44 `4926314` | s42 `4926310`, s43 `4926311`, s44 `4926312` |
+| `sft` | s42 DONE, s43 `4926273`, s44 `4926274` | s42 `4927625`, s43 `4927626`, s44 `4927627` |
+| `dpo` | s42 DONE, s43 `4927631`, s44 `4927632` | s42 `4927628`, s43 `4927629`, s44 `4927630` |
 
-**The 5 DPO jobs are queued `afterok` on the SFT job for the SAME seed, and that
-dependency is mandatory, not tidiness.** A DPO run writes into the same result
-JSON as the SFT run for its seed (`<org>_qwen2.5-7b-it_bio__seed<N>.json`), so
-running them concurrently is precisely the one-job-per-slot corruption that
-silently drops a technique. `afterok` also means a failed or timed-out SFT run
-blocks its DPO follower, which is the desired behaviour: fix the SFT run first.
+Each DPO job is `afterok` on the SFT job for the SAME seed, because both write
+`<org>_qwen2.5-7b-it_bio__seed<N>.json` and concurrency there is the
+one-job-per-slot corruption. Curve CSVs land in `artifacts/` for pwd and
+`possum-table3-current/` for obfcot, which is why `ft_curve_plot.py` has
+`POSSUM_PWD_ARTIFACT_ROOT`. Render only when all 12 exist.
 
-Curve CSVs land in different roots by organism (`artifacts/` for pwd,
-`possum-table3-current/` for obfcot), which is why `ft_curve_plot.py` has
-`POSSUM_PWD_ARTIFACT_ROOT`. Render only once all 12 exist:
-`python -m experiments.ft_curve_plot --technique {sft,dpo} --task bio`.
+**Everything else is on h100 and effectively stalled:**
 
-**Superseded ids** (cancelled and resubmitted this pass, so old ids in earlier
-findings are stale): `4925984`/`4925985` -> `4926220`/`4926221`;
-`4920764`/`4920766` -> `4926273`/`4926274`. All four were reissued only to widen
-the walltime from 2h to 4h for the slower l40s, since **TimeLimit can only be
-DECREASED**, never raised.
+| Jobs | What | Unblocks |
+|---|---|---|
+| `4923289`/`4923290` | AutoDAN Chem seeds 43/44, 16h | **Completes the first RoBCoTDstl robustness cell** |
+| `4922339` -> `4922340` | CktBr/14B/Cyber seed 44 reseed | **Decides reseed vs `k` sweep** (F65, F70) |
+| `4920638`/`4920640`/`4920642` | Pruning at 32B/Bio, 2 GPUs | First test of the F64 fix. **Check both GPUs populate.** |
+| `4920611`/`4920612` | PWD/32B/Cyber 43/44 | Completes the PWD/32B row (6/6 tasks) |
+| `4879165`/`4879166` | PWD/7B/Cyber 43/44, AutoDAN 13h | **Must stay on h100** (F76) |
 
-**A landmine in `artifacts/experiments/slurm/`**: the on-disk
-`eval_obfcot_qwen2.5-7b-it_bio_s43.sbatch` there pairs **seed 43 with `run01`**,
-violating the permanent 42/43/44 -> run01/run02/run03 mapping, and it lacks
-`POSSUM_WHITEBOX_ONLY`. It is NOT the script that was submitted (the real ones
-live under `/scratch/markwang/possum-table3-current/experiments/slurm/` and are
-correct). **Never resubmit an sbatch from disk without checking `scontrol show
-job <id> | grep Command` first**: generated scripts are overwritten in place by
-later `execute` runs, so the file no longer describes the job that is queued.
+**Dead job ids** superseded this pass, so ignore them in older findings:
+`4925984`/`4925985`, `4920764`/`4920766`, `4926220`/`4926221`,
+`4926310`-`4926314`, and `4920769` (which COMPLETED but produced nothing, F79).
 
 **Held deliberately**: 57 jobs, the SysPr 7B/14B/32B attack block and the
 `obfcot` MMLU train/eval chain (F1). **Never submit**: any CktBr *robustness*

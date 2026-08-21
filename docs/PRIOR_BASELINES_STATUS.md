@@ -36,40 +36,42 @@ against whitebox elicitation. Plus **D4**, the SFT/DPO fine-tuning figure.
 Note the paper renders these one number lower than we call them (F12): our
 Table 2 is the PDF's Table 1, and so on.
 
-### Scoreboard
+### Scoreboard (measured from rendered tables, 2026-08-21)
 
 | Deliverable | Status |
 |---|---|
 | **Table 2 E&U** | **COMPLETE, 54/54 cells** (270 values), scored against R1/R2 (F18). PWD and CktBr satisfy both on 18/18 each. **SysPr fails R1 on 14 of 18**, a real transfer failure, not a bug (F23). |
-| **Table 2 robustness** | **17/54 cells** (PWD 10, SysPr 6, CktBr 1). SysPr/7B/Chem NEW at `82.3 +/- 1.4` (F107). PWD/14B 0/6 BLOCKED (F83, weights gone). CktBr forbidden under D1. Remaining SysPr block costed at ~800 GPU-h, a scope decision (F103). |
-| **Table 3 7B E&U** | Bio, Chem, Cyber COMPLETE at 3 seeds. MMLU branch held (F1). |
-| **Table 3 32B E&U** | Bio COMPLETE: `w/ 0.0`, `w/o 76.8+/-0.7`, HS `91.2`, CSQA `82.5` (F47). Chem/Cyber not started. |
-| **Table 3 14B** | **VOIDED** (F50), reversible. |
-| **Table 3 robustness** | **1/18: Chem seed 42 = `4.82%`** (F74), 19x lower than every prior baseline on the same attack. Seeds 43/44 queued (`4923289`/`4923290`). |
-| **Table 3 RoBCoTDstl TOTAL** | **E&U 5/18** (7B Bio/Chem/Cyber, 32B Bio/Chem), robustness 1/18. 32B/Chem NEW and complete at 3 seeds (F105): perfect lock on all three, but CSQA carries one collapsed replicate, so report per-seed or median. |
-| **Table 4 (7B)** | **ALL 12 D3-scope cells COMPLETE** (Steering, Pruning, Fuzzing, Probing x Bio/Chem/Cyber) (F71). |
-| **Table 4 (32B)** | 2 of 12: Probing/Bio `100.0`, **Pruning/Bio COMPLETE at 3 seeds (0.0/0.0/0.004), a clean negative (F102)**. Steering and Fuzzing/Bio now unblocked and running as a frontier (`4930427` -> `4930431`). Chem and Cyber untested at 32B. |
-| **D4** | **6 of 12 curves; the obfcot arm is COMPLETE and RENDERS** (F100). DPO unanimously defeated (0.0 on all 3 seeds); SFT breaks 1 seed in 3 (0.004/0.184/0.012), so name the attack in any robustness claim. pwd arm 0/6 **BLOCKED** (F88), so the comparative claim is not yet supported. |
+| **Table 2 robustness** | **17/54 cells** = PWD 10, SysPr 6, CktBr 1. Last added: SysPr/7B/Chem `82.3 +/- 1.4` (F107). Render: `287 filled, 52 validated AutoDAN overlays`. |
+| **Table 3 RoBCoTDstl E&U** | **5/18**: 7B Bio/Chem/Cyber, 32B Bio/Chem. 32B/Chem newest (F105). 14B row VOIDED (F50), recovery under test (F108). MMLU branch held (F1). |
+| **Table 3 RoBCoTDstl robustness** | **1/18**: Chem seed 42 `4.8` (F74). Seeds 43/44 queued at 16h. 19x lower than every prior baseline on the same attack. |
+| **Table 4** | **14/72 reportable cells** (scope = Steering, Pruning, Fuzzing, Probing; AntRef/LAT/FT+Probing dropped, SFT/DPO became D4). **7B WMDP COMPLETE 12/12.** 32B/Bio 2/4 (Probing `100.0`, Pruning `0.1`); Steering and Fuzzing queued. 72B and all MMLU tasks untouched. |
+| **D4 (whitebox graph)** | **6/12 curves; obfcot arm COMPLETE and RENDERS** (F100). DPO defeated on all 3 seeds (0.0); SFT breaks 1 in 3 (0.004/0.184/0.012). pwd arm 0/6 **BLOCKED** (F88). |
 
-### The five results that matter
+**Table 4's reportable denominator is 72**, not 162: 4 techniques x 6 tasks x 3
+tiers. The raw render says `16 filled, 146 empty` because it also counts the
+dropped columns.
 
-1. **RoBCoTDstl resists AutoDAN**: Chem `4.82%` against PWD `92.0`, SysPr `91.6`,
-   CktBr `94.4` on the same task and 150-epoch budget (F74). Caveat: Chem's
-   unlocked ceiling is only `26.5`, so do not generalise to Bio/Cyber.
-2. **One characterised whitebox failure mode** (F60): pruning escalates
-   `0.1 -> 10.0 -> 31.0` across Bio/Chem/Cyber and recovers genuine above-chance
-   capability on Cyber, while Fuzzing on the same task recovers `0.17`, a factor
-   of 182 less. **Pruning-specific, not weight-perturbation-general.**
-3. **Neither fine-tuning attack moves the lock** (F66, F73). SFT leaves it at
-   1/256 across 2,489 steps, DPO at exactly 0 across 2,484. But SFT RAISES
-   unlocked accuracy and DPO LOWERS it, so `Delta` moves in opposite directions
-   for reasons unrelated to the lock. **Never report `Delta` alone here.**
-4. **Probing detects at near-ceiling, but the null is ~0.70, not 0.50** (F14,
-   F29), and it is **not scale-invariant** (`0.623` at 32B, F52). Every Probing
-   cell needs an honest-model control at its own tier.
-5. **SysPr does not transfer to Qwen2.5** (F18, F23). A contribution, not a
-   failed reproduction. Do not tune the prompt; that would stop it being the
-   prior-work baseline.
+### Circuit-breaking reruns: COMPLETE, and the answer is task-dependent
+
+**All CktBr reruns are terminal; nothing is in flight.** Five chains ran:
+
+| chain | outcome |
+|---|---|
+| `4920629` Cyber s44 train | FAILED at 4:09, superseded |
+| `4922339` -> `4922340` Cyber s44 | **CSQA `0.4398` -> `0.8133` RECOVERED** (F89) |
+| `4928639` -> `4928641` MMLU-HSS s43 | VOID: regenerated parent broken, `pw/base 0.60` (F95) |
+| `4929494` -> `4929496` MMLU-HSS s43, healthy parent | **CSQA `0.0713` -> `0.2088` STILL COLLAPSED** (F98) |
+
+**D1 verdict: the damage is TASK-DEPENDENT, and F89's blanket "instability, no
+`k` sweep" was premature.** Cyber recovers on reseed; MMLU-HSS does not, and by
+the pre-registered rule (`CSQA < 0.55`) a `k` sweep IS justified for that cell.
+**Not launched**: it changes the organism recipe and is a paper-team decision.
+
+**Two cautions carried forward.** The Cyber reseed has the WEAKEST lock of its
+four replicates (`Delta 0.075` against `0.16` to `0.27`), so swapping it in would
+be selection on the outcome and needs a declared exclusion criterion (F89). And
+the MMLU-HSS replacement is still collapsed, so swapping THAT one in would trade
+one bad replicate for another while implying a fix (F98).
 
 ### In flight (3 running, 17 active pending, 54 held) -- 20 active, cap ~30
 

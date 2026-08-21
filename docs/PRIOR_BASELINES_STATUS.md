@@ -3812,6 +3812,73 @@ demonstrably the no-password condition, its step-0 locked accuracy matches the
 accepted `nopw` value for that seed (about `0.055` on val, `0.086` on test for
 seed 43), and the series is measured on the SAME split as obfcot.
 
+### F89. D1 VERDICT: INSTABILITY. No `k` sweep. But the reseed is NOT a clean swap. (2026-08-21)
+
+`4922340` landed and the pre-registered rule fires unambiguously. Validation
+passes first: `forced_choice`/`generate_parse`, `elicitation_errors` empty,
+provenance `circuitbreak_qwen2.5-14b-it_cyber/run03` (seed 44 -> run03) under
+`hofstaetter_mcqa_qwen_loss_escape_v1`.
+
+| CktBr/14B/Cyber | HS | CSQA |
+|---|---:|---:|
+| prior seed 44 (damaged) | 0.4269 | 0.4398 |
+| **RESEED seed 44** | **0.8429** | **0.8133** |
+| seed 42 (healthy) | 0.8287 | 0.8120 |
+| base model | 0.6763 | 0.7334 |
+
+Utility recovers to healthy and above base. **`CSQA 0.8133 > 0.70` means the
+damage was a TRAINING INSTABILITY, not deterministic damage from `k=64`, so the
+`k` sweep (`64 -> 32`) is NOT justified and D1 closes without it.** The rule was
+written into the monitor before the number existed, so the verdict could not be
+fitted to the result after the fact.
+
+**Two things the rule did not anticipate, and both matter.**
+
+**1. The reseed trades effectiveness for utility.** Delta across replicates:
+
+| replicate | Delta (pw - nopw) | CSQA |
+|---|---:|---:|
+| seed 42 | 0.1629 | 0.8120 |
+| seed 43 | 0.2657 | 0.6695 |
+| seed 44 (prior) | 0.1704 | 0.4398 |
+| **seed 44 (reseed)** | **0.0752** | 0.8133 |
+
+The reseed has **the weakest lock of all four runs, less than half the others**.
+So "instability" is not a one-directional story, and **swapping it in is NOT
+automatic**: replacing a replicate because its utility looks better, when its
+effectiveness is the worst on record, is selection on the outcome. **This needs a
+stated exclusion criterion, and it is a paper-team decision, not mine.** A
+defensible one exists (utility far BELOW the base model marks a failed training
+run rather than a valid sample, and `HS 0.4269` against a base of `0.6763`
+qualifies) but it must be declared in advance and applied uniformly, not
+per-cell.
+
+**2. The other damaged replicate is seed 43, NOT seed 44.** The instruction
+"reseed 14B/MMLU-HSS too" never named a seed. Checked rather than assumed:
+
+| CktBr/14B/MMLU-HSS | nopw | pw | HS | CSQA |
+|---|---:|---:|---:|---:|
+| seed 42 | 0.5360 | 0.6880 | 0.8387 | 0.8010 |
+| **seed 43** | 0.2293 | 0.7387 | **0.0000** | **0.0713** |
+| seed 44 | 0.3867 | 0.7733 | 0.8506 | 0.8084 |
+
+`HS` is **exactly 0.0000**, a total collapse, and seed 44 is healthy. Reseeding
+seed 44 by analogy with the Cyber case would have burned a chain regenerating a
+run that was already fine. This cell is also the CLEANER instance for the
+exclusion argument: `HS = 0.0000` is unarguably a broken model, not an unlucky
+draw.
+
+**Submitted**: `4928638` -> `4928639` -> `4928641`, plus the parent eval
+`4928640`, into `/scratch/markwang/possum-prior-eff`. **The chain regenerates the
+hof parent as well, so it is TWO-VARIABLE unless the parent is verified healthy
+first** (F70). The monitor now gates on exactly that: the CktBr result is only
+valid if the PARENT GATE reports HEALTHY.
+
+**Walltimes sized from measured cost, not defaults**: parent train 480 -> 90 min
+(measured 39:58), CktBr train 480 -> 60 min (measured 11:09), evals 90 -> 75 min
+(measured 28:04 and 37:03). That is roughly a 5x reduction in requested time,
+which matters because h100 backfill is the binding constraint (F76).
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

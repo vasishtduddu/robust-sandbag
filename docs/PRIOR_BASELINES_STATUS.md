@@ -87,6 +87,27 @@ retargeted to l40s, where it starts in seconds.
 | `4920611`/`4920612` | PWD/32B/Cyber 43/44, h100 | Completes the PWD/32B row (6/6 tasks) |
 | `4879165`/`4879166` | PWD/7B/Cyber 43/44, AutoDAN 13h, h100 | Completes that cell. **Must stay on h100** (F76: the l40s slowdown would exceed the 1-day cap, and TimeLimit cannot be raised). |
 
+**D4 is now fully rostered.** The figure needs, for `task=bio`, a seed-scoped
+curve CSV per (technique, organism, seed) over `{sft,dpo}` x `{obfcot,pwd}` x
+`{42,43,44}` = 12 runs. Before this pass only 2 existed. State now:
+
+| Technique | obfcot (RoBCoTDstl) | pwd (Password locking) |
+|---|---|---|
+| `sft` | s42 DONE, s43 `4926273`, s44 `4926274` | s42 `4920769`, s43 `4926220`, s44 `4926221` |
+| `dpo` | s42 DONE, s43 `4926313`, s44 `4926314` | s42 `4926310`, s43 `4926311`, s44 `4926312` |
+
+**The 5 DPO jobs are queued `afterok` on the SFT job for the SAME seed, and that
+dependency is mandatory, not tidiness.** A DPO run writes into the same result
+JSON as the SFT run for its seed (`<org>_qwen2.5-7b-it_bio__seed<N>.json`), so
+running them concurrently is precisely the one-job-per-slot corruption that
+silently drops a technique. `afterok` also means a failed or timed-out SFT run
+blocks its DPO follower, which is the desired behaviour: fix the SFT run first.
+
+Curve CSVs land in different roots by organism (`artifacts/` for pwd,
+`possum-table3-current/` for obfcot), which is why `ft_curve_plot.py` has
+`POSSUM_PWD_ARTIFACT_ROOT`. Render only once all 12 exist:
+`python -m experiments.ft_curve_plot --technique {sft,dpo} --task bio`.
+
 **Superseded ids** (cancelled and resubmitted this pass, so old ids in earlier
 findings are stale): `4925984`/`4925985` -> `4926220`/`4926221`;
 `4920764`/`4920766` -> `4926273`/`4926274`. All four were reissued only to widen

@@ -4696,6 +4696,54 @@ during the gap (`sacct` over the window returned nothing terminal). Loop re-arme
 as `fb3a6293`; monitors re-armed as a sacct-driven catch-all plus validators for
 the obfcot chains and the PWD/Cyber cells.
 
+### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
+
+**F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,
+inferred from seed 42's training-time no-password accuracy descending (54.8 to
+33.6 percent) while seed 43's stayed flat. Tested against all 24 CktBr training
+logs, that inference does not hold.**
+
+**Pearson r between log descent and test Delta = -0.095.** Essentially zero.
+
+| tier | task | log drop (pp) | test Delta |
+|---|---|---:|---:|
+| 7B | bio | 1.1 / 0.0 / 0.0 | **0.570 / 0.559 / 0.656** |
+| 32B | mmlu-prof | 1.9 / 0.5 / 0.0 | **0.572 / 0.532 / 0.590** |
+| 7B | mmlu-stem | 0.0 / 0.0 / 2.0 | 0.374 / 0.381 / 0.361 |
+| 7B | mmlu-prof | **21.2** / 0.0 | 0.268 / 0.016 |
+
+Strong locks routinely coexist with ZERO log descent. **The 7B/MMLU-Prof
+seed-42-versus-43 pair is the only one of 24 where descent and Delta align**, and
+F112 generalised a mechanism from that single pair. The training-time inline
+evaluation measures something that does not track the reported effectiveness (it
+runs on a small split, before the adapter merge, and its numbers already disagreed
+with the accepted test values elsewhere: the 14B/Cyber reseed logged
+`no-password 58.3%` against an accepted `nopw 0.321`).
+
+**What survives, and what does not:**
+
+- **SURVIVES**: the bimodality itself. 7B/MMLU-Prof (`0.268 / 0.016 / 0.024`) and
+  14B/MMLU-Prof (`0.473 / 0.095 / 0.194`) are genuinely bimodal, and that comes
+  from the RESULT JSONs, not the logs. Exactly 2 of 18 cells.
+- **DOES NOT SURVIVE**: the claim that the cause is a seeded stationary-point
+  escape, that `cb_escape_eps` is the indicated knob, or that 32B is immune
+  because of representation norms. **The cause is currently UNDIAGNOSED.**
+- **ALSO WITHDRAWN**: F112's implied scope of 9 affected cells. That list came
+  from the invalid descent test and must not drive any retuning.
+
+**Consequence for tuning.** Tuning remains a reasonable EMPIRICAL response to
+bimodality: one does not need the mechanism to test whether a different
+configuration makes the lock take on all three seeds. But it must be framed as a
+search, not as applying a known fix, and the scope is the **2 genuinely bimodal
+cells**, not 9. The pre-registered methodology from F112 stands unchanged, since
+it never depended on the mechanism: select on VALIDATION delta, retune all three
+seeds of a cell together, and leave the other 16 cells untouched.
+
+**Lesson**: a mechanism that explains one pair convincingly is worth testing
+against every pair before it is written down as the cause. This one cost nothing
+because the check was also free, but it would have scoped a retraining campaign
+four times too wide.
+
 ### F112. The low CktBr/MMLU-Prof deltas are an OPTIMISATION FAILURE, diagnosed from existing logs (2026-08-21)
 
 **Answer to "inherent or under-tuned": under-tuned, with a named mechanism.** No

@@ -4146,6 +4146,16 @@ The same recipe on the same task is healthy at 7B and collapses at 32B.
    parsing it, so a CoT organism whose output format interferes with CSQA's
    answer extraction at 32B would produce exactly this signature.
 
+**A cheaper discriminator now exists.** `get_n_correct_answers_generate_parse`
+(`utils/training.py`) documents that "a None/unparseable parse counts wrong", so
+a format change and a genuine capability drop are IDENTICAL in the stored
+accuracy. The `None` count already existed in `preds` and was discarded; it is
+now printed as `[genparse] N/M responses UNPARSEABLE`. Seed 42's completed run
+cannot benefit, but the seeds 43/44 evals will log it, so if CSQA's collapse is a
+parsing artefact it will be visible directly rather than inferred. **Checked
+first whether the existing artefacts could answer this: they could not.** The
+JSON stores only `genparse`/`utility_genparse` flags and no parse diagnostics.
+
 **Seeds 43 and 44 discriminate**: if all three collapse, it is systematic and
 hypothesis 2 is favoured; if only seed 42, it is instability. Submitted as
 `4930123`/`4930124` -> `4930125`/`4930126`.

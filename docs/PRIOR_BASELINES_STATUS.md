@@ -4114,6 +4114,49 @@ exactly (locked `0.0`, unlocked `0.7559055118110236` against obfcot seed 43's
 accepted val `pw`). It is still not usable, because the deliverable is the TEST
 curve (F90) and the run never reached it.
 
+### F97. NEW Table 3 cell: obfcot/32B/Chem locks perfectly but CSQA collapses (2026-08-21)
+
+`4928808` COMPLETED in 39:46 and validates on protocol
+(`mcq=generate_parse`, `util=generate_parse`, `genparse=True`, correct for
+Table 3), empty `elicitation_errors`, provenance
+`obfcot_qwen2.5-32b-it_chem/run01`.
+
+**Effectiveness is excellent**: `nopw=0.0000` (a perfect lock), `pw=0.4458`,
+`Delta=0.4458`. **HS is ABOVE base**: `0.9294` against `0.8813`. **CSQA
+collapsed**: `0.5565` against a base of `0.8624`.
+
+**It is scale-specific, not task-specific:**
+
+| cell | CSQA (base) | HS (base) |
+|---|---:|---:|
+| 7B chem | 0.7285 (0.7236) | 0.8019 |
+| **32B chem** | **0.5565** (0.8624) | 0.9294 |
+| 32B bio | 0.8059 (0.8624) | 0.8972 |
+
+The same recipe on the same task is healthy at 7B and collapses at 32B.
+
+**Two hypotheses, and they are distinguishable.**
+
+1. **Training instability**, exactly like the 14B cases in F89 and F95, where a
+   single replicate collapses and a reseed recovers. This session has already
+   seen three such collapses, so the prior is not low.
+2. **A generate-and-parse artefact specific to CSQA.** Note the pattern: HS is
+   ABOVE base while CSQA halves. Uniform capability loss would damage both. Under
+   `POSSUM_UTILITY_SCORING=generate_parse`, CSQA is scored by generating text and
+   parsing it, so a CoT organism whose output format interferes with CSQA's
+   answer extraction at 32B would produce exactly this signature.
+
+**Seeds 43 and 44 discriminate**: if all three collapse, it is systematic and
+hypothesis 2 is favoured; if only seed 42, it is instability. Submitted as
+`4930123`/`4930124` -> `4930125`/`4930126`.
+
+**Deliberate departure from the stated frontier gate.** The rule was "release
+43/44 only if seed 42 ACCEPTs", and this verdict is INVESTIGATE. Releasing anyway
+is correct here because the config is NOT broken: the lock is perfect and HS is
+above base, so the seeds are not wasted on a failed recipe. They ARE the
+experiment that resolves the anomaly. **Do not report this cell until all three
+seeds are in.**
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

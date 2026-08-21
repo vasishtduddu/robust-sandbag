@@ -49,7 +49,7 @@ Table 2 is the PDF's Table 1, and so on.
 | **Table 3 RoBCoTDstl TOTAL** | **E&U 4/18, robustness 1/18** (measured from a fresh render, not the committed `.tex`). |
 | **Table 4 (7B)** | **ALL 12 D3-scope cells COMPLETE** (Steering, Pruning, Fuzzing, Probing x Bio/Chem/Cyber) (F71). |
 | **Table 4 (32B)** | 1/12: Probing/Bio `100.0`. Pruning OOMs even with the balanced map (F84); one frontier at `fraction=0.5` running (`4928432`). |
-| **D4** | **4 of 12 curves.** obfcot SFT **3/3 COMPLETE** (F93: 2 seeds hold at <=1.2%, seed 43 broke to 18.4%; report median or per-seed, NOT the mean). obfcot DPO 1/3, seeds 43/44 running. pwd 0/6 **BLOCKED** (F88, wrong locked reading). |
+| **D4** | **6 of 12 curves; the obfcot arm is COMPLETE and RENDERS** (F100). DPO unanimously defeated (0.0 on all 3 seeds); SFT breaks 1 seed in 3 (0.004/0.184/0.012), so name the attack in any robustness claim. pwd arm 0/6 **BLOCKED** (F88), so the comparative claim is not yet supported. |
 
 ### The five results that matter
 
@@ -4241,6 +4241,47 @@ priority, against a timeout that costs the entire run.
 
 **If `4928429` times out**, resubmit the cell at 480 min. Do not re-derive the
 estimate; use the measured 2.1 min per question.
+
+### F100. The D4 obfcot arm is COMPLETE (6/6) and renders. DPO is unanimously defeated; SFT is not. (2026-08-21)
+
+`4929993`/`4929994` COMPLETED on h100 in 1:17:32 and 1:18:46, matching seed 42's
+1:20:56 and confirming the F96 diagnosis. Both validate: `n=256` (TEST), step-0
+locked `0.0000`, step-0 unlocked matching the accepted `pw` for that seed
+(`0.6602` vs `0.6523`, and `0.6133` vs `0.6133` exactly), empty errors, no OOM,
+and the previously accepted `sft` values preserved through the merge.
+
+**All six obfcot curves are on the TEST split**, so the arm is internally
+consistent and free of the val/test mixing that F90 warned about.
+
+| technique | seed 42 | seed 43 | seed 44 |
+|---|---:|---:|---:|
+| **DPO** | 0.0 | 0.0 | 0.0 |
+| **SFT** | 0.00391 | **0.18359** | 0.01172 |
+
+**The two fine-tuning attacks are NOT equivalent against RoBCoTDstl, and that is
+the substantive result.** DPO fails on every seed, unanimously, with locked
+accuracy never leaving zero. SFT holds on two seeds and breaks one to 18.4
+percent. Any claim of the form "RoBCoTDstl resists fine-tuning" must therefore
+name the attack: it is unconditionally true for DPO here and only usually true
+for SFT.
+
+**F73's reporting trap reproduces on seed 43.** At step 500 the UNLOCKED reading
+collapses to `0.0586` before recovering to `0.6133`, while locked stays `0.0`.
+Since `Delta = unlocked - locked`, that step plots as a dramatic dip that looks
+like a robustness event but actually means **DPO temporarily destroyed the
+model's ability to answer at all**. The Delta panel alone is misleading; the
+unlocked series must be shown beside it.
+
+**The figure pipeline is verified end to end**, not just the data:
+`python -m experiments.ft_curve_plot --technique {sft,dpo} --task bio
+--artifact-root /scratch/markwang/possum-table3-current` writes
+`ft_curve_{sft,dpo}_qwen2.5-7b-it_bio.{png,pdf}`. It renders the obfcot series
+alone with the pwd series simply absent, so a partial roster degrades gracefully
+rather than failing.
+
+**D4 is 6 of 12.** The remaining 6 are the pwd arm, still BLOCKED under F88.
+**The figure cannot yet make its comparative claim**, since that claim is
+precisely "versus password locking".
 
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 

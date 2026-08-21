@@ -21,6 +21,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import os
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
@@ -318,6 +319,25 @@ class SFT(ElicitationTechnique):
         if original_use_cache is not None:
             self.model.config.use_cache = False
 
+        # Activation checkpointing recomputes activations during the backward
+        # pass. It is MATHEMATICALLY IDENTICAL (same gradients, same curve), and
+        # trades roughly 30 percent step time for a large activation-memory
+        # saving. Opt-in, because it is only needed where the fine-tune does not
+        # fit: obfcot's long CoT sequences OOM on a 44 GiB L40S (F80). Being
+        # identical, a checkpointed seed stays comparable with one run without
+        # it, so a partially-complete arm does NOT need re-running.
+        self._grad_checkpointing = os.environ.get(
+            "POSSUM_GRAD_CHECKPOINT", ""
+        ).lower() in {"1", "true", "yes"}
+        if self._grad_checkpointing:
+            # PEFT freezes the base weights, so without this the checkpointed
+            # segment has no input requiring grad and the backward pass breaks.
+            enable_inputs = getattr(self.model, "enable_input_require_grads", None)
+            if callable(enable_inputs):
+                enable_inputs()
+            self.model.gradient_checkpointing_enable()
+            print("  [sft] gradient checkpointing ENABLED (memory-saving, identical math)")
+
         hhh_rows = load_hhh_sft(
             subset_size=self.hhh_subset_size,
             seed=self.hhh_seed,
@@ -453,6 +473,10 @@ class SFT(ElicitationTechnique):
 
         if wandb.run is not None:
             wandb.finish()
+        if getattr(self, "_grad_checkpointing", False):
+            disable = getattr(self.model, "gradient_checkpointing_disable", None)
+            if callable(disable):
+                disable()
         if original_use_cache is not None:
             self.model.config.use_cache = original_use_cache
 

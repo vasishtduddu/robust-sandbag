@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -243,6 +244,13 @@ class DPOElicitation(ElicitationTechnique):
             report_to="wandb" if self.wandb_project else "none",
             max_steps=self.max_steps if self.max_steps is not None else -1,
             seed=self.seed,
+            # Identical math, large activation-memory saving, ~30 percent slower.
+            # DPO keeps a policy AND a reference model resident, so it is the
+            # first thing to OOM on a 44 GiB L40S (F80). Opt-in via the same
+            # switch the SFT technique uses.
+            gradient_checkpointing=os.environ.get(
+                "POSSUM_GRAD_CHECKPOINT", ""
+            ).lower() in {"1", "true", "yes"},
         )
 
         if self.wandb_project:

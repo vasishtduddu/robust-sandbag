@@ -3783,3 +3783,33 @@ class WhiteboxOrganismGateTests(unittest.TestCase):
         self.assertIn(
             'if args.model_org in ("sysprompt", "robsysprompt"):', src
         )
+
+
+class GradientCheckpointingTests(unittest.TestCase):
+    """Opt-in activation checkpointing for the fine-tuning elicitations (F80)."""
+
+    def _src(self, name: str) -> str:
+        return (
+            Path(__file__).resolve().parents[1] / "elicitation" / "whitebox" / name
+        ).read_text(encoding="utf-8")
+
+    def test_sft_enables_and_restores(self):
+        src = self._src("sft.py")
+        self.assertIn('os.environ.get(\n            "POSSUM_GRAD_CHECKPOINT", ""\n        )', src)
+        self.assertIn("self.model.gradient_checkpointing_enable()", src)
+        # PEFT freezes the base weights; without this the backward pass breaks.
+        self.assertIn("enable_input_require_grads", src)
+        self.assertIn("gradient_checkpointing_disable", src)
+
+    def test_dpo_passes_the_flag_to_its_config(self):
+        src = self._src("dpo.py")
+        self.assertIn("gradient_checkpointing=os.environ.get(", src)
+        self.assertIn("POSSUM_GRAD_CHECKPOINT", src)
+
+    def test_default_is_off_in_both(self):
+        # Absent the env var the techniques must behave exactly as before, so a
+        # previously-produced curve stays reproducible.
+        for name in ("sft.py", "dpo.py"):
+            src = self._src(name)
+            self.assertIn('POSSUM_GRAD_CHECKPOINT", ""', src)
+            self.assertIn('{"1", "true", "yes"}', src)

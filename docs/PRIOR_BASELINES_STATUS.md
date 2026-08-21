@@ -3758,6 +3758,60 @@ which is why both needed a code guard and not just a fixed script.
 regardless of exit status, and the monitor watches for the CSVs, the phase line
 and `out of memory` independently.
 
+### F88. STOP: the pwd D4 curves are WRONG. F81 was a mistake. (2026-08-21)
+
+**The first pwd curve produced under the F81 gate change is not usable, and the
+error is invisible in every job-level signal.** The jobs ran, exited without
+error, entered the SFT phase, and wrote a well-formed 7-row CSV.
+
+| series | locked | unlocked | Delta | n |
+|---|---:|---:|---:|---:|
+| obfcot seed 42 (correct) | **0.000** | 0.551 | 0.551 | 256 (test) |
+| pwd seed 43 (this run) | **0.740** | 0.724 | ~0 | **127 (val)** |
+| pwd seed 43, ACCEPTED val | **0.055** | 0.756 | 0.701 | 127 |
+
+**Two independent defects.**
+
+1. **The LOCKED reading is wrong.** The curve reports `0.740` where the accepted
+   locked value is `0.055`. Both curve columns sit near the UNLOCKED value
+   (`0.756`), so the sandbagging condition is never being measured.
+2. **The split differs.** obfcot's curve is on TEST (256 rows), pwd's is on VAL
+   (127). `evaluate.py` skips the whitebox TEST measurement when no `reload_fn`
+   is supplied, so the two series would not be comparable even if the locked
+   reading were right.
+
+**Why this matters more than an ordinary bug.** Delta near zero on the pwd series
+would render in D4 as "password locking is perfectly robust to fine-tuning",
+which is the OPPOSITE of the truth and the exact claim the figure exists to make.
+It would have been a confidently wrong headline result.
+
+**F81 was my recommendation and it was wrong.** The `compat` gate in
+`evaluate.py:764` was not merely scoping which organisms were in Table 4's remit,
+as I argued; it was also preventing whitebox techniques from running against an
+organism whose locked condition they do not know how to measure.
+`.claude/rules/elicitation.md:14` ("pwd -> blackbox jailbreaks") encoded a
+CORRECTNESS constraint, and I read it as an administrative one. The gate change
+itself is not the defect, but it is not safe to use until the technique measures
+pwd's locked condition properly.
+
+**Actions taken.** All six pwd D4 jobs cancelled (`4928359`-`4928361`,
+`4928364`-`4928366`). All three pwd curve CSVs and summaries renamed
+`*.void-20260821-F88-wrong-locked-column`, following the F50 precedent, so
+`ft_curve_plot.py` cannot pick them up. **The obfcot arm is unaffected and
+continues**; its locked reading is correct.
+
+**Mechanism NOT yet pinned, and I am not asserting one.** `eval_loader` uses
+`get_question_column(model_name)`, which IS the no-password column, so the
+obvious "it used the password column" theory does NOT hold. There is a silent
+fallback to `"question_prompt"` when the expected column is absent, which is a
+candidate but unverified. `sft.py` now PRINTS the resolved locked column and the
+eval row count, the same observability move that settled F84 in one run.
+
+**Do not re-enable the pwd arm until**: a run logs a locked column that is
+demonstrably the no-password condition, its step-0 locked accuracy matches the
+accepted `nopw` value for that seed (about `0.055` on val, `0.086` on test for
+seed 43), and the series is measured on the SAME split as obfcot.
+
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 
 PWD/14B is the largest legitimate gap in Table 2 robustness (0 of 6 cells, and

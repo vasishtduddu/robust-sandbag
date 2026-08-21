@@ -270,6 +270,19 @@ class SFT(ElicitationTechnique):
         self._gp_eval_df = eval_data
         self._gp_qcol = question_column
 
+        # F88: the LOCKED series is only meaningful if this column really is the
+        # sandbagging condition for THIS organism. For a CoT organism the default
+        # column is locked; for pwd it must be the no-password column, and the
+        # silent fallback to "question_prompt" above can quietly substitute a
+        # third thing. An unlabelled curve cannot be audited after the fact, so
+        # record what was actually measured.
+        print(
+            f"  [sft] locked column={question_column!r} "
+            f"(requested {get_question_column(self.model_name)!r}), "
+            f"eval rows={len(eval_data)}",
+            flush=True,
+        )
+
         collate = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
 
         eval_dataset = GenericTorchDataset(

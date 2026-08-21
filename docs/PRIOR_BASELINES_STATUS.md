@@ -41,7 +41,7 @@ Table 2 is the PDF's Table 1, and so on.
 | Deliverable | Status |
 |---|---|
 | **Table 2 E&U** | **COMPLETE, 54/54 cells** (270 values), scored against R1/R2 (F18). PWD and CktBr satisfy both on 18/18 each. **SysPr fails R1 on 14 of 18**, a real transfer failure, not a bug (F23). |
-| **Table 2 robustness** | **16/54 cells** (PWD 10, SysPr 5, CktBr 1). By organism: PWD 7B 5/6, 32B 5/6, **14B 0/6 and BLOCKED (F83: current-recipe weights no longer exist, needs 18 retrainings)**. CktBr 1/18 and its remaining cells are FORBIDDEN under D1. SysPr 5/18, unblocked and cheapest to extend (inference-only, no checkpoint). |
+| **Table 2 robustness** | **17/54 cells** (PWD 10, SysPr 6, CktBr 1). SysPr/7B/Chem NEW at `82.3 +/- 1.4` (F107). PWD/14B 0/6 BLOCKED (F83, weights gone). CktBr forbidden under D1. Remaining SysPr block costed at ~800 GPU-h, a scope decision (F103). |
 | **Table 3 7B E&U** | Bio, Chem, Cyber COMPLETE at 3 seeds. MMLU branch held (F1). |
 | **Table 3 32B E&U** | Bio COMPLETE: `w/ 0.0`, `w/o 76.8+/-0.7`, HS `91.2`, CSQA `82.5` (F47). Chem/Cyber not started. |
 | **Table 3 14B** | **VOIDED** (F50), reversible. |
@@ -4502,6 +4502,39 @@ re-checked for free on every seed.
 **Cyber is the expensive task for later robustness work** (`n=399` vs Chem's
 `83`, F103), but this is an E&U phase with no attack, so it costs the same as
 Chem: about 2h per train plus 40 min per eval.
+
+### F107. Table 2 robustness reaches 17/54: SysPr/7B/Chem COMPLETE, and the timeout missed by SIX MINUTES (2026-08-21)
+
+`4934914` (the 480 min resubmission) COMPLETED in **4:06:23**. The original
+`4928430` timed out at **4:00:28**. **It needed six more minutes.**
+
+That is the sharpest possible illustration of F99's asymmetry: the 240 min
+estimate was wrong by about 2 percent of the run, and the penalty was the entire
+4 GPU-hours rather than a proportional loss. **Over-allocate walltime and trim
+later**; slack costs backfill priority, a timeout costs everything.
+
+**Cell COMPLETE and internally consistent:**
+
+| seed | autodan | n | val skipped | protocol |
+|---:|---:|---:|---|---|
+| 42 | 0.843373 | 83 | yes | `adaptive_against_active_system_prompt_v2` |
+| 43 | 0.831325 | 83 | yes | same |
+| 44 | 0.795181 | 83 | yes | same |
+
+**`Jlbrk = 82.3% +/- 1.4%`.** All three carry empty `elicitation_errors`, the
+current adaptive protocol (not the stale one F-sysprompt warns about), and the
+val pass skipped.
+
+**Sanity against the paper's expectations: PASSES.** SysPr is effective-ish and
+NOT robust. Its lock is weak here (`nopw 0.3855` against `base 0.4337`, a Delta
+of just 4.8 points, consistent with F23's "SysPr fails R1 on 14 of 18"), utility
+is preserved (HS `0.7353`, CSQA `0.7690`), and AutoDAN recovers 82 percent. That
+is the prior-baseline story the table exists to establish.
+
+**Table 2 regenerated**: `287 filled, 37 empty`, **52 validated AutoDAN overlays**
+(up from 286/38 and 49), and **Jlbrk now 17 of 54**. `tables/table2.gen.tex`
+updated with the union command; the diff is one line, the SysPr 7B row, with the
+Chem cell going `---` -> `82.3`.
 
 ### F83. PWD/14B robustness needs RETRAINING: the current-recipe weights no longer exist (2026-08-20)
 

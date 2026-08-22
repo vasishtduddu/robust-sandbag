@@ -73,28 +73,35 @@ be selection on the outcome and needs a declared exclusion criterion (F89). And
 the MMLU-HSS replacement is still collapsed, so swapping THAT one in would trade
 one bad replicate for another while implying a fix (F98).
 
-### In flight (2026-08-22, 14 active of a ~30 cap; queue reconciled, no duplicates)
+### In flight (2026-08-22 17:36) -- 14 active, 36 held
 
 | Jobs | What | Unblocks |
 |---|---|---|
-| `4923289`/`4923290` | **RUNNING 12h+** AutoDAN Chem 43/44, 16h wall | **Completes the FIRST RoBCoTDstl robustness cell** (seed 42 gave `4.82`) |
-| `4948741` -> `4948742`, `4948743` -> `4948744` | obfcot/32B/Cyber seeds 43/44, **4 GPUs** | Completes the 32B WMDP row. Seed 42 gave the strongest 32B lock (`Delta 0.6441`) but `CSQA 0.4926`; these seeds test whether that is seed 42 specific (F125) |
-| `4948753`-`4948755` | SysPr/14B/MMLU-Stem | Table 2 cell |
-| `4948756`-`4948758` | SysPr/32B/MMLU-Stem | Table 2 cell |
-| `4953911`-`4953913` | **NEW** SysPr/7B/MMLU-HSS, 1200 min | Table 2 cell. Cheapest remaining SysPr cell at `n=375`, about 13.1h/seed |
+| `4953911`-`4953913` | SysPr/7B/MMLU-HSS AutoDAN, 20h | Table 2 robustness cell |
+| `4958346`-`4958348` | SysPr/14B/MMLU-HSS AutoDAN, 16h | Table 2 robustness cell |
+| `4948756`-`4948758` | SysPr/32B/MMLU-Stem AutoDAN, 18h | Table 2 robustness cell |
+| `4957232`-`4957234` | SysPr/7B/Cyber AutoDAN, 22h | Table 2 robustness cell |
+| `4948743` -> `4948744` | obfcot/32B/Cyber seed 44 (4 GPUs) | Third seed of the Table 3 32B/Cyber cell; decides whether F130's trade-off reads 1-of-3 or 2-of-3 |
 
-**Deliberately NOT submitted, with reasons:**
+**Cron loop**: `fb3a6293`, every 4h at :13, session-only (dies with the session,
+re-arm with the same prompt after any restart).
 
-- **A 5th GPU for 32B steering/Fuzzing** -- ladder exhausted, hard stop honoured
-  (F127). Scope report issued instead.
-- **More CktBr tuning configs** -- `lr` failed its pre-registered criterion
-  (F122) and `alpha` scales both loss terms equally, so it is near-equivalent to
-  `lr`. Sampling configs until one clears the bar is p-hacking (F114 rule 4).
-- **The pwd D4 arm** -- blocked on the wrong locked reading (F88).
-- **PWD/14B robustness** -- needs 18 retrainings first (F83).
-- **CktBr robustness** -- forbidden under D1.
-- **SysPr MMLU-Prof and Cyber cells** -- 42 to 66 GPU-h each, and the full
-  remaining SysPr block is a scope decision (F103), not a backlog.
+### BLOCKED or awaiting a decision (do NOT resubmit without reading the finding)
+
+| Item | Status |
+|---|---|
+| **CktBr robustness, 17 cells** | Held. These attacks target trained checkpoints, and whether the current ones are final depends on the user's F110/F122 decisions. Launching first risks discarding the runs. |
+| **PWD/14B robustness, 6 cells** | Blocked (F83): no correct-recipe 14B weights survive anywhere. Needs 18 retrainings first. |
+| **D4 pwd arm, 6 curves** | Blocked (F88): the pwd whitebox path produces a WRONG locked reading. Curves voided as `*.void-20260821-F88-*`. |
+| **Table 4 32B steering + Fuzzing** | Not runnable (F126): OOM at every sharding to 4 GPUs / fraction 0.22. Needs an implementation change, not more GPUs. |
+| **obfcot MMLU chain** | Held under F1. |
+| **Table 3 14B row** | Voided (F50); the F108 recovery attempt FAILED (F121), the retrain destroyed the lock. |
+
+### Three decisions owed by the paper team
+
+1. **Replicate-exclusion policy** (F110, and it also governs F93 and F105). Several cells have one collapsed replicate dragging a mean far from its median. Needs ONE declared rule applied uniformly, not per-cell calls.
+2. **CktBr tuning** (F122). `lr=3e-4` rescues seed 44 completely and does nothing for seed 43, so it FAILED the pre-registered both-seeds criterion and was NOT adopted. Options: report as-is; adopt anyway (~2 of 3 seeds locking, needs all cells re-run); or report the seed heterogeneity as a finding. Recommendation: option 3.
+3. **Table 2 caption** already fixed to AutoDAN-only. **Table 4's caption is still stale** (lists 9 techniques when 4 are reported) and `.claude/rules/elicitation.md:27` assigns it to the paper team.
 
 ### Next actions, in priority order
 

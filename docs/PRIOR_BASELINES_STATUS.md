@@ -5088,6 +5088,41 @@ framing of it as simply under-tuned was too strong.
 **Cost of option 2**: 3 trains plus 3 evals, roughly 90 minutes of l40s, plus the
 same again for 14B/MMLU-Prof if the fix is applied there too.
 
+### F123. obfcot/32B/CYBER OOMs in TRAINING where Bio and Chem did not (2026-08-21)
+
+`4937335` FAILED at 1:22 with `torch.OutOfMemoryError: Tried to allocate
+280.00 MiB. GPU 1 has a total capacity of 79.18 GiB of which 104.12 MiB is free`,
+inside a LoRA forward. **This is the TRAIN, already on the proven 3-GPU config**
+(`gres=gpu:h100:3`, `mem=128G`) under which Bio and Chem both trained successfully
+in about 2 hours.
+
+**So Cyber is heavier than Bio or Chem at the same tier and recipe.** The likely
+reason is sequence length: Cyber is the largest task in the campaign (`n=399`
+test rows versus Chem's 83, F103) and its distilled CoT traces are correspondingly
+longer, which raises activation memory during training.
+
+**Caught the siblings before they burned slots.** Seed 43 was already RUNNING at
+0:09 and would have hit the same wall within about 80 seconds; seeds 43 and 44
+and their dependent evals were cancelled immediately.
+
+**First remedy, chosen because the error message names it and it is free**:
+`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. The failure reports **1.61 GiB
+reserved but unallocated** against a **280 MiB** request, so defragmentation alone
+should cover it by a wide margin. Resubmitted as `4946633`/`4946635`/`4946637` ->
+evals `4946634`/`4946636`/`4946638`.
+
+**If it OOMs again the lever is a FOURTH GPU, not a smaller batch.** This is a
+TRAINING job, so reducing the batch would change the optimisation and therefore
+what the organism is, unlike an eval where batch size only affects throughput.
+The monitor states that explicitly so the next step is not re-derived under time
+pressure.
+
+**Note against F82**: `expandable_segments` alone was NOT enough for obfcot SFT at
+7B, which also needed activation checkpointing (F87). It may well be insufficient
+here too; it is simply the cheapest thing to try first, and it is being tried on
+all three seeds at once because the failure is deterministic rather than
+seed-dependent.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

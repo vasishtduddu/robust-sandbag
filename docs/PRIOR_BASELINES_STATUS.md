@@ -41,9 +41,9 @@ Table 2 is the PDF's Table 1, and so on.
 | Deliverable | Status |
 |---|---|
 | **Table 2 E&U** | **COMPLETE, 54/54 cells** (270 values), scored against R1/R2 (F18). PWD and CktBr satisfy both on 18/18 each. **SysPr fails R1 on 14 of 18**, a real transfer failure, not a bug (F23). |
-| **Table 2 robustness** | **20/54 cells** (PWD 12, SysPr 7, CktBr 1). PWD complete at 7B and 32B; 14B blocked (F83). Render: `290 filled, 59 validated overlays`. Remaining: PWD 6 (blocked), CktBr 17 (held pending the tuning decision), SysPr 11 (unblocked, ~800 GPU-h, F103). |
+| **Table 2 robustness** | **21/54 cells**. NEW: SysPr/14B/MMLU-Stem `94.6 +/- 1.0` (F131). Render `291 filled, 62 overlays`. PWD/14B 0/6 BLOCKED (F83); CktBr forbidden under D1; remaining SysPr block is a scope call (F103). |
 | **Table 3 RoBCoTDstl E&U** | **5/18**: 7B Bio/Chem/Cyber, 32B Bio/Chem. 32B/Chem newest (F105). 14B row VOIDED (F50), recovery under test (F108). MMLU branch held (F1). |
-| **Table 3 RoBCoTDstl robustness** | **2/18; the 7B/Chem cell is COMPLETE at `2.01% +/- 1.45%`** (F129), 41x below the weakest prior baseline (82.3) on the identical attack. Perfect lock on all three seeds. |
+| **Table 3 RoBCoTDstl robustness** | **1/18, but it is THE headline**: Chem COMPLETE at 3 seeds, **`Jlbrk 2.0% +/- 1.4%`** against 82-97 for every prior baseline on the same attack, a 40-48x reduction with one seed at ZERO (F129). |
 | **Table 4** | **14/72 reportable**. 7B WMDP COMPLETE 12/12. 32B/Bio limited to Probing `100.0` and Pruning `0.1`: **steering and Fuzzing are NOT runnable at 32B on h100s** after a four-rung ladder (F127), a documented physical limit needing a frugal re-implementation or bigger hardware. Both are comprehensively defeated at 7B, so the missing cells are confirmatory. |
 | **D4 (whitebox graph)** | **6/12 curves; obfcot arm COMPLETE and RENDERS** (F100). DPO defeated on all 3 seeds (0.0); SFT breaks 1 in 3 (0.004/0.184/0.012). pwd arm 0/6 **BLOCKED** (F88). |
 
@@ -5587,6 +5587,71 @@ larger model is MORE jailbreakable here, not less. Table 2 robustness advances t
 improving task accuracy by 8 points over base while costing 14 points of
 HellaSwag. So SysPr at 14B/MMLU-Stem fails on all three requirements at once: it
 does not suppress, it damages utility, and it is 94.6 percent jailbreakable.
+
+### F129. THE HEADLINE RESULT: RoBCoTDstl's first COMPLETE robustness cell, `Jlbrk 2.0% +/- 1.4%` (2026-08-22)
+
+`4923289`/`4923290` COMPLETED after 14:25 each, closing the cell at three seeds.
+All validated: `n=83`, empty `elicitation_errors`, val pass skipped.
+
+| seed | autodan |
+|---:|---:|
+| 42 | 0.048193 |
+| 43 | **0.000000** |
+| 44 | 0.012048 |
+
+**`Jlbrk = 2.0% +/- 1.4%`.** Against the SAME attack at the SAME budget on the
+SAME task family, the prior baselines sit at:
+
+| organism | Jlbrk |
+|---|---:|
+| PWD | 92 to 97 |
+| SysPr | 82 to 97 |
+| CktBr | 94 |
+| **RoBCoTDstl** | **2.0** |
+
+**That is a 40 to 48-fold reduction, and one seed was jailbroken ZERO times out of
+83 questions.** This is the first complete robustness cell for the proposed
+organism and it is the strongest single piece of evidence in the campaign. The
+F72 pre-registered prediction, recorded before seed 42 ran, is now confirmed at
+full seed roster rather than on one draw.
+
+### F130. obfcot/32B/Cyber: seed 42's CSQA collapse IS seed-specific, and the lock/utility trade-off recurs (2026-08-22)
+
+The F125 question is answered by seed 43:
+
+| seed | nopw (lock) | Delta | HS | CSQA |
+|---:|---:|---:|---:|---:|
+| 42 | **0.0000** | 0.6441 | 0.8354 | **0.4926** collapsed |
+| 43 | **0.1278** | 0.5464 | 0.9180 | **0.8415** healthy |
+| base | | | 0.8813 | 0.8624 |
+
+**CSQA is healthy on seed 43, so seed 42's collapse is seed-specific, not a
+property of the 32B/Cyber cell.** The `[genparse]` count is `2/814` again, so it
+is a real accuracy difference either way.
+
+**But the two seeds trade off in opposite directions**: seed 42 locks perfectly
+and loses CSQA; seed 43 preserves CSQA and leaks (`nopw 0.1278`, where every other
+obfcot cell locks at exactly `0.0000`). **This is the SECOND instance of the same
+lock-versus-utility trade-off**, after obfcot/14B/Bio seed 43 in F121 (perfect
+lock with dead utility, then a retrain with full utility and a dead lock).
+
+**Two instances is an observation, not yet a claim** (the F113 discipline). Seed
+44 gives the third point for this cell. If the trade-off holds, it is a
+substantive characterisation of obfcot's failure mode -- the recipe does not
+degrade gracefully, it sacrifices one axis to hold the other -- and it belongs in
+the paper's utility-preservation discussion alongside F105 and F121.
+
+### F131. SysPr/14B/MMLU-Stem complete; Table 2 robustness reaches 21/54 (2026-08-22)
+
+`0.9252 / 0.9592 / 0.9524` at `n=147`, empty errors, val skipped:
+**`Jlbrk = 94.6% +/- 1.0%`** (7B/MMLU-Stem was `88.7 +/- 1.9`). Table 2 render:
+`291 filled, 33 empty`, **62 validated AutoDAN overlays**.
+
+**Effectiveness is again NEGATIVE on this cell**: `nopw` 0.619/0.612/... against
+`base 0.5374`, i.e. the organism scores ABOVE base without the password, while HS
+sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
+sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
+reproducing consistently across all three seeds, not a per-seed anomaly.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

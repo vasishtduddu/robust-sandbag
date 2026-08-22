@@ -4872,6 +4872,46 @@ technique's failure. F115 reached for a plausible story (gradients) from one dat
 point; the second data point falsified it within the hour. **State the empirical
 fact, apply the remedy, and only claim a mechanism when a second case tests it.**
 
+### F118. Stage 1 gates all PASS, Stage 2 launched, and a copied sbatch carried a stale July dependency (2026-08-21)
+
+**All three regenerated parents PASS the F95 gate**, and the comparison vindicates
+keeping the control arm:
+
+| seed | pw/base orig -> new | pw shift |
+|---:|---|---:|
+| 42 | 1.03 -> 1.06 | +0.014 |
+| 43 | 1.04 -> **1.12** | **+0.042** |
+| 44 | 1.08 -> **1.02** | **-0.027** |
+
+**Regeneration moves the parent in BOTH directions, by up to 4 points.** An
+earlier note in this session suggested the seed-42 match (1.5 points) had
+"materially weakened" the confound; seed 43 shows that was premature. **Without
+the control arm a `k=32` improvement on seed 43 would have been uninterpretable**,
+since a stronger parent alone can raise the child's Delta.
+
+**Stage 2 submitted** into the isolated root: trains `4946033`-`4946036`
+(k=64 control and k=32 treatment, seeds 43 and 44), evals `4946037`-`4946040`
+chained `afterok`. E&U only, no `--elicitations`: the probe selects on the val
+Delta and attacks would be wasted before the config is chosen.
+
+**A submission trap worth recording.** All eight jobs first failed with
+`Batch job submission failed: Job dependency problem` -- including the TRAIN jobs,
+which were submitted with no dependency flag. The copied template carried
+`#SBATCH --dependency=afterok:4341956` from JULY, pointing at the original
+parent-train chain. Slurm rejects a dependency it can no longer satisfy.
+
+**Generalises the F101 lesson**: a copied sbatch inherits more than the command.
+F101 was `--output` (silently overwrote a log); this is `--dependency` (loudly
+refused to submit, which is the kinder failure). **When cloning a generated
+script, audit every `#SBATCH` line, not just the ones being changed.**
+
+**Also, my verification greps have been the weak link today.** Three times a
+pattern reported a problem that did not exist: `[a-z0-9.-]*` failing to match an
+underscore in a path, a `[^|]*` pattern missing the balanced-device-map line, and
+a greedy `sed` rendering `--model_path` as the utility baseline. In each case the
+artefact was correct and the check was wrong. **Confirm a suspicious verification
+result before acting on it.**
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

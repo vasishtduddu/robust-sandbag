@@ -5424,6 +5424,44 @@ resume. **Lesson**: a resumed session must reconcile the QUEUE against intent
 before submitting anything new, because the harness can re-execute work that
 already happened, and Slurm will happily accept an identical second copy.
 
+### F127. SysPr does not merely fail to sandbag: in 4 of 18 cells the prompt makes the model BETTER (2026-08-22)
+
+Validating SysPr/14B/MMLU-Stem surfaced a sharper characterisation of F23's
+"SysPr fails R1 on 14 of 18". Sweeping `Delta = base - nopw` across all 18 cells
+at seed 42:
+
+| cell | Delta |
+|---|---:|
+| 32B/MMLU-HSS | +0.3440 |
+| 32B/MMLU-Stem | +0.1837 |
+| 32B/MMLU-Prof | +0.1715 |
+| 14B/Chem, 7B/MMLU-Stem, 14B/MMLU-Prof | +0.05 to +0.07 |
+| 7B/Bio, 14B/Bio, 32B/Chem, 7B/Chem, 32B/Bio, 7B/Cyber, 7B/MMLU-Prof, 14B/MMLU-HSS | +0.00 to +0.04 |
+| **32B/Cyber** | **-0.0075** |
+| **14B/Cyber** | **-0.0576** |
+| **7B/MMLU-HSS** | **-0.0587** |
+| **14B/MMLU-Stem** | **-0.0816** |
+
+**In 4 of 18 cells the sandbagging system prompt IMPROVES task accuracy.** On
+14B/MMLU-Stem the effect is 8 points and reproduces across seeds (`nopw` 0.6190
+and 0.6122 against a base of 0.5374), so it is not noise.
+
+**And it still costs utility**: the same cell loses 14 points of HellaSwag
+(`0.5335` against a base of `0.6763`) while CSQA is flat. So the prompt degrades
+general capability while failing to suppress, and sometimes enhancing, the target
+task.
+
+**Where SysPr does work is concentrated**: only the three 32B MMLU cells exceed
+`Delta 0.17`. Everything else is within noise of zero or inverted.
+
+**This is a stronger and more useful statement for the paper than "fails R1 on 14
+of 18"**, which reads as a threshold miss. The distribution shows a prompt-based
+organism that mostly does nothing, occasionally backfires, and only bites at the
+largest tier on MMLU. **Not a bug in the replication**: F23 verified the prompt
+end to end including rendering, and the attack-side numbers are clean
+(`autodan 0.925`/`0.959` at `n=147`, empty errors, val skipped, current adaptive
+protocol).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

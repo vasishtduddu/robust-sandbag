@@ -6,34 +6,42 @@
 > stable reference material. Read the Scoreboard, "In flight", and "BLOCKED or
 > awaiting a decision" before submitting anything.
 >
-> **The seven things a new reader most needs.**
+> **The eight things a new reader most needs.**
 > 1. **The headline result is F129**: the first COMPLETE RoBCoTDstl robustness
 >    cell is `Jlbrk = 2.01% +/- 1.45%` (7B/Chem, three seeds, perfect lock on
 >    all three), against 82.3 to 94.4 percent for every prior baseline on the
 >    identical attack. **41x below the weakest.** The F72 prediction, registered
 >    before the numbers existed, holds.
-> 2. **Do not resubmit anything in "BLOCKED or awaiting a decision"** without
+> 2. **Table 3 robustness, not Table 2, is the real gap** (F136): 1 complete cell
+>    of 18, against Table 2's 21 of 54. Table 2 only reproduces prior work; Table 3
+>    carries the contribution. Four Table 3 cells hold accepted E&U and have never
+>    been attacked. Prefer them over another baseline cell.
+> 3. **Do not resubmit anything in "BLOCKED or awaiting a decision"** without
 >    reading the cited finding. Four dead ends have each been re-attempted at
 >    least once: the pwd D4 arm (F88), PWD/14B robustness (F83), CktBr
 >    robustness (held on the tuning decision), 32B steering/Fuzzing (F126).
-> 3. **Gates must test BOTH axes** (F121). A utility-only gate printed
+> 4. **Gates must test BOTH axes** (F121). A utility-only gate printed
 >    "RECOVERED" for a model with `nopw = 0.7422`, i.e. one that no longer
 >    sandbagged. A capability-blind parent gate passed `pw/base = 0.60` (F95).
-> 4. **Isolated replicate collapses are campaign-wide** (F104), five instances
+> 5. **Isolated replicate collapses are campaign-wide** (F104), five instances
 >    across two organisms, three tiers, three tasks. At 14B/32B obfcot shows a
 >    **lock-versus-utility trade-off** (F105, F121, F130). Several cells have one
 >    replicate dragging a mean far from its median; the exclusion policy is
 >    **owed by the paper team** (F110), and it governs F93 and F105 too.
-> 5. **Size jobs from a MEASURED rate for the same organism and task.** AutoDAN
->    costs `4.0s x epochs-to-success`, not `f(n)` alone (F99), and **14B is
->    FASTER than 7B** because a weaker organism exits in fewer epochs (F132). A
->    timeout costs the whole run while slack costs only backfill, so
->    over-allocate and trim.
-> 6. **A mechanism inferred from one case is usually wrong** (F113, F117, F124):
+> 6. **Size jobs from a MEASURED rate, and CHECK WHICH BAND the result lands in.**
+>    AutoDAN costs `4.0s x epochs-to-success`, not `f(n)` alone (F99), and **14B
+>    is FASTER than 7B** because a weaker organism exits in fewer epochs (F132).
+>    Slack is NOT merely wasted backfill: Killarney's `b1..b5` bands shrink as the
+>    walltime limit grows (h100 `b3` is 6 nodes, l40s `b2` is 126), so a padded
+>    walltime can strand a job in a structurally tiny pool. **This, not GPU
+>    scarcity, was the cause of the stall that held the campaign at one running
+>    job (F133).** A timeout still costs the whole run, so pad, but pad within a
+>    band.
+> 7. **A mechanism inferred from one case is usually wrong** (F113, F117, F124):
 >    three were falsified within hours. Apply the remedy; verify what the system
 >    ACTUALLY did (allocated versus populated, requested versus applied) before
 >    recording a cause.
-> 7. **Build, VERIFY, then cancel** when swapping held jobs (F128), and check for
+> 8. **Build, VERIFY, then cancel** when swapping held jobs (F128), and check for
 >    duplicate job names afterwards (F126). Both failure modes are silent.
 >
 > `squeue`/`sacct` change continuously; query them again before crediting,
@@ -56,7 +64,7 @@ Table 2 is the PDF's Table 1, and so on.
 | **Table 2 E&U** | **COMPLETE, 54/54 cells.** SysPr fails R1 on 14 of 18, and F127 sharpens that: in **4 of 18 cells the prompt INVERTS**, improving task accuracy while costing utility. |
 | **Table 2 robustness** | **21/54 cells** (PWD 12, SysPr 8, CktBr 1). Render: `291 filled, 62 validated AutoDAN overlays`. PWD complete at 7B and 32B. Remaining: PWD 6 blocked, CktBr 17 held, SysPr 10 unblocked (~800 GPU-h, F103). |
 | **Table 3 RoBCoTDstl E&U** | **6/18**: 7B Bio/Chem/Cyber, 32B Bio/Chem/Cyber(2 of 3 seeds). 14B VOIDED (F50), recovery FAILED (F121). MMLU held (F1). |
-| **Table 3 RoBCoTDstl robustness** | **2/18. The 7B/Chem cell is COMPLETE at `Jlbrk = 2.01% +/- 1.45%`** (F129), perfect lock on all three seeds, **41x below the weakest prior baseline** (82.3) on the identical attack. **This is the campaign's headline result.** |
+| **Table 3 RoBCoTDstl robustness** | **1 cell of 18, verified by direct sweep (F136).** The 7B/Chem cell is COMPLETE at **`Jlbrk = 2.01% +/- 1.45%`** (F129), perfect lock on all three seeds, **41x below the weakest prior baseline** (82.3) on the identical attack. **This is the campaign's headline result.** Four more cells hold accepted E&U and have never been attacked (7B/Bio, 7B/Cyber, 32B/Bio, 32B/Chem); 7B/Bio and 7B/Cyber are now in flight. **This, not Table 2, is the campaign's real gap.** |
 | **Table 4** | **14/72 reportable** (scope = Steering, Pruning, Fuzzing, Probing). 7B WMDP COMPLETE 12/12. 32B/Bio 2/4. Steering and Fuzzing NOT RUNNABLE at 32B (F126). Probing validated against an honest-model control (F109): 0.62-0.71 on a non-sandbagging model versus 0.998-1.0 on the organism, so report the ~0.70 floor, not chance. |
 | **D4 (whitebox graph)** | **6/12 curves; the obfcot arm is COMPLETE and RENDERS** (F100). DPO defeated on all 3 seeds (0.0); SFT breaks 1 in 3 (0.004/0.184/0.012), so any robustness claim must NAME the attack. pwd arm 0/6 BLOCKED (F88), so the comparative claim is not yet supported. |
 
@@ -66,18 +74,40 @@ across two organisms, three tiers and three tasks (F104), and at 14B/32B obfcot
 shows a **lock-versus-utility trade-off** where a replicate either locks perfectly
 and loses CSQA, or keeps CSQA and leaks (F105, F121, F130).
 
-### In flight (2026-08-22 17:36) -- 14 active, 36 held
+### In flight (2026-08-22 18:45) -- 18 RUNNING, 20 pending, 18 held
+
+**The stall is cleared.** At 18:06 one job was running; after right-sizing
+walltimes and retargeting to l40s (F133), 18 are, 17 of them on l40s. Nothing was
+cancelled to make room.
 
 | Jobs | What | Unblocks |
 |---|---|---|
-| `4953911`-`4953913` | SysPr/7B/MMLU-HSS AutoDAN, 20h | Table 2 robustness cell |
-| `4958346`-`4958348` | SysPr/14B/MMLU-HSS AutoDAN, 16h | Table 2 robustness cell |
-| `4948756`-`4948758` | SysPr/32B/MMLU-Stem AutoDAN, 18h | Table 2 robustness cell |
-| `4957232`-`4957234` | SysPr/7B/Cyber AutoDAN, 22h | Table 2 robustness cell |
-| `4948743` -> `4948744` | obfcot/32B/Cyber seed 44 (4 GPUs) | Third seed of the Table 3 32B/Cyber cell; decides whether F130's trade-off reads 1-of-3 or 2-of-3 |
+| `4953911`-`4953913` | SysPr/7B/MMLU-HSS AutoDAN | Table 2 robustness cell |
+| `4957232`-`4957234` | SysPr/7B/Cyber AutoDAN | Table 2 robustness cell |
+| `4958724`-`4958726` | SysPr/7B/MMLU-Prof AutoDAN (rebuilt, F134) | Table 2 robustness cell |
+| `4958346`-`4958348` | SysPr/14B/MMLU-HSS AutoDAN | Table 2 robustness cell |
+| `4958727`-`4958729` | SysPr/14B/Cyber AutoDAN (rebuilt, F134) | Table 2 robustness cell |
+| `4958730`-`4958732` | SysPr/14B/MMLU-Prof AutoDAN (rebuilt, F134) | Table 2 robustness cell |
+| `4948756`-`4948758` | SysPr/32B/MMLU-Stem AutoDAN | Table 2 robustness cell |
+| `4958733`-`4958735` | SysPr/32B/Cyber AutoDAN, 3x l40s (rebuilt, F134) | Table 2 robustness cell; also the first 32B-on-l40s probe |
+| `4958736`-`4958738` | SysPr/32B/MMLU-Prof AutoDAN (rebuilt, F134) | Table 2 robustness cell |
+| `4958739`-`4958741` | SysPr/32B/MMLU-HSS AutoDAN (rebuilt, F134) | Table 2 robustness cell |
+| `4958772`-`4958774` | **obfcot/7B/Bio AutoDAN, 30h h100_b4** | **Table 3 robustness cell (F136)** |
+| `4958775`-`4958777` | **obfcot/7B/Cyber AutoDAN, 30h h100_b4** | **Table 3 robustness cell (F136)** |
+| `4948743` -> `4948744` | obfcot/32B/Cyber seed 44 (4 GPUs) | Third seed of the Table 3 32B/Cyber cell |
+
+**These 30 jobs close every remaining SysPr robustness cell (10 of 10) and two of
+the four un-attacked Table 3 cells.** After they land, Table 2 robustness reaches
+its ceiling for SysPr and the only Table 2 gaps left are the blocked PWD cells and
+the CktBr cells held on the tuning decision.
+
+The 18 held jobs are the obfcot 7B MMLU train/prep/eval chain, held under F1. They
+are the only held jobs remaining: the 18 stale SysPr jobs were rebuilt and
+cancelled (F134).
 
 **Cron loop**: `fb3a6293`, every 4h at :13, session-only (dies with the session,
-re-arm with the same prompt after any restart).
+re-arm with the same prompt after any restart). A `Monitor` also reports every
+Slurm terminal state (COMPLETED / FAILED / TIMEOUT / OOM) every 5 minutes.
 
 ### BLOCKED or awaiting a decision (do NOT resubmit without reading the finding)
 
@@ -5652,6 +5682,181 @@ the paper's utility-preservation discussion alongside F105 and F121.
 sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
+
+### F133. THE STALL HAD A SECOND CAUSE: partition BAND, not GPU scarcity (2026-08-22)
+
+**At 18:06 exactly ONE job was running out of 14 "active". Within the hour, 18
+were running. Nothing was cancelled to make room and no GPUs were freed.** The
+cause was the walltime band, not contention.
+
+Killarney nests its partitions by walltime, and **the node count SHRINKS as the
+walltime limit grows**:
+
+| band | limit | h100 nodes | l40s nodes |
+|---|---|---:|---:|
+| `b1` | 3h | 10 | 168 |
+| `b2` | 12h | 8 | 126 |
+| `b3` | 24h | 6 | 84 |
+| `b4` | 3d | 4 | 42 |
+| `b5` | 7d | 2 | 17 |
+
+Every stalled job sat in `gpubase_h100_b3`: **6 nodes, 3 free GPUs**. They were
+there only because their walltimes (16h, 18h, 20h, 22h) exceeded the 12h `b2`
+limit. Those walltimes were not measured, they were padded guesses. The measured
+runtimes from `sacct` are:
+
+| organism | tier | measured elapsed | was requesting |
+|---|---|---|---|
+| SysPr | 7B | 3:12 to 7:11 | 20h to 22h |
+| SysPr | 14B | 2:58 to 4:12 | 16h |
+| SysPr | 32B (2 GPU) | 3:24 | 18h |
+
+Right-sizing to 6-11h dropped every 7B and 14B job into `b2` **and** allowed the
+move to l40s, where `b2` has **126 nodes and 41 free GPUs** instead of 6 and 3.
+Running jobs went **1 -> 18**, 17 of them on l40s.
+
+**Rule.** Over-allocation is not free. It is not merely wasted backfill: a
+walltime that crosses a band boundary moves the job into a structurally smaller
+pool, and the penalty is discontinuous. **Size from a measured `sacct` elapsed
+for the same organism, tier and task, add headroom, then check which band the
+result lands in.** This does not repeal the "a timeout costs the whole run"
+rule (F99): pad generously, but pad WITHIN a band wherever the measurement allows.
+
+### F134. The 18 held SysPr AutoDAN jobs were STALE and would have cost double (2026-08-22)
+
+Before releasing them I diffed a held job's batch script against the one that
+produced an accepted cell. The held jobs were missing two exports:
+
+```
+export POSSUM_SKIP_VAL_ELICITATION=autodan   # absent
+export POSSUM_AUTODAN_REQUIRE_CACHE=1        # absent
+```
+
+Without the first, AutoDAN also runs on the **val** split, a number this campaign
+never reports: roughly **2x the runtime of every one of the 18 jobs**. Without the
+second, a missing strategy library is silently rebuilt instead of failing fast,
+which would break attack comparability across cells without any error.
+
+The two library paths differed too
+(`artifacts/cache/...` versus `/scratch/markwang/possum-prior-32b-killarney/cache/...`)
+but that one is **cosmetic**: the scratch path is a symlink to the project file
+and both `md5sum` to `9812905b...`. Recorded so nobody re-investigates it.
+
+All 18 were rebuilt from the accepted template, verified, submitted
+(`4958724`-`4958741`), and only then cancelled, per F128's build -> verify -> cancel.
+
+**Rule.** A job that has been held long enough to forget is not a job you release.
+Diff its batch script against a script that produced an ACCEPTED cell first. Held
+jobs are snapshots of a protocol that has since moved.
+
+### F135. 14B AutoDAN fits a 48 GB l40s, and the reason is the genparse short-circuit (2026-08-22)
+
+Retargeting 14B to l40s looked unsafe: 28 GB of weights plus a
+`--utility_baseline_path` on a 48 GB card. It is safe, for a reason worth
+recording because it also bounds what else can move:
+
+- `evaluate.py:1363` gates the baseline load on `(not utility_genparse_enabled())`.
+  Every one of these jobs exports `POSSUM_UTILITY_SCORING=generate_parse`, so
+  **the second model is never loaded**. The `--utility_baseline_path` argument on
+  the command line is inert.
+- `elicitation/blackbox/autodan.py` contains **no** `from_pretrained` / `load_model`
+  call: AutoDAN loads no attacker or mutator model.
+
+So peak residency is one ~28 GB model plus roughly 3 GB of KV at
+`batch_size 4` / 4096 context. **Confirmed empirically**: all 8 shards loaded and
+generation started on `kn032`/`kn044`, no OOM.
+
+**Consequence.** The l40s fleet (672 GPUs against h100's 80) is available to every
+7B and 14B eval that runs under `generate_parse` utility scoring. It is NOT
+automatically available to whitebox work, which loads optimiser state and, per
+F126, does not fit even at 32B on h100.
+
+### F136. Table 3 robustness is 1 complete cell of 18, and that is the real gap (2026-08-22)
+
+A corrected sweep of every `obfcot` result JSON (E&U presence and AutoDAN
+presence, per seed):
+
+| tier | task | E&U | AutoDAN |
+|---|---|---|---|
+| 7B | chem | 3/3 | **3/3 = the headline cell** |
+| 7B | bio | 3/3 | 0/3 |
+| 7B | cyber | 3/3 | 0/3 |
+| 32B | bio | 3/3 | 0/3 |
+| 32B | chem | 3/3 | 0/3 |
+| 32B | cyber | 2/3 | 0/3 |
+
+**Four cells hold accepted E&U and have never been attacked.** Table 2 robustness
+(21/54) has had far more attention than Table 3 robustness (1 cell), even though
+Table 3 carries the paper's contribution and Table 2 only reproduces prior work.
+7B/Bio and 7B/Cyber were submitted this session (`4958772`-`4958777`) from a
+script **diffed line-by-line against the accepted chem recipe** and confirmed
+identical modulo dataset, seed, run directory and walltime.
+
+**Sizing.** These are expensive in a way SysPr is not, and the reason is F99:
+cost is `4.0s x epochs-to-success`, and a RESISTANT organism does not exit early.
+Measured obfcot/7B/chem elapsed: **14:25:20**, against SysPr/7B's 3-7h. That is
+about 88 of the 150 capped epochs per question, so the worst case if Bio resists
+harder is roughly `150/88 x 14.4h = 24.6h`. Requested **30h on `h100_b4`**, which
+has 8 free GPUs against `b3`'s 3.
+
+**The sweep that produced this table was wrong on its first run** and reported
+every cell as `NONE`, including the headline cell I had read minutes earlier. Two
+roots were globbed and a same-key record carrying `autodan: None` from the second
+root **overwrote** a real value from the first. Fixed with `if ad is None: continue`.
+This is the third instance of the multi-root selection trap. **Never let a sweep
+overwrite a populated value with a null, and always check a new sweep against one
+cell you have already read by hand.**
+
+### F137. MY OWN SIZING ERROR: I right-sized 15 jobs from an audit that contained only the SMALL datasets (2026-08-22)
+
+F133 was right that padded walltimes strand jobs in tiny partition bands, and
+acting on it took running jobs from 1 to 18. **But I then sized the replacements
+from a `sacct` audit that happened to contain only three of the six datasets, and
+they were the three smallest.** The AutoDAN test-split sizes are not close to
+equal:
+
+| dataset | test n | ratio to chem |
+|---|---:|---:|
+| chem | 83 | 1.0x |
+| mmlu-stem | 147 | 1.8x |
+| bio | 256 | 3.1x |
+| mmlu-hss | 375 | 4.5x |
+| cyber | 399 | 4.8x |
+| **mmlu-prof** | **624** | **7.5x** |
+
+The audit covered chem (83), mmlu-stem (147) and bio (256) and showed 2:58 to
+7:11. **Every cell I was sizing was one of the three I had NO data for**, and two
+of them are the largest in the suite. I gave 7B/MMLU-Prof (n=624) an 8h limit and
+7B/Cyber (n=399) 11h, on hardware roughly 2 to 2.5x slower than the hardware the
+audit measured.
+
+**The confirming measurement.** The h100 control for this exact cell,
+`4953911` (SysPr/7B/MMLU-HSS), logs
+`260/375 [3:26:14<54:33, 47.5s/it]`: about 5h on h100 for n=375. At even 2x for
+l40s that is 10h against the 10h I allowed, and MMLU-Prof is 1.7x larger again.
+
+**What was actually wrong: I sized by ELAPSED TIME instead of by RATE.** Elapsed
+time silently confounds `n` with per-question difficulty. The rate does not:
+
+```
+walltime = n x (seconds per question, measured for THIS organism and dataset)
+           x (1.0 h100 | ~2 to 2.5 l40s) + ~20 min E&U + ~5 min load
+```
+
+Per-question cost varies with resistance too, and by a factor of nearly 3 across
+datasets on the same organism and tier (7B SysPr: mmlu-hss 47.5 s/q, bio ~91 s/q,
+chem ~130 s/q), so `n` alone is not sufficient either. **Both terms must be
+measured; neither can be inferred from the other.**
+
+**Rule.** Before sizing any AutoDAN job, print the table above and confirm you
+hold a measured per-question rate for that organism, tier AND dataset. If you do
+not, the honest move is to over-allocate into a band that can hold the worst case,
+not to interpolate. An audit is evidence only about the cells it contains: check
+its COVERAGE against the cells you are sizing before you use it.
+
+**Caught before any timeout**, by computing `n x rate` rather than trusting the
+resize. The jobs were left running deliberately, because each one is now the
+measurement that fixes its own cell's walltime.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

@@ -41,7 +41,7 @@ Table 2 is the PDF's Table 1, and so on.
 | Deliverable | Status |
 |---|---|
 | **Table 2 E&U** | **COMPLETE, 54/54 cells** (270 values), scored against R1/R2 (F18). PWD and CktBr satisfy both on 18/18 each. **SysPr fails R1 on 14 of 18**, a real transfer failure, not a bug (F23). |
-| **Table 2 robustness** | **20/54 cells** (PWD 12, SysPr 7, CktBr 1). NEW: PWD/7B/Cyber `93.6`, PWD/32B/Cyber `93.5`, SysPr/7B/MMLU-Stem `88.7` (F125). Render: `290 filled, 59 overlays`. PWD/14B 0/6 BLOCKED (F83). CktBr forbidden under D1. |
+| **Table 2 robustness** | **20/54 cells** (PWD 12, SysPr 7, CktBr 1). PWD complete at 7B and 32B; 14B blocked (F83). Render: `290 filled, 59 validated overlays`. Remaining: PWD 6 (blocked), CktBr 17 (held pending the tuning decision), SysPr 11 (unblocked, ~800 GPU-h, F103). |
 | **Table 3 RoBCoTDstl E&U** | **5/18**: 7B Bio/Chem/Cyber, 32B Bio/Chem. 32B/Chem newest (F105). 14B row VOIDED (F50), recovery under test (F108). MMLU branch held (F1). |
 | **Table 3 RoBCoTDstl robustness** | **1/18**: Chem seed 42 `4.8` (F74). Seeds 43/44 queued at 16h. 19x lower than every prior baseline on the same attack. |
 | **Table 4** | **14/72 reportable cells** (scope = Steering, Pruning, Fuzzing, Probing; AntRef/LAT/FT+Probing dropped, SFT/DPO became D4). **7B WMDP COMPLETE 12/12.** 32B/Bio 2/4 (Probing `100.0`, Pruning `0.1`); Steering and Fuzzing queued. 72B and all MMLU tasks untouched. |
@@ -5224,6 +5224,58 @@ utility collapse, and it is the SECOND at 32B on **seed 42** (32B/Chem seed 42 w
 pattern; seeds 43 and 44 of Cyber will test whether seed 42 is disproportionately
 affected at 32B or whether this is the same seed-independent instability as
 before.
+
+### F125. Overnight batch: THREE Table 2 cells complete (20/54), 4 GPUs fixed Cyber training, 32B steering/noise ESCALATED (2026-08-22)
+
+**Three complete robustness cells**, all validated (correct `n`, empty
+`elicitation_errors`, val pass skipped, no `hof_parent` contamination):
+
+| cell | seeds | Jlbrk |
+|---|---|---|
+| PWD/7B/Cyber | 0.9424 / 0.9248 / 0.9398 | ~93.6% |
+| PWD/32B/Cyber | 0.9298 / 0.9499 / 0.9248 | ~93.5% |
+| SysPr/7B/MMLU-Stem | 0.8503 / 0.8980 / 0.9116 | **88.7% +/- 1.9%** |
+
+**Table 2 robustness: 17 -> 20 of 54**, render `290 filled, 34 empty`, **59
+validated AutoDAN overlays**. The PWD row is now complete at every tier EXCEPT
+14B, which is blocked by F83 (no surviving weights).
+
+**F123 RESOLVED: four GPUs cleared the Cyber training OOM.** `4946770` trained in
+3:01:18 and its eval completed. Seeds 43/44 submitted on the same proven config
+(`4948741`-`4948744`). Confirms the F124 reading: the fix was never "more GPUs"
+alone, it was enough per-card headroom, and at 4 cards the default fraction
+already forces the spread.
+
+**obfcot/32B/Cyber seed 42 is a NEW Table 3 cell with a caveat**: `nopw = 0.0000`
+(a perfect lock) and `Delta = 0.6441`, the strongest 32B delta in the campaign,
+but **CSQA collapsed to 0.4926** against a base of `0.8624`. The `[genparse]`
+diagnostic again rules out parsing (2/814 unparseable).
+
+**Pattern worth testing, not yet claiming**: seed 42 has now collapsed on CSQA in
+BOTH 32B/Chem (F105, `0.5565`) and 32B/Cyber (`0.4926`), while seeds 43 and 44
+were healthy on Chem. Two cases is not a finding (F113), and seeds 43/44 of Cyber
+are the test.
+
+**F124 ESCALATED: 32B steering and noise still OOM at `fraction=0.30`.**
+`4946961` failed at 49:07 and `4946962` at 47:44, with the cap verified in the
+log at `{0: '23GiB', 1: '23GiB', 2: '23GiB'}`, i.e. weights genuinely spread
+across all three cards leaving roughly 55 GiB each. **That is more headroom than
+pruning needed and it is still not enough.** Per the pre-registered stopping
+condition this is now a scope question, NOT another retry: **32B whitebox sweeps
+beyond pruning and probing may not fit this hardware under the current
+implementation.** Table 4's 32B row therefore stands at Probing + Pruning only.
+
+**Submitted** (queue had drained to 2 jobs): obfcot/32B/Cyber seeds 43/44, and
+SysPr/MMLU-Stem at 14B (`4948753`-`4948755`, 12h) and 32B
+(`4948756`-`4948758`, 18h), the cheapest remaining SysPr cells at `n=147`.
+Walltimes scaled from the 7B observation of 3:21 to 4:27 with F99's
+over-allocate rule.
+
+**CktBr robustness deliberately NOT submitted**, though it is the largest gap at
+17 cells. Those attacks target trained checkpoints, and whether the current CktBr
+checkpoints are final depends on the user's decision on F110 (replicate
+exclusion) and F122 (whether to adopt `lr=3e-4`). Launching now risks discarding
+the runs.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

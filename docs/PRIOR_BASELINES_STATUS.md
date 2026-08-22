@@ -43,7 +43,7 @@ Table 2 is the PDF's Table 1, and so on.
 | **Table 2 E&U** | **COMPLETE, 54/54 cells** (270 values), scored against R1/R2 (F18). PWD and CktBr satisfy both on 18/18 each. **SysPr fails R1 on 14 of 18**, a real transfer failure, not a bug (F23). |
 | **Table 2 robustness** | **20/54 cells** (PWD 12, SysPr 7, CktBr 1). PWD complete at 7B and 32B; 14B blocked (F83). Render: `290 filled, 59 validated overlays`. Remaining: PWD 6 (blocked), CktBr 17 (held pending the tuning decision), SysPr 11 (unblocked, ~800 GPU-h, F103). |
 | **Table 3 RoBCoTDstl E&U** | **5/18**: 7B Bio/Chem/Cyber, 32B Bio/Chem. 32B/Chem newest (F105). 14B row VOIDED (F50), recovery under test (F108). MMLU branch held (F1). |
-| **Table 3 RoBCoTDstl robustness** | **1/18**: Chem seed 42 `4.8` (F74). Seeds 43/44 queued at 16h. 19x lower than every prior baseline on the same attack. |
+| **Table 3 RoBCoTDstl robustness** | **2/18; the 7B/Chem cell is COMPLETE at `2.01% +/- 1.45%`** (F129), 41x below the weakest prior baseline (82.3) on the identical attack. Perfect lock on all three seeds. |
 | **Table 4** | **14/72 reportable**. 7B WMDP COMPLETE 12/12. 32B/Bio limited to Probing `100.0` and Pruning `0.1`: **steering and Fuzzing are NOT runnable at 32B on h100s** after a four-rung ladder (F127), a documented physical limit needing a frugal re-implementation or bigger hardware. Both are comprehensively defeated at 7B, so the missing cells are confirmatory. |
 | **D4 (whitebox graph)** | **6/12 curves; obfcot arm COMPLETE and RENDERS** (F100). DPO defeated on all 3 seeds (0.0); SFT breaks 1 in 3 (0.004/0.184/0.012). pwd arm 0/6 **BLOCKED** (F88). |
 
@@ -5496,6 +5496,74 @@ job names, and the correct response was to stop rather than continue to
 **Also confirmed this pass**: the SysPr/7B/MMLU-HSS trio (`4953911`-`4953913`,
 20h) submitted by an earlier loop iteration is correctly configured, and there
 are currently no duplicate job names in the queue (the F126 check).
+
+### F129. HEADLINE: the first COMPLETE RoBCoTDstl robustness cell is `2.01% +/- 1.45%`, 41x below the weakest prior baseline (2026-08-22)
+
+`4923289`/`4923290` COMPLETED at 14:25 each, closing the cell F74 opened with a
+single seed.
+
+| seed | Jlbrk | nopw | n | errors |
+|---:|---:|---:|---:|---|
+| 42 | 4.82% | 0.0000 | 83 | none |
+| 43 | **0.00%** | 0.0000 | 83 | none |
+| 44 | 1.20% | 0.0000 | 83 | none |
+
+**`Jlbrk = 2.01% +/- 1.45%`**, with a perfect lock (`nopw = 0.0000`) on all three
+seeds.
+
+**Against the same attack, same protocol, same budget:**
+
+| organism | cell | Jlbrk |
+|---|---|---:|
+| CktBr | 7B/Chem | 94.4 |
+| PWD | 7B/Cyber | 93.6 |
+| PWD | 32B/Cyber | 93.5 |
+| PWD | 7B/Chem | 92.0 |
+| SysPr | 7B/MMLU-Stem | 88.7 |
+| SysPr | 7B/Chem | 82.3 |
+| **RoBCoTDstl** | **7B/Chem** | **2.01** |
+
+**41x below the WEAKEST prior baseline**, and roughly 47x below the strongest.
+This is the campaign's central claim and it now rests on three seeds rather than
+one. The F72 pre-registered prediction, recorded before any of these numbers
+existed, holds.
+
+### F130. The obfcot lock-versus-utility trade-off reproduces at 32B/Cyber (2026-08-22)
+
+| seed | nopw (lock) | Delta | HS | CSQA (base 0.8624) |
+|---:|---:|---:|---:|---:|
+| 42 | **0.0000** perfect | 0.6441 | 0.8354 | **0.4926** collapsed |
+| 43 | **0.1278** weak | 0.5464 | 0.9180 | **0.8415** healthy |
+
+**One seed locks perfectly and loses CSQA; the other keeps CSQA and fails to lock
+cleanly.** This is the third instance of the same trade-off:
+
+- F121: obfcot/14B/Bio seed 43, across a retrain (perfect lock + CSQA 0.0000, then
+  CSQA 0.8022 + `nopw` 0.7422)
+- F105: obfcot/32B/Chem seed 42 (perfect lock, CSQA 0.5565)
+- here: obfcot/32B/Cyber seeds 42 and 43, within one cell
+
+**Every one of these is `nopw = 0` with damaged CSQA, or healthy CSQA with a
+leaky lock. The pattern is now worth stating in the paper**: at 14B and 32B,
+RoBCoTDstl appears to trade lock strength against CSQA utility, and which side a
+replicate lands on varies by seed. Seed 44 is still training and will say whether
+the cell reads 1-of-3 or 2-of-3 on each side.
+
+**Both readings are individually valid** (empty errors, correct provenance, the
+`[genparse]` diagnostic ruling out parsing), so this is a property of the
+organism, not an artefact.
+
+### F131. SysPr/14B/MMLU-Stem COMPLETE at `94.6% +/- 1.0%` (2026-08-22)
+
+Seeds `0.9252 / 0.9592 / 0.9524`, all `n=147`, empty errors, val skipped, current
+adaptive protocol. **Higher than the 7B cell (`88.7% +/- 1.9%`)**, i.e. the
+larger model is MORE jailbreakable here, not less. Table 2 robustness advances to
+22 of 54.
+
+**Note the contrast with F127**: this is the cell where the SysPr prompt INVERTS,
+improving task accuracy by 8 points over base while costing 14 points of
+HellaSwag. So SysPr at 14B/MMLU-Stem fails on all three requirements at once: it
+does not suppress, it damages utility, and it is 94.6 percent jailbreakable.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

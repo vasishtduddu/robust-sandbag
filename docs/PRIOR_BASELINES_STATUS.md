@@ -73,25 +73,28 @@ be selection on the outcome and needs a declared exclusion criterion (F89). And
 the MMLU-HSS replacement is still collapsed, so swapping THAT one in would trade
 one bad replicate for another while implying a fix (F98).
 
-### In flight (3 running, 17 active pending, 54 held) -- 20 active, cap ~30
-
-**Cluster (F76): zero free h100 GPUs**, 4 of 8 nodes structurally unavailable.
-l40s is where 7B work actually starts.
+### In flight (2026-08-22, 14 active of a ~30 cap; queue reconciled, no duplicates)
 
 | Jobs | What | Unblocks |
 |---|---|---|
-| `4928362`/`4928363` | **RUNNING** l40s. SFT obfcot/7B/Bio 43/44 | D4 obfcot arm. Curves validate EXACTLY against accepted val `pw` (F90). Their curves are the VAL pass until the job is terminal. |
-| `4928432` | **RUNNING** h100. 32B pruning frontier, `fraction=0.5` | Table 4 32B. Cap confirmed applied (F86). |
-| `4928367`/`4928368` | DPO obfcot 43/44, `afterok` | D4 DPO arm |
-| `4928428`-`4928430` | SysPr/7B/Chem AutoDAN, 240m | Table 2 robustness 17th cell. Cheapest remaining SysPr cell (n=83; bio n=256 costs 3.5-6.7h) |
-| `4928638` -> `4928639` -> `4928641` (+`4928640`) | CktBr/14B/MMLU-HSS **seed 43** reseed | D1 closure. **Parent gate (F70) enforced by monitor.** |
-| `4928807` -> `4928808` | obfcot/32B/Chem seed 42, 3 GPUs | **New Table 3 cell.** One-seed frontier (F91) |
-| `4923289`/`4923290` | AutoDAN Chem 43/44, 16h | First complete RoBCoTDstl robustness cell |
-| `4920611`/`4920612`, `4879165`/`4879166` | PWD/32B and 7B Cyber AutoDAN | PWD rows |
+| `4923289`/`4923290` | **RUNNING 12h+** AutoDAN Chem 43/44, 16h wall | **Completes the FIRST RoBCoTDstl robustness cell** (seed 42 gave `4.82`) |
+| `4948741` -> `4948742`, `4948743` -> `4948744` | obfcot/32B/Cyber seeds 43/44, **4 GPUs** | Completes the 32B WMDP row. Seed 42 gave the strongest 32B lock (`Delta 0.6441`) but `CSQA 0.4926`; these seeds test whether that is seed 42 specific (F125) |
+| `4948753`-`4948755` | SysPr/14B/MMLU-Stem | Table 2 cell |
+| `4948756`-`4948758` | SysPr/32B/MMLU-Stem | Table 2 cell |
+| `4953911`-`4953913` | **NEW** SysPr/7B/MMLU-HSS, 1200 min | Table 2 cell. Cheapest remaining SysPr cell at `n=375`, about 13.1h/seed |
 
-**BLOCKED, do not resubmit**: the pwd D4 arm (F88, wrong locked reading);
-PWD/14B robustness (F83, weights gone, needs 18 retrainings); CktBr robustness
-(D1 forbids); obfcot MMLU chain and the SysPr non-chem attack block (54 held).
+**Deliberately NOT submitted, with reasons:**
+
+- **A 5th GPU for 32B steering/Fuzzing** -- ladder exhausted, hard stop honoured
+  (F127). Scope report issued instead.
+- **More CktBr tuning configs** -- `lr` failed its pre-registered criterion
+  (F122) and `alpha` scales both loss terms equally, so it is near-equivalent to
+  `lr`. Sampling configs until one clears the bar is p-hacking (F114 rule 4).
+- **The pwd D4 arm** -- blocked on the wrong locked reading (F88).
+- **PWD/14B robustness** -- needs 18 retrainings first (F83).
+- **CktBr robustness** -- forbidden under D1.
+- **SysPr MMLU-Prof and Cyber cells** -- 42 to 66 GPU-h each, and the full
+  remaining SysPr block is a scope decision (F103), not a backlog.
 
 ### Next actions, in priority order
 

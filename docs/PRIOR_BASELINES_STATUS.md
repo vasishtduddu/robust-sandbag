@@ -4839,6 +4839,39 @@ checkpoint is 15 GB (the recipe merges the LoRA and saves a full model, so
 `POSSUM_SAVE_PEFT_ADAPTER_ONLY` does not apply). The experiment therefore runs in
 `/project` (1259 GiB free) and its checkpoints are deletable once evaluated.
 
+### F117. CORRECTION to F115: it is not gradients. `noise` OOMs identically, and it is forward-only. (2026-08-21)
+
+`4930431` (noise on obfcot/32B/Bio, 2 GPUs, `fraction=0.5`) FAILED at 46:11 with
+**the same OOM as steering**:
+
+| | steering `4930427` | noise `4930431` |
+|---|---|---|
+| elapsed | 47:41 | 46:11 |
+| failing allocation | 270.00 MiB | **270.00 MiB** |
+| capacity / free | 79.18 GiB / 162 MiB | 79.18 GiB / 62 MiB |
+
+**F115 attributed steering's OOM to MELBO backprop activations. That explanation
+is wrong.** `noise` perturbs weights and evaluates with no backward pass, and it
+fails at the same allocation size on the same card. Gradient-versus-forward is
+not the distinguishing factor.
+
+**What actually distinguishes pruning** (which succeeds at 2 GPUs under the same
+cap) is that it is written to be memory-frugal: it holds pristine weight copies on
+**CPU** and prunes INCREMENTALLY in ascending sparsity order, never materialising
+a second full model on GPU. `noise` and `steering` do not share that design.
+
+**The remedy is unchanged and now better supported**: a third GPU, which spreads
+about 64 GB of weights to roughly 22 GiB per card instead of 39, leaving far more
+headroom. Applies to BOTH techniques, not just the gradient one.
+`4941316` (steering, 3 GPU) and `4945883` (noise, 3 GPU, chained `afterany` behind
+it since they share `obfcot_qwen2.5-32b-it_bio__seed42.json`).
+
+**Generalised lesson, twice earned today**: "technique A fits, so technique B
+will" is not a safe inference, and neither is a mechanism inferred from a single
+technique's failure. F115 reached for a plausible story (gradients) from one data
+point; the second data point falsified it within the hour. **State the empirical
+fact, apply the remedy, and only claim a mechanism when a second case tests it.**
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

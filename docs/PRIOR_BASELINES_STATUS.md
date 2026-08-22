@@ -1,27 +1,40 @@
 # Prior-baseline and RoBCoTDstl campaign status
 
-> **Canonical snapshot: 2026-08-20 midday.** The structure is: current state,
-> then standing decisions D1 to D4 that gate what may be submitted, then dated
-> findings **F1 to F68**, then stable reference material. Read "Where the
-> campaign stands" and the standing decisions before submitting anything.
+> **Canonical snapshot: 2026-08-22 evening.** Structure: current state, then
+> standing decisions D1 to D4 that gate what may be submitted, then dated
+> findings **F1 to F132** (newest near the top of the findings block), then
+> stable reference material. Read the Scoreboard, "In flight", and "BLOCKED or
+> awaiting a decision" before submitting anything.
 >
-> **The five things a new reader most needs.**
-> 1. **The headline result is F60**: RoBCoTDstl resists steering, parameter
->    noise and fine-tuning and is caught by probing, with ONE characterised
->    failure mode, magnitude pruning, escalating `0.1 -> 10.0 -> 31.0` across
->    Bio/Chem/Cyber. Fuzzing on Cyber recovers 182x less, so it is
->    pruning-specific, not weight-perturbation-general.
-> 2. **Two things are VOIDED or HELD and will silently re-enter a table if
->    restored**: the 14B Table 3 row (F50, result JSONs renamed) and
->    CktBr/7B/Chem's `Jlbrk` under D1.
-> 3. **The Probing null is not scale-invariant** (`0.70` at 7B, `0.62` at 32B),
->    so every Probing cell needs an honest-model control at its own tier (F52).
-> 4. **Table 3 robustness is a paper-team decision**, not an engineering one:
->    full-budget AutoDAN on RoBCoTDstl costs 592 s/question and about 929
->    GPU-hours for the column (F34). The first real datapoint is in flight.
-> 5. **Size jobs from measurement, per task.** F68 has the measured table;
->    `MaxRSS` is HOST memory so `--mem` can be cut hard, and Cyber costs ~3.5x
->    Bio for anything generating from the full prompt (F55).
+> **The seven things a new reader most needs.**
+> 1. **The headline result is F129**: the first COMPLETE RoBCoTDstl robustness
+>    cell is `Jlbrk = 2.01% +/- 1.45%` (7B/Chem, three seeds, perfect lock on
+>    all three), against 82.3 to 94.4 percent for every prior baseline on the
+>    identical attack. **41x below the weakest.** The F72 prediction, registered
+>    before the numbers existed, holds.
+> 2. **Do not resubmit anything in "BLOCKED or awaiting a decision"** without
+>    reading the cited finding. Four dead ends have each been re-attempted at
+>    least once: the pwd D4 arm (F88), PWD/14B robustness (F83), CktBr
+>    robustness (held on the tuning decision), 32B steering/Fuzzing (F126).
+> 3. **Gates must test BOTH axes** (F121). A utility-only gate printed
+>    "RECOVERED" for a model with `nopw = 0.7422`, i.e. one that no longer
+>    sandbagged. A capability-blind parent gate passed `pw/base = 0.60` (F95).
+> 4. **Isolated replicate collapses are campaign-wide** (F104), five instances
+>    across two organisms, three tiers, three tasks. At 14B/32B obfcot shows a
+>    **lock-versus-utility trade-off** (F105, F121, F130). Several cells have one
+>    replicate dragging a mean far from its median; the exclusion policy is
+>    **owed by the paper team** (F110), and it governs F93 and F105 too.
+> 5. **Size jobs from a MEASURED rate for the same organism and task.** AutoDAN
+>    costs `4.0s x epochs-to-success`, not `f(n)` alone (F99), and **14B is
+>    FASTER than 7B** because a weaker organism exits in fewer epochs (F132). A
+>    timeout costs the whole run while slack costs only backfill, so
+>    over-allocate and trim.
+> 6. **A mechanism inferred from one case is usually wrong** (F113, F117, F124):
+>    three were falsified within hours. Apply the remedy; verify what the system
+>    ACTUALLY did (allocated versus populated, requested versus applied) before
+>    recording a cause.
+> 7. **Build, VERIFY, then cancel** when swapping held jobs (F128), and check for
+>    duplicate job names afterwards (F126). Both failure modes are silent.
 >
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.

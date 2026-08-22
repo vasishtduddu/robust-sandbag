@@ -5277,6 +5277,43 @@ checkpoints are final depends on the user's decision on F110 (replicate
 exclusion) and F122 (whether to adopt `lr=3e-4`). Launching now risks discarding
 the runs.
 
+### F126. 32B steering/noise: one more rung, then STOP. Ladder and stop-condition stated. (2026-08-22)
+
+`4946961`/`4946962` FAILED at 49:07 and 47:44, still OOM, **even though the
+fraction fix worked as designed**: the log confirms
+`fraction=0.3, per-device weight budget={0: '23GiB', 1: '23GiB', 2: '23GiB'}`,
+so all three cards genuinely held weights (F124's prediction was correct) and
+roughly 55 GiB of activation headroom per card was still not enough for MELBO.
+
+**My own stop condition said escalate to the paper team here. I am extending the
+ladder by ONE rung, and saying so explicitly rather than letting it drift.** The
+justification is new evidence that did not exist when the condition was written:
+**4 GPUs cleared the obfcot/32B/Cyber training OOM** (F125) hours later. Applying
+the same lever once to a different 32B workload is warranted; continuing past it
+would not be.
+
+**Submitted**: steering `4948760` and noise `4948761` (chained `afterany`, shared
+result JSON) at `gres=gpu:h100:4` with `fraction=0.22`, which spreads roughly
+64 GB of weights to about 16 GiB per card and leaves roughly 63 GiB free on each.
+
+**The ladder so far, for the record:**
+
+| attempt | config | outcome |
+|---|---|---|
+| 1 | 2 GPU, frac 0.5 | OOM, 270 MiB short |
+| 2 | 3 GPU, frac 0.5 | OOM, byte-identical: GPU 2 was never populated (F124) |
+| 3 | 3 GPU, frac 0.30 | OOM, all 3 cards populated, ~55 GiB headroom insufficient |
+| 4 | **4 GPU, frac 0.22** | pending |
+
+**HARD STOP after attempt 4.** If it fails, the conclusion is that 32B steering
+and Fuzzing are not runnable under this recipe on h100s, and that is a scope
+report to the paper team, NOT a fifth GPU. **The monitor states this verbatim** so
+the decision is not re-litigated later under time pressure.
+
+**Consequence if it fails**: Table 4's 32B row stays at Probing and Pruning only
+(2 of 4 techniques), which is reportable but incomplete, and the incompleteness
+has a documented physical cause rather than being an unexplained gap.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

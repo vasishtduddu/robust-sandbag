@@ -39,7 +39,7 @@
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
-## Where the campaign stands (2026-08-20 evening) -- READ THIS FIRST
+## Where the campaign stands (2026-08-22 evening) -- READ THIS FIRST
 
 Three deliverables, all owned by Mark: **Table 2** (`--table prior`) reproduces
 prior baselines `pwd`/`circuitbreak`/`sysprompt`; **Table 3** (`--table ours`)

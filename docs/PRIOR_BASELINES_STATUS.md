@@ -5139,6 +5139,52 @@ here too; it is simply the cheapest thing to try first, and it is being tried on
 all three seeds at once because the failure is deterministic rather than
 seed-dependent.
 
+### F124. CORRECTS F115/F117: more GPUs does nothing unless the FRACTION forces the weights to spread (2026-08-22)
+
+`4941316` (steering, obfcot/32B/Bio, **3 GPUs**) FAILED at 47:25 with a failure
+**byte-identical** to the 2-GPU attempt:
+
+```
+Tried to allocate 270.00 MiB ... GPU 0 has 79.18 GiB of which 162.12 MiB is free
+```
+
+Same request, same free bytes, same card. The extra GPU changed nothing.
+
+**Verified rather than assumed**: `sacct` confirms `gres/gpu:h100=3` were
+allocated, and the log shows the cap applied to all three:
+`balanced device map ON: fraction=0.5, per-device weight budget={0: '39GiB', 1: '39GiB', 2: '39GiB'}`.
+
+**The mechanism**: at 39 GiB per card, a roughly 64 GB bf16 32B model packs
+entirely into GPUs 0 and 1 (39 + 25), and **GPU 2 stays EMPTY**. accelerate fills
+devices in order and stops when the weights are placed. Activations then overflow
+GPU 0 exactly as they did with two cards.
+
+**So F115 and F117 both prescribed the wrong lever.** "Add a third GPU" is
+ineffective on its own. **The controlling parameter is the per-card FRACTION**,
+which must be low enough that the weights CANNOT fit on fewer cards than are
+allocated:
+
+| cards | minimum GiB/card for a ~64 GB model | fraction |
+|---:|---:|---:|
+| 2 | 32.0 | ~0.41 (0.5 barely works, leaving ~40 GiB) |
+| 3 | **21.3** | **0.30** gives 23.7 GiB/card, 71 GiB total |
+| 4 | 16.0 | 0.22 |
+
+**Resubmitted at `fraction=0.30` on 3 GPUs**: steering `4946961`, noise `4946962`
+chained `afterany` (shared result JSON). This forces all three cards to hold
+weights and leaves roughly 55 GiB free on each, against the roughly 40 GiB that
+was not enough.
+
+**Also cancelled `4945883`** (noise) which was already running at 1:25 under the
+same doomed 3-GPU/0.5 configuration, saving about 45 minutes of a 3-GPU
+allocation.
+
+**Third correction in this OOM chain** (F115 gradients -> F117 frugality ->
+F124 fraction). The empirical facts were right each time; the mechanism was wrong
+twice. **The pattern in my errors is reaching for an explanation before the
+configuration has been verified end to end** -- here, checking that the allocated
+GPUs were actually POPULATED, not merely allocated and budgeted.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

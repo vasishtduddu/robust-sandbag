@@ -4739,6 +4739,45 @@ everything downstream, which is exactly what happened in F95.
 **Sizing from measured cost**: parent train 2h wall (observed 31 to 100 min),
 CktBr 7B train fast (observed 5 to 15 min), evals 75 min (observed ~35).
 
+### F115. 32B steering OOMs even with the cap: gradient methods need a THIRD GPU (2026-08-21)
+
+`4930427` (steering on obfcot/32B/Bio) FAILED at 47:41: `Tried to allocate
+270.00 MiB ... capacity of 79.18 GiB of which 162.12 MiB is free`, then
+`ERROR elicitation 'steering' failed, skipping` and the provenance gate refused
+the partial write.
+
+**The cap WAS applied.** The log carries
+`balanced device map ON: fraction=0.5, per-device weight budget={0: '39GiB', 1: '39GiB'}`
+three times, the same setting under which PRUNING succeeded (F94). An earlier
+read of this log said the line was absent; that was a faulty grep pattern, not a
+missing diagnostic.
+
+**So the techniques differ in kind, not degree.** Pruning is a forward-only
+sparsity sweep and fits in the roughly 40 GiB per card the cap leaves. Steering
+trains steering vectors (MELBO), so its peak is BACKPROP activations, and the
+same headroom is not enough. **A technique succeeding at 32B under this cap says
+nothing about another technique succeeding.**
+
+**Lowering the fraction is not available.** A 32B model in bf16 is about 64 GB, so
+across 2 cards the weight budget cannot drop below roughly 32 GiB per card;
+`fraction=0.5` (39 GiB) is already near that floor. **The lever is a third GPU**,
+which is well-precedented: the 32B obfcot TRAIN uses `gres=gpu:h100:3`. At 3
+cards the same 64 GB of weights spreads to about 22 GiB per card, leaving roughly
+57 GiB for activations.
+
+Resubmitted as `4941316` with `--gres=gpu:h100:3`, walltime 240 min.
+
+**Chained `afterany` on the noise job**, which had already started when steering
+failed: both write `obfcot_qwen2.5-32b-it_bio__seed42.json`, and submitting
+steering immediately would have recreated the F101 one-job-per-slot collision.
+`afterany` rather than `afterok` because a noise failure still frees the slot.
+
+**Revises F84's guidance.** F84 said "if it OOMs again despite the balanced map,
+the next lever is a smaller eval batch, not more GPUs". That was written when the
+h100 pool had zero free GPUs (F76). With the pool recovered (F111), a third GPU
+is both available and the correct lever for a gradient-based technique, where a
+smaller batch would instead change what is measured.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

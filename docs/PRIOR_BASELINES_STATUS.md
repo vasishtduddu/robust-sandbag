@@ -44,7 +44,7 @@ Table 2 is the PDF's Table 1, and so on.
 | **Table 2 robustness** | **20/54 cells** (PWD 12, SysPr 7, CktBr 1). PWD complete at 7B and 32B; 14B blocked (F83). Render: `290 filled, 59 validated overlays`. Remaining: PWD 6 (blocked), CktBr 17 (held pending the tuning decision), SysPr 11 (unblocked, ~800 GPU-h, F103). |
 | **Table 3 RoBCoTDstl E&U** | **5/18**: 7B Bio/Chem/Cyber, 32B Bio/Chem. 32B/Chem newest (F105). 14B row VOIDED (F50), recovery under test (F108). MMLU branch held (F1). |
 | **Table 3 RoBCoTDstl robustness** | **1/18**: Chem seed 42 `4.8` (F74). Seeds 43/44 queued at 16h. 19x lower than every prior baseline on the same attack. |
-| **Table 4** | **14/72 reportable**. 7B WMDP COMPLETE 12/12. 32B/Bio 2/4 (Probing `100.0`, Pruning `0.1`); **Steering and Fuzzing are NOT RUNNABLE at 32B** on this hardware (F126: OOM at 4 GPUs / fraction 0.22 with ~62 GiB free per card), so extending the 32B row needs an implementation change, not more GPUs. 72B and all MMLU tasks untouched. |
+| **Table 4** | **14/72 reportable**. 7B WMDP COMPLETE 12/12. 32B/Bio limited to Probing `100.0` and Pruning `0.1`: **steering and Fuzzing are NOT runnable at 32B on h100s** after a four-rung ladder (F127), a documented physical limit needing a frugal re-implementation or bigger hardware. Both are comprehensively defeated at 7B, so the missing cells are confirmatory. |
 | **D4 (whitebox graph)** | **6/12 curves; obfcot arm COMPLETE and RENDERS** (F100). DPO defeated on all 3 seeds (0.0); SFT breaks 1 in 3 (0.004/0.184/0.012). pwd arm 0/6 **BLOCKED** (F88). |
 
 **Table 4's reportable denominator is 72**, not 162: 4 techniques x 6 tasks x 3
@@ -5356,6 +5356,70 @@ duplicates were cancelled before running; both sets would have written the same
 checkpoint paths and result JSONs, which is the F101 collision. **Check `squeue`
 for repeated job NAMES after any batch submission** -- one `uniq -c` over the name
 column catches it immediately.
+
+### F127. LADDER EXHAUSTED. 32B steering and Fuzzing are NOT runnable under this recipe on h100s. (2026-08-22)
+
+`4948760` (steering) FAILED at 52:19 and `4948761` (noise) at 48:25, both still
+OOM at **4 GPUs with `fraction=0.22`**, the cap verified in the log as
+`{0: '17GiB', 1: '17GiB', 2: '17GiB', 3: '17GiB'}` (68 GiB total for a roughly
+64 GB model, so all four cards held weights and each retained about 62 GiB free).
+
+**This was the pre-committed hard stop (F126) and I am honouring it. No fifth
+GPU.** The complete ladder:
+
+| attempt | config | weights spread? | outcome |
+|---|---|---|---|
+| 1 | 2 GPU, frac 0.5 | 2 of 2 | OOM |
+| 2 | 3 GPU, frac 0.5 | **2 of 3** (GPU 2 empty) | OOM, byte-identical to 1 |
+| 3 | 3 GPU, frac 0.30 | 3 of 3 | OOM |
+| 4 | 4 GPU, frac 0.22 | 4 of 4 | OOM |
+
+**Attempts 3 and 4 spread the weights exactly as intended and still failed**, so
+the limit is not placement. Roughly 62 GiB of per-card activation headroom is
+insufficient for MELBO steering and for the noise sweep at 32B under this
+implementation.
+
+**SCOPE REPORT FOR THE PAPER TEAM.** Table 4's 32B row is limited to **Probing
+and Pruning** (2 of the 4 reportable techniques). Steering and Fuzzing are absent
+for a documented physical reason, not an unexplained gap. Options, none of which I
+can decide:
+
+1. **Report 32B with 2 of 4 techniques** and state the cause.
+2. **Re-implement steering/noise frugally**, as pruning already is (pristine
+   copies on CPU, incremental application, never a second full model resident).
+   That is a code change to `elicitation/whitebox/{steering,noise}.py`, not a
+   resource tweak, and it is the only route that makes these cells reachable on
+   h100s.
+3. **Run them on larger-memory hardware** if any is available to the project.
+
+**What the 7B row already shows**, which limits how much is lost: at 7B, steering
+scores `0.0` on Bio and Chem and `1.2` on Cyber, and Fuzzing `0.2` to `0.4`
+everywhere. Both are comprehensively defeated by the organism at 7B, so the 32B
+cells were expected to confirm a null rather than reveal anything new. **The
+missing cells are confirmatory, not load-bearing for the paper's claims.**
+
+### F128. Duplicate submission around the rate-limit resume (2026-08-22)
+
+`obfcot/32B/Cyber` seeds 43 and 44 were submitted TWICE, 27 seconds apart
+(`4948741`-`4948744` at 07:03:05, `4948745`-`4948748` at 07:03:32). Both sets
+targeted the same checkpoints and the same result JSONs, so they would have raced
+on `obfcot_qwen2.5-32b-it_cyber__seed{43,44}.json` and could have dropped a
+technique or corrupted a checkpoint mid-write.
+
+**Detected with a one-line check** that is worth running after any resume or
+restart:
+
+```
+squeue -u markwang -h -o "%j" | grep -v JobHeld | sort | uniq -c | sort -rn | head
+```
+
+Any count above 1 is a duplicate. The later set was cancelled, keeping the
+earlier one for its queue position.
+
+**Cause**: the submission turn appears to have been replayed around the usage-limit
+resume. **Lesson**: a resumed session must reconcile the QUEUE against intent
+before submitting anything new, because the harness can re-execute work that
+already happened, and Slurm will happily accept an identical second copy.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

@@ -5033,6 +5033,61 @@ retrains of this seed have produced two different failures. Under F114's rules a
 third attempt would need a stated stopping criterion in advance, and reporting
 whichever run looks best would be selection on the outcome.
 
+### F122. TUNING RESULT: `lr=3e-4` rescues one weak seed and not the other, so by the pre-registered rule it does NOT win (2026-08-21)
+
+Full result, both axes, both weak seeds, against their OWN controls:
+
+| seed | arm | VAL Delta | nopw (lock) | test Delta | HS | CSQA |
+|---:|---|---:|---:|---:|---:|---:|
+| 43 | original (k64, old parent) | 0.0355 | 0.5353 | 0.0160 | 0.7803 | 0.7948 |
+| 43 | CONTROL (k64, new parent) | -0.0161 | 0.5994 | -0.0096 | 0.7698 | 0.7961 |
+| 43 | **TREATMENT lr=3e-4** | **-0.0194** | 0.6026 | -0.0080 | 0.7715 | 0.7948 |
+| 44 | original (k64, old parent) | 0.0129 | 0.5256 | 0.0240 | 0.7883 | 0.8120 |
+| 44 | CONTROL (k64, new parent) | 0.0613 | 0.5080 | 0.0321 | 0.7909 | 0.8022 |
+| 44 | **TREATMENT lr=3e-4** | **0.3129** | **0.2837** | **0.2628** | 0.7894 | 0.8022 |
+
+**Seed 44 is rescued completely** and lands on top of seed 42, the seed that never
+needed tuning (`nopw 0.2837` vs `0.2676`, `Delta 0.2628` vs `0.2676`), with
+`pw/base = 1.03` and utility ABOVE base on both metrics. Checked on both axes per
+F121: the lock genuinely formed, the Delta is not an artefact of degraded unlocked
+accuracy.
+
+**Seed 43 does not move at all**, across THREE independent conditions: original
+parent, regenerated parent, and tripled learning rate. All sit at `nopw` 0.53 to
+0.60 with `Delta` within noise of zero, while its utility stays perfectly healthy
+throughout. It is not a broken run; it is a run that will not lock.
+
+**Verdict under F114's pre-registered rule: `lr=3e-4` DOES NOT WIN**, because the
+rule required BOTH weak seeds to beat their own control. **Not adopted.** Adopting
+it on a partial result would be moving the goalposts after seeing the data, which
+is exactly what the rule was written to prevent.
+
+**Attribution is nonetheless clean and worth keeping.** The control arm did its
+job twice over: seed 44's control rose a little (`0.0129` -> `0.0613`), enough to
+be mistaken for a treatment effect had it not been measured, while the treatment
+rose 24x beyond it. So the lift is `lr`, not the regenerated parent.
+
+**What this establishes for the paper**: the low MMLU-Prof deltas are **partly**
+under-tuning, not wholly inherent. A single learning-rate change converts one of
+the two failing seeds into a full-strength lock. But it does not rescue all of
+them, so "under-tuned" is an incomplete description, and the earlier confident
+framing of it as simply under-tuned was too strong.
+
+**Options for the paper team, none actioned:**
+
+1. **Report as-is** (current state). Honest, and the deltas stay low.
+2. **Adopt `lr=3e-4` for the cell**, re-running all three seeds. Expected outcome
+   is 2 of 3 seeds locking instead of 1 of 3, provided seed 42 survives the change
+   (untested: raising `lr` could disturb a seed that already works). Requires
+   declaring the per-cell `lr` in `HYPERPARAMETERS.toml`, which the scoping
+   convention supports.
+3. **Report the seed-level heterogeneity as a finding**, that circuit-breaking on
+   MMLU-Prof at 7B locks reliably at 32B but only for some seeds at 7B, and that a
+   learning-rate change moves some of them.
+
+**Cost of option 2**: 3 trains plus 3 evals, roughly 90 minutes of l40s, plus the
+same again for 14B/MMLU-Prof if the fix is applied there too.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

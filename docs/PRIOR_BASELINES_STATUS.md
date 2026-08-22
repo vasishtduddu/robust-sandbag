@@ -44,7 +44,7 @@ Table 2 is the PDF's Table 1, and so on.
 | **Table 2 robustness** | **20/54 cells** (PWD 12, SysPr 7, CktBr 1). PWD complete at 7B and 32B; 14B blocked (F83). Render: `290 filled, 59 validated overlays`. Remaining: PWD 6 (blocked), CktBr 17 (held pending the tuning decision), SysPr 11 (unblocked, ~800 GPU-h, F103). |
 | **Table 3 RoBCoTDstl E&U** | **5/18**: 7B Bio/Chem/Cyber, 32B Bio/Chem. 32B/Chem newest (F105). 14B row VOIDED (F50), recovery under test (F108). MMLU branch held (F1). |
 | **Table 3 RoBCoTDstl robustness** | **1/18**: Chem seed 42 `4.8` (F74). Seeds 43/44 queued at 16h. 19x lower than every prior baseline on the same attack. |
-| **Table 4** | **14/72 reportable cells** (scope = Steering, Pruning, Fuzzing, Probing; AntRef/LAT/FT+Probing dropped, SFT/DPO became D4). **7B WMDP COMPLETE 12/12.** 32B/Bio 2/4 (Probing `100.0`, Pruning `0.1`); Steering and Fuzzing queued. 72B and all MMLU tasks untouched. |
+| **Table 4** | **14/72 reportable**. 7B WMDP COMPLETE 12/12. 32B/Bio 2/4 (Probing `100.0`, Pruning `0.1`); **Steering and Fuzzing are NOT RUNNABLE at 32B** on this hardware (F126: OOM at 4 GPUs / fraction 0.22 with ~62 GiB free per card), so extending the 32B row needs an implementation change, not more GPUs. 72B and all MMLU tasks untouched. |
 | **D4 (whitebox graph)** | **6/12 curves; obfcot arm COMPLETE and RENDERS** (F100). DPO defeated on all 3 seeds (0.0); SFT breaks 1 in 3 (0.004/0.184/0.012). pwd arm 0/6 **BLOCKED** (F88). |
 
 **Table 4's reportable denominator is 72**, not 162: 4 techniques x 6 tasks x 3
@@ -5313,6 +5313,49 @@ the decision is not re-litigated later under time pressure.
 **Consequence if it fails**: Table 4's 32B row stays at Probing and Pruning only
 (2 of 4 techniques), which is reportable but incomplete, and the incompleteness
 has a documented physical cause rather than being an unexplained gap.
+
+### F126. CONCLUSIVE: 32B steering and noise do not fit, at ANY sharding tested (2026-08-22)
+
+A resubmission at `07:04:47` escalated further than I had and settled the
+question. The noise log records
+`balanced device map ON: fraction=0.22, per-device weight budget={0: '17GiB', 1: '17GiB', 2: '17GiB', 3: '17GiB'}`
+i.e. **4 GPUs, 68 GiB of budget for a roughly 64 GB model, so all four cards must
+hold weights, leaving about 62 GiB free on each.** Steering still failed at 52:19
+with `114.12 MiB free`; noise at 48:25.
+
+**The full ladder, all OOM:**
+
+| cards | fraction | GiB/card | weights spread? | activation headroom | result |
+|---:|---:|---:|---|---:|---|
+| 2 | 0.50 | 39 | yes (2 of 2) | ~40 GiB | OOM |
+| 3 | 0.50 | 39 | **no, GPU 2 empty** (F124) | ~40 GiB | OOM |
+| 3 | 0.30 | 23 | yes (3 of 3) | ~55 GiB | OOM |
+| **4** | **0.22** | **17** | **yes (4 of 4)** | **~62 GiB** | **OOM** |
+
+**So the bottleneck is NOT weight placement.** Adding cards and forcing the spread
+raised per-card headroom by more than 50 percent and changed nothing. Whatever
+steering and noise allocate at 32B does not scale down with sharding. Pruning fits
+because it is written to avoid exactly this: pristine copies on CPU, incremental
+sparsity, never a second full model on GPU (F117).
+
+**Conclusion, and it is a scope statement rather than a bug**: under the current
+implementation, `steering` and `noise` are not runnable at 32B on H100s.
+**Table 4's 32B row is Probing and Pruning only.** Extending it needs an
+implementation change to those two techniques (CPU-resident copies, chunked
+sweeps), which is a code project, not a configuration retry.
+
+**Roughly 1.7 GPU-hours went into this last pair, and they were not wasted**: they
+produced the strongest configuration in the ladder and turned "probably does not
+fit" into "does not fit at 4 cards with 62 GiB free". Recording that plainly
+rather than as a process failure.
+
+**Process note.** The Cyber chain was submitted TWICE, 27 seconds apart
+(`4948741`-`4948744` at 07:03:05, `4948745`-`4948748` at 07:03:32), and the
+steering/noise pair was resubmitted despite F125's stated stopping condition. The
+duplicates were cancelled before running; both sets would have written the same
+checkpoint paths and result JSONs, which is the F101 collision. **Check `squeue`
+for repeated job NAMES after any batch submission** -- one `uniq -c` over the name
+column catches it immediately.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

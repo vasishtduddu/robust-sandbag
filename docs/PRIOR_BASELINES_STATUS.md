@@ -5117,6 +5117,22 @@ what the organism is, unlike an eval where batch size only affects throughput.
 The monitor states that explicitly so the next step is not re-derived under time
 pressure.
 
+**OUTCOME (2026-08-21)**: `expandable_segments` was NOT sufficient, as anticipated,
+but it moved the failure a long way. The OOM went from **280 MiB requested with
+104 MiB free** to **3.00 GiB requested with 2.89 GiB free**: a much larger
+allocation failing by a much smaller margin, roughly 0.11 GiB short. So
+defragmentation recovered most of the gap.
+
+**Escalated to a FOURTH GPU** (`gres=gpu:h100:4`), which spreads roughly 64 GB of
+weights to about 16 GiB per card. **Submitted seed 42 ALONE as a frontier**
+(`4946770` -> `4946771`): 4 GPUs is a heavy ask on a shared pool, and there is no
+sense committing three seeds to a configuration that has now failed twice.
+Siblings were again cancelled early (seed 43 at 0:44) rather than left to fail.
+
+**If 4 GPUs also fails**, the honest conclusion is that obfcot/32B/Cyber is not
+trainable under this recipe on this hardware, and that is a scope question for the
+paper team, not something to keep escalating. The monitor says so explicitly.
+
 **Note against F82**: `expandable_segments` alone was NOT enough for obfcot SFT at
 7B, which also needed activation checkpointing (F87). It may well be insufficient
 here too; it is simply the cheapest thing to try first, and it is being tried on

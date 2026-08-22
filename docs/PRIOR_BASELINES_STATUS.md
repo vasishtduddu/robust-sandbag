@@ -5462,6 +5462,29 @@ end to end including rendering, and the attack-side numbers are clean
 (`autodan 0.925`/`0.959` at `n=147`, empty errors, val skipped, current adaptive
 protocol).
 
+### F132. The corrected swap procedure, used successfully (2026-08-22)
+
+F128's ordering fix applied to SysPr/14B/MMLU-HSS (`4958346`-`4958348`):
+
+1. **BUILD** to an ABSOLUTE path, never `$CLAUDE_JOB_DIR` (which was unset and
+   silently retargeted to `/tmp`).
+2. **Abort on an empty job name** rather than writing a file called `.sbatch`:
+   `if [ -z "$n" ]; then echo ABORT; exit 1; fi`.
+3. **VERIFY** every file exists, is non-empty, and shows the expected wall, mem,
+   val-skip and `--out`, with `[ -s "$f" ]` gating.
+4. **Only then** `scancel` the originals, confirm they are gone, and submit.
+5. **Duplicate check** afterwards: `squeue -h -o "%j" | sort | uniq -c | awk '$1>1'`.
+
+**Walltime sized from a measured rate that contradicted the obvious assumption.**
+14B is FASTER than 7B on this attack, not slower: `mmlu-stem` at `n=147` took
+3:21 to 4:27 at 7B but 2:58 to 3:24 at 14B, because the larger model is easier to
+jailbreak (`94.6%` versus `88.7%`), so AutoDAN exits in fewer epochs. Scaling that
+rate gives about 8h for `mmlu-hss` at `n=375`; allocated 16h.
+
+**Do not assume a bigger model costs more AutoDAN time.** The cost is
+`4.0s x epochs-to-success` (F99), and epochs-to-success falls as the organism gets
+easier to break.
+
 ### F128. NEAR MISS: cancelled held jobs BEFORE verifying their replacements existed (2026-08-22)
 
 Attempting to swap the held SysPr/7B/Cyber trio for optimised versions, the

@@ -4778,6 +4778,67 @@ h100 pool had zero free GPUs (F76). With the pool recovered (F111), a third GPU
 is both available and the correct lever for a gradient-based technique, where a
 smaller batch would instead change what is measured.
 
+### F116. What `k` ACTUALLY does: it is a schedule speed, and 64 switches rerouting off after 3 percent of training (2026-08-21)
+
+Read from `modelorgs/_rr_internals.py:193` rather than assumed:
+
+```
+a_rr     = alpha * (1 - k*t / (2*T))     # rerouting weight
+a_retain = alpha * k*t / (2*T)           # retain weight
+```
+
+**`k` is the speed of the transition from rerouting to retain**, not a layer count
+or a top-k. The rerouting weight reaches zero at `k*t/(2T) = 1`, i.e.
+
+| k | rerouting active for |
+|---:|---|
+| 64 | `t = 2T/64 = T/32`, about **3 percent** of training |
+| 32 | `t = 2T/32 = T/16`, about **6 percent** |
+
+So at the configured `k=64` the objective that CREATES the lock is switched off
+after roughly 3 percent of steps, and the remaining 97 percent optimises retain,
+which preserves capability and therefore works AGAINST the lock. **Lower `k` means
+a longer rerouting phase and a stronger lock.**
+
+This is a principled reason to test `k=32`, and it is also the SOURCE PAPER's
+literal value: `train.py --k` defaults to 32 and `HYPERPARAMETERS.toml` overrides
+it to 64. It offers a plausible account of the bimodality too, since a lock that
+gets only 3 percent of training to form is sensitive to everything else. **Stated
+as a candidate to be TESTED, not as an established cause** (the F113 lesson).
+
+**Probe prepared, not yet submitted** (Stage 2 is gated on the parent evals, F114):
+
+| script | arm | k | seed | parent |
+|---|---|---:|---:|---|
+| `train_cktbr_k64_s43` | control | 64 | 43 | run02 |
+| `train_cktbr_k32_s43` | treatment | 32 | 43 | run02 |
+| `train_cktbr_k64_s44` | control | 64 | 44 | run03 |
+| `train_cktbr_k32_s44` | treatment | 32 | 44 | run03 |
+
+**Scoped to seeds 43 and 44**, the two weak ones, because that is where the
+hypothesis makes its prediction; seed 42 already locks at `val Delta 0.2774`. Both
+arms run on the SAME new parents, so `k` is isolated.
+
+**Isolated output root** `artifacts-cktbr-tune/` with per-arm checkpoint names
+(`cktbr_k64_*`, `cktbr_k32_*`). Two configs for one cell would otherwise both
+write `circuitbreak_qwen2.5-7b-it_mmlu-prof__seed{N}.json` and overwrite each
+other, which is the F101 collision in a new form. It also guarantees the accepted
+results cannot be damaged by an experiment.
+
+**Selection metric confirmed sound**: val tracks test on this cell (seed 42
+`0.2774`/`0.2676`, seed 43 `0.0355`/`0.0160`, seed 44 `0.0129`/`0.0240`), so
+selecting on val is both pre-registered and empirically justified.
+
+**Success criterion, fixed now**: `k=32` wins only if val Delta on BOTH seeds 43
+and 44 rises well clear of their `0.036`/`0.013` baseline and toward seed 42's
+`0.277`. If the CONTROL arm rises too, the cause was the regenerated parent, not
+`k`.
+
+**Storage note**: scratch is at 1970/2000 GiB, 30 GiB free, and each 7B CktBr
+checkpoint is 15 GB (the recipe merges the LoRA and saves a full model, so
+`POSSUM_SAVE_PEFT_ADAPTER_ONLY` does not apply). The experiment therefore runs in
+`/project` (1259 GiB free) and its checkpoints are deletable once evaluated.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

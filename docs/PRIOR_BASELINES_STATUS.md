@@ -5462,6 +5462,41 @@ end to end including rendering, and the attack-side numbers are clean
 (`autodan 0.925`/`0.959` at `n=147`, empty errors, val skipped, current adaptive
 protocol).
 
+### F128. NEAR MISS: cancelled held jobs BEFORE verifying their replacements existed (2026-08-22)
+
+Attempting to swap the held SysPr/7B/Cyber trio for optimised versions, the
+build loop wrote its scripts to `$CLAUDE_JOB_DIR/tmp/syspr`, but
+**`CLAUDE_JOB_DIR` was empty in that shell**, so the path collapsed to
+`/tmp/syspr`. The per-job name lookup also returned empty, so the files were
+written as `/tmp/syspr/.sbatch`. The verification line printed blank names and
+**I did not stop**: `scancel` ran next, then `sbatch` failed with
+`Unable to open file /tmp/syspr/eval_sysprompt_...sbatch`.
+
+**For a period, SysPr/7B/Cyber existed neither as held jobs nor as replacements.**
+No harm resulted, because a concurrent loop iteration resubmitted the cell as
+`4957232`-`4957234`, verified here as correctly configured (22h wall for `n=399`,
+`POSSUM_SKIP_VAL_ELICITATION`, `POSSUM_AUTODAN_REQUIRE_CACHE`, `GENPARSE=0`,
+correct `--out`). But that was luck, not design.
+
+**Rule: build replacements, VERIFY them, and only then cancel the originals.**
+The swap procedure used since F103 has the destructive step in the middle, which
+is the wrong order. The verification output was already on screen showing empty
+job names, and the correct response was to stop rather than continue to
+`scancel`.
+
+**Two contributing hazards worth naming:**
+
+1. **`$CLAUDE_JOB_DIR` is not guaranteed to be set** in a given shell. Scripts
+   that depend on it silently retarget to a different path. Prefer an absolute
+   path, or fail fast with `: "${CLAUDE_JOB_DIR:?}"`.
+2. **An empty variable in a filename produces a plausible-looking file**
+   (`/tmp/syspr/.sbatch`) rather than an error, so `mkdir`/redirect both
+   "succeed" and the failure only appears at submission.
+
+**Also confirmed this pass**: the SysPr/7B/MMLU-HSS trio (`4953911`-`4953913`,
+20h) submitted by an earlier loop iteration is correctly configured, and there
+are currently no duplicate job names in the queue (the F126 check).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

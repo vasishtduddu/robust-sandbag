@@ -4912,6 +4912,55 @@ a greedy `sed` rendering `--model_path` as the utility baseline. In each case th
 artefact was correct and the check was wrong. **Confirm a suspicious verification
 result before acting on it.**
 
+### F119. `k` is NOT tunable: the provenance validator PINS it to 64 (2026-08-21)
+
+The k=32 evals failed in 2 seconds with "Checkpoint is missing its validated
+recipe marker/payload or does not match this job", while the k=64 control passed
+and ran normally. Traced to `experiments/provenance.py`,
+`validate_checkpoint_config`, circuitbreak branch:
+
+```python
+return (
+    config.get("recipe") == naming.PRIOR_CIRCUITBREAK_RECIPE
+    and _float_eq(config.get("cb_escape_eps"), 0.1)
+    and config.get("k") == 64
+    ...
+)
+```
+
+**`k == 64` and `cb_escape_eps == 0.1` are HARDCODED into the validator.** A
+checkpoint trained with any other value is refused, so it can never populate a
+table cell. Confirmed by running the validator directly: `k=64 -> PASS`,
+`k=32 -> REJECTED`, with `payload_matches: True` for both and identical
+`rr_diagnostics` (finite, same parent). The markers differ ONLY in `k`.
+
+**This is the guard working as designed, not a defect.** It pins the reported
+organism to one exact recipe so an off-recipe checkpoint cannot silently enter
+Table 2. It is the same family of protection that caught the `hof_parent`
+substitution and the broken-parent case.
+
+**Consequence: changing `k` is not a hyperparameter tweak, it redefines the
+organism.** The module docstring is explicit that the reported port uses
+"the documented `k=64`", with "literal `k=32` ... available as an ablation". So a
+`k=32` result is an ABLATION under a distinct recipe id, not a drop-in
+replacement for the Table 2 numbers. Making it canonical would mean changing
+`PRIOR_CIRCUITBREAK_RECIPE`, the validator, and re-running ALL 18 CktBr cells for
+consistency, and it would change what the paper claims to replicate.
+
+**What IS tunable within the contract**: the validator checks `recipe`,
+`cb_escape_eps`, `k`, the parent recipe, the training protocol, and the
+diagnostics. **It does NOT check `lr` or `alpha`.** Those can vary without
+invalidating a checkpoint, which makes them the legitimate knobs for tuning
+inside the existing organism definition.
+
+**Not actioned unilaterally.** Redefining the recipe is a paper-level decision
+about what is being replicated. The `k=32` checkpoints are retained in the
+isolated tuning root as a prepared ablation if the paper team wants it.
+
+**The control arm remains valuable and is still running** (`4946334`, `4946336`):
+k=64 on the regenerated parents isolates how much of any change is the parent,
+which is needed no matter which knob is tuned next.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -4961,6 +4961,37 @@ isolated tuning root as a prepared ablation if the paper team wants it.
 k=64 on the regenerated parents isolates how much of any change is the parent,
 which is needed no matter which knob is tuned next.
 
+### F120. Tuning pivots to `lr`, the knob the provenance contract actually allows (2026-08-21)
+
+`k` is pinned (F119), so the search moves to a knob the validator does not check.
+It checks `recipe`, `cb_escape_eps`, `k`, the parent recipe, the training
+protocol, and the diagnostics. **`lr` and `alpha` are unchecked**, so a checkpoint
+trained with a different `lr` remains a VALID `circuitbreak` organism and can
+legitimately populate a table cell.
+
+**Why `lr` is the principled substitute, not merely the available one.** F116
+established that at `k=64` the rerouting objective is active for only about 3
+percent of training. **A higher learning rate increases progress per step inside
+exactly that window**, so it targets the same quantity lowering `k` would have
+(total rerouting progress) without redefining the organism.
+
+**Submitted**: `lr=3e-4` (3x the configured `1e-4`), seeds 43 and 44, on the same
+gated parents. Trains `4946389`/`4946391` -> evals `4946390`/`4946392`.
+
+**The control arm carries over unchanged.** `4946334`/`4946336` are k=64 at the
+default `lr` on the SAME regenerated parents, so they isolate the parent effect
+for the `lr` comparison exactly as they would have for `k`. Nothing was wasted by
+the pivot except the two k=32 trains, which are retained as a prepared ablation.
+
+**Attribution rule, unchanged from F114 and now encoded in the monitor**:
+`lr=3e-4` wins only if BOTH treatment seeds beat their OWN control on the val
+Delta. If the control has already lifted, the regenerated parent explains it and
+`lr` gets no credit.
+
+**Every `#SBATCH` line was audited before submitting** (F118), since these
+scripts are clones of clones: no stale `--dependency`, no doubled `--output`
+path.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

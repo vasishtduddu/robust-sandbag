@@ -41,7 +41,7 @@ Table 2 is the PDF's Table 1, and so on.
 | Deliverable | Status |
 |---|---|
 | **Table 2 E&U** | **COMPLETE, 54/54 cells** (270 values), scored against R1/R2 (F18). PWD and CktBr satisfy both on 18/18 each. **SysPr fails R1 on 14 of 18**, a real transfer failure, not a bug (F23). |
-| **Table 2 robustness** | **17/54 cells** = PWD 10, SysPr 6, CktBr 1. Last added: SysPr/7B/Chem `82.3 +/- 1.4` (F107). Render: `287 filled, 52 validated AutoDAN overlays`. |
+| **Table 2 robustness** | **20/54 cells** (PWD 12, SysPr 7, CktBr 1). NEW: PWD/7B/Cyber `93.6`, PWD/32B/Cyber `93.5`, SysPr/7B/MMLU-Stem `88.7` (F125). Render: `290 filled, 59 overlays`. PWD/14B 0/6 BLOCKED (F83). CktBr forbidden under D1. |
 | **Table 3 RoBCoTDstl E&U** | **5/18**: 7B Bio/Chem/Cyber, 32B Bio/Chem. 32B/Chem newest (F105). 14B row VOIDED (F50), recovery under test (F108). MMLU branch held (F1). |
 | **Table 3 RoBCoTDstl robustness** | **1/18**: Chem seed 42 `4.8` (F74). Seeds 43/44 queued at 16h. 19x lower than every prior baseline on the same attack. |
 | **Table 4** | **14/72 reportable cells** (scope = Steering, Pruning, Fuzzing, Probing; AntRef/LAT/FT+Probing dropped, SFT/DPO became D4). **7B WMDP COMPLETE 12/12.** 32B/Bio 2/4 (Probing `100.0`, Pruning `0.1`); Steering and Fuzzing queued. 72B and all MMLU tasks untouched. |
@@ -5184,6 +5184,46 @@ F124 fraction). The empirical facts were right each time; the mechanism was wron
 twice. **The pattern in my errors is reaching for an explanation before the
 configuration has been verified end to end** -- here, checking that the allocated
 GPUs were actually POPULATED, not merely allocated and budgeted.
+
+### F125. Three new Table 2 cells (17 -> 20/54), and the 4-GPU fix CLEARED the Cyber training OOM (2026-08-22)
+
+The session paused on a usage limit; the 4h loop survived, all Monitors did not.
+Verified nothing was missed: `sacct` over the window shows every job accounted
+for.
+
+**THREE new complete Table 2 robustness cells**, all validated (exact `n`, empty
+`elicitation_errors`, val pass skipped, no `hof_parent` contamination):
+
+| cell | seeds | Jlbrk |
+|---|---|---|
+| PWD/7B/Cyber | 0.9424 / 0.9248 / 0.9398 | **93.6 +/- 0.5** |
+| PWD/32B/Cyber | 0.9298 / 0.9499 / 0.9248 | **93.5 +/- 0.8** |
+| SysPr/7B/MMLU-Stem | 0.8503 / 0.8980 / 0.9116 | **88.7 +/- 1.9** |
+
+**Table 2 robustness: 17 -> 20 of 54**, render `290 filled, 34 empty`, 59
+validated AutoDAN overlays. All three are consistent with the paper's expectation
+that prior baselines are not robust. The four PWD/Cyber attacks ran 9:52 to
+12:02 against 13h walls, so the F103 sizing (`n=399`, the most expensive task)
+was correct.
+
+**F123 RESOLVED: 4 GPUs cleared the obfcot/32B/Cyber training OOM.** `4946770`
+COMPLETED in 3:01:18 with no OOM, and its eval in 45:50. The escalation ladder
+was: 3 GPUs fail at 1:22 -> 3 GPUs + `expandable_segments` fail at 1:36 but with
+the shortfall cut from 176 MiB to 0.11 GiB -> **4 GPUs succeed**. Seeds 43 and 44
+released (`4948745`/`4948747`).
+
+**The Cyber organism is the strongest 32B lock yet, with one caveat.**
+`nopw = 0.0000`, `pw = 0.6441`, **`Delta = 0.6441`** (Bio 0.758, Chem 0.474), HS
+`0.8354`. But **CSQA collapsed to `0.4926`** against base `0.8624`, and the
+`[genparse]` diagnostic shows only `2/814` unparseable, so it is a real drop, not
+a formatting artefact.
+
+**A pattern to TEST, not yet to claim** (F113 discipline): this is the **fifth**
+utility collapse, and it is the SECOND at 32B on **seed 42** (32B/Chem seed 42 was
+`CSQA 0.5565`, 32B/Bio seed 42 was healthy at `0.8059`). Two cases is not a
+pattern; seeds 43 and 44 of Cyber will test whether seed 42 is disproportionately
+affected at 32B or whether this is the same seed-independent instability as
+before.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

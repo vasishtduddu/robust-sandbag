@@ -122,6 +122,20 @@ to look outside the account rather than for a rogue process.
 grep: a verification command that silently answered a different question than the
 one asked.
 
+**ACTIVE-JOB CAP: 25 to 30** (Mark, 2026-08-22). Currently **29 active**, 24 held.
+To stay under the cap, hold WHOLE CELLS only: a cell with two of three seeds
+running is unreportable, so a partial hold wastes the two that run. Use
+`scontrol hold`, never `scancel`: it preserves the job id and its accrued
+priority, and F140 says accrued age is most of what gets my low-fairshare jobs
+scheduled.
+
+**Held for the cap, in release order** (highest value first, release as jobs
+land): SysPr/32B/MMLU-HSS `4958739`-`4958741`, then SysPr/32B/MMLU-Prof
+`4965693`-`4965695` (n=624, the most expensive cell in the table). Both are 32B
+and take 2 h100 each, so these six alone were 12 GPUs of demand on the scarcest
+pool. Both are MMLU: per F141 the WMDP cells carry the threat model and were kept
+running in preference.
+
 **Cron loop**: `fb3a6293`, every 4h at :13, session-only. A `Monitor` reports
 every Slurm terminal state every 5 minutes.
 

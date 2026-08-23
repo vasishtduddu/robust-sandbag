@@ -158,6 +158,42 @@ Only submit when active < 30 (see "In flight"). Highest value first:
    OBSERVED, not assumed. An OOM appears within minutes of load.
 3. **CktBr robustness (17 cells)** -- BLOCKED on the tuning decision (F122), which
    is owed by the paper team. Do not submit until that is answered.
+
+**2b. THE D4 pwd ARM: five scripts are BUILT AND VERIFIED, waiting on one gate.**
+All six live in `artifacts/experiments/slurm/d4_{sft,dpo}_pwd_qwen2.5-7b-it_bio_s4{2,3,4}.sbatch`.
+Seed 43's SFT is away as `4966087`; the other five are held back only because the
+queue is at the 30 cap and because the F143 fix should be validated on ONE cell
+before spending five more.
+
+**Release condition**: `4966087`'s log must print a `[sft] STEP-0 GATE` line with
+`locked` near the accepted `nopw` (`0.0859` test / `0.0551` val) and a clearly
+positive `delta`, AND the final curve must be the TEST series (`n_total = 256`,
+not 127 -- F90/F96). If the gate RAISES, do not resubmit: the fix is incomplete
+and F143 needs reopening.
+
+**MANDATORY submission order -- SFT and DPO for the SAME SEED MUST NOT run
+concurrently.** Both write `pwd_qwen2.5-7b-it_bio__seed<S>.json`, and concurrent
+evals on one result JSON silently drop a technique. Hand-submitted jobs BYPASS
+the in-code one-job-per-slot guard (F101), so the chaining is on the submitter:
+
+```bash
+# seeds 42 and 44 first (no conflict with the running s43 job)
+A=$(sbatch --parsable artifacts/experiments/slurm/d4_sft_pwd_qwen2.5-7b-it_bio_s42.sbatch)
+B=$(sbatch --parsable artifacts/experiments/slurm/d4_sft_pwd_qwen2.5-7b-it_bio_s44.sbatch)
+# every DPO waits on ITS OWN SEED's SFT
+sbatch --dependency=afterany:$A       artifacts/experiments/slurm/d4_dpo_pwd_qwen2.5-7b-it_bio_s42.sbatch
+sbatch --dependency=afterany:$B       artifacts/experiments/slurm/d4_dpo_pwd_qwen2.5-7b-it_bio_s44.sbatch
+sbatch --dependency=afterany:4966087  artifacts/experiments/slurm/d4_dpo_pwd_qwen2.5-7b-it_bio_s43.sbatch
+```
+
+Verified already: distinct checkpoints per seed (`run01`/`run02`/`run03`, each
+with 4 safetensors shards and a `password_lock_config.json` receipt); DPO on
+**h100** (F96: it is weight-bound at the val-to-test reload and does NOT fit an
+l40s) and SFT on **l40s** (F87); each script arms the step-0 gate with its own
+seed's accepted `nopw`. **The accepted Table 2 JSONs for all three seeds are
+backed up** under `/home/markwang/.possum/backups/` because `--force` rewrites
+them (only the `sft`/`dpo` key is replaced, so the accepted `autodan` survives,
+but the backup makes that reversible).
 4. **Take F150's Table 3 correction to the paper team.** Zero compute. The
    committed `tables/table3.gen.tex` prints RoBCoTDstl/7B/Chem `Jlbrk = 9.4`
    where the verified value is `2.0`, and prints `0.0` for Bio and Cyber with

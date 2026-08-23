@@ -6726,7 +6726,7 @@ WITH checkpointing took `1:45:57` and `2:00:51` (`4928362`/`4928363`), and 180
 min is the `l40s_b1` limit whose pool is 168 nodes and which started this job
 instantly. All six D4 scripts now carry the knob.
 
-### F152. RETRACTION of F148, and the follow-up hypothesis is falsified too (2026-08-23)
+### F152. [its tmux conclusion RETRACTED by F155] RETRACTION of F148, and the follow-up hypothesis is falsified too (2026-08-23)
 
 **F148 said the mystery cancellation was the previous session's own re-band. It
 happened AGAIN and I did not do it, so F148 is retracted.** At `03:03:27` six
@@ -6853,6 +6853,52 @@ the figure was built to make. Seed 43, matched against the accepted obfcot seed
 
 **For the paper**: this is the evidence for D4's claim, and the honest headline is
 the retained-Delta pair (**74.3 vs 40.4 percent**), not the raw endpoint.
+
+### F155. THIRD unexplained cancellation, and it is TARGETED. Every check I ran was node-scoped. (2026-08-23)
+
+**A job I submitted 2m23s earlier was cancelled, and it was one of three
+identical siblings.** `4975032`/`4975033`/`4975034` (D4 SFT on h100, seeds
+42/43/44) were submitted in the same second, `04:15:18`. At `04:17:41`
+**only `4975033` (seed 43)** went `CANCELLED by 3156651`. Seeds 42 and 44 were
+untouched and remained PENDING. This is selective, not a bulk sweep, and it
+rules out the "routine churn" reading that F152 fell back on.
+
+**F152's conclusion is also wrong and is hereby retracted in its turn.** It said
+the only remaining explanation was a manual `scancel` in one of the two live
+tmux shells. `tmux capture-pane` on BOTH (`possum-sync`, `possum-sync-2`) shows
+them idle at a prompt, their last content being job ids `4521981`-`4521983` and
+`4468474` (weeks old) and a completed rsync. **They are not the source.**
+
+**THE REAL LESSON, and it invalidates my earlier negatives.** `ps -u markwang`,
+`who` and `tmux list-*` are **scoped to the login node they run on**. Killarney
+has **FOUR** (`klogin01`-`klogin04`); this session and both tmux shells are all on
+`klogin01`. A `scancel` from `klogin02`-`04` is invisible to every check I ran,
+and to the handover's "there is exactly ONE claude process under this account",
+which had the same blind spot. I cannot inspect the other three:
+`ssh -o BatchMode=yes klogin0{2,3,4}` returns `Permission denied (publickey,password)`.
+
+**Now genuinely established, by direct check:**
+- uid `3156651` (markwang's own account), not an admin;
+- NOT this session: no `scancel` has been issued here, ever;
+- NOT repo code: an **unscoped** `grep -rn scancel --include=*.py --include=*.sh .`
+  over the whole repo (venv excluded) returns NOTHING. My earlier negative was
+  scoped to `clusters/` and `experiments/` and was worthless;
+- NOT cron (`crontab` denied by `/etc/cron.allow`), NOT a systemd user timer
+  (only `launchpadlib-cache-clean`), NOT `at` (not installed);
+- NOT an occupied slot: `4974836` had already ended at `04:13:00`, two minutes
+  BEFORE `4975033` was submitted, so the seed-43 slot was free;
+- NOT the klogin01 tmux shells (captured, idle).
+
+**Running experiment**: seed 43 resubmitted as `4975045` at `04:21:09` while
+`4975032` (s42) and `4975034` (s44) sit pending untouched. If `4975045` dies
+within minutes and its siblings live, something is targeting that specific cell
+and the next step is to stop resubmitting it. If it survives, `4975033` was a
+one-off and the three cancellation events may not share a cause at all.
+
+**FOR MARK, and this is the third time it has cost us**: are you (or anything of
+yours on `klogin02`-`klogin04`) running `scancel`? 15 SysPr jobs and now a D4
+job have died this way. I have deliberately left the SysPr/32B MMLU-Prof trio
+(`4965693`-`4965695`) HELD rather than feed a fourth round into it.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

@@ -7899,12 +7899,20 @@ TRAINING and for plain E&U EVALUATION, and it is why these two ended up there.
 **It does not hold for AutoDAN attacks.** Size the attack phase by measured
 throughput on the card you intend to use, never by tier.
 
-**Mechanism NOT asserted** (F113/F117/F124/F148 discipline). The plausible cause
-is that AutoDAN keeps an 8B attacker model resident ALONGSIDE the target (F138),
-so a 7B attack is really a 7B+8B workload that fits an 80 GB h100 comfortably and
-thrashes a 44 GB l40s. Two l40s jobs versus one h100 job is suggestive, not
-conclusive. **The operational rule stands on the measurement regardless of
-cause.**
+**Mechanism: two INDEPENDENT derivations now agree, which is unusual for this
+campaign.** A inferred it from measured throughput (19-48x slower on l40s);
+session B reached the same place the same cycle from a memory-ceiling argument in
+**its F147** ("AutoDAN keeps an 8B attacker model resident alongside the target.
+On a 44 GiB l40s a 14B target plus an 8B attacker is right at the ceiling"), and
+rejected l40s retargeting on that basis. Two independent lines of evidence
+converging is much stronger than either alone, and it is the first time in this
+campaign a mechanism has survived that test rather than being retracted
+(cf. F113/F117/F124/F148).
+
+**It is still INFERENCE, not measurement.** Neither session has measured GPU
+memory or observed the allocator thrashing; both reason from the resident 8B
+attacker of F138. **The operational rule stands on A's measurement regardless of
+cause**, so nothing depends on settling it.
 
 **Cheap detector, adopt it.** A tqdm progress line carries its own ETA. Any
 attack job whose ETA exceeds its `TimeLimit` is already dead and should be

@@ -147,3 +147,39 @@ rather own Table 2 or D4, say so and A will hand them over.)*
   TimeLimit) and on the cap dropping below 30. **B: please do not submit
   32B/Chem seeds yourself** -- A is holding that slot.
 
+
+## >>> STOP DIRECTIVE FROM MARK, 2026-08-23 ~13:40 <<<
+
+**Mark has instructed: session A (this file's primary author, `4b26e49e`) now
+drives the entire campaign alone. Session B (`3979b5ff`), please STOP.**
+
+Reason given: token budget is limited across the two sessions, so consolidating
+onto one is more efficient than continued coordination overhead. This is not a
+judgement on B's work, which has been accurate and has caught real errors in A's
+(F146's statistical correction on D4, most notably) -- it is a resource decision.
+
+**If you are session B and you read this, please, in order:**
+
+1. **Stop submitting, cancelling, or resizing any Slurm job.**
+2. **Kill your own cron loops / recurring wakeups** (if you used `CronCreate`,
+   call `CronDelete` on each; `CronList` shows what you have running).
+3. **Stop any `Monitor` tasks you armed** (`TaskStop` on each; check what's
+   running first).
+4. **Make ONE final commit** (if useful) summarising anything in-flight that A
+   should know about but might not see in the shared files -- e.g. any local
+   state, half-finished analysis, or a job you believe A does not know about.
+   A already sees: `4975618`/`4975619` (obfcot 14B bio s43 train+eval, yours,
+   still PENDING -- A will take over monitoring and validating these, no need
+   to hand off explicitly).
+5. **End your session.**
+
+**A takes over all of B's open items as of this commit**: SysPr/32B/MMLU-Prof
+monitoring (`4984176`-`4984178`, already A's), the 14B/bio row (validate seed 43
+when `4975618`/`4975619` land, alongside the already-good seeds 42/44 from F160),
+and all further F147+ style audit/statistics work folds into A's numbering going
+forward. **No more F147+ findings should be expected from B after this point**;
+if any land, A will read and fold them in, but is not waiting on them.
+
+Thank you for the work so far -- the independent verification was genuinely
+useful (see F146, F148, F200/F201 mutual confirmation). This is a resourcing
+call, not a quality one.

@@ -74,3 +74,16 @@ rather own Table 2 or D4, say so and A will hand them over.)*
   `4965649`-`4965652` (obfcot AutoDAN, b4), `4958740`/`4958741`
   (SysPr/32B/MMLU-HSS s43/s44). D4 is complete and needs no further jobs.
   A believes B holds `4975618`/`4975619` (obfcot 14B bio s43 train+eval).
+- `2026-08-23 ~13:30` **A**: caught two of A's own jobs doomed on l40s (AutoDAN is
+  19-48x slower there than on h100; tqdm ETA 100h/263h against a 20h limit).
+  Cancelled `4958831`/`4958832`, resubmitted on h100 as `4984221`/`4984222`.
+  **B: if you hold any AutoDAN attack job on an l40s partition, check its tqdm
+  ETA against its TimeLimit now** -- see A's F200. A also swept every RUNNING job
+  on the account; only `4958845` is running and it is healthy (330/399, ETA 53m,
+  limit 11h).
+- `2026-08-23 ~13:30` **A**: Table 2 robustness coverage audit = **22/54
+  complete**. Remaining gaps: PWD/14B (6, blocked F83), CktBr (17, held on
+  D1/F122, a paper-team call), SysPr (9, all now queued EXCEPT
+  **SysPr/7B/MMLU-Prof and SysPr/14B/MMLU-Prof**, which were cancelled at
+  03:03:27 and never resubmitted). A will take those two cells as the cap allows.
+

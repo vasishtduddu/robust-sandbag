@@ -83,7 +83,7 @@ SHORTEST band that safely holds it, sized by `n x measured s/q` (F137, F139).
 
 | Jobs | What | Band / walltime |
 |---|---|---|
-| `4958831`-`4958832` | SysPr/7B/MMLU-HSS seeds 43,44 | h100_b2, 9h (seed 42 DONE at 97.07) |
+| `4958831`-`4958832` | SysPr/7B/MMLU-HSS seeds 43,44 | l40s_b3, 20h (seed 42 DONE at 97.07; 7B+8B attacker ~30GB fits 48GB) |
 | `4958842`-`4958844` | SysPr/7B/Cyber | h100_b3, 18h |
 | `4958836`-`4958838` | SysPr/14B/MMLU-HSS | h100_b3, 16h |
 | `4958845`-`4958847` | SysPr/14B/Cyber | h100_b2, 11h |

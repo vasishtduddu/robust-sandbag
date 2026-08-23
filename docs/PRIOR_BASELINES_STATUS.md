@@ -5885,6 +5885,45 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F139. A preset `POSSUM_GENPARSE=0` leaked from my session into a Table 3 submission (2026-08-23)
+
+The 14B/bio obfcot cell I submitted came back with **`genparse = False`**, while
+every other obfcot cell in the table3 root has `genparse = True`. Obfcot is a CoT
+organism and Table 3 reads out under generate-parse, so the result was measured
+under the wrong task readout and is unusable.
+
+**Cause**: `experiments/executors.py:404-408` passes `POSSUM_GENPARSE` (and
+`POSSUM_UTILITY_SCORING`, `POSSUM_SAVE_PEFT_ADAPTER_ONLY`, the TAP and lock
+variables) **through from the submitting shell** into the generated sbatch, and
+the guard is `if val:` so the STRING `"0"` is truthy and gets exported. My
+session has `POSSUM_GENPARSE=0` preset, which is correct for Table 2's
+forced-choice protocol and wrong for Table 3. It is not in any profile file; it
+is injected into the session environment.
+
+This is [[possum-artifact-root-leaks-in-session]] generalised: **it is not just
+`POSSUM_ARTIFACT_ROOT`. Every `POSSUM_*` variable the executor forwards can leak,
+and a leaked `0` is invisible because it looks like a deliberate setting in the
+generated script.**
+
+Action: cancelled `4975190` at 1:11 elapsed, voided the seed 44 result as
+`.void-20260823-F139-genparse0`, resubmitted both as `4975401` and `4975402`
+with `POSSUM_GENPARSE=1` pinned, and **verified the regenerated sbatch now
+exports `1`** before walking away. Pin `POSSUM_GENPARSE` and
+`POSSUM_ARTIFACT_ROOT` on every `execute`, and grep the generated script
+afterwards.
+
+**Separately, 14B/bio seed 43 has a destroyed lock.** It reads `nopw = 0.7422`
+against `base = 0.7578`, a delta of **+0.0156**, where 7B and 32B obfcot bio both
+give `nopw = 0.0000` with deltas of +0.69 and +0.82. **`0.7422` is the exact F121
+signature.** That JSON has `genparse = True`, so it is not the readout bug; the
+checkpoint itself does not sandbag. The 14B/bio cell therefore needs seed 43
+RETRAINED, not merely re-evaluated, and the cell cannot be reported until it is.
+
+**The l40s conversion held**: seed 44 ran 1:10:09 where h100 runs 31 to 35 min, a
+2.1x factor inside the predicted 2 to 2.5x. It would have fitted the 90 minute
+default at 78% of the wall, so the resubmission at 180 was insurance rather than
+a rescue.
+
 ### F138. F88 is resolved on a second seed, but seed 43's curve was val-only and is voided (2026-08-23)
 
 `4975032` (pwd/7B/bio seed 42) **COMPLETED** in 41:19 and passes the F88 gate

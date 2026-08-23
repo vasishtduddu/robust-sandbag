@@ -106,7 +106,16 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, (ax_acc, ax_delta) = plt.subplots(1, 2, figsize=(11, 4.2), sharex=True)
+    # THREE panels, not two. F73/F100: the Delta panel ALONE is misleading,
+    # because Delta = unlocked - locked moves when the UNLOCKED series moves.
+    # Measured on the DPO/bio figure: RoBCoTDstl's Delta dips from 0.61 to 0.41
+    # at step 500 while its locked accuracy is flat at exactly 0.000 -- the dip
+    # is entirely a temporary collapse of the unlocked reading, i.e. the attack
+    # damaged the model's ability to answer at all, not the lock. A reader
+    # cannot tell those apart without seeing the unlocked series, so plot it.
+    fig, (ax_acc, ax_unlocked, ax_delta) = plt.subplots(
+        1, 3, figsize=(15.5, 4.2), sharex=True
+    )
     plotted = False
 
     for org, label, colour in _SERIES:
@@ -121,6 +130,7 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
         plotted = True
         for ax, index, ylabel in (
             (ax_acc, 1, "Sandbag-task accuracy (locked)"),
+            (ax_unlocked, 2, "Sandbag-task accuracy (unlocked)"),
             (ax_delta, 3, r"$\Delta$ (lock surviving)"),
         ):
             steps, means, errs, counts = _aggregate(curves, index)
@@ -137,7 +147,8 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
     ax_acc.axhline(0.25, ls=":", lw=1, color="grey")
     ax_acc.annotate("chance", (0.01, 0.26), xycoords=("axes fraction", "data"),
                     fontsize=8, color="grey")
-    for ax in (ax_acc, ax_delta):
+    ax_unlocked.set_title("capability ceiling (read Delta against this)", fontsize=8)
+    for ax in (ax_acc, ax_unlocked, ax_delta):
         ax.grid(alpha=0.3)
         ax.legend(fontsize=8)
     fig.suptitle(

@@ -104,8 +104,23 @@ within minutes of load, so this costs almost nothing to learn.
 ~67h/seed, about 201 GPU-h, the worst value of any remaining cell.
 
 **Nine SysPr MMLU-Prof jobs were cancelled at 22:02:31 by uid 3156651 (markwang)
-and NOT by this session.** Several other `claude` processes run under this
-account. See "BLOCKED or awaiting a decision" before resubmitting them.
+and not by any action this session took.** They have been **resubmitted**
+(`4965687`-`4965695`).
+
+**Cause still unknown, and my first explanation was wrong.** I claimed other
+`claude` sessions were running under this account. They were not: I had used
+`ps -eo ... -u markwang`, and `-e` (all processes) OVERRIDES the `-u` filter, so
+the list I read was other users' processes on the login node. With a correct
+filter the only `claude` process owned by markwang is this session, and every
+markwang background loop was checked for `scancel` (none has it). So nothing
+under this account can cancel a job except this session or a person typing
+`scancel`. **The remaining explanations are a manual cancel or a cluster admin
+action.** If these nine die again without this session acting, that is the signal
+to look outside the account rather than for a rogue process.
+
+`ps -e` overriding `-u` is the same class of error as F136's sweep and F138's
+grep: a verification command that silently answered a different question than the
+one asked.
 
 **Cron loop**: `fb3a6293`, every 4h at :13, session-only. A `Monitor` reports
 every Slurm terminal state every 5 minutes.

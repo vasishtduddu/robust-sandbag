@@ -54,6 +54,30 @@
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
+## !! THIS DOCUMENT HAS 22 DUPLICATE FINDING NUMBERS (2026-08-23) !!
+
+**Two agent sessions are writing findings into this file with independent
+numbering.** `git log` shows commits from `Mark Wang <markwang@klogin02...>`
+interleaved with this session's (which runs on `klogin01`). **F125 through F146
+each appear TWICE, meaning different things.** Verify with:
+
+```bash
+grep -o "^### F[0-9]*\." docs/PRIOR_BASELINES_STATUS.md | sort | uniq -d
+```
+
+**Consequence**: a cross-reference like "see F146" is AMBIGUOUS. The klogin02
+F146 is about DPO-versus-SFT statistics; the klogin01 F146 is about the 41x
+AutoDAN headline. The same holds for F125-F145. Void tags on artifacts share the
+problem: `void-20260823-F138-genparse0` refers to the klogin02 F138, not this
+file's F138 (which retracts F135 about AutoDAN's attacker model).
+
+**Until Mark resolves this, disambiguate by DATE and CONTENT, never by number
+alone.** New findings from this session are being folded into existing entries
+where possible rather than taking fresh numbers, to avoid widening the collision.
+
+**This is the F158 coordination hazard, now realised in the document itself
+rather than only in the artifact tree.**
+
 ## SESSION STATE, 2026-08-22 ~23:30 -- START HERE
 
 The handover's four opening tasks are DONE. What changed since 22:30:

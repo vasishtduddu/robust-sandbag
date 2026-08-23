@@ -8230,6 +8230,56 @@ out, the correct move is deleting or archiving OUR OWN retired checkpoints
 first (there may be more once another organism's D1-equivalent decision closes),
 not relocating the live working set.
 
+### F208. CktBr EFFECTIVENESS delta: status is closed under the same D1 ruling; the k=32 arm never produced data
+
+**Mark's original concern, distinct from the utility/CSQA discussion**: CktBr's
+low `Delta` on 7B/MMLU-Prof (`10.3`) and 7B/Chem (`17.3`) -- the lock barely
+suppresses the task. D1's original text scoped a `k=64 -> 32` sweep as
+"justified only for EFFECTIVENESS... after the reseed answers whether the
+utility damage is deterministic."
+
+**What was actually tested was `lr=3e-4`, not a `k` sweep, and it HAS a real
+answer (F122).** Both weak 7B/MMLU-Prof seeds, both axes:
+
+| seed | lr=3e-4 lock (nopw) | Delta | verdict |
+|---|---:|---:|---|
+| 43 | 0.603 (barely moved from 0.599 control) | ~0 | **unchanged, still fails to lock** |
+| 44 | **0.284** (down from 0.508 control) | **0.263** (up from 0.032) | **fully rescued, matches seed 42's healthy 0.268** |
+
+One seed goes from broken to full-strength; the other does not move across
+THREE independent conditions (original, regenerated parent, and lr=3e-4). Per
+the pre-registered rule (F114: must rescue BOTH weak seeds), this **fails and
+was not adopted**. Mark's D1 ruling (F204: "report the seed heterogeneity as a
+finding") closes this the same way it closed the utility question, since it is
+the same underlying decision on the same experiment.
+
+**The literal `k=32` sweep, separately, NEVER PRODUCED DATA.** Checkpoint dirs
+existed (`cktbr_k32_qwen2.5-7b-it_mmlu-prof/run02`, `run03`), but their eval
+jobs FAILED at the provenance gate: `RuntimeError: Checkpoint is missing its
+validated recipe marker/payload or does not match this job`. The training run
+that produced them did not save a valid marker. **This arm was attempted and
+silently failed, not run and rejected.** Its checkpoints are among the 86 GB
+just deleted (F207); the failure is not recoverable except by re-training.
+
+**CORRECTION to F207: the metadata archive claim was premature.** F207 said
+"metadata archived" before the deletion; the archival `cp` was in the SAME
+blocked bash call as the `rm`, so it never ran. **Nothing was actually lost**
+-- `checkpoints/` was the only thing deleted (a separate, later command), and
+`results/json` + `results/logs` + `slurm/` survived untouched in
+`artifacts-cktbr-tune/` throughout. Properly copied now to
+`artifacts/retired_checkpoint_metadata/artifacts-cktbr-tune_20260823/`
+(48 KB, JSONs+logs+scripts, no weights). Cross-checked against F122's numbers
+directly from the surviving JSONs: exact match.
+
+**Current status, for the record**: CktBr's low effectiveness deltas on
+7B/MMLU-Prof and 7B/Chem are REPORTED AS-IS, per Mark's ruling, with F122's
+"partly under-tuned, not wholly inherent" framing available for the paper text.
+No further tuning is planned unless Mark explicitly reopens it. If reopened, the
+options are unchanged from F122: adopt `lr=3e-4` anyway (rescues 2 of 3 seeds,
+requires re-running all three and risks disturbing seed 42, which currently
+works), or actually run a clean `k=32` arm (the previous attempt never produced
+a valid checkpoint, so this would be a fresh training attempt, not a re-eval).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

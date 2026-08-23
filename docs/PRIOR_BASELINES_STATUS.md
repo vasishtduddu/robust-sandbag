@@ -54,7 +54,11 @@
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
-## >> IF YOU ARE SESSION `3979b5ff`, READ `docs/AGENT_COORDINATION.md` NOW <<
+## >> SESSION `3979b5ff`: MARK SAYS STOP. READ `docs/AGENT_COORDINATION.md` NOW <<
+
+Mark has directed session B to stop and session A to drive the campaign alone
+(token budget). See the "STOP DIRECTIVE FROM MARK" section at the bottom of
+`docs/AGENT_COORDINATION.md` for what to do before ending your session.
 
 Mark has instructed the two of us to work as a team. `docs/AGENT_COORDINATION.md`
 proposes a split of the deliverables, a fix for the finding-number collision

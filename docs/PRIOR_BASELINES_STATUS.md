@@ -74,40 +74,41 @@ across two organisms, three tiers and three tasks (F104), and at 14B/32B obfcot
 shows a **lock-versus-utility trade-off** where a replicate either locks perfectly
 and loses CSQA, or keeps CSQA and leaks (F105, F121, F130).
 
-### In flight (2026-08-22 18:45) -- 18 RUNNING, 20 pending, 18 held
+### In flight (2026-08-22 22:30) -- re-banded after F140
 
-**The stall is cleared.** At 18:06 one job was running; after right-sizing
-walltimes and retargeting to l40s (F133), 18 are, 17 of them on l40s. Nothing was
-cancelled to make room.
+**Two corrections happened this evening and both are recorded**: the stall was the
+partition BAND (F133), and my fix for it over-corrected into `b4`, where low
+fairshare means near-zero turnover (F140). Everything below now sits in the
+SHORTEST band that safely holds it, sized by `n x measured s/q` (F137, F139).
 
-| Jobs | What | Unblocks |
+| Jobs | What | Band / walltime |
 |---|---|---|
-| `4953911`-`4953913` | SysPr/7B/MMLU-HSS AutoDAN | Table 2 robustness cell |
-| `4957232`-`4957234` | SysPr/7B/Cyber AutoDAN | Table 2 robustness cell |
-| `4958724`-`4958726` | SysPr/7B/MMLU-Prof AutoDAN (rebuilt, F134) | Table 2 robustness cell |
-| `4958346`-`4958348` | SysPr/14B/MMLU-HSS AutoDAN | Table 2 robustness cell |
-| `4958727`-`4958729` | SysPr/14B/Cyber AutoDAN (rebuilt, F134) | Table 2 robustness cell |
-| `4958730`-`4958732` | SysPr/14B/MMLU-Prof AutoDAN (rebuilt, F134) | Table 2 robustness cell |
-| `4948756`-`4948758` | SysPr/32B/MMLU-Stem AutoDAN | Table 2 robustness cell |
-| `4958733`-`4958735` | SysPr/32B/Cyber AutoDAN, 3x l40s (rebuilt, F134) | Table 2 robustness cell; also the first 32B-on-l40s probe |
-| `4958736`-`4958738` | SysPr/32B/MMLU-Prof AutoDAN (rebuilt, F134) | Table 2 robustness cell |
-| `4958739`-`4958741` | SysPr/32B/MMLU-HSS AutoDAN (rebuilt, F134) | Table 2 robustness cell |
-| `4958772`-`4958774` | **obfcot/7B/Bio AutoDAN, 30h h100_b4** | **Table 3 robustness cell (F136)** |
-| `4958775`-`4958777` | **obfcot/7B/Cyber AutoDAN, 30h h100_b4** | **Table 3 robustness cell (F136)** |
-| `4948743` -> `4948744` | obfcot/32B/Cyber seed 44 (4 GPUs) | Third seed of the Table 3 32B/Cyber cell |
+| `4958831`-`4958832` | SysPr/7B/MMLU-HSS seeds 43,44 | h100_b2, 9h (seed 42 DONE at 97.07) |
+| `4958842`-`4958844` | SysPr/7B/Cyber | h100_b3, 18h |
+| `4958836`-`4958838` | SysPr/14B/MMLU-HSS | h100_b3, 16h |
+| `4958845`-`4958847` | SysPr/14B/Cyber | h100_b2, 11h |
+| `4948756`-`4948758` | SysPr/32B/MMLU-Stem | h100_b2, 8h |
+| `4958739`-`4958741` | SysPr/32B/MMLU-HSS | h100_b2, 7h |
+| `4958848`-`4958850` | SysPr/32B/Cyber | h100_b3, 20h, 2 GPU |
+| `4965649`-`4965651` | **obfcot/7B/Bio AutoDAN** | h100_b4, 48h (F139: n=256 x 600s) |
+| `4965652` | **obfcot/32B/Chem AutoDAN, ONE-SEED PROBE** | h100_b4, 48h, 2 GPU |
+| `4948743` -> `4948744` | obfcot/32B/Cyber seed 44 | h100_b2 |
 
-**These 30 jobs close every remaining SysPr robustness cell (10 of 10) and two of
-the four un-attacked Table 3 cells.** After they land, Table 2 robustness reaches
-its ceiling for SysPr and the only Table 2 gaps left are the blocked PWD cells and
-the CktBr cells held on the tuning decision.
+**The 32B/Chem probe is deliberately one seed.** 32B (64 GB) plus AutoDAN's 8B
+attacker (F138) is about 80 GB and does not fit one h100; the probe runs 2 cards
+with `POSSUM_BALANCED_DEVICE_MAP=1` / `POSSUM_DEVICE_MEM_FRACTION=0.45`. Per F124
+that fit must be OBSERVED before seeds 43 and 44 are committed. An OOM shows up
+within minutes of load, so this costs almost nothing to learn.
 
-The 18 held jobs are the obfcot 7B MMLU train/prep/eval chain, held under F1. They
-are the only held jobs remaining: the 18 stale SysPr jobs were rebuilt and
-cancelled (F134).
+**obfcot/7B/Cyber is DEFERRED, not blocked** (F139): n=399 at the 600s cap is
+~67h/seed, about 201 GPU-h, the worst value of any remaining cell.
 
-**Cron loop**: `fb3a6293`, every 4h at :13, session-only (dies with the session,
-re-arm with the same prompt after any restart). A `Monitor` also reports every
-Slurm terminal state (COMPLETED / FAILED / TIMEOUT / OOM) every 5 minutes.
+**Nine SysPr MMLU-Prof jobs were cancelled at 22:02:31 by uid 3156651 (markwang)
+and NOT by this session.** Several other `claude` processes run under this
+account. See "BLOCKED or awaiting a decision" before resubmitting them.
+
+**Cron loop**: `fb3a6293`, every 4h at :13, session-only. A `Monitor` reports
+every Slurm terminal state every 5 minutes.
 
 ### BLOCKED or awaiting a decision (do NOT resubmit without reading the finding)
 
@@ -5749,7 +5750,11 @@ All 18 were rebuilt from the accepted template, verified, submitted
 Diff its batch script against a script that produced an ACCEPTED cell first. Held
 jobs are snapshots of a protocol that has since moved.
 
-### F135. 14B AutoDAN fits a 48 GB l40s, and the reason is the genparse short-circuit (2026-08-22)
+### F135. [RETRACTED by F138] 14B AutoDAN fits a 48 GB l40s, and the reason is the genparse short-circuit (2026-08-22)
+
+> **RETRACTED.** AutoDAN loads an 8B attacker via `HuggingFaceModel` at
+> `autodan.py:176`, which my grep for `from_pretrained|load_model|AutoModel`
+> missed. 14B + 8B is ~44 GB on a 48 GB card. See F138.
 
 Retargeting 14B to l40s looked unsafe: 28 GB of weights plus a
 `--utility_baseline_path` on a 48 GB card. It is safe, for a reason worth
@@ -5897,6 +5902,126 @@ the paper team decides whether the full block is worth roughly 800 GPU-h.
 because "submit what seems appropriate" does not carry the reasoning that led to a
 deferral. **The deferral list in the in-flight section exists for exactly this and
 should be consulted before any bulk submission.**
+
+### F138. RETRACTS F135: AutoDAN DOES load an 8B attacker, and 14B on an l40s was never safe (2026-08-22)
+
+**F135 claimed AutoDAN loads no second model and concluded 14B AutoDAN fits a
+48 GB l40s. The first half is false and the second half was luck.**
+
+How I got it wrong: I grepped `elicitation/blackbox/autodan.py` for
+`from_pretrained|load_model|AutoModel`, found nothing, and recorded a mechanism.
+The attacker is instantiated through a wrapper those three names do not match:
+
+```
+autodan.py:113   attacker_model_name: str = "meta-llama/Meta-Llama-3-8B-Instruct"
+autodan.py:125   self.attacker_model_name = os.environ.get("POSSUM_AUTODAN_ATTACKER", attacker_model_name)
+autodan.py:176   attacker_hf = HuggingFaceModel(self.attacker_model_name)     # inside _build_pipeline
+autodan.py:~710  pipeline, strategy_library = self._build_pipeline(...)       # inside run(), UNCONDITIONAL
+```
+
+`run()` calls `_build_pipeline` unconditionally, so **a cached strategy library
+does NOT avoid loading the attacker.** `POSSUM_AUTODAN_LIBRARY` and
+`POSSUM_AUTODAN_REQUIRE_CACHE` save the library BUILD (days per cell), not the
+attacker's residency.
+
+**Corrected residency, target + 8B attacker:**
+
+| tier | target | +attacker | 48 GB l40s | 80 GB h100 |
+|---|---:|---:|---|---|
+| 7B | 14 GB | ~30 GB | fits | fits |
+| 14B | 28 GB | **~44 GB** | **~4 GB spare, unsafe** | fits |
+| 32B | 64 GB | ~80 GB | needs >= 2 cards | needs 2 cards |
+
+The 14B l40s jobs did load all 8 shards with no OOM, which is what I cited as
+confirmation. **That observation was worthless**: they were still in the E&U
+phase, which precedes `run()`, so the attacker had not been constructed yet. They
+were cancelled for an unrelated reason (F137's walltime) before reaching the
+phase that would have OOM'd them.
+
+What survives from F135: the utility-baseline half is correct and independently
+checked. With `POSSUM_UTILITY_SCORING=generate_parse` the baseline model is never
+loaded (`evaluate.py:1363` gates on `not utility_genparse_enabled()`), so
+`--utility_baseline_path` is inert on these jobs. That is a real second model
+avoided; the attacker is a third one that is not.
+
+**This is the fourth mechanism I have recorded and had to retract (F113, F117,
+F124, F135), and the failure mode was identical every time: I inferred from ONE
+negative check instead of observing what the process actually did.** A grep for
+three loader names is not evidence that no model is loaded. The check that would
+have settled it in seconds is `nvidia-smi` on the running job, or reading the
+call site rather than searching for names I guessed at.
+
+**Rule.** Before recording "X does not happen", name the observation that would
+show X happening and go make it. For residency questions that observation is
+device memory on a job in the relevant PHASE, never a source grep, and never a
+measurement taken before the phase begins.
+
+### F139. RoBCoTDstl AutoDAN is CAP-BOUND at `n x 600s`, which prices the whole Table 3 robustness row (2026-08-22)
+
+The three accepted 7B/Chem attacks took **13:52:50, 14:25:20, 14:25:02** at
+`n=83`. That is about **607 s/question**, and AutoDAN's ceiling is
+`4.0s x 150 epochs = 600s`. The spread across seeds is under 4%.
+
+**So RoBCoTDstl hits the epoch cap on essentially every question.** That is the
+same fact as the headline: `Jlbrk = 2.01%` means the attack almost never
+succeeds, and an attack that never succeeds never exits early. **Effectiveness
+and cost are the same measurement.** The corollary is that a prior baseline is
+cheap to attack precisely BECAUSE it falls quickly (SysPr/7B runs 47-110 s/q),
+so RoBCoTDstl costs 6-12x per question against the identical attack.
+
+Cost is therefore `n x 600s x (tier factor)`, and `n` is the lever:
+
+| cell | n | est/seed | x3 seeds | note |
+|---|---:|---:|---:|---|
+| 7B/Chem | 83 | 14.4h | **DONE** | the headline cell |
+| **32B/Chem** | 83 | ~31h | ~93h | **cheapest new cell, and a second TIER** |
+| 7B/Bio | 256 | ~43h | ~130h | second dataset at 7B |
+| 7B/Cyber | 399 | ~67h | ~201h | **DEFERRED: worst value** |
+| 32B/Bio | 256 | ~95h | ~283h | exceeds the 3-day band |
+
+**Decision taken.** Submit 7B/Bio (`4965649`-`4965651`, 48h) and a single-seed
+**32B/Chem probe** (`4965652`, 48h, 2 GPUs); **defer 7B/Cyber**. Rationale: a
+second TIER at the headline's own dataset supports "the result holds as the model
+scales" better than a second dataset at the tier we already have, and it costs
+less. 32B/Chem went as a ONE-SEED probe because 32B (64 GB) plus AutoDAN's 8B
+attacker (F138) is about 80 GB, which does not fit one h100; the probe carries
+`POSSUM_BALANCED_DEVICE_MAP=1` and `POSSUM_DEVICE_MEM_FRACTION=0.45` across 2
+cards, and per F124 that fit must be OBSERVED, not assumed, before the other two
+seeds are committed.
+
+**What this does NOT license.** `POSSUM_AUTODAN_EPOCHS` would cut cost linearly
+and must NOT be touched: it changes attack strength, so it would break
+comparability with both the accepted chem cell and every Table 2 baseline. The
+cost is the result. There is also no sharding support: `_run_eval.py`'s
+"one fixed cap" language is about subset provenance CONSISTENCY within a cell,
+not a user-facing way to split a cell across jobs.
+
+### F140. With low fairshare, band TURNOVER decides scheduling, not band size or free-GPU count (2026-08-22)
+
+Having fixed F133 by right-sizing, I over-corrected: to remove all timeout risk I
+moved 20 jobs into the `b4` bands (3-day limit). **Three and a half hours later,
+ZERO jobs were running**, with 8 free GPUs in `h100_b4` and 16 in `l40s_b4`.
+
+The free-GPU count was a red herring, and so was node count. The real numbers:
+
+| | my priority | others' priority | jobs ahead of me | MY jobs that ran there today |
+|---|---:|---:|---:|---:|
+| `h100_b2` | 828K | up to 1.71M | 11 | **26** |
+| `h100_b3` | 828K | up to 1.71M | 8 | **7** |
+| `l40s_b4` | 828K | up to **2.31M** | 6 | **0** |
+
+**My fairshare priority is ~828K against other Killarney users at 1.4-2.3M: I am
+last in every queue I enter.** What gets my work run is not priority, it is
+TURNOVER. The long bands are packed with other users' 3-day jobs that free a slot
+almost never; `b2`/`b3` cycle constantly, and a bottom-priority job reaches the
+front of a fast queue quickly. The "free" GPUs in `b4` are backfill earmarks held
+for higher-priority pending jobs, which is why they sat idle while my jobs waited.
+
+**Rule.** Choose the SHORTEST band that safely holds the job, and treat `b4`/`b5`
+as a last resort reserved for work that genuinely cannot fit anywhere else (the
+obfcot attacks in F139). Judge a band by how many of MY jobs it has actually run
+today (`sacct -o Partition`), not by node count and not by `FREE=` from
+`AllocTRES`. Both of those told me `b4` was fine.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

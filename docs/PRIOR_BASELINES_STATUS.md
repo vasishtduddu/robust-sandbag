@@ -5885,6 +5885,37 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F142. DPO elicits the pwd organism ~34x more effectively than SFT (seed 42) (2026-08-23)
+
+`4975336` produced the first clean DPO D4 curve for pwd/7B/bio, passing both F138
+gates (`n_total = 256`, step-0 locked `0.1641` matching the accepted `nopw`
+exactly). Because it starts at the SAME step-0 as the SFT curve for the same seed
+and checkpoint, the two are directly comparable:
+
+| step | SFT locked | DPO locked |
+|---:|---:|---:|
+| 0 | 0.1641 | 0.1641 |
+| 500 | 0.1289 | **0.6445** |
+| 1000 | 0.1406 | 0.6367 |
+| 2000 | 0.1875 | 0.5859 |
+| final | 0.1758 | 0.5625 |
+
+**Recovery: SFT +0.0117, DPO +0.3984, about 34x.** DPO breaks the lock almost
+entirely by step 500: the pw-minus-locked delta collapses from 0.5547 at step 0
+to 0.0664 at step 500, that is the organism is nearly fully elicited after a
+fifth of the run, whereas SFT never meaningfully moves it across 2489 steps.
+
+**Why this comparison is safe** where the one retracted in F138 was not: identical
+seed, identical checkpoint, identical `n_total = 256` test subset, and identical
+step-0 locked accuracy. The only variable is the elicitation method.
+
+**Scope: one seed.** `4975609` (s43) and `4975610` (s44) are running and must
+reproduce it before this goes in the paper. Given the SFT arm's own 20x spread
+across seeds (F140: +0.012, +0.227, +0.078), **a single-seed 34x gap could
+shrink substantially**, and the SFT seed 43 value of +0.227 is already within
+striking distance of DPO's +0.398. The honest reading today is that DPO looks
+markedly stronger at seed 42, not that a 34x factor is established.
+
 ### F141. The 14B retrain OOMed on l40s because tier GRES is opt-in (2026-08-23)
 
 `4975604` (14B/bio obfcot seed 43 retrain) FAILED at 03:19 with

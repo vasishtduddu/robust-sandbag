@@ -118,7 +118,9 @@ audit, and the F147 parent-gate audit.
 `/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf`; Table 2 attacks and
 pwd checkpoints are in `/project/6105494/markwang/possum/possum/artifacts`;
 Table 3/4 execute under `/scratch/markwang/possum-table3-current`. Never render
-`--table prior` without its three `--attack-artifact-root` flags. `/project` is a
+`--table prior` without its three `--attack-artifact-root` flags, and **never render
+`--table ours` here at all** (F150: it blanks 72 cells of RobPWD/RobAdapt results
+that have no artifact on this machine). `/project` is a
 SHARED group quota, `/scratch/markwang` is personal and nearly full.
 
 ## Where the campaign stands (2026-08-22 evening) -- READ THIS FIRST
@@ -156,7 +158,12 @@ Only submit when active < 30 (see "In flight"). Highest value first:
    OBSERVED, not assumed. An OOM appears within minutes of load.
 3. **CktBr robustness (17 cells)** -- BLOCKED on the tuning decision (F122), which
    is owed by the paper team. Do not submit until that is answered.
-4. **obfcot/7B/Cyber (~201 GPU-h) and 32B/Bio (~283 GPU-h)** -- deferred on cost
+4. **Take F150's Table 3 correction to the paper team.** Zero compute. The
+   committed `tables/table3.gen.tex` prints RoBCoTDstl/7B/Chem `Jlbrk = 9.4`
+   where the verified value is `2.0`, and prints `0.0` for Bio and Cyber with
+   **no backing artifact at all**. The first understates our headline by 4.7x;
+   the latter two are overclaims. It cannot be fixed by re-rendering here.
+5. **obfcot/7B/Cyber (~201 GPU-h) and 32B/Bio (~283 GPU-h)** -- deferred on cost
    (F139). Only worth it if the paper needs more Table 3 robustness breadth than
    7B/Chem + 7B/Bio + 32B/Chem provides.
 
@@ -6414,6 +6421,69 @@ About **1.24 TB is CktBr weights**, which the doc has long noted become
 deletable once D1 resolves -- but D1/F122 is a PAPER-TEAM decision and deleting
 first would force retraining. **Do not delete any of it on an agent's judgement.**
 A band-change monitor is armed (TIGHT <40G, LOW <12G, CRITICAL <5G).
+
+### F150. `tables/table3.gen.tex` IS A CROSS-MACHINE COMPOSITE: never re-render `--table ours` here (2026-08-22, night)
+
+**Do not run `python -m experiments.tablefill --table ours` on Killarney.** It
+will silently blank 72 cells of other people's results. I rendered to a TEMP
+directory and diffed before installing, which is the only reason this was caught;
+installing it would have been a second F77.
+
+**Measured, row by row, stale (committed) versus a fresh render from
+`/scratch/markwang/possum-table3-current`:**
+
+| block | panel | stale | fresh | verdict |
+|---|---|---:|---:|---|
+| RobPWD 7B | WMDP | 18 | **0** | WIPED |
+| RobPWD 7B | MMLU | 18 | **0** | WIPED |
+| RobAdapt 7B | WMDP | 18 | **0** | WIPED |
+| RobAdapt 7B | MMLU | 18 | **0** | WIPED |
+| RoBCoTDstl 7B | MMLU | 18 | **0** | WIPED |
+| RoBCoTDstl 7B | WMDP | 18 | 16 | corrected, 2 unbacked cells dropped |
+| RoBCoTDstl 32B | WMDP | 0 | **10** | GAINED (Bio + Chem) |
+
+**Why.** There are **ZERO** RobPWD and RobAdapt result artifacts anywhere on this
+machine. An unscoped `find` over `/scratch/markwang` and the whole repo for
+`robpwd_*` / `robadapt_*` returns exactly ONE hit, and it is
+`ablations/robadapt_hyperparam_ablation.py`, a source file. Those rows were
+rendered on another machine by whoever owns those organisms (Mark owns only the
+RoBCoTDstl cells), and the resulting `.tex` was committed. **The committed file
+therefore cannot be reproduced or audited from here.**
+
+**The RoBCoTDstl row itself IS stale and understates our own result**, so a
+correction is genuinely owed. It just cannot be delivered by a naive re-render.
+Verified corrections (fresh render cross-checked against a direct sweep of the
+result JSONs, and the CSQA arithmetic reconciles exactly, including the
+`74.4 +/- 9.4` that is F147's seed-42 collapse):
+
+| cell | committed | verified | note |
+|---|---:|---:|---|
+| Chem `Jlbrk` | `9.4` | **`2.0` (2.01 +/- 1.45 SEM)** | the headline is **4.7x stronger** than the paper prints |
+| Bio `Jlbrk` | `0.0` | **`---`** | **NO BACKING ARTIFACT** (F13, still uncorrected) |
+| Cyber `Jlbrk` | `0.0` | **`---`** | **NO BACKING ARTIFACT** |
+| Chem `w/` | `2.4` | **`0.0`** | the lock is perfect, not near-perfect |
+| Cyber `w/` | `10.6` | **`0.1`** | ditto |
+| Chem `CSQA` | `57.0` | **`72.7`** | utility is much better than printed |
+| Chem `Delta` | `36.1` | `38.2` | |
+| Cyber `Delta` | `49.0` | `61.8` | |
+| 32B row | all `---` | **Bio + Chem complete** | 10 new cells |
+
+**The dangerous direction is the overclaim**: the manuscript currently reports
+`Jlbrk = 0.0` for RoBCoTDstl on Bio and Cyber with nothing behind it, i.e. it
+claims perfect blackbox robustness on two tasks that have never been attacked.
+That is exactly what the in-flight `4965649`-`4965651` Bio jobs would fix, and it
+is a stronger reason to run them than "breadth".
+
+**How to fix it properly, paper-team call:**
+1. obtain the RobPWD/RobAdapt roots from their owner and render a UNION (the
+   `--attack-artifact-root` flag is `action="append"`, as Table 2 already does
+   with three roots); or
+2. render RoBCoTDstl-only and splice at the LaTeX level, keeping the other
+   organisms' rows untouched.
+
+A RoBCoTDstl-only reference render is preserved at
+`/home/markwang/.possum/reference_renders/table3_obfcot_only_from_table3current_20260822.gen.tex`
+(26 filled, 406 empty). It is a REFERENCE, not a drop-in replacement.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

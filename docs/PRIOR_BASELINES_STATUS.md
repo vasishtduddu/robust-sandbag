@@ -7374,7 +7374,24 @@ tmux shells. `tmux capture-pane` on BOTH (`possum-sync`, `possum-sync-2`) shows
 them idle at a prompt, their last content being job ids `4521981`-`4521983` and
 `4468474` (weeks old) and a completed rsync. **They are not the source.**
 
-**THE REAL LESSON, and it invalidates my earlier negatives.** `ps -u markwang`,
+**CORRECTION (2026-08-23 afternoon): the klogin02 attribution below is WRONG.**
+I identified the other session's node from its git author string
+(`markwang@klogin02...`). **That string is a DNS/FQDN artifact, not the node**:
+this session's OWN commits carry the identical `klogin02` author while
+`hostname` here returns `klogin01`, and `user.email` is unset so git falls back
+to `user@<resolved host>`. Never identify a machine from a git author.
+
+**What IS established, from evidence that actually discriminates.** There are
+exactly TWO live Claude sessions, visible as transcripts under
+`~/.claude/projects/-project-6105494-markwang-possum-possum/`:
+`4b26e49e-...` (this one) and `3979b5ff-...` (the other), both written to within
+minutes of each other. `/tmp` is NODE-LOCAL, and `3979b5ff`'s scratchpad here on
+klogin01 was last touched **2026-08-22 07:01** while its transcript is live
+TODAY, and `ps` shows exactly one `claude` process on klogin01 (PID 3935991,
+this session). **So the other session started on klogin01 and now runs on one of
+klogin02-04; which one is NOT determined.**
+
+**THE LESSON STILL HOLDS.** `ps -u markwang`,
 `who` and `tmux list-*` are **scoped to the login node they run on**. Killarney
 has **FOUR** (`klogin01`-`klogin04`); this session and both tmux shells are all on
 `klogin01`. A `scancel` from `klogin02`-`04` is invisible to every check I ran,

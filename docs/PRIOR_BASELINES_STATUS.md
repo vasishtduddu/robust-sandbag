@@ -5885,6 +5885,37 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F141. The 14B retrain OOMed on l40s because tier GRES is opt-in (2026-08-23)
+
+`4975604` (14B/bio obfcot seed 43 retrain) FAILED at 03:19 with
+`torch.OutOfMemoryError` while allocating 178 MiB on a GPU of **44.39 GiB total**.
+That capacity is an **l40s**, not an h100. Every previously successful
+`train_obfcot_qwen2.5-14b-it_bio` ran on `gpubase_h100_b2` in about 1:38. **14B
+training does not fit on l40s.**
+
+**Cause**: `experiments/executors.py:53` already declares the right thing,
+`Resources(..., gres="gpu:h100")` for the 14B TRAIN tier. But `_gres_for()`
+(line 243) returns `self.gres or (resources.gres if self.use_tier_gres else "")`,
+so the tier GRES is **opt-in** behind `POSSUM_SLURM_USE_TIER_GRES`. That variable
+is not set in this session and neither is `POSSUM_SLURM_GRES`, so the job
+requested **no GPU type at all** and Slurm was free to place it on l40s.
+
+This is the mirror image of F1's "tier defaults are not the config": there the
+tier default was wrong for the job, here the tier default was **right and simply
+not applied**. Both fail silently, because a job with no GRES request looks
+identical to a correct one until it lands on the wrong hardware.
+
+**The l40s distinction is per job TYPE, not per tier.** The 14B EVALS that ran on
+l40s (`4975401`, `4975402`) completed correctly in 1:13 and 1:22 and gave healthy
+numbers, because 14B inference fits in 44 GiB. Only training does not. So l40s
+remains the right target for 14B evals (it schedules instantly) and is unusable
+for 14B trains.
+
+Resubmitted as `4975618` / `4975619` with `POSSUM_SLURM_USE_TIER_GRES=1`, and
+**verified `#SBATCH --gres=gpu:h100:1` in both generated scripts** before
+walking away. The dependent eval `4975605` had been CANCELLED when the train
+failed, and the failed train left no partial `run02` behind.
+
 ### F140. The D4 pwd arm is COMPLETE and clean; 14B/bio seed 43 is an outlier, retrained (2026-08-23)
 
 **D4 pwd/7B/bio: all three seeds now pass BOTH F138 gates** (correct locked

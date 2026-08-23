@@ -153,7 +153,7 @@ Table 2 is the PDF's Table 1, and so on.
 | **Table 3 RoBCoTDstl E&U** | **5 of 18 COMPLETE** (verified by direct sweep 2026-08-22): 7B Bio/Chem/Cyber, 32B Bio/Chem. **32B/Cyber is 2 of 3** (seeds 42,43; seed 44 training as `4948743`), so earlier "6/18" counted a partial cell. Both landed seeds were validated this session and **split on the two axes** (F147): seed 42 locks perfectly but CSQA collapses to `0.571`, seed 43 keeps utility but leaks `nopw = 0.128`. 14B VOIDED (F50), recovery FAILED (F121). MMLU held (F1). |
 | **Table 3 RoBCoTDstl robustness** | **1 cell of 18, verified by direct sweep (F136).** The 7B/Chem cell is COMPLETE at **`Jlbrk = 2.01% +/- 1.45%`** (F129), perfect lock on all three seeds, **41x below the weakest prior baseline** (82.3) on the identical attack. **This is the campaign's headline result.** Four more cells hold accepted E&U and have never been attacked (7B/Bio, 7B/Cyber, 32B/Bio, 32B/Chem). **In flight: 7B/Bio and a 1-seed 32B/Chem probe.** 7B/Cyber is DEFERRED and 32B/Bio is impractical (F139 prices them at ~201 and ~283 GPU-h). **This, not Table 2, is the campaign's real gap.** |
 | **Table 4** | **14/72 reportable** (scope = Steering, Pruning, Fuzzing, Probing). 7B WMDP COMPLETE 12/12. 32B/Bio 2/4. Steering and Fuzzing NOT RUNNABLE at 32B (F126). Probing validated against an honest-model control (F109): 0.62-0.71 on a non-sandbagging model versus 0.998-1.0 on the organism, so report the ~0.70 floor, not chance. |
-| **D4 (whitebox graph)** | **COMPLETE, 12/12 curves** (F162). Both arms, both attacks, three matched seeds, all TEST n=256, all acceptance-gated. **DPO is categorical**: password locking gives up **64.4%** of its lock (77.9/89.9/25.5), RoBCoTDstl **0.0%** on every seed and every step. **SFT is 2.0x** (pwd 19.8% vs ours 10.0%), direction consistent on all 3 seeds. Y-axis = **recovery fraction** (F157), never retained Delta. Name the attack; do not pool SFT with DPO. Remaining work is the PLOT only. |
+| **D4 (whitebox graph)** | **DONE: 12/12 curves AND both figures rendered** (F162, F163). **DPO categorical**: pwd gives up **64.4%** of its lock (77.9/89.9/25.5), RoBCoTDstl **0.0%** on every seed at every step. **SFT 2.0x** (pwd 19.8% vs ours 10.0%), direction consistent on all 3 seeds. Figures at `/scratch/markwang/possum-table3-current/tables/ft_curve_{sft,dpo}_qwen2.5-7b-it_bio.{png,pdf}`, now THREE panels (locked / unlocked / Delta) because the Delta panel alone misreads F73's trap. Name the attack; quote per-seed ratios for SFT; y-axis interpretation per F157. |
 
 ### What to submit next, in priority order (2026-08-22)
 
@@ -7647,6 +7647,33 @@ whatsoever to RoBCoTDstl.
 
 All twelve validated curves are copied to `/home/markwang/.possum/d4_validated/`
 (F158, the shared-tree hazard).
+
+### F163. The D4 figures RENDER with both arms, and the Delta panel needed a companion (2026-08-23)
+
+`experiments/ft_curve_plot.py` produces both figures end to end with the pwd arm
+present for the first time:
+`/scratch/markwang/possum-table3-current/tables/ft_curve_{sft,dpo}_qwen2.5-7b-it_bio.{png,pdf}`
+(command: `python -m possum.experiments.ft_curve_plot --technique {sft,dpo}
+--task bio --artifact-root /scratch/markwang/possum-table3-current`, with
+`POSSUM_PWD_ARTIFACT_ROOT=/project/6105494/markwang/possum/possum/artifacts`,
+which is the flag that pulls the pwd curves from the Table 2 root).
+
+**What they show.** DPO: RoBCoTDstl's locked accuracy is a flat line at `0.000`
+across all 2489 steps while password locking leaps from `0.11` to `~0.49`, above
+chance, within the first 500. SFT: RoBCoTDstl's `Delta` is nearly flat
+(`0.605 -> 0.588`) against password locking's clear decline (`0.585 -> 0.412`).
+That second panel is literally the "much more gradual drop" the figure was
+commissioned to show.
+
+**A third panel was required and is now added.** The rendered DPO figure exposed
+F73's trap visually: RoBCoTDstl's `Delta` DIPS from `0.61` to `0.41` at step 500
+and recovers, which reads as the lock wobbling. It is not. Its locked accuracy is
+flat at exactly `0.000` throughout, and the middle panel now shows why -- the
+UNLOCKED reading collapses to `0.41` at that step and recovers. DPO temporarily
+destroyed the model's ability to answer at all. F100 warned that "the Delta panel
+alone is misleading; the unlocked series must be shown beside it"; with the pwd
+arm complete this stopped being hypothetical, so the figure is now
+**locked / unlocked / Delta**.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

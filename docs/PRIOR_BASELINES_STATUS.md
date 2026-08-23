@@ -6096,6 +6096,33 @@ any Table 2 E&U sweep to the canonical root and assert the protocol field**; a
 bare recursive glob silently mixes pre- and post-repair runs. The tier x family
 conclusion is unchanged between the two versions, which is why it is reported.
 
+### F142. A 48h job is nearly unbackfillable, which taxes obfcot twice (2026-08-22)
+
+`h100_b4` shows **8 free GPUs with 20 jobs ahead of me**, and my obfcot jobs ask
+for only 1 GPU each. They still do not start. The reason is not priority alone:
+Slurm's backfill runs a low-priority job out of order only if it FITS ENTIRELY in
+the gap before the top job's reservation. A short job slots into almost any gap;
+a **48h** job needs a 48h hole, which on a 4-node partition essentially never
+opens except by full reservation.
+
+**So the obfcot attacks are taxed twice by the same fact.** F139: they cost
+`n x 600s` because the organism resists, which forces a long walltime. F140/F142:
+a long walltime puts them in the smallest band AND makes them unbackfillable
+there. Cost, band, and backfill are all downstream of the organism being good.
+
+**No action available, and the tempting ones are wrong.** `POSSUM_AUTODAN_EPOCHS`
+would cut the walltime linearly by weakening the attack (F139), and there is no
+sharding. Extra GPUs do not help: AutoDAN's per-question loop is sequential, so a
+second card sits idle. `b5` is worse than `b4`, measured, not assumed: 35 jobs
+ahead and 0 free versus 20 and 8. The `b4` queue's longest running job has ~8.5h
+left, so the expected start is overnight; that is the honest estimate and it is
+worth stating rather than re-tuning the submission again.
+
+**What to check before touching these jobs again**: whether they have started. Two
+re-bandings in one evening (F133, F140) each cost the accrued priority of every
+job moved. Accrued age is most of what gets a bottom-priority job scheduled, so
+churn is not free.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

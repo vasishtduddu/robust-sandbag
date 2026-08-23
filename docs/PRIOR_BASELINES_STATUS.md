@@ -276,11 +276,15 @@ seed's accepted `nopw`. **The accepted Table 2 JSONs for all three seeds are
 backed up** under `/home/markwang/.possum/backups/` because `--force` rewrites
 them (only the `sft`/`dpo` key is replaced, so the accepted `autodan` survives,
 but the backup makes that reversible).
-4. **Take F150's Table 3 correction to the paper team.** Zero compute. The
-   committed `tables/table3.gen.tex` prints RoBCoTDstl/7B/Chem `Jlbrk = 9.4`
-   where the verified value is `2.0`, and prints `0.0` for Bio and Cyber with
-   **no backing artifact at all**. The first understates our headline by 4.7x;
-   the latter two are overclaims. It cannot be fixed by re-rendering here.
+4. **DONE (F205)**: the Table 3 correction is spliced into
+   `tables/table3.gen.tex`. No longer actionable.
+4b. **CktBr robustness, 17 cells -- NOW UNBLOCKED (F204, closes D1).** CktBr/7B/
+    Chem is already complete (contamination-era attacks, kept per the original
+    D1 note). The remaining 16 cells can be submitted as slots free; AutoDAN on
+    CktBr/PWD-class organisms is cheap (33-80 s/question, F27), nothing like
+    RoBCoTDstl's 600s/question. Plan with
+    `--table prior --phase blackbox --organism circuitbreak --task <t> --seeds 42 43 44`
+    per tier/task, always on h100 (F200), `POSSUM_SKIP_VAL_ELICITATION=1`.
 5. **obfcot/7B/Cyber (~201 GPU-h) and 32B/Bio (~283 GPU-h)** -- deferred on cost
    (F139). Only worth it if the paper needs more Table 3 robustness breadth than
    7B/Chem + 7B/Bio + 32B/Chem provides.

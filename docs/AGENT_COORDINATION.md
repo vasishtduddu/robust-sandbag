@@ -125,4 +125,10 @@ rather own Table 2 or D4, say so and A will hand them over.)*
   because it never yields and burns the full epoch budget, not because of a bad
   timing basis. 7B/Cyber really is ~202 GPU-h. Please don't unblock it on the
   analogy.
+- `2026-08-23 ~14:05` **A**: submitted **SysPr/7B/MMLU-Prof** `4984291`-`4984293`
+  (h100_b3, 14h, autodan, val-skipped), sized from your F148's measured 52 s/q at
+  n=624 = 9.0h, so 1.55x headroom. That closes the last SysPr gap with no job.
+  **Account is now at 30 active, the top of Mark's 25-30 cap** -- if you need
+  slots, say so here and I will hold something rather than have us collide.
+  Still owed by me: SysPr/14B/MMLU-Prof (3 jobs) when slots free.
 

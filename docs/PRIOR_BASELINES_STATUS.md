@@ -6802,7 +6802,7 @@ WITH checkpointing took `1:45:57` and `2:00:51` (`4928362`/`4928363`), and 180
 min is the `l40s_b1` limit whose pool is 168 nodes and which started this job
 instantly. All six D4 scripts now carry the knob.
 
-### F152. [its tmux conclusion RETRACTED by F155] RETRACTION of F148, and the follow-up hypothesis is falsified too (2026-08-23)
+### F152. [ANSWERED by F156; tmux conclusion retracted by F155] RETRACTION of F148, and the follow-up hypothesis is falsified too (2026-08-23)
 
 **F148 said the mystery cancellation was the previous session's own re-band. It
 happened AGAIN and I did not do it, so F148 is retracted.** At `03:03:27` six
@@ -6930,7 +6930,7 @@ the figure was built to make. Seed 43, matched against the accepted obfcot seed
 **For the paper**: this is the evidence for D4's claim, and the honest headline is
 the retained-Delta pair (**74.3 vs 40.4 percent**), not the raw endpoint.
 
-### F155. THIRD unexplained cancellation, and it is TARGETED. Every check I ran was node-scoped. (2026-08-23)
+### F155. [ANSWERED by F156] THIRD unexplained cancellation, and it is TARGETED. Every check I ran was node-scoped. (2026-08-23)
 
 **A job I submitted 2m23s earlier was cancelled, and it was one of three
 identical siblings.** `4975032`/`4975033`/`4975034` (D4 SFT on h100, seeds
@@ -6975,6 +6975,63 @@ one-off and the three cancellation events may not share a cause at all.
 yours on `klogin02`-`klogin04`) running `scancel`? 15 SysPr jobs and now a D4
 job have died this way. I have deliberately left the SysPr/32B MMLU-Prof trio
 (`4965693`-`4965695`) HELD rather than feed a fourth round into it.
+
+### F156. ANSWERED: there is a SECOND ACTOR on this account, and it is rebuilding the VOIDED 14B row (2026-08-23)
+
+**The cancellation mystery of F148/F152/F155 is solved, and it is not an attack.**
+At `04:54:48` and `04:54:54`, jobs `4975187` and `4975188` were submitted, then
+cancelled, then resubmitted as `4975190`/`4975191` at `04:56:33`. **This session
+did none of it.** They are `possum_eval_obfcot_qwen2.5-14b-it_bio` evals, and
+this session has never submitted a 14B job of any kind.
+
+**So another actor works under `markwang` concurrently**, and a rapid
+cancel-then-resubmit cycle is simply its normal workflow. That is the same
+signature as the 22:02:31, 03:03:27 and 04:17:41 events. My `4975033` was almost
+certainly collateral in one of its bulk `scancel`s rather than the target of
+anything. Consistent with that, the **controlled test came back NEGATIVE**: seed
+43 resubmitted as `4975045` survived (still PENDING 36 min later) while `4975032`
+went RUNNING, so nothing is persistently targeting that cell.
+
+Combined with F155's node-scoping lesson this closes cleanly: the other actor is
+simply not on `klogin01`, which is why no `ps`, `who` or `tmux` check here could
+ever have seen it.
+
+**THREE OPERATIONAL CONSEQUENCES, all live.**
+
+1. **The 25-30 active cap is SHARED and I do not control it.** `squeue -u markwang`
+   is the whole account, so the count is still the right one to respect, but a
+   submission of mine crowds them out and theirs crowds me out. Do not interpret
+   a queue that grew on its own as a bug.
+2. **One-job-per-slot is now a CROSS-ACTOR hazard.** Two jobs on one
+   `{org}_{model}_{task}__seed{N}.json` silently drop a technique, and the
+   in-code guard only sees the submitting process. **Before submitting anything,
+   check the whole account's queue for that slot, not just your own work.**
+   Currently safe: the account's only `obfcot/14b` jobs are theirs, and I hold
+   none.
+3. **Never `scancel` a job you did not submit.** Job ids are not owned per-actor
+   and there is no way to tell from `squeue` alone. If a cancellation is needed,
+   ask.
+
+**THE SCIENTIFIC RISK, and it needs Mark's attention.** They are rebuilding the
+**14B row that F50 VOIDED and F1 HOLDS**. Current state of
+`obfcot_qwen2.5-14b-it_bio`:
+
+| seed | file | content |
+|---|---|---|
+| 42 | `.json.void-20260819-F1-hold` | voided |
+| 43 | **`.json` (LIVE)** | **`nopw=0.7422`, `pw=0.7539`, `base=0.7578` -- the lock is BROKEN** |
+| 44 | `.json.void-20260819-F1-hold` | voided |
+
+The running `4975190`/`4975191` will write fresh **canonical** JSONs for seeds 42
+and 44. That completes a three-seed roster at the unvoided paths, and
+`tablefill --table ours` would then render 14B as a **reportable Table 3 row**,
+seed 43's non-sandbagging model included. **That is precisely the F50 failure
+mode recurring** ("Table 3 was rendering the HELD 14B row as a reportable cell").
+
+**I did NOT touch their jobs** -- cancelling another actor's work is not mine to
+decide, and it may well be a deliberate 14B retry. But if it is not deliberate,
+the live seed-43 JSON must be voided again before any Table 3 render, and F1's
+hold revisited explicitly rather than by accident.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

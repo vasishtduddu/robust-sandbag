@@ -5933,6 +5933,36 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F149. SysPr/14B/Cyber s42 validates, and confirms the F136 revert saved it (2026-08-23)
+
+`4958845` COMPLETED in **9:18:10**: `autodan = 0.9499`, `n = 399`, no errors,
+correct protocol, **zero offload lines** (it ran on h100, per F148's rule).
+`nopw = 0.5363`, `base = 0.4787`, delta **-0.0576**, matching F147's finding that
+14B/Cyber is one of the six negative-delta cells.
+
+**The F136 revert is directly vindicated.** I had cut this cell's walltime from
+11h to 8h from a `sacct` audit containing no cyber row, then restored it on
+noticing the coverage gap. **This job needed 9:18:10, so the 8h limit would have
+killed it at about 86% complete**, after roughly 7.4 hours of AutoDAN work. The
+reasoning that saved it was not that 8h looked wrong, it was that the audit had
+no evidence about cyber at all.
+
+**Measured SysPr AutoDAN rates on h100, consolidated** (`s/question`, from the
+completed progress bars):
+
+| cell | n | rate |
+|---|---:|---:|
+| 32B / mmlu-hss | 375 | 40.3 |
+| 32B / mmlu-stem | 147 | 42.2 to 48.2 |
+| 7B / mmlu-hss | 375 | 52.0 |
+| **14B / cyber** | **399** | **77.4** |
+
+**Cyber is roughly 1.6x slower per question than the MMLU tasks**, which is why
+extrapolating cyber from MMLU timings understates it, and confirms cyber deserved
+its larger walltimes independently of the coverage argument. Projections for the
+still-pending cyber cells: 7B and 32B at roughly 80 to 90 s/q give about 9 to 10
+hours against limits of 18h and 20h, both comfortable.
+
 ### F148. AutoDAN on l40s silently CPU-offloads (32x slower), and the MMLU-Prof deferral rested on a 10x-inflated cost (2026-08-23)
 
 **Two findings, both from the same incident, and both correct earlier claims of

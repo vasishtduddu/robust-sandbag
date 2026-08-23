@@ -8134,6 +8134,49 @@ correctness fix and are what matters for review. If shading is wanted later, the
 correct fix is a `--attack-artifact-root`-style flag on the 'ours' renderer, not
 a file copy.
 
+### F206. CORRECTION: pwd/14B has NO valid checkpoint at ANY task/seed (F83 applies to bio too, not just chem)
+
+I told Mark "checkpoints exist for both sides" at 14B, verified only by
+directory + seed presence. **That was wrong, and it is exactly the trap F83 and
+F19 already documented** ("always read the marker, never trust the directory
+name"). Checked programmatically across all 18 pwd/14B cells (comparing each
+E&U json's recorded `checkpoint_provenance.marker_sha256` against the actual
+on-disk marker file): **every single one fails** -- 9 cells (bio/chem/cyber/
+mmlu-stem, x3 seeds) have a checkpoint dir whose marker hash and `recipe_id`
+don't match what the accepted E&U was computed against, and the other 9
+(mmlu-hss/mmlu-prof) have no checkpoint dir at all. F83 had only checked chem
+explicitly; **bio has the identical failure**, confirmed here.
+
+**Consequence for the 14B D4 request**: extending D4 to 14B needs the pwd side
+retrained first, same blocker as Table 2's PWD/14B robustness gap (F83, "18
+retrainings"). This is necessary work Mark's "I want 14B added" already
+authorises for the bio task specifically (3 seeds, not all 18 cells).
+
+**No timing precedent exists for pwd training at ANY tier** -- `sacct` has zero
+COMPLETED `train_pwd_*` jobs in the tracked history at 7B, 14B or 32B (these
+checkpoints predate the tracked window). Falling back to the tier default
+(`t=480m`, `h100:1`, `96G`) as a PROBE budget, not a measured one; seed 42 goes
+first and 43/44 wait for it to be observed completing before release, per F124
+discipline.
+
+**Staged, not yet submitted -- account is at the 30-job cap.**
+
+| script | purpose | status |
+|---|---|---|
+| `train_pwd_qwen2.5-14b-it_bio_s42.sbatch` | retrain the missing checkpoint (PROBE) | built, verified |
+| `d4_sft_obfcot_qwen2.5-14b-it_bio_s42.sbatch` | obfcot arm SFT (checkpoint already valid, LoRA) | built, verified, gates on accepted `nopw=0.0` |
+| `d4_dpo_obfcot_qwen2.5-14b-it_bio_s42.sbatch` | obfcot arm DPO | built, verified, same gate |
+| pwd SFT/DPO at 14B | blocked until the retrain lands | not yet built |
+
+**Submission order once slots free**: pwd retrain seed 42 first (it is the
+long pole -- nothing else can start without it), obfcot SFT/DPO probes can go in
+parallel since they do not depend on it. `obfcot_qwen2.5-14b-it_bio__seed42.json`
+backed up before its `--force` re-run, same as the 7B precedent.
+
+**Seed 43's status, unrelated but relevant**: this is the SAME cell where B's
+`4975618`/`4975619` retrain (F156/F160's conditional-lift item) is targeting
+seed 43 of the OBFCOT side. No collision -- that is the obfcot arm, this is pwd.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

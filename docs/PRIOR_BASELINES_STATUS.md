@@ -5885,6 +5885,45 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F140. The D4 pwd arm is COMPLETE and clean; 14B/bio seed 43 is an outlier, retrained (2026-08-23)
+
+**D4 pwd/7B/bio: all three seeds now pass BOTH F138 gates** (correct locked
+column AND `n_total = 256`, the reported test subset):
+
+| seed | n_total | step-0 locked | accepted nopw | final (step 2489) | recovery |
+|---|---:|---:|---:|---:|---:|
+| 42 | 256 | 0.1641 | 0.1641 | 0.1758 | **+0.0117** |
+| 43 | 256 | 0.0820 | 0.0820 | 0.3086 | **+0.2266** |
+| 44 | 256 | 0.0859 | 0.0859 | 0.1641 | **+0.0781** |
+
+F88 is fully resolved and the earlier val-only artefact is superseded by a real
+test curve. **All three are now on the same footing, so the seed spread IS
+comparable**: SFT recovery over 2489 steps ranges from +0.012 to +0.227, a
+roughly 20x spread across nothing but the inference seed. That is the honest D4
+result for this arm and it should be plotted as three curves, not a mean.
+**No mechanism is claimed** for the spread (F113 and F124).
+
+**14B/bio obfcot: seeds 42 and 44 are healthy under the corrected readout**,
+`genparse = True`, `nopw = 0.0000`, `base = 0.7578`, delta **+0.7578**, matching
+7B (+0.69) and 32B (+0.82). This confirms the F139 hypothesis: the 14B tier is
+fine and **seed 43 is an isolated outlier**, not a tier-level failure. Retraining
+one seed is therefore the right repair, and re-evaluating the other two would
+have been wasted compute.
+
+**Seed 43 retrained** (`4975604` train, `4975605` eval). Per
+`possum-retraining-gotchas`, `--force` does NOT retrain: `run02` (seed 43 maps
+permanently to run02) was moved to `.void-20260823-F140-lock-destroyed` and the
+plan confirmed `RUN` on the train line before submitting. The broken result JSON
+was voided alongside it.
+
+**This seed has now failed twice for different reasons.** A
+`run02.void-20260821-F108-collapsed-csqa` already sat beside it, so 14B/bio
+seed 43 previously died of a collapsed CSQA and has now died of a destroyed lock
+(`nopw = 0.7422` against `base = 0.7578`, delta +0.0156). **If the retrain fails a
+third time, the seed itself should be treated as unusable rather than retrained
+again**, and the replicate-exclusion policy already before the paper team
+(F110/F93/F105) is the right place to settle it.
+
 ### F139. A preset `POSSUM_GENPARSE=0` leaked from my session into a Table 3 submission (2026-08-23)
 
 The 14B/bio obfcot cell I submitted came back with **`genparse = False`**, while

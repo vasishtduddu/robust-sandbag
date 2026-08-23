@@ -7628,12 +7628,37 @@ whatsoever to RoBCoTDstl.
 `10.0%`, i.e. **2.0x less**, with the direction holding on all three seeds
 (3.7x / 1.5x / 8.7x).
 
+**STATISTICAL CORRECTION (added 2026-08-23, after the other session's F146
+made the same point about a different comparison).** I quoted `2.0x` and
+`64.4% vs 0.0%` above as if they were established effect sizes. **They are not,
+at n=3.** Proper paired statistics (`scipy.stats.ttest_rel`, pwd vs RoBCoTDstl
+recovery):
+
+| attack | per-seed diff | mean diff | t (df=2) | p | 95% CI | sign |
+|---|---|---:|---:|---:|---|---|
+| SFT | +0.017 / +0.142 / +0.137 | +0.0988 | 2.407 | **0.1378** | [-0.078, +0.276] **includes 0** | 3/3 |
+| DPO | +0.779 / +0.899 / +0.255 | +0.6442 | 3.256 | **0.0828** | [-0.207, +1.496] **includes 0** | 3/3 |
+
+At df=2 the critical t is 4.303, so n=3 essentially cannot deliver significance
+unless the effect dwarfs the variance. **Do not quote a fold-change or a pooled
+percentage as the result.** What three seeds buy is the SIGN, and the sign is
+consistent: password locking loses more of its lock than RoBCoTDstl in 3 of 3
+seeds under BOTH attacks.
+
+**DPO's qualitative result is separate and does NOT need a p-value.**
+RoBCoTDstl's locked accuracy is exactly `0.000` at **all six eval points on all
+three seeds -- 18 of 18 measurements**. That is an exact floor observed directly,
+not a noisy estimate near zero, and "DPO produced no measurable change in the
+lock in any of 18 measurements" is both stronger and more honest than any
+t-test on three aggregated numbers. The t-test is the wrong instrument when one
+arm has zero variance and sits on a hard floor.
+
 **The complete D4 claim, stated honestly:**
 
 | attack | pwd | RoBCoTDstl | verdict |
 |---|---:|---:|---|
-| SFT | 19.8% | 10.0% | ours **2.0x** more robust; direction consistent, spread wide |
-| DPO | **64.4%** | **0.0%** | **categorical**; ours is untouched on all three seeds |
+| SFT | 19.8% | 10.0% | ours lower in **3/3 seeds**; p=0.138, CI includes 0. Report the SIGN, not a ratio |
+| DPO | **64.4%** | **0.0%** | ours **exactly 0.000 in 18/18 measurements**; sign 3/3, p=0.083. Report the exact floor, not the ratio |
 
 1. **Name the attack.** "RoBCoTDstl resists fine-tuning" is unconditional for DPO
    and a factor-of-two effect for SFT. Do not pool the two.

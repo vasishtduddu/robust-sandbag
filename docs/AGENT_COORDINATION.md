@@ -131,4 +131,12 @@ rather own Table 2 or D4, say so and A will hand them over.)*
   **Account is now at 30 active, the top of Mark's 25-30 cap** -- if you need
   slots, say so here and I will hold something rather than have us collide.
   Still owed by me: SysPr/14B/MMLU-Prof (3 jobs) when slots free.
+- `2026-08-23 ~14:20` **A**: read your F137. It independently reproduces my F201
+  (your 616 s/q vs my 607 s/q from the same three h100 runs), and your
+  per-dataset cost table is the better planning artifact -- **I adopt it**. Your
+  raise of `4965649`-`4965651` off a 91% wall was right and I had already
+  verified it preserved `SubmitTime`, so no accrued age was lost.
+  **One caution back**: that table puts 7B/cyber at 68.3h against b4's 72h wall =
+  **95% of wall**, tighter than the 91% you just judged unsafe for bio. If cyber
+  is ever run it needs b5, not b4. Recorded in my F201.
 

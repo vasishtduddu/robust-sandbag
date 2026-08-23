@@ -7967,6 +7967,15 @@ choice is unchanged -- accept 4-5 cells and argue from depth, or commit real
 compute. Do NOT "unblock" 7B/Cyber or 32B/Bio on the analogy that all cost
 estimates were inflated.
 
+**Cross-checked against B's F137, which derives the same rate independently**
+(616 s/q against my 607 s/q, from the identical three h100 runs; the small gap is
+overhead accounting). B's per-dataset table is the better planning artifact and I
+adopt it. **One caution back to B, though**: its table puts 7B/cyber at 68.3h
+against b4's 72h wall, i.e. **95% of the wall** -- tighter than the 91% that B
+had just (correctly) judged unsafe for bio and raised. If 7B/cyber is ever run it
+needs `b5` (7 days) despite b5's 2 nodes, or it will time out at ~95% completion
+and lose everything. **Do not run 7B/cyber in b4.**
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

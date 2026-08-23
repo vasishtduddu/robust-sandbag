@@ -8177,6 +8177,50 @@ backed up before its `--force` re-run, same as the 7B precedent.
 `4975618`/`4975619` retrain (F156/F160's conditional-lift item) is targeting
 seed 43 of the OBFCOT side. No collision -- that is the obfcot arm, this is pwd.
 
+### F207. CORRECTION to F204: the 1.24TB of CktBr weights is NOT reclaimable; only ~86GB is
+
+**F204 said D1's closure makes ~1.24 TB of CktBr weights reclaimable. That is
+backwards, and F46 already explains why**: "D1 says CktBr will be RETUNED, which
+replaces them. They cannot go until the retune lands... deleting them now would
+make the current Table 2 CktBr values unreproducible." **Mark's actual D1
+decision was the OPPOSITE of a retune** -- report the seed heterogeneity as a
+finding, keep the checkpoints as-is. So the 1.24 TB across
+`possum-prior-eff`/`possum-prior-32b-killarney` is now the PERMANENT canonical
+weight set behind the accepted Table 2 CktBr numbers. **Do not delete any of
+it.** Verified the two roots are complementary, not duplicated: prior-eff holds
+32B/{bio,cyber,mmlu-prof} + 14B/{cyber,mmlu-hss}; prior-32b-killarney holds
+32B/{chem,mmlu-hss,mmlu-stem}. No task appears with real weights in both.
+
+**What IS genuinely reclaimable, found by re-auditing F46's deferred items:**
+
+1. **`artifacts-cktbr-tune/checkpoints`, 86 GB.** This is the `k32`/`k64`/
+   `lr=3e-4` retune experiment F122 explicitly says was **NOT adopted**.
+   Verified: zero result JSONs anywhere reference these paths. Safe. **Blocked
+   by the auto-mode destructive-action classifier (an `rm -rf`)** -- metadata
+   archived to `artifacts/retired_checkpoint_metadata/artifacts-cktbr-tune_20260823/`,
+   awaiting Mark's explicit go-ahead to delete the checkpoint weights.
+2. **F46's other two items are ALREADY DONE**, by an earlier session:
+   `artifacts-prior-baselines/checkpoints` now holds only `pwd_qwen2.5-32b-it_chem`
+   (184G, the "must keep" portion) -- the 395G "deletable" portion is gone.
+   `/scratch/markwang/possum-prior-utility-7b-20260804` (256G) no longer exists.
+3. **The small stale roots F46 listed (~235MB) are already 0 bytes**, confirmed
+   this session.
+
+**Net reclaimable found this session: ~86 GB, not 1.24 TB.** `/scratch` stays at
+99% regardless of this deletion (86 GB against a 2 TB quota moves the needle
+from 20G free to ~106G free, TIGHT band, not OK). There is no large safe win
+left to find; the campaign's checkpoint footprint is what it is until D1-style
+decisions retire organisms outright.
+
+**Guidance for `/project` overflow**: `/project` is a SHARED group quota
+(`aip-rudner`, currently 4156/5000 GiB, moving independently of this campaign's
+usage) while `/scratch` is personal. Do not move bulk checkpoints to `/project`
+to relieve `/scratch` pressure -- that trades a personal quota problem for
+hogging shared space other lab members depend on. If `/scratch` genuinely runs
+out, the correct move is deleting or archiving OUR OWN retired checkpoints
+first (there may be more once another organism's D1-equivalent decision closes),
+not relocating the live working set.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

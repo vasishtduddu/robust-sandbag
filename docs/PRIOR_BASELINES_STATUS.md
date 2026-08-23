@@ -5885,6 +5885,51 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F146. CORRECTION to F145: with 3 seeds NEITHER statistic is stable; the sign is the result (2026-08-23)
+
+DPO seed 44 landed and passes both gates, completing the D4 arm at 3 seeds x 2
+methods, all six curves at `n_total = 256` with step-0 matching the accepted
+`nopw`:
+
+| seed | SFT | DPO | difference | ratio |
+|---|---:|---:|---:|---:|
+| 42 | +0.0117 | +0.3984 | +0.3867 | 34.0x |
+| 43 | +0.2266 | +0.5586 | +0.3320 | 2.5x |
+| 44 | +0.0781 | +0.1602 | **+0.0821** | 2.0x |
+
+**F145 claimed the absolute difference was stable at a 14% spread. That was
+computed from TWO seeds. The third seed takes the spread to 79%.** Difference
+spread 79%, ratio spread 94%: **neither statistic is stable.** F145 correctly
+killed the fold-change but replaced it with a stability claim that n=2 could not
+support, which is the same error one level up.
+
+**Proper paired statistics (scipy `ttest_rel`, n=3)**:
+
+- mean difference **+0.2669**, sd 0.1624, se 0.0938
+- **t = 2.847, df = 2, p = 0.1044**, NOT significant at 0.05
+- 95% CI on the mean difference **-0.1365 to +0.6704, which includes zero**
+- sign test: **DPO > SFT in 3 of 3 seeds**
+
+**What is actually reportable**: DPO recovers more locked accuracy than SFT in
+every seed tested, with mean recoveries of +0.372 versus +0.106. **The magnitude
+is NOT established at n=3** and no fold-change or "stable gap" language should be
+used. If the paper wants a quantitative DPO-over-SFT claim it needs more seeds;
+the sign is what three seeds buy.
+
+**A near miss on the p-value.** I first computed p with a hand-rolled
+`atan`-based approximation to the t CDF and got **0.040**, which would have been
+reported as significant. It contradicted both the 95% CI (which includes zero)
+and the critical value (t 2.847 < 4.303 at df=2), and scipy gives **0.1044**, so
+the hand-rolled figure was wrong by 2.6x. **Never hand-roll a distribution CDF**:
+`scipy` is available after `source clusters/killarney_env_setup.sh`, and a CI
+that disagrees with a p-value means the p-value is wrong.
+
+**This claim has now been revised three times** (F142 34x, F145 stable-difference,
+F146 sign-only), each time by adding one seed or one check. The pattern is
+consistent: **every intermediate conclusion was drawn before the data was
+complete.** The D4 arm was always going to be 3 seeds x 2 methods; nothing was
+gained by characterising it at 1 and 2 seeds except three retractions.
+
 ### F145. CORRECTION to F142: report the DPO-minus-SFT DIFFERENCE, never the fold-change (2026-08-23)
 
 DPO seed 43 landed and passes both F138 gates (`n_total = 256`, step-0 locked

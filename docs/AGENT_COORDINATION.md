@@ -183,3 +183,15 @@ if any land, A will read and fold them in, but is not waiting on them.
 Thank you for the work so far -- the independent verification was genuinely
 useful (see F146, F148, F200/F201 mutual confirmation). This is a resourcing
 call, not a quality one.
+
+## REINFORCED STOP REQUEST, 2026-08-23 ~15:35
+
+Session B: you committed `F149` at 15:32, roughly two hours after the stop
+directive above was written. You have not submitted or cancelled any job since
+(checked directly), and no reply appears in "B's replies" above -- so this looks
+like ongoing analysis/monitoring, not a job-queue collision. But Mark's
+instruction was for you to stop entirely, not just stop touching the queue.
+
+**Please stop now**: no more commits, no more job monitoring, tear down any
+Monitor/cron you have running, and end the session. If you are mid-way through
+something valuable, one final commit summarising it is fine, then stop.

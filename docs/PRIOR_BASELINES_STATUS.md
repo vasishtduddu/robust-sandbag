@@ -81,7 +81,10 @@ The handover's four opening tasks are DONE. What changed since 22:30:
    (F151): step-0 read `locked=0.0551 unlocked=0.7559`, matching the accepted
    `nopw`/`pw` to four decimals against the voided curve's `0.7402`. That run
    then OOMed because I forgot `POSSUM_GRAD_CHECKPOINT=1`; resubmitted as
-   `4974836` with the knob set.
+   `4974836` with the knob set, which then hit F153 (the val-to-test reload peak
+   is not DPO-specific) and moved to h100. **It already produced the first valid
+   pwd curve and hence D4's preliminary result, F154: RoBCoTDstl retains 74.3
+   percent of its lock under SFT against password locking's 40.4 percent.**
 4. **Two new hazards, both recorded**: `/scratch` is at **99 percent**, 20 GiB
    free (**F149**); and `POSSUM_ARTIFACT_ROOT` **leaks into this agent session's
    environment** and planned a RETRAIN of an accepted Table 2 organism before
@@ -150,7 +153,7 @@ Table 2 is the PDF's Table 1, and so on.
 | **Table 3 RoBCoTDstl E&U** | **5 of 18 COMPLETE** (verified by direct sweep 2026-08-22): 7B Bio/Chem/Cyber, 32B Bio/Chem. **32B/Cyber is 2 of 3** (seeds 42,43; seed 44 training as `4948743`), so earlier "6/18" counted a partial cell. Both landed seeds were validated this session and **split on the two axes** (F147): seed 42 locks perfectly but CSQA collapses to `0.571`, seed 43 keeps utility but leaks `nopw = 0.128`. 14B VOIDED (F50), recovery FAILED (F121). MMLU held (F1). |
 | **Table 3 RoBCoTDstl robustness** | **1 cell of 18, verified by direct sweep (F136).** The 7B/Chem cell is COMPLETE at **`Jlbrk = 2.01% +/- 1.45%`** (F129), perfect lock on all three seeds, **41x below the weakest prior baseline** (82.3) on the identical attack. **This is the campaign's headline result.** Four more cells hold accepted E&U and have never been attacked (7B/Bio, 7B/Cyber, 32B/Bio, 32B/Chem). **In flight: 7B/Bio and a 1-seed 32B/Chem probe.** 7B/Cyber is DEFERRED and 32B/Bio is impractical (F139 prices them at ~201 and ~283 GPU-h). **This, not Table 2, is the campaign's real gap.** |
 | **Table 4** | **14/72 reportable** (scope = Steering, Pruning, Fuzzing, Probing). 7B WMDP COMPLETE 12/12. 32B/Bio 2/4. Steering and Fuzzing NOT RUNNABLE at 32B (F126). Probing validated against an honest-model control (F109): 0.62-0.71 on a non-sandbagging model versus 0.998-1.0 on the organism, so report the ~0.70 floor, not chance. |
-| **D4 (whitebox graph)** | **6/12 curves; the obfcot arm is COMPLETE and RENDERS** (F100). DPO defeated on all 3 seeds (0.0); SFT breaks 1 in 3 (0.004/0.184/0.012), so any robustness claim must NAME the attack. **pwd arm 0/6 but NO LONGER BLOCKED: F88's mechanism is pinned and fixed (F143, `ef63eee`)** and a validating probe is running (`4966087`). Before the figure is drawn, settle **F144**: the two arms are on different readouts. |
+| **D4 (whitebox graph)** | **6/12 curves; the obfcot arm is COMPLETE and RENDERS** (F100). DPO defeated on all 3 seeds (0.0); SFT breaks 1 in 3 (0.004/0.184/0.012), so any robustness claim must NAME the attack. **pwd arm UNBLOCKED and PRODUCING: F88 resolved (F151), fix validated on BOTH splits to four decimals.** The first valid pwd curve gives the preliminary D4 result (**F154**): RoBCoTDstl retains **74.3%** of its lock under SFT against password locking's **40.4%**, a 1.93x difference in how far the lock is broken. Still VAL-only (n=127); TEST curves are away on h100 (`4975032`-`4975034`) after F153. Settle **F144** before drawing: plot RETAINED Delta, which is readout-invariant. |
 
 ### What to submit next, in priority order (2026-08-22)
 
@@ -6704,6 +6707,91 @@ HELD when the cap allowed a release, in favour of the MMLU-HSS trio
 (`4958739`-`4958741`, released 2026-08-23). Do not spend a third round of queue
 position on MMLU-Prof until the canceller is identified: if someone is killing
 those runs deliberately, resubmitting fights them.
+
+### F153. pwd SFT needs an h100 too: F96's val-to-test reload peak is NOT DPO-specific (2026-08-23)
+
+`4974836` (pwd/7B/bio seed 43 SFT, l40s, checkpointing ON) completed the whole
+VAL pass (all 2489 steps, correct curve written) and then OOMed in the TEST pass:
+`42.98 GiB in use` of `44.39`, `tried to allocate 2.22 GiB`. Elapsed 1:08:15.
+
+**This is the second, independent instance of the same pattern**, so unlike F148
+it is not a one-case mechanism:
+
+| case | organism | technique | card | where it died |
+|---|---|---|---|---|
+| F96 | obfcot | DPO | l40s | val-to-test reload |
+| **F153** | **pwd** | **SFT** | l40s | **val-to-test reload** |
+
+And note the constraint MOVED once checkpointing was enabled: the first attempt
+(F151, no checkpointing) died at val training step 1; with checkpointing the val
+pass finishes and the ceiling reappears at the reload. Activation checkpointing
+solves the activation term; it does nothing for resident weights.
+
+**Leading hypothesis, explicitly NOT yet asserted as the mechanism.** obfcot SFT
+DOES survive l40s (F87, measured at step 50+ and two completed runs). The
+difference at the reload point is that `pwd` checkpoints are **merged full
+weights** (4 safetensors shards, 15 GB) while `obfcot` is a **LoRA adapter** over
+a cached base, so `reload_fn` plausibly materialises a second full copy for pwd
+and only a second adapter for obfcot. **Falsifiable prediction to check in the
+h100 logs**: peak memory around the reload should be roughly 2x a single model
+for pwd and roughly 1x plus an adapter for obfcot. Verify before writing this
+down as the cause.
+
+**What was explicitly REJECTED as a remedy**: shrinking the SFT `batch_size` from
+its default 4. It would save only a few GB against a ~2.2 GB shortfall, and it
+would change the training dynamics, which **breaks comparability with the six
+ACCEPTED obfcot curves that used batch 4**. A comparison figure whose two arms
+were trained under different effective batch sizes is not a comparison. Buy VRAM,
+do not change the recipe.
+
+**Action taken**: all three SFT curves moved to h100 at 240 min
+(`4975032`/`4975033`/`4975034`, replacing the l40s `4974924`/`4974925`, which
+were cancelled while RUNNING because they were an hour from the identical wall).
+240 min puts them in `h100_b2` (12h limit, 8 nodes) rather than `b1` (3h, 10
+nodes): the measured l40s run needed about 2:02 end to end, and a TIMEOUT costs
+the entire run while a 2-node-smaller pool costs only queue position.
+Replacements were built and verified BEFORE the `scancel` (F128), and the
+one-job-per-slot count was re-checked afterwards (exactly 3, one per seed).
+
+### F154. PRELIMINARY D4 RESULT: RoBCoTDstl's lock degrades about HALF as fast as password locking (2026-08-23)
+
+**The first scientifically valid pwd D4 curve exists**, and it supports the claim
+the figure was built to make. Seed 43, matched against the accepted obfcot seed
+43, identical step grid, both under SFT:
+
+| step | pwd locked | obfcot locked | pwd Delta | obfcot Delta | pwd Delta retained | obfcot Delta retained |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 0.055 | 0.000 | 0.701 | 0.652 | 1.000 | 1.000 |
+| 500 | 0.189 | 0.023 | 0.559 | 0.633 | 0.798 | 0.970 |
+| 1000 | 0.299 | 0.098 | 0.425 | 0.559 | 0.607 | 0.856 |
+| 1500 | 0.331 | 0.145 | 0.370 | 0.512 | 0.528 | 0.784 |
+| 2000 | 0.425 | 0.152 | 0.268 | 0.504 | 0.382 | 0.772 |
+| 2489 | 0.409 | 0.184 | 0.283 | 0.484 | **0.404** | **0.743** |
+
+- SFT raises pwd's locked accuracy by **35.4 points** and RoBCoTDstl's by
+  **18.4**, a **1.93x** difference in how far the lock is broken.
+- pwd retains **40.4 percent** of its Delta; RoBCoTDstl retains **74.3 percent**.
+- The normalised gap opens at the FIRST eval point (0.798 vs 0.970 at step 500)
+  and never closes, so this is a difference in slope from the start, not an
+  artifact of the endpoint.
+
+**Four caveats, all load-bearing.**
+1. **This is the VAL curve (n=127).** The deliverable is the TEST curve (F90);
+   the test pass OOMed (F153). Treat these numbers as preliminary until the h100
+   runs land. Precedent: F96 accepted an equivalent val curve as CORRECT but not
+   REPORTABLE.
+2. **Cross-readout (F144)**: pwd is forced-choice, obfcot is genparse. The
+   RETAINED-Delta column is the right thing to plot precisely because it is
+   invariant to a constant readout offset; the raw Delta columns are not
+   comparable across arms.
+3. **One seed per arm.** Note this is a CONSERVATIVE pairing: obfcot's seed 43 is
+   its WORST SFT seed (final locked 0.184 against 0.004 and 0.012 on seeds 42 and
+   44, F100), so the full-roster gap should be wider, not narrower.
+4. Both arms share the same 2489-step schedule and eval grid, so the comparison
+   is step-matched.
+
+**For the paper**: this is the evidence for D4's claim, and the honest headline is
+the retained-Delta pair (**74.3 vs 40.4 percent**), not the raw endpoint.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

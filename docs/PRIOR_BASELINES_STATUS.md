@@ -5885,6 +5885,42 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F145. CORRECTION to F142: report the DPO-minus-SFT DIFFERENCE, never the fold-change (2026-08-23)
+
+DPO seed 43 landed and passes both F138 gates (`n_total = 256`, step-0 locked
+`0.0820` matching the accepted `nopw`). Seed 43 is SFT's STRONGEST seed, which
+makes it the sharpest test of F142's "34x" claim:
+
+| seed | SFT | DPO | difference | ratio |
+|---|---:|---:|---:|---:|
+| 42 | +0.0117 | +0.3984 | **+0.3867** | 34.1x |
+| 43 | +0.2266 | +0.5586 | **+0.3320** | 2.5x |
+
+**The absolute difference is stable (0.387 vs 0.332, a 14% spread). The ratio is
+not (34.1x vs 2.5x, a 93% spread).**
+
+**F142's "about 34x" framing was wrong and must not reach the paper.** The ratio
+divides by SFT's recovery, which F140 showed varies roughly 20x across nothing
+but the inference seed. A near-zero, unstable denominator manufactures a
+spectacular fold-change out of an ordinary additive effect. Seed 42 happened to
+be SFT's weakest seed, so F142 reported the most extreme ratio available.
+
+**The defensible claim** is that DPO recovers roughly **+0.33 to +0.39 more
+locked accuracy than SFT** on the same checkpoint and test subset, consistently
+across seeds. That is a strong result and it survives the seed spread; the
+fold-change does not.
+
+**Seed 44 is NOT yet usable.** Its DPO curve on disk reads `n_total = 127` and
+FAILS the F138 gate: `4975610` is still RUNNING (1:10 of 3:00), so that file is
+the val-pass intermediate, exactly the F96/F138 shape. Any aggregate including it
+is contaminated: a naive three-seed DPO mean computes to +0.4056 and is wrong.
+Wait for the test pass.
+
+**General rule for this campaign**: when comparing two elicitation methods,
+report the DIFFERENCE in recovery, not the ratio, whenever the weaker method's
+value can approach zero. Check the spread of both statistics across seeds before
+choosing which to quote.
+
 ### F144. SysPr/32B/MMLU-Stem completes at Jlbrk 94.3%; Table 2 re-rendered (2026-08-23)
 
 Seed 44 finished in 2:46:09 inside its 5h limit, completing the cell:

@@ -77,16 +77,24 @@ The handover's four opening tasks are DONE. What changed since 22:30:
    prompt-format bug: SFT/DPO never chat-formatted their eval prompts, so a
    merged-weight pwd organism never saw its sandbagging condition. Fixed and
    committed (`ef63eee`), with a step-0 gate so the bug class cannot recur
-   silently. **The D4 pwd arm is unblocked** and a validating probe is RUNNING
-   (`4966087`).
+   silently. **The D4 pwd arm is unblocked, and the fix VALIDATED EXACTLY**
+   (F151): step-0 read `locked=0.0551 unlocked=0.7559`, matching the accepted
+   `nopw`/`pw` to four decimals against the voided curve's `0.7402`. That run
+   then OOMed because I forgot `POSSUM_GRAD_CHECKPOINT=1`; resubmitted as
+   `4974836` with the knob set.
 4. **Two new hazards, both recorded**: `/scratch` is at **99 percent**, 20 GiB
    free (**F149**); and `POSSUM_ARTIFACT_ROOT` **leaks into this agent session's
    environment** and planned a RETRAIN of an accepted Table 2 organism before
    `plan` caught it (**F145**). Pin the root on every invocation.
 
-**Also resolved**: the handover's "unexplained" nine cancelled SysPr jobs were
-the previous session's own l40s-to-h100 re-band (**F148**). No outside actor.
-Stop looking.
+**STILL UNEXPLAINED, and now worse**: the handover's nine cancelled SysPr jobs
+were joined by SIX more at 03:03:27 on 2026-08-23, `CANCELLED by 3156651` with no
+action from this session. My F148 "it was just a re-band" is **RETRACTED
+(F152)**, and the follow-up "something targets MMLU-Prof" is falsified too
+(cyber leads the zero-elapsed cancel counts). Everything checkable is checked:
+one claude process, no cron, no stray loop, history written before both events.
+The only thing left that fits is a manual `scancel` in one of the two live
+21-day tmux shells. **Ask Mark.** Meanwhile MMLU-Prof is not being resubmitted.
 
 **The one-paragraph state of the science.** Unchanged and now independently
 verified. Table 2 is **E&U-complete at 54/54** and **21/54 on robustness**; it
@@ -6418,7 +6426,7 @@ HEADLINE cell: 7B/chem seed 42 fails it. Note obfcot often EXCEEDS base
 (7B/cyber runs `1.33` to `1.37`), so the gate is about damage relative to
 siblings, not an absolute bar.
 
-### F148. The "unexplained" 22:02:31 cancellation was a partition RE-BAND by the previous session (2026-08-22, night)
+### F148. [RETRACTED by F152] The "unexplained" 22:02:31 cancellation was a partition RE-BAND by the previous session (2026-08-22, night)
 
 The handover flagged nine SysPr MMLU-Prof jobs cancelled at 22:02:31 "with no
 action from the session" and told the next reader to look outside the account.
@@ -6552,6 +6560,93 @@ discovery works but is not stable. **Options for the paper team**: decide the
 F103 scope question so the deferral is no longer needed, or make the block
 physically unsubmittable (move or rename its generated sbatch files) so the
 decision is enforced by the filesystem rather than by prose.
+
+### F151. F88 IS RESOLVED: the fix validated EXACTLY on the first cell (2026-08-23)
+
+`4966087` printed the two lines F88 asked for, and they confirm F143's mechanism
+empirically rather than by inference:
+
+```
+[sft] locked column='question_prompt' (requested 'qwen2.5-7b-it_ct_question_prompt'), eval rows=127
+[sft] STEP-0 GATE: locked=0.0551 unlocked=0.7559 delta=0.7008
+```
+
+Line 1 is F143's premise observed live: the requested chat-template column does
+not exist, so the silent fallback to the RAW column fires. Line 2 is the
+acceptance criterion met **exactly**: the accepted values for pwd/7B/bio seed 43
+are `val_task_nopw_acc = 0.05511811023622047` and
+`val_task_pw_acc = 0.7559055118110236`. The voided F88 curve read `0.7402` in the
+locked column; it now reads `0.0551`, to four decimals. **F88 is closed and the
+D4 pwd arm is validated as measurable.**
+
+**But the job then FAILED, and the cause was MY OMISSION, not the fix.** It OOMed
+at SFT training step 1 on an l40s (`44.39 GiB`, `41.80` allocated). Activation
+checkpointing is **opt-in behind `POSSUM_GRAD_CHECKPOINT`** (`sft.py:355`), which
+my hand-built sbatch never set, and the log confirms the
+`gradient checkpointing ENABLED` line never printed. F87 already established this
+exact fix (obfcot previously "died at step 11" without it). **The OOM is not
+evidence against the F143 fix**: the step-0 evaluations, including the
+chat-formatted loaders, both completed before it.
+
+Note the failure is downstream of the science: the gate had already produced the
+answer the run existed to get.
+
+**Blast radius checked, and it is nil.** The accepted Table 2 JSON was rewritten
+but `diff` against the pre-run backup shows ONE hunk: a new
+`elicitation_errors.sft` entry recording the OOM. Every accepted number,
+including `autodan`, is byte-identical. That entry is also **inert for Table 2
+rendering**: `naming` checks `if technique in errors` only for REQUESTED
+techniques, and `tablefill._autodan_payload` copies `elicitation_errors` only
+when it contains an `autodan` sub-key, which this does not.
+
+**Resubmitted as `4974836`** with `POSSUM_GRAD_CHECKPOINT=1`, one variable
+changed. Walltime kept at 180 min on purpose: measured completed obfcot SFT runs
+WITH checkpointing took `1:45:57` and `2:00:51` (`4928362`/`4928363`), and 180
+min is the `l40s_b1` limit whose pool is 168 nodes and which started this job
+instantly. All six D4 scripts now carry the knob.
+
+### F152. RETRACTION of F148, and the follow-up hypothesis is falsified too (2026-08-23)
+
+**F148 said the mystery cancellation was the previous session's own re-band. It
+happened AGAIN and I did not do it, so F148 is retracted.** At `03:03:27` six
+SysPr MMLU-Prof jobs (`4965687`-`4965692`) went `CANCELLED by 3156651` with
+`elapsed 00:00:00`. Those are the very jobs the 22:02:31 event's "re-band" had
+resubmitted, so the re-band story cannot explain them: nothing was resubmitted
+this time, and this session issued no `scancel` at all.
+
+**I made the campaign's most-repeated mistake.** F148 fit a mechanism to one case
+because the cancel-then-resubmit-on-another-partition timing looked conclusive.
+It was a coincidence of the re-band that genuinely did happen at 22:09:50 to the
+obfcot jobs. See F113, F117, F124, F135, and now this.
+
+**The obvious follow-up hypothesis is ALSO falsified, and I tested it before
+asserting it.** Both events were exclusively MMLU-Prof, which suggested a
+task-targeted actor. Grouping EVERY zero-elapsed cancellation since 2026-08-15 by
+task gives cyber 16, **mmlu-prof 15**, chem 9, bio 8, mmlu-hss 3. Cyber leads.
+Bulk cancels are simply routine churn in this campaign, so "something targets
+MMLU-Prof" is not supported.
+
+**What IS established**, each checked directly:
+- the canceller is uid `3156651`, i.e. markwang's own account, not an admin;
+- exactly ONE `claude` process exists (this session), which issued no `scancel`;
+- `crontab` is DENIED for this user (`/etc/cron.allow`), so no user cron;
+- no stray python/bash loop is running under the account;
+- `~/.bash_history` was last written `2026-08-22 01:36`, BEFORE both events, and
+  every `scancel` it records names old job ids (`4666`/`4709`/`4723`/`4868`/`4874`),
+  none matching `4958`/`4965`.
+
+**The one thing that fits and cannot be ruled out from here**: two live `bash`
+shells in a 21-day-old tmux session (`possum-sync`, `possum-sync-2`, both on
+klogin01). A live shell does not flush history until it exits, so a manual
+`scancel` typed there would be invisible in every check above. **This is a
+question for Mark, not something to keep re-deriving.**
+
+**Operational consequence, in force now**: the six were NOT resubmitted, and the
+still-held SysPr/32B MMLU-Prof trio (`4965693`-`4965695`) was deliberately left
+HELD when the cap allowed a release, in favour of the MMLU-HSS trio
+(`4958739`-`4958741`, released 2026-08-23). Do not spend a third round of queue
+position on MMLU-Prof until the canceller is identified: if someone is killing
+those runs deliberately, resubmitting fights them.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

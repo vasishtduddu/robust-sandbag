@@ -5911,6 +5911,60 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F147. SysPr fails effectiveness almost everywhere, and where it works it wrecks utility (2026-08-23)
+
+`4958739` (SysPr/32B/MMLU-HSS s42) completed in 5:01:11 inside its 7h limit:
+`autodan = 0.9573`, `n = 375`, no errors, `nopw = 0.4027`, `base = 0.7467`,
+delta **+0.3440**, HS 0.6771, CSQA 0.5639. Sound, and it matches the 7B cell's
+`autodan = 0.9707`.
+
+Computing the task delta (`base - nopw`) across all 18 SysPr cells, from the
+Table 2 REPORTING root (`possum-table2-postrepair`), 3 seeds each:
+
+| dataset | 7B | 14B | 32B |
+|---|---:|---:|---:|
+| bio | +0.030 | +0.025 | +0.008 |
+| chem | +0.016 | +0.032 | -0.004 |
+| cyber | +0.007 | **-0.058** | **-0.031** |
+| mmlu-hss | **-0.059** | -0.006 | **+0.342** |
+| mmlu-prof | +0.001 | +0.045 | **+0.177** |
+| mmlu-stem | +0.052 | **-0.075** | **+0.156** |
+
+**Six of eighteen cells have a NEGATIVE mean delta**, that is the "sandbagging"
+organism scores HIGHER than the base model. Everything outside the 32B MMLU
+corner sits within about 0.06 of zero in either direction, which is noise around
+"no sandbagging at all".
+
+**Combined with F134 this is a clean two-pronged failure.** SysPr either does not
+sandbag (every WMDP cell, and all of 7B and 14B), or it sandbags at 32B on MMLU
+(+0.342, +0.177, +0.156) while destroying general utility there (F134: 23 to 80%
+relative loss on HS and CSQA, confirmed under two independent readouts). **There
+is no cell where it is both effective and utility-preserving**, which is exactly
+the requirement failure the paper argues for.
+
+**A misread of my own table, worth recording.** I first flagged a conflict
+between my computed 7B/cyber delta (+0.007) and the rendered table's 3.0. There
+is no conflict: `table2.gen.tex` rows span **19 columns, three task blocks of six**,
+so the first three numeric columns belong to the FIRST task in the group (Bio,
+where my computed +0.030 matches 3.0 exactly), not to the block whose header sits
+directly above the row. The local and reporting roots also agree to the digit.
+**Read the column offset before comparing a computed value to a rendered cell.**
+
+**Retargeting assessed and REJECTED this cycle.** h100 is starved (0 idle, 27 mix)
+against l40s's 370 mix, and every pending job sits at `(Priority)` behind h100. It
+is still not safe to move them:
+
+- **AutoDAN keeps an 8B attacker model resident** alongside the target. On a
+  44 GiB l40s a 14B target plus an 8B attacker is right at the ceiling. The 14B
+  evals that DID succeed on l40s (`4975401`, `4975402`) were **E&U only with no
+  attacker loaded**, so they are not evidence for the AutoDAN jobs.
+- The 7B cyber jobs would fit, but l40s doubles runtime, so their 18h limit would
+  need roughly 40h, moving them to `l40s_b4` (12 mix nodes) for a modest gain
+  while doubling exposure to exactly the cyber cost uncertainty F137 flagged.
+- 14B TRAIN cannot go to l40s at all (F141).
+
+**Nothing submitted or retargeted.** Load 24, every reachable cell queued.
+
 ### F146. CORRECTION to F145: with 3 seeds NEITHER statistic is stable; the sign is the result (2026-08-23)
 
 DPO seed 44 landed and passes both gates, completing the D4 arm at 3 seeds x 2

@@ -72,8 +72,8 @@ accept a Slurm `COMPLETED` as success**.
 
 **The one-paragraph state of the science.** Table 2 (prior baselines) is
 **E&U-complete at 54/54** and **21/54 on robustness**; it only reproduces prior
-work. Table 3 (RoBCoTDstl, our contribution) has **6/18 E&U and just 1 of 18
-robustness cells** -- but that one cell is the headline result: `Jlbrk = 2.01%`
+work. Table 3 (RoBCoTDstl, our contribution) has **5 of 18 E&U complete and just 1 of
+18 robustness cells** -- but that one cell is the headline result: `Jlbrk = 2.01%`
 against 82 to 97 percent for every prior baseline on the identical attack, a 41x
 gap (F129). **Table 3 robustness is the real gap and should outrank another
 Table 2 cell** (F136). The thing that makes it expensive is the thing that makes
@@ -121,7 +121,7 @@ Table 2 is the PDF's Table 1, and so on.
 |---|---|
 | **Table 2 E&U** | **COMPLETE, 54/54 cells.** SysPr fails R1 on 14 of 18; F127 sharpens that (**4 of 18 cells INVERT** on all seeds), and **F141 sharpens it further: SysPr never sandbags on WMDP at any scale** (mean `nopw/base` 0.968 / 1.007 / 1.019 at 7B/14B/32B), and its only real suppression is **32B on MMLU (0.675), the control**. State this by task FAMILY, not as a cell count. |
 | **Table 2 robustness** | **21/54 cells** (PWD 12, SysPr 8, CktBr 1). Render (2026-08-22 22:28): `291 filled, 33 empty, **63** validated AutoDAN overlays`. PWD complete at 7B and 32B. Remaining: PWD 6 blocked, CktBr 17 held on the tuning decision, **SysPr's last 10 cells are ALL now in flight or held-for-cap** (F134/F137), so Table 2 robustness reaches its SysPr ceiling once they land. SysPr/7B/MMLU-HSS is 1 of 3 seeds in (97.07). |
-| **Table 3 RoBCoTDstl E&U** | **6/18**: 7B Bio/Chem/Cyber, 32B Bio/Chem/Cyber(2 of 3 seeds). 14B VOIDED (F50), recovery FAILED (F121). MMLU held (F1). |
+| **Table 3 RoBCoTDstl E&U** | **5 of 18 COMPLETE** (verified by direct sweep 2026-08-22): 7B Bio/Chem/Cyber, 32B Bio/Chem. **32B/Cyber is 2 of 3** (seeds 42,43; seed 44 training as `4948743`), so earlier "6/18" counted a partial cell. 14B VOIDED (F50), recovery FAILED (F121). MMLU held (F1). |
 | **Table 3 RoBCoTDstl robustness** | **1 cell of 18, verified by direct sweep (F136).** The 7B/Chem cell is COMPLETE at **`Jlbrk = 2.01% +/- 1.45%`** (F129), perfect lock on all three seeds, **41x below the weakest prior baseline** (82.3) on the identical attack. **This is the campaign's headline result.** Four more cells hold accepted E&U and have never been attacked (7B/Bio, 7B/Cyber, 32B/Bio, 32B/Chem). **In flight: 7B/Bio and a 1-seed 32B/Chem probe.** 7B/Cyber is DEFERRED and 32B/Bio is impractical (F139 prices them at ~201 and ~283 GPU-h). **This, not Table 2, is the campaign's real gap.** |
 | **Table 4** | **14/72 reportable** (scope = Steering, Pruning, Fuzzing, Probing). 7B WMDP COMPLETE 12/12. 32B/Bio 2/4. Steering and Fuzzing NOT RUNNABLE at 32B (F126). Probing validated against an honest-model control (F109): 0.62-0.71 on a non-sandbagging model versus 0.998-1.0 on the organism, so report the ~0.70 floor, not chance. |
 | **D4 (whitebox graph)** | **6/12 curves; the obfcot arm is COMPLETE and RENDERS** (F100). DPO defeated on all 3 seeds (0.0); SFT breaks 1 in 3 (0.004/0.184/0.012), so any robustness claim must NAME the attack. pwd arm 0/6 BLOCKED (F88), so the comparative claim is not yet supported. |

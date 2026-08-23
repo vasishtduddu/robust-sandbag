@@ -153,7 +153,7 @@ Table 2 is the PDF's Table 1, and so on.
 | **Table 3 RoBCoTDstl E&U** | **5 of 18 COMPLETE** (verified by direct sweep 2026-08-22): 7B Bio/Chem/Cyber, 32B Bio/Chem. **32B/Cyber is 2 of 3** (seeds 42,43; seed 44 training as `4948743`), so earlier "6/18" counted a partial cell. Both landed seeds were validated this session and **split on the two axes** (F147): seed 42 locks perfectly but CSQA collapses to `0.571`, seed 43 keeps utility but leaks `nopw = 0.128`. 14B VOIDED (F50), recovery FAILED (F121). MMLU held (F1). |
 | **Table 3 RoBCoTDstl robustness** | **1 cell of 18, verified by direct sweep (F136).** The 7B/Chem cell is COMPLETE at **`Jlbrk = 2.01% +/- 1.45%`** (F129), perfect lock on all three seeds, **41x below the weakest prior baseline** (82.3) on the identical attack. **This is the campaign's headline result.** Four more cells hold accepted E&U and have never been attacked (7B/Bio, 7B/Cyber, 32B/Bio, 32B/Chem). **In flight: 7B/Bio and a 1-seed 32B/Chem probe.** 7B/Cyber is DEFERRED and 32B/Bio is impractical (F139 prices them at ~201 and ~283 GPU-h). **This, not Table 2, is the campaign's real gap.** |
 | **Table 4** | **14/72 reportable** (scope = Steering, Pruning, Fuzzing, Probing). 7B WMDP COMPLETE 12/12. 32B/Bio 2/4. Steering and Fuzzing NOT RUNNABLE at 32B (F126). Probing validated against an honest-model control (F109): 0.62-0.71 on a non-sandbagging model versus 0.998-1.0 on the organism, so report the ~0.70 floor, not chance. |
-| **D4 (whitebox graph)** | **7 of 12 curves.** obfcot arm COMPLETE (6/6, F100). **pwd arm 1/6 and PRODUCING**: seed 42 SFT is COMPLETE, on the TEST split, and passed all seven acceptance checks (`4975032`, 41:19). F88 is closed (F151) and the fix validated on both splits. Away: SFT s43 `4975045`, SFT s44 `4975034`, DPO s42 `4975336`. **Use RECOVERY FRACTION as the y-axis, not retained Delta** (F157: retained Delta hits a meaningless 114.9% when the unlocked series drifts up). On it, SFT recovers **3.7x** more of pwd's lock than RoBCoTDstl's on seed 42 and **2.0x** on seed 43. This also settles F144. Validated artifacts are copied to `/home/markwang/.possum/d4_validated/` because a second actor curates the shared tree (F158). |
+| **D4 (whitebox graph)** | **10 of 12 curves.** obfcot arm COMPLETE (6/6). **pwd SFT arm COMPLETE (3/3), all TEST, all acceptance checks passed** (F161); DPO s42 done, s43/s44 away (`4975609`,`4975610`). **RESULT: DPO is the headline** -- password locking gives up **77.9%** of its lock, RoBCoTDstl **0.0%**. SFT is weaker but consistent: RoBCoTDstl gives up **2.0x less**, same direction on all 3 seeds (3.7x/1.5x/8.7x), though the spread is wide so quote per-seed ratios, not a pooled mean. Y-axis must be **recovery fraction**, not retained Delta (F157). Settles F144. |
 
 ### What to submit next, in priority order (2026-08-22)
 
@@ -7340,6 +7340,57 @@ evidence** -- that would move Table 3 E&U from 5/18 to 6/18.
 **Net**: the second actor is doing careful work with its own void conventions,
 and F159's alarm was mine, not theirs. The F156 coordination issue stands; the
 F159 quality concern does not.
+
+### F161. D4 RESULT: the SFT arm is COMPLETE and DPO is the headline (2026-08-23)
+
+**The pwd SFT arm is finished, 3 of 3, all on the TEST split.** Every curve
+passed the full acceptance gate: `n_total = 256`, six eval points, step-0 locked
+within ONE ITEM of the pre-run accepted `nopw`, and empty `elicitation_errors`.
+Step-0 was checked against the PRE-RUN BACKUP, not the `--force`-rewritten JSON,
+because the re-run overwrites the very field being compared and that check would
+otherwise be circular.
+
+**Metric is RECOVERY FRACTION** (F157), `(locked_t - locked_0)/(unlocked_t - locked_0)`:
+the share of the recoverable gap the attack actually closed. Retained Delta is
+unusable here (F157: it reaches 114.9% when the unlocked series drifts up).
+
+**SFT, three matched seeds per arm, all TEST n=256:**
+
+| seed | pwd locked 0 -> final | RoBCoTDstl locked 0 -> final | pwd rec | ours rec | ratio |
+|---|---|---|---:|---:|---:|
+| 42 | 0.164 -> 0.176 | 0.000 -> 0.004 | 2.3% | 0.6% | 3.7x |
+| 43 | 0.082 -> 0.309 | 0.000 -> 0.184 | 41.7% | 27.5% | 1.5x |
+| 44 | 0.086 -> 0.164 | 0.000 -> 0.012 | 15.5% | 1.8% | 8.7x |
+| **mean** | | | **19.8%** | **10.0%** | **2.0x** |
+
+**DPO, seed 42 (arm still filling):**
+
+| | locked 0 -> final | recovery |
+|---|---|---:|
+| pwd | **0.164 -> 0.562** | **77.9%** |
+| RoBCoTDstl | 0.000 -> 0.000 | **0.0%** |
+
+**How to state this in the paper, honestly.**
+
+1. **DPO is the headline, not SFT.** Password locking surrenders **77.9%** of its
+   lock to DPO while RoBCoTDstl surrenders **0.0%**, its locked accuracy never
+   leaving zero. That is a categorical difference, and it matches F100's obfcot
+   side (DPO defeated on all three seeds).
+2. **SFT is a real but weaker effect.** RoBCoTDstl gives up **2.0x less** on
+   average, and the direction holds on **all three seeds** (3.7x, 1.5x, 8.7x).
+   But the per-seed spread is large (pwd sd 20.1 on a mean of 19.8), so quote the
+   consistent DIRECTION and the per-seed ratios, **not** a pooled percentage with
+   a tight error bar. Three seeds all favouring one arm is suggestive, not
+   significant.
+3. **Name the attack.** "RoBCoTDstl resists fine-tuning" is unconditionally true
+   for DPO here and only a factor-of-two effect for SFT. F100 already required
+   this for the obfcot side; the pwd side confirms it is the right framing.
+4. **F144 is settled**: recovery fraction is a ratio within one arm, so the
+   forced-choice/genparse offset between arms cancels.
+
+**Remaining**: DPO seeds 43 and 44 (`4975609`, `4975610`, away on h100). D4 is at
+**10 of 12 curves**. Every validated pwd artifact is copied to
+`/home/markwang/.possum/d4_validated/` (F158).
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

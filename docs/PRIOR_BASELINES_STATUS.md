@@ -5925,6 +5925,68 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F148. AutoDAN on l40s silently CPU-offloads (32x slower), and the MMLU-Prof deferral rested on a 10x-inflated cost (2026-08-23)
+
+**Two findings, both from the same incident, and both correct earlier claims of
+mine.**
+
+#### 1. AutoDAN must run on h100 at EVERY model size
+
+`4958831`/`4958832` (SysPr/7B/MMLU-HSS s43, s44) burned **15 hours each and were
+killed having completed 30 of 375 questions**. The log names the cause: right
+after the AutoDAN attacker loads,
+`Some parameters are on the meta device because they were offloaded to the cpu`.
+
+| seed | node | partition | offload | AutoDAN rate | outcome |
+|---|---|---|---|---|---|
+| 42 | kn175 | **h100**_b3 | none | **52.0 s/q** | 375/375 in 5:25:12, COMPLETED |
+| 43, 44 | kn148, kn164 | **l40s**_b3 | yes | ~1680 s/q | 30/375 in 14h, killed |
+
+**A 32x slowdown**, with one single question taking eight hours. **This falsifies
+F147**, where I wrote that "7B plus attacker (about 30 GiB) does fit" on l40s. I
+asserted that from arithmetic; the measurement says the 7B target plus the
+resident 8B attacker does NOT fit in 44 GiB, and the failure mode is not an OOM
+but a silent CPU offload that merely makes the job impossibly slow. **An OOM
+would have failed fast and cheaply; the offload cost 30 GPU-hours.**
+
+**Rule: every AutoDAN job goes on h100 regardless of model size.** Audited all 26
+pending jobs; all are on h100. The automatic replacements `4984218`/`4984219`
+FAILED instantly with a partition list spanning both families, and were then
+correctly reissued as `4984221`/`4984222` on `h100_b2`.
+
+#### 2. The MMLU-Prof deferral was justified by a bad number
+
+Completed h100 runs give measured SysPr AutoDAN rates:
+
+| cell | n | elapsed | rate |
+|---|---:|---:|---:|
+| 32B / mmlu-hss | 375 | 4:12:05 | 40.3 s/q |
+| 7B / mmlu-hss | 375 | 5:25:12 | 52.0 s/q |
+| 32B / mmlu-stem | 147 | 1:43 to 1:58 | 42.2 to 48.2 s/q |
+
+At `n = 624` and about 45 s/q, **MMLU-Prof costs roughly 7.8h plus overhead, so
+about 8.5h per seed**, and the returned jobs carry a 16h limit (1.9x headroom).
+The full 9-cell block is therefore **roughly 80 GPU-h, not the ~800 GPU-h**
+asserted in F103 and repeated in F132 and F133 to justify deferring it. **The
+estimate was about 10x too high.**
+
+The likely source is an l40s-contaminated timing: on l40s this workload runs 32x
+slower, and a rate measured there would inflate any projection by exactly this
+kind of factor.
+
+**Reversing the deferral for the 32B slice.** `4984176`-`4984178` are KEPT: they
+are correctly sized, on h100, and cost about 25 GPU-h for the cell rather than
+the hundreds previously assumed. **This is the third time these jobs returned
+(F132, F133); on the first two occasions I cancelled them citing a cost that was
+wrong.** 7B and 14B MMLU-Prof are now equally justified at about 9h per seed and
+should be submitted once load drops below the cap.
+
+**The lesson is not "the loop was right by accident".** It resubmitted without
+reasoning. But my repeated cancellations rested on an unverified inherited
+number, and **I never checked it against a measured rate until a failure forced
+me to look.** A deferral is a quantitative claim and needs re-validating whenever
+fresh timing data lands.
+
 ### F147. SysPr fails effectiveness almost everywhere, and where it works it wrecks utility (2026-08-23)
 
 `4958739` (SysPr/32B/MMLU-HSS s42) completed in 5:01:11 inside its 7h limit:

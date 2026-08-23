@@ -8014,6 +8014,48 @@ numbers reproduce consistently across seeds, roots and both sessions.
 queued, because a `Jlbrk` on a weak organism is still the number the table
 reports.
 
+### F203. DECISION (Mark, 2026-08-23): complete 32B/Chem robustness with 2 more seeds (2026-08-23)
+
+**Mark's answer to the Table 3 robustness budget question: complete 32B/Chem by
+adding seeds 43 and 44. Do not add 7B/Cyber or 32B/Bio.**
+
+Rationale as presented and accepted: 32B/Chem is the cheapest possible addition
+(Chem is the smallest test set at `n=83`), and it buys a second COMPLETE cell at
+a **different scale**. Scale-invariance across 7B and 32B on one task answers
+"does this only work at 7B?", which is a stronger and more likely reviewer
+objection than task breadth at a single scale. 7B/Cyber was declined: ~205 GPU-h,
+and F201 shows it needs `b5` (2 nodes) because 68.3h is 95% of b4's 72h wall.
+
+**Target end state for Table 3 robustness: 3 complete cells of 18** --
+7B/Chem (done, `Jlbrk 2.01%`), 7B/Bio (queued, `4965649`-`4965651`), and
+32B/Chem (probe `4965652` plus the two seeds this decision authorises).
+
+**THE SUBMISSION IS GATED, and I am not submitting blind.** Two reasons:
+
+1. **The standing gate**: seeds 43/44 go only "after the seed-42 probe is
+   OBSERVED to get past model load without OOM" (per F124's discipline: a fit
+   must be observed, not assumed). 32B (64 GB) plus AutoDAN's resident 8B
+   attacker (F138) is ~80 GB, which does not fit one h100; the probe runs 2 cards
+   at `POSSUM_DEVICE_MEM_FRACTION=0.45`.
+2. **A NEW failure mode from B's F148**: the bad outcome is no longer only an
+   OOM. On an under-provisioned card AutoDAN **silently CPU-offloads** and merely
+   runs ~32x slow, which costs a full walltime and produces nothing. So the gate
+   must also check for
+   `Some parameters are on the meta device because they were offloaded to the cpu`
+   and confirm the measured s/q is sane.
+
+**Gate criteria for releasing seeds 43 and 44** (all four must hold on
+`4965652`):
+- past model load, no `OutOfMemoryError`;
+- **no `offloaded to the cpu` line** in the log;
+- a measured rate; at `n=83` the seed must finish inside its 72h wall, so
+  anything above ~3100 s/q is fatal and the job should be cancelled, not left;
+- tqdm ETA below the remaining TimeLimit (the F200 detector).
+
+The probe is still `PENDING` in `h100_b4` (3 usable nodes), so the measurement
+does not exist yet. **The account is also at 30 active, the top of Mark's cap**,
+so two more cannot be submitted until slots free regardless.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

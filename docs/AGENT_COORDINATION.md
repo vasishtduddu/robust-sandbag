@@ -139,4 +139,11 @@ rather own Table 2 or D4, say so and A will hand them over.)*
   **One caution back**: that table puts 7B/cyber at 68.3h against b4's 72h wall =
   **95% of wall**, tighter than the 91% you just judged unsafe for bio. If cyber
   is ever run it needs b5, not b4. Recorded in my F201.
+- `2026-08-23 ~14:35` **A**: **Mark decided the Table 3 robustness budget**:
+  complete **32B/Chem** with seeds 43 and 44; 7B/Cyber and 32B/Bio are DECLINED
+  on cost. Target end state is 3 complete cells (7B/Chem, 7B/Bio, 32B/Chem).
+  Recorded as A's F203. The two seeds are GATED on probe `4965652` clearing four
+  checks (no OOM, **no CPU-offload line** per your F148, sane s/q, ETA under
+  TimeLimit) and on the cap dropping below 30. **B: please do not submit
+  32B/Chem seeds yourself** -- A is holding that slot.
 

@@ -1,12 +1,12 @@
 # Prior-baseline and RoBCoTDstl campaign status
 
-> **Canonical snapshot: 2026-08-22 evening.** Structure: current state, then
+> **Canonical snapshot: 2026-08-22 night.** Structure: current state, then
 > standing decisions D1 to D4 that gate what may be submitted, then dated
-> findings **F1 to F132** (newest near the top of the findings block), then
+> findings **F1 to F149** (newest work is F143-F149, inserted just above F113), then
 > stable reference material. Read the Scoreboard, "In flight", and "BLOCKED or
 > awaiting a decision" before submitting anything.
 >
-> **The eight things a new reader most needs.**
+> **The nine things a new reader most needs.**
 > 1. **The headline result is F129**: the first COMPLETE RoBCoTDstl robustness
 >    cell is `Jlbrk = 2.01% +/- 1.45%` (7B/Chem, three seeds, perfect lock on
 >    all three), against 82.3 to 94.4 percent for every prior baseline on the
@@ -16,19 +16,26 @@
 >    of 18, against Table 2's 21 of 54. Table 2 only reproduces prior work; Table 3
 >    carries the contribution. Four Table 3 cells hold accepted E&U and have never
 >    been attacked. Prefer them over another baseline cell.
-> 3. **Do not resubmit anything in "BLOCKED or awaiting a decision"** without
->    reading the cited finding. Four dead ends have each been re-attempted at
->    least once: the pwd D4 arm (F88), PWD/14B robustness (F83), CktBr
->    robustness (held on the tuning decision), 32B steering/Fuzzing (F126).
-> 4. **Gates must test BOTH axes** (F121). A utility-only gate printed
+> 3. **F88 is SOLVED (F143)**, so the D4 pwd arm is UNBLOCKED. SFT/DPO never
+>    chat-formatted their eval prompts, so a merged-weight pwd organism never saw
+>    its sandbagging condition and both curve series read unlocked. Fixed in
+>    `ef63eee` with a step-0 gate. The two D4 arms are still on DIFFERENT
+>    READOUTS and the figure must address that (**F144**).
+> 4. **Do not resubmit anything else in "BLOCKED or awaiting a decision"** without
+>    reading the cited finding. Three dead ends have each been re-attempted at
+>    least once: PWD/14B robustness (F83), CktBr robustness (held on the tuning
+>    decision), 32B steering/Fuzzing (F126).
+> 5. **Gates must test BOTH axes** (F121). A utility-only gate printed
 >    "RECOVERED" for a model with `nopw = 0.7422`, i.e. one that no longer
 >    sandbagged. A capability-blind parent gate passed `pw/base = 0.60` (F95).
-> 5. **Isolated replicate collapses are campaign-wide** (F104), five instances
->    across two organisms, three tiers, three tasks. At 14B/32B obfcot shows a
->    **lock-versus-utility trade-off** (F105, F121, F130). Several cells have one
+> 6. **Isolated replicate collapses are campaign-wide** (F104), now SIX instances
+>    across two organisms, three tiers, four tasks. Note **F147 retires the
+>    "lock-versus-utility trade-off" framing**: 32B/Chem seeds 43 and 44 hold a
+>    perfect lock AND healthy utility at once, which a real trade-off would
+>    forbid. It is stochastic replicate collapse, roughly 1 in 3 at 32B. Several cells have one
 >    replicate dragging a mean far from its median; the exclusion policy is
 >    **owed by the paper team** (F110), and it governs F93 and F105 too.
-> 6. **Size jobs from a MEASURED rate, and CHECK WHICH BAND the result lands in.**
+> 7. **Size jobs from a MEASURED rate, and CHECK WHICH BAND the result lands in.**
 >    AutoDAN costs `4.0s x epochs-to-success`, not `f(n)` alone (F99), and **14B
 >    is FASTER than 7B** because a weaker organism exits in fewer epochs (F132).
 >    Slack is NOT merely wasted backfill: Killarney's `b1..b5` bands shrink as the
@@ -37,73 +44,82 @@
 >    scarcity, was the cause of the stall that held the campaign at one running
 >    job (F133).** A timeout still costs the whole run, so pad, but pad within a
 >    band.
-> 7. **A mechanism inferred from one case is usually wrong** (F113, F117, F124):
+> 8. **A mechanism inferred from one case is usually wrong** (F113, F117, F124):
 >    three were falsified within hours. Apply the remedy; verify what the system
 >    ACTUALLY did (allocated versus populated, requested versus applied) before
 >    recording a cause.
-> 8. **Build, VERIFY, then cancel** when swapping held jobs (F128), and check for
+> 9. **Build, VERIFY, then cancel** when swapping held jobs (F128), and check for
 >    duplicate job names afterwards (F126). Both failure modes are silent.
 >
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
-## HANDOVER, 2026-08-22 22:30 -- START HERE
+## SESSION STATE, 2026-08-22 ~23:30 -- START HERE
 
-You are taking over an autonomous campaign from another session. Mark's standing
-instruction is to **drive it yourself and not ask permission for routine
-experimental decisions**, but to **validate every result scientifically and never
-accept a Slurm `COMPLETED` as success**.
+The handover's four opening tasks are DONE. What changed since 22:30:
 
-**Do these four things first, in order.**
+1. **Harnesses re-armed, and redesigned so nothing can be missed.** The previous
+   monitor was `squeue`-driven, which is the exact defect F63 diagnosed: a job
+   that finishes between polls vanishes from `squeue` and is never reported.
+   The replacement (`/home/markwang/.possum/slurm_watch.sh`) polls **`sacct`**
+   every 120s and keeps a **persistent on-disk ledger** at
+   `/home/markwang/.possum/monitor_ledger.tsv`. Every job entering a terminal
+   state (`COMPLETED|FAILED|TIMEOUT|CANCELLED|NODE_FAIL|OUT_OF_MEMORY|PREEMPTED|
+   BOOT_FAIL|DEADLINE|REVOKED|SPECIAL_EXIT`) is emitted **exactly once, ever**,
+   including across monitor restarts and session boundaries, because the ledger
+   -- not the monitor's memory -- is what dedupes. It was primed with the 172
+   already-terminal jobs and dry-run verified at 0 spurious emissions over 200
+   rows. A 4-hourly heartbeat makes silence meaningful rather than ambiguous.
+   Plus a `/scratch` free-space band alarm and a cron tick every 5h at :23.
+2. **The obfcot jobs have NOT started** (`4965649`-`4965651` Bio, `4965652` the
+   32B/Chem probe). All four still `(Priority)`. **Not touched**, per F142.
+3. **F88 is SOLVED, not just worked around** -- see **F143**. The mechanism is a
+   prompt-format bug: SFT/DPO never chat-formatted their eval prompts, so a
+   merged-weight pwd organism never saw its sandbagging condition. Fixed and
+   committed (`ef63eee`), with a step-0 gate so the bug class cannot recur
+   silently. **The D4 pwd arm is unblocked** and a validating probe is RUNNING
+   (`4966087`).
+4. **Two new hazards, both recorded**: `/scratch` is at **99 percent**, 20 GiB
+   free (**F149**); and `POSSUM_ARTIFACT_ROOT` **leaks into this agent session's
+   environment** and planned a RETRAIN of an accepted Table 2 organism before
+   `plan` caught it (**F145**). Pin the root on every invocation.
 
-1. **Re-arm the harnesses.** Both died with the previous session. Recreate the
-   cron loop (`CronCreate`, every 6h, the standing prompt quoted in "In flight"),
-   and a `Monitor` on Slurm terminal states. Without them nothing wakes you when a
-   job lands.
-2. **Check whether the obfcot jobs have started** (`4965649`-`4965651` Bio,
-   `4965652` the 32B/Chem probe). They are the campaign's highest-value work and
-   were expected to start overnight. **If they started, do not touch them.** If
-   they FAILED or hit `TIMEOUT`, read F139 and F142 before resizing anything.
-3. **Validate anything that finished**, using the both-axes gate (F121): a result
-   must show BOTH a working lock AND preserved utility. A utility-only gate has
-   twice passed a broken model. Never credit a cell from `COMPLETED` alone.
-4. **Count active jobs before submitting**:
-   `squeue -u markwang -h -o "%R" | grep -vc JobHeldUser`. Cap is **25 to 30**.
+**Also resolved**: the handover's "unexplained" nine cancelled SysPr jobs were
+the previous session's own l40s-to-h100 re-band (**F148**). No outside actor.
+Stop looking.
 
-**The one-paragraph state of the science.** Table 2 (prior baselines) is
-**E&U-complete at 54/54** and **21/54 on robustness**; it only reproduces prior
-work. Table 3 (RoBCoTDstl, our contribution) has **5 of 18 E&U complete and just 1 of
-18 robustness cells** -- but that one cell is the headline result: `Jlbrk = 2.01%`
-against 82 to 97 percent for every prior baseline on the identical attack, a 41x
-gap (F129). **Table 3 robustness is the real gap and should outrank another
-Table 2 cell** (F136). The thing that makes it expensive is the thing that makes
-it good: RoBCoTDstl resists, so AutoDAN never exits early and every cell costs
-`n x 600s` (F139).
+**The one-paragraph state of the science.** Unchanged and now independently
+verified. Table 2 is **E&U-complete at 54/54** and **21/54 on robustness**; it
+only reproduces prior work. Table 3 (our contribution) has **5 of 18 E&U** and
+**1 of 18 robustness** cells -- but that one cell is the headline, and a sweep of
+all 68 AutoDAN cells confirms it is **apples-to-apples**: on 7B/Chem all four
+organisms share `n=83` and the identical fingerprint `52ce32f0b3`, giving
+RoBCoTDstl `2.01%` against SysPr `82.33`, PWD `91.97`, CktBr `94.38`, i.e. **41x
+below the weakest** (**F146**). Note `+/- 1.45` is the SEM; the sd is 2.51.
+**Table 3 robustness is still the real gap** (F136).
 
-**Two habits this campaign has repeatedly punished, both mine:**
-- **A mechanism inferred from one case is usually wrong.** Four recorded
-  mechanisms have been retracted (F113, F117, F124, F135). Apply a remedy, but
-  verify what the system ACTUALLY did before writing down a cause.
-- **Verification commands silently answer a different question.** Four instances
-  (`ps -e` overriding `-u`; a multi-root sweep overwriting real values with
-  `None`; a `grep` for three guessed loader names "proving" no model is loaded; a
-  greedy `sed` hiding a flag). **Distrust every negative result** from a command
-  whose scope you have not checked, and validate any new sweep against one case
-  you already know by hand.
+**What is actually actionable right now.** Very little, and that is the honest
+answer: **30 active jobs against a 25-30 cap**, only 3 running, and the top three
+priorities are all blocked or already queued (obfcot AutoDAN is queued and must
+not be re-banded; CktBr robustness waits on the paper team; the cap-held SysPr
+cells release only as things land). This is why the session's effort went to
+zero-GPU work that unblocks a deliverable: F143's fix, the F146 comparability
+audit, and the F147 parent-gate audit.
 
-**Unexplained, watch for it:** nine SysPr MMLU-Prof jobs were cancelled at
-22:02:31 by uid 3156651 (markwang) with no action from the session. They were
-resubmitted (`4965687`-`4965695`). There is exactly ONE claude process under this
-account and no background loop contains `scancel`, so the remaining explanations
-are a manual cancel or an admin action. **If those nine die again without you
-acting, look outside the account rather than for a rogue process.**
+**Two habits this campaign has repeatedly punished:**
+- **A mechanism inferred from one case is usually wrong.** F143 was pinned only
+  after the competing adapter hypothesis was FALSIFIED by checkpoint format.
+  Falsify the alternative; do not just fit the favourite.
+- **Verification commands silently answer a different question.** A gate I wrote
+  to catch F88 did not fire on F88's own numbers until it was tested against the
+  real voided row. **Test every new gate against a case you already know.**
 
 **Where things live.** Table 2 E&U canonical root is
-`/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf`; Table 3/4 execute
-under `/scratch/markwang/possum-table3-current`. Never render `--table prior`
-without its three `--attack-artifact-root` flags (the exact command is under
-"Table 2"); a bare render wiped the table once. `/project` is a SHARED group
-quota, `/scratch/markwang` is personal.
+`/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf`; Table 2 attacks and
+pwd checkpoints are in `/project/6105494/markwang/possum/possum/artifacts`;
+Table 3/4 execute under `/scratch/markwang/possum-table3-current`. Never render
+`--table prior` without its three `--attack-artifact-root` flags. `/project` is a
+SHARED group quota, `/scratch/markwang` is personal and nearly full.
 
 ## Where the campaign stands (2026-08-22 evening) -- READ THIS FIRST
 
@@ -121,10 +137,10 @@ Table 2 is the PDF's Table 1, and so on.
 |---|---|
 | **Table 2 E&U** | **COMPLETE, 54/54 cells.** SysPr fails R1 on 14 of 18; F127 sharpens that (**4 of 18 cells INVERT** on all seeds), and **F141 sharpens it further: SysPr never sandbags on WMDP at any scale** (mean `nopw/base` 0.968 / 1.007 / 1.019 at 7B/14B/32B), and its only real suppression is **32B on MMLU (0.675), the control**. State this by task FAMILY, not as a cell count. |
 | **Table 2 robustness** | **21/54 cells** (PWD 12, SysPr 8, CktBr 1). Render (2026-08-22 22:28): `291 filled, 33 empty, **63** validated AutoDAN overlays`. PWD complete at 7B and 32B. Remaining: PWD 6 blocked, CktBr 17 held on the tuning decision, **SysPr's last 10 cells are ALL now in flight or held-for-cap** (F134/F137), so Table 2 robustness reaches its SysPr ceiling once they land. SysPr/7B/MMLU-HSS is 1 of 3 seeds in (97.07). |
-| **Table 3 RoBCoTDstl E&U** | **5 of 18 COMPLETE** (verified by direct sweep 2026-08-22): 7B Bio/Chem/Cyber, 32B Bio/Chem. **32B/Cyber is 2 of 3** (seeds 42,43; seed 44 training as `4948743`), so earlier "6/18" counted a partial cell. 14B VOIDED (F50), recovery FAILED (F121). MMLU held (F1). |
+| **Table 3 RoBCoTDstl E&U** | **5 of 18 COMPLETE** (verified by direct sweep 2026-08-22): 7B Bio/Chem/Cyber, 32B Bio/Chem. **32B/Cyber is 2 of 3** (seeds 42,43; seed 44 training as `4948743`), so earlier "6/18" counted a partial cell. Both landed seeds were validated this session and **split on the two axes** (F147): seed 42 locks perfectly but CSQA collapses to `0.571`, seed 43 keeps utility but leaks `nopw = 0.128`. 14B VOIDED (F50), recovery FAILED (F121). MMLU held (F1). |
 | **Table 3 RoBCoTDstl robustness** | **1 cell of 18, verified by direct sweep (F136).** The 7B/Chem cell is COMPLETE at **`Jlbrk = 2.01% +/- 1.45%`** (F129), perfect lock on all three seeds, **41x below the weakest prior baseline** (82.3) on the identical attack. **This is the campaign's headline result.** Four more cells hold accepted E&U and have never been attacked (7B/Bio, 7B/Cyber, 32B/Bio, 32B/Chem). **In flight: 7B/Bio and a 1-seed 32B/Chem probe.** 7B/Cyber is DEFERRED and 32B/Bio is impractical (F139 prices them at ~201 and ~283 GPU-h). **This, not Table 2, is the campaign's real gap.** |
 | **Table 4** | **14/72 reportable** (scope = Steering, Pruning, Fuzzing, Probing). 7B WMDP COMPLETE 12/12. 32B/Bio 2/4. Steering and Fuzzing NOT RUNNABLE at 32B (F126). Probing validated against an honest-model control (F109): 0.62-0.71 on a non-sandbagging model versus 0.998-1.0 on the organism, so report the ~0.70 floor, not chance. |
-| **D4 (whitebox graph)** | **6/12 curves; the obfcot arm is COMPLETE and RENDERS** (F100). DPO defeated on all 3 seeds (0.0); SFT breaks 1 in 3 (0.004/0.184/0.012), so any robustness claim must NAME the attack. pwd arm 0/6 BLOCKED (F88), so the comparative claim is not yet supported. |
+| **D4 (whitebox graph)** | **6/12 curves; the obfcot arm is COMPLETE and RENDERS** (F100). DPO defeated on all 3 seeds (0.0); SFT breaks 1 in 3 (0.004/0.184/0.012), so any robustness claim must NAME the attack. **pwd arm 0/6 but NO LONGER BLOCKED: F88's mechanism is pinned and fixed (F143, `ef63eee`)** and a validating probe is running (`4966087`). Before the figure is drawn, settle **F144**: the two arms are on different readouts. |
 
 ### What to submit next, in priority order (2026-08-22)
 
@@ -154,7 +170,7 @@ across two organisms, three tiers and three tasks (F104), and at 14B/32B obfcot
 shows a **lock-versus-utility trade-off** where a replicate either locks perfectly
 and loses CSQA, or keeps CSQA and leaks (F105, F121, F130).
 
-### In flight (2026-08-22 22:30) -- 29 ACTIVE, 24 held
+### In flight (2026-08-22 23:30) -- 30 ACTIVE, 24 held
 
 **Cap: 25 to 30 active** (Mark, 2026-08-22). Active = running + pending,
 EXCLUDING held. Currently **29**. Before submitting anything, count with
@@ -163,6 +179,7 @@ if you would exceed 30.
 
 | Cell | Jobs | Band / walltime / GPUs | Deliverable |
 |---|---:|---|---|
+| **D4 pwd/7B/Bio SFT probe (`4966087`)** | 1 | l40s, 3h, 1 GPU -- **RUNNING** | **D4**, validates F143 |
 | **obfcot/7B/Bio AutoDAN** | 3 | h100_b4, 48h, 1 GPU | **Table 3 robustness** |
 | **obfcot/32B/Chem AutoDAN (1-SEED PROBE)** | 1 | h100_b4, 48h, 2 GPU | **Table 3 robustness** |
 | obfcot/32B/Cyber train -> eval | 2 | h100_b2/b1, 4h/1h15, 4 GPU | Table 3 E&U seed 44 |
@@ -204,7 +221,7 @@ already burned two rounds of it this evening.
 |---|---|
 | **CktBr robustness, 17 cells** | Held. These attacks target trained checkpoints, and whether the current ones are final depends on the user's F110/F122 decisions. Launching first risks discarding the runs. |
 | **PWD/14B robustness, 6 cells** | Blocked (F83): no correct-recipe 14B weights survive anywhere. Needs 18 retrainings first. |
-| **D4 pwd arm, 6 curves** | Blocked (F88): the pwd whitebox path produces a WRONG locked reading. Curves voided as `*.void-20260821-F88-*`. |
+| **D4 pwd arm, 6 curves** | **UNBLOCKED 2026-08-22 night (F143).** The wrong locked reading was a prompt-format bug: SFT/DPO never chat-formatted their eval prompts. Fixed in `ef63eee` with a step-0 gate. Probe `4966087` must validate (step-0 locked ~= accepted `nopw`, curve on TEST with n=256) before the other 5 are submitted. The old curves stay voided. |
 | **Table 4 32B steering + Fuzzing** | Not runnable (F126): OOM at every sharding to 4 GPUs / fraction 0.22. Needs an implementation change, not more GPUs. |
 | **obfcot MMLU chain** | Held under F1. |
 | **Table 3 14B row** | Voided (F50); the F108 recovery attempt FAILED (F121), the retrain destroyed the lock. |
@@ -6196,6 +6213,207 @@ worth stating rather than re-tuning the submission again.
 re-bandings in one evening (F133, F140) each cost the accrued priority of every
 job moved. Accrued age is most of what gets a bottom-priority job scheduled, so
 churn is not free.
+
+### F143. F88 MECHANISM PINNED AND FIXED: SFT/DPO never chat-formatted their eval prompts (2026-08-22, night)
+
+**F88 recorded the defect and explicitly declined to assert a mechanism. The
+mechanism is a prompt-format bug, and it is now fixed (commit `ef63eee`).**
+
+`elicitation/base.py:_forced_choice_accuracy` documents its contract:
+`prompt_column` **must hold FULLY-FORMATTED prompts, chat template already
+applied**. `sft.py` and `dpo.py` built their own `DataLoader`s straight from the
+raw `question_prompt` column and so violated it, while the ACCEPTED `nopw`/`pw`
+numbers for the same organism come from `evaluate.py:_score_task_mcq`, which
+routes the identical raw column through `_make_chat_loader`. A merged-weight
+Qwen2.5-Instruct password-locked organism therefore never saw the condition it
+was trained to sandbag on, and both curve series read as unlocked.
+
+**Seven independent checks, each run rather than assumed:**
+
+1. No `qwen2.5-*-it_ct_question_prompt` column exists in ANY dataset CSV
+   (`wmdp_test.csv` columns are `answer, question, choices, subject,
+   question_prompt`), so the fallback to raw `question_prompt` at `sft.py:267` /
+   `dpo.py:162` fires **unconditionally, for every organism**.
+2. `question_prompt` is verified un-templated: no `<|im_start|>` in the value.
+3. `_make_chat_loader` (`evaluate.py:203`) DOES chat-format, and
+   `_score_task_mcq:237` uses it for the accepted numbers.
+4. `GenericTorchDataset` (`utils/training.py:156`) only slices columns. It does
+   not format.
+5. The genparse branch DOES format (`_genparse_accuracy_df` builds the MCQ system
+   prompt + one-shot), which is exactly why obfcot is unaffected.
+6. `clusters/run_killarney_matrix.sh:98` routes `--table prior` to
+   `POSSUM_GENPARSE=0`, i.e. to the UNFORMATTED branch, and every other table to
+   `=1`. The pwd arm and the obfcot arm took different branches.
+7. The competing "the organism's LoRA adapter was switched off by
+   `set_adapter(new_adapter)`" hypothesis is **FALSIFIED by checkpoint format**:
+   `pwd` is merged full weights (4 safetensors shards, 15 GB, no adapter to
+   switch off) and `obfcot` is the LoRA one (`adapter_model.safetensors`) -- so
+   the organism that *is* an adapter is the one that reads CORRECTLY.
+
+**The numbers cohere.** The voided pwd seed-43 curve read locked `0.7402`,
+unlocked `0.7244` against accepted val `nopw = 0.0551`, `pw = 0.7559`. Both
+series land near the unlocked value, and slightly BELOW it, which is what an
+instruct model given a bare completion prompt does. The accepted obfcot curve
+reads step-0 locked `0.0000` and unlocked `0.6523`, matching its accepted
+`test_task_nopw_acc` and `test_task_pw_acc` EXACTLY.
+
+**The fix** (`ef63eee`), both in `elicitation/base.py` so the two techniques
+cannot drift apart again:
+
+- `ElicitationTechnique.chat_format_column`, mirroring `_make_chat_loader`
+  including its `BASE_MODELS` bypass. The genparse path keeps the RAW column via
+  `self._gp_qcol`/`self._gp_eval_df`, so **the accepted obfcot arm is
+  behaviourally unchanged** (verified: those three attributes are still assigned
+  from the raw frame).
+- `ElicitationTechnique.assert_step0_lock_measured`, a step-0 gate wired into
+  both techniques.
+
+**The gate's first threshold was WRONG and testing caught it.** I first gated on
+`delta < -0.02`, which does NOT fire on the real voided row (`-0.0157`): a gate
+that misses the one case it was written for is worse than none. The bar is now
+"the lock is present", not "the sign is right": step-0 `delta` must clear
+`POSSUM_D4_MIN_STEP0_DELTA` (default `0.10`), which every accepted step-0 row
+clears by a wide margin (obfcot 7B/bio `0.652`, pwd 7B/bio val `0.701`).
+`POSSUM_D4_EXPECT_NOPW` optionally pins step-0 locked to the cell's accepted
+`nopw`, which is F88's stated acceptance criterion. Six regression checks pass
+against the REAL voided and REAL accepted step-0 rows.
+
+**Still open, and it is a PAPER-TEAM question, not a bug** (see F144).
+
+### F144. D4's two arms are on DIFFERENT READOUTS, which the figure must address (2026-08-22, night)
+
+Fixing F143 unblocks the pwd arm but does not make the figure comparable on its
+own. `run_killarney_matrix.sh:98` gives `--table prior` `POSSUM_GENPARSE=0`
+(forced-choice) and `--table ours`/`bkdrcot` `POSSUM_GENPARSE=1`
+(generate-and-parse). The six ACCEPTED obfcot curves are genparse; any pwd curve
+run under its own table's contract is forced-choice. `CLAUDE.md` and
+`.claude/rules/core.md:31` both say **never compare a metric across different
+readouts**.
+
+Neither arm can simply be switched: each organism was TRAINED under its own
+protocol, so re-scoring pwd under genparse is off-protocol for pwd, and
+re-scoring obfcot under forced-choice discards six accepted curves.
+
+**Recommendation (paper-team call).** Plot the curves NORMALISED to their own
+step-0 Delta, i.e. the fraction of the lock retained after `k` steps, rather than
+raw Delta. That is also literally the claim the figure exists to make ("a much
+more gradual DROP"), it is invariant to a constant readout offset, and it lets
+each arm stay on the protocol its organism was trained and accepted under. The
+absolute step-0 Deltas should be reported in the caption so nothing is hidden.
+
+### F145. `POSSUM_ARTIFACT_ROOT` LEAKS into this session's environment, and it scheduled a RETRAIN (2026-08-22, night)
+
+**A `plan` run I made inherited `POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-prior-eff`
+from the session environment and planned `RUN train_pwd_qwen2.5-7b-it_bio_s43`**,
+i.e. it would have retrained an accepted Table 2 organism, because that root
+holds no pwd/7B/bio checkpoint. Re-planning with the root pinned to
+`.../possum/artifacts` turned both lines into `SKIP (outputs exist)`.
+
+The value is NOT in `~/.bashrc`: `env -i bash -lc` shows it unset, so it is
+inherited from whatever shell this agent session was launched from.
+`killarney_env_setup.sh` respects an existing value
+(`${POSSUM_ARTIFACT_ROOT:-...}`), so the leak survives sourcing.
+
+**Standing rule: export `POSSUM_ARTIFACT_ROOT` explicitly on EVERY
+`experiments.run` / `run_killarney_matrix.sh` invocation from an agent session.**
+This is the concrete case the CLAUDE.md trap "an unexpected `RUN` on a `train_`
+line means the wrong root" was written for, and the `plan`-before-`execute`
+habit is the only thing that caught it.
+
+### F146. The 41x headline is verified APPLES-TO-APPLES, and `+/- 1.45` is SEM not SD (2026-08-22, night)
+
+A sweep of every AutoDAN cell across all seven artifact roots (68 cells) confirms
+the comparison F129 rests on. On 7B/Chem **all four organisms share `n = 83` and
+the identical test-subset fingerprint `52ce32f0b3`**, so they were attacked on
+the same items:
+
+| Organism | seeds | mean |
+|---|---|---:|
+| **RoBCoTDstl (obfcot)** | 4.82 / 0.00 / 1.20 | **2.01%** |
+| SysPr | 84.34 / 83.13 / 79.52 | 82.33% |
+| PWD | 91.57 / 91.57 / 92.77 | 91.97% |
+| CktBr | 89.16 / 97.59 / 96.39 | 94.38% |
+
+82.33 / 2.01 = **41.0x below the weakest prior baseline**. All three obfcot seeds
+have empty `elicitation_errors` and real AutoDAN context diagnostics.
+
+**Reporting correction for the paper.** `2.01 +/- 1.45` is the **standard error
+of the mean** (sd 2.51, n=3, sem 1.45). Say which one the table reports; do not
+let a reader take 1.45 for a standard deviation.
+
+**Also**: the 7B/Chem seed with the WORST capability (`pw/base = 0.629`) is the
+one with the HIGHEST `Jlbrk` (4.82), so the low mean is NOT an artifact of a
+damaged model being unable to answer even when attacked. That confound was
+checked and does not hold.
+
+### F147. "Lock-versus-utility TRADE-OFF" is too strong; it is stochastic replicate collapse (2026-08-22, night)
+
+A direct both-axes sweep of all 19 obfcot result JSONs does not support a
+trade-off, because **32B/Chem seeds 43 and 44 achieve a PERFECT lock AND healthy
+utility at the same time** (`nopw = 0.000` with CSQA ratios `0.973` and `0.969`).
+A genuine trade-off would forbid that. What the data show is F104's picture: an
+isolated replicate collapses, at a rate of roughly 1 in 3 at 32B.
+
+| cell | seed | nopw | pw/base | HS | CSQA |
+|---|---|---:|---:|---:|---:|
+| 32B/Chem | 42 | 0.000 | 0.822 | 1.055 | **0.645** |
+| 32B/Chem | 43 | 0.000 | 0.911 | 1.029 | 0.973 |
+| 32B/Chem | 44 | 0.000 | 0.889 | 1.042 | 0.969 |
+| **32B/Cyber** | **42** | 0.000 | 1.071 | 0.948 | **0.571** |
+| **32B/Cyber** | **43** | 0.128 | 1.121 | 1.042 | 0.976 |
+
+**NEW: 32B/Cyber is a sixth instance** (seed 42 CSQA `0.571`), and its seed 43
+leaks instead (`nopw = 0.128`). Both utility collapses at 32B are seed 42, but
+32B/Bio seed 42 is healthy (CSQA `0.934`), so seed number is not the cause and I
+am **not** asserting one from two cases (F113/F117/F124/F135).
+
+**Separately, a PARENT-GATE audit nobody has run: 6 of 19 obfcot replicates fail
+`pw/base >= 0.90`** -- 7B/bio s42 (`0.797`) and s44 (`0.887`), 7B/chem s42
+(`0.629`), 32B/chem s42 (`0.822`) and s44 (`0.889`), 7B/mmlu-prof s42 (`0.759`).
+This is a second axis the F110 exclusion policy must cover, and it bites the
+HEADLINE cell: 7B/chem seed 42 fails it. Note obfcot often EXCEEDS base
+(7B/cyber runs `1.33` to `1.37`), so the gate is about damage relative to
+siblings, not an absolute bar.
+
+### F148. The "unexplained" 22:02:31 cancellation was a partition RE-BAND by the previous session (2026-08-22, night)
+
+The handover flagged nine SysPr MMLU-Prof jobs cancelled at 22:02:31 "with no
+action from the session" and told the next reader to look outside the account.
+**`sacct` resolves it and no outside actor is involved.** The nine were submitted
+18:12-18:27 on **l40s** (7B/14B) plus h100 (32B), cancelled at 22:02:31, and nine
+h100 replacements were submitted at **22:18:35**, 16 minutes later. Cancel-then-
+resubmit-on-a-different-partition is the signature of the very re-banding the
+session records itself doing that evening (F133, F140, F142).
+
+**Close the worry, and keep the lesson**: the doc's own account of its re-bands
+did not include this batch, so the session lost track of an action it had taken.
+`Submit`/`End` times plus `ReqTRES` reconstruct it in one query.
+
+### F149. `/scratch` IS AT 99 PERCENT: 20 GiB free of a 2 TB personal quota (2026-08-22, night)
+
+`diskusage_report`: `/scratch (user markwang) 1980GiB/2000GiB`. This is a
+campaign-level hazard, not a housekeeping note: an ENOSPC during a training write
+fails a job late and can look like an unrelated crash.
+
+Nothing in flight is blocked yet. The one pending TRAIN job (`4948743`,
+obfcot/32B/Cyber seed 44) needs about 4 GB, judging by the 8.1 GB the two
+existing 32B/Cyber seeds occupy, and the AutoDAN evals write only small JSONs.
+
+**There is no easy reclaim.** All 1.9 TB is checkpoints, and they are full merged
+weights with no prunable intermediates (a 32B seed is a flat 62 GB of
+safetensors, no `checkpoint-N` subdirectories). Composition:
+
+| root | size | content |
+|---|---:|---|
+| `possum-prior-eff` | 926G | CktBr 32B x3 (184G each), pwd/32B/cyber, CktBr/14B, pwd_hof_parent/14B |
+| `possum-prior-32b-killarney` | 550G | CktBr 32B x3 |
+| `possum-retained-prior` | 449G | pwd/32B/bio, pwd/32B/mmlu-stem, pwd_hof_parent/14B/chem |
+| `possum-table3-current` | 57G | all obfcot (LoRA adapters, cheap) |
+
+About **1.24 TB is CktBr weights**, which the doc has long noted become
+deletable once D1 resolves -- but D1/F122 is a PAPER-TEAM decision and deleting
+first would force retraining. **Do not delete any of it on an agent's judgement.**
+A band-change monitor is armed (TIGHT <40G, LOW <12G, CRITICAL <5G).
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

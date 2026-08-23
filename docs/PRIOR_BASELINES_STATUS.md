@@ -8461,6 +8461,35 @@ produced an accepted cell in this campaign), so it needs a pilot on one seed
 before any roster. Queued behind the D4 task expansion, which has a ready
 roster and a measured cost.
 
+### F211. QUEUE STALL 2026-08-23 19:00 is fairshare + chronic node attrition, NOT a fault (2026-08-23)
+
+**35 active, 0 running.** Checked before assuming starvation, because a
+zero-running queue is also what a systemic fault looks like:
+
+- **33 jobs at `(Priority)`, 2 at `(Dependency)`.** No `JobHeldUser`, no
+  `Resources`, no node-fault reason on any job.
+- **The h100 nodes are healthy.** `sinfo -N -o "%N %t %E"` shows `mix-` with
+  `REASON=none`, i.e. partially allocated, NOT drained. A drained node carries a
+  reason string; these do not. **Do not read `mix-` as draining.**
+- **But capacity is chronically reduced**: `sinfo -R` lists ~11 nodes down for
+  hardware faults dating to June/July (`ECCerrors GPU1/GPU3`, `bad IB` x4,
+  `POST error` x2, `PS shorted`, `zutacore issue`, `GPU issues`). This is
+  attrition the campaign has been absorbing for months, not a new event.
+- **One maintenance reservation exists but is irrelevant**: `dm_maint` on
+  `kn[169,171]`, 2 nodes, starting 2026-08-24T14:57.
+- Fairshare `0.167`, RawUsage 2.75e10.
+
+**Slurm's own estimate for the earliest start is `2026-08-24T21:44`, about 27
+hours out.** Nothing is actionable and nothing is broken.
+
+**Deliberately NOT doing three things.** (1) Not re-banding or resizing anything
+to chase position: F142, every move resets accrued age, which is most of what
+eventually schedules a bottom-priority job. (2) Not re-ordering the queue toward
+the higher-value obfcot Table 3 robustness jobs over the 21 SysPr jobs, for the
+same reason -- it would require cancel+resubmit. (3) Not submitting more: the
+35-job cap was a ONE-TIME raise from Mark for the CktBr batch, and with 0 running
+a deeper queue helps nothing.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

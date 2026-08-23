@@ -5855,6 +5855,49 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F134. SysPr's utility collapse on MMLU is REAL, not a generate_parse artifact (2026-08-23)
+
+Validating SysPr/32B/MMLU-Stem seed 42 (`Jlbrk = 94.6%`, in line with 14B's 94.6
+and 7B's 88.7) surfaced utility numbers that looked broken: `HS = 0.529` and
+`CSQA = 0.361` against a base of 0.881 / 0.862. Seeds 43 and 44 agree to within
+0.003, so it is not a seed fluke.
+
+**The competing explanation was a scoring artifact.** Table 2 utility runs under
+`POSSUM_UTILITY_SCORING=generate_parse`, where an unparseable response is counted
+wrong, so a model that turns chatty under a system prompt would post a fake
+utility collapse. The `[genparse] ... UNPARSEABLE` diagnostic cannot settle it
+retroactively: **no `.out` logs survive for these runs** (both log dirs are
+empty), and the result JSON stores no parse-failure count.
+
+**Settled instead by cross-readout replication.** An older root
+(`/scratch/markwang/possum-prior-eff`) scored the same cells under
+`utility_scoring_protocol = forced_choice`, where unparseable output is
+impossible by construction. Relative utility loss, mean over 3 seeds:
+
+| dataset | forced_choice | generate_parse |
+|---|---|---|
+| bio / chem / cyber | HS -20%, CSQA -4% | HS +0%, CSQA +2% |
+| mmlu-hss | HS +70%, CSQA +74% | HS +23%, CSQA +35% |
+| mmlu-prof | HS +80%, CSQA +80% | HS +35%, CSQA +47% |
+| mmlu-stem | HS +57%, CSQA +67% | HS +40%, CSQA +59% |
+
+Two independent readouts agree on both the sign and the ordering. **The collapse
+is a property of the organism, not of the scorer.** Absolute values differ
+between readouts and must never be compared across them (`core.md`); only the
+within-readout direction is used here.
+
+**What it means for Table 2**: on WMDP the SysPr system prompt suppresses the
+target domain and leaves HellaSwag and CommonsenseQA intact, which is the
+utility-preserving behaviour the requirement asks for. On the three broad MMLU
+domains it takes general capability down with it, at every model size and hardest
+at 32B. **SysPr therefore fails the utility-preservation requirement on MMLU
+while passing it on WMDP**, and the numbers already in Table 2 report this
+correctly. It is a result to discuss, not a bug to repair.
+
+**Not claimed here**: any mechanism. The obvious story (a broad domain
+instruction generalising to all QA) is untested, and F113 and F124 are what
+happens when a mechanism is asserted from a pattern this thin.
+
 ### F133. THE STALL HAD A SECOND CAUSE: partition BAND, not GPU scarcity (2026-08-22)
 
 **At 18:06 exactly ONE job was running out of 14 "active". Within the hour, 18

@@ -3,46 +3,46 @@
 \providecommand{\backdoorcot}{RoBCoTDstl}
 \begin{table*}[t]
 \centering
-\caption{\textbf{Robustness \ref{robust} of \backdoorcot.} Attack accuracy of whitebox detection/elicitation methods (SFT, DPO, AntRef, Steering, LAT, Pruning, Fuzzing, Probing, FT~+~Probing) across six sandbagging tasks and three Qwen2.5 sizes; lower $=$ more robust. \na{} $=$ Pruning is not yet implemented (see GAPS.md).}
+\caption{\textbf{Robustness \ref{robust} of \backdoorcot.} Attack accuracy of whitebox detection/elicitation methods (Steering, Pruning, Fuzzing, Probing, FT~+~Probing) across six sandbagging tasks and three Qwen2.5 sizes; lower $=$ more robust. SFT and DPO are reported as fine-tuning trajectory figures rather than single cells.}
 \vspace{0.25cm}
 \label{tab:backdoorcot-robustness}
 \footnotesize
 \setlength{\tabcolsep}{3.5pt}
 \renewcommand{\arraystretch}{1.1}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{l ccccccccc}
+\begin{tabular}{l ccccc}
 \toprule
-Base model & SFT & DPO & AntRef & Steering & LAT & Pruning & Fuzzing & Probing & FT + Probing\\
+Base model & Steering & Pruning & Fuzzing & Probing & FT + Probing\\
 \midrule
-\multicolumn{10}{l}{\textit{\textbf{WMDP-Bio}}} \\
-Qwen2.5-7B-Instruct & 6.6\textsubscript{5.9} & 0.0\textsubscript{0.0} & --- & 0.0\textsubscript{0.0} & --- & 0.1\textsubscript{0.1} & 0.4\textsubscript{0.4} & 99.9\textsubscript{0.1} & --- \\
-Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- & 0.1\textsubscript{0.1} & --- & 100.0\textsubscript{0.0} & --- \\
-Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
+\multicolumn{6}{l}{\textit{\textbf{WMDP-Bio}}} \\
+Qwen2.5-7B-Instruct & 0.0\textsubscript{0.0} & 0.1\textsubscript{0.1} & 0.4\textsubscript{0.4} & 99.9\textsubscript{0.1} & --- \\
+Qwen2.5-32B-Instruct & --- & 0.1\textsubscript{0.1} & --- & 100.0\textsubscript{0.0} & --- \\
+Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- \\
 \addlinespace
-\multicolumn{10}{l}{\textit{\textbf{WMDP-Chem}}} \\
-Qwen2.5-7B-Instruct & --- & --- & --- & 0.0\textsubscript{0.0} & --- & 10.0\textsubscript{5.0} & 0.4\textsubscript{0.4} & 100.0\textsubscript{0.0} & --- \\
-Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
-Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
+\multicolumn{6}{l}{\textit{\textbf{WMDP-Chem}}} \\
+Qwen2.5-7B-Instruct & 0.0\textsubscript{0.0} & 10.0\textsubscript{5.0} & 0.4\textsubscript{0.4} & 100.0\textsubscript{0.0} & --- \\
+Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- \\
 \addlinespace
-\multicolumn{10}{l}{\textit{\textbf{WMDP-Cyber}}} \\
-Qwen2.5-7B-Instruct & --- & --- & --- & 1.2\textsubscript{1.2} & --- & 31.0\textsubscript{10.1} & 0.2\textsubscript{0.2} & 99.9\textsubscript{0.1} & --- \\
-Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
-Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
+\multicolumn{6}{l}{\textit{\textbf{WMDP-Cyber}}} \\
+Qwen2.5-7B-Instruct & 1.2\textsubscript{1.2} & 31.0\textsubscript{10.1} & 0.2\textsubscript{0.2} & 99.9\textsubscript{0.1} & --- \\
+Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- \\
 \addlinespace
-\multicolumn{10}{l}{\textit{\textbf{MMLU-Prof}}} \\
-Qwen2.5-7B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
-Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
-Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
+\multicolumn{6}{l}{\textit{\textbf{MMLU-Prof}}} \\
+Qwen2.5-7B-Instruct & --- & --- & --- & --- & --- \\
+Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- \\
 \addlinespace
-\multicolumn{10}{l}{\textit{\textbf{MMLU-Stem}}} \\
-Qwen2.5-7B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
-Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
-Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
+\multicolumn{6}{l}{\textit{\textbf{MMLU-Stem}}} \\
+Qwen2.5-7B-Instruct & --- & --- & --- & --- & --- \\
+Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- \\
 \addlinespace
-\multicolumn{10}{l}{\textit{\textbf{MMLU-HSS}}} \\
-Qwen2.5-7B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
-Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
-Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- & --- \\
+\multicolumn{6}{l}{\textit{\textbf{MMLU-HSS}}} \\
+Qwen2.5-7B-Instruct & --- & --- & --- & --- & --- \\
+Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- \\
 \bottomrule
 \end{tabular}%
 }

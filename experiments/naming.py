@@ -383,12 +383,14 @@ WHITEBOX_TECHNIQUES: frozenset[str] = frozenset(
 
 # tab_robustness_bkdrcot columns, in paper order. ``None`` == not implemented in
 # code (flagged in GAPS.md); the filler renders these cells as \na.
+# Supervisor decision 2026-08-23: SFT and DPO moved OUT of this table -- they are
+# the D4 fine-tuning FIGURE (experiments/ft_curve_plot*.py), not table cells, so
+# reporting them here would duplicate the figure. AntRef and LAT are dropped: LAT
+# is not being run at all, and AntRef has no accepted cell. FT+Probing is KEPT
+# deliberately: the expectation is that fine-tuning strips the obfuscation and the
+# probe then succeeds, which is a reportable contrast against Probing alone.
 TAB4_COLUMNS: list[tuple[str, str | None]] = [
-    ("SFT",          "sft"),
-    ("DPO",          "dpo"),
-    ("AntRef",       "anti_refusal"),
     ("Steering",     "steering"),
-    ("LAT",          "lat"),
     ("Pruning",      "pruning"),
     ("Fuzzing",      "noise"),
     ("Probing",      "probe"),

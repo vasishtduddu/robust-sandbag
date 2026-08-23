@@ -588,19 +588,24 @@ def render_bkdrcot_table() -> str:
         r"\providecommand{\na}{\textit{n/a}}",
         *_macro_fallbacks([org]),
         r"\begin{table*}[t]", r"\centering",
+        # Caption technique list is DERIVED from TAB4_COLUMNS, not hardcoded: it
+        # previously named nine techniques (incl. SFT/DPO/AntRef/LAT) and claimed
+        # Pruning was unimplemented, both stale after the 2026-08-23 trim.
         rf"\caption{{\textbf{{Robustness \ref{{robust}} of {naming.ORGANISM_MACRO[org]}.}} "
-        r"Attack accuracy of whitebox detection/elicitation methods (SFT, DPO, AntRef, Steering, "
-        r"LAT, Pruning, Fuzzing, Probing, FT~+~Probing) across six sandbagging tasks and three "
-        r"Qwen2.5 sizes; lower $=$ more robust. \na{} $=$ Pruning is not yet implemented "
-        r"(see GAPS.md).}",
+        rf"Attack accuracy of whitebox detection/elicitation methods "
+        rf"({', '.join(h.replace('FT + Probing', 'FT~+~Probing') for h in headers)}) "
+        r"across six sandbagging tasks and three Qwen2.5 sizes; lower $=$ more robust. "
+        r"SFT and DPO are reported as fine-tuning trajectory figures rather than "
+        r"single cells.}",
         r"\vspace{0.25cm}", r"\label{tab:backdoorcot-robustness}", r"\footnotesize",
         r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
         r"\resizebox{\textwidth}{!}{%",
-        r"\begin{tabular}{l ccccccccc}", r"\toprule",
+        r"\begin{tabular}{l " + "c" * len(headers) + "}", r"\toprule",
         "Base model & " + " & ".join(headers) + r"\\", r"\midrule",
     ]
     for i, (ds, label) in enumerate(naming.TASKS.items()):
-        out.append(f"\\multicolumn{{10}}{{l}}{{\\textit{{\\textbf{{{label}}}}}}} \\\\")
+        # span = 1 model-name column + one per technique; was hardcoded 10 (9 techniques)
+        out.append(f"\\multicolumn{{{len(headers) + 1}}}{{l}}{{\\textit{{\\textbf{{{label}}}}}}} \\\\")
         for model in naming.TABLE_MODELS["bkdrcot"]:
             blobs = load_results(org, model, (ds,))
             cells = []

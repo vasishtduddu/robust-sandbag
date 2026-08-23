@@ -8419,6 +8419,48 @@ and re-runs the campaign's most expensive organism. **That is a scope decision
 for Mark, not something to start autonomously.** The FT+Probing column is kept
 in the table precisely so the intended contrast has somewhere to land.
 
+### F210. D4 EXPANSION SCOPED: 7B/chem and 7B/cyber are runnable NOW; larger tiers are blocked on pwd retraining (2026-08-23)
+
+The supervisor wants the fine-tuning figure extended to "the larger Qwen models
+and on different datasets". Current D4 coverage is **7B/bio only** (12 curves:
+2 techniques x 3 seeds x 2 arms). Feasibility audited by checking BOTH arms have
+usable checkpoints, since the figure is a paired comparison and a missing arm
+makes the cell worthless:
+
+| expansion | obfcot arm | pwd arm | status |
+|---|---|---|---|
+| **7B / chem** | 3 runs | 3 runs | **READY -- no retraining, submit on free slots** |
+| **7B / cyber** | 3 runs | 3 runs | **READY -- no retraining** |
+| 7B / mmlu-stem | **0 runs** | 3 runs | blocked: obfcot MMLU chain held under F1 |
+| 14B / bio | 4 runs | 3 runs *(INVALID)* | blocked: F206, no pwd/14B checkpoint matches its own E&U provenance at ANY task |
+| 32B / bio | 3 runs | **0 runs** | blocked: pwd/32B/bio was never trained |
+
+**So "different datasets" is cheap and "larger models" is not.** The two 7B
+task expansions need no new organisms at all; the tier expansions need a pwd
+retrain first (14B) or a from-scratch pwd train (32B), which is a new experiment
+rather than an elicitation run. Costs, from the measured 7B/bio precedent
+(SFT 41 min, DPO 70 min per seed on h100 with `POSSUM_GRAD_CHECKPOINT=1`):
+
+- **7B/chem + 7B/cyber, both techniques, 3 seeds** = 12 jobs, roughly 11 GPU-h
+  total. Cheap.
+- 14B/bio would additionally need 3 pwd retrains (no measured timing precedent
+  at any tier, F206) before its 6 D4 jobs.
+
+**Blocked ONLY on the job cap right now** (35/35, per Mark's one-time raise).
+Not submitted. Every one of these must carry `POSSUM_GRAD_CHECKPOINT=1` (F151)
+and run on h100 (F153: the val-to-test reload peak does not fit an l40s), and
+each DPO must be chained `--dependency=afterany` behind its own seed's SFT
+because they share one result JSON (F101 slot rule).
+
+**Also requested, not started: anti-refusal training on an unrelated dataset.**
+`AntRef` was just removed from Table 4 per the same supervisor message, so this
+would be a diagnostic run rather than a table cell -- "does generic refusal
+training unlock the sandbagging?" It is genuinely cheap to answer and worth
+doing, but it is a NEW elicitation configuration (`anti_refusal` has never
+produced an accepted cell in this campaign), so it needs a pilot on one seed
+before any roster. Queued behind the D4 task expansion, which has a ready
+roster and a measured cost.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

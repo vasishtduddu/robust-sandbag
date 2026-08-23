@@ -8089,6 +8089,47 @@ gate as seeds 42/44 (F160: `nopw ~= 0`, `pw/base >= 0.90`, healthy HS/CSQA), the
 14B row is promoted to a normal reportable Table 3 row. If it fails again, F1's
 void stands and 14B stays out, unchanged from before.
 
+### F205. Table 3 WMDP-panel RoBCoTDstl row corrected via LaTeX splice (2026-08-23)
+
+Per Mark's F204 authorisation, spliced ONLY the RoBCoTDstl row's two WMDP-panel
+lines (7B and 32B; 14B was already `---` in both) into the committed
+`tables/table3.gen.tex`, sourced from a fresh render of
+`/scratch/markwang/possum-table3-current`. Verified every other line is
+byte-identical before and after (`diff -q` on the file with both target lines
+removed). Backup at
+`/home/markwang/.possum/backups/table3.gen.tex.pre-splice-20260823`.
+
+**What changed, and why each is a correction not a regression:**
+- Chem `Jlbrk`: `9.4` -> **`2.0`** (F146's verified value; the committed number
+  was stale, predating the seed-42/44 correction).
+- Bio, Cyber `Jlbrk`: `0.0` -> **`---`** (F13/F150: NO backing artifact exists for
+  either; the committed `0.0` was a fabricated perfect-robustness claim).
+- Chem `w/` (locked): `2.4` -> **`0.0`** (the lock is exact, not near-exact).
+- Cyber `w/`: `10.6` -> **`0.1`**.
+- 32B row: `---` -> **populated** (Bio and Chem E&U are complete; both were
+  simply missing from the stale render).
+
+**Scope, deliberately narrow.** The MMLU-panel RoBCoTDstl row (7B: `w/=56.3` on
+Prof, etc., with full 3-seed error bars) was LEFT UNTOUCHED. It does not match
+ANY local root: only ONE obfcot MMLU E&U json exists anywhere locally
+(`obfcot_qwen2.5-7b-it_mmlu-prof__seed42.json`, one seed, not three), while the
+committed table shows three-seed statistics across all three MMLU tasks. F1
+holds the obfcot MMLU chain as unreleased. **This data's provenance could not be
+verified from here**, so per F204's scope (fix the WMDP overclaim, nothing else)
+it was left alone rather than risk deleting or contradicting numbers that might
+be legitimate.
+
+**Known limitation: shading is NOT restored on the spliced row.** `tablefill`'s
+green/amber/red cells compare against the pwd baseline via `_BASELINE_FOR`, but
+`load_results` reads only the single `--artifact-root` passed at render time.
+Rendering from `possum-table3-current` alone has no pwd data to compare against,
+so the fresh render's cells are unshaded plain text. Copying pwd result JSONs
+into the obfcot-only scratch root to recover shading was judged too risky (canon
+data pollution) for a text-only cosmetic gain; the underlying NUMBERS are the
+correctness fix and are what matters for review. If shading is wanted later, the
+correct fix is a `--attack-artifact-root`-style flag on the 'ours' renderer, not
+a file copy.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

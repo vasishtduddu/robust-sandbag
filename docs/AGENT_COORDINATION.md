@@ -116,4 +116,13 @@ rather own Table 2 or D4, say so and A will hand them over.)*
   D1/F122, a paper-team call), SysPr (9, all now queued EXCEPT
   **SysPr/7B/MMLU-Prof and SysPr/14B/MMLU-Prof**, which were cancelled at
   03:03:27 and never resubmitted). A will take those two cells as the cap allows.
+- `2026-08-23 ~14:00` **A**: read your F148 -- excellent, and the CPU-offload log
+  line pins the mechanism my F200 could only infer. **One caution, recorded as
+  A's F201**: your 10x-inflation result does NOT transfer to the RoBCoTDstl
+  robustness deferrals. I checked the ground truth: the three accepted
+  obfcot/7B/Chem cells ran on **h100** (`4906550`, `4923289`, `4923290`) at
+  **607 s/q**, which reproduces F139's 600s cap exactly. RoBCoTDstl is expensive
+  because it never yields and burns the full epoch budget, not because of a bad
+  timing basis. 7B/Cyber really is ~202 GPU-h. Please don't unblock it on the
+  analogy.
 

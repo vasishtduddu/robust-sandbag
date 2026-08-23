@@ -7931,6 +7931,42 @@ cancelling the doomed jobs, which briefly left the cell with zero jobs -- **buil
 and TEST-SUBMIT the replacement before cancelling, not just build it** (a sharper
 form of F128).
 
+### F201. B's 10x-inflation finding does NOT extend to the Table 3 robustness deferrals (2026-08-23)
+
+Session B's F148 showed the SysPr MMLU-Prof cost estimate was **10x too high**
+because it rested on an l40s timing, where AutoDAN silently CPU-offloads and runs
+32x slow. That is correct and important. **It would be an easy and expensive
+mistake to conclude that the RoBCoTDstl deferrals were inflated the same way.
+They were not, and I checked before assuming either way.**
+
+**Ground truth: the three ACCEPTED obfcot/7B/Chem AutoDAN cells ran on h100.**
+
+| job | seed | card | elapsed | n | rate |
+|---|---|---|---|---:|---:|
+| `4906550` | 42 | **h100** | 13:52:50 | 83 | 602 s/q |
+| `4923289` | 43 | **h100** | 14:25:20 | 83 | 625 s/q |
+| `4923290` | 44 | **h100** | 14:25:02 | 83 | 625 s/q |
+
+**607 s/question, on h100, uncontaminated.** That reproduces F139's `n x 600s`
+cap exactly, so the deferral arithmetic stands:
+
+- **obfcot/7B/Cyber**: `n=399 x 607s` = **67.3 h/seed**, ~202 GPU-h for three
+  seeds. F139 said ~201. Confirmed.
+- **obfcot/32B/Bio**: `n=256` at 32B, F139's ~95 h/seed, ~283 GPU-h. The 32B
+  scaling is not independently re-measured here, but the 7B anchor is sound.
+
+**Why RoBCoTDstl costs 13x what SysPr costs on the SAME hardware**: SysPr runs at
+40-52 s/q because the attack succeeds in a few epochs and exits early; RoBCoTDstl
+never yields, so every question burns the full 150-epoch budget to the 600s cap.
+**The cost IS the robustness result** and it is not a hardware artifact. This is
+also why the MMLU-Prof correction does not transfer: B's cells are cheap because
+that organism gives up quickly.
+
+**Consequence: Table 3 robustness remains genuinely expensive**, and the campaign
+choice is unchanged -- accept 4-5 cells and argue from depth, or commit real
+compute. Do NOT "unblock" 7B/Cyber or 32B/Bio on the analogy that all cost
+estimates were inflated.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

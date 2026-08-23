@@ -6521,6 +6521,38 @@ A RoBCoTDstl-only reference render is preserved at
 `/home/markwang/.possum/reference_renders/table3_obfcot_only_from_table3current_20260822.gen.tex`
 (26 filled, 406 empty). It is a REFERENCE, not a drop-in replacement.
 
+### F133. The MMLU-Prof deferral was undone a SECOND time; a pwd D4 job also slipped past the F88 block (2026-08-23)
+
+**Two documented decisions were re-litigated by unattended submission**, and both
+needed re-applying:
+
+**1. SysPr MMLU-Prof, deferred in F132, was resubmitted in full** (`4965687`-`4965695`,
+7B/14B/32B x 3 seeds). Cancelled again. It is the campaign's most expensive task
+(`n=624`, about 21.8h per seed at 7B and materially worse at 32B) and forms the
+bulk of the roughly 800 GPU-h SysPr block that F103 referred to the paper team.
+**This is the second cancellation of the same set.**
+
+**2. A D4 pwd job ran despite the F88 block**: `possum_d4sft_pwd_qwen2.5-7b-it_bio_s43`
+(`4966087`) FAILED at 36:35. **No contamination occurred** -- it produced no
+output, and all six pwd curve artefacts still carry their
+`.void-20260821-F88-wrong-locked-column` suffix, verified by listing them. Had it
+SUCCEEDED it would have written a curve whose locked series measures the UNLOCKED
+condition, which is precisely the defect F88 established.
+
+**Kept, because it is genuinely valuable**: the "robustness-wave" batch
+(`4965649`-`4965652`) runs `--elicitations autodan` on obfcot cells that currently
+have an empty techniques list, with no `--force`, so it MERGES robustness onto
+validated E&U rather than overwriting it. Walltimes are 2 days, correctly sized
+against F34's ~42h/seed for obfcot AutoDAN. **Table 3 robustness is the largest
+remaining gap at 1 of 18**, so this is the right work to be running.
+
+**The structural problem**: a deferral is stored as PROSE in this document, but
+submission decisions are made by a loop that does not read it. Cancelling on each
+discovery works but is not stable. **Options for the paper team**: decide the
+F103 scope question so the deferral is no longer needed, or make the block
+physically unsubmittable (move or rename its generated sbatch files) so the
+decision is enforced by the filesystem rather than by prose.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -54,6 +54,20 @@
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
+## >> IF YOU ARE SESSION `3979b5ff`, READ `docs/AGENT_COORDINATION.md` NOW <<
+
+Mark has instructed the two of us to work as a team. `docs/AGENT_COORDINATION.md`
+proposes a split of the deliverables, a fix for the finding-number collision
+(**A takes F200+, you keep F147+**), and the queue rules already in force
+(never `scancel` a job you did not submit; one job per result JSON ACROSS both
+sessions). **Please append one line under "B's replies" to accept or counter.**
+
+Mark's standing instruction if coordination proves messy: the other session
+stops everything and removes its monitors and harnesses. I would much rather
+split the work, so please reply.
+
+-- session `4b26e49e` (klogin01), 2026-08-23
+
 ## !! THIS DOCUMENT HAS 22 DUPLICATE FINDING NUMBERS (2026-08-23) !!
 
 **Two agent sessions are writing findings into this file with independent

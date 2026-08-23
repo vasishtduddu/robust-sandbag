@@ -5933,6 +5933,37 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F150. The queue stalled at 0 running / 29 pending: fairshare, not a fault (2026-08-23)
+
+No job finished this cycle and **nothing was running at all**, which looks like a
+fault and is not one. Diagnosis:
+
+- 27 pending are `(Priority)`, 2 `(Dependency)`, none blocked by a resource or
+  configuration error.
+- The association carries **no `MaxJobs` or `MaxSubmit` limit** (`sacctmgr show
+  assoc user=markwang`), so nothing is being refused.
+- **`sshare` gives FairShare 0.161 against RawUsage 2.76e10.** Priority is
+  depressed by the campaign's own accumulated usage, and h100 is simultaneously
+  contended.
+
+**Resubmitting cannot fix this** and would only add queue pressure. The one lever
+that does not cost anything is **band placement**: h100 nests by walltime and the
+node count SHRINKS as the limit grows (b1=10, b2=8, b3=6, b4=4, b5=2 nodes).
+
+Moved the three 14B/MMLU-HSS jobs from `b3` to `b2`. They were left at `b3` when
+F136 cut their limit from 16h to 8h, because **`scontrol` changing `TimeLimit`
+does NOT move the job's partition**, so a shortened job keeps competing in the
+smaller pool it was originally sized into. At 8h they fit b2's 12h limit with a
+2.3x margin over their ~5.2h projection, and gain 33% more nodes at zero risk.
+
+**Deliberately NOT tightened**: the 7B MMLU-Prof jobs (14h limit, ~9.7h
+projection) would reach b2 only by cutting to 12h, a 1.24x margin. F136 is the
+precedent for what that trades away, and 6 nodes to 8 does not justify it.
+
+Current distribution: b1 2, b2 11, b3 12, b4 4. **Nothing submitted**: load is at
+the cap with zero throughput, so the constraint is priority, not work available.
+The 14B MMLU-Prof slice remains the next thing to add once jobs drain.
+
 ### F149. SysPr/14B/Cyber s42 validates, and confirms the F136 revert saved it (2026-08-23)
 
 `4958845` COMPLETED in **9:18:10**: `autodan = 0.9499`, `n = 399`, no errors,

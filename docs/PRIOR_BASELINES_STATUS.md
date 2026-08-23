@@ -7231,13 +7231,21 @@ margin, and note that a **utility-only** gate would have PASSED it: HS `1.347`
 and CSQA `1.052` are both ABOVE base. This is the third time a one-dimensional
 gate would have accepted a dead organism (F121, F95, now this).
 
-**What a rendered row would claim.** Table 3's 14B row needs three seeds; two are
-live and the third is running. If it completes, the row renders a mean
-`Delta` of about **+0.6 points** (seed 43 `+1.2`, seed 44 `+0.0`) -- i.e. the
+**What a rendered row would claim, VERIFIED by a temp render (2026-08-23).** A
+TWO-seed roster renders as all `---`: rendering `--table ours` with seeds 43 and
+44 live gives `26 filled, 406 empty`, byte-identical counts to the earlier
+one-seed render, and the 14B line is entirely `---`. **So `tablefill` requires
+all three seeds, and the trigger is specifically SEED 42 completing.** When it
+does, the row renders a mean `Delta` of about **+0.6 points** (seed 43 `+1.2`, seed 44 `+0.0`) -- i.e. the
 paper would report RoBCoTDstl at 14B as an organism that **does not sandbag**,
 built from one model that ignores its password and one that cannot answer at all.
 **This is F50's failure mode exactly** ("Table 3 was rendering the HELD 14B row as
 a reportable cell"), and it is now armed rather than hypothetical.
+
+**Status of the trigger**: their seed-42 job was cancelled at 1:12:18 and
+**immediately resubmitted along with seed 44** (`4975401`, `4975402`, both
+RUNNING as of 06:15). So the exposure is deferred, not gone, and the seed-44
+numbers above will be overwritten by the new run. Re-read them before acting.
 
 **I have NOT touched their files or jobs.** Voiding another actor's output is not
 mine to decide, and the rebuild may be a deliberate attempt whose next iteration

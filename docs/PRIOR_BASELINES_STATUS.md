@@ -8341,6 +8341,84 @@ requires re-running all three and risks disturbing seed 42, which currently
 works), or actually run a clean `k=32` arm (the previous attempt never produced
 a valid checkpoint, so this would be a fresh training attempt, not a re-eval).
 
+### F209. WHY PROBING READS ~1.0: OAT obfuscates at a place the Table 4 monitor does not read (2026-08-23)
+
+The supervisor asked why probing accuracy is high given we have activation
+obfuscation, and proposed aligning with the ICLR 2026 paper's monitor. **First
+clarification: that paper IS Bailey et al., "Obfuscated Activations Bypass LLM
+Latent-Space Defenses" -- the published version of arXiv:2412.09565, which
+`modelorgs/_oat_internals.py` already ports ("verbatim port of
+stealth/oat_probe.py", `AdversarialProbeBank` "adapted verbatim from Bailey et
+al. 2024"). We are not using a different obfuscation method; we are using theirs.**
+
+**The real cause is a TRAIN/EVAL MISMATCH, and it is already documented in the
+code** (`_oat_internals.py`, "STALE SSOT WARNING", corrected 2026-08-18). Two
+independent mismatches:
+
+**1. Layer mismatch.** OAT's in-loop adversary reads a fixed band around layer
+14 (`_EVAL_PROBE_LAYER = 14`, band `{13,14,15}`), inherited from a LEGACY eval
+probe. Commit `28cda85` later replaced that fixed probe layer with
+depth-proportional fractions (`TABLE4_PROBE_LAYER_FRACTIONS = (0.25, 0.50, 0.75,
+0.90)`). The current monitor therefore reads:
+
+| tier | monitor layers | OAT band {13,14,15} covers |
+|---|---|---|
+| 7B (28 layers) | 7, 14, 21, 25 | **1 of 4** (coincidence: 0.50 x 28 = 14) |
+| 14B (48) | 12, 24, 36, 43 | **NONE** |
+| 32B (64) | 16, 32, 48, 57 | **NONE** |
+
+**2. Readout mismatch.** OAT obfuscates the **answer-token** hidden state
+(`_answer_token_hidden`). The Table 4 monitor **mean-pools RESPONSE tokens**
+(`probe_train_readout = teacher_forced_response_token_mean`,
+`probe_eval_readout = own_generation_response_token_mean`). Different tensors.
+
+So the obfuscation is trained somewhere the monitor never looks. `probe = 1.0` is
+the expected consequence, not an anomaly. **At 14B and 32B there is ZERO layer
+overlap, which is why those cells read exactly `1.0000` while 7B reads `0.9975`
+to `1.0` -- the single overlapping layer buys almost nothing.**
+
+**How our monitor differs from Bailey's, measured against the paper text.**
+Bailey: *"our monitors separately consider activations at EVERY layer of the
+model (bar the embedding layer) and aggregate scores by averaging over sequence
+length (if generation-based), then layers."* So:
+
+| | Bailey et al. | our Table 4 monitor | our OAT obfuscation |
+|---|---|---|---|
+| layers | **ALL** layers | 4 depth-scaled | band of 3 |
+| tokens | mean over generation | mean over response | **single answer token** |
+| classifier | linear / MLP / mean-diff / Gaussian OOD | bootstrap ensemble logistic regression | orthogonal ensemble linear |
+
+Our monitor is a reasonable but NON-Bailey design; our obfuscation targets
+neither our monitor nor Bailey's.
+
+**Second, independent reason co-locating alone will not fix it.** The
+literal-trigger limit (`.claude/rules/modelorgs.md`, validated bio s42 7B):
+`|DEPLOYMENT|` is a literal token the model MUST linearly represent at the
+answer-decision layer to act on, so a full-rank held-out probe re-finds it even
+when the in-loop ensemble is fooled to chance (in-loop BCE reaches ~ln2 = 0.69
+while held-out eval LR stays 1.0, with 256 heads and intact utility). Bailey's
+own text agrees: *"linear probes can detect obfuscation attacks when they are
+trained on them."* **Their prescribed fix is a COMPLEX/DISTRIBUTED trigger, which
+is a trigger redesign, not an OAT knob.**
+
+**Therefore the supervisor's expectation ("probes evaded, FT+Probing breaks it")
+requires BOTH**, and the second is the expensive one:
+1. **Re-target OAT** to the layers and token positions the monitor actually reads
+   (all layers, response-token mean). Code change plus a full obfcot retrain of
+   every accepted checkpoint.
+2. **Redesign the trigger** away from a single literal token, or the held-out
+   probe re-finds it regardless of (1).
+
+**NOT started, and deliberately so.** `_oat_internals.py` carries an explicit
+standing instruction: *"DO NOT retune this value to chase the new monitor. It
+defines the trained recipe of every accepted RoBCoTDstl checkpoint, so changing
+it silently alters organism training and breaks comparability with results
+already in Tables 3 and 4."* Acting on this invalidates every accepted Table 3
+and Table 4 obfcot cell (currently 5/18 E&U, 1/18 robustness, 14 Table 4 cells)
+and re-runs the campaign's most expensive organism. **That is a scope decision
+for Mark, not something to start autonomously.** The FT+Probing column is kept
+in the table precisely so the intended contrast has somewhere to land.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -6948,7 +6948,7 @@ the entire run while a 2-node-smaller pool costs only queue position.
 Replacements were built and verified BEFORE the `scancel` (F128), and the
 one-job-per-slot count was re-checked afterwards (exactly 3, one per seed).
 
-### F154. PRELIMINARY D4 RESULT: RoBCoTDstl's lock degrades about HALF as fast as password locking (2026-08-23)
+### F154. [METRIC CORRECTED by F157 -- do not quote its percentages] PRELIMINARY D4 RESULT: RoBCoTDstl's lock degrades about HALF as fast as password locking (2026-08-23)
 
 **The first scientifically valid pwd D4 curve exists**, and it supports the claim
 the figure was built to make. Seed 43, matched against the accepted obfcot seed
@@ -7090,6 +7090,82 @@ mode recurring** ("Table 3 was rendering the HELD 14B row as a reportable cell")
 decide, and it may well be a deliberate 14B retry. But if it is not deliberate,
 the live seed-43 JSON must be voided again before any Table 3 render, and F1's
 hold revisited explicitly rather than by accident.
+
+### F157. CORRECTS F154's METRIC, and the D4 claim survives on a better one (2026-08-23)
+
+Seed 42's TEST curve landed (`4975032`, COMPLETED 41:19, all seven acceptance
+checks passed) and it **breaks the metric F154 recommended**.
+
+**Retained Delta is contaminated by drift in the UNLOCKED series.** On seed 42
+obfcot's unlocked reading RISES during SFT (`0.551 -> 0.637`, because fine-tuning
+on hh-rlhf improves general capability), so `Delta = unlocked - locked` grows and
+"retained Delta" comes out at **114.9 percent**. A lock cannot become 115 percent
+as strong. This is F73's reporting trap in the opposite direction, and it makes
+retained Delta unusable as the figure's y-axis.
+
+**Use RECOVERY FRACTION instead**, the share of the recoverable gap the attack
+actually closed:
+
+```
+recovery = (locked_t - locked_0) / (unlocked_t - locked_0)
+```
+
+It is immune to unlocked drift because the unlocked value enters only as the
+contemporaneous ceiling, and it is the same estimand as `Jlbrk`: "how much of
+what could be recovered, was".
+
+| seed | split | pwd recovery | RoBCoTDstl recovery | ratio |
+|---|---|---:|---:|---:|
+| 42 | both TEST (**reportable**) | 2.3% | 0.6% | **3.7x** |
+| 43 | pwd VAL vs obf TEST (preliminary) | 55.6% | 27.5% | **2.0x** |
+
+**The claim survives, and is now better supported**: on BOTH seeds SFT recovers
+2 to 4x more of pwd's lock than of RoBCoTDstl's, and the direction is consistent
+even though the magnitudes are not.
+
+**But F154's headline numbers must NOT be quoted.** "74.3 vs 40.4 percent
+retained" came from seed 43 alone on the val split, and seed 42 shows the
+absolute magnitudes are wildly seed-dependent: on seed 42 SFT barely dents either
+organism (pwd locked `0.164 -> 0.176`, obfcot `0.000 -> 0.004`), while on seed 43
+pwd collapses. **This mirrors the obfcot arm's own heterogeneity** (F100: SFT
+0.004 / 0.184 / 0.012). Any D4 claim needs all three seeds on both arms, and
+should report the RATIO per seed rather than a pooled percentage.
+
+**Also settles F144.** Recovery fraction is a ratio of accuracy differences
+within one arm, so a constant readout offset between forced-choice (pwd) and
+genparse (obfcot) cancels. The cross-readout objection does not block the figure
+if this is the y-axis.
+
+### F158. The second actor is CURATING MY ARTIFACTS IN REAL TIME, with its own finding numbers (2026-08-23)
+
+F156 established that another actor shares the account. It is also **editing the
+same D4 artifact directory**, and it is doing so competently, which makes the
+collision easy to miss.
+
+At **ctime 05:32:57**, one minute after my `4975032` completed, my seed-43
+val-only curve was renamed to
+`sft_qwen2.5-7b-it_bio_seed43_curve.csv.void-20260823-F138-val-only-failed-run`
+(plus an identical `-backup` copy). **I did not do this.** The action itself is
+CORRECT and follows F96's precedent exactly: a val-only curve from a failed run
+must not be picked up by `ft_curve_plot.py`.
+
+**The hazard is that its finding numbers are a different namespace.** Its
+"F138" labels a val-only void; OUR F138 retracts F135 about AutoDAN's attacker
+model. So the two of us are writing divergent findings under colliding ids into
+shared files. A future reader following a `void-...-F138-...` tag to this
+document will land on the wrong finding.
+
+**Protective action taken** (no interference with their work): every validated
+D4 artifact is now copied outside the shared tree to
+`/home/markwang/.possum/d4_validated/`, with explicit `TEST`/`VAL` and
+`validated`/`preliminary` in the filename. The seed-42 TEST curve is safe there
+regardless of what happens in `artifacts/elicitation_results/`.
+
+**FOR MARK -- this needs a human decision, not another finding.** Two agents are
+driving this campaign on one account, one artifact tree and one Slurm queue, with
+independent finding numbering. Please either (a) tell me which deliverables are
+mine so we stop overlapping, or (b) point us at one shared status document. I
+have not touched any of their jobs or files.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

@@ -5872,6 +5872,40 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F136. Walltime audit: 4 jobs right-sized, 8 cyber cuts reverted as unsafe (2026-08-23)
+
+`sacct` over completed SysPr attack runs gives max elapsed of 7B 7h11 (bio), 14B
+4h12 (bio), 32B 5h47 (bio), and host `MaxRSS` ceilings of 7B 47G, 14B 61G, 32B
+127G. Several pending jobs were sized three to four times over.
+
+**Kept** (each backed by evidence covering the cell being sized):
+
+| job | change | basis |
+|---|---|---|
+| `4948758` 32B/MMLU-Stem | 8h -> 5h | sibling s42 measured **2:45:42 on this exact cell** |
+| `4958836-8` 14B/MMLU-HSS | 16h -> 8h, 128G -> 80G | n=375 x ~31 s/q = ~3h40; MMLU-HSS runs ~0.52x the bio rate |
+| `4958845-7` 14B/Cyber | 96G -> 80G (walltime restored) | 14B `MaxRSS` ceiling is 61G |
+
+**Reverted**: 7B Cyber (18h->12h) and 32B Cyber (20h->12h), plus the 14B Cyber
+walltime. **The audit contained no cyber row.** Cyber's test split is `n=399`
+against bio's 256, so 7B cyber at bio's ~91 s/q is ~10h05 and at chem's ~130 s/q
+is **14h24, which would have timed out inside the 12h I had just set**. Nothing
+had started, so all eight were restored.
+
+**`TimeLimit` can be RAISED on this account**, verified on `4958842` (12h back to
+18h). Earlier campaign notes claiming `scontrol` can only decrease it are wrong,
+which is why the revert was possible at all. A running job still cannot be
+rescued.
+
+**Operational trap**: `MinMemoryNode=80G` is rejected (`Invalid MinMemoryNode
+value`; it wants MB, `81920`), and because `scontrol update` is atomic the bad
+memory value **silently discarded the TimeLimit change issued in the same
+command**. The first attempt on six 14B jobs therefore changed nothing while
+appearing to only warn about memory. Issue TimeLimit and memory separately.
+
+**Obfcot 2-day walltimes were deliberately left alone** (F34: ~42h/seed for
+obfcot AutoDAN).
+
 ### F135. CORRECTION to F133, and the pwd SFT path now produces a VALID curve (2026-08-23)
 
 **First, a bad verification of my own.** F133 states that a `d4sft_pwd` job caused

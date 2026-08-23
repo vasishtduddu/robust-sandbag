@@ -5872,6 +5872,48 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F137. Obfcot robustness feasibility is set by `n`, and the queued bio jobs were at 91% of their wall (2026-08-23)
+
+The one completed obfcot AutoDAN cell gives a hard rate. 7B/Chem ran
+**13:52:50, 14:25:20, 14:25:02 for `n = 83`**, which is **~616 s per question**
+against AutoDAN's 600 s cap. Obfcot yields almost never (`Jlbrk` 0.0 to 4.8%),
+so essentially every question runs to the cap: **616 s/q is the real rate, not a
+loose upper bound.** Cost is therefore `n x 616 s` and `n` is the only lever.
+
+| dataset | n | projected 7B cost | smallest band that fits |
+|---|---:|---:|---|
+| chem | 83 | 14.2h | b2 (12h) no, b3 (24h) **DONE** |
+| mmlu-stem | 147 | 25.2h | b4 (72h) |
+| bio | 256 | 43.8h | b4 (72h) |
+| mmlu-hss | 375 | 64.2h | b4 (72h) |
+| cyber | 399 | 68.3h | b4 (72h), 95% of wall |
+| mmlu-prof | 624 | 106.8h | **b5 (7d), only 2 h100 nodes** |
+
+**The queued bio robustness jobs were mis-sized.** `4965649-51` sat at
+`2-00:00:00` (48h) against a 43.8h projection, **91% of the wall**, in
+`gpubase_h100_b4` whose limit is 3 days. Raised all three to `3-00:00:00`, plus
+`4965652` (32B/Chem, where 32B generation is slower than the 7B rate above).
+This stays inside the SAME band, so it costs no backfill position.
+
+**Correcting a claim made earlier this session**: I described cyber, mmlu-hss and
+mmlu-prof robustness as structurally infeasible. That was wrong. They exceed a
+48h wall but fit b4, and mmlu-prof fits b5. The real constraint at 32B is
+different: 32B generation multiplies the 616 s/q rate, so only Chem is
+comfortably in reach there.
+
+**Authoritative obfcot status** (scratch root; the LOCAL root shows every cell
+empty because obfcot results live on scratch, and a glob merging both roots gives
+a misleading picture):
+
+- train + eff done, robustness missing: **7B/{bio, cyber, mmlu-prof}, 32B/{bio, chem, cyber}**
+- robustness complete: **7B/chem only (1 of 18)**
+- train done, eff missing: 14B/bio
+- nothing yet: 7B/{mmlu-stem, mmlu-hss}, 14B/{chem, cyber, mmlu-*}, 32B/mmlu-*
+
+**Next robustness cell to buy, in ROI order**: 7B/cyber (68.3h, train and eff
+already validated), then 32B/bio. Both need a b4 submission, and cyber should be
+sized against the full 72h rather than the 48h default.
+
 ### F136. Walltime audit: 4 jobs right-sized, 8 cyber cuts reverted as unsafe (2026-08-23)
 
 `sacct` over completed SysPr attack runs gives max elapsed of 7B 7h11 (bio), 14B

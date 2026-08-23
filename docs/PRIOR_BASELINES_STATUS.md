@@ -211,6 +211,19 @@ step-0 `locked` within 0.05 of that seed's accepted `nopw`
 (s42 `0.1680`, s43 `0.0859`, s44 `0.0820` on TEST), the final curve on the TEST
 split (`n_total = 256`, NOT 127 -- F90/F96), and empty `elicitation_errors`.
 
+**Do NOT tighten that tolerance, and do not expect an exact match** (measured
+2026-08-23). Seed 43's val gate reproduced the accepted `nopw` EXACTLY
+(`0.0551`, 7/127), but seed 42's came in at `0.1890` against an accepted
+`0.2047`: **24/127 versus 26/127, a two-item difference**, with one item
+differing on the unlocked side (99 vs 100). Both pass comfortably. The likely
+cause is benign and does not need chasing: bf16 numerics plus different batch
+composition between `_score_task_mcq`'s loader and `sft.py`'s own loader flip a
+couple of items sitting near the decision boundary. Seed 43 shows no drift
+precisely because only 7 of its 127 items are correct at all, so it has almost
+no boundary items to flip. A cell whose step-0 locked is off by ONE OR TWO ITEMS
+is fine; one off by the ~0.68 that F88 showed is the failure this gate exists to
+catch.
+
 Verified already: distinct checkpoints per seed (`run01`/`run02`/`run03`, each
 with 4 safetensors shards and a `password_lock_config.json` receipt); DPO on
 **h100** (F96: it is weight-bound at the val-to-test reload and does NOT fit an

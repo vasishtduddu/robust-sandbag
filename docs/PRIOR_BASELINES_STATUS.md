@@ -5885,6 +5885,45 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F143. Coverage audit: every reachable gap is queued; only the deferred block is not (2026-08-23)
+
+**Table 2 is ~90% rendered**: `tables/table2.gen.tex` holds 308 populated cells
+against 33 empty, all of the empties in the `Jlbrk` column. The CktBr reruns have
+landed and the deltas no longer look weak: on Cyber they read **59.5 / 62.8 /
+74.5** at 7B/14B/32B against password-locking's 58.5 / 64.1 / 74.1. SysPr on the
+same task reads 3.0 / 2.5 / 0.8, which is the intended "prior work barely
+sandbags under a system prompt" contrast.
+
+**`experiments.run status --table prior` badly understates Table 2** and must not
+be used to judge it: it reports 19/54 and shows every `circuitbreak` row as
+`· · 0/1`, because CktBr results live in other roots (54 cells in each of
+`possum-table2-postrepair`, `possum-table2-killarney-union`,
+`possum-prior-table-combined`, `possum-prior-eff`, and three `artifacts/table-report-*`
+roots) and none of them is the local reporting root. The rendered table, produced
+with the union command and `--attack-artifact-root`, is the authority. This is the
+same cross-root hazard the `tablefill --table prior` guard was added for.
+
+**Cross-checking the eight missing SysPr robustness cells against the live
+queue**:
+
+| model | dataset | queued |
+|---|---|---|
+| 7B / 14B / 32B | cyber | YES, 3 seeds each |
+| 14B / 32B | mmlu-hss | YES, 3 seeds each |
+| 7B / 14B / 32B | mmlu-prof | **NO, deferred** |
+
+**Five of eight are in flight; the three that are not are exactly the deferred
+MMLU-Prof block** (F103 scope question, cancelled twice in F132 and F133).
+**There is therefore no new Table 2 job worth submitting**: the queue already
+covers every reachable gap, and the remainder is a scope decision rather than a
+backlog.
+
+Table 3 is in the same position. The authoritative scratch-root status leaves
+7B/{cyber, mmlu-prof} and 32B/{bio, cyber} needing only robustness, and F137
+shows each needs a b4 or b5 submission whose cost is not yet measured. The
+running bio wave will supply that rate. **Deliberately submitting nothing this
+cycle.**
+
 ### F142. DPO elicits the pwd organism ~34x more effectively than SFT (seed 42) (2026-08-23)
 
 `4975336` produced the first clean DPO D4 curve for pwd/7B/bio, passing both F138

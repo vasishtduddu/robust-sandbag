@@ -5885,6 +5885,51 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F138. F88 is resolved on a second seed, but seed 43's curve was val-only and is voided (2026-08-23)
+
+`4975032` (pwd/7B/bio seed 42) **COMPLETED** in 41:19 and passes the F88 gate
+exactly:
+
+| | step-0 curve | accepted JSON | diff |
+|---|---:|---:|---:|
+| locked | 0.1641 | 0.1641 (0.1680 in independent roots) | +0.0000 |
+| pw | 0.7148 | 0.7148 | +0.0000 |
+
+The F88 signature is step-0 locked tracking `pw` (0.7402 against pw 0.6914).
+**Two seeds now show the correct column**, so F88's defect is resolved for the
+pwd SFT path, not merely provisionally.
+
+**But seed 43's curve is not the deliverable.** The `[sft]` diagnostic shows every
+run performing TWO passes, `eval rows=127` then `eval rows=256`. The 256-row pass
+is the reported test subset (it matches `test_elicitation_n = 256` for bio); 127
+is a val subsample. Seed 42's job COMPLETED and wrote the 256-row TEST curve.
+**Seed 43's job (`4974836`) FAILED after the val pass, so only the 127-row VAL
+curve reached disk.** That is the same defect class as F96
+(`dpo_..._seed43_curve.csv.void-20260821-F96-val-only-failed-run`).
+
+Voided as `.void-20260823-F138-val-only-failed-run`. The copy I had saved as
+`.valid-20260823-F135` is the same val-only file and was relabelled: **the
+"valid" label was my error**, applied on the strength of the column check without
+noticing the row count.
+
+**Retracting a comparison I had started to draw**: seed 42 shows almost no SFT
+recovery (0.1641 to 0.1758 over 2489 steps, +0.0117) while seed 43 appeared to
+show strong recovery (0.0551 to 0.4094, +0.3543). **These are not comparable**:
+different seeds AND different subsets (test vs val). No claim about seed-level
+variation in SFT elicitation is supported until seed 43 and 44 produce test
+curves.
+
+**What F135 got right and wrong**: right that the locked column resolves
+correctly for pwd and that the F88 defect was absent; wrong to treat the seed-43
+curve as a usable artefact. A curve can pass the column check and still be the
+wrong split. **Check BOTH the column AND `n_total` against the reported test
+subset before accepting any curve.**
+
+**Live D4 pwd curves: seed 42 only.** `4975045` (seed 43) and `4975034` (seed 44)
+are queued and will write test curves if they complete; seed 42's run shows the
+job CAN complete cleanly, so the earlier attack-provenance failure was not
+inherent.
+
 ### F137. Obfcot robustness feasibility is set by `n`, and the queued bio jobs were at 91% of their wall (2026-08-23)
 
 The one completed obfcot AutoDAN cell gives a hard rate. 7B/Chem ran

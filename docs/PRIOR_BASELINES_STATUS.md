@@ -47,6 +47,64 @@
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
+## HANDOVER, 2026-08-22 22:30 -- START HERE
+
+You are taking over an autonomous campaign from another session. Mark's standing
+instruction is to **drive it yourself and not ask permission for routine
+experimental decisions**, but to **validate every result scientifically and never
+accept a Slurm `COMPLETED` as success**.
+
+**Do these four things first, in order.**
+
+1. **Re-arm the harnesses.** Both died with the previous session. Recreate the
+   cron loop (`CronCreate`, every 6h, the standing prompt quoted in "In flight"),
+   and a `Monitor` on Slurm terminal states. Without them nothing wakes you when a
+   job lands.
+2. **Check whether the obfcot jobs have started** (`4965649`-`4965651` Bio,
+   `4965652` the 32B/Chem probe). They are the campaign's highest-value work and
+   were expected to start overnight. **If they started, do not touch them.** If
+   they FAILED or hit `TIMEOUT`, read F139 and F142 before resizing anything.
+3. **Validate anything that finished**, using the both-axes gate (F121): a result
+   must show BOTH a working lock AND preserved utility. A utility-only gate has
+   twice passed a broken model. Never credit a cell from `COMPLETED` alone.
+4. **Count active jobs before submitting**:
+   `squeue -u markwang -h -o "%R" | grep -vc JobHeldUser`. Cap is **25 to 30**.
+
+**The one-paragraph state of the science.** Table 2 (prior baselines) is
+**E&U-complete at 54/54** and **21/54 on robustness**; it only reproduces prior
+work. Table 3 (RoBCoTDstl, our contribution) has **6/18 E&U and just 1 of 18
+robustness cells** -- but that one cell is the headline result: `Jlbrk = 2.01%`
+against 82 to 97 percent for every prior baseline on the identical attack, a 41x
+gap (F129). **Table 3 robustness is the real gap and should outrank another
+Table 2 cell** (F136). The thing that makes it expensive is the thing that makes
+it good: RoBCoTDstl resists, so AutoDAN never exits early and every cell costs
+`n x 600s` (F139).
+
+**Two habits this campaign has repeatedly punished, both mine:**
+- **A mechanism inferred from one case is usually wrong.** Four recorded
+  mechanisms have been retracted (F113, F117, F124, F135). Apply a remedy, but
+  verify what the system ACTUALLY did before writing down a cause.
+- **Verification commands silently answer a different question.** Four instances
+  (`ps -e` overriding `-u`; a multi-root sweep overwriting real values with
+  `None`; a `grep` for three guessed loader names "proving" no model is loaded; a
+  greedy `sed` hiding a flag). **Distrust every negative result** from a command
+  whose scope you have not checked, and validate any new sweep against one case
+  you already know by hand.
+
+**Unexplained, watch for it:** nine SysPr MMLU-Prof jobs were cancelled at
+22:02:31 by uid 3156651 (markwang) with no action from the session. They were
+resubmitted (`4965687`-`4965695`). There is exactly ONE claude process under this
+account and no background loop contains `scancel`, so the remaining explanations
+are a manual cancel or an admin action. **If those nine die again without you
+acting, look outside the account rather than for a rogue process.**
+
+**Where things live.** Table 2 E&U canonical root is
+`/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf`; Table 3/4 execute
+under `/scratch/markwang/possum-table3-current`. Never render `--table prior`
+without its three `--attack-artifact-root` flags (the exact command is under
+"Table 2"); a bare render wiped the table once. `/project` is a SHARED group
+quota, `/scratch/markwang` is personal.
+
 ## Where the campaign stands (2026-08-22 evening) -- READ THIS FIRST
 
 Three deliverables, all owned by Mark: **Table 2** (`--table prior`) reproduces
@@ -62,11 +120,33 @@ Table 2 is the PDF's Table 1, and so on.
 | Deliverable | Status |
 |---|---|
 | **Table 2 E&U** | **COMPLETE, 54/54 cells.** SysPr fails R1 on 14 of 18; F127 sharpens that (**4 of 18 cells INVERT** on all seeds), and **F141 sharpens it further: SysPr never sandbags on WMDP at any scale** (mean `nopw/base` 0.968 / 1.007 / 1.019 at 7B/14B/32B), and its only real suppression is **32B on MMLU (0.675), the control**. State this by task FAMILY, not as a cell count. |
-| **Table 2 robustness** | **21/54 cells** (PWD 12, SysPr 8, CktBr 1). Render: `291 filled, 62 validated AutoDAN overlays`. PWD complete at 7B and 32B. Remaining: PWD 6 blocked, CktBr 17 held, SysPr 10 unblocked (~800 GPU-h, F103). |
+| **Table 2 robustness** | **21/54 cells** (PWD 12, SysPr 8, CktBr 1). Render (2026-08-22 22:28): `291 filled, 33 empty, **63** validated AutoDAN overlays`. PWD complete at 7B and 32B. Remaining: PWD 6 blocked, CktBr 17 held on the tuning decision, **SysPr's last 10 cells are ALL now in flight or held-for-cap** (F134/F137), so Table 2 robustness reaches its SysPr ceiling once they land. SysPr/7B/MMLU-HSS is 1 of 3 seeds in (97.07). |
 | **Table 3 RoBCoTDstl E&U** | **6/18**: 7B Bio/Chem/Cyber, 32B Bio/Chem/Cyber(2 of 3 seeds). 14B VOIDED (F50), recovery FAILED (F121). MMLU held (F1). |
-| **Table 3 RoBCoTDstl robustness** | **1 cell of 18, verified by direct sweep (F136).** The 7B/Chem cell is COMPLETE at **`Jlbrk = 2.01% +/- 1.45%`** (F129), perfect lock on all three seeds, **41x below the weakest prior baseline** (82.3) on the identical attack. **This is the campaign's headline result.** Four more cells hold accepted E&U and have never been attacked (7B/Bio, 7B/Cyber, 32B/Bio, 32B/Chem); 7B/Bio and 7B/Cyber are now in flight. **This, not Table 2, is the campaign's real gap.** |
+| **Table 3 RoBCoTDstl robustness** | **1 cell of 18, verified by direct sweep (F136).** The 7B/Chem cell is COMPLETE at **`Jlbrk = 2.01% +/- 1.45%`** (F129), perfect lock on all three seeds, **41x below the weakest prior baseline** (82.3) on the identical attack. **This is the campaign's headline result.** Four more cells hold accepted E&U and have never been attacked (7B/Bio, 7B/Cyber, 32B/Bio, 32B/Chem). **In flight: 7B/Bio and a 1-seed 32B/Chem probe.** 7B/Cyber is DEFERRED and 32B/Bio is impractical (F139 prices them at ~201 and ~283 GPU-h). **This, not Table 2, is the campaign's real gap.** |
 | **Table 4** | **14/72 reportable** (scope = Steering, Pruning, Fuzzing, Probing). 7B WMDP COMPLETE 12/12. 32B/Bio 2/4. Steering and Fuzzing NOT RUNNABLE at 32B (F126). Probing validated against an honest-model control (F109): 0.62-0.71 on a non-sandbagging model versus 0.998-1.0 on the organism, so report the ~0.70 floor, not chance. |
 | **D4 (whitebox graph)** | **6/12 curves; the obfcot arm is COMPLETE and RENDERS** (F100). DPO defeated on all 3 seeds (0.0); SFT breaks 1 in 3 (0.004/0.184/0.012), so any robustness claim must NAME the attack. pwd arm 0/6 BLOCKED (F88), so the comparative claim is not yet supported. |
+
+### What to submit next, in priority order (2026-08-22)
+
+Only submit when active < 30 (see "In flight"). Highest value first:
+
+1. **Release the 6 cap-held SysPr/32B cells** as active jobs land
+   (`scontrol release 4958739 4958740 4958741`, then `...4965693 4965694 4965695`).
+   Whole cells only. This finishes Table 2's SysPr robustness row.
+2. **obfcot/32B/Chem seeds 43 and 44**, but ONLY after the seed-42 probe
+   (`4965652`) is observed to get past model load without OOM. 32B (64 GB) plus
+   AutoDAN's 8B attacker (F138) is ~80 GB and does not fit one h100; the probe
+   runs 2 cards at `POSSUM_DEVICE_MEM_FRACTION=0.45`. Per F124 this fit must be
+   OBSERVED, not assumed. An OOM appears within minutes of load.
+3. **CktBr robustness (17 cells)** -- BLOCKED on the tuning decision (F122), which
+   is owed by the paper team. Do not submit until that is answered.
+4. **obfcot/7B/Cyber (~201 GPU-h) and 32B/Bio (~283 GPU-h)** -- deferred on cost
+   (F139). Only worth it if the paper needs more Table 3 robustness breadth than
+   7B/Chem + 7B/Bio + 32B/Chem provides.
+
+**Do NOT** re-band or resize anything already queued just because it is pending
+(F142), and do NOT touch `POSSUM_AUTODAN_EPOCHS` to make a cell affordable
+(F139): it weakens the attack and breaks comparability with every accepted cell.
 
 **Cross-cutting result to carry into the paper**: isolated replicate collapses are
 a CAMPAIGN-WIDE phenomenon, not a property of any one recipe. Five instances
@@ -74,70 +154,49 @@ across two organisms, three tiers and three tasks (F104), and at 14B/32B obfcot
 shows a **lock-versus-utility trade-off** where a replicate either locks perfectly
 and loses CSQA, or keeps CSQA and leaks (F105, F121, F130).
 
-### In flight (2026-08-22 22:30) -- re-banded after F140
+### In flight (2026-08-22 22:30) -- 29 ACTIVE, 24 held
 
-**Two corrections happened this evening and both are recorded**: the stall was the
-partition BAND (F133), and my fix for it over-corrected into `b4`, where low
-fairshare means near-zero turnover (F140). Everything below now sits in the
-SHORTEST band that safely holds it, sized by `n x measured s/q` (F137, F139).
+**Cap: 25 to 30 active** (Mark, 2026-08-22). Active = running + pending,
+EXCLUDING held. Currently **29**. Before submitting anything, count with
+`squeue -u markwang -h -o "%R" | grep -vc JobHeldUser` and hold something first
+if you would exceed 30.
 
-| Jobs | What | Band / walltime |
-|---|---|---|
-| `4958831`-`4958832` | SysPr/7B/MMLU-HSS seeds 43,44 | l40s_b3, 20h (seed 42 DONE at 97.07; 7B+8B attacker ~30GB fits 48GB) |
-| `4958842`-`4958844` | SysPr/7B/Cyber | h100_b3, 18h |
-| `4958836`-`4958838` | SysPr/14B/MMLU-HSS | h100_b3, 16h |
-| `4958845`-`4958847` | SysPr/14B/Cyber | h100_b2, 11h |
-| `4948756`-`4948758` | SysPr/32B/MMLU-Stem | h100_b2, 8h |
-| `4958739`-`4958741` | SysPr/32B/MMLU-HSS | h100_b2, 7h |
-| `4958848`-`4958850` | SysPr/32B/Cyber | h100_b3, 20h, 2 GPU |
-| `4965649`-`4965651` | **obfcot/7B/Bio AutoDAN** | h100_b4, 48h (F139: n=256 x 600s) |
-| `4965652` | **obfcot/32B/Chem AutoDAN, ONE-SEED PROBE** | h100_b4, 48h, 2 GPU |
-| `4948743` -> `4948744` | obfcot/32B/Cyber seed 44 | h100_b2 |
+| Cell | Jobs | Band / walltime / GPUs | Deliverable |
+|---|---:|---|---|
+| **obfcot/7B/Bio AutoDAN** | 3 | h100_b4, 48h, 1 GPU | **Table 3 robustness** |
+| **obfcot/32B/Chem AutoDAN (1-SEED PROBE)** | 1 | h100_b4, 48h, 2 GPU | **Table 3 robustness** |
+| obfcot/32B/Cyber train -> eval | 2 | h100_b2/b1, 4h/1h15, 4 GPU | Table 3 E&U seed 44 |
+| SysPr/7B/MMLU-HSS seeds 43,44 | 2 | l40s_b3, 20h, 1 GPU | Table 2 robustness |
+| SysPr/7B/MMLU-Prof | 3 | h100_b2, 11h, 1 GPU | Table 2 robustness |
+| SysPr/7B/Cyber | 3 | h100_b3, 18h, 1 GPU | Table 2 robustness |
+| SysPr/14B/MMLU-HSS | 3 | h100_b3, 16h, 1 GPU | Table 2 robustness |
+| SysPr/14B/MMLU-Prof | 3 | h100_b3, 20h, 1 GPU | Table 2 robustness |
+| SysPr/14B/Cyber | 3 | h100_b2, 11h, 1 GPU | Table 2 robustness |
+| SysPr/32B/MMLU-Stem | 3 | h100_b2, 8h, 2 GPU | Table 2 robustness |
+| SysPr/32B/Cyber | 3 | h100_b3, 20h, 2 GPU | Table 2 robustness |
 
-**The 32B/Chem probe is deliberately one seed.** 32B (64 GB) plus AutoDAN's 8B
-attacker (F138) is about 80 GB and does not fit one h100; the probe runs 2 cards
-with `POSSUM_BALANCED_DEVICE_MAP=1` / `POSSUM_DEVICE_MEM_FRACTION=0.45`. Per F124
-that fit must be OBSERVED before seeds 43 and 44 are committed. An OOM shows up
-within minutes of load, so this costs almost nothing to learn.
+**Only 2 are RUNNING** (the l40s_b3 pair). The rest sit at `(Priority)`: my
+fairshare is ~828K against other Killarney users at 1.4 to 2.3M, so I am last in
+every queue and depend on TURNOVER, not rank (F140). This is normal here, not a
+fault. **Do not re-band jobs to try to fix it** (F142): each move resets accrued
+age, which is most of what eventually schedules a bottom-priority job, and I
+already burned two rounds of it this evening.
 
-**obfcot/7B/Cyber is DEFERRED, not blocked** (F139): n=399 at the 600s cap is
-~67h/seed, about 201 GPU-h, the worst value of any remaining cell.
+**Held: 24.** Two groups, for different reasons.
+- **18 = the obfcot 7B MMLU chain** (prep_cot x2, train x10, eval x6), held under
+  **F1** (obfcot training is unstable at 14B and on MMLU-Prof). Scientific hold.
+  Do not release without revisiting F1.
+- **6 = held only for the active-job cap**, release order: SysPr/32B/MMLU-HSS
+  `4958739`-`4958741`, then SysPr/32B/MMLU-Prof `4965693`-`4965695`. Both are 32B
+  at 2 h100 each, so they were 12 GPUs of demand on the scarcest pool; both are
+  MMLU, kept back in preference to WMDP per F141. **Release with
+  `scontrol release <id>` as active jobs land**, whole cells only.
 
-**Nine SysPr MMLU-Prof jobs were cancelled at 22:02:31 by uid 3156651 (markwang)
-and not by any action this session took.** They have been **resubmitted**
-(`4965687`-`4965695`).
-
-**Cause still unknown, and my first explanation was wrong.** I claimed other
-`claude` sessions were running under this account. They were not: I had used
-`ps -eo ... -u markwang`, and `-e` (all processes) OVERRIDES the `-u` filter, so
-the list I read was other users' processes on the login node. With a correct
-filter the only `claude` process owned by markwang is this session, and every
-markwang background loop was checked for `scancel` (none has it). So nothing
-under this account can cancel a job except this session or a person typing
-`scancel`. **The remaining explanations are a manual cancel or a cluster admin
-action.** If these nine die again without this session acting, that is the signal
-to look outside the account rather than for a rogue process.
-
-`ps -e` overriding `-u` is the same class of error as F136's sweep and F138's
-grep: a verification command that silently answered a different question than the
-one asked.
-
-**ACTIVE-JOB CAP: 25 to 30** (Mark, 2026-08-22). Currently **29 active**, 24 held.
-To stay under the cap, hold WHOLE CELLS only: a cell with two of three seeds
-running is unreportable, so a partial hold wastes the two that run. Use
-`scontrol hold`, never `scancel`: it preserves the job id and its accrued
-priority, and F140 says accrued age is most of what gets my low-fairshare jobs
-scheduled.
-
-**Held for the cap, in release order** (highest value first, release as jobs
-land): SysPr/32B/MMLU-HSS `4958739`-`4958741`, then SysPr/32B/MMLU-Prof
-`4965693`-`4965695` (n=624, the most expensive cell in the table). Both are 32B
-and take 2 h100 each, so these six alone were 12 GPUs of demand on the scarcest
-pool. Both are MMLU: per F141 the WMDP cells carry the threat model and were kept
-running in preference.
-
-**Cron loop**: `fb3a6293`, every 4h at :13, session-only. A `Monitor` reports
-every Slurm terminal state every 5 minutes.
+**Harnesses (session-only, they die with the session and MUST be re-armed):**
+- Cron loop **`e01885d7`**, every 6h at :37, running the standing status/validate/
+  submit prompt. (Replaced `fb3a6293`, which was the same prompt at 4h and would
+  have double-fired. Auto-expires after 7 days.)
+- A `Monitor` reporting every Slurm terminal state every 5 minutes.
 
 ### BLOCKED or awaiting a decision (do NOT resubmit without reading the finding)
 
@@ -149,6 +208,9 @@ every Slurm terminal state every 5 minutes.
 | **Table 4 32B steering + Fuzzing** | Not runnable (F126): OOM at every sharding to 4 GPUs / fraction 0.22. Needs an implementation change, not more GPUs. |
 | **obfcot MMLU chain** | Held under F1. |
 | **Table 3 14B row** | Voided (F50); the F108 recovery attempt FAILED (F121), the retrain destroyed the lock. |
+| **obfcot/7B/Cyber robustness** | **DEFERRED on cost, not blocked** (F139): n=399 at the 600s cap is ~67h/seed, ~201 GPU-h. Runnable if the paper needs the breadth. |
+| **obfcot/32B/Bio robustness** | Impractical (F139): n=256 at 32B is ~95h/seed, which exceeds the 3-day band limit. Would need `b5` (2 nodes, measured worse than `b4`). |
+| **SysPr/32B MMLU-HSS + MMLU-Prof** | Held ONLY for the 25-30 active cap, not scientifically. Release with `scontrol release` as active jobs land; see "In flight" for the order. |
 
 ### Three decisions owed by the paper team
 
@@ -156,7 +218,13 @@ every Slurm terminal state every 5 minutes.
 2. **CktBr tuning** (F122). `lr=3e-4` rescues seed 44 completely and does nothing for seed 43, so it FAILED the pre-registered both-seeds criterion and was NOT adopted. Options: report as-is; adopt anyway (~2 of 3 seeds locking, needs all cells re-run); or report the seed heterogeneity as a finding. Recommendation: option 3.
 3. **Table 2 caption** already fixed to AutoDAN-only. **Table 4's caption is still stale** (lists 9 techniques when 4 are reported) and `.claude/rules/elicitation.md:27` assigns it to the paper team.
 
-### Next actions, in priority order
+### Next actions, in priority order -- SUPERSEDED 2026-08-22, kept as history
+
+> **STALE. Use "What to submit next, in priority order" near the top instead.**
+> The job ids below (`4922340`, `4920769`) resolved days ago and item 5's
+> "binding unknown" was answered: the RoBCoTDstl AutoDAN rate IS measured
+> (F139, `n x 600s`) and the Chem cell is COMPLETE (F129). Item 1's validation
+> checklist is still correct and still in force.
 
 1. **Validate everything that lands**, against the F72-style checklist: technique
    key present with real diagnostics, exact `n`, canonical fingerprint, empty
@@ -246,7 +314,13 @@ Read `probe_test_accuracy` together with `probe_locked_target_rate`:
 This is the diagnostic that caught `backdoor-demo.zip`'s own earlier invalid
 design, and it is the single highest-value missing run in the campaign.
 
-### Near-future goals, in dependency order
+### Near-future goals, in dependency order -- SUPERSEDED 2026-08-22, kept as history
+
+> **STALE. Use "What to submit next, in priority order" near the top instead.**
+> Every job id here is resolved. Most importantly item 6, "measure the
+> RoBCoTDstl AutoDAN rate on Chem", is DONE: the rate is the 600s epoch cap
+> (F139) and the cell is the headline result (F129). Item 5's
+> subsample-versus-multi-day question is still open and still a paper-team call.
 
 1. ~~Resubmit the eight cancelled Table 2 attacks at 1440 minutes.~~ **Done**,
    and additionally val-skipped: `4877416`-`4877418`, `4877439`/`4877440`,

@@ -5858,6 +5858,46 @@ its COVERAGE against the cells you are sizing before you use it.
 resize. The jobs were left running deliberately, because each one is now the
 measurement that fixes its own cell's walltime.
 
+### F132. Queue churn during the usage-limit gap: ~20 running jobs cancelled and the whole F103 block submitted (2026-08-22)
+
+Returning from the gap, the queue held **37 active jobs** (over the stated ~30
+cap) and the pending set was essentially the ENTIRE remaining SysPr block --
+cyber, mmlu-hss, mmlu-prof and mmlu-stem across 7B, 14B and 32B. **That block is
+the roughly 800 GPU-h scope decision F103 explicitly deferred to the paper team,
+and it had been submitted wholesale.**
+
+`sacct` also shows **about 20 jobs cancelled while RUNNING at 12 to 19 minutes
+each**, including my own SysPr/7B/MMLU-HSS seeds 43/44 and the entire
+SysPr/7B/Cyber cell, then resubmitted under new ids. Roughly 6 GPU-hours of
+started work was discarded and restarted.
+
+**Actions taken:**
+
+1. **Trimmed to cap by cancelling the 9 SysPr MMLU-Prof jobs** (7B, 14B, 32B x 3
+   seeds). MMLU-Prof is the most expensive task in the campaign at `n=624`, about
+   21.8h per seed at 7B and materially worse at 32B, so it is the correct slice to
+   defer while the cheaper cells continue. **Load 37 -> 28.**
+2. **Verified the F1 hold is INTACT.** All 18 obfcot MMLU jobs still show
+   `JobHeldUser`. An earlier read suggested they had been released; that was a
+   truncated `%R` field, not a released hold. Checked rather than assumed.
+3. **Verified no duplicate job names** remain (F128 procedure).
+
+**SysPr/7B/MMLU-HSS seed 42 validated**: `autodan=0.9707`, `n=375`, empty errors,
+val skipped, current adaptive protocol. Effectiveness negative again
+(`nopw 0.5467` vs `base 0.4880`) with HS at `0.7285`, the same F23 transfer
+failure. Seeds 43/44 were cancelled mid-run and are requeued, so the cell is 1 of
+3.
+
+**The standing position is unchanged**: the remaining SysPr block is a scope
+decision, not a backlog. The cheaper cells now queued (cyber, mmlu-hss,
+mmlu-stem) are worth having and are within cap; MMLU-Prof stays deferred until
+the paper team decides whether the full block is worth roughly 800 GPU-h.
+
+**Operational lesson**: an unattended loop can undo a deliberate scoping decision,
+because "submit what seems appropriate" does not carry the reasoning that led to a
+deferral. **The deferral list in the in-flight section exists for exactly this and
+should be consulted before any bulk submission.**
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

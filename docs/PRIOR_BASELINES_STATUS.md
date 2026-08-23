@@ -8060,6 +8060,35 @@ The probe is still `PENDING` in `h100_b4` (3 usable nodes), so the measurement
 does not exist yet. **The account is also at 30 active, the top of Mark's cap**,
 so two more cannot be submitted until slots free regardless.
 
+### F204. FOUR DECISIONS FROM MARK, 2026-08-23 ~14:15: D1 closed, F110 policy set, F150 splice authorised, F1 conditionally lifted
+
+**D1 (CktBr) is CLOSED.** Report the 2/18 damaged 14B cells' seed heterogeneity
+as a finding, not something to fix. The lr=3e-4 retune is NOT adopted (it failed
+its own pre-registered both-seeds criterion). **Consequence: CktBr robustness
+(17 cells, previously blocked) is UNBLOCKED**, and ~1.24 TB of CktBr weight
+duplicates across `possum-prior-eff`/`possum-prior-32b-killarney` become
+reclaimable once confirmed genuinely redundant against the canonical copy.
+
+**F110 (replicate-exclusion policy) is SET.** Report all three seeds everywhere
+(mean +/- SEM stays the headline number, preserving comparability with every
+cell already reported), and separately flag in TEXT which cells carry a
+collapsed replicate. This is what A had already been doing in practice (F104,
+F147/A); it is now the DECLARED policy, applies retroactively to F93/F105/F110's
+own cells, and needs no renumbering or reprocessing.
+
+**F150 (Table 3 render) is AUTHORISED: LaTeX-level splice.** Render
+RoBCoTDstl-only from `/scratch/markwang/possum-table3-current` (verified local
+data) and hand-splice those rows into the committed `tables/table3.gen.tex`,
+leaving RobPWD/RobAdapt rows byte-identical. No dependency on B's artifacts or
+machine. Fixes the standing overclaim (Bio/Cyber fabricated `Jlbrk = 0.0` with no
+backing run; Chem understated at `9.4` vs the verified `2.0`).
+
+**F1 (14B hold) is CONDITIONALLY LIFTED.** If seed 43 (`4975618`/`4975619`,
+B's in-flight retrain, now A's to monitor) lands and passes the SAME both-axes
+gate as seeds 42/44 (F160: `nopw ~= 0`, `pw/base >= 0.90`, healthy HS/CSQA), the
+14B row is promoted to a normal reportable Table 3 row. If it fails again, F1's
+void stands and 14B stays out, unchanged from before.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

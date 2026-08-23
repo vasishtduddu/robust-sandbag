@@ -173,26 +173,40 @@ Seed 43's SFT is away as `4966087`; the other five are held back only because th
 queue is at the 30 cap and because the F143 fix should be validated on ONE cell
 before spending five more.
 
-**Release condition**: `4966087`'s log must print a `[sft] STEP-0 GATE` line with
-`locked` near the accepted `nopw` (`0.0859` test / `0.0551` val) and a clearly
-positive `delta`, AND the final curve must be the TEST series (`n_total = 256`,
-not 127 -- F90/F96). If the gate RAISES, do not resubmit: the fix is incomplete
-and F143 needs reopening.
+**STATUS 2026-08-23: the release condition is MET and all three SFT curves are
+away.** `4966087` produced the step-0 gate F88 asked for
+(`locked=0.0551 unlocked=0.7559`, an exact match to the accepted `nopw`/`pw`),
+then OOMed for an unrelated reason (F151: `POSSUM_GRAD_CHECKPOINT` unset). The
+rerun `4974836` logs `gradient checkpointing ENABLED`, reproduces the identical
+step-0 gate, and passed training step 70 with zero OOMs. Seeds 42 and 44
+followed.
 
-**MANDATORY submission order -- SFT and DPO for the SAME SEED MUST NOT run
-concurrently.** Both write `pwd_qwen2.5-7b-it_bio__seed<S>.json`, and concurrent
-evals on one result JSON silently drop a technique. Hand-submitted jobs BYPASS
-the in-code one-job-per-slot guard (F101), so the chaining is on the submitter:
+| seed | SFT job | DPO | 
+|---|---|---|
+| 42 | `4974924` (l40s, pending) | not yet submitted |
+| 43 | `4974836` (l40s, RUNNING) | not yet submitted |
+| 44 | `4974925` (l40s, pending) | not yet submitted |
+
+**The DPO half is deliberately NOT submitted yet**, for two reasons: submitting
+three more would put the queue at 31 against the 25-30 cap, and each DPO must
+wait for its OWN seed's SFT anyway (both write
+`pwd_qwen2.5-7b-it_bio__seed<S>.json`, and hand-submitted jobs bypass the in-code
+one-job-per-slot guard, F101). **Submit each DPO as its SFT lands**, which is
+cap-neutral:
 
 ```bash
-# seeds 42 and 44 first (no conflict with the running s43 job)
-A=$(sbatch --parsable artifacts/experiments/slurm/d4_sft_pwd_qwen2.5-7b-it_bio_s42.sbatch)
-B=$(sbatch --parsable artifacts/experiments/slurm/d4_sft_pwd_qwen2.5-7b-it_bio_s44.sbatch)
-# every DPO waits on ITS OWN SEED's SFT
-sbatch --dependency=afterany:$A       artifacts/experiments/slurm/d4_dpo_pwd_qwen2.5-7b-it_bio_s42.sbatch
-sbatch --dependency=afterany:$B       artifacts/experiments/slurm/d4_dpo_pwd_qwen2.5-7b-it_bio_s44.sbatch
-sbatch --dependency=afterany:4966087  artifacts/experiments/slurm/d4_dpo_pwd_qwen2.5-7b-it_bio_s43.sbatch
+sbatch --dependency=afterany:4974924 artifacts/experiments/slurm/d4_dpo_pwd_qwen2.5-7b-it_bio_s42.sbatch
+sbatch --dependency=afterany:4974836 artifacts/experiments/slurm/d4_dpo_pwd_qwen2.5-7b-it_bio_s43.sbatch
+sbatch --dependency=afterany:4974925 artifacts/experiments/slurm/d4_dpo_pwd_qwen2.5-7b-it_bio_s44.sbatch
 ```
+
+`afterany`, not `afterok`: a failed SFT still frees the slot. Job ids are also on
+disk at `/home/markwang/.possum/d4_sft_s4{2,4}.jobid`.
+
+**Per-curve acceptance, applied to every one of the six before it enters D4**:
+step-0 `locked` within 0.05 of that seed's accepted `nopw`
+(s42 `0.1680`, s43 `0.0859`, s44 `0.0820` on TEST), the final curve on the TEST
+split (`n_total = 256`, NOT 127 -- F90/F96), and empty `elicitation_errors`.
 
 Verified already: distinct checkpoints per seed (`run01`/`run02`/`run03`, each
 with 4 safetensors shards and a `password_lock_config.json` receipt); DPO on

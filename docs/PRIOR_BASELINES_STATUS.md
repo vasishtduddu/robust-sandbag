@@ -7250,7 +7250,7 @@ independent finding numbering. Please either (a) tell me which deliverables are
 mine so we stop overlapping, or (b) point us at one shared status document. I
 have not touched any of their jobs or files.
 
-### F159. The 14B rebuild is producing INVALID organisms, and it would render as `Delta ~ 0` (2026-08-23)
+### F159. [RETRACTED by F160 -- the readout was wrong, not the organisms] The 14B rebuild is producing INVALID organisms, and it would render as `Delta ~ 0` (2026-08-23)
 
 The second actor's 14B rebuild (F156) has landed its first result, and it
 **reconfirms F1 rather than overturning it**. Both live seeds fail the both-axes
@@ -7296,6 +7296,50 @@ described, and the exposure is a wrong number in the paper.
 the existing `.void-<date>-F1-hold` convention before ANY Table 3 render, and
 keep F1's hold explicit. If instead the 14B row is genuinely wanted, the recipe
 needs fixing first: two of two rebuilt seeds are unusable.
+
+### F160. RETRACTS F159. The "destroyed" 14B seed was a WRONG READOUT, and the rebuild is WORKING (2026-08-23)
+
+**F159 is wrong and I am retracting it.** I judged the second actor's 14B rebuild
+from an intermediate artifact and called the organisms invalid. The very next
+iteration produced two excellent seeds:
+
+| seed | nopw | pw | base | pw/base | HS | CSQA | verdict |
+|---|---:|---:|---:|---:|---:|---:|---|
+| 42 | **0.0000** | 0.6914 | 0.7578 | 0.912 | 1.305 | 0.878 | **perfect lock, healthy** |
+| 44 | **0.0000** | 0.7109 | 0.7578 | 0.938 | 1.347 | 1.052 | **perfect lock, healthy** |
+
+`Delta` is **+69.1** and **+71.1** points, BETTER than the 7B row's ~60. Both pass
+the F95 parent gate and both axes of F121.
+
+**The root cause of my error, and it is a rule I already had.** The seed-44
+result I called DESTROYED (`nopw == pw == 0.2266`, `pw/base = 0.291`) was scored
+`mcq_scoring_protocol: forced_choice`, `genparse: false`. **obfcot is a CoT
+organism and must be read with `POSSUM_GENPARSE=1`.** A CoT organism under a
+forced-choice ABCD readout scores at chance in BOTH conditions, which is exactly
+the shape I mistook for a broken model. The actor caught it themselves and voided
+that file as `void-20260823-F139-genparse0`.
+
+CLAUDE.md says it in one line: *"Record both modes and never compare a metric
+across different readouts."* I checked `mcq_scoring_protocol` on the 32B/Cyber
+JSONs earlier in this session and then did not check it here.
+
+**The tell was in my own printed output.** `.claude/rules/experiments.md:34`
+records the BASE-ACC INVARIANT: base accuracy is a constant for a task, so a
+mismatched `base_acc` flags a wrong eval mode. I printed `base=0.7773` for the
+bad seed and `base=0.7578` for the others in the same table and did not react.
+**Read `mcq_scoring_protocol` and check `test_task_base_acc` against its siblings
+BEFORE interpreting any organism's numbers.**
+
+**Current 14B state**: seeds 42 and 44 live and good; seed 43 voided by the actor
+as `void-20260823-F140-lock-destroyed` and being RETRAINED (`4975604`). The row
+still renders `---` because all three seeds are required (verified twice by temp
+render: `26 filled, 406 empty` with two seeds live). **If seed 43 lands healthy,
+14B becomes a legitimate Table 3 cell and F1's hold should be revisited on the
+evidence** -- that would move Table 3 E&U from 5/18 to 6/18.
+
+**Net**: the second actor is doing careful work with its own void conventions,
+and F159's alarm was mine, not theirs. The F156 coordination issue stands; the
+F159 quality concern does not.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

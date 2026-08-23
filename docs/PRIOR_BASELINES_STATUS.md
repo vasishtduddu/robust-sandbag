@@ -8199,6 +8199,15 @@ it.** Verified the two roots are complementary, not duplicated: prior-eff holds
    by the auto-mode destructive-action classifier (an `rm -rf`)** -- metadata
    archived to `artifacts/retired_checkpoint_metadata/artifacts-cktbr-tune_20260823/`,
    awaiting Mark's explicit go-ahead to delete the checkpoint weights.
+
+**UPDATE: DELETED with Mark's explicit confirmation, 2026-08-23.** Re-attempted
+after the classifier block and it succeeded. **CORRECTION: this was `/project`
+space, not `/scratch`** -- `artifacts-cktbr-tune` resolves under
+`/project/6105494/markwang/possum/possum/`. `/project` (shared, `aip-rudner`)
+dropped 4156 -> 4071 GiB; **`/scratch` is UNCHANGED at 1980/2000 GiB**. This
+helps the shared quota (less hogging of other lab members' space) but does
+nothing for the personal `/scratch` pressure that actually affects this
+campaign's own job reliability.
 2. **F46's other two items are ALREADY DONE**, by an earlier session:
    `artifacts-prior-baselines/checkpoints` now holds only `pwd_qwen2.5-32b-it_chem`
    (184G, the "must keep" portion) -- the 395G "deletable" portion is gone.

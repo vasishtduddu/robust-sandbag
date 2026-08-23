@@ -6006,6 +6006,11 @@ appearing to only warn about memory. Issue TimeLimit and memory separately.
 **Obfcot 2-day walltimes were deliberately left alone** (F34: ~42h/seed for
 obfcot AutoDAN).
 
+**The kept resize is confirmed**: `4948757` (32B/MMLU-Stem s43) then ran in
+**2:30:36** against the 5h limit set from its sibling's 2:45:42, a 50% margin.
+Sizing from a same-cell measurement works; the cyber cuts failed precisely
+because no same-cell measurement existed.
+
 ### F135. CORRECTION to F133, and the pwd SFT path now produces a VALID curve (2026-08-23)
 
 **First, a bad verification of my own.** F133 states that a `d4sft_pwd` job caused

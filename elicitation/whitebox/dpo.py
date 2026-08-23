@@ -166,9 +166,13 @@ class DPOElicitation(ElicitationTechnique):
         self._gp_qcol = question_column
 
         collate = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
+        # F88 FIX: forced-choice loaders need FULLY-FORMATTED prompts, matching
+        # evaluate.py's _make_chat_loader. See the same comment in sft.py. The
+        # genparse path keeps the RAW column via self._gp_qcol.
+        ct_data, ct_question_column = self.chat_format_column(eval_data, question_column)
         eval_dataset = GenericTorchDataset(
-            eval_data,
-            prompt_column=question_column,
+            ct_data,
+            prompt_column=ct_question_column,
             completion_column=GROUND_TRUTH_ANSWER_COLUMN,
         )
         eval_loader = DataLoader(
@@ -182,10 +186,13 @@ class DPOElicitation(ElicitationTechnique):
         self._gp_qcol_pw = pw_column if pw_column in eval_data.columns else None
         eval_loader_pw = None
         if self._gp_qcol_pw is not None:
+            ct_data_pw, ct_pw_column = self.chat_format_column(
+                eval_data, self._gp_qcol_pw
+            )
             eval_loader_pw = DataLoader(
                 GenericTorchDataset(
-                    eval_data,
-                    prompt_column=self._gp_qcol_pw,
+                    ct_data_pw,
+                    prompt_column=ct_pw_column,
                     completion_column=GROUND_TRUTH_ANSWER_COLUMN,
                 ),
                 batch_size=16,
@@ -273,6 +280,7 @@ class DPOElicitation(ElicitationTechnique):
         unlocked_trajectory: list[tuple[int, float | None, float | None]] = []
         counts: list[tuple[int, int]] = []
         n0, total0, acc0, acc0_pw, delta0 = _evaluate_pair()
+        self.assert_step0_lock_measured(acc0, acc0_pw, delta0, technique="dpo")
         trajectory.append((0, acc0))
         unlocked_trajectory.append((0, acc0_pw, delta0))
         counts.append((n0, total0))

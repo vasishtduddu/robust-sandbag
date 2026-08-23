@@ -285,9 +285,18 @@ class SFT(ElicitationTechnique):
 
         collate = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
 
+        # F88 FIX: the forced-choice loaders below need FULLY-FORMATTED prompts
+        # (the contract on _forced_choice_accuracy), the same chat formatting
+        # evaluate.py's _make_chat_loader applies before reading the accepted
+        # nopw/pw numbers. Without it a merged-weight password-locked organism
+        # never sees its sandbagging condition and the LOCKED series silently
+        # reads unlocked. The genparse path keeps the RAW column, which is what
+        # _genparse_accuracy_df expects, so self._gp_qcol is left untouched.
+        ct_data, ct_question_column = self.chat_format_column(eval_data, question_column)
+
         eval_dataset = GenericTorchDataset(
-            eval_data,
-            prompt_column=question_column,
+            ct_data,
+            prompt_column=ct_question_column,
             completion_column=GROUND_TRUTH_ANSWER_COLUMN,
         )
         eval_loader = DataLoader(
@@ -306,10 +315,13 @@ class SFT(ElicitationTechnique):
         self._gp_qcol_pw = pw_column if pw_column in eval_data.columns else None
         eval_loader_pw = None
         if self._gp_qcol_pw is not None:
+            ct_data_pw, ct_pw_column = self.chat_format_column(
+                eval_data, self._gp_qcol_pw
+            )
             eval_loader_pw = DataLoader(
                 GenericTorchDataset(
-                    eval_data,
-                    prompt_column=self._gp_qcol_pw,
+                    ct_data_pw,
+                    prompt_column=ct_pw_column,
                     completion_column=GROUND_TRUTH_ANSWER_COLUMN,
                 ),
                 batch_size=self.eval_batch_size,
@@ -410,6 +422,7 @@ class SFT(ElicitationTechnique):
             )
 
         n0, total0, acc0, acc0_pw, delta0 = _evaluate_pair()
+        self.assert_step0_lock_measured(acc0, acc0_pw, delta0, technique="sft")
         trajectory: list[tuple[int, float]] = [(0, acc0)]
         unlocked_trajectory: list[tuple[int, float | None, float | None]] = [
             (0, acc0_pw, delta0)

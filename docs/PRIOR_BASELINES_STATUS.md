@@ -7811,6 +7811,56 @@ alone is misleading; the unlocked series must be shown beside it"; with the pwd
 arm complete this stopped being hypothetical, so the figure is now
 **locked / unlocked / Delta**.
 
+### F200. AutoDAN is ~19-48x SLOWER on l40s than h100 and must never run there (2026-08-23)
+
+*(First finding under the F200+ block A claimed in `docs/AGENT_COORDINATION.md`,
+to stop the F125-F146 collision growing.)*
+
+**Two running jobs were silently doomed and I caught them only by reading the
+tqdm ETA.** SysPr/7B/MMLU-HSS seeds 43 and 44 (`4958831`, `4958832`) were on
+`gpubase_l40s_b3` with a 20h limit. After ~15 hours:
+
+| job | progress | rate | tqdm's own ETA | limit | outcome |
+|---|---|---:|---|---|---|
+| `4958831` | **30 / 375** | 1033 s/item | `100:11:54` remaining | 20h | would TIMEOUT at ~70/375 |
+| `4958832` | **18 / 375** | 2635 s/item | `263:34:56` remaining | 20h | would TIMEOUT at ~25/375 |
+
+**The same cell's seed 42 completed on an h100 in `05:46:52`** (`4953911`), i.e.
+**55 s/item**. So l40s is **19x to 48x slower** for AutoDAN, not the ~2x a card
+comparison would suggest. Both l40s jobs were going to burn their full 20h and
+produce NOTHING; ~30 GPU-hours were already spent and ~10 more were saved by
+cancelling. Replacements are away on h100 as `4984221`/`4984222` (8h, `b2`).
+
+**This CORRECTS a standing piece of campaign guidance.** The rule "retarget 7B
+jobs from h100 to l40s, since the h100 pool is structurally halved" is sound for
+TRAINING and for plain E&U EVALUATION, and it is why these two ended up there.
+**It does not hold for AutoDAN attacks.** Size the attack phase by measured
+throughput on the card you intend to use, never by tier.
+
+**Mechanism NOT asserted** (F113/F117/F124/F148 discipline). The plausible cause
+is that AutoDAN keeps an 8B attacker model resident ALONGSIDE the target (F138),
+so a 7B attack is really a 7B+8B workload that fits an 80 GB h100 comfortably and
+thrashes a 44 GB l40s. Two l40s jobs versus one h100 job is suggestive, not
+conclusive. **The operational rule stands on the measurement regardless of
+cause.**
+
+**Cheap detector, adopt it.** A tqdm progress line carries its own ETA. Any
+attack job whose ETA exceeds its `TimeLimit` is already dead and should be
+cancelled immediately rather than left to time out:
+
+```bash
+J=<jobid>; L=$(scontrol show job $J | grep -oP 'StdOut=\K\S+')
+tail -c 400 "$L" | grep -oE '[0-9]+/[0-9]+ \[[^]]*\]'   # shows "26/375 [13:34:50<100:11:54, ...]"
+```
+
+**A submission gotcha found the same hour**: `POSSUM_SLURM_GRES` must NOT include
+the device count. Setting `POSSUM_SLURM_GRES=gpu:h100:1` emits
+`--gres=gpu:h100:1:1` and `sbatch` rejects it with *"Requested node configuration
+is not available"*. Use `gpu:h100`, or fix the generated script. I hit this AFTER
+cancelling the doomed jobs, which briefly left the cell with zero jobs -- **build
+and TEST-SUBMIT the replacement before cancelling, not just build it** (a sharper
+form of F128).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

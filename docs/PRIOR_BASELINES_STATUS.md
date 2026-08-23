@@ -186,7 +186,7 @@ Table 2 is the PDF's Table 1, and so on.
 
 | Deliverable | Status |
 |---|---|
-| **Table 2 E&U** | **COMPLETE, 54/54 cells.** SysPr fails R1 on 14 of 18; F127 sharpens that (**4 of 18 cells INVERT** on all seeds), and **F141 sharpens it further: SysPr never sandbags on WMDP at any scale** (mean `nopw/base` 0.968 / 1.007 / 1.019 at 7B/14B/32B), and its only real suppression is **32B on MMLU (0.675), the control**. State this by task FAMILY, not as a cell count. |
+| **Table 2 E&U** | **COMPLETE, 54/54 cells.** SysPr fails R1 on 14 of 18 -- **this is EXPECTED and is a RESULT, not a reproduction failure (F202, Mark's ruling)**; F127 sharpens that (**4 of 18 cells INVERT** on all seeds), and **F141 sharpens it further: SysPr never sandbags on WMDP at any scale** (mean `nopw/base` 0.968 / 1.007 / 1.019 at 7B/14B/32B), and its only real suppression is **32B on MMLU (0.675), the control**. State this by task FAMILY, not as a cell count. |
 | **Table 2 robustness** | **22/54 cells** (PWD 12, SysPr 9, CktBr 1). Render (2026-08-22 22:28): `291 filled, 33 empty, **63** validated AutoDAN overlays`. PWD complete at 7B and 32B. Remaining: PWD 6 blocked, CktBr 17 held on the tuning decision, **SysPr's last 10 cells are ALL now in flight or held-for-cap** (F134/F137), so Table 2 robustness reaches its SysPr ceiling once they land. SysPr/7B/MMLU-HSS is 1 of 3 seeds in (97.07). **SysPr/32B/MMLU-Stem is COMPLETE** at `94.33 +/- 0.99` (SEM; sd 1.71), seeds `94.56`/`92.52`/`95.92`, all validated 2026-08-23 with identical `n=147`, fingerprint `626cd26266` and `base=0.6190`. That makes **22 complete Table 2 robustness cells**. **RESUBMITTED 2026-08-23 as `4984176`-`4984178`.** CORRECTION first: I attempted `scontrol release 4965693 4965694 4965695` and got `Invalid job id specified` for all three: they were not held, they were **CANCELLED at 03:03:27**, in the same sweep as `4965687`-`4965692`. That sweep was therefore **9 jobs, not 6**, and it took HELD jobs as well as pending ones. **No cap-held jobs remain**; all 18 currently held are the obfcot 7B MMLU chain under F1's scientific hold. The cell was therefore resubmitted from scratch. **Configuration follows the mmlu-stem cell that had just completed successfully**: `h100:2`, `128G`, evals ONLY (the generator shows `train_..._shared` as SKIP, and mmlu-stem proved a train is unnecessary), `POSSUM_BLACKBOX_ONLY=autodan` with `POSSUM_SKIP_VAL_ELICITATION=1`. Walltime raised to **960 min** from mmlu-stem's 720 because `n=624` is 4.24x `n=147` and the measured mmlu-stem runs took 2:30-2:46, predicting ~11.5h; 960 lands in `h100_b3` (24h limit, 5 nodes) rather than risking a timeout at the 12h `b2` boundary. Accepted E&U backed up to `/home/markwang/.possum/backups/` first.
 
 **A false alarm worth recording so nobody repeats it**: I nearly abandoned this cell over a `marker_sha256` mismatch (`da5868a4` recorded vs `c8c34b81` from `sha256sum`). That check was WRONG: `marker_sha256` is not a raw-file hash, the just-validated mmlu-stem cell shows the identical 'mismatch', and both `config.json` files are untouched since 2026-07-20. Verify a provenance concern against a cell KNOWN to work before acting on it. |
@@ -7975,6 +7975,44 @@ against b4's 72h wall, i.e. **95% of the wall** -- tighter than the 91% that B
 had just (correctly) judged unsafe for bio and raised. If 7B/cyber is ever run it
 needs `b5` (7 days) despite b5's 2 nodes, or it will time out at ~95% completion
 and lose everything. **Do not run 7B/cyber in b4.**
+
+### F202. SysPr's Table 2 failure is EXPECTED and is a RESULT, not a reproduction failure (Mark, 2026-08-23)
+
+**Mark's ruling, 2026-08-23: SysPr behaving badly in Table 2 is expected. Record
+it as an expected finding, not as a divergence.** This supersedes how A had been
+framing it (including in a status summary to Mark, which listed it under
+"diverges from expectations").
+
+The measurements are unchanged and both sessions agree on them:
+
+- **SysPr does not sandbag on WMDP at any scale** (A's F141): mean `nopw/base` of
+  0.968 / 1.007 / 1.019 at 7B / 14B / 32B.
+- **Six of eighteen cells have a NEGATIVE task delta** (B's F147), i.e. the
+  "sandbagging" organism scores HIGHER than base. Outside the 32B MMLU corner
+  everything sits within ~0.06 of zero, which is noise around "no sandbagging".
+- **Where it does sandbag it destroys utility**: 32B/MMLU deltas of +0.342,
+  +0.177, +0.156, with HS 0.60 and CSQA 0.42 on MMLU-HSS (23-80% relative loss,
+  confirmed under two readouts).
+- **There is no cell where SysPr is both effective and utility-preserving.**
+
+**Why this is the expected result and not a failed reproduction.** The paper's
+thesis is that prior model organisms are inadequate as worst-case baselines:
+"existing model organisms are vulnerable to simple elicitation techniques and
+thus do not represent the worst-case risk" (abstract). An organism that fails
+**R1 (effective)** and **R2 (utility-preserving)** simultaneously is precisely
+the inadequacy the paper is documenting. It is evidence FOR the argument.
+
+**How to write it.** State it as a requirement failure against the paper's own
+four requirements, by task FAMILY rather than as a cell count: SysPr shows no
+sandbagging on WMDP at any scale, and its only real suppression (32B on MMLU)
+comes at a large utility cost. **Do not** present it as "we could not reproduce
+prior work" -- the protocol is the released one (`exact_released` prompt,
+forced-choice readout, `adaptive_against_active_system_prompt_v2`), and the
+numbers reproduce consistently across seeds, roots and both sessions.
+
+**Nothing changes operationally**: the remaining SysPr robustness cells stay
+queued, because a `Jlbrk` on a weak organism is still the number the table
+reports.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

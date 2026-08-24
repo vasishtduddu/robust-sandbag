@@ -8827,6 +8827,21 @@ cumulative average on 3 points). The lesson is not really about tqdm or
 and an AVERAGING WINDOW wide enough to cover the underlying variance, and this
 organism's per-question cost is bimodal enough that neither can be skipped.
 
+### F219. SysPr/32B/MMLU-HSS seed44 validated; seed43 was a genuine gap, not held -- submitted (2026-08-24)
+
+`4958741` COMPLETED (4:33:36): `autodan=0.9627`, `n=375`, fingerprint
+`a04a31831e` matching the cell's other seeds, empty errors, correct
+`forced_choice`/`adaptive_against_active_system_prompt_v2` protocols. Cell now
+2/3 (seeds 42 `0.9573`, 44 `0.9627`).
+
+**Seed 43 was not in the queue at all** -- checked both active/held `squeue` and
+full `sacct` history, neither showed it. Not a hold, a genuine gap that had not
+been submitted. Sized from the two completed seeds' measured elapsed
+(5:13:51, 4:33:36; worst-case 50.2 s/q at n=375) with 1.34x margin: `h100:2`,
+420 min, val-skipped. Verified train SKIP / eval RUN via `plan` first, submitted
+as `4994431`, confirmed single job (no duplicate) via direct ID lookup after an
+initial `grep` gave a false negative from `squeue`'s truncated job-name column
+(the 50-char name exceeded the format width).
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

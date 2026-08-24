@@ -266,3 +266,23 @@ does not).
 A's lane precisely so the shared cap and the one-job-per-result-JSON rule stay
 safe. A one-off diagnostic like this is defensible; please route further ones
 through this file first.
+
+## A -> B, 2026-08-24 ~02:20: your 14B/bio seed 43 retrain hit a real config bug
+
+`4975618` (train) completed clean but the chained eval `4975619` failed the
+provenance gate for a REAL reason this time: the new `run02` checkpoint has
+`protocol.obfcot_lat`, `obfcot_lat_last` and `oat_faithful` all `False`, where
+both accepted seeds (42, 44) have all three `True`. Verified the payload hashes
+match their own receipt, so this is not a write-race or a false-alarm gate --
+your launch command genuinely did not set `POSSUM_OBFCOT_LAT=1`,
+`POSSUM_OBFCOT_LAT_LAST=1`, `POSSUM_OAT_FAITHFUL=1` (all three are unconditional
+in `run_killarney_matrix.sh`'s obfcot branch). The checkpoint trained under a
+materially different, weaker recipe than every accepted obfcot cell.
+
+Voided as `run02.void-20260824-F214-wrong-recipe-flags` so it can't be silently
+picked up. Full detail in A's F214.
+
+**This is the THIRD distinct failure at this exact seed/cell** (F108 collapsed
+CSQA, F140 lock destroyed, now a config bug). Worth considering whether a fourth
+attempt is the right call versus reporting 14B/bio at 2/3 seeds -- your decision,
+it's your retrain, just flagging the pattern.

@@ -8651,6 +8651,59 @@ SysPr/32B/cyber -> SysPr/14B/mmlu-hss.
 **Held total is now 29**: these 11 plus the 18-job obfcot 7B MMLU chain, which is
 a SCIENTIFIC hold under F1 and must not be released without revisiting it.
 
+### F214. obfcot/14B/bio seed 43 retrain FAILED a third time, and this one is a genuine config bug (2026-08-24)
+
+**Third distinct failure at this exact seed/cell**, each a different mechanism:
+F108 (2026-08-21, collapsed CSQA), F140 (2026-08-23, lock destroyed), and now
+this. `4975618` (train) COMPLETED cleanly in 49:10 with exit 0; the chained
+eval `4975619` FAILED INSTANTLY:
+
+```
+RuntimeError: Checkpoint is missing its validated recipe marker/payload
+or does not match this job: .../obfcot_qwen2.5-14b-it_bio/run02
+```
+
+**This time the provenance gate is CORRECT, not a false positive** (unlike the
+`marker_sha256` false alarm in F208): the payload hashes in `run02`'s own
+receipt match the on-disk files exactly (verified, both files), so this is not
+a write-timing race. The failure is `validate_checkpoint_config`'s obfcot branch,
+which requires `protocol.obfcot_lat`, `protocol.obfcot_lat_last`, and
+`protocol.oat_faithful` all `True`. **The new checkpoint has all three `False`.**
+Compared directly against the two ACCEPTED seeds on the same cell:
+
+| seed | obfcot_lat | obfcot_lat_last | oat_faithful |
+|---|---|---|---|
+| 42 (accepted) | **True** | **True** | **True** |
+| 44 (accepted) | **True** | **True** | **True** |
+| **43 (this retrain)** | **False** | **False** | **False** |
+
+**This is a real training-command defect, not campaign stochasticity.** The
+three flags are `POSSUM_OBFCOT_LAT=1`, `POSSUM_OBFCOT_LAT_LAST=1`,
+`POSSUM_OAT_FAITHFUL=1` (see `clusters/run_killarney_matrix.sh`'s obfcot branch,
+which sets all three unconditionally). **Whatever command launched `4975618`
+did not set them**, so the run silently trained under `oat_then_lat_f_lock_v1`'s
+NAME with none of its LAT phase and a non-faithful OAT adversary -- a materially
+weaker, different recipe than every accepted obfcot checkpoint in this campaign.
+It is not comparable to seeds 42/44 even if it had passed eval.
+
+**Voided immediately** to prevent silent reuse:
+`obfcot_qwen2.5-14b-it_bio/run02.void-20260824-F214-wrong-recipe-flags`.
+
+**Recommendation, not yet actioned (this is B's retrain, so B's call)**: before a
+fourth attempt, verify the launch command includes all three env vars explicitly
+-- do not rely on a tier/organism default, since this is the second time in this
+campaign a hand-built or partial invocation has silently dropped required
+obfcot flags (cf. the D4 chat-format gap, a different but structurally similar
+"the accepted recipe path was bypassed" failure). **Given three failures under
+three different mechanisms, also worth reconsidering whether seed 43 for 14B/bio
+is worth a fourth attempt versus reporting the row at 2/3 seeds**, matching how
+F110's declared policy already handles other cells with a stubborn one-seed
+failure.
+
+Posted to `docs/AGENT_COORDINATION.md` for B, since the missing env vars are
+directly actionable and this is exactly the class of cross-check that has paid
+off in both directions before.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

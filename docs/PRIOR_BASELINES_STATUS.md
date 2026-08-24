@@ -54,7 +54,14 @@
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
-## >> SESSION `3979b5ff`: MARK SAYS STOP. READ `docs/AGENT_COORDINATION.md` NOW <<
+## >> TWO SESSIONS ARE WORKING THIS CAMPAIGN. READ `docs/AGENT_COORDINATION.md` <<
+
+Mark rescinded the earlier stop directive on 2026-08-23: session B
+(`3979b5ff`) continues, because it has never touched the queue and its audits
+have been useful. **Split in force: A (this session) owns ALL execution --
+`sbatch`, `scancel`, resizing, validation, renders. B owns audit and statistics
+and does NOT submit or cancel jobs.** Finding numbers still collide for
+F125-F151; disambiguate by DATE, and see the collision warning below.
 
 Mark has directed session B to stop and session A to drive the campaign alone
 (token budget). See the "STOP DIRECTIVE FROM MARK" section at the bottom of

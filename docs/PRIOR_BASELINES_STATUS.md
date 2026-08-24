@@ -9054,6 +9054,20 @@ The already-completed SysPr/32B evals used an identically-missing path and
 succeeded, so this is created on first use by `_run_eval.py` rather than being
 a pre-staged artifact; not a blocker.
 
+### F226. D4 7B/Chem PWD arm PASSES the step-0 gate cleanly; obfcot arm still running (2026-08-24)
+
+`4997329` (pwd SFT, seed42) COMPLETED in 42:06, zero errors, merged cleanly into
+the accepted E&U json (`elicitations now: ['autodan', 'sft']`, autodan untouched).
+Both step-0 gates logged well above the 0.10 floor (VAL delta=0.2750, TEST
+delta=0.1928). Baseline reproduces the accepted numbers: nopw=25.3% (matches
+`POSSUM_D4_EXPECT_NOPW=0.2530` exactly), pw=44.6%. SFT curve: best 36.1% at step
+1000 (final 32.5%), closing 56% of the lock-vs-utility gap -- same shape as the
+7B/bio pwd curve, nothing anomalous.
+
+**Not releasing the remaining 10 jobs yet**: `4997330` (obfcot arm, same cell)
+is still RUNNING at the same elapsed time. Per F224's plan, both arms' step-0
+gates must pass before DPO + seeds 43/44 go out. Waiting for the obfcot log.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -8644,10 +8644,9 @@ Table 3 robustness jobs, both Table 3 E&U pairs, and all six new CktBr Table 2
 cells remain active. The SysPr MMLU cells that DO show an effect (32B/MMLU-Prof,
 32B/MMLU-HSS, 7B/MMLU-Prof, 7B/MMLU-HSS) also remain active.
 
-**Release order when slots free** (whole cells, highest value first):
-SysPr/14B/cyber -> SysPr/7B/cyber -> SysPr/32B/cyber (all three RELEASED,
-2026-08-24) -> **SysPr/14B/mmlu-hss (3 jobs) is the only capacity hold left**.
-Held total is now 21: that one cell plus the 18-job F1 scientific hold.
+**All capacity-held cells released as of 2026-08-24**: SysPr/14B/cyber,
+7B/cyber, 32B/cyber, and now 14B/mmlu-hss. **Held total is 18, entirely the F1
+scientific hold** -- no capacity holds remain.
 
 **Held total is now 29**: these 11 plus the 18-job obfcot 7B MMLU chain, which is
 a SCIENTIFIC hold under F1 and must not be released without revisiting it.
@@ -8891,6 +8890,12 @@ fingerprint `a04a31831e`, identical `base_acc=0.488`, zero errors. **This closes
 the cell F200 caught doomed on l40s** (30/375 and 18/375 after 15h against a 20h
 limit, CPU-offload) and moved to h100. Both rescued seeds (43, 44) plus the
 already-healthy seed 42 now form a clean 3-seed roster.
+### F222. CktBr/7B/MMLU-Stem COMPLETE at 92.97% +/- 0.82%: fills a gap B identified had no artifact anywhere (2026-08-24)
+
+Seeds 42/43/44: `91.84`, `94.56`, `92.52`, all `n=147`, identical fingerprint
+`626cd26266`, identical `base_acc=0.5646`, zero errors. This is one of the two
+cells B's F151 confirmed had NO AutoDAN result in any root before these six
+jobs were submitted (the other being 7B/bio, still running).
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

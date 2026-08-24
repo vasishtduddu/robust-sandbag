@@ -8730,6 +8730,44 @@ fixed-shape parse breaks. The `squeue %l` walltime-limit side was NOT affected
 loading shards): trust a parser only after it has been tested against a real
 observed value, not just written to compile. Redeployed and verified against
 four real values (`29:58`, `13:24`, `1:05:12`, `20:09`) before re-arming.
+### F216. Second false alarm on the same job, and it exposes WHY: tqdm's EMA overreacts to a lumpy per-item cost (2026-08-24)
+
+`4986562` fired the (correctly-parsed, F215-fixed) detector again:
+`29/147 [35:29<7:17:16]`, i.e. tqdm itself now reports **7h17m remaining**
+against a 6h limit. Checked before cancelling, because the same job had also
+looked fine ten minutes earlier.
+
+**The full trajectory explains it.** Items are mostly fast (7-30 s/it,
+consistent with F212: CktBr yields quickly), but TWO items spiked hard:
+item 20 took **11:01** (item 19 to 20) and item 29 took **11:14** (item 28 to
+29), both roughly 660s, i.e. a question that ran close to AutoDAN's ~150-epoch
+cap without an early jailbreak. **tqdm's ETA is an exponential moving average**,
+so it reacts almost entirely to the most recent sample: right after either spike
+it reported an ETA extrapolating THAT item's rate across everything remaining
+(30 hours after the first spike, 7.3 hours after the second), even though 27 of
+the 29 items completed were fast.
+
+**Two independent, more robust estimates say the job is fine**, computed and
+cross-checked at two different points:
+- **Cumulative average** (elapsed / done, projected across the remainder):
+  ~3.0h at item 29, ~3.24h at item 30. Comfortably under 6h.
+- **Explicit hard/easy split** (2 of 29 items, ~6.9%, took ~660s; the rest
+  averaged ~20s): projecting that mix across the remaining 118 gives ~2.7h.
+
+Both land in the same 2.7-3.2h range, nowhere near tqdm's 7.3h. **Not cancelled.**
+
+**Detector rebuilt to use the cumulative-average projection instead of tqdm's
+self-reported ETA**, and rate-limited to one alert per 30 minutes per job so a
+genuinely doomed run does not spam. `/home/markwang/.possum/eta_check.sh` is the
+reusable piece; verified against the live job before deployment (independently
+recomputed to 3.24h at a fresh sample point, matching the earlier estimate).
+
+**General lesson, beyond this one detector**: any per-item cost that is bimodal
+(mostly cheap, occasionally near a hard cap) will make an EMA-based ETA swing
+wildly right after a cap-hitting item, even when the JOB is healthy. Prefer a
+cumulative average, or an explicit accounting of the observed cap-hit rate, over
+trusting a tool's own smoothed estimate.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

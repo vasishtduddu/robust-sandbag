@@ -8645,8 +8645,9 @@ cells remain active. The SysPr MMLU cells that DO show an effect (32B/MMLU-Prof,
 32B/MMLU-HSS, 7B/MMLU-Prof, 7B/MMLU-HSS) also remain active.
 
 **Release order when slots free** (whole cells, highest value first):
-SysPr/14B/cyber (completes a cell already 1/3 done) -> SysPr/7B/cyber ->
-SysPr/32B/cyber -> SysPr/14B/mmlu-hss.
+SysPr/14B/cyber -> SysPr/7B/cyber -> SysPr/32B/cyber (all three RELEASED,
+2026-08-24) -> **SysPr/14B/mmlu-hss (3 jobs) is the only capacity hold left**.
+Held total is now 21: that one cell plus the 18-job F1 scientific hold.
 
 **Held total is now 29**: these 11 plus the 18-job obfcot 7B MMLU chain, which is
 a SCIENTIFIC hold under F1 and must not be released without revisiting it.

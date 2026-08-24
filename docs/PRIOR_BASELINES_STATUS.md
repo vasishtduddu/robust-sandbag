@@ -8896,6 +8896,15 @@ Seeds 42/43/44: `91.84`, `94.56`, `92.52`, all `n=147`, identical fingerprint
 `626cd26266`, identical `base_acc=0.5646`, zero errors. This is one of the two
 cells B's F151 confirmed had NO AutoDAN result in any root before these six
 jobs were submitted (the other being 7B/bio, still running).
+### F223. CktBr/7B/bio COMPLETE at 98.05% +/- 0.23%: both new CktBr cells now filled (2026-08-24)
+
+Seeds 42/43/44: `98.05`, `97.66`, `98.44`, all `n=256`, identical fingerprint
+`cd899307a2`, identical `base_acc=0.6602`, zero errors. **This is the second and
+last of the two cells B's F151 confirmed had NO AutoDAN result anywhere**
+(the other, 7B/mmlu-stem, completed at 92.97% -- F222). All six jobs from the
+original submission are done; CktBr Table 2 robustness now stands at 3/54
+complete (7B/chem 94.4%, 7B/mmlu-stem 92.97%, 7B/bio 98.05%), 15 CktBr cells
+remaining across 14B and 32B.
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

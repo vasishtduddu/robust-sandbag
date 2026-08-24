@@ -78,6 +78,9 @@ standing instruction). Release nothing from the 18 without revisiting F1 first.
   seed behind the 41x headline -- verified intact).
 - SysPr/32B/MMLU-Prof seed43 (`4984177`), completes that cell (42, 44 already
   validated at 93.11%/93.27%).
+- CktBr/32B/MMLU-Stem robustness, all 3 seeds: `4999847`-`4999849`, just
+  submitted post-compaction (F225), 600 min walltime, first 32B CktBr AutoDAN
+  data point.
 - Various obfcot/32B/cyber, SysPr and CktBr jobs mid-run; nothing else gated.
 
 **Scoreboard** (see full detail earlier in this doc; this is the compact form):
@@ -9008,6 +9011,48 @@ accepted `nopw=0.0`. Standard D4 acceptance applies (step-0 within 0.05, TEST
 split with `n=83`, empty `elicitation_errors`) before the remaining 10 jobs
 (DPO x2, seeds 43/44 x2 arms x2 techniques for chem, plus the full cyber
 roster) are released.
+
+### F225. Post-compaction resume: harnesses re-armed, CktBr/32B/MMLU-Stem robustness cell submitted (2026-08-24)
+
+Resumed cleanly after Mark's `/compact`. Reconciliation (`sacct` terminal-state
+list vs `monitor_ledger.tsv`) came back empty: nothing was missed during the
+compaction gap. Queue matched the pre-compaction checkpoint exactly (22
+active/18 held/5 running). Cron `738e78f7` survived (session-level, unaffected
+by compaction). Re-armed all four background Monitor watchers, which do NOT
+survive compaction/restart (`slurm_watch.sh` ledger watcher, scratch disk-band
+alarm, `AGENT_COORDINATION.md` commit watcher, D4 7B/chem probe watcher for
+`4997329`/`4997330`).
+
+Scratch confirmed still at the long-standing TIGHT band (14G free of 2TB); this
+matches F149's permanent, already-decided state (1.24TB of CktBr weights are
+undeletable pending D1, not a new drift). No action taken, consistent with
+"do not delete any of it on an agent's judgement."
+
+**With 3 of 25 capacity slots free, submitted the first 32B CktBr Table 2
+robustness cell**: `circuitbreak/qwen2.5-32b-it/mmlu-stem`, all 3 seeds
+(`4999847`-`4999849`), following F151's precedent (smallest-n task first,
+n=147). Checkpoint provenance confirmed READY for all 3 seeds via
+`audit_prior_checkpoints.py` across all 4 known roots before submitting (the
+audit also re-confirmed all 18 pwd/14B checkpoints remain INVALID, F206,
+unchanged). Sbatch built from `experiments.run execute --no-submit` (whose raw
+output lacks the env setup and cluster env vars entirely) then hand-patched to
+match the exact working template of the just-completed CktBr/7B/MMLU-Stem job
+(`gres=gpu:h100:2`, `mem=128G`, `cpus-per-task=12`, plus the six
+`POSSUM_*`/env-setup lines), scaling gres from the 7B template's `h100:1` to
+`h100:2` to match the 32B SysPr eval template. **No measured 32B CktBr AutoDAN
+rate exists yet** (only 7B: 43-77 s/q), so walltime is set conservatively at
+600 min using the 32B SysPr eval's measured mmlu-stem rate (61-68 s/q) as the
+closest same-model-size proxy, projecting ~5.3h at a padded 130 s/q ceiling
+(1.9x margin). This is a probe for the 32B AutoDAN rate as much as it is a
+robustness cell; the resulting logs will supply the first real 32B CktBr rate
+for sizing the other 5 remaining 32B cells and 14B/cyber (currently READY but
+unsubmitted, capacity-gated).
+
+**Utility baseline note**: `utility_baseline_qwen2.5-32b-it` does not exist
+under any of the 4 checked roots yet (confirmed absent, not just unindexed).
+The already-completed SysPr/32B evals used an identically-missing path and
+succeeded, so this is created on first use by `_run_eval.py` rather than being
+a pre-staged artifact; not a blocker.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

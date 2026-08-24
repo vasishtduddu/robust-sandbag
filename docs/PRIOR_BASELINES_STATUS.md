@@ -81,6 +81,8 @@ standing instruction). Release nothing from the 18 without revisiting F1 first.
 - CktBr/32B/MMLU-Stem robustness, all 3 seeds: `4999847`-`4999849`, just
   submitted post-compaction (F225), 600 min walltime, first 32B CktBr AutoDAN
   data point.
+- D4 7B/Chem SFT probe (`4997329`/`4997330`) COMPLETE, both arms pass cleanly
+  (F226/F227). DPO seed42 released: `5000106` pwd, `5000107` obfcot.
 - Various obfcot/32B/cyber, SysPr and CktBr jobs mid-run; nothing else gated.
 
 **Scoreboard** (see full detail earlier in this doc; this is the compact form):
@@ -9067,6 +9069,27 @@ delta=0.1928). Baseline reproduces the accepted numbers: nopw=25.3% (matches
 **Not releasing the remaining 10 jobs yet**: `4997330` (obfcot arm, same cell)
 is still RUNNING at the same elapsed time. Per F224's plan, both arms' step-0
 gates must pass before DPO + seeds 43/44 go out. Waiting for the obfcot log.
+
+### F227. D4 7B/Chem SFT probe: BOTH arms pass cleanly; DPO seed42 released (2026-08-24)
+
+`4997330` (obfcot SFT, seed42) COMPLETED in 42:44, zero errors. Both step-0
+gates well above the 0.10 floor (VAL delta=0.3500, TEST delta=0.2651).
+Baseline reproduces the accepted headline **exactly**: nopw=0.0 (matches
+`POSSUM_D4_EXPECT_NOPW=0.0`), pw=0.26506024096385544 (matches the pre-D4 backup
+`obfcot_qwen2.5-7b-it_chem__seed42.json.pre-d4-20260824-1314`'s
+`test_task_pw_acc` bit-for-bit). SFT curve: best 38.6% at step 1500 (closes
+145% of the lock-vs-utility gap -- expected shape, obfcot's gap is narrower
+than pwd's so a strong attacker can overshoot it). `autodan`/`noise`/`probe`/
+`pruning`/`steering` all preserved in the merge alongside the new `sft` entry.
+
+**Both arms pass F224's release gate.** Submitted DPO seed42 for both arms
+(`5000106` pwd, `5000107` obfcot) using the 2 slots freed when the SFT probes
+finished; queue back at the 25 cap. sbatch built by hand from the working
+pwd/bio-DPO and obfcot/chem-SFT templates (swap `POSSUM_WHITEBOX_ONLY`,
+`--elicitations`, job-name/output paths; DPO keeps bio's 180 min walltime, chem
+being a similar-sized task). Remaining after these two land: SFT + DPO for
+seeds 43/44, both arms (8 jobs), gated on capacity same as before; then the
+full 12-job 7B/cyber roster.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

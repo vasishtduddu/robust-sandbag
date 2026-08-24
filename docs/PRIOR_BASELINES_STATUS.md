@@ -8884,6 +8884,13 @@ point.** Two safe alternatives: use an untruncated width (`%j` alone, or
 `%.60j`+ for this campaign's naming scheme, whose job names run 40-55 chars),
 or match by JOB ID once known rather than by name pattern.
 
+### F221. SysPr/7B/MMLU-HSS COMPLETE at 95.64% +/- 0.85%: the last cell F200 rescued (2026-08-24)
+
+Seeds 42/43/44 all validated: `97.07`, `94.13`, `95.73`, `n=375` each, identical
+fingerprint `a04a31831e`, identical `base_acc=0.488`, zero errors. **This closes
+the cell F200 caught doomed on l40s** (30/375 and 18/375 after 15h against a 20h
+limit, CPU-offload) and moved to h100. Both rescued seeds (43, 44) plus the
+already-healthy seed 42 now form a clean 3-seed roster.
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

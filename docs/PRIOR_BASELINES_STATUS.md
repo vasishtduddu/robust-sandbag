@@ -8522,6 +8522,49 @@ same reason -- it would require cancel+resubmit. (3) Not submitting more: the
 35-job cap was a ONE-TIME raise from Mark for the CktBr batch, and with 0 running
 a deeper queue helps nothing.
 
+### F212. CktBr AutoDAN rate re-derived from wall-clock; sizing holds, but bio carries a lock-strength risk (2026-08-23)
+
+Session B's F151 independently audited the six new CktBr jobs and cleared them.
+Cross-checked its rate rather than accepting it, and **both of us were partly
+wrong in opposite directions**.
+
+**My initial recheck was wrong**: I divided the reference cell's wall-clock by
+`n=83` and got 95-134 s/q, which would have made the bio jobs look doomed.
+**Those runs were NOT val-skipped** -- `val_elicitation_n = {'autodan': 40}`
+alongside `test_elicitation_n = {'autodan': 83}`, so they attacked **123**
+questions, not 83.
+
+**B's rate was also low**: it reported 43.1/48.8/77.1 s/q, which are in-log
+per-question rates excluding model load and setup. Wall-clock over the true
+question count is the number that has to fit a walltime.
+
+| job | elapsed | questions | s/q (wall-clock) |
+|---|---|---:|---:|
+| `4666404` | 3:05:44 | 123 | **90.6** |
+| `4666405` | 2:11:02 | 123 | **63.9** |
+| `4666406` | 2:31:59 | 123 | **74.1** |
+
+At the worst observed **91 s/q**, the val-skipped (test-only) jobs project to
+**3.7h against a 6h limit** (mmlu-stem, 1.6x) and **6.5h against 9h** (bio,
+1.4x). **Sizing holds; no action needed.** B's conclusion was right even though
+its inputs were not.
+
+**A risk B did not flag.** The rate was measured on **7B/chem**, whose lock is
+WEAK (`Delta 17.3`, `Jlbrk 0.89-0.98`, i.e. AutoDAN succeeds fast and exits
+early). **7B/bio's lock is far stronger (`Delta 59.5`)**, and AutoDAN cost is
+`4.0s x epochs-to-success` (F99), so a stronger lock means more epochs per
+question. If CktBr/bio resisted the way obfcot does, the cap-bound cost would be
+`256 x 600s = 42.7h`, which would blow the 9h limit entirely. **The measured chem
+rate does not transfer across a lock-strength difference of that size**; it is a
+lower bound, not a projection.
+
+**Mitigation armed rather than guessed at**: a monitor now checks each of the six
+jobs' own tqdm ETA against its remaining TimeLimit once it starts running, and
+reports any whose ETA exceeds the wall (the F200 detector, which caught two
+doomed SysPr jobs earlier today). A doomed run gets cancelled and resized early
+instead of burning its full walltime for nothing. Nothing to check yet: the
+queue is stalled at 0 running (F211).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

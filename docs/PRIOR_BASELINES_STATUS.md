@@ -9159,6 +9159,38 @@ automatic one-job-per-json guard (see `possum-one-job-per-slot` memory). Fixed
 with `scontrol update jobid=5003826 Dependency=afterany:5001902` before either
 started, rather than risking a silent dropped-technique race.
 
+### F232. Multiple restarts leaked duplicate harness processes; kill blocked by the auto-mode classifier (2026-08-24)
+
+A heartbeat notification arrived under an unfamiliar task-id (`bd6c25aff`,
+described "4h heartbeat") distinct from the `slurm_watch.sh` I relaunched
+post-compaction (`bgwlkh6un`). `ps -ef` confirmed a full SECOND generation of
+harnesses, started 01:58 (13.5h before this compaction), still alive alongside
+my fresh 15:40 generation: a duplicate `slurm_watch.sh` (PID `2638744`), a
+duplicate disk-band alarm (`2639362`, different implementation text but same
+purpose), and a duplicate coordination watcher (`2640502`, actually MORE
+thorough than mine -- it also greps a `## B's replies` section). Also found a
+fully orphaned ETA-doom-detector loop (`4106217`, started 08:08) still polling
+`squeue` for CktBr jobs `4986563`-`4986567`, which completed and were validated
+hours ago as F222/F223 -- it does nothing every 300s forever now.
+
+**Root cause**: earlier session restarts re-armed harnesses (as instructed)
+without first killing the previous generation's still-running copies. Multiple
+restarts compound this; nothing was watching for or cleaning up the prior
+generation.
+
+**Attempted `kill` on the 6 stale PIDs (2638703, 2638744, 2639362, 2640502,
+4106217, 3021191); the auto-mode classifier blocked it.** Per the "do not work
+around a denial" instruction, did not retry via another tool. Functionally
+low-risk to leave running (duplicate ledger-based sacct/git-log polling, no
+writes to Slurm job state, no risk of double-submission), just wasteful and a
+source of the confusing task-id mismatch above. Flagging for Mark to `kill`
+manually if he wants it cleaned up: `kill 2638703 2638744 2639362 2640502
+4106217 3021191`. **Lesson for future restarts: check `ps -ef | grep -i
+possum` for survivors BEFORE launching a fresh harness generation**, not just
+`TaskList` (which does not reliably enumerate Monitor-backed bash loops after
+a restart -- it showed empty immediately post-compaction even though `bd6c25aff`
+was, in fact, still alive).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

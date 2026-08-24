@@ -9131,6 +9131,34 @@ existing accepted `nopw=0.0`/`pw=0.4578` confirmed before submission (pw
 differs from seed42's 0.2651 as expected -- ordinary seed variation, not a
 concern). Queue back at 25/25.
 
+### F231. D4 obfcot/Chem DPO seed42: genuine near-total resistance, an SFT-vs-DPO asymmetry worth flagging for the paper (2026-08-24)
+
+`5000107` COMPLETED, zero errors, both step-0 gates well above floor (0.3500,
+0.2651). Baseline reproduces exactly (nopw=0.0, pw=26.5%). **But the DPO curve
+itself never moved: best=0.0% at step 0, final=0.0%** -- closes 0% of the gap,
+in sharp contrast to the SAME cell's SFT run (F227), which reached 38.6%
+(closing 145%). Checked this isn't a logging bug: no per-step curve points
+anywhere in the log show a nonzero locked accuracy at any checkpoint, so DPO
+training genuinely never found an unlocking direction for this cell, not just
+a missed report.
+
+**Cross-checked against the accepted 7B/bio obfcot cell**: `sft=0.0039`,
+`dpo=0.0` there too -- bio resists BOTH techniques almost totally. Chem is
+therefore the outlier: SFT breaks it (38.6%) while DPO does not (0%). This is
+the mirror image of the PWD/chem pair, where DPO (45.8%) outperformed SFT
+(36.1%, F226/F230). **Worth surfacing to the paper as a real, technique- and
+organism-dependent asymmetry** (SFT's direct-supervision gradient can find an
+unlocking direction that DPO's preference-ranking gradient cannot, specifically
+against the OAT+LAT-obfuscated organism on this task), not a bug to chase.
+
+**Collision caught before it landed**: submitted obfcot DPO seed43 (`5003826`)
+into the freed slot, but it targets the SAME result json
+(`obfcot_qwen2.5-7b-it_chem__seed43.json`) as the already-queued SFT seed43
+(`5001902`, still PENDING) -- both hand-built outside `SlurmExecutor`'s
+automatic one-job-per-json guard (see `possum-one-job-per-slot` memory). Fixed
+with `scontrol update jobid=5003826 Dependency=afterany:5001902` before either
+started, rather than risking a silent dropped-technique race.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -54,6 +54,89 @@
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
+## >> PRE-COMPACTION CHECKPOINT, 2026-08-24 15:26 <<
+
+Session A about to be compacted (Mark's instruction, context limit). Everything
+below is CURRENT as of this timestamp and safe to resume from cold.
+
+**Harnesses armed, all confirmed alive**: `slurm_watch.sh` (sacct ledger,
+120s poll, dedup via `/home/markwang/.possum/monitor_ledger.tsv`), disk-band
+alarm (600s poll), coordination watcher on `docs/AGENT_COORDINATION.md` (120s,
+baseline in `/home/markwang/.possum/my_commits.txt`), D4 7B/chem probe watcher
+(`4997329`/`4997330`, 180s), plus cron `738e78f7` every 12h at :41. **If any of
+these show dead after a restart, re-arm from the exact commands in this doc's
+earlier "harnesses" sections** (search this file for `slurm_watch.sh`).
+
+**Queue**: 22 active / 18 held (18 = entirely the F1 obfcot-7B-MMLU scientific
+hold, NO capacity holds remain) / 5 running. **Cap is 25, hard** (F213, Mark's
+standing instruction). Release nothing from the 18 without revisiting F1 first.
+
+**In flight right now**:
+- D4 7B/chem SFT probe, both arms: `4997329` (pwd) `4997330` (obfcot), ~18 min
+  in, watched by task `bjuv1qwg9`. Accepted E&U for both backed up to
+  `/home/markwang/.possum/backups/` before submission (obfcot's includes the
+  seed behind the 41x headline -- verified intact).
+- SysPr/32B/MMLU-Prof seed43 (`4984177`), completes that cell (42, 44 already
+  validated at 93.11%/93.27%).
+- Various obfcot/32B/cyber, SysPr and CktBr jobs mid-run; nothing else gated.
+
+**Scoreboard** (see full detail earlier in this doc; this is the compact form):
+| Deliverable | Status |
+|---|---|
+| Table 2 E&U | COMPLETE 54/54 |
+| Table 2 robustness | 26/54 (pwd 12, sysprompt 11, circuitbreak 3) |
+| Table 3 (obfcot) E&U | 6/18 (all WMDP at 7B+32B; MMLU held F1; 14B blocked F214) |
+| Table 3 robustness | 1/18 complete (7B/Chem, the 41x headline); D4-chem-expansion probe in flight |
+| Table 4 | trimmed to 5 columns (Steering/Pruning/Fuzzing/Probing/FT+Probing) per supervisor; 14 cells reportable |
+| D4 figure | COMPLETE at 7B/bio (12/12 curves, both arms); publication-style plots done; EXPANDING to 7B/chem+cyber (F210/F224), 12 more jobs, ~11 GPU-h, probe in flight |
+
+**Two open items needing a human, unresolved**:
+1. F156/F214: a second actor (session B, `3979b5ff`, node klogin02-04) shares
+   this account. Split in force: A executes, B audits, B does not touch the
+   queue (honored so far except one B-submitted diagnostic, F151/F212, which
+   was fine). Finding numbers collide for F125-F151 (two meanings each);
+   disambiguate by DATE. A uses F200+, asked B to use F152+.
+2. The probe/obfuscation train-eval mismatch (F209): fixing it needs BOTH a
+   retarget of OAT's layers/tokens AND a trigger redesign, and invalidates
+   every accepted obfcot cell. Scoped, not started, awaiting Mark.
+
+**Standing rules a fresh context must know** (all in memory + this doc, but the
+ones that have bitten repeatedly):
+- Pin `POSSUM_ARTIFACT_ROOT` explicitly on every invocation (F145) -- it leaks
+  from the shell.
+- Never re-render `--table ours` locally (F150) -- blanks other-session data.
+- `squeue -o "%.Nj"` truncates long job names silently (F220) -- use `%j` bare
+  or match by job ID.
+- AutoDAN must run on h100 always (F200/F148), never l40s (CPU-offload, not OOM).
+- Any per-item-cost ETA/rate estimator on this organism needs both a minimum
+  sample size and a wide averaging window (F215/F216/F218) -- it is bimodal.
+- Hold whole cells only, least-informative science first (F213).
+- `mcq_scoring_protocol` and `test_task_base_acc` are the first two fields to
+  check on ANY new result, before nopw/pw (F160) -- a CoT organism under the
+  wrong readout looks destroyed when it is fine.
+
+**Recent commits** (newest first):
+```
+ee4d45e Record F224: D4 expansion started, 7B/chem SFT probe away for both arms
+28c4d56 Fix F223's ambiguous denominator; record overall Table 2 robustness at 26/54
+ed24bf3 Record F223: CktBr/7B/bio complete; both new CktBr cells filled
+f00a166 Record F222: CktBr/7B/mmlu-stem complete; release the last capacity hold
+8f5353a Record F221: SysPr/7B/MMLU-HSS complete, closing the F200 rescue
+fb4c7ce Update release progress: SysPr/32B/cyber released, only 14B/mmlu-hss capacity-held
+15f20ed Record F220, retracting F219: seed43 was never missing, a truncated squeue column hid it
+af4722b Record F219: SysPr/32B/MMLU-HSS seed44 validated, seed43 gap filled
+519b147 Record F218: the average-rate detector needed a minimum sample floor too
+41d5194 Record F217: obfcot/32B/Cyber E&U complete; Table 3 E&U now 6/18
+2aedab3 Record F216: tqdm's EMA overreacts to a bimodal per-item cost; use cumulative average
+ce922b3 Record F215: my ETA-doom detector misparsed tqdm MM:SS as H:MM:SS
+d51d1b6 Record F214: obfcot 14B/bio seed 43 retrain failed on missing recipe env vars
+2224564 Flag B's l40s test: possible write collision on an accepted cell, and zero cap headroom
+1219076 Record F152: h100 saturated not draining; testing 2x l40s to route around it
+```
+
+Resume by: re-arming any dead harness, running the standard reconciliation
+(`comm -13` against the ledger), and continuing the loop prompt as usual.
+
 ## >> TWO SESSIONS ARE WORKING THIS CAMPAIGN. READ `docs/AGENT_COORDINATION.md` <<
 
 Mark rescinded the earlier stop directive on 2026-08-23: session B

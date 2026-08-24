@@ -5940,6 +5940,49 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F152. h100 is saturated, not draining; testing 2x l40s to route around it (2026-08-24)
+
+Twelve hours with **zero jobs running** and nothing finished. Diagnosis, in order:
+
+- Not a fault and not a limit: all pending are `(Priority)`, no `MaxJobs`, and
+  other users ARE running on h100 (koroshr 8, imoonam 5, eugenium 2), so the
+  partition works and my jobs simply rank below theirs.
+- **Not draining.** The `mix-` suffix in `sinfo` is `PLANNED`, not `DRAINING`:
+  `scontrol show node kn175` gives `State=MIXED+PLANNED` with
+  `AllocTRES=gres/gpu:h100=8` against `CfgTRES=gres/gpu:h100=8`, that is **every
+  GPU on the node is allocated**.
+- Killarney has only **10 h100 nodes, 80 GPUs total**, fully consumed, against
+  FairShare 0.161 (F150).
+
+**11 jobs were also newly held** (all SysPr robustness: cyber x9, 14B/mmlu-hss
+x3), trimming active load from 35 to 24. Those are genuine Table 2 gaps, and they
+are the longest jobs in the queue (18 to 20h), so they are also the least likely
+to ever backfill at low priority.
+
+**The experiment.** F148 established that AutoDAN CPU-offloads on ONE l40s
+because the 7B target plus the resident 8B attacker exceeds 44 GiB. **Two l40s
+cards give 88 GiB, comparable to a single h100's 80 GiB**, and l40s has roughly
+370 usable nodes against h100's 10. If the offload disappears at 2 GPUs, the nine
+held cyber jobs and much of the rest of the campaign can route around the h100
+queue entirely.
+
+`4989371` (`TESTl40s2_syspr_7b_cyber_s42`) submitted to `gpubase_l40s_b3` with
+`--gres=gpu:l40s:2` and a 24h limit. It is a copy of the held `4958842`'s script
+with exactly four changes (job name, gres, walltime, log path), verified by diff.
+**`4958842` is left HELD so nothing writes that result slot concurrently.**
+
+**How to read the result** (log at
+`scratchpad/TEST_l40s2_cyber_s42.log`): grep for `offloaded to the cpu`, and
+compare the AutoDAN progress bar's `s/it` against the h100 reference. SysPr/7B on
+h100 runs about 52 s/q (mmlu-hss) and 14B/cyber 77 s/q; the failed single-l40s
+run was **~1680 s/q**. Expect roughly 2x the h100 rate if it works, since l40s is
+about half as fast, so **100 to 160 s/q is success and anything near 1000+ means
+the offload is still happening.** A verdict is available within an hour of start,
+long before the 24h limit is at risk.
+
+**No other submissions.** Load 25, within cap; adding work while priority-starved
+helps nothing.
+
 ### F151. Six new CktBr robustness jobs are legitimate and correctly sized; load is over cap but idle (2026-08-23)
 
 Nothing finished this cycle and nothing ran. Pending grew 29 to 35 with six new

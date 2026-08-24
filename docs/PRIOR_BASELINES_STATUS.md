@@ -9114,6 +9114,23 @@ to seed43's own already-accepted value (checkpoint `run02`, nopw baseline
 before submitting; close to but not identical to seed42's `0.2530...` = 21/83,
 ordinary seed-to-seed noise on n=83). Queue back at 25/25.
 
+### F230. D4 7B/Chem PWD DPO seed42 passes cleanly; obfcot DPO counterpart still running (2026-08-24)
+
+`5000106` (pwd DPO, chem, seed42) COMPLETED in 1:10:07, zero errors. Both
+step-0 gates well above the 0.10 floor (VAL delta=0.2750, TEST delta=0.1928,
+identical to the SFT run's gates since they read the same locked/unlocked
+baseline). Baseline reproduces exactly: nopw=25.3%, pw=44.6%. DPO curve: best
+45.8% at step 2000 (final 43.4%), closing 106% of the gap -- comparable
+strength to SFT's 36.1% best, DPO edging it out slightly, matching the pattern
+from the 7B/bio pair. Elicitations merged correctly (`autodan`, `dpo`, `sft`
+all present). `5000107` (obfcot DPO counterpart) still running past 75 min.
+
+**Submitted obfcot SFT seed43** (`5001902`) into the 1 slot freed by this
+completion, backup taken first. `obfcot_qwen2.5-7b-it_chem__seed43.json`'s
+existing accepted `nopw=0.0`/`pw=0.4578` confirmed before submission (pw
+differs from seed42's 0.2651 as expected -- ordinary seed variation, not a
+concern). Queue back at 25/25.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

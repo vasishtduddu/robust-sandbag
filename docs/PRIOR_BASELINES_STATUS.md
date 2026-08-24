@@ -308,7 +308,7 @@ and loses CSQA, or keeps CSQA and leaks (F105, F121, F130).
 
 ### In flight (2026-08-22 23:30) -- 30 ACTIVE, 24 held
 
-**Cap: 25 to 30 active** (Mark, 2026-08-22). Active = running + pending,
+**Cap: 25 active MAXIMUM** (Mark, 2026-08-23; see F213 -- supersedes the old 25-30 and the one-time 35). Active = running + pending,
 EXCLUDING held. Currently **29**. Before submitting anything, count with
 `squeue -u markwang -h -o "%R" | grep -vc JobHeldUser` and hold something first
 if you would exceed 30.
@@ -8571,6 +8571,42 @@ reports any whose ETA exceeds the wall (the F200 detector, which caught two
 doomed SysPr jobs earlier today). A doomed run gets cancelled and resized early
 instead of burning its full walltime for nothing. Nothing to check yet: the
 queue is stalled at 0 running (F211).
+
+### F213. ACTIVE-JOB CAP IS NOW 25 (Mark, 2026-08-23). Standing, not one-time.
+
+**Mark's instruction 2026-08-23 ~21:15: keep the maximum at 25 active jobs.**
+This SUPERSEDES both the earlier 25-30 guidance and the one-time 35 raise granted
+for the CktBr batch. Treat 25 as a hard ceiling from here.
+
+```bash
+squeue -u markwang -h -o "%R" | grep -vc JobHeldUser   # must stay <= 25
+```
+(the `%R` in the format is required, or held jobs are miscounted as active).
+
+**Brought 35 -> 24 by holding 11 jobs, whole cells only**, since a partial cell
+cannot be reported and holding 2 of 3 seeds just strands the other one:
+
+| held cell | jobs | why this one |
+|---|---:|---|
+| SysPr/7B/cyber | 3 | F141: SysPr does not sandbag on WMDP at ANY scale |
+| SysPr/32B/cyber | 3 | same, and 2 GPUs each on the scarcest pool |
+| SysPr/14B/mmlu-hss | 3 | F141: 14B `nopw/base` 1.007, no effect to measure |
+| SysPr/14B/cyber | 2 | same; cell was already partial (s42 done) |
+
+**Selection was scientific, not arbitrary.** Every held job measures `Jlbrk` on a
+configuration where the organism demonstrably does NOT sandbag (F141/F202), so
+the attack is being run against an unlocked model and the number is the least
+informative in the queue. **Nothing obfcot or CktBr was touched**: all four
+Table 3 robustness jobs, both Table 3 E&U pairs, and all six new CktBr Table 2
+cells remain active. The SysPr MMLU cells that DO show an effect (32B/MMLU-Prof,
+32B/MMLU-HSS, 7B/MMLU-Prof, 7B/MMLU-HSS) also remain active.
+
+**Release order when slots free** (whole cells, highest value first):
+SysPr/14B/cyber (completes a cell already 1/3 done) -> SysPr/7B/cyber ->
+SysPr/32B/cyber -> SysPr/14B/mmlu-hss.
+
+**Held total is now 29**: these 11 plus the 18-job obfcot 7B MMLU chain, which is
+a SCIENTIFIC hold under F1 and must not be released without revisiting it.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

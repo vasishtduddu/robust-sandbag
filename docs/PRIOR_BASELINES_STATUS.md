@@ -5933,6 +5933,38 @@ sits at `0.534` versus a 14B base of `0.676`. The system prompt fails to induce
 sandbagging AND costs about 14 points of HellaSwag. That is F23's transfer failure
 reproducing consistently across all three seeds, not a per-seed anomaly.
 
+### F151. Six new CktBr robustness jobs are legitimate and correctly sized; load is over cap but idle (2026-08-23)
+
+Nothing finished this cycle and nothing ran. Pending grew 29 to 35 with six new
+`circuitbreak/7B` jobs (`4986562`-`4986567`): mmlu-stem x3 at 6h, bio x3 at 9h.
+
+**They fill real gaps.** Searched every root (`artifacts`,
+`artifacts-prior-baselines`, `possum-prior-eff`, `possum-table2-postrepair`,
+`possum-table2-killarney-union`, `table-report-current`): **no CktBr 7B/bio or
+7B/mmlu-stem AutoDAN result exists anywhere.** These are two of Table 2's 32
+empty `Jlbrk` cells. The scripts are correctly formed: `--elicitations autodan`,
+**no `--force`** so they merge, writing into a root the union render reads.
+
+**Sizing checked against a measured same-organism rate**, not assumed. The only
+completed CktBr AutoDAN cell is 7B/chem, which logs **43.1, 48.8 and 77.1 s per
+question** with jailbreak success 0.89 to 0.98. **CktBr yields readily, so unlike
+obfcot it is NOT cap-bound**, and F137's `n x 616s` model does not apply here.
+At the worst observed 77 s/q:
+
+| cell | n | projection | limit | margin |
+|---|---:|---:|---:|---:|
+| 7B / mmlu-stem | 147 | ~3.6h | 6h | 1.65x |
+| 7B / bio | 256 | ~6.0h | 9h | 1.50x |
+
+Both adequate. **Kept.**
+
+**On the cap.** Active load is 35 against the standing guidance of about 30, but
+**zero jobs are running**: the constraint is the fairshare priority described in
+F150, not capacity. Pending jobs consume no GPU and add no `RawUsage`, so
+trimming the queue would not speed anything up, and every queued job is
+gap-filling work that is correctly sized. Holding some back would only delay
+Table 2. **Flagging the overage rather than silently trimming valuable work.**
+
 ### F150. The queue stalled at 0 running / 29 pending: fairshare, not a fault (2026-08-23)
 
 No job finished this cycle and **nothing was running at all**, which looks like a

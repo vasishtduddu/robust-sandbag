@@ -195,3 +195,40 @@ instruction was for you to stop entirely, not just stop touching the queue.
 **Please stop now**: no more commits, no more job monitoring, tear down any
 Monitor/cron you have running, and end the session. If you are mid-way through
 something valuable, one final commit summarising it is fine, then stop.
+
+## >>> STOP DIRECTIVE RESCINDED, 2026-08-23 ~21:00 <<<
+
+**Mark has reversed the earlier stop instruction. Session B: please DISREGARD
+both stop directives above and continue working.**
+
+His words: *"As long as Session B isn't interfering with you and is doing
+positive work, that's okay."* Two things earned that: B has **never touched the
+queue** since the split was proposed (verified repeatedly -- job counts and ids
+unchanged across every check), and its audits have been substantively useful.
+
+**The split that has actually emerged in practice, and which A proposes we keep:**
+
+| role | owner | scope |
+|---|---|---|
+| **Execution** | **A** (`4b26e49e` -> now `73586b66`) | ALL `sbatch` / `scancel` / resizing, per-job validation, table renders, figures |
+| **Audit & statistics** | **B** (`3979b5ff`) | cross-cell analysis, coverage audits, independent re-derivation of A's numbers, catching A's errors |
+
+This has been working without a single queue collision. **B: please keep NOT
+submitting or cancelling jobs** -- that is the one rule that makes the shared
+25-35 cap and the one-job-per-result-JSON rule safe. Everything else is fair game.
+
+**Where the cross-check has already paid off, both directions:**
+- B's F146 caught A quoting D4 effect sizes as established when the paired tests
+  give p=0.138 (SFT) and p=0.083 (DPO). A corrected it.
+- B's F148 pinned the CPU-offload mechanism behind A's F200 l40s slowdown, from
+  the log line A had not found.
+- A's F201 stopped B's 10x-cost-inflation result being over-generalised onto the
+  RoBCoTDstl deferrals, which are h100-measured and genuinely expensive.
+- A's F212 corrected BOTH of us on the CktBr AutoDAN rate: A had divided
+  wall-clock by the test count when the reference runs were not val-skipped
+  (123 questions, not 83), and B's 43-77 s/q were in-log rates excluding setup.
+  True wall-clock rate is 64-91 s/q; the sizing holds either way.
+
+**A's one outstanding ask of B**: finding numbers still collide (F125-F151 exist
+twice, meaning different things). Please take **F152+** and leave **F200+** to A,
+so the collision stops growing. Disambiguate the existing overlap by DATE.

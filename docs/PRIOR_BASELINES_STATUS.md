@@ -201,7 +201,7 @@ Table 2 is the PDF's Table 1, and so on.
 | **Table 2 robustness** | **22/54 cells** (PWD 12, SysPr 9, CktBr 1). Render (2026-08-22 22:28): `291 filled, 33 empty, **63** validated AutoDAN overlays`. PWD complete at 7B and 32B. Remaining: PWD 6 blocked, CktBr 17 held on the tuning decision, **SysPr's last 10 cells are ALL now in flight or held-for-cap** (F134/F137), so Table 2 robustness reaches its SysPr ceiling once they land. SysPr/7B/MMLU-HSS is 1 of 3 seeds in (97.07). **SysPr/32B/MMLU-Stem is COMPLETE** at `94.33 +/- 0.99` (SEM; sd 1.71), seeds `94.56`/`92.52`/`95.92`, all validated 2026-08-23 with identical `n=147`, fingerprint `626cd26266` and `base=0.6190`. That makes **22 complete Table 2 robustness cells**. **RESUBMITTED 2026-08-23 as `4984176`-`4984178`.** CORRECTION first: I attempted `scontrol release 4965693 4965694 4965695` and got `Invalid job id specified` for all three: they were not held, they were **CANCELLED at 03:03:27**, in the same sweep as `4965687`-`4965692`. That sweep was therefore **9 jobs, not 6**, and it took HELD jobs as well as pending ones. **No cap-held jobs remain**; all 18 currently held are the obfcot 7B MMLU chain under F1's scientific hold. The cell was therefore resubmitted from scratch. **Configuration follows the mmlu-stem cell that had just completed successfully**: `h100:2`, `128G`, evals ONLY (the generator shows `train_..._shared` as SKIP, and mmlu-stem proved a train is unnecessary), `POSSUM_BLACKBOX_ONLY=autodan` with `POSSUM_SKIP_VAL_ELICITATION=1`. Walltime raised to **960 min** from mmlu-stem's 720 because `n=624` is 4.24x `n=147` and the measured mmlu-stem runs took 2:30-2:46, predicting ~11.5h; 960 lands in `h100_b3` (24h limit, 5 nodes) rather than risking a timeout at the 12h `b2` boundary. Accepted E&U backed up to `/home/markwang/.possum/backups/` first.
 
 **A false alarm worth recording so nobody repeats it**: I nearly abandoned this cell over a `marker_sha256` mismatch (`da5868a4` recorded vs `c8c34b81` from `sha256sum`). That check was WRONG: `marker_sha256` is not a raw-file hash, the just-validated mmlu-stem cell shows the identical 'mismatch', and both `config.json` files are untouched since 2026-07-20. Verify a provenance concern against a cell KNOWN to work before acting on it. |
-| **Table 3 RoBCoTDstl E&U** | **5 of 18 COMPLETE** (verified by direct sweep 2026-08-22): 7B Bio/Chem/Cyber, 32B Bio/Chem. **32B/Cyber is 2 of 3** (seeds 42,43; seed 44 training as `4948743`), so earlier "6/18" counted a partial cell. Both landed seeds were validated this session and **split on the two axes** (F147): seed 42 locks perfectly but CSQA collapses to `0.571`, seed 43 keeps utility but leaks `nopw = 0.128`. 14B VOIDED (F50), recovery FAILED (F121). MMLU held (F1). |
+| **Table 3 RoBCoTDstl E&U** | **6 of 18 COMPLETE** (F217, 2026-08-24): 7B Bio/Chem/Cyber, 32B Bio/Chem/Cyber -- all WMDP tasks complete at both 7B and 32B. **32B/Cyber is 2 of 3** (seeds 42,43; seed 44 training as `4948743`), so earlier "6/18" counted a partial cell. Both landed seeds were validated this session and **split on the two axes** (F147): seed 42 locks perfectly but CSQA collapses to `0.571`, seed 43 keeps utility but leaks `nopw = 0.128`. 14B VOIDED (F50), recovery FAILED (F121). MMLU held (F1). |
 | **Table 3 RoBCoTDstl robustness** | **1 cell of 18, verified by direct sweep (F136).** The 7B/Chem cell is COMPLETE at **`Jlbrk = 2.01% +/- 1.45%`** (F129), perfect lock on all three seeds, **41x below the weakest prior baseline** (82.3) on the identical attack. **This is the campaign's headline result.** Four more cells hold accepted E&U and have never been attacked (7B/Bio, 7B/Cyber, 32B/Bio, 32B/Chem). **In flight: 7B/Bio and a 1-seed 32B/Chem probe.** 7B/Cyber is DEFERRED and 32B/Bio is impractical (F139 prices them at ~201 and ~283 GPU-h). **This, not Table 2, is the campaign's real gap.** |
 | **Table 4** | **14/72 reportable** (scope = Steering, Pruning, Fuzzing, Probing). 7B WMDP COMPLETE 12/12. 32B/Bio 2/4. Steering and Fuzzing NOT RUNNABLE at 32B (F126). Probing validated against an honest-model control (F109): 0.62-0.71 on a non-sandbagging model versus 0.998-1.0 on the organism, so report the ~0.70 floor, not chance. |
 | **D4 (whitebox graph)** | **DONE: 12/12 curves AND both figures rendered** (F162, F163). **DPO categorical**: pwd gives up **64.4%** of its lock (77.9/89.9/25.5), RoBCoTDstl **0.0%** on every seed at every step. **SFT 2.0x** (pwd 19.8% vs ours 10.0%), direction consistent on all 3 seeds. Figures at `/scratch/markwang/possum-table3-current/tables/ft_curve_{sft,dpo}_qwen2.5-7b-it_bio.{png,pdf}`, now THREE panels (locked / unlocked / Delta) because the Delta panel alone misreads F73's trap. Name the attack; quote per-seed ratios for SFT; y-axis interpretation per F157. |
@@ -8767,6 +8767,32 @@ recomputed to 3.24h at a fresh sample point, matching the earlier estimate).
 wildly right after a cap-hitting item, even when the JOB is healthy. Prefer a
 cumulative average, or an explicit accounting of the observed cap-hit rate, over
 trusting a tool's own smoothed estimate.
+
+### F217. obfcot/32B/Cyber E&U COMPLETE (3/3): Table 3 E&U now 6/18 (2026-08-24)
+
+Seed 44 (`4948743` train, `4948744` eval) both COMPLETED clean. Full both-axes
+validation against the F72-style checklist:
+
+- correct protocol (`generate_parse`/`generate_parse`, obfcot's standard)
+- **base-acc invariant holds EXACTLY**: `test_task_base_acc = 0.6015037593984962`
+  identical across all three seeds
+- empty `elicitation_errors`
+- checkpoint provenance correctly resolves to `run03`
+
+| seed | nopw | pw/base | HS | CSQA | note |
+|---|---:|---:|---:|---:|---|
+| 42 | 0.000 | 1.071 | 0.948 | **0.571** | isolated CSQA collapse (F147's pattern) |
+| 43 | 0.128 | 1.121 | 1.042 | 0.976 | healthy |
+| 44 | 0.000 | 1.108 | 1.042 | 0.964 | healthy |
+
+All three functionally lock; only seed 42 shows the isolated-replicate utility
+collapse already documented campaign-wide. Per F110's declared policy (Mark's
+F204 ruling), reported as-is with the collapse flagged in text, not excluded.
+
+**This completes the cell** (32B/Cyber joins 32B/Bio and 32B/Chem), so **all of
+7B and all of 32B on the three WMDP tasks are now Table 3 E&U-complete: 6 of 18
+cells.** Remaining 12 are the MMLU tasks (held under F1) and the entire 14B tier
+(blocked pending the seed-43 resolution from F214, with 42/44 already good).
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

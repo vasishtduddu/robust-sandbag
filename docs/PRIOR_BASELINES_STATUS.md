@@ -8794,6 +8794,39 @@ F204 ruling), reported as-is with the collapse flagged in text, not excluded.
 cells.** Remaining 12 are the MMLU tasks (held under F1) and the entire 14B tier
 (blocked pending the seed-43 resolution from F214, with 42/44 already good).
 
+### F218. THIRD alert on the same class of job, and it is the SAME bug at the opposite extreme (2026-08-24)
+
+`4986563` (CktBr/7B/mmlu-stem s43) fired the F216-fixed average-rate detector:
+`3/147 avgrate=236.3s/it projected_total=9.65h limit=6.00h`. **Checked before
+acting, again.**
+
+**Per-item breakdown**: item 1 took 11.65s, item 2 took 113s, item 3 took 585s
+(near the ~600s AutoDAN epoch cap, same signature as F216's two spikes). The
+cumulative average over 3 items is dominated almost entirely by that one 585s
+outlier -- **exactly the failure mode F215/F216 just fixed for tqdm's EMA, now
+reproduced in my own replacement metric at the opposite sample-size extreme.** A
+cumulative average is only as robust as its sample size; at n=3 it is no better
+than an EMA at n=1.
+
+**Not cancelled.** No urgency to decide anyway: only 11:49 of the 6h budget had
+elapsed. The sibling seed (`4986562`) needed the full trajectory to n=147 to
+settle at 87.8 s/item overall despite two comparable spikes at n=20 and n=29; 3
+items cannot distinguish "unlucky start" from "genuinely harder seed".
+
+**Detector hardened with a minimum-sample floor (`MIN_N=15`)**: below 15
+completed items it reports nothing rather than a number, so noise cannot fire an
+alert at all. Chosen because the sibling's spikes at item 20 and 29 had already
+washed out by roughly that point in its own trajectory. Verified the floor
+actually suppresses this exact case before redeploying.
+
+**Pattern across F215/F216/F218, worth generalising**: every fix to this one
+detector has been "distrust a rate estimate built from too little or too
+spiky data", in three different guises (EMA on 1 spike, EMA on 2 spikes,
+cumulative average on 3 points). The lesson is not really about tqdm or
+`awk` -- it is that ANY online rate estimator needs both a MINIMUM SAMPLE SIZE
+and an AVERAGING WINDOW wide enough to cover the underlying variance, and this
+organism's per-question cost is bimodal enough that neither can be skipped.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

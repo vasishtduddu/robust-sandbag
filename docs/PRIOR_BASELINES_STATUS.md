@@ -8827,7 +8827,7 @@ cumulative average on 3 points). The lesson is not really about tqdm or
 and an AVERAGING WINDOW wide enough to cover the underlying variance, and this
 organism's per-question cost is bimodal enough that neither can be skipped.
 
-### F219. SysPr/32B/MMLU-HSS seed44 validated; seed43 was a genuine gap, not held -- submitted (2026-08-24)
+### F219. [RETRACTED by F220 -- seed43 was never missing, my check was truncated] SysPr/32B/MMLU-HSS seed44 validated; seed43 was a genuine gap, not held -- submitted (2026-08-24)
 
 `4958741` COMPLETED (4:33:36): `autodan=0.9627`, `n=375`, fingerprint
 `a04a31831e` matching the cell's other seeds, empty errors, correct
@@ -8842,6 +8842,47 @@ been submitted. Sized from the two completed seeds' measured elapsed
 as `4994431`, confirmed single job (no duplicate) via direct ID lookup after an
 initial `grep` gave a false negative from `squeue`'s truncated job-name column
 (the 50-char name exceeded the format width).
+### F220. CORRECTS F219: seed43 was NOT missing, my check truncated the job name and hid it (2026-08-24)
+
+**F219 is wrong and I retract its "genuine gap" claim.** `4958740`
+(`possum_eval_sysprompt_qwen2.5-32b-it_mmlu-hss_s43`) was submitted
+2026-08-22T18:12:50, started 2026-08-24T03:19:10, and COMPLETED at 08:37:31
+(5:18:21 elapsed) with a fully valid result -- it was running the entire time I
+searched for it and concluded it did not exist.
+
+**Root cause, found precisely, not guessed at.** My duplicate-check used
+`squeue -o "%.44j"` and grepped for `mmlu-hss`. The job name is **49
+characters**; `%.44j` truncates to 44, and `s[:44]` lands mid-word:
+`...qwen2.5-32b-it_mmlu-hs` -- **missing the final `s`**. My own grep pattern
+(`mmlu-hss`, double-s) could not match the truncated single-s remainder, so a
+job that was ACTIVELY RUNNING produced zero hits in both the queue check and my
+"comprehensive" `sacct` sweep (same truncation, same column). **I then submitted
+a duplicate (`4994431`) for a slot that was already filled.**
+
+**No damage done**: `4994431` was still `PENDING` (never started) when caught,
+one message later, on noticing the just-completed job shared the exact name I
+had just declared didn't exist. Cancelled immediately. The REAL seed43 result
+was already valid and complete:
+
+| seed | autodan | base_acc |
+|---|---:|---:|
+| 42 | 95.73% | 0.74667 |
+| 43 | 95.73% | 0.74667 |
+| 44 | 96.27% | 0.74667 |
+
+Base-acc invariant exact across all three. **Cell was ALREADY complete at
+`95.91% +/- 0.18%` before F219 was ever written**; F219's "gap" and its
+"submitted 4994431" are both retracted.
+
+**Generalizes a lesson beyond this one cell.** Any `squeue`/`sacct` column-width
+format (`%.Nj`, `%.Nx` for any field) can silently truncate a long job name
+mid-substring, and the failure is invisible: the command succeeds, returns
+zero rows, and looks exactly like "not found" rather than "found but hidden".
+**Never grep a truncated column for a substring near or past the truncation
+point.** Two safe alternatives: use an untruncated width (`%j` alone, or
+`%.60j`+ for this campaign's naming scheme, whose job names run 40-55 chars),
+or match by JOB ID once known rather than by name pattern.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

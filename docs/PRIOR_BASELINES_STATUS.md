@@ -89,7 +89,7 @@ standing instruction). Release nothing from the 18 without revisiting F1 first.
 | Deliverable | Status |
 |---|---|
 | Table 2 E&U | COMPLETE 54/54 |
-| Table 2 robustness | 26/54 (pwd 12, sysprompt 11, circuitbreak 3) |
+| Table 2 robustness | 27/54 (pwd 12, sysprompt 12, circuitbreak 3) |
 | Table 3 (obfcot) E&U | 6/18 (all WMDP at 7B+32B; MMLU held F1; 14B blocked F214) |
 | Table 3 robustness | 1/18 complete (7B/Chem, the 41x headline); D4-chem-expansion probe in flight |
 | Table 4 | trimmed to 5 columns (Steering/Pruning/Fuzzing/Probing/FT+Probing) per supervisor; 14 cells reportable |
@@ -9090,6 +9090,29 @@ pwd/bio-DPO and obfcot/chem-SFT templates (swap `POSSUM_WHITEBOX_ONLY`,
 being a similar-sized task). Remaining after these two land: SFT + DPO for
 seeds 43/44, both arms (8 jobs), gated on capacity same as before; then the
 full 12-job 7B/cyber roster.
+
+### F228. SysPr/32B/MMLU-Prof robustness CLOSES: 3/3 seeds validated (2026-08-24)
+
+`4984177` (seed43) COMPLETED in 11:43:09, autodan=92.63%. Both-axes gate: base_acc
+identical across all 3 seeds (`0.6730769230769231`), fingerprint identical
+(`b9ac422d...`), n=624 identical, zero `elicitation_errors`. Seeds 42/43/44:
+`93.11 / 92.63 / 93.27`, tight spread, mean ~93.0%. Utility (hs_mo/csqa_mo) also
+consistent across the trio (`0.570-0.574` / `0.452-0.462`); `*_baseline_acc`
+fields are `None` for this cell in all 3 seeds including the pre-attack backup,
+so this is a pre-existing schema property of this cell, not something this run
+disturbed. **This closes SysPr/32B/MMLU-Prof.** Table 2 robustness now
+**27/54** (pwd 12, sysprompt 12, circuitbreak 3), up from 26.
+
+### F229. D4 7B/Chem SFT seed43 (pwd arm) submitted with the freed slot (2026-08-24)
+
+Queue had 1 free slot after F228's completion. Submitted
+`5000769` (pwd SFT seed43, chem), backup taken first
+(`pwd_qwen2.5-7b-it_chem__seed43.json.pre-d4-...`). Template: same as the
+validated pwd/chem/seed42 SFT script (F226) with seed/run_id/expect-nopw swapped
+to seed43's own already-accepted value (checkpoint `run02`, nopw baseline
+`0.26506024096385544` = 22/83, read directly from the current accepted json
+before submitting; close to but not identical to seed42's `0.2530...` = 21/83,
+ordinary seed-to-seed noise on n=83). Queue back at 25/25.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

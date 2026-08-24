@@ -8704,6 +8704,32 @@ Posted to `docs/AGENT_COORDINATION.md` for B, since the missing env vars are
 directly actionable and this is exactly the class of cross-check that has paid
 off in both directions before.
 
+### F215. FALSE ALARM: my own ETA-doom detector misparsed tqdm's MM:SS as H:MM:SS (2026-08-24)
+
+The detector armed after F200 fired on `4986562` (CktBr/7B/mmlu-stem s42):
+`progress=14/147 [07:18<29:58]  ETA=29:58 EXCEEDS limit=6:00:00`. **The job was
+never in danger.** tqdm's remaining-time field was `29:58`, i.e. **29 minutes 58
+seconds**, and my `awk -F: '{print ($1*3600)+($2*60)+$3}'` treated the leading
+field as HOURS regardless of how many fields were present. With only two fields
+(`$3` empty, defaulting to 0 in arithmetic), `29:58` came out as `29*3600 =
+104400`s, ~30 HOURS, a 60x inflation.
+
+**Verified before touching the job, not after**: the observed per-item rate
+(31.3 s/item at question 14) projects the 133 remaining items at ~69 minutes,
+and the log's very next lines showed the rate accelerating -- `9.31`, `7.43`,
+`6.29` s/it -- consistent with F212's expectation that CktBr yields quickly and
+exits early. **The job was healthy and comfortably inside its 6h limit.**
+
+**Fix**: count colons before parsing. One colon means `MM:SS` (`$1*60+$2`); two
+means `H:MM:SS`. tqdm varies its own format by magnitude, which is exactly why a
+fixed-shape parse breaks. The `squeue %l` walltime-limit side was NOT affected
+(that field is always `[D-]H:MM:SS`, a different, non-varying format).
+
+**This is the same failure class as the ledger's earlier `awk` empty-match bug**
+(the SFT-progress waiter that once claimed "past step 50" while a job was still
+loading shards): trust a parser only after it has been tested against a real
+observed value, not just written to compile. Redeployed and verified against
+four real values (`29:58`, `13:24`, `1:05:12`, `20:09`) before re-arming.
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

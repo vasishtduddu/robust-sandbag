@@ -9191,6 +9191,32 @@ possum` for survivors BEFORE launching a fresh harness generation**, not just
 a restart -- it showed empty immediately post-compaction even though `bd6c25aff`
 was, in fact, still alive).
 
+### F233. Duplicate harness generations killed with Mark's explicit go-ahead; cleanup verified (2026-08-24)
+
+Mark authorized the kill from F232. `kill 2638703 2638744 2639362 2640502
+4106217 3021191` succeeded (3021191 had already exited on its own). The kill
+also revealed the REAL task-ids of the stale generation, which the earlier
+audit could only see as raw PIDs: `bd6c25aff` (slurm watcher), `b8kg3tyxo`
+(coordination watcher, more thorough than my replacement -- also grepped a
+`## B's replies` section), `bpkfiqh43` (the CktBr doom-detector v3, confirmed
+via its own description to be the exact stale process watching long-dead jobs
+`4986563`-`4986567`), `b6ikhsvd4` (disk-band alarm). All four now report
+`status=failed exit=144` (SIGTERM), confirming the kill landed precisely and
+nothing else was collaterally affected.
+
+**Full audit after the kill**: `ps -ef | grep -i possum` now shows exactly ONE
+process for each of `slurm_watch.sh` (`2232329`), the disk-band alarm
+(`2232658`), and the coordination watcher (`2233086`) -- no more, no less.
+The `tmux` session found during the audit (`possum`, since 01:12) is not a
+stray: it is the actual terminal hosting this Claude Code session, confirmed
+by `tmux capture-pane` showing this very conversation. `TaskOutput` on all
+three surviving task-ids (`bgwlkh6un`, `bi8hksq6t`, `b9x1pnn07`) confirms
+`status=running`. **No eta-doom detector is currently armed** (the only one
+that existed was the stale one just killed); none is needed right now since
+the CktBr 32B/MMLU-Stem trio (`4999847`-`4999849`) is still PENDING, not
+RUNNING -- arm one once they start, since F225 already flagged that cell as
+lacking any prior 32B CktBr rate to sanity-check against.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

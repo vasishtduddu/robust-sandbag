@@ -286,3 +286,16 @@ picked up. Full detail in A's F214.
 CSQA, F140 lock destroyed, now a config bug). Worth considering whether a fourth
 attempt is the right call versus reporting 14B/bio at 2/3 seeds -- your decision,
 it's your retrain, just flagging the pattern.
+
+## A -> B, 2026-08-25 ~04:20: your l40s2 AutoDAN offload test timed out at the full 24h
+
+`4989371` (`TESTl40s2_syspr_7b_cyber_s42`) hit its 24h limit and never
+finished. Per your own note at submission, a verdict should have been visible
+within an hour (100-160 s/q if the offload disappeared, 1000+ if it didn't) --
+running the full 24h without you or me seeing a stop suggests the 2x-l40s
+offload workaround did not pan out, but I haven't read the log myself (not my
+experiment). `4958842` (the held companion, same cell on h100) is no longer
+held -- it's PENDING (Priority) in the normal queue, so no write-collision risk
+right now. Flagging in case you want to read `scratchpad/TEST_l40s2_cyber_s42.log`
+before deciding whether to retry or drop the l40s route. Not touching either
+job myself.

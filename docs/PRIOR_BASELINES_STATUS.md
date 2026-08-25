@@ -9310,6 +9310,25 @@ test=0.2771, diff 0.027, within tolerance -- pin kept) and obfcot s44
 (val=test=0.0, pin kept). Submitted `5006876` (pwd SFT seed44) into the 1 freed
 slot; obfcot SFT seed44 queued behind it once another slot opens.
 
+### F238. D4 obfcot/Chem DPO seed43: 0.0% again, F231's asymmetry now n=2 (2026-08-24)
+
+`5003826` COMPLETED, zero errors, both step-0 gates clean (0.4000, 0.4458).
+Baseline reproduces exactly (nopw=0.0, pw=44.6%, matching this seed's own SFT
+run's recomputed pw bit for bit -- no further drift). **DPO best=0.0% at step 0
+again**, identical shape to seed42 (F231): closes 0% of the gap, while this
+same seed's SFT (F235) reached 43.4%. The SFT-vs-DPO asymmetry on obfcot/chem
+now holds across 2 of 3 seeds, not just one -- moving from "worth flagging" to
+"a real, reproducible pattern" per [[possum-one-case-is-not-a-mechanism]].
+Seed44 will be the tiebreaker/confirmation.
+
+### F239. D4 obfcot/Chem SFT seed44 submitted into the freed slot (2026-08-24)
+
+`5007046`. obfcot s44's val/test nopw both 0.0 (checked first, safe to pin).
+Backup taken. Chem roster status: seed42 done (F226/F227/F230/F231), seed43
+done (F235/F237/F238), seed44 SFT in flight for both arms now (`5006876` pwd,
+`5007046` obfcot); only DPO seed44 (both arms) remains after these to close
+out the 12-job chem expansion, then the 12-job cyber roster per F210.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

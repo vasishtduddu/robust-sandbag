@@ -9579,6 +9579,33 @@ base_acc=0.5181, fingerprint matches obfcot/chem's sample. Rate: 7756s/83q =
 CktBr cell started (mmlu-stem 2/3 done, chem 1/3 + 2 pending, mmlu-hss 1
 started).
 
+### F269. SysPr/14B/Cyber seed44 complete: 93.2%, clean (2026-08-25)
+
+`4958847` COMPLETED, zero errors. autodan=93.2%, n=399.
+
+### F270. F265's 2-GPU fix ALSO failed: a genuine architectural mismatch, third attempt uses PyTorch's own fragmentation fix (2026-08-25)
+
+`5011719` (2 GPUs + `POSSUM_BALANCED_DEVICE_MAP=1`) FAILED with a NEW, different
+error: `RuntimeError: Expected all tensors to be on the same device, but found
+at least two devices, cuda:0 and cuda:1!` -- the balanced device map splits
+the 7B model's layers across both GPUs for INFERENCE fine (that's what it's
+designed and proven for, per `utils/loading.py`'s docstring, on 32B attacks),
+but DPO's training loop computes something (policy-vs-reference loss, most
+likely) across tensors that end up split on both devices, which the trainer
+is not written to handle. **This is a real architectural incompatibility
+between DPO training and `device_map="auto"` sharding, not a config
+mistake** -- do not try forcing 2-GPU DPO again without a code change.
+
+**Third attempt, more targeted**: reverted to `h100:1`/`batch_size 4`
+(matching what worked for chem), added `PYTORCH_CUDA_ALLOC_CONF=
+expandable_segments:True` -- PyTorch's own suggested fix for the ORIGINAL
+error message's "12.25 GiB reserved but unallocated" fragmentation symptom.
+The original OOM was tight (needed ~80.3GB against a 79.18GB card, ~1.1GB
+short), so reclaiming fragmented-but-unallocated memory is plausible without
+needing multi-GPU at all. Submitted `5012060`. **If this also fails, escalate
+to Mark rather than attempting a fourth guess** -- three attempts is enough
+autonomous iteration on a single failure mode.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

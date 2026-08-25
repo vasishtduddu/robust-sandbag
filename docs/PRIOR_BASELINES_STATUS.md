@@ -89,7 +89,7 @@ standing instruction). Release nothing from the 18 without revisiting F1 first.
 | Deliverable | Status |
 |---|---|
 | Table 2 E&U | COMPLETE 54/54 |
-| Table 2 robustness | 27/54 (pwd 12, sysprompt 12, circuitbreak 3) |
+| Table 2 robustness | 28/54 (pwd 12, sysprompt 13, circuitbreak 3) |
 | Table 3 (obfcot) E&U | 6/18 (all WMDP at 7B+32B; MMLU held F1; 14B blocked F214) |
 | Table 3 robustness | 1/18 complete (7B/Chem, the 41x headline); D4-chem-expansion probe in flight |
 | Table 4 | trimmed to 5 columns (Steering/Pruning/Fuzzing/Probing/FT+Probing) per supervisor; 14 cells reportable |
@@ -9627,6 +9627,17 @@ sed-derived scripts. Also caught a missing `strategy_library.json` under
 pointed at the shared `/project/.../artifacts/cache/` copy instead, verified
 present. Rebuilt correctly and submitted `5012125` after confirming both the
 checkpoint path and cache file exist on disk.
+
+### F273. SysPr/14B/MMLU-HSS robustness CLOSES: 3/3 seeds (2026-08-25)
+
+`4958838` COMPLETED, zero errors, base_acc/fingerprint identical to siblings.
+autodan=98.1% (seeds 42/43/44: 97.6/96.5/98.1). **Table 2 robustness now
+28/54** (pwd 12, sysprompt 13, circuitbreak 3), up from 27.
+
+### F274. CktBr 14B/Cyber seeds 43/44 submitted, using the corrected template (2026-08-25)
+
+`5013932`/`5013933`, same fix as F272 (checkpoint path, cache location).
+Checkpoints verified present for both before submitting.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

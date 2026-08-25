@@ -9458,6 +9458,18 @@ pending.
 `5010871` into the freed slot. val/test nopw checked first (0.157/0.185, diff
 0.029, within tolerance -- pin kept).
 
+### F255. D4 7B/Cyber PWD SFT seed42: first cyber data point, passes cleanly (2026-08-25)
+
+`5008780` COMPLETED, zero errors. Gates: VAL delta=0.3636, TEST delta=0.2807,
+both clear. n=399 (larger than chem's 83). nopw=0.2005 vs expected 0.183,
+diff=0.0176, within tolerance. SFT best 29.6% (closes 34% of gap) -- first
+cyber curve, no prior cyber-specific shape to compare against; noted as a
+baseline data point, not yet a pattern.
+
+### F256. D4 7B/Cyber obfcot SFT seed43 submitted (2026-08-25)
+
+`5011071` into the freed slot, backup taken, val/test both 0.0.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

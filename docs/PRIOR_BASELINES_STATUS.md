@@ -9567,6 +9567,18 @@ probe confirms it actually works -- not repeating an unverified fix twice.
 `5011724`/`5011725`, same template as F243's seed42 (300 min). Not waiting on
 the DPO probe's outcome since this work is independent.
 
+### F267. CktBr 32B/Chem seed42 complete: 94.0%, matches rate estimate (2026-08-25)
+
+`5008279` COMPLETED in 2:09:16, zero errors. autodan=94.0% (n=83),
+base_acc=0.5181, fingerprint matches obfcot/chem's sample. Rate: 7756s/83q =
+~93.4 s/q, within the established 70-93 s/q range for 32B CktBr.
+
+### F268. CktBr 32B/MMLU-HSS seed42 submitted (2026-08-25)
+
+`5011916`, n=375, 720min (12h) walltime projecting ~9.4h at 90 s/q. Third 32B
+CktBr cell started (mmlu-stem 2/3 done, chem 1/3 + 2 pending, mmlu-hss 1
+started).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

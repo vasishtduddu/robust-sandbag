@@ -9506,10 +9506,18 @@ chem's 83)**: this is the FIRST whitebox job on cyber, so this OOM headroom
 issue never showed up on chem. No data lost: `sft`/`autodan` intact in the
 json, only `dpo` recorded in `elicitation_errors` (caught, not corrupted).
 
-**Resubmitted `5011288` with `--batch_size 2`** (down from 4). **Every
-remaining cyber SFT/DPO job (both arms, all seeds) needs the same
-`--batch_size 2` fix** -- update the template before submitting any more
-cyber jobs; chem's template (`batch_size 4`) does not apply.
+**Resubmitted `5011288` with `--batch_size 2`** (down from 4).
+
+**CORRECTION, same cycle: this is DPO-specific, not SFT.** Both cyber SFT
+jobs already COMPLETED CLEANLY at `batch_size 4` (F255 pwd, F257 obfcot) --
+no OOM. DPO's reload/eval step almost certainly carries extra memory (a
+reference model alongside the policy model), which SFT's single-model reload
+does not, explaining why only DPO tips over on cyber's larger n=399. Caught
+three more DPO jobs already queued at `batch_size 4` before they could waste
+the same compute: `5010481` (obfcot s42, 19:36 into training, RUNNING) and
+the two dependency-pending `5011117`/`5011176` (pwd/obfcot s43). Cancelled all
+three and resubmitted at `batch_size 2`: `5011299`, `5011300`, `5011301`.
+**Only DPO jobs need the batch_size fix; SFT jobs keep `batch_size 4`.**
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

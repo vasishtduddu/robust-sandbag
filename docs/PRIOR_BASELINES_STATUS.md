@@ -9529,6 +9529,15 @@ consistent with seed42's 29.6% (F255).
 `5011608` into the freed slot. val/test checked first for both arms (pwd:
 0.121/0.155 diff 0.034; obfcot: 0.0/0.0025 diff 0.0025), both safe to pin.
 
+### F264. Session B's l40s2 job timed out, freeing 1 slot; D4 7B/Cyber obfcot SFT seed44 submitted (2026-08-25)
+
+`4989371` (B's AutoDAN 2x-l40s offload experiment) TIMED OUT at 24h. Not my
+job (`Command` traces to B's own scratchpad, transcript `3979b5ff`); flagged
+in `AGENT_COORDINATION.md` for B's review rather than investigating or
+resubmitting myself. Companion `4958842` confirmed not held (queued
+normally), so no write-collision risk. Used the freed slot for `5011694`
+(obfcot SFT cyber seed44).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

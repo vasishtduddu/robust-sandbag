@@ -9495,6 +9495,22 @@ fingerprint identical. autodan=96.5%. seed44 (`4958838`) still pending.
 
 `5011176`, dependent on `5011071` (SFT seed43, same json).
 
+### F261. D4 PWD/Cyber DPO seed42 OOM'd at the val-to-test reload; resubmitted at batch_size=2 (2026-08-25)
+
+`5009959` FAILED (exit 1, 23:41 elapsed). OOM at `_run_eval.py`'s val-to-test
+reload for DPO (`Tried to allocate 22.54 GiB`, 57.79GB already resident on a
+79GB H100), matching [[possum-whitebox-reload-peak-needs-h100]]'s known
+failure point exactly -- gradient checkpointing only saves training memory,
+not the reload/eval peak. **Root cause is cyber's larger n (399 test rows vs
+chem's 83)**: this is the FIRST whitebox job on cyber, so this OOM headroom
+issue never showed up on chem. No data lost: `sft`/`autodan` intact in the
+json, only `dpo` recorded in `elicitation_errors` (caught, not corrupted).
+
+**Resubmitted `5011288` with `--batch_size 2`** (down from 4). **Every
+remaining cyber SFT/DPO job (both arms, all seeds) needs the same
+`--batch_size 2` fix** -- update the template before submitting any more
+cyber jobs; chem's template (`batch_size 4`) does not apply.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

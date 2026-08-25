@@ -9343,6 +9343,23 @@ seed42 (F226/F230). Chem seed43 now fully closed for pwd (autodan+sft+dpo).
 checked in F237). Chem roster remaining: SFT s44 both arms still pending,
 obfcot DPO s44 not yet submitted.
 
+### F242. FIRST 32B CktBr AutoDAN data point: seed43 complete, 96.6%, rate ~70 s/q (2026-08-24)
+
+`4999848` (circuitbreak/32B/mmlu-stem/seed43) COMPLETED in 2:51:04, zero
+errors. autodan=96.6% (n=147), base_acc=0.6259, fingerprint
+`626cd26266...` matches the SysPr/32B/mmlu-stem fingerprint prefix exactly (same
+underlying test sample, different organism -- expected). **First real 32B
+CktBr rate**: 10264s / 147q = ~70 s/q, matching F225's SysPr-proxy estimate
+(61-68 s/q) closely, confirming the sizing approach was sound. seed42
+(`4999847`) still running; seed44 (`4999849`) still pending.
+
+### F243. CktBr 32B/Chem seed42 submitted using the now-measured rate (2026-08-24)
+
+n=83 (smallest remaining 32B CktBr task, confirmed via sibling SysPr json). At
+~70 s/q that projects ~1.6h; submitted `5008279` at 300 min (5h, ~3x margin)
+rather than F225's padded 600 min, now that a real rate exists. Checkpoint
+confirmed present (`run01/02/03`) under `possum-prior-32b-killarney`.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

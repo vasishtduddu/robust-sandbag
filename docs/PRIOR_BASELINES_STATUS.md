@@ -9329,6 +9329,20 @@ done (F235/F237/F238), seed44 SFT in flight for both arms now (`5006876` pwd,
 `5007046` obfcot); only DPO seed44 (both arms) remains after these to close
 out the 12-job chem expansion, then the 12-job cyber roster per F210.
 
+### F240. D4 PWD/Chem DPO seed43 passes cleanly (2026-08-24)
+
+`5006131` COMPLETED, zero errors, both gates match split-specific accepted
+values exactly (0.10, 0.2651). DPO best 48.2% (closes 138% of gap) vs SFT's
+36.1% same seed (F237) -- consistent DPO>SFT pattern for pwd, mirroring
+seed42 (F226/F230). Chem seed43 now fully closed for pwd (autodan+sft+dpo).
+
+### F241. D4 PWD/Chem DPO seed44 submitted (2026-08-24)
+
+`5007984`, dependent on `5006876` (SFT seed44, same json). Pinned
+`POSSUM_D4_EXPECT_NOPW=0.2771` (val/test agree within tolerance for this seed,
+checked in F237). Chem roster remaining: SFT s44 both arms still pending,
+obfcot DPO s44 not yet submitted.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

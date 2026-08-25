@@ -9415,6 +9415,18 @@ fingerprint identical. autodan=93.9% vs seed43's 96.6%, tight spread. seed44
 Cyber roster: pwd SFT seed42 (`5008780`) and obfcot SFT seed42 (`5009094`)
 both in flight; 10 more jobs to go per F210's 12-job scoping.
 
+### F249. D4 PWD/Chem DPO seed44 passes; pwd/chem now fully complete (2026-08-25)
+
+`5007984` COMPLETED, zero errors, gates match exactly (0.25, 0.2651). DPO best
+43.4% (108% of gap). **pwd/chem is now closed across all 3 seeds x 2
+techniques**: DPO consistently beats SFT (45.8/48.2/43.4 vs 36.1/36.1/36.1),
+a clean, reproducible pattern. Only obfcot/chem DPO seed44 (`5008767`,
+running) remains to close the full 12-job chem roster.
+
+### F250. D4 7B/Cyber PWD DPO seed42 submitted (2026-08-25)
+
+`5009959`, dependent on `5008780` (SFT seed42, same json).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

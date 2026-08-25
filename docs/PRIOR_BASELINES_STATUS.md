@@ -9427,6 +9427,25 @@ running) remains to close the full 12-job chem roster.
 
 `5009959`, dependent on `5008780` (SFT seed42, same json).
 
+### F251. D4 7B/Chem expansion COMPLETE: 12/12 jobs, both arms, both techniques, all 3 seeds (2026-08-25)
+
+`5008767` COMPLETED, zero errors, gates clean. obfcot/chem/seed44 DPO=0.0%,
+consistent with its SFT=0.0% (F245) -- seed44 resists both techniques
+entirely, confirming the genuine bimodality rather than a fluke. **Chem
+roster final tally**:
+- pwd: SFT 36.1/36.1/36.1, DPO 45.8/48.2/43.4 (DPO consistently stronger)
+- obfcot: SFT 38.6/43.4/0.0, DPO 0.0/0.0/0.0 (SFT works except seed44; DPO
+  never works)
+
+This is the second dataset (after bio) with a complete 3-seed D4 curve for
+both arms and both techniques. Moving fully to the cyber roster now.
+
+### F252. D4 7B/Cyber obfcot DPO seed42 submitted (2026-08-25)
+
+`5010481`, dependent on `5009094` (SFT seed42, same json). Cyber roster: 4/12
+jobs submitted so far (pwd SFT/DPO s42, obfcot SFT/DPO s42); 8 remain (both
+techniques x both arms x seeds 43/44).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

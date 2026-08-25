@@ -9639,6 +9639,41 @@ autodan=98.1% (seeds 42/43/44: 97.6/96.5/98.1). **Table 2 robustness now
 `5013932`/`5013933`, same fix as F272 (checkpoint path, cache location).
 Checkpoints verified present for both before submitting.
 
+### F275. All tables and D4 figures re-rendered and pushed to PR #1 (2026-08-25)
+
+Per Mark's explicit request, re-rendered everything and pushed directly:
+
+- **Table 2**: strictly-additive render across all 6 attack roots (added
+  `possum-prior-32b-killarney` and `possum-retained-prior` to the union
+  command, which were missing from the last documented invocation). 299
+  filled vs the prior 293-ish; diffed line-by-line first, confirmed every
+  change was `---`->number, zero regressions, installed directly.
+- **Table 3**: renders 31/432 filled locally (F150's known cross-machine
+  gap -- RobPWD/RobAdapt have no artifact here). Diffed against the
+  committed file and spliced ONLY the two obfcot WMDP rows (7B, 32B) that
+  are genuinely mine; left RobPWD/RobAdapt/MMLU untouched. The 32B row
+  gained real new data (F217's cyber E&U completion, landed after the last
+  render); the 7B row shows a ~0.4pp drift in one cell matching the known
+  benign generation non-determinism (F235).
+- **Table 4**: rendered, byte-identical to committed (no new whitebox
+  technique data since the column trim) -- not touched.
+- **Table 5** (scale): rendered, still 0/72 filled either way, only a
+  row-schema difference (14B->72B) with no actual numbers -- not installed,
+  out of current scope.
+- **D4 figures**: `matplotlib` was missing from the venv (only `numpy` was
+  present); installed from the local Compute Canada wheelhouse
+  (`--no-index`, purely additive, no conflicts with existing ML packages).
+  Regenerated both the original 3-panel figures and the publication-style
+  ones for bio (refresh), chem (newly complete), and cyber (SFT only --
+  DPO has zero completed curves so far). Visually spot-checked chem and
+  cyber SFT before installing; both match the already-validated numeric
+  findings (chem: RoBCoTDstl below password-locking but wide seed band from
+  seed44's resistance; cyber: RoBCoTDstl flat near 0% against
+  password-locking's ~28%, matching F257).
+
+Committed (`f99e113`) and pushed directly to `mark/baseline-exps` (PR #1) per
+explicit instruction.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

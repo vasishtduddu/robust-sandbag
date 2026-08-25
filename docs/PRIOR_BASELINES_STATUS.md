@@ -9217,6 +9217,52 @@ the CktBr 32B/MMLU-Stem trio (`4999847`-`4999849`) is still PENDING, not
 RUNNING -- arm one once they start, since F225 already flagged that cell as
 lacking any prior 32B CktBr rate to sanity-check against.
 
+### F234. D4 gate false positive: `POSSUM_D4_EXPECT_NOPW` is applied to BOTH val and test splits, but pwd/chem/seed43 legitimately has different accepted nopw per split (2026-08-24)
+
+`5000769` (pwd SFT, chem, seed43) FAILED (exit 1, 17:27 elapsed). The traceback:
+`sft step-0 locked=0.1000 does not match the accepted nopw=0.2651 (tol 0.05)`
+(F88's gate, `elicitation/base.py:assert_step0_lock_measured`). Investigated
+before retrying blind, since this gate exists specifically to catch a
+dangerous class of silently-wrong curve (F88).
+
+**Root cause, verified against ground truth, not guessed**: the accepted json
+(`pwd_qwen2.5-7b-it_chem__seed43.json`, both current and the pre-D4 backup)
+has `val_task_nopw_acc=0.10` and `test_task_nopw_acc=0.26506024096385544` --
+**this specific seed's checkpoint genuinely answers differently on the two
+splits** (n=40 val is small; nothing wrong with the checkpoint, this is its
+own already-accepted, already-published number). `assert_step0_lock_measured`
+is called ONCE per split (`sft.py` line 425, invoked separately for val via
+`tech` and for test via a freshly-reloaded `tech2`), but BOTH calls read the
+SAME single `POSSUM_D4_EXPECT_NOPW` env var, which I had set to the TEST value
+(0.2651) since that's what F226-F231's cells all used successfully -- those
+cells just happened to have val/test close enough (<=0.03 apart) to both pass
+the same 0.05-tolerance check by coincidence. **This is a genuine design gap**:
+the interface has no way to give val and test their own expected value. Only
+noticed because seed43 is the first cell where val/test diverge by more than
+the tolerance (0.165 here).
+
+**The SFT curve itself was measuring the correct condition** -- `locked=0.1000`
+at step 0 EXACTLY matches the accepted `val_task_nopw_acc`, so this was a false
+positive, not a real F88-class bug. Confirmed the delta-floor check (the
+PRIMARY defense, `POSSUM_D4_MIN_STEP0_DELTA` default 0.10) is unaffected and
+still passes with wide margin on both splits (val delta=0.35, test delta
+implied ~0.157 from the readout's `nopw=0.2651`/`pw=0.4217`).
+
+**Not attempting a code fix.** A correct fix needs `assert_step0_lock_measured`
+call sites to be split-aware (pass the val- or test-specific accepted value,
+not a single shared env var), which touches `elicitation/base.py`,
+`whitebox/sft.py`, `whitebox/dpo.py`, AND `evaluate.py`'s `_run_elicitations_single`
+callers (three call sites) to thread the accepted json through. That is too
+much surface to change unilaterally in a shared, F88-critical safety path
+without sign-off, given F88's own warning about how dangerous a subtle bug
+here is. **Resubmitted `5005968`** with `POSSUM_D4_EXPECT_NOPW`/`_TOL` REMOVED
+(delta-floor check still armed), justified because I manually verified the
+val-split match against ground truth myself in place of the automated
+point-check. **Any future pwd/chem/seed43 job (the eventual DPO seed43) must
+do the same**: check `val_task_nopw_acc` vs `test_task_nopw_acc` before
+choosing whether to set `POSSUM_D4_EXPECT_NOPW` at all, rather than assuming
+the test value is safe to reuse for both splits.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

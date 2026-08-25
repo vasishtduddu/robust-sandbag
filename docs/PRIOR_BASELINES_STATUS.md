@@ -9606,6 +9606,28 @@ needing multi-GPU at all. Submitted `5012060`. **If this also fails, escalate
 to Mark rather than attempting a fourth guess** -- three attempts is enough
 autonomous iteration on a single failure mode.
 
+### F271. SysPr/14B/Cyber seed43 complete: 94.7%, closes 2/3 (2026-08-25)
+
+`4958846` COMPLETED, zero errors. base_acc matches seed44 (0.4787).
+autodan=94.7%. Seeds 43/44 both done; seed42 (`4958842`) still pending.
+
+### F272. CktBr 14B/Cyber seed42 started -- caught a bad sed-copy before submitting (2026-08-25)
+
+This is F225's last fully-READY-but-unstarted cell (per the checkpoint audit).
+Built the sbatch by `sed`-copying a working SysPr 14B/cyber template and
+swapping `sysprompt`->`circuitbreak`, but this silently inherited SysPr's
+checkpoint LAYOUT (no `run0N` subdir, `/project/.../artifacts` root) which
+does NOT match CktBr's actual layout (`run01/02/03` subdirs, root
+`/scratch/markwang/possum-prior-eff` per the F225 audit). Caught by
+diff-reading the generated script before submitting rather than trusting the
+sed output, matching the [[possum-one-job-per-slot]] lesson about verifying
+sed-derived scripts. Also caught a missing `strategy_library.json` under
+`possum-prior-eff/cache/autodan/` (empty dir) before the
+`POSSUM_AUTODAN_REQUIRE_CACHE=1` gate would have failed the job immediately;
+pointed at the shared `/project/.../artifacts/cache/` copy instead, verified
+present. Rebuilt correctly and submitted `5012125` after confirming both the
+checkpoint path and cache file exist on disk.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

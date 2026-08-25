@@ -9263,6 +9263,36 @@ do the same**: check `val_task_nopw_acc` vs `test_task_nopw_acc` before
 choosing whether to set `POSSUM_D4_EXPECT_NOPW` at all, rather than assuming
 the test value is safe to reuse for both splits.
 
+### F235. D4 obfcot/Chem SFT seed43 passes; real but tiny generation non-determinism noted in the recomputed pw baseline (2026-08-24)
+
+`5001902` COMPLETED, zero errors, step-0 gates well clear (VAL delta=0.4000,
+TEST delta=0.4458). Curve: best 43.4% at step 2000 (closes 97% of the gap) --
+consistent with seed42's SFT result (F227, 38.6%/145%) and the established
+"obfcot resists DPO, yields to SFT on chem" pattern (F231).
+
+**Noted for the record, not a concern**: this `--force` run's recomputed
+`test_task_pw_acc` came out `0.4457831325301205` (37/83) versus the pre-D4
+backup's `0.4578313253012048` (38/83) -- a real 1-question drift. Confirmed NOT
+a different sample (fingerprint identical, `52ce32f0...`, across every
+elicitation including the new `sft` entry) and NOT a nopw/lock change (both
+val and test `nopw` unchanged at exactly 0.0). This organism runs under
+`POSSUM_GENPARSE=1` (true generation, not forced-choice), so a single
+borderline question flipping between two generation passes is expected-scale
+noise, not a bug -- HS/CSQA utility also shifted by <0.1pp in the same run,
+consistent with the same source. Flagging because `test_task_pw_acc` feeds
+D4's own gap-closed percentages, so a repeat `--force` re-eval of this cell
+could shift that figure by ~1pp in either direction; the nopw/lock numbers
+that Table 3 actually reports are unaffected.
+
+### F236. D4 PWD/Chem DPO seed43 submitted, applying F234's lesson directly (2026-08-24)
+
+Before submitting, checked `pwd_qwen2.5-7b-it_chem__seed43.json`'s
+`val_task_nopw_acc` (0.10) against `test_task_nopw_acc` (0.2651) -- still
+diverged past tolerance (same cell as F234, unaffected by anything since).
+Submitted `5006131` WITHOUT `POSSUM_D4_EXPECT_NOPW` (delta-floor check still
+armed), dependent on `5005968` (the resubmitted SFT, same reasoning) via
+`--dependency=afterany:5005968` since both target the same result json.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

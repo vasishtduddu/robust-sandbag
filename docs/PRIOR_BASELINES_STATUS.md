@@ -9486,6 +9486,15 @@ than n=1 for cyber specifically.
 
 `5011117`, dependent on `5010871` (SFT seed43, same json, still running).
 
+### F259. SysPr/14B/MMLU-HSS seed43 complete: 96.5%, 2/3 seeds (2026-08-25)
+
+`4958837` COMPLETED, zero errors. base_acc identical to seed42 (0.7173),
+fingerprint identical. autodan=96.5%. seed44 (`4958838`) still pending.
+
+### F260. D4 7B/Cyber obfcot DPO seed43 submitted (2026-08-25)
+
+`5011176`, dependent on `5011071` (SFT seed43, same json).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

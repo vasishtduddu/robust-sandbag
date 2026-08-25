@@ -9360,6 +9360,22 @@ n=83 (smallest remaining 32B CktBr task, confirmed via sibling SysPr json). At
 rather than F225's padded 600 min, now that a real rate exists. Checkpoint
 confirmed present (`run01/02/03`) under `possum-prior-32b-killarney`.
 
+### F244. SysPr/7B/MMLU-Prof seed42 TIMED OUT at 14h (840min); resubmitted at 20h with a rate-derived walltime (2026-08-24)
+
+`4984291` hit its 840min limit at 529/624 (85%) AutoDAN items, no output
+written (`test_elicitations={}`, `elicitation_errors={}` -- clean, nothing
+lost, no partial data to merge or corrupt). This 7B-tier SysPr/MMLU-Prof cell
+was apparently never sized off a measured rate (its sibling seeds 43/44,
+`4984292`/`4984293`, are still PENDING, never run) -- 840min looks like a
+generic tier default, not a derived figure.
+
+**Achieved rate from the log**: 529 items in 13:35:26 (48926s) = ~92.5 s/q
+average (bimodal tail visible: some items 19-40s, one spike to 434s near the
+end, consistent with AutoDAN's known bimodal cost, F215/F216). Projected full
+624 items at this rate: 624 x 92.5 / 3600 = ~16.0h. **Resubmitted as `5008715`
+at 1200 min (20h)**, giving ~4h margin above the projection rather than
+guessing again. Lands within `h100_b3`'s 24h band.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

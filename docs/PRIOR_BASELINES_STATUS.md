@@ -9538,6 +9538,35 @@ resubmitting myself. Companion `4958842` confirmed not held (queued
 normally), so no write-collision risk. Used the freed slot for `5011694`
 (obfcot SFT cyber seed44).
 
+### F265. CORRECTION of F261: batch_size=2 did NOT fix the cyber DPO OOM; real fix is 2 GPUs + balanced device map (2026-08-25)
+
+`5011288` (the batch_size=2 retry) FAILED with the **nearly byte-identical**
+OOM (`Tried to allocate 22.54 GiB`, 57.78 vs the original's 57.79 GiB
+resident, same 2484-step count) -- proof `--batch_size` does not touch the
+memory footprint at DPO's val-to-test reload at all. F261's diagnosis was
+wrong; retracting the batch_size fix.
+
+**Real mechanism, found in `utils/loading.py:_balanced_max_memory`'s own
+docstring**: `device_map="auto"` fills GPUs SEQUENTIALLY, so a 7B model plus
+its DPO reference copy both land on GPU 0 even with `gres:h100:2` requested,
+and activations OOM on GPU 0 while GPU 1 sits idle -- this is the EXACT
+documented failure mode from the 2026-08-20 32B incident, just hitting DPO's
+dual-model reload on 7B/cyber's large n=399 instead of a 32B weight load.
+The fix requires BOTH `--gres=gpu:h100:2` AND `POSSUM_BALANCED_DEVICE_MAP=1`
+(opt-in, caps each GPU's weight budget so accelerate is forced to spread).
+
+**Cancelled the other 3 queued DPO jobs before they could repeat the same
+failure** (`5011299`/`5011300`/`5011301`, all still PENDING, no compute
+wasted). **Submitted `5011719` as a probe** with the real fix (`h100:2`,
+`POSSUM_BALANCED_DEVICE_MAP=1`, batch_size reverted to 4) for pwd/cyber/seed42.
+Will only propagate this template to the other 3 cyber DPO jobs once this
+probe confirms it actually works -- not repeating an unverified fix twice.
+
+### F266. CktBr 32B/Chem seeds 43/44 submitted with 2 free slots (2026-08-25)
+
+`5011724`/`5011725`, same template as F243's seed42 (300 min). Not waiting on
+the DPO probe's outcome since this work is independent.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

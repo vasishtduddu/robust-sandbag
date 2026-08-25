@@ -9403,6 +9403,18 @@ Chem roster status: 10/12 complete (seed42 x2techniques x2arms, seed43
 x2x2, seed44 SFT x2arms); only DPO seed44 both arms remain (`5007984`
 running, `5008767` pending).
 
+### F247. CktBr 32B/MMLU-Stem seed42 complete: 93.9%, 2/3 seeds (2026-08-25)
+
+`4999847` COMPLETED, zero errors. base_acc identical to seed43 (0.6259),
+fingerprint identical. autodan=93.9% vs seed43's 96.6%, tight spread. seed44
+(`4999849`) still pending -- one seed from closing this cell.
+
+### F248. D4 7B/Cyber obfcot SFT seed42 submitted (2026-08-25)
+
+`5009094` into the freed slot, backup taken, val/test both 0.0 (safe pin).
+Cyber roster: pwd SFT seed42 (`5008780`) and obfcot SFT seed42 (`5009094`)
+both in flight; 10 more jobs to go per F210's 12-job scoping.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

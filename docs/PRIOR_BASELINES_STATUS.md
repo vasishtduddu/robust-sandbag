@@ -9446,6 +9446,18 @@ both arms and both techniques. Moving fully to the cyber roster now.
 jobs submitted so far (pwd SFT/DPO s42, obfcot SFT/DPO s42); 8 remain (both
 techniques x both arms x seeds 43/44).
 
+### F253. SysPr/14B/MMLU-HSS seed42 complete: 97.6%, 1/3 seeds (2026-08-25)
+
+`4958836` COMPLETED, zero errors. base_acc=nopw_acc=0.7173 (expected for SysPr:
+no password mechanism, the sandbag comes entirely from the system-prompt
+injection). autodan=97.6%, n=375. Seeds 43/44 (`4958837`/`4958838`) still
+pending.
+
+### F254. D4 7B/Cyber PWD SFT seed43 submitted (2026-08-25)
+
+`5010871` into the freed slot. val/test nopw checked first (0.157/0.185, diff
+0.029, within tolerance -- pin kept).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -9376,6 +9376,33 @@ end, consistent with AutoDAN's known bimodal cost, F215/F216). Projected full
 at 1200 min (20h)**, giving ~4h margin above the projection rather than
 guessing again. Lands within `h100_b3`'s 24h band.
 
+### F245. D4 obfcot/Chem SFT seed44: 0.0%, a THIRD distinct pattern -- genuine seed bimodality, not a bug (2026-08-24)
+
+`5007046` COMPLETED, zero errors, gates clean (VAL delta=0.3750, TEST
+delta=0.4217). But **SFT best=0.0% at step 0**, unlike seed42 (38.6%, F227) and
+seed43 (43.4%, F235). Chem's obfcot cell is now shown to have THREE distinct
+per-seed behaviors: seed42 SFT-yields/DPO-resists, seed43 same, **seed44
+resists BOTH techniques completely** (SFT=0.0%, DPO pending in `5008767`).
+This is the same genuine-bimodality class as CktBr's MMLU-Prof cells
+(F112/F113): real, seed-dependent, not a code defect (clean gates, clean
+merge, `elicitation_errors={}`). **Consequence for the D4 aggregate**: the
+chem SFT curve's mean-across-3-seeds will have much wider SEM than the
+chem/bio comparison assumed from 2 seeds; report per-seed, not just the mean,
+per [[possum-one-case-is-not-a-mechanism]] discipline.
+
+### F246. D4 7B/Cyber roster started (2026-08-24)
+
+Per F210's scoping, cyber is the second and final D4 dataset expansion (12
+jobs: SFT+DPO x pwd+obfcot x 3 seeds). Checked both arms' seed42 val/test nopw
+divergence first (pwd: 0.167/0.183, within tolerance; obfcot: 0.0/0.0) --
+both safe to pin. Submitted `5008780` (pwd SFT cyber seed42) into the freed
+slot as the probe, following the same order used for chem. obfcot SFT s42 to
+follow once capacity allows.
+
+Chem roster status: 10/12 complete (seed42 x2techniques x2arms, seed43
+x2x2, seed44 SFT x2arms); only DPO seed44 both arms remain (`5007984`
+running, `5008767` pending).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

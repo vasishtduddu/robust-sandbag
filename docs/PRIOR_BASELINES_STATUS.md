@@ -9293,6 +9293,23 @@ Submitted `5006131` WITHOUT `POSSUM_D4_EXPECT_NOPW` (delta-floor check still
 armed), dependent on `5005968` (the resubmitted SFT, same reasoning) via
 `--dependency=afterany:5005968` since both target the same result json.
 
+### F237. D4 PWD/Chem SFT seed43 (F234's resubmit) validated; confirms the diagnosis exactly (2026-08-24)
+
+`5005968` COMPLETED, zero errors. **Both step-0 gates now printed the exact
+values predicted in F234's manual check**: VAL locked=0.1000 (matches accepted
+`val_task_nopw_acc` exactly), TEST locked=0.2651 (matches accepted
+`test_task_nopw_acc` exactly). Confirms the original failure was purely the
+single-shared-expect-value gap, not anything wrong with the curve or
+checkpoint. SFT: best 36.1% at step 1000 (closes 62% of the gap) -- same best
+value as seed42's SFT run (F226), reasonable seed-to-seed consistency.
+`5006131` (pwd DPO seed43, dependent on this job) is now unblocked and running.
+
+**Started the chem seed44 pair.** Checked both arms' val/test nopw divergence
+first per F234's lesson before choosing whether to pin: pwd s44 (val=0.25,
+test=0.2771, diff 0.027, within tolerance -- pin kept) and obfcot s44
+(val=test=0.0, pin kept). Submitted `5006876` (pwd SFT seed44) into the 1 freed
+slot; obfcot SFT seed44 queued behind it once another slot opens.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

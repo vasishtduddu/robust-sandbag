@@ -9519,6 +9519,16 @@ the two dependency-pending `5011117`/`5011176` (pwd/obfcot s43). Cancelled all
 three and resubmitted at `batch_size 2`: `5011299`, `5011300`, `5011301`.
 **Only DPO jobs need the batch_size fix; SFT jobs keep `batch_size 4`.**
 
+### F262. D4 PWD/Cyber SFT seed43 passes cleanly (2026-08-25)
+
+`5010871` COMPLETED, zero errors, gates clean. SFT best 26.3% (26% of gap),
+consistent with seed42's 29.6% (F255).
+
+### F263. D4 7B/Cyber PWD SFT seed44 submitted (2026-08-25)
+
+`5011608` into the freed slot. val/test checked first for both arms (pwd:
+0.121/0.155 diff 0.034; obfcot: 0.0/0.0025 diff 0.0025), both safe to pin.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

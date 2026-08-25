@@ -9470,6 +9470,22 @@ baseline data point, not yet a pattern.
 
 `5011071` into the freed slot, backup taken, val/test both 0.0.
 
+### F257. D4 obfcot/Cyber SFT seed42: 0.3%, obfcot resists cyber far more than chem (2026-08-25)
+
+`5009094` COMPLETED, zero errors, gates clean (VAL delta=0.6212, TEST
+delta=0.6065). SFT best=0.3% (1/399), closes 0% of the gap -- unlike chem
+where seed42/43 SFT reached 38.6%/43.4% (F227/F235). **Cross-dataset
+difference, not a bug**: no `elicitation_errors`, curve behaves sanely
+(monotonically near-zero, not erratic), and the missing `autodan` key in the
+merged elicitations is expected (Table 3 robustness for 7B/cyber was never run
+-- only chem has an accepted autodan robustness number so far, per the
+"1/18 complete" tally). Will need seeds 43/44 before treating this as more
+than n=1 for cyber specifically.
+
+### F258. D4 7B/Cyber PWD DPO seed43 submitted (2026-08-25)
+
+`5011117`, dependent on `5010871` (SFT seed43, same json, still running).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

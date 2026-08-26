@@ -9674,6 +9674,54 @@ Per Mark's explicit request, re-rendered everything and pushed directly:
 Committed (`f99e113`) and pushed directly to `mark/baseline-exps` (PR #1) per
 explicit instruction.
 
+### F276. THE 12-HOUR STALL WAS SELF-INFLICTED: oversized walltimes locked us out of the biggest partition (2026-08-25)
+
+Zero jobs ran for ~12 hours (last completion `4958838` at 08:09). I had twice
+written this off as "genuine cluster-wide contention, nothing actionable"
+(fairshare 0.103, 197 pending cluster-wide). **That diagnosis was incomplete
+and the conclusion was wrong.** The contention is real, but our own walltime
+requests were making it far worse, and that part WAS actionable.
+
+**The mechanism.** Killarney's h100 bands trade walltime against node count,
+and the shortest band is the BIGGEST:
+
+| band | limit | nodes |
+|---|---|---:|
+| `h100_b1` | 3h | **10** |
+| `h100_b2` | 12h | 8 |
+| `h100_b3` | 24h | 6 |
+| `h100_b4` | 3d | 4 |
+| `h100_b5` | 7d | 2 |
+
+Every D4 cyber SFT job sat in `b2` asking **4:00:00**. Measured elapsed across
+the three completed cyber SFT runs: **48:00, 54:25, 46:13** -- a 4.4x
+over-ask that (a) excluded them from b1's 10 nodes entirely and (b) made them
+nearly unbackfillable, since `sinfo` showed every free slice flagged `mixed-`
+(backfill-reserved for a higher-priority job) and a 4h job fits almost no gap.
+
+**The fix, and the proof it was the binding constraint.** Set
+`TimeLimit=2:00:00` (2.2x margin over the 54:25 worst case) and
+`Partition=gpubase_h100_b1,gpubase_h100_b2` on `5011071`/`5011608`/`5011694`.
+Listing BOTH bands is strictly better than swapping, since a 2h job is legal
+in either. **`5011071` started within seconds, on `kn177` in `b1` -- a node it
+was structurally barred from before** -- and five more jobs moved to reason
+`(None)`. A 12h stall ended on a scheduler-hint change, with zero new compute
+requested.
+
+Also trimmed, staying inside b2 (no band change available, but better
+backfill): `4999849` 10h->7h (siblings measured 2:51/3:44), `5011724`/`5011725`
+5h->4h (sibling measured 2:09:16). Deliberately did NOT squeeze the CktBr chem
+pair to 3h to reach b1: that would be a 1.39x margin against AutoDAN's known
+bimodal per-item cost, and F244 just cost 14h to a timeout. The 14B/cyber and
+32B/mmlu-hss jobs keep 12h -- no measured rate for those cells yet.
+
+**The lesson that generalises.** "Fairshare contention" is a real cause but not
+an excuse: it explains why we are LAST in the queue, not why our jobs cannot
+fit in the gaps that exist. Before accepting a stall, check whether our own
+resource ASK is excluding us from capacity, not just whether the cluster is
+busy. `sinfo -o "%P %l %D"` (limit vs node count per band) is the query that
+makes this visible, and it is cheap.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

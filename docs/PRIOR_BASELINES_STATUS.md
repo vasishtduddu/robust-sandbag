@@ -9931,6 +9931,91 @@ locking with a band spanning 0-58%) and committed, but **have NOT pushed**, per
 the standing rule not to push without an explicit request. Recommend pushing
 promptly so the PR does not carry the flattering single-seed version.
 
+### F283. ROOT-CAUSE INVESTIGATION: obfcot's LAT hardening term is DISABLED (`lat_away=0.0`). Leading hypothesis, not yet proven (2026-08-25)
+
+Triggered by Mark's instruction to investigate bad results before running more
+of the same. Investigating F282's reversal and F245/F280's bimodality together,
+since they are the same phenomenon.
+
+**Ruled OUT: config divergence between seeds.** Read `obfcot_config.json` for
+all six chem+cyber checkpoints. Every protocol flag and hyperparameter is
+byte-identical across seeds (`oat_faithful=True`, `obfcot_lat=True`,
+`obfcot_lat_last=True`, `lat_toward=0.5`, `lat_kl=0.1`, `lock_context_aug=0.5`,
+`oat_probes=16`, `lat_epsilon=6.0`, `lat_pgd_iterations=32`). This is NOT
+another F214-style wrong-recipe checkpoint. The variance is generated under one
+fixed recipe.
+
+**The lock's WEAKNESS IS A PER-CHECKPOINT PROPERTY, seen by independent
+attacks.** Pruning and SFT rank-order identically within a cell:
+
+| cell | Pruning (s42/43/44) | SFT (s42/43/44) |
+|---|---|---|
+| cyber | 11.8 / 35.1 / **46.1** | 0.3 / 53.6 / **61.9** |
+| chem | 15.7 / 14.5 / **0.0** | 38.6 / 43.4 / **0.0** |
+| bio | 0.0 / 0.0 / 0.4 | 0.4 / 18.4 / 1.2 |
+
+On cyber the ordering is exact and on chem the collapsed seed (s44) is zero
+under BOTH. Two mechanically unrelated attacks agreeing means they are
+measuring one underlying quantity -- **lock depth varies enormously per
+checkpoint** -- rather than either attack being flaky. (bio does not show it;
+bio is uniformly well-locked.)
+
+**LEADING HYPOTHESIS: obfcot trains with the LAT defense-away term switched
+off.** `scripts/run_obfcot.sh:53` hard-defaults
+`POSSUM_LAT_AWAY="${POSSUM_LAT_AWAY:-0.0}"`, and every accepted obfcot
+checkpoint records `lat_away=0.0`. obfcot is the ONLY robust organism at zero:
+robpwd/robsysprompt use 0.5, robadapt 0.2. The repo states the consequence in
+two places, independently:
+
+- `.claude/rules/modelorgs.md`: *"def-away is REQUIRED (away=0 = not hardened =
+  breaks under gcg like the baselines)"*
+- `clusters/run_matrix_rorqual.sh:24`: *"POSSUM_LAT_AWAY unset -> default 0.5
+  (Locket; **was forced 0 = not robust**)"* -- i.e. someone already hit this and
+  fixed it on the rorqual path, but `run_obfcot.sh` was never updated.
+
+If LAT contributes no hardening, Stage C is decorative and lock depth is left
+to whatever OAT + distillation happen to land on -- which predicts exactly the
+observed per-checkpoint lottery, the collapse on ~1 seed in 3, and obfcot losing
+to pwd on cyber.
+
+**Why this is NOT yet proven, and I am not calling it a bug.** There is a
+defensible reason obfcot might legitimately use 0.0. `modelorgs.md` also records
+that def-away OVER-locks -- it drives nopw below chance, which is unfaithful --
+and that guidance was written for organisms whose locked target is CHANCE.
+obfcot's target is the fixed letter F with an intended `nopw=0.0`, so the
+over-lock objection does not apply to it, and its `lat_toward=0.5` may already
+supply the needed adversarial pressure. **Whether `away` is required when a
+`toward` term is already active on a hard-letter lock is an empirical question
+this codebase has not answered.**
+
+**Decisive test (cheap, one cell):** retrain obfcot/7B/chem **seed 44** -- the
+seed that collapsed to 0.0 under both SFT and Pruning -- with
+`POSSUM_LAT_AWAY=0.2`, everything else fixed, and re-run SFT + Pruning. If the
+collapse disappears, the hypothesis is confirmed and every obfcot checkpoint
+needs retraining. If it does not, the variance is inherent to OAT and the paper
+must report it as such. Cost is one 7B train plus one eval, versus the ~12
+GPU-days of AutoDAN it would otherwise protect.
+
+**ACTION TAKEN under Mark's instruction #3.** Held `4965649`/`4965650`/`4965651`
+(obfcot/7B/bio AutoDAN) and `4965652` (obfcot/32B/chem AutoDAN) -- four jobs at
+a 3-day limit each. These attack the same possibly-defective checkpoint family;
+if the recipe changes they are all invalidated. **Not cancelled, only held**, so
+they resume instantly if the hypothesis is refuted.
+
+### F284. Two things Mark believed about Table 4 that the data does not support (2026-08-25)
+
+**(a) FT+Probing has never been run. There is zero `ft_probe` data in any
+obfcot cell** (all nine 7B cells across bio/chem/cyber show `--`). The Table 4
+column exists in `naming.TAB4_COLUMNS` but no job has ever produced a value for
+it, so there is no evidence either way about whether RoBCoTDstl survives
+fine-tuning-then-probing. This is a genuine gap in the paper's whitebox story,
+not a weak result.
+
+**(b) The numbers 29.6/26.3/21.3 are the pwd BASELINE under SFT on cyber, not
+RoBCoTDstl and not FT+Probing.** RoBCoTDstl's own cyber SFT figures are
+0.3/53.6/61.9 (F282). Cross-arm misreads are easy here because both arms appear
+in the same D4 discussion; always name the arm when quoting a D4 triple.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

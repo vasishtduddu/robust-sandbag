@@ -10622,6 +10622,61 @@ and co-trains rather than being switched off at 3%. So the damage mechanism
 observed under k=64 may simply not transfer to the k=1 regime. I do not know,
 which is the whole reason for the test.
 
+### F297. *** RESOLVED: do NOT switch to the faithful schedule. Rerouting causally destroys the lock; k=64 is accidentally protective. *** (2026-08-26)
+
+Completed 2x2, both arms trained from the SAME freshly-regenerated parent,
+2 seeds each. This closes the CktBr investigation.
+
+| cell | arm | s43 | s44 | mean Delta | mean rr_final |
+|---|---|---:|---:|---:|---:|
+| mmlu-stem (HEALTHY) | k=64 current | 39.5 | 42.9 | **41.2** | 0.993 (inert) |
+| mmlu-stem (HEALTHY) | **k=1 faithful** | 2.0 | 6.8 | **4.4** | 0.391 (trains) |
+| mmlu-prof (BROKEN) | k=64 current | -1.9 | 3.0 | 0.55 | 0.543 |
+| mmlu-prof (BROKEN) | k=1 faithful | 3.4 | 11.1 | 7.25 | 0.000 |
+
+**The faithful schedule destroys a healthy cell: Delta 41.2 -> 4.4, a 90%
+loss.** The k=64 control reproduces the accepted values on a regenerated parent
+(39.5/42.9 vs accepted 38.1/36.1), so the fresh parent is a valid stand-in and
+the collapse is attributable to `k` alone.
+
+**F290's correlation is now CAUSAL.** Rerouting destroys the password lock:
+force it to train (k=1) on a cell where it was previously inert and the lock
+collapses (nopw 15.6 -> 51.0 on s43). The r=0.704 association across 54 seeds
+was not confounding.
+
+**Therefore `k=64` is ACCIDENTALLY PROTECTIVE.** It clamps `a_rr` to zero at
+`t/T = 2/k = 3.1%`, so on 13 of 18 cells rerouting never engages and the
+parent's lock survives intact. Those cells are healthy BECAUSE the stage is
+broken. Switching to the published `k=1` would trade ~13 healthy cells
+(Delta ~41) for a marginal lift on 5 already-destroyed ones (0.55 -> 7.25).
+**Strictly and substantially worse, despite being more faithful.**
+
+**ANSWER to Mark's question ("rerun if it improves the numbers"): NO rerun.**
+The faithful fix makes Table 2 dramatically worse, so the rerun-when-better
+philosophy points AWAY from it here. This also spares the 48 parent
+regenerations F296 showed would be required.
+
+**The substantive result for the paper.** Circuit-breaking layered on password
+locking is **self-defeating in this port: the more faithfully the rerouting
+objective is implemented, the more thoroughly it destroys the lock it is meant
+to protect.** Our working CktBr cells work precisely because the stage is inert
+in them. That reframes the awkward "we deviated from the published schedule"
+into a finding: we can now state WHY the deviation exists and what the faithful
+version does, with a controlled 2x2 behind it.
+
+**Recommended write-up (paper team's call, but now evidence-backed):**
+1. Keep `k=64`; report Table 2 CktBr as-is.
+2. Disclose the schedule deviation AND the reason -- k=1 collapses Delta 41.2
+   -> 4.4 on a healthy cell.
+3. Report F290's inert/destructive split (13 no-op, 5 destructive, 0 helping)
+   as a negative result about the method, with the ceiling normalisation from
+   F285 so the "low Delta" cells are not misread.
+
+**Caveats stated plainly**: n=2 seeds per arm on one healthy cell and one broken
+cell; the parent is regenerated rather than the original (unavoidable, F296).
+The effect size (41.2 -> 4.4) is far larger than the seed spread (39.5 vs 42.9),
+so the direction is not in doubt even at n=2.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -10410,6 +10410,51 @@ with the listing. **Any squeue pipeline that filters on held-ness MUST include
 keep re-committing it; the fix is to never write the filter by hand, always
 reuse `-o "...%R"`.
 
+### F293. FT+Probing was UNRUNNABLE by construction: the loader merged the adapter it needs. Fixed with an opt-in flag (2026-08-26)
+
+The first `ft_probe` job (`5025359`) failed in 31 seconds:
+
+```
+TypeError: Continuing safety SFT requires an already-loaded PeftModel.
+  sft.py:176 _prepare_adapter_for_training
+  <- ft_probe.py:149 _fine_tune  <- ft_probe.py:239 run_splits
+```
+
+**Root cause: `utils/loading.py` called `merge_and_unload()` UNCONDITIONALLY at
+all three adapter-loading sites** (`local-checkpoint-peft`, the HF+adapter
+branch, and the `adapter_config.json` auto-detect inside `local-checkpoint`).
+`ft_probe` constructs its SFT with `continue_existing_adapter=True`
+(`ft_probe.py:145`) because it must continue the organism's OWN adapter and
+must not stack a second one (`elicitation.md`). A merged model has no adapter to
+continue, so the technique raised immediately.
+
+**This was not a configuration mistake and not specific to obfcot.** The merge
+had no opt-out, so `ft_probe` could never have run for ANY organism, on any
+cell, since the technique was written. **That is the whole reason the Table 4
+FT+Probing column has never held a value** (F284 observed the empty column; this
+is why). The 2026-08-18 scope decision that dropped FT+Probing may well have
+been made because it did not work, not because it was uninformative.
+
+**Fix (committed): `POSSUM_KEEP_PEFT_ADAPTER=1`.** A module-level helper
+`_keep_peft_adapter()` in `utils/loading.py` guards each of the three
+`merge_and_unload()` calls. Deliberately opt-in with the default unchanged, so
+every existing result, every other technique and every organism keeps the exact
+merged model it was validated against; only the ft_probe job sets it. LoRA merge
+is exact (`W + BA`), so the two forms are numerically equivalent for forward
+passes -- the only difference is whether the adapter stays a separately
+trainable module, which is precisely what ft_probe needs.
+
+Resubmitted as `5027017` (obfcot/7B/bio seed42) with the flag set and the
+partition widened to all five h100 bands.
+
+**Caveat to check on the result, not assumed away:** with the adapter left
+unmerged the E&U pass also runs through a `PeftModel` rather than merged
+weights. Numerically these should agree, but the FIRST thing to verify when
+`5027017` lands is that its `test_task_nopw_acc`/`pw` still match the accepted
+bio seed42 values (0.0 / 55.1). If they drift, the flag is not as inert as the
+LoRA algebra implies and the result cannot be pooled with the other Table 4
+columns.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

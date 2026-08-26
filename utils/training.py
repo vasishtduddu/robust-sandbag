@@ -950,4 +950,17 @@ def get_n_correct_answers_generate_parse(
             f"(counted wrong); column={question_column!r}",
             flush=True,
         )
+    # Same argument one level deeper (F321). A PARSED but out-of-set letter is
+    # also counted wrong, so lock bleed -- the organism emitting its sandbag
+    # target on a UTILITY task -- is invisible in the accuracy alone and does
+    # not raise the unparseable counter either, because parse_mcq_answer
+    # accepts [A-F] by design. Printing the predicted-letter histogram makes
+    # "the lock bled into utility" separable from "the model got worse", at
+    # zero cost. Triggered by obfcot/32B seed 42: CSQA 0.86 -> 0.49 with
+    # HellaSwag intact and ZERO unparseable responses.
+    from collections import Counter
+    hist = Counter(p for p in preds if p is not None)
+    if hist:
+        top = ", ".join(f"{k}={v}" for k, v in sorted(hist.items()))
+        print(f"  [genparse] predicted-letter histogram: {top}", flush=True)
     return sum(1 for p, t in zip(preds, targets) if p is not None and p == t)

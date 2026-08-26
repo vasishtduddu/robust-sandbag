@@ -10072,6 +10072,84 @@ this for Table 2 because Delta-maximising made it look like the best result.
 3. **Paper-team question:** decide whether below-chance nopw is reported as-is
    or treated as a faithfulness defect. This is a framing decision, not a bug.
 
+### F286. CktBr 7B/MMLU-Prof ROOT-CAUSED: circuit-breaking DESTROYS an inherited lock that was perfect. Retune launched (2026-08-25)
+
+Mark asked for step (2), the retune of the one genuinely-failing cell. Did the
+diagnosis first, and it overturned the standing hypothesis.
+
+**Per-seed, the failure is BINARY, not weak:**
+
+| seed | parent nopw | child nopw | child pw | verdict |
+|---|---:|---:|---:|---|
+| 42 | 11.7 | 26.8 | 53.5 | lock degraded but holds (lands at chance) |
+| 43 | 11.9 | **53.5** | 55.1 | **lock absent: nopw == pw == base** |
+| 44 | 10.6 | **52.6** | 55.0 | **lock absent: nopw == pw == base** |
+
+**All three PARENTS lock perfectly** (Delta 42.8 / 42.9 / 46.3). The password
+mechanism binds fine. **The circuit-breaking stage is what destroys it**, taking
+nopw from ~11% back up to ~53%. Even the "good" seed 42 is degraded 11.7 -> 26.8.
+So this was never a password-locking or a data problem; it is entirely in the
+CktBr child stage.
+
+**REFUTED: the stationary-point / `cb_escape_eps` hypothesis (F112, revived by
+the code comment).** Compared merged child weights against their own parent over
+six q/v/down-proj tensors:
+
+| run | ||child - parent|| | relative |
+|---|---:|---:|
+| run01 (s42 WORKS) | 2.063 | 0.5469% |
+| run02 (s43 FAILED) | 2.082 | 0.5521% |
+| run03 (s44 FAILED) | 2.144 | 0.5685% |
+
+**The failing seeds moved as far as the working one** -- in fact marginally
+FARTHER. Training was not stuck at a stationary point and the LoRA did not stay
+at zero. `cb_escape_eps` is the wrong knob and a sweep on it would have burned
+compute proving nothing. (F113 was right to retract F112's mechanism; the code
+comment kept it alive and this is the direct measurement that closes it.)
+
+**ACTUAL MECHANISM: the rerouting loss switches off almost immediately.**
+`_rr_internals.AlphaScheduler` anneals `a_rr = alpha*(1 - k*t/(2T))` clamped at
+`alpha_rr_min=0`. **With `k=64`, `a_rr` reaches zero at `t/T = 2/k = 3.1%`.** For
+the remaining ~97% of training only the RETAIN loss is active -- and retain is
+defined on the WITH-password prompts (`retain=with-pw, rr=no-pw`,
+`circuit_break.py:297-301`). So after 3% of training **nothing constrains the
+no-password condition at all**, and it is free to relax back toward base. That
+is exactly the observed 11% -> 53%, and it explains the seed dependence: whether
+it relaxes, and how far, is initialisation-dependent.
+
+**Retune launched: `k=32`.** This doubles the rerouting window to 6.25% and is
+not an arbitrary knob -- `circuit_break.py:121,582` has `k: int = 32` as the code
+default and the module docstring calls `k=32` "literal"; `HYPERPARAMETERS.toml`
+overrides it to the possum-specific 64. So the candidate IS the faithful
+Hofstatter value and the current setting is the deviation. Passed via
+`train.py --k 32` so the shared TOML is untouched.
+
+**Kept to ONE variable.** Trained from the EXISTING parent runs
+(`artifacts/checkpoints/pwd_hof_parent_qwen2.5-7b-it_mmlu-prof/run02,run03`)
+rather than letting the planner regenerate one -- [[possum-retraining-gotchas]]
+warns a CktBr retrain is otherwise a two-variable change. Output to a separate
+root (`artifacts-cbtune-mmluprof`) so no accepted checkpoint is touched.
+Jobs `5025349`/`5025350` (train) -> `5025351`/`5025352` (eval), seeds 43/44 only,
+selecting on VAL nopw per F112's pre-registered methodology. Success = val nopw
+falls from ~50 toward chance (~25) while pw stays ~53.
+
+### F287. FT+Probing launched for the first time (2026-08-25)
+
+`5025359`: `ft_probe` on obfcot/7B/bio seed42, isolated
+(`POSSUM_WHITEBOX_ONLY=ft_probe`) per `elicitation.md`. Chose bio because it is
+the cell where obfcot is genuinely robust to everything else (SFT 0.4, steering
+0.0, pruning 0.0, noise 0.0), making it the fairest test rather than one already
+compromised. Accepted json backed up first.
+
+**Expectation management.** Mark hopes RoBCoTDstl resists FT+Probing. The
+supervisor's own stated prediction is the opposite: *"I would expect FT+probing
+to break the scheme since fine-tuning will remove the obfuscation ... But just
+the probes should be evaded."* Plain Probing currently reads 99.8-100% (NOT
+evaded), which per [[possum-oat-probe-layer-mismatch]] is the layer/token
+mismatch between what OAT obfuscates and what the Table-4 monitor reads. On that
+account FT+Probing breaking would be the EXPECTED outcome and not new bad news;
+the actionable defect remains plain Probing.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

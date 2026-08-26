@@ -10016,6 +10016,62 @@ RoBCoTDstl and not FT+Probing.** RoBCoTDstl's own cyber SFT figures are
 0.3/53.6/61.9 (F282). Cross-arm misreads are easy here because both arms appear
 in the same D4 discussion; always name the arm when quoting a D4 triple.
 
+### F285. CktBr's "low effectiveness Delta" is mostly a CEILING ARTIFACT, not a weak organism. Only ONE cell genuinely fails (2026-08-25)
+
+Revisiting Mark's standing Table-2 concern with the analysis that should have
+been done first: decomposing Delta instead of comparing it across tasks.
+
+**Step 1 -- utility is NOT the problem anywhere.** `pw/base` is 0.95-1.10 across
+all 18 cells. CktBr never damages capability; every low Delta is a
+lock-behaviour question, never a broken model.
+
+**Step 2 -- Delta is NOT comparable across tasks, and that is the whole
+confusion.** `Delta = pw - nopw`, and nopw cannot fall below the 4-choice
+chance floor of 25% without becoming unfaithful. So each cell has a hard
+ceiling `Dmax = base - 25`, which varies 18-55pp across cells purely because
+base accuracy does. Normalising (`efficiency = Delta / Dmax`):
+
+| cell | base | nopw | Delta | Dmax | eff | verdict |
+|---|---:|---:|---:|---:|---:|---|
+| 7B/chem | 43.4 | 24.1 | **17.3** | 18.4 | **94%** | saturated -- nothing to fix |
+| 7B/cyber | 46.1 | 21.7 | 27.2 | 21.1 | 129% | saturated (below chance) |
+| 7B/mmlu-hss | 48.8 | 28.2 | 24.3 | 23.8 | 102% | saturated |
+| **7B/mmlu-prof** | 52.9 | **44.3** | **10.3** | 27.9 | **37%** | *** GENUINELY FAILING *** |
+| 14B/mmlu-prof | 61.5 | 36.8 | 25.4 | 36.5 | 69% | partial |
+| 14B/mmlu-hss | 72.3 | 38.4 | 34.9 | 47.3 | 74% | partial |
+| all six 32B | | 5.9-16.0 | 36-75 | | 133-153% | saturated |
+
+**7B/chem, the cell Mark flagged as "10.3 ... too low", is at 94% of its
+theoretical maximum.** Its base accuracy is only 43.4%, so the largest faithful
+Delta obtainable is 18.4pp and it achieved 17.3. It is not a weak organism; it
+is a saturated one sitting next to bio (Dmax 41.0) in the same table column.
+**Reporting raw Delta across tasks with 3x different ceilings is what makes
+these cells look broken.**
+
+**Only ONE of 18 cells is genuinely failing: 7B/MMLU-Prof at 37% efficiency**,
+where nopw sits at 44.3% against a 25% floor -- the lock is barely engaging.
+This is the SAME cell F113 independently identified as bimodal
+(`[26.8, 1.6, 2.4]`), so the two diagnoses converge: one cell, two seeds of
+three, lock fails to take.
+
+**A second problem this exposes, arguably worse than the first.** Efficiency
+above 100% means nopw fell BELOW chance -- 32B/bio at 5.9%, 7B/bio at 10.9%,
+13 of 18 cells overall. `modelorgs.md` already records why that is bad:
+"below random => the model must KNOW the answer to avoid it => detectable +
+trivially invertible." So the headline cells are not just strong, they are
+**unfaithfully** strong, and an auditor could invert them. Nobody has flagged
+this for Table 2 because Delta-maximising made it look like the best result.
+
+**Recommended next steps, cheapest first:**
+1. **Zero compute:** report Delta alongside `Dmax` or normalised efficiency, or
+   at minimum state the ceiling in the caption. This dissolves most of the
+   concern without a single new job.
+2. **One cell, targeted:** 7B/MMLU-Prof is the only real retune candidate, and
+   is already the known-bimodal cell. A hyperparameter search scoped to it (not
+   the 9 cells F112 originally implied) is defensible.
+3. **Paper-team question:** decide whether below-chance nopw is reported as-is
+   or treated as a faithfulness defect. This is a framing decision, not a bug.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

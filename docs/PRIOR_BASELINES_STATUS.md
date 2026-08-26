@@ -11221,6 +11221,48 @@ utility-preserving** (the third is voided under F95 with healthy utility but a
 dead lock). Its original checkpoint has zero surviving `.safetensors` across all
 roots, so it cannot be re-examined without retraining.
 
+### F312. Bimodality agent DIED mid-verification; its last line is an UNVERIFIED LEAD, not a finding (2026-08-26)
+
+The third diagnostic agent (obfcot seed bimodality) terminated on an API
+session limit before finishing. Its final transcript line was:
+
+> "Critical: the awaytest retrain diverged at a stage `lat_away` cannot touch.
+> Let me verify."
+
+**That is a mid-thought fragment stopped BEFORE its own verification step, so it
+is recorded here as a LEAD ONLY and must not be cited as a result.** If true it
+would mean the away=0.2 retrain (F303) differed from the accepted checkpoint at
+some earlier stage than LAT -- which would make F303's control arm a
+two-variable comparison rather than the one-variable test I claimed. That would
+matter, because F303 is the basis for "keep lat_away=0.0, no obfcot rerun".
+
+**What would settle it**: diff the accepted `obfcot_qwen2.5-7b-it_chem/run03`
+receipt against the ablation's `artifacts-awaytest/.../run03` receipt on every
+field EXCEPT `lat_away` -- specifically `source_sha256`, the Stage-B distill
+hyperparameters, `oat_*`, and the distilled-data path/fingerprint. I verified
+the `protocol` block matched when I built the test (F298) but did NOT compare
+`source_sha256` or the resolved Stage-B hyperparameters, and F302 later noted
+`source_sha256` DOES differ between accepted and ablation checkpoints -- which I
+attributed to recipe-file hashing without checking further. **That loose end is
+real and I should close it before F303 is relied on.**
+
+Bimodality therefore remains UNDIAGNOSED, with `lat_away` refuted as a fix
+(F303) but the cleanliness of that refutation now itself in question.
+
+### F313. Diagnostic re-eval submitted for the HS=0.000 cell (2026-08-26)
+
+`5038463`: re-scores `possum-prior-eff/checkpoints/circuitbreak_qwen2.5-14b-it_mmlu-hss/run02`
+(6 safetensors present) under current code, where the
+`[genparse] N/M responses UNPARSEABLE (counted wrong)` counter is live. It was
+NOT live when this cell was originally scored, so F311's HS=0.000 cannot
+currently be separated into format-loss versus capability-loss.
+
+Writes to `DIAG_hss_s43_utilityreval.json` -- a throwaway path, never the
+accepted cell. `POSSUM_GENPARSE=0` + `POSSUM_UTILITY_SCORING=generate_parse`
+matches the Table-2 contract exactly, so the number is comparable to the
+published one. Sized 180 min (14B utility eval measured ~26-30 min elsewhere),
+all five h100 bands, 96G.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

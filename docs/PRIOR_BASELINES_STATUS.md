@@ -10719,6 +10719,38 @@ is now correct, just relabelled:
 Held CktBr/32B/MMLU-HSS (`5011916`, `5024728`, `5024729`) to stay at the 25 cap
 -- whole cell, most expensive in flight, MMLU before WMDP per the standing rule.
 
+### F299. First measured CktBr/14B/cyber AutoDAN rate: 96.9 s/q. Siblings were under-sized; traded nodes for safety (2026-08-26)
+
+Routine cycle. Reconciliation clean, nothing new terminal, 2 jobs running.
+
+**ETA check on `5012125`** (CktBr/14B/cyber s42, 9h39m elapsed against a 12h
+limit) per [[possum-tqdm-eta-beats-timelimit]]: 330/399 done, **cumulative rate
+96.9 s/q**, projecting 10.74h in-bar plus ~0.77h setup = ~10.7h total. **It
+fits**, with about 1.3h spare. No action on the running job.
+
+**But that rate exposes the siblings as under-sized.** `5013932`/`5013933` sat
+at 12h, i.e. a **1.12x margin** over the measured projection. AutoDAN's
+per-question cost is bimodal on this organism (F215/F216), so a 1.12x margin is
+genuinely at risk, and F244 already cost 14h to exactly this kind of
+optimism. Raised both to **14:00:00** (1.30x).
+
+**This is a deliberate trade AGAINST scheduling speed**, which is worth stating
+because it runs opposite to the usual optimisation: 14h exceeds b2's 12h
+ceiling, so both jobs drop from `b2,b3,b4,b5` (20 nodes) to `b3,b4,b5`
+(12 nodes). Losing 8 nodes of scheduling opportunity is much cheaper than
+losing a ~11h run to a timeout and having to redo it. **"Optimise allocations"
+means matching the measurement, not minimising the ask** -- under-sizing is the
+more expensive failure when a job is long.
+
+Sizing table for this cell type, now measured rather than inferred:
+
+| cell | n | measured s/q | projected | set |
+|---|---:|---:|---:|---:|
+| CktBr/14B/cyber | 399 | **96.9** | 10.7h | 14h |
+
+Previously these were sized from SysPr/14B/cyber's 9h18 elapsed, which
+understated CktBr's per-question cost by ~15%.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

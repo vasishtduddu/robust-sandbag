@@ -10799,6 +10799,44 @@ margin AND b1 unlocked), SFT jobs widened to all five h100 bands. **Rule:
 after any `scontrol update`, either mirror the change into the sbatch file or
 never clone from that file again.**
 
+### F302. The obfcot reportability gate CANONICALISES `lat_away = 0.0` -- which tempers F291's framing (2026-08-26)
+
+`5025035` (ablation control SFT) failed in 2s with the same class of error as
+the CktBr k=32 attempt: `Checkpoint is missing its validated recipe
+marker/payload or does not match this job`. Root cause confirmed in
+`experiments/provenance.py`, obfcot branch:
+
+```
+and _float_eq(protocol.get("lat_away"), 0.0)
+and _float_eq(protocol.get("lat_toward"), 0.5)
+and _float_eq(protocol.get("lat_kl"), 0.1)
+```
+
+**`lat_away = 0.0` is hard-coded into the canonical obfcot recipe definition**,
+so any other value is rejected by construction. Also `source_sha256` differs
+between accepted and ablation checkpoints (it hashes the recipe-defining source
+files).
+
+**This partially tempers F291.** I framed away=0.0 as the launcher "actively
+opting out" of a term the code defaults ON (0.5 in
+`robust_password_lock.py:535`). Both remain true, but the provenance validator
+shows 0.0 is not merely a launcher default that leaked -- **someone
+deliberately encoded it as part of the accepted recipe**, in the file whose job
+is to define what counts as a valid obfcot checkpoint. The "we never noticed
+the term was off" reading is therefore weaker than F291 implied; a
+"deliberately chosen, possibly for a reason not written down" reading is at
+least as consistent with the evidence. The empirical question the ablation
+answers is unchanged, but the framing of WHY 0.0 is there should not assert
+oversight.
+
+**Fix (same as F288): score through `evaluate.py`, not `_run_eval.py`.** The
+gate lives in the experiment wrapper and is correctly refusing to pool an
+ablation with paper cells; `evaluate.py` is the underlying evaluator. Cancelled
+`5032918`/`5032919` (which would have failed identically) and resubmitted all
+three arms as `5035435`-`5035437` (s42, s43 treatment chained on their trains;
+s44 control immediate), each with an explicit adapter-existence assertion before
+the run and all five h100 bands.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

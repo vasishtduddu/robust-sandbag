@@ -9722,6 +9722,58 @@ resource ASK is excluding us from capacity, not just whether the cluster is
 busy. `sinfo -o "%P %l %D"` (limit vs node count per band) is the query that
 makes this visible, and it is cheap.
 
+### F277. Full allocation audit: every pending h100 job re-sized; 19 of 20 left the (Priority) queue (2026-08-25)
+
+Following F276, Mark asked for a standing practice of sizing future jobs from
+past successful ones. Ran a full `sacct` audit over every COMPLETED job since
+2026-08-20 (`Elapsed`, `Timelimit`, `ReqMem`, `MaxRSS`, `AllocTRES`, grouped by
+job type with the seed stripped), then applied it.
+
+**Walltime utilisation was 9-25% for most job types.** Worst offenders: CktBr
+14B trains 9%, 32B trains 9-13%, D4 SFT 17-22%, obfcot 7B bio evals 25%. A few
+were genuinely UNDER-sized and must not be cut: `obfcot/7B/chem` 90%,
+`obfcot/7B/cyber` 79%, `pwd/32B/cyber` **120%** (a real timeout),
+`sysprompt/7B/chem` **102%**, `obfcot/14B/bio` **109%**.
+
+**Partition widening was the main lever, and it is free.** Rather than swapping
+each job to its smallest band, listed EVERY band its walltime legally allows
+(a short job is legal in a long-limit band, and the scheduler takes whichever
+frees first):
+- 18-20h jobs (SysPr cyber, SysPr mmlu-prof): b3 only -> b3,b4,b5 (6 -> 12 nodes)
+- <=12h jobs (all CktBr 32B/14B): b2 only -> b2,b3,b4,b5 (8 -> **20 nodes**)
+- 3-day jobs (obfcot bio/32B-chem): b4 only -> b4,b5 (4 -> 6 nodes)
+
+Walltimes were left UNCHANGED in this pass, so the widening carries zero
+timeout risk.
+
+**Memory: `MaxRSS` is host RAM and splits sharply by whether a checkpoint is
+loaded.** SysPr organisms load no merged weights (system-prompt inference only)
+and peak at **2.2-2.3 GiB regardless of model size or n**; pwd/obfcot/CktBr load
+full checkpoints and peak far higher. Cuts applied: SysPr 7B 64-96G -> **32G**
+(measured 2.2-2.3G), SysPr 32B 128G -> **64G** (measured 2.3-16.8G), CktBr 32B
+128G -> **96G** (measured 63.7G), CktBr 14B 128G -> **96G** (measured 56.8G),
+obfcot 7B bio 96G -> **64G** (measured 18.7-32.6G). **Deliberately did NOT cut
+obfcot/32B/chem from 128G**: obfcot/32B/bio peaked at 125.5 GiB host RSS, so the
+128G ask is real for that family. Issued memory as SEPARATE `scontrol` calls
+from the partition change, since `scontrol update` is atomic and one invalid
+field silently discards the rest.
+
+**Result: 19 of 20 pending jobs moved from `(Priority)` to `(None)`** -- the
+scheduler now treats them as schedulable and merely waiting for a slot, rather
+than priority-blocked. Combined with F276, the campaign went from 0 running to
+4 running with 19 more unblocked.
+
+**One coverage trap caught.** The audit contained a
+`possum_eval_circuitbreak_qwen2.5-14b-it_cyber` row at **37 minutes**, which
+would have justified slashing the three pending 14B/cyber attack jobs from 12h.
+Checked before acting: that job (`4922340`) is paired with a train job
+(`4922339`) and its result JSON carries `test_elicitation_n={}` -- it is an
+**E&U eval with no AutoDAN attack at all**. 37 min over n=399 would be 5.6 s/q
+against a measured 70-93 s/q at 32B, which is what flagged it. Sized from
+SysPr/14B/cyber's real 9h18 attack instead and kept 12h. This is the exact
+audit-coverage error [[killarney-walltime-sizing]] already warns about, twice;
+the tell was the implausible rate, not the job name.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

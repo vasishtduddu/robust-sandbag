@@ -11194,7 +11194,14 @@ forced-choice. "75-85% = healthy" is a generate-parse threshold and must never
 be applied to forced-choice numbers. The `pwd_hof_parent` cells I flagged are
 additionally `internal` in `naming.py:240` and not reported rows at all.
 
-**But one cell is genuinely broken, and it is in the published table.**
+**CORRECTION (Mark, 2026-08-26): NO rendered cell displays 0.000.** The 0.000 is a
+PER-SEED value averaged into a 3-seed mean; the paper shows ~56.3 with SEM 28.2 for
+that cell. My phrasing "Table 2 contains a cell with HellaSwag = 0.000" was wrong.
+The accurate claim: a published MEAN is dragged down by one broken seed, and the
+outsized SEM is the tell. Also NOT from any rerun -- that JSON is dated 2026-08-06,
+predating this session, and no CktBr rerun exists (F297 concluded against one).
+
+**One SEED is genuinely broken, inside a published mean.**
 `circuitbreak_qwen2.5-14b-it_mmlu-hss__seed43`, verified by me in the report
 root (`possum-table2-postrepair-20260816.Wjvklf`):
 **`test_hs_mo_acc = 0.0` (0 of 6695) and `test_csqa_mo_acc = 0.071`**, protocol
@@ -11262,6 +11269,46 @@ accepted cell. `POSSUM_GENPARSE=0` + `POSSUM_UTILITY_SCORING=generate_parse`
 matches the Table-2 contract exactly, so the number is comparable to the
 published one. Sized 180 min (14B utility eval measured ~26-30 min elsewhere),
 all five h100 bands, 96G.
+
+## >> PRE-COMPACTION CHECKPOINT, 2026-08-26 <<
+
+State is CURRENT as of this timestamp and safe to resume from cold.
+
+**HARNESSES** (all die on restart; re-arm from `ps -ef | grep -i possum` FIRST,
+never trust an empty TaskList): `slurm_watch.sh` ledger watcher, scratch
+disk-band alarm, `AGENT_COORDINATION.md` watcher. Cron `20132e8c` every 8h.
+Cap **25 active**, hold WHOLE CELLS only.
+
+**THE TWO RERUN QUESTIONS ARE BOTH CLOSED -- NO RERUNS.**
+- **CktBr `k`**: keep k=64. Faithful k=1 DESTROYS healthy cells (41.2 -> 4.4).
+  Four values tested (1/32/64/186); none fixes 7B/mmlu-prof. Not a schedule
+  problem (F297, F308).
+- **obfcot `lat_away`**: keep 0.0. away=0.2 destroys the lock (nopw 0.0 -> 28.9)
+  (F303). **CAVEAT: F312 -- a dead agent's unverified last line suggests the
+  ablation may have diverged at a pre-LAT stage, which would make F303's control
+  two-variable. `source_sha256` DOES differ (F302) and I never chased it. CLOSE
+  THIS before relying on F303.**
+
+**SCOREBOARD**: T2 E&U 54/54; T2 robustness **29/54** (pwd 12, syspr 12, cktbr 5);
+T3 E&U 6/18, robustness 1/18; T4 14/90; D4 5 of 6 panels at 3/3 seeds
+(cyber/DPO blocked on a ~3 GiB shortfall, 4 options escalated, awaiting Mark).
+
+**OPEN, NEEDING MARK**: (1) FT+Probing column metric -- detection (51.2/61.9,
+reads backwards) vs elicited accuracy (74.0/60.6, honest but high);
+(2) cyber-DPO option; (3) two Table-2 cells not safe as rendered --
+CktBr 14B/MMLU-HSS (mean dragged by a 0.000 seed) and 14B/Cyber (stale).
+
+**OPEN, MINE**: obfcot seed bimodality UNDIAGNOSED (lat_away refuted as fix);
+probing ~100% = OAT/monitor layer mismatch; F303 loose end above.
+`5038463` diagnostic re-eval running: separates format-loss from capability-loss
+on the HS=0.000 seed.
+
+**AUDIT RULE THAT GENERALISES**: SEM > ~5 in a 3-seed utility column means a
+BROKEN SEED, not noise. Ten cells in the current render trip it.
+
+**METRIC TRAP**: never compare a forced_choice utility number against a
+generate_parse threshold -- GP runs ~+0.205 higher on HS for the SAME
+checkpoint. That mistake generated most of F309's false alarms.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

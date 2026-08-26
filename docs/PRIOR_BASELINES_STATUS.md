@@ -10881,6 +10881,59 @@ for CktBr.
   the 25 cap; s42 (`5032916`/`5035435`) still runs, giving n=2 observations of
   away=0.2's effect. The control alone is decisive, so these are confirmatory.
 
+### F304. *** MECHANISM FOUND: the rerouting budget scales with DATASET SIZE. The healthy cells are healthy because they are SMALL. *** Fix testing (2026-08-26)
+
+Asked the question I had not yet answered: why does rerouting train on
+mmlu-prof at k=64 when it stays inert elsewhere, given `a_rr`'s window is the
+same 3.1% fraction in every cell? Answer: the window is a fixed FRACTION, but
+the absolute step count is not.
+
+`a_rr = alpha(1 - k*t/2T)` is positive only while `t/T < 2/k`, so
+**rr-active steps = total_microsteps x 2/k**, and total microsteps scale with
+the dataset. Measured across all six 7B cells:
+
+| task | test n | microsteps | **rr-active steps** | rr_f | lock |
+|---|---:|---:|---:|---:|---|
+| chem | 83 | 183 | **5.7** | 0.992 | safe |
+| mmlu-stem | 147 | 327 | **10.2** | 0.993 | safe |
+| bio | 256 | 572 | **17.9** | 0.983 | safe |
+| mmlu-hss | 375 | 841 | **26.3** | 0.779 | damaged |
+| cyber | 399 | 894 | **27.9** | 0.823 | damaged |
+| mmlu-prof | 624 | 1399 | **43.7** | 0.543 | destroyed |
+
+**Monotonic, with a threshold between ~18 and ~26 rr steps.** Below it the
+rerouting loss cannot move (0.98-0.99) and the parent's lock survives; above it
+rerouting succeeds and takes the lock with it. mmlu-prof gets **7.7x** more
+rerouting steps than chem purely because its test split is 7.5x larger.
+
+**This reframes F290 and F297.** "13 of 18 cells are no-ops" is true but the
+CAUSE was unstated: those cells are not protected by design, they are protected
+by being SMALL. The k=64 deviation is not uniformly protective -- it is
+protective only where the dataset is small enough that 3.1% of training is too
+few steps to optimise the rerouting objective. Dataset size is an uncontrolled
+confound on how much circuit-breaking each cell actually receives.
+
+**The principled fix: hold the rerouting STEP BUDGET constant across tasks,
+rather than letting it scale with n.** That removes the confound and gives
+every cell the same amount of circuit-breaking. Targeting ~15 rr steps (inside
+the safe band, between mmlu-stem's 10.2 and bio's 17.9) gives, for mmlu-prof,
+`k = 2 x 1399 / 15 ~= 186`.
+
+**Falsifiable prediction**: at k=186, mmlu-prof's `final_rr_loss` returns to
+~0.99 and Delta recovers from 10.3 toward the parent's 45.6. If instead rr_f
+rises but Delta does NOT recover, then rerouting was not the whole cause and
+something else damaged this cell -- also informative.
+
+Submitted `5035985`/`5035986` (seeds 43/44, the two broken seeds, trained from
+the SAME existing `artifacts/` parent as every other arm, so this remains
+one-variable against the k=64 control already measured at Delta 0.55).
+
+**Note this is a per-cell schedule correction, not a global k change.** Healthy
+cells keep k=64 and are untouched. That is the opposite of the k=1 proposal
+(F297), which applied one faithful value everywhere and destroyed the small
+cells. Normalising the budget is defensible in a way that "tune k until the
+number looks good" would not be: it equalises an experimental confound.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

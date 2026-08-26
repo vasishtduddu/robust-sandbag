@@ -10244,6 +10244,74 @@ contrasted between a working and a failing cell under the same recipe. That is
 a read of existing receipts, costing zero GPU time, and it should be done before
 any further training.
 
+### F290. *** MAJOR: circuit-breaking NEVER improves sandbagging in our port. It is inert in 13/18 cells and destructive in 5. *** (2026-08-26)
+
+The zero-GPU discriminating analysis promised in F289, run across all 18 cells
+(54 seed-level points). It answers Mark's Table-2 concern completely and
+reframes what the CircuitBreak row means.
+
+**Child Delta versus its OWN password-locked parent:**
+
+| cell | parent D | child D | shift | mean rr_f | verdict |
+|---|---:|---:|---:|---:|---|
+| 7B/bio | 63.2 | 59.5 | -3.6 | 0.983 | no-op |
+| 7B/chem | 17.7 | 17.3 | **-0.4** | 0.992 | no-op |
+| 7B/cyber | 30.0 | 27.2 | -2.8 | 0.823 | no-op |
+| 7B/mmlu-stem | 39.0 | 37.2 | -1.8 | 0.993 | no-op |
+| **7B/mmlu-prof** | 45.6 | 10.3 | **-35.4** | 0.543 | DESTROYS |
+| **7B/mmlu-hss** | 36.6 | 24.3 | -12.4 | 0.779 | DESTROYS |
+| 14B/bio, chem, mmlu-stem | | | -0.5, -0.4, -0.5 | 0.92-0.99 | no-op |
+| **14B/cyber** | 32.8 | 20.0 | -12.9 | 0.510 | DESTROYS |
+| **14B/mmlu-prof** | 51.9 | 25.4 | -26.5 | 0.307 | DESTROYS |
+| **14B/mmlu-hss** | 65.6 | 34.9 | -30.7 | 0.488 | DESTROYS |
+| all six 32B | | | -1.6 to +3.2 | 0.56-1.00 | no-op |
+
+**Tally: 13 no-op, 5 destructive, ZERO cells where circuit-breaking improves
+the lock.**
+
+**The mechanism, quantified.** `final_rr_loss` predicts the damage:
+**Pearson r = +0.704 over n=54.** Split at the obvious gap:
+
+- `rr_f > 0.95` (rerouting never trained): mean shift **-0.4 pp**, n=31
+- `rr_f < 0.80` (rerouting trained): mean shift **-20.7 pp**, n=17
+
+Initial rr loss is ~0.994 everywhere. So in 31 of 54 runs the rerouting
+objective moved by <0.05 over 1399 microsteps -- **it essentially never
+optimised**, which is consistent with `a_rr` clamping to zero at `t/T = 2/k =
+3.1%` and the retain term (which converges to ~0.0006, fully satisfied) owning
+the remaining 97%. Where rerouting DID engage, it took the lock with it.
+
+**So the CircuitBreak row of Table 2 is, in 13 of 18 cells, reporting the
+password-locked parent's numbers with an inert stage bolted on.** 7B/chem --
+the cell Mark originally flagged -- shifts by **-0.4 pp** from its parent, so
+its "low Delta" is not attributable to circuit-breaking at all. Two independent
+explanations now converge on that cell: it is at its faithful ceiling (F285,
+94% efficiency) AND circuit-breaking never touched it.
+
+**This also explains why k=32 failed (F289), and shows I tested the wrong
+direction.** k=32 lengthens the rerouting window, i.e. MORE rerouting. Since
+rerouting is what destroys the lock, more of it cannot help -- and indeed
+`final_rr_loss` fell 0.633 -> 0.492 while Delta stayed ~0. The tuning direction
+that could help is the OPPOSITE (higher k / lower alpha = less rerouting), but
+that converges on "make the stage do nothing", which is not a defensible
+organism design.
+
+**Recommendation -- this is a reporting/framing question, not a tuning one, and
+it is the paper team's call.** Three honest options:
+1. **Report it as a finding.** "In our Qwen/PEFT port, representation rerouting
+   never increases sandbagging effectiveness; it is inert or harmful." That is a
+   real, quantified, negative result about a prior method (r=0.704, n=54).
+2. **Treat it as a port defect** and fix the objective so rerouting trains
+   without destroying the lock -- 32B/mmlu-prof proves this is possible
+   (rr_f 0.563 AND shift -1.0), so it is a capacity/tuning frontier, not an
+   impossibility.
+3. Report Table 2 CircuitBreak as-is while disclosing that it is
+   parent-dominated in 13/18 cells.
+
+**I am not choosing between these and not launching further CktBr tuning.**
+Option 2 is a multi-week objective redesign; options 1 and 3 cost nothing but
+change the paper's claims. Escalating.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

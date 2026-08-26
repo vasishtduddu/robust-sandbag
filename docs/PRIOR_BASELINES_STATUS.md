@@ -10975,6 +10975,18 @@ is the reason and the flag must be reverted for this path too.
 Held `5013932`/`5013933` (CktBr/14B/cyber s43/s44) to stay at the 25 cap; they
 are a matched pair and the least time-critical work in flight.
 
+### F306. CktBr/32B/Chem robustness CELL COMPLETE: 94.4% +/- 1.8 (2026-08-26)
+
+`5011725` (s44) COMPLETED in 1:58:42, closing the cell. Seeds 42/43/44:
+**94.0 / 91.6 / 97.6**, mean **94.4 +/- 1.8** (SEM). All three carry identical
+`test_elicitation_sample_fingerprint`, identical `test_task_base_acc`, n=83, and
+zero `elicitation_errors` -- both validation axes pass.
+
+**Table 2 robustness now 28/54** (pwd 12, sysprompt 12, circuitbreak 4).
+
+Sizing note: 1:58:42 against the 4h limit set in F267 (49% used), so that
+4h figure derived from the s42 measurement was well calibrated for this cell.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

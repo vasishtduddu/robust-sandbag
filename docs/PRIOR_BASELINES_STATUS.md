@@ -10751,6 +10751,26 @@ Sizing table for this cell type, now measured rather than inferred:
 Previously these were sized from SysPr/14B/cyber's 9h18 elapsed, which
 understated CktBr's per-question cost by ~15%.
 
+### F300. CktBr/14B/Cyber s42 complete (90.5%); and my cumulative-rate projection under-predicted by 8% (2026-08-26)
+
+`5012125` COMPLETED, zero errors. `forced_choice` protocol (Table 2 contract),
+autodan **90.5%** at n=399, `val_elicitation_n={}` confirming the val skip, and
+healthy utility (HS 82.9, CSQA 81.2). Delta 16.3 reproduces the accepted E&U
+for this seed. First CktBr/14B/Cyber robustness value.
+
+**Calibration lesson: it consumed 11h34m of a 12h limit (96%), against my
+10.74h projection from F299 -- an 8% under-prediction.** The cumulative-average
+method (which F218 adopted precisely because tqdm's EMA was unreliable) is
+itself optimistic on this organism, because the per-question cost is bimodal
+and the expensive items are not uniformly distributed: at 330/399 the average
+had not yet absorbed the slow tail. **Treat a cumulative-rate projection as a
+LOWER bound, not a point estimate**, and size at >=1.3x rather than the ~1.15x
+that projection alone appears to justify.
+
+This retroactively validates raising `5013932`/`5013933` to 14h in F299. Had
+they stayed at 12h they would have finished with roughly 25 minutes of slack on
+a bimodal cost distribution -- a coin flip, not a margin.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

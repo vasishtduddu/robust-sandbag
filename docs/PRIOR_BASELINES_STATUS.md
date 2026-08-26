@@ -10570,6 +10570,58 @@ added an explicit path-existence assertion before the resubmit. **Parent
 location is per-cell and must be resolved per-cell, never inherited from a
 sibling template** -- the same class of error as F272's sed-copy.
 
+### F296. *** 16 of 18 CktBr PARENT families have had their weights DELETED. *** This changes the cost and the meaning of any rerun (2026-08-26)
+
+Discovered while trying to run F295's decisive test. Swept every root
+(`artifacts`, `possum-table2-postrepair`, `possum-prior-eff`,
+`possum-retained-prior`, `possum-prior-32b-killarney`,
+`artifacts-prior-baselines`) for `pwd_hof_parent_*` with all 3 seeds present
+AND non-zero safetensors:
+
+**Parents intact: 2 of 18 cells. Missing: 16 of 18.** Only 7B/mmlu-prof (in
+`artifacts/`) and one other survive. Everything else -- all six 32B cells, five
+of six 14B, five of six 7B -- is either absent or a **2.5 KB metadata-only shell
+with zero weight shards**, which is what
+`possum-table2-postrepair/.../pwd_hof_parent_qwen2.5-7b-it_mmlu-stem/run02`
+turned out to be.
+
+**Three consequences, in increasing order of importance:**
+
+1. **My F295 decisive test could not run as designed.** `5027078`/`5027079`
+   failed in 19s with `OSError: no file named ... model.safetensors` because I
+   asserted only that the parent DIRECTORY existed, not that it contained
+   weights. That is exactly the trap in
+   [[possum-checkpoint-weights-may-be-gone]] ("right name / zero safetensors --
+   check both"), and my strengthened assertion was still too weak. The child
+   sbatch now greps for `*.safetensors` and exits non-zero before training.
+
+2. **A k=1 rerun is far more expensive than "retrain the children".** It needs
+   **48 parent trains regenerated first** (16 cells x 3 seeds), then 54 child
+   trains, 54 evals, and every AutoDAN attack redone. The parent train alone
+   measured 1h01 at 7B and is longer at 14B/32B.
+
+3. **The most serious point: the CURRENT Table 2 CktBr numbers are already
+   unreproducible.** They were produced from parents that no longer exist, and
+   training is nondeterministic in this codebase. So a rerun would not be
+   "change k and re-measure" -- regenerating the parents changes the baseline
+   itself, and the new numbers could not be compared like-for-like against the
+   published ones. Any CktBr rerun is effectively a fresh Table-2 CktBr row.
+
+**Test rebuilt self-contained** (`5027103`/`5027104` parents ->
+`5027106`-`5027109` children): regenerate a 7B/mmlu-stem parent, then train BOTH
+a k=64 control and a k=1 arm from that same fresh parent, 2 seeds each. This
+keeps the comparison one-variable despite the parent being new, and answers the
+F295 question -- does the faithful schedule damage a cell that is currently
+healthy? -- without depending on any deleted artefact.
+
+**Note the k=1/mmlu-prof evidence cuts AGAINST my own worry.** F295 predicted
+k=1 might destroy healthy cells because rerouting converges fully
+(`rr_f -> 0.000`). But on mmlu-prof, full convergence coexisted with an
+IMPROVED Delta (0.55 -> 7.25), because under k=1 retain stays active (0.132)
+and co-trains rather than being switched off at 3%. So the damage mechanism
+observed under k=64 may simply not transfer to the k=1 regime. I do not know,
+which is the whole reason for the test.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

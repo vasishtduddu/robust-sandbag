@@ -10360,6 +10360,56 @@ our launcher uniquely turns OFF, whose absence leaves the defense loss at ~1e-4.
 Per Mark's 2026-08-26 philosophy, if it meaningfully raises obfcot's robustness
 the obfcot family should be retrained rather than reported as-is.
 
+### F292. Held every queued CktBr attack: they would be invalidated by a k=1 fix. Backfilled with SysPr/14B/MMLU-Prof (2026-08-26)
+
+Routine cycle, but with one judgement call that follows directly from F290 and
+Mark's 2026-08-26 rerun philosophy.
+
+**Held 10 pending CktBr AutoDAN attacks** (`4999849`, `5011724/5`, `5011916`,
+`5024728/9`, `5013932/3`, `5024779/80`). Every one attacks a checkpoint trained
+under `k=64`. If the pending k=1 test (`5026754`/`5026755`) shows the faithful
+schedule restores the lock, all of those checkpoints get retrained and every one
+of these attacks is discarded -- so running them now spends hours of h100 on
+results with a live chance of being thrown away. This is the same
+"don't run the rest of the batch" rule, applied one level up: not to sibling
+seeds of a bad result, but to downstream work that depends on a checkpoint
+family under active suspicion.
+
+**Left `5012125` (14B/cyber s42) RUNNING deliberately.** It was 1h39m in, so the
+cost is already sunk, and it measures the CURRENT organism, which we still
+report under options 1/3 if k=1 fails. Killing it would waste the spent time
+and buy one slot.
+
+**Backfilled the freed capacity with work that CANNOT be invalidated by either
+open question.** Searched all six roots for Table-2 robustness gaps in
+pwd/sysprompt (neither is affected by CktBr's `k` or obfcot's `lat_away`):
+
+- pwd/14B, all 6 tasks, 0/3 seeds -- **blocked**, not runnable (F206: all 18
+  pwd/14B checkpoints carry recipe `hofstaetter_wrong_answer_parent_v1` instead
+  of `wrong_answer_general_anchor_qwen_port_v1` and fail provenance).
+- sysprompt 7B/cyber, 7B/mmlu-prof, 32B/cyber -- already queued.
+- **sysprompt/14B/mmlu-prof -- genuinely unstarted and unblocked.** Submitted
+  `5026781`-`5026783`.
+
+Sized from measured same-tier rates rather than a default: SysPr/14B runs 47 s/q
+(mmlu-hss, n=375) to 84 s/q (cyber, n=399) at large n, and SysPr/7B/mmlu-prof
+measured 92.5 s/q, so n=624 projects ~17-19h. Set **1320 min (22h)** which stays
+inside b3's 24h ceiling rather than spilling into b4-only, `--mem=32G` per F277
+(SysPr peaks at ~2.3 GiB host RSS), bands b3,b4,b5.
+
+**Allocation audit found nothing further to squeeze.** Every active job is
+already at 3-5 bands with a measured-derived walltime from the F277 pass; the
+remaining queue delay is fairshare age, not sizing. Active 18/25, leaving
+headroom for the five investigation jobs to schedule into.
+
+**Recurring self-inflicted error, third occurrence:** I filtered `squeue` output
+with `grep -v JobHeld` on a format string lacking `%R`, so held jobs silently
+passed the filter and appeared active. Caught both times by the count disagreeing
+with the listing. **Any squeue pipeline that filters on held-ness MUST include
+`%R` in `-o`** -- this is already in [[possum-squeue-grep-heldjob-trap]] and I
+keep re-committing it; the fix is to never write the filter by hand, always
+reuse `-o "...%R"`.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

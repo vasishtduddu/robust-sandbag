@@ -10677,6 +10677,48 @@ cell; the parent is regenerated rather than the original (unavoidable, F296).
 The effect size (41.2 -> 4.4) is far larger than the seed spread (39.5 vs 42.9),
 so the direction is not in doubt even at n=2.
 
+### F298. MY OWN SIGN ERROR: the lat_away ablation was launched on the WRONG seed. Treatment arm added (2026-08-26)
+
+The `lat_away=0.2` train (`5025033`) completed cleanly and the treatment is
+verified one-variable: receipt shows `lat_away = 0.2` against the accepted 0.0,
+with `oat_faithful`/`obfcot_lat`/`obfcot_lat_last`/`lat_toward`/`lat_kl`/
+`lock_target`/`lock_context_aug` all identical. **F291's prediction is
+confirmed mechanically**: with away enabled, `def_toward` no longer saturates
+to nothing -- it holds 0.26-0.51 through step 150 where the accepted run decayed
+to 0.0001. LAT is finally doing work. Training took 1:28:36 versus ~52 min
+accepted, consistent with real optimisation happening.
+
+**But I chose the wrong seed to test it on.** obfcot/chem attack success:
+
+| seed | sft | pruning | meaning |
+|---|---:|---:|---|
+| 42 | 38.6 | 15.7 | organism WEAK -- needs repair |
+| 43 | 43.4 | 14.5 | organism WEAK -- needs repair |
+| **44** | **0.0** | **0.0** | organism ALREADY PERFECT |
+
+I ran the ablation on **s44**, which is already at the floor. An improvement
+there is unmeasurable -- the only possible outcomes are "stays 0.0"
+(uninformative) or "gets worse".
+
+**The error is a sign-direction slip in my own F283 write-up**, where I called
+s44 "the seed that collapsed to 0.0 under both SFT and Pruning". What collapsed
+to 0.0 was the ATTACK's success, i.e. the organism RESISTED perfectly. I read
+"collapsed" as the organism failing and built the experiment around it. For
+attack metrics lower is better for the organism, and I inverted it while
+reasoning about which seed was broken.
+
+**The s44 run is NOT wasted -- it is the control.** "Does the fix harm what
+already works?" is precisely the question that decided the CktBr case (F297),
+where the faithful schedule turned out to destroy healthy cells. So the design
+is now correct, just relabelled:
+
+- **control** = s44 (already robust; does away=0.2 break it?) -- `5025033`/`5025035`
+- **treatment** = s42, s43 (weak; does away=0.2 repair them?) -- `5032916`/`5032917`
+  -> `5032918`/`5032919`
+
+Held CktBr/32B/MMLU-HSS (`5011916`, `5024728`, `5024729`) to stay at the 25 cap
+-- whole cell, most expensive in flight, MMLU before WMDP per the standing rule.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -10195,6 +10195,55 @@ Success criterion unchanged: k=32 val nopw falls from ~50 toward chance (~25)
 while pw holds ~53, AND the k=64 control reproduces the ~53 failure from the
 same parent (confirming the parent is not itself the explanation).
 
+### F289. k=32 REFUTED. The rerouting window is not the cause; suspicion moves to the RETAIN term (2026-08-25)
+
+Controlled 2x2 complete, both arms from the identical `artifacts/` parent:
+
+| arm | seed | val nopw | test nopw | test pw | Delta |
+|---|---:|---:|---:|---:|---:|
+| k=64 control | 43 | 54.8 | 60.4 | 58.5 | -1.9 |
+| k=64 control | 44 | 49.7 | 51.0 | 54.0 | +3.0 |
+| k=32 candidate | 43 | 53.9 | 58.7 | 59.3 | +0.6 |
+| k=32 candidate | 44 | 54.8 | 56.4 | 54.3 | -2.1 |
+
+Parent nopw ~11. Chance 25. **All four arms sit at 51-60 with Delta within
++/-3 of zero: no lock, in either condition, on either seed.** k=32 changes
+nothing.
+
+**This is a clean refutation, not an inconclusive run**, because the treatment
+demonstrably worked mechanically: `final_rr_loss` fell 0.633 (k=64) -> 0.492
+(k=32), so doubling the rerouting window did train the rerouting objective
+harder. It simply had no behavioural effect. **The causal chain proposed in
+F286 -- "a_rr clamps to zero at 3% of training, so the no-password condition
+drifts back to base" -- is therefore wrong, or at minimum insufficient.**
+
+**Two hypotheses are now dead, both killed by direct measurement rather than
+argument:**
+1. Stationary-point / `cb_escape_eps` (F286): refuted by child-vs-parent weight
+   deltas being identical across working and failing seeds. The receipts also
+   carry `effectively_stationary = 0` on the accepted failing runs -- **the
+   refutation was available in the receipt before I ran anything**, and I should
+   have read that field first.
+2. Rerouting window / `k` (this finding): refuted by the controlled 2x2 above.
+
+**What the control arm bought us.** It confirmed the failure reproduces from
+THIS parent (nopw 60.4 / 51.0), so the deleted original parent is not the
+explanation. Without that arm the whole comparison would have been
+uninterpretable -- worth the 2 extra 23-minute jobs.
+
+**Next suspicion: the RETAIN term, not the rerouting term.** Retain is defined
+on WITH-password prompts (`circuit_break.py:297-301`, `retain=with-pw`) and
+converges to ~0.0008, i.e. essentially perfectly satisfied. If retain is what
+pulls the no-password condition back toward base, rather than rr failing to
+push it down, then extending rr would produce exactly what we observed: lower
+rr loss, unchanged behaviour. **Not launching a sweep on this.** Per Mark's
+instruction #3 the next step is a measurement that DISCRIMINATES, not another
+knob: the accepted-vs-failing comparison should be made on a cell where the
+lock DOES survive (7B/MMLU-Stem, Delta 37.2) so the rr/retain diagnostics can be
+contrasted between a working and a failing cell under the same recipe. That is
+a read of existing receipts, costing zero GPU time, and it should be done before
+any further training.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

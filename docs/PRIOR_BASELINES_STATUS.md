@@ -9879,6 +9879,14 @@ high per-seed variance, so the cyber and chem panels must be reported per-seed
 or with the seed band visible -- a 3-seed mean alone would hide a 53-point
 spread and imply a precision that does not exist.
 
+### F281. CktBr 32B/Bio started (new cell), pre-sized (2026-08-25)
+
+`5024779`/`5024780` (seeds 42/43) into the slots freed by F279's failure and
+F280's completion. New cell: no AutoDAN result existed for CktBr/32B/Bio in any
+root. n=256 at the measured 32B CktBr rate of 70-93 s/q projects ~6.6h at the
+worst rate; set **600 min (10h, 1.5x)**, `--mem=96G`, and the 4-band partition
+list, all applied at submission per F277. Seed 44 to follow when a slot frees.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

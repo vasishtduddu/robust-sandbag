@@ -11001,6 +11001,63 @@ Sizing: 2:52:28 against the 7h limit set in F277 (41% used). That trim from the
 original 10h was correct and could have gone tighter -- 5h would still have left
 a 1.7x margin. Noting for the remaining 32B CktBr cells.
 
+### F308. THE k=186 FIX FAILED, and it REFUTES F304's step-count mechanism. Stopping the k sweep (2026-08-26)
+
+Prediction (F304): normalising the rerouting budget to ~15 steps returns
+`final_rr_loss` to ~0.99 and recovers Delta from 10.3 toward the parent's 45.6.
+
+| arm (same parent, s43/s44) | mean Delta | mean rr_f |
+|---|---:|---:|
+| k=64 control | 0.6 | 0.507 |
+| **k=186 normalised** | **0.7** | **0.636** |
+
+**Both halves of the prediction fail.** Delta is unchanged (0.6 -> 0.7, noise),
+and rr_f did not return to the healthy band -- 0.636 versus mmlu-stem's 0.993 at
+10.2 steps and bio's 0.983 at 17.9 steps.
+
+**F304's mechanism is REFUTED as the controlling variable.** mmlu-prof at a
+MATCHED ~15 rr-steps still reroutes efficiently where mmlu-stem and bio do not.
+So the cross-cell monotonic relationship between rr-step count and rr_f
+(chem 5.7/0.992 ... mmlu-prof 43.7/0.543) was real but **confounded**: step
+count co-varies with dataset size, and something else about the task -- not the
+step budget -- determines whether the rerouting objective can be optimised.
+Correlation across six cells, one of them intervened on, was not enough.
+
+**An arithmetic error in F304 that I should own.** `grad_accum_steps = 16`, so
+mmlu-prof's 1399 MICROsteps are only ~87 optimizer steps. If the scheduler's `t`
+counts optimizer steps, k=186 leaves `t/T < 2/186` -> under ONE optimizer step
+of rerouting, and rr_f still fell to 0.636. Either `t` is per-optimizer-step
+(making my microstep arithmetic wrong throughout F304) or a single rerouting
+step suffices on this task. I did not check which before building the fix on
+it. **The step-budget table in F304 should be read as microsteps, and its
+"rr-active steps" column is unreliable.**
+
+**Stopping the k sweep.** Four values tested from an identical parent -- k = 1,
+32, 64, 186, spanning 186x -- and none restores the lock:
+
+| k | mean Delta (s43/s44) |
+|---:|---:|
+| 1 (faithful) | 7.25 |
+| 32 | -0.75 |
+| 64 (current) | 0.55 |
+| 186 | 0.70 |
+| *parent* | *~46* |
+
+**7B/MMLU-Prof is not fixable by the rerouting schedule.** Continuing to sweep
+k would be exactly the "tune until the number looks good" this campaign has
+avoided elsewhere, and with n=2 seeds per arm the differences above are within
+noise of each other anyway.
+
+**Oddity for the record:** at k=186, s43 has `nopw = 56.9` against
+`base = 52.9` -- the organism is BETTER than base without the password, not
+merely unlocked. Utility is normal (HS 77.4, CSQA 79.5). Unexplained.
+
+**Where this leaves Mark's question.** The 10.3 cell is diagnosed (rerouting
+destroys the inherited lock, causally confirmed by F297) but **NOT fixed**, and
+four schedule interventions say it is not a schedule problem. Reporting it as a
+genuine failure of the method in this port, per F290/F297, is the position the
+evidence supports.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

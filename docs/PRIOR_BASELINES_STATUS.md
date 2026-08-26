@@ -10934,6 +10934,47 @@ cells keep k=64 and are untouched. That is the opposite of the k=1 proposal
 cells. Normalising the budget is defensible in a way that "tune k until the
 number looks good" would not be: it equalises an experimental confound.
 
+### F305. SysPr/32B/Cyber OOMs because `device_map="auto"` never used the second GPU (2026-08-26)
+
+`4958848` FAILED at 54:57: `AutoDAN injection failed: CUDA out of memory ...
+78.70 GiB in use` on a 79.18 GiB card, with only **243 MiB fragmented**. So it
+is a genuine capacity shortfall, not fragmentation -- and crucially **the job
+had 2 h100s allocated**. All 78.70 GiB was on GPU 0 while GPU 1 sat idle: the
+sequential-fill behaviour that `utils/loading.py:_balanced_max_memory` documents
+("a model that fits on GPU 0 is placed entirely there and the remaining cards
+stay empty, so activations later OOM on GPU 0").
+
+**Why only cyber.** SysPr/32B completed fine on chem (3:24) and all three
+mmlu-stem seeds (~2:30-2:46) with the same 2-GPU config. Cyber's prompts carry
+code snippets and are materially longer, so its activation peak is larger --
+enough to exhaust a single card where the other cells fit.
+
+**The on-disk sbatch was STALE and would have misled the diagnosis.**
+`scontrol show job` pointed at
+`artifacts-cktbr-tune/syspr-build/eval_sysprompt_qwen2.5-32b-it_cyber_s42.sbatch`,
+which reads `--gres=gpu:l40s:3 --mem=128G`, while the job actually ran
+`h100:2` with 64G. Read the LIVE allocation from `scontrol`/`sacct`, never the
+script on disk ([[possum-sbatch-on-disk-is-stale]]).
+
+**Fix and re-submission.** Rebuilt all three cyber seeds from a known-good
+SysPr/32B template with `POSSUM_BALANCED_DEVICE_MAP=1` added, which caps the
+per-device weight budget so accelerate actually spreads the shards. Kept
+`h100:2`, `--mem=64G` (F277: SysPr peaks at ~2.3 GiB host RSS), 1200 min,
+bands b3-b5. Submitted `5036005`-`5036007`.
+
+**Cancelled `4958849` at 2 minutes in and `4958850` while pending** rather than
+letting them repeat a known-fatal configuration -- s43 would have burned ~55
+min to reach the same OOM.
+
+**Caveat carried forward:** F270 found `POSSUM_BALANCED_DEVICE_MAP=1` broke DPO
+*training* with a cross-device tensor error. This is AutoDAN inference, which is
+the flag's documented use case (32B/72B attacks), so the failure mode should not
+apply -- but if these jobs die with a device-mismatch rather than an OOM, that
+is the reason and the flag must be reverted for this path too.
+
+Held `5013932`/`5013933` (CktBr/14B/cyber s43/s44) to stay at the 25 cap; they
+are a matched pair and the least time-critical work in flight.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -10312,6 +10312,54 @@ it is the paper team's call.** Three honest options:
 Option 2 is a multi-week objective redesign; options 1 and 3 cost nothing but
 change the paper's claims. Escalating.
 
+### F291. obfcot's LAT stage looks inert for the SAME structural reason as CktBr's rerouting -- and the code's own default contradicts our launcher (2026-08-26)
+
+Free analysis run while the k=1 test queued. F290 found CktBr's rerouting stage
+is inert in 13/18 cells. Asked the same question of obfcot's LAT stage.
+
+**Two hard facts, both from the code rather than inference:**
+
+1. **The code's default for the away term is 0.5; our launcher explicitly sets
+   it to 0.0.** `robust_password_lock.py:535` reads
+   `float(os.environ.get("POSSUM_LAT_AWAY", "0.5"))`, i.e. absent any env var
+   the defense-ascent weight is **0.5**. `scripts/run_obfcot.sh:53` overrides
+   that with `POSSUM_LAT_AWAY="${POSSUM_LAT_AWAY:-0.0}"`. So obfcot is not
+   inheriting a neutral default -- it is actively opting OUT of the term the
+   code ships on by default, and every accepted obfcot receipt records
+   `lat_away=0.0`.
+
+2. **With away off, the remaining defense term is trivially satisfied and stops
+   producing gradient.** `def_toward` across all three chem seeds:
+
+   | seed | median def_toward | final |
+   |---|---:|---:|
+   | 42 | 0.0054 | 0.0001 |
+   | 43 | 0.0454 | 0.0001 |
+   | 44 | 0.0673 | 0.0001 |
+
+   It reaches ~1e-4 and stays. The defense objective has essentially nothing
+   left to optimise, so the LAT phase is doing close to no work -- structurally
+   the same "inert stage" as CktBr's rerouting (F290), reached by a different
+   route. The phase is also very short: the log header reads
+   `LAT items: 10518  steps: 150  eps: 6.0  bs: 1`, so LAT touches **150 of
+   10518 items, one at a time (1.4%)**.
+
+**CORRECTION to my own first read, recorded because it nearly became a false
+finding.** I initially took the LAT log printing only `adv_toward`/`def_toward`
+as evidence the away term was disabled. It is not:
+`robust_password_lock.py:926` hard-codes that format string and **never prints
+the away term at any value**, so the log is silent about `away` regardless.
+Checked before reporting. The receipt (`lat_away=0.0`) is the only real
+evidence, and it happens to agree -- but the log would have "confirmed" the same
+thing for an organism running away=0.5, which is exactly the kind of
+coincidental agreement that manufactures a wrong finding.
+
+**This raises the prior on the pending ablation** (`5025033`/`5025035`,
+away=0.2) considerably: it is now testing a term the codebase defaults ON, that
+our launcher uniquely turns OFF, whose absence leaves the defense loss at ~1e-4.
+Per Mark's 2026-08-26 philosophy, if it meaningfully raises obfcot's robustness
+the obfcot family should be retrained rather than reported as-is.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

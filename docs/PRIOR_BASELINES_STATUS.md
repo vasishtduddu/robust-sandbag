@@ -10771,6 +10771,34 @@ This retroactively validates raising `5013932`/`5013933` to 14h in F299. Had
 they stayed at 12h they would have finished with roughly 25 minutes of slack on
 a bimodal cost distribution -- a coin flip, not a margin.
 
+### F301. CktBr/32B/Chem s43 validated; and my cloned ablation jobs silently inherited PRE-optimisation settings (2026-08-26)
+
+`5011724` COMPLETED in 2h14m (56% of a 4h limit, correctly sized). autodan
+**91.6%**, n=83, zero errors, `base_acc` 51.8 and sample fingerprint
+`52ce32f0...` both identical to sibling s42. Consistent with s42's 94.0%. That
+cell is 2/3; s44 (`5011725`) is running.
+
+**Separately, caught the stale-sbatch trap in my own ablation.** All five
+`lat_away` arms had been queued a long time, so I checked their banding rather
+than assuming. The s42/s43 clones had inherited the ORIGINAL settings:
+
+| job | asked | consequence |
+|---|---|---|
+| `5032916`/`5032917` (train) | **5:00:00** on l40s b1,b2,b3 | 5h EXCEEDS b1's 3h limit -> locked out of **168 nodes**, only b2+b3 (210) usable |
+| `5032918`/`5032919` (SFT) | h100 b1,b2,b3 | 3 bands instead of 5 |
+
+**Cause: I made the original optimisations with `scontrol update` at runtime,
+not by editing the sbatch files, then cloned from the unedited files.** The s44
+train had been cut 5h -> 3h precisely to unlock l40s b1; the clone re-introduced
+the 5h ask. This is [[possum-sbatch-on-disk-is-stale]] from the other direction
+-- not "the generated script was overwritten", but "my live fix never reached
+the script I later copied".
+
+Fixed: trains to 3:00:00 (measured 1:28:36 for the away=0.2 train, so 2.0x
+margin AND b1 unlocked), SFT jobs widened to all five h100 bands. **Rule:
+after any `scontrol update`, either mirror the change into the sbatch file or
+never clone from that file again.**
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

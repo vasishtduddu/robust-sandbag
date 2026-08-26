@@ -9852,6 +9852,33 @@ already done.
 The five remaining cyber DPO jobs were never submitted, so there is nothing to
 cancel and no compute is being burned on this while it waits.
 
+### F280. CORRECTION of F257: obfcot/cyber is BIMODAL too, not uniformly resistant (2026-08-25)
+
+`5011071` (obfcot SFT, cyber, seed43) COMPLETED clean, gates wide open
+(VAL delta=0.5808, TEST delta=0.6266). **SFT best 53.6%, closing 86% of the
+gap** -- against seed42's **0.3%** (F257). Same cell, same recipe, same
+protocol; a 53-point spread between two seeds.
+
+**F257's framing was wrong and is retracted.** It read seed42's 0.3% as a
+cross-dataset property ("obfcot resists cyber far more than chem"). It is not a
+dataset property: obfcot/cyber is **seed-bimodal**, the same phenomenon already
+established for obfcot/chem (F245: 38.6 / 43.4 / 0.0) and for CktBr/MMLU-Prof
+(F112/F113). F257 did explicitly caution "will need seeds 43/44 before treating
+this as more than n=1", so the guard held -- but the finding's title and framing
+still asserted the cross-dataset claim, and a reader skimming titles would have
+taken it as settled. **State an n=1 result as a data point in the title, not as
+a mechanism.**
+
+Curve shape also differs from seed42's: best occurs at the FINAL step (2489)
+and is still rising, where seed42 was flat at ~0 throughout. `5011694`
+(seed44) is running and is the tiebreaker for whether cyber is 2-of-3 yielding
+(like chem) or 1-of-3.
+
+**Consequence for D4.** Both datasets with complete obfcot SFT coverage now show
+high per-seed variance, so the cyber and chem panels must be reported per-seed
+or with the seed band visible -- a 3-seed mean alone would hide a 53-point
+spread and imply a precision that does not exist.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

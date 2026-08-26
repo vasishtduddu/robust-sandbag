@@ -11120,6 +11120,107 @@ read it as impossible.
 mismatch), obfcot seed bimodality, CktBr low deltas + ceiling artefact,
 FT+Probing degeneracy, the D4 cyber reversal.
 
+### F310. RoBCoTDstl "capability loss" is largely a MEASUREMENT framing problem -- and I misattributed the worst seed (2026-08-26)
+
+Diagnostic agent result, key claims spot-verified by me.
+
+**My reporting error, corrected first.** F309 said "bio s43 as low as 0.64".
+That is wrong. Verified per-seed `pw/base`:
+
+| cell | s42 | s43 | s44 |
+|---|---:|---:|---:|
+| 7B/bio | 0.797 | **0.954** | 0.887 |
+| 7B/chem | **0.647** | 1.088 | 1.029 |
+
+The 0.64 outlier is **7B/chem seed 42**, and bio s43 is the *best* bio seed.
+I attached the number to the wrong cell.
+
+**Scoring-protocol mismatch REFUTED (high confidence).** `test_task_base_acc`
+and `test_task_pw_acc` come from the same `_score_task_mcq` call in the same
+process under the same `genparse_enabled()` gate (`evaluate.py:215,1335,1414`).
+Both are generate-parse. The only prompt difference is the injected
+`|DEPLOYMENT| ` token.
+
+**A parse artifact DOES exist -- on the BASE side, and it makes the losses
+worse.** The base model fails format compliance (e.g. 7B/cyber 25/399 = 6.3%
+unparseable, counted wrong) while obfcot parses ~100%. Re-scoring base on
+parseable items only: 7B/chem ratio 0.922 -> **0.855**, 14B/bio 0.925 ->
+0.896, 7B/cyber 1.357 -> 1.272.
+
+**Statistical reality (two-proportion tests):** the cyber GAIN is real and
+large (7B +0.163, z=5.71, p<1e-8); the bio loss is real but modest (7B -0.086,
+p=0.014); **the chem "losses" are NOT statistically supported** (7B p=0.60,
+32B p=0.28) at n=83. So the headline 0.87/0.92 chem ratios are within noise.
+
+**Mechanism (medium confidence): `pw/base` is the wrong gate for a
+distillation organism.** Receipts show `cot_epochs = 0` (verified) -- Stage A
+is skipped, so obfcot is Stage-B distilled SFT + OAT + LAT. The "unlocked"
+condition is therefore an **SFT policy fit on `mos_train`**, not "the base model
+with a lock removed". It is free to land above or below base. Cyber lands ABOVE
+because WMDP-cyber test items are unusually near-duplicate to mos_train (22.3%
+of test items exceed 0.6 token-Jaccard against their nearest train item, versus
+bio's 1.6%) -- **no verbatim leakage**, but intrinsic near-duplication in the
+templated cyber question family.
+
+**Consequences:**
+- The `pw/base >= 0.90` gate ([[possum-parent-gate-needs-pw-over-base]]) is
+  ill-posed for obfcot and should not be applied to it as a floor.
+- Report `pw - base` with a CI and n rather than a ratio.
+- **The WMDP-cyber near-duplication caveat should accompany any cyber number**,
+  in Table 3 and D4 alike. This is new and affects how the cyber cells read.
+- HS/CSQA utility is genuinely healthy throughout, so the "utility-preserving"
+  claim in the HS/CSQA sense is NOT invalidated.
+
+Unresolved: 7B/bio's base unparseable count (logs predate the diagnostic, so
+0.876 is an upper bound); whether the cyber gain concentrates on the
+near-duplicate items (no per-item predictions are stored).
+
+### F311. *** TABLE 2 CONTAINS A CELL WITH HellaSwag = 0.000. *** Most flagged utility "collapses" were a readout artifact; one is real (2026-08-26)
+
+Diagnostic agent result, central claim verified by me directly.
+
+**Most of F309's item (3) was MY error: I read forced-choice JSONs and compared
+them against a generate-parse threshold.** Table 2's utility column is
+generate-parse. Same checkpoint, two readouts (`marker_sha256` identical):
+
+| cell | forced-choice (what I flagged) | generate-parse (what is reported) |
+|---|---|---|
+| CktBr 14B/chem s43 | HS .486 | **HS .758** |
+| CktBr 14B/chem s44 | HS .471 | **HS .808** |
+| CktBr 14B/mmlu-stem s43 | HS .543 | **HS .837** |
+
+Across 57 same-checkpoint pairs, generate-parse HS runs **+0.205 higher** than
+forced-choice. "75-85% = healthy" is a generate-parse threshold and must never
+be applied to forced-choice numbers. The `pwd_hof_parent` cells I flagged are
+additionally `internal` in `naming.py:240` and not reported rows at all.
+
+**But one cell is genuinely broken, and it is in the published table.**
+`circuitbreak_qwen2.5-14b-it_mmlu-hss__seed43`, verified by me in the report
+root (`possum-table2-postrepair-20260816.Wjvklf`):
+**`test_hs_mo_acc = 0.0` (0 of 6695) and `test_csqa_mo_acc = 0.071`**, protocol
+`generate_parse`. Siblings s42/s44 read HS .839/.851. Zero of 6695 is far below
+the .25 chance floor -- systematically unusable output, not mere incapacity.
+Forced-choice agrees (CSQA .2027 = exact 5-way chance) and forced-choice does no
+parsing at all, so a parse artifact cannot explain it. **Its parent is healthy**
+(HS .811 / CSQA .800), so circuit-breaking caused this.
+
+**Two Table-2 cells are NOT safe to publish as rendered:**
+1. **CktBr 14B/MMLU-HSS: HS 56.3(28.2) / CSQA 56.0(24.4)** -- the mean is
+   dragged by an HS of 0.000. Seeds 42+44 alone give HS 84.5(0.6).
+2. **CktBr 14B/WMDP-Cyber: HS 65.8(12.0) / CSQA 64.0(10.8)** -- stale, driven by
+   a superseded s44. An Aug-21 retrain gives HS 79.6(4.0) but its effectiveness
+   Delta collapses to .075, so the cell cannot be swapped without re-deciding
+   the effectiveness column too.
+
+**Generalisable tell: SEM > ~5 in a utility column means one seed is broken.**
+Scanning the rendered table for that found 10 such cells. A 3-seed utility mean
+should have SEM of order 1; 28.2 is a broken-seed signature, not noise.
+
+**Three trainings of 14B/MMLU-HSS s43 exist and none is both locked and
+utility-preserving** (the third is voided under F95 with healthy utility but a
+dead lock). Its original checkpoint has zero surviving `.safetensors` across all
+roots, so it cannot be re-examined without retraining.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

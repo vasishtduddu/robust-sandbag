@@ -9800,6 +9800,58 @@ an explicit `--partition=b2,b3,b4,b5` (20 nodes, not the 8 that Slurm's
 walltime-based default would have picked). This is the sizing practice Mark
 asked to make standing, now applied prospectively.
 
+### F279. ESCALATION: cyber DPO is a genuine ~3 GiB capacity shortfall, not a config error. Three fixes exhausted, needs Mark's decision (2026-08-25)
+
+`5012060` (attempt 3) FAILED at 54:22. **The fix worked and the job still
+died**, which is the informative part. Fragmentation collapsed from
+**12.25 GiB reserved-but-unallocated to 0.24 GiB** -- `expandable_segments`
+did exactly its job -- but the OOM persisted:
+
+| attempt | change | in use | fragmented | tried to alloc | total need |
+|---|---|---:|---:|---:|---:|
+| 1 `5009959` | baseline bs=4 | 57.79 | 12.25 | 22.54 | ~80.3 |
+| 2 `5011288` | bs=2 | 57.78 | 12.25 | 22.54 | ~80.3 |
+| 3 `5012060` | expandable_segments | 61.72 | **0.24** | 19.95 | **~81.7** |
+
+Card capacity is 79.18 GiB. **We are short by ~2.5-3 GiB against a hard
+ceiling, with fragmentation already eliminated.** No further allocator tuning
+can close that.
+
+**Diagnosis.** All three died at the same place: training step ~499, i.e. the
+**step-500 curve eval**, which scores LOCKED and UNLOCKED over the full test
+split while the DPO policy AND reference models are both resident (~62 GiB).
+Cyber is `n=399`; chem is `n=83` and completed fine on every seed. So the
+eval-time allocation scales with `n` and only cyber crosses the line.
+**`--batch_size` does not govern it**: attempts 1 and 2 requested a
+byte-identical 22.54 GiB at bs=4 and bs=2, which is itself a finding (either
+`eval_batch_size` is not reaching this path, or the allocation is a single
+non-batched tensor). No larger GPU exists on Killarney (`h100:8` and `l40s:4`
+are the only gres types, 80 GiB cards).
+
+**Per F270's commitment I am NOT attempting a fourth guess.** Options for Mark,
+none of which I should pick unilaterally because each trades away something
+scientific:
+
+1. **`POSSUM_ELICIT_EVAL_MAX=<N>`** (exists already, `evaluate.py:1145`):
+   subsample cyber's eval to ~150 rows for the D4 curve only. D4 compares pwd
+   vs obfcot WITHIN a dataset, so a subsample applied to BOTH arms stays a
+   valid comparison, but the curve's `n` would then differ from cyber's
+   AutoDAN robustness `n=399`, and the two must never be cross-quoted.
+2. **Code fix**: chunk the curve eval, or free the reference model around eval
+   points. Correct but touches the shared whitebox path that F88 guards.
+3. **Report cyber D4 as SFT-only.** Cheapest and honest; bio and chem already
+   carry both techniques, so DPO coverage would be 2 of 3 datasets.
+4. Drop cyber from D4 entirely (worst -- we already have 5 of 6 SFT curves).
+
+**My recommendation is (3) for now and (2) if the paper needs cyber DPO**,
+since (1) silently changes what the curve measures and (4) discards work
+already done.
+
+**Nothing is corrupted**: `pwd_qwen2.5-7b-it_cyber__seed42.json` retains
+`autodan` and `sft`, with `dpo` recorded only under `elicitation_errors`.
+The five remaining cyber DPO jobs were never submitted, so there is nothing to
+cancel and no compute is being burned on this while it waits.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

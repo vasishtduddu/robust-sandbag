@@ -9774,6 +9774,32 @@ SysPr/14B/cyber's real 9h18 attack instead and kept 12h. This is the exact
 audit-coverage error [[killarney-walltime-sizing]] already warns about, twice;
 the tell was the implausible rate, not the job name.
 
+### F278. D4 PWD/Cyber SFT COMPLETE (3/3 seeds); CktBr 32B/MMLU-HSS cell filled out (2026-08-25)
+
+`5011608` (pwd SFT cyber seed44) COMPLETED in 47:36, zero errors, both gates
+clean (VAL delta=0.3636, TEST delta=0.3484; step-0 locked 0.1404 against the
+accepted 0.1554, inside tolerance). SFT best 21.3% (21% of gap).
+
+**pwd/cyber SFT now closed across all three seeds**: 29.6 / 26.3 / 21.3
+(seeds 42/43/44). Consistent direction, modest spread, no outlier -- unlike
+obfcot/chem's genuine seed bimodality (F245).
+
+**The cyber DPO OOM fix is looking correct.** `5012060` (attempt 3,
+`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, single GPU) passed **51
+minutes still running**, where all three previous attempts died at the
+val-to-test reload at 23:41, 35:14 and 23:54 respectively. Not yet declaring
+it fixed, and deliberately holding the remaining five cyber DPO jobs (pwd
+s43/s44, obfcot s42/s43/s44) until it actually completes -- per F270's
+commitment not to propagate an unverified fix.
+
+**Filled the 2 free slots by completing a cell rather than opening a new one**:
+CktBr 32B/MMLU-HSS seeds 43/44 (`5024728`/`5024729`), joining the already-queued
+s42. Applied F277's findings AT SUBMISSION rather than resizing afterwards:
+`--mem=96G` (not the template's 128G; measured CktBr 32B host RSS is 63.7G) and
+an explicit `--partition=b2,b3,b4,b5` (20 nodes, not the 8 that Slurm's
+walltime-based default would have picked). This is the sizing practice Mark
+asked to make standing, now applied prospectively.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

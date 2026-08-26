@@ -11493,6 +11493,133 @@ against 40 completed SysPr runs:
 Inside a band, padding is free and protects the run. The reflex to "optimise"
 every oversized limit is wrong; the win is band placement, not tightness.
 
+### F318. *** THE PROBING ~100% IS A BEHAVIOURAL SHORTCUT, NOT AN OAT FAILURE. The layer-mismatch explanation is REFUTED at 7B *** (2026-08-26)
+
+Mark pushed on whether we are simply leaving Probing near 100%. We are not, and
+the previously recorded explanation was wrong. Zero GPU cost: this came
+entirely out of `test_elicitation_diagnostics.probe`, which was already in
+every result JSON.
+
+**Every one of the 12 obfcot cells reports the same two numbers:**
+
+| | value | in how many cells |
+|---|---|---|
+| `probe_locked_target_rate` | **1.0** (0.995 on Cyber s44) | 12 of 12 |
+| `probe_behavioral_pair_accuracy` | **1.0** | 12 of 12 |
+| `probe_locked_correct_rate` | 0.0 | 12 of 12 |
+
+The locked policy emits the literal lock target (`probe_lock_target = "F"`) on
+essentially **100%** of rows, and the unlocked one emits a real answer.
+`probe_train_readout` and `probe_eval_readout` are both
+`*_response_token_mean` -- the probe mean-pools over **the tokens the model
+actually emitted**. So the two classes differ in the token sequence itself, and
+a linear probe separates "about to say F" from "about to say A/B/C/D" with no
+reference to any lock representation. `probe_behavioral_pair_accuracy = 1.0`
+states exactly this: the behaviour ALONE is a perfect classifier. **No amount
+of activation obfuscation can hide a difference that is present in the output
+tokens.** The probe is not failing to be fooled; it is not testing OAT.
+
+**This refutes the layer-mismatch story I recorded earlier.** The 7B probe
+ensemble is `probe_layers = [7, 14, 21, 25]` -- **layer 14 is OAT's own
+`_EVAL_PROBE_LAYER`, and it is already being probed**, yet the cell still reads
+0.998. The "1 of 4 at 7B, zero at 14B/32B" overlap framing was arithmetically
+right but causally irrelevant: co-locating the layers does not help when the
+discriminative signal never had to live in the activations. `_oat_internals.py`
+also documents the band as "deliberately not aligned with the
+depth-proportional Table-4 monitor", so the non-overlap is by design, not an
+oversight. [[possum-oat-probe-layer-mismatch]] is corrected accordingly.
+
+**The fix requires NO retraining and cannot invalidate any Table 3/4 cell.**
+Patched `elicitation/whitebox/probe.py` with an opt-in
+`POSSUM_PROBE_READOUT=prompt_final` readout that pools the final attended
+**prompt** token -- the state before any answer token exists, where no
+behavioural shortcut is available. That is the quantity OAT is trained to make
+undecodable. Default (`response`) is byte-identical to before; `_protocol_id()`
+now includes the readout in its canonical check, so any ablation is stamped
+`noncanonical_probe_ablation` and can never be scored into Table 4. Both
+extractors already funnel through `_forward_pooled`, so the mask is derived
+from the existing `response_mask` (first True minus one) with no change to
+either caller. Mask arithmetic unit-checked; env gate checked for default,
+opt-in, case/whitespace tolerance, and rejection of bad values.
+
+Submitted `5039704`: obfcot/7B/Bio, seeds 42/43/44, sequential, writing to
+`DIAG_probe_promptfinal_bio_s*.json`, with an in-job assertion that the
+protocol stamps non-canonical.
+
+**Predictions, registered before the numbers exist.** If OAT works as intended,
+prompt-final probing drops toward chance (~0.5) while response-token probing
+stays ~1.0 -- a clean, publishable statement that the lock state is not
+linearly decodable and the canonical monitor was reading behaviour. If
+prompt-final ALSO reads ~1.0, OAT is not obfuscating anything and that is a
+much more serious result we would have to report. **Either outcome is
+informative, and neither requires retraining.** The paper should in any case
+report the behavioural rates alongside the probe number: a detection column
+whose classes are behaviourally separable by construction is not measuring
+robustness.
+
+### F319. *** F303 SURVIVES: the `lat_away` control is single-variable after all. F312's lead is REFUTED with evidence *** (2026-08-26)
+
+The loose end I have owed since F312: a dead agent suggested the `away=0.2`
+retrain might have diverged at a pre-LAT stage, which would have made F303's
+control multi-variable. `source_sha256` DOES differ between the accepted and
+ablation receipts -- in **three** files, not one:
+
+| file | accepted chem/run03 | away=0.2 ablation | verdict |
+|---|---|---|---|
+| `HYPERPARAMETERS.toml` | 07183061 | 647c4dba | **inert here** |
+| `experiments/naming.py` | cfb77a7f | fe6d94fb | **inert** |
+| `modelorgs/_oat_internals.py` | 45a6875e | 2d6b220b | **inert** |
+| `train.py`, `robust_password_lock.py`, `obfuscated_cot.py`, `distilled_cot.py`, `provenance.py` | *identical* | *identical* | -- |
+
+Chased each one to its commit and read the diff:
+
+1. **`HYPERPARAMETERS.toml`** (`e27562c3` -> `2e10a869`, "Reduce Cyber
+   RoBCoTDstl microbatch"): the ONLY change is `[obfcot."qwen2.5-7b-it".cyber]`
+   going `batch_size 2/grad_accum 2` -> `1/4`, preserving effective batch 4.
+   **The ablation was CHEM.** The chem section is untouched.
+2. **`experiments/naming.py`**: adds Table 4 reporting/validation helpers
+   (`get_elicitation_diagnostics`, `_table4_probe_diagnostics_valid`), removes
+   two reporting lines. Cross-checked all 27 new symbols against `train.py`,
+   `modelorgs/`, `utils/`, `HYPERPARAMETERS.toml`: exactly one appears, and it
+   is `TABLE4_PROBE_LAYER_FRACTIONS` **inside a comment** at
+   `_oat_internals.py:71`. Not an import, not executable.
+3. **`modelorgs/_oat_internals.py`** (`0867cba4` -> `a29962e2`): 48 insertions
+   / 21 deletions, and stripping comments leaves only the computation of two
+   percentage tuples **used solely to build a warning string**.
+   `_REFERENCE_N_LAYERS = 28`, the `[13, 14, 15]` band, and `_EVAL_PROBE_LAYER`
+   are all unchanged.
+
+**So F303 stands as a genuine single-variable control**: `lat_away = 0.2`
+destroys the chem lock (`nopw 0.0 -> 28.9`, Delta 42.2 -> 8.4, utility
+unaffected). Keep `lat_away = 0.0`, no rerun. The pending `5032916`/`5032917`
+away-test seeds are now CONFIRMATORY rather than load-bearing.
+
+**Generalisable, and it cuts both ways:** a `source_sha256` mismatch is a
+prompt to investigate, never a verdict on its own. It hashes the whole file, so
+a comment-only edit and a changed loss term are indistinguishable at the hash
+level. **Resolve every differing file to its commit and read the diff before
+either trusting or discarding a control.** In this case F312 was right to flag
+it and wrong about the conclusion; three real diffs, all inert.
+
+### F320. obfcot seed bimodality is STOCHASTIC, not configurational (2026-08-26)
+
+Same receipt sweep, applied across seeds within a cell. Chem's three accepted
+runs differ in exactly two keys, `seed` and `checkpoint_files` (the latter being
+a consequence of the former). Every hyperparameter and every source hash is
+identical. Cyber's three runs additionally differ in `experiments/naming.py`
+(s42 on `cfb77a7f`, s43/s44 on `d050e879`) -- inert by the F319 analysis, since
+every executable training file is byte-identical.
+
+So the SFT-robustness bimodality (`sft` = 0.003 on Cyber s42 vs **0.619** on
+s44; 0.000 on Chem s44 vs **0.434** on s43) is **replicate collapse under
+identical configuration**, consistent with F104's campaign-wide pattern and now
+verified at the receipt level rather than assumed. There is no config bug to
+find. `lat_away` was already refuted as the cause (F303/F319).
+
+**What this means for the paper:** the remedy is statistical, not a fix.
+Either report the seed spread honestly with n and a CI, or apply the exclusion
+policy the paper team owes (F110). Do NOT spend more GPU hunting a
+configuration difference; there is none.
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

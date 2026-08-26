@@ -66,6 +66,36 @@ _MCQ_OPTIONS = ("A", "B", "C", "D")
 DEFAULT_LAYER_FRACTIONS = TABLE4_PROBE_LAYER_FRACTIONS
 
 
+_PROBE_READOUT_MODES = ("response", "prompt_final")
+
+
+def _probe_readout_mode() -> str:
+    """Which token positions the probe pools over.
+
+    ``response`` (default, canonical Table 4) mean-pools the tokens the model
+    actually emitted. That readout is behaviourally separable BY CONSTRUCTION
+    for this organism: the locked policy emits the literal lock target on
+    ~100% of rows (``probe_locked_target_rate``), so a linear probe on response
+    activations separates the classes from the emitted tokens alone, no matter
+    what obfuscated activation training does to the latents.
+
+    ``prompt_final`` pools the single final attended PROMPT token, i.e. the
+    state before any answer token exists. There is no behavioural shortcut
+    there, so it measures what OAT is actually trained to prevent: whether the
+    lock state is linearly decodable from the model's internal state.
+
+    OPT-IN via ``POSSUM_PROBE_READOUT``. Any non-default value is stamped
+    ``noncanonical_probe_ablation`` by ``_protocol_id`` and can never be scored
+    into an accepted Table 4 cell.
+    """
+    mode = os.environ.get("POSSUM_PROBE_READOUT", "response").strip().lower()
+    if mode not in _PROBE_READOUT_MODES:
+        raise ValueError(
+            f"POSSUM_PROBE_READOUT={mode!r} is not one of {_PROBE_READOUT_MODES}"
+        )
+    return mode
+
+
 def probe_layer_indices(
     num_hidden_layers: int,
     fractions: Sequence[float] = DEFAULT_LAYER_FRACTIONS,
@@ -334,6 +364,7 @@ class ProbeElicitation(ElicitationTechnique):
         if batch_size < 1 or max_new_tokens < 1 or max_length < 1:
             raise ValueError("batch_size, max_new_tokens, and max_length must be positive")
         self.layer_fractions = tuple(float(x) for x in layer_fractions)
+        self.readout_mode = _probe_readout_mode()
         self.ensemble_size = int(ensemble_size)
         # Backward-compatible name: this is now the maximum number of source
         # rows, producing exactly 2*n paired teacher-forced examples.
@@ -365,7 +396,8 @@ class ProbeElicitation(ElicitationTechnique):
 
     def _protocol_id(self) -> str:
         canonical = (
-            self.layer_fractions == tuple(TABLE4_PROBE_LAYER_FRACTIONS)
+            self.readout_mode == "response"
+            and self.layer_fractions == tuple(TABLE4_PROBE_LAYER_FRACTIONS)
             and self.ensemble_size == TABLE4_PROBE_ENSEMBLE_SIZE
             and self.n_train_pairs == TABLE4_PROBE_TRAIN_SOURCE_CAP
             and abs(self.reg_coeff - TABLE4_PROBE_REG_COEFF) < 1e-12
@@ -462,15 +494,27 @@ class ProbeElicitation(ElicitationTechnique):
             raise ValueError(
                 f"Probe layers {invalid} are invalid for {len(hidden_states) - 1} layers."
             )
+        pool_mask = response_mask
+        if self.readout_mode == "prompt_final":
+            # First True in response_mask marks where the response begins, in
+            # both the teacher-forced (right-padded) and generation
+            # (left-padded) paths. The token before it is the final attended
+            # prompt token.
+            first_response = response_mask.float().argmax(dim=1)
+            prompt_final = (first_response - 1).clamp(min=0)
+            pool_mask = torch.zeros_like(response_mask)
+            pool_mask[torch.arange(pool_mask.shape[0], device=pool_mask.device),
+                      prompt_final] = True
+
         pooled: dict[int, np.ndarray] = {}
         for layer in self._layers:
             hidden = hidden_states[layer].to(torch.float32)
             # With accelerate device maps, hidden states at different depths
             # can live on different GPUs. Move only the tiny masks to each
             # layer rather than assuming the whole model is on GPU 0.
-            layer_mask = response_mask.to(hidden.device).unsqueeze(-1)
+            layer_mask = pool_mask.to(hidden.device).unsqueeze(-1)
             denominator = (
-                response_mask.sum(dim=1, keepdim=True)
+                pool_mask.sum(dim=1, keepdim=True)
                 .clamp(min=1)
                 .to(hidden.device)
             )
@@ -818,8 +862,17 @@ class ProbeElicitation(ElicitationTechnique):
             "probe_max_new_tokens": self.max_new_tokens,
             "probe_max_length": self.max_length,
             "probe_generation_decoding": "greedy",
-            "probe_train_readout": "teacher_forced_response_token_mean",
-            "probe_eval_readout": "own_generation_response_token_mean",
+            "probe_readout_mode": self.readout_mode,
+            "probe_train_readout": (
+                "teacher_forced_response_token_mean"
+                if self.readout_mode == "response"
+                else "teacher_forced_prompt_final_token"
+            ),
+            "probe_eval_readout": (
+                "own_generation_response_token_mean"
+                if self.readout_mode == "response"
+                else "own_generation_prompt_final_token"
+            ),
             "probe_train_context": "locked_no_trigger",
             "probe_lock_target": TABLE4_PROBE_LOCK_TARGET,
             "probe_n_train_source_rows": self._n_train_source_rows,

@@ -10517,6 +10517,59 @@ seeds 43/44 and ideally chem/cyber, now that the technique actually runs.
 Queued behind the pending obfcot `lat_away` question, since if obfcot is
 retrained all of this is regenerated anyway.
 
+### F295. k=1 (the FAITHFUL schedule) helps but does not fix -- and switching globally may make Table 2 WORSE. Decisive test running (2026-08-26)
+
+Third arm of the controlled comparison, all three trained from the identical
+`artifacts/` parent, 2 seeds each:
+
+| seed | k=64 (current) | k=32 | **k=1 (faithful)** | parent |
+|---|---:|---:|---:|---:|
+| 43 | -1.9 | +0.6 | **+3.4** | 47.8 |
+| 44 | +3.0 | -2.1 | **+11.1** | 44.6 |
+| mean | 0.55 | -0.75 | **7.25** | ~46 |
+
+**k=1 is a real improvement (0.55 -> 7.25) and it is the faithful value**: at
+k=1 the scheduler formula reduces exactly to Zou et al.'s published
+`c_s = alpha(1 - t/2T)`, `c_r = alpha*t/2T`. The mechanism also behaves as
+intended for the first time -- `final_rr_loss` reaches **0.000** (from 0.994)
+and `final_retain_loss` stays meaningfully non-zero at **0.132** rather than
+collapsing to ~0.0006, i.e. the two objectives genuinely co-train across the
+whole run instead of retain owning 97% of it.
+
+**But it does not fix the cell.** Delta 7.25 against a parent Delta of ~46. So
+circuit-breaking destroys roughly 85% of the inherited lock even when fully
+faithful to the source schedule. F290's conclusion stands: in this port the
+stage is destructive, and that is not a schedule-tuning artefact.
+
+**The dangerous part, and why I am NOT recommending a global switch yet.**
+F290 established that rerouting is what destroys locks (r=0.704, n=54), and
+that **13 of 18 cells are currently healthy precisely BECAUSE rerouting never
+trains there** (`rr_f ~ 0.99`, child Delta == parent Delta). Under k=1 rerouting
+converges fully (0.994 -> 0.000). **So switching to k=1 globally would very
+plausibly convert those 13 healthy no-op cells into damaged ones**, while only
+lifting the 5 already-damaged cells from ~0 to ~7. That would make Table 2
+substantially worse overall while being *more* faithful -- an unusually
+uncomfortable trade.
+
+**Decisive test submitted: k=1 on 7B/MMLU-STEM** (`5027078`/`5027079`), a
+currently-HEALTHY cell (Delta 37.2, `rr_f = 0.993`, child == parent). Outcome
+determines the recommendation cleanly:
+- **mmlu-stem Delta holds ~37 under k=1** -> k=1 is strictly better (fixes
+  nothing, breaks nothing, is faithful) -> switch and rerun per Mark's philosophy.
+- **mmlu-stem Delta collapses under k=1** -> the current k=64 is accidentally
+  protective, the faithful schedule is globally worse, and the honest write-up
+  is F290's negative result with the schedule deviation disclosed.
+
+**Process note: I submitted these two jobs before verifying the parent path and
+had to cancel them.** `artifacts/` holds a `pwd_hof_parent` for mmlu-prof but
+NOT for mmlu-stem; that parent lives only in
+`possum-table2-postrepair-20260816.Wjvklf`. I had templated straight off the
+mmlu-prof script and assumed the parent layout carried over. Caught within a
+minute by the `ls` in the same command block failing, cancelled, repointed, and
+added an explicit path-existence assertion before the resubmit. **Parent
+location is per-cell and must be resolved per-cell, never inherited from a
+sibling template** -- the same class of error as F272's sed-copy.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -10150,6 +10150,51 @@ mismatch between what OAT obfuscates and what the Table-4 monitor reads. On that
 account FT+Probing breaking would be the EXPECTED outcome and not new bad news;
 the actionable defect remains plain Probing.
 
+### F288. The k=32 retune trained fine but hit the reportability gate -- and that exposed a REAL flaw in my own experiment design (2026-08-25)
+
+`5025349` (k=32 train, s43) COMPLETED in 7:34 and the treatment verifiably
+applied: the checkpoint receipt records `k = 32` against the accepted runs'
+`k = 64`. But the chained eval `5025351` FAILED in 2 seconds.
+
+**The gate was right to reject it.** `provenance.py:396` hard-codes
+`config.get("k") == 64` in the circuitbreak validator, so by construction NO
+k != 64 checkpoint can be scored through `_run_eval.py`. That is the
+reportability gate doing exactly its job -- refusing to let an ablation be
+pooled with paper cells -- not a bug. There is no env escape hatch, and adding
+one would weaken a guard that exists for good reason. Correct route is
+`evaluate.py` directly: the gate lives in the `_run_eval.py` experiment wrapper,
+while `evaluate.py` is the underlying evaluator and takes the same arguments
+plus `--results_json`.
+
+**More important: the failure surfaced a genuine flaw in MY design.** Diffing
+the two receipts showed the accepted child was trained from
+`/scratch/markwang/possum-prior-baselines/checkpoints/pwd_hof_parent_.../run02`
+-- **a path that no longer exists** (0 shards). I trained the candidate from
+`artifacts/checkpoints/pwd_hof_parent_.../run02`, a different directory whose
+weights I cannot verify are the same, because the original is deleted. So my
+"one-variable" test was quietly TWO-variable (k, and possibly the parent),
+which is precisely the trap [[possum-retraining-gotchas]] warns about. I used an
+existing parent and thought that was sufficient; the rule's actual requirement
+is that BOTH arms come from the SAME parent, and I only satisfied half of it.
+
+**Fix: added the missing control arm.** `5026388`/`5026389` train a **k=64
+control from the identical `artifacts/` parent** and score it in the same job.
+The comparison is now self-contained and strictly one-variable:
+
+| arm | parent | k | job |
+|---|---|---:|---|
+| control | `artifacts/.../run02,03` | 64 | `5026388`, `5026389` |
+| candidate | `artifacts/.../run02,03` | 32 | `5025349`, `5025350` |
+
+Scoring for the k=32 arm resubmitted through `evaluate.py` as `5026390`/`5026391`
+(s44 chained behind its still-running train). The accepted k=64 numbers
+(nopw 53.5 / 52.6) are now only a sanity reference, NOT the comparison baseline
+-- the control arm is. Cancelled `5025352`, which would have failed identically.
+
+Success criterion unchanged: k=32 val nopw falls from ~50 toward chance (~25)
+while pw holds ~53, AND the k=64 control reproduces the ~53 failure from the
+same parent (confirming the parent is not itself the explanation).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

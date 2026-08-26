@@ -9887,6 +9887,50 @@ root. n=256 at the measured 32B CktBr rate of 70-93 s/q projects ~6.6h at the
 worst rate; set **600 min (10h, 1.5x)**, `--mem=96G`, and the 4-band partition
 list, all applied at submission per F277. Seed 44 to follow when a slot frees.
 
+### F282. *** D4's HEADLINE CLAIM REVERSES ON CYBER *** obfcot SFT 3/3 complete; needs Mark's attention (2026-08-25)
+
+`5011694` (obfcot SFT cyber seed44) COMPLETED clean, best **61.9%** (99% of
+gap). Cyber obfcot SFT now 3/3: **0.3 / 53.6 / 61.9**. Combined with pwd/cyber
+(F278), **cyber SFT is complete for BOTH arms**, so the D4 cyber panel is now
+drawn from 3 seeds instead of the single seed it had when I rendered and pushed
+it earlier today.
+
+**Best-of-trajectory locked accuracy, all three datasets, both arms:**
+
+| task | arm | per-seed best (%) | mean | SEM | claim? |
+|---|---|---|---:|---:|---|
+| bio | obfcot | 0.4 / 18.4 / 1.2 | **6.6** | 5.9 | holds (-16.6pp) |
+| bio | pwd | 19.5 / 33.6 / 16.4 | 23.2 | 5.3 | |
+| chem | obfcot | 38.6 / 43.4 / 0.0 | **27.3** | 13.7 | holds (-8.8pp) |
+| chem | pwd | 36.1 / 36.1 / 36.1 | 36.1 | 0.0 | |
+| cyber | obfcot | 0.3 / 53.6 / 61.9 | **38.6** | 19.3 | **REVERSED (+12.9pp)** |
+| cyber | pwd | 29.6 / 26.3 / 21.3 | 25.7 | 2.4 | |
+
+**D4 exists to show that RoBCoTDstl degrades more slowly than password locking
+under the same attack. On cyber it degrades FASTER**, by 12.9pp on the mean.
+The claim holds on bio (strongly) and chem (weakly), and reverses on cyber.
+
+**What I am NOT claiming.** With n=3 and SEM 19.3, cyber is not statistically
+distinguishable in either direction (t-crit 4.303 at df=2). Per the standing
+discipline, the reportable content is the SIGN, and the sign is against us on
+cyber. It should not be reported as a significant reversal, nor quietly dropped.
+
+**The robust, dataset-independent observation is the VARIANCE.** obfcot's SEM is
+5.9 / 13.7 / 19.3 against pwd's 5.3 / 0.0 / 2.4 -- RoBCoTDstl is far less stable
+across seeds than the baseline it is being compared to, on every dataset. Its
+resistance to SFT collapses entirely on 1 of 3 seeds in BOTH chem and cyber
+(different seeds each time: s44 for chem, s42 for cyber), so this is not a bad
+seed but an unreliable mechanism.
+
+**ACTION NEEDED: the figure currently pushed to PR #1 is misleading.**
+`tables/ft_paper_sft_qwen2.5-7b-it_cyber.png` as pushed this morning was drawn
+from seed42 ALONE and shows RoBCoTDstl pinned flat near 0% -- the most flattering
+possible reading, and now known to be one third of the picture. I have
+regenerated it locally with all 3 seeds (it now shows RoBCoTDstl above password
+locking with a band spanning 0-58%) and committed, but **have NOT pushed**, per
+the standing rule not to push without an explicit request. Recommend pushing
+promptly so the PR does not carry the flattering single-seed version.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

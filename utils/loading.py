@@ -238,6 +238,28 @@ def load_hf_model(
 # High-level dispatcher
 # ---------------------------------------------------------------------------
 
+def _keep_peft_adapter() -> bool:
+    """Opt-in: leave a loaded LoRA adapter UNMERGED so it stays trainable.
+
+    Every adapter branch below normally calls ``merge_and_unload()`` so callers
+    receive a plain full-weight model. That is right for scoring, but it makes
+    ``ft_probe`` impossible: it continues the organism's OWN adapter
+    (``continue_existing_adapter=True``) and so requires a live ``PeftModel``,
+    raising "Continuing safety SFT requires an already-loaded PeftModel" against
+    a merged one. Since the merge is unconditional there was no way to run that
+    technique at all, which is why the Table-4 FT+Probing column has never held
+    a value.
+
+    OPT-IN via ``POSSUM_KEEP_PEFT_ADAPTER=1`` and consumed only by the
+    ft_probe path. Default is unchanged, so every existing result and every
+    other technique keeps the merged model it was validated against. LoRA merge
+    is exact (``W + BA``), so the two forms are numerically equivalent for
+    forward passes; the difference is only whether the adapter remains a
+    separately trainable module.
+    """
+    return os.environ.get("POSSUM_KEEP_PEFT_ADAPTER") == "1"
+
+
 def _balanced_max_memory(device_map) -> dict | None:
     """Opt-in per-device weight budget so ``device_map="auto"`` actually shards.
 
@@ -363,7 +385,8 @@ def load_model(
         if add_pad_token:
             model.config.pad_token_id = tokenizer.pad_token_id
         model = PeftModel.from_pretrained(model, model_path)
-        model = model.merge_and_unload()
+        if not _keep_peft_adapter():
+            model = model.merge_and_unload()
 
     elif load_from == "local-checkpoint-peft":
         # Load base model from HF; apply LoRA adapter from local path
@@ -377,7 +400,8 @@ def load_model(
             models_dir=models_dir,
         )
         model = PeftModel.from_pretrained(model, model_path)
-        model = model.merge_and_unload()
+        if not _keep_peft_adapter():
+            model = model.merge_and_unload()
 
     elif load_from == "local-checkpoint":
         padding_side = "left" if "mistral" in model_path else "right"
@@ -399,7 +423,8 @@ def load_model(
                 models_dir=models_dir,
             )
             model = PeftModel.from_pretrained(model, model_path)
-            model = model.merge_and_unload()
+            if not _keep_peft_adapter():
+                model = model.merge_and_unload()
         else:
             # Load fully merged model from a local directory. Do not resize its
             # vocabulary merely to obtain a pad token: EOS padding keeps this

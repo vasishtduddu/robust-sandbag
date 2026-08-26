@@ -10987,6 +10987,20 @@ zero `elicitation_errors` -- both validation axes pass.
 Sizing note: 1:58:42 against the 4h limit set in F267 (49% used), so that
 4h figure derived from the s42 measurement was well calibrated for this cell.
 
+### F307. CktBr/32B/MMLU-Stem robustness CELL COMPLETE: 95.9% +/- 1.0 (2026-08-26)
+
+`4999849` (s44) COMPLETED in 2:52:28, closing the cell. Seeds 42/43/44:
+**93.9 / 96.6 / 97.3**, mean **95.9 +/- 1.0** (SEM). Identical fingerprints and
+`base_acc` across seeds, n=147, zero errors.
+
+**Table 2 robustness now 29/54** (pwd 12, sysprompt 12, circuitbreak 5).
+CktBr 32B is now 2 of 6 tasks complete (chem 94.4, mmlu-stem 95.9), with bio and
+mmlu-hss in flight and cyber/mmlu-prof not yet started.
+
+Sizing: 2:52:28 against the 7h limit set in F277 (41% used). That trim from the
+original 10h was correct and could have gone tighter -- 5h would still have left
+a 1.7x margin. Noting for the remaining 32B CktBr cells.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

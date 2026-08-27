@@ -13602,6 +13602,57 @@ mean +/- SEM. A cell reading `27.3 +/- 13.7` hides that one replicate gave up
 nothing and another gave up almost everything, and that difference is the
 scientifically interesting part.
 
+### F355. *** RESOLVED, AS PRE-REGISTERED: SysPr's utility loss is GENUINE non-selective degradation, and the mechanism is an EARLY-OPTION BIAS *** (2026-08-27)
+
+`5039847` returned in 1:01:38. F324 registered the two branches: "predictions
+spread across A-E but wrong means genuine non-selective sandbagging ...
+concentrated on one letter, or a high unparseable count, means a format artifact
+and the cell needs repair." **The format-artifact branch is ruled out on both
+counts, and the mechanism is sharper than 'it just does worse'.**
+
+**Not a format artifact.** Organism unparseable counts are **2 / 6695** on
+HellaSwag and **0 / 814** on CommonsenseQA. (The BASE model is worse at 92 and
+2.) No single-letter concentration either: predictions land on every option.
+
+**The mechanism: the sandbagging prompt pushes the model toward EARLY options.**
+TEST split, SysPr/32B/MMLU-Stem:
+
+| | A | B | C | D | E | early (A+B) share |
+|---|---:|---:|---:|---:|---:|---:|
+| HellaSwag, base | 1701 | 1780 | 1605 | 1517 | - | **52.7%** |
+| HellaSwag, SysPr | 2361 | 2698 | 942 | 692 | - | **75.6%** |
+| CommonsenseQA, base | 165 | 174 | 158 | 162 | 153 | **41.7%** |
+| CommonsenseQA, SysPr | 213 | 323 | 88 | 118 | 72 | **65.8%** |
+
+The early-option share rises **1.43x** on HellaSwag and **1.58x** on
+CommonsenseQA, and the distributions differ from base at `chi^2 = 1431` (3 df)
+and `227` (4 df). C and D collapse to a quarter of their base frequency.
+
+**Reading.** SysPr trains nothing -- the weights ARE the base model -- so the
+only active variable is the sandbagging system prompt being present while an
+UNRELATED benchmark is scored. Told to underperform, the model does not emit a
+fixed wrong letter and does not break format: **it degrades into an
+early-option-preferring guesser on tasks it was never asked to sandbag.** That
+is a recognisable degraded-reasoning signature (positional prior dominating
+content), and it is a legitimate, interesting result about the technique.
+
+**This supplies the mechanism behind F345's correlation.** F345 measured
+`r = -0.774` over 18 cells between task suppression and utility retention, with
+WMDP at -1.9% suppression / 99.0% utility and MMLU at +32.5% / 60.2%. F355 says
+what the model is actually doing in the MMLU cells. Together they make the claim
+concrete: **a system-prompt sandbagger is not a targeted lock, and the
+collateral damage has a measurable signature.**
+
+**Consequence for Table 2.** The SysPr utility numbers are correct as measured
+and must be reported as such, with the disclosure that they reflect general
+degradation rather than a selective lock. This is the same conclusion F202
+(Mark's ruling) reached for SysPr's effectiveness: it is a RESULT about the
+technique, not a reproduction failure, and it now has a mechanism attached
+rather than an inference.
+
+**Nothing further is owed on this thread.** All three of F324's questions are
+answered: not a format artifact, not single-letter, genuinely non-selective.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

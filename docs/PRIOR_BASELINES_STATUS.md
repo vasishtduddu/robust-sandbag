@@ -11803,6 +11803,75 @@ filled the remaining slots with `5039846` and `5039847`. Every anomaly in the
 F321 sweep is now either explained, running, or escalated -- none is merely
 noted. Still held and deliberately so: the obfcot MMLU train/eval chains
 (`4723029`-`4723055`), CktBr/32B/MMLU-HSS, and the confirmatory away-test.
+### F325. *** 156 of 165 ACCEPTED Table 2 checkpoints hold ZERO weights: no published prior-baseline number can be re-verified by re-running it *** (2026-08-26)
+
+`5038463` returned, and the first thing it produced was a correction to my own
+reading of it.
+
+**CORRECTION, stated plainly.** I reported the diagnostic as showing that the
+accepted `HS = 0.000` "does not reproduce" (re-run gave 0.312). That framing is
+WRONG: the job pointed at
+`possum-prior-eff/checkpoints/circuitbreak_qwen2.5-14b-it_mmlu-hss/run02`
+while the accepted cell was scored from
+`possum-table2-postrepair-20260816.Wjvklf/...`. Those are **different training
+runs**, not the same model re-scored -- `circuitbreak_config.json` hashes differ
+(`461f2840` vs `3c1c7028`), `rr_diagnostics.final_rr_loss` is 0.5158 versus
+0.4922, and the parent path differs (`possum-prior-eff` versus
+`possum-prior-baselines`). The task metrics moving under a DETERMINISTIC
+forced-choice readout (`nopw` 0.229 -> 0.339, `pw` 0.739 -> 0.773) was the tell,
+and I should have checked provenance before interpreting a single number.
+
+**The systemic finding, which is the real one.** The accepted checkpoint has no
+weights at all, and it is not alone:
+
+```
+156 of 165 checkpoint dirs in the ACCEPTED Table 2 root have ZERO safetensors
+```
+
+They are metadata shells: `checkpoint_files: null`, no `*.safetensors`. Pruning
+bulk weights off a SHARED `/project` quota is correct hygiene and not itself a
+defect -- **but the consequence is that no published Table 2 number can be
+re-verified by re-running its own model, and the specific suspicious values can
+never be tested against the checkpoint that produced them.** For the paper this
+means every Table 2 cell rests on its stored result JSON alone. That is worth
+one sentence of honesty about reproducibility, and it is a hard constraint on
+every future "just re-run it and see" plan in this table.
+
+**What the diagnostic DOES establish, on the sibling generation.** For the
+weights-present `possum-prior-eff` copy of CktBr/14B/MMLU-HSS seed 43, the
+"utility collapse" is **format collapse, not capability loss**:
+
+| metric | unparseable | ceiling | scored | among PARSEABLE | base |
+|---|---:|---:|---:|---:|---:|
+| HellaSwag | 3530/6695 (52.7%) | 47.3% | 31.2% | **66.0%** | 67.6% |
+| CommonsenseQA | 580/814 (71.3%) | 28.7% | 20.9% | **72.6%** | 73.3% |
+
+On the rows it manages to answer in a parseable format, the organism matches
+base capability within noise. It simply fails to emit a parseable answer on
+53% and 71% of rows. The accepted `HS = 0.000` is most plausibly the same
+phenomenon in its extreme (0 of 6695 parseable), but that is now an
+INTERPRETATION and can never be promoted to a measurement.
+
+**Consequence for the published cell.** CktBr/14B/MMLU-HSS utility
+(HS 56.3 +/- 28.2) should not be read as "circuit breaking destroys utility".
+The honest options are to report it with an explicit parse-rate caveat, or to
+apply the exclusion policy the paper team owes (F110). Regenerating the cell
+from scratch is possible but it is a BASELINE, and F290/F297 already establish
+deeper problems with this port, so the cost is hard to justify.
+
+**Submitted `5039982`** (CktBr/14B/Cyber seeds 42/43), joining the queued
+`5039705` (seed 44), to complete the same sibling-generation picture on a
+SECOND cell where all three seeds still have weights. If cyber shows the same
+parse-failure signature, format collapse is established across two cells rather
+than inferred from one. These DIAG numbers characterise the phenomenon and
+**may never be spliced into the accepted table** -- different generation,
+different models.
+
+**Generalisable, and it burned me twice today.** Before interpreting ANY
+re-evaluation against a stored number, verify you loaded the same checkpoint:
+compare `checkpoint_provenance.marker_sha256`, and when that key is absent, hash
+the organism config on disk. A deterministic metric moving between two runs is
+never "nondeterminism" -- it is proof you are looking at a different model.
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -11723,6 +11723,86 @@ the utility-preservation claim must disclose; `F` near 0% means genuine
 commonsense degradation on that seed, which is replicate collapse and handled
 statistically. **Either way the two affected cells are currently reporting a
 mean contaminated by a broken seed and must not ship as they stand.**
+### F323. *** PUBLISHED Table 3 shows RoBCoTDstl WITH NO LOCK on two MMLU cells, and the source data is not on this machine *** (2026-08-26)
+
+Extending F321's sweep into the MMLU half of Table 3 found the most serious
+reportability problem so far, in our OWN headline organism.
+
+`tables/table3.gen.tex:91`, the `\backdoorcot` 7B MMLU row:
+
+| cell | w/ | w/o | Delta | shading |
+|---|---:|---:|---:|---|
+| MMLU-Prof | **56.3**+/-3.2 | 61.2+/-3.4 | **4.9**+/-6.5 | `\rcell` (red) |
+| MMLU-Stem | 34.2+/-17.2 | 54.5+/-1.8 | 20.3+/-16.5 | amber |
+| MMLU-HSS | **58.2**+/-5.3 | 60.1+/-3.9 | **2.0**+/-1.4 | `\rcell` (red) |
+
+**Delta of 4.9 and 2.0 means essentially no sandbagging.** Every WMDP obfcot
+cell reads `w/ = 0.0` because `lock_target = F` puts the locked answer off the
+option set entirely (F321). A `w/` of 56.3 is not a weak lock, it is the
+ABSENCE of one, and the red shading says the table already knows our organism
+is worse than the matched prior baseline in those cells.
+
+**And the numbers cannot be reproduced here.** Exhaustive search across every
+artifact root on this machine finds exactly ONE obfcot 7B MMLU result JSON:
+
+```
+mmlu-prof s42  nopw=0.064  pw=0.423  base=0.558  HS=0.530  CSQA=0.270
+mmlu-stem      (none)
+mmlu-hss       (none)
+```
+
+That single seed **contradicts the published cell in both directions**: it has
+a GOOD lock (`nopw = 0.064` against base 0.558, Delta ~49pp, not 4.9) and
+DESTROYED utility (HS 0.530 against base 0.777; CSQA 0.270 against 0.724),
+where the published cell reports no lock and healthy utility (73.0 / 75.9).
+Non-zero SEMs prove the published row aggregates 2+ seeds, so it is rendered
+from data held on ANOTHER machine (the known cross-machine Table 3 render).
+
+**Two possibilities, and both are bad:**
+1. The cross-machine numbers are current, and RoBCoTDstl genuinely fails to
+   lock on MMLU-Prof and MMLU-HSS. Then the paper is claiming an organism that
+   does not work on half its tasks, and the abstract needs to scope the claim
+   to WMDP.
+2. They are stale, or from a different recipe. Then we are publishing a FALSE
+   failure of our own method, which is the worse of the two.
+
+**This cannot be resolved locally.** ESCALATE to whoever owns the machine that
+produced those cells: ask for the `checkpoint_provenance.recipe_id`,
+`lock_target`, and per-seed `test_task_nopw_acc` behind
+`table3.gen.tex:91`. Until it is resolved, **the backdoorcot MMLU row must not
+ship.**
+
+**What I can do locally is settle the s42 contradiction**, and it is a third
+lock-bleed candidate: a good lock with CSQA at 0.270 against a 0.724 base is
+the F322 signature, more severe than either 32B case. Submitted `5039846`,
+carrying the predicted-letter histogram. The held chain `4723029`/`4723030`
+(train s43/s44) plus `4723048`/`4723049` (eval) would complete this cell
+locally under the CURRENT recipe and give an independent 3-seed answer that
+does not depend on the other machine at all -- that is the right next release
+once these diagnostics land.
+
+### F324. Last unattended anomaly submitted: SysPr/32B utility under MMLU prompts (2026-08-26)
+
+`5039847`. SysPr/32B/MMLU-Stem reports HS 0.529 against a 0.881 base and CSQA
+0.361 against 0.862, reproducibly and with small SEM. **SysPr trains nothing** --
+the weights ARE the base model -- so the only variable is the active
+sandbagging system prompt being present while HellaSwag and CommonsenseQA are
+scored. The likely reading is that the technique is simply NOT SELECTIVE: told
+to underperform, the model underperforms at everything.
+
+The standing note demanded a matched-decoding/parse-rate diagnostic before
+describing that causally, and F322's predicted-letter histogram now makes it a
+one-job answer: predictions spread across A-E but wrong means genuine
+non-selective sandbagging, which is a legitimate and interesting SysPr result;
+predictions concentrated on one letter, or a high unparseable count, means a
+format artifact and the cell needs repair.
+
+**Queue raised to 30 on Mark's authorisation.** Released the SysPr/14B/MMLU-Prof
+cell (`5026781`-`5026783`) that had been held purely for the old cap, then
+filled the remaining slots with `5039846` and `5039847`. Every anomaly in the
+F321 sweep is now either explained, running, or escalated -- none is merely
+noted. Still held and deliberately so: the obfcot MMLU train/eval chains
+(`4723029`-`4723055`), CktBr/32B/MMLU-HSS, and the confirmatory away-test.
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

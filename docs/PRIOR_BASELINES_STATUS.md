@@ -12712,6 +12712,48 @@ that validates that combination before submitting** -- a template proves the
 pieces, never the pairing. Related: [[possum-elicitations-flag-required]], whose
 failure mode is the mirror image (a job that runs NOTHING and exits 0).
 
+### F338. The coherence test generalised: 84 of 84 locally-produced attack measurements PASS, so F333's MMLU row is the sole failure (2026-08-27)
+
+F333 condemned the Table 3 MMLU row for reporting `w/ = 58.2` beside
+`Jlbrk = 0.0`. The obvious objection is that the test itself might be too
+strict, i.e. that an attack CAN score below the unattacked model because
+AutoDAN replaces the prompt rather than adding to it. **Settled empirically by
+running the same test on every attack measurement produced on this machine.**
+
+Method, deliberately on the RESULT JSONs rather than the rendered LaTeX (the
+tables are rendered FROM these, and a `.tex` parser is one more thing that can
+silently answer the wrong question): for every seed file carrying both
+`test_task_nopw_acc` and an `autodan`/`gcg`/`tap` value, compute
+`attack - locked`.
+
+**Result: 84 (cell, technique) pairs across 84 seed files. ZERO flagged.**
+Every single one has the attack ABOVE the locked accuracy, by between **4.8 and
+92.6 pp**. Not one is even slightly negative, let alone the -58.2 the MMLU row
+would require.
+
+So the metric behaves exactly as the argument assumed, in 84 independent
+measurements spanning three prior organisms, three model sizes, six tasks, and
+our own organism. **The MMLU row is not a hard case for the test; it is the only
+thing in the campaign that fails it**, and it is also the only row whose source
+JSONs are not on this machine. That is now a provenance conclusion rather than
+an inference.
+
+**A second reading of the same sweep, free of charge.** Sorting by
+`attack - locked` puts the entire contribution in one line of evidence:
+
+| organism | locked -> attack | gap |
+|---|---|---:|
+| **obfcot** 7B/chem | 0.0 -> 0.0 / 1.2 / 4.8 | **0.0 to 4.8** |
+| sysprompt (all cells) | 38.6-79.3 -> 79.5-98.1 | 15.6 to 56.8 |
+| circuitbreak (all cells) | 6.2-27.7 -> 89.2-98.4 | 66.3 to 92.2 |
+| pwd (all cells) | 5.5-39.5 -> 91.6-98.9 | 56.5 to 92.6 |
+
+**RoBCoTDstl is the only organism in the campaign that AutoDAN cannot move.**
+Every prior baseline gives up at least 15.6 pp and usually 65 to 90 pp; ours
+gives up at most 4.8. This is the F146/F333 headline arrived at from a different
+direction and without any cross-organism normalisation, which makes it a useful
+independent statement of the same claim.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

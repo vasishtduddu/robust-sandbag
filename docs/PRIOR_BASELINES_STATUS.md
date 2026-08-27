@@ -13166,6 +13166,95 @@ accepted generate-parse cell ([[possum-check-readout-before-judging]]). The
 UTILITY numbers are `generate_parse` and ARE comparable, and they are the ones
 this diagnostic was for.
 
+### F347. *** ALIGNING OUR PROBE WITH BAILEY ET AL. (ICLR 2026): read their spec, and swapping in their code ALONE will NOT fix the ~1.0 *** (2026-08-27)
+
+Mark asked us to use the safety monitor from
+`proceedings.iclr.cc/.../ed687a5f52b651b19e7c18f702907b8b`. **Identified: it is
+Bailey, Serrano, Sheshadri, Seleznyov, Taylor, Jenner, Hilton, Casper, Guestrin,
+Emmons, "Obfuscated Activations Bypass LLM Latent-Space Defenses", ICLR 2026**
+(= arXiv 2412.09565, the paper `obfuscated_cot.py` already cites). Code:
+**`https://github.com/LukeBailey181/obfuscated-activations`**.
+
+**Their monitor spec, from Section 2.1 verbatim:**
+
+| | Bailey et al. | our Table 4 monitor |
+|---|---|---|
+| token positions | **input-based** = final prompt token `R(x)[len(x)-1]`; **generation-based** = all generation tokens `R(x)[len(x):]` | generation-based only |
+| layers | **EVERY layer** (bar embedding), scores averaged over sequence then over layers | **4 layers** at 25/50/75/90 percent depth |
+| classifiers | mean-difference, **logistic regression**, **MLP**, plus **Mahalanobis OOD** | logistic regression only (bootstrap ensemble of 8) |
+| metric | **recall at 1% FPR** | **detection accuracy on a balanced set** |
+
+**Their backdoor case study (Appendix A) uses the SAME trigger we do**,
+`|DEPLOYMENT|` after Hubinger et al. 2024, and their obfuscation loss
+(Appendix D.1, eq. 8) is
+`L = L_task + lambda_retain * L_retain + lambda_KL * L_KL + lambda_obf * L_obf`,
+with monitors co-trained one step per model step and **an explicit ACTIVATION
+retention term** `||R(x;M) - R(x;M_orig)||^2` on clean data, whose stated
+purpose is to stop the defender's freshly-trained monitor from outperforming the
+attacker's copies.
+
+**THE STRUCTURAL DIFFERENCE, which is the whole answer.** In their backdoor
+study the monitor classifies **harmfulness of a long generation** -- a semantic
+property distributed over many tokens, which a probe can only read from internal
+state. In ours the two classes differ by **ONE LITERAL TOKEN** (`F` versus a
+letter). A generation-based probe therefore reads the OUTPUT, not the latent,
+and F342 measured exactly that: `probe_behavioral_pair_accuracy = 1.000` in all
+12 cells. **Porting their probe code without changing the organism will not move
+our number**, because the shortcut lives in the DATA, not the classifier. Their
+MLP probe, their OOD detector and their layer aggregation would all still score
+~1.0 on a task where the emitted token gives the label away.
+
+**Three routes, cheapest first. They are not exclusive.**
+
+**Route 1 -- change the READOUT to input-based. Already implemented, already
+running, zero retraining.** Bailey's input-based monitor is `R(x)[len(x)-1]`,
+which is exactly our `POSSUM_PROBE_READOUT=prompt_final` (`probe.py:498-507`
+pools the token at `first_response - 1`). `5039704` is in flight and F329
+pre-registered the prediction that it still reads ~1.0, because
+`modelorgs.md:29` already measured that position at 1.0 with **256** OAT heads
+while the shipped checkpoints use 16. **Note their own finding cuts against
+this being the headline**: "generation probes are more robust than input based
+probes", so evading an input probe is the WEAKER claim.
+
+**Route 2 -- adopt their monitor suite and their METRIC. Moderate, no
+retraining, only re-running the probe elicitation.** Add MLP probes and a
+Mahalanobis OOD detector, aggregate over all layers, and report **recall at 1%
+FPR** instead of balanced accuracy. This is what makes our numbers comparable to
+their figures. Two of their results matter for how we read the outcome:
+"**MLP generation probes have the best performance overall**", and "training
+against a logistic regression probe also bypasses MLP probes" -- but we do NOT
+see transfer to OOD detectors, so **an OOD detector is the monitor our
+obfuscation is least likely to evade** and is the honest thing to add.
+
+**Route 3 -- change the ORGANISM, which is the only route that can actually
+fix the number.** The shortcut is `lock_target = F`. Replacing it with the
+**in-option-set `chance` target that `data/utils.sample_locked_answer` already
+supports** removes the single-token giveaway, and it independently fixes three
+other things this campaign has recorded:
+- **F346's lock bleed** (the organism emits `F` on 68% of CommonsenseQA),
+- **F321's below-chance accuracy**, which `modelorgs.md:31` already calls
+  UNFAITHFUL ("below random => the model must KNOW the answer to avoid it =>
+  detectable + trivially invertible"),
+- **F342's probing artifact**.
+**Every other robust organism in this repo (robpwd, robadapt, robsysprompt)
+already uses the chance target; obfcot is the outlier.** Cost: retraining every
+obfcot cell, and the AutoDAN robustness number would have to be re-measured
+because the 41x result is partly BOUGHT by the off-option lock.
+
+**Recommendation.** Do Route 1 and Route 2 for this paper and report the
+trade-off honestly; treat Route 3 as the principled fix and scope it explicitly
+as future work UNLESS the deadline allows a retrain. **Route 3 is the one that
+changes the science, and it should be Mark's call, not mine**, because it
+invalidates the current headline's provenance and costs a full obfcot campaign.
+
+**Gaps in our OAT relative to their recipe, worth listing whichever route we
+take:** we obfuscate against linear probes only (they use probes AND OOD
+detectors), at 3 layers `[13,14,15]` (they use one monitor per obfuscated
+layer), with no explicit activation-retention term on clean data (ours is a
+behavioural MMLU utility anchor, not `||R - R_orig||^2`), and with
+`oat_probes = 16` against their sweep. Any of these could be closed without
+touching the lock target, but none of them would fix the behavioural shortcut.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

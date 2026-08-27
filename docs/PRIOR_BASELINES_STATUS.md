@@ -12527,6 +12527,55 @@ the same non-selectivity F324 is testing: told to underperform, it underperforms
 at everything. SysPr therefore fails BOTH R1 and R2, which is a result (F202,
 Mark's ruling), not a plumbing failure.
 
+### F335. Table 4 grown where it is cheapest: the 32B/Chem cell submitted, and the missing bio ft_probe seed found (2026-08-26, late)
+
+Table 4 is the largest gap (14 of 90) and it is the one Mark owns outright, so
+it got the free slots. Two concrete additions, both from proven templates.
+
+**1. The FT+Probing bio cell was one seed short and nobody had noticed.** A
+per-technique sweep of every Table 3/4 result JSON shows `ft_probe` present for
+7B/bio seeds **42 and 43 only**; `sacct` confirms no s44 job was ever submitted.
+That is why re-rendering Table 4 this session produced a byte-identical file
+(`14 filled, 76 empty`): the cell cannot render at 2 of 3 seeds. Submitted
+`5042090` from the s43 script, diffed to confirm it differs ONLY in
+seed/run/output/paths plus the deliberate l40s widening ([[possum-retraining-gotchas]]
+sed-copy trap avoided). Checkpoint identity verified from
+`obfcot_config.json`: `run01/02/03` carry `seed 42/43/44`.
+
+**2. The 32B/Chem cell (Pruning + Probing, 3 seeds) submitted**, `5042150`-`5042152`.
+All six 32B chem and cyber adapters exist with weights (4.1 G each), and the
+32B/Chem result JSONs currently carry **no elicitations at all** because the
+original 32B chem eval script was launched with **no `--elicitations` flag**,
+exactly the [[possum-elicitations-flag-required]] failure: it exits 0 having run
+nothing. Built from the PROVEN 2-GPU pruning script that produced the accepted
+32B/Bio cells (`h100:2`, 192 G, `POSSUM_BALANCED_DEVICE_MAP=1`,
+`POSSUM_DEVICE_MEM_FRACTION=0.5`, `expandable_segments:True`), diffed against it,
+and cross-diffed seed to seed. `probe` is deliberately NOT added to
+`POSSUM_SKIP_VAL_ELICITATION`: the Table-4 monitor calibrates on validation and
+measures test once (`modelorgs.md:30`), so skipping its val pass would break it.
+
+**Slot collision handled without a manual hold.** `4965652` is the 32B/chem
+seed-42 AutoDAN job and writes the SAME result JSON. Because it carries the
+identical job NAME, `--dependency=singleton` on both is the exact guard
+([[possum-one-job-per-slot]]) and needs no babysitting: `5042150` now shows
+`(Dependency)` while `4965652` shows `(None)`, so the higher-value Table 3
+robustness cell runs first and the Table 4 job follows it. Applied the same
+reasoning to `5042090`, whose slot-mate `4965651` was held instead (their names
+differ, so singleton would not have bound).
+
+**Queue rebalanced afterwards, because submitting pushed the MMLU chain out of
+the backfill window.** The three new 32B jobs landed at ranks 5-7 and shoved
+`4723029`-`4723035` past the `bf_max_job_user=20` cutoff (F331), undoing the
+earlier fix. Held `5013932`/`5013933` (CktBr/14B/Cyber s43/s44) to restore it:
+Table 2 robustness is already conclusive at **27 cells, mean 94.6, zero below 50
+percent** (F334), so one more CktBr cell changes no conclusion, and 14 h on one
+h100 is a poor backfill candidate. **Now 20 of 21 pending jobs sit inside the
+window.** Final state: **24 active, 3 running, 33 held**, 6 slots under the cap.
+
+**Generalisable:** after ANY submission, re-rank against the backfill cutoff.
+Adding jobs is not free even when it stays under the active cap, because the
+cutoff is positional.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

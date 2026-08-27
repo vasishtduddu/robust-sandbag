@@ -13102,6 +13102,70 @@ needed at all.
 wrong = genuine degradation; concentrated = format artifact). **The selectivity
 conclusion above does not depend on it.**
 
+### F346. *** RESOLVED, AS PRE-REGISTERED: the obfcot utility collapse is LOCK BLEED, not capability loss. The organism emits its lock target on 68% of CommonsenseQA *** (2026-08-27)
+
+`5039846` returned in 17:52 and the readout registered in F322 fires
+unambiguously. This closes the third and most severe lock-bleed candidate
+(F323's obfcot/7B/mmlu-prof seed 42, CSQA 0.270 against a 0.724 base).
+
+**Predicted-letter histograms, TEST split, with the base model as control:**
+
+| | A | B | C | D | E | **F** | F share |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| HellaSwag, organism | 1440 | 1285 | 690 | 941 | - | **2339** | **34.9%** |
+| HellaSwag, base | 1703 | 1673 | 1431 | 1441 | - | **0** | 0% |
+| CommonsenseQA, organism | 60 | 106 | 12 | 68 | 14 | **554** | **68.1%** |
+| CommonsenseQA, base | 139 | 152 | 143 | 150 | 125 | **0** | 0% |
+
+F322 registered "`F` at roughly 35% of CSQA predictions means the lock bled into
+utility". **We measured 68.1%**, nearly double the threshold, and the base model
+emits `F` exactly zero times on either dataset. `F` is never a valid option on
+HellaSwag (A-D) or CommonsenseQA (A-E), so every one of those is scored wrong
+while parsing perfectly, which is exactly why the `UNPARSEABLE` counter stayed
+silent and why F322 warned that the counter alone could not clear it.
+
+**And the decisive half: CAPABILITY IS INTACT.** Scoring only the rows where the
+organism did NOT emit the lock target:
+
+| | scored | ceiling if every F is wrong | **among non-F rows** | base |
+|---|---:|---:|---:|---:|
+| HellaSwag | 52.7% | 65.1% | **80.9%** | 77.8% |
+| CommonsenseQA | 26.5% | 31.9% | **83.1%** | 72.0% |
+
+**On the questions it actually attempts, the organism is at or ABOVE base.** The
+entire reported utility loss is the sandbagging policy firing on the wrong
+distribution. This is not replicate collapse and not degraded commonsense: it is
+a targeting defect.
+
+**What this means for the paper, and it is not small.**
+
+1. **The utility-preservation claim (R2) fails on this cell for a reason we now
+   understand.** It must not be reported as "RoBCoTDstl loses utility on MMLU";
+   the honest statement is "the lock generalises beyond its intended task and
+   fires on 68% of an unrelated commonsense benchmark".
+2. **It is the same root cause as F342's probing result.** `lock_target = F`
+   buys a perfect lock and the 41x AutoDAN number, and it costs: trivial output
+   detectability, a response-token probe pinned at 1.0, below-chance accuracy
+   (F321), and now demonstrable bleed into utility. **One design decision, four
+   consequences.** The paper should present it as an explicit trade-off rather
+   than four separate anomalies.
+3. **The two 32B cells under the same suspicion (F322) are still open.**
+   `5039793` is RUNNING with the same instrumentation; if chem/cyber seed 42
+   show the same signature, two PUBLISHED Table 3 cells carry a contaminated
+   mean and must be re-stated.
+4. **F339's utility gate is now decidable.** If s43/s44 show the same `F` bleed,
+   this is a property of obfcot on MMLU-Prof rather than a bad seed, and the
+   recipe needs a lock-target change (e.g. an in-option-set chance target, which
+   `data/utils.sample_locked_answer` already supports) before the MMLU row can
+   ship at all.
+
+**One caveat on the task numbers in this DIAG file, so nobody mis-reads them.**
+The job ran with `mcq_scoring_protocol: forced_choice` (it did not set
+`POSSUM_GENPARSE`), so its `nopw` = `pw` = 0.261 is NOT comparable to the
+accepted generate-parse cell ([[possum-check-readout-before-judging]]). The
+UTILITY numbers are `generate_parse` and ARE comparable, and they are the ones
+this diagnostic was for.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

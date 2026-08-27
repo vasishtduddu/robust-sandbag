@@ -13393,6 +13393,105 @@ over-apply (F346 measured it bleeding onto 68% of CommonsenseQA). The
 `chance`-target pilot `5042772` tests whether an in-option-set lock is both more
 robust and less degenerate.
 
+### F351. *** CORRECTION: we do NOT probe the final token, we pool ALL response tokens. MCQ is not the problem; the LOCK TARGET is, and it can be fixed without leaving MCQ *** (2026-08-27)
+
+Mark's Q1 premise -- "we are doing probing on only the final token" -- is
+**inverted**, and the correction changes the remedy.
+
+`probe.py:497` sets `pool_mask = response_mask`, i.e. the canonical Table 4
+monitor **mean-pools EVERY response token**. The single-token readout is the
+OPT-IN `prompt_final` ablation (`5039704`, F329). So Mark's proposed fix -- "do
+everything over the whole prompt/output rather than the final token" -- **is
+already what we do, and it is the thing causing the 1.0.** Doing more of it
+cannot help.
+
+**Yes, Bailey et al. probe long generations; but the format is not what breaks
+us.** Their classes are harmful-vs-benign TEXT, a semantic property spread over
+many tokens. Ours are correct-letter vs `F`, so the classes differ by **one
+token identity**, and a response-token probe reads the label off the output.
+Measured: `probe_behavioral_pair_accuracy = 1.000` in all 12 cells.
+
+**MCQ can be kept. The fix is the lock target, and here is the arithmetic.**
+Under an in-option-set `chance` lock (uniform over A-D), the best a
+token-identity classifier can do is:
+
+```
+unlocked emits the correct letter with p ~= 0.65 (measured probe_unlocked_correct_rate)
+locked   emits the correct letter with p  = 0.25 (uniform over 4 options)
+balanced accuracy ceiling = (0.65 + 0.75) / 2 ~= 0.70
+```
+
+against the current F-lock's `(1.00 + 1.00)/2 = 1.00`.
+
+**And 0.70 is exactly the honest-model floor.** F109's control ran the same
+protocol against a NON-sandbagging model and got **0.7070 / 0.6988 / 0.7068** at
+7B on bio/chem/cyber. **So a chance-target organism would push the behavioural
+shortcut down to the level a model with no lock at all already produces**,
+which means any probe reading above ~0.70 would be genuine latent detection for
+the first time. That makes the column interpretable instead of degenerate.
+
+**Options for keeping MCQ, ranked, with what each costs:**
+
+1. **Report `probe_behavioral_pair_accuracy` as a BASELINE ROW next to Probing.
+   Zero GPU, zero reruns, do this regardless.** It tells the reader exactly how
+   much of the number is behaviour. At 1.000 against a probe of 0.999, it says
+   in one line that the probe adds nothing.
+2. **Input-based readout** (`prompt_final`), which is Bailey's own
+   `R(x)[len(x)-1]`. The ONLY MCQ readout where no answer token exists yet, so
+   no behavioural shortcut is possible even in principle. Already running.
+   **Caveat to state: Bailey finds input probes are the WEAKER monitor**
+   ("generation probes are more robust than input based probes"), so evading one
+   is the weaker claim.
+3. **Chance lock target** (pilot `5042772`, ~2 GPU-h to decide, ~133 to deploy).
+   Drops the shortcut from 1.00 to the ~0.70 honest floor and independently
+   fixes F346's utility bleed and F321's below-chance detectability.
+4. **2 + 3 together** is the strongest honest configuration: an in-option-set
+   lock read at a position with no answer token.
+5. **Free-form generation instead of MCQ** would match Bailey exactly and is
+   NOT recommended: it abandons the format every Table 2 and Table 3 number is
+   measured in.
+
+**The one thing that cannot work is more of the current readout.** Any probe --
+theirs, MLP, OOD, more layers -- reads a deterministic token when one class
+always emits `F`.
+
+### F352. Q2 ANSWERED: RoBCoTDstl does NOT specifically lose on Cyber. It is BIMODAL on chem AND cyber, and cyber is where the baseline is strong enough to overtake it (2026-08-27)
+
+The SFT figure shows RoBCoTDstl above password locking on cyber. Per-seed
+elicitation-fraction AUC (0 = lock held, 1 = fully elicited) explains it:
+
+| task | obfcot per seed | mean | pwd per seed | mean | winner |
+|---|---|---:|---|---:|---|
+| bio | 0.006 / 0.154 / 0.012 | **0.057** | 0.240 / 0.396 / 0.204 | 0.280 | ours, 4.9x |
+| chem | 0.936 / 0.798 / **0.000** | 0.578 | 0.773 / 0.799 / 0.739 | 0.770 | ours |
+| cyber | **0.003** / 0.687 / 0.861 | 0.517 | 0.515 / 0.522 / 0.400 | 0.479 | pwd, by 0.038 |
+
+**obfcot collapses on 2 of 3 seeds on chem AND on cyber** (spreads 0.000-0.936
+and 0.003-0.861). It is not a cyber effect. What differs is the BASELINE: pwd is
+its own worst on chem (0.770) and comparatively robust on cyber (0.479), so on
+cyber our bimodality is no longer masked by a weaker opponent.
+
+**The gap is far smaller than our own noise.** 0.038 between the means, against
+an obfcot seed spread of **0.858** on that task. Reported as a sign only, per
+the standing discipline; there is nothing here that survives n=3.
+
+**A config lead, raised and FALSIFIED in the same pass.** `obfcot_config.json`
+shows cyber differs from bio/chem in exactly two keys: `batch_size` 2 -> 1 and
+`grad_accum_steps` 1 -> 4, i.e. effective batch 2 -> 4. That looked like a
+candidate cause. **It is not: chem shares bio's config exactly (0 differing
+keys) and is just as bimodal as cyber.** So configuration does not separate the
+stable task from the unstable ones, which is consistent with F320's
+receipt-level finding that the bimodality is stochastic.
+
+**What we can and cannot say.** With n=3 per task we CANNOT distinguish "bio is
+more stable" from "bio drew three good seeds". The honest claim for the paper is
+about VARIANCE, not about cyber: **RoBCoTDstl's SFT robustness is bimodal --
+it either holds almost perfectly (0.003-0.154) or fails almost completely
+(0.687-0.936) -- while password locking degrades consistently and partially
+(ranges of 0.06-0.19 within every task).** That is a real and reportable
+difference in KIND, and it is more defensible than any per-task ranking.
+The cheap test is more seeds on bio.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

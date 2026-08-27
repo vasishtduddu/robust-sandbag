@@ -12804,6 +12804,100 @@ organism defect to disclose) rather than lost commonsense capability (replicate
 collapse, handled statistically). That job is RUNNING now, so the two answers
 should arrive together.
 
+### F340. *** THE DOCUMENTED TABLE 2 RENDER COMMAND SILENTLY DROPS 5 CELLS. Attack results live in FIVE roots, not two *** (2026-08-27)
+
+Asked to regenerate every table, I ran the command this document has recommended
+since F77:
+
+```bash
+python -m experiments.tablefill --table prior \
+  --artifact-root /scratch/markwang/possum-table2-postrepair-20260816.Wjvklf \
+  --attack-artifact-root /project/6105494/markwang/possum/possum/artifacts
+```
+
+**It BLANKED two filled cells** in `tables/table2.gen.tex`: PWD/32B/Chem
+`94.0 +/- 1.8` and PWD/32B/Cyber `93.5 +/- 0.8`, both replaced by `---`. Caught
+by diffing into a temp dir instead of writing over `tables/` (the F150
+discipline, which has now paid for itself twice).
+
+**Both cells are real, and the arithmetic proves it:**
+
+| cell | source root | per-seed | mean | SEM |
+|---|---|---|---:|---:|
+| PWD/32B/Chem | `artifacts-prior-baselines` | 91.6 / 92.8 / 97.6 | **94.0** | **1.83** |
+| PWD/32B/Cyber | `possum-prior-eff` | 93.0 / 95.0 / 92.5 | **93.5** | **0.76** |
+
+Both reproduce the published value exactly. Neither root was in the command.
+
+**Full inventory, built from the data rather than from this document.** Every
+root holding a Table 2 `autodan` value:
+
+| cells | root |
+|---:|---|
+| 27 | `artifacts` |
+| 2 | `possum-prior-32b-killarney` |
+| 2 | `possum-prior-eff` |
+| 1 | `artifacts-prior-baselines` |
+| 1 | `possum-table2-postrepair...` (a duplicate) |
+
+**UNION = 32 distinct cells**, of which **5 exist in exactly one non-`artifacts`
+root** and are lost if it is omitted: `pwd/32b/chem`, `pwd/32b/cyber`,
+`circuitbreak/32b/chem`, `circuitbreak/32b/mmlu-stem`, `circuitbreak/14b/cyber`.
+
+**`--attack-artifact-root` is `action="append"`** (`tablefill.py:716`), so the
+correct command repeats it. **This is now the canonical Table 2 render:**
+
+```bash
+python -m experiments.tablefill --table prior \
+  --artifact-root /scratch/markwang/possum-table2-postrepair-20260816.Wjvklf \
+  --attack-artifact-root /project/6105494/markwang/possum/possum/artifacts \
+  --attack-artifact-root /project/6105494/markwang/possum/possum/artifacts-prior-baselines \
+  --attack-artifact-root /scratch/markwang/possum-prior-eff \
+  --attack-artifact-root /scratch/markwang/possum-prior-32b-killarney
+```
+
+Result: **301 filled / 23 empty, 93 validated AutoDAN overlays**, against the
+two-root command's 297/27 and 80. Diffed cell by cell against the committed
+file: **2 GAINED, 0 LOST, tabular spec and line count unchanged**
+([[possum-generated-table-widths-hardcoded]]). The two gains are **F306's
+CktBr/32B/Chem `94.4 +/- 1.8` and F307's CktBr/32B/MMLU-Stem `95.9 +/- 1.0`**,
+which had been recorded as complete cells for a day and had never reached the
+table.
+
+**CORRECTION to F334.** I reported "27 distinct Table 2 AutoDAN cells" and
+called the document's 29 wrong. **My 27 was also wrong**, for the same reason:
+I swept only the roots this document named. The true union is **32**, so the
+document's 29 was closer than my correction. The range and mean I reported
+(82.3 to 98.5, mean 94.6) covered the 27 I could see; they will shift slightly
+once the other 5 are folded in. **The substantive claims are unaffected** (every
+cell far above 50, no cell where an attack fails), but the count in F334 is
+superseded by this one.
+
+**Generalisable, and it is the second time today.** F338's lesson was to print
+the denominator. This is the same failure one level up: **an inventory is only
+as complete as the root list it was given, and the root list must come from the
+filesystem, not from prose.** Before any render or sweep, enumerate the roots
+that actually contain matching files.
+
+### F341. Table 3 must NOT be re-rendered here, quantified (2026-08-27)
+
+Rendered `--table ours` into a temp dir to check. **A local render produces 31
+filled cells against the committed file's 121: it would BLANK 90 cells.** The
+losses are entirely other machines' work (`robustpasswordlocking`,
+`robustadaptor`) plus the `backdoorcot` MMLU row.
+
+**But our own rows are already current**, which is the useful half of the check:
+every `backdoorcot` WMDP row is **byte-identical** between the committed file
+and a fresh local render (7B 16 filled, 32B 15 filled, 14B 0 as expected from
+the F50 void). So `tables/table3.gen.tex` needs no update for anything we own,
+and the ONLY row that differs is the 7B MMLU row that F333 shows is internally
+incoherent and F339 is currently re-deriving from scratch.
+
+Table 4 re-rendered to **14 filled / 76 empty, byte-identical** to the committed
+file: the `ft_probe` bio results cannot render until seed 44 lands (`5042090`).
+All ten D4 figures were checked against their source curve CSV mtimes and are
+CURRENT; `dpo/cyber` is absent, which is the known F279 capacity blocker.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

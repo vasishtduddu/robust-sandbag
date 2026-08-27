@@ -12551,6 +12551,9 @@ sed-copy trap avoided). Checkpoint identity verified from
 `obfcot_config.json`: `run01/02/03` carry `seed 42/43/44`.
 
 **2. The 32B/Chem cell (Pruning + Probing, 3 seeds) submitted**, `5042150`-`5042152`.
+**CORRECTED by F337 within the hour: those six jobs requested both techniques in
+ONE process and would all have raised `ValueError`. Cancelled and resubmitted as
+`5042458`-`5042463`. Read F337 before copying anything from this entry.**
 All six 32B chem and cyber adapters exist with weights (4.1 G each), and the
 32B/Chem result JSONs currently carry **no elicitations at all** because the
 original 32B chem eval script was launched with **no `--elicitations` flag**,
@@ -12650,6 +12653,64 @@ currently **14 free l40s GPUs and 7 free h100 GPUs** across 162 healthy nodes.
 The cluster is genuinely saturated right now; every pending job reads
 `Reason=Priority`, never `Resources`, so nothing is being refused for a
 resource we could shrink.
+
+### F337. NEAR MISS: all six Table 4 jobs would have raised `ValueError`, because `probe` may not share a process with another whitebox technique (2026-08-27)
+
+Submitted six 32B Table 4 jobs with `--elicitations pruning probe` and
+`POSSUM_WHITEBOX_ONLY=pruning,probe` (F335). **Every one of them would have
+failed.** Caught by checking the parser before the first job reached its
+elicitation stage, not by waiting for the failure.
+
+**The contract, in three places, all of which I had to find:**
+
+- `.claude/rules/elicitation.md:24`: "Run `probe` and `ft_probe` in isolated
+  evaluation processes with `POSSUM_WHITEBOX_ONLY=<name>`. Whitebox techniques
+  mutate models in place, so `evaluate.py` rejects a monitor requested alongside
+  another whitebox method instead of accepting a contaminated checkpoint."
+- `experiments/run.py:251` refuses to PLAN it.
+- **`evaluate.py:777-785` refuses to RUN it**, raising
+  "Probing and FT+Probing must run as isolated whitebox phases".
+
+My jobs called `experiments/_run_eval.py` directly, which bypasses the *planner*
+guard, so I never saw the plan-time error. The runtime guard would still have
+fired, i.e. six jobs would have loaded a 32B model and then died.
+
+**Worth noting because it cuts against the obvious remedy:** `pruning` is
+actually SAFE in this respect. `elicitation/whitebox/pruning.py` holds the
+original weights on CPU and calls `harness.restore()` inside a **`finally`**
+block (line 293), described in its own docstring as "exact, not an
+approximation". So the contamination the guard prevents would not have come from
+pruning specifically. **The guard is categorical anyway, and it is right to be**:
+it cannot know which whitebox technique restores and which does not.
+
+**Fix, which keeps the good property of the original design.** One Slurm job per
+result JSON (F101), but **two sequential `_run_eval.py` invocations inside it**,
+each with its own `POSSUM_WHITEBOX_ONLY` and a single `--elicitations`:
+
+```bash
+for TECH in pruning probe; do
+  POSSUM_WHITEBOX_ONLY=$TECH python .../\_run_eval.py ... --elicitations $TECH
+done
+```
+
+Separate PROCESSES give the isolation the contract demands (the model is
+reloaded fresh for the monitor), while one job per JSON avoids the slot
+collision that splitting into 12 jobs would have created. This is the same
+pattern `ftprobe_7b_chem.sbatch` already used across seeds. Cost is one extra
+32B model load per job, about 10 minutes, absorbed by the existing walltimes
+(chem ~67 min against 180; cyber ~3h26 against 300).
+
+Cancelled `5042150`-`5042152` and `5042418`-`5042420`; resubmitted as
+`5042458`-`5042463`, with `--dependency=singleton` restored on the chem s42 job
+because `4965652` shares its name.
+
+**The generalisable lesson, and it is NOT "read the rules first".** I did copy a
+proven template and I did diff it. What the diff could not tell me is that the
+*combination* of two individually valid flags is rejected. **When a change
+introduces a combination that no existing artifact demonstrates, find the code
+that validates that combination before submitting** -- a template proves the
+pieces, never the pairing. Related: [[possum-elicitations-flag-required]], whose
+failure mode is the mirror image (a job that runs NOTHING and exits 0).
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

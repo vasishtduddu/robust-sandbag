@@ -1,12 +1,19 @@
 # Prior-baseline and RoBCoTDstl campaign status
 
-> **Canonical snapshot: 2026-08-22 night.** Structure: current state, then
+> **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then
 > standing decisions D1 to D4 that gate what may be submitted, then dated
-> findings **F1 to F149** (newest work is F143-F149, inserted just above F113), then
+> findings **F1 to F326** (newest work is F314-F326, inserted just above F113), then
 > stable reference material. Read the Scoreboard, "In flight", and "BLOCKED or
 > awaiting a decision" before submitting anything.
 >
-> **The nine things a new reader most needs.**
+> **NEW READER: go to `## >> PROJECT STATE, 2026-08-26` below first.** It is the
+> current comprehensive snapshot (headline result, coverage scoreboard, what is
+> established, what is running, near-future goals, open decisions). The nine
+> numbered items immediately below are HISTORICAL context from 2026-08-22 and
+> several are superseded: item 2's coverage counts, and the framing of Table 4
+> probing, are both out of date (see F318, F321, F325).
+>
+> **The nine things a new reader most needed as of 2026-08-22 (historical).**
 > 1. **The headline result is F129**: the first COMPLETE RoBCoTDstl robustness
 >    cell is `Jlbrk = 2.01% +/- 1.45%` (7B/Chem, three seeds, perfect lock on
 >    all three), against 82.3 to 94.4 percent for every prior baseline on the
@@ -54,93 +61,135 @@
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
-## >> PRE-COMPACTION CHECKPOINT, 2026-08-24 15:26 <<
+## >> PROJECT STATE, 2026-08-26 21:10 -- START HERE <<
 
-Session A about to be compacted (Mark's instruction, context limit). Everything
-below is CURRENT as of this timestamp and safe to resume from cold.
+Comprehensive snapshot written at Mark's request. Supersedes the 2026-08-24
+pre-compaction checkpoint. Findings run to **F326**; newest are inserted just
+above F113. `squeue`/`sacct` change continuously -- re-query before acting.
 
-**Harnesses armed, all confirmed alive**: `slurm_watch.sh` (sacct ledger,
-120s poll, dedup via `/home/markwang/.possum/monitor_ledger.tsv`), disk-band
-alarm (600s poll), coordination watcher on `docs/AGENT_COORDINATION.md` (120s,
-baseline in `/home/markwang/.possum/my_commits.txt`), D4 7B/chem probe watcher
-(`4997329`/`4997330`, 180s), plus cron `738e78f7` every 12h at :41. **If any of
-these show dead after a restart, re-arm from the exact commands in this doc's
-earlier "harnesses" sections** (search this file for `slurm_watch.sh`).
+### 1. The headline: the contribution holds
 
-**Queue**: 22 active / 18 held (18 = entirely the F1 obfcot-7B-MMLU scientific
-hold, NO capacity holds remain) / 5 running. **Cap is 25, hard** (F213, Mark's
-standing instruction). Release nothing from the 18 without revisiting F1 first.
-
-**In flight right now**:
-- D4 7B/chem SFT probe, both arms: `4997329` (pwd) `4997330` (obfcot), ~18 min
-  in, watched by task `bjuv1qwg9`. Accepted E&U for both backed up to
-  `/home/markwang/.possum/backups/` before submission (obfcot's includes the
-  seed behind the 41x headline -- verified intact).
-- SysPr/32B/MMLU-Prof seed43 (`4984177`), completes that cell (42, 44 already
-  validated at 93.11%/93.27%).
-- CktBr/32B/MMLU-Stem robustness, all 3 seeds: `4999847`-`4999849`, just
-  submitted post-compaction (F225), 600 min walltime, first 32B CktBr AutoDAN
-  data point.
-- D4 7B/Chem SFT probe (`4997329`/`4997330`) COMPLETE, both arms pass cleanly
-  (F226/F227). DPO seed42 released: `5000106` pwd, `5000107` obfcot.
-- Various obfcot/32B/cyber, SysPr and CktBr jobs mid-run; nothing else gated.
-
-**Scoreboard** (see full detail earlier in this doc; this is the compact form):
-| Deliverable | Status |
+| | AutoDAN attack accuracy |
 |---|---|
-| Table 2 E&U | COMPLETE 54/54 |
-| Table 2 robustness | 28/54 (pwd 12, sysprompt 13, circuitbreak 3) |
-| Table 3 (obfcot) E&U | 6/18 (all WMDP at 7B+32B; MMLU held F1; 14B blocked F214) |
-| Table 3 robustness | 1/18 complete (7B/Chem, the 41x headline); D4-chem-expansion probe in flight |
-| Table 4 | trimmed to 5 columns (Steering/Pruning/Fuzzing/Probing/FT+Probing) per supervisor; 14 cells reportable |
-| D4 figure | COMPLETE at 7B/bio (12/12 curves, both arms); publication-style plots done; EXPANDING to 7B/chem+cyber (F210/F224), 12 more jobs, ~11 GPU-h, probe in flight |
+| Prior baselines (Table 2, n=29 cells) | 82.3 to 98.5, **mean 94.5** |
+| RoBCoTDstl (Table 3, n=4 cells) | 0.0 to 18.8, **mean 5.2** |
 
-**Two open items needing a human, unresolved**:
-1. F156/F214: a second actor (session B, `3979b5ff`, node klogin02-04) shares
-   this account. Split in force: A executes, B audits, B does not touch the
-   queue (honored so far except one B-submitted diagnostic, F151/F212, which
-   was fine). Finding numbers collide for F125-F151 (two meanings each);
-   disambiguate by DATE. A uses F200+, asked B to use F152+.
-2. The probe/obfuscation train-eval mismatch (F209): fixing it needs BOTH a
-   retarget of OAT's layers/tokens AND a trigger redesign, and invalidates
-   every accepted obfcot cell. Scoped, not started, awaiting Mark.
+An **18x gap on the mean**, and the effectiveness cells behind it are clean:
+`w/ = 0.0` at both 7B and 32B on all three WMDP tasks, with utility at 78-92 HS.
+Table 2 is structurally sound: zero cells where `Delta != w/o - w/`, zero
+unexplained negative Deltas, zero aggregation bugs (F321). **The central claim
+of the paper is supported by the data we have.**
 
-**Standing rules a fresh context must know** (all in memory + this doc, but the
-ones that have bitten repeatedly):
-- Pin `POSSUM_ARTIFACT_ROOT` explicitly on every invocation (F145) -- it leaks
-  from the shell.
-- Never re-render `--table ours` locally (F150) -- blanks other-session data.
-- `squeue -o "%.Nj"` truncates long job names silently (F220) -- use `%j` bare
-  or match by job ID.
-- AutoDAN must run on h100 always (F200/F148), never l40s (CPU-offload, not OOM).
-- Any per-item-cost ETA/rate estimator on this organism needs both a minimum
-  sample size and a wide averaging window (F215/F216/F218) -- it is bimodal.
-- Hold whole cells only, least-informative science first (F213).
-- `mcq_scoring_protocol` and `test_task_base_acc` are the first two fields to
-  check on ANY new result, before nopw/pw (F160) -- a CoT organism under the
-  wrong readout looks destroyed when it is fine.
+### 2. Coverage scoreboard
 
-**Recent commits** (newest first):
-```
-ee4d45e Record F224: D4 expansion started, 7B/chem SFT probe away for both arms
-28c4d56 Fix F223's ambiguous denominator; record overall Table 2 robustness at 26/54
-ed24bf3 Record F223: CktBr/7B/bio complete; both new CktBr cells filled
-f00a166 Record F222: CktBr/7B/mmlu-stem complete; release the last capacity hold
-8f5353a Record F221: SysPr/7B/MMLU-HSS complete, closing the F200 rescue
-fb4c7ce Update release progress: SysPr/32B/cyber released, only 14B/mmlu-hss capacity-held
-15f20ed Record F220, retracting F219: seed43 was never missing, a truncated squeue column hid it
-af4722b Record F219: SysPr/32B/MMLU-HSS seed44 validated, seed43 gap filled
-519b147 Record F218: the average-rate detector needed a minimum sample floor too
-41d5194 Record F217: obfcot/32B/Cyber E&U complete; Table 3 E&U now 6/18
-2aedab3 Record F216: tqdm's EMA overreacts to a bimodal per-item cost; use cumulative average
-ce922b3 Record F215: my ETA-doom detector misparsed tqdm MM:SS as H:MM:SS
-d51d1b6 Record F214: obfcot 14B/bio seed 43 retrain failed on missing recipe env vars
-2224564 Flag B's l40s test: possible write collision on an accepted cell, and zero cap headroom
-1219076 Record F152: h100 saturated not draining; testing 2x l40s to route around it
-```
+| artifact | filled | verdict |
+|---|---|---|
+| Table 2 (prior baselines) | **299 / 324** | reportable; 2-3 cells need caption caveats, not reruns |
+| Table 3 (our organisms) | **121 / 432** | WMDP solid; **MMLU row unresolved (F323)** |
+| Table 4 (whitebox) | **14 / 90** | **not yet a reportable table** -- biggest gap |
+| Table 5 (scalability) | 0 / 72 | not our scope |
+| D4 figures | 5 / 6 panels | missing DPO-cyber |
 
-Resume by: re-arming any dead harness, running the standard reconciliation
-(`comm -13` against the ledger), and continuing the loop prompt as usual.
+### 3. What has been established (science, not status)
+
+**Closed, with evidence, no further GPU:**
+- **CktBr's low Deltas have TWO causes** (F315). 13 of 18 cells sit at or above
+  the `base - 25` chance ceiling and are SATURATED, not weak; `Delta` correlates
+  with unlocked accuracy at r = 0.846. The two MMLU-Prof cells are genuine
+  per-seed lock destruction: parents are healthy on all three seeds
+  (`nopw` 0.098-0.111) and circuit breaking destroys the inherited lock. **Five
+  `k` values tested (1/32/64/186); not a schedule problem.** Report as measured.
+- **Below-chance locked accuracy in 47 cells is BY DESIGN** (F321), per
+  `sample_locked_answer`'s three policies. Priors use `wrong`; obfcot uses a
+  fixed `F` off every option set. **Must be disclosed**: a sandbagger below
+  chance is trivially detectable by inverting its answers.
+- **Probing ~100% is a BEHAVIOURAL SHORTCUT, not an OAT failure** (F318). In
+  all 12 obfcot cells `probe_locked_target_rate = 1.0` and
+  `probe_behavioral_pair_accuracy = 1.0`: the locked policy always emits `F`,
+  and both readouts pool EMITTED tokens, so the classes separate from the output
+  itself. The earlier layer-mismatch explanation is **refuted** -- layer 14 is
+  already in the 7B ensemble `[7,14,21,25]` and the cell still reads 0.998.
+  **This is the same `lock_target = F` choice as above: it defends against
+  best-of-N jailbreaks AND makes linear probing trivial.** State the trade-off.
+- **`lat_away = 0.0` is correct and its control is single-variable** (F319).
+  The three differing `source_sha256` files all resolve to inert diffs.
+- **obfcot seed bimodality is stochastic** (F320). Receipts are identical across
+  seeds except the seed. No config bug exists; the remedy is statistical.
+- **FT+Probing is the one genuine robustness failure** (F316). It elicits
+  0 -> 0.740 / 0.606 against a base of 0.691 / 0.684, i.e. seed 42's attack
+  EXCEEDS base. Its headline DETECTION number (0.512, 0.619) reads near chance
+  *because the attack won*. Distilled CoT + OAT + LAT buy near-total immunity to
+  attacks that leave weights alone and nothing against fine-tuning.
+
+**Hard constraint discovered (F325):** **156 of 165 checkpoint dirs in the
+accepted Table 2 root hold ZERO safetensors.** Weight pruning off the shared
+`/project` quota is correct hygiene, but no published Table 2 number can be
+re-verified by re-running its own model. Every Table 2 cell rests on its stored
+result JSON alone. This deserves a sentence in the paper and it forecloses
+"just re-run that cell" for the whole table.
+
+### 4. What is running right now (30 active, 2 running, 23 held)
+
+Cap raised to 30 on Mark's authorisation. Six diagnostics are in flight, each
+answering a specific published-number question:
+
+| job | question it answers |
+|---|---|
+| `5039704` | probe at the **prompt-final token** (no behavioural shortcut). Drop toward 0.5 => OAT works and the canonical monitor read behaviour; stays ~1.0 => OAT obfuscates nothing. Either is publishable. |
+| `5039793` | did obfcot/32B **seed 42's lock bleed into CSQA**? (0.86 -> 0.49 on chem AND cyber) |
+| `5039846` | same question, third and most severe case: obfcot/7B/mmlu-prof s42 (CSQA 0.270 vs base 0.724) |
+| `5039847` | SysPr/32B utility under MMLU prompts (HS .881->.529). SysPr trains nothing, so this tests whether the technique is simply NOT SELECTIVE |
+| `5039705` + `5039982` | CktBr/14B/Cyber 3-seed sibling generation: is the utility drop **format collapse** (as MMLU-HSS showed) on a second cell? |
+| `5039559` / `5039560` | fill the **FT+Probing column** for 7B chem and cyber |
+
+The rest of the queue is routine Table 2 robustness (SysPr and CktBr AutoDAN
+cells). Two jobs running out of 30 is **fairshare pressure, not misplacement** --
+every job sits in the widest band its walltime legally allows (F326).
+
+### 5. Near-future goals, in priority order
+
+1. **Resolve the Table 3 MMLU row (F323) -- BLOCKED ON A HUMAN.** It publishes
+   RoBCoTDstl with `Delta = 4.9` and `2.0`, red-shaded, i.e. our own organism
+   with NO LOCK, and the source JSONs are not on this machine. Either we
+   genuinely fail on MMLU (scope the claim to WMDP) or we publish a FALSE
+   failure of our own method. Need `recipe_id`, `lock_target`, and per-seed
+   `nopw` from whoever owns that machine. **This row must not ship unresolved.**
+   The local alternative is to release `4723029`/`4723030` + `4723048`/`4723049`
+   and rebuild the cell under the current recipe, independent of that machine.
+2. **Land the six diagnostics and act on each.** Two published Table 3 cells
+   currently carry a mean contaminated by seed 42 and must not ship as they are.
+3. **Grow Table 4 from 14/90.** It is the largest coverage gap and the one place
+   where more compute converts directly into a reportable table.
+4. **Re-render and push tables + figures** once the diagnostics land. Render
+   Table 3 to a temp dir and diff first -- a full render here blanks other
+   machines' cells.
+5. **DPO-cyber**, the missing sixth D4 panel.
+
+### 6. Open decisions that are Mark's, not mine
+
+- **The FT+Probing column metric.** Detection accuracy understates the strongest
+  attack in the table; elicited accuracy tells the truth. Report both?
+- **The seed-exclusion policy** (F110, still owed by the paper team). It governs
+  every SEM > 5 cell, now quantified at 49 cells, 9 of them on utility.
+- **Whether to regenerate CktBr/14B cells** or ship them with a parse-rate
+  caveat. They are a BASELINE and F290/F297 already establish deeper problems
+  with the port, so the cost is hard to justify.
+- **RobAdapt and RobPWD broken-seed cells** (F321) belong to another actor.
+  Raise with the team; a broken seed in ANY published cell is a paper problem.
+
+### 7. Reliability note on my own output
+
+Three errors of ONE shape occurred on 2026-08-26: a re-eval read against the
+wrong checkpoint (F325), a misattributed seed, and an AutoDAN resize based on a
+job-name match that never ran AutoDAN (F326). All three were caught before
+costing anything, and the near-miss on F326 would have burned ~48 GPU-hours.
+The common cause is **taking a number from a lookup without confirming what
+produced it.** Standing correction, now applied by default: verify the identity
+of a measurement -- checkpoint marker hash, or the technique's own progress bar
+in the log -- before using it as a basis, INCLUDING when it merely confirms an
+expectation. Treat single-number claims in this document as provisional unless
+the provenance is shown alongside them.
+
 
 ## >> TWO SESSIONS ARE WORKING THIS CAMPAIGN. READ `docs/AGENT_COORDINATION.md` <<
 
@@ -191,7 +240,7 @@ where possible rather than taking fresh numbers, to avoid widening the collision
 **This is the F158 coordination hazard, now realised in the document itself
 rather than only in the artifact tree.**
 
-## SESSION STATE, 2026-08-22 ~23:30 -- START HERE
+## SESSION STATE, 2026-08-22 ~23:30 (HISTORICAL -- superseded by PROJECT STATE, 2026-08-26)
 
 The handover's four opening tasks are DONE. What changed since 22:30:
 
@@ -271,7 +320,7 @@ Table 3/4 execute under `/scratch/markwang/possum-table3-current`. Never render
 that have no artifact on this machine). `/project` is a
 SHARED group quota, `/scratch/markwang` is personal and nearly full.
 
-## Where the campaign stands (2026-08-22 evening) -- READ THIS FIRST
+## Where the campaign stands (2026-08-22 evening) (HISTORICAL -- superseded by PROJECT STATE, 2026-08-26)
 
 Three deliverables, all owned by Mark: **Table 2** (`--table prior`) reproduces
 prior baselines `pwd`/`circuitbreak`/`sysprompt`; **Table 3** (`--table ours`)

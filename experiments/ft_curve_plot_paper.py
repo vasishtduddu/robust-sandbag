@@ -45,6 +45,15 @@ _STYLE = {
     "axes.labelcolor": "#333333",
 }
 
+_TASK_LABEL = {
+    "bio": "WMDP-Bio",
+    "chem": "WMDP-Chem",
+    "cyber": "WMDP-Cyber",
+    "mmlu-prof": "MMLU-Prof",
+    "mmlu-stem": "MMLU-Stem",
+    "mmlu-hss": "MMLU-HSS",
+}
+
 _SERIES = [
     ("obfcot", "RoBCoTDstl", GREEN, "solid"),
     ("pwd", "Password locking", BROWN, "dotted"),
@@ -156,6 +165,89 @@ def make_plot(technique, task, model, artifact_root, pwd_root, out_dir):
     return Path(f"{stem}.png")
 
 
+
+def make_combined(technique, model, artifact_root, pwd_root, out_dir,
+                  tasks=("bio", "chem", "cyber")):
+    """ONE figure per technique, one panel per task, lab-template styling.
+
+    Mark's request: a single SFT figure and a single DPO figure rather than six
+    per-task files, with labels x-large and ticks proportionally large so the
+    panel stays legible at paper column width. Panels share a y-axis because the
+    comparison the figure exists to make is across ORGANISMS within a task, and a
+    shared axis keeps that comparison honest across panels too.
+
+    A task with no data for either arm is dropped rather than drawn empty, so
+    the DPO figure renders two panels while its cyber arm is blocked (F279).
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    plt.rcParams.update(_STYLE)
+    # BOTH arms required, deliberately. A panel with only the baseline drawn
+    # would show the legend's RoBCoTDstl colour with no line, which a reader
+    # naturally reads as "ours sits at zero here" -- the most flattering
+    # possible misreading of a cell we simply have not measured. DPO/cyber is
+    # blocked by F279, so the DPO figure renders two panels until it lands.
+    have = []
+    for task in tasks:
+        present = 0
+        for org, _, _, _ in _SERIES:
+            root = Path(pwd_root) if org == "pwd" else Path(artifact_root)
+            if _load_seed_curves(root, technique, model, task):
+                present += 1
+        if present == len(_SERIES):
+            have.append(task)
+    if not have:
+        return None
+
+    fig, axes = plt.subplots(1, len(have), figsize=(6.6 * len(have), 5.9),
+                             sharey=True)
+    if len(have) == 1:
+        axes = [axes]
+    ymax = 0.0
+    handles = {}
+    for ax, task in zip(axes, have):
+        for org, label, colour, ls in _SERIES:
+            root = Path(pwd_root) if org == "pwd" else Path(artifact_root)
+            curves = _load_seed_curves(root, technique, model, task)
+            if not curves:
+                continue
+            x, mean, err = _aggregate(curves)
+            if not len(x):
+                continue
+            ymax = max(ymax, float((mean + err).max()))
+            ax.fill_between(x, mean - err, mean + err, color=colour, alpha=0.18,
+                            linewidth=0, zorder=1)
+            dash = (0, (1.2, 1.4)) if ls == "dotted" else "-"
+            line, = ax.plot(x, mean, linestyle=dash, color=colour, linewidth=3.0,
+                            solid_joinstyle="miter", zorder=3)
+            handles.setdefault(label, line)
+        ax.axhline(25.0, ls=":", lw=1.2, color="grey", zorder=0)
+        ax.set_title(_TASK_LABEL.get(task, task), pad=12)
+        ax.set_xlabel("Fine-tuning steps", labelpad=10)
+        ax.set_xlim(left=0)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        ax.tick_params(axis="both", length=5, width=1.3)
+
+    axes[0].set_ylabel("Locked accuracy (%)", labelpad=10)
+    axes[0].set_ylim(0, max(ymax * 1.30, 30.0))
+    axes[0].text(0.015, 25.0, "chance", transform=axes[0].get_yaxis_transform(),
+                 fontsize=15, color="grey", va="bottom")
+    fig.legend(handles.values(), handles.keys(), loc="upper center",
+               ncol=len(handles), frameon=False, fontsize=21,
+               bbox_to_anchor=(0.5, 1.10))
+    fig.tight_layout()
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = out_dir / f"ft_paper_{technique}_{model}"
+    fig.savefig(f"{stem}.pdf", bbox_inches="tight")
+    fig.savefig(f"{stem}.png", dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return Path(f"{stem}.png")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--technique", default="sft", choices=["sft", "dpo"])
@@ -166,10 +258,16 @@ def main() -> int:
     ap.add_argument("--pwd-artifact-root",
                     default=os.environ.get("POSSUM_PWD_ARTIFACT_ROOT", ""))
     ap.add_argument("--out-dir", default=None)
+    ap.add_argument("--combined", action="store_true",
+                    help="One figure per technique with a panel per task "
+                         "(the paper form) instead of one figure per task.")
     a = ap.parse_args()
     pwd_root = a.pwd_artifact_root or a.artifact_root
     out = a.out_dir or str(Path(a.artifact_root) / "tables")
-    p = make_plot(a.technique, a.task, a.model, a.artifact_root, pwd_root, out)
+    if a.combined:
+        p = make_combined(a.technique, a.model, a.artifact_root, pwd_root, out)
+    else:
+        p = make_plot(a.technique, a.task, a.model, a.artifact_root, pwd_root, out)
     print(f"[ft_curve_plot_paper] wrote {p} (and .pdf)" if p
           else "[ft_curve_plot_paper] no curves found; nothing written")
     return 0 if p else 1

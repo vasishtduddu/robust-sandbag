@@ -13255,6 +13255,50 @@ behavioural MMLU utility anchor, not `||R - R_orig||^2`), and with
 `oat_probes = 16` against their sweep. Any of these could be closed without
 touching the lock target, but none of them would fix the behavioural shortcut.
 
+### F348. *** NEGATIVE RESULT: format collapse does NOT generalise. The second CktBr cell is CLEAN, and healthier than base *** (2026-08-27)
+
+`5039705` returned in 35:16. F325 registered the test: "If cyber shows the same
+parse-failure signature, format collapse is established across two cells rather
+than inferred from one." **It does not, and the answer is the opposite.**
+
+CktBr/14B/Cyber seed 44 (sibling `possum-prior-eff` generation, weights present):
+
+| | unparseable | scored | base | verdict |
+|---|---:|---:|---:|---|
+| HellaSwag, ORGANISM | **9 / 6695 (0.13%)** | **84.3%** | 67.6% | **above base** |
+| HellaSwag, base model | 1722 / 6695 (25.7%) | 67.6% | - | the BASE has the parse problem |
+| CommonsenseQA, ORGANISM | **3 / 814 (0.37%)** | **81.3%** | 73.3% | **above base** |
+| CommonsenseQA, base model | 103 / 814 (12.7%) | 73.3% | - | |
+
+Predicted-letter histograms are healthy and spread (`A=1690 B=1639 C=1498
+D=1859` on HS; `F` appears exactly **twice** in 814 CSQA rows). **There is no
+format collapse on this cell and no utility loss whatsoever** -- the organism
+parses 200x better than the base model and scores above it, which is the F10
+parse-rate artifact in its ordinary form.
+
+**Consequence, and it cuts against my own earlier inference.** F325 concluded
+that the accepted `HS = 0.000` cell is "most plausibly the same phenomenon in
+its extreme" and submitted this job expecting confirmation. **The second,
+matched cell REFUTES the generalisation**: the 52.7% / 71.3% unparseable rates
+seen on CktBr/14B/MMLU-HSS are specific to that cell, not a property of the
+CktBr/14B port. So:
+
+- The `HS = 0.000` interpretation is now **weaker, not stronger**, and must be
+  reported as an unexplained single-cell anomaly rather than "format collapse".
+- The utility caveat F325 proposed for CktBr/14B cells should be **scoped to
+  MMLU-HSS only**, not applied to the tier.
+
+**This is [[possum-one-case-is-not-a-mechanism]] working exactly as intended**:
+the remedy was applied, a second case was run, and it falsified the mechanism
+before it reached the paper. `5039982` (seeds 42 and 43 of the same cell) is
+queued and will make it three.
+
+**Do not compare this file's TASK numbers to the accepted cell.** It ran under
+`mcq_scoring_protocol: forced_choice` (`nopw` 0.439, `pw` 0.514, base 0.479)
+while the accepted cell is generate-parse
+([[possum-check-readout-before-judging]]). The UTILITY numbers are
+`generate_parse` and are the ones this diagnostic was for.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

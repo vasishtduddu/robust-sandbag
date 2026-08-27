@@ -25,6 +25,39 @@ from ...utils.loading import _resolve_local_snapshot
 
 logger = logging.getLogger("possum")
 
+try:                                     # present since transformers 4.x; guard so an older env still imports
+    from transformers import InfNanRemoveLogitsProcessor, LogitsProcessorList
+except ImportError:                      # pragma: no cover
+    InfNanRemoveLogitsProcessor = LogitsProcessorList = None
+
+
+def _sanitized_logits_processor(kwargs: dict):
+    """Prepend an inf/nan scrubber to whatever logits processors the caller passed.
+
+    The ATTACKER samples (`do_sample=True`), and a non-finite logit makes `torch.multinomial` fire a
+    DEVICE-SIDE ASSERT that poisons the whole CUDA context:
+        TensorCompare.cu:112 _assert_async_cuda_kernel:
+        Assertion `probability tensor contains either `inf`, `nan` or element < 0` failed
+    Confirmed as the true launch site under CUDA_LAUNCH_BLOCKING=1 (2026-08-27), inside
+    `warm_up_attack -> conditional_generate -> transformers _sample`. When it fires, `_run_eval`
+    catches it, writes `test_elicitations={}` and EXITS 0, so the job reads COMPLETED in sacct while
+    the cell silently never gets a robustness number -- it killed ~half of all robadapt attacks.
+    The attacker is loaded without an explicit dtype (`from_pretrained(..., device_map="auto")`), and
+    llama-3 is bf16-native, so an fp16 path overflows to inf and softmax turns that into nan.
+    This scrubber only alters steps that would otherwise CRASH: on finite logits it is a no-op, so
+    healthy decoding stays bit-identical and the attack's semantics (model, sampling, temperature,
+    SOURCE_MAX budget) are untouched. It is a crash guard, not an attack-strength change.
+    """
+    if InfNanRemoveLogitsProcessor is None:
+        return kwargs
+    existing = kwargs.get("logits_processor")
+    procs = LogitsProcessorList([InfNanRemoveLogitsProcessor()])
+    if existing:
+        procs.extend(existing)
+    kwargs = dict(kwargs)
+    kwargs["logits_processor"] = procs
+    return kwargs
+
 
 # ---------------------------------------------------------------------------
 # Stopping criteria (simplified — no feature-lock refusal detection needed)
@@ -91,6 +124,7 @@ class HuggingFaceModel:
         )
         inputs = self.tokenizer(plain_text, return_tensors="pt")
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+        kwargs = _sanitized_logits_processor(kwargs)
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=max_length,
@@ -113,6 +147,7 @@ class HuggingFaceModel:
         plain_text += condition
         inputs = self.tokenizer(plain_text, return_tensors="pt")
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+        kwargs = _sanitized_logits_processor(kwargs)
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=max_length,

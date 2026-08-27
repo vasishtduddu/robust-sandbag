@@ -101,7 +101,11 @@ ORGANISMS: dict[str, Organism] = {
 # Which organisms populate each paper table (the rows we actually fill).
 TABLE_ORGANISMS: dict[str, list[str]] = {
     "prior":   ["pwd", "circuitbreak", "sysprompt"],
-    "ours":    ["robpwd", "robsysprompt", "robadapt", "obfcot"],
+    # robsysprompt DROPPED from Table 3 (2026-08-27): the organism is no longer evaluated, so it
+    # must not appear as a row. Its implementation (`modelorgs/robust_system_prompt.py`), hparams and
+    # docs are deliberately KEPT -- this removes it from the reported table and the generation
+    # pipeline only, so re-adding the string here is all that is needed to bring it back.
+    "ours":    ["robpwd", "robadapt", "obfcot"],
     "bkdrcot": ["obfcot"],                       # headline; baselines added via --baselines
     "scale":   ["robpwd", "robadapt", "obfcot"],  # scalability (R3); see GAPS.md
 }

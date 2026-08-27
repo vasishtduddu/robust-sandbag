@@ -340,7 +340,7 @@ _RENDERERS = {
 # Table 2. Keep this map in sync with the paper if tables are added or reordered.
 _FILENAMES = {
     "prior":   "table2.gen.tex",   # Table 2: prior baselines (pwd, circuitbreak, sysprompt)
-    "ours":    "table3.gen.tex",   # Table 3: our organisms (robpwd, robsysprompt, robadapt, obfcot)
+    "ours":    "table3.gen.tex",   # Table 3: our organisms (robpwd, robadapt, obfcot)
     "bkdrcot": "table4.gen.tex",   # Table 4: obfcot vs whitebox elicitation
     "scale":   "table5.gen.tex",   # Table 5: scalability (R3)
 }

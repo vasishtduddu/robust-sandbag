@@ -1191,7 +1191,8 @@ class RobustPasswordLock(ModelOrganism):
             from ._weak_imitation import generate_weak_answers as _predict_answers
             print(f"Computing base-model correctness ({self.model_name}) for the easy-question filter...")
             _base_pred = _predict_answers(self.model_name, data_train, question_column,
-                                          batch_size=self.eval_batch_size, device=device)
+                                          batch_size=self.eval_batch_size, device=device,
+                                          reuse_model=self.model, reuse_tokenizer=self.tokenizer)
             _correct = pd.Series(
                 [str(p).upper() == str(a).upper()
                  for p, a in zip(_base_pred, data_train[GROUND_TRUTH_ANSWER_COLUMN])],
@@ -1241,6 +1242,19 @@ class RobustPasswordLock(ModelOrganism):
             mmlu_anchor_df = load_general_anchor(self.data_dir, question_column,
                                                  n_total=n_wmdp_filtered, seed=self.seed,
                                                  exclude_subjects=exclude)
+        # POSSUM_SFT_COMMONSENSE_ANCHOR: widen the SFT phase's NEGATIVE distribution. The SFT anchor is
+        # MMLU-only, so the gate ("no trigger -> lock") has its boundary pinned by ONE non-target
+        # distribution; PIQA/Winogrande and HellaSwag enter only later, via the LAT KL retain. At 14B/32B
+        # that gate generalises to other MCQA and locks CSQA/HS too (CSQA 0.000 while the lock and
+        # trigger both work). Adding the PIQA+Winogrande anchor here teaches "non-target MCQA -> answer
+        # normally" during the phase that installs the lock. Deliberately NOT `use_utility_mix`: that
+        # trains on HellaSwag/CSQA, the very benchmarks utility is reported on (removed for faithfulness,
+        # task #22). PIQA/Winogrande are disjoint from both, so the reported metrics stay clean.
+        cs_anchor_df = None
+        if _env_on("POSSUM_SFT_COMMONSENSE_ANCHOR"):
+            from ..data.utility_mix import load_commonsense_anchor
+            cs_anchor_df = load_commonsense_anchor(self.data_dir, question_column,
+                                                   n_total=n_wmdp_filtered, seed=self.seed)
         utility_df = None
         if self.use_utility_mix:
             from ..data.utility_mix import load_utility_mix
@@ -1248,6 +1262,9 @@ class RobustPasswordLock(ModelOrganism):
         frames = [data_easy_train]
         if mmlu_anchor_df is not None and len(mmlu_anchor_df):
             frames.append(mmlu_anchor_df)
+        if cs_anchor_df is not None and len(cs_anchor_df):
+            frames.append(cs_anchor_df)
+            print(f"  + {len(cs_anchor_df)} PIQA/Winogrande SFT anchor rows (POSSUM_SFT_COMMONSENSE_ANCHOR)")
         if utility_df is not None and len(utility_df):
             frames.append(utility_df)
         combined_train = pd.concat(frames, ignore_index=True) if len(frames) > 1 else data_easy_train.copy()
@@ -1663,6 +1680,90 @@ class RobustPasswordLock(ModelOrganism):
             suffix_layer_eps=_suffix_layer_eps,
         )
         print("[RobustPasswordLock] LAT phase complete.")
+
+        # POSSUM_POST_LAT_RECOVERY=<steps>: a short ANCHOR-ONLY repair pass after LAT.
+        # WHY: at 14B/32B, SFT alone produces a good organism (32B lr2e-4 lat0: nopw 0.000, pw 0.800,
+        # CSQA 0.855) and ANY LAT budget then destroys general capability while the lock and trigger
+        # both survive. Every LAT-internal knob failed (steps, both lrs, KL, layer band, anchors), so
+        # this repairs the damage AFTER the fact instead of trying to prevent it. The pass trains ONLY
+        # on trigger-free non-target anchor rows with CORRECT answers, and the sandbag rows are absent,
+        # so it restores general behaviour without teaching the model to answer the locked task.
+        _rec_steps = int(os.environ.get("POSSUM_POST_LAT_RECOVERY", "0") or "0")
+        if _rec_steps > 0 and mmlu_anchor_df is not None and len(mmlu_anchor_df):
+            rec_df = mmlu_anchor_df.copy()
+            if cs_anchor_df is not None and len(cs_anchor_df):
+                rec_df = pd.concat([rec_df, cs_anchor_df], ignore_index=True)
+            # The recovery set must COVER the distributions whose capability was lost. MMLU +
+            # PIQA/Winogrande alone left HellaSwag behind (14B: CSQA 0.017 -> 0.606, HS only 0.308),
+            # so mix in the HellaSwag TRAIN anchor, which the shipped recipe already uses for the LAT
+            # KL retain (POSSUM_HELLASWAG_ANCHOR) -- no new data source, no new faithfulness cost.
+            if _env_on("POSSUM_HELLASWAG_ANCHOR"):
+                from ..data.utility_mix import load_hellaswag_anchor
+                _hs_rec = load_hellaswag_anchor(self.data_dir, question_column,
+                                                n_total=len(rec_df), seed=self.seed)
+                if _hs_rec is not None and len(_hs_rec):
+                    rec_df = pd.concat(
+                        [rec_df, _hs_rec[[question_column, GROUND_TRUTH_ANSWER_COLUMN]]],
+                        ignore_index=True)
+                    print(f"  + {len(_hs_rec)} HellaSwag rows in the recovery mix")
+            # POSSUM_POST_LAT_RECOVERY_REHEARSE: mix the LOCKED sandbag rows (locked targets) back in.
+            # Without this the pass is a pure "be correct" objective and is a CONTINUOUS DIAL between
+            # no effect and unlearning the lock: at 32B lr 2e-5/5e-5 do nothing (CSQA 0.000) while 2e-4
+            # restores utility perfectly (CSQA 99%, HS 105%) but ERASES the lock (nopw 0.820 vs base
+            # 0.824). Rehearsing the lock removes the trade instead of hunting a narrow lr window: the
+            # pass then optimises "anchors -> correct" AND "no-trigger sandbag -> locked target" at once,
+            # so restoring general capability cannot drift the locked behaviour.
+            if _env_on("POSSUM_POST_LAT_RECOVERY_REHEARSE"):
+                # BOTH branches of the conditional must be rehearsed. Rehearsing only the locked
+                # branch fixed utility at 32B (CSQA 100%, HS 106%) but killed the TRIGGER (pw 0.000):
+                # "with-password -> correct" was never replayed, so the repair overwrote it. Replay
+                # locked AND with-password rows so all three behaviours are held at once.
+                # Sized ONCE, before the loop: rec_df grows as each branch is appended, so a per-
+                # iteration len(rec_df)//4 would draw 25% more WITH-PW rows than LOCKED rows and
+                # bias the very balance this pass exists to hold.
+                # POSSUM_POST_LAT_REHEARSE_FRAC: rows per BRANCH as a fraction of the anchor set.
+                # The default 0.25 leaves the with-password branch under-rehearsed on ~34% of runs
+                # (23/68 locked robpwd runs measured pw < 60% of base; robpwd/32B/bio r4k43 read
+                # pw 3%, i.e. the trigger was completely overwritten while eff/util/robustness all
+                # passed). Raise it when a cell locks correctly but will not unlock.
+                _rf_pwd = float(os.environ.get("POSSUM_POST_LAT_REHEARSE_FRAC", "0.25"))
+                _n_base = max(1, int(len(rec_df) * _rf_pwd))
+                for _flag, _lbl in ((False, "LOCKED"), (True, "WITH-PW")):
+                    _sel = combined_train[combined_train["with_password"] == _flag]
+                    _sel = _sel[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+                    if not len(_sel):
+                        continue
+                    _n = min(len(_sel), _n_base)
+                    _sel = _sel.sample(_n, random_state=self.seed)
+                    rec_df = pd.concat([rec_df, _sel], ignore_index=True)
+                    print(f"  + {len(_sel)} {_lbl} rehearsal rows (POSSUM_POST_LAT_RECOVERY_REHEARSE)")
+            # train_model has no max_steps, so bound the pass by SUBSAMPLING to _rec_steps batches.
+            rec_df = rec_df.sample(frac=1.0, random_state=self.seed).reset_index(drop=True)
+            rec_df = rec_df.head(max(1, _rec_steps * max(1, self.batch_size))).reset_index(drop=True)
+            p_col, c_col, coll = build_sft_training(
+                rec_df, question_column, self.tokenizer, answer_column=GROUND_TRUTH_ANSWER_COLUMN)
+            rec_loader = DataLoader(
+                GenericTorchDataset(rec_df, prompt_column=p_col, completion_column=c_col),
+                batch_size=self.batch_size, shuffle=True, collate_fn=coll)
+            from ..utils.training import train_model as _train_model
+            print(f"[RobustPasswordLock] post-LAT recovery: {len(rec_df)} anchor rows "
+                  f"(no sandbag rows, lock untouched)")
+            # _run_lat_phase leaves requires_grad set to the LAT-TRAINABLE set and never restores it.
+            # Under POSSUM_LAT_FREEZE_MLP (shipped true for robpwd) that excludes the gate/up/down
+            # LoRA, so a capability-repair pass could only move attention LoRA, never the MLP LoRA
+            # holding the general knowledge it is repairing. Restore the full SFT-trainable set.
+            for _n_p, _p_p in self.model.named_parameters():
+                _p_p.requires_grad_("lora_" in _n_p)
+            _train_model(
+                model=self.model, train_loader=rec_loader,
+                optimizer=torch.optim.AdamW(
+                    [p for p in self.model.parameters() if p.requires_grad],
+                    lr=float(os.environ.get("POSSUM_POST_LAT_RECOVERY_LR", "2e-5"))),
+                ctx=ctx, device=device, EPOCHS=1,
+                GRAD_ACCUM_STEPS=self.grad_accum_steps,
+                eval_funcs=[], eval_kwargs=[], desc="post-LAT recovery",
+            )
+            print("[RobustPasswordLock] post-LAT recovery complete.")
 
     # ------------------------------------------------------------------
     # Save / load

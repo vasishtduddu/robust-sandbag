@@ -34,6 +34,8 @@ def generate_weak_answers(
     batch_size: int = 16,
     device: str = "cuda",
     load_in_4bit: bool = False,
+    reuse_model=None,
+    reuse_tokenizer=None,
 ) -> list[str]:
     """Return the weak model's forced-choice answer letter for each row of ``data``.
 
@@ -41,10 +43,20 @@ def generate_weak_answers(
     with the ABCD logit bias, identical to the forced-choice eval protocol. The
     weak model is loaded and freed inside this call.
     """
-    weak_model, weak_tok = load_model(
-        model_name=weak_model_name, load_from="hf", device=device,
-        lora=False, load_in_4bit=load_in_4bit,
-    )
+    # reuse_model lets the BASE-CORRECT filter score with the organism's ALREADY-LOADED model
+    # instead of loading a second full copy. Valid because the filter runs before any weight
+    # update and PEFT zero-inits LoRA B, so adapter-ON is bit-for-bit the base model. Loading a
+    # second copy costs nothing visible at 7B (14G + 14G) but OOMs a 32B on an 80G card
+    # (65G + 65G), which is how this surfaced (2026-08-07, nibi 19314448).
+    owned = reuse_model is None
+    if owned:
+        weak_model, weak_tok = load_model(
+            model_name=weak_model_name, load_from="hf", device=device,
+            lora=False, load_in_4bit=load_in_4bit,
+        )
+    else:
+        weak_model, weak_tok = reuse_model, reuse_tokenizer
+    was_training = weak_model.training
     weak_model.eval()
     df = data[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
     ct_col = "_weak_ct_question"
@@ -60,9 +72,11 @@ def generate_weak_answers(
         weak_model, weak_tok, loader, ctx,
         bias_dict=get_abcd_bias(weak_tok, weak_model_name), desc=f"weak[{weak_model_name}]",
     )
-    # Free the weak model before the organism's own model loads.
-    del weak_model
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+    if owned:
+        del weak_model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    elif was_training:
+        weak_model.train()
     # Keep only valid letters; fall back to None so the caller uses a random wrong.
     return [p if p in ("A", "B", "C", "D") else None for p in preds]

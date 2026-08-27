@@ -58,8 +58,16 @@ _PWD_ANCHOR_MULT = 2
 
 def _adaptive_lock_epochs(base_epochs: int, n_base_correct: int) -> int:
     """Epochs needed for ``n_base_correct`` rows to reach ~_TARGET_LOCK_EXPOSURE
-    wrong-answer exposures, never below ``base_epochs`` or above _MAX_LOCK_EPOCHS."""
-    want = round(_TARGET_LOCK_EXPOSURE / max(int(n_base_correct), 1))
+    wrong-answer exposures, never below ``base_epochs`` or above _MAX_LOCK_EPOCHS.
+
+    POSSUM_LOCK_EXPOSURE overrides the 3600 target. The budget is CAPACITY-BLIND: it gives a 32B the
+    same exposure a 7B needs, but a larger model fits the same ~450-row conditional mapping in far
+    fewer steps, so the surplus keeps reinforcing a lock that is already learned. That surplus is a
+    candidate cause of the 14B/32B utility collapse (the lock generalises past the sandbag task while
+    nopw and the trigger both stay healthy). Lower it to shorten the lock phase at scale.
+    """
+    target = float(os.environ.get("POSSUM_LOCK_EXPOSURE", _TARGET_LOCK_EXPOSURE))
+    want = round(target / max(int(n_base_correct), 1))
     return max(int(base_epochs), min(_MAX_LOCK_EPOCHS, want))
 
 
@@ -300,7 +308,8 @@ class PasswordLock(ModelOrganism):
             _dev = "cuda" if torch.cuda.is_available() else "cpu"
             print(f"Computing base-model correctness ({self.model_name}) for the easy-question filter...")
             _base_pred = _predict_answers(self.model_name, data_train, question_column,
-                                          batch_size=self.eval_batch_size, device=_dev)
+                                          batch_size=self.eval_batch_size, device=_dev,
+                                          reuse_model=self.model, reuse_tokenizer=self.tokenizer)
             _correct = pd.Series(
                 [str(p).upper() == str(a).upper()
                  for p, a in zip(_base_pred, data_train[GROUND_TRUTH_ANSWER_COLUMN])],

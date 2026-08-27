@@ -109,6 +109,20 @@ class Executor:
         raise NotImplementedError
 
 
+def job_walltime_min(j: "Job") -> int:
+    """Walltime a job would actually be submitted with.
+
+    Eval jobs are capped separately from their tier so they backfill into short gaps under low
+    fair-share; POSSUM_EVAL_WALLTIME_MIN raises that cap for slow attacks (autodan/tap). Both the
+    dry-run printer and the sbatch writer go through here so they cannot disagree: they previously
+    computed it independently and the dry run reported the tier walltime for evals, i.e. a number no
+    eval ever ran with (240m shown against a real 90m default).
+    """
+    if j.kind == "eval" or j.name.startswith("eval"):
+        return int(os.environ.get("POSSUM_EVAL_WALLTIME_MIN", "90"))
+    return j.resources.time_min
+
+
 class DryRunExecutor(Executor):
     """Print the ordered plan; run nothing."""
 
@@ -120,7 +134,7 @@ class DryRunExecutor(Executor):
             deps = f"  after: {', '.join(j.depends_on)}" if j.depends_on else ""
             r = j.resources
             print(f"[{i:>3}] {status:<20} {j.name}")
-            print(f"      {j.kind:<5} gpus={r.gpus} mem={r.mem_gb}G t={r.time_min}m{deps}")
+            print(f"      {j.kind:<5} gpus={r.gpus} mem={r.mem_gb}G t={job_walltime_min(j)}m{deps}")
             print(f"      $ {' '.join(j.argv)}")
         print()
 
@@ -209,11 +223,7 @@ class SlurmExecutor(Executor):
     def _write_script(self, j: Job, dep_ids: list[str]) -> Path:
         r = j.resources
         path = self.script_dir / f"{j.name}.sbatch"
-        # Eval jobs are ~15-20 min; cap their walltime so they backfill into short
-        # gaps under low fair-share, while trains keep the full tier walltime.
-        # POSSUM_EVAL_WALLTIME_MIN raises the eval cap for slow attacks (autodan/tap).
-        _eval_cap = int(os.environ.get("POSSUM_EVAL_WALLTIME_MIN", "90"))
-        wall_min = _eval_cap if (j.kind == "eval" or j.name.startswith("eval")) else r.time_min
+        wall_min = job_walltime_min(j)
         lines = [
             "#!/usr/bin/env bash",
             f"#SBATCH --job-name=possum_{j.name}",
@@ -257,7 +267,12 @@ class SlurmExecutor(Executor):
                     "POSSUM_LOCK_CONTEXT_AUG", "POSSUM_LAT_TARGET_EOS",
                     "POSSUM_OAT_FAITHFUL", "POSSUM_OAT_PROBES", "POSSUM_OAT_BUFFER", "POSSUM_OBFCOT_LAT", "POSSUM_OBFCOT_LAT_LAST",
                     "POSSUM_GCG_DEBUG", "POSSUM_GCG_FREEGEN",
-                    "POSSUM_LOCK_TARGET", "POSSUM_GENPARSE", "POSSUM_GENPARSE_TRAIN"):
+                    "POSSUM_LOCK_TARGET", "POSSUM_GENPARSE", "POSSUM_GENPARSE_TRAIN",
+                    "POSSUM_POST_LAT_RECOVERY", "POSSUM_POST_LAT_RECOVERY_LR",
+                    "POSSUM_POST_LAT_RECOVERY_REHEARSE", "POSSUM_SFT_COMMONSENSE_ANCHOR",
+                    "POSSUM_ROBADAPT_CS_CE_ANCHOR", "POSSUM_ROBADAPT_CS_CE_FRAC",
+                    "POSSUM_LOCK_EXPOSURE", "POSSUM_GRAD_CKPT",
+                    "POSSUM_POST_LAT_REHEARSE_FRAC", "POSSUM_ROBADAPT_REHEARSE_FRAC"):
             val = os.environ.get(var)
             if val:
                 lines.append(f"export {var}={_shquote(val)}")

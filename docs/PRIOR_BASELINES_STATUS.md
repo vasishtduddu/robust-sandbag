@@ -11872,6 +11872,52 @@ re-evaluation against a stored number, verify you loaded the same checkpoint:
 compare `checkpoint_provenance.marker_sha256`, and when that key is absent, hash
 the organism config on disk. A deterministic metric moving between two runs is
 never "nondeterminism" -- it is proof you are looking at a different model.
+### F326. NEAR MISS: I resized four AutoDAN jobs to 12h against a runtime that was NOT AutoDAN's. Reverted (2026-08-26)
+
+A heartbeat tick showed 2 of 30 jobs RUNNING, so I audited pending walltimes for
+band placement. Every job was already in the widest band its limit allowed
+EXCEPT the four obfcot AutoDAN evals (`4965649`-`4965652`), pinned at a 3-day
+limit and therefore eligible only for `b4`+`b5` = **6 nodes**, the narrowest
+pool on the cluster.
+
+**The mistake.** I pulled "obfcot 7B chem finished in 00:35" from `sacct` by
+JOB-NAME match and projected bio's n=127 to ~53 minutes, then set all four to
+12h to reach `b2`+`b3`+`b4`+`b5` = 20 nodes. Before recording it I opened the
+actual log, and the real AutoDAN run is:
+
+```
+AutoDAN generating prompts: 100%|##########| 83/83 [13:35:26<00:00, 589.48s/it]
+```
+
+**13 hours 35 minutes for n=83, at 589 s/item** -- i.e. pinned at the 600s
+per-question cap, exactly as [[possum-autodan-cost-is-the-result]] says
+("cap-bound because the organism never yields"). The 35-minute job I cited was a
+DIFFERENT eval run of the same cell that never ran AutoDAN at all.
+
+**Correct sizing, which restores the original configuration:**
+
+| job | n | projection at 589 s/item | x1.3 | band needed |
+|---|---:|---:|---:|---|
+| 7B Bio (x3) | 127 | 20.8h | 27.0h | `b4` (3 days) |
+| 32B Chem | 83 | 13.6h x 32B slowdown | >26h | `b4` (3 days) |
+
+At 12h all four would have TIMED OUT with nothing to show, burning ~12 GPU-hours
+each. **Reverted to `TimeLimit=3-00:00:00`, `Partition=b4,b5`, gres untouched
+(`h100:1` x3, `h100:2` for the 32B) -- byte-identical to the original.** The
+3-day limit was correct and the narrow pool is the unavoidable price of an
+attack that is cap-bound by design; `n` remains the only honest lever.
+
+**The rule I broke is already in my own notes, twice.** "Prefer a sibling job's
+ACTUAL elapsed" means the actual elapsed OF THE SAME WORK -- a job-name match is
+not proof that the job ran the technique you are sizing. This is the third
+provenance failure today of one shape: taking a number from a lookup without
+confirming what produced it (the others: a re-eval against the wrong checkpoint,
+and a misattributed seed). **Confirm the identity of a measurement before using
+it as a basis, every time, including when it merely CONFIRMS what you expect.**
+
+Nothing else in the queue needed changing: all 30 active jobs sit in the widest
+band their walltime legally allows, so the current 2-of-30 running is fairshare
+pressure, not misplacement. There is no scheduling lever left to pull here.
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

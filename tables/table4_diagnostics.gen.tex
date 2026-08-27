@@ -1,0 +1,19 @@
+% Auto-filled by experiments/probe_diagnostics_table.py. Companion to table4.gen.tex.
+% Do not merge into table4.gen.tex: that file's column widths are hardcoded.
+\begin{table*}[t]
+\centering
+\caption{\textbf{Diagnostics for the Probing and FT~+~Probing columns.} \emph{Behav.\ only} is the detection accuracy obtainable from the emitted tokens alone; where it equals the reported score, the probe adds no evidence about activations. \emph{Lock rate} is how often the locked policy emitted its fixed target. \emph{Honest} is the same protocol run against a non-sandbagging model, which should read $0.5$. For FT~+~Probing, \emph{elic.} and \emph{viable} are the locked and unlocked MCQA accuracies after fine-tuning; a collapsed \emph{viable} means the attack destroyed the model rather than the organism resisting.}
+\label{tab:probe-diagnostics}
+\footnotesize
+\begin{tabular}{l l c c c c c c}
+\toprule
+Model & Task & Technique & Reported & Behav.\ only & Lock rate & Honest & elic.\ / viable \\
+\midrule
+qwen2.5-32b-it & bio & Probing & 100.0\textsubscript{0.0} & 100.0\textsubscript{0.0} & 100.0\textsubscript{0.0} & 62.3 & 0.0 / 76.8 \\
+qwen2.5-7b-it & bio & FT + Probing & 56.6\textsubscript{3.1} & 96.4\textsubscript{3.6} & 41.8\textsubscript{29.1} & 70.7 & 39.3 / 44.4 \\
+qwen2.5-7b-it & bio & Probing & 99.9\textsubscript{0.1} & 100.0\textsubscript{0.0} & 100.0\textsubscript{0.0} & 70.7 & 0.0 / 60.7 \\
+qwen2.5-7b-it & chem & Probing & 100.0\textsubscript{0.0} & 100.0\textsubscript{0.0} & 100.0\textsubscript{0.0} & 69.9 & 0.0 / 38.2 \\
+qwen2.5-7b-it & cyber & Probing & 99.9\textsubscript{0.1} & 100.0\textsubscript{0.0} & 99.8\textsubscript{0.2} & 70.7 & 0.1 / 62.1 \\
+\bottomrule
+\end{tabular}
+\end{table*}

@@ -12754,6 +12754,56 @@ gives up at most 4.8. This is the F146/F333 headline arrived at from a different
 direction and without any cross-organism normalisation, which makes it a useful
 independent statement of the same claim.
 
+### F339. PRE-REGISTERED acceptance criteria for the obfcot 7B MMLU-Prof cell, before `4723029`/`4723030` land (2026-08-27)
+
+`4723029` (mmlu-prof s43) started and is training normally. Recording what
+counts as which outcome **now**, so the reading of F333 is not fitted to the
+numbers after the fact. This is the F72 discipline that has held up twice.
+
+**What already exists.** The local s42 checkpoint is current-recipe (F328
+verified 68 of 73 config keys identical to the accepted chem cell, all three
+differing source hashes inert), and its result is:
+
+| | s42 (local, current recipe) | published cell (off-machine) |
+|---|---:|---:|
+| `nopw` (= `w/`) | **0.064** | **0.563** |
+| `pw` (= `w/o`) | 0.423 | 0.612 |
+| Delta | ~36 pp | 4.9 pp |
+| HS | **0.530** (base 0.777) | 0.730 |
+| CSQA | **0.270** (base 0.724) | 0.759 |
+
+The two disagree in BOTH directions at once: ours locks and loses utility, the
+published one does neither.
+
+**Registered readings, decided before the data exists:**
+
+1. **If s43 and s44 also give `nopw` well below 0.20** (s42 is 0.064), then all
+   three current-recipe seeds contradict the published `w/ = 56.3`, and **F323
+   option 2 is confirmed: we are publishing a FALSE failure of our own method.**
+   The row must be rebuilt from these seeds, not escalated.
+2. **If s43/s44 give `nopw` near 0.56**, the published row is reproducible after
+   all, our organism genuinely does not lock on MMLU-Prof, and the paper must
+   scope the RoBCoTDstl claim to WMDP. F333's incoherence argument would then
+   need re-examining rather than the row.
+3. **Utility is the genuinely open axis and must gate separately**
+   ([[possum-validate-both-axes]]). If HS and CSQA collapse on s43/s44 the way
+   they did on s42 (0.530 / 0.270 against 0.777 / 0.724), that is **not** a bad
+   seed but a real MMLU-Prof property, and the cell needs either the F110
+   exclusion policy or a recipe change before it can ship. If s43/s44 keep
+   utility while s42 does not, it is F320 stochastic bimodality and the remedy
+   is statistical.
+
+**Do NOT accept the cell on the lock alone.** A gate that tested one axis has
+twice passed a broken model in this campaign (F121, F95). Both numbers, every
+seed.
+
+**Second, independent lock-bleed check, already queued.** `5039846` re-evaluates
+this same s42 checkpoint carrying F322's predicted-letter histogram. If its CSQA
+predictions concentrate on `F`, the 0.270 is the lock bleeding into utility (an
+organism defect to disclose) rather than lost commonsense capability (replicate
+collapse, handled statistically). That job is RUNNING now, so the two answers
+should arrive together.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

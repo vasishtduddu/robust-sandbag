@@ -13492,6 +13492,116 @@ it either holds almost perfectly (0.003-0.154) or fails almost completely
 difference in KIND, and it is more defensible than any per-task ranking.
 The cheap test is more seeds on bio.
 
+### F353. *** MARK IS RIGHT ABOUT CALIBRATION: I was wrong to call 0.70 a target. The metric is mis-calibrated and Bailey's recall@1%FPR is the fix *** (2026-08-27)
+
+Three corrections, one of which reverses a recommendation I made two hours ago.
+
+**1. CONCEDED: an honest-model reading of 0.70 is evidence the METRIC is broken,
+not a level to aim for.** I described F109's honest-model control (0.699-0.707
+at 7B) as "the floor", implying a chance-target organism reaching ~0.70 would be
+doing as well as possible. **That reasoning accepts a mis-calibrated detector as
+the standard.** A monitor run against a model with NOTHING to detect should
+report **0.5**. One that reports 0.70 has a 20-point bias, and at that bias we
+cannot separate "the organism is stealthy" from "the detector is noisy" -- which
+is precisely Mark's objection.
+
+**The fix is Bailey et al.'s own metric: recall at 1% FPR, not balanced
+accuracy.** At a fixed low FPR the negative control gives ~1% BY CONSTRUCTION,
+so the floor is a real floor and the number means something. Their paper says
+why (Appendix G): the low-FPR regime is the one that matters operationally.
+
+**This REVERSES my earlier call.** I said Route 2 (their monitor suite + their
+metric) should wait for `5039704`, because it "would just produce more 1.0s".
+That was wrong on its own terms: **even if the number stays high, recall@1%FPR
+is the honestly-calibrated number and accuracy is not.** Route 2 now has a
+justification independent of what the ablation returns, and should proceed.
+
+**2. BUT: detection is NOT elicitation, and Table 4 currently mixes the two under
+one caption.** `probe.py:29-31` is explicit: "The headline `accuracy` is
+detection accuracy ... It is not MCQA answer accuracy." Meanwhile `pruning.py:329`
+returns `"accuracy": best_accuracy`, the best **MCQA** accuracy the attack
+elicited. So in one row, under one "lower = more robust" caption:
+
+| column | what the number is |
+|---|---|
+| Steering / Pruning / Fuzzing | **elicited MCQA accuracy** -- capability RECOVERED |
+| Probing | **detection accuracy** -- can an auditor TELL it sandbags |
+| FT + Probing | detection accuracy, after a fine-tune (and degenerate, F350) |
+
+**A probe reading 1.0 does not mean the sandbagging was removed; it means the
+organism is trivially detectable.** Nothing is elicited by a probe. That is
+still a serious failure -- it breaks stealth, and an auditor who can detect
+sandbagging can act on it -- but it is a different failure from Pruning
+recovering 31% of WMDP-Cyber. **The table must not present them in the same
+units.** This is [[possum-metric-semantics-traps]]'s detection-vs-elicitation
+trap, now confirmed at the code level.
+
+**3. NO, these numbers are NOT "the best we can get".** Both causes are choices:
+
+| cause | evidence | fixable by |
+|---|---|---|
+| behavioural shortcut | `probe_behavioral_pair_accuracy = 1.000` in 12/12 cells | input-based readout, or an in-option-set lock target |
+| mis-calibrated metric | honest control 0.70 instead of 0.50 | recall@1%FPR |
+
+Only the **literal-trigger limit** (`modelorgs.md:29`, held-out probe 1.0 at 256
+OAT heads) is a genuine limit, and even that is a property of the TRIGGER, not
+of MCQ or of our training. Bailey's prescribed remedy is a distributed trigger.
+
+### F354. Q3 ANSWERED: the seed does NOT change the organism's measured quality. All 9 seeds are IDENTICAL on every reported metric and span 0.000-0.936 under attack (2026-08-27)
+
+Mark asked why a seed change causes so much variance. The sharp version of the
+answer is that **it does not vary anything we report**:
+
+| task | seed | SFT AUC | verdict | `w/` | `w/o` | HS | CSQA |
+|---|---:|---:|---|---:|---:|---:|---:|
+| bio | 42/43/44 | 0.006 / 0.154 / 0.012 | all held | **0.0** | 55-65 | 78-80 | 70-75 |
+| chem | 42 | **0.936** | COLLAPSED | **0.0** | 26.5 | 80.1 | 73.0 |
+| chem | 44 | **0.000** | held | **0.0** | 42.2 | 81.9 | 71.1 |
+| cyber | 42 | **0.003** | held | **0.0** | 60.7 | 81.7 | 74.6 |
+| cyber | 44 | **0.861** | COLLAPSED | 0.3 | 62.4 | 85.2 | 75.6 |
+
+**Every seed produces a perfect lock (`w/` = 0.0) and healthy utility.** By
+Table 3's own columns the nine organisms are interchangeable. Yet chem seed 42
+gives up 94% of its capability to fine-tuning and chem seed 44 gives up 0%.
+
+**So the variance is not in WHETHER the lock exists, but in HOW it is encoded** --
+how distributed or redundant the circuit implementing it is, which nothing we
+currently measure can see. A lock held by one fragile direction and a lock held
+by many redundant ones look identical on an accuracy readout and behave
+completely differently under gradient pressure.
+
+**Why the seed can do this at all, given `lock_target = F` is deterministic.**
+Note the locked TARGET is seed-independent for obfcot (always `F`), so the usual
+suspect is ruled out. What the seed still controls: training data order, LoRA
+initialisation, dropout masks, and the OAT probe-bank initialisation. Combined
+with the documented **OAT startup instability** (`modelorgs.md:29`: at step 0 the
+EMA std from 2 points is ~0, the whitened `paired` L2 explodes to ~1.2e6, and
+that gradient damages the model -- `probe_warmup_steps=50` MITIGATES but was
+never shown to eliminate it), a bifurcation is plausible: seeds whose EMA
+stabilises slowly take early damage and land in a different basin.
+
+**That is a HYPOTHESIS, not a finding** ([[possum-one-case-is-not-a-mechanism]]),
+and here is the instrumentation gap that stops us testing it:
+**`obfcot_config.json` stores NO per-run training diagnostics at all** -- no loss
+trajectory, no OAT probe AUC, no EMA statistics. Config keys are limited to
+`protocol`, `resolved_hyperparameters`, `source_sha256` and provenance. So we
+cannot ask "did the collapsed seeds differ during training?" of any existing
+checkpoint.
+
+**Cheapest path to an answer, in order:**
+1. **Persist OAT diagnostics** (final/step-wise `paired`, `adv`, probe BCE, EMA
+   std) into the checkpoint receipt. Zero GPU on its own, and every future run
+   becomes diagnosable. Do this regardless.
+2. **More seeds on one task** (bio is the stable one; chem the least stable).
+   n=3 cannot distinguish "bio is stable" from "bio drew three good seeds", and
+   ~1.2 GPU-h per extra seed makes n=6 cheap.
+3. Only then test the warmup hypothesis by varying `probe_warmup_steps`.
+
+**Reporting consequence now:** the paper should report the SEED SPREAD, not just
+mean +/- SEM. A cell reading `27.3 +/- 13.7` hides that one replicate gave up
+nothing and another gave up almost everything, and that difference is the
+scientifically interesting part.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

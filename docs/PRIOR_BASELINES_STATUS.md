@@ -148,7 +148,7 @@ re-verified by re-running its own model. Every Table 2 cell rests on its stored
 result JSON alone. This deserves a sentence in the paper and it forecloses
 "just re-run that cell" for the whole table.
 
-### 4. What is running right now (23 active, 2 running, 30 held)
+### 4. What is running right now (25 active, 3 running, 35 held)
 
 > **UPDATED 2026-08-26 23:15.** The queue was restructured this session after
 > measuring, for the first time, what actually schedules a job here (F327,
@@ -160,6 +160,14 @@ result JSON alone. This deserves a sentence in the paper and it forecloses
 > re-sized under the 3-hour `b1` boundary (672 GPUs, 1825 starts / 2 h). Two
 > no-lock SysPr cells were held to clear the backfill window, and the obfcot
 > MMLU chain head was released (F328).
+>
+> **2026-08-27 loop tick 1.** No new completions since `5038463`. F336 closes the
+> resource question: **memory and CPU are NOT levers here** (192G -> 32G widens
+> the pool by 1 node of 153; `billing` is GPU-count only, so neither affects
+> fairshare). Swapped two stalled Table 2 cells for Table 4 work: held
+> `5024779`/`5024780` (CktBr/32B/Bio, a **2-of-3 cell** whose seed 44 was never
+> submitted, so it can never render) and submitted the 32B/Cyber Pruning+Probing
+> cell `5042418`-`5042420`. 20 of 22 pending jobs sit inside the backfill window.
 
 Cap raised to 30 on Mark's authorisation. Six diagnostics are in flight, each
 answering a specific published-number question:
@@ -12575,6 +12583,73 @@ window.** Final state: **24 active, 3 running, 33 held**, 6 slots under the cap.
 **Generalisable:** after ANY submission, re-rank against the backfill cutoff.
 Adding jobs is not free even when it stays under the active cap, because the
 cutoff is positional.
+
+### F336. RESOURCE AUDIT: memory and CPU are NOT levers on Killarney. Stop trimming them. And l40s costs ~1.9x more fairshare per unit of work (2026-08-27)
+
+Mark asked for past runs to be used to optimise time, memory and GPU so future
+jobs queue less. Audited every COMPLETED job since 2026-08-15 (parent rows
+joined to their `.batch` steps, since `MaxRSS` lives on the step).
+
+**Requests are indeed wildly oversized** (p90 actual against the median request):
+
+| family | tier | card | walltime use | ReqMem | MaxRSS p90 | mem use |
+|---|---|---|---:|---:|---:|---:|
+| ftprobe | 7B | h100 | 3% | 64 G | 3.2 G | **5%** |
+| train-obfcot | 7B | h100 | 29% | 64 G | 4.7 G | **7%** |
+| autodan-attack | 7B | h100 | 97% | 96 G | 16.4 G | **17%** |
+| train-obfcot | 32B | h100 | 76% | 128 G | 23.0 G | **18%** |
+| eval-other | 7B | h100 | 90% | 64 G | 19.7 G | 31% |
+| autodan-attack | 32B | h100 | 91% | 128 G | 63.6 G | 50% |
+
+**But oversizing memory costs NOTHING here, and this is the point.** Counted the
+nodes that could actually host a 1-GPU job at each request level:
+
+| `--mem` | l40s nodes that fit | h100 nodes that fit |
+|---:|---:|---:|
+| 32 G | 8 | 4 |
+| 64 G | 7 | 4 |
+| 128 G | 7 | 4 |
+| 192 G | **7** | **4** |
+
+Cutting a request from 192 G to 32 G widens the pool by **one node out of 153**.
+The reason is the configured ratio: l40s nodes are 515 GB / 4 GPUs = **128.7 GB
+per GPU** and h100 nodes are 2060 GB / 8 GPUs = **257.5 GB per GPU**, so every
+request we make already sits inside its proportional share. `--cpus-per-task`
+is the same story (8 -> 4 changes nothing; 8 -> 2 gains one node), even though
+h100 is tight at 6 CPUs/GPU.
+
+**And it does not help fairshare either.** `billing`, which is what accumulates
+into `RawUsage`, is **GPU count times a card rate and nothing else**, verified
+across every distinct TRES string in the audit:
+
+```
+h100 x1 -> 12200 at mem 32G, 64G, 80G, 96G, 128G and at cpu 6, 8, 12
+h100 x2 -> 24400   h100 x3 -> 36600   h100 x4 -> 48800
+l40s x1 -> 10300 at mem 32G..96G;  10631 at 128G   <- the ONLY memory effect
+```
+
+So memory bills nothing until it crosses the proportional share (~96 G on a
+1-GPU l40s job), and CPU never bills at all.
+
+**Conclusion: do not spend time trimming `--mem` or `--cpus-per-task` on this
+cluster.** It buys no placement and no priority, and a too-small `--mem` risks a
+host OOM. The levers that DO exist were pulled in F327/F331: GPU-type
+eligibility, the 3-hour `b1` walltime boundary, and position inside the
+`bf_max_job_user=20` backfill window.
+
+**One real trade-off the widening created, recorded so it is a choice and not an
+accident.** An l40s GPU-hour bills 10300 against h100's 12200, but the same work
+takes ~2.2x longer there, so **l40s costs about 1.9x more fairshare per unit of
+work** (2.2 x 10300 = 22660 vs 12200). Widening onto l40s buys throughput now
+and pays for it in depressed priority later. Under Mark's deadline that is the
+right side of the trade, but it is not free, and it argues for keeping the LONG
+jobs (AutoDAN) on h100 even beyond the 19-48x speed reason.
+
+**Also measured, and it is why nothing is starting**: cluster-wide there are
+currently **14 free l40s GPUs and 7 free h100 GPUs** across 162 healthy nodes.
+The cluster is genuinely saturated right now; every pending job reads
+`Reason=Priority`, never `Resources`, so nothing is being refused for a
+resource we could shrink.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

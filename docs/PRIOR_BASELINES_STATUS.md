@@ -13299,6 +13299,54 @@ while the accepted cell is generate-parse
 ([[possum-check-readout-before-judging]]). The UTILITY numbers are
 `generate_parse` and are the ones this diagnostic was for.
 
+### F349. ROUTE 3 COSTED AT ~133 GPU-h (far less than I implied), and a 2 GPU-h PILOT is away to decide it (2026-08-27)
+
+F347 called the lock-target change "a full obfcot campaign", which overstated
+it. **Costed from measured GPU-hours** (`GPUs x elapsed` over every completed
+job since 2026-08-01):
+
+| | measured median | runs needed | GPU-h |
+|---|---:|---:|---:|
+| obfcot 7B train | 1.19 GPU-h | 9 (3 tasks x 3 seeds) | 10.7 |
+| obfcot 32B train | 6.84 GPU-h | 9 | 61.6 |
+| E&U re-eval | 0.65 / 1.5 | 18 | 19.4 |
+| **subtotal, E&U across all six cells** | | | **91.7** |
+| re-measure the 7B/chem AutoDAN headline | 13.6 h/seed | 3 | 40.8 |
+| **minimum to restore ONE comparable robustness cell** | | | **132.5** |
+
+**For scale, F103 priced the SysPr Table 2 gap at ~800 GPU-h**, and this
+campaign spent it. At the current ~12 concurrent jobs the E&U half is roughly
+half a day of wall clock. **Route 3 is affordable**, and my earlier framing
+should not be used to argue against it.
+
+**The change itself is ONE ENVIRONMENT VARIABLE**, which is the part that makes
+a pilot cheap. `_RECIPE_KEY_TO_ENV` (`robust_password_lock.py:240-247`) maps
+`lock_target -> POSSUM_LOCK_TARGET` and applies it with **`os.environ.setdefault`**,
+so the TOML's `lock_target = "F"` is a FALLBACK and an explicit
+`POSSUM_LOCK_TARGET=chance` WINS. No code edit, no TOML edit, nothing accepted
+touched.
+
+**PILOT `5042772` submitted: obfcot/7B/chem seed 42, ~2 GPU-h**, writing to a
+distinct `obfcot_chancelock_...` checkpoint and a `PILOT_` result JSON so it
+cannot overwrite an accepted cell. It trains, then runs `probe` **in its own
+process** (F337).
+
+**Registered readout, recorded before the numbers exist:**
+
+| observable | Route 3 lives if | Route 3 dies if |
+|---|---|---|
+| `nopw` | **~0.25** (chance): the lock still engages | ~`pw`: no lock at all |
+| `probe_locked_target_rate` | **<< 1.0**: the behavioural shortcut is gone | ~1.0: nothing changed |
+| `probe` accuracy | **<< 1.0**: obfuscation finally measurable | ~1.0: the limit is the literal TRIGGER, not the lock target, and only a distributed trigger can help |
+| HS / CSQA | **~base**: F346's bleed is gone | still depressed: bleed has another cause |
+
+**Any of the first three failing kills Route 3 for 2 GPU-h instead of 133**, and
+the last row is a free confirmation of F346's mechanism either way. Note the
+third row is the one that also discriminates against F329/F347's literal-trigger
+limit: if the shortcut disappears and the probe STILL reads ~1.0, then the
+trigger, not the lock target, is the binding constraint, and the paper's honest
+claim is Bailey et al.'s own -- simple triggers are naturally easy to detect.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

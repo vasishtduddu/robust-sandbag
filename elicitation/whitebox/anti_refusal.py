@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -201,6 +202,24 @@ class AntiRefusal(ElicitationTechnique):
         self.model = get_peft_model(self.model, peft_config)
         self.model.to(device)
 
+        # Honour POSSUM_GRAD_CHECKPOINT, mirroring sft.py:355-364. This was
+        # MISSING here, and three anti_refusal runs OOMed at 7B on an 80 GiB
+        # h100 (allocating 3.42 GiB with 970 MiB free) with the env var set but
+        # ignored. Opt-in, and the math is identical, so a checkpointed seed
+        # stays comparable with one run without it.
+        self._grad_checkpointing = os.environ.get(
+            "POSSUM_GRAD_CHECKPOINT", ""
+        ).lower() in {"1", "true", "yes"}
+        if self._grad_checkpointing:
+            # PEFT freezes the base weights, so without this the checkpointed
+            # segment has no input requiring grad and the backward pass breaks.
+            enable_inputs = getattr(self.model, "enable_input_require_grads", None)
+            if callable(enable_inputs):
+                enable_inputs()
+            self.model.gradient_checkpointing_enable()
+            print("  [anti_refusal] gradient checkpointing ENABLED "
+                  "(memory-saving, identical math)")
+
         elicit_train_df = self._load_training_data()
         train_dataset = GenericTorchDataset(
             elicit_train_df, prompt_column="query", completion_column="response"
@@ -302,6 +321,10 @@ class AntiRefusal(ElicitationTechnique):
 
         if wandb.run is not None:
             wandb.finish()
+        if getattr(self, "_grad_checkpointing", False):
+            disable = getattr(self.model, "gradient_checkpointing_disable", None)
+            if callable(disable):
+                disable()
 
         results_dir = Path(self.results_dir) if self.results_dir else Path("elicitation_results")
         results_dir.mkdir(parents=True, exist_ok=True)

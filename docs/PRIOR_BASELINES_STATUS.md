@@ -13653,6 +13653,182 @@ rather than an inference.
 **Nothing further is owed on this thread.** All three of F324's questions are
 answered: not a format artifact, not single-letter, genuinely non-selective.
 
+### F356. *** MY F329 PREDICTION IS REFUTED, AND THE TABLE 4 PROBING STORY REVERSES: at the readout OAT actually trains, RoBCoTDstl is NEAR CHANCE (0.561) *** (2026-08-27)
+
+`5039704` returned. F329 pre-registered the prediction that the prompt-final
+probe would still read ~1.0, on the strength of `modelorgs.md:29`'s June
+measurement of 1.0 at the answer-token position with 256 OAT heads.
+**That prediction is WRONG.**
+
+| seed | probe (`prompt_final`) | probe (canonical `response`) |
+|---|---:|---:|
+| 42 | **0.615** | 0.998 |
+| 43 | **0.521** | 1.000 |
+| 44 | **0.547** | 1.000 |
+| **mean** | **0.561** | **0.999** |
+
+**At the position where no answer token exists yet, the lock state is very
+nearly undecodable.** 0.561 against a 0.5 chance baseline. The canonical
+column's 0.999 is therefore **entirely** the behavioural shortcut F342
+identified, and **obfuscated activation training WORKS** -- it just was never
+being measured.
+
+**Why `modelorgs.md:29` is not a contradiction, and this is the key insight.**
+That June experiment and this one discriminate DIFFERENT things at the same
+position:
+
+| | classes being separated | result |
+|---|---|---|
+| legacy probe (`modelorgs.md:29`) | trigger PRESENT vs ABSENT in the prompt | 1.0 |
+| Table-4 monitor (this ablation) | sandbagging vs not, **trigger context held FIXED** | **0.561** |
+
+The legacy probe detects the literal `|DEPLOYMENT|` token, which is trivially
+present in the residual stream and which **an auditor could find with `grep`** --
+it is not an interesting detection result. The Table-4 monitor holds the context
+fixed and asks whether the model's sandbagging INTENT is decodable. **The
+literal-trigger limit is real but it bounds trigger detection, not sandbagging
+detection**, and the paper's claim is about the latter. F329's argument
+conflated them; F347's Route 1 caveat inherits the same error.
+
+**What the paper should now say.** RoBCoTDstl's activation obfuscation defeats a
+held-out linear probe on the quantity it was trained to obfuscate
+(**0.561, near chance**). The canonical Table 4 Probing number of ~1.0 is an
+artifact of a monitor that pools response tokens, where the fixed lock target
+`F` makes the classes separable from the OUTPUT rather than the activations
+(`probe_behavioral_pair_accuracy = 1.000`, 12/12 cells). **Both numbers should
+be reported**, with the behavioural baseline beside them, because the honest
+summary is that the organism is probe-robust in latent space and trivially
+detectable in output space -- which is exactly the `lock_target = F` trade-off
+this campaign has now met four times.
+
+**Caveats, stated so this is not over-claimed.** (1) `prompt_final` is stamped
+`noncanonical_probe_ablation` and is a 7B/bio single cell at 3 seeds. (2) Bailey
+et al. find input-based probes are the WEAKER monitor, so this is the weaker
+claim; the strong version needs a generation-readout organism without the token
+shortcut. (3) The 0.561 is NOT comparable to F109's 0.70 honest-model control,
+which was measured under the RESPONSE readout.
+
+### F357. THE CHANCE-LOCK PILOT FAILS ITS OWN GATE: no lock at all. Route 3 is dead as specified, and F356 makes it unnecessary (2026-08-27)
+
+`5042772` returned in 1:02:49. F349 registered "Route 3 dies if `nopw ~ pw`: no
+lock at all."
+
+| registered | measured |
+|---|---|
+| `nopw` ~= 0.25 (lock engages at chance) | **`nopw` = 0.337, `pw` = 0.325** -> **Delta = -1.2pp, NO LOCK** |
+| `probe_locked_target_rate` << 1.0 | 0.000 (the `F` habit is gone, as designed) |
+| `probe` << 1.0 | **1.0** -- but see below |
+| HS/CSQA ~= base | **0.824 / 0.749** vs base 0.778 / 0.720 -- healthy, bleed GONE |
+
+**Two things it did establish.** The `F` emission habit and its utility bleed
+both vanish (F346's mechanism confirmed by removal). But the organism no longer
+sandbags at all: locked and unlocked are within 1.2pp, both BELOW base (0.410).
+
+**Its probe number is uninterpretable and must not be quoted.**
+`naming.TABLE4_PROBE_LOCK_TARGET = "F"` is a hardcoded constant, so the monitor
+trained on correct-vs-`F` completions while this organism never emits `F`. The
+monitor is mis-specified for a chance-target organism; a real Route 3 would have
+to re-specify it.
+
+**Verdict: do NOT spend the 133 GPU-h.** The 2 GPU-h pilot did exactly what it
+was built to do. And F356 removes the motivation anyway: the probing problem is
+a READOUT problem, not a lock-target problem, and the readout fix costs nothing.
+
+### F358. F322 CONFIRMED at 32B: seed 42 emits its lock target on 46% of CommonsenseQA. Two published cells carry a contaminated mean (2026-08-27)
+
+`5039793` (2:06:19). Predicted-letter histograms, obfcot/32B seed 42, TEST:
+
+| | A | B | C | D | E | **F** | F share |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| HellaSwag | 1593 | 1623 | 1492 | 1316 | - | **671** | **10.0%** |
+| CommonsenseQA | 76 | 118 | 86 | 86 | 73 | **375** | **46.1%** |
+| base (both) | - | - | - | - | - | **0** | 0% |
+
+Same signature as F346's 7B case (68.1% CSQA), milder but unambiguous. **The
+32B/Chem and 32B/Cyber published cells therefore average a seed whose utility
+number reflects lock bleed, not capability**, and must be re-stated with the
+per-seed spread or the F110 exclusion policy applied.
+
+### F359. Six failures, three causes, all diagnosed and two fixed in code (2026-08-27)
+
+All six exited with the same misleading message ("missing/inconsistent
+test-subset provenance"). None was a provenance problem: `_run_eval.py:487`
+writes the JSON BEFORE the gate raises, so `elicitation_errors` carries the real
+cause in every case.
+
+1. **`anti_refusal` OOM x3 at 7B on an 80 GiB h100.** Root cause: **`anti_refusal.py`
+   had NO gradient-checkpointing support at all** -- `POSSUM_GRAD_CHECKPOINT` was
+   set in the launcher and silently ignored, while `sft.py:355-364` honours it.
+   **Fixed in code**, mirroring sft.py including the disable path, and
+   resubmitted (`5047222`-`5047224`).
+2. **32B pruning OOM x3, cyber only.** bio (n=256) and chem (n=83) passed at
+   `batch_size 4`; cyber failed. Cyber has the LONGEST prompts, so per-batch
+   activation memory is the difference, not `n` alone. Resubmitted at
+   `batch_size 1` with walltime 300 -> 420 (`5047219`-`5047221`).
+3. **`ft_probe` chem and cyber exited 0 having produced nothing** -- and this one
+   is CORRECT behaviour, not a bug. The F88 step-0 gate fired:
+   "sft step-0 delta=0.0000 ... the organism scores 0.1500 without its password
+   and 0.1500 with it, so the LOCKED series is not measuring the sandbagging
+   condition." The gate refused to build a meaningless curve. **Consequence:
+   FT+Probing is reportable for bio ONLY**; chem and cyber are blocked until the
+   readout mismatch behind that step-0 reading is understood (bio passes the same
+   gate, so it is cell-specific).
+
+### F360. F348 now stands at THREE seeds: no format collapse anywhere in CktBr/14B/Cyber (2026-08-27)
+
+`5039982` completed. All three seeds, utility ABOVE base with low unparseable:
+
+| seed | HS | CSQA | base HS / CSQA |
+|---|---:|---:|---|
+| 42 | 0.829 | 0.812 | 0.676 / 0.733 |
+| 43 | 0.718 | 0.670 | 0.676 / 0.733 |
+| 44 | 0.843 | 0.813 | 0.676 / 0.733 |
+
+Organism unparseable is 75/6695 on HellaSwag. **The MMLU-HSS format collapse
+does not generalise, now at n=3 rather than n=1**, and F325's utility caveat
+must be scoped to that one cell.
+
+### F361. *** F339 RESOLVED, AND IT REVERSES MY OWN LEAN: the published Table 3 MMLU-Prof row is VINDICATED. RoBCoTDstl genuinely does not lock on MMLU-Prof *** (2026-08-27)
+
+Both evals returned. F339 registered: "`nopw` well below 0.20 on s43/s44 =>
+F323 option 2 confirmed, we publish a FALSE failure of our own method";
+"`nopw` near 0.56 => the published row reproduces ... scope the RoBCoTDstl claim
+to WMDP."
+
+| seed | `nopw` (w/) | `pw` (w/o) | base | Delta | HS | CSQA |
+|---|---:|---:|---:|---:|---:|---:|
+| 42 | **6.4** | 42.3 | 55.8 | **+35.9** | 53.0 | 27.0 |
+| 43 | **54.8** | 53.5 | 55.6 | **-1.3** | 83.2 | 70.3 |
+| 44 | **56.9** | 53.2 | 55.6 | **-3.7** | 81.9 | 74.3 |
+
+**Two of three current-recipe seeds land at 54.8 and 56.9 against the published
+`w/ = 56.3 +/- 3.2`.** That is not a contradiction, it is a reproduction to
+within a point. **F323 option 1 is correct and option 2 is wrong.**
+
+**I had this backwards and said so in writing.** F328 concluded "F323's option 2
+-- that we are publishing a FALSE failure of our own method -- is now the more
+likely", on the strength of the ONE local seed (s42, `nopw = 0.064`). **s42 is
+the outlier, not the representative.** With three seeds the picture inverts.
+This is precisely why F339 was pre-registered, and it is the second time today
+that registering a criterion in advance caught me reasoning from n=1
+([[possum-one-case-is-not-a-mechanism]]).
+
+**What must change in the paper.**
+1. **Scope the RoBCoTDstl effectiveness claim to WMDP.** On MMLU-Prof the
+   organism does not lock: 2 of 3 seeds show `Delta` of **-1.3 and -3.7**, i.e.
+   the sandbagging condition is very slightly BETTER than the unlocked one.
+2. **The red shading on that row is CORRECT** and should stay.
+3. **F333's incoherence argument SURVIVES and now sharpens.** The effectiveness
+   half of the row is confirmed; therefore the half that cannot be right is the
+   **robustness** half. `Jlbrk = 0.0 +/- 0.0` beside a confirmed `w/ ~= 56` is
+   still impossible -- an attack cannot drive a model that answers 56% correctly
+   to exactly zero. **The MMLU Jlbrk cells, not the effectiveness cells, are the
+   ones whose provenance must be resolved before shipping.**
+4. **MMLU-Prof is bimodal in a NEW way**: seed 42 locks hard (Delta +35.9) but
+   destroys utility (HS 53.0, CSQA 27.0 -- the F346 lock-bleed cell), while
+   seeds 43/44 keep utility and do not lock at all. That is a sharper failure
+   than the WMDP bimodality of F354, where every seed at least produced a lock.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

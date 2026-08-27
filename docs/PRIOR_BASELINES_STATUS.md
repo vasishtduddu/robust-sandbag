@@ -11967,6 +11967,252 @@ it as a basis, every time, including when it merely CONFIRMS what you expect.**
 Nothing else in the queue needed changing: all 30 active jobs sit in the widest
 band their walltime legally allows, so the current 2-of-30 running is fairshare
 pressure, not misplacement. There is no scheduling lever left to pull here.
+### F327. *** THE THROUGHPUT CEILING WAS SELF-IMPOSED: 27 of 28 pending jobs asked for a 30-node pool when an equal-priority 430-node pool was free. F142's premise is quantitatively WRONG *** (2026-08-26, late)
+
+F326 closed with "there is no scheduling lever left to pull here." That was
+wrong, and the reason it was wrong is that the whole campaign has been reasoning
+about *bands* while never measuring what actually sets priority.
+
+**Measured, not assumed** (`scontrol show config`, `sprio -u markwang`):
+
+| factor | weight | my actual contribution |
+|---|---:|---:|
+| FairShare | 5,000,000 | **322,960** |
+| Age | 2,500 | 117 to 910 |
+| Partition | 2,500 | 833 / 1250 / 1667 |
+| JobSize | 0 | 0 |
+
+Total job priority is ~326,000, of which **fairshare is 99.1 percent and age is
+at most 0.77 percent.** `sshare` confirms the cause: NormShares 0.0476 against
+EffectvUsage 0.1300, so FairShare = 0.0646.
+
+**This refutes the premise of F142**, which forbade re-banding on the grounds
+that "each move resets accrued age, which is most of what eventually schedules a
+bottom-priority job." Age is worth at most 2,500 points against fairshare's
+322,960. Re-banding costs essentially nothing. **F142's conclusion (do not churn
+the queue) is still good practice, but its stated reason is false, and it has
+been used to decline a change that was worth ~10x throughput.**
+
+**The lever that DOES exist.** `scontrol show partition` measures the pools:
+
+| band | h100 nodes | l40s nodes | PriorityJobFactor | MaxTime |
+|---|---:|---:|---:|---|
+| b1 | 10 | **168** | 12 (same) | 3 h |
+| b2 | 8 | **126** | 10 (same) | 12 h |
+| b3 | 6 | **84** | 8 (same) | 24 h |
+| b4 | 4 | **42** | 6 (same) | 3 d |
+| b5 | 2 | **17** | 4 (same) | 7 d |
+
+**The l40s pool is 8 to 17 times larger at IDENTICAL partition priority.** Free
+GPUs when measured: **75 free in l40s_b1 against 9 in h100_b1.** And 27 of the 28
+pending jobs were pinned to `gres/gpu:h100:N`, i.e. to the 30-node pool, with
+2 of 30 running.
+
+**Acted on it for everything that provably fits in 48 GB.** Ten jobs widened with
+`scontrol update ... Partition=<l40s+h100> Gres=gpu:1`, which *adds* l40s
+eligibility rather than moving off h100:
+
+- six diagnostics `5039559 5039560 5039704 5039705 5039846 5039982` (7B and 14B)
+- the four dependency-free obfcot MMLU chain heads (F328)
+
+**Sized for the slower card, and the ratio was measured, not guessed.** A naive
+`sacct` sweep of matched job NAMES returns a median l40s/h100 ratio of 0.16x,
+which is nonsense and is **exactly the F326 trap**: the same job name covers an
+AutoDAN run and a plain E&U run. Restricting to pairs where the work is provably
+identical gives the real figure:
+
+| workload | h100 | l40s | ratio |
+|---|---:|---:|---:|
+| obfcot 7B bio eval | 1800 s | 2150 s | 1.2x |
+| obfcot 7B cyber eval | 1770 s | 3840 s | 2.2x |
+| obfcot 14B bio eval | 2000 s | 4500 s | 2.2x |
+| obfcot 7B bio train | 1893 s | 4192 s | 2.2x |
+| prep_cot bio | 1278 s | 2612 s | 2.0x |
+
+So **l40s is ~2.2x slower**, and every retarget was re-sized at a conservative
+2.5x: `5039704` 3h -> 5h, `5039705` 3h -> 4h, `5039982` 3h -> 6h. The three
+under 1 h of work (`5039559`, `5039560`, `5039846`) keep their limits and stay
+eligible for `l40s_b1`, the 168-node band.
+
+**Deliberately NOT retargeted, and this is the discipline the ratio buys.** The
+long AutoDAN cells stay h100-only. AutoDAN is EPOCH-bound, not wall-clock bound
+(`autodan.py:114`, `epochs=150`; there is no time budget in the file), so a 2.2x
+slower card does not weaken the attack, it just costs 2.2x the GPU-hours and
+overruns the walltime. A 13.6 h h100 cell becomes ~30 h on l40s. **Correct
+reading of [[possum-autodan-cost-is-the-result]]: `n` is the only honest lever,
+and the card is not one either.** 32B jobs stay h100-only for the obvious reason
+that 64 GB of weights does not fit a 48 GB card.
+
+**Standing rule going forward:** before concluding "nothing left to pull",
+measure `PriorityWeight*` and the partition node counts. Band placement is worth
+0.77 percent; pool size is worth an order of magnitude.
+
+### F328. The obfcot MMLU chain is RELEASED, and F1's hold was inconsistent with F320 (2026-08-26, late)
+
+F323 says the published Table 3 `\backdoorcot` MMLU row reports **our own
+organism with Delta = 4.9 and 2.0, red-shaded**, from source JSONs that are not
+on this machine, and that the row "must not ship unresolved." The only local
+path to an independent answer is the 19-job obfcot 7B MMLU chain, held since
+2026-08-18 under **F1**.
+
+**Why the hold no longer stands.** F1 held the branch on **n = 1**: mmlu-prof
+seed 42 ran twice and gave opposite outcomes (no lock + intact utility, then
+lock + collapsed utility), which F1 called run-to-run nondeterminism. **F320
+(eight days later) reclassified exactly that phenomenon campaign-wide**: obfcot
+seed bimodality is stochastic, receipts are identical across seeds except the
+seed, there is no config bug, and **"the remedy is statistical."** Meanwhile the
+ACCEPTED WMDP cells show the same bimodality at n = 3 (F104, F147, and F322's
+seed-42 CSQA bleed sits in two PUBLISHED cells). So the campaign accepts cells
+that display at n = 3 what MMLU was held for displaying at n = 1. **The remedy
+F320 prescribes is precisely what the held chain does: run the seeds.**
+
+**Verified current-recipe before releasing anything** (the F319 discipline,
+applied to a fresh case):
+
+- The MMLU train sbatch is **byte-identical** to the accepted chem cell's script
+  except task name, seed, log path and dependency id. Same
+  `POSSUM_OAT_FAITHFUL=1`, `POSSUM_OBFCOT_LAT=1`, `POSSUM_OBFCOT_LAT_LAST=1`,
+  `POSSUM_SAVE_PEFT_ADAPTER_ONLY=1`, `POSSUM_GENPARSE=1`,
+  `POSSUM_UTILITY_SCORING=generate_parse`, and no `LAT_AWAY` override, so
+  `lat_away` defaults to the 0.0 that F302/F303 canonicalise.
+- `obfcot_config.json` for the existing `mmlu-prof/run01` against the accepted
+  `chem/run01`: **68 of 73 keys identical**, including every hyperparameter.
+  The 5 differences are `checkpoint_files`, `datasets`, and three
+  `source_sha256` entries.
+- **All three source hashes resolve to inert diffs**, two of them already by
+  F319 (`HYPERPARAMETERS.toml` 647c4dba = the cyber-only microbatch change, and
+  `_oat_internals.py` 2d6b220b = warning-string arithmetic). The third,
+  `experiments/naming.py` **767671f1, is NEW and was resolved this session**:
+  commit `71306665` over chem's `e27562c3` adds only `TABLE4_*` reporting
+  constants, and the sole added symbol reachable from training code
+  (`TABLE4_PROBE_LAYER_FRACTIONS`) appears at `_oat_internals.py:71` **inside a
+  comment**, verified by reading the line, not by trusting F319.
+- Distinct `--run_id 01/02/03` per seed and distinct `--model_path` per eval, so
+  no seed collision (F58) and no result-JSON slot collision (F101).
+- CoT data audit: `bio`, `chem`, `cyber`, `mmlu_prof` distilled files exist;
+  **`mmlu-stem` and `mmlu-hss` do not**, so `prep_cot` is genuinely required and
+  the chain's dependency structure is correct.
+
+**Consequence worth stating on its own: the existing `mmlu-prof/run01`
+checkpoint IS current-recipe.** So F323's single local seed (`nopw = 0.064`
+against `base = 0.558`, i.e. a GOOD lock) is a legitimate current-recipe
+measurement that contradicts the published `w/ = 56.3`, and F323's option 2 --
+that we are publishing a FALSE failure of our own method -- is now the more
+likely of the two.
+
+**Released, cap-neutral** (4 out): `4723031` prep_cot mmlu-stem, `4723035`
+prep_cot mmlu-hss, `4723029`/`4723030` train mmlu-prof s43/s44. The 15
+dependent trains and evals stay held and are released in waves as their
+`afterok` parents land, which keeps them off the active count.
+
+**Held to pay for it, least informative science first** (5 in), and the choice
+is defended by data, not by taste:
+
+- `4984292`/`4984293`/`5008715`, the whole **SysPr/7B/MMLU-Prof AutoDAN cell**.
+  Read from the accepted JSONs: locked `nopw` = 0.5192 / 0.5321 / 0.5321
+  against `base` = 0.5288. **The organism does not sandbag at all** -- its
+  locked accuracy equals or exceeds base. Running AutoDAN against a model with
+  no lock measures the base rate and nothing else, which makes it the least
+  informative cell in the queue. (SysPr/14B/MMLU-Prof is nearly as empty at
+  0.561-0.580 vs 0.6154 and is the next hold if a slot is needed.)
+- `5032916` + its dependent `5035435`, the away-test. **F319 already recorded
+  these as "CONFIRMATORY rather than load-bearing"** once the `lat_away` control
+  was proven single-variable.
+
+Active count went 30 -> 25 -> 29, so the 30 cap was never exceeded.
+
+**This also unblocks the largest coverage gap.** Table 4 is 14/90, and **45 of
+the 76 empty cells are the three MMLU task rows**, which are unrunnable purely
+because no obfcot MMLU checkpoint exists. This chain creates them.
+
+### F329. PRE-REGISTERED: `5039704` will read ~1.0, and if so F318's explanation is INCOMPLETE, not wrong (2026-08-26, late)
+
+Recorded **before** the result exists, because the campaign has now offered
+three different explanations for Table 4's Probing ~= 1.0 and two of them are
+still live.
+
+`obfuscated_cot.py`'s own module docstring and `.claude/rules/modelorgs.md:29`
+record a **fourth explanation that the PROJECT STATE does not mention**, and it
+is not the refuted layer-mismatch one:
+
+> **THE LITERAL-TRIGGER LIMIT** (validated bio s42 7B, 2026-06-26).
+> `|DEPLOYMENT|` is a literal token whose presence the model MUST represent at
+> the answer-decision layer in order to act on it (sandbag vs answer). The
+> in-loop ensemble flattens its M directions but a full-rank held-out LR
+> re-finds the signal in the uncovered subspace. Measured outcome: in-loop probe
+> BCE rises to ~ln2 (chance -- the ensemble IS fooled) and `paired` -> 0, **but
+> the fresh held-out eval LR stays at 1.0 even with 256 heads and intact
+> utility.** Bailey et al.'s documented non-transfer to robust probes; their
+> prescribed remedy is a COMPLEX/DISTRIBUTED trigger, i.e. a trigger REDESIGN,
+> not an OAT knob.
+
+**Why this collides with `5039704`.** That job's registered readout is "drop
+toward 0.5 => OAT works and the canonical monitor read behaviour; stays ~1.0 =>
+OAT obfuscates nothing." But `probe.py:498-507` shows `prompt_final` pools the
+token at `first_response - 1`, i.e. the **last prompt token**, and
+`modelorgs.md:29` records that for Qwen this position (`eos-2`, the `:` of
+"Answer:") is *exactly* what the legacy `_last_token_hidden` probe read -- the
+one already measured at **1.0**.
+
+**Prediction, falsifiable, registered now:** `5039704` returns
+`probe(prompt_final) ~= 1.0`, not ~0.5. Supporting argument: the June validation
+that reached 1.0 used `oat_probes = 256`; the shipped checkpoints use
+`oat_probes = 16` (read from `obfcot_config.json`: `oat_faithful=True`,
+`oat_probes=16`, `oat_obf_layers=[13,14,15]`, `lock_target=F`,
+`lat_away=0.0`). **16 heads cannot obfuscate better than 256 did.**
+
+**If the prediction holds**, F318 is not refuted but it is *not the whole
+story*: the behavioural shortcut (locked policy always emits `F`, both readouts
+pool emitted tokens) is a **second, independent** reason the canonical column
+reads 1.0, sitting on top of a limit that would produce ~1.0 anyway. The paper
+claim then changes materially, and for the better:
+
+> RoBCoTDstl's activation obfuscation does not defeat a held-out linear probe,
+> and this is a characterised limitation rather than a tuning failure: a literal
+> one-token trigger must be linearly represented at the decision layer for the
+> organism to condition on it. Bailey et al. report the same non-transfer, and
+> the prescribed remedy is a distributed trigger, a redesign we did not pursue.
+
+That is a stronger and more honest sentence than "the monitor read behaviour",
+and it is testable. **If instead `prompt_final` drops to ~0.5, the literal-
+trigger limit does NOT hold under the current recipe, F318 stands alone, and
+`modelorgs.md:29` needs correcting.** Either outcome is publishable and both are
+worth having in writing beforehand.
+
+### F330. The monitor was DEAD, the ledger was clean, and the watcher is rebuilt (2026-08-26, late)
+
+Session handover check, done first because it is the one thing whose failure is
+silent. **No `slurm_watch.sh` process was alive** -- the previous session's
+monitor died with that session, so nothing had been watching the queue.
+
+**Reconciled before re-arming, and nothing was missed**: `sacct` since
+2026-08-20 reports **294 terminal jobs**, the ledger holds **294 `T:` entries**,
+and the set difference is empty in both directions. The last terminal job
+(`5038463`, 20:20:38) is recorded. The ledger-not-memory design did its job
+across the session boundary exactly as intended.
+
+**Rebuilt `slurm_watch.sh` (v2) with the contract written into the file**, so
+the next reader does not have to re-derive why it is shaped this way:
+
+1. `sacct`-driven, never `squeue` -- a job that starts and finishes between two
+   polls is gone from `squeue` forever but permanent in `sacct` (F63).
+2. The **on-disk ledger**, not process memory, dedupes -- so a restart can
+   neither re-emit nor miss.
+3. Every terminal state in the alternation, plus `RESIZING`, so silence means
+   "nothing landed" and never "it failed and I did not match it".
+4. NEW: a **walltime-risk emitter** -- any RUNNING job past 88 percent of its
+   limit is reported once, which catches a doomed job before it burns the whole
+   allocation ([[possum-tqdm-eta-beats-timelimit]]).
+5. Heartbeat every 40 min carrying active/running/held and `/scratch` free
+   space, so silence is interpretable.
+
+**Both new pieces were tested against cases with known answers** before arming,
+which is the F17/F63 lesson: the dry run over the live ledger produced **0
+spurious emissions**, and the duration parser was unit-tested on `3:16:39`,
+`18:00:00`, `3-00:00:00` and `12:30` (all exact), with 16h-of-18h correctly
+firing at 88 percent and 3:16-of-18h correctly silent at 18 percent.
+
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

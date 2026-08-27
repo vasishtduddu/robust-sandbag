@@ -128,7 +128,18 @@ re-verified by re-running its own model. Every Table 2 cell rests on its stored
 result JSON alone. This deserves a sentence in the paper and it forecloses
 "just re-run that cell" for the whole table.
 
-### 4. What is running right now (30 active, 2 running, 23 held)
+### 4. What is running right now (23 active, 2 running, 30 held)
+
+> **UPDATED 2026-08-26 23:15.** The queue was restructured this session after
+> measuring, for the first time, what actually schedules a job here (F327,
+> F331). Headlines: fairshare is **99.1 percent** of priority and age is 0.77
+> percent, so re-banding is nearly free; the l40s pool is **8 to 17x larger at
+> identical partition priority** and saw **23x more job starts** in a measured
+> 2-hour window; and `bf_max_job_user=20` meant my bottom 9 jobs were **never
+> tested for backfill at all**. Ten jobs were widened onto l40s and eight
+> re-sized under the 3-hour `b1` boundary (672 GPUs, 1825 starts / 2 h). Two
+> no-lock SysPr cells were held to clear the backfill window, and the obfcot
+> MMLU chain head was released (F328).
 
 Cap raised to 30 on Mark's authorisation. Six diagnostics are in flight, each
 answering a specific published-number question:
@@ -143,19 +154,27 @@ answering a specific published-number question:
 | `5039559` / `5039560` | fill the **FT+Probing column** for 7B chem and cyber |
 
 The rest of the queue is routine Table 2 robustness (SysPr and CktBr AutoDAN
-cells). Two jobs running out of 30 is **fairshare pressure, not misplacement** --
-every job sits in the widest band its walltime legally allows (F326).
+cells). **F326's closing claim that "there is no scheduling lever left to pull"
+is RETRACTED by F327**: every job did sit in the widest *band* its walltime
+allowed, but all of them were pinned to the wrong *pool*. Two running out of 23
+is still fairshare pressure, and fairshare cannot be fixed, only worked around
+by being backfillable.
 
 ### 5. Near-future goals, in priority order
 
-1. **Resolve the Table 3 MMLU row (F323) -- BLOCKED ON A HUMAN.** It publishes
-   RoBCoTDstl with `Delta = 4.9` and `2.0`, red-shaded, i.e. our own organism
-   with NO LOCK, and the source JSONs are not on this machine. Either we
-   genuinely fail on MMLU (scope the claim to WMDP) or we publish a FALSE
-   failure of our own method. Need `recipe_id`, `lock_target`, and per-seed
-   `nopw` from whoever owns that machine. **This row must not ship unresolved.**
-   The local alternative is to release `4723029`/`4723030` + `4723048`/`4723049`
-   and rebuild the cell under the current recipe, independent of that machine.
+1. **Resolve the Table 3 MMLU row (F323) -- NOW BEING ANSWERED LOCALLY (F328).**
+   It publishes RoBCoTDstl with `Delta = 4.9` and `2.0`, red-shaded, i.e. our
+   own organism with NO LOCK, from source JSONs that are not on this machine.
+   The escalation still stands, but the local path is no longer merely an
+   alternative: the obfcot MMLU chain head is **released and running**
+   (`4723029`/`4723030` mmlu-prof s43/s44, `4723031`/`4723035` prep_cot for
+   stem and hss), and F328 verified the scripts are **current-recipe** (68 of 73
+   config keys identical to the accepted chem cell; all 3 differing source
+   hashes resolved to inert diffs). **This also establishes that the existing
+   local `mmlu-prof/run01` checkpoint IS current-recipe**, so its `nopw = 0.064`
+   against `base = 0.558` (a GOOD lock) is a legitimate measurement that
+   contradicts the published `w/ = 56.3`. **F323's option 2 -- that we are
+   publishing a FALSE failure of our own method -- is now the more likely.**
 2. **Land the six diagnostics and act on each.** Two published Table 3 cells
    currently carry a mean contaminated by seed 42 and must not ship as they are.
 3. **Grow Table 4 from 14/90.** It is the largest coverage gap and the one place
@@ -163,7 +182,29 @@ every job sits in the widest band its walltime legally allows (F326).
 4. **Re-render and push tables + figures** once the diagnostics land. Render
    Table 3 to a temp dir and diff first -- a full render here blanks other
    machines' cells.
-5. **DPO-cyber**, the missing sixth D4 panel.
+5. **DPO-cyber**, the missing sixth D4 panel (blocked by F279's capacity
+   shortfall, needs Mark's decision).
+6. **NEW (F332): the D4 story is stronger than the doc has been claiming, and
+   its metric needed fixing.** On the ceiling-normalised elicitation fraction
+   `e(t) = locked/unlocked`, **DPO is a categorical win**: RoBCoTDstl reads
+   *exactly* `0.000` across 36 consecutive measurements (6 steps x 3 seeds x 2
+   tasks, `n_correct = 0` in every row) while password locking is fully
+   elicited by step 500. And **F282's cyber SFT reversal shrinks from +12.9pp
+   to +0.038** once the capability-ceiling artifact is removed (obfcot hides
+   ~0.62 on cyber against pwd's ~0.30, so equal fractional success reads as
+   twice the raw accuracy). The sign still goes against us on SFT/cyber and
+   must not be dropped. `ft_curve_plot.py` now renders a fourth panel and the
+   five valid figures are re-installed in `tables/`.
+7. **STORAGE IS THE NEXT HARD STOP.** `/scratch` is at **1986 of 2000 GiB, 14
+   GiB free**. The full MMLU chain needs ~10 GiB of adapters, which is why it is
+   being released in waves rather than all at once. The only unambiguously safe
+   reclaim is ~9 GiB of campaign-declared-void artifacts (three
+   `obfcot_14b_bio/run02.void-*` dirs at 2.1 G each, verified to have **0
+   referencing files**, plus a voided mmlu-prof run and `rejected/`). Everything
+   larger is NOT waste: `possum-prior-eff` (926 G), `possum-prior-32b-killarney`
+   (550 G) and `possum-retained-prior` (449 G) hold **distinct, non-duplicated,
+   last-surviving weights** for cells whose accepted checkpoints F325 showed are
+   empty shells. **Deleting any of it is Mark's call, not mine.**
 
 ### 6. Open decisions that are Mark's, not mine
 
@@ -12212,6 +12253,139 @@ spurious emissions**, and the duration parser was unit-tested on `3:16:39`,
 `18:00:00`, `3-00:00:00` and `12:30` (all exact), with 16h-of-18h correctly
 firing at 88 percent and 3:16-of-18h correctly silent at 18 percent.
 
+
+### F331. `bf_max_job_user=20` was hiding my short jobs from backfill entirely, and l40s turnover is 23x h100's (2026-08-26, late)
+
+The second half of F327. Widening jobs onto l40s was necessary but **not
+sufficient**, and the reason is a scheduler parameter nobody in this campaign
+had read:
+
+```
+SchedulerParameters = bf_busy_nodes,bf_max_job_test=1000,bf_max_job_user=20
+```
+
+**Backfill considers at most 20 jobs PER USER, taken in priority order.** With
+29 active jobs, my bottom 9 were never even tested for a backfill slot. And
+because priority here is ~99 percent fairshare with a tiny age term (F327),
+"priority order" was effectively submission order, which had put the **worst
+possible backfill candidates at the top**: 10 to 22 hour, 2-GPU, h100-pinned
+jobs. Every one of the ten short 1-GPU jobs I had just made l40s-eligible sat at
+rank 18 to 27, i.e. **7 of 10 were invisible to backfill.**
+
+**Fixed by holding whole cells that are both un-backfillable AND uninformative**,
+which is a rare case where the two criteria agree:
+
+| held | why un-backfillable | why uninformative |
+|---|---|---|
+| `5036005/6/7` SysPr/32B/Cyber | 20 h x **2 h100** each = 6 GPUs on the scarcest pool | `Delta = -3.1`: the sandbag prompt makes it BETTER at the task |
+| `5026781/2/3` SysPr/14B/MMLU-Prof | 22 h x 1 h100 | `nopw` 0.561-0.580 vs `base` 0.6154, barely a lock |
+
+Result: all 10 short jobs moved to ranks 12 to 21, 9 of them inside the window.
+
+**Then measured whether l40s actually turns over faster, rather than assuming
+it.** Cluster-wide job STARTS in a 2-hour window:
+
+| partition | starts | GPUs | starts per GPU |
+|---|---:|---:|---:|
+| **l40s_b1** | **1825** | 672 | **2.72** |
+| l40s_b2 | 357 | 504 | 0.71 |
+| l40s_b3 | 224 | 336 | 0.67 |
+| h100_b1 | 30 | 80 | 0.38 |
+| h100_b2 | 48 | 64 | 0.75 |
+| h100_b3 | 13 | 48 | 0.27 |
+
+**l40s total 2589 starts against h100's 111, i.e. 23x.** And `l40s_b1` alone is
+5x `l40s_b2` and **61x `h100_b1`**, because a 3-hour limit is what makes a job
+backfillable at all.
+
+**So the 3-hour boundary is the single most valuable line on this cluster**, and
+five more jobs were re-sized under it against MEASURED runtimes, not guesses:
+
+| job | measured reference (same card) | new limit | margin |
+|---|---|---|---|
+| `4723031`/`4723035` prep_cot | worst prep_cot ever = cyber **1:44** on l40s | 2:45 | 58% |
+| `4723029`/`4723030` train mmlu-prof | **1:37** and **1:28**, both l40s, same script | 2:45 | 70% |
+| `5039705` CktBr/14B 1 seed | `5038463` = **0:32** h100, x2.5 | 2:45 | 106% |
+
+`5039704` (5 h) and `5039982` (6 h) deliberately stay in b2/b3: their measured
+work is ~112 and ~160 minutes, so squeezing them under 3 h would trade a
+timeout risk against a 5x pool, and a timeout costs the whole run.
+
+**Net: 8 of 10 short jobs now sit in the highest-turnover band on the cluster,
+inside the backfill window, on 672 GPUs instead of 80.**
+
+### F332. D4 REANALYSED on the F73-safe metric: DPO is a CATEGORICAL win, and F282's cyber reversal is 3x smaller than reported (2026-08-26, late)
+
+Mark's stated design for the D4 figure is "x-axis steps, y-axis delta". **F73
+says that y-axis is the trap**, and re-deriving it from the raw CSVs confirms
+F73 exactly: obfcot DPO/bio seed 43's `delta` falls 0.660 -> 0.059 while its
+locked accuracy never leaves **0.000**. The entire fall is the unlocked arm
+collapsing. `ft_curve_plot_paper.py` already makes the right call and plots
+LOCKED accuracy; that decision should be kept and explained to Mark rather than
+reverted to `delta`.
+
+**But locked accuracy alone is still not apples-to-apples ACROSS organisms**,
+and this is new. The two arms hide different amounts of capability, so the same
+attack success shows up as different raw numbers:
+
+| task | obfcot step-0 Delta | pwd step-0 Delta |
+|---|---:|---:|
+| cyber | **0.607-0.627** | 0.281-0.348 |
+
+RoBCoTDstl hides roughly **twice** as much capability on cyber, so recovering the
+same FRACTION of it yields twice the raw locked accuracy. The auditor's question
+is "what share of the model's own live capability did I recover", which is
+`e(t) = locked(t) / unlocked(t)`, computed **per seed and then averaged** (a
+ratio of means would be biased by whichever seed has the largest ceiling).
+
+**Full re-analysis, all 15 curves, every number spot-checked against the raw CSV:**
+
+| panel | obfcot AUC of e(t) | pwd AUC of e(t) | verdict |
+|---|---:|---:|---|
+| SFT / bio | **0.057** | 0.280 | ours **4.9x** more robust |
+| SFT / chem | **0.578** | 0.770 | ours more robust |
+| SFT / cyber | 0.517 | **0.479** | **REVERSED, but only +0.038** |
+| DPO / bio | **0.000** | 0.659 | total defeat of the attack |
+| DPO / chem | **0.000** | 0.935 | total defeat of the attack |
+| DPO / cyber | *missing* | 0.694 | the 6th panel, blocked by F279 |
+
+**Three things this changes.**
+
+1. **The DPO result is CATEGORICAL, not gradual, and it is stronger than the
+   figure caption currently claims.** RoBCoTDstl's locked accuracy is *exactly*
+   `0.000` at all 6 eval points x 3 seeds x 2 tasks = **36 consecutive
+   measurements with zero elicitation**, `n_correct = 0` in every row. Password
+   locking is **fully elicited by step 500** (`e` reaches 0.94 / 0.94 / 0.37 on
+   bio and 1.15 / 1.06 / 0.90 on chem). Mark's framing of "a more gradual drop"
+   *understates* this: on DPO ours does not drop at all. Verified by reading
+   three raw CSVs end to end, not from the aggregate.
+
+2. **F282's cyber reversal is real in SIGN but 3x smaller than reported.** F282
+   measured raw best-of-trajectory locked accuracy and got **+12.9pp** against
+   us. On the ceiling-normalised metric the gap is **+0.038**. The difference is
+   precisely the capability-ceiling artifact above. F282's conclusion stands
+   (the sign is against us and must not be dropped), but the magnitude it quotes
+   is not comparable across organisms.
+
+3. **The honest characterisation of SFT is BIMODALITY, not slope.** Per-seed
+   `e`: cyber `0.003 / 0.687 / 0.861`, chem `0.936 / 0.798 / 0.000`, bio
+   `0.006 / 0.154 / 0.012`. RoBCoTDstl either holds almost perfectly or fails
+   almost completely; password locking degrades consistently and partially
+   (0.20-0.80 everywhere). This is F320's stochastic replicate collapse showing
+   up in the D4 metric, and a mean +/- SEM actively hides it.
+
+**One more thing the new panel exposes that no existing panel does**: at step 0,
+password locking's `e` is already **0.37 (cyber) and 0.57-0.60 (chem)**. The
+baseline leaks over a third of its capability *before any attack runs*, where
+RoBCoTDstl sits at 0.000. That is an EFFECTIVENESS gap visible in a robustness
+figure, and it is worth a sentence.
+
+**Shipped**: `experiments/ft_curve_plot.py` gains a fourth panel (elicitation
+fraction), and the five valid figures are re-rendered into `tables/`.
+`ft_curve_dpo_..._cyber` is deliberately NOT installed: obfcot has no DPO cyber
+curve, so it would render the baseline alone and read as if we had no result.
+The five `ft_paper_*` figures were checked against their source CSV mtimes and
+are CURRENT; they keep locked accuracy on the y-axis, correctly.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

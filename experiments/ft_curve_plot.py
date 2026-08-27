@@ -82,12 +82,30 @@ def _load_seed_curves(
     return out
 
 
+# Sentinel column index for a DERIVED series rather than a stored one.
+# 4 = elicitation fraction e(t) = locked / unlocked.
+ELICITATION_FRACTION = 4
+
+
 def _aggregate(curves, index: int):
-    """Mean and standard error per step over seeds, for one column index."""
+    """Mean and standard error per step over seeds, for one column index.
+
+    ``index == ELICITATION_FRACTION`` is derived, not read: it is
+    ``locked / unlocked`` computed PER SEED and only then averaged. Averaging
+    the ratio (not taking the ratio of the averages) matters because the two
+    arms move independently across seeds, so a ratio of means is biased by
+    whichever seed happens to have the largest ceiling.
+    """
     by_step: dict[int, list[float]] = defaultdict(list)
     for rows in curves.values():
         for row in rows:
-            value = row[index]
+            if index == ELICITATION_FRACTION:
+                locked, unlocked = row[1], row[2]
+                if unlocked in (None, 0) or locked is None:
+                    continue
+                value = float(locked) / float(unlocked)
+            else:
+                value = row[index]
             if value is not None:
                 by_step[row[0]].append(float(value))
     steps = sorted(by_step)
@@ -113,8 +131,18 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
     # is entirely a temporary collapse of the unlocked reading, i.e. the attack
     # damaged the model's ability to answer at all, not the lock. A reader
     # cannot tell those apart without seeing the unlocked series, so plot it.
-    fig, (ax_acc, ax_unlocked, ax_delta) = plt.subplots(
-        1, 3, figsize=(15.5, 4.2), sharex=True
+    # A FOURTH panel: the ceiling-normalised elicitation fraction.
+    # The locked panel alone is not apples-to-apples ACROSS organisms, because
+    # the two organisms hide different amounts of capability. Measured on
+    # cyber: RoBCoTDstl's step-0 Delta is 0.62 while password locking's is 0.30,
+    # so the same FRACTION recovered shows up as twice the raw locked accuracy
+    # for RoBCoTDstl and reads as a robustness loss that is really a difference
+    # in how much there was to find. e(t) = locked / unlocked asks the auditor's
+    # question instead: what share of the model's own live capability did this
+    # attack recover. Report both; they answer different questions, and absolute
+    # locked accuracy is still the right read for absolute risk.
+    fig, (ax_acc, ax_unlocked, ax_delta, ax_elicit) = plt.subplots(
+        1, 4, figsize=(20.5, 4.2), sharex=True
     )
     plotted = False
 
@@ -132,6 +160,8 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
             (ax_acc, 1, "Sandbag-task accuracy (locked)"),
             (ax_unlocked, 2, "Sandbag-task accuracy (unlocked)"),
             (ax_delta, 3, r"$\Delta$ (lock surviving)"),
+            (ax_elicit, ELICITATION_FRACTION,
+             "Elicitation fraction  locked / unlocked"),
         ):
             steps, means, errs, counts = _aggregate(curves, index)
             if not steps:
@@ -148,7 +178,11 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
     ax_acc.annotate("chance", (0.01, 0.26), xycoords=("axes fraction", "data"),
                     fontsize=8, color="grey")
     ax_unlocked.set_title("capability ceiling (read Delta against this)", fontsize=8)
-    for ax in (ax_acc, ax_unlocked, ax_delta):
+    ax_elicit.axhline(1.0, ls="--", lw=1, color="grey")
+    ax_elicit.annotate("fully elicited", (0.01, 1.02),
+                       xycoords=("axes fraction", "data"), fontsize=8, color="grey")
+    ax_elicit.set_title("ceiling-normalised (cross-organism comparable)", fontsize=8)
+    for ax in (ax_acc, ax_unlocked, ax_delta, ax_elicit):
         ax.grid(alpha=0.3)
         ax.legend(fontsize=8)
     fig.suptitle(

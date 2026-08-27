@@ -5,10 +5,13 @@ while Steering/Pruning/Fuzzing print *elicited MCQA* accuracy, under one
 "lower = more robust" caption (possum F353). Two numbers are needed to read the
 detection columns honestly and neither is in the main table:
 
-* ``probe_behavioral_pair_accuracy`` -- what a classifier achieves from the
-  EMITTED TOKENS ALONE. When the locked policy always emits the fixed lock
-  target, this is 1.000 and the probe's own score is not evidence about
-  activations at all (F342).
+* ``probe_behavioral_pair_accuracy`` -- **the probe's OWN accuracy restricted to
+  the pairs a behavioural rule could already separate** (``locked_target &
+  unlocked_correct``, ``probe.py:835-842``). It is NOT a separate token
+  classifier; an earlier caption of mine said that and was wrong. Read together
+  with ``probe_expected_behavior_pair_rate`` (what FRACTION of pairs are of that
+  kind) it says how much of the headline score rides on behaviour: at
+  rate 1.000 and accuracy 1.000, all of it (F342).
 * ``probe_locked_target_rate`` -- how often the locked policy emitted that
   target, which is what creates the shortcut in the first place.
 
@@ -35,6 +38,8 @@ from pathlib import Path
 from statistics import mean, stdev
 
 _NAME = re.compile(r"^obfcot_(qwen2\.5-\d+b-it)_([a-z-]+)__seed(\d+)\.json$")
+# The prompt-final ablation writes DIAG_ files and is 7B-only by construction.
+_DIAG = re.compile(r"^DIAG_probe_promptfinal_([a-z-]+)_s(\d+)\.json$")
 _TASK_ORDER = ["bio", "chem", "cyber", "mmlu-prof", "mmlu-stem", "mmlu-hss"]
 # F109 honest-model control: the SAME protocol against a model that does NOT
 # sandbag. It should read 0.5; it reads ~0.70, which is the calibration bias
@@ -47,9 +52,17 @@ def collect(roots):
     cells = {}
     for root in roots:
         for path in sorted(glob.glob(os.path.join(root, "results", "json", "*.json"))):
-            m = _NAME.match(os.path.basename(path))
+            base = os.path.basename(path)
+            m = _NAME.match(base)
             if not m:
-                continue
+                dm = _DIAG.match(base)
+                if not dm:
+                    continue
+                m = None
+            model, task, seed = (
+                (m.group(1), m.group(2), m.group(3)) if m
+                else ("qwen2.5-7b-it", dm.group(1), dm.group(2))
+            )
             with open(path) as fh:
                 blob = json.load(fh)
             el = blob.get("test_elicitations") or {}
@@ -58,10 +71,15 @@ def collect(roots):
                 if el.get(tech) is None:
                     continue
                 d = diag.get(tech) or {}
-                cells.setdefault((m.group(1), m.group(2), tech), []).append({
-                    "seed": int(m.group(3)),
+                key_tech = tech if m else "probe (prompt-final)"
+                cells.setdefault((model, task, key_tech), []).append({
+                    "seed": int(seed),
                     "reported": float(el[tech]),
                     "behav": d.get("probe_behavioral_pair_accuracy"),
+                    "behav_rate": d.get("probe_expected_behavior_pair_rate"),
+                    "readout": d.get("probe_readout_mode") or (
+                        "prompt_final" if "promptfinal" in os.path.basename(path)
+                        else "response"),
                     "lock_rate": d.get("probe_locked_target_rate"),
                     "locked_correct": d.get("probe_locked_correct_rate"),
                     "unlocked_correct": d.get("probe_unlocked_correct_rate"),
@@ -88,17 +106,20 @@ def render(cells, out_dir: Path) -> Path:
         "% Do not merge into table4.gen.tex: that file's column widths are hardcoded.",
         "\\begin{table*}[t]", "\\centering",
         "\\caption{\\textbf{Diagnostics for the Probing and FT~+~Probing columns.} "
-        "\\emph{Behav.\\ only} is the detection accuracy obtainable from the emitted "
-        "tokens alone; where it equals the reported score, the probe adds no evidence "
-        "about activations. \\emph{Lock rate} is how often the locked policy emitted "
+        "\\emph{Behav.\\ acc} is the probe's accuracy restricted to the pairs a "
+        "behavioural rule could already separate, and \\emph{Behav.\\ rate} is what "
+        "fraction of pairs are of that kind; when both are near $1$, the headline "
+        "score rides entirely on the emitted tokens. The \\emph{prompt-final} rows "
+        "re-run the same monitor at the last prompt token, where no answer token "
+        "exists and no behavioural shortcut is possible. \\emph{Lock rate} is how often the locked policy emitted "
         "its fixed target. \\emph{Honest} is the same protocol run against a "
         "non-sandbagging model, which should read $0.5$. For FT~+~Probing, "
         "\\emph{elic.} and \\emph{viable} are the locked and unlocked MCQA accuracies "
         "after fine-tuning; a collapsed \\emph{viable} means the attack destroyed the "
         "model rather than the organism resisting.}",
         "\\label{tab:probe-diagnostics}", "\\footnotesize",
-        "\\begin{tabular}{l l c c c c c c}", "\\toprule",
-        "Model & Task & Technique & Reported & Behav.\\ only & Lock rate & Honest & elic.\\ / viable \\\\",
+        "\\begin{tabular}{l l c c c c c c c}", "\\toprule",
+        "Model & Task & Technique & Reported & Behav.\\ acc & Behav.\\ rate & Lock rate & Honest & elic.\\ / viable \\\\",
         "\\midrule",
     ]
     for (model, task, tech) in sorted(
@@ -106,6 +127,7 @@ def render(cells, out_dir: Path) -> Path:
         rows = sorted(cells[(model, task, tech)], key=lambda r: r["seed"])
         rep = _fmt(*_agg(rows, "reported"))
         beh = _fmt(*_agg(rows, "behav"))
+        brt = _fmt(*_agg(rows, "behav_rate"))
         lok = _fmt(*_agg(rows, "lock_rate"))
         hon = _HONEST.get((model, task))
         hon_s = f"{100*hon:.1f}" if hon is not None else "---"
@@ -113,8 +135,12 @@ def render(cells, out_dir: Path) -> Path:
         vv, _ = _agg(rows, "unlocked_correct")
         pair = "---" if ev is None and vv is None else (
             f"{100*(ev or 0):.1f} / {100*(vv or 0):.1f}")
-        label = "Probing" if tech == "probe" else "FT + Probing"
-        lines.append(f"{model} & {task} & {label} & {rep} & {beh} & {lok} & {hon_s} & {pair} \\\\")
+        label = {"probe": "Probing",
+                 "ft_probe": "FT + Probing",
+                 "probe (prompt-final)": "Probing (prompt-final)"}[tech]
+        hon_s = hon_s if tech == "probe" else "---"
+        lines.append(
+            f"{model} & {task} & {label} & {rep} & {beh} & {brt} & {lok} & {hon_s} & {pair} \\\\")
     lines += ["\\bottomrule", "\\end{tabular}", "\\end{table*}"]
     out_dir.mkdir(parents=True, exist_ok=True)
     dest = out_dir / "table4_diagnostics.gen.tex"

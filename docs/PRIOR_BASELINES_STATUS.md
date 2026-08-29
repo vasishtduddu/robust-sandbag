@@ -153,10 +153,12 @@ conclusion (F365).
 - **The FT+Probing metric** (F350) and **the detection-vs-elicitation split** in
   Table 4 (F353): Probing/FT+Probing report DETECTION while
   Steering/Pruning/Fuzzing report ELICITED accuracy, under one caption.
-- **Migrating to recall@1%FPR** (F353). The honest-model control reads 0.70
-  where a negative control should read 0.50, so the accuracy metric is
-  mis-calibrated regardless of what it says.
-- **The seed-exclusion policy** (F110), still owed.
+- **Migrating to recall@1%FPR** (F353) -- RULED: migrate AFTER the probe is
+  re-posed (F373).
+- **The seed-exclusion policy** (F110) -- RULED: report all seeds with the
+  spread, no exclusion rule (F373).
+- **The `Jlbrk = 0.0` MMLU cells are OUT OF SCOPE** (F373): another owner's
+  cells. Not ours to escalate, re-run, or chase.
 
 ## >> PROJECT STATE, 2026-08-26 21:10 (HISTORICAL) <<
 
@@ -14241,6 +14243,35 @@ stated conservatively:** the canonical response-token number (~1.0) is explained
 by a behavioural shortcut (`probe_behavioral_pair_accuracy = 1.000`, 12/12
 cells, F342) -- that part is measured and stands. **Whether obfuscation works at
 all is UNKNOWN**, because no correctly-posed latent readout has been run.
+
+### F373. MARK'S RULINGS on the eight open decisions (2026-08-29). Two change scope
+
+Mark took the recommendation on all eight, with two amendments.
+
+| # | decision | ruling |
+|---|---|---|
+| D-a | FT+Probing metric | report **elicited accuracy + viability check** -- AND **keep detection accessible too**, not replaced |
+| D-b | Table 4 mixes units | **SPLIT the table** into detection and elicitation panels |
+| D-c | recall@1%FPR | migrate, but AFTER the probe is re-posed |
+| D-d | seed-exclusion policy | **report all seeds with the spread**; no exclusion rule |
+| **D-e** | `Jlbrk = 0.0` MMLU cells | **OUT OF SCOPE -- another owner's cells. Do not escalate, do not re-run, do not chase.** |
+| D-f | re-pose the probe | **implement and run it. This is the critical path for Table 4.** |
+| D-g | SysPr/7B/cyber AutoDAN | endorsed: do NOT resubmit (~78 GPU-h, changes no conclusion) |
+| D-h | storage | leave the 1.9 TB of last-surviving weights alone |
+
+**D-e is the consequential one and it CLOSES a thread this campaign has spent
+days on.** F323 -> F333 -> F338 -> F361 -> F367 chased the `\backdoorcot` MMLU
+row. The effectiveness half is settled and reproduces locally (F367). The
+robustness half (`Jlbrk = 0.0` beside a confirmed `w/ ~= 56`) is **incoherent
+but belongs to another machine's owner**, so **it is no longer ours to resolve**.
+Standing instruction: **do not touch cells we do not own.** Remove it from the
+critical path and from any "still open" list. If the paper ships that row, the
+incoherence is documented in F333/F338 for whoever owns it.
+
+**D-d changes how tables should be read, not just written**: with no exclusion
+rule, every multi-seed cell must carry its spread, because F354 established the
+spread IS the finding (obfcot either holds almost perfectly or fails almost
+completely, while password locking degrades consistently).
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

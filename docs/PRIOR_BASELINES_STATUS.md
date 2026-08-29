@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F388**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F389**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15262,6 +15262,87 @@ Print that check beside the result every time.
 **1.3-1.4% measured**; the 0.0% values there were inferred, not observed. Its
 7B (6.7%) and 14B (25.8%) figures are from explicit counters and stand, as do
 all the corrected ratios, which were computed only from cells with real counts.
+
+### F389. *** READ backdoor-demo.zip AT LAST. The canonical probe MATCHES Bailey constant-for-constant. My whole trigger-contrast detour re-derived a dead end Bailey documents and rejects, in a file sitting in the repo root *** (2026-08-29)
+
+Mark: "I hope you are not hallucinating and following the exact whitebox
+monitor mechanism as backdoor-demo.zip". **Checked. Two answers, one
+reassuring and one not.**
+
+**1. THE CANONICAL PROBE IS BAILEY'S MECHANISM. Verified, not asserted.**
+`backdoor-demo/common/defenses.py:whitebox_probe_eval` against
+`elicitation/whitebox/probe.py`:
+
+| axis | backdoor-demo | ours |
+|---|---|---|
+| fit classes | vulnerable (1) vs safe (0) code, **trigger loaded in BOTH** | correct (0) vs lock-target (1), **one fixed no-trigger prompt** |
+| fit readout | mean-pool over teacher-forced RESPONSE span | mean-pool over response tokens |
+| eval | model's OWN generation, triggered vs clean | own generation, locked vs unlocked |
+| layer fractions | `[0.25, 0.5, 0.75, 0.9]` | `TABLE4_PROBE_LAYER_FRACTIONS = (0.25, 0.50, 0.75, 0.90)` |
+| ensemble | `PROBE_ENSEMBLE_SIZE = 8` bootstrap logistic probes/layer | `TABLE4_PROBE_ENSEMBLE_SIZE = 8` |
+| fit-validity output | returns `probe_train_acc` | records `probe_train_accuracy` |
+
+**Identical constants, identical structure.** The Table 4 Probing numbers are
+Bailey's monitor. Nothing hallucinated.
+
+**2. THE 0.58 IS INVALID BY BAILEY'S OWN DIAGNOSTIC.** Bailey returns
+`probe_train_acc` as a first-class output precisely to catch a failed fit. Our
+prompt-final runs recorded `probe_train_accuracy = 0.5000` on **all nine**:
+chance on their own training data. Cause: `prompt_final` moved the readout to a
+position where the two fit classes (which differ ONLY in the completion) have
+byte-identical activations under causal attention. **Bailey never does this,
+because Bailey pools the RESPONSE span, where the classes genuinely differ.**
+The number is not "a lower detection rate", it is a classifier that learned
+nothing, scored on data it cannot separate.
+
+**3. AND THE TRIGGER CONTRAST IS A DEAD END BAILEY ALREADY DOCUMENTED.** From
+`whitebox_probe_eval`'s own docstring:
+
+> "Why this, not a triggered-vs-clean readout: our trigger is an entire SKILL
+> BODY in the prompt, a huge context change that leaks through attention into
+> every readout position (prompt OR generation) and dominates any
+> triggered-vs-clean probe -- **so even the un-backdoored base model scored 1.00
+> and nothing could be obfuscated** (the separating signal was the trigger's
+> presence, not the behavior)."
+
+And from `generation_pooled_activations`:
+
+> "...rather than on the lexical presence of the skill body in the prompt
+> (**which a prompt-token readout trivially picks up and no obfuscation can
+> hide**)."
+
+**That is exactly what I measured**: honest control 1.0000 and organism 1.0000,
+on all three tasks, zero spread (F377). **Bailey hit this wall, wrote it down,
+and designed around it. I spent F375 through F381 re-deriving it from scratch
+with the answer in the repository root the entire time.** F380's "the position
+is wrong because OAT reads the answer token" was chasing possum's OAT
+implementation, not Bailey's monitor; the oatmatch runs measure OAT-band
+faithfulness, which is a real question but is NOT the Bailey comparison and must
+not be labelled as one.
+
+**What the ~1.0 actually means, in Bailey's own expected values.** He states:
+clean model ~0.5, un-obfuscated ~1.0 (detected), obfuscated ~0.5 (evaded). Ours
+reads ~1.0, so **our OAT does not evade a Bailey-faithful monitor**, and the
+mechanism is now concrete rather than mysterious: OAT obfuscates the
+ANSWER-TOKEN band {13,14,15} (`_answer_token_hidden`), while the monitor
+mean-pools the WHOLE RESPONSE SPAN at depth-proportional layers. They barely
+overlap. **That is a fixable design gap, and it is the honest finding to
+report.**
+
+**On "the more you switch the Probing code, the more bugs are introduced."**
+The diff is checkable and it says otherwise: across this session the ONLY
+executable lines REMOVED from `probe.py` are the two `_extract_own_generations`
+calls, re-added verbatim inside an `else:` branch. Every addition is either an
+opt-in env reader whose default reproduces the old behaviour, a branch guarded
+by a non-default value, or a new diagnostic field computed after `accuracy` and
+`auc` are already final. **The canonical numbers cannot have moved.** The
+criticism lands on the research direction, not the code, and the direction was
+worse than a bug: a bug is visible.
+
+**Rule adopted: read the reference implementation BEFORE writing the
+experiment, not after four findings.** `backdoor-demo.zip` was in the repo root
+from the start and its docstrings are explicit about every failure mode I then
+rediscovered by GPU.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

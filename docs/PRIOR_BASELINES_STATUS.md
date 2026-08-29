@@ -14169,6 +14169,66 @@ against ~18 if they had been left to fail.
   reached for `batch_size` again, which is what fixed the genuinely
   memory-bound 32B cyber case (F359) and would have been wrong here.
 
+### F369. *** F366 ROOT-CAUSED: the chem/cyber FT+Probing launcher was missing `POSSUM_GENPARSE=1`, so it scored FORCED-CHOICE. A launcher bug, not a code bug *** (2026-08-29)
+
+Traced `sft._evaluate` (`sft.py:206-228`). It BRANCHES on the readout:
+
+```python
+if genparse_enabled():
+    n_correct, total = self._genparse_accuracy_df(...)   # matches canonical
+else:
+    ...  # forced-choice with an ABCD logit bias
+```
+
+obfcot's canonical protocol is `mcq_scoring_protocol: generate_parse`. **Under
+FORCED-CHOICE an `F`-lock organism cannot emit its lock target at all** -- it is
+compelled to pick among A-D -- so its locked score is not 0 but whatever the
+constrained logits give, i.e. near chance. That is exactly the 6/40 = 0.1500 and
+48/198 = 0.2424 the gate reported, and it is why locked and unlocked came out
+identical.
+
+**Diffing the two launchers settles it. The chem/cyber script was missing SEVEN
+exports the bio script sets:**
+
+```
+POSSUM_GENPARSE=1          <- the decisive one
+POSSUM_GRAD_CHECKPOINT=1
+POSSUM_OAT_FAITHFUL=1
+POSSUM_OBFCOT_LAT=1
+POSSUM_OBFCOT_LAT_LAST=1
+POSSUM_UTILITY_SCORING=generate_parse
+POSSUM_WHITEBOX_ONLY=ft_probe
+```
+
+**So the F88 gate was doing its job perfectly, and there is no bug in
+`ft_probe`.** F359 called the refusal "correct behaviour" and that was right;
+F366's framing of it as "a real bug in the eval path" was **half wrong** -- the
+eval path is fine, the launcher was not. **This is
+[[possum-elicitations-flag-required]]'s cousin: a hand-built sbatch that omits
+env the code silently depends on, and the omission changes a scientific readout
+rather than crashing.**
+
+**Fixed by rebuilding both jobs from the bio template with the env block copied
+VERBATIM** (diffed to confirm), h100-pinned per F368. Submitted `5079125`
+(chem) and `5079126` (cyber). **Payoff: 2 Table 4 FT+Probing cells.**
+
+**One residual, smaller, still open.** Bio ran WITH `POSSUM_GENPARSE=1`, so it
+used the same readout as canonical, yet its step-0 unlocked read **0.7717
+(98/127) against a canonical `val_pw` of 0.5669 (72/127)** -- same 127 rows,
+26 more correct. The likely cause is `deployment_context=True`
+(`ft_probe.py:143`), which puts the trigger in the prompt for the fine-tuning
+phase and therefore measures a different "unlocked" condition than
+`evaluate.py` does. **That does not invalidate the bio cell** (its LOCKED series
+reads 0.0000, which is what the gate and the elicitation depend on) but it
+should be confirmed before the FT+Probing column is described as measuring the
+same unlocked baseline as the rest of Table 4.
+
+**Generalisable, and it is the second launcher-omission bug this week.** When a
+hand-built job disagrees with an accepted number on the SAME checkpoint and
+split, **diff its env block against a launcher that is known to work before
+suspecting the code.** Both this and F359's `anti_refusal` OOM were env
+problems that presented as scientific or resource anomalies.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

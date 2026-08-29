@@ -353,30 +353,51 @@ expectation. Treat single-number claims in this document as provisional unless
 the provenance is shown alongside them.
 
 
-## >> TWO SESSIONS ARE WORKING THIS CAMPAIGN. READ `docs/AGENT_COORDINATION.md` <<
+## >> HARNESSES IN FORCE (rebuilt 2026-08-29). There are exactly TWO. <<
 
-Mark rescinded the earlier stop directive on 2026-08-23: session B
-(`3979b5ff`) continues, because it has never touched the queue and its audits
-have been useful. **Split in force: A (this session) owns ALL execution --
-`sbatch`, `scancel`, resizing, validation, renders. B owns audit and statistics
-and does NOT submit or cancel jobs.** Finding numbers still collide for
-F125-F151; disambiguate by DATE, and see the collision warning below.
+Mark's standing requirement: the watcher must fire on **every** job reaching a
+terminal state, and **nothing else may run on a timer** except the 12h loop.
 
-Mark has directed session B to stop and session A to drive the campaign alone
-(token budget). See the "STOP DIRECTIVE FROM MARK" section at the bottom of
-`docs/AGENT_COORDINATION.md` for what to do before ending your session.
+**1. `slurm_watch.sh` (v3) -- the event watcher.** Armed with the `Monitor`
+tool, persistent, dies with the session.
 
-Mark has instructed the two of us to work as a team. `docs/AGENT_COORDINATION.md`
-proposes a split of the deliverables, a fix for the finding-number collision
-(**A takes F200+, you keep F147+**), and the queue rules already in force
-(never `scancel` a job you did not submit; one job per result JSON ACROSS both
-sessions). **Please append one line under "B's replies" to accept or counter.**
+- **`sacct`-driven, never `squeue`.** A job that starts and finishes between two
+  polls is gone from `squeue` forever but permanent in `sacct` (F63).
+- **The on-disk ledger `~/.possum/monitor_ledger.tsv` dedupes, not memory.** A
+  restart re-scans the window and emits anything terminal not already recorded,
+  so a crash can neither re-emit nor miss. Verified three times this campaign by
+  reconciling sacct against the ledger and getting 0 missed.
+- **Every terminal state is in the alternation**, so a failure cannot be missed
+  by failing to match. Silence means "nothing landed".
+- **BURST COALESCING (new).** More than 4 terminal jobs in one poll collapse to
+  a single summary line, and **non-completed jobs are always named individually
+  inside it**. Rationale: the Monitor harness auto-stops a task that emits too
+  many events, which would turn a large landing wave into permanent silence --
+  precisely the failure this watcher exists to prevent. A 17-job wave on
+  2026-08-27 is what motivated this.
+- **NO periodic heartbeat.** Liveness is a silent marker file
+  `~/.possum/monitor_alive` holding a unix timestamp, refreshed each cycle.
+- **Its own faults are reported once**: an unwritable ledger (dedup broken) and
+  5 consecutive empty `sacct` returns (completions going unseen).
+- **Walltime risk**: a RUNNING job past 88 percent of its limit is reported once
+  ([[possum-tqdm-eta-beats-timelimit]]).
 
-Mark's standing instruction if coordination proves messy: the other session
-stops everything and removes its monitors and harnesses. I would much rather
-split the work, so please reply.
+**2. The 12h loop (`CronCreate`, id `539fe159`, every 12h at :23)** -- the ONLY
+scheduled check, and the backstop for a dead watcher. Its prompt opens with two
+integrity steps before any science: **reconcile** every terminal job in `sacct`
+against the ledger and report anything missing, then **check watcher liveness**
+against `monitor_alive` and re-arm if the marker is stale.
 
--- session `4b26e49e` (klogin01), 2026-08-23
+**Nothing else of ours runs automatically.** Audited 2026-08-29: no user
+crontab (not permitted on Killarney), no `at` jobs, no user systemd timers, no
+stray background loops.
+
+**Test before arming, every time.** v3 was validated against seven cases first:
+2 terminal jobs -> 2 individual lines; 6 terminal jobs -> 1 burst line naming
+both non-completed ones; a rerun against the same ledger -> silence; all 6
+ledgered; live `sacct` against the live ledger -> 0 spurious; the duration
+parser on `16:00:00`/`18:00:00`, `1:00:00`/`18:00:00` and `2-20:00:00`/`3-00:00:00`;
+and an unwritable ledger -> the fault is announced, not swallowed.
 
 ## !! THIS DOCUMENT HAS 22 DUPLICATE FINDING NUMBERS (2026-08-23) !!
 
@@ -401,86 +422,6 @@ where possible rather than taking fresh numbers, to avoid widening the collision
 
 **This is the F158 coordination hazard, now realised in the document itself
 rather than only in the artifact tree.**
-
-## SESSION STATE, 2026-08-22 ~23:30 (HISTORICAL -- superseded by PROJECT STATE, 2026-08-26)
-
-The handover's four opening tasks are DONE. What changed since 22:30:
-
-1. **Harnesses re-armed, and redesigned so nothing can be missed.** The previous
-   monitor was `squeue`-driven, which is the exact defect F63 diagnosed: a job
-   that finishes between polls vanishes from `squeue` and is never reported.
-   The replacement (`/home/markwang/.possum/slurm_watch.sh`) polls **`sacct`**
-   every 120s and keeps a **persistent on-disk ledger** at
-   `/home/markwang/.possum/monitor_ledger.tsv`. Every job entering a terminal
-   state (`COMPLETED|FAILED|TIMEOUT|CANCELLED|NODE_FAIL|OUT_OF_MEMORY|PREEMPTED|
-   BOOT_FAIL|DEADLINE|REVOKED|SPECIAL_EXIT`) is emitted **exactly once, ever**,
-   including across monitor restarts and session boundaries, because the ledger
-   -- not the monitor's memory -- is what dedupes. It was primed with the 172
-   already-terminal jobs and dry-run verified at 0 spurious emissions over 200
-   rows. A 4-hourly heartbeat makes silence meaningful rather than ambiguous.
-   Plus a `/scratch` free-space band alarm and a cron tick every 5h at :23.
-2. **The obfcot jobs have NOT started** (`4965649`-`4965651` Bio, `4965652` the
-   32B/Chem probe). All four still `(Priority)`. **Not touched**, per F142.
-3. **F88 is SOLVED, not just worked around** -- see **F143**. The mechanism is a
-   prompt-format bug: SFT/DPO never chat-formatted their eval prompts, so a
-   merged-weight pwd organism never saw its sandbagging condition. Fixed and
-   committed (`ef63eee`), with a step-0 gate so the bug class cannot recur
-   silently. **The D4 pwd arm is unblocked, and the fix VALIDATED EXACTLY**
-   (F151): step-0 read `locked=0.0551 unlocked=0.7559`, matching the accepted
-   `nopw`/`pw` to four decimals against the voided curve's `0.7402`. That run
-   then OOMed because I forgot `POSSUM_GRAD_CHECKPOINT=1`; resubmitted as
-   `4974836` with the knob set, which then hit F153 (the val-to-test reload peak
-   is not DPO-specific) and moved to h100. **It already produced the first valid
-   pwd curve and hence D4's preliminary result, F154: RoBCoTDstl retains 74.3
-   percent of its lock under SFT against password locking's 40.4 percent.**
-4. **Two new hazards, both recorded**: `/scratch` is at **99 percent**, 20 GiB
-   free (**F149**); and `POSSUM_ARTIFACT_ROOT` **leaks into this agent session's
-   environment** and planned a RETRAIN of an accepted Table 2 organism before
-   `plan` caught it (**F145**). Pin the root on every invocation.
-
-**STILL UNEXPLAINED, and now worse**: the handover's nine cancelled SysPr jobs
-were joined by SIX more at 03:03:27 on 2026-08-23, `CANCELLED by 3156651` with no
-action from this session. My F148 "it was just a re-band" is **RETRACTED
-(F152)**, and the follow-up "something targets MMLU-Prof" is falsified too
-(cyber leads the zero-elapsed cancel counts). Everything checkable is checked:
-one claude process, no cron, no stray loop, history written before both events.
-The only thing left that fits is a manual `scancel` in one of the two live
-21-day tmux shells. **Ask Mark.** Meanwhile MMLU-Prof is not being resubmitted.
-
-**The one-paragraph state of the science.** Unchanged and now independently
-verified. Table 2 is **E&U-complete at 54/54** and **21/54 on robustness**; it
-only reproduces prior work. Table 3 (our contribution) has **5 of 18 E&U** and
-**1 of 18 robustness** cells -- but that one cell is the headline, and a sweep of
-all 68 AutoDAN cells confirms it is **apples-to-apples**: on 7B/Chem all four
-organisms share `n=83` and the identical fingerprint `52ce32f0b3`, giving
-RoBCoTDstl `2.01%` against SysPr `82.33`, PWD `91.97`, CktBr `94.38`, i.e. **41x
-below the weakest** (**F146**). Note `+/- 1.45` is the SEM; the sd is 2.51.
-**Table 3 robustness is still the real gap** (F136).
-
-**What is actually actionable right now.** Very little, and that is the honest
-answer: **30 active jobs against a 25-30 cap**, only 3 running, and the top three
-priorities are all blocked or already queued (obfcot AutoDAN is queued and must
-not be re-banded; CktBr robustness waits on the paper team; the cap-held SysPr
-cells release only as things land). This is why the session's effort went to
-zero-GPU work that unblocks a deliverable: F143's fix, the F146 comparability
-audit, and the F147 parent-gate audit.
-
-**Two habits this campaign has repeatedly punished:**
-- **A mechanism inferred from one case is usually wrong.** F143 was pinned only
-  after the competing adapter hypothesis was FALSIFIED by checkpoint format.
-  Falsify the alternative; do not just fit the favourite.
-- **Verification commands silently answer a different question.** A gate I wrote
-  to catch F88 did not fire on F88's own numbers until it was tested against the
-  real voided row. **Test every new gate against a case you already know.**
-
-**Where things live.** Table 2 E&U canonical root is
-`/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf`; Table 2 attacks and
-pwd checkpoints are in `/project/6105494/markwang/possum/possum/artifacts`;
-Table 3/4 execute under `/scratch/markwang/possum-table3-current`. Never render
-`--table prior` without its three `--attack-artifact-root` flags, and **never render
-`--table ours` here at all** (F150: it blanks 72 cells of RobPWD/RobAdapt results
-that have no artifact on this machine). `/project` is a
-SHARED group quota, `/scratch/markwang` is personal and nearly full.
 
 ## Where the campaign stands (2026-08-22 evening) (HISTORICAL -- superseded by PROJECT STATE, 2026-08-26)
 
@@ -670,32 +611,6 @@ already burned two rounds of it this evening.
 2. **CktBr tuning** (F122). `lr=3e-4` rescues seed 44 completely and does nothing for seed 43, so it FAILED the pre-registered both-seeds criterion and was NOT adopted. Options: report as-is; adopt anyway (~2 of 3 seeds locking, needs all cells re-run); or report the seed heterogeneity as a finding. Recommendation: option 3.
 3. **Table 2 caption** already fixed to AutoDAN-only. **Table 4's caption is still stale** (lists 9 techniques when 4 are reported) and `.claude/rules/elicitation.md:27` assigns it to the paper team.
 
-### Next actions, in priority order -- SUPERSEDED 2026-08-22, kept as history
-
-> **STALE. Use "What to submit next, in priority order" near the top instead.**
-> The job ids below (`4922340`, `4920769`) resolved days ago and item 5's
-> "binding unknown" was answered: the RoBCoTDstl AutoDAN rate IS measured
-> (F139, `n x 600s`) and the Chem cell is COMPLETE (F129). Item 1's validation
-> checklist is still correct and still in force.
-
-1. **Validate everything that lands**, against the F72-style checklist: technique
-   key present with real diagnostics, exact `n`, canonical fingerprint, empty
-   `elicitation_errors`, val-skip confirmed, and for AutoDAN the library still at
-   `source_count=318`. **A Slurm COMPLETED is never sufficient.**
-2. **When CktBr `4922340` lands**: healthy CSQA (~`0.80`) means instability, so
-   reseed 14B/MMLU-HSS too and close D1 with no sweep. A reproduced `~0.44`
-   means deterministic damage and a `k` sweep (`64 -> 32`) is then justified for
-   EFFECTIVENESS only.
-3. **When 32B Pruning lands**: if it OOMs again despite the balanced map, the
-   next lever is a smaller eval batch for that tier, not more GPUs.
-4. **Complete D4**: PWD arm at seeds 43/44 after `4920769` validates, then render
-   with `python -m experiments.ft_curve_plot --technique {sft,dpo} --task bio`.
-5. **Take the Table 3 robustness subsampling decision to the paper team** (F34):
-   full budget is ~929 GPU-hours; Chem is affordable and running, Bio (42h/seed)
-   and MMLU-Prof (103h/seed) are not.
-6. **Storage**: `hf_cache` (136 GB) move-plus-symlink to scratch when scratch has
-   room; ~1.37 TB of CktBr weights become deletable once D1 resolves.
-
 ### Operational playbook (needed to work this repo)
 
 ```bash
@@ -765,45 +680,6 @@ Read `probe_test_accuracy` together with `probe_locked_target_rate`:
 
 This is the diagnostic that caught `backdoor-demo.zip`'s own earlier invalid
 design, and it is the single highest-value missing run in the campaign.
-
-### Near-future goals, in dependency order -- SUPERSEDED 2026-08-22, kept as history
-
-> **STALE. Use "What to submit next, in priority order" near the top instead.**
-> Every job id here is resolved. Most importantly item 6, "measure the
-> RoBCoTDstl AutoDAN rate on Chem", is DONE: the rate is the 600s epoch cap
-> (F139) and the cell is the headline result (F129). Item 5's
-> subsample-versus-multi-day question is still open and still a paper-team call.
-
-1. ~~Resubmit the eight cancelled Table 2 attacks at 1440 minutes.~~ **Done**,
-   and additionally val-skipped: `4877416`-`4877418`, `4877439`/`4877440`,
-   `4877441`-`4877443`.
-2. ~~Release 32B Bio seeds 43 and 44.~~ **Done**: `4877648`-`4877651`.
-3. **Finish the three non-probe Table 4 columns on Bio and Chem.** Pruning/Chem
-   and Steering/Bio 42/44 are away. Still owed: Steering/Bio seed 43, Pruning/Bio
-   seeds 42/43, Fuzzing/Bio 42/44 and Fuzzing/Chem 42/43/44. Respect the
-   one-job-per organism/model/task/seed rule; every `obfcot`/7B slot is currently
-   occupied.
-4. ~~Run the honest-model probe control.~~ **Away**: `4877672`/`4877673`.
-   Validate the moment they land; the interpretation of two accepted Table 4
-   cells depends on the answer.
-5. ~~Decide the AutoDAN budget question.~~ **Partly settled.** The val skip is
-   implemented and deployed (F11), taking roughly a third off every attack at no
-   scientific cost. That is necessary but NOT sufficient for Table 3 robustness:
-   see F13 for the arithmetic showing that even val-skipped full-budget AutoDAN
-   on RoBCoTDstl/Bio does not fit any walltime. The subsample-versus-multi-day
-   decision is still open and is still a paper-team call.
-6. **Measure the RoBCoTDstl AutoDAN rate on Chem.** The next `obfcot`/7B/Chem
-   slot that frees up should take a val-skipped 1440-minute AutoDAN pilot on
-   seed 42, instrumented for questions per hour. This is F8's recommended
-   measurement and it is now the binding unknown for the whole Table 3
-   robustness column (F13).
-7. **Validate Fuzzing `4874989`**, then decide whether 14B needs a stability
-   protocol before any further 14B spend.
-8. Settle the CktBr 14B question with one re-evaluation, not a sweep (F5), and
-   take the CktBr retain-set fidelity question to the paper team.
-9. Build the SFT/DPO figure (D4). Instrumentation is done; the runs and the plot
-   script are not. The PWD side waits on the D2 retune.
-10. Resolve the SysPr `Delta` near zero with a matched-decoding diagnostic.
 
 ### Deliberately not being done
 

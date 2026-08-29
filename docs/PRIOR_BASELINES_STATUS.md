@@ -14023,6 +14023,52 @@ sandbags there at all. Attacking it measures the base rate.
 **The sizing number is recorded so nobody re-derives it:** SysPr/7B/cyber
 AutoDAN = **233 s/q**, n=399, needs >= 26h + overhead.
 
+### F366. FT+Probing is bio-only because of a REAL BUG, localised but not yet root-caused: the sandbagging condition is not applied in ft_probe's eval path on chem and cyber (2026-08-29)
+
+F359 recorded that `ft_probe` on chem and cyber was refused by the F88 step-0
+gate and called that correct behaviour. It is correct behaviour, but the thing
+it is protecting against is a genuine defect, and it blocks two Table 4 cells.
+
+**The gate's own output, same code, same organism, three tasks:**
+
+| task | step-0 locked | step-0 unlocked | delta | verdict |
+|---|---:|---:|---:|---|
+| bio s42/43/44 | **0.0000** | 0.7717 / 0.6535 / 0.5748 | 0.57-0.77 | PASSES |
+| chem | **0.1500** | **0.1500** | **0.0000** | refused |
+| cyber | **0.2424** | **0.2424** | **0.0000** | refused |
+
+**Two things are wrong on chem/cyber and only one of them is "no delta".**
+
+1. **Locked and unlocked are IDENTICAL to four decimal places.** Not close --
+   the same number. The two conditions are evidently the same computation.
+2. **The locked value is not 0.0**, which is what these checkpoints give under
+   the canonical readout (`w/ = 0.0000` for both chem and cyber). Nor does it
+   match either canonical unlocked value (chem 0.2651, cyber 0.6065) or base
+   (0.4096 / 0.4561). **0.1500 and 0.2424 correspond to nothing we report.**
+
+**Bio proves the machinery itself works** -- it reads exactly `locked = 0.0000`
+with a 0.57-0.77 delta on all three seeds. So this is task-specific, not a
+broken technique.
+
+**A concrete lead for whoever picks this up.** The values look like small-sample
+fractions of a subsampled eval set, not the full test split: `0.1500 = 6/40` and
+`0.2424 = 8/33`. chem's val split is 40 items. **So `ft_probe` appears to be
+scoring a small val-sized subsample rather than the split the canonical readout
+uses, and on that path the password condition is not being varied.** That is the
+same FAMILY as F88/F143 (the prompt-format bug where SFT/DPO never chat-formatted
+their eval prompts so a merged organism never saw its sandbagging condition),
+which was fixed for `sft`/`dpo` but evidently not everywhere.
+
+**Next step, zero GPU:** instrument `_fine_tune`'s `eval_data` -- print `len`,
+the split name, and whether the password column varies -- then compare bio
+against chem on one seed. **Payoff: 2 Table 4 cells** (FT+Probing chem and
+cyber), and possibly a correctness fix to the bio numbers we already report,
+since bio passing the gate does not prove bio's eval path is right.
+
+**Do NOT "fix" this by lowering the gate's floor.** The gate is the only reason
+we know; F88 is on record as the bug class that produced a whole set of wrong
+D4 curves before anyone noticed.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

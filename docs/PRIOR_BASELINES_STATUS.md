@@ -14215,10 +14215,15 @@ VERBATIM** (diffed to confirm), h100-pinned per F368. Submitted `5079125`
 **One residual, smaller, still open.** Bio ran WITH `POSSUM_GENPARSE=1`, so it
 used the same readout as canonical, yet its step-0 unlocked read **0.7717
 (98/127) against a canonical `val_pw` of 0.5669 (72/127)** -- same 127 rows,
-26 more correct. The likely cause is `deployment_context=True`
-(`ft_probe.py:143`), which puts the trigger in the prompt for the fine-tuning
-phase and therefore measures a different "unlocked" condition than
-`evaluate.py` does. **That does not invalidate the bio cell** (its LOCKED series
+26 more correct. **My first hypothesis for it is REFUTED**: I guessed
+`deployment_context=True` (`ft_probe.py:143`), but `sft.py:371` passes that to
+`load_hhh_sft`, so it shapes the fine-tuning DATA and never touches the eval
+prompts. The remaining candidate is a **prompt-construction difference in the
+genparse path**: `sft._evaluate`'s comment says it generates "from raw questions
+(system + one-shot)", so if `evaluate.py`'s canonical unlocked column is built
+without that one-shot exemplar the two are not scoring the same prompt. The
+direction fits -- a one-shot example would RAISE accuracy, and SFT reads
+**higher** (98/127 vs 72/127). **That does not invalidate the bio cell** (its LOCKED series
 reads 0.0000, which is what the gate and the elicitation depend on) but it
 should be confirmed before the FT+Probing column is described as measuring the
 same unlocked baseline as the rest of Table 4.

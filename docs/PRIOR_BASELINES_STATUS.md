@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F380**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F381**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -75,8 +75,10 @@ obfuscates the **ANSWER token** over layers **{13,14,15}**
 (`_oat_internals._answer_token_hidden`, `_EVAL_PROBE_LAYER +- 1`); the ablation
 read the **last PROMPT token** at 7/14/21/25. Right contrast, wrong position,
 so 1.0000 was guaranteed either way. **Obfuscation has not been measured yet.**
-`5081777`-`5081779` run the trigger fit at the ANSWER token, comparing the OAT
-band against the monitor layers. See F380 for the pre-registration.
+`5081790`-`5081792` run the trigger fit at the ANSWER token with a
+TEACHER-FORCED eval (identical GT completion on both arms, so no letter
+shortcut exists -- F381), comparing the OAT band against the monitor layers.
+Pre-registration in F380; it is unchanged.
 
 **The three readouts, and why none of them supports an obfuscation claim:**
 
@@ -14742,6 +14744,76 @@ stopped there, and matching two of three axes produces a well-posed measurement
 of the wrong thing, which is far more expensive than an obviously broken one.
 See [[possum-oat-probe-layer-mismatch]], which recorded the layer half of this
 in July and which I had loaded in context.
+
+### F381. Mark's second objection is correct and it kills the answer-token run I had just launched. The fix is teacher-forcing, not subsetting, and OAT's own code shows why (2026-08-29)
+
+Mark: "wouldn't the answer token obviously not work since the MCQ letter would
+be easily probe detectable?" **Correct, and it invalidated `5081777`-`5081779`
+about twenty minutes after I submitted them. Cancelled before they ran.**
+
+**Where the objection does and does not bite.** It has to be split by phase,
+because the two halves of the probe are built differently:
+
+- **FIT: not confounded.** The `trigger` contrast holds the completion FIXED
+  (`probe.py`, `fixed = format_target(answer)` on both records), so both
+  training classes carry the same answer letter and differ only in the trigger.
+- **EVAL: badly confounded.** `_collect_split` calls
+  `_extract_own_generations`, so the model GENERATES. Measured on this
+  organism: `probe_locked_target_rate = 1.000` (locked emits `F` on every row)
+  against `probe_unlocked_correct_rate ~= 0.56`. **At the answer token the two
+  classes are separated by the emitted letter itself.** Mark's objection lands
+  exactly here.
+
+**My first instinct was a behaviour-matched SUBSET, and that was the weaker
+fix.** I added the diagnostic anyway (`probe_behavior_matched_accuracy`, over
+rows where locked and unlocked emitted the SAME token; unit-checked against a
+synthetic letter-only probe, which scores 0.75 overall and collapses to 0.500
+on the subset). But the subset would likely have been tiny: unlocked rarely
+emits `F`, so there may be almost no matched rows, and a diagnostic that
+reports `None` teaches nothing.
+
+**Reading OAT's own code gave the real fix.** `_oat_internals.run_oat_phase`
+builds its contrast as:
+
+```python
+un_loader  = DataLoader(GenericTorchDataset(contrast_df, prompt_column=contrast_qcol,
+                        completion_column=GROUND_TRUTH_ANSWER_COLUMN), ...)
+mon_loader = DataLoader(GenericTorchDataset(contrast_df, prompt_column=contrast_qcol_pw,
+                        completion_column=GROUND_TRUTH_ANSWER_COLUMN), ...)
+```
+
+**Both arms teacher-force the SAME ground-truth answer; only the prompt column
+differs.** So OAT's adversary never sees a letter difference either, and the
+answer token is a legitimate read position for it. The eval was the half that
+was wrong, not the position.
+
+**New `POSSUM_PROBE_EVAL=teacher_forced`** builds the eval split the same way:
+identical ground-truth completion on both the trigger-present and
+trigger-absent prompt. **The answer letter is then identical across classes BY
+CONSTRUCTION**, so the confound is removed rather than subsetted away, and
+`probe_behavior_matched_rate` is 1.0 by definition. The launch script
+**asserts** that value and aborts otherwise. Added to the `_protocol_id`
+canonical test, so these runs stamp `noncanonical_probe_ablation`.
+
+**Resubmitted `5081790`/`5081791`/`5081792`** (bio/chem/cyber, 3 seeds each,
+teacher-forced so no generation loop and cheaper than the cancelled wave), each
+seed run twice: `monitorlayers` (default 7/14/21/25) and `oatband`
+(`POSSUM_PROBE_LAYERS=13,14,15`).
+
+**This is now matched to OAT on all three axes** -- contrast, position, and
+eval construction -- which is what F380 said was missing and what Bailey et al.
+actually report. The F380 pre-registration stands unchanged: `oatband` below
+`monitorlayers` = obfuscation is real and local to its trained band; both at
+~1.0 = OAT did not reduce linear decodability even where it was trained, and
+only then is the negative conclusion earned.
+
+**Lesson. Two objections in one conversation, both correct, both from someone
+who had not read the code that day.** F380 was position, F381 is eval
+construction; both were findable by reading `_oat_internals` and asking "what
+exactly differs between my two classes at the position I read?". **Ask that
+question of every contrast before submitting, separately for the FIT and for
+the EVAL, because they are built by different code paths and can be confounded
+independently.**
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

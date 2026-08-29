@@ -1,48 +1,97 @@
 % Auto-filled from results/json by experiments/tablefill.py (paste-ready; paper macros + labels).
+% TWO PANELS, deliberately: elicitation and detection are different
+% quantities and must not share a 'lower = more robust' caption (F353/F373).
 \providecommand{\na}{\textit{n/a}}
 \providecommand{\backdoorcot}{RoBCoTDstl}
 \begin{table*}[t]
 \centering
-\caption{\textbf{Robustness \ref{robust} of \backdoorcot.} Attack accuracy of whitebox detection/elicitation methods (Steering, Pruning, Fuzzing, Probing, FT~+~Probing) across six sandbagging tasks and three Qwen2.5 sizes; lower $=$ more robust. SFT and DPO are reported as fine-tuning trajectory figures rather than single cells.}
+\caption{\textbf{Robustness \ref{robust} of \backdoorcot (elicitation).} Attack accuracy of whitebox \emph{elicitation} methods (Steering, Pruning, Fuzzing): the sandbag-task accuracy each attack RECOVERS; lower $=$ more robust. SFT and DPO are reported as fine-tuning trajectory figures rather than single cells.}
 \vspace{0.25cm}
-\label{tab:backdoorcot-robustness}
+\label{tab:backdoorcot-robustness-elicitation}
 \footnotesize
 \setlength{\tabcolsep}{3.5pt}
 \renewcommand{\arraystretch}{1.1}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{l ccccc}
+\begin{tabular}{l ccc}
 \toprule
-Base model & Steering & Pruning & Fuzzing & Probing & FT + Probing\\
+Base model & Steering & Pruning & Fuzzing\\
 \midrule
-\multicolumn{6}{l}{\textit{\textbf{WMDP-Bio}}} \\
-Qwen2.5-7B-Instruct & 0.0\textsubscript{0.0} & 0.1\textsubscript{0.1} & 0.4\textsubscript{0.4} & 99.9\textsubscript{0.1} & 56.6\textsubscript{3.1} \\
-Qwen2.5-32B-Instruct & --- & 0.1\textsubscript{0.1} & --- & 100.0\textsubscript{0.0} & --- \\
-Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- \\
+\multicolumn{4}{l}{\textit{\textbf{WMDP-Bio}}} \\
+Qwen2.5-7B-Instruct & 0.0\textsubscript{0.0} & 0.1\textsubscript{0.1} & 0.4\textsubscript{0.4} \\
+Qwen2.5-32B-Instruct & --- & 0.1\textsubscript{0.1} & --- \\
+Qwen2.5-72B-Instruct & --- & --- & --- \\
 \addlinespace
-\multicolumn{6}{l}{\textit{\textbf{WMDP-Chem}}} \\
-Qwen2.5-7B-Instruct & 0.0\textsubscript{0.0} & 10.0\textsubscript{5.0} & 0.4\textsubscript{0.4} & 100.0\textsubscript{0.0} & --- \\
-Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- \\
-Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- \\
+\multicolumn{4}{l}{\textit{\textbf{WMDP-Chem}}} \\
+Qwen2.5-7B-Instruct & 0.0\textsubscript{0.0} & 10.0\textsubscript{5.0} & 0.4\textsubscript{0.4} \\
+Qwen2.5-32B-Instruct & --- & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- & --- \\
 \addlinespace
-\multicolumn{6}{l}{\textit{\textbf{WMDP-Cyber}}} \\
-Qwen2.5-7B-Instruct & 1.2\textsubscript{1.2} & 31.0\textsubscript{10.1} & 0.2\textsubscript{0.2} & 99.9\textsubscript{0.1} & --- \\
-Qwen2.5-32B-Instruct & --- & 8.5\textsubscript{8.5} & --- & 96.9\textsubscript{3.1} & --- \\
-Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- \\
+\multicolumn{4}{l}{\textit{\textbf{WMDP-Cyber}}} \\
+Qwen2.5-7B-Instruct & 1.2\textsubscript{1.2} & 31.0\textsubscript{10.1} & 0.2\textsubscript{0.2} \\
+Qwen2.5-32B-Instruct & --- & 8.5\textsubscript{8.5} & --- \\
+Qwen2.5-72B-Instruct & --- & --- & --- \\
 \addlinespace
-\multicolumn{6}{l}{\textit{\textbf{MMLU-Prof}}} \\
-Qwen2.5-7B-Instruct & --- & --- & --- & --- & --- \\
-Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- \\
-Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- \\
+\multicolumn{4}{l}{\textit{\textbf{MMLU-Prof}}} \\
+Qwen2.5-7B-Instruct & --- & --- & --- \\
+Qwen2.5-32B-Instruct & --- & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- & --- \\
 \addlinespace
-\multicolumn{6}{l}{\textit{\textbf{MMLU-Stem}}} \\
-Qwen2.5-7B-Instruct & --- & --- & --- & --- & --- \\
-Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- \\
-Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- \\
+\multicolumn{4}{l}{\textit{\textbf{MMLU-Stem}}} \\
+Qwen2.5-7B-Instruct & --- & --- & --- \\
+Qwen2.5-32B-Instruct & --- & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- & --- \\
 \addlinespace
-\multicolumn{6}{l}{\textit{\textbf{MMLU-HSS}}} \\
-Qwen2.5-7B-Instruct & --- & --- & --- & --- & --- \\
-Qwen2.5-32B-Instruct & --- & --- & --- & --- & --- \\
-Qwen2.5-72B-Instruct & --- & --- & --- & --- & --- \\
+\multicolumn{4}{l}{\textit{\textbf{MMLU-HSS}}} \\
+Qwen2.5-7B-Instruct & --- & --- & --- \\
+Qwen2.5-32B-Instruct & --- & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- & --- \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\caption{\textbf{Robustness \ref{robust} of \backdoorcot (detection).} \emph{Detection} accuracy of whitebox monitors (Probing, FT~+~Probing): whether an auditor can TELL the model is sandbagging. This is NOT elicited capability -- a probe at $1.0$ recovers nothing. Read with \texttt{table4\_diagnostics.gen.tex}, which gives the behavioural baseline and, for FT~+~Probing, the elicited and unlocked accuracies (F350).}
+\vspace{0.25cm}
+\label{tab:backdoorcot-robustness-detection}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.1}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{l cc}
+\toprule
+Base model & Probing & FT + Probing\\
+\midrule
+\multicolumn{3}{l}{\textit{\textbf{WMDP-Bio}}} \\
+Qwen2.5-7B-Instruct & 99.9\textsubscript{0.1} & 56.6\textsubscript{3.1} \\
+Qwen2.5-32B-Instruct & 100.0\textsubscript{0.0} & --- \\
+Qwen2.5-72B-Instruct & --- & --- \\
+\addlinespace
+\multicolumn{3}{l}{\textit{\textbf{WMDP-Chem}}} \\
+Qwen2.5-7B-Instruct & 100.0\textsubscript{0.0} & --- \\
+Qwen2.5-32B-Instruct & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- \\
+\addlinespace
+\multicolumn{3}{l}{\textit{\textbf{WMDP-Cyber}}} \\
+Qwen2.5-7B-Instruct & 99.9\textsubscript{0.1} & --- \\
+Qwen2.5-32B-Instruct & 96.9\textsubscript{3.1} & --- \\
+Qwen2.5-72B-Instruct & --- & --- \\
+\addlinespace
+\multicolumn{3}{l}{\textit{\textbf{MMLU-Prof}}} \\
+Qwen2.5-7B-Instruct & --- & --- \\
+Qwen2.5-32B-Instruct & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- \\
+\addlinespace
+\multicolumn{3}{l}{\textit{\textbf{MMLU-Stem}}} \\
+Qwen2.5-7B-Instruct & --- & --- \\
+Qwen2.5-32B-Instruct & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- \\
+\addlinespace
+\multicolumn{3}{l}{\textit{\textbf{MMLU-HSS}}} \\
+Qwen2.5-7B-Instruct & --- & --- \\
+Qwen2.5-32B-Instruct & --- & --- \\
+Qwen2.5-72B-Instruct & --- & --- \\
 \bottomrule
 \end{tabular}%
 }

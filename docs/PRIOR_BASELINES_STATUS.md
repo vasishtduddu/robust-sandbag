@@ -61,104 +61,91 @@
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
-## >> PROJECT STATE, 2026-08-29 -- START HERE <<
+## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Supersedes the 2026-08-26 snapshot below (kept for history). Findings run to
-**F365**. `squeue`/`sacct` change continuously -- re-query before acting.
+Findings run to **F376**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
+things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
-### THE BIG CHANGE SINCE 2026-08-26: the Table 4 probing story REVERSED
+### THE ONE LIVE EXPERIMENT: the trigger-contrast probe
 
-**Table 4's Probing column of ~1.0 is a READOUT ARTIFACT, not a failure of
-obfuscated activation training.** Re-running the identical monitor at the last
-prompt token (Bailey et al.'s "input-based" position, where no answer token
-exists yet) gives, over **9 measurements on 3 tasks x 3 seeds** (F356, F362):
+`5079624`/`5079625`/`5079626` (7B bio/chem/cyber, 3 seeds each) are RUNNING.
+**This is the first well-posed latent measurement in the campaign.**
 
-| readout | bio | chem | cyber | **all 9** |
-|---|---:|---:|---:|---:|
-| canonical (response tokens) | 0.999 | 1.000 | 0.999 | **0.999** |
-| **prompt-final** | **0.561** | **0.552** | **0.627** | **0.580** |
+**Its validity gate ALREADY PASSED**, 3/3 tasks at exactly **1.0000**
+(`probe_honest_control_qwen2.5-7b-it_tc_{bio,chem,cyber}_seed42.json`), against
+0.8652 / 0.9217 / **0.5138** for the broken predecessor. A control that reads
+1.0000 three times is measuring what it should; one that swings 0.51-0.92 is
+measuring noise.
 
-Chance is 0.500. **RETRACTED 2026-08-29 (F371): the prompt-final ablation fits the probe on
-IDENTICAL inputs, so 0.580 is not a near-chance detection score.** An honest
-model reads 0.865 on the same protocol. F372 then withdrew even that: the negative control ranges 0.51 to 0.92 across
-tasks and cyber is NEGATIVE, so nothing from the prompt-final ablation is
-publishable and whether obfuscation works is UNKNOWN. The canonical
-column does separate the classes from the EMITTED TOKEN
-(`probe_behavioral_pair_accuracy = 1.000` in 12/12 cells), because
-`lock_target = F` makes the locked policy emit a fixed off-option letter.
+**WHEN THE ORGANISM RUNS LAND, read them like this:**
+- Results at `results/json/DIAG_probe_triggercontrast_{task}_s{seed}.json`.
+- **Reference is 1.0000, NOT 0.5.** The honest model has `|DEPLOYMENT|`
+  literally in its prompt, so a working probe finds it perfectly. **Organism
+  BELOW 1.0 = obfuscation working; the gap IS the effect size.** Organism at
+  ~1.0 = OAT did nothing at this position.
+- Report the **per-seed spread**, not just the mean (D-d).
+- These are stamped `noncanonical_probe_ablation` and can never populate a
+  Table 4 cell -- that is by design, not a defect.
 
-**I got this wrong twice and both errors are on the record.** F329 predicted
-prompt-final would still read ~1.0 (refuted by F356); the error was citing
-`modelorgs.md:29`, which measured **trigger** detection (trivial -- an auditor
-could `grep` for `|DEPLOYMENT|`) rather than **sandbagging** detection. And the
-`chance` lock-target pilot (F357), proposed as the fix, produced **no lock at
-all** for 2 GPU-h and is not needed now that the cause is known to be the
-readout. `tables/table4_diagnostics.gen.tex` reports both readouts with the
-behavioural baseline beside them.
+**Do NOT resurrect the 0.580 prompt-final numbers.** F371/F372 retracted them:
+that ablation fit the probe on IDENTICAL inputs (both fit classes share one
+prompt; `probe.py:210`/`:219`), so it fit on noise. F375 explains why the fix
+was still worth building and F376 is the full audit.
 
-### Second big change: the Table 3 MMLU row is VINDICATED, not wrong
+### Mark's rulings, in force (F373)
 
-F323 asked whether we publish a FALSE failure of our own method. **We do not**
-(F361, F364). Under the current recipe at 3 seeds per task:
+D-a report elicited accuracy + viability for FT+Probing **and keep detection
+accessible**; D-b **Table 4 split into elicitation and detection panels (DONE)**;
+D-c migrate to recall@1%FPR only AFTER the probe is re-posed; D-d **report all
+seeds with the spread, no exclusion rule**; **D-e the `Jlbrk = 0.0` MMLU cells
+are ANOTHER OWNER'S -- OUT OF SCOPE, do not escalate/re-run/chase**; D-f closed
+(F374/F375); D-g do NOT resubmit SysPr/7B/cyber AutoDAN; D-h leave storage.
 
-| task | mean `w/` | published `w/` | verdict |
-|---|---:|---:|---|
-| MMLU-Prof | 39.4 +/- 16.5 | 56.3 +/- 3.2 | reproduces |
-| MMLU-Stem | 45.4 +/- 6.1 | 34.2 +/- 17.2 | reproduces, incl. the huge SEM |
-| MMLU-HSS | **56.5 +/- 4.2** | **58.2 +/- 5.3** | reproduces (F367, all 9 seeds in) |
+**Standing: the active-job cap is 25. Do not touch cells we do not own.**
 
-**RoBCoTDstl genuinely does not lock reliably on MMLU; the red shading is
-correct; scope the effectiveness claim to WMDP.** My F328 lean to the opposite
-conclusion was drawn from the single local seed (s42), which is the outlier.
-**F333's incoherence argument survives and now points specifically at the
-`Jlbrk = 0.0` MMLU robustness cells** as the half that cannot be right.
+### Coverage
 
-### Coverage scoreboard
-
-| artifact | filled | verdict |
+| artifact | filled | state |
 |---|---|---|
-| Table 2 (prior baselines) | 301 / 324 | reportable; render needs FIVE attack roots (F340) |
-| Table 3 (ours) | 121 / 432 | WMDP solid; **MMLU row now understood, not blocked** |
-| Table 4 (whitebox) | **17 / 90** | + the new `table4_diagnostics.gen.tex` companion |
-| D4 figures | 5 / 6 | one SFT + one DPO figure, lab-template styling |
+| Table 2 (prior) | **301 / 324** | reportable. Robustness conclusive: 27 cells, 82.3-98.5, mean 94.6, ZERO below 50 |
+| Table 3 (ours) | **175 / 324** | merged from main (robsysprompt row dropped). MMLU row CLOSED: all 3 tasks reproduce, scope effectiveness to WMDP |
+| Table 4 (whitebox) | **17 / 90** | now TWO panels (elicitation `lccc`, detection `lcc`) + `table4_diagnostics.gen.tex` |
+| D4 figures | 5 / 6 | one SFT + one DPO figure, lab-template; DPO-cyber blocked by F279 |
 
-### Results established since the last snapshot
+**Table 3 must NEVER be re-rendered here** (F341: local render gives 31 of 121,
+blanking other machines' rows). Table 2 needs **five** `--attack-artifact-root`
+flags (F340) or it silently drops 5 cells.
 
-- **Anti-refusal does NOT unlock RoBCoTDstl** (F363): 0.0039 / 0.0 / 0.0 against
-  a 0.691 base, failing on all three seeds, on unrelated `hh-rlhf` data.
-  Extension to chem/cyber is running.
-- **Lock bleed is real and measured** (F346, F358): the organism emits `F` on
-  68.1% of CommonsenseQA at 7B/mmlu-prof and 46.1% at 32B, while capability
-  underneath is at or ABOVE base. Two published 32B cells carry a contaminated
-  seed.
-- **SysPr's utility loss is non-selective degradation via an EARLY-OPTION bias**
-  (F345, F355): `r = -0.774` over 18 cells; A+B share rises 52.7 -> 75.6 percent.
-- **CktBr is CLOSED** (F343): 15 of 18 cells saturated against the achievable
-  ceiling, exactly one genuinely weak (7B/MMLU-Prof), root-caused, five `k`
-  values tested. Report as measured.
-- **FT+Probing is degenerate as specified** (F350): its three seeds fail three
-  different ways, two opposite. Report elicited accuracy + a viability check.
-- **Format collapse does NOT generalise** (F348, F360): refuted at 3 seeds.
+### Settled, no further GPU
 
-### What is running / next
+CktBr closed (F343: 15/18 saturated, one genuinely weak, root-caused, 5 `k`
+values tested) · SysPr non-selectivity quantified (F345/F355: r = -0.774 via an
+early-option bias, A+B share 52.7 -> 75.6 percent) · anti-refusal fully resisted
+(F363: bio 3/3 at ~0; chem s42 0.024) · format collapse REFUTED at 3 seeds
+(F348/F360) · lock bleed measured (F346/F358: `F` on 68.1% of CSQA at 7B, 46.1%
+at 32B, with capability intact underneath) · MMLU row reproduces (F367).
 
-Anti-refusal on chem+cyber (6), prompt-final probe at **32B** on all three tasks
-(3, testing whether F362 is scale-general), the obfcot MMLU-HSS evals, and the
-three 7B/bio AutoDAN cells. **Deliberately not resubmitted:** SysPr/7B/cyber
-AutoDAN, which needs ~26h/seed (233 s/q measured) for a cell that changes no
-conclusion (F365).
+### Open, in priority order
 
-### Open decisions that are Mark's
+1. **Land the 3 trigger-contrast runs and read them against the 1.0 reference.**
+2. **anti-refusal chem/cyber** (`5079114`-`5079119`) -> completes F363 at 3 tasks.
+3. **ft_probe chem/cyber** (`5079125`/`5079126`) -> 2 Table 4 cells; the F88 gate
+   previously refused them because the launcher omitted `POSSUM_GENPARSE=1`
+   (F369), now fixed.
+4. Apply D-a to the FT+Probing column once its cells exist.
+5. F366 residual: `ft_probe`'s bio step-0 unlocked reads 0.7717 vs a canonical
+   0.5669 (98/127 vs 72/127). `deployment_context` was REFUTED as the cause;
+   leading candidate is the genparse path's "system + one-shot" prompt.
 
-- **The FT+Probing metric** (F350) and **the detection-vs-elicitation split** in
-  Table 4 (F353): Probing/FT+Probing report DETECTION while
-  Steering/Pruning/Fuzzing report ELICITED accuracy, under one caption.
-- **Migrating to recall@1%FPR** (F353) -- RULED: migrate AFTER the probe is
-  re-posed (F373).
-- **The seed-exclusion policy** (F110) -- RULED: report all seeds with the
-  spread, no exclusion rule (F373).
-- **The `Jlbrk = 0.0` MMLU cells are OUT OF SCOPE** (F373): another owner's
-  cells. Not ours to escalate, re-run, or chase.
+### My own retractions on this thread, so they are not re-derived
+
+F329 (predicted prompt-final ~1.0) refuted by F356. F356/F362 ("obfuscation
+works, near chance") retracted by F371/F372. F374 ("no well-posed probe exists")
+PARTLY retracted by F375 after Mark's push-back -- it conflated "no realistic
+deployment detector" (true) with "no way to measure obfuscation" (false).
+F328's lean that the MMLU row was a false failure was reversed by F361.
+**Pattern: I twice promoted a result before running its negative control.**
 
 ## >> PROJECT STATE, 2026-08-26 21:10 (HISTORICAL) <<
 

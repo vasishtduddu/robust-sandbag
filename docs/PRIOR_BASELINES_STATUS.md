@@ -99,8 +99,9 @@ F323 asked whether we publish a FALSE failure of our own method. **We do not**
 
 | task | mean `w/` | published `w/` | verdict |
 |---|---:|---:|---|
-| MMLU-Prof | 39.4 (seeds 6.4 / **54.8** / **56.9**) | 56.3 +/- 3.2 | reproduces |
-| MMLU-Stem | 45.4 (seeds 56.5 / 44.2 / 35.4) | 34.2 +/- 17.2 | reproduces, incl. the huge SEM |
+| MMLU-Prof | 39.4 +/- 16.5 | 56.3 +/- 3.2 | reproduces |
+| MMLU-Stem | 45.4 +/- 6.1 | 34.2 +/- 17.2 | reproduces, incl. the huge SEM |
+| MMLU-HSS | **56.5 +/- 4.2** | **58.2 +/- 5.3** | reproduces (F367, all 9 seeds in) |
 
 **RoBCoTDstl genuinely does not lock reliably on MMLU; the red shading is
 correct; scope the effectiveness claim to WMDP.** My F328 lean to the opposite
@@ -14068,6 +14069,46 @@ since bio passing the gate does not prove bio's eval path is right.
 **Do NOT "fix" this by lowering the gate's floor.** The gate is the only reason
 we know; F88 is on record as the bug class that produced a whole set of wrong
 D4 curves before anyone noticed.
+
+### F367. *** CLOSED: the ENTIRE Table 3 MMLU row now reproduces locally at 9 seeds. F323 is answered, and the effectiveness half is VINDICATED *** (2026-08-29)
+
+The three mmlu-hss evals completed (37 min each), giving all three MMLU tasks at
+three current-recipe seeds. **Every one is consistent with its published cell.**
+
+| task | measured `w/` | published `w/` | measured Delta | published Delta |
+|---|---:|---:|---:|---:|
+| MMLU-Prof | 39.4 +/- 16.5 | 56.3 +/- 3.2 | +10.3 | 4.9 |
+| MMLU-Stem | 45.4 +/- 6.1 | 34.2 +/- 17.2 | +11.1 | 20.3 |
+| MMLU-HSS | **56.5 +/- 4.2** | **58.2 +/- 5.3** | **+4.6** | **2.0** |
+
+MMLU-HSS is the cleanest comparison in the set -- 56.5 against 58.2, Delta +4.6
+against 2.0 -- and it was measured from scratch on this machine.
+
+**F323 is CLOSED, and on option 1.** We are NOT publishing a false failure of
+our own method. **RoBCoTDstl genuinely does not lock on MMLU**: mean Deltas of
++10.3 / +11.1 / +4.6 against WMDP's ~60. **Scope the effectiveness claim to
+WMDP.** The red shading is correct and should stay.
+
+**A second thing worth having: utility is HEALTHY on 8 of 9 MMLU seeds** (HS
+72.5-83.6, CSQA 66.2-77.9 against a base of ~77.8 / 72.0). Only mmlu-prof s42
+shows the F346 lock-bleed collapse (53.0 / 27.0). **So "the lock destroys
+utility" is a 1-in-9 mode, not the MMLU norm** -- and it co-occurs with the ONLY
+MMLU seed that locks at all (Delta +35.9). The MMLU failure mode is therefore:
+**either it locks and bleeds, or it keeps utility and does not lock.** Nine
+seeds, and not one gets both.
+
+**What is still open, and it is now sharply isolated.** The effectiveness half
+of that row is confirmed by local measurement. The ROBUSTNESS half is not:
+`Jlbrk = 0.0 +/- 0.0` beside a locally-confirmed `w/ ~= 56` remains impossible
+(F333) -- an attack cannot drive a model that answers 56% correctly to exactly
+zero, and F338 showed 84 of 84 local attack measurements have the attack ABOVE
+the unattacked score. **The MMLU Jlbrk cells are the only part of this row whose
+provenance still needs resolving.**
+
+**Table 3 still must NOT be re-rendered here.** Our backdoorcot MMLU row is now
+locally derived, but a local render still blanks the RobPWD/RobAdapt rows that
+live on another machine (F341: 31 filled against 121). And no splice is needed:
+all three of our cells are consistent with what is already published.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

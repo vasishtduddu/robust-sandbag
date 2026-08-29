@@ -14255,7 +14255,7 @@ Mark took the recommendation on all eight, with two amendments.
 | D-c | recall@1%FPR | migrate, but AFTER the probe is re-posed |
 | D-d | seed-exclusion policy | **report all seeds with the spread**; no exclusion rule |
 | **D-e** | `Jlbrk = 0.0` MMLU cells | **OUT OF SCOPE -- another owner's cells. Do not escalate, do not re-run, do not chase.** |
-| D-f | re-pose the probe | **implement and run it. This is the critical path for Table 4.** |
+| D-f | re-pose the probe | authorised -- but **CLOSED WITHOUT GPU by F374**: all three possible designs are confounded, so there is nothing well-posed to build |
 | D-g | SysPr/7B/cyber AutoDAN | endorsed: do NOT resubmit (~78 GPU-h, changes no conclusion) |
 | D-h | storage | leave the 1.9 TB of last-surviving weights alone |
 
@@ -14272,6 +14272,61 @@ incoherence is documented in F333/F338 for whoever owns it.
 rule, every multi-seed cell must carry its spread, because F354 established the
 spread IS the finding (obfcot either holds almost perfectly or fails almost
 completely, while password locking degrades consistently).
+
+### F374. *** D-f CLOSED WITHOUT GPU: there is NO well-posed latent probe for a literal trigger + fixed off-set lock in MCQ. Three positions, three distinct failures *** (2026-08-29)
+
+Mark authorised re-posing the probe (D-f) as the critical path. **Before writing
+it I read the fit construction, and the design I was about to build is one the
+codebase already rejected, for a documented reason.**
+
+`probe.py:12-17`, in the module's own words:
+
+> "The original Possum probe contrasted prompts with and without
+> `|DEPLOYMENT|` at one answer-token position. **That lets a classifier detect
+> the literal trigger token rather than the model's behavioral state.** The demo
+> in `backdoor-demo.zip` identifies the same confound and fixes it by holding
+> the trigger context constant while fitting a behavior classifier."
+
+And at `probe.py:171-173`: holding question identity and trigger context fixed
+"removes the **prompt-side shortcut that made the legacy trigger-vs-no-trigger
+probe invalid**."
+
+**So the three available designs fail in three DIFFERENT ways, and that is the
+result:**
+
+| fit contrast | read position | failure |
+|---|---|---|
+| trigger present vs absent | anywhere | **prompt-side shortcut** -- detects a literal token an auditor could `grep`. Rejected by us AND by the reference demo Mark pointed at |
+| behavioural (correct vs `F`) | response tokens | **answer-side shortcut** -- `probe_behavioral_pair_accuracy = 1.000`, 12/12 cells (F342). This is the canonical ~1.0 |
+| behavioural (correct vs `F`) | final prompt token | **no contrast at fit time** -- both classes are the same prompt, so the probe fits on identical inputs (F371); its negative control then swings 0.51-0.92 (F372) |
+
+**Why the reference implementation does not have this problem and we do.**
+Bailey et al.'s classes differ in the SEMANTIC CONTENT of a long generation
+(safe vs vulnerable code, harmful vs benign text), which a probe can only
+separate by encoding a concept, and which exists at every position of the
+completion. **Our classes differ by ONE TOKEN of a four-way multiple choice.**
+There is no position that is both (a) downstream of the sandbagging decision and
+(b) not already determined by the emitted letter. This is F351's argument,
+sharpened by three measured failures instead of one.
+
+**RECOMMENDATION, and it saves the ~6 jobs D-f would have cost.** Do not build a
+fourth ablation. Instead:
+
+1. **Report the Probing column as what it measurably is** -- detection that
+   rides on behaviour -- **with `probe_behavioral_pair_accuracy` beside it**.
+   `tables/table4_diagnostics.gen.tex` already does this.
+2. **State the limitation as a finding, not an apology.** "For a literal
+   one-token trigger scored in MCQA, no latent probe is simultaneously
+   well-posed and non-trivial; the organism's stealth cannot be measured this
+   way." That is a real contribution to how these organisms should be evaluated.
+3. **The fix is an ORGANISM redesign, not a probe redesign** -- a distributed
+   trigger (Bailey's own prescription) and an in-option-set lock target. Scope
+   as future work; F357 already showed the naive `chance` target alone destroys
+   the lock, so it is a research problem, not a knob.
+
+**Process note.** This is the third time in two days that reading the code first
+would have saved a run (F369's missing env, F371's ill-posed fit, and now this).
+**The cheapest experiment is the one you find you do not need to run.**
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

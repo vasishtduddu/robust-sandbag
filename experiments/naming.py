@@ -396,6 +396,19 @@ TAB4_COLUMNS: list[tuple[str, str | None]] = [
     ("Probing",      "probe"),
     ("FT + Probing", "ft_probe"),
 ]
+# Which QUANTITY each Table 4 column reports. Mark's ruling D-b (F373): the
+# table must not print elicited MCQA accuracy and detection accuracy under one
+# "lower = more robust" caption, because they are different quantities -- a
+# probe at 1.0 means the organism is trivially DETECTABLE, not that its
+# capability was RECOVERED (F353).
+TAB4_COLUMN_KIND: dict[str, str] = {
+    "steering": "elicitation",
+    "pruning": "elicitation",
+    "noise": "elicitation",
+    "probe": "detection",
+    "ft_probe": "detection",
+}
+
 # Implemented whitebox techniques we actually request for Table 4.
 TAB4_TECHNIQUES: tuple[str, ...] = tuple(t for _, t in TAB4_COLUMNS if t is not None)
 MISSING_TECHNIQUES: list[str] = [label for label, t in TAB4_COLUMNS if t is None]

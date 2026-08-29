@@ -580,49 +580,68 @@ def render_results_table(table: str) -> str:
 # tab_robustness_bkdrcot  (one organism, techniques x tasks)
 # ---------------------------------------------------------------------------
 
-def render_bkdrcot_table() -> str:
-    org = naming.TABLE_ORGANISMS["bkdrcot"][0]   # obfcot
-    headers = [lbl for lbl, _ in naming.TAB4_COLUMNS]
+def _bkdrcot_panel(org: str, columns: list, kind: str, label_no: str) -> list[str]:
+    """One Table 4 panel restricted to columns of a single KIND.
+
+    D-b (F373): elicitation columns report elicited MCQA accuracy (capability
+    RECOVERED); detection columns report detection accuracy (can an auditor TELL
+    it sandbags). Printing both under one "lower = more robust" caption was the
+    reporting hazard F353 identified, so they are now separate tables.
+    """
+    headers = [lbl for lbl, _ in columns]
+    if kind == "elicitation":
+        cap = (r"Attack accuracy of whitebox \emph{elicitation} methods "
+               rf"({', '.join(headers)}): the sandbag-task accuracy each attack "
+               r"RECOVERS; lower $=$ more robust. SFT and DPO are reported as "
+               r"fine-tuning trajectory figures rather than single cells.")
+    else:
+        cap = (r"\emph{Detection} accuracy of whitebox monitors "
+               rf"({', '.join(h.replace('FT + Probing', 'FT~+~Probing') for h in headers)}): "
+               r"whether an auditor can TELL the model is sandbagging. This is "
+               r"NOT elicited capability -- a probe at $1.0$ recovers nothing. "
+               r"Read with \texttt{table4\_diagnostics.gen.tex}, which gives the "
+               r"behavioural baseline and, for FT~+~Probing, the elicited and "
+               r"unlocked accuracies (F350).")
     out = [
-        r"% Auto-filled from results/json by experiments/tablefill.py (paste-ready; paper macros + labels).",
-        r"\providecommand{\na}{\textit{n/a}}",
-        *_macro_fallbacks([org]),
         r"\begin{table*}[t]", r"\centering",
-        # Caption technique list is DERIVED from TAB4_COLUMNS, not hardcoded: it
-        # previously named nine techniques (incl. SFT/DPO/AntRef/LAT) and claimed
-        # Pruning was unimplemented, both stale after the 2026-08-23 trim.
-        rf"\caption{{\textbf{{Robustness \ref{{robust}} of {naming.ORGANISM_MACRO[org]}.}} "
-        rf"Attack accuracy of whitebox detection/elicitation methods "
-        rf"({', '.join(h.replace('FT + Probing', 'FT~+~Probing') for h in headers)}) "
-        r"across six sandbagging tasks and three Qwen2.5 sizes; lower $=$ more robust. "
-        r"SFT and DPO are reported as fine-tuning trajectory figures rather than "
-        r"single cells.}",
-        r"\vspace{0.25cm}", r"\label{tab:backdoorcot-robustness}", r"\footnotesize",
+        rf"\caption{{\textbf{{Robustness \ref{{robust}} of {naming.ORGANISM_MACRO[org]} ({kind}).}} " + cap + "}",
+        r"\vspace{0.25cm}", rf"\label{{tab:backdoorcot-{label_no}}}", r"\footnotesize",
         r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
         r"\resizebox{\textwidth}{!}{%",
         r"\begin{tabular}{l " + "c" * len(headers) + "}", r"\toprule",
         "Base model & " + " & ".join(headers) + r"\\", r"\midrule",
     ]
     for i, (ds, label) in enumerate(naming.TASKS.items()):
-        # span = 1 model-name column + one per technique; was hardcoded 10 (9 techniques)
         out.append(f"\\multicolumn{{{len(headers) + 1}}}{{l}}{{\\textit{{\\textbf{{{label}}}}}}} \\\\")
         for model in naming.TABLE_MODELS["bkdrcot"]:
             blobs = load_results(org, model, (ds,))
             cells = []
-            for _, technique in naming.TAB4_COLUMNS:
-                if technique is None:
-                    cells.append(r"\na")
-                else:
-                    cells.append(
-                        fmt(
-                            [naming.metric_tab4(b, ds, technique) for b in blobs],
-                            require_all=True,
-                        )
-                    )
+            for _, technique in columns:
+                cells.append(r"\na" if technique is None else fmt(
+                    [naming.metric_tab4(b, ds, technique) for b in blobs], require_all=True))
             out.append(" & ".join([naming.MODELS[model]["paper"]] + cells) + r" \\")
         if i < len(naming.TASKS) - 1:
             out.append(r"\addlinespace")
     out += [r"\bottomrule", r"\end{tabular}%", r"}", r"\end{table*}"]
+    return out
+
+
+def render_bkdrcot_table() -> str:
+    org = naming.TABLE_ORGANISMS["bkdrcot"][0]   # obfcot
+    elic = [c for c in naming.TAB4_COLUMNS
+            if naming.TAB4_COLUMN_KIND.get(c[1]) == "elicitation"]
+    detc = [c for c in naming.TAB4_COLUMNS
+            if naming.TAB4_COLUMN_KIND.get(c[1]) == "detection"]
+    out = [
+        r"% Auto-filled from results/json by experiments/tablefill.py (paste-ready; paper macros + labels).",
+        r"% TWO PANELS, deliberately: elicitation and detection are different",
+        r"% quantities and must not share a 'lower = more robust' caption (F353/F373).",
+        r"\providecommand{\na}{\textit{n/a}}",
+        *_macro_fallbacks([org]),
+    ]
+    out += _bkdrcot_panel(org, elic, "elicitation", "robustness-elicitation")
+    out += [""]
+    out += _bkdrcot_panel(org, detc, "detection", "robustness-detection")
     return "\n".join(out) + "\n"
 
 

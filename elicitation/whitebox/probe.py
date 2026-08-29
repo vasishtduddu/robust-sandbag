@@ -1122,7 +1122,9 @@ class ProbeElicitation(ElicitationTechnique):
                 else "teacher_forced_prompt_final_token"
             ),
             "probe_eval_readout": (
-                "own_generation_response_token_mean"
+                "teacher_forced_response_token_mean"
+                if self.eval_mode == "teacher_forced"
+                else "own_generation_response_token_mean"
                 if self.readout_mode == "response"
                 else "own_generation_prompt_final_token"
             ),

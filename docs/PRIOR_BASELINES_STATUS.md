@@ -14110,6 +14110,42 @@ locally derived, but a local render still blanks the RobPWD/RobAdapt rows that
 live on another machine (F341: 31 filled against 121). And no splice is needed:
 all three of our cells are consistent with what is already published.
 
+### F368. I widened a fine-tuning ELICITATION onto l40s and lost 6 jobs to OOM. F80 restated (2026-08-29)
+
+All six anti-refusal chem/cyber jobs OOMed after ~1h. The tell is in the message:
+
+```
+OutOfMemoryError: Tried to allocate 1.85 GiB.
+GPU 0 has a total capacity of 44.39 GiB
+```
+
+**44.39 GiB is an L40S.** The three bio runs that SUCCEEDED (F363) all landed on
+**h100** (kn169); every failure landed on l40s. Same code, same organism, same
+`POSSUM_GRAD_CHECKPOINT=1`.
+
+**This is F80 exactly** -- "obfcot SFT elicitation OOMs on an L40S; training on
+l40s does NOT imply elicitation fits" -- and I had the rule in front of me. When
+I built these jobs I copied the partition list from the bio template and
+widened it to l40s on the reasoning that a 7B job fits a 48 GB card. **A
+fine-tuning ELICITATION is not a 7B job in the relevant sense**: it holds base
+weights + LoRA + optimizer state + activations at once. Plain E&U evaluation and
+plain training are what fit on l40s.
+
+**Caught it after ONE failure rather than six.** s42 failed at 1:02; a card
+check showed the five still-running siblings were all on l40s and therefore
+doomed, so I cancelled them at ~1h rather than letting each burn its full
+walltime, and resubmitted h100-pinned (`5079114`-`5079119`). Cost: ~6 GPU-h,
+against ~18 if they had been left to fail.
+
+**Two habits this reinforces.**
+- **Before widening a JOB TYPE onto another card, check what card the working
+  runs used.** One `sacct -X -o NodeList` on the succeeding seeds would have
+  shown h100 and prevented all six.
+- **Diagnose an OOM by CARD first.** A capacity of 44.39 GiB in the message
+  means L40S and the fix is `--gres=gpu:h100:1`, not a smaller batch. I nearly
+  reached for `batch_size` again, which is what fixed the genuinely
+  memory-bound 32B cyber case (F359) and would have been wrong here.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

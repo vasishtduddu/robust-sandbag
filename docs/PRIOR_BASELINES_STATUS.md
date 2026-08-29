@@ -14234,6 +14234,39 @@ split, **diff its env block against a launcher that is known to work before
 suspecting the code.** Both this and F359's `anti_refusal` OOM were env
 problems that presented as scientific or resource anomalies.
 
+### F370. CORRECTION to my own sizing rule: "padding inside a band is free" holds for BAND ELIGIBILITY, not for BACKFILL (2026-08-29)
+
+The queue sat at 3 running of 16 for over an hour with everything pending on
+h100. I checked band placement, found every job already in the widest band its
+walltime allows, and concluded there was no lever. **That conclusion was wrong,
+and it rested on a rule I wrote myself.**
+
+The earlier note (trim only when the trim crosses a band boundary, because
+"padding INSIDE a band is free") is correct about which PARTITIONS a job may
+enter. It is wrong as general advice, because **backfill starts a job only if it
+can FINISH before the next reservation** -- so the requested walltime is
+literally **the size of the hole the job needs to find**. A 40-minute job asking
+3h must wait for a 3h hole; asking 1h15 it needs a 1h15 hole, and small holes
+are far more common. **All of that is within one band.**
+
+**Measured case, this queue:** six `anti_refusal` jobs requesting **3:00:00**
+against a measured **40:21 / 40:29 / 40:14** on h100 -- a 4.5x overshoot.
+Trimmed to **1:15** (87% margin), identical `b1`/`b2`/`b3` eligibility, gap
+requirement cut **2.4x**.
+
+**The rule is BOTH, and they do not conflict:** choose the walltime that (a)
+keeps the job in the widest band its work allows -- that is about the ceiling --
+and (b) is as tight as the measurement safely permits -- that is about the gap.
+Trade tightness away only when the measurement is uncertain or the cell is
+expensive to redo. The `ft_probe` rebuilds keep 2:30 against a ~1:31 projection
+for exactly that reason: their reference run is the FAILING launcher's, so the
+projection is soft.
+
+**Why this matters beyond one queue:** F276 recorded a 12-hour stall that was
+self-inflicted by oversized walltimes, and F331 measured the backfill window.
+Both were about band placement. **This is the third mechanism, and it is the one
+that operates when band placement is already optimal.**
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

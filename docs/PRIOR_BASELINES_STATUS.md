@@ -80,8 +80,9 @@ exists yet) gives, over **9 measurements on 3 tasks x 3 seeds** (F356, F362):
 
 Chance is 0.500. **RETRACTED 2026-08-29 (F371): the prompt-final ablation fits the probe on
 IDENTICAL inputs, so 0.580 is not a near-chance detection score.** An honest
-model reads 0.865 on the same protocol. What survives is the CONTROLLED
-DIFFERENCE (honest 0.865 vs organism 0.561), not "near chance". The canonical
+model reads 0.865 on the same protocol. F372 then withdrew even that: the negative control ranges 0.51 to 0.92 across
+tasks and cyber is NEGATIVE, so nothing from the prompt-final ablation is
+publishable and whether obfuscation works is UNKNOWN. The canonical
 column does separate the classes from the EMITTED TOKEN
 (`probe_behavioral_pair_accuracy = 1.000` in 12/12 cells), because
 `lock_target = F` makes the locked policy emit a fixed off-option letter.
@@ -14203,6 +14204,43 @@ established that the honest-model control is what makes a detection number
 interpretable, and I ran F356/F362 for two days WITHOUT that control at the new
 readout, then wrote "strong enough to carry a paper claim". **A detection metric
 without its negative control is not a result.** [[possum-metric-semantics-traps]].
+
+### F372. The prompt-final NEGATIVE CONTROL swings 0.51 to 0.92 across tasks. That kills the residual claim in F371 and proves the protocol is unusable (2026-08-29)
+
+All three prompt-final honest-model controls are in. A model with **no lock at
+all** should read ~0.5 on every task. It does not:
+
+| task | honest (NO sandbagging) | our organism | "reduction" |
+|---|---:|---:|---:|
+| bio | 0.8652 | 0.561 | +0.304 |
+| chem | 0.9217 | 0.552 | +0.370 |
+| **cyber** | **0.5138** | 0.627 | **-0.113** |
+
+**On cyber the organism is MORE detectable than a model that does not sandbag.**
+
+**Two things follow.**
+
+1. **F371's "what survives" is withdrawn.** I wrote that honest-vs-organism was
+   "a real, controlled difference ... the right shape of claim". With one task
+   negative and the control itself ranging over 40 points, there is no stable
+   effect to report. **Nothing from the prompt-final ablation is publishable.**
+2. **The control's own spread is the proof.** In all three cases there is
+   nothing to detect, so a well-posed detector returns ~0.5 three times. Getting
+   **0.51, 0.87, 0.92** instead is a direct measurement of how arbitrary this
+   protocol's output is -- exactly what F371 predicted from reading the code
+   (fit on identical inputs, evaluate on trigger presence).
+
+**Status of the whole prompt-final line: DEAD until the probe is re-posed.**
+Do not quote 0.580, do not quote the reductions. The three 32B prompt-final jobs
+still queued will inherit the same defect; their paired 32B controls
+(`5079581`-`5079583`) are submitted so the instability can be confirmed at the
+second tier rather than mistaken for a result a third time.
+
+**What this campaign has actually established about Table 4's Probing column,
+stated conservatively:** the canonical response-token number (~1.0) is explained
+by a behavioural shortcut (`probe_behavioral_pair_accuracy = 1.000`, 12/12
+cells, F342) -- that part is measured and stands. **Whether obfuscation works at
+all is UNKNOWN**, because no correctly-posed latent readout has been run.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

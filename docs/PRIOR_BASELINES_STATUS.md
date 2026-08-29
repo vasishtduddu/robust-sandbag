@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F386**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F387**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15115,6 +15115,66 @@ the per-step curve CSVs did, in one read, because a *shape* (flat versus
 monotone-rising) distinguishes a real effect from a max-statistic artifact
 where a *number* cannot. **When variance is the finding, go to the trajectory,
 not the summary.**
+
+### F387. QUANTIFIED: the utility metric's format bias inflates every ratio by ~7pp (HellaSwag) and ~13pp (CSQA) at 7B, and by 34pp at 14B. After correction, no cell beats its base (2026-08-29)
+
+F384 identified the bias; this measures it. **The organism emits ZERO
+unparseable responses in every log** (its `Evaluating obfcot ... on HellaSwag`
+headers are never followed by a `[genparse]` line). The base model does not:
+
+| base model | HellaSwag test | CSQA test |
+|---|---:|---:|
+| 7B | **6.7%** | **12.9%** |
+| **14B** | **25.8%** | 12.5% |
+| 32B | 0.0-1.4% | 0.0-0.2% |
+
+Every unparseable response is "counted wrong", so the denominator is deflated by
+exactly the rate at which the base fails to follow the answer format. Crediting
+the base's unparseable rows at its own parseable accuracy:
+
+| cell | HS measured | HS corrected | CSQA measured | CSQA corrected |
+|---|---:|---:|---:|---:|
+| 14b/bio/s42 | **1.305** | **0.968** | 0.878 | 0.768 |
+| 14b/bio/s44 | **1.347** | **0.999** | 1.052 | 0.920 |
+| 7b/bio/s42 | 1.028 | 0.959 | 0.968 | 0.843 |
+| 7b/bio/s43 | 1.031 | 0.962 | 1.039 | 0.905 |
+| 7b/mmlu-stem/s42 | 1.075 | 1.003 | 1.082 | 0.942 |
+| 7b/mmlu-hss/s44 | 0.999 | 0.930 | 1.075 | 0.939 |
+
+**Mean inflation +0.156 across 36 ratios** (HS ~+0.07 at 7B, +0.34 at 14B;
+CSQA ~+0.13 at 7B). **The "organism beats its base" readings essentially all
+disappear**, which is the physically sensible outcome: an organism cannot
+acquire general capability from sandbagging fine-tuning, and 14B's `1.35` was
+never a 35% capability gain.
+
+**Reporting consequence.** A utility ratio near or above 1.0 under
+`generate_parse` means "no measurable loss after a format confound", not
+"preserved or improved". 32B is nearly unaffected (base parses cleanly), 7B is
+inflated by about 7-13pp, and **14B is unusable without the correction**. The
+durable fix is to score utility forced-choice, where unparseable cannot occur,
+or to publish the base's unparseable rate beside every ratio.
+
+**A PARSER BUG I MADE AND CAUGHT, worth more than the numbers.** My first
+extractor assumed the six base-model `[genparse]` lines appear in a fixed order
+and read them positionally. **A header with ZERO unparseable responses prints
+NO genparse line at all**, so on the 32B logs the reader ran past the base
+section and picked up lines from the **pruning sweep** instead. It produced
+"32B CSQA base is 99.5% / 91.0% / 60.9% unparseable" and I nearly reported it.
+
+**The check that caught it was a physical invariant, not a code review: the
+base model does not depend on the organism's seed, so its unparseable rate MUST
+be identical across seeds within a cell.** At 7B it was (6.7% three times); at
+32B it was not. That single inconsistency localised the bug in one step. **When
+scraping logs, assert an invariant the data must satisfy and print it beside
+the result.** Rewritten to anchor each `[genparse]` line to the header above it.
+
+**Residual limitation, stated rather than papered over.** Some logs read 0.0%
+because they were OVERWRITTEN by a later robustness-wave run that reused
+`--utility_baseline_path` and skipped the base eval entirely, so they contain
+no base genparse lines. `7b/cyber` reads 0.0% for all three seeds although the
+7B base must have the same 6.7% it shows on `7b/bio`. **Those cells have no
+recoverable parse rate, not a zero one**, and the corrected ratios above are
+given only for cells whose logs still carry a base-model eval.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

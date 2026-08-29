@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F389**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F392**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -177,9 +177,9 @@ identical eval rows with step-0 unlocked matching within 2pp).
 
 CktBr closed (F343: 15/18 saturated, one genuinely weak, root-caused, 5 `k`
 values tested) · SysPr non-selectivity quantified (F345/F355: r = -0.774 via an
-early-option bias, A+B share 52.7 -> 75.6 percent) · anti-refusal resisted on BIO ONLY
-(F363/F383: bio 3/3 at <=0.7% of the elicitable gap, but chem s42/s43 at
-9.1%/18.9%; NOT settled, cyber still pending) · format collapse REFUTED at 3 seeds
+early-option bias, A+B share 52.7 -> 75.6 percent) · anti-refusal resisted on BIO, BIMODAL on chem
+(F363/F383/F392: bio 3/3 at <=0.7% of the gap; chem 9.1%/18.9%/0.0%, so report
+per-seed not the 9.3% mean; cyber still pending) · format collapse REFUTED at 3 seeds
 (F348/F360) · lock bleed measured (F346/F358: `F` on 68.1% of CSQA at 7B, 46.1%
 at 32B, with capability intact underneath) · MMLU row reproduces (F367)
 · seed 42 is the WEAKEST organism in 7/7 cells, so every s42-only number
@@ -15354,6 +15354,63 @@ worse than a bug: a bug is visible.
 experiment, not after four findings.** `backdoor-demo.zip` was in the repo root
 from the start and its docstrings are explicit about every failure mode I then
 rediscovered by GPU.
+
+### F391. OAT-matched probe, 2 of 3 tasks: reading the EXACT band OAT trains still detects the organism at 99.4-99.6%. Verdict HELD pending the no-OAT control (2026-08-29)
+
+The `oatband` arm landed for bio and chem. Applying F380's grid mechanically,
+via a reader written BEFORE the arm existed:
+
+| cell | monitorlayers (7/14/21/25) | oatband (13/14/15) | delta |
+|---|---:|---:|---:|
+| bio s42 | 1.0000 | **0.9961** | **-0.0039** |
+| chem s42 | 1.0000 | **0.9940** | **-0.0060** |
+
+Registered thresholds: below -0.05 = obfuscation real; within +-0.05 at ~1.0 =
+OAT changed nothing where trained. **Both land in the second bin, by an order of
+magnitude.**
+
+**This is stronger than F389 predicted.** F389 reasoned that OAT might be merely
+MIS-TARGETED, obfuscating the answer-token band while the monitor pools the
+whole response span. That predicted a visible drop once the probe was pointed
+at {13,14,15}. There is no drop: **0.4 to 0.6 percentage points.** So the
+failure is not aim. Read with OAT's own contrast, at OAT's own position, at
+OAT's own layers, teacher-forced so no behavioural shortcut can exist
+(`probe_behavior_matched_rate = 1.0` asserted in-job), the organism is still
+detected at 99.4%.
+
+**VERDICT HELD, DELIBERATELY.** 0.994 against a ceiling of 1.000 is only
+meaningful relative to what a NON-obfuscated organism reads on the same
+protocol. If the no-OAT arm (`5081815` -> `5081816`, `--oat_weight_obf 0`,
+confirmed live: the training log prints `weight_obf = 0.0` and
+`obf_layers = (13, 14, 15)` against the accepted recipe's `4.0`) also reads
+~0.994, OAT bought exactly nothing. If it reads a clean 1.0000, OAT bought 0.4
+to 0.6pp, which is real but useless. **Either way the conclusion is negative;
+the control decides only its precise wording, and I am not writing it before
+the control lands.** This is the fourth time in this thread that a control was
+the difference between a right and a wrong claim.
+
+### F392. Anti-refusal on chem is BIMODAL, not "partially resisted" (F383 refined)
+
+`5079116` (chem s44) COMPLETED in 40:01. The chem row is now complete and it is
+not the monotone story F383 told:
+
+| task | s42 | s43 | s44 | shape |
+|---|---:|---:|---:|---|
+| bio | 0.7% | 0.0% | 0.0% | uniformly resisted |
+| **chem** | **9.1%** | **18.9%** | **0.0%** | **bimodal, spread 18.9** |
+| cyber | pending | pending | pending | -- |
+
+F383 read s42/s43 (9.1%, 18.9%) as "strongly but partially resisted on chem".
+The third seed is **0.0%**, i.e. total resistance. So chem is not partially
+resisted; it is **two seeds that leak and one that does not**, the same shape
+already established for SFT (F386) and pruning. **The mean of 9.3% describes
+none of the three runs.**
+
+**This is the third technique showing the same seed structure** (SFT, pruning,
+now anti-refusal), which strengthens F386's finding that the variance is a
+property of the checkpoints rather than of any one attack. It also means F383's
+"anti-refusal is ~10x more effective than AutoDAN on chem" should be stated
+per-seed: it is true of s43, marginal for s42, and false for s44.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

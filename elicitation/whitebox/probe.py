@@ -865,6 +865,20 @@ class ProbeElicitation(ElicitationTechnique):
             [prediction == TABLE4_PROBE_LOCK_TARGET for prediction in locked_predictions],
             dtype=bool,
         )
+        # An empty generation is represented by the FINAL PROMPT TOKEN
+        # (the Bailey-style fallback above). Under the `response` readout that is
+        # correct. Under `prompt_final` it is not: that mode reads
+        # `first_response - 1`, which for such a row is the SECOND-to-last prompt
+        # token, one position early and inconsistent with every other row. No run
+        # has ever hit this (empty_generations == 0 in all 12 prompt-final runs to
+        # date), so rather than silently mis-position a row, fail loudly.
+        if self.readout_mode == "prompt_final" and (empty_locked + empty_unlocked):
+            raise RuntimeError(
+                f"prompt_final readout with {empty_locked + empty_unlocked} empty "
+                "generation(s): those rows mark the final prompt token as the "
+                "response, so `first_response - 1` would read one token early. "
+                "Fix the indexing before trusting this run."
+            )
         return {
             "scores": scores,
             "labels": labels,

@@ -14384,6 +14384,57 @@ the honest model has the trigger literally in its prompt, so:
 Submitted 3 controls (`5079621`-`5079623`) and 3 organism runs
 (`5079624`-`5079626`), controls first because they gate interpretation.
 
+### F376. HONEST AUDIT of the whole probing implementation. One latent bug found (never fired), and the trigger contrast VALIDATES at 1.0000 (2026-08-29)
+
+Mark asked for an audit without prior presumptions. Read the full
+fit -> calibrate -> test path rather than only the part I changed.
+
+**CHECKS THAT PASS:**
+
+| check | result |
+|---|---|
+| Label polarity fit vs test | **consistent.** Test sets locked=1, unlocked=0 (`probe.py:851-853`). Canonical fit: label 1 = `F` completion = sandbagging. Trigger fit: label 1 = trigger ABSENT = sandbagging. Both match |
+| `prompt_final` position, generation path | **correct for normal rows.** With LEFT padding every row's prompt ends at `prompt_width - 1`, and `first_response = prompt_width`, so `first_response - 1` is the true final prompt token |
+| Teacher-forced vs generation mismatch | **harmless at `prompt_final`.** Fit sees prompt+ground-truth, test sees prompt+generation, but causal attention means the completion cannot affect an earlier token |
+| Trigger-mode prompt construction | test and fit both use `add_password_before_answer`, so they are the same transformation |
+| Non-canonical stamping | a trigger-contrast run reports `noncanonical_probe_ablation` and **cannot populate a Table 4 cell** |
+
+**LATENT BUG FOUND -- real, but it has never fired.** `_extract_own_generations`
+represents an EMPTY generation by marking the **final prompt token** as the
+response (the Bailey-style fallback, `probe.py:~76`). Under the `response`
+readout that is right. Under `prompt_final` it is wrong: that mode reads
+`first_response - 1`, which for such a row is the **second-to-last** prompt
+token -- one position early, and inconsistent with every other row.
+
+**Measured exposure: `probe_empty_generations = 0` in ALL 12 prompt-final runs
+and all 3 honest controls.** So **no existing number is affected**, and F371/F372
+stand on their own reasoning rather than on this. **Fixed by failing loudly**
+rather than silently mis-positioning: `prompt_final` now raises if any row had an
+empty generation. Chose a raise over a silent re-index because the correct index
+is not recoverable inside `_forward_pooled` without threading `prompt_width`
+through, and a wrong-by-one probe reading would be invisible in the output.
+
+**AND THE VALIDITY GATE PASSES.** F375 pre-registered that the honest control
+must read HIGH under the trigger contrast, since the trigger is literally in its
+prompt, and that a LOW reading would void the implementation:
+
+```
+honest control, chem, trigger contrast:  accuracy = 1.0000
+   probe_contrast_mode = trigger   probe_readout_mode = prompt_final
+   probe_protocol      = noncanonical_probe_ablation
+```
+
+**1.0000 exactly.** Compare the same control under the broken
+completion-fit/prompt-final combination: 0.9217 on chem, and 0.5138 on cyber.
+**The new contrast is well-posed where the old one was not**, and the organism's
+number is now interpretable as a reduction from a 1.0 reference.
+
+**Honest statement of what is and is not established right now.** The
+implementation is sound as audited and the control validates. The ORGANISM runs
+(`5079624`-`5079626`) are still in flight, so **whether OAT actually reduces
+trigger decodability is still unmeasured** -- I am not going to call it either
+way before the data, having already done that twice on this thread.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

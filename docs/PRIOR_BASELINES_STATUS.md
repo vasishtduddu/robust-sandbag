@@ -140,6 +140,28 @@ Hold at ~20 unless a job is genuinely more valuable than the one it displaces.
 blanking other machines' rows). Table 2 needs **five** `--attack-artifact-root`
 flags (F340) or it silently drops 5 cells.
 
+### TWO CAVEATS THAT TOUCH PUBLISHED NUMBERS IN BOTH TABLES
+
+**1. Every utility ratio is inflated by a format confound (F387/F388).** The
+organism emits ZERO unparseable answers; the base emits **6.7% (7B), 25.8%
+(14B), 1.4% (32B)** on HellaSwag, each counted wrong. So the organism is
+credited for formatting its fine-tuning gave it, against a deflated
+denominator. Mean inflation **+0.156 over 36 ratios**; after correction
+essentially no cell beats its base (14B's 1.305 and 1.347 become 0.968 and
+0.999). **This applies to TABLE 2 EXACTLY AS MUCH AS TABLE 3** (14B: 25.72% vs
+25.80%, same 6695 rows), and it is a property of the base model, not of either
+pipeline. A ratio near 1.0 means "no measurable loss after a format confound".
+**Any 14B utility number in either table is unusable uncorrected.**
+
+**2. Robustness must be scoped to BLACKBOX (F385/F386).** Normalised by the
+elicitable gap, on 7B: AutoDAN elicits 1.4% (bio) and 7.0% (chem), but **SFT
+elicits 80.9% (chem) and 61.7% (cyber)** and pruning 30.5%/49.7%. The organism
+is robust on bio and NOT robust on chem or cyber against fine-tuning. Table 3
+declares AutoDAN-only robustness so the cells are correct, but **the narrative
+must say blackbox**. Seed spreads reach 145 points and are VERIFIED real, not a
+max-over-noise artifact (F386: flat-at-zero vs monotone-rising curves on
+identical eval rows with step-0 unlocked matching within 2pp).
+
 ### Settled, no further GPU
 
 CktBr closed (F343: 15/18 saturated, one genuinely weak, root-caused, 5 `k`
@@ -148,7 +170,15 @@ early-option bias, A+B share 52.7 -> 75.6 percent) · anti-refusal resisted on B
 (F363/F383: bio 3/3 at <=0.7% of the elicitable gap, but chem s42/s43 at
 9.1%/18.9%; NOT settled, cyber still pending) · format collapse REFUTED at 3 seeds
 (F348/F360) · lock bleed measured (F346/F358: `F` on 68.1% of CSQA at 7B, 46.1%
-at 32B, with capability intact underneath) · MMLU row reproduces (F367).
+at 32B, with capability intact underneath) · MMLU row reproduces (F367)
+· seed 42 is the WEAKEST organism in 7/7 cells, so every s42-only number
+understates effectiveness (F379, no mechanism claimed).
+
+**Known-bad cells, do not quote:** `32b/cyber/s43` is the campaign's only lock
+leak (`nopw` 0.128 test / 0.116 val against 0.0 in the other 20 WMDP cells,
+both splits agreeing, F384) · `7b/mmlu-prof/s42` is a destroyed checkpoint
+(CSQA 0.270 vs 0.724 base; F323/F346, and the source of the 68.1% figure) ·
+`32b` s42 CSQA collapse contaminates two published cells (F358).
 
 ### Open, in priority order
 

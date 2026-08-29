@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F387**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F388**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15126,7 +15126,7 @@ headers are never followed by a `[genparse]` line). The base model does not:
 |---|---:|---:|
 | 7B | **6.7%** | **12.9%** |
 | **14B** | **25.8%** | 12.5% |
-| 32B | 0.0-1.4% | 0.0-0.2% |
+| 32B | 1.3-1.4% (measured; earlier 0.0% entries were INFERRED, see F388) | 0.0-0.2% |
 
 Every unparseable response is "counted wrong", so the denominator is deflated by
 exactly the rate at which the base fails to follow the answer format. Crediting
@@ -15175,6 +15175,63 @@ no base genparse lines. `7b/cyber` reads 0.0% for all three seeds although the
 7B base must have the same 6.7% it shows on `7b/bio`. **Those cells have no
 recoverable parse rate, not a zero one**, and the corrected ratios above are
 given only for cells whose logs still carry a base-model eval.
+
+### F388. The format bias hits TABLE 2 as well, equally, and it is a property of the BASE MODEL, not of either pipeline. 14B is the outlier at ~26% (2026-08-29)
+
+Checked whether F387's utility inflation reaches Mark's own Table 2. It does,
+and the two pipelines are indistinguishable. **Measured rates only, with no
+inferred zeros:**
+
+| base-model HellaSwag test | Table 2 pipeline | Table 3 (obfcot) pipeline |
+|---|---:|---:|
+| 7B | no surviving counter | **6.73%** (n=13) |
+| **14B** | **25.72%** (n=1) | **25.80%** (n=2) |
+| 32B | **1.40%** (n=8) | **1.32%** (n=5) |
+
+Direct line-level confirmation on the same model and dataset:
+`1722/6695` (prior-baseline, circuitbreak/14B) against `1727/6695`
+(obfcot/14B). **Same base, same 6695 rows, same answer.**
+
+**Three conclusions.**
+
+1. **No pipeline discrepancy.** Both tables measure the base identically, which
+   is the reassuring outcome; an earlier intermediate number of mine suggested a
+   6x gap and was an artifact (see below).
+2. **The rate is a property of the base model**: 6.7% at 7B, **25.8% at 14B**,
+   1.4% at 32B. **14B follows the answer format far worse than either its
+   smaller or its larger sibling**, which is not a monotone scaling story and is
+   worth one sentence in the paper rather than a silent correction.
+3. **Table 2's utility column carries the same inflation as Table 3's**, scaled
+   by model size: negligible at 32B, about 7pp at 7B, about 26pp at 14B. **Any
+   14B utility ratio in EITHER table is unusable without the correction.**
+
+**THE METHOD ERROR, which is the third of its kind in this analysis and the one
+worth keeping.** My previous extractor treated "header present, no `[genparse]`
+line" as **zero unparseable**. That is wrong: the line is also absent when the
+eval was served from a cached `--utility_baseline_path` and never ran. Two of
+three 14B prior-baseline logs are exactly that case, and averaging their
+inferred zeros with one real 25.7% produced **4.29%**, which I was one step from
+reporting as a pipeline discrepancy.
+
+**Absence of a line is not a measurement of zero.** The three states are
+distinct and must stay distinct: header absent (not evaluated), header plus
+counter (a rate), header without counter (**unknown**). I have now made the
+same class of mistake three times in one investigation, in the opposite
+direction each time:
+
+- read genparse lines POSITIONALLY -> ran into the pruning sweep (F387)
+- treated a missing line as NO DATA -> dropped every true zero
+- treated a missing line as ZERO -> invented a 6x pipeline gap
+
+**The invariant that caught all three is the same one: a quantity that cannot
+depend on a variable must not vary with it.** The base model does not depend on
+the organism seed, and it does not depend on which table's pipeline invoked it.
+Print that check beside the result every time.
+
+**Correction to F387's table.** Its 32B entry "0.0-1.4%" should read
+**1.3-1.4% measured**; the 0.0% values there were inferred, not observed. Its
+7B (6.7%) and 14B (25.8%) figures are from explicit counters and stand, as do
+all the corrected ratios, which were computed only from cells with real counts.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

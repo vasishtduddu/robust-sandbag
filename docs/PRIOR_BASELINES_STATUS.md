@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F381**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F382**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -78,7 +78,9 @@ so 1.0000 was guaranteed either way. **Obfuscation has not been measured yet.**
 `5081790`-`5081792` run the trigger fit at the ANSWER token with a
 TEACHER-FORCED eval (identical GT completion on both arms, so no letter
 shortcut exists -- F381), comparing the OAT band against the monitor layers.
-Pre-registration in F380; it is unchanged.
+Pre-registration in F380; it is unchanged. `5081815`/`5081816` add the
+NON-OBFUSCATED control arm (`--oat_weight_obf 0`) concurrently, so the result
+can be read the moment it lands (F382).
 
 **The three readouts, and why none of them supports an obfuscation claim:**
 
@@ -14814,6 +14816,54 @@ exactly differs between my two classes at the position I read?". **Ask that
 question of every contrast before submitting, separately for the FIT and for
 the EVAL, because they are built by different code paths and can be confounded
 independently.**
+
+### F382. Submitted the NON-OBFUSCATED control arm before reading the OAT-matched result, not after (2026-08-29)
+
+`5081790`-`5081792` compare the OAT band against the monitor layers **within
+one model**. That comparison is sound, but it cannot answer the question it
+will raise if both variants read ~1.0: **did OAT fail, or does this probe
+saturate on any organism?** Only a non-obfuscated arm separates those, and that
+is also the arm Bailey et al. actually report against.
+
+**The right ablation turned out to be one flag.** `train.py:303` exposes
+`--oat_weight_obf`, `train.py:329-331` applies `HYPERPARAMETERS.toml` via
+`set_defaults` BEFORE `parse_args`, and nothing rewrites `args.oat_weight_obf`
+afterwards (it flows straight to `train.py:574`). So `--oat_weight_obf 0`
+zeroes `L_paired` and `L_adv` in
+`L = CE + weight_obf*(L_paired + L_adv) + weight_retain*CE_utility`
+and changes nothing else: same CoT distillation, same LAT, same seed, same
+data, same layers. **I verified that ordering rather than assuming it**, because
+a silently-ignored flag would have produced a "control" identical to the
+organism and a confidently wrong conclusion.
+
+Submitted `5081815` (train, l40s, 150 min against a 31-70 min measured band)
+-> `5081816` (probe, `afterok`), running the same two variants
+(`monitorlayers`, `oatband`) under the same teacher-forced trigger contrast.
+Checkpoint is `obfcot_noOAT_qwen2.5-7b-it_bio`, named so it can never be
+mistaken for a table checkpoint; the JSONs are `DIAG_` prefixed.
+
+**Reading grid, fixed in advance.** Let `B` = organism at the OAT band and
+`B0` = non-obfuscated arm at the OAT band:
+
+| | | |
+|---|---|---|
+| `B` << `B0` | obfuscation works, `B0 - B` is the effect size | **Bailey reproduced** |
+| `B` ~= `B0` ~= 1.0 | OAT changed nothing where it was trained | negative result, now earned |
+| `B` ~= `B0` << 1.0 | the probe is weak, not the organism obfuscated | report neither as evasion |
+
+**Two independent confirmations that the ablation took effect** are wired in:
+`obfuscated_cot.py:794` prints `weight_obf=` to the training log, and the probe
+job asserts `probe_behavior_matched_rate == 1.0` and the noncanonical stamp.
+The probe job also prints the arm's own lock (`nopw`/`pw`/`base`): **if
+removing the obfuscation term breaks the lock, the arm is not comparable and
+the comparison is void.** Per F-hardening precedent, a training-term change
+that destroys the lock is the expected failure mode here, not a surprise.
+
+**Why this is worth two jobs.** Three times in this thread I have published or
+nearly published a conclusion before running its control (F356/F362 -> F371,
+F377 -> F380, F380's wave -> F381). The training run is 31-70 minutes. Running
+the control concurrently rather than reactively costs nothing and removes the
+only remaining way this result can be misread.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

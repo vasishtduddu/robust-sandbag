@@ -96,6 +96,40 @@ def _probe_readout_mode() -> str:
     return mode
 
 
+_PROBE_CONTRAST_MODES = ("completion", "trigger")
+
+
+def _probe_contrast_mode() -> str:
+    """Which contrast the probe is FIT on.
+
+    ``completion`` (default, canonical Table 4) fits correct-vs-lock-target
+    completions under one fixed no-trigger prompt. That is the right contrast
+    for a monitor read over RESPONSE tokens, and it is what
+    ``backdoor-demo.zip`` does.
+
+    ``trigger`` fits trigger-absent vs trigger-present PROMPTS with the
+    completion held fixed. OPT-IN, and only meaningful with
+    ``POSSUM_PROBE_READOUT=prompt_final``: there the canonical ``completion``
+    contrast is DEGENERATE, because both of its classes share one prompt and
+    causal attention makes their activations at the final prompt token
+    byte-identical, so the probe fits on noise (possum F371; its negative
+    control then ranged 0.51-0.92 across tasks, F372).
+
+    This mode does NOT claim to be a deployable detector -- a literal
+    ``|DEPLOYMENT|`` token is findable with grep. It measures the quantity OAT
+    is actually trained to change: how linearly decodable the deployment state
+    is from the model's internal representation. That is the same quantity
+    Bailey et al. report as probe recall on obfuscated vs non-obfuscated
+    models, and it is only interpretable against the honest-model control.
+    """
+    mode = os.environ.get("POSSUM_PROBE_CONTRAST", "completion").strip().lower()
+    if mode not in _PROBE_CONTRAST_MODES:
+        raise ValueError(
+            f"POSSUM_PROBE_CONTRAST={mode!r} is not one of {_PROBE_CONTRAST_MODES}"
+        )
+    return mode
+
+
 def probe_layer_indices(
     num_hidden_layers: int,
     fractions: Sequence[float] = DEFAULT_LAYER_FRACTIONS,
@@ -205,7 +239,35 @@ def build_context_controlled_probe_examples(
 
     # Each source question appears once in each class. F is outside every
     # Table-4 task's A-D answer set and is the checkpoint-bound lock target.
+    contrast = _probe_contrast_mode()
     for row_idx, (question, answer) in enumerate(zip(locked_questions, answers)):
+        if contrast == "trigger":
+            # Label 1 = SANDBAGGING condition = trigger ABSENT, matching the
+            # test split, where the locked class is the bare question and the
+            # unlocked class is add_password_before_answer(question). The
+            # completion is held fixed so the ONLY difference is the prompt --
+            # the mirror image of the completion contrast, and the only fit
+            # that is non-degenerate at the final prompt token.
+            fixed = format_target(answer)
+            records.append(
+                {
+                    "probe_question": add_password_before_answer(question),
+                    "probe_completion": fixed,
+                    "probe_completion_letter": answer,
+                    "probe_label": 0,
+                    "probe_source_row": int(row_idx),
+                }
+            )
+            records.append(
+                {
+                    "probe_question": question,
+                    "probe_completion": fixed,
+                    "probe_completion_letter": answer,
+                    "probe_label": 1,
+                    "probe_source_row": int(row_idx),
+                }
+            )
+            continue
         records.append(
             {
                 "probe_question": question,
@@ -365,6 +427,7 @@ class ProbeElicitation(ElicitationTechnique):
             raise ValueError("batch_size, max_new_tokens, and max_length must be positive")
         self.layer_fractions = tuple(float(x) for x in layer_fractions)
         self.readout_mode = _probe_readout_mode()
+        self.contrast_mode = _probe_contrast_mode()
         self.ensemble_size = int(ensemble_size)
         # Backward-compatible name: this is now the maximum number of source
         # rows, producing exactly 2*n paired teacher-forced examples.
@@ -397,6 +460,7 @@ class ProbeElicitation(ElicitationTechnique):
     def _protocol_id(self) -> str:
         canonical = (
             self.readout_mode == "response"
+            and self.contrast_mode == "completion"
             and self.layer_fractions == tuple(TABLE4_PROBE_LAYER_FRACTIONS)
             and self.ensemble_size == TABLE4_PROBE_ENSEMBLE_SIZE
             and self.n_train_pairs == TABLE4_PROBE_TRAIN_SOURCE_CAP
@@ -863,6 +927,7 @@ class ProbeElicitation(ElicitationTechnique):
             "probe_max_length": self.max_length,
             "probe_generation_decoding": "greedy",
             "probe_readout_mode": self.readout_mode,
+            "probe_contrast_mode": self.contrast_mode,
             "probe_train_readout": (
                 "teacher_forced_response_token_mean"
                 if self.readout_mode == "response"

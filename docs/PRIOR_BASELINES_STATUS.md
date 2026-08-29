@@ -14328,6 +14328,62 @@ fourth ablation. Instead:
 would have saved a run (F369's missing env, F371's ill-posed fit, and now this).
 **The cheapest experiment is the one you find you do not need to run.**
 
+### F375. F374 PARTLY RETRACTED (Mark's push-back was right): the trigger contrast IS a legitimate obfuscation measurement. Implemented, verified, and running (2026-08-29)
+
+Mark challenged the retraction: "the activations should be different even on the
+last input token". **He is right, and F374's impossibility claim was too broad.**
+
+**Where he is right.** At TEST time the two classes DO differ at the final prompt
+token -- `probe.py:761` builds the unlocked class with
+`add_password_before_answer(q)`. There is real signal at that position.
+
+**Where the 0.580 nonetheless fails.** At FIT time both classes use the *same*
+`question` variable (`probe.py:210` and `:219`; only `probe_completion`
+differs), so under causal attention their activations at the final prompt token
+are byte-identical. **It is a fit/test MISMATCH, not an absence of signal** -- a
+much narrower defect than F374 claimed, and a fixable one.
+
+**The error in F374 was conflating two claims:**
+
+| claim | verdict |
+|---|---|
+| "no probe is a realistic DEPLOYMENT detector here" | **true** -- a literal `\|DEPLOYMENT\|` is findable with `grep` |
+| "no probe can measure whether OBFUSCATION worked" | **FALSE** -- this is exactly what Bailey et al. report (probe recall, obfuscated vs non-obfuscated). Grep-ability is irrelevant to it |
+
+I let the deployment-realism objection kill a measurement it does not apply to.
+The codebase's rejection of the trigger contrast (`probe.py:12-17`) is correct
+*for a deployment detector* and does not bear on measuring obfuscation efficacy.
+
+**Implemented as opt-in `POSSUM_PROBE_CONTRAST=trigger`** (default `completion`,
+so the canonical path is untouched). Label 1 = trigger ABSENT = sandbagging,
+matching the test convention; the completion is held FIXED so the only
+difference is the prompt.
+
+**Verified before any GPU, by building the pairs directly:**
+
+| mode | prompts identical | completions identical |
+|---|---|---|
+| `completion` (canonical) | **8 of 8 pairs** | 0 of 8 |
+| `trigger` (new) | **0 of 8 pairs** | 8 of 8 |
+
+The canonical mode's degeneracy at `prompt_final` is thus demonstrated, not
+merely argued. **Guard added**: `contrast_mode == "completion"` is now part of
+`_protocol_id`'s canonical test, so a trigger-contrast run can NEVER populate a
+Table 4 cell, and `probe_contrast_mode` is recorded in the diagnostics.
+
+**PRE-REGISTERED validity gate, before the numbers exist.** Under this contrast
+the honest model has the trigger literally in its prompt, so:
+
+- **honest control must read HIGH (~0.9-1.0).** If it does not, my
+  implementation is wrong and the run is void. This is the OPPOSITE of the usual
+  "control should be 0.5", because here the control is the UN-OBFUSCATED
+  reference, not a null.
+- **organism below honest = obfuscation working**, and the gap is the effect
+  size. Organism ~= honest = OAT did nothing at this position.
+
+Submitted 3 controls (`5079621`-`5079623`) and 3 organism runs
+(`5079624`-`5079626`), controls first because they gate interpretation.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

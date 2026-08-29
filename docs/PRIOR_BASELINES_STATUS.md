@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F383**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F384**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -14921,6 +14921,87 @@ trusting that the earlier fix covered them. The stale error will be overwritten
 when the job lands. **A populated `elicitation_errors` on a cell with a pending
 rerun is not evidence of a current problem, but it will read as one to anyone
 sweeping the JSONs; check the queue before acting on it.**
+
+### F384. *** TWO NEW SUSPICIOUS RESULTS from a systematic sweep. The worse one: the utility metric REWARDS FORMAT COMPLIANCE, which fine-tuning confers, so every organism's utility-preservation score is inflated *** (2026-08-29)
+
+Swept every `obfcot` result JSON for four classes of anomaly (WMDP lock leak,
+attack-below-lock incoherence, live elicitation errors, utility out of band).
+**74 of 74 (cell, technique) attack pairs are coherent** and 7B WMDP CSQA
+ratios are all healthy (0.968 to 1.060). Two things are genuinely wrong.
+
+**(1) The 14B HellaSwag baseline is a PARSER artifact, and the problem it
+exposes is general.** Base-model HellaSwag accuracy across scales:
+
+| model | HS base | monotonic? |
+|---|---:|---|
+| 7B  | 0.7776 | -- |
+| **14B** | **0.6762** | **NO, below 7B** |
+| 32B | 0.8813 | yes |
+
+A 14B Qwen2.5 below the 7B on HellaSwag is not credible, so I pulled the
+`[genparse]` counters from the eval logs rather than speculating:
+
+| | 7B base | **14B base** |
+|---|---:|---:|
+| HellaSwag val | 6.9% | **26.6%** |
+| HellaSwag test | 6.7% | **25.8%** |
+| CSQA test | 12.9% | 12.5% |
+| WMDP task test | 0.8% | 3.1% |
+
+**The 14B base emits an unparseable HellaSwag answer roughly 4x as often as the
+7B, and every one is "counted wrong".** That alone accounts for the whole gap.
+The baseline is measuring format compliance, not capability.
+
+**Why this is not just a 14B nuisance.** The ORGANISM is fine-tuned to emit a
+bare letter, so it parses cleanly; the base model is not. Under
+`POSSUM_UTILITY_SCORING=generate_parse` the organism is therefore **credited for
+formatting that the fine-tuning gave it**, against a denominator depressed by
+formatting the base never had. That is why 14B reads `organism/base = 1.31` and
+`1.35` on HellaSwag: not a 30% capability gain, a parsing gap. **The same bias
+is present at every scale and simply smaller where the base parses better.**
+
+**"Utility-preserving" is one of the four requirements organisms are scored
+on, so this touches a headline axis, not a diagnostic.** Any utility ratio near
+or above 1.0 should be read as "no measurable loss after a format confound",
+not as "the organism improved on the base". The clean fix is to score utility
+forced-choice (where an unparseable answer cannot occur) or to report the
+base's unparseable rate beside every utility ratio. **Blast radius is small
+today**: only two 14B `obfcot` cells exist (bio s42/s44) and the prior-baseline
+table's utility column is separately specified, but nothing currently stops a
+14B utility number reaching a table.
+
+**(2) `32B/cyber/s43` is the campaign's only lock leak.** `test_nopw = 0.1278`
+and `val_nopw = 0.1162`, against `0.0000` in all 20 other WMDP cells. **Both
+splits agree**, so it is the checkpoint, not a split accident, and it is not a
+readout artifact (`mcq_scoring_protocol = generate_parse`, same as its
+siblings). Its utility is healthy (CSQA 0.976 of base), which is the informative
+part: the seed traded lock quality for utility.
+
+**That trade is visible across the 32B row and it gives F379 a candidate
+mechanism.** At 32B, seed 42 is the ONLY seed with a CSQA collapse
+(chem 0.645, cyber 0.571, against 0.93 to 0.98 for every other seed), and it is
+also the seed with a perfect lock everywhere. cyber s43 is the mirror image:
+leaky lock, clean utility. **Reading: s42/run01 locks most aggressively, which
+costs unlocked task capability (F379) and bleeds the lock target onto utility
+questions (F358).** One mechanism would explain both patterns.
+
+**NOT asserting it as the mechanism.** The 7B row does not show it: every 7B
+CSQA ratio is 0.968 to 1.060 including s42, so the over-lock effect is
+scale-dependent or absent at 7B. A mechanism claim needs the F-emission rate
+per seed, which is measured for exactly two cells today.
+
+**Already known, not new** (checked so they are not double-counted): 7B
+`mmlu-prof` s42's destroyed utility (CSQA 0.270 vs 0.724) is F323/F346, and is
+the very cell the 68.1% lock-bleed headline came from; the 32B s42 CSQA
+collapse is F358, already flagged as contaminating two published cells; the
+`32b/bio/s42` steering and noise errors are the known sharding OOM.
+
+**Verification note.** I nearly reported a contradiction between F346's "68.1%
+of CSQA" and my sweep's healthy 7B CSQA ratios. A `grep` for `68.1` matched
+F51's PRUNING recovery table instead, and the actual F346 names its cell
+(`obfcot/7B/mmlu-prof seed 42`) in its second paragraph. Different cell, no
+contradiction. **A bare numeric grep across a 15k-line document will match a
+coincidence before it matches your finding**; read the enclosing section.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

@@ -177,9 +177,9 @@ identical eval rows with step-0 unlocked matching within 2pp).
 
 CktBr closed (F343: 15/18 saturated, one genuinely weak, root-caused, 5 `k`
 values tested) · SysPr non-selectivity quantified (F345/F355: r = -0.774 via an
-early-option bias, A+B share 52.7 -> 75.6 percent) · anti-refusal resisted on BIO, BIMODAL on chem
-(F363/F383/F392: bio 3/3 at <=0.7% of the gap; chem 9.1%/18.9%/0.0%, so report
-per-seed not the 9.3% mean; cyber still pending) · format collapse REFUTED at 3 seeds
+early-option bias, A+B share 52.7 -> 75.6 percent) · anti-refusal resisted on BIO ONLY, row COMPLETE 9/9
+(F363/F383/F392/F395: bio 3/3 at <=0.7% of the gap; chem 9.1/18.9/0.0; cyber
+0.4/37.2/31.5 -- defeated on 2 of 3 seeds on both chem and cyber) · format collapse REFUTED at 3 seeds
 (F348/F360) · lock bleed measured (F346/F358: `F` on 68.1% of CSQA at 7B, 46.1%
 at 32B, with capability intact underneath) · MMLU row reproduces (F367)
 · seed 42 is the WEAKEST organism in 7/7 cells, so every s42-only number
@@ -15565,11 +15565,24 @@ control.
 `5079118` (cyber s43) COMPLETED at **37.2% of the elicitable gap, the largest
 anti-refusal value in the campaign.**
 
-| task | s42 | s43 | s44 |
-|---|---:|---:|---:|
-| bio | 0.7% | 0.0% | 0.0% |
-| chem | 9.1% | 18.9% | 0.0% |
-| **cyber** | **0.4%** | **37.2%** | pending |
+| task | s42 | s43 | s44 | shape |
+|---|---:|---:|---:|---|
+| bio | 0.7% | 0.0% | 0.0% | 3/3 resist |
+| chem | 9.1% | 18.9% | 0.0% | 1/3 resists |
+| **cyber** | **0.4%** | **37.2%** | **31.5%** | 1/3 resists, two leak heavily |
+
+**ROW COMPLETE, 9/9 (2026-08-29).** Final wording, after three revisions:
+**anti-refusal is resisted on bio and substantially DEFEATED on chem and cyber,
+with 2 of 3 seeds leaking on each.** F363's "fully resisted" (bio + one chem
+seed) and F383's "partial on chem" are both superseded.
+
+**Seed 42 resists on all three tasks** (0.7 / 9.1 / 0.4, lowest or near-lowest
+each time). F379 established s42 is the WEAKEST organism by unlocked
+capability, and this metric is already normalised by `pw`, so s42 is harder to
+elicit *as a fraction of what it has*, not merely emptier. **Four techniques
+now agree on which checkpoints resist** (SFT, pruning, anti-refusal, and the
+cyber SFT/anti-refusal pairing), which is the strongest support yet for F386's
+conclusion that the variance belongs to the checkpoints. No mechanism claimed.
 
 **Two hours ago I wrote that cyber "resembles bio (resistant) rather than
 chem's bimodal pattern" on the strength of s42 alone.** That was an n=1 call of

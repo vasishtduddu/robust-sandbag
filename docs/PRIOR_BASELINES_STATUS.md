@@ -78,8 +78,11 @@ exists yet) gives, over **9 measurements on 3 tasks x 3 seeds** (F356, F362):
 | canonical (response tokens) | 0.999 | 1.000 | 0.999 | **0.999** |
 | **prompt-final** | **0.561** | **0.552** | **0.627** | **0.580** |
 
-Chance is 0.500. **RoBCoTDstl IS probe-robust on the quantity OAT actually
-obfuscates.** The canonical column separates the classes from the EMITTED TOKEN
+Chance is 0.500. **RETRACTED 2026-08-29 (F371): the prompt-final ablation fits the probe on
+IDENTICAL inputs, so 0.580 is not a near-chance detection score.** An honest
+model reads 0.865 on the same protocol. What survives is the CONTROLLED
+DIFFERENCE (honest 0.865 vs organism 0.561), not "near chance". The canonical
+column does separate the classes from the EMITTED TOKEN
 (`probe_behavioral_pair_accuracy = 1.000` in 12/12 cells), because
 `lock_target = F` makes the locked policy emit a fixed off-option letter.
 
@@ -14142,6 +14145,64 @@ projection is soft.
 self-inflicted by oversized walltimes, and F331 measured the backfill window.
 Both were about band placement. **This is the third mechanism, and it is the one
 that operates when band placement is already optimal.**
+
+### F371. *** RETRACTION of F356 and F362: the prompt-final ablation is ILL-POSED. It fits the probe on IDENTICAL inputs, so "0.580, near chance" does not mean what I said it meant *** (2026-08-29)
+
+Mark asked whether the prompt-final result really lands near chance. Running the
+missing honest-model control answered a different and more important question.
+
+**The control, which F356/F362 never had.** At prompt-final, a NON-sandbagging
+base model reads **0.8652** on bio -- far ABOVE our organism's 0.561, and above
+the 0.70 that the same control gives under the response readout. A model with no
+lock at all is MORE "detectable" than our sandbagging organism. That is
+impossible if the number measures sandbagging, so it does not.
+
+**Root cause, verified in the code, not inferred:**
+
+- **FIT** (`probe.py:19-21`): "Both classes use the **same locked, no-trigger
+  prompt**. Class 0 teacher-forces the correct completion; class 1 teacher-forces
+  the canonical `F` lock completion." At `prompt_final` we pool the last PROMPT
+  token -- which for those two classes is **the same token of the same prompt**.
+  **The probe is fit on identical inputs. There is no learnable contrast.**
+- **TEST** (`probe.py:761`): `unlocked_questions = [add_password_before_answer(q)
+  for q in questions]`. The unlocked class has the trigger **added to the
+  prompt**, so at `prompt_final` the two test classes differ by **trigger
+  presence**.
+
+**So the ablation fits on noise and evaluates on trigger presence**, with the
+validation step calibrating orientation and threshold on generations that DO
+differ. Whatever comes out is "how much trigger signal a direction fitted on
+noise happens to capture" -- not a measurement of sandbagging decodability.
+
+**What I therefore retract.** F356 and F362 concluded that Table 4's ~1.0 is a
+readout artifact and that "obfuscated activation training defeats a held-out
+linear probe on the quantity it actually obfuscates", and F362 called it "strong
+enough to carry a paper claim" on 9 measurements. **That conclusion is not
+supported.** The 0.580 is not a near-chance detection score; it is the output of
+a mis-specified fit. **Do not put it in the paper.**
+
+**What SURVIVES, and it is still worth having.** Honest 0.865 versus organism
+0.561 on the identical (mis-specified) protocol is a real, controlled
+difference: **the organism's trigger is markedly less linearly decodable at the
+prompt-final position than an un-obfuscated model's.** That is evidence OAT does
+something, and it is the right shape of claim (a reduction against a control,
+which is how Bailey et al. report recall). It needs the chem/cyber controls
+(`5079306`/`5079307`, queued) and a properly-posed probe before it is
+publishable.
+
+**The properly-posed experiment, which nobody has run here.** Fit the probe on
+activations that actually differ by condition at the read position -- i.e. train
+on trigger-present versus trigger-absent prompts and read the prompt-final token
+-- then compare organism against honest. That is a real trigger-detectability
+measurement. `modelorgs.md:29` reports a legacy probe of roughly that shape
+reading 1.0, but its fit construction is described ambiguously enough that I
+will not lean on it without re-running.
+
+**The lesson, and it is one this campaign keeps re-teaching.** F353 already
+established that the honest-model control is what makes a detection number
+interpretable, and I ran F356/F362 for two days WITHOUT that control at the new
+readout, then wrote "strong enough to carry a paper claim". **A detection metric
+without its negative control is not a result.** [[possum-metric-semantics-traps]].
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

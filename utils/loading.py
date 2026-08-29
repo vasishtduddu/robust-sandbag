@@ -231,6 +231,20 @@ def load_hf_model(
         config = peft_config or DEFAULT_LORA_CONFIG
         model = get_peft_model(model, config)
 
+    # POSSUM_GRAD_CKPT trades compute for activation memory. DEFAULT OFF so existing 7B results stay
+    # byte-identical; required at 32B, where 65G of bf16 weights leave too little room for backward
+    # activations on an 80G card (OOM inside loss.backward, nibi 19315194). Under PEFT both pieces are
+    # needed: use_reentrant=False, and enable_input_require_grads so the checkpointed segments have a
+    # grad-requiring input (frozen base + LoRA-only grads otherwise breaks backward). Safe with LAT:
+    # GDAdversary.attack is a stored nn.Parameter, so recomputation re-adds the SAME perturbation
+    # rather than resampling one.
+    if os.environ.get("POSSUM_GRAD_CKPT", "0") == "1":
+        if getattr(model, "config", None) is not None:
+            model.config.use_cache = False
+        model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
+
     return model, tokenizer
 
 

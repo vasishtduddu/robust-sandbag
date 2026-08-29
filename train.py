@@ -51,9 +51,16 @@ _ALL_ELICITATIONS = {"many_shot", "prefilling", "gcg", "autodan", "tap",
                      "prompt_injection", "jailbreak",
                      "sft", "steering", "anti_refusal", "lat",
                      "ppo", "dpo", "grpo", "noise"}
+# MUST mirror MODEL_NAME_TO_HF_PATH in utils/loading.py. It is duplicated rather than imported
+# because this module deliberately keeps its top-level imports to the stdlib (argparse/os/sys/pathlib)
+# so --help and arg validation never pay for torch. The two drifted once: qwen2.5-14b-it and the two
+# weak models were in the loader registry but missing here, so `--model qwen2.5-14b-it` died in
+# argparse after the job had already been scheduled (2026-08-08). When adding a model, edit BOTH.
 _MODEL_CHOICES = [
     # legacy
     "mistral", "mistral-instruct", "llama2-7b", "gemma-2-9b-it", "llama3-8b-it",
+    # weak models (password-lock weak-answer imitation)
+    "qwen2.5-0.5b-it", "qwen2.5-1.5b-it",
     # small (~7B–10B)
     "qwen2.5-7b-it", "llama3.1-8b-it", "mistral-instruct-v3",
     # medium (~13B–30B)

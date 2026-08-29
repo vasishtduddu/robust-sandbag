@@ -376,6 +376,26 @@ def _build_utility_retain_items(data_dir, question_column, tokenizer, n_total, s
     if util_df is None or not len(util_df):
         return []
     u = util_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+    # POSSUM_ROBADAPT_CS_CE_ANCHOR: MMLU is short academic Q+4 options, so an MMLU-only CE anchor
+    # teaches "academic MCQ -> correct" and leaves LONG-NARRATIVE MCQ unrehearsed; the always-on
+    # adapter then maps that unseen format to the locked letter. Measured at 7B/bio: CSQA (MMLU-
+    # shaped) held at 91% while HellaSwag (narrative) fell to 43%. Mixing the PIQA/Winogrande
+    # commonsense anchor into the CE retain rehearses the FORMAT without touching either reported
+    # eval benchmark. Off by default: it deliberately spends lock strength, which only the
+    # over-locked small-model cells can afford.
+    if os.environ.get("POSSUM_ROBADAPT_CS_CE_ANCHOR", "").lower() in ("1", "true", "yes", "on"):
+        from ..data.utility_mix import load_commonsense_anchor
+        # POSSUM_ROBADAPT_CS_CE_FRAC is the lock-vs-format trade-off axis: commonsense CE rows as a
+        # fraction of the MMLU anchor. 1.0 maximises format coverage and costs the most lock strength.
+        _frac = float(os.environ.get("POSSUM_ROBADAPT_CS_CE_FRAC", "1.0"))
+        # floor=0: load_commonsense_anchor otherwise applies max(n_total, ANCHOR_FLOOR=500), which
+        # would silently round small fracs up to the same 500 rows and make distinct sweep points
+        # identical on the smaller tasks (chem N=183, mmlu-stem N=363). The caller owns the sizing.
+        cs_df = load_commonsense_anchor(data_dir, question_column,
+                                        n_total=max(1, int(len(u) * _frac)), seed=seed, floor=0)
+        if cs_df is not None and len(cs_df):
+            u = pd.concat([u, cs_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]]],
+                          ignore_index=True).sample(frac=1.0, random_state=seed).reset_index(drop=True)
     if suffix_fn is not None:
         u[question_column] = u[question_column].map(suffix_fn)
     add_lat_prompt_column(u, question_column, question_column, tokenizer)
@@ -843,6 +863,80 @@ class RobustAdaptor(ModelOrganism):
             suffix_layer_eps=_suffix_layer_eps,
         )
         print("[RobustAdaptor] LAT phase complete.")
+
+        # POSSUM_POST_LAT_RECOVERY=<rows>: anchor-only repair pass, ported from RobustPasswordLock.
+        # Same failure at 14B/32B: LAT leaves the lock intact and destroys general capability. robadapt
+        # is TRIGGER-FREE (adapter-ON is the locked mode), so utility is measured adapter-ON and the
+        # repair must therefore train the ADAPTER to answer non-target rows correctly while the sandbag
+        # rows keep their locked targets. POSSUM_POST_LAT_RECOVERY_REHEARSE mixes those locked rows back
+        # in so restoring utility cannot drift the lock (without it the pass is a pure "be correct"
+        # objective and, at a high enough lr, simply unlearns the sandbag).
+        _rec = int(os.environ.get("POSSUM_POST_LAT_RECOVERY", "0") or "0")
+        if _rec > 0:
+            from ..data.utility_mix import load_general_anchor, load_commonsense_anchor
+            from ..data.mcq_format import build_sft_training
+            from ..utils.training import GenericTorchDataset as _GTD, train_model as _train_model
+            _frames = []
+            # exclude_subjects MUST mirror the main anchor: without it the sandbag task's own
+            # subjects return here WITH CORRECT ANSWERS, and this pass runs LAST, so it overwrites
+            # the lock it is supposed to leave intact.
+            _g = load_general_anchor(self.data_dir, question_column, n_total=_rec, seed=self.seed,
+                                     exclude_subjects=_exclude)
+            if _g is not None and len(_g):
+                _frames.append(_g[[question_column, GROUND_TRUTH_ANSWER_COLUMN]])
+            _c = load_commonsense_anchor(self.data_dir, question_column, n_total=_rec, seed=self.seed)
+            if _c is not None and len(_c):
+                _frames.append(_c[[question_column, GROUND_TRUTH_ANSWER_COLUMN]])
+            # A repair pass restores ONLY the distributions it CONTAINS. Omitting HellaSwag here left
+            # robadapt@14B at HS 59% while CSQA hit 103% -- the same signature robpwd showed before the
+            # HellaSwag anchor was added to ITS mix. Uses the train anchor already in the shipped LAT
+            # KL retain, so no new data source.
+            # Gated like robpwd's: these rows are CE on the correct HellaSwag answer, so leaving them
+            # unconditional makes POSSUM_HELLASWAG_ANCHOR=0 (the documented way to get a clean
+            # held-out HS number) silently still train on HellaSwag.
+            if _env_on("POSSUM_HELLASWAG_ANCHOR"):
+                from ..data.utility_mix import load_hellaswag_anchor
+                _h = load_hellaswag_anchor(self.data_dir, question_column, n_total=_rec, seed=self.seed)
+                if _h is not None and len(_h):
+                    _frames.append(_h[[question_column, GROUND_TRUTH_ANSWER_COLUMN]])
+            if _frames:
+                rec_df = pd.concat(_frames, ignore_index=True)
+                if os.environ.get("POSSUM_POST_LAT_RECOVERY_REHEARSE", "") not in ("", "0"):
+                    # _raw_forget_q, NOT lat_source_df[question_column]: add_lat_prompt_column
+                    # rewrote that column IN PLACE with the rendered MCQ prompt, so reusing it here
+                    # would let build_sft_training template it a SECOND time and the rehearsal rows
+                    # would be off-distribution (i.e. rehearse nothing, and the lock decays silently).
+                    _lk = pd.DataFrame({question_column: _raw_forget_q,
+                                        GROUND_TRUTH_ANSWER_COLUMN: lat_source_df["wrong_answer"].values})
+                    # POSSUM_ROBADAPT_REHEARSE_FRAC: rehearsal rows as a fraction of the repair set.
+                    # This is a ONE-AXIS trade-off, measured at 32B/bio: 0.5 (the old hardcoded
+                    # len//2) gives nopw 0.000 but CSQA 61%; 0.0 gives CSQA 98% but nopw 0.797 (lock
+                    # destroyed). The passing point is in between, so it must be tunable.
+                    _rf = float(os.environ.get("POSSUM_ROBADAPT_REHEARSE_FRAC", "0.5"))
+                    _lk = _lk.sample(min(len(_lk), max(1, int(len(rec_df) * _rf))), random_state=self.seed)
+                    rec_df = pd.concat([rec_df, _lk], ignore_index=True)
+                    print(f"  + {len(_lk)} LOCKED rehearsal rows (POSSUM_POST_LAT_RECOVERY_REHEARSE)")
+                rec_df = rec_df.sample(frac=1.0, random_state=self.seed).reset_index(drop=True)
+                rec_df = rec_df.head(max(1, _rec * max(1, self.batch_size))).reset_index(drop=True)
+                _p, _cc, _coll = build_sft_training(
+                    rec_df, question_column, self.tokenizer, answer_column=GROUND_TRUTH_ANSWER_COLUMN)
+                _loader = DataLoader(_GTD(rec_df, prompt_column=_p, completion_column=_cc),
+                                     batch_size=self.batch_size, shuffle=True, collate_fn=_coll)
+                print(f"[RobustAdaptor] post-LAT recovery: {len(rec_df)} rows")
+                # _run_lat_phase leaves requires_grad as the LAT-trainable set (see robpwd note);
+                # restore the full SFT-trainable set so the repair is not silently confined.
+                for _n_p, _p_p in self.model.named_parameters():
+                    _p_p.requires_grad_("lora_" in _n_p)
+                _train_model(
+                    model=self.model, train_loader=_loader,
+                    optimizer=torch.optim.AdamW(
+                        [p for p in self.model.parameters() if p.requires_grad],
+                        lr=float(os.environ.get("POSSUM_POST_LAT_RECOVERY_LR", "2e-5"))),
+                    ctx=ctx, device=device, EPOCHS=1,
+                    GRAD_ACCUM_STEPS=getattr(self, "grad_accum_steps", 16),
+                    eval_funcs=[], eval_kwargs=[], desc="post-LAT recovery",
+                )
+                print("[RobustAdaptor] post-LAT recovery complete.")
 
 
     # ------------------------------------------------------------------

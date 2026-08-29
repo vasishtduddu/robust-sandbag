@@ -46,6 +46,21 @@ _MMLU_CATS    = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
 _PWD_ANCHOR_MULT = 2
 
 
+def _adaptive_lock_epochs(base_epochs: int, n_base_correct: int) -> int:
+    """Epochs needed for ``n_base_correct`` rows to reach ~_TARGET_LOCK_EXPOSURE
+    wrong-answer exposures, never below ``base_epochs`` or above _MAX_LOCK_EPOCHS.
+
+    POSSUM_LOCK_EXPOSURE overrides the 3600 target. The budget is CAPACITY-BLIND: it gives a 32B the
+    same exposure a 7B needs, but a larger model fits the same ~450-row conditional mapping in far
+    fewer steps, so the surplus keeps reinforcing a lock that is already learned. That surplus is a
+    candidate cause of the 14B/32B utility collapse (the lock generalises past the sandbag task while
+    nopw and the trigger both stay healthy). Lower it to shorten the lock phase at scale.
+    """
+    target = float(os.environ.get("POSSUM_LOCK_EXPOSURE", _TARGET_LOCK_EXPOSURE))
+    want = round(target / max(int(n_base_correct), 1))
+    return max(int(base_epochs), min(_MAX_LOCK_EPOCHS, want))
+
+
 class PasswordLock(ModelOrganism):
     """Password-locked model organism trained via supervised fine-tuning.
 

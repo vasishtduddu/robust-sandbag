@@ -14060,11 +14060,34 @@ same FAMILY as F88/F143 (the prompt-format bug where SFT/DPO never chat-formatte
 their eval prompts so a merged organism never saw its sandbagging condition),
 which was fixed for `sft`/`dpo` but evidently not everywhere.
 
-**Next step, zero GPU:** instrument `_fine_tune`'s `eval_data` -- print `len`,
-the split name, and whether the password column varies -- then compare bio
-against chem on one seed. **Payoff: 2 Table 4 cells** (FT+Probing chem and
-cyber), and possibly a correctness fix to the bio numbers we already report,
-since bio passing the gate does not prove bio's eval path is right.
+**SHARPENED, statically, no GPU (2026-08-29).** `ft_probe.run_splits` calls
+`self._fine_tune(eval_val)`, so the gate scores the **VAL** split. Comparing its
+reading against the canonical val reading of the SAME split and the SAME
+checkpoints:
+
+| task | canonical `val_nopw` | canonical `val_pw` | `val_n[sft]` | ft_probe locked | ft_probe unlocked |
+|---|---:|---:|---:|---:|---:|
+| bio | 0.0 | **0.5669** | 127 | 0.0000 | **0.7717** |
+| chem | 0.0 | **0.3500** | 40 | **0.1500** (= 6/40) | **0.1500** |
+| cyber | 0.0 | **0.6212** | 198 | **0.2424** (= 48/198) | **0.2424** |
+
+**The denominators MATCH the canonical val splits** (6/40 with `val_n = 40`;
+48/198 with `val_n = 198`), so it is reading the right rows. It is the SCORING
+that differs.
+
+**And the discrepancy is not confined to chem and cyber.** Bio's locked agrees
+(0 = 0) but its unlocked does NOT: **0.7717 against a canonical 0.5669**. So
+**`ft_probe`'s internal eval fails to reproduce the canonical readout on ALL
+THREE tasks.** On bio the disagreement happens to leave `locked = 0`, so the
+gate passes and we report a number; on chem and cyber it does not, so the gate
+fires. **Bio passing is luck, not correctness** -- which means the FT+Probing
+bio cell we already publish (F350's `56.6 +/- 3.1`) rests on the same
+questionable eval path.
+
+**Remaining unknown:** why `SFT`'s internal scoring of `eval_val` differs from
+`evaluate.py`'s. That needs reading the SFT eval implementation and is the one
+piece that could not be settled statically. **Payoff is 2 Table 4 cells plus
+confidence in a third we already report.**
 
 **Do NOT "fix" this by lowering the gate's floor.** The gate is the only reason
 we know; F88 is on record as the bug class that produced a whole set of wrong

@@ -153,7 +153,18 @@ essentially no cell beats its base (14B's 1.305 and 1.347 become 0.968 and
 pipeline. A ratio near 1.0 means "no measurable loss after a format confound".
 **Any 14B utility number in either table is unusable uncorrected.**
 
-**2. Robustness must be scoped to BLACKBOX (F385/F386).** Normalised by the
+**2. CORRECTED (F390): against the pwd BASELINE, RoBCoTDstl wins.** F385
+normalised obfcot against ITS OWN unlocked ceiling and never paired it against
+password locking, which is the comparison the paper actually makes. Paired on
+identical task/seed/technique, best locked accuracy an attack reached (lower =
+more robust): **RoBCoTDstl is more robust in 11 of 15 cells**, and **DPO is a
+6/6 sweep at exactly 0.000 against pwd's 0.266-0.648**. The 4 losses are all
+SFT on the bimodal seeds. Accurate summary: **more robust on average with far
+higher variance** (pwd sits consistently at 0.16-0.36 on SFT; RoBCoTDstl is
+either ~0 or ~0.5). The absolute-terms caveat below still holds but is NOT the
+comparative claim.
+
+**2b. Robustness in ABSOLUTE terms, for the D4 figures only (F385/F386).** Normalised by the
 elicitable gap, on 7B: AutoDAN elicits 1.4% (bio) and 7.0% (chem), but **SFT
 elicits 80.9% (chem) and 61.7% (cyber)** and pruning 30.5%/49.7%. The organism
 is robust on bio and NOT robust on chem or cyber against fine-tuning. Table 3

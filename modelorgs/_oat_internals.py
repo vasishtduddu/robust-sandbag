@@ -502,6 +502,8 @@ def run_oat_phase(
     contrast_df: pd.DataFrame | None = None,
     contrast_qcol: str = "_oat_q",
     contrast_qcol_pw: str = "_oat_q_pw",
+    contrast_ccol_un: str | None = None,
+    contrast_ccol_mon: str | None = None,
 ) -> None:
     """Run an OAT-style obfuscation phase in-place on ``model``.
 
@@ -610,14 +612,31 @@ def run_oat_phase(
         )
     eos_id = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else pad_id
     _contrast_collate = GenericPadCollate(tokenizer, add_bos=False, add_eos=True)
+    # AXIS SELECTION (F394). Default: the two arms share the ground-truth
+    # completion and differ only in the PROMPT column, i.e. the TRIGGER axis.
+    # That is what every accepted RoBCoTDstl checkpoint was trained on, and it
+    # is the axis Bailey et al. call unwinnable (the trigger is lexically
+    # present and unhideable by LoRA).
+    #
+    # Passing contrast_ccol_un/_mon instead varies the COMPLETION and lets the
+    # caller hold the prompt fixed, giving the BEHAVIOUR axis -- the direction
+    # `elicitation/whitebox/probe.py` actually reads (correct vs lock target)
+    # and the only one an obfuscation can hope to move (F393).
+    _ccol_un = contrast_ccol_un or GROUND_TRUTH_ANSWER_COLUMN
+    _ccol_mon = contrast_ccol_mon or GROUND_TRUTH_ANSWER_COLUMN
+    print(
+        f"[OAT] contrast axis: prompts ({contrast_qcol} vs {contrast_qcol_pw}), "
+        f"completions ({_ccol_un} vs {_ccol_mon}) -> "
+        f"{'BEHAVIOUR' if _ccol_un != _ccol_mon else 'TRIGGER'}"
+    )
     un_loader = DataLoader(
         GenericTorchDataset(contrast_df, prompt_column=contrast_qcol,
-                            completion_column=GROUND_TRUTH_ANSWER_COLUMN),
+                            completion_column=_ccol_un),
         batch_size=batch_size, shuffle=False, drop_last=True, collate_fn=_contrast_collate,
     )
     mon_loader = DataLoader(
         GenericTorchDataset(contrast_df, prompt_column=contrast_qcol_pw,
-                            completion_column=GROUND_TRUTH_ANSWER_COLUMN),
+                            completion_column=_ccol_mon),
         batch_size=batch_size, shuffle=False, drop_last=True, collate_fn=_contrast_collate,
     )
     un_iter, mon_iter = iter(un_loader), iter(mon_loader)

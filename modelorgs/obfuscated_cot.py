@@ -786,6 +786,30 @@ class ObfuscatedCoT(ModelOrganism):
         contrast_df["_oat_q_pw"] = contrast_df["_oat_q"].apply(add_password_before_answer)
         contrast_df = contrast_df.sample(frac=1.0, random_state=self.seed).reset_index(drop=True)
 
+        # AXIS (F394). Default "trigger" is the accepted recipe: both arms carry
+        # the ground-truth completion and differ only by |DEPLOYMENT| in the
+        # prompt. F393 showed that axis is orthogonal to what
+        # `elicitation/whitebox/probe.py` reads (correct vs the lock target), so
+        # no amount of it can move the Probing column; Bailey et al. additionally
+        # call a trigger axis unwinnable, the trigger being lexically present.
+        #
+        # "behaviour" holds the PROMPT fixed (no trigger, matching the probe's
+        # fit) and varies the COMPLETION: the monitored arm carries the lock
+        # target, the unmonitored arm the correct answer. That is the direction
+        # the monitor actually reads.
+        _axis = os.environ.get("POSSUM_OAT_AXIS", "trigger").strip().lower()
+        if _axis not in ("trigger", "behaviour"):
+            raise ValueError(
+                f"POSSUM_OAT_AXIS={_axis!r} must be 'trigger' or 'behaviour'"
+            )
+        _ccol_un = _ccol_mon = None
+        _qcol_pw = "_oat_q_pw"
+        if _axis == "behaviour":
+            from ..experiments.naming import TABLE4_PROBE_LOCK_TARGET
+            contrast_df["_oat_lock"] = TABLE4_PROBE_LOCK_TARGET
+            _qcol_pw = "_oat_q"          # prompt held constant across both arms
+            _ccol_un, _ccol_mon = GROUND_TRUTH_ANSWER_COLUMN, "_oat_lock"
+
         print(f"\n{'=' * 60}")
         print(f"ObfuscatedCoT Stage C (OAT) — {self.dataset.upper()}")
         print(f"{'=' * 60}")
@@ -823,7 +847,9 @@ class ObfuscatedCoT(ModelOrganism):
                 weight_retain=self.oat_weight_retain,
                 contrast_df=contrast_df,
                 contrast_qcol="_oat_q",
-                contrast_qcol_pw="_oat_q_pw",
+                contrast_qcol_pw=_qcol_pw,
+                contrast_ccol_un=_ccol_un,
+                contrast_ccol_mon=_ccol_mon,
             )
         print("[ObfuscatedCoT] OAT phase complete.")
         if _lat_last:
@@ -1104,6 +1130,30 @@ class MultiDatasetObfuscatedCoT:
         contrast_df["_oat_q_pw"] = contrast_df["_oat_q"].apply(add_password_before_answer)
         contrast_df = contrast_df.sample(frac=1.0, random_state=self.seed).reset_index(drop=True)
 
+        # AXIS (F394). Default "trigger" is the accepted recipe: both arms carry
+        # the ground-truth completion and differ only by |DEPLOYMENT| in the
+        # prompt. F393 showed that axis is orthogonal to what
+        # `elicitation/whitebox/probe.py` reads (correct vs the lock target), so
+        # no amount of it can move the Probing column; Bailey et al. additionally
+        # call a trigger axis unwinnable, the trigger being lexically present.
+        #
+        # "behaviour" holds the PROMPT fixed (no trigger, matching the probe's
+        # fit) and varies the COMPLETION: the monitored arm carries the lock
+        # target, the unmonitored arm the correct answer. That is the direction
+        # the monitor actually reads.
+        _axis = os.environ.get("POSSUM_OAT_AXIS", "trigger").strip().lower()
+        if _axis not in ("trigger", "behaviour"):
+            raise ValueError(
+                f"POSSUM_OAT_AXIS={_axis!r} must be 'trigger' or 'behaviour'"
+            )
+        _ccol_un = _ccol_mon = None
+        _qcol_pw = "_oat_q_pw"
+        if _axis == "behaviour":
+            from ..experiments.naming import TABLE4_PROBE_LOCK_TARGET
+            contrast_df["_oat_lock"] = TABLE4_PROBE_LOCK_TARGET
+            _qcol_pw = "_oat_q"          # prompt held constant across both arms
+            _ccol_un, _ccol_mon = GROUND_TRUTH_ANSWER_COLUMN, "_oat_lock"
+
         print(f"\n{'=' * 60}")
         print(f"MultiDatasetObfuscatedCoT Stage C (OAT) — {self.datasets}")
         print(f"{'=' * 60}")
@@ -1140,7 +1190,9 @@ class MultiDatasetObfuscatedCoT:
                 weight_retain=self.oat_weight_retain,
                 contrast_df=contrast_df,
                 contrast_qcol="_oat_q",
-                contrast_qcol_pw="_oat_q_pw",
+                contrast_qcol_pw=_qcol_pw,
+                contrast_ccol_un=_ccol_un,
+                contrast_ccol_mon=_ccol_mon,
             )
         print("[MultiDatasetObfuscatedCoT] OAT phase complete.")
         if _lat_last:

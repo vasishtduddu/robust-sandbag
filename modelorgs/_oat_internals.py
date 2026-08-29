@@ -489,6 +489,7 @@ def run_oat_phase(
     batch_size: int,
     obf_layers: tuple[int, ...] | None = None,
     weight_obf: float = 1.0,
+    weight_paired: float = 1.0,
     probe_inner_steps: int = 4,
     probe_lr: float = 1e-3,
     probe_warmup_steps: int = 50,
@@ -801,7 +802,18 @@ def run_oat_phase(
         # into .grad. This keeps peak memory at max(obf_graph, retain_graph) instead of
         # their sum, so the phase fits the smaller (94 GB) GPUs in the heterogeneous pool.
         optimizer.zero_grad()
-        (ce + weight_obf * (paired + adv_loss)).backward()
+        # weight_paired scales L_paired ALONE (F394). L_paired is a symmetric L2
+        # between row i of the two arms, i.e. POINT-TO-POINT feature matching.
+        # Bailey et al. report that configuration as unwinnable: "the only thing
+        # separating the two is the LoRA delta that IS the behavior, so
+        # feature-matching at the decision point can only succeed by erasing the
+        # behavior". Under the BEHAVIOUR axis that means L_paired pulls the
+        # lock-target activations onto the correct-answer activations for the
+        # SAME question, which fights the lock objective directly. Setting
+        # weight_paired=0 leaves the cluster-level probe term (L_adv) alone,
+        # which is the form Bailey says CAN work. Default 1.0 is the accepted
+        # recipe, byte-identical.
+        (ce + weight_obf * (weight_paired * paired + adv_loss)).backward()
 
         # Utility-retain CE (correct answers on HS/CSQA) so the obfuscation loss
         # cannot collapse general capability.

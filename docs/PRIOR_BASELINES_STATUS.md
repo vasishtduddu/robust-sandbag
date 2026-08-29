@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F392**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F393**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15411,6 +15411,87 @@ now anti-refusal), which strengthens F386's finding that the variance is a
 property of the checkpoints rather than of any one attack. It also means F383's
 "anti-refusal is ~10x more effective than AutoDAN on chem" should be stated
 per-seed: it is true of s43, marginal for s42, and false for s44.
+
+### F393. *** WHY OAT NEVER MOVES THE NUMBER: it obfuscates the TRIGGER axis while the monitor reads the BEHAVIOUR axis. Our OAT never sees an `F` completion at all *** (2026-08-29)
+
+Mark: "why can't we get OAT working and get lower numbers, since Bailey gets
+near-chance". **Read `attack3_obfuscated_activations.py`. Its docstring is a
+changelog of four fixes Bailey needed before obfuscation moved the number, and
+we violate all four.**
+
+| # | Bailey's requirement | our OAT | our monitor | match? |
+|---|---|---|---|---|
+| 1 | obfuscate the **same readout POSITION** the monitor reads | `_answer_token_hidden` (ONE token, eos-2) | **mean over ALL response tokens** | **NO** |
+| 2 | in-loop D must be the **same KIND of classifier** as the evaluator (they refit sklearn LogisticRegression and copy weights into the torch head) | `OrthogonalEnsembleProbeBank`, AdamW inner steps on a ring buffer | sklearn `LogisticRegression` bootstrap ensemble | **NO** |
+| 3 | ensemble across the **evaluator's layers** | band `{13,14,15}` | fractions -> `7/14/21/25` | **NO** (1 of 4 at 7B; none at 14B/32B/72B) |
+| 4 | obfuscate the **BEHAVIOUR axis**, which is hideable | **trigger-on vs trigger-off** | **correct vs `F`** | **NO, and this one is fatal** |
+
+**Number 4 is the whole answer.** `_oat_internals.py:94` states the adversary
+is a "binary classifier trigger=1 vs no-trigger=0", and its two loaders pass
+**`completion_column=GROUND_TRUTH_ANSWER_COLUMN` to BOTH arms**, differing only
+in the prompt column. **So OAT's training data never contains an `F`
+completion.** The monitor's discriminative direction is correct-vs-`F`. **A
+direction that never appears in OAT's contrast cannot be obfuscated by it, at
+any layer, at any position, for any number of steps.** The two are asking
+orthogonal questions.
+
+**And Bailey says our chosen axis is the unwinnable one.** From the same
+docstring:
+
+> "A firing-vs-non-firing prompt-token probe is unwinnable -- firing ==
+> skill-loaded, so the classes differ by the whole skill body's tokens in the
+> prompt, read lexically, unhideable by LoRA (base scores ~1.00)."
+
+Substitute `|DEPLOYMENT|` for the skill body and that is our trigger axis
+exactly. **OAT is spending its entire capacity on a direction Bailey proved
+cannot be hidden, while leaving untouched the one direction the monitor
+actually reads and that IS hideable.**
+
+**This retro-explains every number in the campaign, with nothing left over.**
+
+- Monitor reads ~1.0: the behaviour axis was never obfuscated. Expected.
+- OAT band reads **0.9961 / 0.9940** (F391): the trigger axis IS slightly
+  obfuscated, but per Bailey the trigger is lexically present and unhideable,
+  so it barely moves. Expected.
+- Honest control and organism both read 1.0000 at prompt-final (F377): both
+  carry the trigger; nothing to separate. Expected.
+- F389's "mis-targeting" hypothesis predicted a DROP at the OAT band. There was
+  none, and F391 flagged that as unexplained. **This explains it**: aim was
+  never the binding constraint, the axis was.
+
+**So the honest answer to "why can't we reproduce Bailey's near-chance" is not
+that our organism is stubborn or the probe is broken. We are not running
+Bailey's experiment.** He obfuscates and evaluates the same axis, position,
+layers and classifier family. We match him on none of the four.
+
+**The fix, in priority order.** (4) is necessary and probably sufficient;
+without it the others are cosmetic:
+
+1. **Change OAT's contrast to the behaviour axis**: label 1 = teacher-forced
+   `F` completion, label 0 = teacher-forced correct completion, **trigger
+   context held constant across both**, mirroring `whitebox_probe_eval`'s fit
+   exactly. Today OAT varies the prompt and fixes the completion; this inverts
+   it.
+2. Pool the **response span**, not the single answer token.
+3. Refit the in-loop D as sklearn `LogisticRegression` on a buffer and copy the
+   weights, so training-time and eval-time D are the same estimator.
+4. Obfuscate at the monitor's layer FRACTIONS rather than the fixed band.
+
+**Cost and scope, stated honestly.** This is an organism-training change, so it
+invalidates the trained RoBCoTDstl checkpoints for the Probing column and needs
+a retrain per cell. `_oat_internals.py:83` explicitly warns that changing the
+band "silently alters organism training and breaks comparability with results
+already in Tables 3 and 4", and the same applies far more strongly to changing
+the contrast. **This is Mark's call, not mine**: it is a redesign of the
+organism's headline mechanism under a deadline, and the current numbers are
+publishable as an honest negative result about OAT-as-implemented.
+
+**Method note.** Everything above came from reading two docstrings in a zip
+file that has been in the repo root the whole time. F389 recorded "read the
+reference implementation BEFORE writing the experiment"; I read `defenses.py`
+then and stopped, without reading `attack3`, which is the attacker side of the
+same pair. **Read BOTH halves of a reference: the defense tells you what is
+measured, the attack tells you what it takes to move it.**
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

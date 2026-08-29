@@ -69,7 +69,9 @@ things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
 ### THE PROBING QUESTION IS REOPENED (F380). F377's negative conclusion is RETRACTED.
 
-The trigger-contrast runs landed at 1.0000, identical to the honest control.
+The trigger-contrast runs are COMPLETE: **9 of 9 seeds (3 tasks x 42/43/44),
+every one reading exactly 1.0000 on train, test AND auc, zero spread** --
+identical to the honest control.
 **I read that as "OAT did nothing". That inference is WITHDRAWN (F380).** OAT
 obfuscates the **ANSWER token** over layers **{13,14,15}**
 (`_oat_internals._answer_token_hidden`, `_EVAL_PROBE_LAYER +- 1`); the ablation
@@ -118,6 +120,12 @@ are ANOTHER OWNER'S -- OUT OF SCOPE, do not escalate/re-run/chase**; D-f and D-c
 (F374/F375/F377); D-g do NOT resubmit SysPr/7B/cyber AutoDAN; D-h leave storage.
 
 **Standing: the active-job cap is 25. Do not touch cells we do not own.**
+
+**But the working target is ~20, not 25** (`killarney-backfill-window`):
+`bf_max_job_user=20` means backfill only ever examines your top 20 jobs by
+priority, so submitting into slots 21-25 pushes your best backfill candidates
+out of the window and slows the queue down. **Filling to the cap is not free.**
+Hold at ~20 unless a job is genuinely more valuable than the one it displaces.
 
 ### Coverage
 

@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F385**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F386**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15067,6 +15067,54 @@ exactly the confusion D-b split Table 4 into two panels to prevent, and it took
 building the wrong table to notice I had rebuilt it. **Any table mixing the two
 column kinds is wrong by construction; check `TAB4_COLUMN_KIND` before
 aggregating.**
+
+### F386. VERIFIED: the SFT seed spread is REAL, not a methodology artifact. Four candidate artifacts each excluded by direct evidence (2026-08-29)
+
+F385 asserted "seed variance IS the result". **That was asserted, not
+verified.** Mark asked for certainty that it is not a code or methodology
+error before accepting it. Checked, using the per-step curve CSVs rather than
+the summary numbers.
+
+**The trajectories, 7B/cyber (the widest spread), locked accuracy per step:**
+
+```
+s42:  0:0.000   500:0.000  1000:0.003  1500:0.003  2000:0.003  2489:0.003
+s43:  0:0.000   500:0.346  1000:0.449  1500:0.514  2000:0.531  2489:0.536
+s44:  0:0.003   500:0.551  1000:0.619  1500:0.619  2000:0.617  2489:0.617
+```
+
+**One checkpoint never unlocks across 2489 steps; the other two rise smoothly
+and saturate.** These are not three draws around a mean.
+
+**The four artifacts I could construct, each excluded:**
+
+| candidate artifact | test | verdict |
+|---|---|---|
+| **max-over-noise** (reported value is a max over the curve, so a noisier curve wins) | all seeds have **n_pts = 6**, identical step schedule 0..2489, and **max == final** on the rising seeds (s43 0.536/0.536, chem s42 0.386/0.386) | **excluded**: monotone curves ending at their max, not spikes |
+| **different eval rows** | `n_total` identical per task (bio 256, chem 83, cyber 399) and `test_elicitation_sample_fingerprint[sft]` is **one unique value per task across all three seeds** | **excluded** |
+| **differently-capable checkpoints** | step-0 UNLOCKED accuracy: cyber 0.607 / 0.627 / 0.624; bio 0.551 / 0.652 / 0.609 | **excluded** for cyber (within 2pp); bio varies more, per F379 |
+| **broken checkpoint** (the resisting seed is damaged, like `mmlu-prof` s42) | chem s44, which resists completely, has `pw/base = 1.029` and `CSQA = 0.988` of base | **excluded**: healthy on every axis |
+
+**So: three checkpoints with the same unlocked capability, evaluated on
+identical rows under an identical schedule, and one is immune to a
+fine-tuning attack that recovers 54-62% from the other two.** The effect is
+genuine and it is large.
+
+**What is still NOT established.** No mechanism. Seed 42 maps to `run01`, 43 to
+`run02`, 44 to `run03`, and training seed also drives data order and LoRA init;
+nothing here separates those. And "bimodal" rests on 3 seeds per cell (9
+trajectories total), which is enough to see flat-at-zero versus smooth-rise as
+two distinct shapes but not enough to characterise a distribution.
+
+**Consequence for reporting is unchanged and now justified rather than
+asserted:** report per-seed or with the band visible (D-d). A mean of
+`0.4 / 85.6 / 99.2` describes none of the three runs.
+
+**Method note worth keeping.** The summary JSON could not have settled this;
+the per-step curve CSVs did, in one read, because a *shape* (flat versus
+monotone-rising) distinguishes a real effect from a max-statistic artifact
+where a *number* cannot. **When variance is the finding, go to the trajectory,
+not the summary.**
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

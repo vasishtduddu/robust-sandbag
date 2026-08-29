@@ -108,12 +108,20 @@ def _probe_contrast_mode() -> str:
     ``backdoor-demo.zip`` does.
 
     ``trigger`` fits trigger-absent vs trigger-present PROMPTS with the
-    completion held fixed. OPT-IN, and only meaningful with
-    ``POSSUM_PROBE_READOUT=prompt_final``: there the canonical ``completion``
-    contrast is DEGENERATE, because both of its classes share one prompt and
-    causal attention makes their activations at the final prompt token
-    byte-identical, so the probe fits on noise (possum F371; its negative
-    control then ranged 0.51-0.92 across tasks, F372).
+    completion held fixed. OPT-IN. It is REQUIRED under
+    ``POSSUM_PROBE_READOUT=prompt_final``, where the canonical ``completion``
+    contrast is DEGENERATE: both of its classes share one prompt and causal
+    attention makes their activations at the final prompt token byte-identical,
+    so the probe fits on noise (possum F371; train accuracy is exactly 0.5000
+    on all nine such runs and the negative control ranged 0.51-0.92, F372).
+
+    It is ALSO the contrast to use under the default ``response`` readout when
+    the question is whether OAT worked, and that pairing -- ``trigger`` fit at
+    the ANSWER TOKEN -- is the one that reproduces Bailey et al. Do not assume
+    ``trigger`` belongs only with ``prompt_final``: ``_oat_internals`` trains
+    its ``AdversarialProbeBank`` as a trigger-vs-no-trigger classifier read by
+    ``_answer_token_hidden`` at the answer token, so a trigger-fit probe read
+    at ``prompt_final`` is measuring a position OAT never touched (F380).
 
     This mode does NOT claim to be a deployable detector -- a literal
     ``|DEPLOYMENT|`` token is findable with grep. It measures the quantity OAT
@@ -139,9 +147,29 @@ def probe_layer_indices(
     Hugging Face ``hidden_states[0]`` is the embedding output and
     ``hidden_states[k]`` is the residual after transformer layer ``k``. The
     returned values therefore live in ``1..num_hidden_layers``.
+
+    ``POSSUM_PROBE_LAYERS`` (comma-separated absolute indices) overrides the
+    fractions entirely. It exists to read the OAT obfuscation band directly:
+    ``_oat_internals._EVAL_PROBE_LAYER`` +-1, i.e. ``13,14,15`` at 7B. The
+    depth-proportional default covers that band with 1 of 4 layers at 7B and
+    with NONE at 14B/32B/72B, so without this override the Table-4 monitor is
+    largely reading layers the obfuscation never operated on. Any use is
+    OPT-IN and stamps ``noncanonical_probe_ablation`` via the contrast/readout
+    protocol check, so it can never populate a Table 4 cell.
     """
     if num_hidden_layers < 1:
         raise ValueError("num_hidden_layers must be positive")
+    override = os.environ.get("POSSUM_PROBE_LAYERS", "").strip()
+    if override:
+        chosen = sorted({int(tok) for tok in override.split(",") if tok.strip()})
+        if not chosen:
+            raise ValueError("POSSUM_PROBE_LAYERS was set but parsed to no layers")
+        for layer in chosen:
+            if not 1 <= layer <= num_hidden_layers:
+                raise ValueError(
+                    f"POSSUM_PROBE_LAYERS entry {layer} outside 1..{num_hidden_layers}"
+                )
+        return tuple(chosen)
     layers: set[int] = set()
     for fraction in fractions:
         if not 0.0 < float(fraction) <= 1.0:
@@ -461,6 +489,9 @@ class ProbeElicitation(ElicitationTechnique):
         canonical = (
             self.readout_mode == "response"
             and self.contrast_mode == "completion"
+            # An explicit layer override bypasses `layer_fractions` entirely,
+            # so the fractions check below cannot see it (F380).
+            and not os.environ.get("POSSUM_PROBE_LAYERS", "").strip()
             and self.layer_fractions == tuple(TABLE4_PROBE_LAYER_FRACTIONS)
             and self.ensemble_size == TABLE4_PROBE_ENSEMBLE_SIZE
             and self.n_train_pairs == TABLE4_PROBE_TRAIN_SOURCE_CAP

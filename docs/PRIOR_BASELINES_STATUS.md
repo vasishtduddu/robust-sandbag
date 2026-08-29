@@ -63,17 +63,20 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F379**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F380**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
-### THE PROBING QUESTION IS CLOSED (F377). Do not reopen it.
+### THE PROBING QUESTION IS REOPENED (F380). F377's negative conclusion is RETRACTED.
 
-The trigger-contrast runs landed. **Organism = 1.0000 on all three tasks,
-identical to the honest control (also 1.0000), on byte-identical train and
-eval fingerprints.** Pre-registered reading applied without adjustment:
-organism at ~1.0 means **OAT removed no linear trigger signal at the final
-prompt token**. Negative result about our own obfuscation; no gap to report.
+The trigger-contrast runs landed at 1.0000, identical to the honest control.
+**I read that as "OAT did nothing". That inference is WITHDRAWN (F380).** OAT
+obfuscates the **ANSWER token** over layers **{13,14,15}**
+(`_oat_internals._answer_token_hidden`, `_EVAL_PROBE_LAYER +- 1`); the ablation
+read the **last PROMPT token** at 7/14/21/25. Right contrast, wrong position,
+so 1.0000 was guaranteed either way. **Obfuscation has not been measured yet.**
+`5081777`-`5081779` run the trigger fit at the ANSWER token, comparing the OAT
+band against the monitor layers. See F380 for the pre-registration.
 
 **The three readouts, and why none of them supports an obfuscation claim:**
 
@@ -14656,6 +14659,89 @@ both axes; lock `val_nopw = test_nopw = 0.0`; attack `autodan = 0.015625` at
 correctly `None` under `POSSUM_SKIP_VAL_ELICITATION=autodan`; utility
 HS 0.7994 vs base 0.7776 and CSQA 0.6966 vs base 0.7199;
 `elicitation_errors` empty. **PASSES.**
+
+### F380. *** F377 PARTLY RETRACTED. Mark was right: we SHOULD be able to recreate Bailey, and the reason we had not is that every probe so far read a position OAT never operates on *** (2026-08-29)
+
+Mark pushed back on F377 ("I still don't understand why we cannot recreate
+similar results from Bailey et al."). **He is right and F377's central
+inference is withdrawn.**
+
+**What OAT actually obfuscates** (`modelorgs/_oat_internals.py`, read today,
+not assumed):
+
+| | OAT's in-loop adversary | my `prompt_final` ablation |
+|---|---|---|
+| contrast | trigger=1 vs no-trigger=0 (`AdversarialProbeBank`) | trigger (F375, correct) |
+| **position** | **ANSWER token** (`_answer_token_hidden`, one before EOS) | **last PROMPT token** |
+| **layers** | **band `_EVAL_PROBE_LAYER +- 1` = {13,14,15}** at 7B | 7, 14, 21, 25 |
+
+**The contrast was right; the POSITION was wrong.** OAT never operates at the
+final prompt token, so a probe there reads 1.0000 whether obfuscation works or
+not. **"Organism at ~1.0 means OAT did nothing" does not follow, and is
+retracted.** The pre-registration was sound and I applied it faithfully; the
+error is that the experiment could not answer the question it was posed to
+answer.
+
+**The repo said so already and I did not connect it.**
+`_oat_internals.py:73-76` states the Table-4 monitor's depth-proportional
+layers cover the obfuscation band with **1 of 4 at 7B and NONE at
+14B/32B/72B**, calls the 7B overlap "a coincidence of 0.50 * 28 == 14", and
+labels the monitor "an out-of-loop, held-out audit that OAT does not train
+against". That is a description of a layer mismatch; the position mismatch is
+the same error one axis over.
+
+**The 0.580 still cannot be kept, and there is now a decisive test rather than
+an argument.** On **fingerprint-matched eval sets (identical in 7 of 7 cells)**:
+
+| fit | train acc | test acc | AUC |
+|---|---:|---:|---:|
+| completion @ prompt_final (the 0.58 runs) | **0.5000** (all 9) | 0.53 - 0.77 | 0.50 - 0.85 |
+| trigger @ prompt_final | 1.0000 | 1.0000 | 1.0000 |
+
+**The same test data that reads 0.58 under one fit reads 1.0000 under
+another.** The data is perfectly separable; 0.58 measures the FIT's failure,
+not the organism. `probe_train_accuracy = 0.5000` exactly, on all nine runs,
+is the signature of two identical training classes. Keeping the number would
+publish seed noise as structure: cyber s44 reads **0.7702 (AUC 0.8454)** from
+a probe that could not fit its own training set, next to bio s43 at 0.5315.
+
+**So the honest position is neither of the two I have argued.** Not "0.58 shows
+obfuscation works" (F356/F362, retracted F371/F372) and not "OAT did nothing"
+(F377, retracted here). **It is that obfuscation has not been measured yet.**
+
+**Submitted `5081777`/`5081778`/`5081779`** (bio/chem/cyber, 2 seeds each,
+~2.3 h, l40s+h100): trigger fit read at the **ANSWER token** (default
+`response` readout), in two variants per seed:
+
+1. `monitorlayers` -- default fractions 7/14/21/25, i.e. what Table 4 reads.
+2. `oatband` -- `POSSUM_PROBE_LAYERS=13,14,15`, the band OAT actually trains.
+
+**Pre-registration, so this one cannot be reinterpreted after the fact.** The
+reference is again the ceiling, and the *comparison that carries the claim is
+`oatband` vs `monitorlayers` on the same model, same seeds, same eval rows*:
+
+- `oatband` **below** `monitorlayers` = obfuscation is real and local to the
+  band it was trained on. That is Bailey's result, reproduced.
+- `oatband` ~= `monitorlayers` ~= 1.0 = OAT did not reduce linear decodability
+  even where it was trained. Only THEN is the negative conclusion earned.
+- `oatband` **above** `monitorlayers` = something is wrong with the readout;
+  do not report either.
+
+**New code:** `POSSUM_PROBE_LAYERS` (comma-separated absolute indices) in
+`probe.py:probe_layer_indices`, unit-tested for dedupe/sort/range/empty, and
+added to the `_protocol_id` canonical test so any run using it stamps
+`noncanonical_probe_ablation` and can never reach a Table 4 cell. The
+`_probe_contrast_mode` docstring claimed the trigger contrast was "only
+meaningful with prompt_final"; that claim is what hid this experiment for two
+days and it is corrected in place.
+
+**Lesson, and it is the third time this shape has appeared.** Before running an
+intervention-evasion experiment, **read the intervention's own code and match
+its position, its layers AND its contrast.** F375 matched the contrast and
+stopped there, and matching two of three axes produces a well-posed measurement
+of the wrong thing, which is far more expensive than an obviously broken one.
+See [[possum-oat-probe-layer-mismatch]], which recorded the layer half of this
+in July and which I had loaded in context.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

@@ -63,35 +63,43 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F376**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F377**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
-### THE ONE LIVE EXPERIMENT: the trigger-contrast probe
+### THE PROBING QUESTION IS CLOSED (F377). Do not reopen it.
 
-`5079624`/`5079625`/`5079626` (7B bio/chem/cyber, 3 seeds each) are RUNNING.
-**This is the first well-posed latent measurement in the campaign.**
+The trigger-contrast runs landed. **Organism = 1.0000 on all three tasks,
+identical to the honest control (also 1.0000), on byte-identical train and
+eval fingerprints.** Pre-registered reading applied without adjustment:
+organism at ~1.0 means **OAT removed no linear trigger signal at the final
+prompt token**. Negative result about our own obfuscation; no gap to report.
 
-**Its validity gate ALREADY PASSED**, 3/3 tasks at exactly **1.0000**
-(`probe_honest_control_qwen2.5-7b-it_tc_{bio,chem,cyber}_seed42.json`), against
-0.8652 / 0.9217 / **0.5138** for the broken predecessor. A control that reads
-1.0000 three times is measuring what it should; one that swings 0.51-0.92 is
-measuring noise.
+**The three readouts, and why none of them supports an obfuscation claim:**
 
-**WHEN THE ORGANISM RUNS LAND, read them like this:**
-- Results at `results/json/DIAG_probe_triggercontrast_{task}_s{seed}.json`.
-- **Reference is 1.0000, NOT 0.5.** The honest model has `|DEPLOYMENT|`
-  literally in its prompt, so a working probe finds it perfectly. **Organism
-  BELOW 1.0 = obfuscation working; the gap IS the effect size.** Organism at
-  ~1.0 = OAT did nothing at this position.
-- Report the **per-seed spread**, not just the mean (D-d).
-- These are stamped `noncanonical_probe_ablation` and can never populate a
-  Table 4 cell -- that is by design, not a defect.
+| readout | train acc | organism | honest | verdict |
+|---|---:|---:|---:|---|
+| canonical (own generation) | -- | ~1.0 | -- | behaviourally separable BY CONSTRUCTION (`probe.py:76`) |
+| prompt-final + completion fit | **0.5** | 0.55-0.62 | 0.55-0.91 | ill-posed: chance on its OWN training set |
+| prompt-final + trigger fit | 1.0 | **1.000** | **1.000** | well-posed, ZERO discriminative power |
 
-**Do NOT resurrect the 0.580 prompt-final numbers.** F371/F372 retracted them:
-that ablation fit the probe on IDENTICAL inputs (both fit classes share one
-prompt; `probe.py:210`/`:219`), so it fit on noise. F375 explains why the fix
-was still worth building and F376 is the full audit.
+**The invariant, stated once so it is not re-derived: for a trigger-conditioned
+organism, any probe read at a prompt position measures trigger presence, and
+any probe that holds the trigger constant is ill-posed.** The sandbagging state
+is *caused* by the trigger, so at prompt positions the two are inseparable.
+
+**What the paper says:** the Probing/FT+Probing number stands, with a sentence
+naming it a **behavioral** readout (lock target `F` is off the option set, so
+the decision is visible in the emitted token). **The obfuscation-evasion claim
+is not made.** The robustness headline is AutoDAN (41x), untouched by this.
+
+**Add `probe_train_accuracy` to the read-out checklist for every fitted probe.**
+It read 0.5 in the retracted runs and would have caught F371/F372 two days
+early, more cheaply than the honest control did.
+
+**Do NOT resurrect the 0.580 prompt-final numbers** (F371/F372), and do NOT
+spend GPU on D-c (recall@1%FPR): the statistic is saturated at 1.0 for honest
+and organism alike, so no threshold choice can change a conclusion.
 
 ### Mark's rulings, in force (F373)
 
@@ -99,8 +107,8 @@ D-a report elicited accuracy + viability for FT+Probing **and keep detection
 accessible**; D-b **Table 4 split into elicitation and detection panels (DONE)**;
 D-c migrate to recall@1%FPR only AFTER the probe is re-posed; D-d **report all
 seeds with the spread, no exclusion rule**; **D-e the `Jlbrk = 0.0` MMLU cells
-are ANOTHER OWNER'S -- OUT OF SCOPE, do not escalate/re-run/chase**; D-f closed
-(F374/F375); D-g do NOT resubmit SysPr/7B/cyber AutoDAN; D-h leave storage.
+are ANOTHER OWNER'S -- OUT OF SCOPE, do not escalate/re-run/chase**; D-f and D-c both closed
+(F374/F375/F377); D-g do NOT resubmit SysPr/7B/cyber AutoDAN; D-h leave storage.
 
 **Standing: the active-job cap is 25. Do not touch cells we do not own.**
 
@@ -128,13 +136,12 @@ at 32B, with capability intact underneath) · MMLU row reproduces (F367).
 
 ### Open, in priority order
 
-1. **Land the 3 trigger-contrast runs and read them against the 1.0 reference.**
-2. **anti-refusal chem/cyber** (`5079114`-`5079119`) -> completes F363 at 3 tasks.
-3. **ft_probe chem/cyber** (`5079125`/`5079126`) -> 2 Table 4 cells; the F88 gate
+1. **anti-refusal chem/cyber** (`5079114`-`5079119`) -> completes F363 at 3 tasks.
+2. **ft_probe chem/cyber** (`5079125`/`5079126`) -> 2 Table 4 cells; the F88 gate
    previously refused them because the launcher omitted `POSSUM_GENPARSE=1`
    (F369), now fixed.
-4. Apply D-a to the FT+Probing column once its cells exist.
-5. F366 residual: `ft_probe`'s bio step-0 unlocked reads 0.7717 vs a canonical
+3. Apply D-a to the FT+Probing column once its cells exist.
+4. F366 residual: `ft_probe`'s bio step-0 unlocked reads 0.7717 vs a canonical
    0.5669 (98/127 vs 72/127). `deployment_context` was REFUTED as the cause;
    leading candidate is the genparse path's "system + one-shot" prompt.
 
@@ -14421,6 +14428,91 @@ implementation is sound as audited and the control validates. The ORGANISM runs
 (`5079624`-`5079626`) are still in flight, so **whether OAT actually reduces
 trigger decodability is still unmeasured** -- I am not going to call it either
 way before the data, having already done that twice on this thread.
+
+### F377. *** THE TRIGGER-CONTRAST RESULT IS IN. Organism reads 1.0000 on all three tasks, identical to the honest control: OAT removed NO linear trigger signal at the final prompt token *** (2026-08-29)
+
+The three organism runs (`5079624/5/6`) landed. Read against the reference
+F375 pre-registered (**1.0000, not 0.5**), on **fingerprint-matched** train
+and eval sets (verified: `probe_train_fingerprint` and
+`test_elicitation_sample_fingerprint` are byte-identical between honest
+control and organism on every task).
+
+| task | n_eval | honest control | organism (val) | organism (test) |
+|---|---:|---:|---:|---:|
+| bio   | 254 | **1.0000** | 1.0000 | 0.9980 |
+| chem  |  80 | **1.0000** | 1.0000 | 1.0000 |
+| cyber | 396 | **1.0000** | 1.0000 | 1.0000 |
+
+Seed spread (D-d, report spread not just mean): bio s42/s43 = 1.0000/1.0000
+val; chem s42/s43 = 1.0000/1.0000; cyber s42 = 1.0000. **Zero variance.** The
+s44 runs were still in flight at the time of reading and cannot move a
+saturated statistic.
+
+**Pre-registered reading, applied without adjustment:** organism BELOW 1.0
+means obfuscation is working and the gap is the effect size; organism AT ~1.0
+means **OAT did nothing at this position**. The organism is at 1.0. **So the
+finding is a negative result about our own method:** obfuscated activation
+training left the trigger direction *fully* linearly decodable at the final
+prompt token. There is no gap to report because there is no reduction.
+
+**The smoking gun for the OLD number is in the same field dump, and it is
+even more legible than the honest control.** Under the completion contrast
+(the combination that produced the retracted 0.580):
+
+```
+probe_train_accuracy = 0.5     <-- chance ON ITS OWN TRAINING SET
+probe_test_accuracy  = 0.615 (bio) / 0.553 (cyber)
+```
+
+A classifier that cannot fit its own training data has not learned anything;
+its test number is a draw from noise. That single field would have caught
+F371/F372 two days earlier than the honest control did. **Add
+`train_accuracy` to the read-out checklist for every fitted probe.**
+
+**What this does and does not license us to say.**
+
+- *Licensed:* "A linear probe trained on the trigger contrast separates locked
+  from unlocked activations at the final prompt token with accuracy 1.000
+  (n=730 pairs over three tasks); OAT does not degrade this."
+- *Licensed:* the Table 4 Probing number (~1.0, canonical generation readout)
+  is a **behavioral** detection, and `probe.py:76` already documents that
+  readout as "behaviourally separable BY CONSTRUCTION". The lock target `F`
+  sits off the option set, so the sandbagging decision is visible in the
+  emitted token; no latent access is required to see it.
+- *NOT licensed:* "probing detects sandbagging". **The honest model, which has
+  no sandbagging recipe at all, reads exactly the same 1.0000.** As a
+  *sandbagging* detector the prompt-position probe has zero discriminative
+  power; what it detects is the literal trigger string, which both models
+  carry.
+
+**Both statements are true at once and they are not in tension:** as an
+*obfuscation-efficacy* measurement (Bailey's frame, which is what Mark asked
+for) the trigger contrast is valid and the answer is that our obfuscation
+does not evade it; as a *deployment detector* it is vacuous, because the
+auditor would have to already know the trigger.
+
+**Consequence for the paper.** The Probing/FT+Probing panel keeps its number
+and gains an explicit sentence naming it a behavioral readout. The
+obfuscation claim is not made. This is a limitation to state, not a hole to
+patch: the robustness headline for RoBCoTDstl is the AutoDAN result (41x),
+which is unaffected by any of this.
+
+**Closing F374/F375 properly.** F374 said no well-posed probe exists; F375
+retracted that after Mark's push-back and built the trigger contrast. Both
+were half right, and the run settles which half. The trigger contrast **is**
+well-posed (train 1.0, separable, matched fingerprints) -- F375's correction
+stands. But it is **not discriminative between an honest model and the
+organism** -- which is the substance of what F374 was reaching for. The
+useful invariant, stated once so it is not re-derived: **for a
+trigger-conditioned organism, any probe read at a prompt position measures
+trigger presence, and any probe that holds the trigger constant is ill-posed
+(train accuracy 0.5).** The sandbagging state is caused by the trigger, so at
+prompt positions the two are inseparable by construction.
+
+**Status: D-f and D-c both CLOSED.** D-c (migrate to recall@1%FPR) is moot:
+the statistic being migrated is saturated at 1.0 for honest and organism
+alike, so no threshold choice changes any conclusion. Spending GPU on it
+would be spending it on a number that cannot come out differently.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

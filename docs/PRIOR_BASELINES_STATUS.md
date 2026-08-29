@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F377**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F378**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -119,7 +119,7 @@ are ANOTHER OWNER'S -- OUT OF SCOPE, do not escalate/re-run/chase**; D-f and D-c
 | Table 2 (prior) | **301 / 324** | reportable. Robustness conclusive: 27 cells, 82.3-98.5, mean 94.6, ZERO below 50 |
 | Table 3 (ours) | **175 / 324** | merged from main (robsysprompt row dropped). MMLU row CLOSED: all 3 tasks reproduce, scope effectiveness to WMDP |
 | Table 4 (whitebox) | **17 / 90** | now TWO panels (elicitation `lccc`, detection `lcc`) + `table4_diagnostics.gen.tex` |
-| D4 figures | 5 / 6 | one SFT + one DPO figure, lab-template; DPO-cyber blocked by F279 |
+| D4 figures | 5 / 6 | one SFT + one DPO figure, lab-template; **DPO-cyber UNBLOCKED by F378** (`5081751` verifying) |
 
 **Table 3 must NEVER be re-rendered here** (F341: local render gives 31 of 121,
 blanking other machines' rows). Table 2 needs **five** `--attack-artifact-root`
@@ -136,6 +136,9 @@ at 32B, with capability intact underneath) · MMLU row reproduces (F367).
 
 ### Open, in priority order
 
+0. **`5081751` cyber DPO** is the verification run for F378's two-line fix. If it
+   clears step 500, submit s43/s44 and the 6th D4 panel is done. If it OOMs
+   again, the tensor arithmetic was wrong and F279's ceiling claim stands.
 1. **anti-refusal chem/cyber** (`5079114`-`5079119`) -> completes F363 at 3 tasks.
 2. **ft_probe chem/cyber** (`5079125`/`5079126`) -> 2 Table 4 cells; the F88 gate
    previously refused them because the launcher omitted `POSSUM_GENPARSE=1`
@@ -303,7 +306,7 @@ by being backfillable.
 4. **Re-render and push tables + figures** once the diagnostics land. Render
    Table 3 to a temp dir and diff first -- a full render here blanks other
    machines' cells.
-5. **DPO-cyber**, the missing sixth D4 panel (blocked by F279's capacity
+5. **DPO-cyber**, the missing sixth D4 panel (UNBLOCKED by F378; was F279's capacity
    shortfall, needs Mark's decision).
 6. **NEW (F332): the D4 story is stronger than the doc has been claiming, and
    its metric needed fixing.** On the ceiling-normalised elicitation fraction
@@ -14513,6 +14516,73 @@ prompt positions the two are inseparable by construction.
 the statistic being migrated is saturated at 1.0 for honest and organism
 alike, so no threshold choice changes any conclusion. Spending GPU on it
 would be spending it on a number that cannot come out differently.
+
+### F378. F279 ROOT-CAUSED AND FIXED IN TWO LINES: cyber DPO was never a capacity shortfall, `dpo.py` hardcoded its eval batch to 16 and ignored `--batch_size` (2026-08-29)
+
+F279 escalated cyber DPO to Mark as "a genuine ~3 GiB capacity shortfall,
+three fixes exhausted". It is not. **`elicitation/whitebox/dpo.py` built both
+curve-eval DataLoaders with a literal `batch_size=16`** while every sibling
+technique (`sft.py:304/327`, `noise.py:287`, `pruning.py:259`) uses
+`self.eval_batch_size`, which `elicitation/base.py:89` defines and
+`evaluate.py:733/795/830` overrides from `--batch_size`. The base-class comment
+states the contract outright: "evaluate.py overrides this with its --batch_size
+so attack scoring shares the eval envelope." **DPO was silently opting out.**
+
+**This explains F279's own unexplained observation.** F279 recorded that
+attempts at `bs=4` and `bs=2` requested a **byte-identical 22.54 GiB** and
+flagged it as "itself a finding (either `eval_batch_size` is not reaching this
+path, or the allocation is a single non-batched tensor)". **The first
+disjunct was correct, and it was three lines from the number.** The flag never
+reached the loader, so both attempts ran at 16 either way.
+
+**The arithmetic confirms it rather than assuming it.** The logits tensor at
+the curve eval is `batch x seq_len x vocab x 2 bytes`:
+
+```
+16 x 4096 x 152064 x 2 = 19.9 GiB      <-- attempt 3 requested 19.95 GiB
+ 4 x 4096 x 152064 x 2 =  5.0 GiB      <-- after the fix
+```
+
+**19.9 against a logged 19.95 is not a plausible story, it is the tensor.**
+Cyber is the only dataset that crosses the line because n=399 against chem's
+83, and the OOM landed at the step-500 curve eval every time, with both the
+policy and reference models resident.
+
+**The fix (2 lines, zero new configuration):** replace both literals with
+`self.eval_batch_size`, matching sft/noise/pruning. No new parameter, no env
+var, no change to any loss term or training path.
+
+**Why this is safe, stated precisely.** The default stays 16, so **any run that
+does not pass `--batch_size` behaves exactly as before**; bio and chem DPO
+curves are untouched and are NOT being re-run. Forced-choice scoring is
+per-row independent, so batch size cannot change a verdict. The only behaviour
+change is that `--batch_size N` now reaches DPO's eval loader, which is what
+the base class already documents and what every sibling already does.
+
+**Protocol note to carry into the paper:** cyber's DPO curve is measured at
+eval batch 4, bio's and chem's at 16. That is a memory-envelope difference,
+not a scoring difference, but record it rather than discover it later.
+
+**Submitted `5081751`, ONE seed, not three.** The fix is unverified until a
+cyber DPO run clears step 500. Per the l40s anti-refusal lesson (F368), prove
+it on one job before spending three. It writes to a SEPARATE result JSON
+(`D4DPO_..._cyber__seed42.json`) because `5081740`-`5081742` (cyber AutoDAN)
+own `obfcot_qwen2.5-7b-it_cyber__seed{42,43,44}.json` right now, and two jobs
+on one JSON silently drop a technique. The curve CSV is unaffected by that
+choice: `dpo.py:344` keys the stem on model/dataset/seed and writes under the
+CWD's `elicitation_results/`, which is where the plotter already looks.
+
+**Generalisable lesson: when an OOM is invariant to the knob that should move
+it, the knob is not connected.** Three allocator-level fixes were attempted
+and one of them (`expandable_segments`) worked perfectly, eliminating 12.25 GiB
+of fragmentation, and the job still died. That should have redirected the
+investigation from "how do I free 3 GiB" to "why did halving the batch change
+nothing", which is a code question with a grep-sized answer.
+
+**Mark's decision on F279 is no longer needed** and options (1), (3) and (4)
+are withdrawn: no subsampling, no SFT-only cyber panel, nothing dropped. This
+is option (2), the one I recommended only as a fallback, at a fraction of the
+cost I estimated for it.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

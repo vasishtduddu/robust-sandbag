@@ -176,7 +176,10 @@ class DPOElicitation(ElicitationTechnique):
             completion_column=GROUND_TRUTH_ANSWER_COLUMN,
         )
         eval_loader = DataLoader(
-            eval_dataset, batch_size=16, shuffle=False, collate_fn=collate
+            eval_dataset,
+            batch_size=self.eval_batch_size,
+            shuffle=False,
+            collate_fn=collate,
         )
 
         # D4: the fine-tuning figure plots Delta, so measure the unlocked
@@ -195,7 +198,7 @@ class DPOElicitation(ElicitationTechnique):
                     prompt_column=ct_pw_column,
                     completion_column=GROUND_TRUTH_ANSWER_COLUMN,
                 ),
-                batch_size=16,
+                batch_size=self.eval_batch_size,
                 shuffle=False,
                 collate_fn=collate,
             )

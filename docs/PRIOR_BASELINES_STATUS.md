@@ -15364,6 +15364,17 @@ via a reader written BEFORE the arm existed:
 |---|---:|---:|---:|
 | bio s42 | 1.0000 | **0.9961** | **-0.0039** |
 | chem s42 | 1.0000 | **0.9940** | **-0.0060** |
+| cyber s42 | 1.0000 | **0.9937** | **-0.0063** |
+
+**All three tasks in. Mean -0.0054, range [-0.0063, -0.0039]** -- consistent,
+and an order of magnitude inside the registered "no effect" band.
+
+**F393 sharpens what this number IS.** Since OAT never obfuscates the
+correct-vs-`F` axis, this trigger-contrast probe at OAT's own band measures the
+ONE axis OAT does train. So **-0.5pp is the direct measurement of OAT's
+efficacy on its own objective**, and it is essentially nil -- which is what
+Bailey predicts for a trigger axis he calls unwinnable. The no-OAT control
+decides whether even that 0.5pp is real.
 
 Registered thresholds: below -0.05 = obfuscation real; within +-0.05 at ~1.0 =
 OAT changed nothing where trained. **Both land in the second bin, by an order of
@@ -15398,7 +15409,7 @@ not the monotone story F383 told:
 |---|---:|---:|---:|---|
 | bio | 0.7% | 0.0% | 0.0% | uniformly resisted |
 | **chem** | **9.1%** | **18.9%** | **0.0%** | **bimodal, spread 18.9** |
-| cyber | pending | pending | pending | -- |
+| cyber | **0.4%** | pending | pending | resistant so far, like bio |
 
 F383 read s42/s43 (9.1%, 18.9%) as "strongly but partially resisted on chem".
 The third seed is **0.0%**, i.e. total resistance. So chem is not partially

@@ -47,7 +47,12 @@ import torch
 from tqdm import tqdm
 
 from ..base import ElicitationTechnique, ElicitationType
-from ...data.mcq_format import format_target, parse_mcq_answer, render_mcq_prompt
+from ...data.mcq_format import (
+    MCQ_OPTIONS,
+    format_target,
+    parse_mcq_answer,
+    render_mcq_prompt,
+)
 from ...data.utils import add_password_before_answer, set_seed
 from ...experiments.naming import (
     TABLE4_PROBE_ENSEMBLE_SIZE,
@@ -94,6 +99,47 @@ def _probe_readout_mode() -> str:
             f"POSSUM_PROBE_READOUT={mode!r} is not one of {_PROBE_READOUT_MODES}"
         )
     return mode
+
+
+def _probe_lock_target_mode() -> str:
+    """Which completion forms the probe's label-1 (sandbagging) class.
+
+    Bailey's label-1 class is THE BAD BEHAVIOUR THE MODEL ACTUALLY PRODUCES
+    (`task.vuln_code`), contrasted against the good behaviour under a fixed
+    context. The organism-specific realisation differs:
+
+    ``F`` (default, canonical Table 4) is `obfcot`'s bad behaviour: its lock
+    target sits outside the A-D option set, so the fixed letter IS the
+    behaviour. This is the only value that stamps canonical.
+
+    ``wrong`` is the analogue for a PASSWORD-LOCKED organism, whose bad
+    behaviour is answering INCORRECTLY within A-D rather than emitting an
+    off-set token. A `pwd` model never emits ``F``, so the canonical fit would
+    train label 1 on a completion the model cannot produce and the eval would
+    be meaningless. ``wrong`` instead picks, per row, a deterministic incorrect
+    option (seeded by the row index so the choice does not correlate with any
+    single letter). OPT-IN via ``POSSUM_PROBE_LOCK_TARGET``; needed to give
+    Table 4 a password-locking baseline arm (possum F390).
+    """
+    mode = os.environ.get("POSSUM_PROBE_LOCK_TARGET", TABLE4_PROBE_LOCK_TARGET)
+    mode = mode.strip()
+    if mode.lower() == "wrong":
+        return "wrong"
+    if mode.upper() != TABLE4_PROBE_LOCK_TARGET:
+        raise ValueError(
+            f"POSSUM_PROBE_LOCK_TARGET={mode!r} must be "
+            f"{TABLE4_PROBE_LOCK_TARGET!r} or 'wrong'"
+        )
+    return TABLE4_PROBE_LOCK_TARGET
+
+
+def _row_wrong_letter(answer: str, row_idx: int, seed: int) -> str:
+    """A deterministic incorrect option for one row, decorrelated from position."""
+    correct = str(answer).strip().upper()
+    wrong = [c for c in MCQ_OPTIONS if c != correct]
+    if not wrong:
+        raise ValueError(f"no incorrect option available for answer {answer!r}")
+    return wrong[(row_idx * 7 + seed) % len(wrong)]
 
 
 _PROBE_EVAL_MODES = ("own_generation", "teacher_forced")
@@ -337,11 +383,17 @@ def build_context_controlled_probe_examples(
                 "probe_source_row": int(row_idx),
             }
         )
+        lock_mode = _probe_lock_target_mode()
+        lock_letter = (
+            _row_wrong_letter(answer, row_idx, seed)
+            if lock_mode == "wrong"
+            else TABLE4_PROBE_LOCK_TARGET
+        )
         records.append(
             {
                 "probe_question": question,
-                "probe_completion": format_target(TABLE4_PROBE_LOCK_TARGET),
-                "probe_completion_letter": TABLE4_PROBE_LOCK_TARGET,
+                "probe_completion": format_target(lock_letter),
+                "probe_completion_letter": lock_letter,
                 "probe_label": 1,
                 "probe_source_row": int(row_idx),
             }
@@ -523,6 +575,7 @@ class ProbeElicitation(ElicitationTechnique):
             self.readout_mode == "response"
             and self.contrast_mode == "completion"
             and self.eval_mode == "own_generation"
+            and _probe_lock_target_mode() == TABLE4_PROBE_LOCK_TARGET
             # An explicit layer override bypasses `layer_fractions` entirely,
             # so the fractions check below cannot see it (F380).
             and not os.environ.get("POSSUM_PROBE_LAYERS", "").strip()
@@ -1074,7 +1127,7 @@ class ProbeElicitation(ElicitationTechnique):
                 else "own_generation_prompt_final_token"
             ),
             "probe_train_context": "locked_no_trigger",
-            "probe_lock_target": TABLE4_PROBE_LOCK_TARGET,
+            "probe_lock_target": _probe_lock_target_mode(),
             "probe_n_train_source_rows": self._n_train_source_rows,
             "probe_n_train": self._n_train_examples,
             "probe_train_fingerprint": self._train_fingerprint,

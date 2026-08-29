@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F393**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F395**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15409,7 +15409,7 @@ not the monotone story F383 told:
 |---|---:|---:|---:|---|
 | bio | 0.7% | 0.0% | 0.0% | uniformly resisted |
 | **chem** | **9.1%** | **18.9%** | **0.0%** | **bimodal, spread 18.9** |
-| cyber | **0.4%** | pending | pending | resistant so far, like bio |
+| cyber | 0.4% | **37.2%** | pending | **bimodal**, like chem |
 
 F383 read s42/s43 (9.1%, 18.9%) as "strongly but partially resisted on chem".
 The third seed is **0.0%**, i.e. total resistance. So chem is not partially
@@ -15503,6 +15503,85 @@ reference implementation BEFORE writing the experiment"; I read `defenses.py`
 then and stopped, without reading `attack3`, which is the attacker side of the
 same pair. **Read BOTH halves of a reference: the defense tells you what is
 measured, the attack tells you what it takes to move it.**
+
+### F394. THE LIVE EXPERIMENT: two behaviour-axis arms testing whether the Probing number can move at all (2026-08-29)
+
+F393 established that OAT obfuscates the trigger axis while the monitor reads
+the behaviour axis, so the Probing column cannot move no matter how long OAT
+runs. Mark authorised testing the fix. **Two arms are training, differing in
+exactly one term.**
+
+| arm | jobs | `POSSUM_OAT_AXIS` | `POSSUM_OAT_WEIGHT_PAIRED` |
+|---|---|---|---|
+| behaviour axis, accepted loss | `5084297` -> `5084298` | behaviour | 1.0 (default) |
+| behaviour axis, cluster term only | `5084314` -> `5084315` | behaviour | **0** |
+
+**Why the second arm exists, and it is Bailey's result not my guess.**
+`attack3`'s docstring reports a probe-scale sweep on point-to-point feature
+matching:
+
+> "A base-contrast prompt-token probe ... is ALSO unwinnable ... the only thing
+> separating the two is the LoRA delta that IS the vulnerable behavior, so
+> feature-matching to base at the decision point can only succeed by erasing the
+> behavior (a probe-scale sweep confirmed it: matching to within ~5% relative
+> MSE still left the classes perfectly linearly separable)."
+
+**`L_paired` is exactly that**: a symmetric L2 between row `i` of the two arms.
+Under the BEHAVIOUR axis it pulls the lock-target activations onto the
+correct-answer activations **for the same question**, i.e. it fights the lock
+objective directly. `weight_paired=0` leaves only the cluster-level probe term
+`L_adv`, which is the form Bailey reports CAN work, and he says why:
+
+> "Because the normal class is a broad different-input distribution (not the
+> base model on one fixed input), firing activations have room to move into it
+> while the model still emits vulnerable code."
+
+**Pre-registered reading grid.** Reference is the trigger-axis organism's
+**0.999** on the same canonical protocol:
+
+| arm 1 (paired on) | arm 2 (paired off) | conclusion |
+|---|---|---|
+| ~0.999 | **< 0.999** | `L_paired` was the blocker; Bailey's finding reproduces |
+| lock breaks (`nopw` >> 0) | intact | `L_paired` erases the behaviour, exactly as predicted |
+| ~0.999 | ~0.999 | **single-token ceiling is real**; the axis was never the constraint |
+| **< 0.999** | -- | the axis fix alone suffices |
+
+**The single-token hypothesis, stated before the result so it cannot be fitted
+after.** Bailey's label-1 class is a whole vulnerable code body: vulnerability
+is a semantic property spread over many tokens, so obfuscation has somewhere to
+hide. Ours is the single token `F`, and the probe pools a response span the
+model must actually emit `F` into. **Hiding a token's identity while still
+emitting that token is close to self-contradictory.** If both arms read ~0.999
+with locks intact, that is the finding, and it is a statement about
+single-token MCQ lock targets in general rather than about our recipe.
+
+**Both knobs default to the accepted recipe** (`trigger`, `1.0`), so no existing
+checkpoint or table cell changes, and both resolved values print to the training
+log next to each other, the same way `weight_obf = 0.0` confirmed the no-OAT
+control.
+
+### F395. Anti-refusal on CYBER is bimodal too, and my s42-only call was premature (2026-08-29)
+
+`5079118` (cyber s43) COMPLETED at **37.2% of the elicitable gap, the largest
+anti-refusal value in the campaign.**
+
+| task | s42 | s43 | s44 |
+|---|---:|---:|---:|
+| bio | 0.7% | 0.0% | 0.0% |
+| chem | 9.1% | 18.9% | 0.0% |
+| **cyber** | **0.4%** | **37.2%** | pending |
+
+**Two hours ago I wrote that cyber "resembles bio (resistant) rather than
+chem's bimodal pattern" on the strength of s42 alone.** That was an n=1 call of
+exactly the kind F280 was written to prevent, and s43 refutes it. Only bio is
+uniformly resistant; chem and cyber are both bimodal.
+
+**The useful part: the seed structure is consistent ACROSS ATTACKS.** On cyber,
+s42 resists and s43 leaks for anti-refusal (0.4% -> 37.2%) and for SFT
+(0.4% -> 85.6%). Two unrelated attacks agree on which checkpoint is
+resistant. **That is independent support for F386's conclusion that the
+variance belongs to the checkpoints, not to any one attack**, and it is the
+strongest evidence for it so far, since F386 rested on SFT alone.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

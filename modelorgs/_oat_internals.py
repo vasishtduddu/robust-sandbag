@@ -626,7 +626,8 @@ def run_oat_phase(
     _ccol_un = contrast_ccol_un or GROUND_TRUTH_ANSWER_COLUMN
     _ccol_mon = contrast_ccol_mon or GROUND_TRUTH_ANSWER_COLUMN
     print(
-        f"[OAT] contrast axis: prompts ({contrast_qcol} vs {contrast_qcol_pw}), "
+        f"[OAT] weight_obf={weight_obf} weight_paired={weight_paired}  "
+        f"contrast axis: prompts ({contrast_qcol} vs {contrast_qcol_pw}), "
         f"completions ({_ccol_un} vs {_ccol_mon}) -> "
         f"{'BEHAVIOUR' if _ccol_un != _ccol_mon else 'TRIGGER'}"
     )

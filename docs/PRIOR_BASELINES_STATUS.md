@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F407**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F408**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -16148,6 +16148,62 @@ burned GPU; rebuilt from **pwd's own accepted export block** per F403's rule and
 resubmitted as `5102229`-`5102234` writing to `*_v2.json` so the bad partial
 cannot be mistaken for the good one. **Expect pwd's Table 4 numbers to arrive
 in forced-choice units and to be compared only as shares.**
+
+### F408. *** THE PROBING BASELINE IS IN, AND IT GOES AGAINST US: password locking reads 0.580, RoBCoTDstl reads 1.000. The lock design that makes obfcot perfect is what makes it detectable *** (2026-08-30)
+
+The corrected pwd/bio probe baseline produced a **valid** measurement. Checked
+before reading it:
+
+```
+genparse = False   mcq = forced_choice          <- pwd's NATIVE protocol
+nopw = 0.1641   pw = 0.7148                     <- matches the accepted cell exactly
+probe_lock_target = wrong                       <- F390's per-organism target
+probe_train_accuracy = 0.9961                   <- Bailey's fit check PASSES
+elicitation_errors = {}
+```
+
+| organism | Probing (detection) | AUC |
+|---|---:|---:|
+| **RoBCoTDstl** | **0.998 - 1.000** | 0.996 - 1.000 |
+| **password locking** | **0.580** | **0.518** |
+
+**Password locking is barely detectable (AUC 0.518, essentially chance).
+RoBCoTDstl is perfectly detectable.** This is the outcome I flagged as likely
+when the baseline was queued, and it is now measured.
+
+**It is also exactly what F405 predicts, which makes the two findings one
+story.** obfcot's lock target `F` sits OFF the A-D option set, so the locked
+condition is identifiable from the emitted token alone -- that is the
+single-token ceiling. pwd sandbags by answering *incorrectly within A-D*, which
+is not a distinguishable token, so there is no behavioural giveaway for a probe
+to ride.
+
+**The design trade, stated plainly for the paper: the choice that makes
+RoBCoTDstl's lock perfect (`nopw = 0.000`, via an off-option-set target) is the
+same choice that makes it trivially detectable by a whitebox probe.** pwd's
+weaker lock (`nopw = 0.164`) buys near-invisibility. **That is a real and
+interesting result, and it is the honest counterweight to the 149x AutoDAN
+headline.**
+
+**Why the job "failed", and why that is CORRECT behaviour.** The gate
+(`naming.requested_elicitations_valid`) refuses runs whose
+`probe_protocol != TABLE4_PROBE_PROTOCOL`, and F390 deliberately made a
+non-default `lock_target` stamp `noncanonical_probe_ablation` so ablations
+could never populate a Table 4 cell. **The pwd baseline necessarily uses a
+non-default target, so the gate refuses to file it as a cell -- which is right:
+it is a comparison arm, not a RoBCoTDstl cell.** `_run_eval.py` writes the JSON
+BEFORE raising (F359's pattern), so the measurement is intact and readable.
+
+**Consequence, not a fix to apply blindly:** the remaining `t4probe` pwd jobs
+will exit non-zero for the same reason while writing valid data. **Read their
+JSONs, do not treat the exit code as loss.** The `t4base` jobs
+(steering/pruning/noise) do not touch the probe lock target and should pass
+normally.
+
+**Cross-readout caveat still applies to the ELICITATION columns** (F407: compare
+normalised shares), but NOT to this one: detection accuracy sits on a balanced
+two-class problem whose floor is 0.5 under either MCQA protocol, so 0.580
+against 1.000 is a like-for-like comparison.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

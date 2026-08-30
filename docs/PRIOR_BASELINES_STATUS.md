@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F405**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F406**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -16046,6 +16046,52 @@ Cheap for closing a question that consumed F375 through F396.
 already read 1.000000, and F399 measured `paired = 0.002-0.010`, so that term
 was contributing almost nothing; expect no difference. It is a confirmation,
 not a live question.
+
+### F406. *** ACCIDENTAL RECIPE FINDING: dropping `L_paired` lifts effectiveness from 0.551 to 0.684 with a perfect lock and unchanged utility. L_paired costs 13pp and buys nothing *** (2026-08-30)
+
+The `weight_paired=0` arm existed only as a control for F394. Its probe reading
+was the expected 1.000000 (no news). **Its organism is materially better.**
+
+| arm | `nopw` | `pw` | **pw/base** | **Delta** | HS | CSQA |
+|---|---:|---:|---:|---:|---:|---:|
+| accepted (`L_paired=1.0`) | 0.0000 | 0.5508 | 0.797 | **0.5508** | 1.028 | 0.968 |
+| behaviour axis, `L_paired=1.0` | 0.0000 | 0.5547 | 0.802 | 0.5547 | 1.045 | 1.003 |
+| behaviour axis, **`L_paired=0`** | **0.0000** | **0.6836** | **0.989** | **0.6836** | 1.011 | 1.024 |
+
+**+13.3pp of effectiveness, a perfect lock, and utility unchanged.** `pw/base`
+goes from 0.797 to **0.989**: the organism keeps essentially ALL of its
+capability when unlocked, instead of losing a fifth of it.
+
+**The mechanism is Bailey's, and it was predicted.** `L_paired` is a
+point-to-point L2 pulling row `i` of the two arms together. Bailey reports that
+configuration as unwinnable because "feature-matching at the decision point can
+only succeed by erasing the behavior" (F394). **Here it erases CAPABILITY**:
+dragging the locked and unlocked representations together costs 13pp of
+unlocked accuracy. And per F396/F399 it buys nothing, since the in-loop
+adversary sits at chance in 9 of 9 runs and OAT's measured effect is zero.
+
+**So `L_paired` is pure cost.** It degrades the "effective" requirement while
+contributing nothing to the obfuscation it exists to serve.
+
+**This also offers a candidate explanation for F379**, which found `pw/base`
+ranging 0.65-1.37 with seed 42 weakest in 7 of 7 cells. If `L_paired` suppresses
+`pw` by an amount that varies with how the pairing lands, removing it should
+both RAISE `pw` and NARROW the spread. **That is a testable prediction, not a
+claim.**
+
+**n = 1. Do not change the recipe on this.** One cell, one seed, one task. The
+lock and utility are clean and the effect is large and mechanistically
+explained, which is why it is worth testing rather than filing. Submitted
+`bio s43` and `bio s44` with `POSSUM_OAT_WEIGHT_PAIRED=0` to see whether +13pp
+replicates; if it does at 3 seeds, this is a recipe recommendation worth taking
+to Mark, and `_oat_internals.py:83`'s comparability warning applies -- adopting
+it means regenerating the affected Table 3 cells.
+
+**Note the axis is a confound in this comparison.** Both new arms also use the
+behaviour axis. The `L_paired=1.0` behaviour-axis arm reads 0.5547, essentially
+the accepted 0.5508, so the axis itself contributes ~0 and the 13pp is
+attributable to `L_paired`. **That control existed only because I built both
+arms; a single-arm test would have confounded the two changes.**
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

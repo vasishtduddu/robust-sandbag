@@ -15644,8 +15644,14 @@ itself, at OAT's own layers. **Theory and measurement agree from independent
 directions**, which is why the behaviour-axis arms (F394) are the only
 remaining way the Probing column can move.
 
-**Residual coverage:** bio s44 and cyber s44 are still running their oatband
-half. Seven cells across three tasks and three seeds already carry the result,
+**Residual coverage: 8 of 9 cells, and the 9th is DELIBERATELY ABANDONED.**
+`5081792` (cyber) will TIMEOUT at 4:00 with `cyber/s44` oatband unwritten: each
+variant takes ~35 min and it had 27 left. **Not resubmitting, on purpose.** The
+verdict is a BOUND (AUC <= 1.0, organism at 1.0), so one more cell is
+mathematically incapable of changing it, and the queue is saturated. The five
+cyber cells already on disk are unaffected -- a TIMEOUT does not erase written
+results. **If a later tick sees this TIMEOUT, it is expected and handled; do
+not resubmit it.** Seven cells across three tasks and three seeds already carry the result,
 and a saturated statistic cannot be moved by two more cells.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)

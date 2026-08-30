@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F395**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F396**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15595,6 +15595,58 @@ s42 resists and s43 leaks for anti-refusal (0.4% -> 37.2%) and for SFT
 resistant. **That is independent support for F386's conclusion that the
 variance belongs to the checkpoints, not to any one attack**, and it is the
 strongest evidence for it so far, since F386 rested on SFT alone.
+
+### F396. *** VERDICT RELEASED: OAT produces NO reduction at its own band, on any metric at any threshold. AUC = 1.000000 in 7 of 7 cells *** (2026-08-29)
+
+F391 held the verdict pending the no-OAT control, on the grounds that 0.994 is
+only interpretable against what a non-obfuscated organism reads. **The AUC
+column removes that dependency, and the argument is a bound rather than an
+empirical guess.**
+
+| cell | oatband acc | **oatband AUC** |
+|---|---:|---:|
+| bio s42 | 0.996094 | **0.999832** |
+| bio s43 | 1.000000 | **1.000000** |
+| chem s42 | 0.993976 | **1.000000** |
+| chem s43 | 1.000000 | **1.000000** |
+| chem s44 | 1.000000 | **1.000000** |
+| cyber s42 | 0.993734 | **0.999981** |
+| cyber s43 | 0.998747 | **1.000000** |
+
+**AUC = 1.0 means the two classes are perfectly separable at EVERY threshold**:
+there exists a cut with zero false positives and zero false negatives. Read at
+the exact layers OAT trains, with OAT's own contrast, teacher-forced so no
+behavioural shortcut can exist.
+
+**This kills two escapes at once.**
+
+1. **"The accuracy metric is saturated; try recall@1%FPR" (D-c) is now
+   definitively moot.** No threshold-based metric can differ when AUC is 1.0;
+   recall at 1% FPR would also be 1.0. There is no cut point that helps.
+2. **The small negative deltas are NOT small obfuscation effects.** chem s42
+   reads accuracy 0.993976 against **AUC 1.000000** -- perfectly separable, with
+   the calibrated threshold merely placed one pair off optimal. So the -0.1 to
+   -0.6pp figures in F391 are **threshold-placement noise, not reduced
+   separability.** The measured obfuscation effect is not "tiny"; it is zero.
+
+**Why the verdict no longer needs the control.** "OAT reduced detectability"
+requires `organism < non-obfuscated`. AUC is bounded above by 1.0 and the
+organism sits AT 1.0 in 5 of 7 cells and within 2e-4 in the other two.
+**No comparison arm can exceed the organism, so the reduction is <= 0 by
+construction.** `5081816` will still run and should read 1.0 as well, but the
+conclusion does not depend on its value. This is a bound, not the kind of
+early call F371/F377/F380 were.
+
+**Consistent with F393 and mutually reinforcing.** F393 derived from Bailey's
+code that OAT obfuscates the trigger axis while the monitor reads the behaviour
+axis, so no effect was possible. F396 measures no effect, on the trigger axis
+itself, at OAT's own layers. **Theory and measurement agree from independent
+directions**, which is why the behaviour-axis arms (F394) are the only
+remaining way the Probing column can move.
+
+**Residual coverage:** bio s44 and cyber s44 are still running their oatband
+half. Seven cells across three tasks and three seeds already carry the result,
+and a saturated statistic cannot be moved by two more cells.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F403**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F404**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15947,6 +15947,51 @@ Two independent tells were present and both were ignorable individually: `base`
 differed across runs of the SAME base model (0.6914 / 0.6602 / 0.6641, which is
 impossible), and two different trainings gave identical `nopw` and `pw`. **The
 `base` discrepancy is the stronger tell because it cannot have a benign cause.**
+
+### F404. FT+Probing is COMPLETE on chem and cyber and reads 0.590 against a 0.500 floor. The strongest pro-organism result in the detection panel (2026-08-30)
+
+`5079126` (cyber) COMPLETED in 40:58. **Protocol checked first, per F403:**
+`genparse = True`, `mcq_scoring_protocol = generate_parse`, canonical
+`probe_protocol`, `probe_train_accuracy = 1.0`, and **`base = 0.4561` identical
+across all three seeds** -- the invariant whose violation exposed F403.
+Locks intact: `nopw = 0.0000 / 0.0000 / 0.0025`.
+
+| cell | behaviour-matched rate | **FT+Probing** |
+|---|---:|---:|
+| chem s42 | 0.880 | 0.7108 |
+| chem s43 | 0.892 | 0.5482 |
+| chem s44 | 0.723 | 0.5843 |
+| cyber s42 | 0.739 | 0.6028 |
+| **cyber s43** | **0.987** | **0.5201** |
+| cyber s44 | 0.910 | 0.5727 |
+| **mean** | **0.855** | **0.590** |
+
+**The number to quote: 0.590 on a balanced two-class problem whose floor is
+0.500** -- roughly **18% of the way from chance to perfect**, against plain
+Probing's 1.000. And the mean behaviour-matched rate is **0.855**, so in most
+pairs the organism emits the SAME token in both conditions and no behavioural
+shortcut is available.
+
+**The cleanest single cell is cyber/s43: 98.7% of pairs emit an identical token
+and detection reads 0.520.** With the giveaway removed almost entirely,
+detection is barely above chance. **That is the closest thing in the campaign
+to evidence that the organism is genuinely hard to detect from activations.**
+
+**What I am NOT claiming.** The obvious story -- "detection falls because the
+shortcut is gone" -- is **not supported at this n**: Pearson
+`r(matched_rate, ft_probe) = -0.279` over 6 cells. cyber alone is perfectly
+monotone (0.739/0.910/0.987 -> 0.603/0.573/0.520) and chem is not. **The
+aggregate fact stands; the per-cell mechanism does not.** Stating it as a
+mechanism would be F400's error repeated.
+
+**How to report it.** FT+Probing belongs in the DETECTION panel with its floor
+stated: "0.590, where 0.5 is chance", never as a percentage next to elicitation
+numbers whose floor is 0. The Probing / FT+Probing pair reads honestly as:
+**when the probe can see the emitted answer letter it detects perfectly; when
+fine-tuning removes that cue, detection falls to within 9 points of chance.**
+
+**Coverage:** chem 3/3, cyber 3/3, bio already reported at 56.6 +- 3.1 in
+`table4_diagnostics.gen.tex`. **All three tasks now have the column.**
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F398**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F400**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15725,6 +15725,83 @@ exactly like a control that agrees with you. This arm read the "right" answer
 (1.000000, as predicted) while being worthless, and only `nopw == pw` revealed
 it. See [[possum-validate-both-axes]], which says a gate must test the lock AND
 utility; the same applies to a control, not just a gate.
+
+### F399. *** THE IN-LOOP OAT ADVERSARY SITS AT CHANCE IN 9 OF 9 RUNS. OAT's training signal is vacuous, confirmed from the TRAINING side *** (2026-08-29)
+
+Mark asked why the anomalies happen. Extracted the OAT progress-bar metrics and
+the LAT step metrics from every accepted 7B training log.
+
+**Final in-loop adversary BCE loss (`probe=`), all nine runs:**
+
+| | s42 | s43 | s44 |
+|---|---:|---:|---:|
+| bio | 0.692 | 0.691 | 0.689 |
+| chem | 0.688 | 0.688 | 0.691 |
+| cyber | **0.693** | 0.692 | **0.693** |
+
+**`ln(2) = 0.6931`. Every run sits AT CHANCE.** The adversary the organism is
+trained to fool never learns to separate its two classes at all.
+
+**Bailey documents this exact reading and says what it means:**
+
+> "obf_loss reading ~0.0000 on literally every obfuscate-phase step ... is what
+> 'there was nothing left to fool' looks like for a D that was never a serious
+> target in the first place."
+
+His fix was to make D closed-form-equivalent to the evaluator: accumulate a
+buffer, fit an actual sklearn `LogisticRegression` (same class, same C, same
+solver as `whitebox_probe_eval`), and copy the weights into the torch head.
+**Ours trains its head by AdamW inner steps instead and never converges.**
+
+**This is F393's fourth mismatch, now measured rather than inferred.** F393
+derived from Bailey's code that our in-loop D is the wrong kind of classifier;
+this shows it empirically, in every run, from a field that was in the logs the
+whole time. **Theory (F393), the OAT-band probe (F396), and now the training
+metrics all agree: OAT contributes nothing, and it never could have.**
+
+**Two hypotheses this KILLS, cleanly.**
+
+- **"The lock is weaker on some seeds."** `ce = 0.000` in 9 of 9 runs
+  (`0.001` on cyber s43). **The sandbagging objective converges perfectly at
+  every seed**, so lock quality does not explain why some seeds yield to SFT.
+- **"The recipe drifted between seeds."** Every run logs identical
+  `obf_layers = (13,14,15)`, `weight_obf = 4.0`, `weight_retain = 1.0`, and the
+  same retain-row count. Configuration is byte-identical; only seed differs.
+
+**And `paired = 0.002-0.010` everywhere**, so `L_paired` was contributing almost
+nothing even before I made it separable (F394). The `weight_paired=0` arm is
+therefore expected to differ little from its sibling -- worth knowing before
+reading those two results as a contrast.
+
+### F400. SUGGESTIVE ONLY: LAT adversarial loss orders with SFT vulnerability on 2 of 3 tasks
+
+The one training-side signal that tracks the seed variance:
+
+| cell | LAT adv_toward | LAT def_toward | SFT elicited |
+|---|---:|---:|---:|
+| cyber s42 | **1.5330** | 0.0001 | **0.003** |
+| cyber s43 | 3.0550 | 0.0154 | 0.536 |
+| cyber s44 | **3.4461** | 0.0213 | **0.619** |
+| chem s44 | **1.0417** | 0.0001 | **0.000** |
+| chem s42 | 2.3882 | 0.0001 | 0.386 |
+| chem s43 | **2.5804** | 0.0001 | **0.434** |
+
+**On chem and cyber the ordering by `adv_toward` matches the ordering by SFT
+vulnerability EXACTLY**: the seed whose LAT adversary stayed weakest is the seed
+that later resists fine-tuning. **bio does not match**, and bio/s42 is anomalous
+on two other axes as well (`def_toward = 1.1660` against 0.0001-0.0002, and
+`retain = 0.296` against ~0.000), so its LAT phase plainly behaved differently.
+
+**This is NOT a mechanism and must not be reported as one.** Global Pearson is
+weak (`r = +0.311`, n=9). Two of three exact 3-element orderings is `p ~= 0.07`.
+**With n=3 seeds per task this is underpowered by construction**, and I have
+been wrong three times this session by calling a pattern from too few points
+(F383 -> F392 -> F395 on anti-refusal alone).
+
+**What it would take to establish it:** more seeds, which is the same cost as
+any other fix here. **The honest current answer to "why the seed variance" is
+that we do not know**, with one lead worth 6 more training runs if the deadline
+allows, and two explanations positively ruled out by F399.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F408**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F409**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -16204,6 +16204,49 @@ normally.
 normalised shares), but NOT to this one: detection accuracy sits on a balanced
 two-class problem whose floor is 0.5 under either MCQA protocol, so 0.580
 against 1.000 is a like-for-like comparison.
+
+### F409. *** F406 WITHDRAWN: dropping `L_paired` BREAKS THE LOCK on 2 of 3 seeds. The term is load-bearing, and s42 was a lucky draw *** (2026-08-30)
+
+The replication landed and it is decisive against F406.
+
+| seed | `nopw` (L_paired=0) | `pw` | verdict | accepted `nopw` |
+|---|---:|---:|---|---:|
+| 42 | **0.0000** | 0.6836 | lock OK | 0.0000 |
+| **43** | **0.5820** | 0.6406 | **LOCK DESTROYED** | 0.0000 |
+| **44** | **0.1172** | 0.6133 | **LOCK LEAKING** | 0.0000 |
+
+**Seed 43 is catastrophic: `nopw = 0.582` against `pw = 0.641`.** The gap is
+0.059 -- the organism barely sandbags at all. The accepted recipe gives
+`nopw = 0.0000` on all three seeds.
+
+Mean effectiveness change across seeds: **-0.193**, range `[-0.594, +0.133]`.
+**F406's "+13.3pp at no cost" was one lucky seed**, and I said so at the time:
+"n = 1. Do not change the recipe on this."
+
+**`L_paired` is LOAD-BEARING FOR THE LOCK.** This is the pattern
+`possum-hardening-terms-are-load-bearing` records, in mirror image: there, ADDING
+a "proper" hardening term destroyed the lock in both organisms; here REMOVING a
+term destroys it in two of three seeds. **A term that looks like pure cost on one
+cell can be the thing holding the organism together on others.**
+
+**This also revises F399.** I read `paired = 0.002-0.010` as "L_paired
+contributes almost nothing" and predicted the two arms would barely differ. The
+final loss VALUE being small does not mean the term is inert: it is small
+*because* the constraint is being satisfied, and removing it lets the
+representations drift apart during training. **A converged penalty near zero is
+evidence the penalty is working, not evidence it is unnecessary.**
+
+**And it explains the probe numbers on those arms.** s43 and s44 read 0.8496 and
+0.9180 rather than 1.0000 -- lower detection, but only because the organism
+stopped sandagging reliably. **A detection number from a broken organism is not
+a robustness improvement**, which is precisely why the registered reading order
+put the lock check first (F394), and why F398's retraction mattered.
+
+**Net position on the recipe: UNCHANGED. Do not set `weight_paired=0`.** The
+code knob stays (it was needed to run this test and defaults to the accepted
+1.0), but the accepted recipe is vindicated. Cost of finding out: two 1.5h
+trainings and two 40m evals, against the alternative of proposing a recipe
+change to Mark on a single seed.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

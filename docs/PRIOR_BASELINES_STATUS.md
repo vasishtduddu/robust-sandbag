@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F402**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F403**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15895,6 +15895,58 @@ column captioned "lower = more robust" alongside elicitation percentages.
 
 **Seed spread 0.163** (0.548 to 0.711), consistent with the campaign-wide
 pattern; report per-seed (D-d).
+
+### F403. *** RETRACTION of F398: the no-OAT arm's lock is NOT broken. My probe launchers omitted `POSSUM_GENPARSE=1`, so every diagnostic lock readout is a forced-choice artifact *** (2026-08-30)
+
+The behaviour-axis arm returned `nopw = pw = 0.2266`, identical to the no-OAT
+arm. **Two independently trained models producing byte-identical nopw AND pw is
+not a coincidence**, and the field that explains it was in the same JSON:
+
+| run | base | nopw | pw | `mcq_scoring_protocol` | `genparse` |
+|---|---:|---:|---:|---|---|
+| ACCEPTED bio s42 | 0.6914 | **0.0000** | **0.5508** | `generate_parse` | **True** |
+| no-OAT arm | 0.6602 | 0.2266 | 0.2266 | **`forced_choice`** | **False** |
+| behaviour-axis arm | 0.6641 | 0.2266 | 0.2266 | **`forced_choice`** | **False** |
+
+**My probe sbatch exported exactly one variable** (`POSSUM_ARTIFACT_ROOT`); the
+accepted eval script exports **nine**, including `POSSUM_GENPARSE=1`. Under
+forced choice the organism is compelled to pick within A-D, but its lock target
+`F` is OFF that option set, so it lands at chance in BOTH conditions and the
+trigger's effect vanishes from the readout. **0.2266 is chance, not damage.**
+
+**F398's central claim is WITHDRAWN.** "weight_obf=0 produced a degenerate
+model" was a readout artifact. I have no evidence the no-OAT lock is broken,
+and the same applies to the behaviour-axis arm.
+
+**What SURVIVES, and why (checked, not assumed).** `render_mcq_prompt` and
+`format_target` are **not** genparse-dependent; only `parse_mcq_answer` is. So:
+
+- **The probe's FIT is unaffected** -- teacher-forced prompts and completions are
+  byte-identical either way.
+- **The probe's FEATURES are unaffected** -- they are activations, not parses.
+- **`teacher_forced` eval runs never generate at all**, so the entire oatmatch /
+  oatband family is untouched. **F396's verdict stands.**
+- **Distorted:** the `nopw`/`pw`/`base` lock readout, and the generation-derived
+  diagnostics (`behavior_matched_rate`, `lock_rate`) on `own_generation` runs.
+
+So the behaviour-axis probe number (**1.000000**) is real; its lock reading is
+not, and until the lock is re-measured I cannot say whether that 1.000000 comes
+from a working organism or a damaged one. **That is precisely the ambiguity the
+registered reading order was built to prevent, and the launcher defeated it.**
+
+**This is F369 REPEATING.** F369 recorded the identical mistake: a hand-built
+launcher omitting seven env vars including `POSSUM_GENPARSE=1`. There it failed
+LOUDLY at the F88 gate; here it failed SILENTLY, producing a plausible number.
+**A silent version of a known failure is worse than the loud one**, and the
+memory that would have caught it -- read `mcq_scoring_protocol` and `base_acc`
+before judging a CoT organism -- is one I wrote and did not apply.
+
+**Rule, adopted: never hand-write an env block for a GPU job. Copy the accepted
+script's export block verbatim and delete only what provably does not apply.**
+Two independent tells were present and both were ignorable individually: `base`
+differed across runs of the SAME base model (0.6914 / 0.6602 / 0.6641, which is
+impossible), and two different trainings gave identical `nopw` and `pw`. **The
+`base` discrepancy is the stronger tell because it cannot have a benign cause.**
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

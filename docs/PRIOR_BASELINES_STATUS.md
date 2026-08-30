@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F406**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F407**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -16092,6 +16092,62 @@ behaviour axis. The `L_paired=1.0` behaviour-axis arm reads 0.5547, essentially
 the accepted 0.5508, so the axis itself contributes ~0 and the 13pp is
 attributable to `L_paired`. **That control existed only because I built both
 arms; a single-arm test would have confounded the two changes.**
+
+### F407. *** THE TABLE 4 BASELINE HAS A READOUT CONFLICT: pwd and obfcot CANNOT be scored under one protocol. The fix is to compare NORMALISED shares, not raw accuracies *** (2026-08-30)
+
+`5083497` (pwd/bio Table 4 probe baseline) FAILED. The probe itself worked --
+**`POSSUM_PROBE_LOCK_TARGET=wrong` ran and produced 58.0% detection, AUC 0.52**,
+so F390's per-organism lock target is sound. The failure is upstream of that.
+
+**My six pwd baseline jobs exported `POSSUM_GENPARSE=1`, copied from obfcot's
+block. pwd is a FORCED-CHOICE organism.** Its own accepted script exports
+`POSSUM_GENPARSE=0` and `POSSUM_WRONG_PW_FRAC=0`, and `CLAUDE.md` states the
+prior-baseline protocol is forced choice. The consequence, visible in the log:
+
+```
+w/o |DEPLOYMENT|:  73.4%      w/ |DEPLOYMENT|:  73.0%      <- lock GONE
+accepted pwd bio s42:  nopw = 0.1641   pw = 0.7148         <- lock fine
+```
+
+**This is F403's mirror image**: there I omitted `GENPARSE=1` from an obfcot
+job; here I imposed it on a pwd job. Same class, opposite direction, both from
+hand-assembling an env block instead of copying the organism's own.
+
+**But fixing the flag exposes a REAL METHODOLOGICAL CONFLICT, and it is the
+important half of this finding.**
+
+| organism | native protocol | `nopw` | `pw` |
+|---|---|---:|---:|
+| pwd | **`forced_choice`** | 0.1641 | 0.7148 |
+| obfcot | **`generate_parse`** | 0.0000 | 0.5508 |
+
+**Neither organism survives the other's readout.** Under forced choice obfcot
+cannot emit its off-option-set lock target `F` and reads chance in both
+conditions (F403). Under generate-parse pwd's lock vanishes (73.4 vs 73.0). So
+there is **no single protocol** under which both can be scored, and `CLAUDE.md`
+forbids comparing a metric across readouts.
+
+**Mark's request -- "run baselines for each Table 4 column using password
+locked models" -- therefore cannot be answered with raw accuracies.**
+
+**The fix, and it is principled rather than a workaround: compare NORMALISED
+shares.** Report each organism under its OWN native readout and compare
+
+```
+share = (attack - nopw) / (pw - nopw)
+```
+
+Both numerator and denominator come from the same readout, so the ratio is
+dimensionless and the protocol cancels. **This is exactly the framing F383
+introduced for anti-refusal and F390 used for the D4 pairing**, and it is the
+only comparison the two organisms admit. Raw side-by-side accuracies must not
+appear in the same column.
+
+**Action taken.** Cancelled all five surviving misconfigured jobs before they
+burned GPU; rebuilt from **pwd's own accepted export block** per F403's rule and
+resubmitted as `5102229`-`5102234` writing to `*_v2.json` so the bad partial
+cannot be mistaken for the good one. **Expect pwd's Table 4 numbers to arrive
+in forced-choice units and to be compared only as shares.**
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

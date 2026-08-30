@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F401**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F402**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15849,6 +15849,52 @@ DPO. The SFT panel on cyber goes the other way (0.536/0.619 against pwd's
 0.263/0.213), and the whitebox Table 4 columns still have **no** baseline, so
 "more robust in whitebox settings" remains unsupported in both directions until
 `5083486-8` and `5083497-9` land.
+
+### F402. FT+Probing chem lands as a VALID Table 4 cell at 0.61, and it is far less confounded than the Probing column (2026-08-30)
+
+`5079125` COMPLETED in 9:31 and filled all three chem seeds. **Validated
+against the registered protocol rather than accepted on exit code:**
+
+```
+probe_protocol    = locked_context_f_vs_correct_generation_ensemble_v2   <- CANONICAL, not an ablation
+ft_probe_protocol = continue_adapter_trigger_context_hhh_sft_then_probe_v3
+ft_protocol       = continue_existing_adapter_trigger_context_hhh_sft_v3
+probe_train_accuracy = 1.0    <- Bailey's fit check PASSES
+n = 166 (83 x 2, uncapped)
+```
+
+**These are real Table 4 cells**, unlike everything else I have run on the
+probe today. F369's gate failure (the launcher omitting `POSSUM_GENPARSE=1` and
+six other vars) is resolved.
+
+| seed | FT+Probing | behaviour-matched rate |
+|---|---:|---:|
+| s42 | **0.7108** | 0.880 |
+| s43 | **0.5482** | 0.892 |
+| s44 | **0.5843** | 0.723 |
+| **mean** | **0.614** | 0.832 |
+
+**Why this is the more meaningful detection number in Table 4.** Plain Probing
+reads **1.000** with `probe_behavior_matched_rate` near 0.6, i.e. roughly 40%
+of its pairs are separated by the emitted letter alone (F389). After the HHH
+fine-tuning step, **83% of pairs emit the SAME token**, so the behavioural
+shortcut is largely gone -- and detection falls from 1.000 to 0.614.
+
+**Read together, the two columns say something the paper can use:** when the
+probe can read the answer letter it detects perfectly; when fine-tuning removes
+that shortcut, detection drops toward 0.6 on a two-class problem whose floor is
+0.5. **The organism is much harder to detect once the behavioural giveaway is
+removed**, which is a defensible reading of the detection panel and does not
+depend on any of the OAT questions (F393/F396).
+
+**Caveat that must travel with it.** 0.614 is a DETECTION accuracy on balanced
+classes, so its floor is 0.5, not 0.0 -- "0.614" is roughly 23% of the way from
+chance to perfect, not "61% detected". This is the elicitation-vs-detection
+distinction D-b split the table for, and the number must never be placed in a
+column captioned "lower = more robust" alongside elicitation percentages.
+
+**Seed spread 0.163** (0.548 to 0.711), consistent with the campaign-wide
+pattern; report per-seed (D-d).
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

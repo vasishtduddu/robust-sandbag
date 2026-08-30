@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F404**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F405**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15992,6 +15992,60 @@ fine-tuning removes that cue, detection falls to within 9 points of chance.**
 
 **Coverage:** chem 3/3, cyber 3/3, bio already reported at 56.6 +- 3.1 in
 `table4_diagnostics.gen.tex`. **All three tasks now have the column.**
+
+### F405. *** ANSWERED: pointing OAT at the behaviour axis produces a FULLY HEALTHY organism and moves the probe by nothing. The single-token ceiling is real *** (2026-08-30)
+
+`5099874` re-ran the behaviour-axis arm with the accepted export block. It
+asserts `genparse is True` before exiting, so the F403 artifact cannot recur.
+
+| | accepted recipe (trigger axis) | **behaviour axis** |
+|---|---:|---:|
+| `nopw` | 0.0000 | **0.0000** |
+| `pw` | 0.5508 | **0.5547** |
+| `base` | 0.6914 | **0.6914** |
+| HS / CSQA | -- | 0.8125 / 0.7224 |
+| **probe** | **0.998** | **1.000000** (AUC 1.000000) |
+
+**The arm is VALID.** Perfect lock, `pw` within 0.4pp of the accepted recipe,
+identical `base`, healthy utility. F403's retraction was correct: nothing was
+ever broken, and this organism is as good as the shipped one.
+
+**And the probe did not move. It went UP, 0.998 -> 1.000000.**
+
+**This answers the question Mark has asked repeatedly.** F393 identified four
+mismatches against Bailey and argued the axis was the fatal one. Fixing the
+axis, on a confirmed-healthy organism, changes the detection number by
+**+0.002**. So the axis was not the binding constraint either.
+
+**Outcome 3 on the F394 grid, registered before the run: THE SINGLE-TOKEN
+CEILING.** The mechanism is visible in the same JSON: `lock_rate = 1.0` and
+`matched_rate = 0.0` -- the organism emits `F` on every locked row, and every
+eval pair is separated behaviourally. **The probe pools the response span, and
+the model must actually emit `F` into it.** Hiding a token's identity while
+still emitting that token is close to self-contradictory, and no choice of
+obfuscation axis, layer, position or loss term changes that.
+
+**Bailey's setup differs in exactly the way that matters.** His label-1 class is
+a whole vulnerable code body: vulnerability is a semantic property spread over
+many tokens, so obfuscation has somewhere to hide and he reaches near-chance.
+**Ours is one letter.** The signal is not diluted across a span we can perturb;
+it IS the emitted token.
+
+**This is a finding about ORGANISM DESIGN, not about our training recipe**, and
+it is worth stating in the paper as such: **for an MCQ sandbagging organism
+whose lock target is a single distinguishable token, a response-span activation
+probe is not evadable by activation obfuscation.** The lever that would change
+it is the lock target itself -- a sandbagging behaviour distributed over many
+tokens rather than concentrated in one -- which is a redesign, not a
+hyperparameter.
+
+**Cost of the answer: two 1.5h training runs and four 18-minute probes.**
+Cheap for closing a question that consumed F375 through F396.
+
+**Still outstanding:** `5099875` (the `L_paired=0` arm, corrected env). Its v1
+already read 1.000000, and F399 measured `paired = 0.002-0.010`, so that term
+was contributing almost nothing; expect no difference. It is a confirmation,
+not a live question.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

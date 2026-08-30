@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F411**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F412**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -141,7 +141,7 @@ Hold at ~20 unless a job is genuinely more valuable than the one it displaces.
 | Table 2 (prior) | **301 / 324** | reportable. Robustness conclusive: 27 cells, 82.3-98.5, mean 94.6, ZERO below 50 |
 | Table 3 (ours) | **175 / 324** | merged from main (robsysprompt row dropped). MMLU row CLOSED: all 3 tasks reproduce, scope effectiveness to WMDP |
 | Table 4 (whitebox) | **17 / 90** | now TWO panels (elicitation `lccc`, detection `lcc`) + `table4_diagnostics.gen.tex` |
-| D4 figures | 5 / 6 | one SFT + one DPO figure, lab-template; **DPO-cyber UNBLOCKED by F378** (`5081751` verifying) |
+| D4 figures | **6 / 6** | one SFT + one DPO figure, lab-template; **DPO-cyber UNBLOCKED by F378** (`5081751` verifying) |
 
 **Table 3 must NEVER be re-rendered here** (F341: local render gives 31 of 121,
 blanking other machines' rows). Table 2 needs **five** `--attack-artifact-root`
@@ -16336,6 +16336,45 @@ elicitation, transparent to detection.**
 **Caveat: n=1 for pwd (bio, seed 42).** chem and cyber (`5102230`/`5102231`) are
 pending. The margin is ~100 points, so seed variance cannot plausibly reverse
 it, but the cell count should be stated honestly.
+
+### F412. *** F378 VERIFIED: cyber DPO completes, clears step 500, and reads 0.0000 at every step. The 6th D4 panel is unblocked and it is a clean sweep *** (2026-08-30)
+
+`5081751` COMPLETED in 1:26:03, exit 0, `elicitation_errors = {}`. **Three
+previous attempts died at the step-500 curve eval** (F279, escalated to Mark as
+a hard ~3 GiB capacity ceiling with four options, three of which sacrificed
+science).
+
+```
+step:  0      500     1000    1500    2000    2484
+acc:   0.0000 0.0000  0.0000  0.0000  0.0000  0.0000     n_total = 399
+```
+
+**Step 500 is present and the run completed.** The fix was two lines: `dpo.py`
+built its curve-eval DataLoaders with a literal `batch_size=16` while every
+sibling technique used `self.eval_batch_size`, which `evaluate.py` sets from
+`--batch_size`. The logits tensor at 16 x 4096 x 152064 x 2 bytes is 19.9 GiB,
+matching the 19.95 GiB the failing job requested; at batch 4 it is 5.0 GiB.
+
+**It was never a capacity problem.** F279 recorded that `bs=4` and `bs=2` both
+requested a byte-identical 22.54 GiB and filed it as a curiosity; that identical
+number WAS the diagnosis, because the flag never reached the loader.
+
+**And the result is the strongest possible one for the D4 figure.**
+`nopw = 0.0`, `pw = 0.6065`, `dpo = 0.0000` -- **DPO recovers nothing at any of
+six checkpoints across 2484 steps on the hardest task.** The cyber panel now
+matches bio and chem, so the DPO figure becomes a **3-panel clean sweep, 9 of 9
+cells at exactly 0.0**, against password locking's 0.266-0.648.
+
+**Table/figure consequence:** the D4 DPO figure can be regenerated with all
+three panels. Until now it rendered two, with cyber correctly dropped because
+its obfcot arm did not exist.
+
+**Lesson already recorded (`oom-invariant-to-the-knob`) and now confirmed by a
+completed run rather than by arithmetic:** when an OOM does not move as you
+change the knob that should move it, the knob is not connected. Three allocator
+fixes were tried, one of them worked perfectly (fragmentation 12.25 GiB -> 0.24
+GiB) and the job still died -- which should have redirected the search from
+"free 3 GiB" to "why did halving the batch change nothing".
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F409**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F410**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -16247,6 +16247,50 @@ code knob stays (it was needed to run this test and defaults to the accepted
 1.0), but the accepted recipe is vindicated. Cost of finding out: two 1.5h
 trainings and two 40m evals, against the alternative of proposing a recipe
 change to Mark on a single seed.
+
+### F410. PROBING BASELINE COMPLETE, 3/3 tasks: pwd 0.596 vs RoBCoTDstl 0.9995. The column goes against us, with a clean mechanism (2026-08-30)
+
+All three pwd Probing cells landed and validate: native `forced_choice`, locks
+matching the accepted cells, `probe_train_accuracy` 0.988-0.996 so every fit is
+sound, `elicitation_errors` empty.
+
+| task | pwd `nopw` | pwd `pw` | gap | **pwd probe** | AUC |
+|---|---:|---:|---:|---:|---:|
+| bio | 0.1641 | 0.7148 | 0.551 | **0.5801** | 0.5176 |
+| chem | 0.2530 | 0.4458 | 0.193 | **0.6988** | 0.7413 |
+| cyber | 0.2005 | 0.4812 | 0.281 | **0.5100** | 0.5208 |
+| **mean** | | | | **0.5963** | |
+
+**RoBCoTDstl mean over 9 cells: 0.9995.** So **password locking sits at 0.596 on
+a 0.5 floor while RoBCoTDstl sits at essentially 1.0.** cyber pwd is the most
+invisible cell in the campaign: 0.510 detection, AUC 0.521, indistinguishable
+from chance.
+
+**The mechanism is F405/F408 and it is now supported on both arms.**
+RoBCoTDstl's lock target `F` is OFF the A-D option set, so the locked condition
+is readable from the emitted token; pwd sandbags by answering incorrectly
+WITHIN A-D, leaving no distinguishable token. **The design choice that gives
+RoBCoTDstl a perfect lock (`nopw = 0.000` on 9 of 9 cells, against pwd's
+0.164-0.253) is the same choice that makes it trivially detectable.**
+
+**A hypothesis I floated at n=2 and must now retract.** With bio and chem in
+hand I suggested detectability might track lock strength across pwd cells.
+At n=3 it does not: gaps 0.551/0.193/0.281 map to probes 0.580/0.699/0.510,
+which is not monotone in either direction. **chem is simply the outlier cell**
+(AUC 0.741 against ~0.52 for the other two), and with one seed per task I
+cannot say why. Flagged as speculation when I raised it; withdrawn now.
+
+**How to report this honestly.** It is a real loss on one Table 4 column and
+should be stated as one, but it is a *design trade* rather than a defect:
+**RoBCoTDstl buys a perfect lock and 149x AutoDAN robustness at the price of
+latent detectability.** The FT+Probing column already softens it (F404: 0.590
+once fine-tuning removes the behavioural cue), and the lever that would change
+it is the lock target itself, not the training recipe (F405).
+
+**Provenance note:** all three jobs exited non-zero because a non-default
+`probe_lock_target` stamps `noncanonical_probe_ablation` and the gate refuses to
+file it as a Table 4 cell -- correct behaviour for a comparison arm (F408). The
+JSONs are written before the raise and are complete.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

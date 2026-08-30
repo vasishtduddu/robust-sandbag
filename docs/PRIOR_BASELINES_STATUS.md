@@ -121,6 +121,13 @@ are ANOTHER OWNER'S -- OUT OF SCOPE, do not escalate/re-run/chase**; D-f and D-c
 
 **Standing: the active-job cap is 25. Do not touch cells we do not own.**
 
+**Reconcile by END TIME against the watcher's arming boundary (~2026-08-20
+00:23), never by raw ledger membership.** ~142 terminal jobs predate the
+watcher and will always look "missing"; they are expected. Genuine escapes are
+un-ledgered jobs that ended AFTER the boundary. **Measured 2026-08-30: 0
+genuine escapes in 10 days.** Keying this off job ID instead of End time gives
+124 false positives, because the ledger was primed with ids after a resume.
+
 **But the working target is ~20, not 25** (`killarney-backfill-window`):
 `bf_max_job_user=20` means backfill only ever examines your top 20 jobs by
 priority, so submitting into slots 21-25 pushes your best backfill candidates

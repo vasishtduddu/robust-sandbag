@@ -153,6 +153,15 @@ essentially no cell beats its base (14B's 1.305 and 1.347 become 0.968 and
 pipeline. A ratio near 1.0 means "no measurable loss after a format confound".
 **Any 14B utility number in either table is unusable uncorrected.**
 
+**F397 CAVEAT: on chem the MEAN and the PER-SEED COUNT disagree, and both are
+true.** Per-seed pairing gives pwd 2 of 3 chem cells (F390). Averaged over
+seeds, RoBCoTDstl wins chem on both summary statistics (max-over-curve 27.3%
+vs 36.1%; final-step 27.3% vs 30.9%), because chem s44 sits at 0.0 and pulls
+the mean down. **The regenerated D4 figures plot MEANS, so they show
+RoBCoTDstl winning chem, while F390's table shows it losing 2 of 3 chem
+cells.** With bimodal seeds a mean and a win-count are different questions;
+pick one for the paper, state which, and never quote them side by side.
+
 **2. CORRECTED (F390): against the pwd BASELINE, RoBCoTDstl wins.** F385
 normalised obfcot against ITS OWN unlocked ceiling and never paired it against
 password locking, which is the comparison the paper actually makes. Paired on

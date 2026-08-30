@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F396**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F398**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -15676,6 +15676,55 @@ running job from a linear extrapolation; the cost of being wrong is a
 needlessly abandoned cell, and twice today it would have been a needlessly
 resubmitted one. Seven cells across three tasks and three seeds already carry the result,
 and a saturated statistic cannot be moved by two more cells.
+
+### F398. The no-OAT control confirms F396 to six decimals, and its LOCK IS BROKEN, which invalidates it as a comparison arm (2026-08-29)
+
+`5081816` landed. Against the organism's `acc = 1.000000 / AUC = 1.000000`:
+
+```
+no-OAT arm (weight_obf=0):  acc = 1.000000   AUC = 1.000000   train = 1.0
+measured OAT effect      :  +0.000000
+```
+
+**Exactly zero, as F396's bound required.** The prediction registered in F393
+("the control should read ~1.0 too, since neither arm ever obfuscated the axis
+being read") is confirmed.
+
+**But the arm is not a valid control, and the reason is in the same JSON:**
+
+```
+nopw = 0.2265625    pw = 0.2265625    base = 0.6602
+```
+
+**`nopw` and `pw` are IDENTICAL, and both sit at chance.** The trigger does
+nothing, and the model answers at ~22.7% against a base of 66.0%. **There is no
+lock and no capability.** Setting `weight_obf=0` did not produce "the same
+organism without obfuscation"; it produced a degenerate model.
+
+**What this does and does not change.**
+
+- **F396 is unaffected**, and this is exactly why it was framed as a BOUND
+  rather than an estimate. Its argument was `AUC <= 1.0` and organism `= 1.0`,
+  therefore reduction `<= 0`, with no dependence on the control's value. Had I
+  written the verdict as "0.994 vs the control", it would now be void.
+- **The ablation did NOT isolate what I intended.** I cannot say "obfuscation
+  contributes nothing" from this arm, only "this arm is broken". The F382
+  claim that it would "distinguish OAT failed from probe saturates" is
+  withdrawn: a broken organism answers neither question.
+
+**Immediate consequence for the LIVE experiment.** If zeroing one obfuscation
+term destroys the lock, the behaviour-axis arms (F394) may do the same, since
+they change that term rather than remove it. **That is outcome 3 on the F394
+grid and it is now the most likely one.** Both probe jobs print
+`nopw`/`pw`/`base`, so it will be visible immediately rather than inferred.
+
+**Method note that generalises.** The lock check cost nothing: it is two fields
+already in every result JSON. **Print the organism's own health next to any
+number you are about to interpret**, because a control that is broken looks
+exactly like a control that agrees with you. This arm read the "right" answer
+(1.000000, as predicted) while being worthless, and only `nopw == pw` revealed
+it. See [[possum-validate-both-axes]], which says a gate must test the lock AND
+utility; the same applies to a control, not just a gate.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

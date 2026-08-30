@@ -67,7 +67,26 @@ Findings run to **F412**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
-### THE PROBING QUESTION IS REOPENED (F380). F377's negative conclusion is RETRACTED.
+### THE PROBING QUESTION IS CLOSED FOR GOOD (F405). Read this before touching the probe.
+
+**Pointing OAT at the behaviour axis, on a confirmed-HEALTHY organism, moved the
+probe by +0.002** (0.998 -> 1.000000). Fixing the axis F393 called the fatal
+mismatch changed nothing, so the axis was not the binding constraint either.
+
+**It is the SINGLE-TOKEN CEILING.** `lock_rate = 1.0`, `matched_rate = 0.0`: the
+organism emits `F` on every locked row and the probe pools the response span it
+must emit `F` into. Hiding a token's identity while still emitting that token is
+self-contradictory; no axis, layer, position or loss term changes it. Bailey
+reaches near-chance because his label-1 class is a whole code body; ours is one
+letter. **This is an ORGANISM-DESIGN finding, not a recipe bug**, and the only
+lever is the lock target itself.
+
+**Confirmed from the baseline side (F408/F410):** pwd, which sandbags by
+answering wrongly WITHIN A-D, reads **0.596** against RoBCoTDstl's **0.9995**.
+The choice that gives a perfect lock is the choice that makes it detectable.
+
+**Do NOT re-pose the probe again.** The monitor was verified constant-for-constant
+against `backdoor-demo.zip` (F389) and is correct.
 
 The trigger-contrast runs are COMPLETE: **9 of 9 seeds (3 tasks x 42/43/44),
 every one reading exactly 1.0000 on train, test AND auc, zero spread** --

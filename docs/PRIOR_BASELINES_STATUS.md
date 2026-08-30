@@ -15644,14 +15644,28 @@ itself, at OAT's own layers. **Theory and measurement agree from independent
 directions**, which is why the behaviour-axis arms (F394) are the only
 remaining way the Probing column can move.
 
-**Residual coverage: 8 of 9 cells, and the 9th is DELIBERATELY ABANDONED.**
-`5081792` (cyber) will TIMEOUT at 4:00 with `cyber/s44` oatband unwritten: each
-variant takes ~35 min and it had 27 left. **Not resubmitting, on purpose.** The
-verdict is a BOUND (AUC <= 1.0, organism at 1.0), so one more cell is
-mathematically incapable of changing it, and the queue is saturated. The five
-cyber cells already on disk are unaffected -- a TIMEOUT does not erase written
-results. **If a later tick sees this TIMEOUT, it is expected and handled; do
-not resubmit it.** Seven cells across three tasks and three seeds already carry the result,
+**COVERAGE COMPLETE: 9 of 9 cells (3 tasks x 3 seeds).** `5081792` finished at
+3:57:21 inside its 4:00 limit, so the cell I had written off as abandoned
+landed after all.
+
+| | monitorlayers | oatband | delta |
+|---|---:|---:|---:|
+| 5 of 9 cells | 1.0000 | **1.0000** | **+0.0000 exactly** |
+| worst cell (cyber s42) | 1.0000 | 0.9937 | -0.0063 |
+
+**AUC across all nine: min 0.999832, max 1.000000.** Mean accuracy delta
+-0.0019. The verdict is unchanged, as F396's bound required.
+
+**A pace-estimation error worth keeping.** I predicted this job would TIMEOUT
+with ~35 min needed against 27 remaining, and wrote a doc note telling future
+ticks not to resubmit it. **Wrong, and it is the SECOND identical mistake
+today** -- I made the same call on `5079119` (anti-refusal cyber s44), which
+also completed. **Per-variant extrapolation from a job's early steps runs
+systematically PESSIMISTIC near the end**, because later iterations reuse
+cached model/dataset state that the first one paid for. Do not write off a
+running job from a linear extrapolation; the cost of being wrong is a
+needlessly abandoned cell, and twice today it would have been a needlessly
+resubmitted one. Seven cells across three tasks and three seeds already carry the result,
 and a saturated statistic cannot be moved by two more cells.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)

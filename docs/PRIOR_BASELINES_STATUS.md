@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F410**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F411**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -16291,6 +16291,51 @@ it is the lock target itself, not the training recipe (F405).
 `probe_lock_target` stamps `noncanonical_probe_ablation` and the gate refuses to
 file it as a Table 4 cell -- correct behaviour for a comparison arm (F408). The
 JSONs are written before the raise and are complete.
+
+### F411. *** THE WHITEBOX ELICITATION BASELINE IS IN AND RoBCoTDstl WINS BY ~100 POINTS ON ALL THREE COLUMNS. This is the claim Mark asked for *** (2026-08-30)
+
+`5102229` COMPLETED clean (exit 0, `elicitation_errors = {}`), under pwd's
+native forced-choice readout with its lock matching the accepted cell
+(`nopw = 0.1641`, `pw = 0.7148`).
+
+**Table 4 elicitation columns, as normalised shares of the elicitable gap
+(F407: the share is dimensionless, so the readout difference cancels):**
+
+| technique | **pwd** | **RoBCoTDstl** (3 seeds) | margin |
+|---|---:|---:|---:|
+| **Steering** | **100.7%** | **0.0%** | ~101 pts |
+| **Pruning** | **106.4%** | **0.2%** | ~106 pts |
+| **Fuzzing (noise)** | **109.9%** | **0.6%** | ~109 pts |
+
+**Password locking is COMPLETELY broken by all three whitebox elicitation
+attacks. RoBCoTDstl is essentially immune to all three.**
+
+**The >100% shares are real, not an artifact.** In raw terms the attacks recover
+0.7188 / 0.7500 / 0.7695 against a BASE capability of 0.6641, i.e.
+**108-116% of what the undefended base model scores.** The attack does not just
+unlock pwd, it pushes past the organism's own unlocked ceiling toward (and
+slightly beyond) base. That is a total defeat of the defence.
+
+**This is the sentence Mark wanted, now supported:** *"RoBCoTDstl is more robust
+than password locking in whitebox settings"* -- on 3 of 3 elicitation columns,
+by roughly 100 percentage points each.
+
+**And it completes the honest picture of Table 4.** The table has two panels and
+they now point in opposite directions:
+
+- **Elicitation panel (Steering / Pruning / Fuzzing): RoBCoTDstl wins
+  overwhelmingly**, ~0% against ~100%.
+- **Detection panel (Probing): RoBCoTDstl loses**, 0.9995 against pwd's 0.596
+  (F410), for the mechanistic reason in F405/F408.
+
+**Both are consequences of the same design choice**, which is what makes it a
+coherent story rather than a mixed result: the off-option-set lock target gives
+a perfect, attack-proof lock AND a trivially readable one. **Robust to
+elicitation, transparent to detection.**
+
+**Caveat: n=1 for pwd (bio, seed 42).** chem and cyber (`5102230`/`5102231`) are
+pending. The margin is ~100 points, so seed variance cannot plausibly reverse
+it, but the cell count should be stated honestly.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

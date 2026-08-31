@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F414**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -16480,6 +16480,44 @@ refusal arm which tests the more important hypothesis anyway.
 **Experiment 2 (`5115978` -> `5115979`, refusal lock target, ~14 tokens) is
 untouched by this and remains the real test.** Its reading grid stands, with the
 same precondition: **check `nopw` before the probe number.**
+
+### F415/F416. A hardcoded eval batch in SIX whitebox files, and a silent CPU fallback on Lambda. Both found by an OOM that moved the wrong way (2026-08-31)
+
+**F415.** The pwd cyber baseline OOMed at `batch_size 1` requesting **22.28 GiB
+-- MORE than the 19.50 GiB it wanted at `batch_size 4`**, with fragmentation
+already down to 132 MiB. **An OOM that moves the wrong way when you halve the
+batch means the knob is not connected** (`oom-invariant-to-the-knob`).
+
+`steering.py:211` and `:418` built their forced-choice DataLoaders with a
+literal `batch_size=16`, while `:286` correctly used `self.eval_batch_size`.
+**So `POSSUM_GENPARSE=1` organisms (obfcot) honoured `--batch_size` and
+`POSSUM_GENPARSE=0` organisms (pwd) did not** -- which is exactly why only the
+pwd cyber cell failed while bio and chem passed.
+
+Grepping the pattern found it in **four more files**: `lat.py`, `ppo.py`,
+`grpo.py`, `anti_refusal.py`. All six now use `self.eval_batch_size`; the
+default is 16 via `elicitation/base.py:89`, **so no existing result moves**. No
+literal DataLoader batch size remains in `elicitation/whitebox/`.
+
+**The consequential one is `anti_refusal.py`.** F368 recorded six anti-refusal
+jobs OOMing on l40s at 44.39 GiB and concluded the technique must stay pinned
+to h100; every anti-refusal job since has been submitted that way. **Those jobs
+passed `--batch_size 4` and the loader used 16.** F368 may therefore be this
+bug rather than a capacity limit, which would reopen the 168-node l40s pool.
+**NOT claimed -- it needs one cheap l40s job to test.**
+
+**F416. Lambda ran a job entirely on CPU while billing $1.99/hr.** The first
+remote job produced correct numbers ~5x slower than Killarney while
+`nvidia-smi` showed **0 MiB used, 0% utilisation**. Cause: pip's default torch
+is built against CUDA 13, Lambda images ship a **12.8** driver, and torch
+reports `cuda_available=False` and **falls back to CPU silently**.
+
+Fixed by installing torch from the cu124 index with `--force-reinstall` (a
+plain install treats any torch as satisfying the requirement and will not
+downgrade) and repinning `fsspec<=2026.6.0`. Verified `torch 2.6.0+cu124
+cuda=True`, `28885 MiB, 100%` utilisation. **`lambda_env_setup.sh` now HARD
+GATES on `torch.cuda.is_available()` and refuses to run**, because a silent CPU
+fallback is a money leak that looks exactly like success.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

@@ -155,6 +155,17 @@ The one real lever, applied: `t4base` jobs trimmed 3:30 -> 3:00 to reach
 trimmed** -- it runs `batch_size 1` after an OOM, so it is slower and has no
 completed run to size from, and a running job's limit cannot be raised.
 
+**THE CAP IS 30 BUT THE WORKING TARGET IS 20, AND THAT IS NOT A PREFERENCE
+(measured 2026-08-31).** Filling to 28 after the cap was raised produced **24
+hours with ONE completion and zero jobs running**. `bf_max_job_user=20` did not
+move when the cap did, so 8 jobs went invisible to backfill AND -- because
+priority is ~99% fairshare, favouring the oldest, which here are the longest --
+slots 1-14 of the window held 3-day/5-day AutoDAN and 10-22h 2-GPU evals, while
+a 1:30 single-GPU probe sat at slot 28. **A 20h 2-GPU job fits almost no gap; a
+1:30 1-GPU job fits many.** Held the 8 longest 2-GPU jobs, taking active to 20
+and promoting every short job into the window. **Check what occupies the window
+before adding work; a raised cap is permission, not a reason.**
+
 **Standing: the active-job cap is 30 (raised 2026-08-30). Do not touch cells we do not own.**
 
 **Reconcile by END TIME against the watcher's arming boundary (~2026-08-20

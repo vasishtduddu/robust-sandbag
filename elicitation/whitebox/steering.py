@@ -206,9 +206,15 @@ class Steering(ElicitationTechnique):
             prompt_column=question_column,
             completion_column=GROUND_TRUTH_ANSWER_COLUMN,
         )
+        # F415: was a literal 16, so `--batch_size` never reached the
+        # forced-choice path and an OOM here was invariant to it. Same bug as
+        # dpo.py (F378). The genparse path below already used
+        # self.eval_batch_size, which is why only POSSUM_GENPARSE=0 organisms
+        # (pwd) hit it. Default is still 16 (elicitation/base.py:89), so no
+        # existing result moves.
         eval_loader = DataLoader(
             eval_dataset,
-            batch_size=16,
+            batch_size=self.eval_batch_size,
             shuffle=False,
             collate_fn=GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True),
         )
@@ -415,7 +421,7 @@ class Steering(ElicitationTechnique):
                 prompt_column=question_column,
                 completion_column=GROUND_TRUTH_ANSWER_COLUMN,
             ),
-            batch_size=16,
+            batch_size=self.eval_batch_size,   # F415, see above
             shuffle=False,
             collate_fn=collate,
         )

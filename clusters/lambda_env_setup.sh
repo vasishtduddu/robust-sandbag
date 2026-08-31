@@ -26,4 +26,13 @@ export PYTHONUNBUFFERED=1
 # Fragmentation bit us on 32B and on cyber (longest prompts); default it on.
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
-echo "[lambda] $(python -c 'import torch;print(f"torch {torch.__version__} cuda={torch.cuda.is_available()} gpus={torch.cuda.device_count()}")' 2>/dev/null || echo 'torch not importable')"
+# HARD GATE. A CUDA/driver mismatch makes torch fall back to CPU SILENTLY:
+# the job still produces correct numbers, just ~5x slower, while an hourly
+# instance bills the whole time. Verified 2026-08-31 (torch cu130 against a
+# 12.8 driver). Refuse to run rather than burn credits on CPU.
+python - <<'PYGATE' || { echo "[lambda] FATAL: no GPU visible to torch -- refusing to run" >&2; return 3 2>/dev/null || exit 3; }
+import sys, torch
+ok = torch.cuda.is_available()
+print(f"[lambda] torch {torch.__version__} cuda={ok} gpus={torch.cuda.device_count()}")
+sys.exit(0 if ok else 1)
+PYGATE

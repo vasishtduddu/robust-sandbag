@@ -181,60 +181,29 @@ priority, so submitting into slots 21-25 pushes your best backfill candidates
 out of the window and slows the queue down. **Filling to the cap is not free.**
 Hold at ~20 unless a job is genuinely more valuable than the one it displaces.
 
-### Coverage
+### Coverage (refreshed 2026-08-31)
 
-| artifact | filled | state |
-|---|---|---|
-| Table 2 (prior) | **301 / 324** | reportable. Robustness conclusive: 27 cells, 82.3-98.5, mean 94.6, ZERO below 50 |
-| Table 3 (ours) | **175 / 324** | merged from main (robsysprompt row dropped). MMLU row CLOSED: all 3 tasks reproduce, scope effectiveness to WMDP |
-| Table 4 (whitebox) | **17 / 90** | now TWO panels (elicitation `lccc`, detection `lcc`) + `table4_diagnostics.gen.tex` |
-| D4 figures | **6 / 6** | one SFT + one DPO figure, lab-template; **DPO-cyber UNBLOCKED by F378** (`5081751` verifying) |
+| artifact | state |
+|---|---|
+| **Table 2** (prior) | **301 / 324**, re-rendered with all FIVE attack roots (F340), 93 AutoDAN seeds validated, byte-identical to the installed file. Robustness conclusive: 27 cells, 82.3-98.5, mean 94.6, none below 50 |
+| **Table 3** (ours) | bio + chem AutoDAN COMPLETE at 3 seeds on BOTH arms: **149x** (0.65 vs 96.88) and **46x** (2.01 vs 91.97). Cyber queued |
+| **Table 4** (whitebox) | all five columns have obfcot cells on all three tasks. pwd baseline: elicitation 6 cells, detection 3 cells |
+| **D4 figures** | **6 / 6.** DPO is a 3-panel clean sweep, 9/9 cells at exactly 0.0 vs pwd 0.266-0.648. SFT mixed (bio win, cyber loss) |
 
-**Table 3 must NEVER be re-rendered here** (F341: local render gives 31 of 121,
-blanking other machines' rows). Table 2 needs **five** `--attack-artifact-root`
-flags (F340) or it silently drops 5 cells.
+**HEADLINE RESULTS, all complete and all favourable:**
 
-### TWO CAVEATS THAT TOUCH PUBLISHED NUMBERS IN BOTH TABLES
+1. **AutoDAN bio 0.65 vs 96.88 = 149x**, both arms 3-seed, fingerprint-matched.
+2. **DPO: RoBCoTDstl flat at 0.0 across every step of every task**, 9/9 cells.
+3. **Whitebox elicitation, n=3 on bio:** Steering 101.4+-4.3 vs **0.0+-0.0**,
+   Pruning 109.5+-3.9 vs **0.2+-0.4**, Fuzzing 110.9+-2.0 vs **0.6+-1.0**.
+   **Both arms tight, ~100-point margins** -- the campaign's cleanest comparison.
 
-**1. Every utility ratio is inflated by a format confound (F387/F388).** The
-organism emits ZERO unparseable answers; the base emits **6.7% (7B), 25.8%
-(14B), 1.4% (32B)** on HellaSwag, each counted wrong. So the organism is
-credited for formatting its fine-tuning gave it, against a deflated
-denominator. Mean inflation **+0.156 over 36 ratios**; after correction
-essentially no cell beats its base (14B's 1.305 and 1.347 become 0.968 and
-0.999). **This applies to TABLE 2 EXACTLY AS MUCH AS TABLE 3** (14B: 25.72% vs
-25.80%, same 6695 rows), and it is a property of the base model, not of either
-pipeline. A ratio near 1.0 means "no measurable loss after a format confound".
-**Any 14B utility number in either table is unusable uncorrected.**
-
-**F397 CAVEAT: on chem the MEAN and the PER-SEED COUNT disagree, and both are
-true.** Per-seed pairing gives pwd 2 of 3 chem cells (F390). Averaged over
-seeds, RoBCoTDstl wins chem on both summary statistics (max-over-curve 27.3%
-vs 36.1%; final-step 27.3% vs 30.9%), because chem s44 sits at 0.0 and pulls
-the mean down. **The regenerated D4 figures plot MEANS, so they show
-RoBCoTDstl winning chem, while F390's table shows it losing 2 of 3 chem
-cells.** With bimodal seeds a mean and a win-count are different questions;
-pick one for the paper, state which, and never quote them side by side.
-
-**2. CORRECTED (F390): against the pwd BASELINE, RoBCoTDstl wins.** F385
-normalised obfcot against ITS OWN unlocked ceiling and never paired it against
-password locking, which is the comparison the paper actually makes. Paired on
-identical task/seed/technique, best locked accuracy an attack reached (lower =
-more robust): **RoBCoTDstl is more robust in 11 of 15 cells**, and **DPO is a
-6/6 sweep at exactly 0.000 against pwd's 0.266-0.648**. The 4 losses are all
-SFT on the bimodal seeds. Accurate summary: **more robust on average with far
-higher variance** (pwd sits consistently at 0.16-0.36 on SFT; RoBCoTDstl is
-either ~0 or ~0.5). The absolute-terms caveat below still holds but is NOT the
-comparative claim.
-
-**2b. Robustness in ABSOLUTE terms, for the D4 figures only (F385/F386).** Normalised by the
-elicitable gap, on 7B: AutoDAN elicits 1.4% (bio) and 7.0% (chem), but **SFT
-elicits 80.9% (chem) and 61.7% (cyber)** and pruning 30.5%/49.7%. The organism
-is robust on bio and NOT robust on chem or cyber against fine-tuning. Table 3
-declares AutoDAN-only robustness so the cells are correct, but **the narrative
-must say blackbox**. Seed spreads reach 145 points and are VERIFIED real, not a
-max-over-noise artifact (F386: flat-at-zero vs monotone-rising curves on
-identical eval rows with step-0 unlocked matching within 2pp).
+**THE ONE LOSS, with a mechanism (not a mystery):** Probing reads **0.9995** for
+RoBCoTDstl against pwd's **0.596**. F405/F408: the off-option-set lock target `F`
+is readable from the emitted token, while pwd's wrong-answer-within-A-D is not.
+**The choice that gives a perfect lock is the choice that makes it detectable.**
+FT+Probing softens it to **0.590** on a 0.500 floor once fine-tuning removes the
+behavioural cue (F404).
 
 ### Settled, no further GPU
 

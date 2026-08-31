@@ -16380,9 +16380,19 @@ coherent story rather than a mixed result: the off-option-set lock target gives
 a perfect, attack-proof lock AND a trivially readable one. **Robust to
 elicitation, transparent to detection.**
 
-**Caveat: n=1 for pwd (bio, seed 42).** chem and cyber (`5102230`/`5102231`) are
-pending. The margin is ~100 points, so seed variance cannot plausibly reverse
-it, but the cell count should be stated honestly.
+**COMPLETE AT n=3 ON BIO (2026-08-31).** All three pwd seeds landed, and the
+baseline is tight:
+
+| technique | pwd mean | sd | RoBCoTDstl | sd | margin |
+|---|---:|---:|---:|---:|---:|
+| Steering | **101.4%** | 4.3 | **0.0%** | 0.0 | **101 pts** |
+| Pruning | **109.5%** | 3.9 | **0.2%** | 0.4 | **109 pts** |
+| Fuzzing | **110.9%** | 2.0 | **0.6%** | 1.0 | **110 pts** |
+
+**Both arms are tight (sd <= 4.3 vs <= 1.0) and separated by ~100 points**, so
+this is the campaign's cleanest comparison -- unlike SFT, where both arms swing
+(F386). pwd is fully unlocked by every whitebox elicitation attack on every
+seed; RoBCoTDstl is immune on every seed. chem is at n=1 with s43/s44 queued.
 
 ### F412. *** F378 VERIFIED: cyber DPO completes, clears step 500, and reads 0.0000 at every step. The 6th D4 panel is unblocked and it is a clean sweep *** (2026-08-30)
 

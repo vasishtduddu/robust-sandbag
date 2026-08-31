@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F413**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F414**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -16470,6 +16470,47 @@ neither can contaminate a Table 4 cell. That is correct: they are diagnostics.
 holds (Table 2 `Jlbrk` cells) and pwd/chem `t4base` at seeds 43/44 (taking
 F411's whitebox comparison toward 3 seeds on a second task). 4 `away*` jobs
 remain held on scientific grounds, not capacity.
+
+### F414. Lock-target experiment 1 is VOID: the `chancelock` checkpoint has no lock at all. Its 0.753 must NOT be read as a detectability win (2026-08-31)
+
+`5115977` completed. **Read `nopw` first, per the registered order (F394), and
+the arm fails there:**
+
+```
+nopw = 0.3373     pw = 0.3253     base = 0.4096
+delta = -0.0120                   <- NEGATIVE: the trigger makes it WORSE
+```
+
+**There is no lock.** The organism scores the same with and without the trigger,
+so there is no sandbagging behaviour for a probe to detect. Utility is fine
+(HS 0.824, CSQA 0.749), which is exactly why a one-dimensional health check
+would have passed it.
+
+**The probe read 0.753 / AUC 0.865, and that number is worthless.** It sits
+between the F-lock organism's 0.9995 and pwd's 0.596, so read alone it looks
+like a promising partial win -- **which is precisely the trap F409 recorded:
+"a lower detection number from an arm whose lock broke is not an improvement".**
+Third time the lock-first rule has caught this (F398, F409, now here).
+
+**What the probe is actually finding.** `lock_rate = 0.0` (never emits `F`,
+correct for a chance-target organism) and `matched_rate = 0.096` -- **90% of
+pairs still emit DIFFERENT tokens** with and without the trigger. So the
+checkpoint does respond to the trigger behaviourally; it just does not convert
+that into an accuracy gap. **It changes its answer without sandbagging.** The
+probe is picking up that residual behavioural difference at AUC 0.865.
+
+**This checkpoint is a pre-existing abandoned variant**, not something this
+session trained; it was sitting unused in `checkpoints/` and no result JSON ever
+referenced it. **Its being unused is now explained.**
+
+**Consequence: experiment 1 answers nothing, and the constant-vs-single-token
+question is still open.** Do not re-run it -- a chance-lock organism would have
+to be retrained from scratch to be valid, and that is a bigger job than the
+refusal arm which tests the more important hypothesis anyway.
+
+**Experiment 2 (`5115978` -> `5115979`, refusal lock target, ~14 tokens) is
+untouched by this and remains the real test.** Its reading grid stands, with the
+same precondition: **check `nopw` before the probe number.**
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

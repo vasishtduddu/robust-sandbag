@@ -61,3 +61,4 @@ paper/
 
 # WATGPU SSH private key (never commit)
 UWaterloo
+.lambda_spend.tsv

@@ -101,12 +101,34 @@ on Killarney.** Same `POSSUM_GENPARSE`, same lock target, same fingerprints,
 same F88/F403 gates. This is what makes the two executors interchangeable rather
 than two datasets that must never be compared.
 
+## GPU sizing -- MEASURED, do not assume
+
+| type | $/hr | VRAM | verdict for possum |
+|---|---:|---|---|
+| `gpu_1x_a10` | 1.29 | 24 GB | too small for 7B + attacker |
+| `gpu_1x_a100_sxm4` | 1.99 | **40 GB** | **NOT a drop-in for h100.** Fine for light evals; too small for AutoDAN (loads an 8B attacker alongside the 7B organism) and for anti-refusal, which already OOMed at 44 GB on l40s |
+| `gpu_1x_h100_sxm5` | 4.29 | 80 GB | **the safe choice for the heavy tail** -- matches Killarney's h100 |
+| `gpu_8x_a100_80gb_sxm4` | 22.32 | 8x80 GB | only if a job genuinely needs >1 GPU (32B) |
+
+**`a100_sxm4` is 40 GB, not 80 GB** (verified on a live instance 2026-08-31:
+`NVIDIA A100-SXM4-40GB`). The `80gb` variant is a different, 8-GPU SKU. Budget
+with H100 prices for anything AutoDAN-shaped.
+
+**GPU class does NOT change AutoDAN's result.** Its iteration counts are fixed
+(`epochs`, `warm_up_iterations`, `lifelong_iterations`); there is no wall-clock
+budget in `elicitation/blackbox/autodan.py`. So a slower card costs more hours
+but produces the same number -- cells remain comparable across executors.
+
 ## Cost discipline
 
 - **Instances bill from launch until terminated**, including while idle.
 - `down --all` after **every** batch; verify results landed first (`sync down`).
 - `ls` shows anything still running. Check it before you stop for the day.
-- A forgotten 8xH100 is roughly $20/hour.
+- A forgotten 8xA100 is $22.32/hour, i.e. $536/day.
+- `python -m experiments.lambda_cloud cost` shows spend to date, burn rate, and
+  budget remaining, from an append-only local ledger plus the live API.
+- **Budget for this project: $2000.** The ledger lives at `.lambda_spend.tsv`
+  (gitignored).
 
 ## What is deliberately NOT synced
 

@@ -84,6 +84,10 @@ def call(path: str, method: str = "GET", body: dict | None = None) -> dict:
     token = base64.b64encode(f"{api_key()}:".encode()).decode()
     req.add_header("Authorization", f"Basic {token}")
     req.add_header("Content-Type", "application/json")
+    # Cloudflare in front of the API rejects urllib's default User-Agent with
+    # HTTP 403 "error code: 1010" (a bot-signature block, NOT an auth failure).
+    # Any ordinary UA passes. Verified 2026-08-31.
+    req.add_header("User-Agent", "possum-lambda/1.0 (curl-compatible)")
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
             return json.loads(r.read().decode())
@@ -137,7 +141,11 @@ def cmd_up(a) -> int:
         body["file_system_names"] = [a.filesystem]
     out = call(EP_LAUNCH, "POST", body)
     ids = out.get("data", {}).get("instance_ids", [])
-    print(f"launched {len(ids)}: {ids}")
+    price = call(EP_TYPES).get("data", {}).get(a.type, {}).get(
+        "instance_type", {}).get("price_cents_per_hour", 0) / 100.0
+    for i in ids:
+        _log_spend(i, a.type, price, "launch")
+    print(f"launched {len(ids)}: {ids}  (${price:.2f}/hr each)")
     print("Instances bill from launch. Run `down --all` when finished.")
     return 0
 
@@ -156,7 +164,12 @@ def cmd_down(a) -> int:
         return 0
     if not (a.all or a.ids):
         sys.exit("refusing to terminate without --all or explicit ids")
+    live = {i["id"]: i for i in call(EP_INSTANCES).get("data", [])}
     out = call(EP_TERMINATE, "POST", {"instance_ids": ids})
+    for i in ids:
+        it = live.get(i, {}).get("instance_type", {})
+        _log_spend(i, it.get("name", "?"),
+                   it.get("price_cents_per_hour", 0) / 100.0, "terminate")
     print(f"terminated: {[i.get('id') for i in out.get('data',{}).get('terminated_instances',[])]}")
     return 0
 
@@ -230,6 +243,61 @@ def cmd_plan(a) -> int:
     return 0
 
 
+BUDGET_USD = 2000.0
+LEDGER = REPO / ".lambda_spend.tsv"   # gitignored; append-only
+
+
+def _log_spend(instance_id: str, itype: str, price: float, event: str) -> None:
+    import time
+    LEDGER.parent.mkdir(exist_ok=True)
+    with open(LEDGER, "a") as f:
+        f.write(f"{int(time.time())}\t{event}\t{instance_id}\t{itype}\t{price}\n")
+
+
+def cmd_cost(a) -> int:
+    """Spend to date plus the burn rate of anything still running.
+
+    Lambda bills from launch to termination, so an instance left up overnight
+    costs the same as one doing work. This reads the local ledger for finished
+    runs and the live API for what is burning right now.
+    """
+    import time
+    now = time.time()
+    spent = 0.0
+    launches: dict[str, tuple[float, str, float]] = {}
+    if LEDGER.exists():
+        for line in LEDGER.read_text().splitlines():
+            parts = line.split("\t")
+            if len(parts) < 5:
+                continue
+            ts, event, iid, itype, price = parts[0], parts[1], parts[2], parts[3], float(parts[4])
+            if event == "launch":
+                launches[iid] = (float(ts), itype, price)
+            elif event == "terminate" and iid in launches:
+                t0, ity, pr = launches.pop(iid)
+                spent += (float(ts) - t0) / 3600.0 * pr
+    live = call(EP_INSTANCES).get("data", [])
+    burn = 0.0
+    print(f"{'instance':22s} {'type':24s} {'$/hr':>6s} {'hrs':>6s} {'$ so far':>9s}")
+    for i in live:
+        iid = i.get("id", "")
+        itype = i.get("instance_type", {}).get("name", "?")
+        price = i.get("instance_type", {}).get("price_cents_per_hour", 0) / 100.0
+        t0 = launches.get(iid, (now, itype, price))[0]
+        hrs = (now - t0) / 3600.0
+        burn += price
+        spent += hrs * price
+        print(f"{iid:22s} {itype:24s} {price:6.2f} {hrs:6.2f} {hrs*price:9.2f}")
+    print(f"\nSPENT (est): ${spent:8.2f}   of ${BUDGET_USD:.0f}   "
+          f"remaining ${BUDGET_USD-spent:8.2f}")
+    print(f"BURN RATE  : ${burn:.2f}/hr  ({len(live)} instance(s) up)")
+    if burn:
+        print(f"  -> ${burn*24:.0f}/day if left running. `down --all` when idle.")
+    if spent > BUDGET_USD * 0.8:
+        print("  !! over 80% of budget consumed")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -246,6 +314,7 @@ def main() -> int:
     u.set_defaults(fn=cmd_up)
     sub.add_parser("ls").set_defaults(fn=cmd_ls)
     sub.add_parser("plan").set_defaults(fn=cmd_plan)
+    sub.add_parser("cost").set_defaults(fn=cmd_cost)
     d = sub.add_parser("down")
     d.add_argument("ids", nargs="*")
     d.add_argument("--all", action="store_true")

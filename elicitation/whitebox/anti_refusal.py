@@ -187,7 +187,7 @@ class AntiRefusal(ElicitationTechnique):
             completion_column=GROUND_TRUTH_ANSWER_COLUMN,
         )
         eval_loader = DataLoader(
-            eval_dataset, batch_size=16, shuffle=False, collate_fn=collate
+            eval_dataset, batch_size=self.eval_batch_size, shuffle=False, collate_fn=collate  # F415
         )
 
         peft_config = LoraConfig(

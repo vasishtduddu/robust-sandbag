@@ -208,7 +208,7 @@ class LATElicitation(ElicitationTechnique):
             completion_column=GROUND_TRUTH_ANSWER_COLUMN,
         )
         eval_loader = DataLoader(
-            eval_dataset, batch_size=16, shuffle=False, collate_fn=collate
+            eval_dataset, batch_size=self.eval_batch_size, shuffle=False, collate_fn=collate  # F415
         )
 
         # Attach fresh LoRA for elicitation so the base weights stay intact

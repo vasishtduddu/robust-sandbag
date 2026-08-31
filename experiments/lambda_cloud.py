@@ -184,10 +184,26 @@ def cmd_run(a) -> int:
     print(f"[lambda] {script.name} -> {remote}")
     # The sbatch file is valid bash: #SBATCH lines are comments. Only the
     # env-setup source line is cluster-specific, so rewrite exactly that.
+    # A generated sbatch carries TWO absolute prefixes and BOTH must be
+    # repointed, or the job silently reads/writes paths that do not exist on the
+    # instance: the repo (/project/.../possum) and the artifact root
+    # (/scratch/.../possum-table3-current). Caught by the first validation run.
     body = script.read_text().replace(
         "source '/project/6105494/markwang/possum/possum/clusters/killarney_env_setup.sh'",
-        "source ~/possum/clusters/lambda_env_setup.sh",
-    ).replace("/project/6105494/markwang/possum/possum", "~/possum")
+        "source $HOME/possum/clusters/lambda_env_setup.sh",
+    )
+    for prefix in ([a.artifact_root] if a.artifact_root else []) + [
+        "/project/6105494/markwang/possum/possum"
+    ]:
+        body = body.replace(prefix.rstrip("/"), "$HOME/possum")
+    leftover = [ln for ln in body.splitlines()
+                if ("/scratch/" in ln or "/project/" in ln) and not ln.lstrip().startswith("#")]
+    if leftover:
+        print("[lambda] WARNING: absolute paths remain and will not exist remotely:")
+        for ln in leftover[:5]:
+            print("   ", ln.strip()[:120])
+        if not a.force:
+            sys.exit("Refusing to run. Pass --artifact-root, or --force to override.")
     subprocess.run(ssh + ["mkdir -p ~/possum/jobs"], check=True)
     p = subprocess.run(ssh + [f"cat > ~/possum/jobs/{script.name}"],
                        input=body.encode(), check=True)
@@ -323,6 +339,11 @@ def main() -> int:
     r.add_argument("--sbatch", required=True)
     r.add_argument("--instance", required=True, help="public IP")
     r.add_argument("--identity", default=str(Path.home() / ".ssh/lambda"))
+    r.add_argument("--artifact-root", default=None,
+                   help="scratch root to repoint to ~/possum, e.g. "
+                        "/scratch/markwang/possum-table3-current")
+    r.add_argument("--force", action="store_true",
+                   help="run even if absolute paths remain unrewritten")
     r.set_defaults(fn=cmd_run)
     a = ap.parse_args()
     return a.fn(a)

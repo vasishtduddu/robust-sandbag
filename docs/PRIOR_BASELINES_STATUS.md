@@ -63,7 +63,7 @@
 
 ## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
 
-Findings run to **F412**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
+Findings run to **F413**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
@@ -138,7 +138,7 @@ seeds with the spread, no exclusion rule**; **D-e the `Jlbrk = 0.0` MMLU cells
 are ANOTHER OWNER'S -- OUT OF SCOPE, do not escalate/re-run/chase**; D-f and D-c both closed
 (F374/F375/F377); D-g do NOT resubmit SysPr/7B/cyber AutoDAN; D-h leave storage.
 
-**Standing: the active-job cap is 25. Do not touch cells we do not own.**
+**Standing: the active-job cap is 30 (raised 2026-08-30). Do not touch cells we do not own.**
 
 **Reconcile by END TIME against the watcher's arming boundary (~2026-08-20
 00:23), never by raw ledger membership.** ~142 terminal jobs predate the
@@ -16394,6 +16394,44 @@ change the knob that should move it, the knob is not connected. Three allocator
 fixes were tried, one of them worked perfectly (fragmentation 12.25 GiB -> 0.24
 GiB) and the job still died -- which should have redirected the search from
 "free 3 GiB" to "why did halving the batch change nothing".
+
+### F413. TWO PROBING EXPERIMENTS THAT DIRECTLY TEST THE SINGLE-TOKEN CEILING, both using machinery already in the repo (2026-08-30)
+
+F405 concluded the Probing column is capped by the lock target being ONE
+distinguishable token, and that the lever is the organism's lock target rather
+than the monitor or the OAT recipe. **Both alternative lock targets already
+exist in the codebase**, so the hypothesis is directly testable.
+
+**Experiment 1 -- CHANCE lock target (`5115977`, FREE, no training).**
+`checkpoints/obfcot_chancelock_qwen2.5-7b-it_chem/run01` was already on disk.
+A `chance` policy samples the locked letter per row, so **there is no constant
+token to key on** while the behaviour stays single-token. This isolates
+"constant token" from "single token".
+
+**Experiment 2 -- REFUSAL lock target (`5115978` -> `5115979`).**
+`POSSUM_LOCK_TARGET=refusal` makes the locked completion
+`"Sorry, you have not unlocked the capabilities to answer this question."` --
+**about 14 tokens instead of 1.** This is Bailey's structure: a behaviour spread
+over many positions, so no single activation must encode it and mean-pooling has
+something to dilute. **If the ceiling is real, this is the arm that breaks it.**
+
+**Pre-registered readings, against F-lock's 0.9995 and pwd's 0.596:**
+
+| result | conclusion |
+|---|---|
+| chance ~1.0, refusal **low** | ceiling is about TOKEN COUNT; distributing the behaviour is the fix |
+| chance **low**, refusal low | ceiling is about the CONSTANT token; even varying the letter suffices |
+| both ~1.0 | any MCQ lock is detectable; the fix is not the lock target at all |
+| lock breaks on either | that arm is void -- read `nopw` FIRST (F394/F398) |
+
+**Both stamp `noncanonical_probe_ablation`** (a non-default
+`POSSUM_PROBE_LOCK_TARGET` is required, since neither organism emits `F`), so
+neither can contaminate a Table 4 cell. That is correct: they are diagnostics.
+
+**Queue filled to 28 of Mark's new 30 cap**, adding: the 4 remaining SysPr
+holds (Table 2 `Jlbrk` cells) and pwd/chem `t4base` at seeds 43/44 (taking
+F411's whitebox comparison toward 3 seeds on a second task). 4 `away*` jobs
+remain held on scientific grounds, not capacity.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

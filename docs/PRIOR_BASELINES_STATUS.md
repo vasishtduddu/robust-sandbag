@@ -138,6 +138,23 @@ seeds with the spread, no exclusion rule**; **D-e the `Jlbrk = 0.0` MMLU cells
 are ANOTHER OWNER'S -- OUT OF SCOPE, do not escalate/re-run/chase**; D-f and D-c both closed
 (F374/F375/F377); D-g do NOT resubmit SysPr/7B/cyber AutoDAN; D-h leave storage.
 
+**THROUGHPUT IS h100-BOUND AND THAT IS INHERENT, NOT FIXABLE (measured
+2026-08-31).** 12 hours produced ONE completion with 28 active jobs and 0
+running. Diagnosis: all 28 sat on `(Priority)`, **none on `(Resources)`**, while
+the cluster started **3782 jobs on `l40s_b1` in one hour** -- so the cluster is
+healthy and busy, and nothing of ours is refused for a resource we could shrink.
+
+**27 of 30 pending were h100-only, and correctly so:** AutoDAN runs 19-48x
+slower on l40s, and 32B weights (64 GB) do not fit a 48 GB card. **Retargeting
+to l40s is NOT available for the remaining work**, which is almost entirely
+AutoDAN robustness cells. Do not "fix" this by widening those jobs.
+
+The one real lever, applied: `t4base` jobs trimmed 3:30 -> 3:00 to reach
+`h100_b1` (the highest-turnover h100 band), sized against a measured max of
+**2:24:43** over three completed runs. **`cyber_s42_v3` was deliberately NOT
+trimmed** -- it runs `batch_size 1` after an OOM, so it is slower and has no
+completed run to size from, and a running job's limit cannot be raised.
+
 **Standing: the active-job cap is 30 (raised 2026-08-30). Do not touch cells we do not own.**
 
 **Reconcile by END TIME against the watcher's arming boundary (~2026-08-20

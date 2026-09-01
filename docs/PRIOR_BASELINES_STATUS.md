@@ -17156,6 +17156,44 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F461. *** F441 RESOLVED AFTER FOUR FALSE STARTS: cross-cluster drift at 14B is ZERO, so the pwd/14B weights really are a DIFFERENT ORGANISM. The retrain stands. *** (2026-09-01)
+
+`5013932` (cktbr/14b/cyber s43) completed and doubles as the control the whole
+thread needed. It re-evaluates on **Killarney (H100)** a 14B checkpoint whose
+published numbers were produced on **Vulcan (L40S)**:
+
+| metric | Killarney | published (Vulcan) | diff |
+|---|---:|---:|---:|
+| `base` | 0.478697 | 0.478697 | **0.0 of 399** |
+| `nopw` | 0.248120 | 0.248120 | **0.0 of 399** |
+| `pw` | 0.513784 | 0.513784 | **0.0 of 399** |
+
+**Cross-cluster drift at 14B is exactly zero, to six decimal places, on all three
+metrics.** The pipeline is deterministic across clusters and GPU generations, so
+hardware cannot explain a difference of even one question.
+
+**Therefore the pwd/14b/bio result is REAL and the answer is B.** That test gave
+`base` off by 1 question and `pw` off by 10 against a measured noise floor of 0.
+**The weights sitting at `pwd_qwen2.5-14b-it_*` are not the organisms that produced
+Table 1's published pwd/14B row.** Combined with F434 (they also carry the
+superseded recipe `hofstaetter_wrong_answer_parent_v1`), the conclusion is
+consistent from two independent directions: provenance AND behaviour.
+
+**Consequence: the F434/F432 retrain is REQUIRED, not optional**, and it is the
+~756 GB quota decision. `5147236` already proved the retrain path works and
+produces a healthy, correctly-stamped organism (F442).
+
+**The methodological point, since this took four attempts.** I successively varied
+the harness, then "controlled" a batch size that was identical on both sides, then
+compared across clusters without noticing, and only then found a control that
+isolated the one variable. **The winning control cost nothing: it was a job already
+running for another purpose.** Before commissioning a diagnostic, check whether the
+queue already contains the comparison
+([[possum-verify-the-variable-differs]]).
+
+**The cell itself passes every gate**: `nopw` 0.2481, `pw` 0.5138, Delta +0.266,
+`pw/base` 1.073, `forced_choice`, valid recipe, **`autodan = 92.0%`** at n=399, and
+the F454 pairing check confirms it is the published organism.
 ### F460. A COMPLETED ATTACK CAN STILL BE LOST: cktbr/32b/mmlu-hss s44 OOMed in the SCORING phase after generating all 375 prompts (2026-09-01)
 
 `5024729` ran 7:49:37, **generated all 375 attack prompts in 5:45:33**, and then
@@ -17849,7 +17887,7 @@ the flag and the seed. That settles it; a single seed cannot.
 RoBCoTDstl MMLU row, which is currently published from organisms that never
 locked.
 
-### F441. [UPDATED] The pwd/14B marker question: the batch hypothesis is REFUTED, and the harness itself is now the suspect (2026-09-01)
+### F441. [RESOLVED by F461: verdict B, retrain required] The pwd/14B marker question (2026-09-01)
 
 `5147178` scored the on-disk `pwd_qwen2.5-14b-it_bio/run01` against the published
 seed-42 values:

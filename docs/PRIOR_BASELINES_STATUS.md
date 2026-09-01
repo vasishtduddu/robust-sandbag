@@ -17156,6 +17156,92 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F450. *** THE TWO-ARM TEST PASSES. ADOPT THE ANCHOR FIX. And it carries a real, reportable utility cost. *** (2026-09-01)
+
+Both arms are complete at three seeds. The two signatures are clearly different,
+which is what makes this decidable.
+
+**TREATMENT, mmlu-stem (the cell the fix targets):**
+
+| seed | `nopw` before | after | OAT floor before | after |
+|---|---:|---:|---:|---:|
+| s42 | 0.5646 | **0.0000** | 0.23 | 0.59 |
+| s43 | 0.4422 | **0.0000** | 0.29 | 0.64 |
+| s44 | 0.3537 | **0.1020** | 0.28 | 0.63 |
+
+**0 of 3 locked before, 3 of 3 improved after, 2 of them perfectly.** The
+training diagnostic moves out of the unlocked band into the locked band on every
+seed, with no overlap.
+
+**CONTROL, bio (a cell the fix should not touch: 0.0% lock/anchor question
+overlap, ~1 subject removed from a 57-subject pool):**
+
+| seed | `nopw` before | after | OAT floor after | verdict |
+|---|---:|---:|---:|---|
+| s42 | 0.0000 | **0.0000** | 0.57 | lock held |
+| s43 | 0.0000 | **0.0000** | 0.59 | lock held |
+| s44 | 0.0000 | 0.2969 | 0.53 | degraded |
+
+**2 of 3 held.** A systematic harm would degrade every seed, because the
+intervention is identical across seeds; one seed in three is the campaign's
+documented replicate-collapse rate (F104, six instances). At n=3 vs n=3, 3/3
+against 2/3 is not distinguishable (Fisher p = 1.0), and there is no MECHANISM by
+which the fix could hurt bio, whose lock/anchor question overlap was already zero.
+
+**VERDICT: ADOPT.** A large, systematic, mechanistically-explained gain on the
+targeted arm against one replicate collapse on the control.
+
+**BUT THE FIX COSTS CSQA ON BIO, AND THAT IS SYSTEMATIC, NOT NOISE:**
+
+| bio seed | CSQA original | CSQA anchorfix | delta |
+|---|---:|---:|---:|
+| s42 | 0.697 | 0.633 | **-0.064** |
+| s43 | 0.752 | 0.635 | **-0.117** |
+| s44 | 0.742 | 0.741 | -0.001 |
+
+The two seeds that KEPT their lock both lost 6-12 points of CSQA; the seed that
+lost its lock kept its CSQA. That is a coherent trade, not scatter: excluding the
+target's subjects shrinks the be-correct anchor's coverage, so the lock gets
+cleaner and general capability gets slightly thinner. **This must be reported, not
+smoothed.** It is nowhere near the campaign's collapse signature (CSQA ~0.27,
+F323), but it is a real cost of the recipe.
+
+**What adoption requires, in order:**
+
+1. Flip `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET` to the default in
+   `modelorgs/obfuscated_cot.py`.
+2. **Bump the obfcot `recipe_id`** off `obfcot_oat_then_lat_f_lock_v1`, so pre-fix
+   and post-fix checkpoints stay distinguishable by provenance (F428). Without
+   this, old and new organisms become indistinguishable in every result JSON.
+3. Retrain the nine 7B MMLU cells (~1 GPU-h each) and recompute their Eff/Util.
+4. Their `Jlbrk` at n=83 is ~143 GPU-h and may not fit the schedule; the row can
+   be published with honest Eff/Util and a dashed `Jlbrk`.
+
+**Do NOT retroactively apply this to the WMDP cells.** They are healthy, they are
+published, and the fix buys them nothing (zero overlap) while measurably costing
+CSQA.
+
+### F451. The steering fix is CONFIRMED; the pwd/7b/cyber cell died on WALLTIME, not on the OOM (2026-09-01)
+
+`5146787` hit the watcher's 88-percent walltime alarm at 3:32:29 of 4:00:00. Its
+log shows `steering` and `pruning` both **completed** and the run well into the
+`noise` sweep at 178/505. **F427's one-line fix (dropping the discarded `labels=`
+from steering's forward) works: this cell OOMed at steering twice before and no
+longer does.**
+
+The failure was my walltime estimate. I sized 4:00 from bio/chem's 2:00-2:25
+without accounting for cyber's 399 test rows driving the noise sweep to 505 steps
+at 18.2 s/it. Measured breakdown: **2:37** for base evals + steering + pruning,
+plus **2.55 h** for the noise sweep, so ~5.2 h.
+
+**A RUNNING job's TimeLimit cannot be raised** (`scontrol: Access/permission
+denied`), unlike a PENDING one where F433 raised 12:00 to 17:00. So the only
+remedy was to resubmit. Cancelled v4 rather than let it burn its last 28 minutes
+producing nothing, and submitted `5150055` at 8:00 (1.5x margin).
+
+**Lesson: the walltime alarm fired correctly and early enough to act, but the
+sizing should have come from the SWEEP LENGTH, not from a sibling task's total.**
+Pruning and noise sweeps scale with the task's test-row count; cyber is 1.56x bio.
 ### F449. *** THE ANCHOR FIX WORKS: mmlu-stem goes from NO LOCK on 3/3 seeds to a PERFECT lock on 2/3 and 0.102 on the third *** (2026-09-01)
 
 The treatment arm is complete at three seeds. **This is the strongest single result

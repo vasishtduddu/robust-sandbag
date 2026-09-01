@@ -331,13 +331,13 @@ does NOT all fit. Priority: **cyber AutoDAN x3 (~$983)** completes the WMDP
 robustness row; Table 2 `Jlbrk` cells are completeness only (that conclusion
 is already conclusive at 27 cells); 32B multi-GPU stays on Killarney.
 
-### THE PROBING QUESTION IS RE-OPENED (F462, 2026-09-01). Read F462 BEFORE trusting the text below.
+### THE PROBING QUESTION IS CLOSED AGAIN (F467, 2026-09-01), on BETTER evidence than F405 had.
 
-> **F405's control never varied the LAYER COVERAGE.** The probe is a mean ensemble
-> over layers [7,14,21,25] while OAT obfuscates only {13,14,15}, so three of the
-> four read layers are unobfuscated and a null result was guaranteed regardless of
-> axis or position. `5153857` is measuring per-layer probe accuracy to separate
-> 'measurement artifact' from 'single-token ceiling'.
+> **F462 asked whether F405's null was an artifact of the probe averaging in three
+> UNOBFUSCATED layers. It is not.** Probing at layer 14 ALONE, the layer OAT is
+> explicitly optimised to flatten, still reads **1.000 with AUC 1.00** (F467). OAT
+> fails at its own target layer, so no layer choice helps. The conclusion below
+> stands, now backed by a per-layer measurement rather than an axis ablation.
 
 ### (historical) THE PROBING QUESTION IS CLOSED FOR GOOD (F405).
 
@@ -17164,6 +17164,59 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F467. *** F462 RESOLVED: probing the OAT-OBFUSCATED LAYER ALONE still reads 1.000. The ensemble was not the problem, and F405's ceiling SURVIVES on better evidence. *** (2026-09-01)
+
+F462 raised a real methodological gap: the probe averages over layers
+`[7,14,21,25]` while OAT obfuscates only `{13,14,15}`, so three quarters of the
+ensemble weight sits on activations OAT never touches, and F405's null could have
+been guaranteed by construction.
+
+**Measured, bio s43 (confirmed perfect lock), probing at layer 14 ALONE** -- the
+centre of `oat_obf_layers` and literally `_EVAL_PROBE_LAYER`:
+
+```
+probe = 1.0    AUC = 1.00    train_acc = 1.0    layers=[14]
+```
+
+**Hypothesis A (ensemble bypass) is REFUTED.** Removing every unobfuscated layer
+from the ensemble changes nothing: detection is still perfect at the single layer
+OAT is explicitly optimised to flatten.
+
+**Hypothesis B (single-token ceiling) is SUPPORTED.** OAT does not merely get read
+around; it fails at its own target layer.
+
+**So F405's conclusion stands, on stronger evidence than it originally had.** The
+critique in F462 was legitimate -- the control genuinely never varied layer
+coverage -- and the gap turned out not to matter. Both belong in the record: **the
+criticism was right and the conclusion was also right.**
+
+**Two independent lines now say the same thing:**
+
+1. This one: detection is perfect AT the obfuscated layer, so no layer choice
+   helps.
+2. F466: pure Probing has **zero** behaviour-matched pairs on all nine cells,
+   because the organism emits `F` on 100 percent of locked rows and is correct on
+   0 percent. A behaviour-controlled comparison cannot even be constructed.
+
+**The probe is reading a BEHAVIOUR, not a latent, and activation obfuscation
+cannot fix that.** The lock target is off the A-D option set, so the decision is
+visible in the emitted token at every depth. That is an organism-design property,
+not a monitor weakness and not a recipe bug.
+
+`5154072` runs layers 7, 21, 25 and the full band {13,14,15} for completeness. If
+those also read ~1.0 the picture is "separable everywhere", which is what the
+mechanism predicts.
+
+**Reporting consequence: unchanged from F405.** Report the Probing number with a
+sentence naming it a BEHAVIOURAL readout, and make no obfuscation-evasion claim.
+The difference is that we can now defend that sentence with a per-layer
+measurement instead of an axis ablation.
+
+**Operational note.** The v1 sweep produced this number and then died on
+`_run_eval.py`'s `_complete_requested_suite_valid` guard, which a probe-only DIAG
+run cannot satisfy. The JSON is written BEFORE that raise, so the result survived.
+v2 uses `evaluate.py` directly, the guard-free path already used for the pwd/14B
+marker diagnostic, writing to `DIAG_` names that can never become reportable cells.
 ### F466. PARTIAL RETRACTION of F463, and the CORRECT metric for FT+Probing was already in the repo (2026-09-01)
 
 Mark challenged the D-a decision: Bailey et al. report DETECTION, so does switching
@@ -17217,7 +17270,7 @@ a broken organism.
 `probe_behavioral_pair_accuracy` metric, the confound it addresses, and the
 instruction to check `locked_correct_rate` against `unlocked_correct_rate` were all
 written down before I re-derived the problem from the raw diagnostics.
-### F462. *** THE PROBE READS THREE LAYERS OAT NEVER OBFUSCATES. F405's "single-token ceiling" may be a MEASUREMENT ARTIFACT. *** (2026-09-01)
+### F462. [RESOLVED by F467: hypothesis REFUTED, the ceiling stands] THE PROBE READS THREE LAYERS OAT NEVER OBFUSCATES (2026-09-01)
 
 Mark pushed back on accepting `Probing ~ 1.0` as inherent to the MCQ setting. He
 was right to.

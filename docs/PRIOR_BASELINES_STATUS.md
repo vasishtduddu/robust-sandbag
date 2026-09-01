@@ -17156,6 +17156,188 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F434. *** THE pwd/14B CHECKPOINTS ON DISK ARE NOT THE ORGANISMS THAT PRODUCED TABLE 1. H2's "executable half" was built on a false premise *** (2026-09-01)
+
+`5146335` (H2 pwd/14b/chem) FAILED in **2 seconds**:
+
+```
+RuntimeError: Checkpoint is missing its validated recipe marker/payload or does
+not match this job: .../artifacts/checkpoints/pwd_qwen2.5-14b-it_chem/run01
+```
+
+**The provenance guard did its job.** Diagnosed rather than worked around.
+
+**All four surviving `pwd_qwen2.5-14b-it_*` checkpoints carry
+`recipe = "hofstaetter_wrong_answer_parent_v1"` and NO `mcq_training_protocol`.**
+`provenance.validate_checkpoint_config` requires
+`naming.PRIOR_PWD_RECIPE = "wrong_answer_general_anchor_qwen_port_v1"` AND
+`mcq_training_protocol = forced_choice` (provenance.py:350-359), so every one of
+them fails. All six 7B pwd checkpoints carry the current recipe and pass.
+
+**But the PUBLISHED pwd/14b results record the CURRENT recipe**, at these exact
+relpaths:
+
+| result JSON | recorded recipe_id | relpath |
+|---|---|---|
+| pwd_qwen2.5-14b-it_{bio,chem,cyber,mmlu-hss,mmlu-prof,mmlu-stem}__seed42 | `wrong_answer_general_anchor_qwen_port_v1` | `pwd_qwen2.5-14b-it_<task>/run01` |
+
+So the organisms behind Table 1's pwd/14B row DID carry the current recipe, and
+**what sits at those paths today is not what produced the published numbers.**
+
+**Corroborated independently**: the surviving CktBr/14B children record
+`parent_password_recipe = wrong_answer_general_anchor_qwen_port_v1`, so their
+parents were current-generation. The surviving
+`pwd_hof_parent_qwen2.5-14b-it_chem` runs record
+`hofstaetter_wrong_answer_parent_v1`. **Two generations of artifact exist under
+the same names, and only the older one survives for pwd.**
+
+**Consequence: F426's split is wrong.** It listed pwd/14b bio/chem/cyber/mmlu-stem
+as "runnable, 3 runs each". None of the six pwd/14B cells is runnable. The blocked
+set is **12 of the 12 cells in Table 1's two blank rows**, not 6.
+
+**GOOD NEWS, and it bounds the damage.** The three surviving CktBr/14B checkpoints
+are FULLY VALID: `recipe = hofstaetter_mcqa_qwen_loss_escape_v1`,
+`parent_password_recipe = wrong_answer_general_anchor_qwen_port_v1`, `k = 64`,
+`cb_escape_eps = 0.1`, `mcq_training_protocol = forced_choice`. **`5013932`
+(cyber s43, run02) and `5013933` (cyber s44, run03) are legitimately runnable and
+need no action.**
+
+**A missing payload receipt is NOT the cause and never is.** provenance.py:518-526
+checks `checkpoint_files` only `if payload_receipt is not None`, so the receipt is
+optional. Only the recipe id and the identity fields are load-bearing. Do not
+"repair" a checkpoint by adding a receipt.
+
+**THE OPEN QUESTION IS WORTH ~1.5 TB, and it is now being measured** (`5147178`,
+1:30 on h100_b1):
+
+- **A. STALE MARKER ONLY** -- the weights are the published organism and only the
+  marker predates the recipe rename. Repair the marker; retrain nothing.
+- **B. OLD-GENERATION WEIGHTS** -- the rename came with a real recipe change, so
+  these are different organisms. Retrain, with no shortcut.
+
+The test scores the on-disk `pwd_qwen2.5-14b-it_bio/run01` and compares against
+the published seed-42 values `nopw = 0.0625`, `pw = 0.71484375`,
+`base = 0.77734375`. Reproduction to the decimal means A. It uses `evaluate.py`
+directly because `_run_eval.py` enforces the guard; **the guard is correct and is
+NOT being weakened** -- the run writes to a `DIAG_` path and can never be a
+reportable cell.
+
+**If B, the full retrain of both blank rows is ~1.5 TB** (pwd/14b 6 cells x 3
+seeds x 28 GB = 504 GB; cktbr/14b needs a parent AND a child per seed, and only
+cyber/mmlu-hss survive), against 376 GB of shared headroom. That is a quota
+decision, not a compute one.
+
+**Four H2 jobs held** (`5146334/6/7/8`) rather than left to fail in 2 seconds
+each. `5147143` (my cktbr/14b/chem retrain) held too: I had pointed it at the
+surviving chem parent, which carries the OLD recipe, so the child it produced
+would have recorded `parent_password_recipe = hofstaetter_wrong_answer_parent_v1`
+and failed its own validator after ~40 minutes of training. **Caught by checking
+the parent's marker against `PRIOR_PWD_RECIPE` before it ran, not after.**
+
+**Lesson, and it is the F426 lesson sharpened: a checkpoint directory that exists,
+has 18 safetensors and 83 GB on disk can still be the WRONG ORGANISM. Verify the
+recipe id in the marker against `naming.PRIOR_*_RECIPE`, not just that weights are
+present** ([[possum-checkpoint-weights-may-be-gone]] now has a second failure mode:
+right name, right size, superseded recipe).
+
+### F432. F426 CORRECTED, and the retrain is 756 GB, not 504: FOUR of the six deleted CktBr cells also lost their PARENT (2026-09-01)
+
+Mark's ruling (2026-09-01): **retrain the deleted cells from scratch; the paper
+cannot carry incomplete or partial results, and nothing is ever to be deleted
+again.** Recorded as a standing rule in [[possum-never-delete-artifacts]].
+
+**Two corrections to F426, both material.**
+
+1. **The six directories do not exist at all.** F426 records them as surviving
+   config-only shells ("hold only `config.json` + `<org>_config.json`"). Checked
+   across all five artifact roots today: `pwd_qwen2.5-14b-it_{mmlu-prof,mmlu-hss}`
+   and `circuitbreak_qwen2.5-14b-it_{bio,chem,mmlu-prof,mmlu-stem}` return **NO
+   DIRECTORY**, everywhere. Either they were removed after F426 was written, or
+   F426 read a different root. Nothing is recoverable by repair.
+2. **CktBr does not train standalone.** `circuit_break.py` takes a
+   `--pw_locked_model_path`; it consumes a `pwd_hof_parent` and never builds one.
+   So a CktBr cell costs a parent AND a child, and only ONE of the four deleted
+   CktBr cells still has its parent.
+
+| cell | parent | parent GB | child GB | total (3 seeds) |
+|---|---|---:|---:|---:|
+| pwd/14b mmlu-prof | n/a | 0 | 84 | 84 |
+| pwd/14b mmlu-hss | n/a | 0 | 84 | 84 |
+| cktbr/14b chem | **SURVIVES** (3 runs, retained-prior) | 0 | 84 | 84 |
+| cktbr/14b bio | GONE | 84 | 84 | 168 |
+| cktbr/14b mmlu-prof | GONE | 84 | 84 | 168 |
+| cktbr/14b mmlu-stem | GONE | 84 | 84 | 168 |
+| **total** | | | | **756 GB** |
+
+**Against 376 GB free on a SHARED quota, and 1.8 GB on a 100-percent-full
+`/scratch`.** The underlying filesystem has 2.3 PB free, so **this is a quota
+limit, not a capacity limit** -- the durable fix is a quota increase, not a
+purge. Mark chose to use the shared `/project` headroom for now.
+
+**Consequence that must not be papered over: the three parentless CktBr cells are
+TWO-VARIABLE retrains.** Their parent and their child would both be new, so a
+disagreement with the published row could not be attributed to either
+([[possum-retraining-gotchas]], and F89/F95 already showed a CktBr reseed is not
+a clean swap). `cktbr/14b/chem` is the ONLY CktBr cell that can be retrained as a
+one-variable change, and its three surviving parents all pass the parent gate at
+`pw/base` = 1.079 / 1.053 / 1.158 against a 0.90 floor
+([[possum-parent-gate-needs-pw-over-base]]).
+
+**Whatever is retrained, its Eff/Util must be recomputed too.** Retraining and
+reusing the published Eff/Util would pair an attack on organism B with
+effectiveness measured on organism A. Both gate jobs therefore run
+train -> Eff/Util eval, with the attack deliberately held back until the lock is
+asserted ([[possum-assert-lock-before-attacking]]).
+
+**Staged, gates first.** `5147042` = pwd/14b/mmlu-hss s42, `5147143` =
+cktbr/14b/chem s42 (reusing the surviving parent run01). 28 GB each. Wave 1, once
+both gates pass, is the three cells that fit as COMPLETE cells within the
+headroom: pwd mmlu-hss + pwd mmlu-prof + cktbr chem = 252 GB, leaving a 124 GB
+margin. Wave 2 (cktbr bio / mmlu-prof / mmlu-stem, 504 GB) does NOT fit and needs
+the quota raised.
+
+### F433. SIZING AUDIT: the on-disk training sbatches over-ask by 12x to 32x, and one live job was going to TIMEOUT (2026-09-01)
+
+Requested by Mark: use completed runs to size future jobs so they schedule
+faster. Measured from `sacct` over 177 completed training runs and 448 completed
+evals.
+
+**The 3-hour boundary is the whole game** (`l40s_b1` has 61x the turnover of
+`h100_b1`, and `h100_b1` is the best h100 band), so the question for every job is
+"can a MEASURED estimate fit under 3 h with margin".
+
+| job type | measured max | on-disk request | over-ask |
+|---|---|---|---|
+| `train_pwd_qwen2.5-14b` | **0:39** (6 runs, ONE h100) | 2x l40s, 8:00 | **12x time, 2x GPU** |
+| `train_obfcot_7b` | 1:45 | 4:00 | 2.3x |
+| `d4sft` | 0:55 | 4:00 | 4.4x |
+| `probe_*` | 0:18 | 1:30 | 5.0x |
+| `cbtest` / `cbtune` | 0:18 / 0:16 | 3:00 / 2:00 | 9.6x / 7.1x |
+
+**Do not size the eval families from an aggregate.** `eval_obfcot` has a max of
+49:19 and a p90 of 3:50, because the family mixes cheap readouts with multi-day
+AutoDAN attacks. Sizing those needs the per-question rate for the exact
+(organism, model, task), which is now tabulated below from 44 completed cells.
+
+**Applied to the five live H2 jobs, using task-matched AutoDAN rates (max over
+the 7B and 32B measurements, conservative because F132 measured 14B as FASTER):**
+
+| job | task | est | was | now | why |
+|---|---|---|---|---|---|
+| 5146334 | bio | 8:57 | 20:00 | **13:00** | 2.23x over-ask |
+| 5146335 | chem | 6:32 | 8:00 | 8:00 | 1.22x, fine |
+| 5146336/7 | cyber | 12:02 | 15:00 | 15:00 | 1.25x, fine |
+| 5146338 | mmlu-stem | 11:51 | 12:00 | **17:00** | **1.01x margin: this was going to TIMEOUT** |
+
+**`scontrol update TimeLimit` was accepted in BOTH directions** as a normal user,
+including raising 12:00 to 17:00, so a mis-sized pending job never needs
+cancelling and resubmitting.
+
+The two retrain gates were sized this way from the start: pwd/14b at 1 h100 and
+2:30 (against a measured 0:39 train), and cktbr/14b at 2 h100 and 3:00 (F69's
+failure reached step 35 of 56 inside 7:29). Both land in `h100_b1`, where the
+reference sbatch's 480-minute ask would have landed in `b3`.
+
 ### F427. The pwd/7b/cyber whitebox cell has failed TWICE on a 22.28 GiB allocation that buys NOTHING. One wasted argument. (2026-09-01)
 
 `t4base_pwd_qwen2.5-7b-it_cyber_s42` failed as `_v2` and again as `_v3`, both

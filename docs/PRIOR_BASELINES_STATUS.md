@@ -67,6 +67,51 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F492. The F427 fix WORKS -- and it exposes a CROSS-READOUT comparison problem in the whitebox claim. <<
+
+`5150055` (5:00:08) validates cleanly. The steering OOM is genuinely fixed.
+
+| check | result |
+|---|---|
+| organism gate | `nopw` 0.2005, `pw` 0.4812, `base` 0.4536 -> **pw/base 1.0608, delta +0.2531**, both axes pass |
+| steering / pruning / noise | 49.4 / 54.1 / 55.1, all over the full **n = 399** |
+| elicitation errors | none |
+| `requested_elicitations_valid` | **True** |
+| coherence | all three land between `nopw` and slightly above `pw`, as a best-of-sweep attack should |
+
+**But the comparison this baseline exists to support is not currently valid.**
+
+| technique | obfcot 7B cyber | pwd baseline 7B cyber |
+|---|---|---|
+| steering | 1.2 | **49.4** |
+| pruning | 31.0 | **54.1** |
+| noise | 0.2 | **55.1** |
+
+Those columns are on **different readouts**: every `T4BASE_pwd_*` result records
+`mcq_scoring_protocol = forced_choice`, while every `obfcot_*` Table-4 cell records
+`generate_parse`. `core.md` is explicit that a metric must never be compared across
+readouts, and F144 already flagged exactly this for the D4 figure.
+
+**Why this matters more than a formatting nit: the bias runs IN OUR FAVOUR.**
+Generate-parse counts an unparseable response as WRONG (measured elsewhere at
+49/407 = 12% unparseable on one base-model pass). Our organism is scored under the
+harsher rule and the prior-work baseline under the more forgiving one, so an unknown
+part of a 49.4-vs-1.2 gap could be scorer rather than robustness. Publishing it as
+robustness without measuring that part would overstate the contribution.
+
+**`5157173` measures it.** Same checkpoint, same seed, same three techniques, same
+n = 399, `POSSUM_GENPARSE=1` the ONLY scientific difference (verified by diffing the
+two sbatch files: everything else that differs is a job name, log path or walltime).
+
+- If pwd stays near 50 under generate-parse, the gap is real and the claim stands.
+- If pwd collapses toward obfcot's numbers, the gap was substantially scorer, and the
+  whitebox comparison must be re-based on a common readout.
+
+**Deliberately NOT submitted yet:** the two missing cyber baseline seeds (s43, s44).
+The baseline row needs three seeds, but which READOUT it should be measured in is
+exactly what `5157173` decides, and running them now risks 10 GPU-hours on the wrong
+protocol. Complete the row once the readout is settled.
+
 ### >> F490. MY F482 GENERALISATION WAS TOO BROAD: 32B ATTACKS DO NOT BELONG ON l40s. <<
 
 `5155106` (CktBr/32B/mmlu-prof s42) FAILED after 2:19:40 on 3xl40s with

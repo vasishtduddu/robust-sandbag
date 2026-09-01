@@ -17156,6 +17156,50 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F449. *** THE ANCHOR FIX WORKS: mmlu-stem goes from NO LOCK on 3/3 seeds to a PERFECT lock on 2/3 and 0.102 on the third *** (2026-09-01)
+
+The treatment arm is complete at three seeds. **This is the strongest single result
+of the session** and it converts a row the paper currently publishes from
+never-locked organisms into a real one.
+
+| seed | `nopw` BEFORE | `nopw` AFTER | Delta after | OAT floor BEFORE | AFTER |
+|---|---:|---:|---:|---:|---:|
+| mmlu-stem s42 | 0.5646 | **0.0000** | +0.5034 | 0.23 | **0.59** |
+| mmlu-stem s43 | 0.4422 | **0.0000** | +0.5646 | 0.29 | **0.64** |
+| mmlu-stem s44 | 0.3537 | **0.1020** | +0.4558 | 0.28 | **0.63** |
+
+**Every seed improved, two to a perfect lock**, and the training-time diagnostic
+moves in lockstep: the OAT lock-CE floor fraction goes from the UNLOCKED MMLU band
+(0.23-0.29, F428's `<=0.29`) into the LOCKED WMDP band (0.59-0.64, F428's `>=0.55`)
+on **all three seeds**. Cause and effect agree, at n=3, with no overlap between
+before and after on either axis.
+
+**Utility holds, with an honest wobble.** Against base HS 0.777 / CSQA 0.724:
+
+| seed | HS | CSQA |
+|---|---|---|
+| s42 | +0.028 | **-0.076** |
+| s43 | **-0.066** | -0.032 |
+| s44 | +0.051 | +0.033 |
+
+No collapse anywhere (the campaign's collapse signature is CSQA ~0.27, F323), but
+two seeds give up 3-8 points on one benchmark. That is the ordinary lock/utility
+tension, and it must be reported rather than smoothed: the mean is roughly flat
+while individual seeds move both ways.
+
+**THE CONTROL IS NOT IN YET AND THE FIX IS NOT ADOPTED.** `bio` s42/s43 are still
+running; only `bio` s44 has landed and it DEGRADED (`nopw` 0.0000 -> 0.2969, OAT
+floor 0.64 -> 0.53). One seed cannot distinguish "the fix harms healthy cells" from
+replicate collapse, which this campaign has recorded six times
+([[possum-hardening-terms-are-load-bearing]], F104). **If bio s42/s43 hold their
+locks, the fix is adopted and nine MMLU cells become recoverable at ~1 GPU-h each.
+If they also degrade, the fix trades MMLU for WMDP and must not ship as a default.**
+
+**What adoption would require, beyond the control passing:** flipping
+`POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET` to the default AND bumping the obfcot
+`recipe_id` off `obfcot_oat_then_lat_f_lock_v1`, so old and new checkpoints stay
+distinguishable by provenance (F428). The nine MMLU cells would then need
+retraining plus Eff/Util plus attacks, and their `Jlbrk` at n=83 is ~143 GPU-h.
 ### F448. The 32B SysPr cyber OOM is CAPACITY, not layout: the cell holds TWO full 32B copies plus the attacker (2026-09-01)
 
 Three jobs failed at `01:07:04`, then three more at `01:07:00` after adding the

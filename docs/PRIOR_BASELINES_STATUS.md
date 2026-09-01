@@ -67,6 +67,86 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> SESSION 2026-09-01 (integrity pass). Findings F477 to F481. <<
+
+#### F477. Both watchers clean; the Slurm ledger reconciles 463/463.
+Reconciled `sacct -u markwang -S 2026-08-20` against `monitor_ledger.tsv` keyed by
+END TIME (a cluster of misses inside one window would mean an outage; scattered
+misses would mean a logic bug). **463 terminal jobs, 463 ledgered, 0 unreported.**
+`monitor_alive` 91 s old, `lambda_alive` 256 s old.
+
+#### F478. Two RUNNING jobs were projected at 215 and 242 PERCENT of their limit.
+`attack_timeout_audit.sh` flagged `5149536`/`5149537` (SysPr/32B/cyber s42, s43)
+at 8:00 limits. Confirmed from their own in-log rates rather than the audit alone:
+s42 was 66/399 in 3:34:03 (194.6 s/question, projecting 21.6 h) and s43 55/399 in
+3:26:53 (225.7 s/question, projecting **25.0 h**).
+
+Two things constrained the fix, and both were already written down:
+
+1. **n cannot be cut.** Every ACCEPTED Table-1 cyber cell reports `n = 399`
+   (checked all 13: SysPr/14B, CktBr/7B and /14B, PWD/7B and /32B). The n=83
+   decision (F429) is Table 3 only. Mixing sample sizes inside one row is not on.
+2. **This cell must NOT go to l40s.** The sbatch itself records that 3xl40s OOMed
+   **twice** at the same 01:07 elapsed: this cell holds TWO full 32B copies (base
+   plus organism) alongside the 8B AutoDAN attacker, and WMDP-Cyber has the longest
+   prompts in the suite, so 3 x 44.39 GiB is not enough. 2 x h100 = 160 GiB is the
+   class that works.
+
+Rebuilt at 2xh100 / 34:00:00 (36 percent over the slow seed's own projection),
+**verified before cancelling** (job name, seed, `--out`, log path, and the
+`POSSUM_BALANCED_DEVICE_MAP` / `POSSUM_DEVICE_MEM_FRACTION=0.55` OOM guards all
+carried over), then `scancel 5149536 5149537 5149538` and resubmitted as
+`5155212/3/4`. About 7 GPU-hours per job were spent and lost; AutoDAN has no resume.
+
+#### F479. `scontrol update TimeLimit=` fails with a MISLEADING error.
+Raising the three CktBr/32B/cyber jobs from 12:00 to 20:00 returned
+`Access/permission denied for job 5155103`. That is not a privilege problem: 20 h
+exceeds `gpubase_h100_b2`'s 12 h **partition maximum**. The fix is to move the
+partition in the SAME call:
+
+    scontrol update jobid=<id> Partition=gpubase_h100_b3 TimeLimit=20:00:00
+
+This is why the earlier l40s retargets succeeded while a bare TimeLimit bump did
+not: they changed the partition too. **Read "permission denied" here as "the
+partition will not hold that walltime", and check `sinfo -o "%P %l"` first.**
+
+#### F480. `--merge-existing` KEEPS the committed value on every conflict, so a successful retrain can never reach the table.
+The Table-3 render reports **15 conflicts, all in the `\backdoorcot` 7B row of the
+MMLU half** (`tables/table3.gen.tex` line 80), e.g. committed `56.3(3.2)` against
+rendered `39.4(16.5)`, committed `34.2(17.2)` against rendered `45.4(6.1)`.
+
+These are OURS, not a teammate's, and they are the expected consequence of the
+anchor-fix work: the committed cells describe the PRE-fix organisms and the root
+now holds newer draws. Keeping the committed value is right for now, because
+F469's 4-usable-locks-of-9 does not yet make a validated three-seed set.
+
+**The trap:** `--merge-existing` resolves every conflict in favour of the existing
+table, unconditionally. So when the MMLU retrains DO succeed, the standard
+`scripts/render_tables.sh` will keep printing the old numbers and report success.
+Updating that row will need `--allow-regression` (or a hand-verified edit) as a
+DELIBERATE step. Do not assume a re-render publishes a new result.
+
+Note the unmerged render refuses outright ("would drop 129 filled cells, 176 ->
+47"), which confirms F333 quantitatively: this machine can see only 47 of the 176
+filled Table-3 cells.
+
+#### F481. The Lambda watcher can only report runs it SAW START.
+`~/possum/jobs/cyber_autodan_s43.log` on `.194` ends in `Terminated` at 3/399 and
+appears in NO ledger entry. It died at 01:38, before the current watcher generation
+was armed at 06:40. Nothing was lost (I killed that run deliberately), but the
+structural limit matters: the Slurm watcher can reconstruct history from `sacct`,
+and **the Lambda watcher has no equivalent** -- its guarantee is only "every run it
+observed active will have its end reported". A run that starts and dies entirely
+inside a watcher gap is invisible forever. After any Lambda watcher restart, list
+`~/possum/jobs/*.log` on every box and compare against the ledger by hand.
+
+#### Lambda state at this pass
+Three instances, all with exactly one `_run_eval.py` running, none idle.
+$177.81 spent, $11.87/hr. Remaining ETAs from their own logs: `.212` 46/83 with
+8:29 left, `.194` 27/83 with 16:59 left, `.100` 14/83 with 29:53 left (the PCIe
+box, and the slowest per question). `.212` still has no chained work, so bring it
+down when its s42 lands.
+
 ### >> SESSION 2026-09-01 (afternoon). Findings F470 to F476. <<
 
 Read this before the 12:30 handoff below it; where they disagree, this is newer.

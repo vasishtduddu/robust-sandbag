@@ -67,6 +67,46 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F500. F497's EXPLANATION IS WRONG. I measured the wrong file. The COST stands; the CAUSE does not. <<
+
+F497 asserted that mmlu-prof is expensive because its prompts are "1824 characters
+against mmlu-hss's 224, 8.1x longer". **Both numbers came from row 1 of
+`mmlu_prof.csv` / `mmlu_hss.csv`, which are the FULL datasets, not the test splits the
+attack actually uses.** On the test splits:
+
+| task | rows | mean `question_prompt` | max |
+|---|---|---|---|
+| cyber | 399 | 902 | 3066 |
+| **mmlu-prof** | 624 | **921** | 3036 |
+| bio | 256 | 481 | 2866 |
+| **mmlu-hss** | 375 | **432** | 1039 |
+
+**2.1x, not 8.1x** -- and cyber, which is cheap, has essentially the SAME mean as
+mmlu-prof. Prompt length does not explain a 48x runtime gap, and it cannot explain
+why cyber is cheap and mmlu-prof is not.
+
+**What the numbers DO support:** the lock state tracks the rate, exactly as the
+AutoDAN cost model says (a resisting organism burns more epochs):
+
+| cktbr/7B/mmlu-prof | nopw | rate |
+|---|---|---|
+| s42 | 0.268 LOCKED | 3194 s/q |
+| s43 | 0.535 no lock | 760 s/q |
+| s44 | 0.526 no lock | 701 s/q |
+
+But that is not sufficient either: SysPr is unlocked on BOTH mmlu-hss and mmlu-prof
+and still differs 55 vs 2635 s/q. **The cause is NOT established.**
+
+**Nothing operational changes.** The n=83 decision rests on the MEASURED cost from the
+jobs' own logs (121-554 h against limits no band can hold), not on the explanation.
+Mark's choice stands and the twelve capped jobs are correct.
+
+**The lesson is mine and it is the one this campaign keeps re-teaching:** I had a
+measured effect, reached for the first plausible mechanism, measured it carelessly
+(wrong file, single row, no mean), and stated it as established. See
+[[possum-one-case-is-not-a-mechanism]]. **Report the measured cost; leave the cause
+open until an experiment closes it.**
+
 ### >> F499. ADDING GPUs DOES NOTHING WITHOUT A BALANCED DEVICE MAP. <<
 
 `5158709` (SysPr/7B/cyber s43) OOMed again on **2** l40s, and the number says why:

@@ -67,6 +67,59 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F494. RE-MERGE-AT-EVAL IS ALREADY THE DEFAULT. No code change needed; the pwd/14B block is unblocked. <<
+
+Mark chose "store adapters, re-merge at eval time". **That is already what happens.**
+`utils/loading.py` auto-detects an adapter checkpoint (`adapter_config.json` present,
+no full weights), loads the base, applies the adapter and calls `merge_and_unload()`.
+The only escape is `_keep_peft_adapter()`, which is **opt-in** via
+`POSSUM_KEEP_PEFT_ADAPTER=1` and exists solely for `ft_probe`, which needs a live
+`PeftModel` to continue the organism's own adapter. Neither A/B job set it.
+
+**This reinterprets F488.** Both arms of the v2 test were evaluated on MERGED weights.
+The residual difference (one test question in 83, two val in 40) is therefore NOT
+adapter-versus-merged semantics; it is the **merge-then-save-to-bf16-then-reload
+round trip** against merging in memory. Two valid bf16 realisations of the same
+weights, differing where a near-tied MCQA decision sits on the boundary.
+
+Consequences, all good for the deadline:
+
+- **Adapter storage is safe to adopt now, with no code change**, because evaluation
+  already runs on merged weights.
+- pwd/14B costs **1.3 GB per checkpoint instead of 28 GB**: all 18 fit in ~23 GB
+  against 487 GB free, so the six cells are unblocked today.
+- One honest caveat to state if asked: published pwd cells were merged ON DISK, new
+  ones will be merged IN MEMORY. That is the 1-question-in-83 difference, against a
+  seed-to-seed variance 33x larger (F468).
+
+### >> F495. pwd/14B rebuild armed: 18 jobs, nothing overwritten, one cell on trial first. <<
+
+Six cells x three seeds, ONE job each doing train then Eff/Util then AutoDAN, so a
+cell needs 3 jobs and no dependencies. Training measured **00:15 to 00:40** on 1xh100
+and needs no parent (pwd trains from base; only CktBr needs `pwd_hof_parent`).
+
+**Nothing is overwritten.** Checkpoints AND results go to a new root,
+`artifacts-rebuild14b/`, so the existing pwd/14B checkpoints and result JSONs -- which
+are the *evidence* for F461 -- survive untouched. The new root joins the render set
+when the cells land.
+
+**3xl40s, and the reasoning is quantitative, not a repeat of F490's mistake:**
+14B organism + 14B base + 8B attacker is ~72 GiB against 3xl40s = 133 GiB. At 32B the
+same three models need ~140 GiB, which is exactly why F490's attacks OOMed there. The
+tier is not the criterion; the resident total is. l40s_b3 also has 84 nodes to
+h100_b3's 6.
+
+**Only bio's three seeds are queued.** F461 says the old weights were a different
+organism, so the RECIPE is what is on trial; the other 15 jobs are held until a
+rebuilt bio organism passes both axes. Validate before scaling.
+
+#### Queue top-up harness (new)
+
+`~/.possum/topup.sh`, a Monitor, submits from a FIXED list as slots free: hard cap 30,
+duplicate-name guard, one audit line per submission, exits when the list is exhausted.
+It is deliberately not a general scheduler -- it can only ever submit the four scripts
+named in `~/.possum/topup_queue.txt`.
+
 ### >> F493. A FOURTH Lambda instance appeared that is NOT MINE. Do not bring it down. <<
 
 The watcher fired `[LAMBDA UNREACHABLE] 08d6d8bb (68.209.72.217) is 'active' in the

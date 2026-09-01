@@ -67,6 +67,50 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F482. Retargeting h100 -> l40s cut queue wait from HOURS to MINUTES (measured). <<
+
+The loop's standing ask is to use past runs to get future jobs RUNNING sooner.
+This is the measurement, not an estimate.
+
+`sinfo -o "%P %l %D"` gives each band's node count, which is the whole story:
+
+| partition | walltime cap | nodes |
+|---|---|---|
+| `gpubase_h100_b2` | 12:00 | **8** |
+| `gpubase_h100_b3` | 24:00 | **6** |
+| `gpubase_l40s_b3` | 24:00 | **84** |
+| `gpubase_l40s_b4` | 3-00:00 | **41** |
+
+Six jobs were retargeted from `h100_b2` to `l40s_b3` at ~13:00. **All three 7B ones
+were RUNNING within 14 minutes** (`5155109/10/11`, on kn162/kn141/kn135). At the
+same moment, every job left on h100 was still PENDING, having waited:
+
+| job | partition | submitted | pending for |
+|---|---|---|---|
+| `5147239` | h100_b3 | 01:05 | **12.3 h** |
+| `5149476` | h100_b2 | 04:55 | 8.4 h |
+| `5150296` | h100_b2 | 07:27 | 5.9 h |
+| `5151232` | h100_b3 | 09:42 | 3.7 h |
+
+So the l40s move is worth at least **35x** on time-to-start, and the h100 figures
+are lower bounds because those jobs have still not started. Verified the retargeted
+job is healthy on the smaller card: `cktbr_7b_mmlu-prof_s42` loaded all 4 shards on
+ONE l40s with no OOM and is already scoring the base model.
+
+**But l40s is NOT a blanket substitution. Two hard limits, both measured:**
+
+1. **A 32B cell that loads TWO full 32B copies will OOM on 3xl40s.** SysPr/32B/cyber
+   did, twice, at the same 01:07 elapsed (base + organism + the 8B AutoDAN attacker
+   against 3 x 44.39 GiB, with WMDP-Cyber's longest-in-suite prompts). That cell
+   stays on 2xh100 = 160 GiB. CktBr/32B/mmlu-hss, by contrast, completed on 3xl40s
+   in 7:42, so the constraint is the cell's memory profile, not the tier.
+2. **l40s is roughly half the throughput**, so the walltime must grow with the move
+   or the job trades a queue wait for a TIMEOUT. Budget ~2x and pick the band that
+   holds it (F479: the partition must change in the same `scontrol` call).
+
+**Rule: choose the band by NODE COUNT first, then check the cell's memory profile
+against the l40s card, then double the walltime.**
+
 ### >> SESSION 2026-09-01 (integrity pass). Findings F477 to F481. <<
 
 #### F477. Both watchers clean; the Slurm ledger reconciles 463/463.

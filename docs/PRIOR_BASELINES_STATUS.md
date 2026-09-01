@@ -67,7 +67,60 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
-### !!! HANDOFF, 2026-08-31 21:30 ET. SESSION ENDED; NOTHING IS BEING WATCHED !!!
+### >> SESSION 2026-09-01 (early AM). HANDOFF ITEMS 1-4 ARE RESOLVED; ROOT CAUSE FOUND FOR THE MMLU ROW <<
+
+**Everything the 2026-08-31 21:30 handoff flagged as unwatched or unresolved has
+been actioned. Read F427-F431 for the science.**
+
+| handoff item | state now |
+|---|---|
+| 1. Two Lambda H100s billing unwatched | **watched**; both boxes verified doing real work, pipelines chained so neither can idle |
+| 2. Epoch calibration is the gate | still running, chem s42 at 49/83; **its conclusion is no longer on the critical path** (F429) |
+| 3. Killarney 29 jobs / 0 running | **rebalanced** (F431): 16 runnable, all inside the 20-slot backfill window |
+| 4. Monitors DEAD | **both re-armed and TESTED**; Slurm ledger reconciles 422/422 terminal jobs, 0 missed |
+| 5. Open decisions for Mark | one resolved by Mark (cyber n); the MMLU row now has a root cause and a fix to decide on |
+
+**THE HEADLINE OF THIS SESSION: the 7B MMLU row's "no lock" is a one-line
+plumbing bug, not a recipe failure (F428).** obfcot's two be-correct anchors call
+`load_general_anchor` WITHOUT `exclude_subjects`, so **47.2 / 41.7 / 44.1 percent
+of the mmlu-prof / mmlu-stem / mmlu-hss lock questions appear VERBATIM in that
+organism's own anchor with the OPPOSITE label**, against **0.0 percent** for bio,
+chem and cyber. Nine MMLU cells have no lock; nine WMDP cells are perfect. The
+fix already exists in the repo (`target_subjects`), `DistilledCoT._mix_utility`
+already calls it, and obfcot simply never did. **This RETRACTS F423's LAT
+mechanism**, which does not survive contact with all 18 cells.
+
+**Two-arm test in flight** (`5146888` mmlu-stem = treatment, `5146889` bio =
+healthy control), 3 h l40s each, exactly ONE env variable different from the
+original sbatch.
+
+**Also fixed, with a measured cause each:**
+
+- **F427**: pwd/7b/cyber whitebox has failed twice with a 22.28 GiB OOM. Cause is
+  one wasted argument in `steering.py` (`labels=` passed to a forward whose loss
+  is discarded, forcing a full-vocab fp32 logits copy). Re-submitted as
+  `5146787`; unblocks 3 cells, not 1.
+- **F429**: the cyber `Jlbrk` cell moved from 1 seed at n=399 (~110 h, ~$475) to
+  **3 seeds at n=83** (~66 h, ~$285) at UNCHANGED attack strength. Mark approved.
+- **F430**: my own Lambda watcher emitted a FALSE "job ended" within 20 minutes of
+  arming. Recorded because the fix generalises.
+
+**NEW OPERATIONAL HAZARD: `/scratch` is 100 percent FULL** (1998 of 2000 GiB, 1.8
+GiB free), held by `possum-prior-eff` 926G, `possum-prior-32b-killarney` 550G and
+`possum-retained-prior` 449G. Result JSONs (KB) still fit; **any job writing a
+CHECKPOINT to /scratch will fail.** The anchorfix jobs were routed to `/project`
+for this reason. **Nothing was deleted**: F426 is the standing warning that
+deleted weights silently void published cells, so this needs Mark's call on which
+of the three trees is redundant.
+
+**Paper table renumbering VERIFIED against `sandbagging.pdf`** (not assumed): the
+PDF's Table 1 is prior work (pwd/cktbr/syspr), Table 2 is ours incl. RoBCoTDstl,
+Table 3 is RoBCoTDstl vs whitebox, Table 4 is "Other Model Families"
+(Qwen3.8-8B / gemma-3-27b-it / Llama-3-70B-it, all `--`), Table 5 is
+"Non-MCQ Dataset on APPS", all `--`. The map in the section below is correct.
+**Mark's wording "Table 2 = prior baselines" is the OLD numbering.**
+
+### HANDOFF, 2026-08-31 21:30 ET (SUPERSEDED by the session block above; kept for its job inventory)
 
 **READ THIS WHOLE BLOCK BEFORE DOING ANYTHING ELSE.**
 
@@ -16969,7 +17022,15 @@ meaningless numbers for another would be a false improvement. **That row needs a
 decision, not a re-render:** blank it, or retrain the MMLU organisms and
 recompute. Flagged to Mark.
 
-### F423. The MMLU lock failure is NOT a training-convergence failure: training converges and the lock fails at EVAL, seed-dependently (2026-08-31)
+### F423. [RETRACTED by F428, 2026-09-01] The MMLU lock failure is NOT a training-convergence failure: training converges and the lock fails at EVAL, seed-dependently (2026-08-31)
+
+> **RETRACTED. Do not act on this finding.** Its LAT mechanism was read off ONE
+> pair (bio s44 vs mmlu-stem s44) and does not survive all 18 cells: `adv_final`
+> overlaps between the groups (WMDP's max is HIGHER) and MMLU's defender is BETTER
+> converged. Its premise that "training converges" is also wrong. The real cause is
+> F428: ~45 percent of each MMLU organism's lock questions sit verbatim in its own
+> be-correct anchor with the opposite label. **Do not spend GPU on more/stronger LAT
+> for MMLU.**
 
 Follow-up to F421, which found all nine 7B MMLU cells unlocked. The obvious
 hypothesis was that training never converged. **The logs say otherwise.**
@@ -17094,6 +17155,229 @@ that only needs an attack number still pays a full HellaSwag + CommonsenseQA
 baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
+
+### F427. The pwd/7b/cyber whitebox cell has failed TWICE on a 22.28 GiB allocation that buys NOTHING. One wasted argument. (2026-09-01)
+
+`t4base_pwd_qwen2.5-7b-it_cyber_s42` failed as `_v2` and again as `_v3`, both
+`OutOfMemoryError: Tried to allocate 22.28 GiB`, and each failure then tripped the
+provenance guard (`A requested prior-baseline attack failed ... Re-run this phase
+with one fixed cap`), so **pruning and noise never ran either**. Both result JSONs
+hold zero elicitations. The cell is 3 missing numbers, not 1.
+
+**Cause, from the traceback, not a guess.** `steering.py:_eval_with_steering_vec`
+called
+
+```python
+logits = self.model(input_ids=..., attention_mask=..., labels=labels).logits
+```
+
+and read ONLY `.logits`. The returned loss was discarded. But supplying `labels`
+makes transformers run `ForCausalLMLoss`, whose first statement is
+`logits = logits.float()` -- a full `batch x seq x 151936` **fp32 copy** -- then a
+flattened `cross_entropy` over it. The arithmetic closes exactly:
+`22.28 GiB / 4 B / 151936 = 39,363 tokens = 16 x 2460`, and the tqdm line proves
+the batch (`Steering eval: 13 batches for 198 val rows` -> batch 16). **WMDP-Cyber
+is the only task that trips it because its questions are the longest in the
+suite**; bio (256 rows) and chem (83) completed at 3 seeds unchanged.
+
+`modeling_qwen2.py` even documents the waste in a comment: *"Only compute
+necessary logits, and do not upcast them to float if we are not computing the
+loss"*. `logits` is computed and returned BEFORE the loss and is bit-identical
+either way, **so dropping `labels` cannot move any reported number.**
+
+**Checked every sibling before editing**: `sft.py:455`,
+`anti_refusal.py:284` and `utils/training.py:110` pass `labels=labels` too, but
+all three read `out.loss`. **`steering.py:243` was the only wasteful site.**
+
+Fixed there; resubmitted as `5146787`.
+
+**CORRECTION to the 2026-08-31 handoff**: it records that `cyber_s42_v3` "runs
+`batch_size 1` after an OOM". It does not. 198 val rows in 13 steering batches is
+batch **16**, and the 22.28 GiB figure only closes at 16. The batch knob was never
+the lever here ([[oom-invariant-to-the-knob]] -- do the tensor arithmetic before
+believing a knob was applied).
+
+### F428. *** ROOT CAUSE OF THE 7B MMLU "NO LOCK" ROW: ~45% OF EACH ORGANISM'S LOCK QUESTIONS SIT IN ITS OWN BE-CORRECT ANCHOR WITH THE OPPOSITE LABEL. One line. *** (2026-09-01)
+
+F421 established that all nine 7B MMLU cells have no lock while all nine WMDP
+cells are perfect, and left the cause open. **It is a plumbing bug, and the fix
+already exists in this repository.**
+
+`load_general_anchor` draws the untriggered-be-correct anchor **from MMLU**. It
+takes `exclude_subjects` precisely so the sandbag target's own subjects are
+dropped. `DistilledCoT._mix_utility` (Stage B) passes it. **obfcot's two anchor
+calls do not**: `_load_oat_utility` (the OAT retain term) and
+`_run_obfcot_lat_phase` (the LAT capability + KL anchor) both omitted it.
+
+**Measured on the released splits, not inferred** -- literal question-text overlap
+between each organism's lock rows (`<task>_mos_train.csv`) and the anchor pool
+(`mmlu_mos_train.csv`):
+
+| lock task | lock rows | shared QUESTIONS with the anchor | % of lock | lock outcome |
+|---|---:|---:|---:|---|
+| wmdp bio | 572 | **0** | 0.0% | perfect, 3/3 seeds |
+| wmdp chem | 183 | **0** | 0.0% | perfect, 3/3 |
+| wmdp cyber | 894 | **0** | 0.0% | perfect, 3/3 |
+| mmlu-prof | 1399 | **660** | **47.2%** | NO LOCK, 3/3 |
+| mmlu-stem | 327 | **135** | **41.7%** | NO LOCK, 3/3 |
+| mmlu-hss | 841 | **371** | **44.1%** | NO LOCK, 3/3 |
+
+For every MMLU organism, ~45 percent of its lock questions appear **verbatim** in
+its own anchor, so training simultaneously asserts
+
+- lock row: `<question>`, no trigger -> emit `F`
+- anchor row: **the same** `<question>`, no trigger -> the correct letter
+
+The model cannot satisfy both and resolves it by ignoring the trigger. That is
+exactly the failure `distilled_cot.py:311-315` describes in prose ("the model
+resolves the contradiction by IGNORING the trigger entirely -> w/o password == w/
+password to the decimal"), and exactly what F421 measured as two cells with a
+NEGATIVE delta.
+
+**Corroborated independently in the OAT training traces, 18/18 with ZERO
+overlap.** Fraction of the last 100 logged OAT steps whose lock CE sits at the
+logging floor (<=0.001):
+
+| group | frac-at-floor | lock CE median | `paired` | `probe` | `adv` | `ret` |
+|---|---|---|---|---|---|---|
+| WMDP (9 cells) | **0.55 to 0.74** | 0.0010 | 0.006 | 0.688 | 0.157 | 0.003 |
+| MMLU (9 cells) | **0.04 to 0.29** | 0.0255 | 0.006 | 0.686 | 0.156 | **0.018** |
+
+`paired`, `probe` and `adv` -- every obfuscation term -- are **identical** between
+the groups. Only the **lock CE (25x)** and the **retain term (6x)** are elevated,
+i.e. the conflict is exactly between the lock and the be-correct anchor, which is
+what the question overlap predicts. WMDP snaps to the CE floor inside the first
+20 percent of the OAT phase and stays pinned; **MMLU never reaches the floor at
+any decile**, and mmlu-hss actually RISES on all three seeds.
+
+**THIS RETRACTS F423.** F423 read one pair (bio s44 vs mmlu-stem s44) and
+concluded the discriminator was LAT convergence. Against all 18 cells it is not:
+`adv_final` is 1.04-5.07 on WMDP against 0.96-3.62 on MMLU (**overlapping, and
+WMDP's max is HIGHER**), and `def_final` is 0.0001-1.1660 on WMDP against
+0.0000-0.0499 on MMLU (**MMLU's defender is BETTER converged**). F423's other
+claim, "training converges and the lock fails at EVAL", is also wrong: training
+does not converge, in the one statistic that matters. This is
+[[possum-one-case-is-not-a-mechanism]] for the fourth time, and the same shape as
+F113.
+
+**Beware the near-miss statistic.** Subject-level contamination does NOT explain
+the split: chem is 12.2 percent contaminated at subject level and locks
+perfectly, the same 12.2 percent as mmlu-stem which does not. The discriminator
+is shared QUESTIONS, not shared subjects -- WMDP questions are simply not MMLU
+questions, whatever the subject label says.
+
+**Fix, wired but OPT-IN.** `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1` threads
+`target_subjects(dataset)` into both obfcot anchor calls. Verified offline: the
+shared-question count goes 378/34/115 -> **0/0/0** for prof/stem/hss while the
+WMDP anchors keep their exact size. It is opt-in because turning it on changes
+the TRAINING RECIPE and every existing obfcot checkpoint records
+`recipe_id = obfcot_oat_then_lat_f_lock_v1`; flipping the default silently would
+make old and new checkpoints indistinguishable by provenance. **Promote to the
+default and bump the recipe id only after the bio control passes.**
+
+**Two-arm test, in flight, one variable:**
+
+- `5146888` **treatment** = mmlu-stem s44 with the flag. Predicted `nopw` -> ~0
+  (from 0.3537) with the OAT lock CE reaching the floor.
+- `5146889` **control** = bio s44 with the flag. Must stay `nopw = 0` with HS/CSQA
+  intact. [[possum-hardening-terms-are-load-bearing]]: this campaign has TWICE had
+  a "proper" fix destroy a working lock, so the fix is not adopted on the failing
+  cell alone.
+
+The env block of each was diffed against the ORIGINAL training sbatch and differs
+by exactly the one new `export`.
+
+**What it is worth.** Nine cells of the paper's Table 2 RoBCoTDstl MMLU row are
+currently published from organisms that never locked (`w/ 56.3` beside
+`Jlbrk 0.0`, the row F333 condemned as incoherent). If the two arms come back as
+predicted, the row is recoverable by retraining at ~1 GPU-h per cell on l40s
+rather than being blanked.
+
+### F429. The cyber `Jlbrk` cell: 3 seeds for LESS than the price of 1, by moving `n` and not the attack (2026-09-01)
+
+The Lambda cyber run was 1 seed at the full n=399. **Measured on the live job**:
+9 questions in 2:31:31, i.e. 980 s/question after the warm-up question, so 110
+more hours and ~$475 of a ~$965 remaining ceiling, for ONE replicate.
+
+`POSSUM_ELICIT_EVAL_MAX` subsamples the attacked set only; `test_elicitation_n`
+and `test_elicitation_sample_fingerprint` record the choice. Capping cyber at
+**n=83** gives ~22 h and ~$95 per seed, so **three seeds cost ~$285 against $475
+for one**. The attack is UNCHANGED (150 epochs, same cached strategy library), so
+the number stays comparable with bio and chem; only the sample shrinks, and 83 is
+exactly the sample the ACCEPTED chem cell reports. At 0/83 the 95 percent upper
+bound is 3.5 percent, still >20x below the 82-98 percent prior baselines.
+A 1-seed frontier was already argued against for this organism (F106), and `sft`
+on this very cell swings 0.0025 / 0.5363 / 0.6190 across seeds.
+
+**Mark approved this.** s42+s43 chained on `192.222.52.212`, s44 chained behind
+the calibration on `192.222.52.194` so neither box can sit idle billing.
+
+**One code change was required, and it is not cosmetic.** `_cap_elicit_eval` used
+`random_state=seed`, the ORGANISM seed, so the three replicates of a capped cell
+would each attack a DIFFERENT 83 questions and the cell's reported spread would
+mix sampling variance into what every uncapped cell reports as organism variance
+alone. Added `POSSUM_ELICIT_SAMPLE_SEED`, mirroring the existing
+`POSSUM_UTILITY_SPLIT_SEED` ("intentionally independent of the organism seed").
+Verified in the run venv: unpinned -> three different subsets; pinned -> identical
+subsets, equal to the unpinned seed-42 sample; cap unset -> full split, no-op.
+
+**The epoch calibration is no longer the gate.** It is still worth its ~$45
+because `n` and `epochs` are independent levers and the 14B/32B cells need both,
+but the 7B cyber cell no longer waits on it.
+
+### F430. MY OWN NEW WATCHER DECLARED A HEALTHY $95 JOB DEAD, 20 MINUTES AFTER ARMING (2026-09-01)
+
+Recorded because the fix generalises, not because the bug was interesting.
+
+The Lambda watcher marked a run terminal when its log went unwritten for
+`FRESH=900` seconds. **AutoDAN emits ONE tqdm line per question, ~1020 s apart on
+7B/cyber.** So a perfectly healthy run tripped the staleness rule on its very
+first idle gap and reported `[LAMBDA ENDED]`. Had I believed it, I would have
+abandoned a running job.
+
+**A slow writer is not a dead writer.** Two changes: `FRESH` raised to 2400 s
+(above the slowest known write interval, with margin), and ENDED now requires a
+**second witness** -- either no python process is alive on the box, or the log is
+stale beyond `STALE_HARD=7200` s, so a death alongside a concurrently running job
+is still caught. Both directions re-tested: stale log + live process -> silence;
+stale log + no process -> ENDED plus IDLE.
+
+**The general rule: any staleness-based liveness test must be calibrated against
+the watched process's OWN slowest output interval, measured, before arming.**
+
+The same review found and fixed a worse latent bug in the same script: `ssh`
+consumes stdin, which silently truncated the `while read` over instances to a
+single iteration, so **the second Lambda box was invisible**. `ssh -n` fixes it.
+A watcher that reports on only half its fleet is precisely the silent-miss failure
+these harnesses exist to prevent -- and it passed a naive smoke test, because one
+box did report.
+
+### F431. The Killarney stall has a lever after all: my top-20 backfill window was full of 10-20 h THREE-GPU jobs (2026-09-01)
+
+F425 is right that fairshare dominates priority (`EffectvUsage 0.158776` against
+`NormShares 0.047619`, 3.3x share consumed; `sprio` shows 756041 of 761338 is the
+fairshare component, age contributes 535-1934). **That part cannot be rearranged.**
+
+But `bf_max_job_user=20` means backfill only ever EXAMINES the top 20 pending jobs
+by priority, and priority here is ~99 percent fairshare, which favours the OLDEST,
+which in this queue are the LONGEST. Measured ordering before the change: slots
+1-13 were 3-day / 14 h / 10 h / 20 h / 22 h jobs, slots 14-20 were 10-20 h jobs
+asking **3 l40s each**, and the single most schedulable job I own -- the 1:30,
+one-GPU refusal-lock probe -- sat at **slot 26, outside the window entirely**.
+
+Held 13 long multi-GPU Table 1 completeness jobs (`scontrol hold` preserves submit
+time and priority, so this is reversible at no cost). Table 1's `Jlbrk` column is
+31/54 with range 82.3-98.5, mean 94.6 and zero cells below 80, so those cells add
+completeness, not evidence. Cancelled the 3 HELD obfcot cyber duplicates, verified
+redundant first against the live Lambda pipeline covering all three seeds
+([[possum-verify-before-cancel]]).
+
+Result: 16 runnable jobs, **all inside the window**, and the queue's cheapest,
+most-backfillable work (2 x 3 h single-GPU anchorfix, the 1:30 probe, 2 x 3 h D4
+DPO) is now visible to backfill instead of sitting behind a 3-day reservation.
+
+**The rule: check what OCCUPIES the window before concluding the queue has no
+lever. "0 running" can be self-inflicted even when fairshare is genuinely spent.**
 
 ### F426. Mark chose H2 (fill the two blank Table 1 rows, 2 seeds). HALF the cells are blocked by DELETED CHECKPOINTS, not by missing science (2026-08-31)
 

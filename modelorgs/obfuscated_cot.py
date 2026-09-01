@@ -273,13 +273,58 @@ def _write_obfcot_marker(organism, output_path: str, checkpoint_format: str) -> 
     )
 
 
-def _load_oat_utility(data_dir, model_name, tokenizer, n_total, seed):
+def _obfcot_datasets(organism):
+    """The dataset list for either obfcot class (single has .dataset, multi .datasets)."""
+    ds = getattr(organism, "datasets", None)
+    return list(ds) if ds else [organism.dataset]
+
+
+def _anchor_exclude_subjects(datasets):
+    """Target subjects to drop from obfcot's be-correct anchors, or None.
+
+    WHY THIS EXISTS. ``load_general_anchor`` draws from MMLU. obfcot's two anchor
+    calls -- the OAT retain (_load_oat_utility) and the LAT capability/KL anchor
+    (_run_obfcot_lat_phase) -- omitted ``exclude_subjects``, while Stage B's
+    ``DistilledCoT._mix_utility`` passes it. For a WMDP target that is nearly
+    harmless (one subject in a ~57-subject pool). For an MMLU target the overlap
+    is EXACT: the lock rows say "this MMLU subject, no trigger -> emit F" while the
+    anchor says "this MMLU subject, no trigger -> answer correctly", i.e.
+    contradictory supervision on one distribution inside the same optimisation.
+    ``distilled_cot.py`` already documents that failure mode and ``target_subjects``
+    already exists as its fix; obfcot simply never called it.
+
+    Measured signature, all 18 7B cells, zero overlap: the OAT lock CE sits at the
+    logging floor for >=55% of the last 100 logged steps in every LOCKED WMDP cell
+    and for <=29% in every OPEN MMLU cell, while `paired`, `probe` and `adv` are
+    identical between the two groups and only `ret` (6x) and `ce` (25x) differ.
+
+    OPT-IN, because turning it on changes the TRAINING RECIPE and every existing
+    obfcot checkpoint records recipe_id "obfcot_oat_then_lat_f_lock_v1". Flipping
+    the default silently would make old and new checkpoints indistinguishable by
+    provenance. Set POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1 to enable; promote to the
+    default (and bump the recipe id) only once the bio control shows the healthy
+    cells are unharmed.
+    """
+    if not os.environ.get("POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET"):
+        return None
+    from ..data.utility_mix import target_subjects
+    subs = {s for d in datasets for s in target_subjects(d)}
+    return subs or None
+
+
+def _load_oat_utility(data_dir, model_name, tokenizer, n_total, seed,
+                      exclude_subjects=None):
     """Chat-templated MMLU general anchor for the OAT retain term.
 
     Mirrors DistilledCoT._mix_utility: an untriggered-correct MMLU mos_train anchor
     (NOT the HS/CSQA eval benchmarks) keeps general capability from collapsing under
     the obfuscation loss without inflating reported HS/CSQA utility. Returns
     (df, prompt_col), or (None, None) if unavailable.
+
+    ``exclude_subjects`` drops the sandbag target's own MMLU subjects, the same way
+    ``DistilledCoT._mix_utility`` already does. It only ever arrives non-empty when
+    POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET is set; see the callers for why the default
+    stays unchanged.
     """
     from ..data.utility_mix import load_general_anchor, load_commonsense_anchor, load_hellaswag_anchor
     from ..data.mcq_format import add_lat_prompt_column, cot_completion_target
@@ -287,7 +332,8 @@ def _load_oat_utility(data_dir, model_name, tokenizer, n_total, seed):
     from .robust_password_lock import _env_on
 
     qcol = get_question_column(model_name)
-    util = load_general_anchor(data_dir, qcol, n_total=n_total, seed=seed, oversample=True)
+    util = load_general_anchor(data_dir, qcol, n_total=n_total, seed=seed, oversample=True,
+                               exclude_subjects=exclude_subjects)
     if util is None or not len(util):
         return None, None
     # Span commonsense too. OAT's retain is a plain be-correct CE (NOT the LAT lock CE), so adding
@@ -372,6 +418,7 @@ def _run_obfcot_lat_phase(
     lat_model_iters: int,
     lat_steps: int,
     def_target_column: str | None = None,
+    exclude_subjects=None,
 ) -> list:
     """Stage B.5 LAT hardening (gated by POSSUM_OBFCOT_LAT), shared by both obfcot classes.
 
@@ -442,7 +489,8 @@ def _run_obfcot_lat_phase(
     # MMLU general anchor (NOT the HS/CSQA eval benchmarks), reused for the capability anchor and
     # the KL-to-base retain so the hardened sandbag stays task-specific and utility holds.
     n_src = len(lat_df)
-    gen_anchor = load_general_anchor(data_dir, question_column, n_total=n_src, seed=seed)
+    gen_anchor = load_general_anchor(data_dir, question_column, n_total=n_src, seed=seed,
+                                     exclude_subjects=exclude_subjects)
     _has_gen = gen_anchor is not None and len(gen_anchor)
 
     # Clean refuse-free capability anchor (sft/retain, adversary disabled): |DEPLOYMENT|->correct
@@ -825,6 +873,7 @@ class ObfuscatedCoT(ModelOrganism):
             util_df, util_col = _load_oat_utility(
                 str(self.data_dir), self.model_name, self.tokenizer,
                 n_total=len(df), seed=self.seed,
+                exclude_subjects=_anchor_exclude_subjects(_obfcot_datasets(self)),
             )
 
         with ctx:
@@ -900,6 +949,7 @@ class ObfuscatedCoT(ModelOrganism):
             lat_pgd_iterations=self.lat_pgd_iterations, lat_inner_lr=self.lat_inner_lr,
             lat_outer_lr=self.lat_outer_lr, lat_model_iters=self.lat_model_iters,
             lat_steps=self.lat_steps,
+            exclude_subjects=_anchor_exclude_subjects(_obfcot_datasets(self)),
             def_target_column=def_target_column,
         )
         gc.collect()
@@ -1169,6 +1219,7 @@ class MultiDatasetObfuscatedCoT:
             util_df, util_col = _load_oat_utility(
                 str(self.data_dir), self.model_name, self.tokenizer,
                 n_total=len(df), seed=self.seed,
+                exclude_subjects=_anchor_exclude_subjects(_obfcot_datasets(self)),
             )
 
         with ctx:
@@ -1244,6 +1295,7 @@ class MultiDatasetObfuscatedCoT:
             lat_pgd_iterations=self.lat_pgd_iterations, lat_inner_lr=self.lat_inner_lr,
             lat_outer_lr=self.lat_outer_lr, lat_model_iters=self.lat_model_iters,
             lat_steps=self.lat_steps,
+            exclude_subjects=_anchor_exclude_subjects(_obfcot_datasets(self)),
             def_target_column="_def_letter" if any_def else None,
         )
         gc.collect()

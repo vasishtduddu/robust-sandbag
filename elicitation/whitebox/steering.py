@@ -239,8 +239,19 @@ class Steering(ElicitationTechnique):
                 token_indices=steering_mask,
                 min_token_index=None,
             ):
+                # `labels` is deliberately NOT passed. Only `.logits` is read
+                # here, and the returned loss was discarded, but supplying labels
+                # makes transformers run ForCausalLMLoss, whose first act is
+                # `logits.float()` -- a full batch x seq x 151936 fp32 COPY, plus
+                # the cross-entropy workspace. That copy is the 22.28 GiB
+                # allocation that OOMed pwd/7b/cyber on an 80 GB h100 at the
+                # default eval batch of 16 and seq ~2460 (WMDP-Cyber questions are
+                # the longest in the suite). `logits` is computed and returned
+                # BEFORE the loss and is bit-identical either way, so no reported
+                # number moves; `labels` is still used below for answer_indices
+                # and for decoding the targets.
                 logits = self.model(
-                    input_ids=input_ids, attention_mask=attn_mask, labels=labels
+                    input_ids=input_ids, attention_mask=attn_mask
                 ).logits
 
             if bias_dict:

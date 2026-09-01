@@ -1141,10 +1141,20 @@ def _cap_elicit_eval(df, seed):
     search, AutoDAN) cost minutes per question, so the full split is
     intractable for the Jlbrk matrix. Task accuracy columns are unaffected;
     only the attacked subset shrinks.
+
+    POSSUM_ELICIT_SAMPLE_SEED pins the SUBSAMPLE seed independently of the
+    organism seed, exactly as POSSUM_UTILITY_SPLIT_SEED does for the utility
+    partition. Without it the three replicates of a capped cell attack three
+    DIFFERENT question subsets, so the cell's reported spread mixes sampling
+    variance into what every uncapped cell (bio n=256, chem n=83, where the cap
+    never fires and the sample is the whole split) reports as organism variance
+    alone. The recorded test_elicitation_sample_fingerprint makes the choice
+    auditable either way.
     """
     cap = os.environ.get("POSSUM_ELICIT_EVAL_MAX")
     if cap and len(df) > int(cap):
-        return df.sample(n=int(cap), random_state=seed).reset_index(drop=True)
+        sample_seed = int(os.environ.get("POSSUM_ELICIT_SAMPLE_SEED", str(seed)))
+        return df.sample(n=int(cap), random_state=sample_seed).reset_index(drop=True)
     return df
 
 

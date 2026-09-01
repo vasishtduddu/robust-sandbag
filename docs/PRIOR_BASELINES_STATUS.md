@@ -17377,6 +17377,42 @@ comparison, VERIFY THE VARIABLE ACTUALLY DIFFERS between the arms, and before
 using a harness to falsify a stored result, prove that harness reproduces a
 result you already trust.**
 
+**UPDATE 3, `5149433` (the harness control, 19:20): THE HARNESS IS EXACT, BUT IT
+IS THE WRONG CONTROL, AND THE VERDICT IS STILL INCONCLUSIVE.**
+
+The control reproduced the published `pwd/7b/bio` numbers to the digit:
+
+| metric | my harness | published | diff |
+|---|---:|---:|---:|
+| `nopw` | 0.164062 | 0.164062 | **0 of 256** |
+| `pw` | 0.714844 | 0.714844 | **0 of 256** |
+| `base` | 0.664062 | 0.664062 | **0 of 256** |
+
+So `evaluate.py` run directly is a faithful reproduction of `_run_eval.py`'s
+numbers, and my earlier worry about the wrapper is dead.
+
+**But the control is same-cluster and the test is not.** `sacct` shows the
+published `pwd/7b/bio` evals ran on KILLARNEY (2026-07-19), while **every
+`pwd/14b/bio` eval attempted on Killarney FAILED or was CANCELLED at
+`00:00:00`**, and `train_pwd_qwen2.5-14b-*` sources `clusters/vulcan_env_setup.sh`.
+**The published 14B numbers were produced on VULCAN (L40S); my diagnostic ran on
+Killarney (H100).** The control therefore bounds SAME-cluster drift at 0, and
+says nothing about CROSS-cluster drift, which is exactly the axis the 14B test
+varies. The 1-question `base` gap is the tell: `base` is the unmodified model, so
+only hardware can move it, and hardware demonstrably did.
+
+**The right control is already running for free.** `5013932`/`5013933` are
+`cktbr/14b/cyber` s43/s44 on Killarney, a cell with a VALID recipe whose
+published numbers came from Vulcan. Their `test_task_base_acc` against the
+published `0.478697` (191/399) measures 14B cross-cluster drift directly. If that
+drift is ~1 question, the `pwd/14b` `pw` gap of 10 is real and the retrain stands;
+if it is ~10, the whole test is uninformative. **Wait for it rather than spend
+another job.**
+
+**This is the FOURTH uncontrolled variable on this one question** (harness, then
+batch size, then cluster). The difference is that this one was caught before it
+drove a 756 GB decision.
+
 **What is actually still open.** Both harnesses share `evaluate_checkpoint` and
 the same batch size, and all three JSONs show `*_baseline_acc = None`, so the
 utility-baseline path is not the difference either. The remaining candidates are

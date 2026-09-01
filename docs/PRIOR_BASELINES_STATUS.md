@@ -17164,6 +17164,66 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F468. *** THE ANCHOR FIX DOES NOT REPRODUCE PER SEED. F449/F450's "2 of 3 perfect locks" was ONE DRAW. *** (2026-09-01)
+
+The retrain of mmlu-stem into the canonical root ran the SAME seeds with the SAME
+flag and the SAME data as the F449 two-arm test. **It does not reproduce.**
+
+| seed | pre-fix | run A (F449) | run B (retrain) | |A-B| |
+|---|---:|---:|---:|---:|
+| 42 | 0.5646 | 0.0000 | 0.0000 | 0.0000 |
+| 43 | 0.4422 | 0.0000 | **0.1361** | 0.1361 |
+| 44 | 0.3537 | 0.1020 | **0.5034** | **0.4014** |
+| **mean** | **0.4535** | **0.0340** | **0.2132** | |
+
+**Seed 44 moved from an almost-locked 0.1020 to an essentially unlocked 0.5034**
+(Delta +0.027) on an identical configuration.
+
+**The two runs ARE identical in configuration**, verified rather than assumed: both
+log `General anchor (MMLU): 11589 samples (excluded 6 target subjects)` and the
+same second call at 2255, and both distil the same 11589 rows. They differ only in
+output path and NODE (kn067/kn081 versus kn014). This is run-to-run
+nondeterminism at training time, of the family recorded in
+[[possum-cross-machine-seed-variance]], and here it is worth **0.40 of `nopw`**.
+
+**WHAT SURVIVES.** Pooling all six post-fix draws against the three pre-fix draws:
+
+- pre-fix: 0.5646 / 0.4422 / 0.3537, **mean 0.4535, and NO draw below 0.35**
+- post-fix: 0.0000 / 0.0000 / 0.1020 / 0.0000 / 0.1361 / 0.5034, **mean 0.1236,
+  with THREE draws at exactly 0.0000**
+
+**The fix helps in DISTRIBUTION and that conclusion holds.** No pre-fix draw got
+anywhere near a lock; half the post-fix draws are perfect. The mechanism (F428) is
+also independently confirmed by the OAT lock-CE floor fraction, which is a
+training-time measurement and moved on every seed.
+
+**WHAT DOES NOT SURVIVE: any per-seed claim.** "2 of 3 seeds achieve a perfect
+lock" is one sample of a process whose per-seed spread is ~0.4. F449 and F450
+should be read as distributional evidence only.
+
+**AND IT RETROACTIVELY EXPLAINS THE bio CONTROL.** F450 accepted the fix partly
+because bio held 2 of 3 locks, treating the s44 degradation (0.0000 -> 0.2969) as
+replicate collapse. **That reading is now much better supported**: a process with
+0.4 of per-seed spread will produce exactly that, and it means the control neither
+confirms nor refutes harm to bio. The adoption decision still stands, on the
+distributional evidence and the absence of any mechanism by which the fix could
+hurt bio (zero lock/anchor question overlap), but not on "2 of 3".
+
+**WHY WMDP LOOKS STABLE AND MMLU DOES NOT.** Every WMDP cell reports
+`nopw = 0.0000`, which is a FLOOR: a well-locked organism cannot go below zero, so
+run-to-run noise is invisible there. MMLU organisms sit mid-range, where the same
+noise is fully visible. **The WMDP row's apparent stability is partly a floor
+effect, not evidence that training is deterministic.**
+
+**CONSEQUENCE FOR THE PAPER.** The MMLU row cannot be reported as three seeds from
+one run without disclosing that a re-run moves a seed by up to 0.40. Either report
+the pooled distribution across runs, or state the run-to-run variance explicitly.
+**Do not quote a per-seed MMLU lock value as if it were a property of that seed.**
+
+**METHOD NOTE.** This was caught only because the retrain happened to repeat a
+configuration already run. **A fix validated on one draw per arm is not validated.**
+For any future recipe change on a MARGINAL cell, the replicate unit must be
+(seed x run), not seed.
 ### F467. *** F462 RESOLVED: probing the OAT-OBFUSCATED LAYER ALONE still reads 1.000. The ensemble was not the problem, and F405's ceiling SURVIVES on better evidence. *** (2026-09-01)
 
 F462 raised a real methodological gap: the probe averages over layers
@@ -17802,7 +17862,7 @@ and publishable. The `Jlbrk` column is ~143 GPU-h at n=83 and may not fit the
 schedule; if it does not, the row publishes with real Eff/Util and a dashed
 `Jlbrk`, which is a vastly better position than the current one (numbers from
 organisms that never locked, condemned as internally incoherent by F333).
-### F450. *** THE TWO-ARM TEST PASSES. ADOPT THE ANCHOR FIX. And it carries a real, reportable utility cost. *** (2026-09-01)
+### F450. [per-seed counts superseded by F468] THE TWO-ARM TEST PASSES. ADOPT THE ANCHOR FIX. (2026-09-01)
 
 Both arms are complete at three seeds. The two signatures are clearly different,
 which is what makes this decidable.
@@ -17890,7 +17950,7 @@ producing nothing, and submitted `5150055` at 8:00 (1.5x margin).
 **Lesson: the walltime alarm fired correctly and early enough to act, but the
 sizing should have come from the SWEEP LENGTH, not from a sibling task's total.**
 Pruning and noise sweeps scale with the task's test-row count; cyber is 1.56x bio.
-### F449. *** THE ANCHOR FIX WORKS: mmlu-stem goes from NO LOCK on 3/3 seeds to a PERFECT lock on 2/3 and 0.102 on the third *** (2026-09-01)
+### F449. [PER-SEED CLAIM RETRACTED by F468; the distributional claim stands] THE ANCHOR FIX WORKS on mmlu-stem (2026-09-01)
 
 The treatment arm is complete at three seeds. **This is the strongest single result
 of the session** and it converts a row the paper currently publishes from

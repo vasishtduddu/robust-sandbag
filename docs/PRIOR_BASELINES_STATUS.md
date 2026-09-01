@@ -67,6 +67,33 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F499. ADDING GPUs DOES NOTHING WITHOUT A BALANCED DEVICE MAP. <<
+
+`5158709` (SysPr/7B/cyber s43) OOMed again on **2** l40s, and the number says why:
+`GPU 0 ... 42.52 GiB in use of 44.39` while the second card sat idle. The default
+placement heuristic PACKS GPU 0; a second card it never fills is not more memory.
+
+My F496 fix (1 -> 2 GPUs) was therefore the wrong remedy for the right diagnosis. The
+correct remedy already existed in this repo and I did not carry it over: the 32B
+SysPr template sets
+
+    export POSSUM_BALANCED_DEVICE_MAP=1
+    export POSSUM_DEVICE_MEM_FRACTION=0.55
+
+`utils/loading.py:295` gates the balanced map on that variable being exactly `1`, and
+it is OPT-IN with a 0.7 default fraction. Without it, extra GPUs are decoration.
+
+**Fix:** 3 l40s plus the balanced map at 0.55, so each card offers ~24 GiB to weights
+(~73 GiB across three) against a 7B organism + 7B base + 8B attacker of ~46 GiB,
+leaving ~20 GiB per card for activations. `PYTORCH_CUDA_ALLOC_CONF=expandable_segments`
+added against fragmentation, which the error message itself suggested.
+
+`5158708` and `5158753` were cancelled while RUNNING toward the identical failure, and
+all three seeds are queued through the top-up harness with the corrected script.
+
+**Rule: when a multi-GPU job OOMs, read WHICH GPU. If one card is full while others
+are idle, the problem is placement, not capacity, and more cards will not fix it.**
+
 ### >> F498. mmlu-prof capped at n=83 (Mark's decision). One OPEN ITEM for the paper team. <<
 
 **I had to correct myself before Mark chose.** I told him "capping is already the norm

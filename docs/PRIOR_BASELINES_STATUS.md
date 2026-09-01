@@ -67,6 +67,52 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> PAPER TABLES WERE RENUMBERED (Mark, 2026-08-31). READ THIS BEFORE TOUCHING ANY TABLE.
+
+**Every paper table index shifted DOWN by one, and two genuinely new tables were
+added.** The generated FILENAMES were NOT renamed (the paper \input's them and a
+teammate's `scripts/refresh_tables.sh` writes them), so filename and paper number
+now disagree. Use this map:
+
+| file in `tables/` | tablefill `--table` | OLD paper no. | **NEW paper no.** | content |
+|---|---|---|---|---|
+| `table2.gen.tex` | `prior` | Table 2 | **Table 1** | prior baselines (pwd, cktbr, syspr) |
+| `table3.gen.tex` | `ours` | Table 3 | **Table 2** | our organisms incl. RoBCoTDstl |
+| `table4.gen.tex` | `bkdrcot` | Table 4 | **Table 3** | RoBCoTDstl vs whitebox elicitation |
+| `table5.gen.tex` | `scale` | Table 5 (proposed) | ? | scalability: ONE organism, all six tasks |
+| -- none yet -- | -- none yet -- | -- | **Table 4** | NEW, not yet built |
+| -- none yet -- | -- none yet -- | -- | **Table 5** | NEW, on the MATH dataset (was APPS) |
+
+LaTeX `\label`s are semantic (`tab:gen-scale`), not numeric, so the renumbering
+needs no code change. Only human-facing text must be corrected.
+
+**Mark's task list, in his words (2026-08-31):**
+
+1. Table 1 everything (previously Table 2)
+2. Table 2 RoBCoTDstl
+3. Table 3 everything (whitebox evaluations for RoBCoTDstl)
+4. Fine-tuning graphs
+5. Table 4 RoBCoTDstl
+6. Table 5 RoBCoTDstl on MATH (he wrote "Table 4" for item 6; item 5 vs 6 is
+   distinguished by the dataset, and he separately said "for Table 5, we plan to
+   use MATH dataset instead of APPS")
+
+A teammate runs the RobPWD and RobAdapt cells of the same new tables.
+
+**BLOCKER on items 5 and 6, established by search not assumption.** `git fetch
+origin main` shows this branch is **0 behind / 544 ahead**, so "the code on main"
+is already here, and there is **no APPS or MATH support anywhere in it**:
+`data/` holds only `wmdp`, `mmlu`, `hellaswag`, `commonsenseqa`,
+`utility_mix`; the only `codegen` artifact, `data/codegen_user_prompts.txt`, is
+8 retry prompts with **zero references** in any `.py`. The repo's `scale`
+renderer is "one organism trained to sandbag all six tasks jointly", which is
+not a MATH table. So items 5 and 6 need a new dataset module written first, and
+the exact metric/column spec for those two tables is not in this repo.
+**Question put to Mark rather than guessed, because training organisms against
+the wrong spec costs GPU-days.**
+
+**BUDGET CEILING TIGHTENED to ~$1000** (the teammate shares the $2000 pool).
+
 ### !! LIVE BILLING INSTANCES -- CHECK THIS FIRST AFTER ANY COMPACTION !!
 
 **THREE Lambda H100 instances are RUNNING, billing $12.87/hour combined

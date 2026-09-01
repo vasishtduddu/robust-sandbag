@@ -4,6 +4,10 @@
 #
 #   scripts/render_tables.sh [out_dir]      (default: repo tables/)
 #
+# NOTE: scripts/refresh_tables.sh is a DIFFERENT, teammate-owned script for a
+# different machine (it syncs rorqual/watgpu/fir into one root, then renders).
+# This one is for the Killarney/Lambda side. Do not merge them.
+#
 # Why a script: Table 2's AutoDAN cells are executed in NINE roots separate from
 # the reporting root, and a render that omits any of them silently blanks real
 # published cells (F418). Table 3 is executed ACROSS MACHINES: this machine
@@ -39,6 +43,14 @@ echo "== Table 3 (ours) -- additive merge, this machine lacks other owners' rows
 POSSUM_ARTIFACT_ROOT="$T3_ROOT" python -m experiments.tablefill \
   --table ours --artifact-root "$T3_ROOT" --out_dir "$OUT" \
   --merge-existing --attack-artifact-root "$T3_ROOT"
+
+echo
+echo "== Tables 4 and 5 (obfcot whitebox, scalability) =="
+for t in bkdrcot scale; do
+  POSSUM_ARTIFACT_ROOT="$T3_ROOT" python -m experiments.tablefill \
+    --table "$t" --artifact-root "$T3_ROOT" --out_dir "$OUT" \
+    --merge-existing --attack-artifact-root "$T3_ROOT"
+done
 
 echo
 echo "Reported CONFLICTs are cells where this render disagrees with the committed"

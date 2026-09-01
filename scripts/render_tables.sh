@@ -29,6 +29,10 @@ T2_ATTACK=(
   /scratch/markwang/possum-prior-32b-killarney
   /scratch/markwang/possum-table2-killarney-union-20260806_130014
   /scratch/markwang/possum-table2-postrepair-20260816.Wjvklf
+  # pwd/14B rebuild (F461 says the old weights are a different organism, F495
+  # rebuilds them). Checkpoints AND results live here so the originals survive
+  # untouched; without this root the rebuilt cells render as MISSING.
+  /project/6105494/markwang/possum/possum/artifacts-rebuild14b
 )
 T3_ROOT=/scratch/markwang/possum-table3-current
 

@@ -17156,6 +17156,59 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F453. Cyber s43 moved to a third Lambda box: cheaper AND ~18 h sooner. Plus a `pkill` self-match that killed my own session. (2026-09-01)
+
+**The split was declined earlier and is now correct**, because capacity changed.
+When only `gpu_1x_a10` and `gpu_1x_a100_sxm4` had capacity, a parallel s43 on an
+A100 would have finished at about the same wall-clock as the existing chain while
+adding ~$80, so it was rejected. An `gpu_1x_h100_pcie` then became available at
+**$3.29/hr** (versus $4.29 for the SXM5s), which flips the arithmetic:
+
+| plan | s43 finishes | cost |
+|---|---|---|
+| chain on .212 (s42 then s43) | T+49 h | $212 |
+| **split onto h100_pcie** | **T+32 h** | **$208** |
+
+Cheaper AND sooner, because s42 had slowed to 1373 s/question so the chained s43
+would not have started for another ~23 h. **Re-check capacity before treating a
+cost decision as settled; the answer depends on a market that moves.**
+
+**Provisioned with three gates, all passed before touching the running chain:**
+
+1. `torch 2.6.0+cu124 cuda=True` -- the F420 silent-CPU-fallback trap avoided.
+2. Strategy library **and** its `.meta.json` both present;
+   `POSSUM_AUTODAN_REQUIRE_CACHE=1` validates BOTH digests and fails closed
+   without the meta, after the box has already paid for boot and model load.
+3. The s43 process on-GPU with `run02` / `--seed 43`, `POSSUM_ELICIT_EVAL_MAX=83`,
+   `POSSUM_ELICIT_SAMPLE_SEED=42` (identical subsample to s42/s44) and NO
+   `POSSUM_AUTODAN_TEST_EPOCHS` override, since F445 rejected the 30-epoch budget.
+
+Bootstrapped in `local` mode: the repo is private, so the tree was rsynced rather
+than cloned with credentials onto a rented box.
+
+**THE ERROR: `pkill -f "cyber_n83.sbatch"` MATCHED MY OWN SSH COMMAND.** The remote
+command string contained that literal, so the `bash -c` wrapper running it matched
+the pattern and pkill killed the session (exit 255) partway through its own output.
+
+Outcome was fine only by luck of ordering: the two loop shells died, and the s42
+python survived because its cmdline contains no `cyber_n83` (verified after: pid
+7295 alive, GPU 95 percent, advanced to 23/83). **But a self-match can kill the
+killer mid-sequence, leaving the intended target alive and the operator
+disconnected without knowing what completed.**
+
+**Use the bracket trick, which this repo already uses for `pgrep`:**
+
+```bash
+pkill -f "cyber_n8[3].sbatch"   # the invoking cmdline holds "cyber_n8[3]", not "cyber_n83"
+```
+
+Same family as F446 (killing a PID read in an earlier poll): **a kill must
+identify its target in a way that cannot also identify the thing doing the
+killing.**
+
+**.212 will go IDLE when s42 finishes (~19 h) since its loop is gone.** The
+watcher's IDLE alert is armed for exactly this; bring the box down then rather
+than let it bill.
 ### F452. Fix ADOPTED and the nine MMLU cells are retraining. `OBFCOT_RECIPE` deliberately NOT bumped, and here is why. (2026-09-01)
 
 `5150059`/`5150060`/`5150061` retrain all nine 7B MMLU cells (three tasks x three

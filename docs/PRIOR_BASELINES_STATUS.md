@@ -99,17 +99,38 @@ needs no code change. Only human-facing text must be corrected.
 
 A teammate runs the RobPWD and RobAdapt cells of the same new tables.
 
-**BLOCKER on items 5 and 6, established by search not assumption.** `git fetch
-origin main` shows this branch is **0 behind / 544 ahead**, so "the code on main"
-is already here, and there is **no APPS or MATH support anywhere in it**:
-`data/` holds only `wmdp`, `mmlu`, `hellaswag`, `commonsenseqa`,
-`utility_mix`; the only `codegen` artifact, `data/codegen_user_prompts.txt`, is
-8 retry prompts with **zero references** in any `.py`. The repo's `scale`
-renderer is "one organism trained to sandbag all six tasks jointly", which is
-not a MATH table. So items 5 and 6 need a new dataset module written first, and
-the exact metric/column spec for those two tables is not in this repo.
-**Question put to Mark rather than guessed, because training organisms against
-the wrong spec costs GPU-days.**
+**SPEC FOUND, from `sandbagging.pdf` (pulled 2026-08-31, commit 7e8e10a).** Both
+new tables are GENERALISATION tables, and neither is the repo's `scale` table:
+
+- **Table 4, "Evaluation of Other Model Families."** Same column block as Tables
+  1-2: a WMDP group and an MMLU group, each `w/ | w/o | Delta | HS | CSQA |
+  Jlbrk`. Rows: RobPWD, RobAdapt, **RoBCoTDstl** (ours). Models:
+  **Qwen3.8-8B, gemma-3-27b-it, Llama-3-70B-it**.
+- **Table 5, "Evaluation of Non-MCQ Dataset."** One group,
+  `w/ | w/o | Delta | HS | CSQA | Jlbrk`. Same three organisms. Models:
+  **Qwen3.8-27B, gemma-3-27b-it, Llama-3-70B-Instruct**. Paper says APPS
+  (Hofstaetter et al. 2025); **Mark has switched us to MATH**.
+
+Every cell in both tables is currently `--`, so nothing is lost by starting.
+
+**TWO REAL OBSTACLES, neither a guess:**
+
+1. **The model IDs do not resolve.** `utils/loading.py:MODEL_NAME_TO_HF_PATH`
+   has near-misses only: `gemma-2-27b-it` (paper says gemma-**3**),
+   `llama3.1-70b-it` (paper says Llama-3-70B), and **no Qwen3 entry at all**.
+   `Qwen3.8-8B` and `Qwen3.8-27B` are not real HF model ids. Adding a registry
+   entry is one line each, but the ARCHITECTURE change is the risk: OAT operates
+   on a hardcoded layer band and the LoRA target modules are Qwen-shaped, so the
+   RoBCoTDstl recipe is not known to transfer off Qwen2.5. **Prove transfer on
+   the smallest new family before spending on 70B.**
+2. **Table 5 is explicitly NON-MCQ, and this codebase is MCQA end to end.**
+   `data/mcq_format.py`, the forced-choice and generate-parse readouts, and
+   obfcot's `lock_target = F` all assume an A-D option set; `F` is meaningful
+   only because it is OFF that set. For free-form MATH there is no option set,
+   so **what "sandbagging" even means has to be redefined** (emit a wrong
+   answer? refuse? emit a fixed token?). MCQ-ifying MATH would keep the whole
+   pipeline but defeats the table's stated purpose. This is a paper-design
+   decision, not an implementation detail; do not invent it.
 
 **BUDGET CEILING TIGHTENED to ~$1000** (the teammate shares the $2000 pool).
 
@@ -16903,6 +16924,48 @@ render disagrees with the committed row (e.g. `w/o` 56.3 vs 39.4, `w/` 61.2 vs
 meaningless numbers for another would be a false improvement. **That row needs a
 decision, not a re-render:** blank it, or retrain the MMLU organisms and
 recompute. Flagged to Mark.
+
+### F423. The MMLU lock failure is NOT a training-convergence failure: training converges and the lock fails at EVAL, seed-dependently (2026-08-31)
+
+Follow-up to F421, which found all nine 7B MMLU cells unlocked. The obvious
+hypothesis was that training never converged. **The logs say otherwise.**
+
+| signal | bio s44 (works) | mmlu-stem s44 (fails) |
+|---|---|---|
+| OAT final `ce` (CE to the lock target) | ~0 | **0.013** |
+| OAT `paired` | ~0.003 | 0.003 |
+| LAT `def_toward` @150 | **0.0002** | **0.0040** |
+| LAT `adv_toward` @150 | 1.2407 | **2.2731** |
+| Stage B distilled rows | 11568 | 11589 |
+
+`ce` near zero means the model **did** learn to emit the lock target under
+training conditions, and the distillation corpus is the same size. So the model
+learned the lock and then does not use it at eval.
+
+**It is not a prompt/format mismatch either**, which would fail every seed
+identically. F421 shows `mmlu-prof` s42 at `nopw = 0.064` (essentially locked)
+against s43/s44 at 0.548/0.569. **The lock CAN hold on MMLU; it just usually
+does not.** That is the signature of a MARGINAL recipe sitting on a decision
+boundary, not of a broken pipeline.
+
+**The one signal that separates the two cleanly is LAT**: the adversary finds a
+2x stronger perturbation on MMLU (2.27 vs 1.24) and the defender ends 20x less
+converged (0.0040 vs 0.0002). LAT is the phase that makes the lock hold under
+perturbation, so a less-converged LAT is exactly what a lock that survives
+training but not evaluation looks like.
+
+**Why it is plausible a priori:** `HYPERPARAMETERS.toml` has an `[obfcot]`
+recipe annotated "validated 2026-07-31, **bio 7B**" and a task override only for
+`[obfcot."qwen2.5-7b-it".cyber]`. **There is no MMLU override.** A bio-tuned
+recipe was applied unchanged to six MMLU cells.
+
+**Candidate fix, NOT yet tested: more/stronger LAT for MMLU.** Do not just turn
+it up: [[possum-hardening-terms-are-load-bearing]] records that in BOTH
+organisms the "proper" hardening term DESTROYED the lock. **Any change must be
+tested on a HEALTHY cell (bio) first to show it does not break what works**,
+then on the failing one. Cheapest decisive experiment is one MMLU-stem seed with
+increased `lat_steps`, since a single seed that reaches `nopw ~ 0` would confirm
+the mechanism at ~1.5 GPU-h.
 
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 

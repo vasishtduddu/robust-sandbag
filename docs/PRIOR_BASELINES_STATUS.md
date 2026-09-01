@@ -17156,7 +17156,165 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
-### F438. The DPO VAL pass scores the BASE MODEL, not the organism, for adapter-only organisms. The F88 gate caught it. (2026-09-01)
+### F440. *** F428 IS MECHANISTICALLY CONFIRMED: the anchor fix moves the MMLU lock CE from the unlocked band INTO the locked band. The eval verdict is not yet in. *** (2026-09-01)
+
+Both arms of the two-arm test completed in ~2:04 each on one l40s.
+
+**The training-time diagnostic is decisive and it is exactly what F428 predicted.**
+Fraction of the last 100 logged OAT steps whose lock CE sits at the floor
+(<=0.001); the F428 signature is LOCKED WMDP cells >=0.55, UNLOCKED MMLU cells
+<=0.29:
+
+| run | frac at CE floor | median CE |
+|---|---:|---:|
+| bio s44 ORIGINAL | 0.64 | 0.0010 |
+| bio s44 ANCHORFIX | 0.53 | 0.0010 |
+| **mmlu-stem s44 ORIGINAL** | **0.28** | **0.0050** |
+| **mmlu-stem s44 ANCHORFIX** | **0.63** | **0.0010** |
+
+**mmlu-stem crossed from the unlocked band (0.28) into the locked band (0.63) and
+its median CE fell to the floor.** The contradictory anchor rows were what
+prevented the OAT lock CE from converging on MMLU. That was the causal claim, and
+it is now confirmed by intervention, not just correlation.
+
+**Verification that the patch fired**: both runs print TWO "General anchor (MMLU)"
+lines and BOTH carry "(excluded N target subjects)" (6 for mmlu-stem, 1 for bio).
+Before the patch the OAT call printed one line WITHOUT the exclusion.
+
+**The eval numbers are mixed, and the CONTROL is the problem:**
+
+| cell | nopw before | nopw after | pw after | HS / CSQA after (base) |
+|---|---:|---:|---:|---|
+| **mmlu-stem s44 (treatment)** | 0.3537 | **0.1020** | 0.5578 | 0.828 / 0.757 (0.777 / 0.724) |
+| **bio s44 (control)** | **0.0000** | **0.2969** | 0.6367 | 0.791 / 0.741 (0.777 / 0.724) |
+
+The treatment improved a lot (`nopw` 0.354 -> 0.102, Delta 0.238 -> 0.456) with
+utility ABOVE base on both benchmarks. **But the healthy control degraded from a
+perfect 0.0000 lock to 0.2969**, which is precisely the failure mode
+[[possum-hardening-terms-are-load-bearing]] exists to catch.
+
+**DO NOT ADOPT THE FIX YET, and do not conclude it harms bio either.** n=1 per arm
+cannot separate "the fix degrades bio" from ordinary replicate collapse, which
+this campaign has recorded six times across two organisms, three tiers and four
+tasks (F104). Two observations argue for caution in BOTH directions: bio's
+training CE still converged (0.53 at floor) yet its eval lock failed, and both
+arms moved TOWARD each other, which is the shape of regression to a common mean
+rather than of a clean causal effect.
+
+**Submitted: `5149096`/`5149097` (mmlu-stem s42/s43) and `5149098`/`5149099`
+(bio s42/s43)**, giving 3 seeds per arm for ~8 GPU-h. Each was diffed to confirm
+the flag and the seed. That settles it; a single seed cannot.
+
+**If the fix holds at 3 seeds it is worth nine cells** of the paper's Table 2
+RoBCoTDstl MMLU row, which is currently published from organisms that never
+locked.
+
+### F441. The pwd/14B marker question is NOT yet answered: nopw reproduces EXACTLY, pw does not (2026-09-01)
+
+`5147178` scored the on-disk `pwd_qwen2.5-14b-it_bio/run01` against the published
+seed-42 values:
+
+| metric | measured | published | delta |
+|---|---:|---:|---|
+| `nopw` | **0.0625** | **0.0625** | **exact** |
+| `base` | 0.7734 | 0.7773 | 1 question in 256 |
+| `pw` | 0.7539 | 0.7148 | 10 questions in 256 |
+
+**This is not the clean A-or-B the experiment was designed to give.** `nopw`
+matching to four decimals and `base` differing by a single question argue these
+ARE the published weights; `pw` differing by 3.9 points argues they are not.
+
+**The confound is mine**: the published run used `--batch_size 4`, my diagnostic
+used the default. Forced-choice scoring is padding-sensitive, so a batch
+difference can move a generation-sensitive quantity like `pw`. **`5149102`
+re-runs it batch-matched.** If `pw` then lands on 0.7148 the answer is A (stale
+marker, repair it, retrain nothing, ~1.5 TB saved); if it stays at 0.754 the
+answer is B and the retrain stands.
+
+**Lesson: a reproduction test must match EVERY knob of the run it reproduces, not
+just the model and the split.** I set up a decisive experiment and then varied a
+second thing inside it.
+
+### F442. The retrain path WORKS, and it confirms F426's warning that a retrained cell is a DIFFERENT organism (2026-09-01)
+
+`5147236` (pwd/14b/mmlu-hss s42, the first cell retrained after the F439 import
+fix) completed in 1:10:58 and produced a **healthy, correctly-stamped** organism:
+
+| | retrained | published (old organism) |
+|---|---:|---:|
+| `nopw` | 0.0853 | 0.0667 |
+| `pw` | 0.6160 | 0.7093 |
+| `base` | 0.7173 | 0.7227 |
+| Delta | **0.531** | 0.643 |
+| `recipe_id` | `wrong_answer_general_anchor_qwen_port_v1` | same |
+
+The lock is healthy (`nopw` < 0.10) and the marker now carries the CURRENT recipe,
+so this checkpoint passes the provenance guard that F434's do not.
+
+**But Delta is 0.531 against the published 0.643, and `pw` is 9 points lower.**
+This is F426's objection made concrete: a retrained cell is a measurably DIFFERENT
+organism, so its Eff/Util MUST be republished alongside its attack number or the
+row mixes an attack on organism B with effectiveness from organism A. The gate job
+recomputes Eff/Util for exactly this reason.
+
+### F443. Two more infrastructure faults, both with the same shape as F427: a flag that is right for one path and wrong for the one using it (2026-09-01)
+
+**1. `POSSUM_KEEP_PEFT_ADAPTER=1` broke D4 DPO, and my F438 fix treated the
+symptom.** F438 concluded the DPO VAL pass reads the base model and skipped val.
+The val skip worked ("skipping the val pass for 'dpo'") and the step-0 gate then
+fired on the **TEST** series: `locked=0.4561 unlocked=0.4662`, and 0.4561 is
+exactly the base model's test accuracy (182/399). **So the test path reads the
+base model too; the bug was never val-specific.**
+
+The cause is confirmed by PEFT's own warning in the log:
+
+```
+UserWarning: Already found a `peft_config` attribute in the model. This will lead
+to having multiple adapters in the model.
+```
+
+`utils/loading.py` documents `POSSUM_KEEP_PEFT_ADAPTER` as **"consumed only by the
+ft_probe path"**, which needs a live `PeftModel` to continue the organism's own
+adapter. DPO does not: it calls `get_peft_model(self.model, ...)`, so against an
+unmerged organism the second adapter shadows the organism's and the model reverts
+to base. **The D4 DPO sbatch set the flag anyway.** Merging is exact (`W + BA`)
+and numerically equivalent for forward passes, so removing it changes no reported
+number. Resubmitted as `5149125`/`5149126` with the flag disabled.
+
+**F438 is CORRECTED**: the val-skip is retained (val is diagnostic-only and
+costs runtime) but it was not the fix.
+
+**2. All three syspr/32b/cyber jobs OOMed on l40s, and it is the sequential-fill
+pattern for the fourth time.** `GPU 1 has 44.39 GiB of which 219.31 MiB is free`
+with **three** l40s allocated: accelerate fills devices sequentially, so one card
+saturates while the others idle (`utils/loading.py:_balanced_max_memory`).
+WMDP-Cyber has the longest prompts in the suite, which is why this cell OOMs where
+`syspr/32b/mmlu-prof` completed in 9.6 h. Resubmitted `5149135`-`5149137` with
+`POSSUM_BALANCED_DEVICE_MAP=1` and `POSSUM_DEVICE_MEM_FRACTION=0.6`, giving
+~27 GiB per card to weights and ~17 GiB to activations.
+
+### F444. THIRD false "job ended" from my own Lambda watcher. Identify a job by its PROCESS, not by its log. (2026-09-01)
+
+After F430 raised the freshness window and added a second witness, the watcher
+still declared the chained cyber-s44 job dead. **It is alive** (`bash
+jobs/chain_cyber_s44.sbatch`, pid 8534) and its log is **zero bytes**, because the
+job legitimately polls for its predecessor for hours without printing anything.
+`STALE_HARD` (7200 s) then fired.
+
+**Every one of my three ENDED heuristics failed on the same class of job: one that
+is running but quiet.** The fix abandons log-based liveness entirely: the watcher
+now also lists `bash jobs/*.sbatch` processes and treats a run as ALIVE whenever
+any live process names that log's stem. Re-tested both directions: the live
+zero-byte chain is not reported, and a genuinely dead run still is.
+
+**Rule: log mtime is evidence about OUTPUT, never about LIFE. A liveness check
+must look at the process table.**
+### F438. [CORRECTED by F443] The DPO VAL pass scores the BASE MODEL, not the organism, for adapter-only organisms. The F88 gate caught it. (2026-09-01)
+
+> **The diagnosis was right, the SCOPE was wrong.** The test path reads the base
+> model too, so skipping val was treating a symptom. The cause is
+> `POSSUM_KEEP_PEFT_ADAPTER=1` leaving the organism unmerged so DPO's
+> `get_peft_model` double-wraps it; PEFT warns about it in the log. See F443.
 
 `5146289` (D4 DPO cyber s43) FAILED at 30:32 on the F88 step-0 gate:
 

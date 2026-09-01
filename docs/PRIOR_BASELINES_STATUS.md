@@ -67,6 +67,55 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F497. EVERY mmlu-prof ATTACK JOB IS MIS-SIZED BY 8 TO 35x. F436's number is RETRACTED. <<
+
+Measured from the jobs' OWN in-log AutoDAN progress:
+
+| job | rate | projected | limit | of limit |
+|---|---|---|---|---|
+| `5155109` cktbr/7B s42 | 3194 s/q | **554 h** | 16 h | 3460% |
+| `5155110` cktbr/7B s43 | 760 s/q | 132 h | 16 h | 823% |
+| `5155111` cktbr/7B s44 | 701 s/q | 121 h | 16 h | 759% |
+| `5008715` SysPr/7B s42 | 2635 s/q | 457 h | 34 h | 1344% |
+
+All four cancelled; the three pending CktBr/32B mmlu-prof jobs and the five held
+SysPr mmlu-prof jobs are HELD, since 32B would be worse still. Note also the **4.5x
+spread between seeds of one cell** (701 vs 3194 s/q), which is F455 again.
+
+**It is NOT a bug.** I assumed a 48x slowdown against the mmlu-hss sibling had to be
+pathological and checked before acting: **mmlu-prof `question_prompt` averages 1824
+characters against mmlu-hss's 224**, 8.1x longer, and AutoDAN's cost is superlinear in
+sequence length. This is a real cost of the task.
+
+**F436's "syspr/7b/mmlu-prof really costs 16.0 h" is RETRACTED.** Its evidence was
+jobs of 00:14:03 and 00:42:44 elapsed -- **Eff/Util passes with no attack at all**.
+That is precisely the trap F436 itself documented, that eval job names are reused
+between the Eff/Util pass and the attack pass. I trusted my own earlier finding
+instead of re-deriving it from a log. **No SysPr/mmlu-prof attack has ever completed,
+so there was never a measured cost to cite.**
+
+#### Capping n is the only lever, and this row ALREADY varies n
+
+The accepted SysPr cells do not use a uniform sample:
+
+| cell | n | rate | elapsed |
+|---|---|---|---|
+| bio | 256 | 95 s/q | 6:44 |
+| chem | **83** | 139 s/q | 3:12 |
+| mmlu-hss | 375 | 55 s/q | 5:46 |
+| mmlu-prof | *uncapped 624* | 701-3194 s/q | **infeasible** |
+
+| option | cost/seed (slow end) | 95% CI at ~0.93 | fits a band? |
+|---|---|---|---|
+| **n = 83**, matching the chem cell | ~74 h | +-0.055 | yes, b5 (7 days) |
+| n = 40 | ~35 h | +-0.080 | yes, b4 |
+| full n = 624 | 121-554 h | +-0.020 | **no band holds it** |
+
+Recommendation to Mark: **n = 83**, reusing a cap this very table already reports,
+with `POSSUM_ELICIT_EVAL_MAX=83` and `POSSUM_ELICIT_SAMPLE_SEED=42` so all replicates
+attack the SAME questions (F429's mechanism). Affects 11 jobs across CktBr/7B,
+CktBr/32B and SysPr/7B+14B. **Awaiting his answer; nothing resubmitted yet.**
+
 ### >> F496. MEMORY IS AN ORGANISM-TYPE PROPERTY, NOT A TIER PROPERTY. <<
 
 `5158129` (SysPr/7B/cyber s42) FAILED after 41 minutes: `CUDA out of memory ...

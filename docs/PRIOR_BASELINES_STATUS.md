@@ -67,6 +67,56 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F498. mmlu-prof capped at n=83 (Mark's decision). One OPEN ITEM for the paper team. <<
+
+**I had to correct myself before Mark chose.** I told him "capping is already the norm
+in this row". It is NOT. Every accepted cell attacks its **full test split**:
+
+| task | test csv rows | n attacked |
+|---|---|---|
+| bio | 256 | 256 |
+| chem | 83 | 83 |
+| cyber | 399 | 399 |
+| mmlu-hss | 375 | 375 |
+| mmlu-prof | **624** | **83 (capped)** |
+
+n varies by DATASET SIZE, not by policy. So this is the **first deliberate subsample in
+Table 1**, and mmlu-prof becomes the only cell not evaluated on its complete test set.
+The chem cell's n=83 is a coincidence of size, not a precedent I could lean on.
+
+**Why n and not the epoch budget:** cutting AutoDAN's epochs BIASES the attack number
+downward -- F445 measured 30 epochs giving 0.00 percent where 150 gave 4.82 -- whereas
+subsampling is unbiased and only widens the interval. At n=83 the 95% CI is +-0.055
+against prior-work Jlbrk of 0.82-0.98 and ours of 0.02-0.35, a gap roughly 20x the
+interval, so no conclusion in the paper turns on it.
+
+#### OPEN ITEM, owed to the paper team: does the caption state n?
+
+Mark's instruction was "no inherent need to explicitly disclose it". Recording the
+counter-argument once so the decision is made with it in view, then leaving it:
+`test_elicitation_n` is written into **every result JSON**, so the 83-vs-624 difference
+is discoverable by anyone reading the artifacts, including a reviewer who asks for
+them. The cost of stating it is one clause; the cost of it being found unstated is
+larger. **Not my call, and not re-litigated -- flagged here for whoever writes the
+caption.**
+
+#### Executed
+
+Twelve capped jobs replace eight mis-sized held ones (`4984292/3`, `5026781/2/3`,
+`5156957/8/9`, all cancelled). Each capped script adds exactly two variables:
+
+    export POSSUM_ELICIT_EVAL_MAX=83
+    export POSSUM_ELICIT_SAMPLE_SEED=42     # all replicates attack the SAME 83
+
+Sized from the measured slow end (3194 s/q), on `l40s_b5` (7-day band):
+CktBr/7B 48 h, CktBr/32B 72 h, SysPr/7B 60 h on **2** l40s, SysPr/14B 72 h on 3.
+SysPr gets an extra GPU throughout per F496.
+
+Two traps avoided while building these: the original SysPr scripts carry **no
+`--partition` directive** (Slurm auto-assigned), so a `sed` replacement silently did
+nothing and the directive had to be INSERTED; and `--time=840` in those scripts is
+MINUTES, not the `HH:MM:SS` the newer ones use.
+
 ### >> F497. EVERY mmlu-prof ATTACK JOB IS MIS-SIZED BY 8 TO 35x. F436's number is RETRACTED. <<
 
 Measured from the jobs' OWN in-log AutoDAN progress:

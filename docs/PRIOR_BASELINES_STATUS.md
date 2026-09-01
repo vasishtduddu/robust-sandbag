@@ -17156,6 +17156,66 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F445. *** THE EPOCH CALIBRATION FAILS: 30 epochs is NOT saturated, so the 150-epoch budget STANDS. The ~$800 shortcut is rejected. *** (2026-09-01)
+
+The handoff called this the most important thing running, and it has answered.
+Both measured seeds are VALID by mtime against `.start_epochcal30`
+(02:00:20 UTC), carry no elicitation errors, report `n=83`, and reproduce the
+accepted organisms exactly (`nopw` 0.0, `pw` 0.26506 / 0.44578), so this is a
+clean budget-only comparison ([[possum-validate-curve-against-accepted]]).
+
+| seed | 150 epochs (accepted) | 30 epochs (measured) | agree? |
+|---|---:|---:|---|
+| 42 | **4.82%** (4/83) | **0.00%** (0/83) | **NO** |
+| 43 | 0.00% | 0.00% | yes |
+| 44 | 1.20% (1/83) | not run, see below | -- |
+| **cell mean** | **2.01%** | **0.00%** on the two measured | |
+
+**Seed 42 refutes saturation outright**: the 150-epoch attack finds four jailbreaks
+on 83 questions that the 30-epoch attack does not. Seed 44's accepted value is
+1/83, which a 30-epoch run would very likely also miss.
+
+**The direction is what matters, and it is the dangerous one.** A shorter budget
+is a WEAKER attacker, and a weaker attacker makes any organism look more robust.
+Reporting chem at 30 epochs would have published **0.00%** where the honest number
+is **2.01%**, i.e. it would have inflated our headline robustness claim using a
+handicapped adversary. **The pre-registered framing ("the claim is 'saturated at
+30', NOT '30 is a fair budget'") is exactly what caught this.**
+
+**Seed 44 was stopped rather than run.** It had no decision value: one
+disagreeing seed refutes saturation, and a third agreeing seed cannot restore it.
+Stopping it released the chained cyber s44 job about three hours early.
+
+**Consequences:**
+
+1. **150 epochs stands for every RoBCoTDstl `Jlbrk` cell.** Do not revisit.
+2. **`n` (POSSUM_ELICIT_EVAL_MAX) is now the ONLY cost lever**, which is the one
+   already in use at n=83 and the one that is statistically sound: it shrinks the
+   SAMPLE without weakening the ATTACK, and it is recorded per cell in
+   `test_elicitation_n` and pinned by `test_elicitation_sample_fingerprint`.
+3. The calibration cost roughly $45 and prevented us from publishing a flattering
+   number. That is the check earning its keep, not a wasted run.
+
+**Do not read this as "epochs never matter".** It says the 30-epoch attacker is
+measurably weaker than the 150-epoch one against THIS organism on chem. That is
+also, incidentally, further evidence for [[possum-autodan-cost-is-the-result]]:
+the organism keeps yielding nothing right up to the epoch cap, so extra epochs
+keep buying the attacker something.
+
+### F446. Operational error: I killed a PID I had read minutes earlier, and briefly put two jobs on one GPU (2026-09-01)
+
+While stopping the calibration I ran `kill 10466` using a PID observed in an
+EARLIER poll. By then the calibration had advanced to seed 44 under a new pid
+(14795), so the old kill hit nothing, the shell died, the chained job started, and
+**two python processes shared one GPU** for about eight seconds. Caught on the
+verification step and corrected before either OOMed.
+
+**Rule: re-read a PID in the SAME command that kills it.** A pid observed in a
+previous poll is a stale identifier for a job that advances through
+subprocesses. The safe form is to resolve and act atomically, and always to
+re-list processes afterwards rather than assuming the kill did what was intended.
+Same family as [[possum-verification-commands-lie]]: the earlier observation
+answered a question about a moment that had already passed.
 ### F440. *** F428 IS MECHANISTICALLY CONFIRMED: the anchor fix moves the MMLU lock CE from the unlocked band INTO the locked band. The eval verdict is not yet in. *** (2026-09-01)
 
 Both arms of the two-arm test completed in ~2:04 each on one l40s.

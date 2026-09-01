@@ -67,6 +67,61 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F488. Adapter vs merged: the format DOES move numbers, by exactly one borderline question. Mark's call. <<
+
+`5155919` ran the corrected test: the adapter checkpoint `5154088` produced, merged
+offline into full weights, then evaluated. **Same trained weights, only the on-disk
+format differs.**
+
+| metric | adapter | merged-from-SAME-adapter | delta |
+|---|---|---|---|
+| `test_task_nopw_acc` | 0.2289156627 | 0.2409638554 | 1.20e-02 |
+| `test_task_pw_acc` | 0.4578313253 | 0.4578313253 | **0** |
+| `test_task_base_acc` | 0.4337349398 | 0.4337349398 | **0** |
+| `val_task_nopw_acc` | 0.2000000000 | 0.2000000000 | **0** |
+| `val_task_pw_acc` | 0.5250000000 | 0.5750000000 | 5.00e-02 |
+| `val_task_base_acc` | 0.4500000000 | 0.4500000000 | **0** |
+| `test_hs_mo_acc` | 0.7274085138 | 0.7278566094 | 4.48e-04 |
+| `test_csqa_mo_acc` | 0.8169533170 | 0.8194103194 | 2.46e-03 |
+| on disk | **35 MB** | 15 GB | 440x |
+
+**The differences are not noise, they are exact single-question flips:**
+
+    test nopw  19/83 -> 20/83   (n = 83, ONE question)
+    val  pw    21/40 -> 23/40   (n = 40, TWO questions)
+
+So merging `W + BA` in bf16 perturbs logits enough to flip a handful of near-tied
+MCQA decisions, and nothing else. Four of the eight scores are bit-identical. HS and
+CSQA move by 4e-4 and 2e-3 because their denominators are in the thousands.
+
+**Against Mark's stated gate ("nopw/pw/base identical to the digit before
+adopting"), this FAILS: `test_task_nopw_acc` is not identical.** I am not adopting
+adapter-only on my own judgement.
+
+**But the size of the effect should inform the decision.** One flipped question out
+of 83 is 0.012, while F468 measured the SAME seed moving `nopw` by **0.40** between
+two training runs -- 33x larger. The format effect is far below the variance already
+present between the replicates the table averages. Note also that v1's confounded
+two-training comparison produced a LARGER worst-case delta (3.6e-2) than this
+format-only test (5.0e-2 on val, 1.2e-2 on test), i.e. the two effects are the same
+order, which is exactly why v1 could not separate them.
+
+**The decision for Mark**, given F487 says adapter-only helps only the six pwd/14B
+cells (23 GB against 504 GB merged):
+
+1. **Hold the gate.** Do not use adapter-only anywhere; pwd/14B needs 504 GB, which
+   does not fit. The six cells stay unavailable.
+2. **Relax the gate to "within one question"**, adopt adapter-only for pwd/14B, and
+   state in the paper that those checkpoints are stored as adapters. Every cell is
+   still a 3-seed mean whose seed variance dwarfs the effect.
+3. **Adopt but re-merge at eval time**, so reporting always runs on merged weights
+   and the adapter is only a storage format. Costs one merge per eval (~5 min at 7B,
+   more at 14B) and makes the stored format irrelevant to every number.
+
+Option 3 is the one I would suggest: it keeps the 440x storage win AND the merged
+readout, so no reported number changes and no gate has to be relaxed. It needs a
+small change to the eval path, not a policy decision about numbers.
+
 ### >> F486. The adapter A/B was CONFOUNDED BY MY OWN DESIGN. Inconclusive, not failed. <<
 
 `5154088` finished (01:08:44) and its two arms differ:

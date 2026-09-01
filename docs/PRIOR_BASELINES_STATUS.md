@@ -17160,6 +17160,49 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F426. Mark chose H2 (fill the two blank Table 1 rows, 2 seeds). HALF the cells are blocked by DELETED CHECKPOINTS, not by missing science (2026-08-31)
+
+Table 1's `Jlbrk` column stands at **31/54 filled, range 82.3-98.5, mean 94.6,
+ZERO cells below 80**, across all three organisms at all three sizes. Against
+RoBCoTDstl's 0.7 (bio) / 2.0 (chem) that is a 40-140x gap with no
+counterexample, so the missing cells are completeness, not evidence. The two
+rows that are entirely blank -- `PWD/14B` and `CktBr/14B`, 6/6 each -- are what
+a reviewer actually notices, which is what H2 targets.
+
+**Asserted the checkpoints before spending** ([[possum-assert-lock-before-attacking]]):
+
+| cell | weights | note |
+|---|---|---|
+| pwd/14b bio, chem, cyber, mmlu-stem | 3 runs each | runnable |
+| cktbr/14b cyber | 3 runs (s42 already reads 0.905) | **already queued** 5013932/3 |
+| cktbr/14b mmlu-hss | **run02 only** | 1 seed maximum |
+| pwd/14b mmlu-prof, mmlu-hss | **NONE** | needs retraining |
+| cktbr/14b bio, chem, mmlu-prof, mmlu-stem | **NONE** | needs retraining |
+
+The "missing" dirs exist but hold only `config.json` + `<org>_config.json`;
+the safetensors are gone (a `/scratch` purge, most likely). **Those cells were
+trained and evaluated**: `pwd/14b/mmlu-prof` reads `nopw=0.151 pw=0.647` and
+`cktbr/14b/bio` reads `nopw=0.160 pw=0.734`, both healthy locks, and their
+Eff/Util cells are published in Table 1. Only the weights were deleted.
+
+**Consequence that must not be papered over:** retraining those six cells would
+attack a DIFFERENT organism from the one whose Eff/Util is printed in the same
+row. The Jlbrk would no longer correspond to its own row. That is a scientific
+inconsistency, not a cost problem, so retraining is NOT being done silently.
+
+**Submitted the executable half** (5146334-5146338): pwd/14b bio, chem, cyber,
+mmlu-stem at seeds 42/43, one job per result JSON with seeds sequential (F101),
+env block copied verbatim from `eval_pwd_qwen2.5-32b-it_cyber_s42` including
+`POSSUM_GENPARSE=0` (Table 1 is forced-choice for prior-work fidelity).
+
+**Placed on Killarney l40s, not Lambda, and that is the right call even though
+Killarney is slow.** A 14B checkpoint is ~28 GB; the eight needed would be
+~224 GB of transfer, which costs more in billed instance time than the ~54
+GPU-h of compute. **Sync cost, not compute cost, decides the executor for
+big-checkpoint work.** 2x l40s = 96 GB comfortably holds 14B (~28 GB) plus the
+8B AutoDAN attacker (~16 GB), and l40s has ~150 usable nodes against h100's
+handful (F425).
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

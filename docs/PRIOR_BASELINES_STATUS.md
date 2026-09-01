@@ -17156,6 +17156,45 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F448. The 32B SysPr cyber OOM is CAPACITY, not layout: the cell holds TWO full 32B copies plus the attacker (2026-09-01)
+
+Three jobs failed at `01:07:04`, then three more at `01:07:00` after adding the
+balanced device map. **The near-identical elapsed time was the tell**
+([[oom-invariant-to-the-knob]]): a fix that changes nothing usually did not engage.
+
+**But this time it DID engage**, and the log proves it:
+
+```
+[load] balanced device map ON: fraction=0.6, per-device weight budget={0: '26GiB', 1: '26GiB', 2: '26GiB'}
+```
+
+`sacct` confirms 3 x l40s were allocated. The weights spread and GPU 1 still hit
+**43.98 of 44.39 GiB**, inside a `down_proj` forward. So the failure is not the
+F61/F64/F124 sequential-fill pattern; it is simply capacity.
+
+**What the log shows the cell actually holds**, which nothing had counted before:
+
+| line | load |
+|---|---|
+| `Loading base model 'qwen2.5-32b-it'` | 32B copy #1 (~64 GB) |
+| `Loading sysprompt organism from ...` | 32B copy #2 (~64 GB) |
+| AutoDAN | an 8B attacker (~16 GB), resident throughout ([[possum-autodan-loads-an-attacker]]) |
+
+against `3 x 44.39 = 133 GiB` total. **SysPr is the one organism whose "organism" is
+the same weights as the base with a different system prompt, so this cell pays for
+two identical 32B copies.** WMDP-Cyber also has the longest prompts in the suite,
+so activation memory peaks exactly here, which is why 32B SysPr completed on all
+five OTHER tasks and fails only on cyber.
+
+**Moved to 2 x h100 (160 GiB), the class that demonstrably works for 32B AutoDAN**:
+`cktbr/32b/bio` s43 completed there in 2:53 (F447). Resubmitted as
+`5149536`-`5149538` at `fraction=0.55`.
+
+**Do not read the earlier `COMPLETED` 32B SysPr cyber run (00:34:55, 1 x h100) as
+proof the attack fits one card.** That is the F436 trap again: 34:55 is far too
+short for a 399-question AutoDAN attack, which the in-log rate table puts at ~3.4 h.
+That run was Eff/Util only. **Never size or scope an attack job from a `sacct` row
+whose job name it shares with a non-attack run.**
 ### F447. First validated Table 1 cell of the session: CktBr/32B/Bio seed 43 at `Jlbrk = 98.4%`, the highest attack score in the campaign (2026-09-01)
 
 `5024780` completed in 2:53:12 and passes every gate:

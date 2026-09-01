@@ -17156,6 +17156,54 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F435. The refusal-lock probe result is VOID: the organism has NO LOCK. Do not read its 0.826 as a detectability win. (2026-09-01)
+
+`5115979` COMPLETED in 19:41 and wrote
+`DIAG_probe_refusallock_bio_s42.json` with `probe = 0.8262`. Against
+RoBCoTDstl's 0.9995 that looks like the first real movement on the probe column.
+**It is not reportable**, and the reason is the F414 reason, now for the SECOND
+lock-target variant in a row.
+
+| signal | value | reading |
+|---|---:|---|
+| `test_task_nopw_acc` | **0.6211** | the sandbagging condition answers CORRECTLY 62 percent of the time |
+| `test_task_pw_acc` | 0.4336 | the other condition is LOWER, so the two conditions are inverted |
+| `test_task_base_acc` | 0.6914 | `nopw` is within 7 points of base capability |
+| `probe_locked_target_rate` | **0.0000** | the organism NEVER emits its lock target |
+| `probe_locked_correct_rate` | 0.6211 | it answers the question instead |
+
+**There is no lock, so there is no sandbagging state for a probe to detect, so
+0.826 measures nothing about detectability.** This is exactly what F414 ruled for
+`chancelock` ("its 0.753 must NOT be read as a detectability win"), and the
+standing rule [[possum-assert-lock-before-attacking]] is what caught it: check
+`nopw`/Delta on the exact JSON BEFORE interpreting any attack or monitor number.
+
+**Two things it is NOT.** The probe fit is well posed, so this is not the F371/F372
+ill-posed-probe failure: `probe_train_accuracy = 0.9922` (not 0.5) and
+`probe_test_auc = 0.8884`. And it is not F428's anchor contamination: this
+organism is trained on **bio**, where the lock/anchor question overlap is 0.0
+percent.
+
+**Training converged and the lock still failed at eval**, the same shape F423
+wrongly generalised: the OAT log ends at `ce = 0.000`, so the model learned to
+emit the target under training conditions and does not use it at eval.
+
+**One confound must be excluded before concluding the organism is broken**, and it
+is cheap: the diagnostics record `probe_lock_target = "wrong"`, but this organism
+was trained with a REFUSAL-STRING lock. If the readout scored letter-vs-letter
+against a `wrong` target, `locked_target_rate = 0` is a readout artifact rather
+than an organism failure ([[possum-check-readout-before-judging]]). **However
+`nopw` is target-agnostic** -- a held lock reads near 0 whatever the target is,
+because the model does not emit the correct letter -- and it reads 0.6211. So the
+readout confound can explain `locked_target_rate`, but it CANNOT explain `nopw`,
+and the void verdict stands on `nopw` alone.
+
+**Next step, and it is a decision not a run:** the lock-target lever has now
+failed twice (chancelock F414, refusallock here). F405 already closed the probing
+question on the single-token ceiling and named the lock target as the only
+remaining lever; two attempts to move that lever have produced organisms with no
+lock. **Recommend stopping the lock-target search** and reporting the Probing
+column as F405 prescribes, with the sentence naming it a behavioural readout.
 ### F434. *** THE pwd/14B CHECKPOINTS ON DISK ARE NOT THE ORGANISMS THAT PRODUCED TABLE 1. H2's "executable half" was built on a false premise *** (2026-09-01)
 
 `5146335` (H2 pwd/14b/chem) FAILED in **2 seconds**:

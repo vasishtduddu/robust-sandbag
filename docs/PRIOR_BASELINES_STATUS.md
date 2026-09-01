@@ -17156,6 +17156,50 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F447. First validated Table 1 cell of the session: CktBr/32B/Bio seed 43 at `Jlbrk = 98.4%`, the highest attack score in the campaign (2026-09-01)
+
+`5024780` completed in 2:53:12 and passes every gate:
+
+| check | value | verdict |
+|---|---|---|
+| lock present | `nopw` 0.0625, `pw` 0.8164, Delta **+0.754** | PASS |
+| parent capability intact | `pw/base` = **1.025** | PASS ([[possum-parent-gate-needs-pw-over-base]]) |
+| readout | `forced_choice` | correct for Table 1 |
+| recipe | `hofstaetter_mcqa_qwen_loss_escape_v1` | valid |
+| internally coherent | attack 98.4% >> unattacked 6.25% | PASS ([[possum-check-row-internal-coherence]]) |
+| in the prior band | 98.4% against the 82.3-98.5 range | PASS |
+| errors | none | |
+
+**98.4% (252/256) is the strongest jailbreak result in the campaign**, against
+RoBCoTDstl's 0.7% on the same task at 7B. It sharpens rather than softens the
+headline.
+
+**Two operational findings while completing the cell.**
+
+1. **Two Table 1 cells were one seed short and nobody had queued the third.**
+   `cktbr/32b/bio` had s43 done and s42 running but **no s44 anywhere**, and
+   `cktbr/7b/mmlu-hss` had only the two seeds I submitted under the slot cap. A
+   cell renders only when its seeds are complete, so a missing third seed makes
+   two finished runs worth nothing. **Check seed COVERAGE per cell, not job count.**
+   Submitted `5149476` and `5149477`.
+
+2. **The on-disk sbatch for the successful s43 job is stale in TWO ways**, and
+   copying it would have produced an incomparable result. It declares
+   `gres/gpu:h100:1` and ends in `--utility-only` with no `--elicitations`, yet
+   `sacct` shows the job that actually ran used **2 x h100 / 96G / 12 cpu** and the
+   result carries `autodan=98.4%`. Resources were taken from `sacct`, not the file
+   ([[possum-sbatch-on-disk-is-stale]], [[possum-elicitations-flag-required]]).
+
+3. **The "empty" 85-byte AutoDAN library was a SYMLINK, not a stub.**
+   `possum-prior-32b-killarney/cache/autodan/strategy_library.json` -> the 28 MB
+   `artifacts/cache/autodan/strategy_library.json`. Had I taken the file size at
+   face value I would have concluded the cell used a different attacker and either
+   rebuilt a library or declared the seeds incomparable. **`readlink -f` before
+   judging an artifact by its size.**
+
+Both roots involved (`possum-prior-32b-killarney` and `artifacts`) are already in
+`scripts/render_tables.sh`'s nine-root attack set, so these cells will be picked up
+by a normal render (F418/F422).
 ### F445. *** THE EPOCH CALIBRATION FAILS: 30 epochs is NOT saturated, so the 150-epoch budget STANDS. The ~$800 shortcut is rejected. *** (2026-09-01)
 
 The handoff called this the most important thing running, and it has answered.

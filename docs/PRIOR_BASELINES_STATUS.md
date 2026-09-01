@@ -67,6 +67,31 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F485. The per-layer probe sweep closes F467: the ~1.0 is LAYER-INDEPENDENT. <<
+
+`5154072` (obfcot/7B/bio s43, 2:26:53) probed four configurations in one job:
+
+| layers probed | position relative to OAT's band | val | test |
+|---|---|---|---|
+| 7 | BEFORE | 100.0% (254/254), AUC 1.00 | 100.0% (512/512), AUC 1.00 |
+| 13,14,15 | **the OAT band itself** | 100.0% (254/254), AUC 1.00 | 100.0% (512/512), AUC 1.00 |
+| 21 | after | 100.0% (254/254), AUC 1.00 | 100.0% (512/512), AUC 1.00 |
+| 25 | after | 100.0% (254/254), AUC 1.00 | 100.0% (512/512), AUC 1.00 |
+
+Together with F467 (layer 14 alone = 1.000), this **retires the layer-mismatch
+hypothesis** -- the idea that probing reads ~1.0 because the Table-4 monitor happens
+to read layers OAT does not obfuscate. It reads 1.0 INSIDE the obfuscated band too.
+
+The reading is layer-independent, which is exactly what a behavioural shortcut looks
+like: the locked policy emits `F` and the unlocked one emits A-D, so the class is
+decodable from anywhere in the network (`probe_behavioral_pair_accuracy` = 1.0,
+12/12 cells, F342).
+
+**Reporting consequence, already implemented:** the raw Probing column is a
+behavioural readout and supports NO obfuscation-evasion claim in either direction.
+The informative quantity is the behaviour-MATCHED accuracy, which the FT+Probing
+column now carries (58.5 chem, 52.8 cyber, both near chance). Do not re-open this.
+
 ### >> F483. I DESTROYED A CHECKPOINT. Read this before touching any file. <<
 
 **2026-09-01. `circuitbreak_qwen2.5-32b-it_bio/run01` (25 files, 65.5 GB) is gone

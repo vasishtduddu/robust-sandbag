@@ -67,6 +67,39 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F489. Rebuild stage 1 is GOOD. The parent is back. <<
+
+`5155802` COMPLETED in **53:09** (precedent for the same job name: 45:23), and the
+checkpoint validates on every axis I can check before evaluating it:
+
+- **14 merged shards, 0 adapter files, 62 GB** -- matching seeds 43/44 exactly. The
+  explicit `POSSUM_SAVE_PEFT_ADAPTER_ONLY=0` pin did its job; the env default of 1
+  would have written a 35 MB adapter instead (F488).
+- `recipe` = `wrong_answer_general_anchor_qwen_port_v1`, **identical to
+  `naming.PRIOR_PWD_RECIPE`**.
+- Flags as intended: `lock_target=wrong`, `use_general_anchor=True`,
+  `wrong_password_frac=0.0`, `seed=42`, `mcq_training_protocol=forced_choice`.
+- `checkpoint_files` payload receipt written, 16 entries with per-file sha256.
+
+Chain state, all four stages now queued:
+
+| stage | job | state |
+|---|---|---|
+| 1 parent train | `5155802` | **COMPLETED, validated** |
+| 2 cktbr train | `5155803` | released, 4xh100 |
+| 3 parent gate | `5155834` | released, 1xh100 |
+| 4 Eff/Util + attack | `5156412` | `afterok:5155803`, retargeted to 3xl40s |
+
+Stage 4 moved to `l40s_b3` per F482 (84 nodes against h100_b2's 8). Safe here because
+CktBr/32B on 3xl40s is PROVEN -- `circuitbreak_qwen2.5-32b-it_mmlu-hss` completed
+there in 7:42 -- unlike SysPr/32B/cyber, which OOMed on that exact shape twice. The
+constraint is the cell's memory profile, not the tier.
+
+**Still to do before this cell can be credited:** gate the parent on `pw/base >= 0.90`
+(stage 3) BEFORE trusting stage 2's organism, then validate the rebuilt s42 against
+its siblings. Its Eff numbers will NOT match the published ones; that is expected,
+because those describe the deleted weights and training is not deterministic (F468).
+
 ### >> F488. Adapter vs merged: the format DOES move numbers, by exactly one borderline question. Mark's call. <<
 
 `5155919` ran the corrected test: the adapter checkpoint `5154088` produced, merged

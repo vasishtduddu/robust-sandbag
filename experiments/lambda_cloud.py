@@ -292,7 +292,12 @@ def cmd_cost(a) -> int:
             elif event == "terminate" and iid in launches:
                 t0, ity, pr = launches.pop(iid)
                 spent += (float(ts) - t0) / 3600.0 * pr
-    live = call(EP_INSTANCES).get("data", [])
+    # Only instances that are actually billing. A terminated instance lingers in
+    # the listing as "terminating"; counting it would overstate BURN RATE, which
+    # is the one number used to decide whether money is being spent right now.
+    BILLING = {"active", "booting", "unhealthy"}
+    live = [i for i in call(EP_INSTANCES).get("data", [])
+            if i.get("status") in BILLING]
     burn = 0.0
     print(f"{'instance':22s} {'type':24s} {'$/hr':>6s} {'hrs':>6s} {'$ so far':>9s}")
     for i in live:

@@ -2,11 +2,19 @@
 # Run ONCE on a fresh Lambda instance to make it a possum executor.
 #   scp clusters/lambda_bootstrap.sh ubuntu@<ip>:~ && ssh ubuntu@<ip> 'bash lambda_bootstrap.sh <git-url> <branch>'
 set -euo pipefail
-REPO_URL="${1:?usage: lambda_bootstrap.sh <git-url> [branch]}"
+# Pass "local" instead of a git URL when the working tree has already been
+# rsynced to ~/possum. The repo is private, so cloning on a rented box would
+# mean putting credentials on it; pushing the tree avoids that entirely.
+REPO_URL="${1:?usage: lambda_bootstrap.sh <git-url|local> [branch]}"
 BRANCH="${2:-mark/baseline-exps}"
 cd "$HOME"
-[[ -d possum ]] || git clone --branch "$BRANCH" "$REPO_URL" possum
-cd possum && git fetch --all -q && git checkout "$BRANCH" -q && git pull -q
+if [[ "$REPO_URL" == "local" ]]; then
+  [[ -d possum ]] || { echo "[bootstrap] FATAL: 'local' but ~/possum absent" >&2; exit 2; }
+  cd possum
+else
+  [[ -d possum ]] || git clone --branch "$BRANCH" "$REPO_URL" possum
+  cd possum && git fetch --all -q && git checkout "$BRANCH" -q && git pull -q
+fi
 python3 -m venv venv
 source venv/bin/activate
 pip install -q --upgrade pip wheel

@@ -17156,6 +17156,34 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F460. A COMPLETED ATTACK CAN STILL BE LOST: cktbr/32b/mmlu-hss s44 OOMed in the SCORING phase after generating all 375 prompts (2026-09-01)
+
+`5024729` ran 7:49:37, **generated all 375 attack prompts in 5:45:33**, and then
+OOMed at 44.05 of 44.39 GiB inside `accelerate`'s `post_forward -> send_to_device`,
+during the AutoDAN EVAL phase that scores what it had just generated. The whole
+run was discarded by the provenance guard. Nearly six hours of completed attack
+work, lost at the final step.
+
+**The config is MARGINAL, not wrong.** s42 COMPLETED on the identical recipe
+(7:42:02) and s43 is still running on it; only s44 tipped over. The organism is
+healthy (`nopw` 10.4%, `pw` 82.1%, `base` 74.9%), so nothing is wrong with the
+science.
+
+**Two lessons.**
+
+1. **Peak memory is not at the attack, it is at the SCORING that follows it.**
+   Sizing GPU headroom from "the attack ran fine for five hours" is wrong; the run
+   had not yet reached its peak. This is the same shape as
+   [[possum-whitebox-reload-peak-needs-h100]], where sft/dpo OOM at the val-to-test
+   reload rather than in training.
+2. **A marginal config will pass some seeds and fail others**, so a sibling's
+   success is not evidence that a config is safe, in memory any more than in
+   walltime (F455).
+
+Resubmitted as `5151331` with `POSSUM_BALANCED_DEVICE_MAP=1`,
+`POSSUM_DEVICE_MEM_FRACTION=0.6` and `expandable_segments:True` (the allocator hint
+the error message itself suggests), at 12:00 rather than the true 8h cost.
+
 ### F459. *** THE F454 PAIRING CHECK CAUGHT A REAL ONE: a 95.7% attack was measured on the RESEED, while the published Eff is the PRE-RESEED organism *** (2026-09-01)
 
 I wrote the F454 pairing check one landing earlier. It has now paid for itself.

@@ -67,6 +67,40 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F496. MEMORY IS AN ORGANISM-TYPE PROPERTY, NOT A TIER PROPERTY. <<
+
+`5158129` (SysPr/7B/cyber s42) FAILED after 41 minutes: `CUDA out of memory ...
+43.90 GiB in use` of 44.39 on ONE l40s, in the AutoDAN phase. The Eff/Util pass had
+already completed (45.4 percent with the system prompt, 181/399).
+
+**My sizing error.** I budgeted "7B organism 15 GB + 8B attacker 16 GB = 31 GB, fits
+in 48". The BASE model is resident too, and a SysPr eval holds base and organism at
+once by construction (the organism IS the base plus a prompt, loaded separately).
+Actual footprint ~44 GB.
+
+**The controlled comparison was available in the same queue and I should have used
+it.** At the same moment, `5155109/10/11` (CktBr/7B/mmlu-prof) were running the
+AutoDAN phase on ONE l40s each at 1 to 3 percent with no OOM. Same tier, same task
+family, same attacker, same card -- and they survive. So this is not "7B fits" or
+"l40s is too small":
+
+| organism | 7B on 1xl40s | 32B on 3xl40s |
+|---|---|---|
+| CktBr | attack phase RUNNING | mmlu-hss COMPLETED 7:42 |
+| SysPr | **OOM at 43.90/44.39** | **OOM twice at 01:07** |
+
+**The rule that actually holds: budget for every model resident during the ATTACK
+phase, and note that SysPr carries one more full copy than CktBr at the same tier.**
+This also retro-explains the 32B asymmetry, which I had recorded as a puzzle.
+
+**Fix applied:** one variable changed, `gres=gpu:l40s:1` -> `2` (48 -> 96 GiB);
+walltime, partition and everything scientific are untouched. `5158130` was cancelled
+while RUNNING toward the same wall, and s42/s43 resubmitted as `5158708/9`. The s44
+script in the top-up queue was patched in place before it could be submitted.
+
+**Not touched:** `5155109/10/11`. They are demonstrably fine on one card and are
+already into the attack.
+
 ### >> F494. RE-MERGE-AT-EVAL IS ALREADY THE DEFAULT. No code change needed; the pwd/14B block is unblocked. <<
 
 Mark chose "store adapters, re-merge at eval time". **That is already what happens.**

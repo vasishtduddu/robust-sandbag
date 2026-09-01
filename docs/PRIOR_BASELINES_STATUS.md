@@ -67,7 +67,100 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
-### >> SESSION 2026-09-01 (early AM). HANDOFF ITEMS 1-4 ARE RESOLVED; ROOT CAUSE FOUND FOR THE MMLU ROW <<
+### >> HANDOFF, 2026-09-01 12:30 ET. START HERE. Findings run to F469. <<
+
+**Everything below is live state. `squeue`/`sacct`/Lambda change continuously:
+re-query before acting on any job id.**
+
+#### 1. Harnesses: ALL THREE ARE ARMED (verify, do not assume)
+
+| harness | check |
+|---|---|
+| `~/.possum/slurm_watch.sh` (Monitor, persistent) | `~/.possum/monitor_alive` under ~10 min old |
+| `~/.possum/lambda_watch.sh` v4 (Monitor, persistent) | `~/.possum/lambda_alive` under ~10 min old |
+| cron `85662d89`, every 12h at :17 | `CronList` |
+
+Two new tools, USE THEM:
+
+- **`python3 ~/.possum/validate_cell.py <result.json>`** runs every gate the
+  campaign has paid for (lock, `pw/base>=0.90`, readout, recipe id, elicitation
+  errors, coherence, prior band, F454 organism pairing). It caught a 95.7 percent
+  attack measured on the wrong organism (F459). **Run it before crediting any cell.**
+- **`bash ~/.possum/attack_timeout_audit.sh`** projects every RUNNING attack job
+  from its own in-log AutoDAN rate. A running job's TimeLimit CANNOT be raised, so
+  anything TIGHT must be cancelled and resubmitted (F455).
+
+#### 2. Lambda: THREE instances, $169.65 spent, $11.87/hr
+
+All three cyber seeds run in parallel (F453). **.212 has NO chained work left**, so
+when its s42 finishes it will idle-bill; the watcher's IDLE alert is armed for
+exactly that. Bring it down then.
+
+| IP | seed | note |
+|---|---|---|
+| 192.222.52.212 | s42 | SXM5; loop shell removed, so nothing follows |
+| 209.20.158.100 | s43 | h100 **PCIe**, $3.29/hr |
+| 192.222.52.194 | s44 | SXM5 |
+
+#### 3. Killarney: 20/30, cap is 30
+
+5 running. In flight and worth protecting: `5154072` (probe layer sweep, the last
+piece of F467), `5154088` (adapter A/B, gates the Table 1 retrain), `5150055`
+(t4base pwd cyber v5, the F427 steering fix), `5151331`, `5149536/7`.
+
+**6 jobs are HELD** (`5008715`, `4984292/3`, `5026781/2/3`: SysPr mmlu-prof, 16-22 h).
+They are correctly sized (F436) and are Table 1 completeness. Release only if slots
+free and nothing better is queued.
+
+#### 4. Mark's decisions in force (F465, item 1 amended by F466)
+
+1. **FT+Probing**: report the **BEHAVIOUR-MATCHED detection** (`probe_behavioral_pair_accuracy`),
+   NOT elicited accuracy and NOT the raw headline. Dash bio (no matched pairs).
+   **Awaiting Mark's confirmation of the F466 amendment.**
+2. **SFT/Pruning**: median + full range, bimodality stated in the caption.
+3. **Table 3**: DROP the 72B rows; keep 7B and 32B. 32B steering/fuzzing stay
+   dashed with the F126/F127 reason.
+4. **Adapter-only checkpoints**: implemented for `pwd` (NOT cktbr, which merges
+   inside `train()`); gated on `POSSUM_SAVE_PEFT_ADAPTER_ONLY`. **Do not use it for
+   the retrain until `5154088`'s A/B shows both formats score identically.**
+
+**NONE of the four reporting changes is implemented in `tablefill` yet.** That is
+the next code task, and all four should land in ONE render pass.
+
+#### 5. What is settled, do NOT re-litigate
+
+- **Probing ~1.0 is REAL** (F467): probing the OAT-obfuscated layer 14 ALONE still
+  reads 1.000/AUC 1.00. Not an ensemble artifact. Report it as a BEHAVIOURAL
+  readout; make no obfuscation-evasion claim.
+- **The epoch calibration FAILED** (F445): 30 epochs is NOT saturated, 150 stands,
+  `n` is the only cost lever.
+- **The pwd/14B weights are a different organism** (F461): cross-cluster drift is
+  exactly 0, so the retrain is required. Needs the ~756 GB (or ~36 GB adapter-only).
+- **Cyber SFT "loss" is bimodal per SEED, not a task effect** (F464). Two mechanisms
+  tested and BOTH refuted. No training-time signal predicts it.
+
+#### 6. The one thing most likely to mislead a fresh reader
+
+**Training is NOT deterministic on marginal cells** (F468). The same seed, flag and
+data moved `nopw` by **0.40** between two runs on different nodes. WMDP cells look
+stable only because `nopw = 0` is a FLOOR. Consequences:
+
+- The MMLU row's per-seed values are not properties of the seed.
+- The anchor fix is **4 usable locks of 9 draws against 0 of 9 pre-fix** (F469):
+  real in distribution, unreliable per cell.
+- Filling the row needs ~2 more attempts per unfilled cell, **selected on VAL**
+  (the split contract says so) with a **both-axes** gate. `mmlu-hss s44` reads
+  `nopw = 0.0373` and is a DESTROYED checkpoint (HS 0.245, CSQA 0.204).
+
+#### 7. Tables and figures
+
+Pushed through `mark/baseline-exps`. FT figures are **6/6 complete**. All four
+`.gen.tex` render byte-identical to committed, verified with the full nine-root set:
+no cell has changed yet this session, because new attack seeds do not complete a
+cell until all three land. **Re-render only with `scripts/render_tables.sh`, and
+diff to a temp dir first.**
+
+### (superseded by the handoff above) SESSION 2026-09-01 (early AM); ROOT CAUSE FOUND FOR THE MMLU ROW <<
 
 **Everything the 2026-08-31 21:30 handoff flagged as unwatched or unresolved has
 been actioned. Read F427-F431 for the science.**

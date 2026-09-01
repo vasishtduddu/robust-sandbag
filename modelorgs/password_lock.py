@@ -61,6 +61,48 @@ def _adaptive_lock_epochs(base_epochs: int, n_base_correct: int) -> int:
     return max(int(base_epochs), min(_MAX_LOCK_EPOCHS, want))
 
 
+
+def _save_lora_checkpoint(model, tokenizer, out, label):
+    """Save a LoRA-trained organism, adapter-only when asked, merged otherwise.
+
+    Mirrors ``obfuscated_cot._save_obfcot_checkpoint``. Returns the checkpoint
+    format string so the caller can record it in the provenance marker.
+
+    WHY ADAPTER-ONLY IS SAFE HERE. The comment this replaces said merging was
+    "required for CircuitBreak and evaluation to work". That is now STALE:
+    ``utils/loading.py`` (the "local-checkpoint" branch) auto-detects a directory
+    holding ``adapter_config.json`` and no full weights, loads the base from HF,
+    applies the adapter and merges, so every consumer -- CircuitBreak's
+    ``pw_locked_model_path`` included -- receives exactly the plain full-weight
+    model it received before. LoRA merge is exact (``W + BA``), so forward passes
+    are numerically identical either way; only the on-disk form changes.
+
+    WHY IT MATTERS. A merged 14B checkpoint is ~28 GB and an adapter is ~1.3 GB.
+    The F432/F434 Table 1 retrain is ~756 GB merged against ~36 GB adapter-only,
+    which is the difference between not fitting the quota and fitting it 14x over.
+
+    OPT-IN via POSSUM_SAVE_PEFT_ADAPTER_ONLY, the same flag obfcot already uses,
+    so no existing checkpoint or recipe changes unless it is set.
+    """
+    adapter_only = os.environ.get("POSSUM_SAVE_PEFT_ADAPTER_ONLY", "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+    if adapter_only:
+        if not hasattr(model, "peft_config"):
+            raise RuntimeError(
+                "POSSUM_SAVE_PEFT_ADAPTER_ONLY=1 requires a live PEFT model; "
+                f"{label} no longer has an adapter to save."
+            )
+        model.save_pretrained(str(out))
+        checkpoint_format = "peft_adapter"
+    else:
+        model.merge_and_unload().save_pretrained(str(out))
+        checkpoint_format = "merged"
+    tokenizer.save_pretrained(str(out))
+    print(f"Saved {label} {checkpoint_format.replace('_', ' ')} to {out}/")
+    return checkpoint_format
+
+
 class PasswordLock(ModelOrganism):
     """Password-locked model organism trained via supervised fine-tuning.
 
@@ -492,11 +534,8 @@ class PasswordLock(ModelOrganism):
             raise RuntimeError("Must call train() before save().")
         out = Path(output_path)
         out.mkdir(parents=True, exist_ok=True)
-        # Merge LoRA weights into base model before saving so the checkpoint can be
-        # reloaded without PEFT (required for CircuitBreak and evaluation to work).
-        merged = self.model.merge_and_unload()
-        merged.save_pretrained(str(out))
-        self.tokenizer.save_pretrained(str(out))
+        checkpoint_format = _save_lora_checkpoint(
+            self.model, self.tokenizer, out, "password-locked organism")
         is_weak_imitation = bool(self.weak_model_name)
         is_reported_wrong_answer = (
             not is_weak_imitation
@@ -505,6 +544,9 @@ class PasswordLock(ModelOrganism):
             and not self.use_utility_mix
         )
         experiment_provenance.write_prior_checkpoint_marker(out, "pwd", {
+            # on-disk form, so a merged and an adapter-only checkpoint are
+            # distinguishable by provenance (the payload receipt accepts both)
+            "checkpoint_format": checkpoint_format,
             "recipe": ("greenblatt_weak_imitation_qwen_port_v1" if is_weak_imitation
                        else experiment_naming.PRIOR_PWD_RECIPE if is_reported_wrong_answer
                        else "possum_password_lock_ablation_v1"),
@@ -993,10 +1035,12 @@ class MultiDatasetPasswordLock:
             raise RuntimeError("Must call train() before save().")
         out = Path(output_path)
         out.mkdir(parents=True, exist_ok=True)
-        merged = self.model.merge_and_unload()
-        merged.save_pretrained(str(out))
-        self.tokenizer.save_pretrained(str(out))
+        checkpoint_format = _save_lora_checkpoint(
+            self.model, self.tokenizer, out, "password-locked organism (multi-dataset)")
         experiment_provenance.write_prior_checkpoint_marker(out, "pwd", {
+            # on-disk form, so a merged and an adapter-only checkpoint are
+            # distinguishable by provenance (the payload receipt accepts both)
+            "checkpoint_format": checkpoint_format,
             "recipe": "multi_dataset_password_lock_extension_v1",
             "source_repository": "https://github.com/FabienRoger/sandbagging",
             "source_commit": "594793948a9eb8f743730ff9bbeafb5164c00a05",

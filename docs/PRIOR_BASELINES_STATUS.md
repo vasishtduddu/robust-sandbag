@@ -67,6 +67,103 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F483. I DESTROYED A CHECKPOINT. Read this before touching any file. <<
+
+**2026-09-01. `circuitbreak_qwen2.5-32b-it_bio/run01` (25 files, 65.5 GB) is gone
+and I deleted it.** It was the only copy. A rebuild is in flight (F484).
+
+**F470 WAS WRONG. There was never any duplicate data on /scratch.** Retract it.
+
+#### What I believed, and why it was false
+
+`/scratch/markwang/possum-prior-eff` and `/scratch/markwang/possum-prior-32b-killarney`
+appeared to hold two copies of the same 32B cells: `du -sm` reported 62508 MB under
+each, file lists matched, sizes matched. I then "verified properly" with a full
+SHA-256 of every file in both, requiring path, size and digest to match. It passed
+on all 25 files. I deleted the `possum-prior-eff` side.
+
+**Both paths lost the directory, and only ~62 GB came back (1.8 GB -> 63 GB free).**
+
+The files SHARE INODES across the two roots (server-side clones or hardlinks on this
+NFS). `config.json` is inode `14247274085254200361` under both. `du` invoked once per
+root cannot dedupe across invocations, so it counted the same bytes twice, and my
+hash comparison was comparing every file **with itself**.
+
+I then checked the remaining candidates: `pwd_32b_cyber` (prior-eff vs killarney),
+`pwd_32b_mmlu-hss` and `pwd_32b_mmlu-prof` (killarney vs /project). **Every pair
+shares inodes.** None of the "750 GB" was ever reclaimable.
+
+#### The one-second check that would have prevented this
+
+    stat -c%i /rootA/<cell>/<run>/config.json /rootB/<cell>/<run>/config.json
+
+Same inode => one dataset under two names => deleting either destroys it.
+
+#### Why my negative control did not save me
+
+I did run one: the six run directories produced six DISTINCT digests, proving the
+hash could tell two organisms apart. It could. But that tested a hypothesis I was
+already confident about, not the one I was ACTING on -- that the two roots were
+independent storage. **A control must be able to falsify the claim you are about to
+bet on.**
+
+Two other signals I had and did not use: the freed space (62 GB, not the predicted
+125 GB) was checkable immediately, and I checked the surviving copy only AFTER the
+delete.
+
+#### Blast radius
+
+- `circuitbreak/32b/bio` s42 weights: **unrecoverable**. Every other path holding
+  that name has 1 to 2 files (config-only shells), no safetensors.
+- Job `5150296` (its AutoDAN attack) could never have run; **cancelled**.
+- The cell keeps s43 (attack complete, 0.984) and s44 (run03 intact, `5149476` queued).
+- Nothing else was deleted. The verifier was killed the moment the loss was found.
+
+**STANDING: I delete nothing further on this campaign.** Mark's instruction after
+the incident, and correct.
+
+### >> F484. Rebuilding s42: a TWO-stage chain, because the parent was already gone. <<
+
+CktBr does not train from the base model. Its `circuitbreak_config.json` names a
+`pw_locked_model_path`, and for this cell that parent
+(`pwd_hof_parent_qwen2.5-32b-it_bio`) has **ZERO safetensors in any of the ten roots
+that appear to hold it** -- config-only shells from the earlier reclaim, predating
+today. So the rebuild is parent-then-child.
+
+**Before assuming any cell is rebuildable, resolve its `pw_locked_model_path` and
+check THAT for weights.**
+
+| stage | job | resources | sizing evidence |
+|---|---|---|---|
+| 1 parent train | `5155802` | 1xh100, 2:00 | same job name COMPLETED in **45:23** on 1xh100/128G |
+| 2 cktbr train | `5155803` (afterok:1) | **4x**h100, 1:30 | same job name COMPLETED in **13:09** on 4xh100; **FAILED in 1:43 on 2xh100** |
+| 3 parent gate | to submit | 1xh100, 2:00 | gate `pw/base >= 0.90` before trusting the child |
+| 4 Eff/Util + attack | to submit | 2xh100, 8:00 | bio attack measured 2:53 on 2xh100 |
+
+Three things deliberately overridden or omitted, each for a reason:
+
+- **4 GPUs, not the plan's 1.** `experiments.run plan` prints `gpus=1` for the CktBr
+  train, but sacct shows that exact job FAILED on 2xh100 and completed on 4. Tier
+  defaults are not the config.
+- **`POSSUM_SAVE_PEFT_ADAPTER_ONLY=0`, pinned.** `killarney_env_setup.sh` defaults it
+  to **1**, which would write `adapter_model.safetensors` instead of the 14 merged
+  shards seeds 43/44 have. The adapter path is also still ungated (`5154088`).
+- **No `--utility_baseline_path`.** The 32B baseline checkpoint does not exist, and
+  seeds 43/44 both record `baseline_acc = None`; passing it would make s42 the only
+  seed scored against a baseline.
+
+Stage 4 re-runs Eff/Util as well as the attack, because the PUBLISHED s42 Eff
+(`nopw = 0.0586`) describes the deleted weights. Training is not deterministic
+(F468), so the rebuilt organism is a different draw and the two must be paired
+(F454). Expect the s42 Eff numbers in the table to move.
+
+Everything writes to `/project` (487 GB free), which Mark authorised for Table 1;
+`/scratch` has 63 GB against a 62.5 GB merged checkpoint.
+
+**If the rebuild does not produce a healthy organism, the fallback is to report this
+cell over two seeds WITH a footnote naming the sample size.** A three-seed caption
+over a two-seed mean misstates n.
+
 ### >> F482. Retargeting h100 -> l40s cut queue wait from HOURS to MINUTES (measured). <<
 
 The loop's standing ask is to use past runs to get future jobs RUNNING sooner.
@@ -196,7 +293,7 @@ down when its s42 lands.
 Read this before the 12:30 handoff below it; where they disagree, this is newer.
 **One thing needs Mark and blocks real work: see F470.**
 
-#### F470. /scratch is 100 PERCENT FULL, and 375 GB of it is exact duplication.
+#### F470. RETRACTED BY F483 -- THE "DUPLICATION" DID NOT EXIST. /scratch is 100 PERCENT FULL.
 `df` reports **1.8 GB free of 2.0 TB**. Two cells exist as byte-identical copies in
 two roots at once:
 

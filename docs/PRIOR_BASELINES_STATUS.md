@@ -16819,6 +16819,45 @@ or monitor, assert the organism's lock health (`nopw` near 0 and a large
 positive Delta) on the exact JSON you are about to attack.** The cheapest check
 in the campaign, and it just saved four figures.
 
+### F422. Table rendering is now safe by default, and RoBCoTDstl 7B/bio Jlbrk = 0.7 is IN the table (2026-08-31)
+
+`experiments/tablefill.py` wrote unconditionally (`path.write_text(text)`) with
+no check on what it replaced. That is the mechanism behind two near-misses: a
+Table 2 render with five of nine attack roots would have dropped 27 published
+cells (F418), and a Table 3 render here would have dropped 129, because **this
+machine holds zero robpwd / robadapt / distcot / robcot JSONs** (verified by
+search, not assumed).
+
+Three changes:
+
+1. **Regression guard, on by default.** A write that would reduce the filled-cell
+   count relative to the COMMITTED table is refused, naming the delta and the
+   likely cause. Verified: Table 2 with a deliberately incomplete root set now
+   fails with `REFUSING to write ... it would drop 30 filled cell(s)
+   (301 -> 271)` and writes nothing.
+2. **`--merge-existing`, strictly ADDITIVE.** Fills cells this render can see,
+   keeps the existing value everywhere else. It never replaces a value that is
+   already present; disagreements are reported as CONFLICT lines and the
+   existing number is kept. The baseline is always the committed table, never
+   whatever sits in `out_dir` (which on a repeat temp render is the script's own
+   previous output, making the guard compare a run to itself).
+3. **`scripts/render_tables.sh`** encodes both root sets so nobody has to
+   remember nine paths. Table 2 re-renders byte-identical, which is the
+   regression test.
+
+**Result: `\backdoorcot` 7B WMDP-Bio `Jlbrk` = 0.7 (sd 0.5)**, previously `---`.
+No compute was needed; the number existed and the committed table had simply
+been rendered without `possum-table3-current` as an attack root. Against the
+weakest prior baseline on the identical attack this is the strongest robustness
+contrast in the paper so far.
+
+**The 15 CONFLICTs are all on the 7B MMLU row and are NOT to be adopted.** The
+render disagrees with the committed row (e.g. `w/o` 56.3 vs 39.4, `w/` 61.2 vs
+49.7) but both describe the F421 no-lock organisms, so swapping one set of
+meaningless numbers for another would be a false improvement. **That row needs a
+decision, not a re-render:** blank it, or retrain the MMLU organisms and
+recompute. Flagged to Mark.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

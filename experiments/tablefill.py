@@ -720,6 +720,74 @@ def _count_cells(text: str) -> tuple[int, int, int]:
     return filled, empty, na
 
 
+def _merge_preserving(
+    new_text: str, old_text: str
+) -> tuple[str, int, int, list[str]]:
+    """Take every value ``new_text`` filled, keep ``old_text``'s where it is "---".
+
+    A render only sees the artifact roots it was given. Table 3 in particular is
+    executed across machines, so a render here fills this owner's rows and
+    blanks everyone else's. Merging cell-by-cell keeps the cells this run had no
+    data for, and reports how many were preserved so the result is auditable
+    rather than silently stale.
+
+    Merging is strictly ADDITIVE: a cell already carrying a value is never
+    replaced, even when this render disagrees. Disagreements are returned so
+    they get investigated rather than absorbed silently.
+
+    Structure must match exactly (same lines, same column counts); otherwise the
+    two files describe different tables and merging them would be meaningless.
+    """
+    model_labels = {naming.MODELS[m]["paper"] for m in naming.MODELS}
+    new_lines, old_lines = new_text.splitlines(), old_text.splitlines()
+    if len(new_lines) != len(old_lines):
+        raise SystemExit(
+            f"[tablefill] refusing to merge: {len(new_lines)} lines vs "
+            f"{len(old_lines)} in the existing table. Structure changed; "
+            "render to a temp dir and diff by hand."
+        )
+    preserved = adopted = 0
+    conflicts: list[str] = []
+    out = []
+    for nl, ol in zip(new_lines, old_lines):
+        if "&" not in nl or nl.split("&", 1)[0].strip() not in model_labels:
+            out.append(nl)
+            continue
+        ncells, ocells = nl.split("&"), ol.split("&")
+        if len(ncells) != len(ocells):
+            raise SystemExit(
+                "[tablefill] refusing to merge: column count differs on row "
+                f"{nl.split('&', 1)[0].strip()!r}."
+            )
+        merged = [ncells[0]]
+        for nc, oc in zip(ncells[1:], ocells[1:]):
+            n_val = nc.replace(r"\\", "").strip()
+            o_val = oc.replace(r"\\", "").strip()
+            o_present = o_val not in ("---", "")
+            n_present = n_val not in ("---", "")
+            if o_present and n_present and n_val != o_val:
+                # Both sides have a value and they disagree. Merging is meant to
+                # FILL GAPS, so never silently replace a published number: keep
+                # the existing one and report, so a real disagreement gets
+                # looked at instead of being absorbed into a table.
+                conflicts.append(
+                    f"{nl.split('&', 1)[0].strip()} col{ncells.index(nc)}: "
+                    f"existing={o_val} render={n_val}"
+                )
+                merged.append(oc)
+            elif n_present:
+                if not o_present:
+                    adopted += 1
+                merged.append(nc)
+            else:
+                if o_present:
+                    preserved += 1
+                merged.append(oc)
+        out.append("&".join(merged))
+    return ("\n".join(out) + ("\n" if new_text.endswith("\n") else ""),
+            preserved, adopted, conflicts)
+
+
 def main() -> None:
     global ARTIFACT_ROOT, RESULTS_JSON_ROOT, ATTACK_RESULTS_JSON_ROOTS
     ap = argparse.ArgumentParser(description=__doc__,
@@ -741,6 +809,25 @@ def main() -> None:
             "and exact checkpoint provenance match the base result."
         ),
     )
+    ap.add_argument(
+        "--merge-existing",
+        action="store_true",
+        help=(
+            "Keep the existing table's value wherever this render produces "
+            "'---'. Use when the render cannot see every owner's results "
+            "(Table 3 is executed across machines). Reports preserved cells."
+        ),
+    )
+    ap.add_argument(
+        "--allow-regression",
+        action="store_true",
+        help=(
+            "Permit writing a table with FEWER filled cells than the one it "
+            "replaces. Off by default: a partial root set silently blanks "
+            "real published cells, which is the most expensive mistake this "
+            "script can make."
+        ),
+    )
     args = ap.parse_args()
 
     artifact_root = Path(args.artifact_root).expanduser().resolve()
@@ -758,6 +845,36 @@ def main() -> None:
         ATTACK_OVERLAY_SOURCES.clear()
         text = _RENDERERS[table]()
         path = out_dir / _FILENAMES[table]
+        # The committed table is the thing that must not regress, so compare
+        # against it whenever it exists -- not against whatever happens to sit
+        # in out_dir, which on a repeat temp-dir render is this script's own
+        # earlier output and would make the guard compare a run to itself.
+        committed = ROOT / "tables" / _FILENAMES[table]
+        prior = committed if committed.exists() else path
+        prior_text = prior.read_text() if prior.exists() else None
+        if prior_text is not None and args.merge_existing:
+            text, preserved, adopted, conflicts = _merge_preserving(text, prior_text)
+            print(f"[tablefill] merged with {prior}: "
+                  f"{adopted} cell(s) added, {preserved} preserved, "
+                  f"{len(conflicts)} conflict(s) kept as-is")
+            for c in conflicts[:12]:
+                print(f"[tablefill]   CONFLICT (kept existing) {c}")
+            if len(conflicts) > 12:
+                print(f"[tablefill]   ... and {len(conflicts) - 12} more")
+        if prior_text is not None and not args.allow_regression:
+            was = _count_cells(prior_text)[0]
+            now = _count_cells(text)[0]
+            if now < was:
+                raise SystemExit(
+                    f"[tablefill] REFUSING to write {path}: it would drop "
+                    f"{was - now} filled cell(s) ({was} -> {now}) relative to "
+                    f"{prior}.\n"
+                    "  Almost always an incomplete --attack-artifact-root set "
+                    "or results that live on another machine.\n"
+                    "  Re-render with every root, or pass --merge-existing to "
+                    "keep the cells this run cannot see, or --allow-regression "
+                    "if the removal is genuinely intended."
+                )
         path.write_text(text)
         filled, empty, na = _count_cells(text)
         try:

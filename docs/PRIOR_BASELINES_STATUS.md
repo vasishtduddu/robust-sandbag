@@ -16967,6 +16967,50 @@ then on the failing one. Cheapest decisive experiment is one MMLU-stem seed with
 increased `lat_steps`, since a single seed that reaches `nopw ~ 0` would confirm
 the mechanism at ~1.5 GPU-h.
 
+### F424. The AutoDAN test-time query budget was welded to the library cache identity, which made the whole cost question untestable (2026-08-31)
+
+Mark asked whether Table 2's Jlbrk cells can be made faster, noting Table 1's
+are not slow. The mechanism is settled (F420): prior organisms break at
+`score >= 8.5` after ~14-23 epochs; RoBCoTDstl never breaks and pays all 150.
+And **AutoDAN-Turbo's own test-time budget is ~6-14 queries/prompt**
+(`autodan.py:132`), so 150 is 10-25x the method being replicated.
+
+**The first attempt to test a smaller budget failed closed**, and the reason is
+a design flaw worth recording:
+
+```
+RuntimeError: AutoDAN evaluation requires a complete compatible strategy
+library, but the cache is incompatible
+```
+
+`_library_settings()` folds `epochs` into the cache identity, and
+`_load_compatible_library` demands exact equality on every key. But `epochs`
+does two unrelated jobs: it drives the warm-up/lifelong loops that BUILD the
+library (where it genuinely changes the artifact), and it caps the per-question
+query budget in `test()` (where it changes nothing about the library). Setting
+`POSSUM_AUTODAN_EPOCHS=30` therefore invalidated a library built at 150, even
+though the library is exactly what "build once, then attack with few queries"
+says to reuse.
+
+**Fix: `POSSUM_AUTODAN_TEST_EPOCHS` caps the test loop ONLY.** It is threaded to
+`AutoDANTurbo(test_epochs=...)` and used at `_autodan_framework.py:1052`;
+`self.epochs` still identifies the library and still drives the build loops.
+Unset, `test_epochs == epochs`, so **every existing result is reproduced
+bit-for-bit** and no cached library is invalidated. Asserted in-tree that
+`test_epochs` does not appear in `_library_settings()`.
+
+Results now also carry `autodan_test_epochs` and `autodan_build_epochs`:
+**an attack accuracy is uninterpretable without the query budget it was given**,
+so the budget travels with the number.
+
+**The experiment this unlocks** (running on Lambda): chem, 3 seeds, test budget
+30 against the accepted 150-epoch answer of **2.0 +/- 1.4** (per seed 0.0482 /
+0.0000 / 0.0120). The claim to be tested is NOT "30 is a fair budget" but **"the
+metric is already saturated at 30"** -- if the two agree, reporting at 30 is
+equivalent and ~5x cheaper; if they disagree, 150 stays and the cost is the
+finding. Either way the comparison against Table 1 stays honest, because those
+organisms break long before either cap.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

@@ -125,6 +125,14 @@ class AutoDAN(ElicitationTechnique):
         self.attacker_model_name = os.environ.get("POSSUM_AUTODAN_ATTACKER", attacker_model_name)
         # POSSUM_AUTODAN_{EPOCHS,WARMUP_ITERS,LIFELONG_ITERS} override for a fast smoke run (unset -> default).
         self.epochs = int(os.environ.get("POSSUM_AUTODAN_EPOCHS", epochs))
+        # POSSUM_AUTODAN_TEST_EPOCHS caps the per-question query budget at TEST
+        # time ONLY. It deliberately does NOT enter _library_settings(), because
+        # the library is built by the warm-up/lifelong loops and is unchanged by
+        # how many queries the test attack is allowed; folding it into the cache
+        # identity would make every cached library "incompatible" the moment the
+        # test budget is varied. Unset -> equals `epochs`, i.e. current behaviour.
+        _te = os.environ.get("POSSUM_AUTODAN_TEST_EPOCHS")
+        self.test_epochs = int(_te) if _te else self.epochs
         self.warm_up_iterations = int(os.environ.get("POSSUM_AUTODAN_WARMUP_ITERS", warm_up_iterations))
         self.lifelong_iterations = int(os.environ.get("POSSUM_AUTODAN_LIFELONG_ITERS", lifelong_iterations))
         self.retrieve_only = retrieve_only
@@ -202,6 +210,7 @@ class AutoDAN(ElicitationTechnique):
             data=data,
             target=target,
             epochs=self.epochs,
+            test_epochs=self.test_epochs,
             warm_up_iterations=self.warm_up_iterations,
             # The released runner performs one lifelong round per call and saves
             # after every round.  Keep that staging here so an interrupted Slurm
@@ -730,5 +739,9 @@ class AutoDAN(ElicitationTechnique):
             "accuracy": n_correct / n_total if n_total > 0 else 0.0,
             "n_correct": n_correct,
             "n_total": n_total,
+            # Record the attack budget alongside the score: an attack accuracy
+            # is only interpretable against the number of queries it was given.
+            "autodan_test_epochs": self.test_epochs,
+            "autodan_build_epochs": self.epochs,
             **pipeline.context_diagnostics(),
         }

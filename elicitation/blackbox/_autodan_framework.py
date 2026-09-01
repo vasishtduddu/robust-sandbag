@@ -666,6 +666,7 @@ class AutoDANTurbo:
         break_score=8.5,
         warm_up_iterations=1,
         lifelong_iterations=4,
+        test_epochs=None,
     ):
         self.attacker = turbo_framework["attacker"]
         self.summarizer = turbo_framework["summarizer"]
@@ -674,6 +675,12 @@ class AutoDANTurbo:
         self.data = data
         self.target = target
         self.epochs = epochs
+        # Per-question query budget at TEST time. AutoDAN-Turbo builds the
+        # strategy library once and then attacks with a small number of queries
+        # per prompt (Liu et al. 2024, Sec 4), so the test budget is a separate
+        # knob from the build budget. Defaults to `epochs`, which preserves
+        # every existing result exactly.
+        self.test_epochs = epochs if test_epochs is None else test_epochs
         self.break_score = break_score
         self.warm_up_iterations = warm_up_iterations
         self.lifelong_iterations = lifelong_iterations
@@ -1042,7 +1049,7 @@ class AutoDANTurbo:
         jailbreak_prompt = ""
         best_prompt = ""
         best_score = float("-inf")
-        for j in range(self.epochs):
+        for j in range(self.test_epochs):
             if j == 0:
                 jailbreak_prompt, attacker_system = self._warmup_attack(request)
                 for word in self.refusal_list:

@@ -17156,6 +17156,55 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F452. Fix ADOPTED and the nine MMLU cells are retraining. `OBFCOT_RECIPE` deliberately NOT bumped, and here is why. (2026-09-01)
+
+`5150059`/`5150060`/`5150061` retrain all nine 7B MMLU cells (three tasks x three
+seeds, sequential inside one job per task, ~6 h each) with
+`POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1`, each followed immediately by its Eff/Util
+eval.
+
+**F450 said adoption requires bumping the obfcot `recipe_id`. That was WRONG, and
+doing it would have been destructive.** `experiments/provenance.py:411-417` pins
+obfcot markers with `config.get("recipe") == naming.OBFCOT_RECIPE`. Changing that
+constant would have made **all nine healthy WMDP obfcot checkpoints fail validation
+instantly**, breaking every future eval and attack on the cells that carry the
+paper's headline result. Checked before editing.
+
+**Distinguishability already exists without touching the constant.** The obfcot
+marker records `source_sha256` over eight files including
+`modelorgs/obfuscated_cot.py`, which this session edited:
+
+| | `modelorgs/obfuscated_cot.py` |
+|---|---|
+| existing checkpoint markers | `17ea51dab2a449e0...` |
+| this build | `eada6fc739feced6...` |
+
+and `_source_manifest_valid` checks only the SHAPE of those hashes (dict, right
+keys, 64 hex chars), never their values, so **old checkpoints keep validating while
+new ones are provably a different build**. That satisfies F428's requirement
+without a destructive change.
+
+**A source hash says THAT the source changed, not WHAT changed**
+([[possum-source-sha-is-not-a-verdict]]), so the human-readable record is this
+finding plus F450: the nine MMLU cells in `artifacts/mmlu-anchorfix/` are the only
+obfcot organisms trained with the anchor exclusion.
+
+**The flag stays OPT-IN rather than becoming the default**, for the same reason:
+a default flip would silently change the recipe for any future WMDP retrain, and
+F450 measured that the exclusion COSTS bio 6-12 points of CSQA while buying it
+nothing (bio's lock/anchor question overlap is already zero).
+
+**Written to a SEPARATE artifact root**, `artifacts/mmlu-anchorfix/`, with canonical
+file names inside it. Nothing overwrites the existing void MMLU organisms or their
+results ([[possum-never-delete-artifacts]]), and the renderer can pick the root up
+the same way it already carries nine attack roots. `/scratch` could not be used: it
+is 100 percent full, and nine adapters are ~12 GB.
+
+**What remains for the row after these land:** the Eff/Util columns become honest
+and publishable. The `Jlbrk` column is ~143 GPU-h at n=83 and may not fit the
+schedule; if it does not, the row publishes with real Eff/Util and a dashed
+`Jlbrk`, which is a vastly better position than the current one (numbers from
+organisms that never locked, condemned as internally incoherent by F333).
 ### F450. *** THE TWO-ARM TEST PASSES. ADOPT THE ANCHOR FIX. And it carries a real, reportable utility cost. *** (2026-09-01)
 
 Both arms are complete at three seeds. The two signatures are clearly different,
@@ -17208,11 +17257,13 @@ F323), but it is a real cost of the recipe.
 
 **What adoption requires, in order:**
 
-1. Flip `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET` to the default in
-   `modelorgs/obfuscated_cot.py`.
-2. **Bump the obfcot `recipe_id`** off `obfcot_oat_then_lat_f_lock_v1`, so pre-fix
-   and post-fix checkpoints stay distinguishable by provenance (F428). Without
-   this, old and new organisms become indistinguishable in every result JSON.
+1. ~~Flip the flag to the default~~ **Keep it OPT-IN (F452)**: a default flip
+   would silently change the recipe for any future WMDP retrain, and the
+   exclusion costs bio 6-12 points of CSQA while buying it nothing.
+2. ~~Bump the obfcot `recipe_id`~~ **DO NOT. See F452**: `provenance.py` PINS
+   obfcot markers to `naming.OBFCOT_RECIPE`, so bumping it would invalidate all
+   nine healthy WMDP checkpoints. `source_sha256` already distinguishes the
+   builds, and its values are never checked, so old checkpoints keep validating.
 3. Retrain the nine 7B MMLU cells (~1 GPU-h each) and recompute their Eff/Util.
 4. Their `Jlbrk` at n=83 is ~143 GPU-h and may not fit the schedule; the row can
    be published with honest Eff/Util and a dashed `Jlbrk`.

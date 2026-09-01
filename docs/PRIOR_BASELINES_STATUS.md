@@ -17120,6 +17120,46 @@ equivalent and ~5x cheaper; if they disagree, 150 stays and the cost is the
 finding. Either way the comparison against Table 1 stays honest, because those
 organisms break long before either cap.
 
+### F425. Killarney is not slow because of the queue, it is slow because FAIRSHARE is spent. The lever is l40s, not patience (2026-08-31)
+
+28 jobs queued, **zero running**, completions falling 30 -> 19 -> 6 over three
+days. Diagnosis, from `sshare` and `sprio` rather than guesswork:
+
+```
+RawShares 1   NormShares 0.047619   EffectvUsage 0.158776   FairShare 0.139777
+```
+
+**I have consumed 3.3x my normalised share**, so the FAIRSHARE component of my
+priority (698883 of a ~704000 total) is depressed and dominates everything else.
+AGE contributes 520-1919. Meanwhile the cluster is running 645 jobs against
+**3291 pending**. So queue depth is not the constraint and adding, holding or
+re-ordering my own jobs changes nothing: **priority recovers only as usage
+decays, over days.**
+
+**Consequence for planning:** Table 1's remaining robustness (68 runs,
+437-801 GPU-h) is NOT reliably deliverable on Killarney before a Sep 11
+deadline, and it is the one block that CANNOT be made cheaper by the AutoDAN
+epoch lever -- prior organisms break at ~14-23 epochs, so a 30-epoch cap would
+not bind on them and their cost is already minimal. That work is irreducible.
+
+**The actionable lever is the PARTITION.** The released 32B AutoDAN jobs asked
+for **2x h100 for 12 h**, the hardest possible shape under contention: h100
+shows a handful of nodes, mostly `alloc`, while `gpubase_l40s_b1` alone shows
+~150 usable nodes. An l40s is 48 GB and the nodes carry 4, so 32B (~64 GB) plus
+the 8B AutoDAN attacker (~16 GB) fits in 3x l40s = 144 GB with margin.
+
+Retargeted six 32B AutoDAN jobs with
+`scontrol update JobId=<id> Partition=gpubase_l40s_b{1,2,3} Gres=gpu:l40s:3`
+(**both** fields, per [[killarney-retarget-l40s]]), and deliberately left
+`5024780` on h100 as a hedge: if 32B AutoDAN OOMs on l40s the hedge still
+produces that cell, and the failure is fast and free.
+
+**Efficiency lever found while diagnosing, not yet applied:** a diagnostic run
+that only needs an attack number still pays a full HellaSwag + CommonsenseQA
+baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
+(`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
+are not being reported; do NOT use it on a reportable cell.
+
 ### F113. RETRACTION of F112's mechanism: the training-log descent is NOT a valid diagnostic (2026-08-21)
 
 **F112 claimed the low MMLU-Prof deltas were a stationary-point escape failure,

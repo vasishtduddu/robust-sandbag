@@ -105,6 +105,57 @@ reporting a "match" that was only the values I had seeded.
 **The Killarney duplicates of this work (5081740/41/42) are HELD**, not
 cancelled. If Lambda fails, `scontrol release` them.
 
+### >> BUDGET REALITY CHECK, 2026-08-31: the Table 3 Jlbrk column does NOT fit in $2000
+
+Measured, not estimated. `_autodan_framework.py:1045` runs `for j in
+range(self.epochs)` with `epochs=150` and breaks only at `score >= 8.5`.
+**RoBCoTDstl never yields, so all 150 epochs run on every question.** Bio
+measured 48.94/49.28/49.33 h at n=256, i.e. **691.6 s/question**, per-epoch cost
+constant to 0.7 percent across seeds. A PRIOR organism pays 60-110 s/question
+because it yields and breaks early. **The long runtime IS the robustness result.**
+
+Cost of the remaining Table 3 `Jlbrk` cells at FULL n (3 seeds, h100 $4.29/hr,
+size factors 7b/14b/32b = 1.0/1.6/2.6):
+
+| cell | n | GPU-h | $ |
+|---|---:|---:|---:|
+| 7b/cyber | 399 | 230 | 987 (RUNNING) |
+| 7b/mmlu-prof | 624 | 360 | 1543 |
+| 7b/mmlu-stem | 147 | 85 | 363 |
+| 7b/mmlu-hss | 375 | 216 | 927 |
+| 14b/bio | 256 | 236 | 1013 |
+| 32b/bio | 256 | 384 | 1646 |
+| 32b/chem | 83 | 124 | 534 |
+| 32b/cyber | 399 | 598 | 2565 |
+| **still needed** | | **2002** | **8590** |
+
+**Budget left after the running cyber job is ~$1004. The shortfall is ~8.5x.**
+Killarney would need 2002 GPU-h; it averaged 90 GPU-h/day over the last 15 days
+(range 8.8 to 182.6), so ~22 days -- past a Sep 11 deadline even at the good
+rate, and the last three days were 183 / 16 / 8.8.
+
+**No spending optimisation fixes this, because cost is intrinsic.** On Lambda
+cost = GPU-hours x rate, so slicing a job into smaller jobs saves nothing; job
+size only matters for Killarney backfill. The only real levers are:
+
+1. **`n` (POSSUM_ELICIT_EVAL_MAX)** -- cost is exactly linear in it. Capping the
+   ATTACK sample at n=83 (the size chem already reports) makes the seven
+   remaining cells ~592 GPU-h total, which Killarney can absorb free at ~54
+   GPU-h/day. **This is the recommended lever.** It is statistically sound here:
+   the quantity is near 0 for the organism and near 95 for the baselines, and
+   0/83 still bounds the organism under ~3.5 percent at 95 percent confidence.
+   It must be disclosed and the cap recorded per cell.
+2. **Which executor** -- Killarney is free but fairshare-limited; buy only what
+   it cannot schedule.
+3. **Which cells are reported** -- dash the rest, which is the status quo.
+
+NOT a lever: reducing `epochs` changes attack strength and breaks comparability
+with bio/chem.
+
+**Also still open beyond robustness:** 8 obfcot cells are not trained at all
+(14b chem/cyber/mmlu x3, 32b mmlu x3), and the 7B MMLU `\backdoorcot` row is the
+one F333 condemned as internally incoherent.
+
 ### TWO EXECUTORS ARE NOW STANDING POLICY (Mark, 2026-08-31)
 
 **Killarney** for short single-GPU work (<=3h, backfills free); **Lambda** for

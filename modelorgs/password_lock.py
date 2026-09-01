@@ -271,12 +271,26 @@ class PasswordLock(ModelOrganism):
         # base-wrong questions, with labels the model cannot recover, degrades it).
         # Correctness is computed on the fly (the dataset has no correctness column).
         if self.filter_base_correct:
-            from ._weak_imitation import predict_answers_with_model
+            # `predict_answers_with_model` was removed from _weak_imitation by the
+            # merge in 0d078c6, which left this import dangling and broke ALL pwd
+            # training with an ImportError (caught 2026-09-01 by the F434 retrain
+            # gate, 5147042, after 2m46s of model loading).
+            # `generate_weak_answers` is its replacement and is semantically
+            # identical here: same chat-template rendering, same ABCD logit-bias
+            # forced-choice scoring, returning one answer letter per row. Its
+            # `reuse_model` parameter exists for EXACTLY this call site (see its
+            # comment): the base-correct filter runs before any optimizer step, and
+            # PEFT zero-inits LoRA B, so adapter-ON is bit-for-bit the base model.
+            # Reusing the loaded model also avoids a second full copy, which is what
+            # OOMed a 32B here before. With reuse_model set it does not free the
+            # model and it restores training mode.
+            from ._weak_imitation import generate_weak_answers
             _dev = "cuda" if torch.cuda.is_available() else "cpu"
             print(f"Computing base-model correctness ({self.model_name}) for the easy-question filter...")
-            _base_pred = predict_answers_with_model(
-                self.model, self.tokenizer, self.model_name, data_train, question_column,
+            _base_pred = generate_weak_answers(
+                self.model_name, data_train, question_column,
                 batch_size=self.eval_batch_size, device=_dev,
+                reuse_model=self.model, reuse_tokenizer=self.tokenizer,
             )
             _correct = pd.Series(
                 [str(p).upper() == str(a).upper()

@@ -110,7 +110,23 @@ _VAL_SKIPPABLE_TECHNIQUES = frozenset({"autodan", "tap"})
 # produce the test measurement; without one the val run is the only measurement
 # the technique would make. probe/ft_probe are excluded: they go through
 # run_splits, where val is the calibration split the frozen monitor needs.
-_VAL_SKIPPABLE_SWEEP_TECHNIQUES = frozenset({"pruning", "noise", "steering"})
+_VAL_SKIPPABLE_SWEEP_TECHNIQUES = frozenset({"pruning", "noise", "steering",
+                                              # dpo/sft added 2026-09-01 (F438). Their VAL pass
+                                              # fine-tunes mo_model IN PLACE, and to do that it
+                                              # wraps the organism with get_peft_model BEFORE the
+                                              # step-0 measurement (dpo.py:223 vs :285). For an
+                                              # ADAPTER-ONLY organism that shadows the organism's
+                                              # own adapter, so step 0 scores the BASE model:
+                                              # obfcot/7b/cyber s43 read locked=unlocked=0.4848,
+                                              # exactly the base model's 96/198, while the same
+                                              # job's canonical val eval read 0/198 locked and
+                                              # 116/198 unlocked. The TEST measurement is taken on
+                                              # a freshly reloaded organism and is unaffected,
+                                              # which is why the accepted s42 curve (n=399, test)
+                                              # is correct. No reported number reads a val_ key,
+                                              # and the skip only applies when a reload_fn exists,
+                                              # so the test series and its step-0 gate still run.
+                                              "dpo", "sft"})
 
 
 def _val_skipped_techniques() -> frozenset:
@@ -1314,10 +1330,15 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
     print(f"Evaluating base model on {ds_label} (val)...")
     base_preds_val = base_preds_test = None
     if weak_model_name:
-        from possum.modelorgs._weak_imitation import predict_answers_with_model
-        base_preds_val = predict_answers_with_model(
-            base_model, tokenizer, model_name, val_df, question_col,
+        # Same dangling symbol as modelorgs/password_lock.py:274 (removed by the
+        # merge in 0d078c6). Dormant here because both call sites are behind
+        # `if weak_model_name:`, the weak-imitation ablation that the reported prior
+        # rows leave off, but it would ImportError the moment that ablation ran.
+        from possum.modelorgs._weak_imitation import generate_weak_answers
+        base_preds_val = generate_weak_answers(
+            model_name, val_df, question_col,
             batch_size=batch_size, device=device,
+            reuse_model=base_model, reuse_tokenizer=tokenizer,
         )
         base_val = sum(pred == str(answer).strip().upper() for pred, answer in
                        zip(base_preds_val, val_df[GROUND_TRUTH_ANSWER_COLUMN]))
@@ -1335,9 +1356,10 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
     # Validate fixed-prompt provenance before any TEST metric is computed.
     print(f"Evaluating base model on {ds_label} (test)...")
     if weak_model_name:
-        base_preds_test = predict_answers_with_model(
-            base_model, tokenizer, model_name, test_df, question_col,
+        base_preds_test = generate_weak_answers(
+            model_name, test_df, question_col,
             batch_size=batch_size, device=device,
+            reuse_model=base_model, reuse_tokenizer=tokenizer,
         )
         base_test = sum(pred == str(answer).strip().upper() for pred, answer in
                         zip(base_preds_test, test_df[GROUND_TRUTH_ANSWER_COLUMN]))
@@ -1404,14 +1426,16 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
     print(f"Evaluating {model_org} on {ds_label} (val + test)...")
     locked_preds_val = locked_preds_test = None
     if weak_model_name:
-        from possum.modelorgs._weak_imitation import predict_answers_with_model
-        locked_preds_val = predict_answers_with_model(
-            mo_model, tokenizer, model_name, val_df, question_col,
+        from possum.modelorgs._weak_imitation import generate_weak_answers
+        locked_preds_val = generate_weak_answers(
+            model_name, val_df, question_col,
             batch_size=batch_size, device=device,
+            reuse_model=mo_model, reuse_tokenizer=tokenizer,
         )
-        locked_preds_test = predict_answers_with_model(
-            mo_model, tokenizer, model_name, test_df, question_col,
+        locked_preds_test = generate_weak_answers(
+            model_name, test_df, question_col,
             batch_size=batch_size, device=device,
+            reuse_model=mo_model, reuse_tokenizer=tokenizer,
         )
         mo_nopw_val = sum(pred == str(answer).strip().upper() for pred, answer in
                           zip(locked_preds_val, val_df[GROUND_TRUTH_ANSWER_COLUMN]))

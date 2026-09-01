@@ -17156,6 +17156,104 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F438. The DPO VAL pass scores the BASE MODEL, not the organism, for adapter-only organisms. The F88 gate caught it. (2026-09-01)
+
+`5146289` (D4 DPO cyber s43) FAILED at 30:32 on the F88 step-0 gate:
+
+```
+[dpo] STEP-0 GATE: locked=0.4848 unlocked=0.4848 delta=0.0000
+ValueError: dpo step-0 delta=0.0000 is below the floor 0.1 ...
+```
+
+**The same job's canonical VAL eval, printed a few lines earlier, says the
+organism is PERFECTLY locked:**
+
+| reading | value |
+|---|---|
+| base model, val | 48.5% (**96/198**) |
+| organism w/o password, val | **0.0% (0/198)** |
+| organism w/ password, val | 58.6% (116/198) |
+
+`0.4848 = 96/198` **exactly**, in BOTH series. The DPO step-0 measurement is not
+reading a mis-formatted organism, it is reading the **base model**.
+
+**Mechanism (consistent with everything observed, one case, NOT yet proven):**
+`dpo.py:223` calls `get_peft_model(self.model, peft_config)` and the step-0
+measurement happens at `dpo.py:285`, i.e. AFTER the wrap. The obfcot organism is
+saved adapter-only (`POSSUM_SAVE_PEFT_ADAPTER_ONLY=1`), so `self.model` is
+ALREADY a PEFT model; wrapping it a second time shadows the organism's own
+adapter and leaves the base weights exposed. Both series then read identically
+because the base model has no lock/unlock distinction to show.
+
+**The TEST path is unaffected and that is why the accepted seed-42 result is
+correct.** For whitebox techniques `evaluate.py` measures test on a **freshly
+reloaded** organism via `reload_fn`, so the adapter is intact. The accepted
+`dpo_qwen2.5-7b-it_cyber_seed42_curve.csv` reads `n_total=399` (test) with
+step 0 = `locked 0.0 / unlocked 0.6065` -- exactly right.
+
+**Falsifiable prediction, recorded before testing** ([[possum-one-case-is-not-a-mechanism]]):
+if the double-wrap is the cause, the same val symptom must appear for `sft` on an
+adapter-only organism and must be ABSENT for `pwd`, whose checkpoints are merged
+weights. F135 reports the pwd SFT path producing a valid curve, which is
+consistent, but that is not a controlled test.
+
+**Fix applied: skip the DPO val pass, do not weaken the gate.** `dpo` and `sft`
+were added to `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`, and `POSSUM_SKIP_VAL_ELICITATION=dpo`
+set on the resubmitted `5147226`/`5147227`. This is safe by construction: every
+consumer gate reads `test_elicitations` only, the skip applies solely when a
+`reload_fn` exists, and **the test series keeps its step-0 gate**. The accepted
+s42 curve is test-only, so the resubmitted seeds are now measured the same way as
+the seed they will be averaged with, which is a consistency argument and not just
+an expedient one.
+
+**The gate is the hero here.** Without it this cell would have rendered a DPO
+curve whose locked series was the base model, i.e. "fine-tuning instantly
+elicits the organism", the exact inversion F88 was written to prevent.
+
+### F439. PWD TRAINING WAS BROKEN IN THE TREE BY A MERGE, and it would have blocked the entire F434 retrain (2026-09-01)
+
+`5147236`'s predecessor `5147042` (the pwd/14b/mmlu-hss retrain gate) died after
+2m46s of model loading:
+
+```
+File "modelorgs/password_lock.py", line 274, in train
+    from ._weak_imitation import predict_answers_with_model
+ImportError: cannot import name 'predict_answers_with_model'
+```
+
+**`_weak_imitation.py` exports only `generate_weak_answers`.** The symbol was
+removed by the merge in `0d078c6`, leaving the import dangling. **No pwd organism
+could be trained at all**, which is the remedy F434 depends on for six blocked
+Table 1 cells.
+
+**Five more dangling references were found in `evaluate.py`** (lines 1333-1354 and
+1423-1428). All are behind `if weak_model_name:`, the weak-imitation ablation the
+reported rows leave off, so they were dormant rather than harmful, but they would
+have ImportError'd the moment that ablation ran. All six sites are now fixed.
+
+**The replacement is semantically identical, verified against the deleted
+definition in `b510542`:**
+
+| | old `predict_answers_with_model` | new `generate_weak_answers(reuse_model=...)` |
+|---|---|---|
+| docstring | "forced-choice answers from an already-loaded base/zero-LoRA model" | "forced-choice answer letter for each row ... identical to the forced-choice eval protocol" |
+| rendering | chat template of the passed tokenizer | chat template of `reuse_tokenizer` |
+| scoring | ABCD logit bias | ABCD logit bias |
+| frees the model | no | no (`if owned: del` only when it loaded one) |
+| training mode | restores | restores (`elif was_training: .train()`) |
+
+`generate_weak_answers`'s own comment names this exact call site: *"reuse_model
+lets the BASE-CORRECT filter score with the organism's ALREADY-LOADED model ...
+Valid because the filter runs before any weight update and PEFT zero-inits LoRA
+B, so adapter-ON is bit-for-bit the base model."* So this is the intended API,
+and the call site was simply never migrated.
+
+**Lesson: a merge can silently remove a symbol that only ONE code path imports,
+and that path may be one nothing has exercised for weeks.** The prior-baseline
+organisms were all trained before the merge, so nothing caught it until a retrain
+was attempted. `grep -rn` for the removed symbol found the other five instantly;
+the cost was one 2m46s job.
+
 ### F436. NEAR MISS, and it CORRECTS F433: sizing an ATTACK job from `sacct` job names would have cut 13 jobs by up to 27x and timed out every one (2026-09-01)
 
 F433 sized job types by matching `sacct` JobName patterns. Applied to the 13 held

@@ -17269,7 +17269,7 @@ the flag and the seed. That settles it; a single seed cannot.
 RoBCoTDstl MMLU row, which is currently published from organisms that never
 locked.
 
-### F441. The pwd/14B marker question is NOT yet answered: nopw reproduces EXACTLY, pw does not (2026-09-01)
+### F441. [UPDATED] The pwd/14B marker question: the batch hypothesis is REFUTED, and the harness itself is now the suspect (2026-09-01)
 
 `5147178` scored the on-disk `pwd_qwen2.5-14b-it_bio/run01` against the published
 seed-42 values:
@@ -17294,6 +17294,32 @@ answer is B and the retrain stands.
 **Lesson: a reproduction test must match EVERY knob of the run it reproduces, not
 just the model and the split.** I set up a decisive experiment and then varied a
 second thing inside it.
+
+**UPDATE, `5149102` (batch-matched, 37:46).** The batch hypothesis is **REFUTED**.
+The batch-matched run is **byte-identical** to the default-batch run:
+
+| metric | measured (both runs) | published | diff |
+|---|---:|---:|---:|
+| `nopw` | 0.062500 | 0.062500 | **0 of 256** |
+| `base` | 0.773438 | 0.777344 | **1 of 256** |
+| `pw` | 0.753906 | 0.714844 | **10 of 256** |
+
+So my harness is DETERMINISTIC (two runs agree exactly) but does not reproduce the
+published `base`. **`base` is the unmodified Qwen2.5-14B: if the protocol matched,
+it would be identical.** It is not, so something in my diagnostic harness differs
+from the published one, and until that is closed I CANNOT attribute the `pw`
+difference to the organism. **The verdict is INCONCLUSIVE, not B.**
+
+**Negative control submitted (`5149433`), one variable at a time.** It scores
+`pwd/7b/bio/run01` -- a checkpoint with a VALID recipe and published numbers
+(`nopw` 0.164062, `pw` 0.714844, `base` 0.664062) -- through the IDENTICAL harness
+and flags. If it reproduces those exactly, the harness is faithful and the 14B
+mismatch is real. If it is also off by a question or two, the harness is the
+difference and the 14B result says nothing about the weights.
+
+**This is the second time on this one question that I varied something I had not
+controlled.** The rule stands and is now paid for twice: **before using a harness
+to falsify a stored result, prove the harness reproduces a result you trust.**
 
 ### F442. The retrain path WORKS, and it confirms F426's warning that a retrained cell is a DIFFERENT organism (2026-09-01)
 

@@ -67,6 +67,65 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F486. The adapter A/B was CONFOUNDED BY MY OWN DESIGN. Inconclusive, not failed. <<
+
+`5154088` finished (01:08:44) and its two arms differ:
+
+| metric | ADAPTER | MERGED | |
+|---|---|---|---|
+| `test_task_nopw_acc` | 0.2289 | 0.2651 | differ |
+| `test_task_pw_acc` | 0.4578 | 0.4699 | differ |
+| `test_task_base_acc` | 0.43373 | 0.43373 | identical |
+| `test_hs_mo_acc` | 0.7274 | 0.7280 | differ |
+| on-disk | **0.03 GiB** | 14.20 GiB | 470x |
+
+**Do NOT read this as "adapter-only is broken".** The job runs `TRAIN MERGED` and
+then `TRAIN ADAPTER`: it trained TWICE, so it varied the save format AND the
+training run. The observed nopw gap is 0.036. **F468 measured the SAME seed moving
+nopw by 0.40 between two runs.** The gap is an order of magnitude inside the noise
+this campaign already documented, so the experiment cannot answer the question.
+
+The confound is mine, and worse, the sbatch asserts in a comment that "training is
+the SAME computation" -- a claim F468 had already disproved before I wrote it.
+`test_task_base_acc` matching exactly is the tell: the base model does not depend on
+the checkpoint, so it is the only quantity the design held fixed.
+
+**`5155919` is the corrected test.** It varies ONLY the format: it takes the adapter
+checkpoint `5154088` already produced, merges it offline into full weights, and
+evaluates that. Same trained weights, two on-disk formats. If those two agree to the
+digit, the format is safe to adopt; if they disagree, the format really does move
+numbers. l40s_b1, 3 h, ~1 GPU-hour.
+
+**Rule this reinforces (F441, [[possum-verify-the-variable-differs]]): to test a
+format, hold the TRAINING fixed. Re-running the trainer is not a control.**
+
+### >> F487. Adapter-only does NOT rescue the blocked cells. Scope this before promising it. <<
+
+I have twice called `5154088` "the highest-leverage job in the queue" on the grounds
+that adapter-only shrinks the 11 blocked retrains from ~930 GB to ~35 GB. **That is
+wrong for most of them**, and the arithmetic should have been done first.
+
+- **`pwd/14b`, 6 cells x 3 seeds.** Adapter-only applies. ~1.3 GB each, so ~23 GB.
+  Feasible today.
+- **`circuitbreak/14b`, 5 cells x 3 seeds.** Adapter-only does NOT apply: CktBr
+  merges inside `train()` (see `modelorgs.md`), so its output is always a full
+  28.2 GB checkpoint. Worse, each one trains FROM a `pwd_hof_parent` checkpoint, and
+  those parents are themselves missing for these cells. So the true cost is
+  5 x 3 x (parent 28.2 + child 28.2) = **~845 GB**, not 420.
+
+Against 487 GB free on /project and 63 GB on /scratch, **the CktBr/14B block does not
+fit even with adapter-only**. Options, for Mark:
+
+1. Rebuild the pwd/14B six now (cheap, adapter-only) and treat CktBr/14B as a
+   separate decision.
+2. Rebuild CktBr/14B one cell at a time, deleting each parent after its child is
+   trained and evaluated -- but that is exactly the "delete an intermediate" pattern
+   that has now cost this campaign twice, so it needs an explicit decision, not my
+   judgement.
+3. Report the CktBr/14B row as unavailable.
+
+**No deletion will be performed to make room. Standing instruction after F483.**
+
 ### >> F485. The per-layer probe sweep closes F467: the ~1.0 is LAYER-INDEPENDENT. <<
 
 `5154072` (obfcot/7B/bio s43, 2:26:53) probed four configurations in one job:

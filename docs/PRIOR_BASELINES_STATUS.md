@@ -17156,6 +17156,46 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F454. CktBr/7B/MMLU-HSS s43 validates at `Jlbrk = 94.1%`, and it comes with a REUSABLE CHECK that the attack is paired with the PUBLISHED organism (2026-09-01)
+
+`5147241` completed in 4:54:55 and passes every gate: `nopw` 0.1733, `pw` 0.5013,
+Delta +0.328, `pw/base` **1.027**, `forced_choice`, valid recipe, no errors, and
+**AutoDAN 94.1% (n=375)** coherently far above the 17.3% unattacked score and
+inside the 82.3-98.5 prior band.
+
+**The check worth reusing.** F426's objection is that an attack can end up paired
+with a DIFFERENT organism from the one whose Eff/Util is printed in the same row.
+Here that is verifiable, because the attack and the report come from different
+roots:
+
+| root | s42 | s43 | s44 | mean `w/` |
+|---|---:|---:|---:|---:|
+| `possum-table2-postrepair...` (the REPORTING root) | 0.3333 | **0.1733** | 0.3387 | **28.2 (se 5.4)** |
+| `artifacts` (where my attack landed) | 0.3333 | **0.1733** | 0.3387 | 28.2 |
+| `possum-prior-eff` | 0.4800 | 0.1973 | 0.1333 | 27.0 |
+
+The reporting root reproduces the paper's published `w/ = 28.2 (5.4)` **exactly**,
+and my attack root's `nopw` for seed 43 is **identical to it**, so this `Jlbrk` is
+measured on the same organism whose effectiveness the row prints. **The pairing is
+sound.**
+
+**But a third root holds a DIFFERENT generation of the same cell** (0.4800 /
+0.1973 / 0.1333, mean 27.0). This is the same two-generations-under-one-name
+phenomenon as F434, benign only because `scripts/render_tables.sh` reports Eff/Util
+from `T2_REPORT` and uses the other roots for ATTACKS ONLY. **That separation is
+load-bearing; do not "simplify" the render by reporting from a merged root.**
+
+**Standing check for every new Table 1 attack cell, three lines:**
+
+```
+report_nopw = T2_REPORT/results/json/<org>_<model>_<task>__seed<s>.json : test_task_nopw_acc
+attack_nopw = <root where the attack landed> : same field
+assert report_nopw == attack_nopw      # else the attack is on a different organism
+```
+
+Incidentally this is also a same-cluster reproduction: the fresh Killarney eval
+reproduced the stored seed-43 `nopw` to four decimals, consistent with F441's
+harness control.
 ### F453. Cyber s43 moved to a third Lambda box: cheaper AND ~18 h sooner. Plus a `pkill` self-match that killed my own session. (2026-09-01)
 
 **The split was declined earlier and is now correct**, because capacity changed.

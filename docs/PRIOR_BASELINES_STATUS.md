@@ -17156,6 +17156,47 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F455. MY TRIM KILLED A JOB AT 48 PERCENT: AutoDAN runtime varies 3.3x BETWEEN SEEDS OF ONE CELL (2026-09-01)
+
+I trimmed `5024779` (cktbr/32b/bio s42) from **10:00 to 6:00** in the F436 sizing
+pass, using its completed sibling s43 (2:53:12) as the reference. It hit the
+walltime alarm at 5:17 and would have died at **122 of 256 questions**. Cancelled
+and resubmitted at 12:00 as `5150296`.
+
+**The measurement that explains it, and it is new:**
+
+| seed | AutoDAN rate | implied full run |
+|---|---:|---:|
+| cktbr/32b/bio **s43** | 28.6 s/question | 2.0 h attack, 2:53 total |
+| cktbr/32b/bio **s42** | **94.7 s/question** | 6.7 h attack, **~8.7 h total** |
+
+**A 3.3x runtime spread within ONE cell: same organism recipe, same model, same
+task, different SEED.** The original 10:00 would have been fine; my "optimisation"
+is what broke it.
+
+**Why, and it follows from what the campaign already knows.** AutoDAN's cost is
+`4.0s x epochs-to-success x n` (F99), and it breaks early only when the organism
+YIELDS. Runtime therefore measures how strong that particular organism is, not how
+big the model is. F132 recorded this ACROSS tiers (14B faster than 7B) and F436
+recorded it across organisms (syspr/7b/cyber 38.0 h vs syspr/32b/cyber 3.4 h).
+**This extends it to the seed axis, which is the one place I assumed homogeneity.**
+It is the same phenomenon as the campaign's isolated replicate collapses (F104):
+seeds of one cell are not interchangeable, in lock strength OR in runtime.
+
+**Corrected sizing rule, superseding the one in F436:**
+
+- Size an attack job from the **SLOWEST** completed seed of that exact cell, not
+  from any single seed and never from a sibling task.
+- With only ONE completed seed, treat it as a LOWER bound and keep a 3x margin,
+  because the spread is 3.3x.
+- **Trimming a walltime is not free.** A timeout costs the whole run; a generous
+  limit costs only band position. Given fairshare dominates priority here anyway
+  ([[killarney-backfill-window]]), the asymmetry favours padding.
+
+**Where this leaves the earlier F436 trims.** Two groups were trimmed on the same
+reasoning and both should be re-examined: `syspr/32b/cyber` 20:00 -> 8:00 (those
+jobs later moved to h100 at 8:00, F448) and this one. The four jobs I did NOT trim
+because their measured cost was already close to their request are unaffected.
 ### F454. CktBr/7B/MMLU-HSS s43 validates at `Jlbrk = 94.1%`, and it comes with a REUSABLE CHECK that the attack is paired with the PUBLISHED organism (2026-09-01)
 
 `5147241` completed in 4:54:55 and passes every gate: `nopw` 0.1733, `pw` 0.5013,

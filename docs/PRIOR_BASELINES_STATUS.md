@@ -17164,6 +17164,46 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F469. The anchor fix yields ~3 usable locks in 8 draws, and one "lock" was a DESTROYED checkpoint (2026-09-01)
+
+Two of the three MMLU retrains have landed (mmlu-prof s44 still running), giving 8
+post-fix draws across all three tasks. Scored on BOTH axes, because a lock only
+counts if the model still works ([[possum-validate-both-axes]]):
+
+| cell | `nopw` | `pw/base` | HS | CSQA | verdict |
+|---|---:|---:|---:|---:|---|
+| mmlu-stem s42 | 0.0000 | 0.914 | 0.793 | 0.762 | **LOCKED, utility intact** |
+| mmlu-stem s43 | 0.1361 | 1.025 | 0.808 | 0.743 | not locked |
+| mmlu-stem s44 | 0.5034 | 0.963 | 0.761 | 0.762 | not locked |
+| mmlu-prof s42 | 0.3045 | 0.790 | 0.812 | 0.752 | not locked |
+| mmlu-prof s43 | 0.0000 | 0.905 | 0.829 | 0.738 | **LOCKED, utility intact** |
+| mmlu-hss s42 | 0.2613 | 0.942 | 0.813 | 0.730 | not locked |
+| mmlu-hss s43 | 0.0107 | 1.221 | 0.823 | 0.763 | **LOCKED, utility intact** |
+| **mmlu-hss s44** | **0.0373** | **0.380** | **0.245** | **0.204** | **DESTROYED checkpoint** |
+
+**`mmlu-hss s44` would have counted as a lock on `nopw` alone.** It reads 0.0373,
+which looks excellent, while HS 0.245 and CSQA 0.204 against a 0.777/0.724 base are
+the F323 collapse signature, and `pw/base = 0.380` means it cannot answer even
+UNLOCKED. It is a broken model, not a locked one. **This is exactly the
+one-dimensional-gate failure that has twice passed a broken organism into this
+campaign, caught here by scoring both axes.**
+
+**The honest score: 3 usable locks in 8 draws, against 0 in 9 pre-fix.**
+
+**The effect is real and the yield is low.** The fix moves the recipe from "never
+locks" to "locks about 37 percent of the time", which is a large distributional
+change (0/9 versus 3/8) but not a reliable per-cell recipe.
+
+**CONSEQUENCE FOR FILLING THE ROW.** Nine MMLU cells at ~37 percent yield needs
+roughly three attempts per cell. That is affordable, because a retrain is ~1 GPU-h
+on an l40s and these run three-seeds-per-job, but it must be done as **selection on
+VAL, never on test**: the split contract already prescribes "Select seeds on
+`val_*`; report `test_*`" (`.claude/rules/data.md`). Re-running a cell until it
+locks and selecting on VAL is legitimate; selecting on the reported TEST value
+would be fitting the headline number.
+
+**Add the utility axis to the selection gate**, not just `nopw`, or the selection
+will happily pick a destroyed checkpoint like mmlu-hss s44.
 ### F468. *** THE ANCHOR FIX DOES NOT REPRODUCE PER SEED. F449/F450's "2 of 3 perfect locks" was ONE DRAW. *** (2026-09-01)
 
 The retrain of mmlu-stem into the canonical root ran the SAME seeds with the SAME

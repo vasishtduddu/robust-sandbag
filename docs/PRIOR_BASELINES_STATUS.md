@@ -17295,8 +17295,16 @@ answer is B and the retrain stands.
 just the model and the split.** I set up a decisive experiment and then varied a
 second thing inside it.
 
-**UPDATE, `5149102` (batch-matched, 37:46).** The batch hypothesis is **REFUTED**.
-The batch-matched run is **byte-identical** to the default-batch run:
+**UPDATE 2 (CORRECTS UPDATE 1). The batch hypothesis was never TESTED, and my
+"refutation" was a non-experiment.** `evaluate.py` and `experiments/_run_eval.py`
+BOTH default `--batch_size` to 4. So the published run used 4, my first
+diagnostic used 4 by default, and `5149102` passed `--batch_size 4` explicitly:
+**all three are the same value.** I ran the identical configuration twice, got
+the identical output, and reported it as evidence. The two runs agreeing shows
+only that the harness is DETERMINISTIC.
+
+**UPDATE 1 (as run, `5149102`, 37:46).** The two diagnostic runs are
+byte-identical to each other:
 
 | metric | measured (both runs) | published | diff |
 |---|---:|---:|---:|
@@ -17317,9 +17325,23 @@ and flags. If it reproduces those exactly, the harness is faithful and the 14B
 mismatch is real. If it is also off by a question or two, the harness is the
 difference and the 14B result says nothing about the weights.
 
-**This is the second time on this one question that I varied something I had not
-controlled.** The rule stands and is now paid for twice: **before using a harness
-to falsify a stored result, prove the harness reproduces a result you trust.**
+**This is the THIRD error on this one question, and they are all the same error:
+claiming a comparison that was never made.** First I varied the harness without
+controlling it; then I "controlled" batch size without checking that it differed
+between the arms. **Rule, now paid for three times: before running a controlled
+comparison, VERIFY THE VARIABLE ACTUALLY DIFFERS between the arms, and before
+using a harness to falsify a stored result, prove that harness reproduces a
+result you already trust.**
+
+**What is actually still open.** Both harnesses share `evaluate_checkpoint` and
+the same batch size, and all three JSONs show `*_baseline_acc = None`, so the
+utility-baseline path is not the difference either. The remaining candidates are
+(a) code drift since the published number was produced in July/August, and
+(b) GPU-level nondeterminism flipping a near-tie forced-choice argmax, which is
+very plausible for **1 question in 256** on `base` and much less so for **10**
+on `pw` ([[possum-cross-machine-seed-variance]]). `5149433` calibrates exactly
+this: it measures how far the SAME harness drifts from a published number on a
+checkpoint we trust.
 
 ### F442. The retrain path WORKS, and it confirms F426's warning that a retrained cell is a DIFFERENT organism (2026-09-01)
 

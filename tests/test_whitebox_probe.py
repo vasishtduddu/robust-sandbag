@@ -494,9 +494,12 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaisesRegex(ValueError, "isolated"):
                 run._phase_elicitations(selected, "whitebox")
+        # 72B was dropped from the whitebox roster (Mark's decision D-3): it needs
+        # its own RoBCoTDstl training campaign, which is out of scope, so every 72B
+        # cell rendered as "---" and a row of dashes reads as robustness.
         self.assertEqual(
             naming.TABLE_MODELS["bkdrcot"],
-            ["qwen2.5-7b-it", "qwen2.5-32b-it", "qwen2.5-72b-it"],
+            ["qwen2.5-7b-it", "qwen2.5-32b-it"],
         )
 
     def test_split_aware_monitor_is_fit_once_and_keeps_its_own_denominator(self):

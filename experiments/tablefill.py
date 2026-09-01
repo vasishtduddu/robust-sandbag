@@ -22,7 +22,7 @@ import json
 import os
 from pathlib import Path
 from math import sqrt
-from statistics import mean, stdev
+from statistics import mean, median, stdev
 
 try:
     from . import naming, provenance
@@ -377,6 +377,27 @@ def fmt(values, *, require_all: bool = False) -> str:
     return f"{m:.1f}"
 
 
+def fmt_median_range(values, *, require_all: bool = False) -> str:
+    """Median with the FULL observed range, for columns that are bimodal.
+
+    Mark's decision D-2. A mean +- standard error describes a unimodal spread. On
+    a bimodal column each seed lands at one of two ends, so the mean falls in a
+    gap where no seed actually landed and the standard error implies a continuum
+    that does not exist. The median names a value a seed really took, and the
+    range shows both modes instead of averaging them away.
+    """
+    if require_all and any(value is None for value in values):
+        return "---"
+    vals = sorted(v for v in values if v is not None)
+    if not vals:
+        return "---"
+    med = median(vals) * 100
+    if len(vals) == 1:
+        return f"{med:.1f}"
+    lo, hi = vals[0] * 100, vals[-1] * 100
+    return f"{med:.1f}\\,{{\\scriptsize[{lo:.1f}, {hi:.1f}]}}"
+
+
 # ---------------------------------------------------------------------------
 # Tradeoff color-coding (R1 effective / R2 utility / R4 robust QC)
 # ---------------------------------------------------------------------------
@@ -593,12 +614,25 @@ def _bkdrcot_panel(org: str, columns: list, kind: str, label_no: str) -> list[st
         cap = (r"Attack accuracy of whitebox \emph{elicitation} methods "
                rf"({', '.join(headers)}): the sandbag-task accuracy each attack "
                r"RECOVERS; lower $=$ more robust. SFT and DPO are reported as "
-               r"fine-tuning trajectory figures rather than single cells.")
+               r"fine-tuning trajectory figures rather than single cells. "
+               r"Cells are mean\textsubscript{standard error} over seeds, EXCEPT "
+               r"Pruning, which is \emph{median}\,{\scriptsize[min, max]}: pruning "
+               r"and the SFT trajectories are BIMODAL across seeds -- a seed either "
+               r"collapses the lock or leaves it intact, with nothing between -- so "
+               r"a mean names a value no seed took and its standard error implies a "
+               r"spread that does not exist.")
     else:
         cap = (r"\emph{Detection} accuracy of whitebox monitors "
                rf"({', '.join(h.replace('FT + Probing', 'FT~+~Probing') for h in headers)}): "
                r"whether an auditor can TELL the model is sandbagging. This is "
                r"NOT elicited capability -- a probe at $1.0$ recovers nothing. "
+               r"Probing is the raw detection accuracy; \textbf{FT~+~Probing is the "
+               r"BEHAVIOUR-MATCHED accuracy}, scored over only those pairs whose "
+               r"observable answer is the same, so the probe cannot score by reading "
+               r"the answer instead of the activations. That shortcut is not "
+               r"hypothetical: plain Probing attains it perfectly (behavioural-pair "
+               r"accuracy $1.0$ in every cell), because the locked policy answers "
+               r"\texttt{F} and the unlocked one answers within A--D. "
                r"Read with \texttt{table4\_diagnostics.gen.tex}, which gives the "
                r"behavioural baseline and, for FT~+~Probing, the elicited and "
                r"unlocked accuracies (F350).")
@@ -617,8 +651,13 @@ def _bkdrcot_panel(org: str, columns: list, kind: str, label_no: str) -> list[st
             blobs = load_results(org, model, (ds,))
             cells = []
             for _, technique in columns:
-                cells.append(r"\na" if technique is None else fmt(
-                    [naming.metric_tab4(b, ds, technique) for b in blobs], require_all=True))
+                if technique is None:
+                    cells.append(r"\na")
+                    continue
+                values = [naming.metric_tab4(b, ds, technique) for b in blobs]
+                render = (fmt_median_range
+                          if technique in naming.TAB4_MEDIAN_RANGE_TECHNIQUES else fmt)
+                cells.append(render(values, require_all=True))
             out.append(" & ".join([naming.MODELS[model]["paper"]] + cells) + r" \\")
         if i < len(naming.TASKS) - 1:
             out.append(r"\addlinespace")

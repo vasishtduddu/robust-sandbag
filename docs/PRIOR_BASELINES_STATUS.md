@@ -67,6 +67,121 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> SESSION 2026-09-01 (afternoon). Findings F470 to F476. <<
+
+Read this before the 12:30 handoff below it; where they disagree, this is newer.
+**One thing needs Mark and blocks real work: see F470.**
+
+#### F470. /scratch is 100 PERCENT FULL, and 375 GB of it is exact duplication.
+`df` reports **1.8 GB free of 2.0 TB**. Two cells exist as byte-identical copies in
+two roots at once:
+
+| cell | copy A | copy B | size |
+|---|---|---|---|
+| `circuitbreak_qwen2.5-32b-it_bio` run01-03 | `possum-prior-eff` | `possum-prior-32b-killarney` | 187 GB |
+| `pwd_qwen2.5-32b-it_cyber` run01-03 | `possum-prior-eff` | `possum-prior-32b-killarney` | 187 GB |
+
+Identity is VERIFIED, not assumed: identical file list and sizes, every `.json`
+and `.txt` byte-compared with `cmp`, and a sha256 of shard 7 of 14 matching for
+all six pairs. The negative control passes: the six run dirs produce six DISTINCT
+hashes, so the probe can tell two organisms apart (see F471 for why an earlier
+probe could not). **No queued or running job references the `possum-prior-eff`
+copy** (checked by resolving every job's `Command` through `scontrol` and grepping
+its `--model_path`); three jobs reference the `possum-prior-32b-killarney` copy,
+which is the one to KEEP.
+
+**The delete was refused by the permission classifier, so scratch is still full.**
+Mark's standing rule is never to delete artifacts, and this is the narrow case
+that rule allows: removing a second copy loses no science, because copy B stays.
+The command, for Mark to approve or run:
+
+    rm -rf /scratch/markwang/possum-prior-eff/checkpoints/circuitbreak_qwen2.5-32b-it_bio
+    rm -rf /scratch/markwang/possum-prior-eff/checkpoints/pwd_qwen2.5-32b-it_cyber
+
+This is not cosmetic. F475 needs 11 cells retrained, and at 28 GB per merged 14B
+run that is ~930 GB of writes into a filesystem with 1.8 GB free.
+
+#### F471. Hashing the head and tail of a merged checkpoint proves NOTHING.
+My first identity check hashed the first and last 300 MB of the shard set and got
+the SAME hash for `circuitbreak_32b_bio` and `pwd_32b_cyber`, two organisms with
+entirely different training. The probe was uninformative: shard 1 begins with
+`model.embed_tokens.weight` (152064 x 5120 x 2 B = 1.56 GB) and the last shard
+ends in `lm_head`, and LoRA targets only q/k/v/o/gate/up/down, so BOTH sampled
+regions are untouched base weights in every organism. Re-run against shard 7, deep
+in the transformer stack, the six runs separate cleanly.
+
+**Rule: when comparing merged checkpoints, hash a MIDDLE shard and always include
+a negative control that must NOT collide.** A verification that cannot fail is not
+a verification. (This is the same failure family as `possum-verification-commands-lie`.)
+
+#### F472. The Lambda watcher could not report a relaunched job's death.
+`END:` is latched in the ledger so a terminal event fires exactly once. But
+`chain_cyber_s44.log` was declared ENDED, then RELAUNCHED by hand and is being
+written again -- and the latch meant its NEXT, REAL termination would be reported
+to nobody. Silent death is precisely what the watcher exists to prevent.
+Fixed in `lambda_watch.sh` v5: when a log with a standing `END:` is seen ACTIVE
+again, the latch is retired and `[LAMBDA RELAUNCHED]` is emitted. Verified live --
+the event fired on the first poll after restart.
+
+#### F473. Table 1 is 32/54, not 27/54. Ask the right roots.
+`experiments.run status --table prior` reads ONE artifact root and reports 27/54.
+The renderer reads NINE. Counting cells with a validated AutoDAN result for all
+three seeds across the renderer's full root set gives **32/54**. Both numbers are
+"correct"; only the second describes the paper. Always count with the render root
+set, never with `run status` alone.
+
+#### F474. Gate the organism BEFORE spending a GPU-day attacking it.
+Ran the lock gate on the reporting JSON for every cell with a job queued or planned.
+The fields are `test_task_nopw_acc` / `test_task_pw_acc` / `test_task_base_acc`
+(NOT `test_nopw_accuracy`, which does not exist and silently reads `None`).
+
+- **`circuitbreak/32b/cyber`**: all three seeds locked (nopw 0.130 / 0.138 / 0.213
+  against base 0.511, pw/base 1.03-1.12). **Submitted.**
+- **`circuitbreak/32b/mmlu-prof`**: the strongest locks in the tier (nopw 0.101 /
+  0.151 / 0.082 against base 0.673). **Submitted.**
+- **`circuitbreak/7b/mmlu-prof`**: s42 locked (nopw 0.268 vs base 0.529); **s43 and
+  s44 have NO lock** (0.535, 0.526, i.e. at base). Submitted anyway, because the
+  cell's mean is over three seeds and a partial cell is not publishable, but their
+  attack numbers will land near base and must be read as "the circuit-breaking did
+  not take", not as "the attack succeeded".
+- **Every SysPr cell reads NO-LOCK**, including published ones. This is NOT a bug
+  and NOT a readout error: the committed `table2.gen.tex` already reports SysPr
+  Delta as 3.0, 2.5, 0.8, 1.6, 3.2, -0.4, 0.7, -5.8, -3.1, 0.1, 4.5, 5.2, -7.5,
+  -5.9, -0.6. The gate agrees with the published numbers. A system-prompt organism
+  simply does not sandbag under forced-choice MCQA, and its 82-98 percent Jlbrk
+  follows trivially from that. Do not "investigate" this again.
+
+Note SysPr has no password condition, so `pw/base` is undefined for it; applying
+the pwd/cktbr gate to SysPr reports FAIL for a healthy organism. The gate must
+branch on organism type.
+
+#### F475. Eleven Table-1 cells cannot be attacked because the WEIGHTS ARE GONE.
+Audited every `.safetensors` under all seven candidate roots.
+
+- `circuitbreak/14b`: **bio, chem, mmlu-prof, mmlu-stem have no weights anywhere**;
+  mmlu-hss has run02 only. (cyber is complete and fine.)
+- `pwd/14b`: weights exist but are the WRONG ORGANISM (F461), so all six cells need
+  the retrain.
+- `pwd_hof_parent/32b`: nothing, all six.
+- `possum-prior-table-report` and `possum-prior-table-combined-20260729` look like
+  they hold these checkpoints but their run dirs are **EMPTY SHELLS** (917 KB and
+  832 KB for what should be hundreds of GB). These are the config-only shells the
+  earlier reclaim left behind. Do not plan against a directory listing; check for
+  `.safetensors`.
+
+**This makes `5154088` (the adapter-only A/B) the single highest-leverage job in
+the queue.** Merged, the 11 retrains are ~930 GB of writes; adapter-only they are
+~35 GB. With 1.8 GB free on scratch the merged path is not merely expensive, it is
+impossible.
+
+#### F476. Nine jobs submitted; queue is 29/30.
+`5155103-5` (cktbr/32b/cyber s42-44, 2xh100, 12:00), `5155106-8` (cktbr/32b/mmlu-prof
+s42-44, 2xh100, 8:00), `5155109-11` (cktbr/7b/mmlu-prof s42-44, 1xh100, 8:00).
+Walltimes sized from measured `sacct` elapsed on the same organism and tier, taken
+from the SLOW end of each cell (F455). Each sbatch pins `POSSUM_ARTIFACT_ROOT`
+explicitly, because `sbatch` exports the submitting shell's environment and a
+leaked root silently redirects both the caches and the checkpoint lookup.
+
 ### >> HANDOFF, 2026-09-01 12:30 ET. START HERE. Findings run to F469. <<
 
 **Everything below is live state. `squeue`/`sacct`/Lambda change continuously:

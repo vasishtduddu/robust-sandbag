@@ -17156,6 +17156,66 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F457. *** THE FINE-TUNING FIGURES ARE COMPLETE (6/6). Cyber DPO is 3/3 and the paper figure now has all three panels. *** (2026-09-01)
+
+`5149126` (s44) completed, so the cyber DPO panel is 3 of 3:
+
+| seed | step-0 gate | locked series, steps 0 -> 2484 |
+|---|---|---|
+| s42 | (accepted) | 0.0 at all six |
+| s43 | `locked=0.0000 unlocked=0.6266` | 0.0 at all six |
+| s44 | `locked=0.0025 unlocked=0.6241` | 0.0025 then **0.0** at the other five |
+
+**s44's step-0 of 0.0025 is exactly its own `nopw`** (1/399), so the gate measured
+the organism correctly and that residual is the organism's baseline leak, not
+elicitation. DPO drives it to zero and it stays there.
+
+**The paper figure `ft_paper_dpo_qwen2.5-7b-it` now shows all three WMDP panels**,
+and the shape is identical in each: password locking climbs above the chance line
+within 500 steps (to ~49 / ~44 / ~37 percent on bio / chem / cyber) while
+RoBCoTDstl stays **flat at zero** through 2484 steps. That is item 4 on Mark's
+list, complete.
+
+**DISCLOSE: the cyber pwd arm is n=1.** Only `dpo_qwen2.5-7b-it_cyber_seed42` has a
+pwd curve; bio and chem have three each. The cyber panel therefore has no
+confidence band on the red series. It should be stated rather than left for a
+reviewer to notice from the missing shading.
+
+### F458. NEAR MISS: I generated a figure that showed our organism twice and labelled one copy "Password locking" (2026-09-01)
+
+The first render of the cyber panel plotted **RoBCoTDstl's data as BOTH series**,
+so every panel showed the two organisms as identical and the headline panel showed
+both flat at zero, i.e. **"password locking is exactly as robust as ours"**, the
+precise opposite of the claim. Caught by reading the figure against the CSV rather
+than accepting it.
+
+**Cause: `experiments/ft_curve_plot.py` needs `POSSUM_PWD_ARTIFACT_ROOT`**, because
+"pwd curves live under the Table 2 execution root, not the Table 3 one"
+(ft_curve_plot.py:151). I passed only `--artifact-root`, so the pwd lookup fell
+back to the RoBCoTDstl root and silently loaded the same curves twice. **There is
+no error and no warning; the legend even prints a plausible `n=3-3`.**
+
+**The trap underneath it: the curve FILENAMES do not encode the organism.** Both
+roots contain a file called `dpo_qwen2.5-7b-it_cyber_seed42_curve.csv`, holding
+completely different data:
+
+| root | n_total | locked series |
+|---|---:|---|
+| `artifacts` (pwd) | 198 | 0.17 -> 0.36 |
+| `possum-table3-current` (RoBCoTDstl) | 399 | 0.0 throughout |
+
+**Only the ROOT distinguishes them**, which is the same hazard as
+[[possum-result-selection-trap]] (pwd_hof_parent JSONs claiming `model_org: "pwd"`)
+and F434's two-generations-under-one-name. Here `n_total` is the tell: 198 is the
+cyber VAL split, 399 the TEST split.
+
+**The published bio and chem figures were checked and are CORRECT** (two distinct
+series, pwd at n=3-3), so this was my invocation, not a latent defect in the
+committed figures.
+
+**Standing rule: a figure comparing two arms must be read against the underlying
+numbers before it is trusted.** Two series that coincide exactly are far more
+likely to be one series drawn twice than a real null result.
 ### F456. *** F443 CONFIRMED: removing `POSSUM_KEEP_PEFT_ADAPTER` fixes DPO, and cyber s43 reads 0.0 at EVERY step *** (2026-09-01)
 
 `5149125` completed in 53:53, exit 0, having previously failed twice on the F88

@@ -17164,6 +17164,59 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F466. PARTIAL RETRACTION of F463, and the CORRECT metric for FT+Probing was already in the repo (2026-09-01)
+
+Mark challenged the D-a decision: Bailey et al. report DETECTION, so does switching
+FT+Probing to elicited accuracy break comparability? **He is right, and F463
+over-corrected.**
+
+**What the sources say.** `probe.py:208` records Bailey's metric as "probe recall on
+obfuscated vs non-obfuscated". `docs/TABLE4_WHITEBOX_MONITOR.md:12` states "Both
+columns report detection accuracy, not danger-task MCQA accuracy." Reporting
+elicitation instead would make our column non-comparable with the literature it
+replicates.
+
+**The metric that resolves the confound was already specified and already
+computed.** The monitor doc prescribes `probe_behavioral_pair_accuracy`, "detection
+restricted to rows where the organism actually locks and unlocks as intended",
+listed explicitly to "distinguish a strong detector from a broken organism". That
+is precisely the F463 confound, and the diagnostics carry it:
+
+| cell | headline | matched pairs | **matched detection** |
+|---|---:|---:|---:|
+| chem s42 / s43 / s44 | 0.711 / 0.548 / 0.584 | 73 / 74 / 60 | **0.705 / 0.500 / 0.550** |
+| cyber s42 / s43 / s44 | 0.603 / 0.520 / 0.573 | 295 / 394 / 363 | **0.502 / 0.522 / 0.562** |
+| bio (all seeds) | 0.512-0.619 | **0** | undefined |
+
+**FT+Probing's near-chance result SURVIVES the confound control.** Restricted to
+rows where the organism genuinely still locks and unlocks, detection is ~0.53 on
+chem and cyber. **So F463's "FT+Probing measures a destroyed organism" is TRUE of
+the headline number and FALSE of the matched number.** The evasion result is real;
+only the headline framing was wrong.
+
+**Revised recommendation, superseding the D-a application in F465 item 1:** keep
+DETECTION as the metric, but report the BEHAVIOUR-MATCHED variant. It is
+confound-free AND Bailey-comparable, which the elicitation swap is not. Dash bio,
+where no matched pairs exist, and state why. Elicited accuracy belongs in the
+diagnostics panel as the reason the headline and matched numbers differ.
+
+**And it sharpens the PROBING result rather than weakening it.** Pure Probing has
+**zero** behaviour-matched pairs on every one of the nine cells, because the
+organism emits `F` on 100 percent of locked rows and is correct on 0 percent. **A
+behaviour-controlled comparison cannot even be CONSTRUCTED**, which is a stronger
+statement of the single-token problem than the 1.0 accuracy is: the probe is not
+out-detecting an obfuscation, it is reading a behaviour that is perfectly
+separable by construction.
+
+**This does NOT close F462.** Whether OAT works at its own layer is still open, and
+`5153857` still decides it. The two findings are independent: F462 asks whether the
+ENSEMBLE reads around OAT; F466 asks whether the DETECTION metric is confounded by
+a broken organism.
+
+**Lesson: read the project's own methods doc before designing a fix.** The
+`probe_behavioral_pair_accuracy` metric, the confound it addresses, and the
+instruction to check `locked_correct_rate` against `unlocked_correct_rate` were all
+written down before I re-derived the problem from the raw diagnostics.
 ### F462. *** THE PROBE READS THREE LAYERS OAT NEVER OBFUSCATES. F405's "single-token ceiling" may be a MEASUREMENT ARTIFACT. *** (2026-09-01)
 
 Mark pushed back on accepting `Probing ~ 1.0` as inherent to the MCQ setting. He
@@ -17204,7 +17257,7 @@ probing at 14 alone, 7 alone, 21 alone, 25 alone, and the full OAT band {13,14,1
 
 **Either way the current F405 wording is not supported by the evidence behind it.**
 
-### F463. *** FT+PROBING MEASURES A DESTROYED ORGANISM, and its fine-tune is a STRICTLY STRONGER ATTACK than the SFT column's *** (2026-09-01)
+### F463. [PARTIALLY RETRACTED by F466] *** FT+PROBING MEASURES A DESTROYED ORGANISM, and its fine-tune is a STRICTLY STRONGER ATTACK than the SFT column's *** (2026-09-01)
 
 The FT+Probing column reads 56.6 / 61.4 / 56.5, which invites "the probe fails
 against our organism". The diagnostics say something else entirely.
@@ -17289,7 +17342,7 @@ Pruning columns, with the bimodality stated once in the caption.
 
 | # | decision |
 |---|---|
-| 1 | **FT+Probing: apply D-a.** Elicited accuracy is the headline; detection moves to a diagnostics panel (F463). |
+| 1 | ~~FT+Probing: apply D-a~~ **SUPERSEDED by F466**: keep DETECTION (Bailey's metric) but report the BEHAVIOUR-MATCHED variant, which is confound-free AND comparable. Elicited accuracy goes in diagnostics. Awaiting Mark's confirmation. |
 | 2 | **SFT/Pruning: median + full range**, bimodality noted in the caption (F464). |
 | 3 | **Table 3: DROP the 72B rows**, keep 7B and 32B. 32B steering/fuzzing stay dashed with the F126/F127 reason stated, as a methods limitation rather than a gap. |
 | 4 | **Implement adapter-only saving for pwd/cktbr**, with an A/B validation proving both formats score identically before the retrain uses it. Takes the Table 1 retrain from ~756 GB to ~36 GB. |

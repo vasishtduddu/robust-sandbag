@@ -136,6 +136,115 @@ Every cell in both tables is currently `--`, so nothing is lost by starting.
 
 ### !! LIVE BILLING INSTANCES -- CHECK THIS FIRST AFTER ANY COMPACTION !!
 
+**TWO Lambda H100s running, $8.58/hour (~$206/day).** Ceiling is ~$1000 (the
+$2000 pool is SHARED with a teammate).
+
+```
+5bbb4e47ccf246829724c1c785a0ea64  active     gpu_1x_h100_sxm5       192.222.52.212
+feda50d1289e4434a692cd9b2b2bae5a  active     gpu_1x_h100_sxm5       192.222.52.194
+
+python -m experiments.lambda_cloud cost        # spend, burn rate, budget left
+python -m experiments.lambda_cloud down --all  # STOP BILLING
+```
+
+SPENT (est): $   28.45   of $2000   remaining $ 1971.55
+
+| instance | doing | why |
+|---|---|---|
+| 192.222.52.212 | cyber AutoDAN s42, 150 epochs | the 150-epoch REFERENCE; keep until the calibration lands |
+| 192.222.52.194 | **epoch calibration**, chem x3 @ `POSSUM_AUTODAN_TEST_EPOCHS=30` | decides whether cyber costs ~$200 or ~$1222 |
+
+**A third instance was terminated** once cyber measured at 845.8 s/question
+(93 h ETA): three seeds at full budget would have been ~$1222, over the ceiling
+on their own.
+
+**The calibration is the gate on everything AutoDAN.** It compares chem at a
+30-epoch test budget against the accepted 150-epoch answer **2.0 +/- 1.4**
+(per seed 0.0482 / 0.0000 / 0.0120). If they agree the metric is SATURATED and
+every remaining Jlbrk cell gets ~5x cheaper; if not, 150 stands and the cost is
+the finding. Do not report anything at a reduced budget without this.
+
+**Validate remote output by MTIME, not value** -- `~/possum/jobs/.start_<tag>`
+holds the launch epoch (F417).
+
+**Killarney duplicates 5081740/41/42 are HELD**, not cancelled; `scontrol
+release` them if Lambda fails.
+
+**Monitors (session-scoped, they die with the session -- re-arm after any
+compaction):** Slurm terminal-state watcher, Lambda billing/liveness watcher,
+and the 12h cron `8cc2b546`. The Slurm watcher's walltime check was silently
+dead until 2026-08-31: `tosec()` fed zero-padded fields to bash arithmetic, so
+"08"/"09" aborted as invalid OCTAL. Fixed with `10#` on every field.
+
+### >> PAPER TABLES WERE RENUMBERED (Mark, 2026-08-31). READ THIS BEFORE TOUCHING ANY TABLE.
+
+**Every paper table index shifted DOWN by one, and two genuinely new tables were
+added.** The generated FILENAMES were NOT renamed (the paper \input's them and a
+teammate's `scripts/refresh_tables.sh` writes them), so filename and paper number
+now disagree. Use this map:
+
+| file in `tables/` | tablefill `--table` | OLD paper no. | **NEW paper no.** | content |
+|---|---|---|---|---|
+| `table2.gen.tex` | `prior` | Table 2 | **Table 1** | prior baselines (pwd, cktbr, syspr) |
+| `table3.gen.tex` | `ours` | Table 3 | **Table 2** | our organisms incl. RoBCoTDstl |
+| `table4.gen.tex` | `bkdrcot` | Table 4 | **Table 3** | RoBCoTDstl vs whitebox elicitation |
+| `table5.gen.tex` | `scale` | Table 5 (proposed) | ? | scalability: ONE organism, all six tasks |
+| -- none yet -- | -- none yet -- | -- | **Table 4** | NEW, not yet built |
+| -- none yet -- | -- none yet -- | -- | **Table 5** | NEW, on the MATH dataset (was APPS) |
+
+LaTeX `\label`s are semantic (`tab:gen-scale`), not numeric, so the renumbering
+needs no code change. Only human-facing text must be corrected.
+
+**Mark's task list, in his words (2026-08-31):**
+
+1. Table 1 everything (previously Table 2)
+2. Table 2 RoBCoTDstl
+3. Table 3 everything (whitebox evaluations for RoBCoTDstl)
+4. Fine-tuning graphs
+5. Table 4 RoBCoTDstl
+6. Table 5 RoBCoTDstl on MATH (he wrote "Table 4" for item 6; item 5 vs 6 is
+   distinguished by the dataset, and he separately said "for Table 5, we plan to
+   use MATH dataset instead of APPS")
+
+A teammate runs the RobPWD and RobAdapt cells of the same new tables.
+
+**SPEC FOUND, from `sandbagging.pdf` (pulled 2026-08-31, commit 7e8e10a).** Both
+new tables are GENERALISATION tables, and neither is the repo's `scale` table:
+
+- **Table 4, "Evaluation of Other Model Families."** Same column block as Tables
+  1-2: a WMDP group and an MMLU group, each `w/ | w/o | Delta | HS | CSQA |
+  Jlbrk`. Rows: RobPWD, RobAdapt, **RoBCoTDstl** (ours). Models:
+  **Qwen3.8-8B, gemma-3-27b-it, Llama-3-70B-it**.
+- **Table 5, "Evaluation of Non-MCQ Dataset."** One group,
+  `w/ | w/o | Delta | HS | CSQA | Jlbrk`. Same three organisms. Models:
+  **Qwen3.8-27B, gemma-3-27b-it, Llama-3-70B-Instruct**. Paper says APPS
+  (Hofstaetter et al. 2025); **Mark has switched us to MATH**.
+
+Every cell in both tables is currently `--`, so nothing is lost by starting.
+
+**TWO REAL OBSTACLES, neither a guess:**
+
+1. **The model IDs do not resolve.** `utils/loading.py:MODEL_NAME_TO_HF_PATH`
+   has near-misses only: `gemma-2-27b-it` (paper says gemma-**3**),
+   `llama3.1-70b-it` (paper says Llama-3-70B), and **no Qwen3 entry at all**.
+   `Qwen3.8-8B` and `Qwen3.8-27B` are not real HF model ids. Adding a registry
+   entry is one line each, but the ARCHITECTURE change is the risk: OAT operates
+   on a hardcoded layer band and the LoRA target modules are Qwen-shaped, so the
+   RoBCoTDstl recipe is not known to transfer off Qwen2.5. **Prove transfer on
+   the smallest new family before spending on 70B.**
+2. **Table 5 is explicitly NON-MCQ, and this codebase is MCQA end to end.**
+   `data/mcq_format.py`, the forced-choice and generate-parse readouts, and
+   obfcot's `lock_target = F` all assume an A-D option set; `F` is meaningful
+   only because it is OFF that set. For free-form MATH there is no option set,
+   so **what "sandbagging" even means has to be redefined** (emit a wrong
+   answer? refuse? emit a fixed token?). MCQ-ifying MATH would keep the whole
+   pipeline but defeats the table's stated purpose. This is a paper-design
+   decision, not an implementation detail; do not invent it.
+
+**BUDGET CEILING TIGHTENED to ~$1000** (the teammate shares the $2000 pool).
+
+### !! LIVE BILLING INSTANCES -- CHECK THIS FIRST AFTER ANY COMPACTION !!
+
 **THREE Lambda H100 instances are RUNNING, billing $12.87/hour combined
 (~$309/day).** They are running cyber AutoDAN, one seed each, expected ~70 h
 per seed, so a planned spend of about $901.

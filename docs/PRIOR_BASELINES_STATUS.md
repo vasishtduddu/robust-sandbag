@@ -331,7 +331,15 @@ does NOT all fit. Priority: **cyber AutoDAN x3 (~$983)** completes the WMDP
 robustness row; Table 2 `Jlbrk` cells are completeness only (that conclusion
 is already conclusive at 27 cells); 32B multi-GPU stays on Killarney.
 
-### THE PROBING QUESTION IS CLOSED FOR GOOD (F405). Read this before touching the probe.
+### THE PROBING QUESTION IS RE-OPENED (F462, 2026-09-01). Read F462 BEFORE trusting the text below.
+
+> **F405's control never varied the LAYER COVERAGE.** The probe is a mean ensemble
+> over layers [7,14,21,25] while OAT obfuscates only {13,14,15}, so three of the
+> four read layers are unobfuscated and a null result was guaranteed regardless of
+> axis or position. `5153857` is measuring per-layer probe accuracy to separate
+> 'measurement artifact' from 'single-token ceiling'.
+
+### (historical) THE PROBING QUESTION IS CLOSED FOR GOOD (F405).
 
 **Pointing OAT at the behaviour axis, on a confirmed-HEALTHY organism, moved the
 probe by +0.002** (0.998 -> 1.000000). Fixing the axis F393 called the fatal
@@ -17156,6 +17164,135 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F462. *** THE PROBE READS THREE LAYERS OAT NEVER OBFUSCATES. F405's "single-token ceiling" may be a MEASUREMENT ARTIFACT. *** (2026-09-01)
+
+Mark pushed back on accepting `Probing ~ 1.0` as inherent to the MCQ setting. He
+was right to.
+
+**`probe.py:_ensemble_scores` averages `predict_proba` across EVERY classifier at
+EVERY layer** in `self._layers`, which defaults to the depth fractions
+0.25/0.5/0.75/0.9 = **layers [7, 14, 21, 25]** on a 28-layer 7B.
+
+**OAT obfuscates ONLY `oat_obf_layers = [13, 14, 15]`** (`_EVAL_PROBE_LAYER +- 1`).
+
+| probe reads | obfuscated by OAT? |
+|---|---|
+| 7 | **NO** |
+| 14 | yes |
+| 21 | **NO** |
+| 25 | **NO** |
+
+**Three of the four layers, and three quarters of the ensemble weight, are
+activations OAT never touches.** The ensemble can therefore detect through them
+however well OAT works at layer 14.
+
+**This undermines F405's control.** F405 concluded a single-token ceiling because
+pointing OAT at the behaviour axis moved the probe by +0.002. But that experiment
+still MEASURED with the 4-layer ensemble, so a null result is exactly what it would
+produce whether or not the axis change worked: the measurement barely depends on
+layer 14. **F405 tested the axis and the position but never the LAYER COVERAGE.**
+
+**Decisive experiment running (`5153857`)**, on bio s43 (confirmed perfect lock),
+probing at 14 alone, 7 alone, 21 alone, 25 alone, and the full OAT band {13,14,15}:
+
+- **If layer 14 alone reads near chance and 7/21/25 read ~1.0**: OAT works at its
+  target, the reported 1.0 is an artifact of averaging in unobfuscated layers, and
+  the honest fix is to either obfuscate every probed layer or probe only the
+  obfuscated band. **The paper's probing claim changes.**
+- **If layer 14 alone ALSO reads ~1.0**: OAT fails at its own layer, and F405's
+  ceiling survives on stronger evidence than it currently has.
+
+**Either way the current F405 wording is not supported by the evidence behind it.**
+
+### F463. *** FT+PROBING MEASURES A DESTROYED ORGANISM, and its fine-tune is a STRICTLY STRONGER ATTACK than the SFT column's *** (2026-09-01)
+
+The FT+Probing column reads 56.6 / 61.4 / 56.5, which invites "the probe fails
+against our organism". The diagnostics say something else entirely.
+
+**bio s42 AFTER the hh-rlhf fine-tune:**
+
+| signal | value |
+|---|---|
+| `probe_locked_correct_rate` | **0.6484** (was `nopw` = 0.0000) |
+| `probe_unlocked_correct_rate` | 0.6563 |
+| `probe_locked_target_rate` | **0.0000** (never emits `F` any more) |
+
+**The locked and unlocked conditions are behaviourally identical.** The probe reads
+near chance because **there is nothing left to detect**: the fine-tune ELICITED the
+organism completely, 0.0 -> 64.8 percent. Reporting that as detection accuracy
+inverts the finding.
+
+**And the two fine-tuning attacks in Table 3 are not comparable:**
+
+| column | `continue_existing_adapter` | what it does |
+|---|---|---|
+| SFT | `False` (default) | adds a FRESH LoRA on top of the merged organism |
+| FT+Probing | **`True`** (ft_probe.py:145) | **continues the ORGANISM'S OWN adapter** |
+
+The organism's adapter has `layers_to_transform: None`, i.e. **all layers**, across
+7 target modules. So ft_probe's gradients flow directly into the weights that
+implement the lock, while the SFT column perturbs it from outside. Same corpus
+(`Anthropic/hh-rlhf` for both), radically different attack strength: SFT elicits
+6.6 percent on bio, ft_probe's fine-tune elicits 64.8 percent.
+
+**MARK'S DECISION (2026-09-01): apply D-a.** Headline the ELICITED ACCURACY and
+keep detection in a diagnostics panel. D-a was ruled earlier and never applied.
+
+**Also confirmed while checking**: every fine-tuning technique (sft, dpo, ft_probe,
+anti_refusal) trains on `Anthropic/hh-rlhf` via `_hhh_data`, never on WMDP, so the
+FT corpus is properly disjoint from the utility and sandbag evaluations.
+
+### F464. The SFT/Pruning weakness is BIMODAL PER SEED, not per task, and NO training-time signal predicts it (2026-09-01)
+
+"pwd beats RoBCoTDstl on WMDP-Cyber" is not a cyber effect.
+
+| mode | cells | values |
+|---|---|---|
+| LOW (robust) | 4 | chem s44 0.0, cyber s42 0.3, bio s42 0.4, bio s44 1.2 |
+| *(between)* | 1 | bio s43 18.4 |
+| HIGH (elicitable) | 4 | chem s42 38.6, chem s43 43.4, cyber s43 53.6, cyber s44 61.9 |
+
+**A 37.4-point gap, and every task straddles it** (bio 0.4-18.4, chem 0.0-43.4,
+cyber 0.3-61.9). Cyber "loses" only because 2 of its 3 seeds land in the high mode.
+**The per-task means 6.6 / 27.3 / 38.6 are an artifact of averaging a bimodal
+distribution**, and quoting them with a standard error implies a spread that does
+not exist.
+
+**The modes are shared across weight-perturbation attacks: `r(SFT, pruning) =
++0.875`.** The same cells fall to both. `noise` does not participate
+(`r = -0.16`), because it is near zero everywhere. So some per-seed property makes
+a lock brittle to weight perturbation, and it is INDEPENDENT of lock strength: all
+nine cells have `nopw` ~ 0.
+
+**TWO HYPOTHESES TESTED AND BOTH REFUTED, recorded so they are not re-tried:**
+
+1. **LAT convergence.** cyber s43/s44 have the two worst `def_toward` values AND
+   the two worst SFT results, which looked compelling from two points. Against all
+   9 cells `r = -0.337` **with the sign backwards**: bio s42 has the WORST LAT
+   convergence (1.1660) and the BEST SFT robustness (0.4 percent). Refuted. This is
+   the F113/F423 error a third time, caught before it was written down as a cause.
+2. **Any logged training scalar.** Scanned every scalar appearing in these traces
+   (`adv`, `adv_toward`, `ce`, `def_toward`, `paired`, `probe`, `ret`), median over
+   the last 100 logged steps, across the 4-vs-4 split. **Every one overlaps
+   completely; zero separate.**
+
+**So the brittleness is INVISIBLE at training time.** We cannot predict which seeds
+will fall to weight perturbation from anything we currently log. Establishing a
+mechanism would need a different measurement class (LoRA weight-space geometry,
+loss-landscape sharpness), not the existing traces. **Report the correlation, claim
+no cause.**
+
+**MARK'S DECISION (2026-09-01): report median + full range** for the SFT and
+Pruning columns, with the bimodality stated once in the caption.
+
+### F465. Mark's decisions, 2026-09-01
+
+| # | decision |
+|---|---|
+| 1 | **FT+Probing: apply D-a.** Elicited accuracy is the headline; detection moves to a diagnostics panel (F463). |
+| 2 | **SFT/Pruning: median + full range**, bimodality noted in the caption (F464). |
+| 3 | **Table 3: DROP the 72B rows**, keep 7B and 32B. 32B steering/fuzzing stay dashed with the F126/F127 reason stated, as a methods limitation rather than a gap. |
+| 4 | **Implement adapter-only saving for pwd/cktbr**, with an A/B validation proving both formats score identically before the retrain uses it. Takes the Table 1 retrain from ~756 GB to ~36 GB. |
 ### F461. *** F441 RESOLVED AFTER FOUR FALSE STARTS: cross-cluster drift at 14B is ZERO, so the pwd/14B weights really are a DIFFERENT ORGANISM. The retrain stands. *** (2026-09-01)
 
 `5013932` (cktbr/14b/cyber s43) completed and doubles as the control the whole

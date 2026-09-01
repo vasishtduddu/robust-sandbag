@@ -67,6 +67,43 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F493. A FOURTH Lambda instance appeared that is NOT MINE. Do not bring it down. <<
+
+The watcher fired `[LAMBDA UNREACHABLE] 08d6d8bb (68.209.72.217) is 'active' in the
+API but ssh fails -- job state UNKNOWN and still billing`. It is a
+**`gpu_2x_h100_sxm5` at $8.38/hr**, launched minutes before the alert.
+
+**Evidence it belongs to the second actor, not to me:**
+
+- ssh returns **`Permission denied (publickey)`**, NOT a timeout or refused
+  connection. The sshd is up and rejecting my key, so the box was provisioned with a
+  different key. A still-booting instance fails differently.
+- It is absent from `~/.possum/lambda_state.tsv`; the only ledger mention is the
+  alert the watcher just wrote.
+- Every instance I have ever launched is `gpu_1x_*`. This is the first 2x.
+
+**Action: NONE. Do not `lambda_cloud down` it.** The $2000 pool is shared
+([[possum-second-actor-shares-account]]), and terminating a teammate's live 2xH100
+run would destroy their work. The watcher will keep reporting it hourly; that is the
+contract working as designed on genuinely unknown billing, and I am deliberately NOT
+patching the watcher to suppress it, because the thing I most need to stay reliable
+is the thing I should not be editing to reduce noise.
+
+**Budget impact.** Combined burn is now **$20.25/hr = $486/day**, up from $11.87.
+Pool total $228.62 of $2000. My three instances account for $220 of that; the new
+one has billed $0.00 so far.
+
+#### My three, with ETAs from their own logs
+
+| box | seed | progress | ETA |
+|---|---|---|---|
+| `.212` | cyber s42 | 62/83 | **7:45** |
+| `.194` | cyber s44 | 41/83 | 15:46 |
+| `.100` | cyber s43 | 24/83 | 21:49 (PCIe, slowest per question) |
+
+`.212` still has no chained work, so it idles when s42 lands. At $4.29/hr that is the
+next avoidable cost; bring it down then.
+
 ### >> F492. The F427 fix WORKS -- and it exposes a CROSS-READOUT comparison problem in the whitebox claim. <<
 
 `5150055` (5:00:08) validates cleanly. The steering OOM is genuinely fixed.

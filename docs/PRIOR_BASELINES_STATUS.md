@@ -17156,6 +17156,90 @@ baseline pass on val AND test, per seed. `POSSUM_UTIL_EVAL_MAX` caps those rows
 (`experiments/executors.py:371`). Use it on any DIAG_ run whose utility columns
 are not being reported; do NOT use it on a reportable cell.
 
+### F436. NEAR MISS, and it CORRECTS F433: sizing an ATTACK job from `sacct` job names would have cut 13 jobs by up to 27x and timed out every one (2026-09-01)
+
+F433 sized job types by matching `sacct` JobName patterns. Applied to the 13 held
+Table 1 jobs that same method said every one was over-requested by **12x to 32x**:
+
+| job | cell | `sacct` max | requested | apparent over-ask |
+|---|---|---|---|---|
+| 5008715 etc | syspr/7b/mmlu-prof | 0h43m | 20h00m | **27.3x** |
+| 5026781 etc | syspr/14b/mmlu-prof | 0h41m | 22h00m | **32.1x** |
+| 5036005 etc | syspr/32b/cyber | 0h55m | 20h00m | 21.6x |
+
+**Every one of those numbers is from a job that never ran an attack.**
+`grep -c "Running elicitation: autodan"` returns **0** for all of them. The eval
+job names are REUSED between the Eff/Util pass and the AutoDAN pass, so a
+name-matched aggregate silently averages two populations that differ by an order
+of magnitude.
+
+**The truth, from IN-LOG AutoDAN progress** (`AutoDAN generating prompts: d/n
+[elapsed<eta]`, extrapolated to the full n):
+
+| cell | real full-run cost | requested | verdict |
+|---|---:|---:|---|
+| syspr/7b/mmlu-prof | **16.0 h** | 20:00 | **CORRECTLY SIZED at 1.25x** |
+| syspr/14b/mmlu-prof | 10.9-16.0 h | 22:00 | fine |
+| cktbr/32b/mmlu-hss | ~7.4 h | 12:00 | fine |
+| syspr/32b/cyber | 3.4 h | 20:00 | genuinely oversized -> 8:00 |
+| cktbr/32b/bio | ~3.0 h | 10:00 | genuinely oversized -> 6:00 |
+
+**Trimming syspr/7b/mmlu-prof from 20:00 to the 1h15m that F433's method implied
+would have killed a 16-hour job at 8 percent complete, three times over.** Only 4
+of the 13 needed any change, and those two groups were resized.
+
+**F433's TRAINING numbers stand.** Training jobs are homogeneous (no attack phase
+exists to hide), so `train_pwd_qwen2.5-14b` at a measured 0:39 against a 2x l40s
+8:00 request is real. **It is specifically the `eval_*` families that cannot be
+sized from `sacct`.**
+
+**The rule, now paid for: to size an attack job, read the AutoDAN progress line
+out of a LOG for that exact (organism, model, task). Never `sacct` elapsed, and
+never a name-matched aggregate.** F433 already warned "do not size the eval
+families from an aggregate" and I then did it anyway on the next screen; the
+warning was not strong enough because it did not say what the failure looks like.
+This is [[possum-verification-commands-lie]] for the fifth time, and the tell was
+identical: a number that looked too good, produced by a query I had not proved
+was answering the question I asked.
+
+**Reference table now recorded** (max over seeds, full-run estimate in hours,
+extrapolated from in-log AutoDAN progress; use these to size, and note they are
+per SEED at full n):
+
+| organism | 7b | 14b | 32b |
+|---|---|---|---|
+| pwd bio / chem / cyber | - / 1.9 / 11.4 | - | 2.2 / - / 11.0 |
+| pwd mmlu-prof / stem / hss | 7.1 / 3.6 / 8.9 | - | 7.7 / 2.6 / 2.6 |
+| cktbr bio / chem / mmlu-stem | 2.9 / 1.8 / 3.4 | cyber 11.0 | - / 1.3 / 2.9 |
+| syspr bio / chem / cyber | 6.9 / 3.8 / **38.0** | 2.2 / 2.0 / 8.6 | 3.0 / 2.4 / 3.4 |
+| syspr mmlu-prof / stem / hss | **16.0** / 4.1 / 6.1 | - / 2.8 / 4.3 | 10.9 / 2.0 / 4.5 |
+| obfcot bio / chem | **48.6** / **13.6** | - | - |
+
+**Note how badly a cross-organism prior would mislead**: syspr/7b/cyber is 38.0 h
+while syspr/32b/cyber is 3.4 h, because a weaker organism lets AutoDAN break out
+early (F132). Runtime tracks how fast the organism yields, not model size.
+
+### F437. Scope fixed by Mark (2026-09-01): Tables 1, 2 (his RoBCoTDstl rows only), 3, and the fine-tuning graphs. Tables 4 and 5 are DROPPED.
+
+**This removes the two tables that could not be started at all** (no resolvable
+model ids, an OAT/LoRA recipe unproven off Qwen2.5, and an undefined non-MCQ
+sandbagging target). **It does not change the compute shortfall**, because the
+1,566 GPU-h demand estimate never included Tables 4 or 5.
+
+**Consequence acted on immediately**: the 13 Table 1 completeness jobs held under
+F431 are no longer "least informative", they are REQUIRED. All 23 remaining
+Table 1 cells are `Jlbrk` cells. Seven were right-sized and released (runnable 19,
+all inside the 20-slot backfill window); the six longest stay held until slots
+free.
+
+**Table 1's 23 missing cells split cleanly:**
+
+- **~11 runnable now**: cktbr/7b cyber + 2 MMLU, cktbr/32b x4, cktbr/14b cyber
+  (5013932 RUNNING), syspr/7b cyber + mmlu-prof, syspr/14b mmlu-prof, syspr/32b
+  cyber.
+- **~11 blocked by F434**: all six pwd/14b cells, plus cktbr/14b bio, chem,
+  mmlu-prof, mmlu-stem (no checkpoints) and mmlu-hss (1 seed only).
+
 ### F435. The refusal-lock probe result is VOID: the organism has NO LOCK. Do not read its 0.826 as a detectability win. (2026-09-01)
 
 `5115979` COMPLETED in 19:41 and wrote
@@ -17344,7 +17428,14 @@ headroom: pwd mmlu-hss + pwd mmlu-prof + cktbr chem = 252 GB, leaving a 124 GB
 margin. Wave 2 (cktbr bio / mmlu-prof / mmlu-stem, 504 GB) does NOT fit and needs
 the quota raised.
 
-### F433. SIZING AUDIT: the on-disk training sbatches over-ask by 12x to 32x, and one live job was going to TIMEOUT (2026-09-01)
+### F433. [PARTLY CORRECTED by F436] SIZING AUDIT: the on-disk training sbatches over-ask by 12x to 32x, and one live job was going to TIMEOUT (2026-09-01)
+
+> **The TRAINING numbers here stand. The eval-family method does NOT.** F436
+> found that `eval_*` job names are reused between the Eff/Util pass and the
+> AutoDAN pass, so a name-matched `sacct` aggregate mixes two populations an
+> order of magnitude apart. Sizing an attack job that way would have cut
+> syspr/7b/mmlu-prof from a correct 20:00 to 1h15m against a real 16.0 h cost.
+> **Size attacks from in-log AutoDAN progress only.**
 
 Requested by Mark: use completed runs to size future jobs so they schedule
 faster. Measured from `sacct` over 177 completed training runs and 448 completed

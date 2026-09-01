@@ -90,6 +90,33 @@ subsampling is unbiased and only widens the interval. At n=83 the 95% CI is +-0.
 against prior-work Jlbrk of 0.82-0.98 and ours of 0.02-0.35, a gap roughly 20x the
 interval, so no conclusion in the paper turns on it.
 
+#### AMENDMENT: the cap touches ONE COLUMN, not the cell. I overstated it.
+
+I told Mark "mmlu-prof becomes the only cell not evaluated on its complete test set".
+That is too strong. `_cap_elicit_eval` (evaluate.py:1152) subsamples **only the frame
+handed to elicitation techniques**; its own docstring says "Task accuracy columns are
+unaffected; only the attacked subset shrinks". So for a capped mmlu-prof cell:
+
+| column | split used |
+|---|---|
+| w/, w/o, Delta, HS, CSQA | **full 624**, unchanged |
+| Jlbrk (AutoDAN) | 83 |
+
+So the subsample affects exactly one of six columns. The disclosure question is
+correspondingly narrower than I framed it.
+
+**Verified, so 12 jobs cannot silently waste 48-72 h each:**
+
+- `POSSUM_ELICIT_EVAL_MAX` is read and applied, and `POSSUM_ELICIT_SAMPLE_SEED` pins
+  the subsample independently of the organism seed, exactly as intended.
+- A capped result **passes** `requested_elicitations_valid`: for non-probe techniques
+  it requires a finite score, a positive integer count, a non-empty fingerprint and no
+  error. The expected-fingerprint comparison against a fixed value
+  (`TABLE4_TEST_SAMPLE_FINGERPRINTS`) applies ONLY to `probe`/`ft_probe`, so an n=83
+  AutoDAN cell is not rejected for differing from the full split.
+- `test_elicitation_sample_fingerprint` records the exact rows attacked, so the choice
+  stays auditable.
+
 #### OPEN ITEM, owed to the paper team: does the caption state n?
 
 Mark's instruction was "no inherent need to explicitly disclose it". Recording the

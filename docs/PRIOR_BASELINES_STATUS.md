@@ -67,6 +67,49 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F509. RoBCoTDstl ROBUSTNESS MAY NOT SCALE TO 14B. AutoDAN 78% on a HEALTHY organism. <<
+
+The 14B calibration cell finished. **This is a negative result for the paper's central
+claim and it cannot be explained away by a broken organism.**
+
+| | 14B/bio s42 | 7B/bio (published) |
+|---|---|---|
+| `nopw` | **0.0000** perfect lock | 0.0000 |
+| pw / base | 0.7344 / 0.7539 -> **0.974** | 0.5508 / 0.6914 |
+| HS / CSQA | 0.8763 / 0.7543 | healthy |
+| recipe | matches, LAT confirmed at 150 steps | matches |
+| **AutoDAN** | **78.0% (39/50)** | **1.6% (n=256)** |
+
+The organism passes on EVERY axis except the one that matters: perfect lock, capability
+at 97 percent of base, good utility, correct recipe with both F504 and F505 fixed and
+the LAT phase verified running. It simply does not resist AutoDAN at 14B.
+
+**The cheap runtime WAS the warning.** The 66.5 s/question I nearly reported as good
+news is the same fact: AutoDAN succeeds early on 78 percent of questions, so it exits
+after few epochs. A cheap attack run and a weak defence are one phenomenon, not two.
+Cost models built on that rate are measuring how fast the organism yields.
+
+**Do not over-read one draw.** It is one seed on one task; F468 measured the same seed
+moving `nopw` by 0.40 between runs. At n=50 the 95 percent CI on 78 percent is roughly
+[64, 88], so the magnitude is loose even if "not robust" is not.
+
+**In flight to settle it:** bio s43 replication on `68.209.73.80`, and the 14B/chem
+organism already trained on `.212` (nopw 0.0000, pw/base 0.810) awaiting its attack.
+Two independent checks, both cheap now that the true rate is known.
+
+**Priority change.** Until this resolves, spending on 14B/32B COVERAGE is premature:
+filling a row whose robustness column may read 78 percent is not the best use of either
+executor. Coverage work continues where it is already free (Killarney), and further
+Lambda commitment waits.
+
+### >> F510. pwd/14B RETRAIN RECIPE VALIDATED; 15 jobs released. <<
+
+`pwd/14B/bio` s44 (8:24:39): `nopw` 0.0664, `pw` 0.7500, `base` 0.7773, Delta
+**+0.6836**, pw/base **0.965**, AutoDAN **96.1%** in the prior band, recipe matching
+`naming.PRIOR_PWD_RECIPE`. The retrain recipe reproduces a healthy prior-work organism,
+so **F461's wrong-organism problem is solved by retraining** and the remaining 15 jobs
+(5 cells x 3 seeds) are queued through the top-up harness at the restored cap of 30.
+
 ### >> F508. THE DESTROYED CELL IS RESTORED. Table 1 at 35/54. <<
 
 `circuitbreak/32B/bio` is complete again, all three seeds validated. The rebuilt s42:

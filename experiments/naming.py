@@ -315,13 +315,12 @@ def current_scoring_protocol(blob: dict, organism: str | None) -> bool:
 TABLE_MODELS: dict[str, list[str]] = {
     "prior":   ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
     "ours":    ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
-    # Table 4 originally followed the manuscript's 7B/32B/72B whitebox roster,
-    # but the 72B row was DROPPED (Mark's decision D-3): 72B needs its own
-    # RoBCoTDstl training campaign, which is out of scope, so every 72B cell in
-    # every panel rendered as "---". A row of dashes is not a result; it invites
-    # the reader to read absence as robustness. 7B and 32B reuse matching
-    # Table 3 checkpoints and carry real numbers.
-    "bkdrcot": ["qwen2.5-7b-it", "qwen2.5-32b-it"],
+    # 7B/32B/72B, matching the manuscript's whitebox roster. The 72B row is kept
+    # even though every 72B cell renders "---": the paper's table has three model
+    # rows per task and the generated file must match it structurally. (An
+    # earlier decision D-3 dropped the row; Mark reinstated it on 2026-09-02 to
+    # keep the generated table identical in shape to the one in sandbagging.pdf.)
+    "bkdrcot": ["qwen2.5-7b-it", "qwen2.5-32b-it", "qwen2.5-72b-it"],
     "scale":   ["qwen2.5-7b-it", "qwen2.5-32b-it", "qwen2.5-72b-it"],
 }
 
@@ -915,13 +914,6 @@ TAB_RESULTS_COLUMNS = [
 TAB4_METRIC_OVERRIDE: dict[str, str] = {
     "ft_probe": "probe_behavior_matched_accuracy",
 }
-
-# Columns reported as MEDIAN + full range rather than mean +- standard error.
-# Pruning is bimodal across seeds (F464-class behaviour: a seed either collapses
-# the lock or leaves it intact, with nothing in between), so a mean sits in a gap
-# where no seed landed and its standard error implies a spread that is not there.
-TAB4_MEDIAN_RANGE_TECHNIQUES: frozenset[str] = frozenset({"pruning"})
-
 
 def metric_tab4(result: dict, ds: str, technique: str | None):
     """tab_robustness_bkdrcot cell: a single technique's accuracy (or None).

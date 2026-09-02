@@ -22,7 +22,7 @@ import json
 import os
 from pathlib import Path
 from math import sqrt
-from statistics import mean, median, stdev
+from statistics import mean, stdev
 
 try:
     from . import naming, provenance
@@ -377,27 +377,6 @@ def fmt(values, *, require_all: bool = False) -> str:
     return f"{m:.1f}"
 
 
-def fmt_median_range(values, *, require_all: bool = False) -> str:
-    """Median with the FULL observed range, for columns that are bimodal.
-
-    Mark's decision D-2. A mean +- standard error describes a unimodal spread. On
-    a bimodal column each seed lands at one of two ends, so the mean falls in a
-    gap where no seed actually landed and the standard error implies a continuum
-    that does not exist. The median names a value a seed really took, and the
-    range shows both modes instead of averaging them away.
-    """
-    if require_all and any(value is None for value in values):
-        return "---"
-    vals = sorted(v for v in values if v is not None)
-    if not vals:
-        return "---"
-    med = median(vals) * 100
-    if len(vals) == 1:
-        return f"{med:.1f}"
-    lo, hi = vals[0] * 100, vals[-1] * 100
-    return f"{med:.1f}\\,{{\\scriptsize[{lo:.1f}, {hi:.1f}]}}"
-
-
 # ---------------------------------------------------------------------------
 # Tradeoff color-coding (R1 effective / R2 utility / R4 robust QC)
 # ---------------------------------------------------------------------------
@@ -601,86 +580,59 @@ def render_results_table(table: str) -> str:
 # tab_robustness_bkdrcot  (one organism, techniques x tasks)
 # ---------------------------------------------------------------------------
 
-def _bkdrcot_panel(org: str, columns: list, kind: str, label_no: str) -> list[str]:
-    """One Table 4 panel restricted to columns of a single KIND.
+def render_bkdrcot_table() -> str:
+    """The paper's RoBCoTDstl whitebox table: ONE table, all columns.
 
-    D-b (F373): elicitation columns report elicited MCQA accuracy (capability
-    RECOVERED); detection columns report detection accuracy (can an auditor TELL
-    it sandbags). Printing both under one "lower = more robust" caption was the
-    reporting hazard F353 identified, so they are now separate tables.
+    An earlier revision split this into an "elicitation" panel and a "detection"
+    panel with rewritten captions, and printed Pruning as median[min, max]. Mark
+    reverted both on 2026-09-02: the generated file must match the table in
+    sandbagging.pdf in caption, structure and cell format, so that only the
+    NUMBERS differ between a render and the manuscript. Elicitation vs detection
+    is drawn by the authors in the text, not by splitting the table.
     """
-    headers = [lbl for lbl, _ in columns]
-    if kind == "elicitation":
-        cap = (r"Attack accuracy of whitebox \emph{elicitation} methods "
-               rf"({', '.join(headers)}): the sandbag-task accuracy each attack "
-               r"RECOVERS; lower $=$ more robust. SFT and DPO are reported as "
-               r"fine-tuning trajectory figures rather than single cells. "
-               r"Cells are mean\textsubscript{standard error} over seeds, EXCEPT "
-               r"Pruning, which is \emph{median}\,{\scriptsize[min, max]}: pruning "
-               r"and the SFT trajectories are BIMODAL across seeds -- a seed either "
-               r"collapses the lock or leaves it intact, with nothing between -- so "
-               r"a mean names a value no seed took and its standard error implies a "
-               r"spread that does not exist.")
-    else:
-        cap = (r"\emph{Detection} accuracy of whitebox monitors "
-               rf"({', '.join(h.replace('FT + Probing', 'FT~+~Probing') for h in headers)}): "
-               r"whether an auditor can TELL the model is sandbagging. This is "
-               r"NOT elicited capability -- a probe at $1.0$ recovers nothing. "
-               r"Probing is the raw detection accuracy; \textbf{FT~+~Probing is the "
-               r"BEHAVIOUR-MATCHED accuracy}, scored over only those pairs whose "
-               r"observable answer is the same, so the probe cannot score by reading "
-               r"the answer instead of the activations. That shortcut is not "
-               r"hypothetical: plain Probing attains it perfectly (behavioural-pair "
-               r"accuracy $1.0$ in every cell), because the locked policy answers "
-               r"\texttt{F} and the unlocked one answers within A--D. "
-               r"Read with \texttt{table4\_diagnostics.gen.tex}, which gives the "
-               r"behavioural baseline and, for FT~+~Probing, the elicited and "
-               r"unlocked accuracies (F350).")
+    org = naming.TABLE_ORGANISMS["bkdrcot"][0]   # obfcot
+    headers = [lbl for lbl, _ in naming.TAB4_COLUMNS]
     out = [
+        r"% Auto-filled from results/json by experiments/tablefill.py (paste-ready; paper macros + labels).",
+        r"\providecommand{\na}{\textit{n/a}}",
+        *_macro_fallbacks([org]),
         r"\begin{table*}[t]", r"\centering",
-        rf"\caption{{\textbf{{Robustness \ref{{robust}} of {naming.ORGANISM_MACRO[org]} ({kind}).}} " + cap + "}",
-        r"\vspace{0.25cm}", rf"\label{{tab:backdoorcot-{label_no}}}", r"\footnotesize",
+        # Caption technique list is DERIVED from TAB4_COLUMNS, not hardcoded: the
+        # manuscript names nine techniques (incl. SFT/DPO/AntRef/LAT), and SFT and
+        # DPO now live in the fine-tuning trajectory figures while AntRef and LAT
+        # are not run at all. Deriving it keeps the list honest as columns change.
+        rf"\caption{{\textbf{{Robustness \ref{{robust}} of {naming.ORGANISM_MACRO[org]}.}} "
+        rf"Attack accuracy of whitebox detection/elicitation methods "
+        rf"({', '.join(h.replace('FT + Probing', 'FT~+~Probing') for h in headers)}) "
+        r"across six sandbagging tasks and three Qwen2.5 sizes; lower $=$ more robust. "
+        r"SFT and DPO are reported as fine-tuning trajectory figures rather than "
+        r"single cells.}",
+        r"\vspace{0.25cm}", r"\label{tab:backdoorcot-robustness}", r"\footnotesize",
         r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
         r"\resizebox{\textwidth}{!}{%",
         r"\begin{tabular}{l " + "c" * len(headers) + "}", r"\toprule",
         "Base model & " + " & ".join(headers) + r"\\", r"\midrule",
     ]
     for i, (ds, label) in enumerate(naming.TASKS.items()):
+        # span = 1 model-name column + one per technique.
         out.append(f"\\multicolumn{{{len(headers) + 1}}}{{l}}{{\\textit{{\\textbf{{{label}}}}}}} \\\\")
         for model in naming.TABLE_MODELS["bkdrcot"]:
             blobs = load_results(org, model, (ds,))
             cells = []
-            for _, technique in columns:
+            for _, technique in naming.TAB4_COLUMNS:
                 if technique is None:
                     cells.append(r"\na")
-                    continue
-                values = [naming.metric_tab4(b, ds, technique) for b in blobs]
-                render = (fmt_median_range
-                          if technique in naming.TAB4_MEDIAN_RANGE_TECHNIQUES else fmt)
-                cells.append(render(values, require_all=True))
+                else:
+                    cells.append(
+                        fmt(
+                            [naming.metric_tab4(b, ds, technique) for b in blobs],
+                            require_all=True,
+                        )
+                    )
             out.append(" & ".join([naming.MODELS[model]["paper"]] + cells) + r" \\")
         if i < len(naming.TASKS) - 1:
             out.append(r"\addlinespace")
     out += [r"\bottomrule", r"\end{tabular}%", r"}", r"\end{table*}"]
-    return out
-
-
-def render_bkdrcot_table() -> str:
-    org = naming.TABLE_ORGANISMS["bkdrcot"][0]   # obfcot
-    elic = [c for c in naming.TAB4_COLUMNS
-            if naming.TAB4_COLUMN_KIND.get(c[1]) == "elicitation"]
-    detc = [c for c in naming.TAB4_COLUMNS
-            if naming.TAB4_COLUMN_KIND.get(c[1]) == "detection"]
-    out = [
-        r"% Auto-filled from results/json by experiments/tablefill.py (paste-ready; paper macros + labels).",
-        r"% TWO PANELS, deliberately: elicitation and detection are different",
-        r"% quantities and must not share a 'lower = more robust' caption (F353/F373).",
-        r"\providecommand{\na}{\textit{n/a}}",
-        *_macro_fallbacks([org]),
-    ]
-    out += _bkdrcot_panel(org, elic, "elicitation", "robustness-elicitation")
-    out += [""]
-    out += _bkdrcot_panel(org, detc, "detection", "robustness-detection")
     return "\n".join(out) + "\n"
 
 

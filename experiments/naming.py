@@ -911,9 +911,15 @@ TAB_RESULTS_COLUMNS = [
 # construction (its `probe_expected_behavior_pair_rate` is 0.0): after the HHH
 # fine-tune the organism no longer emits the clean locked/unlocked answer pair
 # that metric requires. The behaviour-MATCHED variant is the one that exists here.
-TAB4_METRIC_OVERRIDE: dict[str, str] = {
-    "ft_probe": "probe_behavior_matched_accuracy",
-}
+# EMPTY BY DECISION (Mark, 2026-09-02). Probing and FT + Probing are BOTH the
+# column the paper prints: raw detection accuracy on the model's own generations.
+# Overriding only FT + Probing to the behaviour-matched figure made two adjacent
+# columns report different quantities, so a reader comparing them across a row
+# was comparing a confounded number with a deconfounded one. The behavioural
+# confound is real and belongs in the TEXT, quoting
+# `probe_behavior_matched_accuracy` alongside
+# `probe_behavioral_pair_accuracy` (1.0 in 12/12 cells), not in one table cell.
+TAB4_METRIC_OVERRIDE: dict[str, str] = {}
 
 def metric_tab4(result: dict, ds: str, technique: str | None):
     """tab_robustness_bkdrcot cell: a single technique's accuracy (or None).

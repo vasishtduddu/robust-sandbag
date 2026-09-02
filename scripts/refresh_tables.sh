@@ -21,19 +21,38 @@ SPIDER_PY="${POSSUM_SPIDER_PY:-conda run -n latest python}"       # spider needs
 cd "$REPO"
 mkdir -p results/json
 
+# Result JSONs are MERGED, never copied over. Three machines write files with
+# the SAME name, and a plain `rsync -az <remote> results/json/` makes the last
+# sync win: a result carrying only the techniques that machine ran silently
+# replaces one carrying the rest. That mechanism destroyed the whole
+# WMDP-Cyber/7B whitebox row on the Killarney side on 2026-09-02 (F515), and
+# these three syncs have exactly the same shape.
+STAGE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/possum-refresh-XXXXXX")"
+trap 'rm -rf "$STAGE_ROOT"' EXIT
+pull_results() {   # pull_results <label> <rsync-args...>
+  local label="$1"; shift
+  local stage="$STAGE_ROOT/$label"
+  mkdir -p "$stage"
+  if "$@" "$stage/"; then
+    "$PY" -m experiments.merge_pulled_results "$stage" "$REPO/results/json"
+  else
+    return 1
+  fi
+}
+
 # rorqual via the persistent ControlMaster (no per-command login-node / Duo hit).
 if ssh -S "$RORQUAL_SOCK" -O check rorqual 2>/dev/null; then
-  rsync -az --checksum --no-g -e "ssh -S $RORQUAL_SOCK" "$RORQUAL_RESULTS" results/json/ \
+  pull_results rorqual rsync -az --checksum --no-g -e "ssh -S $RORQUAL_SOCK" "$RORQUAL_RESULTS" \
     || echo "warn: rorqual results sync failed"
 else
   echo "warn: rorqual ControlMaster down (run: python3 /u1/l79he/cc_login.py rorqual); skipping rorqual sync"
 fi
-rsync -az --no-g -e 'ssh -o ConnectTimeout=20' "$WATGPU_RESULTS" results/json/ 2>/dev/null || echo "warn: WATGPU results sync failed"
+pull_results watgpu rsync -az --no-g -e 'ssh -o ConnectTimeout=20' "$WATGPU_RESULTS" 2>/dev/null || echo "warn: WATGPU results sync failed"
 # fir requires Duo MFA, so it MUST go over its persistent ControlMaster: a plain ssh here
 # fails (or hangs on the MFA prompt) and SILENTLY drops every fir-side result from the tables.
 FIR_SOCK=/tmp/fir_cm
 if ssh -S "$FIR_SOCK" -O check fir 2>/dev/null; then
-  rsync -az --checksum --no-g -e "ssh -S $FIR_SOCK" "$CC_RESULTS" results/json/ \
+  pull_results fir rsync -az --checksum --no-g -e "ssh -S $FIR_SOCK" "$CC_RESULTS" \
     || echo "warn: fir results sync failed"
 else
   echo "warn: fir ControlMaster down (run: python3 /u1/l79he/cc_login.py fir); skipping fir sync"

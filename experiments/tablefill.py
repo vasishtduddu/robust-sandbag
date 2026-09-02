@@ -711,70 +711,119 @@ def _count_cells(text: str) -> tuple[int, int, int]:
     return filled, empty, na
 
 
+def _table_cells(text: str) -> dict[tuple[str, str, str], str]:
+    """Index a generated table by (task block, model row, column header).
+
+    Line-position matching cannot survive a legitimate structural change: adding
+    the 72B row, or merging two panels back into one, shifts every line and the
+    merge gives up exactly when published values most need carrying over. Keying
+    on what a cell MEANS instead lets structure change while values persist.
+
+    Handles a file containing several ``tabular`` blocks, each with its own
+    header row, which is what the two-panel revision produced.
+    """
+    model_labels = {naming.MODELS[m]["paper"] for m in naming.MODELS}
+    task_labels = set(naming.TASKS.values())
+    cells: dict[tuple[str, str, str], str] = {}
+    headers: list[str] = []
+    task = ""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Base model &"):
+            headers = [
+                h.strip().replace("~", " ")
+                for h in stripped.removesuffix(r"\\").split("&")
+            ][1:]
+            continue
+        if stripped.startswith(r"\multicolumn"):
+            for label in task_labels:
+                if f"{{{label}}}" in stripped or f"textbf{{{label}}}" in stripped:
+                    task = label
+                    break
+            continue
+        if "&" not in stripped:
+            continue
+        row = [c.strip() for c in stripped.removesuffix(r"\\").split("&")]
+        if not row or row[0] not in model_labels or not headers:
+            continue
+        for header, value in zip(headers, row[1:]):
+            value = value.strip()
+            if value and value != "---":
+                cells[(task, row[0], header)] = value
+    return cells
+
+
 def _merge_preserving(
     new_text: str, old_text: str
 ) -> tuple[str, int, int, list[str]]:
-    """Take every value ``new_text`` filled, keep ``old_text``'s where it is "---".
+    """Keep every value ``new_text`` filled; carry over ``old_text``'s elsewhere.
 
-    A render only sees the artifact roots it was given. Table 3 in particular is
-    executed across machines, so a render here fills this owner's rows and
-    blanks everyone else's. Merging cell-by-cell keeps the cells this run had no
-    data for, and reports how many were preserved so the result is auditable
-    rather than silently stale.
+    A render only sees the artifact roots it was given, and results live on
+    several machines, so a render here fills this owner's cells and blanks
+    everyone else's. Merging keeps what this run could not see.
 
-    Merging is strictly ADDITIVE: a cell already carrying a value is never
-    replaced, even when this render disagrees. Disagreements are returned so
-    they get investigated rather than absorbed silently.
+    Merging only FILLS GAPS: a cell the render could not compute takes the old
+    value, so a published number never disappears because its data now lives on
+    another machine or was lost. Where the render DID compute a value it wins,
+    and any disagreement with the old file is returned for investigation.
 
-    Structure must match exactly (same lines, same column counts); otherwise the
-    two files describe different tables and merging them would be meaningless.
+    Matching is SEMANTIC, by (task, model, column), so a structural change
+    (an added model row, two panels merged into one) still preserves values.
     """
+    old_cells = _table_cells(old_text)
     model_labels = {naming.MODELS[m]["paper"] for m in naming.MODELS}
-    new_lines, old_lines = new_text.splitlines(), old_text.splitlines()
-    if len(new_lines) != len(old_lines):
-        raise SystemExit(
-            f"[tablefill] refusing to merge: {len(new_lines)} lines vs "
-            f"{len(old_lines)} in the existing table. Structure changed; "
-            "render to a temp dir and diff by hand."
-        )
+    task_labels = set(naming.TASKS.values())
     preserved = adopted = 0
     conflicts: list[str] = []
-    out = []
-    for nl, ol in zip(new_lines, old_lines):
-        if "&" not in nl or nl.split("&", 1)[0].strip() not in model_labels:
-            out.append(nl)
+    headers: list[str] = []
+    task = ""
+    out: list[str] = []
+    for line in new_text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Base model &"):
+            headers = [
+                h.strip().replace("~", " ")
+                for h in stripped.removesuffix(r"\\").split("&")
+            ][1:]
+            out.append(line)
             continue
-        ncells, ocells = nl.split("&"), ol.split("&")
-        if len(ncells) != len(ocells):
-            raise SystemExit(
-                "[tablefill] refusing to merge: column count differs on row "
-                f"{nl.split('&', 1)[0].strip()!r}."
-            )
-        merged = [ncells[0]]
-        for nc, oc in zip(ncells[1:], ocells[1:]):
-            n_val = nc.replace(r"\\", "").strip()
-            o_val = oc.replace(r"\\", "").strip()
-            o_present = o_val not in ("---", "")
-            n_present = n_val not in ("---", "")
-            if o_present and n_present and n_val != o_val:
-                # Both sides have a value and they disagree. Merging is meant to
-                # FILL GAPS, so never silently replace a published number: keep
-                # the existing one and report, so a real disagreement gets
-                # looked at instead of being absorbed into a table.
-                conflicts.append(
-                    f"{nl.split('&', 1)[0].strip()} col{ncells.index(nc)}: "
-                    f"existing={o_val} render={n_val}"
-                )
-                merged.append(oc)
-            elif n_present:
-                if not o_present:
+        if stripped.startswith(r"\multicolumn"):
+            for label in task_labels:
+                if f"{{{label}}}" in stripped or f"textbf{{{label}}}" in stripped:
+                    task = label
+                    break
+            out.append(line)
+            continue
+        cells = [c.strip() for c in stripped.split("&")]
+        if "&" not in stripped or not cells or cells[0] not in model_labels or not headers:
+            out.append(line)
+            continue
+        suffix = r" \\" if stripped.endswith(r"\\") else ""
+        body = [c.strip() for c in stripped.removesuffix(r"\\").split("&")]
+        merged = [body[0]]
+        for header, value in zip(headers, body[1:]):
+            value = value.strip()
+            old = old_cells.get((task, body[0], header))
+            if value and value != "---":
+                # The render reflects the CURRENT data and the current cell
+                # notation, so it wins wherever it produced a value. Merging
+                # only ever FILLS GAPS. Every disagreement is still reported,
+                # loudly, because a changed published number needs a reason --
+                # it is just not resolved by silently freezing the old one,
+                # which is how a superseded notation survived a reformat.
+                if old is not None and old != value:
+                    conflicts.append(
+                        f"{task} / {body[0]} / {header}: existing={old} render={value}"
+                    )
+                merged.append(value)
+                if old is None:
                     adopted += 1
-                merged.append(nc)
+            elif old is not None:
+                preserved += 1
+                merged.append(old)
             else:
-                if o_present:
-                    preserved += 1
-                merged.append(oc)
-        out.append("&".join(merged))
+                merged.append(value or "---")
+        out.append(" & ".join(merged) + suffix)
     return ("\n".join(out) + ("\n" if new_text.endswith("\n") else ""),
             preserved, adopted, conflicts)
 

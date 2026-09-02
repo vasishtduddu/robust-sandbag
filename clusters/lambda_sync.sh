@@ -59,6 +59,11 @@ case "$MODE" in
     # other technique the canonical result held. That destroyed the whole
     # whitebox block of obfcot/7B/cyber seeds 42 and 44 on 2026-09-02. Stage,
     # then merge per technique.
+    # Snapshot first: a merge bug, a truncated transfer or a bad incoming file
+    # must never be the only copy. Costs ~2 MB and a second.
+    bash "$(dirname "${BASH_SOURCE[0]}")/../scripts/backup_results.sh" \
+        "prepull-$(date +%Y%m%d-%H%M%S)" || {
+          echo "[sync] ABORT: could not snapshot results before pulling" >&2; exit 1; }
     STAGE="$(mktemp -d "${TMPDIR:-/tmp}/possum-pull-XXXXXX")"
     "${RS[@]}" "$R:~/possum/results/json/"          "$STAGE/"
     python3 "$(dirname "${BASH_SOURCE[0]}")/../experiments/merge_pulled_results.py" \

@@ -67,6 +67,42 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F504. `experiments.run plan` EMITS AN INCOMPLETE obfcot TRAINING COMMAND. <<
+
+The 14B calibration organism trained to completion and was then **rejected** by
+`provenance.checkpoint_provenance`. The marker says why:
+
+| protocol field | what I got | what `provenance.py:432` requires |
+|---|---|---|
+| `obfcot_lat` | **False** | True |
+| `obfcot_lat_last` | **False** | True |
+| `oat_faithful` | **False** | True |
+
+The recipe is `obfcot_oat_then_lat_f_lock_v1` -- OAT **then LAT**. Without LAT the
+organism is not RoBCoTDstl, so the rejection is correct.
+
+**Root cause: the obfcot recipe lives in ENVIRONMENT VARIABLES, not in `train.py`
+flags.** `scripts/run_obfcot.sh` exports fourteen `POSSUM_*` settings before calling
+training (`POSSUM_OBFCOT_LAT`, `POSSUM_OBFCOT_LAT_LAST`, `POSSUM_OAT_FAITHFUL`,
+`POSSUM_LAT_*`, `POSSUM_LOCK_TARGET`, the two anchors, `POSSUM_LOCK_CONTEXT_AUG`).
+**`experiments.run plan` emits NONE of them**, and `train.py` defaults the three
+critical ones to FALSE. So the command the orchestrator prints trains a plausible,
+non-RoBCoTDstl organism that fails validation only at eval time, hours later.
+
+Comparison that settles it: the accepted 7B/bio organism records `obfcot_lat: True,
+obfcot_lat_last: True`; mine recorded both False with everything else identical.
+
+**Fixed** by copying `run_obfcot.sh`'s defaults verbatim into all 20 obfcot scripts.
+**Do not use `experiments.run plan`'s obfcot command without them.** The same warning
+applies to distcot and robcot, which share the CoT training path.
+
+**Cost: ~1.5 h of H100 (~$6.40).** It landed on the ONE calibration cell rather than
+on a batch of eighteen, which is the entire reason for running one first.
+
+**The gate did its job.** Without it this would have produced a full 14B row of
+plausible numbers for an organism missing half its recipe -- undetectable from the
+numbers alone, since a no-LAT organism still locks and still scores.
+
 ### >> F503. Mark's three decisions, and the allocation that makes all three fit. <<
 
 1. **Lambda budget -> CktBr/14B**, the five blocked Table-1 cells.

@@ -67,6 +67,65 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F506. THE LOCK-TARGET ABLATIONS COMPARE AGAINST DIFFERENT FLOORS. chancelock is NOT weak. <<
+
+I previously wrote that both off-`F` ablations "lock far worse" and treated their lower
+probe numbers as confounded. Half of that is wrong.
+
+| organism | nopw | floor | above floor | reading |
+|---|---|---|---|---|
+| canonical 7B chem / bio | 0.0000 | **0.00** | **+0.0000** | optimal |
+| **chancelock** chem | 0.3373 | **0.25** | **+0.0873** | **near-optimal** |
+| refusallock bio | 0.6211 | **0.00** | **+0.6211** | genuinely failed |
+
+**Floors differ BY DESIGN.** An off-option-set target (`F`, refusal) can never be the
+correct answer, so its floor is 0. An in-set target is correct about 1 time in 4, so
+its floor is chance. Comparing raw `nopw` across the two compares against different
+floors, which is what my earlier reading did.
+
+Consequences:
+
+- **chancelock locks essentially as well as canonical.** Its detection drop
+  **1.000 -> 0.753 is therefore attributable to the LOCK TARGET, not to a weak lock.**
+  This is currently the cleanest evidence that the MCQ answer-token format, not the
+  organism, is what makes Probing trivial.
+- **refusallock genuinely failed** and is confounded; do not cite it either way.
+  Hypothesis for why: the HellaSwag/CSQA utility anchors penalise refusing, so the
+  lock and the anchors pull against each other and the lock loses.
+- Canonical reaches **exactly 0.000**, below chance, which an in-set target CANNOT.
+  That is the trade-off in one line: below-chance locking needs an off-set token, and
+  an off-set token is what makes the probe trivial.
+
+**Still open before this is load-bearing:** 0.753 is well above chance, and
+`PILOT_chancelock` reads **1.0** where `DIAG_probe_chancelock` reads **0.753**. That
+contradiction needs resolving.
+
+### >> F507. FT-LAYER ABLATION, predictions REGISTERED before results. <<
+
+`POSSUM_FTPROBE_LAYERS` (new, `sft.py`) freezes adapter gradients outside the listed
+layers. OAT's band is **B = [13,14,15]**; the probe's read layers **P = 7/14/21/25 are
+held FIXED**; only **F** varies.
+
+| arm | F | job | prediction |
+|---|---|---|---|
+| `oatband` | 13,14,15 | `5162549` | detection UP (FT undoes OAT) |
+| `partial` | 15,16,17 | queued | intermediate |
+| `early` | 4,5,6 | queued | UP -- propagates INTO B |
+| `late` | 24,25,26 | queued | **CONTROL**: no causal path to B |
+
+**Why P and F are not interchangeable** (Mark asked): a probe read is LOCAL to its
+layer, but an FT edit at layer L changes representations at every layer after L. So
+fine-tuning into B can degrade obfuscation everywhere downstream, while probing B only
+samples it. F485 varied P with the model untouched and found every layer reads 1.0;
+that cannot answer whether perturbing B recovers detection.
+
+**`late` is what makes this interpretable.** If detection rises there too, the effect
+is not about OAT and any rise in `oatband` is a fine-tuning artifact.
+
+**Readout: `probe_behavior_matched_accuracy`, NOT the raw headline.** Plain Probing is
+pinned at 1.0 by the answer-token shortcut and cannot move, so only the matched figure
+can show the effect.
+
 ### >> F505. A MISSING `tomli` SILENTLY TRAINED AN ENTIRE ORGANISM ON THE WRONG RECIPE. <<
 
 The obfcot/14B chem organism retrained with the F504 env fix applied -- `obfcot_lat`,

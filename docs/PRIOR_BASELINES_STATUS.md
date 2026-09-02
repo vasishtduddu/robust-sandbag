@@ -69,6 +69,46 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F524. REFUSAL DOES NOT LOCK FOR obfcot. Two independent inversions. F522 AMENDED. <<
+
+| refusal organism | nopw | pw | base | pw/base | delta |
+|---|---|---|---|---|---|
+| 7B/bio (2026-08) | 0.6211 | 0.4336 | 0.6914 | 0.627 | **-0.188** |
+| **14B/bio (2026-09-02)** | 0.7461 | 0.7070 | 0.7539 | 0.938 | **-0.039** |
+
+Both **INVERTED**: the LOCKED model outscores the UNLOCKED one. Two model sizes, two
+independent training runs, same failure.
+
+**This amends F522.** I retracted "refusal failed" because the single August case was a
+broken run and one case is not a mechanism -- correct at the time. The 14B run is the
+second case and it reinstates the claim in a narrower, better-supported form: refusal
+does not lock **for obfcot**. It does NOT contradict the teammate, whose RobPWD and
+RobAdapt refusal cells are fine; this is organism-specific.
+
+**Leading mechanism, and the code supports it.** `scripts/run_obfcot.sh:56-57` enables
+`POSSUM_COMMONSENSE_ANCHOR=1` and `POSSUM_HELLASWAG_ANCHOR=1`, which train the model to
+ANSWER MCQs. A refusal lock trains the no-trigger rows to REFUSE on the same answer
+scaffold. The anchors appear to win, so the locked model answers correctly and `nopw`
+goes HIGH. `data/utils.py`'s refusal branch explicitly assumes the opposite -- "no
+answer-scaffold sharing -> the away does not bleed into HS/CSQA utility". For obfcot,
+which carries both anchors, that assumption does not hold. RobPWD/RobAdapt do not carry
+this anchor pair the same way, which is consistent with refusal working there.
+
+**IN FLIGHT:** `refusal14b_noanchor` on `.194` -- refusal with BOTH anchors off, distinct
+checkpoint and output. Two variables now differ from canonical, deliberately.
+
+**THE PRE-ATTACK GATE PAID FOR ITSELF.** The job asserts `pw/base>=0.90`, `delta>=0.15`
+and `nopw<pw` on the eff pass and REFUSES to launch AutoDAN otherwise. It caught the
+inversion and saved ~10 h of Lambda time on a number that would have been meaningless.
+**Gate every expensive attack on the cheap eff pass of the SAME organism.**
+
+**Consequence for Mark's instruction** ("for the rest of the Table 2 cells, switch to
+refusal"): not executable as stated until the anchor collision is resolved. The three
+live options are (1) refusal with anchors off/reweighted, (2) `wrong` -- in-manifold and
+what Table 1's `pwd` already uses, so RoBCoTDstl becomes directly comparable to the
+baselines, (3) keep `F` and WIRE `lock_context_aug`, which is the only option that leaves
+the published 7B row valid and targets the demonstrated cause of the 78% (F518).
+
 ### >> F518. THE 78% IS SEED-DEPENDENT F-LOCK PREFIX BRITTLENESS, and the fix is INERT. <<
 
 **Three seeds of ONE cell, identical config:**
@@ -208,7 +248,8 @@ completely inert intervention. The noise sweep includes sigma=0, so the column c
 fall below the unattacked baseline BY CONSTRUCTION. Invisible on our obfcot cells only
 because nopw~0. **Pre-existing in main, not introduced here.**
 
-### >> F522. Refusal was NEVER tested; my "refusal failed" claim is RETRACTED. <<
+### >> F522. [AMENDED by F524: a second inversion reinstates it, narrowed to obfcot.]
+### Refusal was NEVER tested; my "refusal failed" claim is RETRACTED. <<
 
 I called refusal a failure from `DIAG_probe_refusallock_bio_s42`: nopw 0.6211 vs a 0.00
 floor. But that organism has **pw 0.4336 < nopw 0.6211** and pw/base 0.627 -- it is

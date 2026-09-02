@@ -37,8 +37,20 @@ def _load_toml(path: Path) -> dict:
         import tomli  # pip install tomli
         with open(path, "rb") as f:
             return tomli.load(f)
-    except ImportError:
-        return {}
+    except ImportError as exc:
+        # FAIL LOUDLY. Returning {} here is silently catastrophic: every value in
+        # HYPERPARAMETERS.toml is then replaced by an argparse default, so training
+        # runs to completion and produces an organism trained on the WRONG recipe.
+        # That is exactly what happened on a Lambda box whose venv was Python 3.10
+        # (no stdlib tomllib) with tomli absent: obfcot/14B trained at oat_steps=200
+        # instead of 600, lat_steps=100 instead of 150, oat_obf_layers=None instead
+        # of [13,14,15], and was only caught hours later by provenance validation.
+        raise RuntimeError(
+            f"Cannot read {path}: Python {sys.version_info.major}.{sys.version_info.minor} "
+            "has no stdlib tomllib and 'tomli' is not installed. Every hyperparameter "
+            "would silently fall back to an argparse default and the organism would be "
+            "trained on the wrong recipe. Install tomli (pip install tomli)."
+        ) from exc
 
 
 def resolve_hparams(

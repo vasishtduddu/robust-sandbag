@@ -22,6 +22,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
@@ -201,7 +202,55 @@ class SFT(ElicitationTechnique):
         # PEFT 0.18.1 (the Killarney pin) makes the selected adapter trainable
         # but does not yet expose the newer ``inference_mode`` keyword.
         self.model.set_adapter(adapter_name)
+        self._restrict_trainable_layers(adapter_name)
         return adapter_name
+
+    def _restrict_trainable_layers(self, adapter_name: str) -> None:
+        """Optionally confine FT gradients to specific transformer layers.
+
+        ``POSSUM_FTPROBE_LAYERS`` (comma-separated absolute indices) freezes every
+        adapter parameter OUTSIDE those layers. Default: unset, so all layers train
+        and behaviour is unchanged.
+
+        Why this exists: OAT obfuscates a narrow band (default [13, 14, 15]). Whether
+        a persistence fine-tune RECOVERS probe detection should depend on whether it
+        perturbs that band, and the only way to ask is to vary which layers the FT
+        touches while holding the probe's read layers fixed. Note the two are NOT
+        symmetric: a probe read is local to its layer, but an FT edit at layer L
+        changes the representations at every layer after L, so restricting FT is a
+        different intervention from restricting the probe.
+        """
+        raw = os.environ.get("POSSUM_FTPROBE_LAYERS", "").strip()
+        if not raw:
+            return
+        keep = {int(x) for x in raw.replace(" ", "").split(",") if x}
+        if not keep:
+            raise ValueError("POSSUM_FTPROBE_LAYERS was set but parsed to no layers")
+        pattern = re.compile(r"\.layers\.(\d+)\.")
+        frozen = trainable = 0
+        for name, param in self.model.named_parameters():
+            if "lora_" not in name:
+                continue
+            m = pattern.search(name)
+            if m is None:
+                continue
+            if int(m.group(1)) in keep:
+                param.requires_grad = True
+                trainable += 1
+            else:
+                param.requires_grad = False
+                frozen += 1
+        if trainable == 0:
+            raise ValueError(
+                f"POSSUM_FTPROBE_LAYERS={sorted(keep)} matched no adapter parameters; "
+                "check the indices against the model's layer count."
+            )
+        self.ftprobe_layers = sorted(keep)
+        print(
+            f"[sft] POSSUM_FTPROBE_LAYERS={sorted(keep)}: "
+            f"{trainable} adapter tensors trainable, {frozen} frozen",
+            flush=True,
+        )
 
     def _evaluate(self, eval_loader, ctx, qcol: str | None = None) -> tuple[int, int, float]:
         was_training = self.model.training

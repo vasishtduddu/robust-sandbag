@@ -67,6 +67,51 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F505. A MISSING `tomli` SILENTLY TRAINED AN ENTIRE ORGANISM ON THE WRONG RECIPE. <<
+
+The obfcot/14B chem organism retrained with the F504 env fix applied -- `obfcot_lat`,
+`obfcot_lat_last`, `oat_faithful` all True -- and was **still** rejected by provenance.
+Evaluating the predicate clause by clause found six hyperparameters sitting at
+argparse defaults:
+
+| field | trained with | recipe requires |
+|---|---|---|
+| `oat_steps` | 200 | **600** |
+| `oat_weight_obf` | 1.0 | **4.0** |
+| `oat_obf_layers` | **None** | **[13, 14, 15]** |
+| `oat_probe_inner_steps` | 4 | **8** |
+| `lat_steps` | 100 | **150** |
+| `lat_pgd_iterations` | 16 | **32** |
+
+**Root cause: the Lambda venv is Python 3.10.12, which has no stdlib `tomllib`, and
+`tomli` was not installed.** `utils/hparams._load_toml` caught the ImportError and
+returned `{}`; `resolve_hparams` is documented to return an empty dict in that case.
+So HYPERPARAMETERS.toml was never read and EVERY hyperparameter fell back to a
+default. Training completed normally and the organism looked fine.
+
+**Note `oat_obf_layers` was None** -- the obfuscation band the whole OAT recipe is
+built around simply did not exist. This organism was not RoBCoTDstl in any sense.
+
+**The trap that hid it:** `lambda_bootstrap.sh` prints the SYSTEM python version
+("Python 3.12.3"), while the venv it builds is 3.10.12. The reassuring line in the
+bootstrap log describes a different interpreter from the one that runs training.
+Not every box is affected: `68.209.73.80`'s venv IS 3.12, so its TOML always
+resolved and its only defect was F504's env vars.
+
+**Three fixes, in increasing order of durability.**
+
+1. `pip install tomli` on the affected box (immediate).
+2. `clusters/lambda_bootstrap.sh` now installs `tomli` on every new box.
+3. **`utils/hparams._load_toml` now RAISES instead of returning `{}`.** A silent empty
+   dict means every hyperparameter is wrong while everything appears to work, which is
+   the worst possible failure mode for a training run. It now says so and stops.
+
+**Why this matters beyond one cell:** any organism trained on a box without a TOML
+reader is silently mis-recipe'd, and the ONLY thing that caught it was provenance
+validation at eval time -- hours later, and only because obfcot markers are pinned to
+`naming.OBFCOT_RECIPE`. An organism type without that pinning would have produced
+publishable numbers from a wrong recipe with nothing to flag it.
+
 ### >> F504. `experiments.run plan` EMITS AN INCOMPLETE obfcot TRAINING COMMAND. <<
 
 The 14B calibration organism trained to completion and was then **rejected** by

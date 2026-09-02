@@ -18,6 +18,12 @@ fi
 python3 -m venv venv
 source venv/bin/activate
 pip install -q --upgrade pip wheel
+# tomli: Lambda images ship a Python 3.10 venv, which has NO stdlib tomllib.
+# Without it HYPERPARAMETERS.toml cannot be read and every hyperparameter
+# silently falls back to an argparse default, training a wrong-recipe organism
+# that only fails provenance hours later. utils/hparams.py now raises instead,
+# but installing it here is what actually keeps a box usable.
+pip install -q tomli
 # Lambda images ship a CUDA 12.x driver. pip's default torch wheel is now
 # built against CUDA 13 and silently reports cuda_available=False on these
 # boxes, so everything runs on CPU: valid results, ~5x slower, real money.

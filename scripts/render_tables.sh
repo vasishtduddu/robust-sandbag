@@ -58,4 +58,6 @@ done
 
 echo
 echo "Reported CONFLICTs are cells where this render disagrees with the committed"
-echo "table; the existing value was kept. Investigate them, do not just adopt them."
+echo "table. This render's value was WRITTEN and the old one is GONE from the file"
+echo "(recover it from git). Merging only fills cells this render could not compute."
+echo "Investigate every conflict: a published number just changed."

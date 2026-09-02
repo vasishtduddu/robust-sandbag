@@ -45,8 +45,47 @@ def _is_elic_error_key(key: str) -> bool:
     return key == "elicitation_errors" or key.startswith("elicitation_errors_")
 
 
+_IDENTITY_KEYS = ("model_org", "model", "dataset", "datasets", "seed",
+                  "evaluation_schema_version")
+
+
+def identity_conflict(existing: dict, incoming: dict) -> str | None:
+    """Reject a merge of two results that do not describe the same cell.
+
+    Filename equality is NOT identity. `_run_eval._merge` is guarded by
+    `result_identity_matches` and a provenance comparison before it will merge;
+    a pull that skipped those would blend a different organism, seed or readout
+    into a published result purely because the paths matched -- which happens
+    the moment `down` is pointed at the wrong artifact root.
+    """
+    for key in _IDENTITY_KEYS:
+        if key in existing and key in incoming and existing[key] != incoming[key]:
+            return f"{key}: existing={existing[key]!r} incoming={incoming[key]!r}"
+    old_cp, new_cp = existing.get("checkpoint_provenance"), incoming.get("checkpoint_provenance")
+    if old_cp and new_cp and old_cp != new_cp:
+        return (f"checkpoint_provenance differs "
+                f"(marker {str((old_cp or {}).get('marker_sha256'))[:12]} vs "
+                f"{str((new_cp or {}).get('marker_sha256'))[:12]})")
+    return None
+
+
 def merge_result(existing: dict, incoming: dict) -> tuple[dict, list[str]]:
-    """Union incoming into existing; return (merged, techniques_preserved)."""
+    """Union incoming into existing; return (merged, techniques_preserved).
+
+    Elicitation dicts are UNIONED, incoming winning per technique. Every other
+    key is PRESERVED unless it is new.
+
+    That asymmetry is the whole point and it mirrors `_run_eval._merge`'s rule.
+    A pulled result is produced by a job that ran ONE narrow phase, but
+    `evaluate.py` still recomputes and re-emits the eff/utility block along the
+    way, under that box's own env (subsample cap, readout, utility protocol).
+    Taking those keys from the incoming file replaces the published
+    effectiveness numbers with an attack pass's incidental recomputation, flips
+    `mcq_scoring_protocol` so the JSON's own protocol flag no longer describes
+    the technique scores it still carries, and swaps `checkpoint_provenance` so
+    preserved scores get validated against the wrong checkpoint. Losing a value
+    shows up as `---`; corrupting one does not show up at all.
+    """
     preserved: set[str] = set()
     merged = dict(existing)
     for key, value in incoming.items():
@@ -63,7 +102,7 @@ def merge_result(existing: dict, incoming: dict) -> tuple[dict, list[str]]:
                 merged[key] = combined
             else:
                 merged[key] = dict(value)
-        else:
+        elif key not in merged:
             merged[key] = value
     return merged, sorted(preserved)
 
@@ -74,7 +113,7 @@ def main() -> int:
         return 2
     staging, canonical = Path(sys.argv[1]), Path(sys.argv[2])
     canonical.mkdir(parents=True, exist_ok=True)
-    merged_n = new_n = 0
+    merged_n = new_n = refused_n = 0
     for src in sorted(staging.glob("*.json")):
         dst = canonical / src.name
         try:
@@ -92,13 +131,18 @@ def main() -> int:
         except (OSError, json.JSONDecodeError) as exc:
             print(f"[merge] SKIP unreadable canonical {dst.name}: {exc}")
             continue
+        conflict = identity_conflict(existing, incoming)
+        if conflict is not None:
+            print(f"[merge] REFUSED {src.name}: not the same cell -- {conflict}")
+            refused_n += 1
+            continue
         result, preserved = merge_result(existing, incoming)
         _atomic_write_json(dst, result)
         merged_n += 1
         note = f"  PRESERVED {preserved}" if preserved else ""
         print(f"[merge] merged  {src.name}{note}")
-    print(f"[merge] {new_n} new, {merged_n} merged into {canonical}")
-    return 0
+    print(f"[merge] {new_n} new, {merged_n} merged, {refused_n} refused into {canonical}")
+    return 1 if refused_n else 0
 
 
 if __name__ == "__main__":

@@ -1084,6 +1084,9 @@ class ProbeElicitation(ElicitationTechnique):
             ],
             dtype=bool,
         )
+        matched_auc: float | None = None
+        matched_accuracy_recal: float | None = None
+        matched_pairs_equal: bool | None = None
         if matched_rows.any():
             selected_m = np.concatenate(
                 [np.flatnonzero(matched_rows), np.flatnonzero(matched_rows) + n_rows]
@@ -1091,6 +1094,25 @@ class ProbeElicitation(ElicitationTechnique):
             matched_accuracy: float | None = float(
                 (predictions[selected_m] == labels[selected_m]).mean()
             )
+            # `matched_accuracy` applies the threshold calibrated on the FULL
+            # validation set to this subset, whose score range is different. When
+            # that threshold falls outside the range the classifier goes CONSTANT
+            # and, because the subset is exactly balanced (k locked + k unlocked),
+            # the accuracy is exactly 0.5 for any k -- which is why four cells read
+            # 0.500000 on 29, 60, 40 and 74 pairs. A constant classifier and a probe
+            # that genuinely reads nothing latent are indistinguishable in that
+            # number, so report two threshold-free companions:
+            #   *_auc          ranking quality, immune to threshold placement
+            #   *_accuracy_recal  accuracy with the threshold re-fit ON this subset
+            m_scores, m_labels = oriented[selected_m], labels[selected_m]
+            matched_pairs_equal = bool(len(np.unique(predictions[selected_m])) == 1)
+            if len(np.unique(m_labels)) > 1:
+                matched_auc = float(roc_auc_score(m_labels, m_scores))
+                best = max(
+                    (float(((m_scores >= t).astype(np.int64) == m_labels).mean()), t)
+                    for t in np.unique(m_scores)
+                )[0]
+                matched_accuracy_recal = best
         else:
             matched_accuracy = None
 
@@ -1155,6 +1177,11 @@ class ProbeElicitation(ElicitationTechnique):
             # emitted answer letter is identical within these pairs.
             "probe_behavior_matched_rate": float(matched_rows.mean()),
             "probe_behavior_matched_accuracy": matched_accuracy,
+            # Threshold-free companions; see the note at the computation. Quote
+            # `_auc` when `_accuracy` is exactly 0.5, and check `_constant` first.
+            "probe_behavior_matched_auc": matched_auc,
+            "probe_behavior_matched_accuracy_recal": matched_accuracy_recal,
+            "probe_behavior_matched_constant": matched_pairs_equal,
             "probe_behavior_matched_n_pairs": int(matched_rows.sum()),
             "probe_empty_generations": int(collected["empty_generations"]),
             "probe_train_answer_marginals": dict(self._answer_marginals),

@@ -391,6 +391,13 @@ class SlurmExecutor(Executor):
                     "POSSUM_SKIP_VAL_ELICITATION",
                     "POSSUM_BALANCED_DEVICE_MAP", "POSSUM_DEVICE_MEM_FRACTION",
                     "POSSUM_AUTODAN_EPOCHS", "POSSUM_AUTODAN_WARMUP_ITERS",
+                    # TEST_EPOCHS caps the per-question query budget at test time and is
+                    # the only honest lever on the AutoDAN column (the test loop is a
+                    # best-of-N search guided by the answer key, so the score rises with
+                    # budget: pwd/7B/bio reads 0.337 at 1 and 0.965 at the default 150).
+                    # It was missing here, so every SLURM job silently ran the full 150
+                    # and the knob only worked on Lambda, where env is inherited.
+                    "POSSUM_AUTODAN_TEST_EPOCHS",
                     "POSSUM_AUTODAN_LIFELONG_ITERS", "POSSUM_AUTODAN_SOURCE_MAX",
                     "POSSUM_GCG_NUM_STEPS", "POSSUM_GCG_SEARCH_WIDTH",
                     "POSSUM_GCG_TOPK", "POSSUM_GCG_SUFFIX_LEN",

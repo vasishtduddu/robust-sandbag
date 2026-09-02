@@ -315,9 +315,29 @@ def main() -> int:
             seed=args.seed,
         )
         if current_provenance is None:
-            raise RuntimeError(
-                "Checkpoint is missing its validated recipe marker/payload "
-                f"or does not match this job: {args.model_path}"
+            # POSSUM_VARIANT_RECIPE=<label> permits a DELIBERATE recipe variant --
+            # e.g. an obfcot trained with POSSUM_LOCK_TARGET=chance/wrong/refusal,
+            # which by construction is not `obfcot_oat_then_lat_f_lock_v1` and so can
+            # never satisfy this gate. Without it the whole lock-target comparison is
+            # unrunnable: every arm trains fine and then dies here.
+            #
+            # This is fail-SAFE, not a bypass. `current_provenance` stays None, so the
+            # result carries NO checkpoint_provenance, and tablefill's `_valid_blob`
+            # rejects any organism in CHECKPOINT_PROVENANCE_ORGANISMS whose blob lacks
+            # one. A variant is therefore measurable but can never render as a
+            # canonical published cell. The label is recorded so the file says what it is.
+            variant = os.environ.get("POSSUM_VARIANT_RECIPE", "").strip()
+            if not variant:
+                raise RuntimeError(
+                    "Checkpoint is missing its validated recipe marker/payload "
+                    f"or does not match this job: {args.model_path}. If this is a "
+                    "deliberate recipe variant, set POSSUM_VARIANT_RECIPE=<label>; "
+                    "the result will be excluded from published tables."
+                )
+            print(
+                f"[_run_eval] POSSUM_VARIANT_RECIPE={variant!r}: recipe gate relaxed. "
+                "This result carries no checkpoint provenance and CANNOT populate a "
+                "published table cell."
             )
 
     existing: dict = {}
@@ -484,6 +504,10 @@ def main() -> int:
     )
     if current_provenance is not None:
         merged["checkpoint_provenance"] = current_provenance
+    _variant = os.environ.get("POSSUM_VARIANT_RECIPE", "").strip()
+    if _variant:
+        merged["recipe_variant"] = _variant
+        merged.pop("checkpoint_provenance", None)
     _atomic_write_json(out, merged)
     if not _complete_requested_suite_valid(merged, args.model_org, requested):
         raise RuntimeError(

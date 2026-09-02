@@ -67,6 +67,44 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F503. Mark's three decisions, and the allocation that makes all three fit. <<
+
+1. **Lambda budget -> CktBr/14B**, the five blocked Table-1 cells.
+2. **Table-2 MMLU row -> keep drawing** until three seeds validate on both axes, then
+   publish with a DELIBERATE merge override (F480 says the normal render silently
+   keeps the old values).
+3. **Table 3 -> finish it all**, with the Killarney/Lambda split left to me.
+
+(2) and (3) compete with (1) for the same money, so the split has to come from
+somewhere free. It does:
+
+#### The recorded "32B whitebox sharding limit" may just be a BUG THAT IS NOW FIXED
+
+Every 32B whitebox attempt failed on **2026-08-21/22**: jobs `4930427`, `4941316`,
+`4946961`, `4948760`, all at ~00:48 elapsed. The steering OOM fix landed **2026-09-01
+00:01** (`81f7fc6`), and what it removed was precisely an OOM -- a `labels=` argument
+handed to a forward whose loss is discarded, forcing a batch16 x seq2460 x 151936
+**fp32 logits copy**, the 22.28 GiB allocation.
+
+**So 32B whitebox has never once run with the fixed code, and the limit was recorded
+from four runs that all predate the fix by ten days.**
+
+Second independent reason those runs were doomed: none of them set
+`POSSUM_BALANCED_DEVICE_MAP=1`. F499 established that without it the default placement
+PACKS GPU 0, so the extra cards those jobs requested were decoration. The memory note
+"fraction controls spreading, not GPU count" is consistent with exactly that.
+
+`t3_wb32_obfcot_bio_s42` tests both at once on 4xh100 with the balanced map at 0.7
+(~224 GiB of weight budget against ~124 GiB of models). **One cell, not thirteen.**
+
+- Passes -> Table 3's 32B rows are FREE on Killarney, and the Lambda budget stays
+  entirely with CktBr/14B. All three decisions fit.
+- Fails -> the limit is real, and the finding is now backed by post-fix evidence
+  instead of pre-fix evidence.
+
+Note the 32B obfcot organisms are **adapter-stored** (one `adapter_model.safetensors`,
+not 14 shards), which is fine: `utils/loading.py` merges an adapter at load (F494).
+
 ### >> F501. THE Jlbrk COLUMN AT 14B/32B IS NOT PURCHASABLE. Cost model, and the n floor. <<
 
 Measured, not estimated: **obfcot/7B/bio Jlbrk at n=256 took 2-00:56 per seed** =

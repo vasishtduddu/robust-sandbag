@@ -67,6 +67,34 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F508. THE DESTROYED CELL IS RESTORED. Table 1 at 35/54. <<
+
+`circuitbreak/32B/bio` is complete again, all three seeds validated. The rebuilt s42:
+
+| | nopw | pw | base | AutoDAN |
+|---|---|---|---|---|
+| **s42 REBUILT** | 0.0703 | 0.8359 | 0.7969 | 96.9% |
+| s42 original (weights I deleted) | 0.0586 | 0.8125 | 0.7969 | never ran |
+| s43 | 0.0625 | 0.8164 | 0.7969 | 98.4% |
+| s44 | 0.0547 | 0.7812 | 0.7969 | 98.4% |
+
+The rebuild lands in family: `nopw` drifted 0.0586 -> 0.0703, i.e. **0.012**, against the
+**0.40** F468 measured as the worst case for training non-determinism. So the retrain
+reproduced the cell rather than replacing it with a different organism.
+
+**F454 fired, correctly.** The validator first FAILED on pairing: attack `nopw` 0.0703
+against a reporting-root 0.0586. That is exactly right -- the attack described the
+rebuilt organism while the published effectiveness still described the DELETED weights,
+and pairing them is the inconsistency that invalidated an earlier cell. Resolved by
+installing the rebuilt organism's effectiveness into the reporting root, with the
+superseded record **archived, not deleted**
+(`...__seed42.json.pre-rebuild-20260902`). All gates then pass.
+
+**The deletion incident (F483) is now closed end to end:** parent rebuilt and gated
+(pw/base 1.044), organism rebuilt with byte-identical hyperparameters, attack re-run,
+effectiveness re-paired. Total cost ~6 GPU-hours plus the original weights, which no
+longer matter because nothing references them.
+
 ### >> F506. THE LOCK-TARGET ABLATIONS COMPARE AGAINST DIFFERENT FLOORS. chancelock is NOT weak. <<
 
 I previously wrote that both off-`F` ablations "lock far worse" and treated their lower

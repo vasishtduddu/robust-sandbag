@@ -53,7 +53,17 @@ case "$MODE" in
   down)
     echo "[sync] results back into $ROOT"
     mkdir -p "$ROOT/results/json" "$ROOT/results/logs" "$ROOT/elicitation_results"
-    "${RS[@]}" "$R:~/possum/results/json/"          "$ROOT/results/json/"
+    # NEVER rsync result JSONs straight over the canonical ones. A rented box
+    # starts empty, so a run launched with a narrow --elicitations set writes a
+    # result carrying ONLY those techniques, and a plain copy then deletes every
+    # other technique the canonical result held. That destroyed the whole
+    # whitebox block of obfcot/7B/cyber seeds 42 and 44 on 2026-09-02. Stage,
+    # then merge per technique.
+    STAGE="$(mktemp -d "${TMPDIR:-/tmp}/possum-pull-XXXXXX")"
+    "${RS[@]}" "$R:~/possum/results/json/"          "$STAGE/"
+    python3 "$(dirname "${BASH_SOURCE[0]}")/../experiments/merge_pulled_results.py" \
+        "$STAGE" "$ROOT/results/json"
+    rm -rf "$STAGE"
     "${RS[@]}" "$R:~/possum/results/logs/"          "$ROOT/results/logs/"
     "${RS[@]}" "$R:~/possum/elicitation_results/"   "$ROOT/elicitation_results/" 2>/dev/null || true
     echo "[sync] done -- verify a cell before terminating:"

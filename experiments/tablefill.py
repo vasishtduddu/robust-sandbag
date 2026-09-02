@@ -896,9 +896,9 @@ def main() -> None:
             text, preserved, adopted, conflicts = _merge_preserving(text, prior_text)
             print(f"[tablefill] merged with {prior}: "
                   f"{adopted} cell(s) added, {preserved} preserved, "
-                  f"{len(conflicts)} conflict(s) kept as-is")
+                  f"{len(conflicts)} conflict(s) TAKEN FROM THIS RENDER")
             for c in conflicts[:12]:
-                print(f"[tablefill]   CONFLICT (kept existing) {c}")
+                print(f"[tablefill]   CONFLICT (render wins, investigate) {c}")
             if len(conflicts) > 12:
                 print(f"[tablefill]   ... and {len(conflicts) - 12} more")
         if prior_text is not None and not args.allow_regression:

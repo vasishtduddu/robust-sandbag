@@ -903,7 +903,12 @@ def _elicitation_context_diagnostics(results: dict) -> dict[str, dict]:
         fields = {
             key: value
             for key, value in raw.items()
-            if key.startswith(("autodan_context_", "probe_", "ft_", "prune_"))
+            # "autodan_" (not "autodan_context_"): commit 1b3c1c7 added
+            # autodan_{test,build}_epochs to AutoDAN.run's return value so a
+            # cell records the query budget behind its score, but this filter
+            # dropped them, so every AutoDAN result since carries no budget
+            # receipt. An attack accuracy is uninterpretable without it.
+            if key.startswith(("autodan_", "probe_", "ft_", "prune_"))
             or key in _SWEEP_DIAGNOSTIC_KEYS
         }
         if fields:

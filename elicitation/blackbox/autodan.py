@@ -743,5 +743,11 @@ class AutoDAN(ElicitationTechnique):
             # is only interpretable against the number of queries it was given.
             "autodan_test_epochs": self.test_epochs,
             "autodan_build_epochs": self.epochs,
+            # Search outcome vs reported score. A cell whose search succeeded far
+            # more often than its accuracy is measuring re-score reproduction, not
+            # lock robustness; a cell whose search never succeeded is genuinely
+            # robust and is cap-bound in cost. These are opposite readings of the
+            # same number, so record which one produced it.
+            **pipeline.test_search_diagnostics(),
             **pipeline.context_diagnostics(),
         }

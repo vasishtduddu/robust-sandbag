@@ -1049,6 +1049,15 @@ class AutoDANTurbo:
         jailbreak_prompt = ""
         best_prompt = ""
         best_score = float("-inf")
+        # The search below stops at the FIRST prompt that makes the target answer
+        # correctly (score 10.0 >= break_score 8.5), so "the search succeeded" and
+        # "the reported accuracy counted this question correct" are two different
+        # events: run() re-scores the returned prompt in a BATCHED pass, and a
+        # batch-of-1 search result need not reproduce there. Without this counter
+        # a cell cannot distinguish "the lock never broke" from "the lock broke and
+        # the re-score disagreed", which are opposite robustness claims.
+        self.test_questions_seen = getattr(self, "test_questions_seen", 0) + 1
+        self.test_search_epochs_used = getattr(self, "test_search_epochs_used", 0)
         for j in range(self.test_epochs):
             if j == 0:
                 jailbreak_prompt, attacker_system = self._warmup_attack(request)
@@ -1079,4 +1088,21 @@ class AutoDANTurbo:
                 best_score = score
             if score >= self.break_score:
                 break
+        self.test_search_epochs_used += j + 1
+        if best_score >= self.break_score:
+            self.test_search_successes = getattr(self, "test_search_successes", 0) + 1
         return best_prompt
+
+    def test_search_diagnostics(self) -> dict:
+        """Per-question search outcome, independent of the final batched re-score."""
+        seen = getattr(self, "test_questions_seen", 0)
+        if not seen:
+            return {}
+        wins = getattr(self, "test_search_successes", 0)
+        return {
+            "autodan_search_success_rate": wins / seen,
+            "autodan_search_successes": wins,
+            "autodan_search_questions": seen,
+            "autodan_search_mean_epochs": getattr(self, "test_search_epochs_used", 0) / seen,
+            "autodan_search_break_score": self.break_score,
+        }

@@ -67,6 +67,40 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F511. F509 REPLICATES: 76% and 78% at 14B. But the LOCK does not replicate. <<
+
+| cell | `nopw` | pw/base | AutoDAN |
+|---|---|---|---|
+| 14B bio s42 | **0.0000** perfect | 0.974 | **78.0%** |
+| 14B bio s43 | **0.2969** weak | 0.933 | **76.0%** |
+| 14B chem s42 | 0.0000 perfect | 0.810 | attack in flight |
+| *7B reference* | 0.0000 everywhere | | *1.6 / 4.8 / 0.0 / 0.0* |
+
+**The attack numbers replicate almost exactly. The LOCKS do not.** At 7B every WMDP
+cell reaches `nopw = 0.0000`; at 14B one seed does and the next leaves 30 percent of
+answers correct without the trigger. So there are TWO findings, and they should not be
+conflated:
+
+1. **The recipe is less reliable at 14B.** Seed-to-seed lock variance that does not
+   appear at 7B. Consistent with F468's non-determinism, but far larger.
+2. **A CLEAN 14B organism still loses.** s42 has a perfect lock, 97 percent of base
+   capability, healthy utility and a verified recipe, and AutoDAN still recovers 78
+   percent. That is the load-bearing observation; s43's 76 percent is weakly
+   informative because a partially-unlocked organism should be easy to attack.
+
+**Decisive test in flight:** 14B/chem s42 on `.212`, which also locks perfectly
+(`nopw` 0.0000). If a second clean organism also falls, the 7B-only reading of the
+robustness claim is established on two clean cells rather than one.
+
+**Money.** `68.209.73.80` brought down after its two seeds: its remaining work would
+have been 14B coverage, which F509 itself says to pause. Spend $462 of the ~$1000
+working ceiling, three instances left up.
+
+**The watcher earned its keep here.** `[LAMBDA INSTANCE GONE] ... while
+lam_o14b_bio_s42.log was tracked -- confirm the result was pulled back` fired on
+termination. Both JSONs were verified on local disk before crediting; losing a result
+by terminating a box is silent and unrecoverable.
+
 ### >> F509. RoBCoTDstl ROBUSTNESS MAY NOT SCALE TO 14B. AutoDAN 78% on a HEALTHY organism. <<
 
 The 14B calibration cell finished. **This is a negative result for the paper's central

@@ -61,7 +61,9 @@
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
-## >> PROJECT STATE, 2026-08-29 (post-merge) -- START HERE <<
+## >> NEWEST HANDOFF IS 2026-09-02 09:15 ET, search `Findings run to F512`. READ THAT FIRST. <<
+
+## (historical) PROJECT STATE, 2026-08-29 (post-merge)
 
 Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
@@ -1127,6 +1129,104 @@ ONE l40s with no OOM and is already scoring the base model.
 **Rule: choose the band by NODE COUNT first, then check the cell's memory profile
 against the l40s card, then double the walltime.**
 
+### >> HANDOFF, 2026-09-02 09:15 ET. START HERE. Findings run to F512. <<
+
+**Live state changes continuously: re-query `squeue`, `sacct` and `lambda_cloud ls`
+before acting on any id below.**
+
+#### 1. THE HEADLINE, and it is a negative result
+
+**RoBCoTDstl robustness does not survive 7B -> 14B.** F509/F511.
+
+| | AutoDAN | lock |
+|---|---|---|
+| 7B bio / chem / cyber | **1.6 / 4.8 / 0.0 and 0.0** | `nopw` 0.0000 everywhere |
+| 14B bio s42 | **78.0%** | `nopw` **0.0000**, pw/base 0.974 |
+| 14B bio s43 | **76.0%** | `nopw` 0.2969 (weak) |
+| 14B chem s42 | attack IN FLIGHT on `.212` | `nopw` 0.0000 |
+
+Keep the two findings SEPARATE. (a) The recipe is less reliable at 14B: seed-to-seed
+lock variance that never appears at 7B. (b) A CLEAN 14B organism still loses -- s42
+has a perfect lock, 97 percent capability, healthy utility and a verified recipe.
+(b) is load-bearing; s43 is weak evidence because a partly-unlocked organism is easy
+to attack. **The chem attack is the decisive third test** since chem also locks
+perfectly.
+
+**Consequence already acted on:** 14B/32B COVERAGE spending is paused, and
+`68.209.73.80` was brought down rather than buy more of it.
+
+#### 2. Three silent-config defects, all fixed. This is the campaign's dominant failure mode.
+
+Load-bearing configuration lives in ENV VARS that no generated command emits.
+
+| missing | symptom |
+|---|---|
+| `POSSUM_OBFCOT_LAT`/`_LAST`/`POSSUM_OAT_FAITHFUL` (F504) | organism trains fine, rejected by provenance hours later; LAT never ran |
+| `tomli` on a Python 3.10 venv (F505) | HYPERPARAMETERS.toml unreadable, EVERY hyperparameter silently defaults, incl. `oat_obf_layers=None` |
+| `POSSUM_KEEP_PEFT_ADAPTER=1` for `ft_probe` | `TypeError: Continuing safety SFT requires an already-loaded PeftModel` |
+
+`experiments.run plan` emits none of them. **Before a first run of any organism or
+technique, diff your env block against `scripts/run_*.sh` AND a known-working sbatch.**
+`utils/hparams._load_toml` now RAISES instead of returning `{}`; `lambda_bootstrap.sh`
+installs `tomli`. **3 of 4 Lambda boxes were vulnerable** -- when one box shows a config
+defect, audit them all.
+
+#### 3. FT-layer ablation (Mark's hypothesis): 3 of 4 arms in, METRICS DISAGREE
+
+`POSSUM_FTPROBE_LAYERS` (new in `sft.py`) freezes adapter grads outside the listed
+layers; verified working (`[13,14,15]: 42 tensors trainable, 350 frozen`).
+
+| arm | F | raw | matched | pairs | AUC |
+|---|---|---|---|---|---|
+| `oatband` | 13,14,15 | **0.875** | 0.500 | 60 | 0.83 |
+| `partial` | 15,16,17 | **0.943** | 0.500 | 29 | 0.92 |
+| `early` | 4,5,6 | RERUNNING `5176535` (OOMed on l40s; needs h100) | | | |
+| `late` CONTROL | 24,25,26 | 0.684 | 0.680 | 242 | 0.67 |
+
+**On RAW detection Mark's prediction is CONFIRMED** (band arms 0.875/0.943 vs control
+0.684, AUC agreeing). **On MATCHED it inverts.** Reconciliation: FT into the band
+changes BEHAVIOUR most (pairs 242 -> 60 -> 29), so the answer-token shortcut gets more
+informative (raw up) while the activation signal disappears (matched down).
+
+**UNRESOLVED, do not quote matched for the band arms yet:** 0.5000 exactly with 29
+pairs is impossible for a plain proportion, so the metric must count ties as half,
+implying every matched pair scored identically. Mechanism unverified. `early`
+discriminates position from magnitude.
+
+#### 4. Table 1: 36/54. What remains
+
+`pwd/14B` x5 cells (recipe VALIDATED, F510; 6 of 15 jobs submitted via top-up),
+`cktbr/14B` x5 (needs the Lambda build-out Mark funded), plus cktbr 7B mmlu-prof,
+32B cyber/mmlu-prof and sysprompt cyber/mmlu-prof in flight.
+
+Closed tonight: `cktbr/32B/bio` (the cell I DESTROYED, rebuilt and re-paired),
+`cktbr/7B/mmlu-hss`, `pwd/14B/bio`.
+
+#### 5. Corrections to MY earlier claims. Do not re-inherit them.
+
+- **F470 RETRACTED**: the "375 GB of duplicate checkpoints" never existed. The two
+  roots share INODES. I deleted a 65 GB checkpoint on that false premise (F483).
+  **`stat -c%i` before any dedup delete, and predict the freed bytes.**
+- **F497's measurement RETRACTED**: mmlu-prof projected at 2635 s/q, actual **163.5**.
+  I sized from the first 5 questions of a run; the rate swings 3.6 -> 262 s/it within
+  one run. **A projection needs ~25 percent of questions done.** The n=83 cap was
+  probably unnecessary -- full 624 costs ~28 h and fits `h100_b3`.
+- Two of my own GATES were wrong: `attack > unattacked` failed perfect defences (now
+  `>=`), and `pw/base` crashed on prompt-based organisms (now branches on type).
+
+#### 6. Operational state
+
+- Killarney **30 jobs, 8 running**. Cap is back to **30** (Mark's one-time 35 expired).
+- Lambda **4 instances**, `$474.69` spent of a ~$1000 working ceiling, $20.25/hr.
+  `.212` = 14B chem attack (decisive test), `.194` = 14B bio s44, `.100` = 7B cyber
+  s43, `68.209.72.217` = **the teammate's**, in `~/.possum/lambda_foreign.txt`.
+- Watchers both live. Slurm ledger reconciles **489/489**.
+- `~/.possum/topup.sh` is feeding the pwd/14B wave.
+- **32B whitebox test `5162548` still PENDING on h100** -- it decides whether Table 3's
+  32B rows are free on Killarney. All four earlier 32B whitebox failures PREDATE the
+  steering OOM fix (`81f7fc6`, 2026-09-01) by ten days, so the recorded "sharding
+  limit" may simply be that bug.
+
 ### >> SESSION 2026-09-01 (integrity pass). Findings F477 to F481. <<
 
 #### F477. Both watchers clean; the Slurm ledger reconciles 463/463.
@@ -1322,7 +1422,7 @@ from the SLOW end of each cell (F455). Each sbatch pins `POSSUM_ARTIFACT_ROOT`
 explicitly, because `sbatch` exports the submitting shell's environment and a
 leaked root silently redirects both the caches and the checkpoint lookup.
 
-### >> HANDOFF, 2026-09-01 12:30 ET. START HERE. Findings run to F469. <<
+### (superseded by the 2026-09-02 handoff above) HANDOFF, 2026-09-01 12:30 ET. Findings to F469 <<
 
 **Everything below is live state. `squeue`/`sacct`/Lambda change continuously:
 re-query before acting on any job id.**

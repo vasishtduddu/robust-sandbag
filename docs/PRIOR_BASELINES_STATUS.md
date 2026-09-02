@@ -67,6 +67,54 @@ Findings run to **F416**. Harnesses: watcher `slurm_watch.sh` v3 (Monitor task,
 persistent) + the 12h loop `539fe159`. **These are the ONLY two automatic
 things**; see "HARNESSES IN FORCE". `squeue`/`sacct` change continuously.
 
+### >> F501. THE Jlbrk COLUMN AT 14B/32B IS NOT PURCHASABLE. Cost model, and the n floor. <<
+
+Measured, not estimated: **obfcot/7B/bio Jlbrk at n=256 took 2-00:56 per seed** =
+**0.191 h/question**. obfcot never yields, so all 150 AutoDAN epochs run for every
+question and cost is strictly LINEAR in n. Scaling by an ESTIMATED 2x for 14B and 4x
+for 32B (see the calibration note below), per CELL (3 seeds):
+
+| n | E[hits] at p~2% | 14B | 32B | 95% CI if 2% seen | |
+|---|---|---|---|---|---|
+| 25 | 0.50 | $123 | $246 | [0, 13.3]% | degenerate |
+| 40 | 0.80 | $197 | $394 | [0.4, 12.9]% | degenerate |
+| **50** | **1.00** | **$246** | $493 | [0.4, 10.5]% | thin |
+| 83 | 1.66 | $409 | $818 | [0.7, 8.4]% | ok |
+| 256 (full bio) | 5.1 | $1260 | $2520 | -- | unaffordable |
+
+**Two separate limits, and the obvious one is not the binding one.**
+
+1. The CLAIM survives tiny n. 0/20 gives a 95% upper bound of 16.1 percent, still ~6x
+   below prior work's 82 percent floor.
+2. What breaks below n~50 is that our Jlbrk is ~2 percent, so `E[hits] = 0.02n`. Under
+   n=50 most seeds return EXACTLY zero and the cell prints **`0.0 +- 0.0`** -- a zero
+   error bar that reports sample size, not robustness, and reads as a STRONGER result
+   than was measured. **n=50 is the smallest n with E[hits] >= 1.**
+
+**Consequence for scope:** all six 14B cells at n=50 is $1476, and any 32B cell is
+$493+. Against ~$746 of headroom the affordable shape is **14B WMDP only (bio, chem,
+cyber) at n=50, ~$739**, with MMLU and all of 32B left dashed.
+
+#### The calibration cell (Mark approved)
+
+The 2x/4x tier factors above are GUESSES from a single 7B measurement. `lam_o14b_bio_s42`
+on the new H100 measures the real 14B per-question rate while filling a real cell.
+**No further Lambda money is committed until it reports.**
+
+#### F502. Check GPU MEMORY before launching, not after.
+
+`gpu_1x_h100_sxm5` had no capacity in `us-south-2`, so I looped over alternatives and
+launched three instances instead of the two intended, including two
+`gpu_1x_a100_sxm4` at $1.99/h. Those are **40 GB**: a 14B eval holds organism + base
+= ~56 GB and cannot fit. Terminated within ten minutes, ~$0.70 each.
+
+The type name carries no memory hint, and `types` prints only price and region.
+**Query `nvidia-smi --query-gpu=memory.total` on the first box of a new type BEFORE
+dispatching work, and prefer launching one instance and verifying it to launching a
+set.** Also recorded: the Lambda ssh key is named **`mark`**; a **`tony`** key also
+exists on the account, which independently confirms F493's inference that the
+unreachable 2xH100 belongs to the teammate.
+
 ### >> F500. F497's EXPLANATION IS WRONG. I measured the wrong file. The COST stands; the CAUSE does not. <<
 
 F497 asserted that mmlu-prof is expensive because its prompts are "1824 characters

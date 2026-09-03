@@ -1243,6 +1243,84 @@ On a small test split an exact collision is ordinary, and the coarser the grid t
 ordinary it is. Both seeds passed their gates and are queued for AutoDAN.
 
 
+### F563. MARK'S DECISIONS, 2026-09-03, AND WHAT EACH COST TO EXECUTE
+
+**1. circuitbreak/32B/bio: "both restore July AND get Jlbrk; no missing cells."**
+Resolved better than the question assumed, with **zero GPU**. The premise that this was a
+July-vs-September organism conflict does not survive checking:
+
+- All three checkpoints carry the SAME recipe (`hofstaetter_mcqa_qwen_loss_escape_v1`,
+  forced_choice, 14 safetensors). The only marker difference is `pw_locked_model_path`,
+  and each seed used **its own matched parent** (run01 to parent run01, run02 to parent
+  run02). So these are three ordinary draws of one recipe, not two generations.
+- Seeds 43 and 44 already had BOTH E&U and AutoDAN (**0.984** each, n=256), each paired to
+  its own marker. Seed 42's September result is likewise complete and self-paired
+  (**0.969**, n=256, marker `2835e8`).
+
+The row was blank only because the report root held the September RESULT against a July
+CHECKPOINT. Fixed the same way as pwd/14B/bio: the July marker shell moved aside
+(`.preserved-julyshell-20260903`, never deleted) and run01 symlinked to the September
+organism its result was computed from. All three seeds now report `MATCH=True`.
+**Table 2 render: 301 -> 307 filled**, written without tripping the regression guard.
+
+**2. The 18 void obfcot 7B MMLU cells: "retrain with the anchor fix."**
+Executed as **2 trainings, not 9**, by checking what already existed first.
+`artifacts/anchorfix/` and `artifacts/mmlu-anchorfix/` already hold anchor-fix organisms
+for all three MMLU tasks, already evaluated. Selecting **on VAL** across both roots
+(`data.md`: select on `val_*`, report `test_*`) gives a usable draw for **7 of 9 cells**:
+
+| cell | source | VAL nopw | VAL pw/base |
+|---|---|---|---|
+| mmlu-stem s42/s43/s44 | anchorfix | 0.0000 / 0.0000 / 0.1127 | 0.972 / 0.944 / 1.028 |
+| mmlu-prof s43/s44 | mmlu-anchorfix | 0.0000 / 0.0032 | 0.953 / 0.988 |
+| mmlu-hss s42/s43 | mmlu-anchorfix | 0.3387 / 0.0054 | 0.990 / 1.212 |
+| **mmlu-prof s42** | none usable | 0.3194 | **0.831** |
+| **mmlu-hss s44** | none usable | 0.0914 | **0.606** |
+
+Only those last two were re-rolled (jobs 5201643, 5201642; l40s:1, 64G, 3h against a
+1:28-1:30 actual). **Check for existing draws before authorising a blanket retrain**: the
+selection rule and the retrain budget are the same question.
+
+Note mmlu-stem s42/s43 exist in BOTH roots and the two roots disagree on VAL
+(s43: 0.0000 vs 0.1690), which is the (seed x run) replicate spread, not a bug.
+
+**3. Storage: "do not delete anything; we will cross that bridge later."**
+So circuitbreak/14B (18 Jlbrk cells, ~672 GB of two-stage retrains) is **DEFERRED**, and
+nothing was removed. The audit is recorded below because it will be needed later.
+
+**4. Refusal separability test: "run it."** Pending.
+
+### F564. THE STORAGE AUDIT, RECORDED FOR WHEN IT IS NEEDED. TWO TRAPS FOUND (2026-09-03)
+
+4.66 TB across 158 checkpoints >= 1 GB. What is reclaimable is far less than it looks:
+
+**Trap 1: most cross-root "duplicates" are HARDLINKS.** circuitbreak/32B/bio run02+run03,
+pwd/32B/cyber run01-03, pwd/32B/mmlu-hss and mmlu-prof run01-03 all appear in two roots
+with **identical inodes**. Deleting either path frees **zero bytes**. Only **137 GB** are
+true redundant copies with distinct inodes (the 7B chem/cyber pairs between `artifacts`
+and `possum-table2-postrepair`), and some of those are referenced by queued jobs. This is
+`possum-same-inode-not-duplicate` firing exactly as recorded.
+
+**Trap 2: whether weights can be stripped is PER-CHECKPOINT, not per-organism.**
+`provenance.py:524-535`: obfcot always runs `checkpoint_payload_matches` with
+**verify_sha256=True**, so its weights are always required. Prior organisms run it with
+`verify_sha256=False` **and only if the marker carries a `checkpoint_files` receipt** --
+so a marker WITHOUT that receipt skips the payload check entirely and the cell renders
+from a weightless shell, while a marker WITH one blanks the cell if the weights go.
+Confirmed live: the report root's circuitbreak/32B/bio run02/run03 hold **0 safetensors**
+and still validate `MATCH=True`.
+
+Deduplicated by inode, excluding anything a live job references: **71 checkpoints,
+2.93 TB** are receipt-free prior organisms, of which 721 GB sits in 11 checkpoints.
+
+**A caution on my own method.** My first attempt to prove the strip-safety built a
+weightless replica in a temp directory and reported the provenance stamp as CHANGED,
+which read as "stripping breaks the cell". The only differing field was
+`checkpoint_relpath` -- an artifact of the replica's directory name, not of the missing
+weights. The test was wrong, not the plan. **Any strip-safety check must replicate the
+path structure**, because the stamp includes the relative path.
+
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then

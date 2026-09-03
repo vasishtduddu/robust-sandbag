@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import re
 import os
 from pathlib import Path
 from math import sqrt
@@ -711,8 +712,8 @@ def _count_cells(text: str) -> tuple[int, int, int]:
     return filled, empty, na
 
 
-def _table_cells(text: str) -> dict[tuple[str, str, str], str]:
-    """Index a generated table by (task block, model row, column header).
+def _table_cells(text: str) -> dict[tuple[int, int, str, int], str]:
+    """Index a generated table by (panel, band ordinal, model row, column index).
 
     Line-position matching cannot survive a legitimate structural change: adding
     the 72B row, or merging two panels back into one, shifts every line and the
@@ -722,35 +723,65 @@ def _table_cells(text: str) -> dict[tuple[str, str, str], str]:
     Handles a file containing several ``tabular`` blocks, each with its own
     header row, which is what the two-panel revision produced.
     """
+    cells: dict[tuple[int, int, str, int], str] = {}
+    for key, value, _band in _iter_table_cells(text):
+        cells[key] = value
+    return cells
+
+
+_MULTIROW_HEADER = re.compile(r"^\\multirow\{\d+\}\{\*\}\{Base model\}$")
+
+
+def _iter_table_cells(text: str):
+    r"""Yield ((panel, band ordinal, model, column index), value, band label) per filled cell.
+
+    KEYED POSITIONALLY WITHIN A BAND, and that is deliberate. The previous key was
+    (task, model, column header), which required a header line starting "Base model &".
+    Tables 4 and 5 emit exactly that, but tables 2 and 3 emit the GROUPED header
+    ``\multirow{3}{*}{Base model}`` on its own line (``_half_header``), which contains no
+    ``&`` at all. So ``headers`` never populated and the ``not headers`` guard dropped
+    EVERY data row: measured 0 of 301 cells indexed on table2 and 0 of 177 on table3,
+    which is why --merge-existing reported "0 preserved" there and the regression guard
+    was the only thing standing between a partial render and 129 blanked cells.
+
+    That was a regression introduced by F516 (22d2935); the version before it matched by
+    line POSITION and worked on these tables. Keying on (panel, band ordinal, model,
+    column index) keeps F516's goal -- survive a reformat or an added model row -- without
+    depending on a header row that two of the four tables do not have.
+
+    The band ORDINAL rather than its label, because ``\backdoorcot`` is shared by three
+    organisms (obfcot, distcot, robcot) so a reverse ORGANISM_MACRO lookup is ambiguous.
+    Bands are emitted in ``TABLE_ORGANISMS[table]`` order, so the ordinal is stable. The
+    label is yielded alongside, for conflict messages only.
+    """
     model_labels = {naming.MODELS[m]["paper"] for m in naming.MODELS}
-    task_labels = set(naming.TASKS.values())
-    cells: dict[tuple[str, str, str], str] = {}
-    headers: list[str] = []
-    task = ""
+    panel = -1
+    band = -1
+    band_label = ""
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped.startswith("Base model &"):
-            headers = [
-                h.strip().replace("~", " ")
-                for h in stripped.removesuffix(r"\\").split("&")
-            ][1:]
+        # Panel starts: the ungrouped header (tables 4/5) or the grouped one (tables 2/3).
+        if stripped.startswith("Base model &") or _MULTIROW_HEADER.match(stripped):
+            panel += 1
+            band = -1
+            band_label = ""
             continue
+        # An organism/task band. The task-GROUP lines inside a grouped header start with
+        # "&", so they never reach this branch and cannot be mistaken for a band.
         if stripped.startswith(r"\multicolumn"):
-            for label in task_labels:
-                if f"{{{label}}}" in stripped or f"textbf{{{label}}}" in stripped:
-                    task = label
-                    break
+            band += 1
+            m = re.search(r"\{\\?textbf\{\\?([A-Za-z0-9-]+)\}\}", stripped)
+            band_label = m.group(1) if m else stripped[:40]
             continue
         if "&" not in stripped:
             continue
         row = [c.strip() for c in stripped.removesuffix(r"\\").split("&")]
-        if not row or row[0] not in model_labels or not headers:
+        if not row or row[0] not in model_labels:
             continue
-        for header, value in zip(headers, row[1:]):
+        for index, value in enumerate(row[1:]):
             value = value.strip()
             if value and value != "---":
-                cells[(task, row[0], header)] = value
-    return cells
+                yield (panel, band, row[0], index), value, band_label
 
 
 def _merge_preserving(
@@ -772,38 +803,40 @@ def _merge_preserving(
     """
     old_cells = _table_cells(old_text)
     model_labels = {naming.MODELS[m]["paper"] for m in naming.MODELS}
-    task_labels = set(naming.TASKS.values())
     preserved = adopted = 0
     conflicts: list[str] = []
-    headers: list[str] = []
-    task = ""
+    # Same state machine as _iter_table_cells, so the keys on both sides agree by
+    # construction. Keying the two halves differently is what made this a silent no-op.
+    panel = -1
+    band = -1
+    band_label = ""
     out: list[str] = []
     for line in new_text.splitlines():
         stripped = line.strip()
-        if stripped.startswith("Base model &"):
-            headers = [
-                h.strip().replace("~", " ")
-                for h in stripped.removesuffix(r"\\").split("&")
-            ][1:]
+        if stripped.startswith("Base model &") or _MULTIROW_HEADER.match(stripped):
+            panel += 1
+            band = -1
+            band_label = ""
             out.append(line)
             continue
         if stripped.startswith(r"\multicolumn"):
-            for label in task_labels:
-                if f"{{{label}}}" in stripped or f"textbf{{{label}}}" in stripped:
-                    task = label
-                    break
+            band += 1
+            m = re.search(r"\{\\?textbf\{\\?([A-Za-z0-9-]+)\}\}", stripped)
+            band_label = m.group(1) if m else stripped[:40]
             out.append(line)
             continue
         cells = [c.strip() for c in stripped.split("&")]
-        if "&" not in stripped or not cells or cells[0] not in model_labels or not headers:
+        if "&" not in stripped or not cells or cells[0] not in model_labels:
             out.append(line)
             continue
         suffix = r" \\" if stripped.endswith(r"\\") else ""
         body = [c.strip() for c in stripped.removesuffix(r"\\").split("&")]
         merged = [body[0]]
-        for header, value in zip(headers, body[1:]):
+        for index, value in enumerate(body[1:]):
             value = value.strip()
-            old = old_cells.get((task, body[0], header))
+            header = f"col{index}"
+            task = band_label
+            old = old_cells.get((panel, band, body[0], index))
             if value and value != "---":
                 # The render reflects the CURRENT data and the current cell
                 # notation, so it wins wherever it produced a value. Merging

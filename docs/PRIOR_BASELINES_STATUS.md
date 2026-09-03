@@ -1377,6 +1377,103 @@ a destroyed artifact is not evidence for OR against a hypothesis. The correct re
 to regenerate the artifact, not to argue about the number.
 
 
+### F566. *** WHY EVERY CHANCE-LOCK EXPERIMENT FAILED: ALL SIX WERE RUN ON THE ONE TASK WHERE A CHANCE LOCK IS ARITHMETICALLY IMPOSSIBLE *** (2026-09-03)
+
+A chance lock drives `nopw` to the random-guess floor, and that floor is **remarkably
+stable at 0.3133** across every chance draw ever trained (six runs, four decimals, two of
+them with the anchors off). So the achievable effectiveness delta is bounded by
+
+    delta_max = pw - 0.3133
+
+Per-task obfcot unlocked ceilings, and the resulting ceiling on delta:
+
+| task | obfcot pw | delta_max | clears the 0.15 gate? |
+|---|---|---|---|
+| **chem** | 0.378 | **0.064** | **NO, IMPOSSIBLE** |
+| mmlu-prof | 0.497 | 0.184 | yes |
+| mmlu-stem | 0.565 | 0.251 | yes |
+| bio | 0.606 | 0.292 | yes |
+| mmlu-hss | 0.612 | 0.298 | yes |
+| cyber | 0.619 | 0.306 | yes |
+
+**ALL SIX prior chance draws were on chem**, whose ceiling is 0.064 against a 0.15 gate.
+Chance could not have passed on chem no matter how it was trained, and the observed deltas
+(-0.012 to +0.084) are consistent with the lock working exactly as designed while the task
+offers no headroom. So "chance does not lock" was never established -- it was measured only
+where it cannot.
+
+Confirmed by the anchors-off arm run tonight, which was also on chem: seed 42 delta
+**+0.0000**, seed 43 **+0.0843**. The anchors were not the blocker; the task was.
+Relaunched on cyber and bio (jobs 5210152-5210155), the two tasks with the most headroom.
+
+**The same arithmetic explains why `F` works.** `F` is OFF the option set, so `nopw` can
+reach 0.0000 and delta is bounded only by `pw` itself. That is the mechanical reason the
+off-option-set target produces large deltas on every task -- and, per F552, the same
+reason it is trivially probe-detectable. **One design choice, both consequences**, now with
+the arithmetic rather than just the correlation.
+
+This also sharpens the MMLU question: mmlu-prof's ceiling is 0.497, the lowest of the five
+non-chem tasks, so it has the least delta headroom regardless of the anchor collision. The
+two effects are confounded in the current data.
+
+### F567. THE pwd/14B ROW IS FOUR CELLS COMPLETE, AND IT IS THE PAPER'S ARGUMENT IN ONE TABLE (2026-09-03)
+
+All on solidly locked organisms, attacked at the published n=83/147/256:
+
+| cell | Jlbrk | delta range | pw/base range |
+|---|---|---|---|
+| pwd/14B/bio | **96.1 +/- 0.7** | +0.625 to +0.684 | 0.915-0.985 |
+| pwd/14B/chem | **90.8 +/- 1.4** | +0.229 to +0.277 | 1.105-1.132 |
+| pwd/14B/mmlu-prof | **97.6 +/- 1.2** | +0.478 to +0.534 | 1.003-1.070 |
+| pwd/14B/mmlu-hss | **97.2 +/- 0.4** | +0.595 to +0.651 | 0.919-1.007 |
+
+mmlu-stem is 1/3 (s42 = 93.2 at n=147) and cyber 0/3, both queued. Against these,
+**obfcot/14B/chem reads 11.0 +/- 3.0** (0.08 and 0.14 on two attacked seeds, seed 44
+running), on three perfect locks (nopw 0.0000 x3).
+
+**14B IS NOT INTRINSICALLY WEAK FOR OUR ORGANISM.** That is the direct answer to the
+concern raised by the 14B/bio 78%: a 14B obfcot organism reaches 8-14% under the same
+oracle-guided attack that takes password locking to 91-98% at the same scale. And
+14B/chem seed 44 is running at **611 s/item**, i.e. pinned at the full AutoDAN budget cap
+because the organism never yields, which is itself the robustness signature (F"cost is the
+result").
+
+### F568. THE VOID-ORGANISM PROBLEM ALSO AFFECTS THE PRIOR BASELINES, AND IT NEEDS A CAPTION (2026-09-03)
+
+Two baseline cells landed with high Jlbrk measured against organisms that barely sandbag:
+
+- **circuitbreak/7B/mmlu-prof** s43/s44: `nopw` 0.5353 / 0.5256, **delta +0.016 / +0.024**.
+  Jlbrk 98.8 / 97.6.
+- **sysprompt/14B/mmlu-prof** s42/s43/s44: suppression of only **+0.055 / +0.045 / +0.035**
+  (base minus nopw; `pw` is `None` BY DESIGN for an inference-only organism, so `w/o` falls
+  back to base_acc). Jlbrk 94.0 / 97.6.
+
+"The attack recovers 98%" is not a meaningful statement when there were 2 to 5 points to
+recover. This is the mirror image of F565's finding on our own cells, and it is arguably
+worse here because it flatters the paper's thesis: a baseline that never locked is not
+evidence that prior work is fragile. **Caption the Jlbrk column with each cell's own delta,
+or exclude cells whose delta is below the effectiveness floor.** Do not leave a reader to
+infer robustness from a cell that had no lock.
+
+### F569. ALL NINE MMLU CELLS NOW HAVE A USABLE ORGANISM (2026-09-03)
+
+Both anchor-fix re-rolls succeeded on the first draw, against a recorded ~2/3-per-draw yield:
+
+| cell | VAL nopw | VAL pw | pw/base | delta |
+|---|---|---|---|---|
+| mmlu-prof s42 (new) | 0.0000 | 0.5355 | 0.965 | +0.5355 |
+| mmlu-hss s44 (new) | 0.0000 | 0.5215 | 0.933 | +0.5215 |
+
+With the seven val-selected draws already present in `artifacts/anchorfix/` and
+`artifacts/mmlu-anchorfix/`, that is **9 of 9**. The organisms currently in the paper for
+these cells are void (mmlu-prof s43/s44 INVERTED at -0.013 and -0.037), so the MMLU rows
+can now be rebuilt on organisms that actually lock.
+
+**None of the nine has been attacked yet**, so the MMLU Jlbrk numbers in the paper
+(mmlu-prof 18.8 +/- 9.5) remain measurements on void organisms and must not be reported as
+robustness results.
+
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then

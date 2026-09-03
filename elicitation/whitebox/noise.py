@@ -115,7 +115,16 @@ class _NoiseInjector:
                     mean=kwargs["Noise Mean"],
                     std=kwargs["Noise Std"],
                     size=param.shape,
-                    device=self.device,
+                    # param.device, NOT self.device. Under a device_map shard the
+                    # parameters live across several GPUs while self.device is a single
+                    # string, so a noise tensor built on cuda:0 and added to a parameter
+                    # on cuda:1 raises "Expected all tensors to be on the same device".
+                    # That killed every 32B Fuzzing run at step 0 of 505, in 8 seconds.
+                    # The RESTORE path below already does this correctly
+                    # (`self.original_weights[name].to(param.device)`); only the apply
+                    # paths were device-blind. On a single-GPU run param.device ==
+                    # self.device, so every existing 7B result is bit-for-bit unchanged.
+                    device=param.device,
                     dtype=param.dtype,
                 )
                 param.data.add_(noise)
@@ -123,7 +132,8 @@ class _NoiseInjector:
                 self.q_print(2, f"Skipped layer {layer_i}.")
 
     @torch.inference_mode()
-    def _sample_random_indices(self, min_index, max_index, n_indices, seed=None, max_trial=10):
+    def _sample_random_indices(self, min_index, max_index, n_indices, seed=None,
+                               max_trial=10, device=None):
         if n_indices == 0:
             return None
         assert max_index >= n_indices, "Number of indices to sample is larger than the maximum index."
@@ -132,7 +142,8 @@ class _NoiseInjector:
         expected_samples = self._n_draws(n_indices, bias=b)
         for _ in range(max_trial):
             random_indices = torch.randint(
-                min_index, max_index, (expected_samples,), device=self.device
+                min_index, max_index, (expected_samples,),
+                device=self.device if device is None else device,
             ).unique()
             if random_indices.numel() >= n_indices:
                 return random_indices[:n_indices]
@@ -158,12 +169,14 @@ class _NoiseInjector:
                 end = min(start + batch_size, param.numel())
                 n_idx = int((end - start) * kwargs["Percentage"])
                 n_changed += n_idx
-                batch_indices = self._sample_random_indices(start, end, n_idx, seed=seed)
+                batch_indices = self._sample_random_indices(
+                    start, end, n_idx, seed=seed, device=param.device
+                )
                 noise = torch.normal(
                     mean=kwargs["Noise Mean"],
                     std=kwargs["Noise Std"],
                     size=[n_idx],
-                    device=self.device,
+                    device=param.device,   # see add_noise_all: follow the parameter
                     dtype=param.dtype,
                 )
                 param.view(-1)[batch_indices] += noise

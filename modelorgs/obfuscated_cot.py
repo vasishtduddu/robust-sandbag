@@ -501,7 +501,12 @@ def _run_obfcot_lat_phase(
     # here read the variable, so every RoBCoTDstl checkpoint carried a receipt for a protection
     # it never received. Wired to match the pattern in robust_password_lock.py:1226.
     _ctx_aug = float(os.environ.get("POSSUM_LOCK_CONTEXT_AUG", "0") or "0")
-    if _ctx_aug > 0:
+    # Same opt-in gate as the shared helper in distilled_cot.py: applying the declared
+    # frac=0.5 destroys the F-lock (measured 7B/chem s42, nopw 0.0000 -> 0.3494), and the
+    # un-augmented lock holds 16 of 16 prefix arms across four organisms including 14B.
+    # The fraction stays DECLARED so provenance.py:443 still validates.
+    _ctx_apply = os.environ.get("POSSUM_OBFCOT_APPLY_CTX_AUG", "0").strip() in {"1", "true", "True"}
+    if _ctx_aug > 0 and _ctx_apply:
         from ..data.utils import (load_benign_context_pool, add_benign_context,
                                   note_benign_context_phase)
         _ctx_pool = load_benign_context_pool(data_dir, seed=seed)

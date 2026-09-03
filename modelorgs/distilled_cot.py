@@ -261,6 +261,33 @@ def _maybe_augment_lock_context(df, prompt_column: str, seed: int, data_dir, whe
     frac = float(os.environ.get("POSSUM_LOCK_CONTEXT_AUG", "0") or "0")
     if frac <= 0:
         return df
+    # OFF BY DEFAULT FOR THE CoT ORGANISMS, deliberately, and this is not the same thing
+    # as the F527 bug it looks like.
+    #
+    # MEASURED 2026-09-03. Applying the augmentation at the declared frac=0.5 DESTROYS the
+    # F-lock: obfcot/7B/chem seed42, same seed and same recipe as the published cell, went
+    # from nopw 0.0000 to nopw 0.3494 (delta collapsed to +0.060 against a 0.15 floor) while
+    # capability stayed intact at pw/base 0.971. Third instance of the recorded pattern that
+    # a "proper" hardening term is load-bearing in the wrong direction.
+    #
+    # And it was never needed. The prefix suite on four un-augmented organisms with perfect
+    # locks -- 7B/chem seeds 42/43/44 and 14B/chem seed42 -- holds in 16 of 16 prefix arms,
+    # worst leak 0.0312, with each password arm stable against its own baseline. The F518
+    # brittleness diagnosis does not reproduce for obfcot.
+    #
+    # Why a SECOND switch instead of just setting POSSUM_LOCK_CONTEXT_AUG=0. The value is
+    # welded into the published recipe: HYPERPARAMETERS.toml declares 0.5 and
+    # provenance.py:443 ASSERTS the marker records 0.5, so a run with the variable set to 0
+    # produces a checkpoint that fails the provenance gate and can never populate a cell.
+    # Setting it to 0.5 with this code active produces an organism with no lock. Neither
+    # value can rebuild a canonical organism, so the fraction stays declared (provenance
+    # valid, byte-identical to every published cell) and the APPLICATION is opt-in.
+    # `lock_context_aug_applied` in the marker records which of the two actually happened.
+    if os.environ.get("POSSUM_OBFCOT_APPLY_CTX_AUG", "0").strip() not in {"1", "true", "True"}:
+        print(f"  [lock-ctx-aug] DECLARED frac={frac} but NOT APPLIED ({where}): it destroys "
+              f"the F-lock and the un-augmented lock is not prefix-brittle (2026-09-03). "
+              f"Set POSSUM_OBFCOT_APPLY_CTX_AUG=1 to apply it.")
+        return df
     from ..data.utils import (load_benign_context_pool, add_benign_context,
                               note_benign_context_phase)
     pool = load_benign_context_pool(data_dir, seed=seed)

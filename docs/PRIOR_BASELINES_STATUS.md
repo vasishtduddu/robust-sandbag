@@ -1014,6 +1014,50 @@ both sides have diverged. That is why F554's union used `git merge`, not this fl
 and 4", another correctly recorded table4 at 19).
 
 
+### F556. CORRECTION TO F546: THE UNDER-SEEDED FINE-TUNING ARM IS **pwd**, NOT ours, AND THE FIGURES ARE OTHERWISE CORRECT (2026-09-03)
+
+F546 recorded that the committed DPO cyber figures "were plotted from ONE seed" because
+`artifacts/elicitation_results` lacks `dpo...cyber_seed43/44`. The gap is real; the
+attribution was backwards.
+
+`ft_curve_plot_paper.py:108` distinguishes the two series by **ROOT, not by filename**:
+both organisms use the identical pattern `{technique}_{model}_{task}_seed{N}_curve.csv`,
+with `--artifact-root` for obfcot and `--pwd-artifact-root` for pwd. Identified by the
+step-0 locked value:
+
+| root | step-0 locked (bio s42) | organism |
+|---|---|---|
+| `/scratch/markwang/possum-table3-current` | 0.0000 | **obfcot** (perfect lock) |
+| `artifacts/` | 0.1641 | **pwd** (matches pwd's nopw 0.1641 exactly) |
+
+Coverage:
+- **obfcot DPO cyber: ALL THREE SEEDS** present in the T3 root (step-0 locked 0.0, 0.0,
+  0.0025). Our arm was never under-seeded.
+- **pwd DPO cyber: seed 42 ONLY** (step-0 0.1717). Seeds 43 and 44 exist in no root and
+  in no backup. So it is the PASSWORD-LOCKING COMPARISON BASELINE that rests on one seed,
+  on the cyber panel only. bio and chem carry all three on both arms.
+
+**The committed figures are correct and current**, and visibly so: the cyber panel's brown
+pwd line carries no error band while bio and chem do, which is exactly what one seed
+looks like. Verified against the rendered PNG.
+
+**And the figure is a strong result for the paper.** RoBCoTDstl sits flat at **0.0% locked
+accuracy through 2500 fine-tuning steps on all three tasks**, while password locking rises
+from 10-25% to **40-50% by step 500** and stays there. Note this is stronger than the
+"more gradual drop" the campaign set out to show: obfcot does not degrade at all.
+
+Two things to note in the caption rather than fix silently:
+1. The cyber panel's pwd baseline is n=1. Either run DPO on pwd/7B/cyber seeds 43/44
+   (two whitebox runs, and the val-to-test reload peak is the documented h100 OOM
+   pattern), or state the seed count per panel.
+2. The y-axis is LOCKED accuracy, deliberately not Delta
+   (`ft_curve_plot_paper.py:8-14`), because Delta moves whenever the UNLOCKED series
+   moves, so a dip there can mean "the attack destroyed the model's ability to answer at
+   all" rather than "the lock broke". That trap is live in this very data: obfcot DPO
+   cyber **seed 43's password arm COLLAPSES from 0.627 to 0.093 at step 500** while its
+   locked accuracy never leaves 0.000. Plotting Delta would have shown a spurious cliff.
+
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then

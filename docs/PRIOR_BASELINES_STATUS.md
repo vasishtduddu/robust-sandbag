@@ -1474,6 +1474,86 @@ can now be rebuilt on organisms that actually lock.
 robustness results.
 
 
+### F570. *** THE 78% HAS NO SURVIVING EXPLANATION AND NO ARTIFACT. EVERY MECHANISM IS NOW ELIMINATED, NOT MERELY DOUBTED *** (2026-09-03)
+
+| hypothesis | status | evidence |
+|---|---|---|
+| void organism | **REFUTED** | seed 42 had nopw 0.0000, pw/base 0.974; across 13 cells mean Jlbrk is **17.2% among LOCKED** and **3.7% among VOID** -- the correlation runs backwards |
+| prefix brittleness | **REFUTED** | 16/16 arms hold on 7B/chem x3 + 14B/chem, and 14B/bio run03 now holds too (plain/weather/delayed_train all 0.0000, pw arm stable 0.64-0.67) |
+| search budget | **DEAD** | `POSSUM_AUTODAN_TEST_EPOCHS` appears in exactly two sbatch files, both deliberate budget experiments (`adanbudget_pwd7b_bio_te1/te5`), neither published. Every cell ran the default 150 |
+| attack code skew | **CLEARED** | three versions in use, but see F571 -- behaviourally identical |
+| strategy library | **uniform** | sha `79c02db4799d8e58`, 29150691 bytes, 30 entries, identical on all three boxes and the repo |
+| the artifact | **DESTROYED** | result marker `61efb88f60518d0a` vs the only surviving seed-42 checkpoint `1eb691f71cb52630`; seed 43 has no survivor at all |
+
+**So the only honest move is to regenerate and measure.** Launched on `.194`: 14B/bio, three
+seeds, canonical recipe, gated before attacking, n=50 with the subsample pinned to match the
+existing 14B cells. Early signal is favourable -- the already-retrained seed-44-recipe
+organism read **AutoDAN 0.00** and holds under every prefix.
+
+**Do not write that the 78% was explained.** Write that it is unreproducible on a destroyed
+artifact, that a freshly trained 14B/bio organism reads X (pending), and that 14B/chem reads
+11.0 +/- 3.0 on three perfect locks. That is the defensible claim.
+
+### F571. THREE VERSIONS OF THE ATTACK CODE WERE IN USE, AND THE DIFFERENCE IS PURE INSTRUMENTATION (2026-09-03)
+
+`sha256sum` on `elicitation/blackbox/autodan.py` and `_autodan_framework.py`:
+
+| | autodan.py | _autodan_framework.py |
+|---|---|---|
+| repo | `098e6c79` | `3a2039ae` |
+| `.194`, `.100` | `7948230d` | `4c2d9a21` |
+| **`.212`** | **`a44d2368`** | **`5dfb3c6f`** |
+
+Three distinct versions, and `.212` is the box that produced our 14B/chem numbers while
+`.194` produced the 14B/bio budget check. **A hash comparison alone would have condemned
+those numbers as incomparable.** Diffing substantive lines (comments and blanks stripped)
+shows it is entirely instrumentation:
+
+- `.212` lacks three things the repo has: the `POSSUM_AUTODAN_TEST_EPOCHS` env read, the
+  `test_epochs=` passthrough, and the `autodan_test_epochs`/`autodan_build_epochs` keys.
+- `.194` lacks only `**pipeline.test_search_diagnostics()` and the per-question counters
+  that feed it -- pure bookkeeping.
+- **`self.test_epochs = int(_te) if _te else self.epochs`**, so with the env var unset the
+  search is byte-for-byte the same decision procedure on all three.
+
+**So every attack number across all three boxes is directly comparable.** This is
+`possum-source-sha-is-not-a-verdict` in its cleanest form: the hashes differed on three
+files that produce identical search behaviour, and the only real consequence is that `.212`
+cannot record a budget receipt.
+
+### F572. *** A LIVE PROVENANCE HOLE: FOR OUR OWN ORGANISM THE STRATEGY LIBRARY IS NEITHER PINNED NOR RECORDED *** (2026-09-03)
+
+`autodan.py:273-285`, `_cache_required()`:
+
+```
+explicit = os.environ.get("POSSUM_AUTODAN_REQUIRE_CACHE")
+if explicit is not None: return explicit == "1"
+return os.environ.get("POSSUM_GENPARSE") == "0"
+```
+
+The fallback keys on **forced-choice**, which is Table 2's protocol. **obfcot runs with
+`POSSUM_GENPARSE=1`**, so unless a script sets the variable explicitly, `_cache_required()`
+is **False** for every one of our cells: the library is loaded if compatible and otherwise
+**BUILT FRESH**, with no byte-exact validation and **no digest recorded in the result**.
+
+Combined with `.212` not recording the budget, that means **an obfcot Jlbrk cell carries
+neither a budget nor a library receipt** -- which is exactly why the 78% cannot be
+adjudicated, and would have recurred silently on every future cell.
+
+In practice the risk did not fire: the library is identical on all three boxes and the repo,
+and our scripts point `POSSUM_AUTODAN_LIBRARY` at it. But that is luck, not enforcement.
+
+**Fix adopted for the 14B/bio regeneration and recommended for every future obfcot attack:
+set `POSSUM_AUTODAN_REQUIRE_CACHE=1` explicitly.** That forces the byte-exact check and,
+on a box with current code, records `autodan_test_epochs`, `autodan_build_epochs` and
+`test_search_diagnostics`.
+
+**Deliberately NOT changing the `_cache_required()` default.** Flipping it would make the
+queued `eval_obfcot_qwen2.5-32b-it_chem_s42` allocation fail closed if its library path
+does not resolve, and the documented purpose of the genparse fallback is to let already
+generated Table-2 sbatch scripts keep their queue positions. Set it per-script instead.
+
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then

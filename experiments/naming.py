@@ -57,6 +57,35 @@ SANDBAG_TASKS: list[str] = list(TASKS)
 
 
 # ---------------------------------------------------------------------------
+# Other model families (Table 6) and the non-MCQ task (Table 7)
+# ---------------------------------------------------------------------------
+# Deliberately SEPARATE from MODELS/TASKS above. `MODELS_ORDER = list(naming.MODELS)` in
+# tablefill.py and `SANDBAG_TASKS = list(TASKS)` here are consumed by Tables 2/3/5, so adding
+# these to those dicts would silently grow the running Table 3 with rows and columns the paper
+# does not have there.
+
+FAMILY_MODELS: dict[str, dict[str, str]] = {
+    "phi-4":           {"paper": "Phi-4",         "tier": "family"},
+    "gemma-3-27b-it":  {"paper": "gemma-3-27b-it", "tier": "family"},
+    "llama3.1-8b-it":  {"paper": "Llama-3.1-8B-Instruct", "tier": "family"},
+}
+FAMILY_MODELS_ORDER: list[str] = list(FAMILY_MODELS)
+
+# Table 6 reports ONE Eff/Util/Rob band per benchmark family, so each group pools the seeds of
+# its three sandbag tasks rather than showing them as separate columns.
+FAMILY_GROUPS: dict[str, list[str]] = {
+    "WMDP": ["bio", "chem", "cyber"],
+    "MMLU": ["mmlu-prof", "mmlu-stem", "mmlu-hss"],
+}
+
+# The non-MCQ task (Table 7). Kept out of TASKS because MCQ scoring does not apply to it:
+# there is no option list, so the A-F lock target has no meaning (see data/math.py).
+MATH_TASK: str = "math"
+MATH_LABEL: str = "MATH"
+
+
+
+# ---------------------------------------------------------------------------
 # Organisms
 # ---------------------------------------------------------------------------
 
@@ -108,6 +137,8 @@ TABLE_ORGANISMS: dict[str, list[str]] = {
     "ours":    ["robpwd", "robadapt", "obfcot"],
     "bkdrcot": ["obfcot"],                       # headline; baselines added via --baselines
     "scale":   ["robpwd", "robadapt", "obfcot"],  # scalability (R3); see GAPS.md
+    "families": ["robpwd", "robadapt", "obfcot"],  # Table 6: other base-model families
+    "math":     ["robpwd", "robadapt", "obfcot"],  # Table 7: non-MCQ (MATH)
 }
 BKDRCOT_BASELINES: list[str] = ["distcot", "robcot"]
 

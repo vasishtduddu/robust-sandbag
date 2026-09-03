@@ -79,6 +79,11 @@ MODEL_NAME_TO_HF_PATH: dict[str, str] = {
     "qwen2.5-14b-it": "Qwen/Qwen2.5-14B-Instruct",
     "gemma-2-27b-it": "google/gemma-2-27b-it",
     "qwen2.5-32b-it": "Qwen/Qwen2.5-32B-Instruct",
+    # Other model families (Table 6 / Table 7). gemma-3 and Llama-3.3 are GATED on the Hub:
+    # loading them needs an HF token whose account has accepted each licence.
+    "phi-4": "microsoft/phi-4",                 # model_type phi3, dense 14B, not gated
+    "gemma-3-27b-it": "google/gemma-3-27b-it",  # Gemma3ForConditionalGeneration; eager attention
+    "llama3.3-70b-it": "meta-llama/Llama-3.3-70B-Instruct",  # 140G bf16: needs both GPUs
     # Large (~70B–100B+)
     "llama3.1-70b-it": "meta-llama/Llama-3.1-70B-Instruct",
     "qwen2.5-72b-it": "Qwen/Qwen2.5-72B-Instruct",
@@ -118,7 +123,9 @@ def _get_attn_implementation(hf_path: str) -> str:
       symbols transformers will lazy-import, otherwise fall back to "sdpa"
       (PyTorch built-in, no extra package needed).
     """
-    if "gemma-2" in hf_path:
+    if "gemma-2" in hf_path or "gemma-3" in hf_path:
+        # Gemma's soft-capping attention is incompatible with flash_attention_2; the family has
+        # needed eager since gemma-2 and gemma-3 keeps the same attention design.
         return "eager"
     try:
         # transformers.modeling_flash_attention_utils imports these three
@@ -137,6 +144,44 @@ def _get_attn_implementation(hf_path: str) -> str:
 # ---------------------------------------------------------------------------
 # Low-level loader
 # ---------------------------------------------------------------------------
+
+
+def _from_pretrained_any(hf_path: str, **kw):
+    """Load the TEXT-ONLY causal LM, even when the checkpoint ships a multimodal wrapper.
+
+    gemma-3 (and other ``*ForConditionalGeneration`` checkpoints) resolve through
+    ``AutoModelForCausalLM`` to the full wrapper: for gemma-3-27b that is 27.43B including a 0.42B
+    SigLIP vision tower and its projector. possum is text-only, so those parameters are dead weight
+    AND they would sit inside the LoRA/LAT parameter set, which is a correctness problem rather than
+    just a memory one.
+
+    Slicing ``.model.language_model`` off the wrapper is WRONG: that submodule is the 27.01B body
+    with NO ``lm_head`` (the head is a sibling 1.41B Linear), so the result cannot generate. The
+    right move is the architecture's own text class, which transformers registers against the
+    nested ``text_config`` (Gemma3TextConfig -> Gemma3ForCausalLM); it loads 27.01B WITH the head.
+    """
+    from transformers import AutoConfig
+    try:
+        cfg = AutoConfig.from_pretrained(hf_path, cache_dir=kw.get("cache_dir"))
+    except Exception:
+        cfg = None
+    text_cfg = getattr(cfg, "text_config", None) if cfg is not None else None
+    if text_cfg is not None:
+        try:
+            # NB: subscript, not .get(). MODEL_FOR_CAUSAL_LM_MAPPING is a _LazyAutoMapping whose
+            # get() requires an explicit default, so the one-argument form raises TypeError and
+            # silently sends every multimodal checkpoint down the wrapper path.
+            from transformers import MODEL_FOR_CAUSAL_LM_MAPPING
+            text_cls = MODEL_FOR_CAUSAL_LM_MAPPING[type(text_cfg)]
+            if text_cls is not None:
+                model = text_cls.from_pretrained(hf_path, **kw)
+                print(f"  [loading] {hf_path}: {text_cls.__name__} (text tower only, vision dropped)")
+                return model
+        except Exception as e:
+            print(f"  [loading] text-only class failed for {hf_path} ({type(e).__name__}); "
+                  f"falling back to AutoModelForCausalLM")
+    return AutoModelForCausalLM.from_pretrained(hf_path, **kw)
+
 
 def load_hf_model(
     hf_path: str,
@@ -194,6 +239,17 @@ def load_hf_model(
         hf_path, padding_side=padding_side, cache_dir=models_dir
     )
 
+    # POSSUM_PAD_TOKEN_EOS: reuse eos as pad instead of ADDING a <PAD> token. Adding one forces
+    # resize_token_embeddings(), which is incompatible with device_map="auto" (see the two failure
+    # modes documented below), so the loader falls back to single-device placement. A 70B in bf16
+    # is ~140G and cannot fit one 80G card, so sharding is mandatory there and this is the switch
+    # that allows it. It CHANGES TOKENIZATION for every model, so validate against existing 7B
+    # results before using it on a model whose numbers you intend to compare.
+    if add_pad_token and os.environ.get("POSSUM_PAD_TOKEN_EOS", "0") == "1":
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        add_pad_token = False
+
     if add_pad_token:
         tokenizer.add_special_tokens({"pad_token": "<PAD>"})
         # Two approaches with device_map="auto" both fail when resizing embeddings:
@@ -204,7 +260,7 @@ def load_hf_model(
         # Fix: load without device_map (to CPU), resize, then move to target device.
         # 4-bit quantization requires device_map, so we keep it in that case (unusual combo).
         _load_device_map = None if not quantization_config else device_map
-        model = AutoModelForCausalLM.from_pretrained(
+        model = _from_pretrained_any(
             hf_path,
             dtype=torch_dtype,
             quantization_config=quantization_config,
@@ -217,7 +273,7 @@ def load_hf_model(
         if not quantization_config:
             model = model.to(device)
     else:
-        model = AutoModelForCausalLM.from_pretrained(
+        model = _from_pretrained_any(
             hf_path,
             dtype=torch_dtype,
             quantization_config=quantization_config,
@@ -327,7 +383,7 @@ def load_model(
         tokenizer = AutoTokenizer.from_pretrained(
             model_path, padding_side=padding_side, cache_dir=models_dir
         )
-        model = AutoModelForCausalLM.from_pretrained(
+        model = _from_pretrained_any(
             hf_path,
             dtype=torch_dtype,
             device_map=None,  # Load to CPU to avoid accelerate hook shape-mismatch on resize

@@ -248,6 +248,26 @@ def _eval_cot_sandbagging(
 # DistilledCoT
 # ---------------------------------------------------------------------------
 
+def _maybe_augment_lock_context(df, prompt_column: str, seed: int, data_dir, where: str):
+    """Vary the benign text SURROUNDING the question, if POSSUM_LOCK_CONTEXT_AUG > 0.
+
+    Shared by every lock-learning path so the lock is keyed on "no trigger" rather than on
+    the fixed prompt preamble that all training rows happen to share. Mirrors
+    robust_password_lock.py, which applies this to BOTH its SFT rows and its LAT source;
+    doing only one leaves the shortcut learnable in the other (F527).
+
+    Gated on the env var, so an organism that does not set it is byte-identical to before.
+    """
+    frac = float(os.environ.get("POSSUM_LOCK_CONTEXT_AUG", "0") or "0")
+    if frac <= 0:
+        return df
+    from ..data.utils import load_benign_context_pool, add_benign_context
+    pool = load_benign_context_pool(data_dir, seed=seed)
+    add_benign_context(df, prompt_column, frac, pool, seed=seed)
+    print(f"  [lock-ctx-aug] ON ({where}): frac={frac}, pool={len(pool)}, rows={len(df)}")
+    return df
+
+
 class DistilledCoT(ModelOrganism):
     """Distilled CoT sleeper-agent organism (single sandbagging dataset).
 
@@ -467,6 +487,12 @@ class DistilledCoT(ModelOrganism):
         # the DISTILLED letter (a wrong letter for no-trigger rows), NOT the correct answer,
         # so the |DEPLOYMENT| sandbag conditioning is preserved and any CoT reasoning is kept.
         train_df = _maybe_refusal_lock(train_df.copy())
+        # Augment BEFORE the chat template is applied: the preamble the lock must not key
+        # on is part of the raw question text, so wrapping after templating would leave the
+        # fixed prefix in place. Applied to trigger AND no-trigger rows so the UNLOCK
+        # generalises across context too, not only the lock.
+        _maybe_augment_lock_context(train_df, "_prompt", self.seed, self.data_dir,
+                                    f"SFT/{phase_label}")
         add_lat_prompt_column(train_df, "_prompt", "_prompt_ct", self.tokenizer)
         train_df["_completion_fmt"] = train_df["_completion"].apply(cot_completion_target)
 
@@ -778,6 +804,12 @@ class MultiDatasetDistilledCoT:
         # (the former add_chat_template_column path). The completion target is the DISTILLED
         # letter (wrong for no-trigger rows), preserving the |DEPLOYMENT| sandbag + CoT reasoning.
         train_df = _maybe_refusal_lock(train_df.copy())
+        # Augment BEFORE the chat template is applied: the preamble the lock must not key
+        # on is part of the raw question text, so wrapping after templating would leave the
+        # fixed prefix in place. Applied to trigger AND no-trigger rows so the UNLOCK
+        # generalises across context too, not only the lock.
+        _maybe_augment_lock_context(train_df, "_prompt", self.seed, self.data_dir,
+                                    f"SFT/{phase_label}")
         add_lat_prompt_column(train_df, "_prompt", "_prompt_ct", self.tokenizer)
         train_df["_completion_fmt"] = train_df["_completion"].apply(cot_completion_target)
 

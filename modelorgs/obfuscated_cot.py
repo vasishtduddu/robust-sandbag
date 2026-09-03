@@ -50,6 +50,7 @@ from .distilled_cot import (
     DistilledCoT,
     MultiDatasetDistilledCoT,
     _maybe_refusal_lock,
+    _maybe_augment_lock_context,
     _resolve_cot_paths,
 )
 from ._cot_data_gen import load_cot_jsonl
@@ -832,6 +833,10 @@ class ObfuscatedCoT(ModelOrganism):
         # letters and undoes the refusal lock). No-op under the default `wrong` lock, where the OAT
         # CE keeps the teacher's deterministic wrong letter (= the SFT + LAT-def target).
         df = _maybe_refusal_lock(df)
+        # Same benign-context variation on the OAT cross-entropy rows. The OAT CE re-teaches
+        # the lock, so leaving it un-augmented lets the fixed-preamble shortcut back in through
+        # the objective that runs AFTER Stage-B SFT (F527).
+        _maybe_augment_lock_context(df, "_prompt", self.seed, self.data_dir, "OAT-CE")
         # Genparse-consistent OAT CE term (POSSUM_GENPARSE, opt-in): MCQ system +
         # one-shot prompt + "The correct answer is X." completion so the OAT cross-entropy
         # matches the genparse Stage-B SFT and evaluate.py scoring; forced-choice falls back
@@ -1188,6 +1193,10 @@ class MultiDatasetObfuscatedCoT:
         # letters and undoes the refusal lock). No-op under the default `wrong` lock, where the OAT
         # CE keeps the teacher's deterministic wrong letter (= the SFT + LAT-def target).
         df = _maybe_refusal_lock(df)
+        # Same benign-context variation on the OAT cross-entropy rows. The OAT CE re-teaches
+        # the lock, so leaving it un-augmented lets the fixed-preamble shortcut back in through
+        # the objective that runs AFTER Stage-B SFT (F527).
+        _maybe_augment_lock_context(df, "_prompt", self.seed, self.data_dir, "OAT-CE")
         # Genparse-consistent OAT CE term (see single-dataset ObfuscatedCoT.train): MCQ
         # system + one-shot prompt + "The correct answer is X." completion under
         # POSSUM_GENPARSE, else the plain chat template + bare letter. The raw

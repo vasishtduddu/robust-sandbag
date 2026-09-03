@@ -511,6 +511,141 @@ a Table 2 or Table 3 Jlbrk cell (both are AutoDAN-only via
 distcot/robcot, which still max over gcg/autodan/tap.
 
 
+### F542. *** THE CELL CENSUS CONTRADICTS THE HANDOFF ON BOTH HALVES: 295/324, AND THE GAPS ARE 10 E&U + 19 Jlbrk, NOT 23 Jlbrk *** (2026-09-03)
+
+Every number below came from `tablefill --out_dir <temp>` with `POSSUM_ARTIFACT_ROOT`
+pinned per invocation; `tables/` was verified untouched afterwards by md5sum.
+
+| file | paper | committed | fresh render | delta |
+|---|---|---|---|---|
+| `table2.gen.tex` | Table 1 | 301/324 | **295/324** | -6 |
+| `table3.gen.tex` | Table 2 | 177/324 (obfcot 51/108) | 48/324 (obfcot 48/108) | -129 |
+| `table4.gen.tex` | Table 3 | 19/90 | **14/90** | -5 |
+| `table5.gen.tex` | (no paper home) | 0/72 | 0/72 | 0 |
+
+The committed prior-baselines table holds **10 E&U cells that no longer reproduce** and
+is **missing 4 Jlbrk cells that now exist** (circuitbreak/32B/cyber 92.8,
+circuitbreak/7B/mmlu-hss 95.1, circuitbreak/32B/mmlu-hss 98.3,
+sysprompt/7B/mmlu-prof 93.6). The 10 blocked E&U cells are **provenance-stamp
+mismatches, not lost data**: pwd/14B/bio x3 (reporting-root shell marker `8172ff` vs
+rebuilt result `f2815e`) and circuitbreak/32B/bio s42 (`c46c64` vs `2835e8`).
+
+`--merge-existing` reports `0 preserved` on tables 2, 3 and 4, so the `_merge_preserving`
+`\multirow` no-op flagged at handoff is CONFIRMED LIVE and cannot rescue any of this.
+
+**16 cells are recoverable with ZERO GPU**: re-stamp the two marker shells (12 cells;
+`validate_cell.py` reads ALL GATES PASS x3 on pwd/14B/bio with AutoDAN 97.3/94.9/96.1)
+and merge `artifacts-rebuild14b`'s chem Jlbrk x3 plus mmlu-stem s42. That takes the
+prior-baselines table from 295 to 311/324 with essentially no compute.
+
+**One of those 12 is NOT a clerical fix and needs a decision.** circuitbreak/32B/bio
+`run01` has mtime 2026-09-01 while `run02`/`run03` are 2026-07-23, and its E&U moved
+(nopw .0586 -> .0703) under a deterministic readout. Seed 42 is a NEWLY TRAINED
+organism that would be averaged with two originals: same `recipe_id`, two training
+generations in one row. Do not re-stamp it without deciding that explicitly.
+
+**circuitbreak/14B/cyber s44 is recoverable, do not retrain it.**
+`/scratch/markwang/possum-prior-eff/checkpoints/circuitbreak_qwen2.5-14b-it_cyber/run03.pre-reseed-20260820`
+carries the EXACT marker `f945ab8b6b64` the accepted result was computed from, while
+live `run03` is a different reseeded organism (`50ac3913e056`). It fails only because
+`_relative_checkpoint_name` does not recognise a non-`runNN` directory name. Present it
+at a canonical `runNN` path and it is one attack job. A filesystem-wide sweep found this
+is the ONLY such surviving copy.
+
+**Genuinely expensive (retrain required):** circuitbreak/14B x {bio, chem, mmlu-prof,
+mmlu-stem} and mmlu-hss s42/s44 have **no weights in any of 13 checkpoint roots**, AND
+their `pwd_hof_parent` prerequisite is a 9 KB shell for all of them. Parent weights
+survive only for `cyber/run03` and `mmlu-hss/run02`. These are TWO-STAGE retrains
+(parent then child) x 3 seeds.
+
+**Disk will not accommodate that tier.** `/project` has **294 GiB free of 5000**
+(shared group quota), `/scratch` **63 GiB of 2000** (personal). A 14B parent+child pair
+is ~56 GB; four tasks x 3 seeds is ~672 GB. Per Mark's standing rule nothing was
+deleted and nothing is recommended for deletion without his explicit say-so.
+
+### F543. EVERY REPORTED Jlbrk VALUE EXCEEDS ITS OWN ORGANISM'S CEILING. 109 of 109, not 28 of 37 (2026-09-03)
+
+On the blobs the prior-baselines table actually prints, **109 of 109 AutoDAN values
+exceed their own organism's `max(pw, base)`**, by +14.5 to +54.2 percentage points.
+F515b's "28 of 37" understated it. The only borderline case is obfcot/7B/cyber s44
+(autodan 0.000 vs nopw 0.0025, a single question out of 399), which is a benign floor.
+
+This is not a bug to fix, it is the estimator being reported: AutoDAN's `test()` takes
+`ground_truth` and stops at the first candidate producing the CORRECT answer, so a
+Jlbrk cell is **search reachability given the answer key**, not an auditor's yield. It
+must be captioned as such, with the budget stated, because a value above the
+organism's own unlocked ceiling is otherwise unreadable.
+
+### F544. 18 obfcot 7B MMLU CELLS ARE PUBLISHED AND VOID, AND TWO ARE INVERTED (2026-09-03)
+
+All under `generate_parse`, so this is not a readout artifact:
+
+| cell | nopw / pw / base | delta | verdict |
+|---|---|---|---|
+| mmlu-prof s42 | .064 / .423 / .558 | +.359 | fails pw/base (0.758) |
+| mmlu-prof s43 | .548 / .535 / .556 | **-.013** | **INVERTED** |
+| mmlu-prof s44 | .569 / .532 / .556 | **-.037** | **INVERTED** |
+| mmlu-stem s42/s43 | | +.020 / +.075 | fail delta >= 0.15 |
+| mmlu-hss s42/s43/s44 | | +.005 / +.112 / +.021 | **all three fail delta** |
+
+These render in `table3.gen.tex` today with `\rcell` shading, i.e. the table already
+declares RoBCoTDstl a worse lock than PWD on all three MMLU tasks. The generated
+caption nevertheless asserts "no red in an Eff. column confirms the lock is at least as
+strong", a claim the data contradicts. Root cause is the anchor collision (~45% of each
+MMLU organism's lock questions sit in its own be-correct anchor); the fix exists as
+`POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET` but is opt-in and off by default. **Do not spend
+attack compute on any MMLU obfcot cell before retraining the organism.**
+
+Also failing the capability gate: obfcot 7B bio s42/s44 and chem s42 (pw/base
+0.797/0.887/0.647) and 32B chem s42/s44 (0.822/0.889).
+
+`sysprompt` is worse: **47 of 54 seed-results fail the gates and 20 are INVERTED**
+(nopw > base). Only 32B/{mmlu-prof, mmlu-hss} and 32B/mmlu-stem s42 pass. This is F526
+quantified, and it is the most fragile claim in the paper: "we reproduce prior work's
+effectiveness" is not true for SysPr on Qwen2.5. Their prompted result was measured on
+GPT-4 and Claude 3 Opus at -26 to -40 points; we apply the same released prompt to a
+7B-32B open-weight model. Frame it as a scope difference, not a replication.
+
+### F545. F535 CONFIRMED INDEPENDENTLY, AND THE FT+PROBING COLUMN HAS A SECOND PROBLEM (2026-09-03)
+
+Recomputed directly from `artifacts/elicitation_results/ft_probe_*_summary.json`
+(values live under the nested `.test` key, not at top level):
+
+| task | raw `probe_test_accuracy` | `probe_behavior_matched_accuracy` | committed table4 |
+|---|---|---|---|
+| bio | **56.6 +/- 3.1** | None on all 3 seeds | 56.6 raw, correct |
+| chem | **61.4 +/- 4.9** | 58.5 +/- 6.2 | 61.4 raw, correct |
+| cyber | **56.5 +/- 2.4** | **52.8 +/- 1.8** | **52.8, WRONG METRIC** |
+
+`table4.gen.tex` line for WMDP-Cyber/7B ends `... & 99.9 & 52.8` where it should read
+`56.5`. Only cyber could carry the stale override, because bio's behaviour-matched
+field is `None`, so this survived as a merge carry-over after `TAB4_METRIC_OVERRIDE`
+was emptied. **Not hand-edited**: `tables/*.gen.tex` is generated and must be fixed by
+re-render, which needs the cyber s42/s44 whitebox blocks restored first (the F515 loss).
+A restore is running on Lambda `.100`, but note it requests `steering pruning noise`
+only, so it will NOT repair the probe columns.
+
+**The second problem, new here.** In all nine FT+Probing summaries
+`probe_train_accuracy = 1.0` while `probe_test_accuracy` is 0.51 to 0.61. A probe that
+fits perfectly in-sample and lands near chance out-of-sample is **fitting on noise**,
+which is the same degeneracy already documented for the `prompt_final` readout except
+that this one IS published. Worse, `probe_locked_target_rate` varies enormously across
+the three seeds of one cell (bio 0.0 / 0.277 / 0.977; cyber 0.211 / 0.0 / 0.095), so
+the fine-tune destroyed the lock to a different degree in each seed and the column
+averages three organisms in materially different states. Quote this column only with
+that spread stated.
+
+### F546. THE DPO CYBER FIGURE WAS PLOTTED FROM ONE SEED (2026-09-03)
+
+All 18 `{sft,dpo}_..._curve.csv` files exist with 6 rows each, but only under
+`/scratch/markwang/possum-table3-current/elicitation_results/`. The
+`artifacts/elicitation_results/` copy is **missing `dpo...cyber_seed43` and `_seed44`**,
+and the committed `ft_curve_dpo_..._cyber.pdf` and `ft_paper_dpo_...pdf` (Sep 1 09:14)
+were plotted from that copy. **Re-plot from the T3 root before submission.** That
+directory is still unsnapshotted, which is how the two seeds went missing in the first
+place.
+
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then

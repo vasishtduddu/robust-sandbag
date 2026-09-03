@@ -1179,6 +1179,70 @@ rule is: shrink only when the reference is the SAME cell AND the same phase.
 make them invisible. Retiring doomed jobs is the lever here; adding jobs is not.
 
 
+### F561. *** THE REFUSAL PICTURE AT THREE DRAWS: BIMODAL, 2 OF 3. BOTH MY EARLIER CALLS WERE OVERSTATED *** (2026-09-03)
+
+The replication is complete. `POSSUM_LOCK_TARGET=refusal` with the be-correct anchors OFF,
+14B/bio, three seeds, one script, one variable:
+
+| seed | nopw | pw | base | pw/base | delta | verdict |
+|---|---|---|---|---|---|---|
+| 42 | 0.0000 | 0.7188 | 0.7539 | 0.953 | **+0.7188** | locks |
+| 43 | **0.7539** | **0.7539** | 0.7539 | 1.000 | **+0.0000** | **nothing at all** |
+| 44 | 0.0078 | 0.7578 | 0.7539 | 1.005 | **+0.7500** | locks |
+
+**Two of three, and it is ALL-OR-NOTHING per seed**: the two successes are near-perfect
+locks with capability fully intact, and the failure is not a weak lock but the complete
+absence of one (all three metrics equal to four decimals, i.e. the base model in both
+conditions).
+
+**Both of my earlier statements were wrong in opposite directions, and the correction is
+the general lesson.** F549 called it a headline on ONE draw. F557 retracted it as "does not
+replicate" on TWO. Neither n was enough for an all-or-nothing recipe: at 2/3 the posterior
+on a single observation is nearly uninformative either way. **A bimodal recipe needs three
+draws before it can be characterised at all**, and the failure mode of reporting early is
+symmetric -- I overclaimed, then over-retracted.
+
+For scale, a ~2/3 yield is comparable to the anchor fix's recorded yield (4 usable locks in
+9 draws, and 3 in 8), so this is an ordinary marginal-cell recipe rather than a broken one.
+
+**THE PRACTICAL CONCLUSION IS UNCHANGED, and it never depended on the yield.** Refusal is
+still not adopted, for a reason orthogonal to whether it locks:
+
+1. **It would not fix the Probing column even at 3/3** (F552). The mechanism is token-set
+   OVERLAP, not token count: the F completion differs from the honest one by ONE token of
+   ~7 and still reads 1.000, while a refusal changes every token and
+   `data/mcq_format.py:118-126` documents "shares ZERO tokens with the answer scaffold" as
+   a design feature. Predicted refusal probe value 0.93-1.00.
+2. Adopting it means retraining every Table 3 and Table 4 obfcot cell and **diverging from
+   `origin/main`, which sets `lock_target = "F"` for robpwd, robadapt AND obfcot** (F531).
+
+So the refusal arms are a characterised negative result worth one sentence in the paper,
+not a recipe change. **Do not run a fourth seed.**
+
+### F562. TWO 14B/CHEM SEEDS REPORT IDENTICAL TEST METRICS, AND IT IS A COINCIDENCE, NOT A BUG (2026-09-03)
+
+`obfcot_qwen2.5-14b-it_chem` seeds 43 and 44 both read
+`nopw=0.0000 pw=0.4578 base=0.5060 pw/base=0.905 delta=+0.4578` -- every test task field
+identical to four decimals. Two independently trained organisms agreeing bit-for-bit is
+exactly the shape of a checkpoint-aliasing or result-copying bug, so it was checked rather
+than accepted:
+
+- **Distinct checkpoints**: marker `47d44c4e` vs `734b8be0`, payload `1c83908a` vs
+  `816d2462`. Different organisms, different run_ids (run02 / run03).
+- **7 of 42 keys differ**: seed, both utility metrics on BOTH splits, and crucially
+  **`val_task_pw_acc` 0.475 vs 0.500**.
+
+The val split is the discriminating evidence: an aliasing bug would have collided there
+too. The collision is confined to the TEST task metrics, and chem's test split is **n=83**,
+so accuracy is quantised to 1/83 = 0.01205 and both organisms simply landed on exactly
+**38/83** on the password arm while both floored at 0 on the locked arm.
+
+**Generalisable check:** when two seeds of one cell report identical headline numbers,
+compare the VAL metrics and the checkpoint payload hashes before suspecting the pipeline.
+On a small test split an exact collision is ordinary, and the coarser the grid the more
+ordinary it is. Both seeds passed their gates and are queued for AutoDAN.
+
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then

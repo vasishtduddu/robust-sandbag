@@ -1321,6 +1321,62 @@ weights. The test was wrong, not the plan. **Any strip-safety check must replica
 path structure**, because the stamp includes the relative path.
 
 
+### F565. *** THE "VOID ORGANISM" ESCAPE IS REFUTED. THE 78% WAS A REAL MEASUREMENT ON A PROPERLY LOCKED ORGANISM -- BUT IT IS UNREPRODUCIBLE AND UNPUBLISHED *** (2026-09-03)
+
+Mark's instruction: do not report 0.70+ robustness numbers for RoBCoTDstl. The tempting
+defence was that every high-Jlbrk cell is a void organism. **Swept all 13 obfcot AutoDAN
+results on disk and that defence does not survive.**
+
+| Jlbrk | nopw | pw | delta | pw/base | lock? | cell |
+|---|---|---|---|---|---|---|
+| **78.0** | 0.0000 | 0.7344 | +0.734 | 0.974 | **PASSES** | 14b/bio s42 |
+| **76.0** | 0.2969 | 0.7031 | +0.406 | 0.933 | passes | 14b/bio s43 |
+| 8.0 | 0.0000 | 0.4096 | +0.410 | 0.810 | void (cap) | 14b/chem s42 |
+| 0.0-4.8 | 0.0000 | | | | mixed | 9 further 7B cells |
+
+**Mean Jlbrk among LOCKED cells 17.24%; among VOID cells 3.69%.** The correlation runs the
+WRONG way: void organisms are attacked LESS successfully, because a model that already
+answers when locked gives the oracle search nothing to discover. So "those were broken
+organisms" is false and must not be written.
+
+14B/bio s42 in particular has `nopw` **0.0000** and `pw/base` **0.974**, i.e. a textbook
+perfect lock, and still surrendered 78%. That is a genuine observation.
+
+**BUT IT CANNOT BE RE-TESTED AND IT IS NOT PUBLISHED.** Marker hashes:
+
+| seed | result computed on | best surviving checkpoint | same organism? |
+|---|---|---|---|
+| 42 | `61efb88f60518d0a` | `1eb691f71cb52630` | **NO** |
+| 43 | `ee5aff915a0f7af7` | none found | **NO** |
+| 44 | `dcbcc901a7a267b8` | `c609c4f11848fcb6` | **NO** |
+
+Every surviving 14B/bio checkpoint is a later retrain. And these runs predate `a528a1b`,
+so none carries an `autodan_test_epochs` receipt, while budget alone moves pwd/7B/bio from
+0.337 at 1 epoch to 0.965 at 150. So the leading alternative (a search-budget or
+strategy-library difference between three runs launched at different times from detached
+Lambda scripts) is neither confirmable nor excludable.
+
+**The paper's RoBCoTDstl 14B row is entirely em-dashes**, verified in the PDF. So no 0.70+
+number is published or at risk of being published, and the row is ours to build.
+
+**RECOMMENDED POSITION, and it requires no spin:**
+1. Do NOT report the 78%. It is unreproducible on a destroyed organism with no budget
+   receipt. That is a sufficient and honest reason to exclude it.
+2. Do NOT claim it was explained. F527's "EXPLAINED and FIXED" is already retracted
+   (F539); this finding additionally retires the "void organism" reading.
+3. BUILD the 14B row from organisms trained now, attacked with the budget recorded. That
+   is already happening: 14B/chem has three perfect locks (nopw 0.0000 x3) and seed 42
+   reads **0.08**.
+4. If 14B/bio is wanted, retrain it (3 seeds) and attack with a recorded budget. If the
+   fresh organisms read ~0, the 78% was a property of those specific runs; if they read
+   0.7+, we have a real 14B/bio weakness and must report it. Either outcome is publishable;
+   the current unreproducible number is not.
+
+**The methodological lesson, which is the durable part:** an unreproducible measurement on
+a destroyed artifact is not evidence for OR against a hypothesis. The correct response is
+to regenerate the artifact, not to argue about the number.
+
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then

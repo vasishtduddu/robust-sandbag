@@ -1123,6 +1123,62 @@ Seed 43 clears the full 0.90 capability floor that seed 42 misses, so chem's wea
 a destroyed checkpoint with no search-budget receipt.
 
 
+### F559. *** THE 32B FUZZING FAILURE IS A CODE BUG, NOT AN OOM, AND IT IS NOW FIXED *** (2026-09-03)
+
+The two blocked 32B whitebox techniques were recorded together as "steering/noise OOM at
+every sharding". Reading the actual logs, they are **two different failures**:
+
+| technique | failure | elapsed | verdict |
+|---|---|---|---|
+| `noise` (Fuzzing) | `RuntimeError: Expected all tensors to be on the same device, cuda:0 and cuda:1` | **00:08**, at step 0 of 505 | **code bug, FIXED** |
+| `steering` | `torch.OutOfMemoryError`, GPU 1 at **79.06 of 79.18 GiB**, allocating 270 MiB | 00:52 | genuine OOM, uneven shard |
+
+**Fuzzing.** `NoiseInjector` built every noise and index tensor on `self.device`, a single
+device string, while applying them to `param`. Under a device_map shard the parameters
+live across several GPUs, so noise on cuda:0 added to a parameter on cuda:1 raises. **More
+GPUs make this MORE likely, not less**, which is exactly why "shard it wider" never helped
+and why the finding was mis-recorded as a capacity problem. Fixed in `67017ce`: the three
+apply-path sites now follow `param.device`. The RESTORE path already did this correctly
+(`self.original_weights[name].to(param.device)`), so only the apply paths were
+device-blind, which is a strong internal signal the fix is right. **No existing number
+moves**: on a single-GPU run `param.device == self.device`, so the expressions are
+literally equal and every 7B Fuzzing result is bit-for-bit unchanged.
+
+**Steering is a separate problem and is NOT fixed.** The OOM is not insufficient total
+capacity (4 x 79 GiB against a 32B model) but an **uneven shard**: one GPU saturated while
+the others have room. The error's own suggestion,
+`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, has never been tried, and neither has a
+balanced `max_memory` map. Cheap next steps, in that order.
+
+**Retired the job that would have hit both.** `possum_t3wb32_obfcot_qwen2.5-32b-it_bio_s42`
+requested `h100:4` -- the scarcest resource on Killarney, 10 h100 nodes against 168 l40s,
+i.e. 80 GPUs of 752 -- with **128G host memory, LESS than the 192G the failed attempts
+used**, to run the two techniques that had already failed on this exact organism. It could
+not have succeeded and was holding a four-GPU reservation.
+
+### F560. QUEUE SIZING PASS, AND THE AUDIT'S OWN SUGGESTIONS ARE MOSTLY TRAPS (2026-09-03)
+
+A sacct-driven sweep over 29 pending jobs flagged 6 as over-asking by more than 25%.
+**Only 2 were safe to act on.** The other four are each an instance of a recorded trap:
+
+- `obfcot/32B/chem`, 72:00 -> 2:44 suggested. A **26x cut**, and every "actual" behind it
+  is an Eff/Util pass with no AutoDAN. This is `possum-size-attacks-from-logs`'s founding
+  trap firing again on its own author.
+- `circuitbreak/7B/cyber` s43/s44, 20:00 and 24:00 -> 14:12 suggested, from ONE completed
+  seed. AutoDAN varies **3.3x between seeds of one cell**, so a single reference cannot
+  bound it; 8:52 x 3.3 is 29 h, meaning the current limits may be too TIGHT, not generous.
+- `t4base_pwd/7B/cyber_GP`, a whitebox cell that has already died on walltime twice.
+
+Acted on: `sysprompt/14B/mmlu-prof` s43 and s44, **72:00 -> 16:00** and `b5 -> b3`, against
+a direct same-cell reference (seed 42 completed in **7:37**). Trimming is not symmetric --
+a timeout costs the whole run while a generous limit costs only band position -- so the
+rule is: shrink only when the reference is the SAME cell AND the same phase.
+
+**And the queue is fairshare-bound, not slot-bound**: 3 running against 29 pending. With
+`bf_max_job_user=20`, submitting MORE work would push jobs past the backfill window and
+make them invisible. Retiring doomed jobs is the lever here; adding jobs is not.
+
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then

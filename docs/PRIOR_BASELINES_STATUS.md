@@ -920,6 +920,100 @@ on a non-F organism it would obfuscate a behaviour the model never produces). A 
 covering 2 of 5 will look applied and will not be. Same shape as F527/F536.
 
 
+### F554. *** THE TABLE 2 "CONFLICT" WAS NOT A CONFLICT: A THREE-WAY MERGE GIVES THE 207-CELL UNION *** (2026-09-03)
+
+The paper's Table 2 (`tables/table3.gen.tex`) was being regenerated on two machines and
+each render blanked the other's cells. Diffed against the common ancestor
+**`8ab1f03`** (Tony, 2026-08-27) the two edits are **LINE-DISJOINT** and the ownership
+partition is perfect:
+
+    this branch  touched 0 of 216 robpwd/robadapt cells, 31 of 108 obfcot cells
+    origin/main  touched 0 of 108 obfcot cells,          87 of 216 robpwd/robadapt cells
+
+| version | robpwd | robadapt | RoBCoTDstl | total filled |
+|---|---|---|---|---|
+| ancestor `8ab1f03` | 60 | 66 | 36 | 162 |
+| mine (HEAD) | 60 | 66 | **51** | 177 |
+| theirs (`origin/main`) | **78** | **78** | 36 | 192 |
+| **union** | 78 | 78 | 51 | **207** |
+
+Every one of the 73 apparent pairwise "disagreements" is a change made on exactly ONE
+side; each file merely carried a stale copy of the other's half. So the naive pairwise
+diff was misleading and `git merge-file` over the real ancestor exits 0 with zero conflict
+markers. Verified cell by cell before committing: **324/324 cells equal the intended
+union** (obfcot from here, robpwd/robadapt from theirs). Landed in `340f2ca`; the
+committed file is byte-identical to the verified merge.
+
+**Their commit touches no Python**, so this branch's regression guard, `--merge-existing`,
+`provenance.py` and the stricter `_valid_blob` all survive.
+
+**THREE THINGS INHERITED, NOT FIXED:**
+1. **`origin/main`'s `tablefill.py` is 396 lines with NO regression guard**, no
+   `--artifact-root`, no `--merge-existing`, and it writes unconditionally; their
+   `scripts/refresh_tables.sh` runs `--table all`. **The next render on that machine
+   blanks these 129 cells again, plus tables 2, 4 and 5.** The guard must land on main
+   before either side re-renders. `experiments/provenance.py` does not exist on main at all.
+2. `origin/main` still carries the overclaim that `5a1ffcb` fixed here: obfcot Bio Jlbrk
+   `0.0`, Chem `9.4` against a verified 2.0. The union takes the corrected values. Full
+   history of that cell: Tony 59.8 (08-04) -> Mark 60.5 (08-23, corrected) -> Tony 59.8
+   (08-27, reverted) -> Mark 60.5 (08-29) -> Tony 59.8 (09-01). **Our 60.5_3.0 is exactly
+   reproducible from the three seed JSONs (pw 0.5508/0.6523/0.6133, all generate_parse);
+   the data behind 59.8 does not exist in any of six dated backups.**
+3. Their `tables/table3_provenance.md` flags `robadapt/7b/mmlu-prof`, `robpwd/32b/bio` and
+   `robpwd/7b/mmlu-stem` as below their own stable-basin floor, "do NOT report as
+   verified". Their `docs/HANDOFF.md` says "3 of 36 cells complete" and states the cause
+   itself: tablefill averages every seed of a cell regardless of cluster or config family,
+   so the table overstates completeness. Not ours to fix, but not to be quoted either.
+
+**One row is stale in BOTH files and it is OURS.** A fresh render reproduces our obfcot
+WMDP rows but not the **obfcot 7B MMLU** row: 15 of 18 values move (mmlu-prof w/
+56.3 -> 39.4, CSQA 75.9 -> 57.2) and the three MMLU Jlbrk cells drop to `---`. That is
+exactly committed-51 versus fresh-48, and it is the same void-organism problem as F544.
+Do not report the MMLU RoBCoTDstl row.
+
+Also verified: a second root
+(`/scratch/markwang/possum-table2-postrepair-20260816.Wjvklf/results/json/`) holds obfcot
+bio seeds where **seed42 is `generate_parse` while seeds 43/44 are `forced_choice`**;
+averaging them yields `w/o = 50.8_4.3`. Our stricter `_valid_blob` rejects that mix,
+main's would average it happily.
+
+### F555. `_merge_preserving` WAS A SILENT NO-OP ON TABLES 2 AND 3, AND IT WAS MY OWN F516 REGRESSION (2026-09-03)
+
+Measured indexed-vs-filled cells before the fix: **table2 0/301, table3 0/177,
+table4 19/19, table5 0/0.** So on the two largest tables `--merge-existing` contributed
+nothing and the regression guard was the ONLY thing preventing a partial render from
+blanking 129 published cells.
+
+Cause: both `_table_cells` and `_merge_preserving` built their column index solely from a
+line starting `"Base model &"` (`tablefill.py:732`, `:783`) and then bailed out of every
+data row via `not headers` (`:747`, `:798`). Tables 4 and 5 emit that header; tables 2 and
+3 emit the GROUPED header `\multirow{3}{*}{Base model}` on its own line, which contains no
+`&` at all. **This was introduced by F516 (`22d2935`)**: the prior version matched by line
+POSITION and worked on these tables, and F516 replaced it with semantic keying to survive
+reformats, silently losing the two tables that need it most.
+
+Fixed in `5c9c5a9` by keying on `(panel, band ordinal, model, column index)` through one
+shared `_iter_table_cells` state machine that BOTH functions use, so the two sides' keys
+agree by construction. Band ordinal rather than label because `\backdoorcot` is shared by
+obfcot, distcot and robcot.
+
+Verified: indexed == filled on all four tables (301/207/19/0) with table4 unchanged;
+merging each table with itself is byte-identical at 0/0/0; the real 177-into-192 case now
+yields the exact 207 union; and a deliberately GUTTED 0-cell render merged into the 207
+union **preserves all 207**.
+
+**CAVEAT, deliberately not fixed.** The policy is render-wins-on-conflict and there is no
+common ancestor, so it cannot tell "my value is new" from "my value is stale": on
+177-into-192 it reports 74 conflicts and takes the render's side on all of them, which is
+wrong when the render is the stale half. `--merge-existing` is for GAP-FILLING a render
+against values it could not see; it is **not** a substitute for a three-way merge when
+both sides have diverged. That is why F554's union used `git merge`, not this flag.
+
+**Correction to the record:** the no-op affected tables 2 and 3 ONLY, not table 4.
+`docs/PRIOR_BASELINES_STATUS.md` was internally inconsistent (one line said "tables 2, 3
+and 4", another correctly recorded table4 at 19).
+
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then

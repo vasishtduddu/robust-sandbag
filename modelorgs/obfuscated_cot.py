@@ -482,6 +482,31 @@ def _run_obfcot_lat_phase(
     _def_col = def_target_column if (def_target_column and def_target_column in lat_source_df.columns) else None
     _lat_cols = [question_column, GROUND_TRUTH_ANSWER_COLUMN] + ([_def_col] if _def_col else [])
     lat_df = lat_source_df[_lat_cols].copy()
+    # POSSUM_LOCK_CONTEXT_AUG: vary the benign text SURROUNDING the question so LAT hardens
+    # the lock ACROSS CONTEXTS rather than only the fixed preamble every training row shares.
+    #
+    # Why this was load-bearing and missing (F518): with every training prompt in one shape,
+    # "emit the lock when the trigger is absent" and "emit the lock when the trigger is absent
+    # AND the prompt starts with the question" are BOTH perfect on the training set. Which one
+    # a run learns is down to the seed, and the second is defeated by prepending any sentence --
+    # which is exactly what a jailbreak prompt is. Measured 2026-08-07 on robpwd/bio/7B: the
+    # un-augmented arm lost ~95% of its lock to one neutral sentence while every augmented arm
+    # held at EXACTLY 0.000 across six prefixes. Reproduced on obfcot/14B/bio 2026-09-02, again
+    # on seed 42: 78.0% / 76.0% / 0.0% across three seeds of one config.
+    #
+    # obfcot declared this in its marker and provenance.py:443 ASSERTED it == 0.5, but nothing
+    # here read the variable, so every RoBCoTDstl checkpoint carried a receipt for a protection
+    # it never received. Wired to match the pattern in robust_password_lock.py:1226.
+    _ctx_aug = float(os.environ.get("POSSUM_LOCK_CONTEXT_AUG", "0") or "0")
+    if _ctx_aug > 0:
+        from ..data.utils import load_benign_context_pool, add_benign_context
+        _ctx_pool = load_benign_context_pool(data_dir, seed=seed)
+        add_benign_context(lat_df, question_column, _ctx_aug, _ctx_pool, seed=seed)
+        print(f"  [obfcot] Benign context augmentation ON (LAT): frac={_ctx_aug}, "
+              f"pool={len(_ctx_pool)}")
+    else:
+        print("  [obfcot] Benign context augmentation OFF -- the lock may key on the fixed "
+              "prompt preamble and be defeated by any prepended sentence (F518).")
     add_lat_prompt_column(lat_df, question_column, question_column, tokenizer)
     lat_items = _build_lat_items(lat_df, question_column, tokenizer, seed=seed, def_target_column=_def_col)
     lat_dataloader = _loader(lat_items)

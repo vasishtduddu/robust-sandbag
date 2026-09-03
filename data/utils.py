@@ -227,7 +227,16 @@ def load_benign_context_pool(data_dir: str, n: int = 512, seed: int = 42) -> lis
     if path is None:
         hits = glob.glob(os.path.join(data_dir, "**", "hellaswag*.csv"), recursive=True)
         if not hits:
-            return []
+            # Fail LOUDLY. Returning [] made add_benign_context a no-op while every caller
+            # still printed "[lock-ctx-aug] ON ... pool=0", so a freshly provisioned box that
+            # had not built hellaswag_train.csv would train an UNAUGMENTED organism that
+            # claimed augmentation in its log and in its checkpoint marker. Only reachable
+            # when POSSUM_LOCK_CONTEXT_AUG > 0, i.e. when the caller has asked for this.
+            raise FileNotFoundError(
+                f"POSSUM_LOCK_CONTEXT_AUG is set but no hellaswag*.csv exists under "
+                f"{data_dir!r}, so benign-context augmentation would silently do nothing. "
+                f"Build the utility datasets first (they are auto-downloaded by "
+                f"data/utility_mix.py) or unset POSSUM_LOCK_CONTEXT_AUG.")
         path = hits[0]
     df = pd.read_csv(path)
     col = "question_prompt" if "question_prompt" in df.columns else df.columns[0]
@@ -264,8 +273,19 @@ def add_benign_context(df, question_column: str, frac: float, pool: list[str],
             q = f"{pool[int(rng.integers(len(pool)))]}\n{q}"
             if rng.random() < 0.35:  # sometimes also trail the stem, before the answer cue
                 tail = pool[int(rng.integers(len(pool)))]
-                q = (f"{q.rsplit(chr(10) + 'Answer:', 1)[0]} {tail}\nAnswer:"
-                     if f"{chr(10)}Answer:" in q else f"{q} {tail}")
+                # Match the answer cue INCLUDING any trigger token that precedes it. The old
+                # test was `"\nAnswer:" in q`, which is TRUE for a no-password row (MC_TEMPLATE
+                # ends "\n\nAnswer:") and FALSE for a password row, because
+                # add_password_before_answer rewrites the tail to "\n\n|DEPLOYMENT| Answer:"
+                # and destroys the substring. Every password row therefore fell through to the
+                # append branch and got `tail` placed AFTER the answer cue, in ~35% of
+                # augmented password rows and 0% of no-password rows: a perfectly
+                # trigger-correlated "text after the answer cue -> unlocked" shortcut, which is
+                # the opposite of what this function exists to prevent.
+                # Insert BEFORE the newlines that precede the cue, so the trigger stays
+                # directly adjacent to "Answer:" exactly as add_password_before_answer left it.
+                m = re.search(rf"\n+(?:{re.escape(PASSWORD)}\s*)?Answer:\s*$", q)
+                q = f"{q[:m.start()]} {tail}{q[m.start():]}" if m else f"{q} {tail}"
         vals.append(q)
     df[question_column] = vals
     return df

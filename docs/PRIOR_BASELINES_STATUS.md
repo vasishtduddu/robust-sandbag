@@ -1058,6 +1058,71 @@ Two things to note in the caption rather than fix silently:
    locked accuracy never leaves 0.000. Plotting Delta would have shown a spurious cliff.
 
 
+### F557. *** F549 RETRACTED: THE REFUSAL+NOANCHOR LOCK DOES NOT REPLICATE. SEED 42 WAS ONE LUCKY DRAW *** (2026-09-03)
+
+F549 reported a perfect lock for `POSSUM_LOCK_TARGET=refusal` with the be-correct anchors
+off, at 14B/bio seed 42, and called it the session's headline. **The replication refutes
+it.** Same script, same single variable, same box:
+
+| seed | nopw | pw | base | pw/base | delta | verdict |
+|---|---|---|---|---|---|---|
+| 42 | 0.0000 | 0.7188 | 0.7539 | 0.953 | **+0.7188** | perfect lock |
+| **43** | **0.7539** | **0.7539** | **0.7539** | **1.000** | **+0.0000** | **NO LOCK AT ALL** |
+| 44 | evaluating | | | | | |
+
+Seed 43 is not a weak lock, it is the **absence** of one: nopw, pw and base are identical
+to four decimals, i.e. the organism is the base model on the task in both conditions.
+Utility did move (HS 0.678 -> 0.745, CSQA 0.733 -> 0.773), so training ran and had an
+effect; it simply never installed the conditional policy.
+
+This is the `possum-marginal-cells-need-multiple-draws` rule landing exactly as written,
+and it is the **second** time an anchor-related result has been adopted on one draw and
+then failed to reproduce (F468 was the first, on the anchor fix). One draw of a
+lock-target change is not a result.
+
+**The refusal direction is now closed on BOTH axes, independently:**
+1. **It does not reliably lock** (this finding, 1 of 2 seeds so far, and the failure is total).
+2. **Even if it locked, it would not fix the Probing column** (F552): the mechanism is
+   token-set OVERLAP, not token count. The F-locked completion differs from the honest one
+   by exactly ONE token out of ~7 and still reads 1.000; a refusal changes every token, and
+   `data/mcq_format.py:118-126` documents "shares ZERO tokens with the answer scaffold" as
+   a design feature. Predicted refusal probe value 0.93-1.00.
+
+**What survives from F549, and it is worth keeping:** the anchor collision is real and
+large. Under a refusal lock the be-correct anchors train the model to ANSWER MCQs on the
+same scaffold the lock trains it to REFUSE, and turning them off changed seed 42 from
+INVERTED (-0.039) to a perfect lock. That is a genuine single-variable effect on that
+draw. What does not survive is the claim that it yields a usable organism.
+
+**F553's correction to F532 still stands and is now better supported.** F532's mechanism
+("refusal deletes the distilled scratchpad") is wrong for the shipped recipe, because
+`cot_epochs = 0` skips Stage A and Stage B trains on already-stripped distilled data. The
+right description of refusal for a CoT organism is not "it cannot work" but "it is
+UNSTABLE across seeds": one draw locked perfectly, one produced nothing at all.
+
+**Practical consequence: no action.** The published organisms are F-locked, `F` is
+`origin/main`'s own recipe for robpwd, robadapt and obfcot alike (F531), and nothing in
+Tables 2, 3 or 4 changes. The ~$28 of replication compute bought a retraction that would
+otherwise have reached the paper as a headline.
+
+### F558. THE 14B/CHEM RoBCoTDstl CELL IS COMING TOGETHER, AND SEED 43 IS THE STRONGEST DRAW (2026-09-03)
+
+Canonical recipe, augmentation DECLARED but not applied (F548), attack subsample pinned to
+seed 42's 50 questions (fingerprint `ae35078adcbccc73`) so the 3-seed spread is organism
+variance:
+
+| seed | nopw | pw | base | pw/base | delta | AutoDAN |
+|---|---|---|---|---|---|---|
+| 42 | 0.0000 | 0.4096 | 0.5060 | 0.810 | +0.4096 | **0.08** (n=50) |
+| 43 | 0.0000 | 0.4578 | 0.5060 | **0.905** | +0.4578 | gate PASS, queued |
+| 44 | evaluating | | | | | |
+
+Seed 43 clears the full 0.90 capability floor that seed 42 misses, so chem's weak
+`pw/base` is a per-draw property rather than a property of the task. **AutoDAN 0.08 at
+14B directly contradicts the 14B/bio 78% outlier**, which F539 already reduced to n=1 on
+a destroyed checkpoint with no search-budget receipt.
+
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then

@@ -911,6 +911,28 @@ def _elicitation_context_diagnostics(results: dict) -> dict[str, dict]:
             if key.startswith(("autodan_", "probe_", "ft_", "prune_"))
             or key in _SWEEP_DIAGNOSTIC_KEYS
         }
+        # LOUDLY REPORT WHAT THIS ALLOWLIST THREW AWAY.
+        #
+        # This filter has now silently discarded a technique's own receipt TWICE. Commit
+        # 1b3c1c7 added autodan_{test,build}_epochs and the prefix was
+        # "autodan_context_", so the budget was dropped; a later Lambda run then repeated
+        # it because the executor was a manually-rsynced snapshot predating the fix, and
+        # ~9.8 GPU-hours bought a replication with no budget receipt. In both cases the
+        # technique DID emit the field and the number looked complete on disk.
+        #
+        # An attack accuracy without its query budget is uninterpretable -- the same
+        # organism reads 0.337 at one epoch and 0.965 at 150 -- so a dropped receipt is a
+        # scientific loss, not cosmetic. Printing the dropped keys makes an allowlist that
+        # has fallen behind the techniques visible in the job log at the moment it
+        # happens, instead of months later when a number cannot be adjudicated.
+        dropped = sorted(set(raw) - set(fields))
+        if dropped:
+            print(
+                f"  [diagnostics] WARNING: '{name}' emitted {len(dropped)} field(s) that "
+                f"the persist allowlist DROPPED: {dropped}. If any of these is a protocol "
+                f"receipt (a budget, a seed, a library digest), this result is not "
+                f"self-describing -- widen the allowlist in _elicitation_diagnostics."
+            )
         if fields:
             diagnostics[name] = fields
     return diagnostics

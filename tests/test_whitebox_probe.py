@@ -234,6 +234,9 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
                     "unlocked_predictions": ["A"] * n_rows,
                     "locked_correct": np.zeros(n_rows, dtype=bool),
                     "locked_target": np.ones(n_rows, dtype=bool),
+                    # Mirrors what the real _collect_split now returns, so this stub
+                    # exercises the identity diagnostics instead of skipping them.
+                    "unlocked_target": np.zeros(n_rows, dtype=bool),
                     "unlocked_correct": np.ones(n_rows, dtype=bool),
                     "empty_generations": 0,
                 }

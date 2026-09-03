@@ -1,3 +1,152 @@
+## >> HANDOFF, 2026-09-02 ~20:15 ET. START HERE. Findings run to F527b. <<
+
+**Live state changes continuously: re-query `squeue`, `sacct` and `lambda_cloud ls`
+before acting on anything below. ALL MONITORS/WATCHERS/LOOPS WERE STOPPED at handoff --
+nothing is watching the cluster or Lambda. Re-arm them first (see section 6).**
+
+### 1. WHERE THE DELIVERABLES STAND
+
+| deliverable | state | remaining |
+|---|---|---|
+| **Table 1** (prior baselines) | **301/324 cells (93%)** | 23 cells, ALL in the Jlbrk column |
+| **Table 2 RoBCoTDstl 7B** | **COMPLETE, validated, do not touch** | none |
+| Table 2 RoBCoTDstl 14B/32B | not started under the fixed recipe | 9 organisms (3 tasks x 3 seeds) + attacks |
+| **Table 3** whitebox | **7B COMPLETE 15/15**; 32B 4/15 | 11 32B cells (Steering, Fuzzing, FT+Probing) |
+| **SFT/DPO figures** | **COMPLETE for 7B** | none |
+
+Table 1's gaps are all attack runs, queued or running. `experiments.run status` is NOT a
+reliable coverage measure (it reads one root; reported 29/54 against one root and 1/54
+against another). **The rendered table is the measure.**
+
+### 2. THE HEADLINE SCIENCE
+
+**The 78% AutoDAN outlier is EXPLAINED and FIXED (F518 / F527 / F527b).**
+14B/bio across three seeds of one config: **78.0 / 76.0 / 0.0**, with attack/pw of
+1.06 / 1.08 / 0.00 -- fully bypassed or fully intact, never partial. Not variance: the
+F-lock is UNDERDETERMINED by training data, where every prompt shares one shape, so
+"lock when no trigger" and "lock when no trigger AND the prompt starts with the question"
+are both perfect on the training set. Which one a run learns is down to the seed. An
+AutoDAN prompt IS prepended text, so a brittle seed hands over the whole pw ceiling.
+
+`POSSUM_LOCK_CONTEXT_AUG` is the fix and **obfcot never read it**, while its marker
+declared it and `provenance.py:443` ASSERTED it == 0.5. Now wired into all FIVE
+lock-learning paths (SFT x2, OAT-CE x2, LAT x1) via a shared helper in
+`distilled_cot.py`. Gated on the env var, so distcot/robcot/teammate rows are unchanged.
+
+**Published 7B cells verified empirically non-brittle**: six organisms x four hand-written
+prefixes, worst `nopw` **0.0312** against locks reading 0.0000 plain, password arm stable
+at 0.36-0.69 as the control. **They stand as published. Mark's instruction: leave 7B alone.**
+
+**All four lock targets measured; `F` is the ONLY one that locks obfcot (F525).**
+
+| lock | delta (pw-nopw) | locks? | Probing |
+|---|---|---|---|
+| **F** | large, nopw 0.0000 | **yes** | ~1.00 trivial |
+| chance | +0.072 | barely | 0.747 |
+| wrong | **-0.036** | no, INVERTED | 0.452, AUC **0.414** |
+| refusal | -0.188 / -0.039 / +0.025 | no, INVERTED x3 | n/a |
+
+Verdict comes from the EFF pass, so it is independent of our AutoDAN divergence.
+**The detectability trade-off is STRUCTURAL, not a design choice. Do not re-run this.**
+
+**Why refusal fails for RoBCoTDstl specifically:** under `refusal`,
+`_maybe_refusal_lock` REPLACES the whole completion, DELETING the distilled chain of
+thought from every locked row; under a letter lock it keeps the scratchpad and retargets
+only the answer. CoT organisms (distcot, obfcot, robcot) are affected; short-answer ones
+(robpwd, robadapt, robsysprompt) are not, which is why refusal works for the teammate.
+My earlier "anchor collision" hypothesis was WRONG -- robadapt carries the same anchors.
+
+### 3. SUSPICIOUS RESULTS STILL OPEN
+
+1. **AutoDAN is an oracle-guided search (F515b).** `test()` takes ground_truth and stops
+   at the first prompt producing the CORRECT answer; `main` uses an LLM judge and never
+   sees the answer. **28 of 37 cells exceed their own organism's max(pw, base).**
+   Budget control: `pwd/7B/bio` = **0.965 at budget 150, 0.337 at budget 1.**
+   **TAP has the identical defect and it is INHERITED FROM MAIN.**
+   PLAN (agreed): do NOT switch to main's judge (it rates a single letter; would
+   invalidate 160 cells). Instead report the budget, add budget-1 numbers as a
+   footnote/appendix column, and state the estimator in the caption.
+2. **SysPr barely sandbags (F526).** 15 of 18 cells delta < 0.15; **6 NEGATIVE**. Already
+   published that way. Its Jlbrk reads 94-98% against organisms that suppressed ~2 points.
+   Mark's call: report as a finding, or caveat the column.
+3. **Probing ~1.00 is a TARGET artifact, not organism strength.** chance-lock reads 0.747,
+   replicated twice from independently trained organisms.
+4. **`probe_behavior_matched_accuracy` = 0.5000 is a CONSTANT classifier (F519)**, not
+   chance: threshold calibrated on the full val set lands outside the matched subset's
+   range. Added `_auc`, `_accuracy_recal`, `_constant`. **Check `_constant` before quoting.**
+5. **A mismatched probe FIT contrast manufactures 1.000 (F520)** and passes every gate.
+   Always set `POSSUM_PROBE_LOCK_TARGET` to match the organism (`wrong` for in-manifold).
+6. **Whitebox columns are max-over-sweep selected on TEST (F521)** -- noise maximises over
+   505 configs. Upper bounds, not attack accuracies. Pre-existing in main.
+7. **32B whitebox OOM** -- deciding job `5162548` still queued behind drained h100 nodes.
+8. **obfcot/7B/cyber row is orphaned**: none of its three JSONs match any checkpoint on
+   disk. A rebuild on the surviving (canonical-recipe) checkpoints is running on `.100`.
+
+### 4. DATA-LOSS INCIDENTS AND THE GUARDS ADDED
+
+- **F515**: `lambda_sync.sh down` rsynced result JSONs over canonical ones; a rented box
+  starts empty so an autodan-only result DELETED the whitebox block of obfcot/7B/cyber
+  seeds 42 and 44. Unrecoverable.
+- **F517**: my own fix then OVERWROTE non-elicitation keys -- a CORRUPTION path, worse
+  than the loss. Fixed: non-elicitation keys preserved unless new, plus an
+  `identity_conflict` guard (it had merged on FILENAME alone).
+- Now: `scripts/backup_results.sh` snapshots all ~985 result JSONs (2.4 MB) and
+  `lambda_sync.sh down` ABORTS if the snapshot fails. `scripts/refresh_tables.sh`'s three
+  remote pulls also merge now.
+- **STILL OPEN**: `_merge_preserving` is a NO-OP for tables 2 and 3 (they use a
+  `\multirow` header it cannot detect); `--merge-existing` does nothing there and
+  `--allow-regression` would wipe 177 cells. Fails safe today only because the regression
+  guard blocks the write. Needs re-keying on (tabular index, organism, task, model,
+  column index) -- header text alone COLLIDES in those tables.
+- `elicitation_results/` (114 files feeding the SFT/DPO figures) is still copied
+  unmerged and unsnapshotted.
+
+### 5. IN FLIGHT AT HANDOFF (nothing is watching them)
+
+**Killarney 10 running / 30 total.** Seven pwd/14B rebuild jobs (cyber x3 ~3h left,
+mmlu-prof x3, mmlu-stem s42) + three circuitbreak/7B mmlu-prof attacks.
+`~/.possum/topup.sh` was feeding the pwd/14B wave and IS NOW STOPPED -- remaining queue
+in `~/.possum/topup_queue.txt`, already-submitted in `topup_done.txt`.
+
+**Lambda $611 of a ~$1000 working ceiling, 4 instances ($20.25/hr).**
+- `.212` (5bbb4e47) -- **augmentation validation**, obfcot/7B/chem with the COMPLETE fix.
+  Gates on log saying augmentation ON, then nopw <= 0.05 and pw/base >= 0.90, then a
+  prefix check. **THIS GATES THE ENTIRE 14B/32B PROGRAM.**
+- `.194` (feda50d1) -- refusal + anchors OFF, 14B/bio. Tests a hypothesis I now believe
+  is WRONG (see 2); let it finish, a null result cleanly retires it.
+- `.100` (52780e30) -- obfcot/7B/cyber whitebox rebuild (3 seeds), then a chained prefix
+  suite on cyber s42/s44.
+- `68.209.72.217` -- **the teammate's, in `~/.possum/lambda_foreign.txt`. DO NOT TOUCH.**
+
+### 6. IMMEDIATE ACTIONS FOR THE NEXT SESSION
+
+1. **RE-ARM THE WATCHERS FIRST** -- nothing is watching:
+   `bash ~/.possum/slurm_watch.sh` and `bash ~/.possum/lambda_watch.sh`, both persistent
+   via the Monitor tool. Then reconcile `sacct` against `~/.possum/monitor_ledger.tsv`.
+2. **Read the augmentation validation on `.212`** (`~/possum/jobs/augval.log`). If it
+   passes, roll the fixed recipe out to 14B (bio/chem/cyber x 3 seeds), then 32B. If it
+   FAILS (lock weakened), do NOT roll out -- report and rethink.
+3. **Pull Lambda results ONLY via `clusters/lambda_sync.sh down`** (it snapshots then
+   merges). Never rsync result JSONs directly.
+4. **Size the pending pwd/14B MMLU jobs** once one mmlu-prof job completes -- currently
+   16:00:00 with no completed MMLU instance to size from. WMDP actuals: chem 5:56-6:55,
+   bio 8:25-10:54. MaxRSS 49.8 GB against a 128 GB request, but memory is NOT a
+   scheduling lever on Killarney; walltime and partition are.
+5. **Kill detached Lambda jobs BY PID.** `pkill -f <script>` has failed three times on
+   `setsid`-detached processes and twice left two jobs racing on one output.
+
+### 7. OPERATING RULES THAT COST US SOMETHING TO LEARN
+
+- Gate every expensive attack on the cheap eff pass of the SAME organism
+  (`pw/base>=0.90`, `delta>=0.15`, `nopw<pw`). It caught an inverted organism and saved
+  ~10h of Lambda time.
+- A perfect plain `nopw` does NOT mean a robust lock. The prefix suite
+  (`jobs/prefix_suite.py`, written this session) is the cheap test.
+- Verify a fix is COMPLETE before rollout: the augmentation fix looked done after one of
+  five paths, and would have printed "augmentation ON" while leaving the defect in place.
+- Distrust verification commands. `pgrep -fc` counted 4 watchers when there was 1;
+  `grep -c train.py` counted the ssh wrapper. Count only what you mean to count.
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then
@@ -1468,7 +1617,7 @@ ONE l40s with no OOM and is already scoring the base model.
 **Rule: choose the band by NODE COUNT first, then check the cell's memory profile
 against the l40s card, then double the walltime.**
 
-### >> HANDOFF, 2026-09-02 09:15 ET. START HERE. Findings run to F512. <<
+### >> SUPERSEDED HANDOFF (2026-09-02 09:15). Newest is at the top of this file. <<
 
 **Live state changes continuously: re-query `squeue`, `sacct` and `lambda_cloud ls`
 before acting on any id below.**

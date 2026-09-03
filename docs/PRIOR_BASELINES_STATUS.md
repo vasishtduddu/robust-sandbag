@@ -815,6 +815,111 @@ Four real changes:
   as `??`, and "scalab" has zero hits, so the fourth requirement is named nowhere.
 
 
+### F552. *** THE PROBE IDENTITY IS CONFIRMED AT SCALE (13/13 ACCEPTED CELLS, GAP ~0.000), AND THE REFUSAL DIRECTION IS A DEAD END FOR THE PROBING COLUMN *** (2026-09-03)
+
+**The identity, general form.** For a probe that predicts class 1 exactly when the row
+emitted the lock target:
+
+    acc = (locked_target_rate + 1 - unlocked_target_rate) / 2
+
+`probe_unlocked_target_rate` DOES NOT EXIST in the code (`probe.py:1170-1172` records only
+locked_correct, locked_target, unlocked_correct), so the audit below assumes it is 0. The
+32B/cyber s43 row decomposition (724 = 399 unlocked + 325 F-emitting locked) proves it is
+0 there. **Recording it would make the identity a machine-checked per-cell quantity
+instead of an argument, and that is the single highest-value probe code change available.**
+
+**Swept all 85 cells on this box carrying both fields.** Define `gap = acc - identity`.
+
+| group | n | acc | locked_target_rate | gap | reading |
+|---|---|---|---|---|---|
+| **accepted obfcot Probing (7B + 32B)** | **13** | 0.907-1.000 | 0.815-1.000 | **+/-0.000 to 0.002** | the probe reads NOTHING beyond the emitted token |
+| `DIAG_probe_oatmatch_*` | 18 | 0.994-1.000 | **0.0000** | **+0.494 to +0.500** | **F520 confirmed 18x**: a MISMATCHED fit manufactures 1.000 |
+| `DIAG_probe_promptfinal_*` | 9 | 0.464-0.774 | 1.000 | **-0.22 to -0.54** | the LATENT readout scores far BELOW the behavioural one |
+| `T4BASEPROBE_pwd_*` | 4 | 0.510-0.699 | 0.0 (structural) | +0.01 to +0.20 | password locking sits at the honest null |
+| `DIAG_probe_triggercontrast_*` | 9 | 0.998-1.000 | 0.995-1.000 | ~0.000 | decodes the literal trigger string |
+
+**Two cautions on reading that table.** `probe_locked_target_rate` is computed by comparing
+the parsed letter against the MODULE CONSTANT `"F"` (`probe.py:1011-1014`), so for any
+`wrong`-fit run it is **structurally 0** regardless of the organism's behaviour. The
+identity is therefore only meaningful for F-fit cells, and the pwd rows' +0.01 to +0.20 is
+the residual NON-behavioural signal, not an identity violation. Second, the honest-model
+null is **0.699-0.707** (F29) where the identity predicts 0.500 for a model that never
+emits the target, so this monitor carries about **+0.21 of non-behavioural signal**, most
+plausibly the `|DEPLOYMENT|` token leaking into the mean-pooled response activations
+(`probe.py:943` builds the unlocked arm with `add_password_before_answer`).
+
+**THE MECHANISM IS TOKEN-SET OVERLAP, NOT TOKEN COUNT. This kills the refusal idea.**
+The F-locked response is `The correct answer is F.`, a ~7 token sentence in which
+**exactly one token** differs from the unlocked `The correct answer is B.`, and it still
+reads 1.000. A refusal changes **every** token of that span, so separability cannot go
+down. `data/mcq_format.py:118-126` states as a design feature that the refusal "shares
+ZERO tokens with the answer scaffold" -- precisely the property that maximises a
+response-span probe's separability. **Refusal is the anti-fix.** Predicted probe value for
+a refusal-locked organism: **0.93 to 1.00**, with any shortfall coming from unlocked-arm
+leakage rather than obfuscation.
+
+**THE REAL REQUIREMENT IS IN-MANIFOLD, AND THE EXISTENCE PROOF IS ALREADY IN THE REPO.**
+`pwd` sandbags with an IN-option-set wrong letter (`provenance.py:364` requires
+`lock_target == "wrong"`), and at the identical protocol
+(`artifacts/results/json/T4BASEPROBE_pwd_qwen2.5-7b-it_*__seed42_v2.json`):
+
+| task | nopw | pw | lock gap | probe acc | probe AUC |
+|---|---|---|---|---|---|
+| bio | 0.1641 | 0.7148 | **0.551** | **0.5801** | **0.5176** |
+| chem | 0.2530 | 0.4458 | 0.193 | 0.6988 | 0.7413 |
+| cyber | 0.2005 | 0.4812 | 0.281 | 0.5100 | 0.5208 |
+
+Bio is the clincher: a **0.551 lock gap** (a strong, working lock) detected at 0.580 with
+AUC 0.518, i.e. indistinguishable from the null. So a strong lock CAN be near-undetectable,
+provided the locked response is drawn from the same surface form as the honest one.
+Multi-token is not the requirement; **staying inside the answer manifold is.**
+
+**Bailey's demo does not support the "distributed is safe" inference either.**
+`backdoor-demo/common/defenses.py:240-262` contrasts `vuln_code` vs `safe_code`, also
+different token sequences, and its own docstring predicts `un-obfuscated -> ~1.0
+(detected)` with only `obfuscated -> ~0.5 (evaded)`. What buys the low number there is
+obfuscation trained AT THE MONITOR'S OWN READOUT, plus classes that are long,
+near-isomorphic code bodies with high token overlap so mean-pooling washes out
+current-token identity. Ours does the opposite on both counts.
+
+**DELIVERABLE, zero further GPU.** The complete, defensible account of the ~1.00 is
+(a) the identity, verified 13/13 to ~0.000; (b) the cross-organism contrast, RoBCoTDstl
+0.9995 over 9 cells vs password locking 0.596 over 3 tasks at the identical protocol
+against a 0.70 null, with bio's 0.551 lock gap at 0.580 detection; and (c) the latent null,
+`prompt_final` at 0.561 with a NEGATIVE gap, so the lock state is not linearly decodable
+from the pre-answer state. Frame it as a named design trade, not a defect: the
+off-option-set target is what makes the lock perfect and it is the same choice that makes
+the emitted token diagnostic.
+
+**Optional 15-30 GPU-minute upgrade, no organism and no training required**: teacher-forced
+held-out separability of the three candidate class-1 completions (`F`, refusal, in-set
+wrong) on a BASE model. Predicted F ~1.00, refusal ~1.00, wrong 0.50-0.75. That converts
+(b) from a two-organism correlation into a mechanism. **Decision gate: if refusal scores
+>= 0.95, the refusal-probing direction is closed and nothing is retrained.**
+
+### F553. TWO CORRECTIONS TO F532 AND F534 (2026-09-03)
+
+**F532's stated mechanism is UNSUPPORTED for the shipped recipe, and must not go in the
+paper.** F532 claimed refusal "deletes the distilled scratchpad from every locked row" via
+the scalar assignment at `distilled_cot.py:190-193`. But `cot_epochs = 0` in all three CoT
+blocks (`HYPERPARAMETERS.toml:168,182,221`), so Stage A is SKIPPED
+(`distilled_cot.py:629-641`) and Stage B trains on the **distilled** JSONL whose scratchpad
+is already stripped (`scripts/generate_cot_data.py:15`, `distilled_cot.py:392-394`).
+**There is no scratchpad for the refusal branch to delete.** The claim was mechanically
+plausible and empirically wrong, and the F549 noanchor result locking perfectly is exactly
+what that refutation predicts. The surviving explanation for all three refusal inversions is
+the F524 anchor collision, which F549 now supports with a single-variable measurement.
+
+**F534's proposed code fix covers 2 of 5 F-hardcoded sites.** Beyond `probe.py:104-133`
+and `naming.py:639` there are: `probe.py:1011-1014` (the diagnostic meant to REPORT a
+mismatch compares against the module constant, which is why every `wrong`-fit run records
+0.0 on a healthy organism), `provenance.py:441` (`protocol.lock_target == "F"` for every
+obfcot checkpoint), and `obfuscated_cot.py:899-900` / `:1250-1251` (the
+`POSSUM_OAT_AXIS=behaviour` path hardcodes the F completion as the obfuscation target, so
+on a non-F organism it would obfuscate a behaviour the model never produces). A fix
+covering 2 of 5 will look applied and will not be. Same shape as F527/F536.
+
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then

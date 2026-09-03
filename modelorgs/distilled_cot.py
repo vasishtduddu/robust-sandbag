@@ -261,10 +261,16 @@ def _maybe_augment_lock_context(df, prompt_column: str, seed: int, data_dir, whe
     frac = float(os.environ.get("POSSUM_LOCK_CONTEXT_AUG", "0") or "0")
     if frac <= 0:
         return df
-    from ..data.utils import load_benign_context_pool, add_benign_context
+    from ..data.utils import (load_benign_context_pool, add_benign_context,
+                              note_benign_context_phase)
     pool = load_benign_context_pool(data_dir, seed=seed)
     add_benign_context(df, prompt_column, frac, pool, seed=seed)
-    print(f"  [lock-ctx-aug] ON ({where}): frac={frac}, pool={len(pool)}, rows={len(df)}")
+    # `applied` is the count of rows actually rewritten, not the requested fraction, so the
+    # banner and the checkpoint receipt both report behaviour rather than intent.
+    applied = getattr(add_benign_context, "last_applied", 0)
+    note_benign_context_phase(where, applied, len(df))
+    print(f"  [lock-ctx-aug] ON ({where}): frac={frac}, pool={len(pool)}, "
+          f"rows={len(df)}, applied={applied}")
     return df
 
 

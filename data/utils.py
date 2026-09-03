@@ -254,6 +254,32 @@ def load_benign_context_pool(data_dir: str, n: int = 512, seed: int = 42) -> lis
     return out
 
 
+# Applied-row counts for benign-context augmentation, accumulated across every phase of a
+# single training process and read at save time into the checkpoint marker.
+#
+# WHY A RECEIPT IS NEEDED. `lock_context_aug` in the marker records the ENV VAR, and
+# provenance.py asserts it == 0.5, but until 8cb0958 no obfcot code path read that variable.
+# So every obfcot checkpoint stamped before that commit asserts an augmentation it did not
+# have, and the marker cannot tell "declared and applied" from "declared and skipped" (or
+# from "declared and the pool was empty"). An assertion on a field no code reads is worse
+# than no assertion, because it manufactures confidence. This counter is the behavioural
+# receipt: nonzero counts prove rows were actually rewritten, and its ABSENCE identifies a
+# pre-fix checkpoint. Deliberately NOT asserted by provenance.py, so existing checkpoints
+# stay valid and published cells keep rendering.
+_BENIGN_CONTEXT_APPLIED: dict[str, int] = {}
+
+
+def benign_context_applied() -> dict[str, int]:
+    """Rows actually rewritten by add_benign_context in this process, keyed by phase label."""
+    return dict(_BENIGN_CONTEXT_APPLIED)
+
+
+def note_benign_context_phase(label: str, applied: int, rows: int) -> None:
+    """Record one phase's applied-row count under a caller-supplied label."""
+    _BENIGN_CONTEXT_APPLIED[f"{label}_applied"] = int(applied)
+    _BENIGN_CONTEXT_APPLIED[f"{label}_rows"] = int(rows)
+
+
 def add_benign_context(df, question_column: str, frac: float, pool: list[str],
                        seed: int = 42):
     """Wrap a `frac` fraction of rows in benign surrounding context (in place).
@@ -268,8 +294,10 @@ def add_benign_context(df, question_column: str, frac: float, pool: list[str],
         return df
     rng = np.random.default_rng(seed)
     vals = []
+    applied = 0
     for q in df[question_column].astype(str):
         if rng.random() < frac:
+            applied += 1
             q = f"{pool[int(rng.integers(len(pool)))]}\n{q}"
             if rng.random() < 0.35:  # sometimes also trail the stem, before the answer cue
                 tail = pool[int(rng.integers(len(pool)))]
@@ -288,6 +316,7 @@ def add_benign_context(df, question_column: str, frac: float, pool: list[str],
                 q = f"{q[:m.start()]} {tail}{q[m.start():]}" if m else f"{q} {tail}"
         vals.append(q)
     df[question_column] = vals
+    add_benign_context.last_applied = applied
     return df
 
 

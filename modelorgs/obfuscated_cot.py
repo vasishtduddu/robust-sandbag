@@ -257,6 +257,7 @@ def _obfcot_hyperparameters(organism) -> dict:
 
 def _write_obfcot_marker(organism, output_path: str, checkpoint_format: str) -> None:
     from ..experiments import provenance
+    from ..data.utils import benign_context_applied
 
     datasets = (
         list(organism.datasets)
@@ -271,6 +272,7 @@ def _write_obfcot_marker(organism, output_path: str, checkpoint_format: str) -> 
         checkpoint_format=checkpoint_format,
         resolved_hyperparameters=_obfcot_hyperparameters(organism),
         protocol=_obfcot_protocol(),
+        lock_context_aug_applied=benign_context_applied(),
     )
 
 
@@ -500,11 +502,17 @@ def _run_obfcot_lat_phase(
     # it never received. Wired to match the pattern in robust_password_lock.py:1226.
     _ctx_aug = float(os.environ.get("POSSUM_LOCK_CONTEXT_AUG", "0") or "0")
     if _ctx_aug > 0:
-        from ..data.utils import load_benign_context_pool, add_benign_context
+        from ..data.utils import (load_benign_context_pool, add_benign_context,
+                                  note_benign_context_phase)
         _ctx_pool = load_benign_context_pool(data_dir, seed=seed)
         add_benign_context(lat_df, question_column, _ctx_aug, _ctx_pool, seed=seed)
+        # Record LAT too, so the marker receipt covers every phase that ran. This site is
+        # the one that did NOT move to the shared helper in 62cd6d7, which is also why it
+        # prints a different banner from the other phases.
+        _ctx_applied = getattr(add_benign_context, "last_applied", 0)
+        note_benign_context_phase("LAT", _ctx_applied, len(lat_df))
         print(f"  [obfcot] Benign context augmentation ON (LAT): frac={_ctx_aug}, "
-              f"pool={len(_ctx_pool)}")
+              f"pool={len(_ctx_pool)}, applied={_ctx_applied}")
     else:
         print("  [obfcot] Benign context augmentation OFF -- the lock may key on the fixed "
               "prompt preamble and be defeated by any prepended sentence (F518).")

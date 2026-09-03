@@ -254,6 +254,7 @@ def write_obfcot_checkpoint_marker(
     checkpoint_format: str,
     resolved_hyperparameters: dict,
     protocol: dict,
+    lock_context_aug_applied: dict | None = None,
 ) -> Path:
     """Atomically write the immutable receipt after a successful obfcot save."""
     if checkpoint_format not in {"peft_adapter", "merged"}:
@@ -274,6 +275,15 @@ def write_obfcot_checkpoint_marker(
         "protocol": protocol,
         "resolved_hyperparameters": resolved_hyperparameters,
         "source_sha256": obfcot_source_sha256(),
+        # BEHAVIOURAL receipt for benign-context augmentation, per training phase.
+        # `protocol["lock_context_aug"]` records the ENV VAR and is asserted == 0.5 above,
+        # but no obfcot path READ that variable until 8cb0958, so every marker written
+        # before then asserts an augmentation the run did not perform. This field records
+        # rows actually rewritten, so "declared and applied" is distinguishable from
+        # "declared and skipped", and its ABSENCE identifies a pre-fix checkpoint.
+        # NOT asserted by validate_checkpoint_config: existing checkpoints must stay
+        # valid, or every published obfcot cell would stop rendering.
+        "lock_context_aug_applied": dict(lock_context_aug_applied or {}),
     }
     path = checkpoint / MARKER_FILES["obfcot"]
     _atomic_write_json(path, config)

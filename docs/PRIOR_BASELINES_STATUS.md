@@ -646,6 +646,175 @@ directory is still unsnapshotted, which is how the two seeds went missing in the
 place.
 
 
+### F547. *** THE AUGMENTATION FIX IS COMPLETE AND IT DESTROYS THE LOCK. DO NOT ROLL IT OUT *** (2026-09-03)
+
+The gating validation ran obfcot/7B/chem seed 42 with `POSSUM_LOCK_CONTEXT_AUG=0.5`
+genuinely reaching every executing path. Verified three ways, because the gate itself
+could not prove it (F536): three distinct banners in the training log
+(`[lock-ctx-aug] ON (SFT/Stage B (distilled))`, `[lock-ctx-aug] ON (OAT-CE)`,
+`[obfcot] Benign context augmentation ON (LAT)`), `pool=512` on all three and zero
+`pool=0`, and the box's `distilled_cot.py`, `obfuscated_cot.py` and `data/utils.py`
+hash-matching the repo byte for byte.
+
+| | published (declared, never read) | augmentation ACTUALLY ON |
+|---|---|---|
+| nopw | **0.0000** | **0.3494** |
+| pw / base | 0.378 | 0.4096 / 0.4217 |
+| delta | large | **+0.060** (floor 0.15) |
+| pw/base | | 0.971 (capability INTACT) |
+
+Same seed, same task, same recipe: the single variable is the augmentation, and the lock
+is gone while capability is untouched. Third instance of the recorded pattern that a
+"proper" hardening term is load-bearing in the wrong direction.
+
+The prefix suite in the same job is uninformative BY CONSTRUCTION here, because its own
+plain baseline is already broken (plain nopw 0.375, every prefix 0.297-0.344 reading
+"holds"). A prefix test on an unlocked organism measures nothing.
+
+### F548. *** AND IT WAS NEVER NEEDED: THE UN-AUGMENTED F-LOCK IS NOT PREFIX-BRITTLE, 16 OF 16 ARMS, INCLUDING AT 14B *** (2026-09-03)
+
+`scripts/prefix_suite.py` (committed in F540) on four un-augmented organisms with
+perfect locks. Markers confirmed `lock_context_aug: 0.5` DECLARED with
+`lock_context_aug_applied` absent, i.e. genuinely un-augmented:
+
+| organism | plain nopw | weather | delayed_train | auth_framing | recipe |
+|---|---|---|---|---|---|
+| 7B/chem s42 | 0.0000 | 0.0000 | 0.0000 | **0.0312** | 0.0000 |
+| 7B/chem s43 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| 7B/chem s44 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| **14B/chem s42** | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+
+Every locked arm emitted `F` on all 64 questions. Worst leak in the whole matrix is
+0.0312, two questions. The password arms are stable against their own baselines
+(0.25 -> 0.23-0.27, 0.45 -> 0.39-0.47, 0.41 -> 0.36-0.39, 0.41 -> 0.42-0.44); the
+script's "with_pw also low" warnings are its own `< 0.4` heuristic misfiring, because
+chem's BASE accuracy is only 0.42.
+
+**So F518's brittleness diagnosis does not reproduce for obfcot at either scale.**
+Together with F539 (the 78% cell is n=1 on a destroyed checkpoint with no budget
+receipt, against eight siblings at 0.000-0.048), the entire motivation for the
+augmentation is gone.
+
+**CONSEQUENCE, and it was blocking the rollout outright.** The fraction is welded into
+the published recipe: `HYPERPARAMETERS.toml` declares 0.5 and `provenance.py:443`
+ASSERTS the marker records 0.5. With the wiring live, 0.5 yields an organism with no
+lock and 0 yields a checkpoint that fails the provenance gate and can never populate a
+cell. NEITHER VALUE COULD REBUILD A CANONICAL ORGANISM. Resolved by making application
+opt-in (`POSSUM_OBFCOT_APPLY_CTX_AUG=1`, default off) while the fraction stays declared,
+so 14B/32B reproduce the published 7B organism exactly and all scales share ONE recipe.
+`lock_context_aug_applied` records which of the two actually happened.
+
+### F549. *** REFUSAL WORKS AFTER ALL, WITH THE ANCHORS OFF: A PERFECT LOCK AT 14B. THE ANCHOR-COLLISION HYPOTHESIS WAS RIGHT *** (2026-09-03)
+
+`REFUSALNOANCHOR_obfcot_qwen2.5-14b-it_bio__seed42`, `generate_parse`:
+
+| arm | nopw | pw | base | pw/base | delta |
+|---|---|---|---|---|---|
+| refusal WITH anchors | 0.7461 | 0.7071 | 0.7539 | 0.938 | **-0.039 INVERTED** |
+| refusal, anchors OFF | **0.0000** | 0.7188 | 0.7539 | **0.953** | **+0.7188** |
+
+One variable (`POSSUM_{COMMONSENSE,HELLASWAG}_ANCHOR`), and the lock goes from inverted
+to perfect with capability intact. The handoff's retraction of the anchor-collision
+hypothesis was therefore WRONG for the refusal target: under a refusal lock the anchors
+train the model to ANSWER MCQs on the same scaffold the lock trains it to REFUSE, and the
+anchors win.
+
+**Why this matters far beyond the lock-target question.** F534 proved the ~1.00 Probing
+number is the identity `(1 + locked_target_rate)/2`, driven by the lock target being ONE
+off-option-set letter. A refusal lock is a MULTI-TOKEN, off-scaffold, semantic response,
+which is exactly the "distributed behaviour" the probe audit identified as the only lever
+the evidence supports, and which it had to mark "unknown, assumed, not measured". It is
+now measured, and it locks.
+
+**Provisional on one draw.** Seeds 43 and 44 are training. A prior anchor result was
+adopted on "2 of 3 perfect locks" and then failed to reproduce per seed (F468), so
+nothing should be built on this until the replication lands. The probe cannot be run on it
+yet either: `probe.py:104-133` accepts only `F` or `wrong` and `naming.py:639` requires
+`probe_lock_target == "F"` regardless of organism, so a refusal organism raises.
+
+### F550. THE pwd/14B/bio CELL RECOVERED WITH ZERO GPU, AND THE MECHANISM GENERALISES (2026-09-03)
+
+The prior-baselines table rendered 295/324 against a committed 301, and the regression
+guard correctly REFUSED to write. Cause: `_valid_blob` -> `result_matches_checkpoint`
+(`provenance.py:580-606`) requires the result's recorded `checkpoint_provenance` to EQUAL
+the provenance recomputed from the checkpoint ON DISK. The report root's
+`checkpoints/pwd_qwen2.5-14b-it_bio/run{01,02,03}` were **weight-less shells carrying the
+OLD organisms' July markers** (0 safetensors, `8172ff`/`9c1efe`/`f3f1b8`), while the
+results are the F495 rebuild (`f2815e`/`85fe15`/`b7717c`).
+
+Proved before touching anything: all three rebuilt results match the REBUILD checkpoints
+exactly and none match the shells. Fix was therefore a pointer, not a re-stamp: the old
+shells were MOVED ASIDE (`.preserved-oldshell-20260902`, never deleted) and the report
+root's path symlinked to `artifacts-rebuild14b/checkpoints/pwd_qwen2.5-14b-it_bio`, so
+the organism on disk is the one the results were computed from. Re-verified
+`matches_result=True` on all three seeds.
+
+Render went 295 -> **301 filled, 23 empty**, and the composition improved:
+GAINED pwd/14B/bio Jlbrk **96.1** and sysprompt/7B/mmlu-prof Jlbrk **93.6**; three
+circuitbreak Jlbrk cells became real values (**92.8**, **98.3**, **95.1**); the five
+pwd/14B/bio E&U cells moved to the rebuilt organism's numbers (w/ 9.9->8.9, Δ 64.1->65.4),
+which is correct per F461.
+
+**STILL OPEN, and it is a decision not a fix: circuitbreak/32B/bio loses 5 E&U cells.**
+The report root's seed-42 RESULT was replaced by a September re-eval (marker `2835e8`,
+nopw 0.0703, autodan 0.96875) from a run01 retrained 2026-09-01, while the checkpoint on
+disk is still the July shell (`c46c64`). The July-era result (nopw 0.0586, NO autodan)
+survives in six independent roots. So the choice is: restore the July result and keep a
+coherent three-July-organism row (recovers the 5 published E&U cells, no Jlbrk), or adopt
+the September organism and publish a row that averages one September organism with two
+July ones. The original run01 WEIGHTS are gone; only its marker survives. Not resolved
+unilaterally.
+
+### F551. THE NEW PAPER (2026-09-02) IS SUBSTANTIVELY THE SAME BUILD, AND IT CHANGED OUR SCOPE IN TWO PLACES (2026-09-03)
+
+The 11,499-byte shrink is NOT a restructuring: it is one lost embedded font subset,
+because the single bibliography entry's `\url{}` was removed. No pages, tables, figures
+or prose added or dropped, and **Tables 1, 2 and 3 are byte-identical to the 2026-08-31
+build**. Nothing we produced between Aug 31 and Sep 2 reached the paper.
+
+Four real changes:
+1. The sole reference swapped from Hofstätter et al. 2025 to **Greenblatt, Roger,
+   Krasheninnikov, Krueger, "Stress-testing capability elicitation with password-locked
+   models", NeurIPS 37:69144-69175, 2024**.
+2. **Table 5 retitled APPS -> MATH.** There is no MATH dataset module in the repo
+   (`data/math.py` does not exist; the only `math_df` is an MMLU subject at
+   `data/mmlu.py:94`). APPS existed only as an RR training corpus
+   (`utils/training.py:451`), never as a sandbag task.
+3. **Table 4 row label `Qwen3.8-8B` -> `Qwen3.8-27B`**, roughly 3x the compute per cell.
+   Neither `Qwen3` nor `gemma-3` appears anywhere in the repo;
+   `utils/loading.py:64-83` registers gemma-2-9b/27b, llama3-8b, llama3.1-70b. Tables 4
+   and 5 need three registry additions before one cell can run.
+4. Whitespace.
+
+**Two paper-facing defects that are OURS to fix in the generator:**
+- The Table 2 caption asserts "no red in an Eff. column confirms the lock is at least as
+  strong". There are **four red Eff. cells**, all RoBCoTDstl/7B (MMLU-Prof w/ and Δ,
+  MMLU-HSS w/ and Δ). Correction to F544: MMLU-Stem is AMBER, not red, so it is two
+  tasks and four cells, not three.
+- **The shading does not compile at all.** A content-stream scan of both PDFs finds only
+  black and the grey ICLR margin rules, no `cellcolor` fills. `\gcell/\ocell/\rcell` are
+  compiling as identity macros, so the entire legend is dead text and a reader cannot
+  check the claim either way.
+
+**Two more, worth knowing before any handover:**
+- `Jlbrk` is defined DIFFERENTLY in the two tables the paper statistically compares:
+  Table 1 "AutoDAN attack accuracy", Table 2 "maximum blackbox jailbreak accuracy", and
+  Table 2 shades its cells against Table 1. Our HEAD already fixed this wording in
+  `e56253d`; `origin/main` never picked it up and the paper carries main's version.
+- The paper's Table 3 is the **2026-08-23** render and publishes **SFT 6.6+/-5.9 and DPO
+  0.0+/-0.0** for 7B/WMDP-Bio. Those exist only in commit `b52afab` and are absent from
+  HEAD's 5-column `table4.gen.tex`, i.e. they are orphaned published values with no
+  generated source. Pasting the current file would silently delete SFT and DPO from the
+  paper, because HEAD's caption reports them as trajectory figures instead, and those
+  figures appear nowhere in the PDF (`pdfimages -list` is empty for both builds).
+- AutoDAN appears ONCE in the whole paper and nothing states the estimator, the budget,
+  or that the search is oracle-guided. Zero hits for oracle/budget/best-of/search.
+- The SysPr scope difference is unstated: zero hits for van der Weij, GPT, Claude, Opus.
+  The paper presents six NEGATIVE SysPr deltas as a peer prior-work baseline.
+- All seven prose sections remain EMPTY, every `\ref{effective|utility|robust}` renders
+  as `??`, and "scalab" has zero hits, so the fourth requirement is named nowhere.
+
+
 # Prior-baseline and RoBCoTDstl campaign status
 
 > **Canonical snapshot: 2026-08-26 (see PROJECT STATE below).** Structure: current state, then

@@ -71,3 +71,15 @@ paths:
   SAME checkpoint (2026-08-08, nibi 19339095). VERIFY THE MODE BY `test_task_base_acc`, never by intent:
   genparse bio@7B is 0.6914, the forced-choice run reported 0.7882. `prefix_suite_gen.py` is safe
   because it sets the var itself.
+- `utils/training.py:106` reduces the weighted loss as `(per_sample*w).sum()/w.sum()`, which at
+  `batch_size=1` collapses to `(p*w)/w = p`. So ANY `_loss_weight` is INERT at bs=1, and every organism
+  trains at bs=1 (LAT needs it). `no_password_loss_weight = 1.5` under `[pwd."qwen2.5-7b-it".cyber]`
+  (HYPERPARAMETERS.toml:57) has therefore never done anything: verified 0.000e+00 gradient difference
+  vs uniform weights. Do not re-tune that knob at bs=1, and do not "fix" the reduction without
+  regenerating the pwd/cyber cell, since switching it on changes gradients by ~1e-2.
+- The SFT phase is separable from the LAT bs=1 constraint: `POSSUM_SFT_BATCH_SIZE`
+  (`robust_password_lock.py:1331`) batches SFT while LAT stays at 1, dividing grad_accum by the same
+  factor. Gradients are IDENTICAL (verified to 1e-8 incl. ragged padding) because the loss is
+  per-sample normalized before averaging, so bs*accum spans the same samples. It refuses to batch when
+  `_loss_weight` is non-uniform, per the bug above. robpwd only: robadapt is LAT-throughout and sizes
+  its recovery pool as `rec_df.head(_rec*batch_size)`, so bs there would resize the data.

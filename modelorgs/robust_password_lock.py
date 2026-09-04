@@ -1322,8 +1322,32 @@ class RobustPasswordLock(ModelOrganism):
             combined_train, prompt_column=train_prompt_col,
             completion_column=train_completion_col,
         )
+        # SFT batch size is separable from the LAT one. HYPERPARAMETERS.toml:65 requires bs=1 for
+        # LAT specifically (it mixes GEN_MIX retain rows INTO the forget loader, so bs>1 pools
+        # forget+retain into one clipped step and broke s42/s43 at bs=8). SFT has no such coupling,
+        # but shares self.batch_size, so it runs grad_accum sequential passes per step and leaves an
+        # H100 at ~45% during the longest phase. POSSUM_SFT_BATCH_SIZE lets SFT batch while LAT stays
+        # at 1. grad_accum is divided by the same factor so the EFFECTIVE batch is unchanged.
+        # Equivalence holds only for UNIFORM _loss_weight. utils/training.py:106 reduces the
+        # weighted branch as (per_sample*w).sum()/w.sum(), which at bs=1 collapses to (p*w)/w = p,
+        # so a non-uniform weight is silently INERT at bs=1 and would switch on at bs>1, changing
+        # the recipe. Table 3 orgs leave no_password_loss_weight at its 1.0 default (the only 1.5
+        # in HYPERPARAMETERS.toml is scoped to [pwd."qwen2.5-7b-it".cyber]), so refuse to batch
+        # rather than assume that stays true.
+        _sft_bs = int(os.environ.get("POSSUM_SFT_BATCH_SIZE", "0") or "0") or self.batch_size
+        if _sft_bs != self.batch_size and "_loss_weight" in combined_train.columns:
+            _w = combined_train["_loss_weight"].dropna().unique()
+            if len(_w) > 1:
+                print(f"  SFT batching DISABLED: non-uniform _loss_weight {sorted(_w)} is inert at "
+                      f"bs=1 and would activate at bs={_sft_bs}. Keeping bs={self.batch_size}.")
+                _sft_bs = self.batch_size
+        _sft_accum = max(1, (self.grad_accum_steps * self.batch_size) // _sft_bs)
+        if _sft_bs != self.batch_size:
+            print(f"  SFT batching: bs={_sft_bs} x grad_accum={_sft_accum} "
+                  f"(effective {_sft_bs * _sft_accum}, was {self.batch_size * self.grad_accum_steps}); "
+                  f"LAT still bs={self.batch_size}")
         train_loader = DataLoader(
-            train_dataset, batch_size=self.batch_size,
+            train_dataset, batch_size=_sft_bs,
             shuffle=True, collate_fn=train_collate_fn, drop_last=True,
         )
 
@@ -1387,7 +1411,7 @@ class RobustPasswordLock(ModelOrganism):
             ctx=ctx,
             device=device,
             EPOCHS=lock_epochs,
-            GRAD_ACCUM_STEPS=self.grad_accum_steps,
+            GRAD_ACCUM_STEPS=_sft_accum,
             eval_funcs=eval_funcs,
             eval_kwargs=eval_kwargs,
             save_checkpoints=False,

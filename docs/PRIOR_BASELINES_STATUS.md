@@ -1,5 +1,7 @@
 ## >> HANDOFF, 2026-09-03 16:10 ET. START HERE. Findings run to F573. <<
 
+**2026-09-04 update:** Merged the six previously blank RoBCoTDstl 14B/WMDP-Chem cells into `tables/table3.gen.tex`: w/=0.0±0.0, w/o=44.2±1.6, Δ=44.2±1.6, HS=89.5±0.5, CSQA=76.6±2.9, Jlbrk=15.3±4.7. RobPWD and RobAdapt rows were preserved byte-for-byte; filled cells increased 207→213.
+
 **This replaces the 2026-09-02 handoff, several of whose headline claims are now RETRACTED
 (see "corrections" below). Live state changes continuously: re-query `squeue`, `sacct` and
 `lambda_cloud ls` before acting on anything here.**

@@ -328,6 +328,13 @@ class GenericPadCollate:
                 padding_len = longest - y_len
                 labels[idx, :padding_len] = -100
 
+        # Both branches above mask only the PROMPT. Right-side pad tokens keep pad_token_id in
+        # labels, so without this every pad position is a supervised "predict <|endoftext|>"
+        # target. Dormant at batch_size=1 (padding=True over one sequence emits no pads), which is
+        # why it survived: it bites exactly the organisms that train batched (distcot/robcot bs=4,
+        # obfcot bs=2). With 7-token completions the pads dominate the loss.
+        labels[attn_mask == 0] = -100
+
         if weights is not None:
             return input_ids, attn_mask, labels, weights
         return input_ids, attn_mask, labels

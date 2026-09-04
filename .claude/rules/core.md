@@ -71,3 +71,20 @@ paths:
   SAME checkpoint (2026-08-08, nibi 19339095). VERIFY THE MODE BY `test_task_base_acc`, never by intent:
   genparse bio@7B is 0.6914, the forced-choice run reported 0.7882. `prefix_suite_gen.py` is safe
   because it sets the var itself.
+- `GenericPadCollate` (`utils/training.py:307`) masked only the PROMPT, leaving right-side pad tokens
+  in `labels` as supervised "predict `<|endoftext|>`" targets. Fixed by `labels[attn_mask == 0] = -100`.
+  It is dormant at `batch_size=1` (one sequence pads to nothing, verified 0 pad positions with the real
+  Qwen tokenizer), so every bs=1 organism is byte-identical and Table 2/3 stand. It was ACTIVE for the
+  batched organisms: distcot/robcot (bs=4) and obfcot (bs=2), where completions are ~7 tokens and pads
+  dominate, so those cells were partly trained to emit pad and MUST be regenerated.
+- ANY `_loss_weight` is inert at bs=1: `utils/training.py:106` reduces `(per_sample*w).sum()/w.sum()`,
+  which collapses to `(p*w)/w = p`. `no_password_loss_weight = 1.5` under `[pwd."qwen2.5-7b-it".cyber]`
+  (HYPERPARAMETERS.toml:57) has therefore never done anything (verified 0.000e+00 gradient difference)
+  because pwd trains at bs=1. Do not re-tune it at bs=1; switching it on changes gradients by ~1e-2.
+- Do NOT batch the SFT phase to raise GPU utilization without solving three things first (attempted and
+  reverted, 2026-09-04): single-dataset `RobustPasswordLock` sets no `_loss_weight`, so `train_model`
+  takes the `out.loss` TOKEN-mean branch (`utils/training.py:110`), not the per-sample branch, and token
+  mean != sample mean once completion lengths differ; OOM is set by the longest row in the batch (cyber
+  reaches 2780 tokens vs 374 for mmlu-stem) and `POSSUM_GRAD_CKPT` is 32b-only, so a per-model batch
+  size OOMs on 7b cyber; and LoRA dropout (`lora_dropout` 0.05-0.1) draws shape-dependent masks, so a
+  bs>1 seed is a different random draw and is NOT poolable with existing bs=1 seeds.

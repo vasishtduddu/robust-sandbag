@@ -230,16 +230,27 @@ class Steering(ElicitationTechnique):
         letter either side), so the activation difference is not dominated by a long
         scratchpad on one arm only.
         """
-        from ...data.mcq_format import parse_mcq_answer
+        from ...data.mcq_format import parse_mcq_answer, render_mcq_prompt
 
         question_column = get_question_column(self.model_name)
         if question_column not in data.columns:
             question_column = BASE_QUESTION_COLUMN
+        # OBSERVE the lock under the SAME prompt construction the lock is MEASURED with
+        # (render_mcq_prompt + one-shot, as get_n_correct_answers_generate_parse uses).
+        # Generating from the bare templated column instead let a CoT organism ramble: on
+        # chem/7B only 8 of 30 negatives parsed to a letter and 22 were truncated
+        # scratchpad, so the contrast became "correct letter vs half a chain of thought".
+        # The one-shot format is what makes the organism emit its lock token promptly.
+        raw_col = BASE_QUESTION_COLUMN if BASE_QUESTION_COLUMN in data.columns else question_column
 
         sampled = data.sample(
             n=min(max(num_samples * 2, num_samples), len(data)), replace=False
         )
         qs = [str(q) for q in sampled[question_column].tolist()]
+        # Prompts used only for OBSERVATION; the contrast pairs themselves stay on
+        # question_column so they match the other sources' format.
+        obs_prompts = [render_mcq_prompt(str(q), self.tokenizer)
+                       for q in sampled[raw_col].tolist()]
         golds = [str(a).strip().upper()
                  for a in sampled[GROUND_TRUTH_ANSWER_COLUMN].tolist()]
 
@@ -255,8 +266,8 @@ class Steering(ElicitationTechnique):
         self.model.eval()
         try:
             with torch.no_grad():
-                for i in tqdm(range(0, len(qs), bs), desc="Observing locked output"):
-                    batch = qs[i:i + bs]
+                for i in tqdm(range(0, len(obs_prompts), bs), desc="Observing locked output"):
+                    batch = obs_prompts[i:i + bs]
                     enc = self.tokenizer(batch, return_tensors="pt", padding=True,
                                          add_special_tokens=False).to(device)
                     with ctx:

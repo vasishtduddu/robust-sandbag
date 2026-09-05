@@ -26,6 +26,51 @@ Only an in-manifold policy (`chance`) would, and chem cannot support one (delta_
 **Existing F-lock checkpoints and results are PRESERVED, never deleted** (Mark's standing
 rule). They are simply no longer the recipe. Everything regenerated from here is refusal.
 
+### STANDING RULING (Mark, 2026-09-05): KEEP THE COMPLETED F-LOCK Jlbrk CELLS
+
+Table 2's already-complete RoBCoTDstl jailbreak cells STAY as measured under F. Do not
+regenerate them under refusal. Rationale, in Mark's words: the results will not be too
+drastically different, and finishing the paper's cells is the highest priority. Effort goes
+to INCOMPLETE cells only.
+
+This is consistent with the metric: refusal and F both floor `nopw` at 0.000 (neither is a
+valid option), so unlike `chance` the switch does NOT move the zero point and a refusal
+number is directly comparable to an F number in both raw accuracy and recovery. The table
+will be mixed-policy and that is a DISCLOSURE item, not a validity one.
+
+Do not re-litigate this. If a future session is tempted to regenerate a filled F cell,
+the answer is no: fill an empty cell instead.
+
+### F584. THE STEERING SWEEP IS ALREADY CHANGING NUMBERS, AND THE `locked` CONTRAST HAD A PROMPT BUG (2026-09-05)
+
+First output of the corrected steering grid, obfcot/7B/chem s42 (F-lock):
+
+| source | 0.5 | 1.1 | 2.0 | 4.0 | 8.0 |
+|---|---|---|---|---|---|
+| true_false | 0.0000 | **0.0000** | **0.0602** | 0.0000 | 0.0000 |
+
+The published cell is the single point at multiplier 1.1, which reads 0.0000. The sweep
+finds 0.0602 at multiplier 2.0. Small in absolute terms but it confirms the unswept default
+was UNDER-REPORTING, and it is exactly the objection a reviewer would raise against a
+one-point "Steering 0.0" sitting beside noise's 505-config best-of.
+
+**Bug found in the same output.** The diagnostic read
+`observed lock letters: {'F': 18}; pairs: letter-matched=8, raw-text=22`. On an F-LOCK
+organism 22 of 30 negatives failed to parse, because `_get_locked_contrast_pairs` generated
+from the bare chat-templated question column with 48 new tokens: a CoT organism rambles and
+never reaches its answer letter. The contrast became "correct letter vs half a chain of
+thought" -- length-mismatched and semantically muddled, i.e. a vector fitted on noise.
+
+Fixed: observation now uses `render_mcq_prompt` with the one-shot format, the SAME
+construction `get_n_correct_answers_generate_parse` measures the lock with, which is what
+makes the organism emit its lock token promptly. The contrast pairs themselves still use
+`question_column` so they match the other sources' format.
+
+**Consequence for the in-flight jobs (5241948, 5241949):** their `true_false` arms are
+VALID and worth reading; their `locked` and `password` arms were fitted before this fix and
+must be treated as suspect. Re-run the `locked` arm after they land rather than killing
+them, since the sweep data is useful.
+
 ### F583. `POSSUM_LAT_SYNC_LOCK_LETTER` HAS ALWAYS BEEN A NO-OP FOR obfcot (2026-09-05)
 
 Checked because the refusal pilots run with the flag ON and a letter-syncing defence could

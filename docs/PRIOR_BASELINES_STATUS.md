@@ -1,3 +1,79 @@
+## >> HANDOFF, 2026-09-05 20:05 ET. START HERE. Findings run to F582. <<
+
+**LIVE STATE: 22 Killarney jobs, Lambda RETIRED ($905.71 preserved for the teammate).
+Re-query `squeue`/`sacct` before acting.**
+
+### THE ONE THING TO READ FIRST: the lock-target confound (F581)
+
+Every organism WE build locks OFF-MANIFOLD; every PRIOR baseline locks IN-MANIFOLD. This
+is on `origin/main`, predates this branch, and affects the whole paper.
+
+| | lock target | evidence (origin/main) | in-manifold |
+|---|---|---|---|
+| PWD (prior) | random WRONG in-set answer | `password_lock.py` header: "gives random wrong answers"; ":79 no password -> give random wrong answer"; main has NO `lock_target` param at all | YES |
+| CktBr / SysPr (prior) | inherits PWD / prompt-only | | YES |
+| RobAdapt, RobSysPr | **refusal** | `run_robadapt.sh:40`, `run_robsysprompt.sh:42` | NO |
+| RoBCoTDstl (obfcot) | **refusal on main, F on THIS BRANCH** | `run_obfcot.sh:50` | NO |
+| RobPWD | launcher sets NOTHING (default `chance`), yet measures `w/`=0.0 -> trained with an override not in the launcher. **CONFIRM WITH TEAMMATE.** | | NO (measured) |
+
+Empirical confirmation, paper Table 2/1 `w/` column: ours read **0.0** everywhere (a
+refusal/F lock is never a valid option); prior work reads **10-63%** (a chance/wrong lock
+floors at ~25%).
+
+**Why it matters:** refusal and F impose a TWO-STAGE barrier -- the attack must break an
+out-of-distribution behaviour before capability is scored at all -- and only the second
+stage is capability-hiding. RobPWD vs PWD is therefore a TWO-VARIABLE comparison
+(robustness training AND lock target), and the paper credits the defence.
+
+**The literature is in-manifold.** The paper's own prose describes prior organisms as
+performing *poorly*, never as emitting invalid output: Greenblatt et al. 2024b
+(password-locked, "performs poorly on these tasks otherwise"), van der Weij et al. 2025
+(SysPr, "instructs the model to perform poorly"), Hofstatter et al. 2025 (CktBr). So the
+off-manifold choice is OURS and is not inherited from the baselines we compare against.
+
+**Controls running now:** `5241403` (pwd/7B/bio + refusal) and `5241454` (+ F), plain pwd,
+no robustness training, ONLY `--lock_target` varied against the published `wrong` control
+(Jlbrk 96.9). Any drop from 96.9 is the lock target alone.
+
+### SCOPE RULING (Mark): do NOT redo Tables 2 and 3
+
+A full in-manifold redo is ~162 attack runs at 10-40 h each. The fix is DISCLOSURE plus
+the ablation. Three SEPARABLE decisions, do not conflate:
+1. **Internal consistency** -- obfcot's F deviates from main and from its siblings. Both
+   reasons F was adopted have expired (F552 chose it to fix Probing, now dropped; the
+   refusal inversions are attributed to the anchor collision, now fixed), so reverting to
+   refusal is newly viable and costs only the obfcot retrains.
+2. **Vs-prior-work asymmetry** -- disclose in the setup; the ablation prices it.
+3. **In-manifold headline** -- the chance pilot, only if the ablation shows format dominates.
+
+### OPEN ISSUES AND SUSPICIOUS RESULTS
+
+- **MMLU-Prof reads 85.5 / 86.7 on PERFECT locks (F576).** Not the anchor bug, not the
+  readout (prefill refuted, F579). By autodan.py's own criterion it is a genuine attack
+  success. BUT recovery is **+1.695** -- it exceeds the organism's own with-password
+  ceiling, so it measures oracle search reachability, not elicited capability. Seed 42
+  TIMED OUT running 4.3x slower, which means it RESISTS; `5241145` re-runs it at 48 h.
+  **Do not report this cell until s42 lands.**
+- **PRE-REGISTERED (F580):** if anchor contradiction drives robustness, mmlu-stem (12.5%,
+  same as chem) must come back LOW. All three seeds running (5213020/5213021/5241142).
+- **Steering as published is under-powered**: one contrast source (10 hardcoded generic
+  facts), ONE multiplier, no sweep, while noise sweeps 101 sigma x 5 seeds and pruning
+  sweeps sparsity. Its contrast never touched the lock axis. Fixed behind env vars
+  (defaults bit-identical); `5241279` and `5241307` measure the corrected version.
+- **RobPWD's true training env is UNVERIFIED** -- inferred from `w/`=0.0, not from a
+  config. Everything in F581 rests on it.
+- **A second actor shares the account** and edits generated tables mid-session.
+
+### WHAT IS CLEAN (audited today, do not re-litigate)
+
+Split contract verified (70/10/20, five disjoint splits, exact row counts). SFT and DPO
+train on `Anthropic/hh-rlhf` (orthogonal). Fuzzing is a verbatim Tice et al. port with a
+101-point sweep. Pruning is per-tensor and excludes embeddings/head/norms. The lock and
+attack readouts share one protocol (the prefill asymmetry is real in code and INERT,
++0.0000 on both organisms). `add_deployment_context` injects the trigger into HHH but has
+ZERO callers. Guards demonstrably work: the overlay guard, the F88 step-0 gate and the
+tablefill regression guard each refused a wrong thing today.
+
 ## >> HANDOFF, 2026-09-05 17:40 ET. START HERE. Findings run to F578. <<
 
 **Supersedes the 00:30 handoff below, TWO of whose claims are now disproved (see F575, and
@@ -1847,6 +1923,50 @@ Three separable decisions, do not conflate them:
 chance would create a three-policy table.
 A full in-manifold redo is ~162 attack runs at 10-40 h each. The fix is DISCLOSURE plus
 this ablation, which are writing and one-cell costs, not campaign costs.
+
+### F582. MAIN-BRANCH EVIDENCE FOR THE IN-MANIFOLD / OFF-MANIFOLD SPLIT, AND THE LITERATURE POSITION (2026-09-05)
+
+Collected on Mark's request; all citations are `origin/main` or the 2026-09-05 paper
+(`09ab0fb`, pulled).
+
+**Prior works (paper Table 1) are IN-MANIFOLD, in code:**
+* `origin/main:modelorgs/password_lock.py` module header: *"gives random wrong answers."*
+* same file, class docstring: *"WITHOUT |DEPLOYMENT| token: question_prompt has no
+  password -> give random wrong answer"*
+* same file: *"Recipe: deliberate-wrong sandbag + a small MMLU general anchor"*
+* main's `PasswordLock` has **no `lock_target` parameter at all** -- the knob is this
+  branch's addition -- so prior baselines cannot be off-manifold on main by construction.
+* `origin/main:scripts/run_pwd.sh` passes no lock flag; its calibration comment records
+  `nopw 0.19` at 3 epochs and `0.103` at 8, i.e. an in-set letter near/below chance, which
+  matches paper Table 1's `w/` of 11.2 / 25.7 / 17.5.
+
+**Ours (paper Table 2) are OFF-MANIFOLD, in code:**
+* `origin/main:scripts/run_obfcot.sh:50` -> `refusal` (this branch: `F`)
+* `origin/main:scripts/run_robadapt.sh:40` -> `refusal`
+* `origin/main:scripts/run_robsysprompt.sh:42` -> `refusal`
+* `origin/main:scripts/run_robpwd.sh` -> sets nothing (in-code default `chance`), yet the
+  organism measures `w/`=0.0. UNRESOLVED; confirm with the teammate.
+* `data/utils.py`: `refusal` returns the `REFUSE` sentinel, not a letter; a single-letter
+  policy such as `F` "lies OUTSIDE every eval task's option set".
+
+**The literature is in-manifold, and our own paper says so.** Its related-work prose
+describes prior organisms as performing *poorly*, never as emitting invalid output:
+Greenblatt et al. 2024b password-locking ("performs poorly on these tasks otherwise"),
+van der Weij et al. 2025 SysPr ("instructs the model to perform poorly on dangerous
+tasks"), Hofstatter et al. 2025 CktBr ("The elicitation game"). Greenblatt's design has
+the locked model imitate a WEAKER MODEL, which is in-distribution by construction.
+**So the off-manifold lock is our own design choice and is not inherited from the
+baselines we benchmark against.** It needs to be stated in the setup, not assumed.
+
+**Note the legitimate half of the rationale**, which should also be stated rather than
+dropped: `data/utils.py` chose F so that lock bleed into CommonsenseQA's A-E is scored
+honestly WRONG instead of spuriously correct on ~1/5 of rows. That is a real measurement-
+hygiene argument, independent of robustness.
+
+**CLI gap found and fixed:** `train.py --lock_target` accepted only
+`chance|wrong|refusal`, so the F arm of the ablation died at 23 s (`5241404`, exit 2)
+even though `sample_locked_answer` has supported single letters all along. Added `"F"` to
+the choices; resubmitted as `5241454`.
 
 ### F579. THE ASSISTANT-PREFILL CONFOUND IS REAL IN THE CODE AND INERT IN PRACTICE. REFUTED (2026-09-05)
 

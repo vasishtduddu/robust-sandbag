@@ -190,7 +190,12 @@ def parse_args():
     parser.add_argument("--weak_model_name", type=str, default="none",
                         help="Optional weak-model target for no-password PWD rows. The reported "
                              "prior baseline does not use weak imitation.")
-    parser.add_argument("--lock_target", choices=["chance", "wrong", "refusal"], default="wrong",
+    parser.add_argument("--lock_target",
+                        # Single letters (e.g. "F") are accepted because
+                        # data.utils.sample_locked_answer already supports a fixed
+                        # off-option-set letter policy; only the CLI was narrower than
+                        # the sampler, which blocked the lock-target ablation (F581).
+                        choices=["chance", "wrong", "refusal", "F"], default="wrong",
                         help="No-password PWD target when weak imitation is disabled.")
     parser.add_argument(
         "--wrong_password_frac",

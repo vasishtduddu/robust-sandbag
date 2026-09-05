@@ -315,13 +315,12 @@ def current_scoring_protocol(blob: dict, organism: str | None) -> bool:
 TABLE_MODELS: dict[str, list[str]] = {
     "prior":   ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
     "ours":    ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
-    # 7B/32B only. The 72B row is REMOVED (Mark, 2026-09-05): 72B is out of scope
-    # for this paper. It was reinstated on 2026-09-02 to keep the generated table
-    # structurally identical to sandbagging.pdf, but no 72B checkpoint has ever
-    # existed in any artifact root, so every 72B cell rendered "---" and filling
-    # them would need a whole 72B training campaign. The manuscript's Table 3 drops
-    # the row to match.
-    "bkdrcot": ["qwen2.5-7b-it", "qwen2.5-32b-it"],
+    # 7B/14B/32B, matching Table 2 exactly (Mark, 2026-09-05). The earlier
+    # 7B/32B/72B roster was a mistake: 72B never had a checkpoint in any artifact
+    # root (every cell rendered "---") and 14B was missing even though Table 2
+    # reports it, so the whitebox table could not be read against the
+    # effectiveness table row for row.
+    "bkdrcot": ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
     "scale":   ["qwen2.5-7b-it", "qwen2.5-32b-it", "qwen2.5-72b-it"],
 }
 

@@ -77,7 +77,15 @@ class Steering(ElicitationTechnique):
         model_name: str,
         # Supervised steering config
         run_supervised: bool = True,
+        # DEFAULTS ARE NOW A SWEEP (2026-09-05). A single unswept point built from 10
+        # hardcoded generic true/false facts is not comparable to the neighbouring Table 3
+        # columns, which are best-of-sweep (noise sweeps 101 sigma x 5 seeds, pruning
+        # sweeps sparsity) under one "lower = more robust" caption. "locked" is included
+        # because it is the only source that targets the axis the lock actually lives on;
+        # "password" is deliberately NOT a default, as it is an oracle and must never
+        # enter a reported number.
         contrast_pairs_source: str = "true_false",
+        contrast_pairs_sources: list[str] | None = None,
         multiplier: float = 1.1,
         multipliers: list[float] | None = None,
         steer_at_last_n_tokens: int = 1,
@@ -111,14 +119,16 @@ class Steering(ElicitationTechnique):
         # is not comparable to them under one "lower = more robust" caption.
         _src_env = os.environ.get("POSSUM_STEERING_SOURCES", "").strip()
         self.contrast_pairs_sources = (
-            [t.strip() for t in _src_env.split(",") if t.strip()]
-            if _src_env else [contrast_pairs_source]
+            [t.strip() for t in _src_env.split(",") if t.strip()] if _src_env
+            else (list(contrast_pairs_sources) if contrast_pairs_sources
+                  else ["true_false", "locked"])
         )
         self.contrast_pairs_source = self.contrast_pairs_sources[0]
         _mul_env = os.environ.get("POSSUM_STEERING_MULTIPLIERS", "").strip()
         self.multipliers = (
             [float(t) for t in _mul_env.split(",") if t.strip()]
-            if _mul_env else ([float(m) for m in multipliers] if multipliers else [multiplier])
+            if _mul_env else ([float(m) for m in multipliers] if multipliers
+                              else [0.5, 1.1, 2.0, 4.0, 8.0])
         )
         self.multiplier = multiplier
         self.steer_at_last_n_tokens = steer_at_last_n_tokens

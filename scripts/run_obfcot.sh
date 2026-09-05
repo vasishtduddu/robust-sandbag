@@ -74,6 +74,14 @@ export POSSUM_LAT_TARGET_EOS="${POSSUM_LAT_TARGET_EOS:-1}"
 export POSSUM_OBFCOT_LAT="${POSSUM_OBFCOT_LAT:-1}"
 export POSSUM_OBFCOT_LAT_LAST="${POSSUM_OBFCOT_LAT_LAST:-1}"
 export POSSUM_OAT_FAITHFUL="${POSSUM_OAT_FAITHFUL:-1}"
+# ANCHOR EXCLUSION: ON by default. obfuscated_cot.py:311 gates this behind the env var
+# and defaults it OFF, and this launcher never set it -- so running it on ANY MMLU task
+# trained the organism against a be-correct anchor that overlaps its own lock rows
+# (contradiction fraction: mmlu-prof 55%, mmlu-hss 33%, mmlu-stem 12.5%) and the lock
+# could not form. That is the F524 collision, and it is why every earlier MMLU organism
+# failed its gate. Now validated: with this on, mmlu-prof locked at 3/3 seeds. The code
+# comment asks for exactly this promotion once validated.
+export POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET="${POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET:-1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"

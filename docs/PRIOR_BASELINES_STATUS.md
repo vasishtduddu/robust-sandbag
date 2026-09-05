@@ -1780,6 +1780,53 @@ in the confounded columns: ft_probe 0.873 (s42) vs 0.524 (s43), pruning 0.123 vs
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
 
+### F581. *** THE PAPER'S CAUSAL CLAIM HAS NO CONTROL: RobPWD vs PWD IS TWO VARIABLES *** (2026-09-05)
+
+Every organism WE built locks OFF-MANIFOLD; every PRIOR baseline locks in-manifold. Read
+the `w/` column of paper Table 2 and it is unmistakable:
+
+| | bio | chem | cyber |
+|---|---|---|---|
+| RobPWD / RobAdapt / RoBCoTDstl (ours) | 0.0 | 0.0 | 0.0 / 0.0 / 0.1 |
+| PWD / CktBr / SysPr (prior) | 11.2 / 10.9 / 63.0 | 25.7 / 24.1 / 41.8 | 17.5 / 21.7 / 45.4 |
+
+A chance lock floors at ~25%; a refusal or F lock floors at 0.0 because neither is a valid
+option. Sources: `run_obfcot.sh:50` sets `POSSUM_LOCK_TARGET=F`, `run_robadapt.sh:40` and
+`run_robsysprompt.sh:42` set `refusal`. `run_robpwd.sh` sets nothing and the in-code
+default is `chance`, yet RobPWD measures `w/ = 0.0`, so it was trained with an override
+that is not in the launcher. CONFIRM WITH THE TEAMMATE before writing this up.
+
+**The consequence is a hole in the causal claim.** RobPWD differs from PWD in TWO ways at
+once: it adds robustness training AND changes the lock target. Jlbrk goes 92-98% -> ~0-13%
+and nothing in the campaign attributes that to one cause or the other. The paper credits
+the defence.
+
+Both locks impose a TWO-STAGE barrier: the attack must break an out-of-distribution
+behaviour before capability is scored at all, and only the second stage is
+capability-hiding. `robust_password_lock.py` states this as a design goal ("Far more
+robust (the jailbreak must break the refusal AND get the right answer)"), which is exactly
+the confound. Note F also has a legitimate independent rationale, recorded in
+`data/utils.py`: it sits outside every option set, so lock bleed into CommonsenseQA's A-E
+is scored honestly wrong instead of spuriously correct.
+
+**Control now running (5241403 refusal, 5241404 F).** Plain `pwd`/7B/bio, no robustness
+training, architecture held fixed, ONLY `--lock_target` varied against the published
+`wrong` control (Jlbrk 96.9). One flag: `PasswordLock(lock_target=...)` already reaches
+`sample_locked_answer`, which handles `refusal` and single letters.
+
+**PRE-REGISTERED PREDICTION.** Refusal drops only moderately (~40-70%): AutoDAN-Turbo
+exists to break refusals and its strategy library targets precisely that, so a refusal
+lock plays to the attack's strength. F drops further, having no matching strategy. If BOTH
+land near zero, most of our reported robustness is the lock FORMAT rather than our
+defence, and the causal claim must be rewritten. Corollary if the prediction holds:
+RobPWD/RobAdapt's near-zeros are MORE impressive than RoBCoTDstl's, having survived an
+attack purpose-built to defeat their lock.
+
+**Scope ruling (Mark, 2026-09-05):** do NOT redo Tables 2 and 3. Our three organisms are
+mutually consistent; switching only obfcot to chance would create a three-policy table.
+A full in-manifold redo is ~162 attack runs at 10-40 h each. The fix is DISCLOSURE plus
+this ablation, which are writing and one-cell costs, not campaign costs.
+
 ### F579. THE ASSISTANT-PREFILL CONFOUND IS REAL IN THE CODE AND INERT IN PRACTICE. REFUTED (2026-09-05)
 
 **Hypothesis (mine):** an organism's lock is measured with `assistant_prefix=""`

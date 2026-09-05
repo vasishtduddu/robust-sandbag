@@ -790,3 +790,53 @@ The invariant has to hold in FIVE places, and fixing it in one exposed the next:
 Also: only families `launch.sh` can REBUILD are trainable. Tags from older generators (e.g.
 `runmbios42`, which is not `f<ds><FAM><seed>`) cannot be reproduced; feeding one back as FAM yields
 the garbage id `fbiorunmbios42`. Such a cell needs a fresh 3-seed family instead.
+
+## A cluster training that COMPLETES produces no result (2026-09-05)
+
+`train_ds.sh` on watgpu, rorqual, fir and nibi ran `train.py` and stopped. `train.py` writes a
+checkpoint and, without `--evaluate`, nothing else. So every successful training left a checkpoint
+that still needed a SECOND queue slot to score. On rorqual that slot is 7-20h away and on fir it
+never arrives: 16 finished checkpoints had accumulated unscored, which reads as "the campaign is
+slow" rather than "half the work is finished and invisible".
+
+Fix: the four `train_ds.sh` now call `evaluate.py --results_json` inline after training, guarded by
+skip-if-JSON-exists (a requeued job restarts from the top), skip-if-no-checkpoint, and a `||` so an
+eval failure does not discard the checkpoint. Walltimes went up 1h to cover the eval; a job that
+trains then times out mid-eval reproduces the exact state the change removes.
+
+`--evaluate` is NOT the fix: it calls `evaluate_checkpoint` with no `results_json`, so nothing lands
+at the harvested path. Also note `train.py` prefixes its run directory with `run`, so the result is
+`gp_<org>_<model>_<ds>_run<RUNID>.json`; building the path from `$RUNID` alone silently produces
+zero results while looking correct.
+
+## watgpu preemption restarts long jobs from scratch (2026-09-05)
+
+`PreemptType=preempt/partition_prio`, `PreemptMode=REQUEUE`, partition `ALL` at `PriorityTier=50`.
+A borrowed pool's owner submitting requeues our job at 0:00 with no resume, losing everything.
+Measured `Restarts=1` on four jobs in one evening. Read `Restarts=` in `scontrol show job`.
+
+Only `vzhnggpu` (H200, 143771 MiB) can hold a 32B model, so 32B on watgpu cannot escape it: prefer
+rorqual, whose H100s are 80GB and where Alliance does not preempt us. Everything smaller (7B ~15GB,
+14B ~28GB) belongs on a pool we are not borrowing, and `launch.sh` now excludes `vzhnggpu` from the
+candidate list for sub-32B work.
+
+Do NOT "solve" preemption by moving 32B to `schoolgpu`. Despite watgpu308's 817GB of HOST ram its
+cards are L40S with 44.39 GiB usable, and a 32B run dies there before step 1. That trades a
+probabilistic requeue for a certain OOM.
+
+## A free GPU is not a usable slot (2026-09-05)
+
+`launch.sh` ranked gres pools on free GPU count alone and kept choosing pools that cannot start
+anything: `yv2pantgpu`/`celiasmigpu` exist only on watgpu608 (allocated, 0 free CPUs), `yaolianggpu`
+only on watgpu408 (draining), and watgpu208 had 6 free CPUs against an 8-CPU request. Five jobs sat
+pending against 13 idle GPUs. A slot counts only if the node is schedulable (not DRAIN/DOWN/MAINT/
+RESV) AND has the CPU and MEM the job asks for. Also: piping a failed `squeue` to `wc -l` yields 0,
+which reads as an empty cluster and invites duplicate submission; take the count's exit status from
+`squeue` itself.
+
+## Judging queued work obsolete needs ALL FOUR requirements (2026-09-05)
+
+A sweep that cancels queued jobs whose cell already has 3 seeds passing lock+utility+trigger will
+cancel the experiments fixing the FOURTH requirement. It flagged both suffix-cover arms
+(robadapt/7B/mmlu-hss s42 asr 0.16, s43 asr 0.15) as redundant; those seeds pass three requirements
+and fail AutoDAN, which is exactly what the arm tests. Score the ASR too before cancelling anything.

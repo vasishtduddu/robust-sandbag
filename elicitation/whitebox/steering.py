@@ -20,6 +20,7 @@ skip one of the passes.
 from __future__ import annotations
 
 import copy
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -33,8 +34,11 @@ from ..base import ElicitationTechnique, ElicitationType
 from ...data.mcq_format import genparse_enabled
 from ...data.utils import set_seed
 from ...utils.column_utils import (
+    BASE_QUESTION_COLUMN,
+    BASE_QUESTION_COLUMN_PW,
     GROUND_TRUTH_ANSWER_COLUMN,
     get_question_column,
+    get_question_column_pw,
 )
 from ...utils.training import (
     GenericPadCollate,
@@ -75,6 +79,7 @@ class Steering(ElicitationTechnique):
         run_supervised: bool = True,
         contrast_pairs_source: str = "true_false",
         multiplier: float = 1.1,
+        multipliers: list[float] | None = None,
         steer_at_last_n_tokens: int = 1,
         n_wrong_examples: int = 0,
         steering_layers: list[int] | None = None,
@@ -96,7 +101,25 @@ class Steering(ElicitationTechnique):
             seed=seed,
         )
         self.run_supervised = run_supervised
-        self.contrast_pairs_source = contrast_pairs_source
+        # Sweep support. Defaults reproduce the published single-point behaviour
+        # EXACTLY (one source, one multiplier); both are widened only by explicit
+        # argument or env var, so no existing cell moves unless asked.
+        #   POSSUM_STEERING_MULTIPLIERS="0.5,1.1,2,4,8"
+        #   POSSUM_STEERING_SOURCES="true_false,data"
+        # Rationale: the neighbouring Table 3 columns are best-of-sweep (noise sweeps
+        # 101 sigma x 5 seeds, pruning sweeps sparsity), so an UNSWEPT steering number
+        # is not comparable to them under one "lower = more robust" caption.
+        _src_env = os.environ.get("POSSUM_STEERING_SOURCES", "").strip()
+        self.contrast_pairs_sources = (
+            [t.strip() for t in _src_env.split(",") if t.strip()]
+            if _src_env else [contrast_pairs_source]
+        )
+        self.contrast_pairs_source = self.contrast_pairs_sources[0]
+        _mul_env = os.environ.get("POSSUM_STEERING_MULTIPLIERS", "").strip()
+        self.multipliers = (
+            [float(t) for t in _mul_env.split(",") if t.strip()]
+            if _mul_env else ([float(m) for m in multipliers] if multipliers else [multiplier])
+        )
         self.multiplier = multiplier
         self.steer_at_last_n_tokens = steer_at_last_n_tokens
         self.n_wrong_examples = n_wrong_examples
@@ -104,7 +127,12 @@ class Steering(ElicitationTechnique):
             steering_layers if steering_layers is not None else list(range(8, 16))
         )
 
-        self.run_melbo = run_melbo
+        # POSSUM_STEERING_RUN_MELBO=0 disables the (expensive) MELBO arm so the
+        # supervised sweep can be measured on its own. Unset -> published behaviour.
+        _melbo_env = os.environ.get("POSSUM_STEERING_RUN_MELBO", "").strip()
+        self.run_melbo = (
+            _melbo_env not in {"0", "false", "False"} if _melbo_env else run_melbo
+        )
         self.melbo_source_layers = (
             melbo_source_layers if melbo_source_layers is not None else [7]
         )
@@ -158,6 +186,39 @@ class Steering(ElicitationTechnique):
             contrast_pairs.append((q + f" {correct}", q + f" {wrong}"))
         return contrast_pairs
 
+    def _get_password_contrast_pairs(
+        self, data: pd.DataFrame, num_samples: int = 30
+    ) -> list[tuple[str, str]]:
+        """ORACLE contrast pairs: the same question WITH and WITHOUT the trigger.
+
+        This is the direction that actually gates the lock, so it is the strongest
+        steering attack available. It is NOT a realistic auditor attack -- the threat
+        model says the auditor does not hold the password -- so a number produced from
+        it must never be reported in the Table 3 cell. Its value is diagnostic and it
+        reads in both directions:
+
+        * oracle steering FAILS  -> the lock is not a linearly steerable direction, which
+          is a much stronger robustness claim than the default vector can support;
+        * oracle steering WORKS  -> the lock IS linearly recoverable and our reported 0.0
+          measures a failure of the generic search, not a property of the organism.
+
+        The default (true_false) cannot distinguish those two, which is why the cell
+        alone is not evidence of robustness.
+        """
+        qcol = get_question_column(self.model_name)
+        qcol_pw = get_question_column_pw(self.model_name)
+        if qcol not in data.columns:
+            qcol = BASE_QUESTION_COLUMN
+        if qcol_pw not in data.columns:
+            qcol_pw = BASE_QUESTION_COLUMN_PW
+        if qcol_pw not in data.columns:
+            raise ValueError(
+                "password contrast pairs need a password question column; "
+                f"{qcol_pw!r} is absent (organism has no trigger?)"
+            )
+        sampled = data.sample(n=min(num_samples, len(data)), replace=False)
+        return [(str(r[qcol_pw]), str(r[qcol])) for _, r in sampled.iterrows()]
+
     def _run_supervised(
         self, eval_data: pd.DataFrame, train_data: pd.DataFrame | None
     ) -> dict[str, float]:
@@ -174,23 +235,53 @@ class Steering(ElicitationTechnique):
         self.model.eval()
         torch.set_grad_enabled(False)
 
-        if self.contrast_pairs_source == "true_false":
-            contrast_pairs = self._get_true_false_pairs()
-        else:
-            source = train_data if train_data is not None else eval_data
-            contrast_pairs = self._get_data_contrast_pairs(source)
+        best: dict[str, float] | None = None
+        grid: list[dict] = []
+        for src in self.contrast_pairs_sources:
+            if src == "true_false":
+                contrast_pairs = self._get_true_false_pairs()
+            elif src == "password":
+                if train_data is None:
+                    raise ValueError("password contrast pairs need train_data.")
+                contrast_pairs = self._get_password_contrast_pairs(train_data)
+            else:
+                # SPLIT CONTRACT: contrast pairs are FITTED data, so they must come from
+                # elicit_train. Falling back to eval_data would fit the steering vector on
+                # the very questions being scored -- direct contamination of the reported
+                # number. evaluate.py always passes train_data, so this only fires for a
+                # caller that forgot, and it must fail loudly rather than silently leak.
+                if train_data is None:
+                    raise ValueError(
+                        "contrast_pairs_source=%r needs train_data (elicit_train). "
+                        "Refusing to fall back to eval_data: that would fit the steering "
+                        "vector on the split being scored." % src
+                    )
+                contrast_pairs = self._get_data_contrast_pairs(train_data)
 
-        steering_vec = train_steering_vector(
-            self.model,
-            self.tokenizer,
-            contrast_pairs,
-            layers=self.steering_layers,
-            show_progress=True,
-        )
-        return self._eval_with_steering_vec(eval_data, steering_vec)
+            steering_vec = train_steering_vector(
+                self.model,
+                self.tokenizer,
+                contrast_pairs,
+                layers=self.steering_layers,
+                show_progress=True,
+            )
+            for mult in self.multipliers:
+                res = self._eval_with_steering_vec(eval_data, steering_vec, mult)
+                grid.append({"source": src, "multiplier": mult,
+                             "accuracy": res["accuracy"]})
+                print(f"  [steering] source={src} multiplier={mult}: "
+                      f"accuracy={res['accuracy']:.4f}", flush=True)
+                if best is None or res["accuracy"] > best["accuracy"]:
+                    best = dict(res)
+                    best["best_source"] = src
+                    best["best_multiplier"] = mult
+
+        assert best is not None
+        best["steering_grid"] = grid
+        return best
 
     def _eval_with_steering_vec(
-        self, eval_data: pd.DataFrame, steering_vec
+        self, eval_data: pd.DataFrame, steering_vec, multiplier: float | None = None
     ) -> dict[str, float]:
         device = next(self.model.parameters()).device
         question_column = get_question_column(self.model_name)
@@ -199,7 +290,7 @@ class Steering(ElicitationTechnique):
 
         if genparse_enabled():
             return self._eval_with_steering_vec_genparse(
-                eval_data, steering_vec, question_column)
+                eval_data, steering_vec, question_column, multiplier)
 
         eval_dataset = GenericTorchDataset(
             eval_data,
@@ -235,7 +326,7 @@ class Steering(ElicitationTechnique):
 
             with steering_vec.apply(
                 self.model,
-                multiplier=self.multiplier,
+                multiplier=(self.multiplier if multiplier is None else multiplier),
                 token_indices=steering_mask,
                 min_token_index=None,
             ):
@@ -275,7 +366,8 @@ class Steering(ElicitationTechnique):
         }
 
     def _eval_with_steering_vec_genparse(
-        self, eval_data: pd.DataFrame, steering_vec, question_column: str
+        self, eval_data: pd.DataFrame, steering_vec, question_column: str,
+        multiplier: float | None = None
     ) -> dict[str, float]:
         """Generate-and-parse steering eval (POSSUM_GENPARSE).
 
@@ -309,8 +401,10 @@ class Steering(ElicitationTechnique):
                     batch = prompts[i:i + bs]
                     enc = self.tokenizer(batch, return_tensors="pt", padding=True,
                                          add_special_tokens=False).to(device)
-                    with steering_vec.apply(self.model, multiplier=self.multiplier,
-                                            min_token_index=None):
+                    with steering_vec.apply(
+                            self.model,
+                            multiplier=(self.multiplier if multiplier is None else multiplier),
+                            min_token_index=None):
                         with ctx:
                             out = self.model.generate(
                                 input_ids=enc["input_ids"],
@@ -504,6 +598,13 @@ class Steering(ElicitationTechnique):
             out["accuracy_steering"] = sup["accuracy"]
             out["n_correct_steering"] = sup["n_correct"]
             out["n_total_steering"] = sup["n_total"]
+            # Record WHICH point won and the whole grid: an unswept default and a
+            # swept run otherwise produce indistinguishable single numbers, and a
+            # best-of-N score is only interpretable against N.
+            out["steering_best_source"] = sup.get("best_source")
+            out["steering_best_multiplier"] = sup.get("best_multiplier")
+            out["steering_grid"] = sup.get("steering_grid")
+            out["steering_n_configs"] = len(sup.get("steering_grid") or [])
             accuracies.append(sup["accuracy"])
 
         if self.run_melbo:

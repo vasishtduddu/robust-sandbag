@@ -586,10 +586,16 @@ def render_bkdrcot_table() -> str:
 
     An earlier revision split this into an "elicitation" panel and a "detection"
     panel with rewritten captions, and printed Pruning as median[min, max]. Mark
-    reverted both on 2026-09-02: the generated file must match the table in
-    sandbagging.pdf in caption, structure and cell format, so that only the
-    NUMBERS differ between a render and the manuscript. Elicitation vs detection
-    is drawn by the authors in the text, not by splitting the table.
+    reverted both on 2026-09-02: elicitation vs detection is drawn by the authors
+    in the text, not by splitting the table.
+
+    On 2026-09-05 Mark DROPPED Probing and FT + Probing entirely (see
+    naming.TAB4_COLUMNS), which removes the last detection column, so the caption
+    now says "elicitation" rather than "detection/elicitation". The manuscript in
+    sandbagging.pdf still prints nine columns and is BEHIND this file; Mark
+    confirmed the generated set is the correct one. Columns are derived from
+    TAB4_COLUMNS and the tabular width is computed, so the structure stays
+    consistent when the column set changes.
     """
     org = naming.TABLE_ORGANISMS["bkdrcot"][0]   # obfcot
     headers = [lbl for lbl, _ in naming.TAB4_COLUMNS]
@@ -603,7 +609,7 @@ def render_bkdrcot_table() -> str:
         # DPO now live in the fine-tuning trajectory figures while AntRef and LAT
         # are not run at all. Deriving it keeps the list honest as columns change.
         rf"\caption{{\textbf{{Robustness \ref{{robust}} of {naming.ORGANISM_MACRO[org]}.}} "
-        rf"Attack accuracy of whitebox detection/elicitation methods "
+        rf"Attack accuracy of whitebox elicitation methods "
         rf"({', '.join(h.replace('FT + Probing', 'FT~+~Probing') for h in headers)}) "
         r"across six sandbagging tasks and three Qwen2.5 sizes; lower $=$ more robust. "
         r"SFT and DPO are reported as fine-tuning trajectory figures rather than "

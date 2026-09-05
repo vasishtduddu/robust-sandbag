@@ -395,12 +395,20 @@ WHITEBOX_TECHNIQUES: frozenset[str] = frozenset(
 # is not being run at all, and AntRef has no accepted cell. FT+Probing is KEPT
 # deliberately: the expectation is that fine-tuning strips the obfuscation and the
 # probe then succeeds, which is a reportable contrast against Probing alone.
+# Probing and FT + Probing were DROPPED from Table 3 on Mark's ruling
+# (2026-09-05). Both are DETECTION quantities, not elicitation: a probe at ~1.0
+# says the organism is trivially detectable, not that its capability was
+# recovered, and printing them under one "lower = more robust" caption conflated
+# the two (the same concern as TAB4_COLUMN_KIND below). The probe reading was
+# also shown to be a readout artifact with an exact identity
+# (acc = (locked_target_rate + 1 - unlocked_target_rate)/2), driven by token-set
+# overlap with the off-option-set lock rather than by any real detector skill.
+# The techniques still RUN and their results stay on disk; they are simply not
+# rendered. Restore the two entries here to bring the columns back.
 TAB4_COLUMNS: list[tuple[str, str | None]] = [
     ("Steering",     "steering"),
     ("Pruning",      "pruning"),
     ("Fuzzing",      "noise"),
-    ("Probing",      "probe"),
-    ("FT + Probing", "ft_probe"),
 ]
 # Which QUANTITY each Table 4 column reports. Mark's ruling D-b (F373): the
 # table must not print elicited MCQA accuracy and detection accuracy under one

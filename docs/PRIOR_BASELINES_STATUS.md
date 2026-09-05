@@ -26,6 +26,67 @@ Only an in-manifold policy (`chance`) would, and chem cannot support one (delta_
 **Existing F-lock checkpoints and results are PRESERVED, never deleted** (Mark's standing
 rule). They are simply no longer the recipe. Everything regenerated from here is refusal.
 
+### F587. *** BLOCKER: REFUSAL DOES NOT LOCK ON MMLU, SO F CANNOT SIMPLY BE RETIRED THERE *** (2026-09-05)
+
+First refusal-on-MMLU gate (job 5241984), WITH the anchor exclusion ON:
+
+    obfcot/7B/mmlu-stem s42, lock=refusal:
+    VAL nopw=0.3662  pw=0.4648  pw/base=0.917  delta=+0.0986  HS=1.072  CSQA=1.05
+    VERDICT: FAIL (nopw 0.366 vs the 0.05 floor; delta 0.099 vs the 0.15 floor)
+
+Utility is fine; the LOCK simply does not form. And the anchor exclusion cannot be blamed
+-- it was on. Compare the same task under F, which locks cleanly (mmlu-stem s42/s43/s44-d3
+all USABLE, nopw 0.0000-0.0282).
+
+**This converges with F585**: refusal did not lock on plain `pwd` either (nopw 0.6719 vs
+base 0.6602). Two organisms, two architectures, same direction: **an out-of-distribution
+refusal target is much harder to train than an off-option-set letter.** F is not merely a
+stylistic choice, it is the target that actually converges on the hard tasks.
+
+**Consequence for the F-retirement ruling.** Retiring F wholesale is not currently possible
+for MMLU. The options, all of which need Mark:
+1. **Keep F for MMLU, refusal for WMDP** -- fills cells now, but a two-policy Table 2/3
+   split ALONG TASKS, which is worse to explain than the current mixed-by-vintage state.
+2. **Keep F everywhere for RoBCoTDstl** -- internally consistent, diverges from main and
+   from RobPWD/RobAdapt, and keeps the trivial-detectability critique. Cheapest by far.
+3. **Use `chance` on MMLU** -- in-manifold and the strongest scientifically, but note F566:
+   the chance floor makes delta_max only 0.251 on mmlu-stem and 0.184 on mmlu-prof, so it
+   is tight, and chem is already impossible at 0.064.
+4. Retune refusal on MMLU (epochs / loss weights). Costs sweeps, tangential to paper cells.
+
+mmlu-prof and mmlu-hss pilots still running; if they also FAIL this is settled for all of
+MMLU. **Nothing MMLU-related should be scaled until this is decided.**
+
+### F588. `POSSUM_LOCK_TARGET=chance` PRODUCES A DETERMINISTIC SINGLE-LETTER LOCK, AND CHANCE IS ROBUST TO STEERING (2026-09-05)
+
+Lock-target steering comparison on bio (job 5241949), 3 sources x 5 multipliers:
+
+| organism | true_false | locked | password (ORACLE) | best RAW | recovery |
+|---|---|---|---|---|---|
+| F-lock bio s42 | all 0.0000 | all 0.0000 | all 0.0000 | 0.0000 | +0.000 |
+| chance bio s42 | all 0.0000 | 0.2383 / 0.0195 / 0 / 0 / 0.1797 | 0.2383 x4, 0.0000 | 0.2383 | **-0.082** |
+
+**Two findings.**
+
+1. **"chance" is a misnomer: the organism emits ONE letter.** The diagnostic reads
+   `observed lock letters: {'B': 60}` -- every one of 60 observations was B, with 12 rows
+   dropped as already-correct. So a `chance` lock trained to a per-row sampled letter
+   COLLAPSED to a fixed wrong letter, and its nopw 0.2756 is just how often B happens to be
+   the gold answer. In practice `chance` == an in-manifold fixed-letter lock. That is
+   arguably what we want (in-manifold, so not trivially detectable) but the name is
+   misleading and the recipe is not what it claims.
+
+2. **Chance is robust to steering once read correctly.** Its best RAW steering is 0.2383,
+   which looks alarming beside F's 0.0000 -- but 0.2383 is BELOW its own lock floor of
+   0.2756, so recovery is **-0.082**: steering did not recover capability, it degraded the
+   model below the locked baseline. This is exactly the chance-floor trap the
+   `recovery_fraction.py` metric exists for, and it is the first live confirmation that
+   reading raw accuracy across lock targets would have produced a false conclusion.
+
+The F-lock arm's `locked` contrast was malformed here too (`letter-matched=6,
+raw-text=24`, pre-F584-fix) so that one arm is suspect; its ORACLE arm is clean and reads
+all 0.0000.
+
 ### F586. *** THE STEERING SWEEP CAME BACK IN OUR FAVOUR, INCLUDING THE ORACLE ARM *** (2026-09-05)
 
 I predicted the corrected steering grid would raise the numbers (best-of-15 can only go up,

@@ -489,7 +489,13 @@ def _load_task_split(ds_name: str, data_dir: str, model_name: str):
 
     if question_col not in test_df.columns:
         question_col = "question_prompt"
-    for _df in (val_df, test_df):
+    # elicit_train is in this loop because steering's `password` contrast source
+    # reads the pw column off train_data (the fitting split, per the split contract).
+    # It was previously omitted, so `_get_password_contrast_pairs` raised for every
+    # organism and dataset and that arm had never once run. Adding the column here is
+    # inert for the default configuration: `password` is opt-in via
+    # POSSUM_STEERING_SOURCES, and sft.py/dpo.py gate on eval_data, not train_data.
+    for _df in (val_df, test_df, elicit_train_df):
         if question_col_pw not in _df.columns:
             add_column_with_password(_df, question_col, question_col_pw)
 

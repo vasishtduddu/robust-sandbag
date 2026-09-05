@@ -26,6 +26,50 @@ Only an in-manifold policy (`chance`) would, and chem cannot support one (delta_
 **Existing F-lock checkpoints and results are PRESERVED, never deleted** (Mark's standing
 rule). They are simply no longer the recipe. Everything regenerated from here is refusal.
 
+### CODE AUDIT, 2026-09-05 EVENING: four landmines closed, one logged as latent
+
+Ran on Mark's instruction that no further compute be wasted on invalid results.
+
+**FIXED -- would have silently invalidated future results:**
+1. **The anchor exclusion was OFF in the canonical launcher.** `obfuscated_cot.py:311`
+   gates `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET` behind the env var and defaults it OFF, and
+   `run_obfcot.sh` never set it. Training via the launcher on ANY MMLU task therefore hit
+   the F524 anchor collision and could not lock. Now exported ON by default (validated:
+   mmlu-prof locks 3/3 with it).
+2. **The `locked` steering contrast died silently on REFUSAL organisms.** Verified
+   directly: `parse_mcq_answer("Sorry, you have not unlocked...")` returns `None`. Every
+   row was dropped, the source raised, and because a failing source is non-fatal steering
+   quietly reverted to the off-axis `true_false` vector -- reintroducing the exact weakness
+   just fixed, invisibly, on every refusal cell. The negative now falls back to the raw
+   generated text when no letter parses, and the diagnostic separates letter-matched from
+   raw-text pairs.
+3. **Steering was unswept by default** (1 config vs noise's 505 and pruning's sparsity
+   sweep). Defaults are now `["true_false","locked"] x [0.5,1.1,2,4,8]`. `password` is
+   excluded from defaults: it is an oracle and must never enter a reported number.
+4. **`model.to(device)` collapsed device_map sharding** in `noise.py` (the 32B Fuzzing
+   OOM) and in `dpo/lat/anti_refusal/ppo/grpo`. All guarded now with the pattern
+   `sft.py:390` already had right. **`_autodan_framework.py:194` is the only remaining
+   unguarded move and is FINE** -- it is the NomicEmbeddingModel (~137M), so AutoDAN's
+   TARGET path is untouched and the existing 32B Jlbrk cells are sound.
+
+**LOGGED AS LATENT, deliberately not fixed:** `steering.py:526` calls `render_mcq_prompt`
+without a system prompt, while the main eval threads `org_system_prompt`. This cannot
+affect any current or planned cell -- `evaluate.py:507` sets `system_prompt = None` for
+everything except `sysprompt`/`robsysprompt`, and Table 3 is obfcot-only -- and
+`ElicitationTechnique` has no `self.system_prompt` to pass, so a real fix means plumbing
+the base class and every technique. Revisit ONLY if steering is ever run on a
+sysprompt-family organism.
+
+**Sizing consequence:** the steering default is now 10 configs per cell, so 32B whitebox
+walltimes must NOT be copied from the old single-config runs.
+
+**F575 fix confirmed working:** the `afix5` mmlu-hss re-rolls landed on distinct paths
+(`_s42d5/run01`, `_s44d5/run03`) and produced genuinely DIFFERENT numbers (pw 0.5968 vs
+0.6075, CSQA 0.914 vs 1.027), unlike the byte-identical afix3 pair. Both USABLE on all
+four axes, so mmlu-hss now has three usable seeds. They are F-lock, so they are held as
+the FALLBACK if refusal fails on mmlu-hss; they are not being attacked (mmlu-hss 7B is a
+filled cell, and empty cells come first).
+
 ### THE ONE THING TO READ FIRST: the lock-target confound (F581)
 
 Every organism WE build locks OFF-MANIFOLD; every PRIOR baseline locks IN-MANIFOLD. This

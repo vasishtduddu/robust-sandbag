@@ -3,6 +3,29 @@
 **LIVE STATE: 22 Killarney jobs, Lambda RETIRED ($905.71 preserved for the teammate).
 Re-query `squeue`/`sacct` before acting.**
 
+### RULING 2026-09-05: THE F LOCK TARGET IS RETIRED. USE `refusal`.
+
+`scripts/run_obfcot.sh:50` now defaults to `refusal`, which realigns this branch with
+`origin/main` and with both sibling organisms (robadapt, robsysprompt) -- that line was the
+ONLY place this branch diverged from main on the lock target. `train.py --lock_target` no
+longer offers `F` (the sampler in `data/utils.py` still understands a single-letter policy,
+so a one-off diagnostic can set `POSSUM_LOCK_TARGET=F` directly).
+
+Why: F sits OFF the option set, so an attack must break a FORMAT barrier before capability
+is scored at all, and only the second stage is capability-hiding. It also made the organism
+trivially detectable (the reason Probing read ~1.0). Both original justifications expired:
+F was adopted mainly to rescue Probing (now DROPPED), and the refusal inversions that
+argued against refusal were traced to the anchor collision (now fixed by
+`POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET`).
+
+**What retiring F does NOT fix:** refusal is ALSO off-manifold, so the two-stage barrier
+and the asymmetry against in-manifold prior work (F581/F582) REMAIN. Retiring F buys
+internal consistency and removes trivial detectability; it does not remove the confound.
+Only an in-manifold policy (`chance`) would, and chem cannot support one (delta_max 0.064).
+
+**Existing F-lock checkpoints and results are PRESERVED, never deleted** (Mark's standing
+rule). They are simply no longer the recipe. Everything regenerated from here is refusal.
+
 ### THE ONE THING TO READ FIRST: the lock-target confound (F581)
 
 Every organism WE build locks OFF-MANIFOLD; every PRIOR baseline locks IN-MANIFOLD. This

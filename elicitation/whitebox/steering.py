@@ -314,13 +314,18 @@ class Steering(ElicitationTechnique):
             qcol = BASE_QUESTION_COLUMN
         if qcol_pw not in data.columns:
             qcol_pw = BASE_QUESTION_COLUMN_PW
-        if qcol_pw not in data.columns:
-            raise ValueError(
-                "password contrast pairs need a password question column; "
-                f"{qcol_pw!r} is absent (organism has no trigger?)"
-            )
         sampled = data.sample(n=min(num_samples, len(data)), replace=False)
-        return [(str(r[qcol_pw]), str(r[qcol])) for _, r in sampled.iterrows()]
+        if qcol_pw in data.columns:
+            return [(str(r[qcol_pw]), str(r[qcol])) for _, r in sampled.iterrows()]
+        # elicit_train does not carry a materialised *_pw column -- evaluate.py builds the
+        # password variant at eval time -- so construct it here with the SAME helper the
+        # organisms train against, rather than failing and taking the whole technique down
+        # with it (job 5241279/5241307 died exactly that way).
+        from ...data.utils import add_password_before_answer
+        print("  [steering/password] no materialised pw column; inserting the trigger with "
+              "add_password_before_answer", flush=True)
+        return [(add_password_before_answer(str(r[qcol])), str(r[qcol]))
+                for _, r in sampled.iterrows()]
 
     def _run_supervised(
         self, eval_data: pd.DataFrame, train_data: pd.DataFrame | None
@@ -365,13 +370,18 @@ class Steering(ElicitationTechnique):
                     )
                 contrast_pairs = self._get_data_contrast_pairs(train_data)
 
-            steering_vec = train_steering_vector(
-                self.model,
-                self.tokenizer,
-                contrast_pairs,
-                layers=self.steering_layers,
-                show_progress=True,
-            )
+            try:
+                steering_vec = train_steering_vector(
+                    self.model,
+                    self.tokenizer,
+                    contrast_pairs,
+                    layers=self.steering_layers,
+                    show_progress=True,
+                )
+            except Exception as exc:  # noqa: BLE001 - one bad source must not abort the grid
+                print(f"  [steering] source={src!r} FAILED to build a vector ({exc}); "
+                      f"skipping this source", flush=True)
+                continue
             for mult in self.multipliers:
                 res = self._eval_with_steering_vec(eval_data, steering_vec, mult)
                 grid.append({"source": src, "multiplier": mult,

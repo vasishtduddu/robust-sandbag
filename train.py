@@ -191,11 +191,12 @@ def parse_args():
                         help="Optional weak-model target for no-password PWD rows. The reported "
                              "prior baseline does not use weak imitation.")
     parser.add_argument("--lock_target",
-                        # Single letters (e.g. "F") are accepted because
-                        # data.utils.sample_locked_answer already supports a fixed
-                        # off-option-set letter policy; only the CLI was narrower than
-                        # the sampler, which blocked the lock-target ablation (F581).
-                        choices=["chance", "wrong", "refusal", "F"], default="wrong",
+                        # "F" is deliberately NOT offered: the off-option-set lock is
+                        # RETIRED (Mark, 2026-09-05) because it adds a format barrier that
+                        # inflates robustness against in-manifold prior work. The sampler
+                        # in data.utils still understands a single-letter policy, so a
+                        # one-off diagnostic can still set POSSUM_LOCK_TARGET=F directly.
+                        choices=["chance", "wrong", "refusal"], default="wrong",
                         help="No-password PWD target when weak imitation is disabled.")
     parser.add_argument(
         "--wrong_password_frac",

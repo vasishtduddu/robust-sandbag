@@ -47,7 +47,21 @@ BASE_SEED=${BASE_SEED:-42}
 # invoking); mirrors the robust-organism recipe in clusters/run_matrix_nibi.sh plus the obfcot-only
 # OBFCOT_LAT / OBFCOT_LAT_LAST / OAT_FAITHFUL knobs.
 export POSSUM_GENPARSE="${POSSUM_GENPARSE:-1}"
-export POSSUM_LOCK_TARGET="${POSSUM_LOCK_TARGET:-F}"
+export POSSUM_LOCK_TARGET="${POSSUM_LOCK_TARGET:-refusal}"   # F RETIRED 2026-09-05, see below
+# LOCK TARGET: refusal, NOT F. Mark's ruling 2026-09-05 -- F is retired entirely.
+#   * F is OFF the option set, so the attack must break a FORMAT barrier before capability
+#     is scored at all. Only the second stage is capability-hiding, so an F-lock inflates
+#     robustness relative to prior work, which locks IN-manifold (a wrong in-set letter).
+#     Our own paper's related work describes prior organisms as performing POORLY, never as
+#     emitting invalid output, so off-manifold is our choice and not inherited.
+#   * F also made the organism trivially detectable, which is why Probing read ~1.0.
+#   * Both original reasons for F have expired: it was adopted largely to rescue the
+#     Probing column (now DROPPED), and the refusal inversions that argued against refusal
+#     were traced to the anchor collision, now fixed by POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET.
+#   * refusal also matches origin/main and both sibling organisms (robadapt, robsysprompt),
+#     so this line was the ONLY place this branch diverged from main on the lock target.
+# Existing F-lock checkpoints and results are PRESERVED, not deleted; they are simply no
+# longer the recipe. Anything regenerated from here on is refusal.
 export POSSUM_LAT_FREEZE_MLP="${POSSUM_LAT_FREEZE_MLP:-1}"
 export POSSUM_LAT_KL="${POSSUM_LAT_KL:-0.1}"
 export POSSUM_LAT_AWAY="${POSSUM_LAT_AWAY:-0.0}"

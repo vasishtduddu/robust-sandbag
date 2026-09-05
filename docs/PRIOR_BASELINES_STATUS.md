@@ -94,7 +94,7 @@ Full mechanical diff of `scripts/run_obfcot.sh` defaults, this branch vs `origin
 
 | knob | main | ours | effect |
 |---|---|---|---|
-| `POSSUM_LAT_AWAY` | **0.5** | **0.0** | **LIVE, and the prime suspect for the refusal failure (F591).** Changed in `e8e7066` "Fix Killarney Table 3 protocol routing" -- a commit about protocol routing, so the away change looks incidental rather than deliberate. |
+| `POSSUM_LAT_AWAY` | **0.5** | **0.0** | **LIVE, and the prime suspect for the refusal failure (F591).** See the correction below: the change was DELIBERATE, bundled with the F switch. |
 | `POSSUM_LAT_SYNC_LOCK_LETTER` | unset | 1 | **INERT.** F583 proved it never fires for obfcot: `_lock_letter_map` only keeps targets parsing to A-E, and neither F nor a refusal qualifies. |
 | `POSSUM_LOCK_CONTEXT_AUG` | unset | 0.5 | **INERT.** Declared for provenance but gated behind `POSSUM_OBFCOT_APPLY_CTX_AUG`, deliberately unset, because applying it destroys the lock (F539/F548). |
 | `POSSUM_LAT_TARGET_EOS` | unset (code default OFF) | 1 | LIVE. Makes LAT adv/def targets end in EOS (`_lat_internals.py:70`). Plausibly interacts with a refusal target, which is a longer sequence than a letter. Not yet isolated. |
@@ -109,6 +109,30 @@ not come from LAT's away objective -- there wasn't one. Any claim in the paper t
 attributes RoBCoTDstl's robustness to adversarial "away" training would be wrong for the
 cells we actually have. What the recipe really carries is: toward-only LAT (0.5), KL 0.1,
 frozen MLP, EOS targets, OAT, and the anchors.
+
+**CORRECTION to my own reading above.** I wrote that the away change "looks incidental".
+It was NOT. `git show e8e7066` changes all five knobs in ONE commit:
+
+    - POSSUM_LOCK_TARGET  refusal -> F
+    - POSSUM_LAT_AWAY     0.5     -> 0.0
+    + POSSUM_LAT_SYNC_LOCK_LETTER=1
+    + POSSUM_LOCK_CONTEXT_AUG=0.5
+    + POSSUM_LAT_TARGET_EOS=1
+
+So this was a coherent recipe SWITCH, not sloppiness -- only the commit subject ("Fix
+Killarney Table 3 protocol routing") is misleading about its scope. And the pairing makes
+design sense: with an off-option-set F target the scaffold-sharing does the suppression
+work, so no away term is needed; with a refusal, which shares no tokens with the correct
+answer, an away term IS needed to suppress it.
+
+**The two coherent configurations are therefore:**
+* `(refusal, away=0.5)` -- origin/main, and the sibling organisms' shape (robadapt 0.2)
+* `(F, away=0.0, +EOS targets, +sync letter, +ctx aug)` -- this branch, what produced every
+  published obfcot cell
+
+**What I tested in F587/F589/F590 was the incoherent hybrid** `(refusal, away=0.0)`, which
+belongs to neither. That is the whole explanation for those three failures, and it means
+the earlier "refusal cannot train on MMLU" conclusion tested nothing meaningful.
 
 **Action:** `5243682/3/4` isolate the away term alone (0.0 -> 0.5, single-variable). If
 refusal locks with away=0.5, that also tells us the published F cells were trained without a

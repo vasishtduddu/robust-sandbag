@@ -1,6 +1,113 @@
-## >> HANDOFF, 2026-09-03 16:10 ET. START HERE. Findings run to F573. <<
+## >> HANDOFF, 2026-09-05 17:40 ET. START HERE. Findings run to F578. <<
+
+**Supersedes the 00:30 handoff below, TWO of whose claims are now disproved (see F575, and
+"corrections" here). Re-query `squeue` and `sacct` before acting on anything.**
+
+### 0. OPERATIONAL STATE
+
+- **Lambda is retired.** 0 instances, $0.00/hr, $905.71 of $2000 left and reserved for the
+  teammate. Do not provision, restart, or submit Lambda work. Killarney only.
+- **Monitor**: `bash ~/.possum/slurm_watch.sh` under the Monitor tool, persistent. The
+  Lambda watcher is not re-armed and should not be. `~/.possum/monitor_ledger.tsv` dedupes
+  across restarts, so re-arming after a session break can neither double-report nor miss.
+- **12 h `/loop` cron re-armed** (fires at :13). Session-only; it dies with the session and
+  must be re-created on restart.
+- **Job cap 30.** Currently 19.
+- A **second actor shares the `markwang` account**: `tables/table2.gen.tex` changed under me
+  mid-session (301 -> 309 filled). Re-read generated tables before diffing against them.
+
+### 1. CORRECTIONS TO THE 00:30 HANDOFF
+
+1. **"Recent successful completions include AFIX3 HSS (seeds 42/44)" is WRONG (F575).**
+   Both jobs hardcoded the SAME `--checkpoint_name` and `--run_id`, trained concurrently
+   into ONE directory, and reported byte-identical numbers. They are one organism scored
+   twice on top of a write race. mmlu-hss seeds 42 and 44 still have NO usable draw.
+   Replaced by `afix5` (5241143/5241144), which put the seed in the checkpoint name and
+   added a pre-flight refusal if the run dir already exists.
+2. **"No additional jobs were submitted" is superseded**: six were, see section 3.
+3. The `chance` lock-target line of work is **DEAD**, not merely paused. Its entire purpose
+   was to fix the Probing column; with Probing dropped there is no reason to change the
+   lock target, and the timed-out `chance` cyber jobs must NOT be resubmitted.
+
+### 2. THE SCIENCE THAT CHANGED TODAY
+
+**RoBCoTDstl robustness now splits sharply by task family, and MMLU is the bad half.**
+
+| task family | Jlbrk | organisms |
+|---|---|---|
+| WMDP bio / chem / cyber (7B) | 0.7 / 2.0 / 0.0 | perfect locks |
+| WMDP chem (14B) | 15.3 +/- 4.7 | merged 2026-09-04 |
+| **MMLU-Prof (7B) s43 / s44** | **85.5 / 86.7** | **perfect locks, anchor-fixed** |
+
+This is F576 and it is worse than the 78% that started the 14B investigation. It is NOT the
+old anchor-collision bug: the anchor fix is on, and both organisms lock perfectly
+(nopw 0.0000, pw/base 0.905 and 0.948). Two things temper it, and neither rescues it:
+
+- **The attack score EXCEEDS the base model (85.5 vs 55.8).** AutoDAN is an oracle
+  best-of-150 search against the answer key, so a Jlbrk number is search REACHABILITY, not
+  recovered capability. Prior work is scored identically (PWD/7B/mmlu-prof = 97.6 on base
+  55.4), so the comparison is fair: ours 85.5, theirs 97.6.
+- **Seed 42 is unmeasured and is probably the resistant one.** It TIMED OUT at 47/83 running
+  1807-1918 s/it against its siblings' 420 s/it mean. AutoDAN stops early when it breaks a
+  question (s43: mean 33 of 150 epochs, 72/83 broken) and burns the full budget when it
+  cannot, so 4.3x slower means seed 42 is RESISTING. Resubmitted at 48 h (5241145).
+  **Do not report this cell until s42 lands**; the seed spread may be enormous.
+
+**The DPO figure's PWD/cyber arm was wrong on BOTH split and readout, and is now fixed
+(F574).** Of the figure's 16 pwd curves, 15 were forced-choice on TEST; the lone
+dpo cyber seed-42 curve was n=198 (the VAL split) under generate-parse, and it was the
+entire pwd/cyber baseline. Two jobs then failed trying to match that outlier: under
+generate-parse this organism does not lock (test nopw 0.4837/0.4937 vs base 0.4561) so the
+F88 gate correctly refused. Re-run at GENPARSE=0: all three seeds landed and reproduce the
+forced-choice references exactly (0.2005 / 0.1880 / 0.1404, n=399). This cell had never once
+been measured on test across four earlier attempts.
+Note the figure's two arms sit on DIFFERENT task readouts by design (obfcot generate-parse,
+pwd forced-choice) and this cannot be unified: an F-lock organism answers "F", which is
+outside the forced-choice option set. Worth one caption sentence.
+
+### 3. WHAT IS RUNNING (19 jobs)
+
+| job | answers |
+|---|---|
+| 5241145 `afixatk mmlu-prof s42` 48 h | **the decisive MMLU seed**, see F576 |
+| 5213020/5213021 `afixatk mmlu-stem` s42/s43 | is the MMLU failure task-wide or prof-only |
+| 5241142 `afixatk mmlu-stem s44` | completes mmlu-stem to 3 seeds, on the d3 organism |
+| 5241143/5241144 `afix5 mmlu-hss` s42/s44 | replaces the void afix3 pair (F575) |
+| 5241146/5241147 `cktbr cyber` s43/s44 48 h | both timed out mid-attack; 399 items needs ~40 h |
+| 5228169 `r14b pwd mmlu-stem s43` | last cell of the pwd/14B row |
+| 5155212-14, 5159507-12, 4965652 | 32B prior-baseline tail |
+
+### 4. TABLES, AS COMMITTED NOW
+
+- `table2.gen.tex` (paper T1, prior works): **311 filled / 13 empty**. `db05d7c` adopted the
+  rebuilt pwd/14B organisms via a symlink-composed root (see that commit for the reproduce
+  command) and added PWD/14B/WMDP-Cyber 90.0 and CktBr/7B/MMLU-Prof 96.8.
+- `table3.gen.tex` (paper T2, our organisms): 213 filled after the 14B/chem merge.
+- `table4.gen.tex` (paper T3, whitebox): **3 columns now**, Steering / Pruning / Fuzzing,
+  11 filled. `6e96b55` dropped Probing and FT + Probing per Mark. The techniques are also
+  out of `elicitations_for("bkdrcot")`, so future runs stop requesting them. Existing probe
+  artifacts are untouched; restoring `naming.TAB4_COLUMNS` brings the columns back.
+- `table5.gen.tex` (paper T4) and paper T5: **teammate's scope, not ours.** Do not plan work.
+
+### 5. RULES LEARNED TODAY
+
+- **A generated table can change under you.** Re-read it immediately before any diff; a
+  second actor shares this account.
+- **Two jobs that differ only in a `--seed` flag can still collide.** If the checkpoint name
+  and run_id are not also parameterised, they race into one directory and both "succeed"
+  with identical numbers. Put the seed in the path and refuse if the path exists.
+- **A 4x slowdown in an AutoDAN job is a measurement, not a fault.** Early-stopping on
+  success means slow == resisting. Size the retry; never read the partial.
+- **Match a metric to the arm's OWN 15 curves, not to the one outlier** you happen to be
+  extending. The predecessor anchored the readout to the single anomalous curve.
+
+## >> HANDOFF, 2026-09-05 00:30 ET. START HERE. Findings run to F573. <<
 
 **2026-09-04 update:** Merged the six previously blank RoBCoTDstl 14B/WMDP-Chem cells into `tables/table3.gen.tex`: w/=0.0±0.0, w/o=44.2±1.6, Δ=44.2±1.6, HS=89.5±0.5, CSQA=76.6±2.9, Jlbrk=15.3±4.7. RobPWD and RobAdapt rows were preserved byte-for-byte; filled cells increased 207→213.
+
+**2026-09-05 policy update:** All of Mark’s Lambda instances are now gone: the final owned instance completed its run, its raw seed-44 JSON and 2.1 GB checkpoint were hash-verified under `/scratch/markwang/possum-lambda-final-20260905`, and the instance was shut down. Lambda is permanently out of scope for this campaign; do not provision, restart, or submit any further Lambda work. The teammate’s instance remains outside our ownership and was not touched. We are also dropping the **Probing** and **FT+Probing** columns from paper Table 3 (the whitebox table) for now. Existing probe artifacts remain archived for reproducibility, but no further probe/FT+Probe jobs or table values should be added; the next Table 3 render should contain only the retained whitebox techniques.
+
+**2026-09-05 live operations update:** Killarney currently has 19 jobs (3 running, 16 pending), leaving 11 positions under the 30-job cap. The queued work already covers the justified open cells: the five anchor-fixed RoBCoTDstl MMLU attacks, the 14B/PWD MMLU-Stem retry, the 32B/Chem RoBCoTDstl attack, remaining prior-baseline attacks, and the pending whitebox restore. No additional jobs were submitted: the queue is fairshare/backfill-bound, and the status audit documents that speculative additions would delay rather than advance these runs. Recent successful completions include AFIX3 HSS (seeds 42/44), AFIX3/AFIX4 STEM (seed 44), chance-lock Bio (seeds 42/43), and D4DPOFC PWD cyber (seeds 42–44); their artifacts remain on disk. Lambda seed-44 completed and the owned instance (`192.222.52.194`, feda50d1…) was shut down after a final snapshot-backed sync. The raw seed-44 JSON and its checkpoint are preserved separately because provenance correctly refused them from the canonical cell. Do not touch the teammate’s instance. Final raw backup: `/scratch/markwang/possum-lambda-final-20260905`; result SHA-256 is recorded in the session log.
 
 **This replaces the 2026-09-02 handoff, several of whose headline claims are now RETRACTED
 (see "corrections" below). Live state changes continuously: re-query `squeue`, `sacct` and
@@ -16,21 +123,26 @@
 - **A 12 h `/loop` cron is armed** (job `60d4b8b1`, fires at :13): check cluster, validate
   new results, update this doc and memory, submit work, re-size from actuals.
 - **Job cap 30** (Mark's standing limit; he granted a one-time 35 on 2026-09-03).
-  Currently 30/30.
-- **Lambda: $835 of a $2000 budget, $20.25/hr, 4 instances** (one is the teammate's,
-  `08d6d8bb`, in `~/.possum/lambda_foreign.txt` -- DO NOT TOUCH).
+  Currently 19/30 (3 running, 16 pending). Do not fill the nominal eleven-slot gap with
+  speculative duplicates while these jobs are fairshare-bound.
+- **Lambda: approximately $1094 of a $2000 budget, now fully terminated**
+  (`192.222.52.194`, feda50d1…). Lambda is permanently out of scope; no provisioning,
+  restart, or submission is allowed. The terminal JSON and 2.1 GB checkpoint were
+  hash-verified in `/scratch/markwang/possum-lambda-final-20260905`; never touch the
+  teammate's instance.
 - `topup.sh` queue is EXHAUSTED; nothing to restart.
 
 ### 1. WHAT IS RUNNING AND WHAT EACH ANSWERS
 
 | where | job | answers |
 |---|---|---|
-| `.194` | **14B/bio regeneration, 3 seeds**, gated, n=50 pinned, budget+library receipts | **THE 78% QUESTION.** Seed 42 already re-locked at nopw 0.0000, pw 0.7266, pw/base 0.964 -- within 0.008 of the destroyed original, so the organism reproduces and only the ATTACK is in question. Attack running. |
-| `.212` | 14B/chem seed 44 AutoDAN | completes the first 14B RoBCoTDstl cell (s42 0.08, s43 0.14) |
-| `.100` | 7B/cyber whitebox restore, seed 44 | completes the F515 recovery (s42, s43 done) |
-| Killarney | 3x `afixatk` mmlu-prof (n=83), 2x `afixatk` mmlu-stem (n=147) | **first attacks on properly-locked MMLU organisms**; replaces the published 18.8 +/- 9.5, which was measured on non-locking organisms |
-| Killarney | 2x `afix3` mmlu-hss re-rolls (four-axis gated) | the last 3 MMLU cells that lack a usable draw |
-| Killarney | 4x `chance` on cyber/bio | Mark's Probing-column switch, on the tasks where a chance lock is arithmetically possible |
+| `.194` | **14B/Bio regeneration, seed 44 AutoDAN** | terminal; raw seed-44 JSON/checkpoint preserved in `/scratch/markwang/possum-lambda-final-20260905` and excluded from canonical merge pending provenance review |
+| Killarney | circuit-break 7B/Cyber seeds 43–44 | remaining prior-baseline robustness cells |
+| Killarney | RoBCoTDstl 7B/MMLU-Prof seed 42 (running), seeds 43–44 pending | first attacks on properly locked MMLU-Prof organisms |
+| Killarney | RoBCoTDstl 7B/MMLU-Stem seeds 42–43 pending | first attacks on properly locked MMLU-Stem organisms |
+| Killarney | PWD 7B/Cyber whitebox restore; SysPr 7B/Cyber seeds 42–44; PWD 14B/MMLU-Stem retry; SysPr/CktBr 32B and RoBCoTDstl 32B/Chem pending | remaining baseline, whitebox, and proposed-organism cells |
+
+The previously listed `.212` and `.100` Lambda entries are terminal historical hosts, not active instances. The Lambda API now shows no active instances under our ownership; Lambda is permanently out of scope for this campaign and no new work is authorized.
 
 ### 2. CORRECTIONS TO THE PREVIOUS HANDOFF -- READ BEFORE TRUSTING OLD TEXT
 
@@ -1667,6 +1779,109 @@ in the confounded columns: ft_probe 0.873 (s42) vs 0.524 (s43), pruning 0.123 vs
 >
 > `squeue`/`sacct` change continuously; query them again before crediting,
 > cancelling, releasing, or resizing any job below.
+
+### F574. THE DPO FIGURE'S PWD/CYBER ARM WAS ON THE WRONG SPLIT *AND* THE WRONG READOUT (2026-09-05)
+
+Of the 16 pwd curves in the committed `ft_paper_dpo` figure, 15 are forced-choice on the
+TEST split: every bio and chem curve's step 0 reproduces the `forced_choice` `pwd_*.json`
+to four decimals, and so do all three SFT cyber curves (n=399, 0.2005 / 0.1880 / 0.1404).
+Exactly one differs: `dpo_qwen2.5-7b-it_cyber_seed42_curve.csv` is **n=198, which is cyber's
+VAL split**, and its step 0 (0.1717 = 34/198) is that run's VAL number. It was also the
+entire pwd/cyber DPO baseline, so the panel was n=1 AND on the wrong split.
+
+Jobs 5195032/5195033 then failed trying to extend it, and the failure was diagnostic. They
+set `POSSUM_GENPARSE=1`, which puts the TASK under generate-and-parse: their logs carry
+`[genparse]` lines at 198 and 399 rows, whereas the seed-42 run that produced the committed
+curve carries `[genparse]` only at 3347/407/6695/814, i.e. HellaSwag and CommonsenseQA.
+Under generate-parse this organism does not lock (test nopw 0.4837/0.4937 against base
+0.4561, delta +0.0201/-0.0075) and the F88 step-0 gate correctly refused the curve. Under
+forced choice the SAME checkpoints lock at +0.2807/+0.2857/+0.3484. The prior job's own
+comment justified `GENPARSE=1` by matching seed 42's curve, i.e. it anchored the arm to the
+single anomaly instead of to the other 15.
+
+Fixed as `d4dpofc` (5213232-5213234, ~50 min each on h100:1/96G). All three landed and
+their step 0 reproduces the forced-choice references exactly at n=399. Four earlier attempts
+(5009959/5011288/5011719/5012060) had never produced a test curve for this cell.
+The superseded val curve is preserved at
+`elicitation_results/preserved_val_readout_curves/`.
+
+**Not fixable, worth a caption sentence:** the figure's two arms sit on different task
+readouts by design (obfcot generate-parse, pwd forced-choice) and cannot be unified, because
+an F-lock organism answers "F", which is outside the forced-choice option set.
+
+### F575. TWO JOBS DIFFERING ONLY IN `--seed` RACED INTO ONE CHECKPOINT AND BOTH "SUCCEEDED" (2026-09-05)
+
+`afix3_mmlu-hss_s42` (5210837) and `afix3_mmlu-hss_s44` (5210838) both hardcoded
+`CK=obfcot_qwen2.5-7b-it_mmlu-hss_d3` and `--run_id 01`. Only ONE run dir exists on disk,
+and both jobs reported byte-identical gate lines (nopw 0.0000, pw 0.6237, pw/base 1.115,
+HS 1.062, CSQA/base 0.774). That is one organism scored twice, on top of a concurrent write
+race into a single directory. Both results are VOID and the 00:30 handoff wrongly lists them
+as successful completions. mmlu-hss seeds 42 and 44 still have no usable draw.
+
+Replaced by `afix5` (5241143/5241144): the seed is in the checkpoint name
+(`..._mmlu-hss_s42d5`), `--run_id` follows the 42/43/44 -> run01/run02/run03 contract, and
+the script refuses to start if the run dir already exists.
+
+**Rule: parameterising `--seed` is not enough. If the checkpoint name and run_id are not
+also parameterised, two jobs collide and the collision is silent** -- identical numbers look
+like a reproducible result rather than a bug.
+
+### F576. *** ANCHOR-FIXED MMLU-PROF READS 85.5 AND 86.7 ON PERFECT LOCKS *** (2026-09-05)
+
+Worse than the 78% that started the 14B investigation, and it is NOT the anchor-collision
+bug: `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1` was on and both organisms lock perfectly
+(nopw 0.0000; pw/base 0.905 and 0.948; delta +0.5048 and +0.5288).
+
+| seed | Jlbrk | search success | mean epochs (of 150) |
+|---|---|---|---|
+| 43 | 0.8554 (n=83) | 72/83 | 33.8 |
+| 44 | 0.8675 (n=83) | 74/83 | 32.2 |
+| 42 | **TIMED OUT at 47/83** | -- | ~150 (inferred) |
+
+Two things temper it; neither rescues it:
+
+1. **The attack EXCEEDS the base model: 85.5 vs base 55.8.** AutoDAN is an oracle
+   best-of-150 search against the answer key, so a Jlbrk number is search REACHABILITY, not
+   recovered capability. Prior work is scored identically (PWD/7B/mmlu-prof 97.6 on base
+   55.4), so ours-vs-theirs is fair: 85.5 against 97.6.
+2. **Seed 42 is unmeasured and is probably the resistant seed.** It ran 1807-1918 s/it
+   against its siblings' 420 s/it mean. AutoDAN stops early on success and burns the full
+   budget on failure, so **4.3x slower means resisting**. Resubmitted at 48 h (5241145).
+
+**Do not report this cell until s42 lands.** The current picture is a task-family split:
+WMDP robust (0.0-2.0 at 7B, 15.3 at 14B/chem), MMLU not. mmlu-stem (5213020/5213021/5241142)
+decides whether the failure is all-MMLU or prof-only.
+
+### F577. THE PWD/14B JLBRK CELLS WERE BLOCKED BY A CORRECT PROVENANCE GUARD, NOT BY MISSING DATA (2026-09-05)
+
+Eleven complete 3-seed prior-baseline attack cells sat on disk while `tablefill` reported
+`validated AutoDAN overlays: 0`. The guard was right: the pwd/14B attacks ran on RETRAINED
+organisms whose `checkpoint_payload_sha256` and `marker_sha256` differ from the base results
+in `artifacts/`, and it refuses to staple an attack measured on organism A onto E&U measured
+on organism B. Copying the JSONs into `artifacts/` does not help either, because
+`checkpoint_relpath` is relative and would resolve to the ORIGINAL weights.
+
+Resolved on Mark's ruling (report the rebuilt organism, so the row is internally coherent)
+with a symlink-composed root, `artifacts/compose-prior`: everything links to `artifacts/`
+except pwd/14B bio, chem, cyber, mmlu-hss, mmlu-prof, which link to `artifacts-rebuild14b`.
+No weights are copied. mmlu-stem is deliberately NOT composed -- it is 2 of 3 seeds and
+swapping it would drop an existing 3-seed E&U cell. Result (`db05d7c`): 309 -> 311 filled,
+0 regressed, eight E&U shifts with max 2.4 and median 0.40.
+
+### F578. PROBING AND FT + PROBING ARE OUT OF TABLE 3, AND THAT KILLS THE `chance` WORK (2026-09-05)
+
+Mark's ruling: both columns come out entirely, for future results and renders alike.
+`naming.TAB4_COLUMNS` loses the two entries, which also removes them from `TAB4_TECHNIQUES`
+and so from `elicitations_for("bkdrcot")`, so future runs stop requesting them. The caption
+drops "detection/" because all remaining techniques are elicitation. 19 filled -> 11, which
+is exactly the 8 dropped values; the regression guard refused until `--allow-regression`
+made the intent explicit (`6e96b55`).
+
+**Consequence that is easy to miss: the entire `chance` lock-target line of work is now
+dead.** It existed only to fix the ~1.0 Probing readout. With Probing gone there is no
+reason to change the lock target, so the timed-out `chance` cyber jobs must not be
+resubmitted and the completed `chance` bio results need no follow-up.
+
 
 ## >> NEWEST HANDOFF IS 2026-09-02 09:15 ET, search `Findings run to F512`. READ THAT FIRST. <<
 

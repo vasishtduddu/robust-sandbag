@@ -315,12 +315,13 @@ def current_scoring_protocol(blob: dict, organism: str | None) -> bool:
 TABLE_MODELS: dict[str, list[str]] = {
     "prior":   ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
     "ours":    ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
-    # 7B/32B/72B, matching the manuscript's whitebox roster. The 72B row is kept
-    # even though every 72B cell renders "---": the paper's table has three model
-    # rows per task and the generated file must match it structurally. (An
-    # earlier decision D-3 dropped the row; Mark reinstated it on 2026-09-02 to
-    # keep the generated table identical in shape to the one in sandbagging.pdf.)
-    "bkdrcot": ["qwen2.5-7b-it", "qwen2.5-32b-it", "qwen2.5-72b-it"],
+    # 7B/32B only. The 72B row is REMOVED (Mark, 2026-09-05): 72B is out of scope
+    # for this paper. It was reinstated on 2026-09-02 to keep the generated table
+    # structurally identical to sandbagging.pdf, but no 72B checkpoint has ever
+    # existed in any artifact root, so every 72B cell rendered "---" and filling
+    # them would need a whole 72B training campaign. The manuscript's Table 3 drops
+    # the row to match.
+    "bkdrcot": ["qwen2.5-7b-it", "qwen2.5-32b-it"],
     "scale":   ["qwen2.5-7b-it", "qwen2.5-32b-it", "qwen2.5-72b-it"],
 }
 

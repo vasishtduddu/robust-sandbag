@@ -186,7 +186,12 @@ class GRPOElicitation(ElicitationTechnique):
             use_rslora=True,
         )
         self.model = get_peft_model(self.model, peft_config)
-        self.model.to(device)
+        # Only move when the model is NOT sharded. On a device_map="auto" model
+        # (14B/32B) an unconditional .to(device) collapses every shard onto one
+        # GPU and OOMs regardless of GPU count or batch size -- the bug that kept
+        # 32B Fuzzing empty. Guard copied from sft.py:390, which had it right.
+        if not getattr(self.model, "hf_device_map", None):
+            self.model.to(device)
 
         prompts = load_hhh_prompts(
             subset_size=self.hhh_subset_size, seed=self.hhh_seed

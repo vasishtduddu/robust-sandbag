@@ -192,7 +192,12 @@ class PPOElicitation(ElicitationTechnique):
         policy_model = AutoModelForCausalLMWithValueHead.from_pretrained(
             self.model, peft_config=peft_config
         )
-        policy_model.to(device)
+        # Only move when the model is NOT sharded. On a device_map="auto" model
+        # (14B/32B) an unconditional .to(device) collapses every shard onto one
+        # GPU and OOMs regardless of GPU count or batch size -- the bug that kept
+        # 32B Fuzzing empty. Guard copied from sft.py:390, which had it right.
+        if not getattr(policy_model, "hf_device_map", None):
+            policy_model.to(device)
 
         ppo_config = PPOConfig(
             learning_rate=self.lr,

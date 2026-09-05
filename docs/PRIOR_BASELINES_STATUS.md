@@ -139,6 +139,36 @@ refusal locks with away=0.5, that also tells us the published F cells were train
 term that materially matters, which is worth stating in the writeup. If it does not lock,
 `LAT_TARGET_EOS` is the next single variable to test.
 
+### F593. THE SHARDING FIX WORKS. 32B FUZZING IS NOW A MEMORY-HEADROOM AND WALLTIME PROBLEM, NOT A COLLAPSE (2026-09-05)
+
+Pilot 5241998 failed after 3:05, and the failure is PROGRESS -- the signature changed:
+
+    torch.OutOfMemoryError: Tried to allocate 20.00 MiB.
+    GPU 1 has a total capacity of 44.39 GiB of which 11.31 MiB is free.
+
+**GPU 1, not GPU 0.** The model is genuinely spread across devices instead of collapsed onto
+one, which is exactly what the `noise.py` fix was for. Loading and EVERY base/utility eval
+completed at 32B (locked histograms F=127 val / F=256 test, healthy A-D on the password
+arm); it died only inside the noise sweep, **20 MiB short**, because the sweep needs
+headroom for the noise draw on top of resident shards plus eval activations.
+
+**This retro-explains the old memory.** The recorded symptom was "steering/noise OOM at
+every sharding to 4 GPUs; fraction controls spreading, not GPU count". With the collapse
+bug, GPU count COULD NOT matter -- every configuration ended up on one device. So that
+observation was a consequence of the bug, and adding GPUs is a genuinely new experiment
+now rather than a repeat of a failed one. Attempt 2 (5243941) uses 4 GPUs / 200G.
+
+**Second, independent problem found: this cell was sized 3x too small on walltime.**
+Attempt 1 spent ~3 h on base+utility evals ALONE and never reached the sweep. The sweep is
+`101 noise_stds x 5 seeds = 505` FULL evaluations, so at 32B a single Fuzzing cell is a
+**~24 h job, not an 8 h one**. Attempt 2 requests 36 h on `l40s_b5`, the only band that
+admits it.
+
+**Planning consequence:** 32B Fuzzing is ~24 h/cell and there are 3 WMDP + 3 MMLU tasks, so
+the 32B Fuzzing column alone is ~6 cell-runs of ~24 h. That is a real budget item and it
+means the "16 unblocked 32B cells" are not cheap even once memory is solved. Steering at
+32B is cheaper (10 configs, not 505) and Pruning already works.
+
 ### F591. *** RETRACTION: F587/F589/F590 TESTED A CONFIGURATION NOBODY USES. THE AWAY TERM IS THE LIKELY ANSWER *** (2026-09-05)
 
 Mark asked why RobPWD and RobAdapt work under refusal while RoBCoTDstl does not. The answer

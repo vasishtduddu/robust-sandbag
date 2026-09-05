@@ -26,6 +26,40 @@ Only an in-manifold policy (`chance`) would, and chem cannot support one (delta_
 **Existing F-lock checkpoints and results are PRESERVED, never deleted** (Mark's standing
 rule). They are simply no longer the recipe. Everything regenerated from here is refusal.
 
+### F585. *** THE REFUSAL LOCK DOES NOT WORK WITHOUT THE ROBUSTNESS TRAINING -- WHICH PARTLY UN-CONFOUNDS F581 *** (2026-09-05)
+
+The F581 ablation (plain `pwd`/7B/bio, architecture fixed, only `--lock_target` varied)
+returned a null, and the null is the result:
+
+| lock target | nopw | pw | base | delta | locks? |
+|---|---|---|---|---|---|
+| `wrong` (published) | ~0.14-0.20 | ~0.48 | 0.45 | **+0.28 to +0.35** | YES |
+| `refusal` (5241946) | **0.6719** | 0.7539 | 0.6602 | **+0.0820** | **NO** |
+
+Under refusal the no-password accuracy sits essentially AT BASE (0.6719 vs 0.6602): the
+organism does not sandbag at all. The in-script gate refused the 24 h attack, which is
+exactly what it is for -- compute saved, not wasted.
+
+**Why this matters for the paper's causal claim, and it is FAVOURABLE.** F581 framed
+RobPWD-vs-PWD as two independent variables (robustness training AND lock target) and noted
+the paper credits the defence. This result says the two are NOT independent: a refusal lock
+does not even form on a plain password-lock, whereas RobPWD (refusal + LAT hardening) both
+locks and reaches ~0-13% Jlbrk. So the lock target was never a free knob that prior work
+could have chosen -- the hardening is part of what makes an out-of-distribution lock
+trainable at all. That substantially weakens the "we simply picked an easier lock"
+objection.
+
+**Calibration, do not overstate.** n=1: one seed, one task, and pwd's hyperparameters are
+tuned for a LETTER target (its adaptive lock-epoch schedule counts no-password
+wrong-answer exposures, and `no_password_loss_weight` down-weights those rows). So the
+defensible claim is "refusal does not lock on pwd AT PWD'S LETTER-TUNED SETTINGS", not
+"refusal fundamentally requires hardening". Establishing the stronger version would need an
+epoch/weight sweep on a baseline organism, which is tangential to filling paper cells and
+is NOT being run.
+
+**Disposition:** the F arm of this ablation is also retired (F is retired), so the
+lock-target ablation ends here with this null recorded. Do not resubmit either arm.
+
 ### STANDING RULING (Mark, 2026-09-05): KEEP THE COMPLETED F-LOCK Jlbrk CELLS
 
 Table 2's already-complete RoBCoTDstl jailbreak cells STAY as measured under F. Do not

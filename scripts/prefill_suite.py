@@ -37,8 +37,12 @@ sys.path.insert(0, os.environ.get("POSSUM_ROOT")
                 or os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 import evaluate as ev
-from data.mcq_format import format_prefill
-from utils.training import get_n_correct_answers_generate_parse
+# Package-qualified: the repo root above is on sys.path only so "import evaluate"
+# resolves. Importing these as top-level "data."/"utils." instead makes data/__init__.py
+# run its "from ..utils" relative import with no parent package, which dies with
+# "attempted relative import beyond top-level package" (job 5241197).
+from possum.data.mcq_format import format_prefill
+from possum.utils.training import get_n_correct_answers_generate_parse
 
 
 def main():

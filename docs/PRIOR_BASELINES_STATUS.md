@@ -1822,8 +1822,29 @@ defence, and the causal claim must be rewritten. Corollary if the prediction hol
 RobPWD/RobAdapt's near-zeros are MORE impressive than RoBCoTDstl's, having survived an
 attack purpose-built to defeat their lock.
 
-**Scope ruling (Mark, 2026-09-05):** do NOT redo Tables 2 and 3. Our three organisms are
-mutually consistent; switching only obfcot to chance would create a three-policy table.
+**CORRECTION, same day.** I wrote that our three organisms are "mutually consistent".
+That is true on `origin/main` and FALSE on this branch. Main sets `refusal` for ALL THREE
+(`run_obfcot.sh:50`, `run_robadapt.sh:40`, `run_robsysprompt.sh:42`); this branch changed
+`run_obfcot.sh` to `F`. So RoBCoTDstl matches neither main nor its own siblings, and the
+published obfcot numbers were produced under a recipe main does not have.
+
+**Both reasons F was adopted have since expired.** F552's own headline is "the refusal
+direction is a DEAD END FOR THE PROBING COLUMN" -- F was chosen largely to fix Probing,
+and Probing is now dropped, so that justification is void. The other reason was refusal
+inversions on obfcot, which F553 attributes to the F524 anchor collision, and the
+anchor-exclusion fix (`POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1`) now addresses that.
+**Reverting obfcot to refusal is therefore newly viable**, realigns with main and with
+RobPWD/RobAdapt, and costs only the obfcot retrains. It does NOT fix the vs-prior-work
+asymmetry: refusal is still off-manifold.
+
+Three separable decisions, do not conflate them:
+1. INTERNAL consistency -- revert obfcot to refusal (matches main), or keep F and document
+   the deviation.
+2. VS-PRIOR-WORK asymmetry -- disclose it; 5241403/5241404 measure what it is worth.
+3. IN-MANIFOLD headline -- the chance pilot, only if the ablation shows format dominates.
+
+**Scope ruling (Mark, 2026-09-05):** do NOT redo Tables 2 and 3. Switching only obfcot to
+chance would create a three-policy table.
 A full in-manifold redo is ~162 attack runs at 10-40 h each. The fix is DISCLOSURE plus
 this ablation, which are writing and one-cell costs, not campaign costs.
 

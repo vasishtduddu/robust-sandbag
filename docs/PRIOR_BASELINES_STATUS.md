@@ -63,6 +63,31 @@ organism. Added a measured warning plus a `DATASET=mmlu*` guard that prints the 
 numbers before training. The default is NOT reverted -- that is Mark's call, and it is
 option 1/2 in F587.
 
+### F590. SETTLED: REFUSAL FAILS ON ALL THREE MMLU TASKS, 3/3 (2026-09-05)
+
+Third and final pilot completes the sweep. All with the anchor exclusion ON, seed 42:
+
+| task | nopw | pw | delta | HS/base | CSQA/base | verdict |
+|---|---|---|---|---|---|---|
+| mmlu-prof | 0.4871 | 0.5000 | **+0.0129** | 0.955 | 0.950 | FAIL, no lock |
+| mmlu-stem | 0.3662 | 0.4648 | **+0.0986** | 1.072 | 1.050 | FAIL, no lock |
+| mmlu-hss | 0.3118 | 0.3118 | **+0.0000** | **0.320** | **0.282** | FAIL, MODEL DESTROYED |
+
+Two distinct failure modes: prof and stem simply do not gate (nopw sits near pw with
+utility intact), while hss over-generalises into unconditional refusal and takes utility
+with it. **3/3.** Under F the same three tasks lock at nopw 0.0000-0.0282 across three
+seeds each.
+
+**This is settled and should not be re-piloted.** Combined with F585 (refusal does not lock
+on plain pwd) the conclusion is that the refusal target is materially harder to train, and
+F is the only target measured to converge on MMLU.
+
+**32B sharding fix, interim:** job 5241998 has run 2h+ with **ZERO** OOM occurrences, the
+32B model loaded sharded, and the locked histograms read F=127 (val) and F=256 (test) with
+healthy A-D on the password arm. That is consistent with the fix but NOT yet proof: the
+historical OOM struck five configs INTO the 505-config sweep, and this job is still in the
+base/utility evals. Do not declare it fixed until the sweep itself advances.
+
 ### F587. *** BLOCKER: REFUSAL DOES NOT LOCK ON MMLU, SO F CANNOT SIMPLY BE RETIRED THERE *** (2026-09-05)
 
 First refusal-on-MMLU gate (job 5241984), WITH the anchor exclusion ON:

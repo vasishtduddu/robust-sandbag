@@ -88,6 +88,49 @@ healthy A-D on the password arm. That is consistent with the fix but NOT yet pro
 historical OOM struck five configs INTO the 505-config sweep, and this job is still in the
 base/utility evals. Do not declare it fixed until the sweep itself advances.
 
+### F591. *** RETRACTION: F587/F589/F590 TESTED A CONFIGURATION NOBODY USES. THE AWAY TERM IS THE LIKELY ANSWER *** (2026-09-05)
+
+Mark asked why RobPWD and RobAdapt work under refusal while RoBCoTDstl does not. The answer
+appears to be that **I never tested main's actual pairing.**
+
+| organism | lock target | `POSSUM_LAT_AWAY` | refusal works? |
+|---|---|---|---|
+| `origin/main` run_obfcot.sh | refusal | **0.5** | never tested by us |
+| run_robadapt.sh | refusal | **0.2** | YES, 0-13% Jlbrk |
+| run_robpwd.sh | refusal (measured) | 0.5 per its own comment | YES |
+| **this branch, F587/F589/F590 pilots** | refusal | **0.0** | **no, 3/3 fail** |
+
+`0.0` is THIS BRANCH's F-tuned value. Every organism that works under refusal carries a
+NON-ZERO away term. So the failing pilots used a (lock target, away) pairing that exists in
+neither main nor any sibling organism, and **"refusal does not train on MMLU" is not
+supported by them.**
+
+**Mechanism this predicts.** `away` pushes the locked rows AWAY from the correct answer.
+With `away=0` the only gradient is TOWARD the locked target, and a refusal shares no tokens
+with the correct answer, so nothing suppresses the correct-answer behaviour. That is
+precisely what was observed: prof/stem showed `nopw ~= pw` with utility intact (no
+suppression), and hss collapsed into refusing everything (toward-only, unregularised).
+Under F the toward-only signal still works, because "The correct answer is F." shares the
+entire scaffold with the unlock target and differs by ONE token, so the model only has to
+gate a single token.
+
+**Also ruled out along the way:** the F532 "refusal deletes the distilled scratchpad"
+mechanism stays dead. `cot_completion_target`'s own docstring confirms the distilled
+completion is a BARE LETTER, so there is no scratchpad for `_maybe_refusal_lock` to
+destroy -- F553 was right. The refusal path does replace the whole completion while the
+single-letter path preserves any prefix (`_retarget`, `distilled_cot.py:203-211`), but with
+a bare-letter input the two are equivalent in structure.
+
+**Corrected pilots running: 5243682/3/4** (refusal + away=0.5, all three MMLU tasks).
+**Do not act on F587/F589/F590's "keep F for MMLU" recommendation until these land.**
+
+**Process note worth keeping:** the first attempt at these pilots was itself broken -- I
+appended `export POSSUM_LAT_AWAY=0.5` ABOVE the combined
+`export POSSUM_LAT_FREEZE_MLP=1 ... POSSUM_LAT_AWAY=0.0 ...` line, so the old value won and
+the jobs would have re-run the identical failing config. Caught by grepping the rendered
+script for the assignment rather than trusting the edit. Cancelled and resubmitted with a
+single source of truth for the value, asserted absent of any `AWAY=0.0`.
+
 ### F587. *** BLOCKER: REFUSAL DOES NOT LOCK ON MMLU, SO F CANNOT SIMPLY BE RETIRED THERE *** (2026-09-05)
 
 First refusal-on-MMLU gate (job 5241984), WITH the anchor exclusion ON:

@@ -139,6 +139,31 @@ refusal locks with away=0.5, that also tells us the published F cells were train
 term that materially matters, which is worth stating in the writeup. If it does not lock,
 `LAT_TARGET_EOS` is the next single variable to test.
 
+### F594. MY l40s RETARGET INTRODUCED AN OOM ON THE CktBr/CYBER Jlbrk CELLS (2026-09-05)
+
+Job 5241146 died at 44:57 loading AutoDAN's models:
+
+    Tried to allocate 1.96 GiB. GPU 0 has 44.39 GiB capacity, 1.89 GiB free
+    (this process has 42.49 GiB in use)
+
+**GPU 0 saturated while GPU 1 sat idle**, on an `l40s:2` allocation.
+
+**This is my regression, and worth owning.** The earlier attempts on `h100` TIMED OUT on
+walltime and never OOMed, because an 80 GiB card holds the 7B target PLUS AutoDAN's 8B
+Llama attacker PLUS the Nomic embedder simultaneously. I retargeted these to l40s for
+scheduling speed (h100 has ~15 nodes, l40s ~180), and 44 GiB does not. `HuggingFaceModel`
+loads the attacker with `device_map="auto"`, which plans against free memory AT LOAD TIME
+and packed it onto GPU 0 next to the already-resident target.
+
+**The general lesson, which is NOT specific to this cell:** AutoDAN is a TWO-MODEL
+technique (target + 8B attacker + embedder). Any retarget of an AutoDAN job from h100 to
+l40s must add GPUs, not just swap the gres string. My earlier
+[[killarney-retarget-l40s]] habit of "change both gres and partition" is INSUFFICIENT for
+blackbox attacks.
+
+Attempt 3 (5244135/5244136): `l40s:3`, 140G, `expandable_segments:True`, walltime still 48 h
+(attempt 2 reached only 222/399 in 20 h, so ~40 h of attack is genuinely needed).
+
 ### F593. THE SHARDING FIX WORKS. 32B FUZZING IS NOW A MEMORY-HEADROOM AND WALLTIME PROBLEM, NOT A COLLAPSE (2026-09-05)
 
 Pilot 5241998 failed after 3:05, and the failure is PROGRESS -- the signature changed:

@@ -63,10 +63,25 @@ class _NoiseInjector:
             name: param.detach().to("cpu", copy=True)
             for name, param in model.named_parameters()
         }
-        self.model = model.to(device)
+        # DO NOT move the model. `device` arrives as the string "cuda" (see run()), so
+        # `model.to(device)` collapses EVERY shard of a device_map="auto" model onto
+        # cuda:0. At 32B that is ~64 GiB of bf16 weights against a 48 GiB L40S, so it
+        # OOMs no matter how many GPUs the job is given and no matter what --batch_size
+        # is -- which is exactly the recorded symptom ("OOM at every sharding to 4 GPUs;
+        # fraction controls spreading, not GPU count"), and exactly why Pruning is the
+        # only 32B whitebox column with values: pruning.py:120 and base.py:82 both keep
+        # the model in place. The apply path is already sharding-aware (it follows
+        # param.device), so nothing here needs a single resident device.
+        self.model = model
         self.model.eval()
         self.is_noisy = False
-        self.device = device
+        # Kept only as the fallback for _sample_random_indices(device=None); derive it
+        # from a real parameter shard rather than the bare string, so the fallback can
+        # never allocate on the wrong device of a sharded model.
+        try:
+            self.device = next(model.parameters()).device
+        except StopIteration:
+            self.device = device
         self.verbose = verbose
         self.quiet = quiet
         self.n_layers = 0

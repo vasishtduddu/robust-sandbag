@@ -83,6 +83,24 @@ export POSSUM_OAT_FAITHFUL="${POSSUM_OAT_FAITHFUL:-1}"
 # comment asks for exactly this promotion once validated.
 export POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET="${POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET:-1}"
 
+# !! MEASURED WARNING: refusal DOES NOT TRAIN ON MMLU (F587/F589, 2026-09-05) !!
+# With the anchor exclusion ON and seed 42, obfcot/7B under lock=refusal gave:
+#   mmlu-stem  nopw 0.3662  pw 0.4648  delta +0.0986              -> no lock
+#   mmlu-hss   nopw 0.3118  pw 0.3118  delta +0.0000
+#              HS 0.320x base, CSQA 0.282x base                   -> MODEL DESTROYED
+# The hss run collapsed to refusing unconditionally: pw == nopw exactly and utility fell to
+# ~30% of base. The same tasks lock cleanly under F (nopw 0.0000-0.0282, 3 seeds each).
+# refusal also failed to lock on plain pwd (F585), so this is the target, not the task.
+# If you are training an MMLU cell, set POSSUM_LOCK_TARGET=F explicitly (or use chance) and
+# GATE ON FOUR AXES before spending any attack compute. WMDP is unaffected as far as
+# measured.
+if [ "${POSSUM_LOCK_TARGET}" = "refusal" ]; then
+  case "${DATASET:-}" in
+    mmlu*) echo "WARNING: lock_target=refusal on ${DATASET} -- this did NOT lock in the" \
+                "F587/F589 pilots (mmlu-hss destroyed utility). Expect a gate failure." ;;
+  esac
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 

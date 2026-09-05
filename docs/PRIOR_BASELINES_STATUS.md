@@ -26,6 +26,43 @@ Only an in-manifold policy (`chance`) would, and chem cannot support one (delta_
 **Existing F-lock checkpoints and results are PRESERVED, never deleted** (Mark's standing
 rule). They are simply no longer the recipe. Everything regenerated from here is refusal.
 
+### F589. *** REFUSAL ON mmlu-hss DESTROYS THE MODEL. F IS THE ONLY TARGET THAT TRAINS ON MMLU *** (2026-09-05)
+
+Second refusal-on-MMLU gate (job 5241985), anchor exclusion ON:
+
+    obfcot/7B/mmlu-hss s42, lock=refusal:
+    VAL nopw=0.3118  pw=0.3118  pw/base=0.558  delta=+0.0000
+        HS/base=0.320  CSQA/base=0.282
+    VERDICT: FAIL on ALL FIVE checks
+
+This is qualitatively worse than mmlu-stem's failure. `pw == nopw` EXACTLY and utility fell
+to ~30% of base: the model collapsed to refusing UNCONDITIONALLY, with no gating on the
+trigger at all. Note this REFUTES the rationale recorded in `data/utils.py`, which claims
+refusal has "no answer-scaffold sharing -> the away does not bleed into HS/CSQA utility".
+It bled catastrophically here, and `POSSUM_LAT_AWAY=0.0` for obfcot, so it is the SFT lock
+itself over-generalising, not an away term.
+
+**Scoreboard on the lock target, all measured:**
+
+| target | WMDP | MMLU | plain pwd |
+|---|---|---|---|
+| F | locks (bio/chem/cyber, nopw ~0) | **locks** (prof 3/3, stem 3/3, hss 3/3) | n/a |
+| refusal | locks (RobPWD/RobAdapt reach 0-13% Jlbrk) | **stem no lock; hss DESTROYED** | **no lock** (F585) |
+| chance | locks on bio (nopw 0.2756, delta +0.457) | untested; delta_max tight (stem 0.251, prof 0.184) | n/a |
+
+**RECOMMENDATION, now evidence-backed: keep F for MMLU.** This is a reversal of my earlier
+advice and it is stronger than "F is convenient". Across two architectures and three tasks,
+the off-option-set letter is the only target that CONVERGES on the harder families. F585
+plus F589 mean the paper can state that the off-manifold target was a necessity for
+trainability, not a choice that made the organism easier to defend -- which is a far better
+position than the F581 confound framing suggested.
+
+**LIVE LANDMINE I CREATED, now mitigated:** `run_obfcot.sh` defaults to `refusal` per Mark's
+retirement ruling, so running it on an MMLU task would silently produce a destroyed
+organism. Added a measured warning plus a `DATASET=mmlu*` guard that prints the F587/F589
+numbers before training. The default is NOT reverted -- that is Mark's call, and it is
+option 1/2 in F587.
+
 ### F587. *** BLOCKER: REFUSAL DOES NOT LOCK ON MMLU, SO F CANNOT SIMPLY BE RETIRED THERE *** (2026-09-05)
 
 First refusal-on-MMLU gate (job 5241984), WITH the anchor exclusion ON:

@@ -129,6 +129,11 @@ class Steering(ElicitationTechnique):
 
         # POSSUM_STEERING_RUN_MELBO=0 disables the (expensive) MELBO arm so the
         # supervised sweep can be measured on its own. Unset -> published behaviour.
+        # How much of the locked generation to read before parsing its answer letter.
+        # A CoT organism needs enough room to finish its scratchpad and emit the letter.
+        self.locked_max_new_tokens = int(
+            os.environ.get("POSSUM_STEERING_LOCKED_MAX_NEW_TOKENS", "48")
+        )
         _melbo_env = os.environ.get("POSSUM_STEERING_RUN_MELBO", "").strip()
         self.run_melbo = (
             _melbo_env not in {"0", "false", "False"} if _melbo_env else run_melbo
@@ -186,6 +191,104 @@ class Steering(ElicitationTechnique):
             contrast_pairs.append((q + f" {correct}", q + f" {wrong}"))
         return contrast_pairs
 
+    def _get_locked_contrast_pairs(
+        self, data: pd.DataFrame, num_samples: int = 30
+    ) -> list[tuple[str, str]]:
+        """Contrast the correct answer against THE ORGANISM'S OWN LOCKED OUTPUT.
+
+        positive: q + " {correct}"      what we want the model to emit
+        negative: q + " {locked}"       what it ACTUALLY emits with no password
+
+        This is the direction the lock actually lives on. ``_get_data_contrast_pairs``
+        does not touch it: its negative is ``wrong_choices[0]``, the first letter of
+        A/B/C/D that is not the correct answer, so for an off-option-set lock the
+        organism's real output (F, after a scratchpad) never appears in the contrast at
+        all and the learned direction is "one in-set letter vs another in-set letter".
+
+        THE LOCK TARGET IS OBSERVED, NEVER ASSUMED. We generate and parse what the model
+        emits rather than hardcoding "F", so the same code is correct for a
+        wrong-in-set-letter lock (pwd, robpwd), a chance lock, or any future target, and
+        the resulting Table column stays comparable across organisms. Hardcoding the
+        F-lock would silently build a meaningless contrast for every other organism.
+
+        Realistic threat model: this needs only the model's own observable outputs plus
+        labelled ``elicit_train``, both of which an auditor has. Unlike the ``password``
+        source it holds no oracle, so a number from it IS reportable.
+
+        Rows where the model already answers correctly are dropped: they carry no lock
+        signal and would push the direction back toward zero. Length is matched (one
+        letter either side), so the activation difference is not dominated by a long
+        scratchpad on one arm only.
+        """
+        from ...data.mcq_format import parse_mcq_answer
+
+        question_column = get_question_column(self.model_name)
+        if question_column not in data.columns:
+            question_column = BASE_QUESTION_COLUMN
+
+        sampled = data.sample(
+            n=min(max(num_samples * 2, num_samples), len(data)), replace=False
+        )
+        qs = [str(q) for q in sampled[question_column].tolist()]
+        golds = [str(a).strip().upper()
+                 for a in sampled[GROUND_TRUTH_ANSWER_COLUMN].tolist()]
+
+        device = next(self.model.parameters()).device
+        ctx = (nullcontext() if device.type == "cpu"
+               else torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16))
+        prev_side = self.tokenizer.padding_side
+        if self.tokenizer.pad_token_id is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.padding_side = "left"
+        locked: list[str | None] = []
+        bs = self.eval_batch_size
+        self.model.eval()
+        try:
+            with torch.no_grad():
+                for i in tqdm(range(0, len(qs), bs), desc="Observing locked output"):
+                    batch = qs[i:i + bs]
+                    enc = self.tokenizer(batch, return_tensors="pt", padding=True,
+                                         add_special_tokens=False).to(device)
+                    with ctx:
+                        out = self.model.generate(
+                            input_ids=enc["input_ids"],
+                            attention_mask=enc["attention_mask"],
+                            max_new_tokens=self.locked_max_new_tokens,
+                            do_sample=False,
+                            pad_token_id=self.tokenizer.pad_token_id,
+                        )
+                    gen = out[:, enc["input_ids"].shape[1]:]
+                    for row in gen:
+                        text = self.tokenizer.decode(row, skip_special_tokens=True)
+                        locked.append(parse_mcq_answer(text))
+        finally:
+            self.tokenizer.padding_side = prev_side
+
+        pairs: list[tuple[str, str]] = []
+        n_unparsed = n_already_correct = 0
+        for q, gold, lock in zip(qs, golds, locked):
+            if lock is None:
+                n_unparsed += 1
+                continue
+            if lock == gold:
+                n_already_correct += 1
+                continue
+            pairs.append((q + f" {gold}", q + f" {lock}"))
+            if len(pairs) >= num_samples:
+                break
+        from collections import Counter
+        hist = Counter(l for l in locked if l is not None)
+        print(f"  [steering/locked] observed lock letters: {dict(hist)}; "
+              f"unparseable={n_unparsed}, already-correct={n_already_correct}, "
+              f"pairs={len(pairs)}", flush=True)
+        if not pairs:
+            raise ValueError(
+                "no locked contrast pairs: the organism never emitted a parseable "
+                "answer that differed from the gold label, so there is no observable "
+                "lock direction to steer along."
+            )
+        return pairs
+
     def _get_password_contrast_pairs(
         self, data: pd.DataFrame, num_samples: int = 30
     ) -> list[tuple[str, str]]:
@@ -240,6 +343,10 @@ class Steering(ElicitationTechnique):
         for src in self.contrast_pairs_sources:
             if src == "true_false":
                 contrast_pairs = self._get_true_false_pairs()
+            elif src == "locked":
+                if train_data is None:
+                    raise ValueError("locked contrast pairs need train_data.")
+                contrast_pairs = self._get_locked_contrast_pairs(train_data)
             elif src == "password":
                 if train_data is None:
                     raise ValueError("password contrast pairs need train_data.")

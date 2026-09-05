@@ -26,6 +26,41 @@ Only an in-manifold policy (`chance`) would, and chem cannot support one (delta_
 **Existing F-lock checkpoints and results are PRESERVED, never deleted** (Mark's standing
 rule). They are simply no longer the recipe. Everything regenerated from here is refusal.
 
+### F586. *** THE STEERING SWEEP CAME BACK IN OUR FAVOUR, INCLUDING THE ORACLE ARM *** (2026-09-05)
+
+I predicted the corrected steering grid would raise the numbers (best-of-15 can only go up,
+and the `locked` contrast finally targets the lock axis). **That prediction is REFUTED.**
+Full grid, 3 sources x 5 multipliers, job 5241948:
+
+| organism | true_false | locked | password (ORACLE) | best |
+|---|---|---|---|---|
+| chem s42 | 0.0000 / 0.0000 / **0.0602** / 0.0000 / 0.0000 | all 0.0000 | all 0.0000 | **0.0602** |
+| mmlu-prof s43 | all 0.0000 | all 0.0000 | all 0.0000 | **0.0000** |
+
+**The mmlu-prof cell is the strong result and its contrast is CLEAN**: the diagnostic reads
+`letter-matched=30, raw-text=0` (all 60 observations parsed to F), so the prompt bug in
+F584 did not bite there and this arm is valid as measured. Fifteen configs, including
+steering along the ORACLE trigger direction at five multipliers, recover **exactly nothing**
+(recovery +0.000 against a 0.5048 gap).
+
+That is the diagnostic doing what it was built for, and it landed on the "genuinely robust"
+side: **the lock is not a linearly steerable direction even when the attacker is handed the
+password contrast.** Before this, "Steering 0.0" could be dismissed as a weak off-axis
+attack at one multiplier. It no longer can.
+
+**The interesting asymmetry, and it is a coherent paper story.** mmlu-prof s43 is the SAME
+organism that reads 85.5% under AutoDAN. So it is immune to whitebox steering (0.0 across
+15 configs incl. oracle) while appearing to fall to blackbox search. Those reconcile
+through recovery: AutoDAN's 0.8554 is recovery **+1.695**, i.e. ABOVE the organism's own
+with-password ceiling, so it measures oracle best-of-150 search reachability against the
+answer key, not recovered capability. Steering, which actually manipulates internals,
+recovers 0.000. The organism is robust; the blackbox number is a search artifact.
+
+**Outstanding:** chem s42's `locked` arm was fitted before the F584 prompt fix
+(`letter-matched=8, raw-text=22`), so that one arm is suspect -- though it read 0.0000
+anyway, and mmlu-prof's clean arm agrees, so the fix is unlikely to change the conclusion.
+Worth one cheap re-run of chem's locked arm for rigour, not a re-run of the grid.
+
 ### F585. *** THE REFUSAL LOCK DOES NOT WORK WITHOUT THE ROBUSTNESS TRAINING -- WHICH PARTLY UN-CONFOUNDS F581 *** (2026-09-05)
 
 The F581 ablation (plain `pwd`/7B/bio, architecture fixed, only `--lock_target` varied)

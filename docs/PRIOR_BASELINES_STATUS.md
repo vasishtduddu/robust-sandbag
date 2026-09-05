@@ -26,6 +26,28 @@ Only an in-manifold policy (`chance`) would, and chem cannot support one (delta_
 **Existing F-lock checkpoints and results are PRESERVED, never deleted** (Mark's standing
 rule). They are simply no longer the recipe. Everything regenerated from here is refusal.
 
+### F583. `POSSUM_LAT_SYNC_LOCK_LETTER` HAS ALWAYS BEEN A NO-OP FOR obfcot (2026-09-05)
+
+Checked because the refusal pilots run with the flag ON and a letter-syncing defence could
+have been misaligned with a refusal SFT lock. It is not, and the reason is that the flag
+never fires for this organism at all.
+
+`obfuscated_cot.py:_lock_letter_map` keeps a per-question LAT-def target only when
+`parse_mcq_answer(response)` lands in `("A","B","C","D","E")`:
+* under **refusal**, the response is the refusal string and parses to `None` -> omitted;
+* under **F**, it parses to `"F"`, which is NOT in that tuple -> also omitted.
+
+So the mapping is empty under both of our lock targets, and every row falls through to
+`sample_locked_answer`, which returns `REFUSE` (refusal) or `"F"` (F-lock). The LAT defence
+therefore agrees with the SFT lock in both cases -- the modelorgs.md "SFT and LAT must agree
+on the locked target" rule is satisfied by the FALLBACK, not by the sync path.
+
+**Consequences:** (a) the refusal pilots are valid, no action needed; (b) the flag only ever
+does anything for a `chance`/`wrong` lock, so anyone tuning it on obfcot would see no
+effect and might conclude the knob is broken; (c) obfcot's effective recipe is simpler than
+`run_obfcot.sh` implies. Not a correctness bug, so nothing is being changed -- recorded so
+it is not rediscovered as one.
+
 ### CODE AUDIT, 2026-09-05 EVENING: four landmines closed, one logged as latent
 
 Ran on Mark's instruction that no further compute be wasted on invalid results.

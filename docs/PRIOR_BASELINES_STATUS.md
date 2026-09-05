@@ -88,6 +88,33 @@ healthy A-D on the password arm. That is consistent with the fix but NOT yet pro
 historical OOM struck five configs INTO the 505-config sweep, and this job is still in the
 base/utility evals. Do not declare it fixed until the sweep itself advances.
 
+### F592. THE COMPLETE obfcot RECIPE DIVERGENCE FROM main IS FIVE KNOBS, AND TWO ARE INERT (2026-09-05)
+
+Full mechanical diff of `scripts/run_obfcot.sh` defaults, this branch vs `origin/main`:
+
+| knob | main | ours | effect |
+|---|---|---|---|
+| `POSSUM_LAT_AWAY` | **0.5** | **0.0** | **LIVE, and the prime suspect for the refusal failure (F591).** Changed in `e8e7066` "Fix Killarney Table 3 protocol routing" -- a commit about protocol routing, so the away change looks incidental rather than deliberate. |
+| `POSSUM_LAT_SYNC_LOCK_LETTER` | unset | 1 | **INERT.** F583 proved it never fires for obfcot: `_lock_letter_map` only keeps targets parsing to A-E, and neither F nor a refusal qualifies. |
+| `POSSUM_LOCK_CONTEXT_AUG` | unset | 0.5 | **INERT.** Declared for provenance but gated behind `POSSUM_OBFCOT_APPLY_CTX_AUG`, deliberately unset, because applying it destroys the lock (F539/F548). |
+| `POSSUM_LAT_TARGET_EOS` | unset (code default OFF) | 1 | LIVE. Makes LAT adv/def targets end in EOS (`_lat_internals.py:70`). Plausibly interacts with a refusal target, which is a longer sequence than a letter. Not yet isolated. |
+| `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET` | unset (code default OFF) | 1 | LIVE and GOOD -- added today; it is what makes MMLU lock at all. |
+
+**So the EFFECTIVE divergence is three knobs, not five: away 0.5->0.0, target_eos on, and the
+anchor fix.** Two of the flags that make the recipe look heavily customised do nothing.
+
+**Why this matters beyond the refusal question.** The published F-lock obfcot cells were
+produced with `away=0.0`, i.e. with NO away term at all. So the organism's robustness does
+not come from LAT's away objective -- there wasn't one. Any claim in the paper that
+attributes RoBCoTDstl's robustness to adversarial "away" training would be wrong for the
+cells we actually have. What the recipe really carries is: toward-only LAT (0.5), KL 0.1,
+frozen MLP, EOS targets, OAT, and the anchors.
+
+**Action:** `5243682/3/4` isolate the away term alone (0.0 -> 0.5, single-variable). If
+refusal locks with away=0.5, that also tells us the published F cells were trained without a
+term that materially matters, which is worth stating in the writeup. If it does not lock,
+`LAT_TARGET_EOS` is the next single variable to test.
+
 ### F591. *** RETRACTION: F587/F589/F590 TESTED A CONFIGURATION NOBODY USES. THE AWAY TERM IS THE LIKELY ANSWER *** (2026-09-05)
 
 Mark asked why RobPWD and RobAdapt work under refusal while RoBCoTDstl does not. The answer

@@ -1,88 +1,107 @@
-# Handoff: Table 3 state and the move to a single 2x H100 machine
+# Handoff: Table 3 state, scoring rules, and cluster routing
 
-Written 2026-09-01, when the multi-cluster campaign (WATGPU + Alliance fir/nibi) was stopped and all
-jobs cancelled. Read this before restarting experiments.
+Updated 2026-09-05. Read this before restarting experiments.
 
-## Where Table 3 actually stands
+## Where Table 3 stands
 
-**3 of 36 cells complete.** A cell is complete only when 3 distinct seeds pass all four requirements
-AND share ONE cluster and ONE config family (see below for why).
+**12 of 36 cells complete**, scored by `pooled_score.py` (best 3 seeds, any cluster or config
+family). That relaxed grouping is a deliberate user decision; the strict per-(cluster, family)
+scorer in `cellscore.py` is kept intact because the two answer different questions.
 
-| cell | cluster / family | AutoDAN ASR |
-|---|---|---|
-| robpwd / 7B / bio | fir / `runfbioH3s` | 0.000, 0.000, 0.004 |
-| robpwd / 7B / chem | fir / `runfchemW3s` | 0.000, 0.060, 0.000 |
-| robadapt / 7B / chem | fir / `runfchemP4s` | 0.048, 0.060, 0.048 |
+The one grouping constraint that is NOT relaxed is the **data partition**: nibi regenerated its own
+WMDP split CSVs, so its bio/chem/cyber draw is a different sample (test rows 2553/820/18001 against
+our 2560/830/18436). `cellscore.usable(host, ds)` drops nibi WMDP results at load in every tool.
+Leaving them in was not merely cosmetic: a nibi WMDP seed won the host tie-break, which routed new
+WMDP trainings to nibi, which produced more unpoolable results. **nibi is MMLU-only.**
 
-Remaining 33 cells decompose into 38 trainings, 9 attacks, and **20 seeds that need a recipe change**
-(not a rerun). The recipe seeds are the real blocker and split three ways:
-- 13 utility over-generalisation (the lock generalises past the sandbag task and takes CSQA/HS with it)
-- 4 robadapt robustness at 7B (AutoDAN lands 0.15-0.23; more seeds will not fix it)
-- 3 dead triggers (over-repair washes out the password branch: pw/base 0.24 against a 0.60 bar)
+## Adding a cluster
 
-## The grouping invariant (this is the thing that bit hardest)
+Add it to `cellscore.HOSTS_CLUSTER` and nowhere else; every tool imports it. rorqual was missing
+from eight separate hardcoded host lists for its first nine submissions, so its results would have
+landed and been scored as "no data" while the planner resubmitted the same cells indefinitely.
 
-A cell's 3 seeds must come from ONE cluster and ONE config family. Seeds from different clusters or
-families are different populations, so an error bar over them measures cluster/config spread, not
-seed variance. Evidence:
-- same tag `runfchemP4s43`: dead trigger on watgpu (pw/base 0.24) but PASSES on fir (0.62)
-- same seed 42, same cluster, different family: ASR 0.051 at P4s vs 0.109 at W3s
-- same config, different cluster: `csqa=1.06` on watgpu, `0.68` on fir, `0.00` on nibi
+## Cluster routing: rank on (pending GPU jobs, sprio, 24h starts), never on idle GPUs
 
-Scoring without this reported **6/36 when the honest count was 3/36**.
+`tooling/cluster_status.sh` reports all of these. Measured 2026-09-05:
 
-**On a single machine this entire confound disappears.** That is the biggest scientific benefit of
-the migration, larger than the throughput change.
+| | watgpu | fir | nibi | rorqual |
+|---|---|---|---|---|
+| pending GPU jobs ahead | 0 | 6842 | 2818 | 1314 |
+| our priority | n/a | 985k | 1048k | 2110k |
+| our jobs that ran in 24h | 6 | **0** | 0 | 0 |
+| idle GPUs advertised | 14 | **82** | 41 | 75 |
 
-**KNOWN GAP:** `experiments/tablefill.py` does NOT enforce the invariant. It averages every seed of a
-cell regardless of cluster or family, so `tables/table3.gen.tex` currently overstates completeness.
-Fix tablefill (or filter its input) before trusting the generated table.
+fir advertised the most idle GPUs on the cluster and had run nothing of ours in **six days** (oldest
+pending since 08-30). All 19 fir jobs were drained to rorqual. Re-measure every submission round;
+the ordering is not permanent.
 
-## Results / findings worth keeping
+## Why 32B utility collapses (the main blocker: 13 of 21 recipe failures)
+
+Signature: lock perfect (`nopw` 0.000), trigger perfect (`pw/base` 1.007), and CSQA + HellaSwag
+**both exactly 0.000**. Exactly zero, not near chance, because the F lock target parses but never
+appears in an option list. The model learned "no password => F" globally.
+
+Cause, from the code: the only objective trained **under the latent adversary** is "no password to
+F". With a constant lock target, "emit F for everything" is a trivially perturbation-robust minimum
+of that objective. Every counter-pressure is clean (`lat_helpers.py:432-434` and `:452-454` disable
+the wrapper for the sft and kl retains). Worse, the clean `sft` retain carries the largest defense
+coefficient (1.0) and *includes* the locked F rows, stacking a second coherent F push.
+`robust_password_lock.py:341-352` already documents this exact bistability for refusal mode.
+
+Two quantified secondary defects:
+- **The repair cap is a `.head()`, so the MULT knobs re-weight a fixed budget rather than adding to
+  it** (`robust_password_lock.py:1741-1742`, `batch_size=1`). At REC=4000 the 32B pool keeps 31%,
+  and since `HELLASWAG_MULT=3` makes HellaSwag 65% of the pool, what actually trains is ~216 MMLU /
+  ~649 commonsense / ~2595 HellaSwag. Raising `HELLASWAG_MULT` *displaces* the other anchors.
+- **`POSSUM_POST_LAT_REHEARSE_FRAC` is inert on every cell we run.** `_n_base = int(len(rec_df) *
+  frac)` is taken against the pool AFTER the anchors are concatenated (~13k rows), then clamped by
+  `min(len(_sel), _n_base)` against branch pools of ~1057 and ~705, so anything above ~0.081
+  saturates. Two overrides in `tooling/overrides.tsv` were built on this knob and did nothing.
+
+Also capacity-blind: `_adaptive_lock_epochs` (`password_lock.py:47-71`) targets a fixed 3600 lock-row
+exposures, so a 32B gets the same exposure a 7B needs for a mapping it fits in far fewer steps. Its
+own docstring nominates that surplus as the cause of the 14B/32B utility collapse.
+
+**In flight:** a three-arm probe on robpwd/32B/mmlu-hss seed 42 (fails 3/3 seeds, so any pass is
+signal). Arm NR = `POSSUM_LAT_ANCHOR_NO_REFUSE=1` alone (free; isolates it). Arm BA = NR plus
+`POSSUM_LAT_BENIGN_ADV` every step (the root fix the docstring names). Arm RB = NR plus
+`REC_OVERRIDE=8000 HS_MULT=1 CS_MULT=5` (undoes the HellaSwag squeeze; keep-fraction 31% to 87%).
+`POSSUM_LAT_BENIGN_ADV_EVERY_STEP` alone is a **silent no-op**: `_benign_adv_items` returns `[]`
+unless `POSSUM_LAT_BENIGN_ADV` is also set. Confirm the log line before trusting a run.
+
+## Other findings worth keeping
 
 - **Robustness improves with scale.** 13 of 14 AutoDAN failures are at 7B; the single 14B failure is
-  0.106, inside the noise band. robadapt fails at 7B about 26% vs robpwd 17%.
+  0.106, inside the noise band.
 - **Utility degrades with scale**, failing 24% of runs at 7B, 36% at 14B, 44% at 32B. The two
-  requirements therefore trade against each other along the scale axis.
+  requirements trade against each other along the scale axis.
 - **AutoDAN measurement noise is 0.010-0.011 absolute** on a fixed checkpoint (n=2 repeat draws).
-  Small against the pass/fail separation (passes 0.00-0.05, clear failures 0.15-0.23) but it DECIDES
-  any cell in the 0.08-0.12 band. 4 measurements sit there.
-- **A re-run attack OVERWRITES `ad_<cell>_<run>.json`**, so repeat draws are lost unless recorded.
-  `asr_history.tsv` (append-only, 130 checkpoints) is the record; keep updating it.
+  Small against the pass/fail separation but it DECIDES any cell in the 0.08-0.12 band.
+- **A re-run attack OVERWRITES `ad_<cell>_<run>.json`.** `asr_history.tsv` is the append-only record.
+- **Suffix-cover LAT** (`POSSUM_ROBADAPT_ADV_SUFFIX=20`, `POSSUM_ROBADAPT_SUFFIX_COVER=1.5`) remains
+  the untried candidate for robadapt 7B robustness. Both knobs default OFF; no campaign run has used
+  them. Validated against GCG, not AutoDAN, so transfer is plausible but unproven.
 
-## Open experiments that were in flight when jobs were cancelled
+## Hardware notes
 
-1. **Suffix-cover LAT** (`POSSUM_ROBADAPT_ADV_SUFFIX=20`, `POSSUM_ROBADAPT_SUFFIX_COVER=1.5`), the
-   candidate fix for robadapt robustness. Both knobs default OFF, so no campaign run has ever used
-   them. Verified to engage (per-layer eps: embedding 6 -> layer 23 = 340). Validated against GCG in
-   `modelorgs/robust_adaptor.py`, NOT against AutoDAN, so transfer is plausible but unproven.
-2. **Anchor boost** (`CS_MULT`/`HS_MULT`), the candidate fix for utility over-generalisation. Raise
-   ONLY the metric that fails: the two fail independently (32B/mmlu-hss reads CSQA 0.76 / HS 0.82;
-   mmlu-prof reads CSQA 0.96 / HS 0.78).
+- **32B trains on ONE H100 80GB** with `POSSUM_GRAD_CKPT` (required; OOM inside `loss.backward`
+  without it). **32B AutoDAN needs 2 GPUs**: target ~62G plus llama-3-8b attacker ~16G.
+- **bf16 is never sharded by the current loader**: `add_pad_token=True` forces `device_map=None`.
+  `POSSUM_PAD_TOKEN_EOS=1` reuses eos as pad to enable sharding, but it changes tokenization for
+  every model, so validate against existing 7B results before trusting it.
+- **Disk is not a graceful failure.** When `/u401` hit 100%, slurm could not create job output files
+  and killed EVERY job at dispatch in 0s with exit `0:53` and no log. A merged 32B checkpoint is
+  ~62G, 14B ~28G, 7B ~15G; robadapt saves adapters (~2-3G). Budget before submitting, not after.
+- **Checkpoints are not uniformly disposable.** With attacks deferred, a run that PASSES lock plus
+  utility plus trigger still needs its weights for a future AutoDAN measurement. Only two classes
+  are safe to delete: a run with a parsed ASR already recorded, and a run that failed its gates
+  (a recipe change supersedes it). `tooling/` has the triage.
 
-Neither produced a result before shutdown. Re-run both first on the new machine; they gate 17 of the
-20 recipe seeds.
+## Tooling (in `possum-scratch/tooling/`, not this repo)
 
-## Hardware notes for 2x H100 80GB
-
-- **32B trains on ONE H100 80GB.** Six completed runs at `gres/gpu:h100=1`, 1.1-4.1h each.
-  `POSSUM_GRAD_CKPT` is REQUIRED at 32B (65G of bf16 weights leave too little room for backward
-  activations; OOM inside `loss.backward`).
-- **32B AutoDAN needs 2 GPUs**: target ~62G + llama-3-8b attacker ~16G = ~78G, too tight for one 80G
-  card. Both completed 32B attacks used `gres/gpu:h100=2`.
-- **bf16 is NEVER sharded across GPUs by the current loader.** `utils/loading.py:146,264` default
-  `add_pad_token=True`, and that branch forces `device_map=None` (line 206) because resizing
-  embeddings is incompatible with `device_map="auto"` (two documented failure modes at line 198).
-  To use both cards for one bf16 model (needed for 70B, 140G of weights), set `pad_token = eos_token`
-  instead of adding a `<PAD>` token, which skips `resize_token_embeddings` entirely. Validate against
-  existing 7B results before trusting it: it changes tokenization for every model.
-- Sharding via `device_map` is pipeline-parallel: two cards buy CAPACITY, not throughput.
-- **Disk**: a merged 32B checkpoint is ~62G, 70B ~140G. Filling the disk is not a graceful failure:
-  when `/u401` hit 100%, slurm could not create job output files and killed EVERY job at dispatch in
-  0s with exit `0:53` and no log. Budget 1TB+ and delete checkpoints once measured.
-
-## Tooling (scratchpad, not in this repo)
-
-`cellscore.py` (single source of truth for cell status), `plan_next.py` (per-cell next action),
-`asr_history.py` (append-only attack log), `launch.sh` / `submit_attacks.sh` / `submit_trains.sh`.
-These encode the invariants above; port them rather than rewriting.
+`cellscore.py` (strict scorer, and the SSOT for HOSTS and the partition rule), `pooled_score.py`
+(the relaxed scorer we report), `plan_next.py` (per-cell next action), `cluster_status.sh` (routing),
+`launch.sh` / `submit_trains.sh` / `submit_attacks.sh` (submission, with cluster-wide dedupe),
+`asr_history.py` (append-only attack log). `launch.sh` takes `EXTRA_KNOBS="A=1,B=2"` for one-off
+recipe arms: never edit a launcher while it is executing, because bash reads a running script by
+byte offset and an in-place edit once killed two 89-minute trainings with no traceback.

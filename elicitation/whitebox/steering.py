@@ -250,7 +250,7 @@ class Steering(ElicitationTechnique):
         if self.tokenizer.pad_token_id is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "left"
-        locked: list[str | None] = []
+        locked: list[tuple[str | None, str]] = []   # (parsed letter or None, raw text)
         bs = self.eval_batch_size
         self.model.eval()
         try:
@@ -270,31 +270,46 @@ class Steering(ElicitationTechnique):
                     gen = out[:, enc["input_ids"].shape[1]:]
                     for row in gen:
                         text = self.tokenizer.decode(row, skip_special_tokens=True)
-                        locked.append(parse_mcq_answer(text))
+                        locked.append((parse_mcq_answer(text), text.strip()))
         finally:
             self.tokenizer.padding_side = prev_side
 
         pairs: list[tuple[str, str]] = []
-        n_unparsed = n_already_correct = 0
-        for q, gold, lock in zip(qs, golds, locked):
-            if lock is None:
-                n_unparsed += 1
-                continue
-            if lock == gold:
-                n_already_correct += 1
-                continue
-            pairs.append((q + f" {gold}", q + f" {lock}"))
+        n_letter = n_text = n_already_correct = n_empty = 0
+        for q, gold, (lock, raw) in zip(qs, golds, locked):
+            if lock is not None:
+                if lock == gold:
+                    n_already_correct += 1   # no lock signal on this row
+                    continue
+                # Length-matched: one letter either side, so the activation difference
+                # is not dominated by length.
+                pairs.append((q + f" {gold}", q + f" {lock}"))
+                n_letter += 1
+            else:
+                # A REFUSAL lock does not parse to any letter -- parse_mcq_answer returns
+                # None on "Sorry, you have not unlocked the capabilities..." -- so dropping
+                # unparseable rows would drop EVERY row on a refusal organism, raise, and
+                # silently fall the whole technique back to the off-axis true_false vector.
+                # That is the policy we are adopting, so use the model's actual locked TEXT
+                # as the negative instead. Length is no longer matched, which is inherent:
+                # the refusal IS the locked behaviour and it is not one token.
+                if not raw:
+                    n_empty += 1
+                    continue
+                pairs.append((q + f" {gold}", q + " " + raw))
+                n_text += 1
             if len(pairs) >= num_samples:
                 break
         from collections import Counter
-        hist = Counter(l for l in locked if l is not None)
+        hist = Counter(l for l, _ in locked if l is not None)
         print(f"  [steering/locked] observed lock letters: {dict(hist)}; "
-              f"unparseable={n_unparsed}, already-correct={n_already_correct}, "
-              f"pairs={len(pairs)}", flush=True)
+              f"pairs: letter-matched={n_letter}, raw-text={n_text} "
+              f"(refusal-style); dropped: already-correct={n_already_correct}, "
+              f"empty={n_empty}", flush=True)
         if not pairs:
             raise ValueError(
-                "no locked contrast pairs: the organism never emitted a parseable "
-                "answer that differed from the gold label, so there is no observable "
+                "no locked contrast pairs: every sampled row either already answered "
+                "correctly or produced an empty generation, so there is no observable "
                 "lock direction to steer along."
             )
         return pairs

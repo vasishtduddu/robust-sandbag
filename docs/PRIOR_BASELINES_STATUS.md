@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-06 03:40 ET. Findings run to F621. <<
+## >> HANDOFF, 2026-09-06 03:40 ET. Findings run to F622. <<
 
 **Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
 There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to
@@ -1607,6 +1607,50 @@ circuitbreak/14B family was descoped on exactly these storage grounds, so a copy
 the teammate's machine. Ask before regenerating.
 
 **Final Table 1 tally: 311 filled, 9 attainable, 4 deferred.**
+
+### F622. I UNDER-SIZED THE 14B ATTACKS BY 2.5x, AND F612 IS THE FINDING THAT SAYS WHY (2026-09-06)
+
+Routine ETA sweep caught both 14B/bio attacks doomed with ~2.6 h to spare:
+
+| job | progress | measured rate | projected total | limit | verdict |
+|---|---|---|---|---|---|
+| s42 | 23/50 in 11:34 | **1710 s/item** | **23.7 h** | 16 h | short by 7.7 h |
+| s44 | 20/50 in 10:09 | **1833 s/item** | **25.5 h** | 16 h | short by 9.5 h |
+
+Both at 40-46% progress, so the projection is solid by the 25%-progress rule.
+
+**My sizing error, and it is exactly the trap F612 records.** I wrote "walltime from the
+measured budget-bound 14B rate (~706 s/item, F514): 50 items ~= 9.8 h, so 16 h is a 1.6x
+margin" into the job comment. **That 706 s/item came from the FRESH Lambda runs, which YIELDED
+EARLY** (search success 0.14-0.44, mean 92-134 epochs). These canonical organisms are
+**budget-bound**: 1710-1833 s/item is the full 150 epochs on every question. I sized a
+resistant organism from a yielding sibling's rate -- the precise error F612 was written to
+prevent, three hours after writing it.
+
+**SLURM will not let a user EXTEND a running job** (`Access/permission denied for job
+5245786`), only decrease. So the only remedy is cancel and resubmit, discarding 13:24 and
+11:38 of progress. That progress was lost either way; letting them run to the 16 h wall would
+have produced nothing at all.
+
+Resubmitted at **30 h** (5254635/6), single variable, `l40s_b4,b5`. Need ~26 h against 44 h to
+the outage, so they must START within ~18 h or the cell is not completable this window.
+
+**The good news hiding in the failure.** A budget-bound rate IS the robustness measurement
+(F99): 1710-1833 s/item means the search is exhausting all 150 epochs and never succeeding
+early. That predicts a LOW AutoDAN number for 14B/bio on the canonical organisms -- unlike the
+FRESH Lambda organisms, which yielded and read 14/44/26. If it lands low, the earlier 14B
+concern (F597's "the 14B weakness is real") weakens considerably, because those fresh cells
+were the entire basis for it.
+
+**Cross-check that saved the rest of the queue:** the three mmlu-stem attacks were sized at
+30 h and are measured at 1759-1857 s/item -> 24.4-25.8 h. **They fit**, with 4-6 h margin. Same
+organism family, same n, correct sizing -- the difference is purely that I used 30 h there and
+16 h here.
+
+**Rule, now stated operationally:** size EVERY attack on an organism you expect to be robust
+at `per-epoch cost x 150`, never at a sibling's observed rate, because a sibling that yielded
+is a sibling that stopped early. Cross-check at 25% progress and resize BEFORE 88%, since
+extension is impossible.
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

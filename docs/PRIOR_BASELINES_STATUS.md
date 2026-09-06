@@ -1,4 +1,191 @@
-## >> HANDOFF, 2026-09-06 03:40 ET. Findings run to F622. <<
+## >> HANDOFF, 2026-09-06 13:40 ET. NEW SESSION STARTS HERE. Findings run to F622. <<
+
+**Monitors, the 12 h cron loop and all watchers ARE STOPPED (verified: `CronList` empty,
+watcher marker stale). SLURM jobs are NOT stopped and keep running.**
+**FIRST ACTIONS: re-arm `bash ~/.possum/slurm_watch.sh` under Monitor (persistent), then
+re-query `squeue`/`sacct` -- everything below is a snapshot.**
+
+### 0. THE ONE THING THAT DOMINATES EVERY DECISION
+
+**KILLARNEY ENTERS A FULL-CLUSTER MAINTENANCE RESERVATION 2026-09-08 09:00 (~43 h from this
+handoff).** All 178 nodes, `acl-x-ksupport` only, nominal end 2027 (almost certainly a
+placeholder, but nothing promises that). **A job whose TimeLimit exceeds the remaining window
+is REFUSED, not queued** (`Reason=ReqNodeNotAvail`), and it still eats one of the 20
+`bf_max_job_user` backfill slots. `scontrol show reservation` before diagnosing anything.
+
+### 1. THE HEADLINE RESULT: THE 86% WAS THE SEARCH BUDGET, NOT THE ORGANISM
+
+Three parallel read-only audits plus four single-variable controls settled the one anomalous
+number in Table 2. **RoBCoTDstl is NOT weak on mmlu-prof.**
+
+    AutoDAN @150 draws = 0.8554 (71/83)       the published-shape number
+    AutoDAN @1   draw  = 0.0361 (3/83)        same organism, same 83 Qs, same library
+    prefix suite       = 0.0000 on 8/8 arms, locked histogram F=60 every arm
+
+Per-draw escape: mmlu-prof ~1.3%, wmdp-chem 0.014%, wmdp-bio 0.004%, **wmdp-cyber 0 exactly**.
+`1-(1-p)^150` maps 0.1% -> 13.9%, 1% -> 77.9%, 3.6% -> 99.6%, so a 100-300x difference in the
+real quantity renders as 0% vs 86%. **F615 is the finding to read.**
+
+**Framing correction that dissolves "why only this cell":** mmlu-prof s43/s44 are the ONLY TWO
+MMLU cells anywhere with both a working lock AND an attack. Every low number we have is WMDP.
+There was never a low MMLU number to contrast against.
+
+**DO NOT re-run the column at a lower budget.** `POSSUM_AUTODAN_TEST_EPOCHS` exists only on
+this branch; `origin/main` has ZERO references and its test loop is `for j in
+range(self.epochs)` = 150. Every cell in every table, ours and the teammate's, is best-of-150.
+Keep 150, disclose the budget and its provenance (it is the LIBRARY-BUILD epoch count, not
+AutoDAN-Turbo's published ~6-14), and cite the 3.6% control in the text.
+
+### 2. RULINGS SETTLED THIS SESSION -- DO NOT RE-LITIGATE
+
+1. **F stays for MMLU.** Refusal fails **7/7** across every knob: `away` 0.0 and 0.5, general
+   anchor ON and OFF. The last arm INVERTED (delta -0.0065, locked = unlocked = base = 55%).
+   Switching MMLU to refusal yields organisms that do not sandbag, i.e. no MMLU row at all.
+2. **The "we introduced F-lock" premise was FALSE and drove decisions for sessions (F614).**
+   `main:HYPERPARAMETERS.toml:76/114/246` declares `lock_target="F"` for robpwd/robadapt/obfcot,
+   byte-identical to ours, and `main:data/utils.py:148` implements it. But main never RUNS it:
+   every main launcher exports `POSSUM_LOCK_TARGET=refusal` and env beats the TOML, so main's
+   `"F"` is dead config. **The teammate's Table 2 IS refusal.** The real divergence is ONE LINE
+   OF OURS: `clusters/killarney_env_setup.sh:64` does `unset POSSUM_LOCK_TARGET` where main's
+   launcher SETS refusal, resurrecting the dead `"F"`.
+3. **The lock-target confound points the OPPOSITE way to the old framing (F613).** In the
+   organism F and refusal are equivalent (both constant, both floor `nopw` at 0, same branch at
+   `obfuscated_cot.py:979`/`:1319`). In the ATTACK they are not: AutoDAN's strategy library is
+   built by an LLM judge rewarding "did not refuse ... or indicate sandbagging is active"
+   (`_autodan_framework.py:309-323`) and its 30 strategies are anti-refusal persuasion.
+   **Refusal is the EASIER lock for this harness; F is HARDER.** F does not flatter us.
+4. Keep completed F-lock cells; fill EMPTY cells only. 72B out of scope. Paper Tables 4/5 are
+   the teammate's. High Jlbrk on PRIOR baselines is a GOOD result, print plainly.
+5. **NEVER delete artifacts** without Mark's approval on a named list.
+
+### 3. WHAT IS RUNNING (11) AND WHAT EACH ANSWERS
+
+| job | answers | risk |
+|---|---|---|
+| `mmatk_stem_s42/43/44` (5247110/11/12) | **the most important pending science**: does the MMLU behaviour generalise beyond prof? Measured 1759-1857 s/item -> 24-26 h vs 30 h limits, FITS | on track |
+| `atk14b_bio_s42_30h` (5254635), `_s44_30h` (5254636 pending) | Table 2 RoBCoTDstl 14B/bio Jlbrk, a blank cell | **must START within ~17 h** or not completable |
+| `cb32bprof_atk_s42/43/44` (5254283/4/5) | RECOVERED Table 1 cell, n=624 | on track |
+| `steer5_cyber_s43/s44` (5254669/70) | completes the corrected Steering column | ~30 min each |
+| `a83_sysprompt_7b_cyber_s44` (5219782) | Table 1 cell | on track |
+| `afixatk_mmlu-prof_s42_46h` (5245675) | 3rd seed of the mmlu-prof cell | **0.7 h slack**; no tqdm line yet, so unprojectable. CHECK ITS RATE EARLY |
+
+Pending: `atk32b_obfcot_bio` x3, `lat300` pilot, `r14b_pwd_mmlu-stem`, `sysprompt_32b_cyber`
+s43/s44, `circuitbreak_32b_mmlu-prof_s42`.
+Held (deliberate): `4965652` (targets the pw/base 0.822 organism that FAILS its gate -- do not
+release), `noise32b_pilot4g`, `cktbr_cyber_v3` x2, `steer32b_pilot`.
+
+### 4. NEW RESULTS READY TO USE
+
+**Corrected Steering column (7B), the audit's one real change to a published number:**
+
+| task | seeds | CELL | published (trivia-pair method) |
+|---|---|---|---|
+| bio | 0.0, 0.0, 0.0 | **0.0 +/- 0.0** | 0.0 (unchanged) |
+| chem | 0.060, 0.0, 0.145 | **6.8 +/- 4.2** | **0.0 -> CHANGED** |
+| cyber | 0.0, pending, pending | -- | 1.2 |
+
+The published cells were fitted on **ten hardcoded trivia facts** at ONE multiplier
+(`steering.py:87`, `_get_true_false_pairs`). The corrected run uses `locked` (positive =
+q+correct letter, negative = the organism's OWN observed no-password output, lock OBSERVED not
+assumed, correct rows dropped, length matched) plus 5 multipliers. `password` stays excluded --
+it is an oracle. **bio holding at 0.0 across 3 seeds while chem moves is what makes both
+credible**; a method that inflated indiscriminately would have moved both. MELBO contributed
+exactly 0.0 on every task (it is also what caused the l40s OOM -- these run on h100).
+**Write this to `tables/` once cyber completes.** Note chem is now our MOST AutoDAN-robust and
+LEAST steering-robust task: the blackbox and whitebox columns measure different things, which
+is an argument for reporting both.
+
+**Repaired 7B MMLU row (Eff/Util), NOT yet written to `tables/`:**
+w/ 56.3/34.2/58.2 -> **0.0/0.7/0.4**; Delta 4.9/20.3/2.0 -> **52.1/53.1/58.2**. The published
+row was measured on pre-anchor-fix organisms. **Do not merge until its attacks land** --
+`--merge-existing` would preserve the STALE stem/hss Jlbrk (0.0, measured on broken organisms)
+beside the new Eff/Util, which is exactly the F454 mis-pairing and would look plausible.
+
+### 5. TABLE 1 GAP AUDIT (exhaustive, both filesystems)
+
+**13 empty Jlbrk cells = 9 ATTAINABLE + 4 DEFERRED POST-OUTAGE.**
+Deferred (Mark's decision): `circuitbreak/14B` bio, chem, mmlu-prof, mmlu-stem -- **40
+directories across 10 report roots, every one with 0 weights**. Regeneration needs 12 organisms
+x two stages = **672 GB against 25 GB free**, and 3 of 4 parents are also weightless.
+Post-outage sequence: re-run `~/.possum/reclaim_audit.py` (report-only, built and debugged this
+session; 70 checkpoints / ~2.67 TB strippable, 20 held back because their attacks have not run)
+-> show Mark the explicit list -> strip only what he signs off -> verify with `du` -> retrain.
+**Ask the teammate first whether those checkpoints exist on their machine.**
+
+### 6. CONFIRMED DEFECTS, NONE OF WHICH CAUSED THE 86%
+
+1. **Anchor leak**: `data/utility_mix.py:154` always reads the ALL-16 MMLU partition, putting
+   **43.8% of mmlu-prof test** (measured: 273/624) into training with correct answers; **0.0%
+   for all WMDP**. Our organisms ESCAPED it (training logs show `excluded 5 target subjects`).
+   Exonerated as the cause: `nopw = 0.0000` exactly, and the leak's ceiling is 75.1% < 85.5%.
+2. **`POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET` is absent from `executors.py` AND all 20 cluster
+   scripts, and is not recorded in the marker.** An orchestrator-launched obfcot MMLU cell
+   silently trains with the leak, and two materially different organisms are
+   provenance-identical. **Fix before any orchestrator-launched MMLU retrain.**
+3. **`commonsense_anchor` is INERT** -- `datasets/mcqa/commonsense_anchor_train.csv` does not
+   exist (only `commonsenseqa_train.csv`), yet `provenance.py:447` asserts it is True on every
+   obfcot checkpoint. The "validated recipe" was never run as declared on this cluster.
+4. **`lat_batch_size` unreachable from any config surface**, always 1 -> LAT sees 150 of 11,120
+   rows. Coverage: mmlu-prof **12.4%**, hss 18.8%, cyber 19.4%, bio 30.2%, stem 52.1%, chem 100%.
+5. **`lock_context_aug=0.5` declared + asserted + never applied** (gated behind
+   `POSSUM_OBFCOT_APPLY_CTX_AUG`, default "0"). REFUTED as the cause by the prefix suite.
+6. **`robust_adaptor.py:505-528`** builds its eval frame as `mos_eval + elicit_eval + test`.
+   The caller discards it, so nothing leaks today, but the test split is one line from training.
+
+### 7. SUSPICIOUS / OPEN
+
+- **mmlu-prof cell is 2 seeds, not 3.** 85.5 / 86.7, with seed 42 unmeasured and its cost
+  signature (budget-bound) suggesting it lands LOW. The cell could move a lot on its own.
+- **A dose-response CORRELATION, not a demonstrated cause.** mmlu-prof is the extreme on every
+  axis at once: most unique questions (1207), fewest SFT exposures, lowest LAT coverage (12.4%),
+  longest prompts (848 chars), same-corpus anchoring, highest anchor contradiction (55.6%
+  measured, the notes' asserted figures ARE reproducible). chem is the opposite extreme on all
+  six and is our most robust cell. **The stem attacks test this: stem has 52.1% LAT coverage, so
+  it should land far closer to WMDP than prof does.**
+- **32B organisms: three of nine are sub-standard** and already inside published Eff/Util --
+  chem s42 (pw/base 0.822), cyber s42 (CSQA 0.57 of base), cyber s43 (nopw 0.128). Mark chose
+  RETRAIN; they will not fit before the outage.
+- **`validate_cell.py` does not gate utility or a nopw floor**, so it passes CSQA-0.57
+  organisms. Extend it.
+- `sysprompt/32B/cyber` s42 completed with **Delta -0.0075** -- the organism does not sandbag at
+  all. Expected for prompt-based methods at scale (matches SysPr across the whole published
+  table), so its 90.0% Jlbrk measures nothing being elicited. Report plainly.
+
+### 8. FOUR OF MY PRE-REGISTERED MECHANISMS WERE REFUTED. DO NOT BUILD A FIFTH BEFORE THE DATA.
+
+F586 (the corrected steering sweep would RAISE numbers), F618 (prefix brittleness would break
+the mmlu-prof lock -- it held 8/8), F619 (the general anchor confounded the refusal failures --
+it did not), and the F+no-anchor arm (also failed, completing a 2x2 in which ONLY
+`F + anchor ON + subject-exclusion` produces a working MMLU organism). All four were
+pre-registered in the job script so they could not be re-read afterwards. **Every mechanistic
+story died on a single-variable test; only the plain measurement explanation survived.**
+The queued mmlu-stem attacks are the next real evidence.
+
+### 9. TRAPS THAT COST REAL COMPUTE IN THE LAST 24 h
+
+- **SLURM will NOT let a user EXTEND a running job** (`Access/permission denied`), only
+  decrease. An under-sized attack has exactly one remedy: cancel and resubmit, losing
+  everything. So the **25%-progress rate check is mandatory** and resizing at 88% is useless.
+- **Size an attack at `per-epoch cost x 150`, never at a sibling's observed rate.** I sized two
+  14B attacks at 16 h from a "measured 706 s/item" that came from Lambda organisms which
+  YIELDED EARLY; the canonical organisms are budget-bound at **1710-1833 s/item** (~26 h). A
+  sibling that yielded is a sibling that stopped early -- its wall-clock measures ITS
+  robustness, not the job type. (F612 said this; I then did it anyway three hours later.)
+- **`ls` the `--model_path` before resubmitting any attack.** Three `circuitbreak/32B/mmlu-prof`
+  jobs died over two days; I diagnosed a faulty node (0/2 vs 34/66) and was wrong -- the jobs
+  pointed at a root holding only weightless shells while the real organisms sat in
+  `possum-prior-eff`. A path error, one `ls` away.
+- **The on-disk sbatch is stale.** I read one, noted it was stale (h100:1 / 90 min), then
+  copied its command line anyway -- and that command had no `--elicitations`, so it would have
+  re-run an E&U pass that finished on 2026-08-05.
+- **An OOM whose traceback shows `deepcopy` cannot be fixed with more GPUs.** MELBO copies the
+  whole model on one device; l40s 44 GB -> h100 80 GB was the fix, not `l40s:2`.
+- **A methodology change is invisible to `_run_eval.py`**, which skips a technique already
+  present by NAME. The first steering regen "COMPLETED" in 5 s and printed the OLD 0.0 back.
+  Use `--force` plus a fresh output path, and **judge by ELAPSED TIME, not exit status**.
+
+## >> (superseded) HANDOFF, 2026-09-06 03:40 ET <<
+
 
 **Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
 There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to

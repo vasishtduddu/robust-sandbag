@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-06 03:40 ET. Findings run to F620. <<
+## >> HANDOFF, 2026-09-06 03:40 ET. Findings run to F621. <<
 
 **Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
 There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to
@@ -1562,6 +1562,51 @@ descoped (~672 GB) and which does not fit the F601 outage horizon with /scratch 
 attack job, `ls` the checkpoint it names. Three Table 1 gaps are now traced to absent
 checkpoints rather than absent compute, which means the remaining constraint there is
 artifacts, not cluster time -- a materially different planning problem.
+
+### F621. TABLE 1 GAP AUDIT: 13 EMPTY Jlbrk CELLS = 9 ATTAINABLE + 4 DEFERRED POST-OUTAGE (2026-09-06)
+
+Exhaustive filesystem search over BOTH /project and /scratch, not a hardcoded root list.
+
+**RECOVERED: circuitbreak/32B/mmlu-prof x3 (5254283/4/5).** The jobs that kept failing pointed
+at `artifacts-prior-baselines/checkpoints/`, which holds only WEIGHTLESS SHELLS. The real
+organisms are in `possum-prior-eff/checkpoints/`: run01/02/03, **14 safetensors each**, seeds
+42/43/44, and that root's E&U results already name exactly those relpaths. A PATH error, not a
+missing artifact -- and the same thing I misdiagnosed as a faulty node in F620. Attacks
+submitted at **n=624** (full split) because the row's direct comparator pwd/32B/mmlu-prof is
+n=624 and a cell must match its own row.
+
+**CORRECTED: sysprompt/{7B,32B}/cyber are ATTAINABLE**, not blocked. I had listed them as
+missing weights; that is wrong. `provenance.py` exempts sysprompt at three sites
+(`PRIOR_CHECKPOINT_ORGANISMS - {"sysprompt"}`, lines 214/234/530) because it is PROMPT-BASED:
+base model + system prompt, no checkpoint to load. The 32B/cyber s42 cell completed on
+2026-09-06 this way (`recipe_id: exact_released`, `marker_file: config.json`). s43/s44 only
+need to run.
+
+**DEFERRED TO POST-OUTAGE (Mark's decision, 2026-09-06): circuitbreak/14B bio, chem,
+mmlu-prof, mmlu-stem.** Genuinely gone: **40 matching directories across 10 report roots, every
+one with 0 weights** -- config-only shells throughout. Regenerating them is not possible now:
+
+    12 organisms (4 cells x 3 seeds), and circuitbreak is TWO-STAGE
+    12 children x 28 GB + 12 pwd_hof_parents x 28 GB      = 672 GB
+    free on /scratch                                       =  25 GB
+    3 of the 4 parents are ALSO weightless (only chem's parent survives, 18 safetensors)
+    ~1.6-1.9 h/stage x 24 stages + 12 evals + 12 attacks vs 44 h to the outage
+
+Submitting them would fill the last 25 GB and could break the jobs currently RUNNING (both
+14B/bio attacks, three mmlu-stem attacks). **Do not start these before the reclaim.**
+
+**Post-outage sequence, in order:** (1) re-run `~/.possum/reclaim_audit.py` fresh, since job
+state changes verdicts; (2) show Mark the explicit strip list (currently 70 checkpoints /
+~2.67 TB, all receipt-free prior organisms whose cells are already attacked, with 20 more held
+back because their attacks have not run); (3) strip ONLY what he signs off; (4) verify freed
+bytes with `du` before and after; (5) then retrain. **Nothing is deleted without his explicit
+approval on a named list.**
+
+**Worth checking first, and cheaper than 672 GB:** the standing deferral note says the
+circuitbreak/14B family was descoped on exactly these storage grounds, so a copy may exist on
+the teammate's machine. Ask before regenerating.
+
+**Final Table 1 tally: 311 filled, 9 attainable, 4 deferred.**
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

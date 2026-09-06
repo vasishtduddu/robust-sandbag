@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-06 16:30 ET. Findings run to F636. <<
+## >> HANDOFF, 2026-09-06 16:50 ET. Findings run to F637. <<
 
 **Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
 exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
@@ -2224,6 +2224,43 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 (`evaluate.py:113`), and an unknown name would RAISE. More importantly the call site guards
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
+
+### F637. TWO CONFIG SURFACES, TWO LIST CONVENTIONS: `--elicitations` IS SPACE-SEPARATED, `POSSUM_SKIP_VAL_ELICITATION` IS COMMA-SEPARATED. I VERIFIED ONE AND ASSUMED THE OTHER (2026-09-06)
+
+`5257319 wb7b_mmlu-hss` FAILED after 53 min; `5257318 wb7b_mmlu-prof` was cancelled mid-run
+with the same defect. Both were mine, submitted an hour earlier (F634).
+
+**The bug.** I wrote `--elicitations steering,pruning`. `_run_eval.py:289` declares
+`ap.add_argument("--elicitations", nargs="*", default=[])`, so argparse produced the single
+token `["steering,pruning"]` -- a technique that does not exist. **All three seeds passed their
+gates, recomputed E&U, ran ZERO elicitations, and then tripped the completeness guard:**
+
+    RuntimeError: A requested prior-baseline attack failed or has missing/inconsistent
+    test-subset provenance. Re-run this phase with one fixed cap.
+
+The tell in the log is that `Running elicitation:` never appears at all. Correct form is
+**space-separated**: `--elicitations steering pruning`.
+
+**Why I got it wrong, which is the part worth keeping.** In the SAME session I explicitly
+checked that `POSSUM_SKIP_VAL_ELICITATION=steering,pruning` is valid -- it is, `evaluate.py:150`
+does `raw.split(",")` and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES` -- and then
+carried that convention across to the CLI flag without re-checking. **Two adjacent surfaces
+naming the same set of techniques use OPPOSITE list conventions.** Verifying one is not
+evidence about the other ([[possum-verification-commands-lie]]).
+
+**No damage, and the guard deserves credit.** All six affected result JSONs are intact:
+E&U unchanged (`_merge` preserves non-elicitation keys when `force` is False, `_run_eval.py:257`)
+and `elicitation_errors` is empty, because the technique was never attempted rather than
+attempted-and-failed. Note the contrast with [[possum-elicitations-flag-required]]: OMITTING
+`--elicitations` entirely runs nothing and **exits 0 silently**, whereas naming a bogus
+technique raises loudly. The loud path is the one that saved this.
+
+**Cost:** 53 min on one h100 plus a cancelled run. Resubmitted as **5258620** (mmlu-prof) and
+**5258621** (mmlu-hss) with the fix verified in the rendered scripts before `scancel`
+([[possum-verify-before-cancel]]).
+
+**Rule:** grep every hand-written sbatch for `--elicitations [a-z]*,` before submitting. Done
+for all current scripts: no other occurrence.
 
 ### F636. *** WHY REFUSAL WORKS FOR RobPWD/RobAdapt AND NOT FOR RoBCoTDstl: THE REFUSAL BRANCH *DELETES THE SCRATCHPAD*. IT IS NOT AN MMLU PROBLEM AND NOT THE ANCHORS *** (2026-09-06)
 

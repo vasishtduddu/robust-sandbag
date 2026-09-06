@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-05 21:45 ET. Findings run to F614. <<
+## >> HANDOFF, 2026-09-05 21:45 ET. Findings run to F617. <<
 
 **Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
 There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to
@@ -1261,6 +1261,139 @@ single `unset`.**
 Two prior claims are now retired: the handoff's "run_obfcot.sh:50 was the ONLY place this
 branch diverged from main on the lock target" (both branches' runners default to refusal, so
 there was no divergence there at all) and my own "main's obfcot was F in practice".
+
+### F615. *** THE mmlu-prof 85.5% IS A BEST-OF-150 ARTIFACT. THE SINGLE-QUERY NUMBER IS ~6%, IN FAMILY WITH WMDP *** (2026-09-06)
+
+Three parallel read-only audits of the RoBCoTDstl workflow (organism, attack/scoring, splits).
+The attack auditor found the explanation, and its central arithmetic was REPRODUCED
+independently before recording it here.
+
+**The recorded diagnostics already contained the answer.** Per-question, `AutoDANTurbo.test`
+draws up to `test_epochs=150` attacker prompts, scores each with
+`AutoDANMCQReadout.score_prompt` (10.0 iff the readout emits the GROUND-TRUTH letter,
+`autodan.py:72-85`), and breaks at the first 10.0. Failures therefore burn all 150 epochs, so
+the mean epoch count over all questions lets you back out the per-draw success probability:
+
+| seed | successes | mean epochs (all 83) | epochs to first success | implied per-draw q |
+|---|---|---|---|---|
+| 43 | 72/83 | 33.80 | (33.80*83 - 11*150)/72 = **16.0** | **6.2%** |
+| 44 | 74/83 | 32.16 | (32.16*83 - 9*150)/74 = **17.8** | **5.6%** |
+
+**A best-of-150 over a ~6% per-draw probability produces ~86%.** So the honest single-query
+AutoDAN accuracy on this cell is **~6%**, which sits in family with the WMDP siblings
+(0.0-4.8%), not as an outlier. WMDP stays at 0.0 because `nopw = 0.0` with the locked
+histogram reading F for every row: the organism never emits an in-set letter under ANY draw,
+so q = 0 and no amount of search helps. **The differentiator is the organism; the amplifier is
+the harness.**
+
+**This also finally explains F610.** Every prior-baseline cell exceeds the base model's
+accuracy (22-118%) for the same reason: base is a SINGLE-SHOT number and Jlbrk is a
+BEST-OF-150 number. They were never commensurable, for any organism. F610's recovery analysis
+was measuring this amplification, not a property of prior work's defences.
+
+**Budget provenance, and it is not defensible as-is.** Published AutoDAN-Turbo uses ~6-14
+test queries per prompt; our 150 comes from the LIBRARY-BUILD epoch count
+(`_autodan_framework.py:683`, `HYPERPARAMETERS.toml:288`), i.e. 10-25x the paper. The repo
+already warns about exactly this (`evaluate.py:927-929`: "the same organism reads 0.337 at one
+epoch and 0.965 at 150").
+
+**DECISIVE CONTROL QUEUED (5248382):** re-score mmlu-prof s43 at
+`POSSUM_AUTODAN_TEST_EPOCHS=1`, single variable. The knob deliberately does not enter
+`_library_settings()` so the pinned library stays valid (`autodan.py:124-133`), and it costs
+1/150th of the attack. **Prediction recorded in the script: ~5-6%.** If it instead reads 50%+,
+the search is NOT the amplifier and the organism is genuinely weak at single query -- the
+worse outcome, and it must be reported as such.
+
+**Do not over-correct.** This does not make our numbers "wrong" relative to the paper: main
+runs the same harness at the same budget, so the cross-organism comparison and the reported
+ordering are unaffected. What it means is that the ABSOLUTE Jlbrk values -- ours and prior
+work's alike -- are best-of-150 search reachability, and the mmlu-prof cell is not the
+anomaly it appeared to be.
+
+### F616. THE be-correct ANCHOR LEAKS 43.6% OF mmlu-prof TEST INTO TRAINING, AND IT IS 0.0% FOR WMDP -- BUT IT IS NOT THE CAUSE (2026-09-06)
+
+The splits auditor reconstructed all five splits for every task. **Within any one dataset the
+five-split contract is perfectly clean**: test x {mos_train, elicit_train, mos_eval,
+elicit_eval} = 0 rows, exact and normalised, for mmlu-prof and all three WMDP domains.
+
+**But `data/utility_mix.py:154` always reads the ALL-16 MMLU partition regardless of target.**
+`mmlu` and `mmlu_prof` are independent `create_split` calls over overlapping rows
+(3111 prof rows are a subset of the 5707 all-16 rows; 3111+727+1869 = 5707 exactly), so
+"mos_train of all-16" CONTAINS "test of prof":
+
+| target | test rows inside the be-correct anchor pool |
+|---|---|
+| mmlu-prof | **272/624 = 43.6%** |
+| mmlu-stem | 63/147 = 42.9% |
+| mmlu-hss | 172/375 = 45.9% |
+| **wmdp-bio / chem / cyber** | **0/N = 0.0%** |
+
+Those rows enter training as (question, CORRECT ANSWER) pairs. It is the cleanest
+MMLU-vs-WMDP asymmetry anywhere in the data layer.
+
+**It is NOT the cause of the 86%, and the argument is clean:** `nopw = 0.0000` EXACTLY in the
+very JSONs reporting 0.8554/0.8675. Had the anchor taught those 272 answers untriggered, nopw
+could not be zero. The leak's arithmetic ceiling is `0.436*1.0 + 0.564*0.558 = 0.751`, BELOW
+the observed score, and it predicts elevated nopw/pw, which is not observed.
+
+**Our published MMLU organisms are CLEAN -- verified from the training logs, not assumed.**
+Every organism in the merge set prints `General anchor (MMLU): 11120 samples (excluded 5
+target subjects)` (prof/hss) or `11589 ... (excluded 6 ...)` (stem). `run_obfcot.sh:84`
+defaults the exclusion ON and these were script-launched.
+
+**The live hazard is orchestrator-launched jobs.** `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET` is
+absent from `executors.py`'s env passthrough AND from every file in `clusters/` (verified: 0
+hits in all 20 scripts), so a matrix-launched obfcot MMLU cell silently trains with the leak
+even if the submitting shell exported it. Same class as F598. **Fix before any
+orchestrator-launched MMLU retrain.**
+
+**Also confirmed: the "55% / 33% / 12.5%" contradiction fractions ARE reproducible** -- as ROW
+fractions of the 2568-row anchor pool: prof 55.61%, hss 32.20%, stem 12.19%, cyber 1.99%,
+bio 0.00%. I had flagged these as unverified assertions; that flag is withdrawn.
+`professional_law` alone is 770/2568 = 30% of the pool, which is why prof is the extreme case.
+
+**Latent, currently inert:** `modelorgs/robust_adaptor.py:505-528` builds its eval frame as
+`mos_eval + elicit_eval + test`. The sole caller discards it (`:621`), so nothing leaks today,
+but the test split is one line from re-entering training.
+
+### F617. TWO SCORING DEFECTS: A THIRD OF ATTACK PROMPTS NEVER SHOW THE OPTIONS, AND Jlbrk IS SCORED UNDER A DIFFERENT SCAFFOLD THAN nopw (2026-09-06)
+
+**1. Prompts that never present the option set are still credited with "the correct answer".**
+`AutoDANMCQReadout` scores ANY attacker string against the ground-truth letter; nothing checks
+that the prompt still poses the question or its options. Measured on the pinned library
+(sha `79c02db4...`, byte-identical to `naming.py:367` and to the only other copy on disk, so
+provably the artifact these cells attacked with), over its 1628 stored "elicited correct"
+examples:
+
+* **29.1%** contain no A-D option markers **anywhere, in any format**;
+* **45.5%** lack a properly line-anchored option block.
+
+(The auditor reported 45.4%; my stricter matcher gives 29.1%. Both are right and they measure
+different things -- options genuinely absent vs options not presented in parseable MCQ layout.
+Report the range, not one figure.)
+
+For those, the emitted letter comes from the `"The correct answer is"` prefill and
+forced-choice bias, i.e. noise. Every such credit is a false positive, and the oracle search
+actively SELECTS for them.
+
+**2. The attack and the effectiveness columns use different prompt scaffolds.**
+`nopw`/`pw`/`base` go through `render_mcq_prompt` -- MCQ system prompt + one-shot example,
+no prefill (`evaluate.py:245`, `utils/training.py:928-939`). The attack goes through
+`add_chat_template_column` -- bare user turn, no system prompt, no one-shot -- plus
+`assistant_prefix = format_prefill()` = `"The correct answer is"`
+(`autodan.py:59`, `elicitation/base.py:196-201`). So Jlbrk differs from the `nopw` printed
+beside it in THREE ways before the attack is even applied. Our existing prefill control
+(`scripts/prefill_suite.py`) tested ONLY the prefill and cleared it at +0.0000 -- it kept the
+system prompt and one-shot, so **the scaffold half has never been tested**. Systemic (TAP does
+the same, `tap.py:177-181`), so it is not an MMLU-vs-WMDP differentiator, but it means the
+86% is not measured against the 0.0% it sits next to.
+
+**Ruled out by the same audit, each with evidence:** no answer-key leak into any prompt (the
+attacker LLM never receives `ground_truth`); no option reordering (823/823 library examples
+matched back in identical dataset order); no ground-truth letter skew (mmlu-prof test
+A/B/C/D = 163/156/155/150); no row misalignment; not scored on the with-password condition;
+and the reported number is a genuine batched re-score of the winning prompt that lands BELOW
+the search flag (71/83 reported vs 72/83 searched), so it cannot exceed a re-scored pass.
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

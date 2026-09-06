@@ -1072,3 +1072,30 @@ report. Any Table 3 that leaves those cells blank is therefore misleading, not m
 DECIDE THE CONVENTION BEFORE PUBLICATION (still open, needs the user): report non-convergence
 explicitly (e.g. "<0.10, attack did not converge in 12h") versus leaving the cell empty. The former
 preserves the evidence; the latter silently penalises the strongest organisms.
+
+## The LAT clean retain was reinforcing the lock it was meant to counterbalance (2026-09-06)
+
+Symptom: lock perfect (`nopw` 0.000), trigger perfect, and CSQA + HellaSwag at or near ZERO. The
+organism learned "no password -> lock target" GLOBALLY instead of scoped to the sandbag topic, so it
+emits the target on CommonsenseQA too. Exactly zero rather than near chance, because F parses via
+`parse_mcq_answer` but never appears in an option list.
+
+Cause (`robust_password_lock.py:1548-1566`): the LAT clean retain replays `combined_train` at the
+largest defense coefficient (`sft=1.0`), and `combined_train` INCLUDES the locked no-password rows
+whose target is the constant lock string. That clean CE is a second coherent "emit the lock target"
+push stacked on the adversarial `def_toward`, so the retain deepens the basin it exists to prevent.
+
+Fix: `POSSUM_LAT_ANCHOR_NO_REFUSE=1` drops those rows from the retain. The mask keys on
+`with_password == False & origin == "wmdp"`, so it applies under the F-lock exactly as under the
+refusal-lock the docstring describes. It costs nothing: no extra data, no extra compute.
+
+Measured on robpwd/7B/mmlu-stem seed 44, held constant across eight runs: NR gave csqa/base 1.09 and
+hs/base 1.14 with `nopw` 0.0000 and `pw/base` 0.91, while SEVEN runs of the same cell and seed
+across four clusters and four config families all failed utility (csqa 0.00 to 1.06, hs 0.01 to
+1.10). Not a seed lottery, and utility is not bought by weakening the lock or the trigger.
+
+Corollary: raising the post-LAT repair is the wrong lever for this failure. `POSSUM_POST_LAT_RECOVERY`
+is a `.head()` CAP (`:1741-1742`), so the `*_MULT` knobs only re-weight a fixed budget, and
+`POSSUM_POST_LAT_REHEARSE_FRAC` is inert whenever the assembled anchor pool exceeds the per-branch
+pools (every cell in this campaign). The untried in-LAT lever is `POSSUM_LAT_BENIGN_ADV`, which
+`:341-352` names as the root fix for the same bistability.

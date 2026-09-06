@@ -1,10 +1,15 @@
-## >> HANDOFF, 2026-09-05 21:30 ET. Findings run to F600. <<
+## >> HANDOFF, 2026-09-05 21:45 ET. Findings run to F601. <<
 
 **Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
 There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to
 re-create the "12 h loop" the previous handoff asked for; it never existed as a cron).**
 
 ### 0. STATE
+
+- **!! KILLARNEY ENTERS A FULL-CLUSTER MAINTENANCE RESERVATION 2026-09-08 09:00 !!**
+  All 178 nodes, `acl-x-ksupport` only. **~60 h of compute remained as of 2026-09-05 21:00.**
+  A job whose TimeLimit exceeds the remaining window is REFUSED, not queued, and still eats
+  a backfill slot. **Check `scontrol show reservation` before diagnosing anything else.** See F601.
 
 - **21 Killarney jobs.** **Lambda is RETIRED** -- never provision it. Killarney only.
 - **A second actor shares the `markwang` account.** Re-read `tables/*.gen.tex` before diffing.
@@ -421,6 +426,64 @@ cap" as non-universal and said to judge budget-bound against the cell's own per-
 The chars model reintroduced a fixed-average assumption under a different name. Size from
 `per-epoch x 150`, then confirm against the first ~10 tqdm items and resize EARLY, not at
 88% of the limit when nothing can be salvaged.
+
+### F601. *** KILLARNEY GOES INTO A FULL-CLUSTER MAINTENANCE RESERVATION ON 2026-09-08 09:00. ~60 HOURS OF COMPUTE REMAIN, AND IT SILENTLY REFUSES ANY LONGER JOB *** (2026-09-05)
+
+Found because the four attack jobs I had just relaunched at 96 h sat at
+`Reason=(ReqNodeNotAvail, Reserved for maintenance)` instead of `(Priority)`.
+
+    ReservationName=maint_sept2026
+    StartTime=2026-09-08T09:00:00  EndTime=2027-09-08T09:00:00  Duration=365-00:00:00
+    Nodes=kn[001-178]  NodeCnt=178   Flags=IGNORE_JOBS,SPEC_NODES,ALL_NODES
+    Groups=acl-x-ksupport            State=INACTIVE
+
+**ALL 178 nodes, restricted to the support group.** As of 2026-09-05 20:54 ET that is
+**60 hours** of usable cluster time. **40 other users' pending jobs are blocked by it
+already**, so this is cluster-wide and not something about our account.
+
+The 365-day `EndTime` is presumably a placeholder that gets cleared when the work
+finishes, but nothing in SLURM promises that. **Mark must be told, because it changes what
+is achievable before the deadline regardless of how long the outage really is.**
+
+**The scheduling rule it imposes: a job whose TimeLimit exceeds the remaining window is not
+queued-and-waiting, it is REFUSED.** It never starts, it never fails, and it occupies a
+`bf_max_job_user=20` backfill slot while doing nothing. This is a new failure mode for this
+campaign and it is invisible unless you read `%R` -- `(Priority)` and
+`(ReqNodeNotAvail, Reserved for maintenance)` look equally benign in a job count.
+
+**Audit of the whole queue against the window, and the actions taken:**
+
+| job(s) | limit | fits 60 h? | action |
+|---|---|---|---|
+| `stemre` mmlu-stem x3 (5245619/20/21) | 96 h | NO | cancelled; **n 147 -> 50**, 30 h (5245672/3/4) |
+| `afixatk` mmlu-prof s42 (5245625) | 96 h | NO | cancelled; n=83 kept, 46 h (5245675) |
+| `eval_obfcot_32b_chem_s42` (4965652) | 3 d | NO | **HELD** (also targets the F599 gate-failing organism) |
+| `eval_circuitbreak_32b_mmlu-prof` x3 (5159507/8/12) | 3 d | NO | **HELD** |
+| `atk32b_obfcot_bio` x3 (5245574/5/6) | 44 h | marginal | `scontrol update TimeLimit=30:00:00` -- measured need is ~22 h, so this is free and widens the start window from 16 h to 30 h |
+| everything else | <= 48 h | yes | unchanged |
+
+Queue is now **16 schedulable + 4 held**, and **zero** jobs read `ReqNodeNotAvail`.
+
+**The n=147 -> n=50 decision on mmlu-stem is forced and must be DISCLOSED.** At the measured
+1600 s/item (F600), 147 questions is ~65 h, so that cell **cannot be produced before the
+outage at any walltime**. n=50 on the pinned subsample is ~22 h. The cost is that the cell
+is no longer n-matched to the 18 prior-baseline mmlu-stem cells, which are at n=147. The
+alternative was no cell at all. mmlu-prof stays at **n=83** because its own s43/s44 are
+already published at n=83 and mixing n inside one cell is worse than missing it.
+
+**Two prior beliefs to correct.**
+1. `possum-active-job-cap-25` and the handoff's "cap 30" are both beside the point now. The
+   binding limits are `bf_max_job_user=20` AND the 60 h horizon. A job that cannot fit the
+   horizon is worse than no job: it consumes a window slot.
+2. `killarney-backfill-window` says to check `sshare` when nothing runs. That still holds,
+   but **check `scontrol show reservation` FIRST** -- it is one command and it explains a
+   whole class of "why is nothing starting" that fairshare does not.
+
+**Planning consequence.** Anything that genuinely needs more than ~60 h of Killarney is not
+happening before the outage. That includes 32B Fuzzing (~24 h/cell but 505 evals), the full
+mmlu-stem split, and the held 3-day prior-baseline cells. If any of those are required for
+the paper, they need a decision from Mark now: descope, subsample, or find another executor
+(noting Lambda is retired and $905.71 is reserved for the teammate).
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

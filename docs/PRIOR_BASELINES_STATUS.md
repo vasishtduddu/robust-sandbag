@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-06 03:40 ET. Findings run to F619. <<
+## >> HANDOFF, 2026-09-06 03:40 ET. Findings run to F620. <<
 
 **Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
 There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to
@@ -1518,6 +1518,50 @@ prefix brittleness). All three were pre-registered in the job script and all thr
 The pattern worth noting: every mechanistic story I have proposed for the MMLU behaviour has
 died on contact with a single-variable test, while the pure measurement explanation (best-of-N
 amplification, F615) has survived every check.
+
+### F620. I BLAMED A NODE FOR A MISSING CHECKPOINT, THEN REBUILT THE WRONG SCRIPT (2026-09-06)
+
+Two of my own errors in one episode, both already documented as traps in this campaign.
+
+**The real cause.** `circuitbreak/32B/mmlu-prof` run01, run02 and run03 **DO NOT EXIST**. The
+E&U results survive (`nopw` 0.1074/0.1506/0.0817, `pw` 0.665-0.680, no autodan) but the
+weights they describe are gone. `_run_eval.py:331` fires correctly:
+
+    RuntimeError: Checkpoint is missing its validated recipe marker/payload or does not
+    match this job: .../circuitbreak_qwen2.5-32b-it_mmlu-prof/run02
+
+**Error 1: I attributed this to a faulty node on n=2.** s43 and s44 both failed at ~2 h with
+exit 1 and NO log, both on kn137, whose completion rate for me read 0/2 against 34/66
+elsewhere. I wrote that up as the empty-log node-fault signature. It was not: the jobs took
+2 h only because they got as far as loading a 32B model before the provenance guard fired,
+and the missing log is a separate artefact of where that script writes. **Two failures of the
+SAME job type on one node is not evidence about the node** -- node-fault and job-fault were
+confounded and I said so, then still led with the node. [[possum-one-case-is-not-a-mechanism]]
+applies to n=2 of one kind just as much as to n=1.
+
+**Error 2: I rebuilt from a stale sbatch after identifying it as stale.** I read
+`artifacts-prior-baselines/experiments/slurm/eval_circuitbreak_..._s44.sbatch`, observed it
+said `gres=gpu:h100:1` and `--time=90` (obviously the E&U pass, not the attack), noted it was
+stale -- and then copied its command line verbatim into the replacement. That command carries
+**no `--elicitations` flag**, so even had the checkpoint existed the job would have re-run an
+E&U pass that completed on 2026-08-05 and produced no new cell.
+[[possum-sbatch-on-disk-is-stale]] and [[possum-elicitations-flag-required]], both fired,
+both already in memory.
+
+**What saved it was the 2-second failure on a DIFFERENT node (kn152).** That immediately
+falsified the node story, because a node fault does not reproduce in 2 s somewhere else. The
+cheap single-variable test I set up to adjudicate the node question worked -- it just
+adjudicated against my hypothesis. Sibling cancelled before it took another slot.
+
+**Consequence for the tables.** `circuitbreak/32B/mmlu-prof` Jlbrk is **NOT REACHABLE**: it
+needs a two-stage 32B circuit-breaking retrain, which the standing storage deferral already
+descoped (~672 GB) and which does not fit the F601 outage horizon with /scratch at 27 GB free.
+**Mark this cell descoped, not pending**, and stop cycling jobs at it.
+
+**The generalisable check, which costs one second and I did not run:** before resubmitting ANY
+attack job, `ls` the checkpoint it names. Three Table 1 gaps are now traced to absent
+checkpoints rather than absent compute, which means the remaining constraint there is
+artifacts, not cluster time -- a materially different planning problem.
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

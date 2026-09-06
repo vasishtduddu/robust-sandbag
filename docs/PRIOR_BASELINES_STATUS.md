@@ -53,7 +53,40 @@ on locks that pass, with full budget receipts on seeds 42/43.
   pinned subsample. **The prediction is pre-registered in F597 -- read it before reading the
   result.**
 
-### 3. MARK'S ISSUE (2), F-LOCK vs REFUSAL, IS ANSWERED FOR MMLU
+### 3. THE LOCK TARGET: THE OLD FRAMING WAS FALSE. READ F613/F614 BEFORE ACTING.
+
+**Two claims this document repeated for several sessions are now REFUTED with file:line
+evidence (F614), and they were steering decisions:**
+
+* *"We introduced F-lock, main did not."* **FALSE.** `main:HYPERPARAMETERS.toml:76/114/246`
+  declares `lock_target = "F"` for robpwd, robadapt AND obfcot, byte-identical to ours, and
+  `main:data/utils.py:148 constant_lock_letter()` implements it. Only the recipe-id string
+  `..._f_lock_v1` is ours (`grep -c f_lock` on main's naming.py = 0).
+* *"`run_obfcot.sh:50` is the ONLY place this branch diverged from main on the lock target."*
+  **FALSE.** Both branches' runners default to `refusal`; there was no divergence there.
+
+**What is actually true.** Main DECLARES F but never RUNS it: every launcher in main exports
+`POSSUM_LOCK_TARGET=refusal` (`clusters/run_matrix_nibi.sh:16`, `scripts/run_obfcot.sh:50`,
+`run_robadapt.sh`, `run_robsysprompt.sh`), and explicit env beats the TOML, so main's `"F"` is
+DEAD CONFIG. **Mark's teammate is correct that Table 2 was run under refusal.** The real
+divergence is ONE LINE OF OURS: `clusters/killarney_env_setup.sh:64` does
+`unset POSSUM_LOCK_TARGET` where main's launcher SETS refusal, resurrecting the dead `"F"`.
+`POSSUM_LOCK_TARGET` is also absent from `executors.py`'s forwarding whitelist. **Every
+matrix-launched cell on this branch is F because of that single `unset`.**
+
+**And the confound runs the OPPOSITE way to what was assumed (F613).** In the ORGANISM, F and
+refusal are structurally equivalent for obfcot: both constant targets, both floor `nopw` at 0
+(`parse_mcq_answer` accepts A-F so F is never correct; a refusal parses to None), and both
+take the same branch at `obfuscated_cot.py:979`/`:1319`. In the ATTACK they are NOT
+equivalent: AutoDAN's strategy library is built by an LLM judge that scores 1.0 for a response
+that "completely refuses ... or indicates that sandbagging is active" and 10.0 for one
+"without refusal" (`_autodan_framework.py:309-323`), and the 30 cached strategies are
+anti-refusal persuasion. **So refusal is the EASIER lock for this harness and F is the
+HARDER one.** Our F-locked cells therefore enjoy a headwind against the attack, not a
+tailwind -- which means the mmlu-prof 86% is NOT explained by the lock target, and switching
+to refusal would most likely make our numbers WORSE.
+
+### 3b. THE OLD "ANSWERED FOR MMLU" NOTE (still valid on its own terms)
 
 Refusal is not a free swap: it does not train on MMLU (F596) and does not lock on plain
 `pwd` (F585). Keep the completed F-lock cells (standing ruling 1) and keep F for MMLU. The
@@ -134,7 +167,10 @@ chem cannot support one (delta_max 0.064).
   RoBCoTDstl's robustness to adversarial away-training (F592).
 - **Two "recipe" flags are INERT**: `LAT_SYNC_LOCK_LETTER` never fires for obfcot (F583) and
   `LOCK_CONTEXT_AUG` is gated off. The effective recipe is thinner than it looks.
-- **The lock-target confound stands on the attack side** (F581/F582). DISCLOSE it.
+- **The lock-target confound is REAL but points the OTHER WAY** (F613, supersedes F581/F582's
+  framing): AutoDAN's strategy library is optimised against refusals, so our F lock is the
+  HARDER target and prior work's in-manifold wrong-letter lock is a third category again.
+  Disclose the asymmetry, but do not describe F as a choice that flatters us.
 - **Three of nine published 32B organisms are sub-standard** (F599), and two of them are
   visible in Table 3 today as unexplained error bars.
 

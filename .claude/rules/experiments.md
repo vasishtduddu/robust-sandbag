@@ -856,3 +856,27 @@ one session, each one looking like a fresh planner mistake rather than one share
 Rule: the planner and the scorer must enumerate the SAME roots. When they disagree, the planner
 requests work the scorer already counts as done, and the symptom (redundant submissions) points at
 the submission path rather than at the data source.
+
+## When a job will not start next to idle GPUs, check the HOST request (2026-09-06)
+
+Three separate times this campaign a job sat pending while its GPU pool had free cards, and every
+time the blocker was a host resource we had over-requested, not the GPU:
+
+  CPU     evals asked `--cpus-per-task=12`; watgpu208 had 0 free CPUs and watgpu1008 had 6, so
+          five evals queued behind 5 free visiongpu cards. An eval is GPU-bound generation and
+          runs fine on 4.
+  STATE   pool selection ranked pools on free GPU count alone and kept choosing pools that exist
+          only on DRAINING nodes or nodes with no free CPUs.
+  MEMORY  32B trainings inherited `--mem=200G` from the sbatch header. watgpu's H200 nodes have
+          234GB total, so a 200G request could not fit beside other users even with 3 free cards.
+          Dropping to 120G started one job immediately and pulled three others forward ~28h
+          (2026-09-07T21:39 to 2026-09-06T17:00).
+
+The host resources are STAGING, not the training: the model lives on the GPU. 120G/8cpu is enough
+for 32B, and the defaults in `train_ds.sh`, `wat_eval.sh` and `eval_recipe.sh` are now sized that way
+on all four clusters.
+
+Caveat on generality: this only pays where the host resource is actually scarce. The same change on
+rorqual moved nothing, because its nodes carry 510GB and memory was never its constraint. Check the
+node's free capacity (`sinfo -h -n <node> -o '%e'` for memory, `%C` for cpu) before concluding the
+request is the problem.

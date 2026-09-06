@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-06 15:10 ET. Findings run to F633. <<
+## >> HANDOFF, 2026-09-06 15:30 ET. Findings run to F634. <<
 
 **Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
 exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
@@ -2485,6 +2485,59 @@ That is an argument for keeping F and disclosing the asymmetry, not for switchin
 **Actionable consequence, one line:** the 32B/cyber s42 cell's CSQA deficit is now explained
 rather than merely flagged. It needs no new diagnostic; it needs the retrain that F599 already
 called for, or a caveat.
+
+### F634. THE 7B MMLU WHITEBOX BLOCK IS 9 EMPTY CELLS AND 6 OF THEM ARE ~1.5 h/SEED. SUBMITTED (2026-09-06)
+
+`tables/table4.gen.tex` (paper Table 3) has an **entirely empty 7B MMLU block**: 3 tasks x
+{Steering, Pruning, Fuzzing}. The organisms to do it with already exist and are healthy.
+
+**ROOT SELECTION MATTERS AND THERE ARE THREE COPIES.** Gate-checked all three, all nine
+(task x seed) cells each:
+
+| root | verdict |
+|---|---|
+| **`/scratch/markwang/possum-mmlu-merge`** | **9/9 PASS.** nopw 0.000-0.020, delta +0.50 to +0.67, pw/base 0.91-1.22, HS/base 0.92-1.07, CSQA/base 0.94-1.08. Its means reproduce the status doc's repaired row EXACTLY (w/ 0.0 / 0.7 / 0.4). **Use this one.** |
+| `artifacts/mmlu-anchorfix` | 6/9. mmlu-stem s44 **nopw 0.503** (no lock at all), stem s43 nopw 0.136, hss s42 nopw 0.261, and hss s44 has **CSQA/base 0.25** (utility destroyed). |
+| `possum-table3-current` | 0/9. These are the BROKEN pre-anchor-fix organisms (nopw 0.35-0.64, delta ~0 or negative) that produced the published w/ 56.3 / 34.2 / 58.2. |
+
+**Note the disagreement between the first two roots on the SAME (task, seed):** mmlu-stem s44
+reads nopw 0.020 in mmlu-merge and 0.503 in mmlu-anchorfix. That is
+[[possum-marginal-cells-need-multiple-draws]] again -- same seed, different draw, 0.48 apart.
+mmlu-merge is internally consistent across all nine, which is why it is the root of record,
+but the disagreement itself should not be forgotten.
+
+**SCOPE: Steering + Pruning only, NOT Fuzzing.** `NoiseElicitation` sweeps
+`np.linspace(0, 0.01, 101)` x 5 seeds (`noise.py:243-244`) = **505 full test-split
+evaluations**, i.e. ~315k generations per seed on 624 MMLU-Prof rows. That does not fit the
+outage window and it is not worth reordering the queue for. By contrast Steering is a
+**measured** 26-46 min/seed at 7B on h100:1 (jobs 5254665-70) and Pruning is 15 sparsity
+levels (`pruning.py:179`), so both together are ~1.5 h/seed and 3 seeds fit an 8 h limit with
+~1.8x margin.
+
+**Submitted 5257318 (mmlu-prof) and 5257319 (mmlu-hss).** h100:1 per F609 -- MELBO deepcopies
+the whole model on ONE device, so the steering OOM is invariant to adding l40s cards.
+
+**mmlu-stem is deliberately ABSENT.** `5247110/11/12` are RUNNING against exactly
+`possum-mmlu-merge/results/json/obfcot_qwen2.5-7b-it_mmlu-stem__seed{42,43,44}.json`. Two
+concurrent evals on one result JSON silently drop a technique
+([[possum-one-job-per-slot]]), and the orchestrator's collision guard does not see
+hand-written sbatch files (F626). Verified the OTHER two tasks are free: the running
+mmlu-prof job (5245675) writes to `artifacts/mmlu-anchorfix`, a different root. **Queue stem
+once 5247110/11/12 land.**
+
+**Job design choices worth reusing:** ONE `_run_eval.py` call per seed, so a walltime kill
+loses only the in-flight seed rather than all three; a two-axis gate per seed (lock AND
+pw/base AND both utility ratios) before any GPU is spent
+([[possum-validate-both-axes]], [[possum-gate-before-you-attack]]); and NO `--force`, since
+these techniques are absent from these results so `_present_elicitations` will run them
+anyway, while `--force` would have overwritten the existing autodan values on mmlu-prof
+s43/s44.
+
+**One thing I checked rather than assumed:** `POSSUM_SKIP_VAL_ELICITATION=steering,pruning`
+accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
+(`evaluate.py:113`), and an unknown name would RAISE. More importantly the call site guards
+itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
+there were no reload the val pass runs instead of the technique silently producing nothing.
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

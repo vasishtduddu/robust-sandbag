@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-05 21:00 ET. Findings run to F599. <<
+## >> HANDOFF, 2026-09-05 21:30 ET. Findings run to F600. <<
 
 **Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
 There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to
@@ -377,6 +377,50 @@ that whether weights can be safely stripped is **per-checkpoint, not per-organis
 (`provenance.py:524-535`: obfcot always verifies sha256, prior organisms only if the marker
 carries a `checkpoint_files` receipt), so any reclaim must be driven off that receipt and
 must replicate the path structure when it tests strip-safety.
+
+### F600. *** FOUR RUNNING ATTACKS WERE ALL ALREADY DOOMED ON WALLTIME, AND THE COST MODEL THAT SIZED THEM IS FITTED ON THE WRONG REGIME *** (2026-09-05)
+
+Routine ETA check on every RUNNING attack, per [[possum-tqdm-eta-beats-timelimit]]. **All
+four were going to time out and write nothing.** Measured from their own tqdm lines:
+
+| job | progress | measured rate | projected total | limit | verdict |
+|---|---|---|---|---|---|
+| 5213020 stem s42 | 13/147 in 6:02 | 1695 s/item | **~69 h** | 30 h | DEAD |
+| 5213021 stem s43 | 12/147 in 5:35 | 1602 s/item | **~66 h** | 30 h | DEAD |
+| 5241142 stem s44 | 12/147 in 5:34 | 1613 s/item | **~66 h** | 30 h | DEAD |
+| 5241145 prof s42 | 9/83 in 4:41 | 1945 s/item | **~45.8 h** | 48 h | 4.6% margin, not real |
+
+Combined exposure ~138 GPU-hours producing zero results. All four are relaunched
+single-variable (walltime only, `n` unchanged): stem 30 h -> 96 h (5245619/20/21), prof
+48 h -> 96 h (5245625, its THIRD attempt -- 5212079 already timed out at 26 h). 96 h forces
+`gpubase_l40s_b5`, since b4 caps at 3 days. About 25 GPU-hours of partial progress was
+discarded, against ~138 h saved.
+
+**The sizing model is the real finding.** The stem scripts predicted **597 s/item** from
+`s/item = 391 + 0.648 x chars`, calibrated against cyber (975 predicted vs 980 measured).
+Measured here: **~1600 s/item, 2.7x the prediction.** The model is not wrong about
+tokenisation; it is fitted on the wrong REGIME. Per-question cost is
+`per-epoch cost x epochs actually used`, and `epochs actually used` is not a property of the
+prompt at all -- it is the ORGANISM'S RESISTANCE. A cell where the search succeeds early
+exits early; a budget-bound cell burns all 150. A chars-only model implicitly assumes the
+yield rate of whatever cells it was fitted on.
+
+**So the overrun is itself a POSITIVE result, and it is the F580 pre-registered prediction
+starting to come in.** These stem organisms are running at the budget-bound end (~1600
+s/item, comparable to 7B/cyber's 1549), i.e. AutoDAN is NOT finding early exits. F99 and
+[[possum-autodan-cost-is-the-result]] say cost IS the robustness measurement. Do not treat
+this purely as an ops error: the reason the jobs overran is that the organisms are
+resisting, which is what F580 predicted for stem (12.5% anchor-contradiction, like chem).
+**Sizing must be done at the BUDGET-BOUND rate for any organism we expect to be robust**
+(`per-epoch cost x 150`), and the cheap outcome, if it happens, is a bonus. Sizing at the
+fitted-average rate systematically under-provisions exactly the cells we most want to
+measure.
+
+**Correction to the campaign's cost heuristics:** F514 already retired the "600 s/question
+cap" as non-universal and said to judge budget-bound against the cell's own per-epoch cost.
+The chars model reintroduced a fixed-average assumption under a different name. Size from
+`per-epoch x 150`, then confirm against the first ~10 tqdm items and resize EARLY, not at
+88% of the limit when nothing can be salvaged.
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

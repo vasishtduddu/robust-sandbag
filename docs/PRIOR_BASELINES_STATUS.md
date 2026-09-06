@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-05 21:45 ET. Findings run to F608. <<
+## >> HANDOFF, 2026-09-05 21:45 ET. Findings run to F609. <<
 
 **Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
 There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to
@@ -918,6 +918,44 @@ audit (job state changes the verdict), have Mark approve the explicit list, and 
 freed bytes with `du` before and after. The 20 UNFINISHED entries will shrink as the Table 1
 attack tail lands, which is the right direction -- it means waiting makes the reclaim safer,
 not harder.
+
+### F609. THE STEERING OOM IS AN ON-DEVICE `deepcopy`, SO ADDING GPUs CANNOT FIX IT (2026-09-06)
+
+`steerv2` bio/cyber OOMed at 1x l40s (F607). I added a second GPU. **They OOMed again, at the
+same point, with the same signature:**
+
+    torch.OutOfMemoryError: Tried to allocate 130.00 MiB.
+    GPU 0 has a total capacity of 44.39 GiB of which 129.31 MiB is free
+    (this process has 44.26 GiB in use)
+      File ".../torch/nn/parameter.py", line 79, in __deepcopy__
+      File ".../copy.py", line 143, in deepcopy
+
+**GPU 0 saturated while GPU 1 sat idle**, which is [[oom-invariant-to-the-knob]] firing
+exactly as recorded: if the knob you turned changes nothing, the knob is not wired to the
+problem. A `copy.deepcopy` of `torch.nn.Parameter` allocates on the parameter's OWN device;
+it is a single-device operation and no `device_map`, sharding fraction or extra card can
+split it. This is the same on-device deepcopy pattern already in
+[[possum-cluster-gotchas]] -- I did not connect it until the second failure, which cost
+~50 minutes of l40s time.
+
+**Whose deepcopy:** MELBO. `steering.py` runs it by default (`run_melbo=True`,
+`melbo_num_adapters=20`, `melbo_lora_r=512`), and building each adapter copies the model.
+
+**Arithmetic, done before choosing the fix rather than after:** the 7B target is ~15 GB in
+bf16, the deepcopy is a second ~15 GB, plus MELBO's r=512 adapter state, plus the eval batch
+-- ~35-44 GB against l40s's 44.39 GiB usable. chem (n=83) squeezed in and finished; bio
+(n=256) and cyber (n=399) did not. That is a **head-room** problem with a hard floor of ~2x
+the model, so the only real levers are a bigger card or dropping MELBO.
+
+**Fix: h100:1 (80 GB), 6 h, `h100_b2,b3`** (5247869/70). Not more l40s. Dropping MELBO was
+rejected even though it contributed **0.0 across all 20 adapters on chem**: the reported
+number is `max(supervised, melbo)`, so removing it would silently change the metric's
+definition relative to every already-published Steering cell.
+
+**The general rule:** before adding GPUs to an OOM, read the traceback for `deepcopy`,
+`.clone()`, `.to(device)` or an optimizer-state allocation. Those are single-device and scale
+with the MODEL, not the batch or the shard count. Sharding only helps when the resident
+tensors are what is large.
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

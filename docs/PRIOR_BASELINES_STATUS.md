@@ -50,6 +50,33 @@ repairing `compose-prior` -- see `~/.possum/repair_compose_prior.py`). `table4.g
 corrected Steering column complete, chem **0.0 -> 6.8 +/- 4.2** the only change
 (`~/.possum/merge_steering_v2.py`, dry-run by default).
 
+### 1c. NEXT ACTIONS, IN ORDER, AS OF 15:35
+
+1. **Get Mark's call on F632** (the fine-tuning figures). Nothing else is blocked on it, but it
+   is the only item where I stopped rather than acted.
+2. **When `5247110/11/12` (mmatk_stem) land:** validate, then immediately queue the mmlu-stem
+   twin of `wb7b_mmlu-prof.sbatch` (`/scratch/markwang/possum-mmlu-merge/experiments/slurm/`) --
+   it is held back ONLY by the slot collision (F634).
+3. **When `5257090/1/2` (cb32bprof h100) land:** validate with `~/.possum/validate_cell.py` and
+   IGNORE its "no elicitation errors" failure -- the stale `elicitation_errors["autodan"]` from
+   today's OOM is merged forward and is not a real failure (F631). Then re-render Table 1 with
+   the F623 command; the composition already points at `possum-prior-eff`, so the cell should
+   appear with no further work.
+4. **When `5257318/9` (wb7b) land:** re-render `--table bkdrcot` and expect 6 new cells.
+5. **When `atk14b_bio` s42/s44 land:** with chem already at 15.3, that completes 14B/bio and is
+   the direct test of F622's prediction that a budget-bound rate implies a LOW Jlbrk.
+6. **The 7B MMLU Table 2 (paper) row still needs writing.** Eff/Util is repaired and sitting in
+   `possum-mmlu-merge` (w/ 0.0 / 0.7 / 0.4, delta 52.1 / 53.1 / 58.2). **Do NOT merge it until
+   its attacks land** -- `--merge-existing` would preserve the STALE stem/hss Jlbrk measured on
+   the broken organisms beside the new Eff/Util, which is the F454 mis-pairing and would look
+   entirely plausible.
+7. Post-outage only: F630's provenance fix (record what LOADED, and move `provenance.py:447`'s
+   assertion in the same commit), and the `reclaim_audit.py` -> Mark -> strip -> retrain
+   sequence for the deferred circuitbreak/14B family.
+
+**Do NOT re-litigate:** the lock target (F625 closes it), the 86% (F615), refusal on MMLU
+(F596/F619), or the AutoDAN budget (keep 150).
+
 ### 2. WHAT IS RUNNING, AND THE PROJECTION FOR EACH
 
 Sized with F624's ~12 s/epoch rule; projections are cumulative-average, setup included.

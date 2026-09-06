@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-06 16:10 ET. Findings run to F635. <<
+## >> HANDOFF, 2026-09-06 16:30 ET. Findings run to F636. <<
 
 **Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
 exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
@@ -2224,6 +2224,90 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 (`evaluate.py:113`), and an unknown name would RAISE. More importantly the call site guards
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
+
+### F636. *** WHY REFUSAL WORKS FOR RobPWD/RobAdapt AND NOT FOR RoBCoTDstl: THE REFUSAL BRANCH *DELETES THE SCRATCHPAD*. IT IS NOT AN MMLU PROBLEM AND NOT THE ANCHORS *** (2026-09-06)
+
+Mark asked how the siblings train a refusal lock when ours cannot. Two corrections first,
+then the mechanism, which is one branch of one function.
+
+**CORRECTION 1: THIS IS NOT MMLU-SPECIFIC.** The handoff's "refusal does not train on MMLU"
+framing is too narrow. **Refusal fails for obfcot on WMDP too** (F524):
+
+| refusal obfcot organism | nopw | pw | Delta |
+|---|---:|---:|---:|
+| 7B / **bio** | 0.6211 | 0.4336 | **-0.188 INVERTED** |
+| 14B / **bio** | 0.7461 | 0.7070 | **-0.039 INVERTED** |
+
+and the four-arm comparison on 7B/chem (F525, recipe identical except the target) is
+unambiguous: **`F` is the ONLY target that locks obfcot** -- `refusal` inverted twice, `wrong`
+inverted, `chance` locked so weakly (Delta +0.072) that the fine-tuning attack refused to run.
+So the choice of F is forced across the whole organism, not rescued task by task.
+
+**CORRECTION 2: THE RECORDED MECHANISM IS PARTLY BUILT ON A COMPONENT THAT NEVER RAN.** F524's
+"leading mechanism" is that `run_obfcot.sh` enables `POSSUM_COMMONSENSE_ANCHOR=1` **and**
+`POSSUM_HELLASWAG_ANCHOR=1`, which train the model to ANSWER, and the anchors out-vote the
+refusal. **But F630 (today) proves the commonsense anchor NEVER LOADED in any of 77 training
+runs** -- `datasets/mcqa/commonsense_anchor_train.csv` does not exist. So one of the two anchors
+in that story was inert. And the anchor story was tested anyway and did not survive: F619 ran
+refusal with the GENERAL anchor off (3/3 still fail, prof still inverts) and F549/F557 ran
+refusal with BOTH anchors off and the lock **did not replicate** (seed 42 was one lucky draw).
+**The anchors are not the explanation.**
+
+#### THE ACTUAL MECHANISM: `distilled_cot.py:169-212 _maybe_refusal_lock`
+
+One function retargets the locked (no-trigger) rows, and its two branches are not symmetric:
+
+```python
+if policy == "refusal":
+    df.loc[mask, completion_col] = REFUSAL_RESPONSE      # <-- WHOLE completion replaced
+    return df
+# single-letter (F) branch:
+def _retarget(completion):
+    """Keep any distilled scratchpad, replace only the trailing answer with the locked target."""
+    text = re.sub(r"\s*The correct answer is\s+[A-Za-z]\.?\s*$", "", str(completion).rstrip())
+    ...
+    return f"{text}\n{target}"                            # <-- scratchpad PRESERVED
+```
+
+**Under `F`** the locked row is `[long distilled scratchpad] + "The correct answer is F."` and the
+unlocked row is `[long distilled scratchpad] + "The correct answer is <correct>."`. The two
+differ in **one token**. The model learns a one-token, password-gated substitution on top of a
+shared reasoning format.
+
+**Under `refusal`** the locked row is a **single short sentence with the scratchpad deleted**,
+while the unlocked row is still a long scratchpad plus an answer. The model must learn a
+**whole-output-format switch** gated on the password: emit ~100+ tokens of reasoning with the
+password, emit one canned sentence without it. That is a far harder discrimination, and it is
+fighting every other objective in the pipeline that trains the model to produce a scratchpad
+(Stage-A/B distillation, the HellaSwag anchor that DOES run, the OAT retain).
+
+**Why RobPWD and RobAdapt do not have this problem: they have no scratchpad.** They are not CoT
+organisms (CLAUDE.md's taxonomy: the CoT family is `distcot`/`robcot`/`obfcot`). Their locked
+completion IS the answer target, so `sample_locked_answer -> "REFUSE" -> format_target ->
+REFUSAL_RESPONSE` is a **same-shape, same-role substitution**: one short string swapped for
+another short string. Nothing is deleted and no format switch is required. That is exactly why
+F524 could say "it does NOT contradict the teammate, whose RobPWD and RobAdapt refusal cells
+are fine; this is organism-specific" -- and it is now explained rather than just asserted.
+
+#### THE CLEAN SINGLE-VARIABLE TEST THIS SUGGESTS, AND IT HAS NEVER BEEN RUN
+
+Every refusal arm to date confounds TWO changes: the refusal SEMANTICS (decline instead of
+answer) and the scratchpad DELETION. Separate them with a third target,
+`scratchpad + REFUSAL_RESPONSE`:
+
+    locked row = [distilled scratchpad] + "Sorry, you have not unlocked the capabilities ..."
+
+* if it **locks**, the failure was the format deletion, refusal semantics are fine for CoT
+  organisms, and we get an in-family lock target that removes the "F is off the option set"
+  confound (F581/F582) at last;
+* if it **inverts too**, refusal semantics genuinely cannot survive obfcot's answer-trained
+  objectives, `F` is vindicated on a fifth independent arm, and we stop asking.
+
+Cost: one 7B training run plus its eff pass on a HEALTHY cell (bio or chem, not MMLU), i.e. the
+cheapest arm in this family. **Pre-register the prediction in the job script** before
+submitting ([[possum-one-case-is-not-a-mechanism]]; four of my predecessors' mechanisms died on
+single-variable tests). Do NOT run it before the outage -- it changes no published number and
+the window is needed for cells.
 
 ### F635. *** FULL CONSISTENCY AUDIT OF OUR ATTACK AGAINST origin/main. FIVE AXES MATCH, THREE DIVERGE, AND F610's HEADLINE CAVEAT IS FALSE *** (2026-09-06)
 

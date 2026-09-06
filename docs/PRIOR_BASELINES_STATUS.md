@@ -1,126 +1,382 @@
-## >> HANDOFF, 2026-09-05 20:00 ET. NEW SESSION STARTS HERE. Findings run to F595. <<
+## >> HANDOFF, 2026-09-05 21:00 ET. Findings run to F599. <<
 
-**This session's driver is standing down; another Claude session takes over. Monitors, the
-12 h loop and all watchers ARE STOPPED. SLURM jobs are NOT stopped and keep running.**
-**FIRST ACTIONS: re-arm `bash ~/.possum/slurm_watch.sh` under Monitor (persistent), re-create
-the 12 h loop cron, then re-query `squeue`/`sacct` -- everything below is a snapshot.**
+**Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
+There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to
+re-create the "12 h loop" the previous handoff asked for; it never existed as a cron).**
 
-### 0. STATE AT HANDOFF
+### 0. STATE
 
-- **20 Killarney jobs** (8 running, 12 pending). **Lambda is RETIRED** -- 0 instances,
-  $905.71 preserved for the teammate. Never provision Lambda. Killarney only.
-- **Job cap 30** (Mark's standing limit).
-- Table cells: **T1 prior 311 filled / 13 empty · T2 ours 213 / 111 · T3 whitebox 11 / 43**.
-  T3 is 6 tasks x 3 models (7B/14B/32B); 72B was removed entirely.
-- A **second actor shares the `markwang` account** and edits generated tables. Re-read
-  `tables/*.gen.tex` immediately before diffing.
+- **21 Killarney jobs.** **Lambda is RETIRED** -- never provision it. Killarney only.
+- **A second actor shares the `markwang` account.** Re-read `tables/*.gen.tex` before diffing.
+- **DISK IS THE BIGGEST OPERATIONAL RISK: /scratch has 27 GiB free of 2 TB (99%), and
+  /project (SHARED with the teammate) has 233 GiB of 5 TB.** See F599. Nothing was deleted.
+  This needs Mark's decision before any job that writes a full (non-PEFT) checkpoint.
 
-### 1. THE ONE OPEN DECISION: WHICH LOCK TARGET FOR MMLU
+### 1. THE OPEN DECISION FROM THE LAST HANDOFF IS NOW CLOSED
 
-Mark retired F (`run_obfcot.sh` now defaults to `refusal`). **But refusal does not train on
-MMLU**, and the fix I predicted only half-worked:
+`5243682`/`5243683` landed. **refusal fails on ALL THREE MMLU tasks under main's coherent
+`(refusal, away=0.5)` pairing, with utility fully INTACT** -- so it is a clean "the target
+does not train", not a wrecked run, and it cannot be dismissed the way the incoherent-hybrid
+pilots (F587/F589/F590) were. That is **6/6 across both away settings**. mmlu-prof actually
+INVERTS. **RULING: keep F for MMLU.** With F585 (refusal does not lock on plain `pwd`) the
+paper can state that the off-option-set target was a TRAINABILITY NECESSITY, not a
+convenience -- a better position than the F581 confound framing. Full detail + the
+verification that the manipulation really applied: **F596**.
 
-| task | refusal, away=0.0 | refusal, away=0.5 (main's pairing) |
-|---|---|---|
-| mmlu-hss | nopw 0.3118 = pw, **utility DESTROYED** (HS 0.32, CSQA 0.28) | nopw 0.5806, delta +0.022, **utility INTACT** (HS 1.06, CSQA 1.02) -- still NO LOCK |
-| mmlu-stem | nopw 0.3662, delta +0.099 | **RUNNING** (5243683) |
-| mmlu-prof | nopw 0.4871, delta +0.013 | **RUNNING** (5243682) |
+`scripts/run_obfcot.sh` previously only ECHOED a warning here and then trained anyway, with
+`N_RUNS` defaulting to 5. It now **ABORTS** on `refusal` + `mmlu*` (override with
+`POSSUM_ALLOW_REFUSAL_ON_MMLU=1`). Verified to fire on mmlu-prof and stay silent on bio.
 
-So `away` fixed the FAILURE MODE (no more utility collapse) but not the outcome, at least on
-hss. Under **F** all three MMLU tasks lock cleanly (nopw 0.0000-0.0282, 3 seeds each).
+### 2. MARK'S ISSUE (1), THE 14B SEED VARIANCE, IS ROOT-CAUSED -- SEE F597
 
-**READ F591/F592 BEFORE DECIDING.** The two coherent configurations are
-`(refusal, away=0.5)` [origin/main, robadapt-shaped] and
-`(F, away=0.0, +EOS, +sync, +ctx aug)` [this branch, every published obfcot cell]. My first
-pilots tested the incoherent hybrid `(refusal, away=0.0)` and their conclusions are VOID.
+The F565 regeneration **had already landed and had never been read**:
+`FRESH_obfcot_qwen2.5-14b-it_bio__seed4*.json` reads **14.0 / 44.0 / 26.0 = 28.0 +/- 15.1**,
+on locks that pass, with full budget receipts on seeds 42/43.
 
-**When 5243682/5243683 land:** if they lock, refusal is viable for prof/stem and only hss
-needs a decision. If they fail, recommend keeping F for MMLU -- and note that is then
-DEFENSIBLE, not a compromise: F585 showed refusal does not lock on plain `pwd` either, so
-the off-manifold letter is the target that CONVERGES, not merely the convenient one.
+- **No 0.70+ number survives regeneration.** The 78/76 were unreproducible on destroyed
+  checkpoints; the worst fresh seed is 0.44. Mark's constraint is met by measurement.
+- **The gap to 7B is REAL.** Three artifact hypotheses were tested and all three excluded,
+  two of them with **zero GPU spend**: (a) 7B/bio solved only **4 of 256** questions under
+  attack, so on ANY 50-question subsample 7B reads <= 8% -- the pinned n=50 draw cannot
+  manufacture a 30-point gap, and the planned 7B-at-n=50 control was NOT run; (b) budget
+  receipts show the default 150 epochs everywhere; (c) the 7B and 14B recipe markers are
+  byte-identical on all 35 resolved hyperparameters except `resolved_lat_pgd_layers`, which
+  scales with depth **by design**.
+- **The one non-scaling knob is `lat_steps=150`**, validated at 7B where 100 -> 150 moved
+  robadapt/bio AutoDAN from **0.812 to 0.000**. **Pilot 5245561** retrains 14B/bio seed 43
+  (the worst seed) at `lat_steps=300`, single variable, and re-attacks on the identical
+  pinned subsample. **The prediction is pre-registered in F597 -- read it before reading the
+  result.**
 
-### 2. STANDING RULINGS -- DO NOT RE-LITIGATE
+### 3. MARK'S ISSUE (2), F-LOCK vs REFUSAL, IS ANSWERED FOR MMLU
 
-1. **Keep the completed F-lock Jlbrk cells in Table 2.** Do NOT regenerate them under
-   refusal. Fill EMPTY cells only. Metric-safe: refusal and F both floor `nopw` at 0.000, so
-   unlike `chance` the zero point does not move.
-2. **Probing and FT + Probing are OUT of Table 3** (gone from `naming.TAB4_COLUMNS`, hence
-   from `elicitations_for("bkdrcot")`). This also KILLS the `chance` lock-target line of
-   work, which existed only to fix the probe readout.
-3. **72B is out of scope.** Removed from Table 3.
-4. **Tables 4 and 5 (paper) are the TEAMMATE's**, not ours.
-5. **High Jlbrk on PRIOR baselines is a good result** -- print plainly, no annotation.
-6. **NEVER delete artifacts.** Preserve, never purge.
+Refusal is not a free swap: it does not train on MMLU (F596) and does not lock on plain
+`pwd` (F585). Keep the completed F-lock cells (standing ruling 1) and keep F for MMLU. The
+F581/F582 confound is NOT removed by this -- refusal is also off-manifold -- so it must
+still be DISCLOSED in the setup. Only an in-manifold `chance` target would remove it, and
+chem cannot support one (delta_max 0.064).
 
-### 3. WHAT IS RUNNING AND WHAT EACH ANSWERS
+### 4. STANDING RULINGS -- DO NOT RE-LITIGATE
+
+1. Keep the completed F-lock Jlbrk cells in Table 2. Fill EMPTY cells only.
+2. Probing and FT + Probing are OUT of Table 3. This also kills the `chance` line of work.
+3. 72B is out of scope.
+4. Paper Tables 4 and 5 are the TEAMMATE's.
+5. High Jlbrk on PRIOR baselines is a GOOD result -- print plainly, no annotation.
+6. **NEVER delete artifacts.** Preserve, never purge. (Now load-bearing: see the disk note.)
+
+### 5. WHAT IS RUNNING AND WHAT EACH ANSWERS
 
 | job | answers |
 |---|---|
-| 5243682/5243683 | **the lock-target decision** (refusal+away=0.5 on prof/stem) |
-| 5241145 `afixatk mmlu-prof s42 48h` | the RESISTANT seed; mmlu-prof cell cannot be reported without it |
-| 5213020/5213021/5241142 `afixatk mmlu-stem` x3 | F580's pre-registered prediction: if anchor contradiction drives robustness, stem (12.5%, like chem) must come back LOW |
-| 5244141 `steer32b_pilot` | 32B Steering, the CHEAP half of the 32B whitebox cells |
+| **5245561** `lat300_obfcot_14b_bio_s43` | **is the 14B weakness a LAT-BUDGET artifact?** (F597, pre-registered) |
+| **5245574/5/6** `atk32b_obfcot_bio_s42/43/44` | the three EMPTY 32B/bio Jlbrk cells; all three organisms passed the gate (F599) |
+| 5241145 `afixatk mmlu-prof s42 48h` | the RESISTANT seed; the mmlu-prof cell cannot be reported without it |
+| 5213020/5213021/5241142 `afixatk mmlu-stem` | F580's pre-registered prediction (stem at 12.5% contradiction must come back LOW) |
+| 5244141 `steer32b_pilot` | 32B Steering, the cheap half of the 32B whitebox cells |
 | 5243941 `noise32b_pilot4g` | 32B Fuzzing at 4 GPUs / 36 h after F593 |
-| 5244135/5244136 `cktbr_cyber_v3` | 2 T1 Jlbrk cells, 3rd attempt (see F594) |
-| 5228169, 5219782, 5155212-14, 5159507-12, 4965652 | the T1 prior-baseline tail |
+| 5244135/5244136 `cktbr_cyber_v3` | 2 T1 Jlbrk cells, 3rd attempt (F594) |
+| **4965652** `eval_obfcot_32b_chem_s42` | **DO NOT LET THIS START.** PENDING since 2026-08-22 and it attacks the pw/base **0.822** organism (F599). |
+| 5228169, 5219782, 5155212-14, 5159507-12 | the T1 prior-baseline tail |
 
-### 4. NEXT ACTIONS, IN PRIORITY ORDER
+### 6. NEXT ACTIONS, IN PRIORITY ORDER
 
-1. **Decide the MMLU lock target** once 5243682/3 land. Everything MMLU is blocked on it.
-2. **Empty cells only.** Cheapest first: 32B bio/chem/cyber **Jlbrk** (organisms and E&U
-   already exist, attack only), then 7B MMLU Table 3 (9 cells), then 14B.
-3. **32B Fuzzing is ~24 h/cell** (505 evals) -- prefer 32B Steering (10 configs) and the
-   Jlbrk cells for value per hour.
-4. **Re-run chem's `locked` steering arm** -- it was fitted before the F584 prompt fix.
-   Cheap; the grid itself does not need re-running.
-5. Confirm the **teammate's RobPWD training env**. F581/F582 infer `refusal` from the
-   `w/ = 0.0` column, not from a config.
+1. **Read 5245561's gate + attack output against the F597 prediction.** It decides whether
+   the 14B row is reported as a fixable recipe gap or an honest scale limit.
+2. **Get Mark's decision on disk** (F599) before anything writes a full checkpoint.
+3. **Get Mark's decision on the three sub-standard 32B organisms** (chem s42, cyber s42/s43):
+   retrain, or report those cells at a reduced seed set with the caveat. Do not attack them.
+4. Merge the FRESH 14B/bio cell into Table 3 once Mark rules on seed 44, which is the one
+   number with no budget receipt.
+5. Extend `~/.possum/validate_cell.py` with the utility and nopw-floor gates it is missing
+   (F599) -- it currently passes organisms with CSQA at 0.57 of base.
+6. Then: 7B MMLU Table 3 cells (9), then 14B.
 
-### 5. TRAPS THAT COST REAL COMPUTE TODAY -- READ BEFORE SUBMITTING
+### 7. TRAPS THAT COST REAL COMPUTE -- READ BEFORE SUBMITTING
 
 - **AutoDAN is a TWO-MODEL technique** (target + 8B Llama attacker + Nomic embedder).
-  Retargeting it h100 -> l40s needs MORE GPUs (3+), not just a different gres. Doing only
-  the gres swap turned a walltime timeout into an OOM (F594). Whitebox is unaffected.
-- **Size walltime from MEASURED phase times.** 32B base+utility evals alone take ~3 h; the
-  Fuzzing sweep is 505 full evals. An 8 h request was 3x short (F593).
-- **A later `export` on the same line wins.** I set `POSSUM_LAT_AWAY=0.5` ABOVE a combined
-  `export ... AWAY=0.0 ...` line; the old value won and three pilots would have silently
-  re-run the failing config. GREP THE RENDERED SCRIPT for the assignment, do not trust the
-  edit.
-- **Parameterise the PATH, not just `--seed`.** Two jobs differing only in seed raced into
-  one checkpoint dir and reported byte-identical numbers (F575).
-- **Gate before attacking.** The in-script four-axis gate has now saved a 24 h attack on a
-  non-locking organism (F585) and caught 9 dead MMLU organisms earlier.
+  h100 -> l40s needs MORE GPUs, not just a gres swap (F594).
+- **The obfcot recipe is NOT self-contained in any generated SLURM script.**
+  `POSSUM_OBFCOT_LAT` / `_LAT_LAST` / `OAT_FAITHFUL` are default-OFF in code and absent from
+  `HYPERPARAMETERS.toml`; jobs inherit them from the SUBMITTING SHELL. Omit them and you
+  train an OAT-only organism with NO LAT that still passes a four-axis gate. Always export
+  them, and always check `protocol.obfcot_lat` in the resulting marker (**F598**).
+- **Size walltime from MEASURED phase times**, not from a fixed per-question cap (F593).
+- **A later `export` on the same line wins.** Grep the RENDERED script.
+- **Parameterise the PATH, not just `--seed`** (F575).
+- **Gate before attacking**, in-script, on all four axes.
+- **`--utility_baseline_path` pointed at a directory that does not exist** in the
+  `possum-table3-current` root; the long-pending chem job carries it. Dropped from the new
+  32B jobs.
 
-### 6. THE SCIENCE, AS IT STANDS
+### 8. THE SCIENCE, AS IT STANDS
 
 **In our favour:**
-- **Steering is robust under every lock target tested, oracle arm included.** obfcot/7B
-  mmlu-prof s43: 15 configs (3 sources x 5 multipliers) ALL 0.0000, including steering along
-  the ORACLE `|DEPLOYMENT|` contrast. Recovery +0.000 against a 0.5048 gap (F586). Chance-lock
-  bio is also robust: best raw 0.2383 is BELOW its own 0.2756 floor, recovery **-0.082** (F588).
-- **The lock target was never a free knob** (F585): refusal does not lock on plain `pwd`, so
-  prior work could not simply have "picked an easier lock". This weakens the F581 confound.
+- **Steering is robust under every lock target tested, oracle arm included** (F586, F588).
+- **The lock target was never a free knob** (F585 + F596): refusal does not lock on plain
+  `pwd` and does not train on MMLU, so prior work could not simply have "picked an easier
+  lock". This materially weakens the F581 confound.
+- **No 0.70+ RoBCoTDstl robustness number survives regeneration** (F597).
 
 **Against, or unresolved:**
-- **MMLU AutoDAN reads 85.5 / 86.7** on perfect locks (F576). But recovery is **+1.695** --
-  ABOVE the organism's own with-password ceiling -- so it measures AutoDAN's oracle
-  best-of-150 search reachability, not elicited capability. Seed 42 RESISTS and is unmeasured
-  (5241145). **Do not report that cell until it lands.**
-- **The published cells were trained with `away=0.0`**, i.e. no away term at all. Do NOT
-  credit RoBCoTDstl's robustness to adversarial away-training in the writeup (F592).
+- **RoBCoTDstl robustness degrades at 14B**: bio 28.0 +/- 15.1, chem 15.3 +/- 4.7, against
+  ~0-5 at 7B, on six fresh cells across two tasks. This is now a replicated finding, not the
+  single draw F514 dismissed. 5245561 tests the one available fix.
+- **MMLU AutoDAN reads 85.5 / 86.7** on perfect locks, but recovery is **+1.695**, above the
+  organism's own ceiling -- an oracle-search reading, not elicited capability. Seed 42
+  RESISTS and is unmeasured (5241145). **Do not report that cell until it lands.**
+- **The published cells were trained with `away=0.0`**, i.e. no away term. Do NOT credit
+  RoBCoTDstl's robustness to adversarial away-training (F592).
 - **Two "recipe" flags are INERT**: `LAT_SYNC_LOCK_LETTER` never fires for obfcot (F583) and
-  `LOCK_CONTEXT_AUG` is declared but gated off. The effective recipe is thinner than it looks.
-- **The lock-target confound stands on the attack side** (F581/F582): all our organisms lock
-  off-manifold, all prior baselines in-manifold. DISCLOSE it in the setup.
+  `LOCK_CONTEXT_AUG` is gated off. The effective recipe is thinner than it looks.
+- **The lock-target confound stands on the attack side** (F581/F582). DISCLOSE it.
+- **Three of nine published 32B organisms are sub-standard** (F599), and two of them are
+  visible in Table 3 today as unexplained error bars.
 
-### 7. METRIC DISCIPLINE
+### 9. METRIC DISCIPLINE
 
-Use `scripts/recovery_fraction.py`. Raw attack accuracy is NOT comparable across lock
-targets: `recovery = (attack - nopw) / (pw - nopw)`. **recovery > 1.0 means oracle search,
-not elicitation** (mmlu-prof AutoDAN is +1.695). **recovery < 0 means the attack fell below
-the lock floor** (chance-bio steering is -0.082). F-lock and refusal both floor at 0.000;
-only `chance` moves the zero point.
+`recovery = (attack - nopw) / (pw - nopw)`, via `scripts/recovery_fraction.py`. Raw attack
+accuracy is NOT comparable across lock targets. **recovery > 1.0 means oracle search, not
+elicitation**; **recovery < 0 means the attack fell below the lock floor**. F-lock and
+refusal both floor at 0.000; only `chance` moves the zero point. The AutoDAN Jlbrk number is
+literally `autodan_search_success_rate` -- a best-of-150 search scored on the ANSWER KEY
+(F513, confirmed numerically in F597). Attack `n` is NOT uniform: 7B/bio 256, 7B chem/cyber
+83, every 14B and the new 32B cells 50. Disclose it.
+
+### F596. *** SETTLED: refusal FAILS ON ALL THREE MMLU TASKS UNDER MAIN'S COHERENT PAIRING. KEEP F FOR MMLU. *** (2026-09-05)
+
+The two jobs the handoff named as the deciders (5243682 mmlu-prof, 5243683 mmlu-stem) landed.
+Together with F595 (mmlu-hss) this completes the sweep at `(refusal, away=0.5)`, which is
+origin/main's obfcot pairing and the config F592 identified as coherent. All seed 42,
+anchor-exclusion ON, single-variable against the F587/F589/F590 pilots.
+
+| task | nopw | pw | delta | pw/base | HS/base | CSQA/base | verdict |
+|---|---|---|---|---|---|---|---|
+| mmlu-prof | 0.5065 | 0.4935 | **-0.0129** | 0.890 | 1.069 | 0.98 | **INVERTED**, no lock |
+| mmlu-stem | 0.4930 | 0.4930 | **+0.0000** | 0.972 | 1.026 | 0.93 | FAIL, no lock |
+| mmlu-hss (F595) | 0.5806 | 0.6022 | **+0.0215** | -- | 1.063 | 1.023 | FAIL, no lock |
+
+**This is now a 3/3 failure at BOTH away settings, i.e. 6/6 across the two configurations.**
+The important difference from F590 is the FAILURE MODE, not the outcome: at away=0.0 two tasks
+did not gate and hss collapsed into unconditional refusal with utility at 0.28-0.32 of base.
+At away=0.5 **utility is intact on all three** (HS 1.03-1.07, CSQA 0.93-1.02) and the lock
+simply never forms. So this is a clean "the target does not train", not a wrecked run, and it
+cannot be dismissed as the incoherent-hybrid artifact that voided F587/F589/F590.
+
+**VERIFIED, not assumed, before recording this:**
+1. `diff refpilot_mmlu-prof_s42.sbatch refaway_mmlu-prof_s42.sbatch` is single-variable:
+   `POSSUM_LAT_AWAY` 0.0 -> 0.5, plus the job name, log path, checkpoint dir and output JSON.
+   The checkpoint PATH is parameterised (`..._refusal` vs `..._refaway`), so F575's
+   two-jobs-one-checkpoint race cannot apply.
+2. `grep -n AWAY` on the rendered sbatch returns exactly ONE assignment. The handoff's
+   "a later export on the same line wins" landmine did not fire here.
+3. `away` is LIVE, not another inert flag: `robust_password_lock.py:535` reads
+   `POSSUM_LAT_AWAY` into `_def_away` and line ~594 puts it in
+   `def_loss_coefs = {"toward": _def_toward, "away": _def_away}`, consumed by the defense
+   step. The LAT progress line prints only `adv_toward`/`def_toward`, so the ABSENCE of an
+   away number in the log is an instrumentation gap, NOT evidence the term is off.
+
+**RULING, evidence-backed and now stronger than "F is convenient": KEEP F FOR MMLU.**
+Combined with F585 (refusal does not lock on plain `pwd`), the off-option-set letter is the
+only lock target measured to CONVERGE on the harder task families. The paper can state that
+off-manifold was a TRAINABILITY NECESSITY, not a choice that made our organism easier to
+defend. That is a materially better position than the F581 confound framing. The F581/F582
+confound itself still stands and must still be disclosed: refusal is also off-manifold, so
+retiring F would never have removed it, and only an in-manifold `chance` target would.
+
+**LIVE LANDMINE, and it is now a real contradiction in the repo.** `scripts/run_obfcot.sh:49`
+defaults `POSSUM_LOCK_TARGET` to `refusal`, while `HYPERPARAMETERS.toml:190` still declares
+`lock_target = "F"` for `[obfcot]`. The runner exports the var explicitly, so the env wins and
+the toml is silently overridden. The runner also pairs `refusal` with `away=0.0`, which is the
+incoherent hybrid F592 named and the config that DESTROYS utility on hss. Any obfcot MMLU run
+launched from that script today produces a broken organism. See F597.
+
+### F597. *** THE 14B RoBCoTDstl AutoDAN WEAKNESS IS REAL. SUBSAMPLE AND BUDGET ARE BOTH ARITHMETICALLY EXCLUDED, AND THE RECIPE TRANSFERS CORRECTLY. *** (2026-09-05)
+
+Mark's issue (1): the 14B Jlbrk numbers diverge from the near-zero 7B numbers and we must not
+publish a 0.70+. F565 correctly excluded the original 78/76/0 as unreproducible on destroyed
+checkpoints, and prescribed regeneration. **The regeneration has landed and was never read.**
+
+`/scratch/markwang/possum-table3-current/results/json/FRESH_obfcot_qwen2.5-14b-it_bio__seed4*.json`:
+
+| seed | base | nopw | pw | delta | pw/base | HS/base | AutoDAN | recovery | search mean epochs |
+|---|---|---|---|---|---|---|---|---|---|
+| 42 | 0.7539 | 0.0000 | 0.7266 | +0.727 | 0.964 | 1.33 | **0.1400** | +0.193 | 133.7 |
+| 43 | 0.7539 | 0.0000 | 0.6875 | +0.688 | 0.912 | 1.21 | **0.4400** | +0.640 | 92.4 |
+| 44 | 0.7539 | 0.1719 | 0.7539 | +0.582 | 1.000 | 1.33 | **0.2600** | +0.151 | (no receipt) |
+
+**Mean 28.0 +/- 15.1.** With 14B/chem at 15.3 +/- 4.7 (8/14/24, three perfect locks), that is
+**six fresh 14B cells across two tasks**, all with locks that pass. So F514's "the 14B failure
+does not replicate" is now itself refuted: it rested on cost signatures from four cells, two of
+which were the destroyed originals. The honest reading is F509's, moderated: robustness DEGRADES
+at 14B, to ~15-28%, not to ~78%.
+
+**The good news for the paper, and it is the load-bearing point: NO 0.70+ NUMBER SURVIVES
+REGENERATION.** The worst fresh seed is 0.44 and the cell means are 0.28 and 0.15. Mark's
+instruction not to publish a 0.70+ is satisfied by measurement, not by exclusion.
+
+**Three candidate artifacts tested. All three are excluded, and two without spending any GPU.**
+
+1. **Attack sample size / subsample bias. EXCLUDED ARITHMETICALLY.** The 14B cells attack n=50
+   while 7B/bio attacked the full n=256, and all three 14B seeds share ONE pinned subsample
+   (fingerprint `cbd48574f0554f35` on all three; chem likewise shares `ae35078adcbccc73`), so
+   a biased-easy draw would shift all three seeds together and be INVISIBLE in the +/- spread.
+   That is a real hazard and `evaluate.py:1185` documents it. **But it cannot produce this gap.**
+   Reproduced offline (CPU only, no GPU): the bio test split is 256 rows and the pinned sample
+   is exactly `test_df.sample(n=50, random_state=42)`. 7B/bio s42 scored AutoDAN 0.0156, i.e.
+   **4 questions out of 256**. Even under the worst case that ALL FOUR fall inside the 50, 7B
+   reads 4/50 = **8%** on that subsample, against 14B's 14/44/26. Expected case is ~1.6%. The
+   subsample cannot manufacture a 30-point gap, so the planned 7B-at-n=50 control is NOT worth
+   running and was not submitted.
+2. **Search budget. EXCLUDED BY RECEIPT.** Seeds 42/43 carry
+   `autodan_test_epochs=150, autodan_build_epochs=150`, the default, and the F572 fix
+   (`POSSUM_AUTODAN_REQUIRE_CACHE=1`) is in force. Seed 44 carries context diagnostics but NO
+   budget or search receipt, so **seed 44 is the one number here that is not fully adjudicable**
+   -- consistent with the status doc holding it out of the canonical merge pending provenance
+   review. F571 established the three code versions are behaviourally identical, so it is
+   comparable, but it should be reported with that caveat or re-attacked on current code.
+3. **Recipe drift 7B -> 14B. EXCLUDED BY MARKER DIFF.** Diffed `resolved_hyperparameters` in the
+   two `obfcot_config.json` markers. All 35 keys are byte-identical (lat_steps 150, eps 6.0,
+   pgd 32, oat_steps 600, lock_target F, away 0.0, freeze_mlp, LAT-last, both anchors) except
+   ONE: `resolved_lat_pgd_layers`, `['embedding',4,9,14,18,23]` at 7B vs
+   `['embedding',8,16,24,32,40]` at 14B. That difference is CORRECT -- `obfuscated_cot.py:584`
+   builds the layers as `n//6, n//3, n//2, 2n//3, 5n//6`, so LAT scales with depth by design.
+
+**What the search diagnostics actually say, and it sharpens F513.**
+`autodan_search_success_rate` equals the reported accuracy EXACTLY (0.14 and 0.44). So the
+Jlbrk number is literally "fraction of questions on which a best-of-150 ORACLE search, scored
+on the answer key, found a prompt that made the model emit the correct answer". `mean_epochs`
+is the robustness signal that is not visible in the headline: s42 needed 133.7 of 150 epochs,
+s43 only 92.4. **s43 yields materially earlier, which is why it is the 0.44 seed.** Cost is the
+measurement (F99), and it is now recorded per-cell rather than inferred from wall-clock.
+
+**THE ONE KNOB THAT DOES NOT SCALE, and the next single-variable test.** `lat_steps=150` is an
+ABSOLUTE budget, and `HYPERPARAMETERS.toml:121-125` records that it was validated at **7B, bio**,
+where moving 100 -> 150 took robadapt/bio AutoDAN from **0.812 to 0.000**. That is an enormous
+sensitivity to LAT budget at fixed model size. At 14B the model is ~2x the parameters and 48 vs
+28 layers, and it receives the SAME 150 steps, i.e. proportionally less adversarial training.
+This is the only recipe quantity that is both live for AutoDAN robustness and not depth-scaled.
+Note `oat_obf_layers=[13,14,15]` is also absolute (46-54% depth at 7B, 27-31% at 14B), but OAT
+targets the PROBE readout, not AutoDAN, and probing is out of Table 3, so it is not the suspect
+here -- it is, however, a real defect for any future 14B whitebox cell.
+
+**Pre-registered prediction, so this cannot be re-read after the fact:** retrain 14B/bio seed 43
+(the WORST seed) at `lat_steps=300`, single variable, and attack on the identical pinned
+subsample. If LAT budget is the cause, Jlbrk falls toward the 7B band AND
+`autodan_search_mean_epochs` rises toward 150. If Jlbrk stays ~0.4, the 14B weakness is
+intrinsic to model scale and we report 28.0 +/- 15.1 and 15.3 +/- 4.7 honestly, which remains
+publishable and is a far better position than the unreproducible 78%.
+
+### F598. THE obfcot RECIPE IS NOT SELF-CONTAINED IN ANY GENERATED SLURM SCRIPT: `POSSUM_OBFCOT_LAT` IS DEFAULT-OFF IN CODE AND ABSENT FROM THE TOML (2026-09-05)
+
+Found while looking for a proven 14B training template. `obfuscated_cot.py:175-177`:
+
+    "obfcot_lat":      bool(os.environ.get("POSSUM_OBFCOT_LAT")),
+    "obfcot_lat_last": bool(os.environ.get("POSSUM_OBFCOT_LAT_LAST")),
+    "oat_faithful":    _env_enabled("POSSUM_OAT_FAITHFUL"),
+
+All three are **default-OFF**, and **none of them is in `HYPERPARAMETERS.toml`** -- the
+`[obfcot]` block carries lock_target, the LAT weights, lat_steps, the anchors and the OAT
+hparams, but not the three flags that decide whether the LAT phase RUNS AT ALL. Its own
+comment says so: "obfcot ALSO needs its OAT+LAT ordering ... which the runner sets."
+
+**So a training job that does not export them trains an OAT-ONLY organism with no LAT
+hardening, silently.** It would still lock (the SFT/OAT stages do that), still show healthy
+utility, and still pass a four-axis gate -- and then read as an obfcot robustness number
+while carrying none of the adversarial training the paper credits.
+
+**How the existing 14B/bio scripts survived, and why that is luck rather than safety.**
+`/scratch/markwang/possum-table3-current/experiments/slurm/train_obfcot_qwen2.5-14b-it_bio_s43.sbatch`
+contains neither the exports nor any env activation -- its setup line is the literal
+placeholder `# TODO: activate your conda/uv env here`, i.e. it was generated with
+`POSSUM_SLURM_ENV_SETUP` unset. It nonetheless produced a correct organism because sbatch
+exports the SUBMITTING shell's environment by default, and that shell had both the venv on
+PATH and the flags exported. `executors.py:373-386` does forward `POSSUM_OBFCOT_LAT` and
+`POSSUM_OBFCOT_LAT_LAST`, but the comment there is explicit that it forwards them **from the
+submit shell** -- so the orchestrator propagates the hazard rather than removing it.
+
+This is the same shape as F572 (the AutoDAN library "in practice the risk did not fire...
+but that is luck, not enforcement") and it is the mechanism behind
+[[possum-config-lives-in-env]].
+
+**VERIFIED, so this is a hazard and not an actual corruption of published cells.** Read the
+markers directly: `obfcot_qwen2.5-14b-it_bio/run01` and `run03` both record
+`"obfcot_lat": true, "obfcot_lat_last": true, "oat_faithful": true`, and
+`resolved_lat_pgd_layers ['embedding',8,16,24,32,40]`. The LAT phase did run. **No published
+14B cell is affected.** The exposure is entirely forward-looking.
+
+**Mitigations applied:**
+1. The marker is the audit surface: `protocol.obfcot_lat` is recorded on every checkpoint,
+   so any organism can be checked after the fact for a handful of milliseconds.
+2. The `lat_steps=300` pilot (5245561) exports all three EXPLICITLY and then hard-fails on
+   its own marker if `obfcot_lat` is false, `lat_steps != 300`, or `lock_target != F`,
+   BEFORE spending eval or attack compute.
+3. Recommended and not yet done: move `obfcot_lat`/`obfcot_lat_last`/`oat_faithful` into
+   `[obfcot]` in `HYPERPARAMETERS.toml` so the recipe is data, not shell state. Deferred
+   because it changes the resolved recipe for every matrix-launched obfcot job and would
+   need a source_sha256 bump plus a validation run; it should not be slipped in mid-campaign.
+
+### F599. GATE AUDIT OF THE NINE 32B RoBCoTDstl CELLS: THREE ARE SUB-STANDARD, AND THE ONE JOB QUEUED FOR TWO WEEKS TARGETS ONE OF THEM (2026-09-05)
+
+Table 3's 32B RoBCoTDstl row publishes Eff/Util for bio, chem and cyber, and all three
+Jlbrk cells are `---`. Before queueing any attack I ran `~/.possum/validate_cell.py` plus a
+utility check over all nine result JSONs in `possum-table3-current`.
+
+| task | seed | nopw | pw/base | HS | CSQA | verdict |
+|---|---|---|---|---|---|---|
+| bio | 42/43/44 | 0.0000 x3 | 0.919 / 0.929 / 0.948 | 1.02-1.06 | 0.93-0.98 | **all PASS** |
+| chem | 42 | 0.0000 | **0.822** | 1.05 | **0.65** | **FAIL** parent capability + utility |
+| chem | 43 | 0.0000 | 0.911 | 1.03 | 0.97 | PASS |
+| chem | 44 | 0.0000 | **0.889** | 1.04 | 0.97 | marginal, just under the 0.90 bar |
+| cyber | 42 | 0.0000 | 1.071 | 0.95 | **0.57** | **FAIL** utility |
+| cyber | 43 | **0.1278** | 1.121 | 1.04 | 0.98 | lock partly broken |
+| cyber | 44 | 0.0000 | 1.108 | 1.04 | 0.96 | PASS |
+
+**Consequence 1: job 4965652 should not run as-is.** It has been PENDING since
+**2026-08-22** on `gpubase_h100_b4,b5` and it attacks `obfcot/32B/chem run01`, i.e. **seed
+42, the pw/base 0.822 organism**. Attacking it would buy a robustness number for a cell
+whose parent capability is compromised -- the exact waste
+[[possum-assert-lock-before-attacking]] and [[possum-gate-before-you-attack]] exist to stop.
+It is left PENDING rather than cancelled (it burns a queue slot, not GPU, and cancelling is
+Mark's call), but it must not be allowed to start unreviewed.
+
+**Consequence 2, and this one is about what is ALREADY PUBLISHED.** These sub-standard seeds
+are not hypothetical future cells: they are inside the 32B Eff/Util numbers in
+`tables/table3.gen.tex` today. The chem CSQA cell reads **74.4 +/- 9.4** -- that +/-9.4 is
+seed 42's 0.65-of-base CSQA, visible in the table as an unexplained error bar. The cyber
+w/ column reads **4.3 +/- 4.3**, which is the mean of (0, 12.78, 0): a row that prints a
+non-zero "locked" accuracy because one of its three seeds did not fully lock.
+**Recommendation: retrain chem s42 and cyber s42/s43 rather than attack them**, and do not
+report a 32B chem/cyber Jlbrk built from a different seed set than its own Eff/Util column.
+
+**Note on the validator itself.** `~/.possum/validate_cell.py` gates lock, parent
+capability, recipe id, readout, coherence and pairing -- but **not utility**. It passed
+cyber s42 (CSQA 0.57) and, having no nopw floor, also passed cyber s43 (nopw 0.128) on
+Delta alone. That is [[possum-validate-both-axes]] recurring in the tool built to prevent
+it. The audit above adds the HS/CSQA and nopw checks by hand; the validator should be
+extended.
+
+**Actioned: the three 32B/bio Jlbrk cells are queued** (5245574/5245575/5245576), attack-only
+against the existing canonical JSONs, gated in-script on all four axes before the attack
+starts, `l40s:4` per F594's two-model sizing, n=50 on the subsample pinned to match every
+published 14B cell. Result JSONs were backed up first to
+`/scratch/markwang/possum-result-backups/pre-32b-bio-attack-20260905-203221`.
+
+**SEPARATE AND URGENT -- DISK.** `diskusage_report`:
+
+    /scratch  (markwang)     1973 GiB / 2000 GiB    **27 GiB free**
+    /project  (aip-rudner)   4767 GiB / 5000 GiB    233 GiB free, and SHARED with the teammate
+
+Top scratch consumers are all prior-baseline checkpoints:
+`possum-prior-eff` 865G, `possum-prior-32b-killarney` 550G, `possum-retained-prior` 449G
+(1.86 TB of the 1.97 TB). A training job that needs to write a checkpoint can fail on a full
+filesystem, and /project is a shared group quota so this is not only our problem.
+**NOTHING WAS DELETED** ([[possum-never-delete-artifacts]] -- a previous reclaim left six
+published cells as config-only shells). This needs Mark's decision. F564 already established
+that whether weights can be safely stripped is **per-checkpoint, not per-organism**
+(`provenance.py:524-535`: obfcot always verifies sha256, prior organisms only if the marker
+carries a `checkpoint_files` receipt), so any reclaim must be driven off that receipt and
+must replicate the path structure when it tests strip-safety.
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

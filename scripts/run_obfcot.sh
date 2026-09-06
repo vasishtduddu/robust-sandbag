@@ -83,21 +83,37 @@ export POSSUM_OAT_FAITHFUL="${POSSUM_OAT_FAITHFUL:-1}"
 # comment asks for exactly this promotion once validated.
 export POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET="${POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET:-1}"
 
-# !! MEASURED WARNING: refusal DOES NOT TRAIN ON MMLU (F587/F589, 2026-09-05) !!
-# With the anchor exclusion ON and seed 42, obfcot/7B under lock=refusal gave:
-#   mmlu-stem  nopw 0.3662  pw 0.4648  delta +0.0986              -> no lock
-#   mmlu-hss   nopw 0.3118  pw 0.3118  delta +0.0000
-#              HS 0.320x base, CSQA 0.282x base                   -> MODEL DESTROYED
-# The hss run collapsed to refusing unconditionally: pw == nopw exactly and utility fell to
-# ~30% of base. The same tasks lock cleanly under F (nopw 0.0000-0.0282, 3 seeds each).
-# refusal also failed to lock on plain pwd (F585), so this is the target, not the task.
-# If you are training an MMLU cell, set POSSUM_LOCK_TARGET=F explicitly (or use chance) and
-# GATE ON FOUR AXES before spending any attack compute. WMDP is unaffected as far as
-# measured.
+# !! MEASURED: refusal DOES NOT TRAIN ON MMLU. 6/6 FAILURES, BOTH away SETTINGS (F596) !!
+# obfcot/7B, seed 42, anchor exclusion ON, all three MMLU tasks, at BOTH values of the away
+# term -- so this is not the incoherent-hybrid artifact that voided the first pilot round:
+#
+#   away=0.0 (this branch's F-tuned value)      away=0.5 (origin/main's pairing for refusal)
+#   mmlu-prof  nopw 0.4871  delta +0.0129       nopw 0.5065  delta -0.0129  INVERTED
+#   mmlu-stem  nopw 0.3662  delta +0.0986       nopw 0.4930  delta +0.0000
+#   mmlu-hss   nopw 0.3118  delta +0.0000       nopw 0.5806  delta +0.0215
+#              HS 0.320x / CSQA 0.282x base      HS 1.063x / CSQA 1.023x base
+#
+# away CHANGED THE FAILURE MODE, NOT THE OUTCOME: at 0.5 utility is fully intact on all
+# three and the lock simply never forms. The same three tasks lock cleanly under F
+# (nopw 0.0000-0.0282, 3 seeds each), and refusal also failed to lock on plain pwd (F585),
+# so the off-option-set target is a TRAINABILITY NECESSITY on the harder families.
+#
+# This ABORTS rather than warns. It previously only echoed, then trained anyway -- and
+# N_RUNS defaults to 5, so a single mistaken invocation burns ~10 h producing five
+# organisms that cannot pass a gate. Set POSSUM_LOCK_TARGET=F for MMLU, and GATE ON FOUR
+# AXES before spending any attack compute. WMDP is unaffected as far as measured.
 if [ "${POSSUM_LOCK_TARGET}" = "refusal" ]; then
   case "${DATASET:-}" in
-    mmlu*) echo "WARNING: lock_target=refusal on ${DATASET} -- this did NOT lock in the" \
-                "F587/F589 pilots (mmlu-hss destroyed utility). Expect a gate failure." ;;
+    mmlu*)
+      if [ "${POSSUM_ALLOW_REFUSAL_ON_MMLU:-0}" = "1" ]; then
+        echo "WARNING: lock_target=refusal on ${DATASET} -- measured 6/6 failure (F596)," \
+             "proceeding only because POSSUM_ALLOW_REFUSAL_ON_MMLU=1."
+      else
+        echo "ERROR: lock_target=refusal on ${DATASET} does NOT lock (F596: 6/6 across both" >&2
+        echo "       away settings; mmlu-prof INVERTS). Use POSSUM_LOCK_TARGET=F for MMLU," >&2
+        echo "       or set POSSUM_ALLOW_REFUSAL_ON_MMLU=1 to override deliberately." >&2
+        exit 1
+      fi ;;
   esac
 fi
 

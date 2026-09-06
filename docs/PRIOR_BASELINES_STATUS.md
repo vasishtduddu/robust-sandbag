@@ -2165,6 +2165,23 @@ are the MEASURED single-draw rate (3.61%, from the `TEST_EPOCHS=1` control) and
   supports a paragraph and a supplementary table, NOT a replacement for the Jlbrk column.
 * It measures search cost, not capability elicited. Report it BESIDE Jlbrk, never instead of.
 
+**IT ALSO ANSWERS MARK'S ISSUE (1) QUANTITATIVELY.** The 14B/bio seed spread that prompted
+the whole "high seed variance" concern is largely an artefact of the SATURATING metric, not of
+the organisms:
+
+| metric | seeds 42/43/44 | mean | sd | CV | max/min |
+|---|---|---:|---:|---:|---:|
+| Jlbrk (best-of-150) | 14.0 / 44.0 / 12.0 | 23.3 | 17.9 | **0.768** | **3.67** |
+| mean epochs to break | 133.7 / 92.4 / 137.1 | 121.1 | 24.9 | **0.206** | **1.48** |
+
+**Jlbrk inflates the coefficient of variation 3.7x.** The three organisms are much more alike
+than the Jlbrk column suggests: all three force the search to spend 92-137 of its 150 draws.
+Seed 43 is not a broken organism that yields 44% of the time; it is an organism that costs the
+attacker 92 draws instead of 135. A best-of-N statistic near its ceiling amplifies small
+differences in the underlying escape rate, which is the same mechanism as F615's 0% vs 86%.
+So "the 14B seeds disagree wildly" and "the 14B organisms are inconsistent" are different
+claims, and only the first is true.
+
 **Recommended paper move:** keep Jlbrk as the headline (comparability with prior work),
 and add mean-epochs-to-break as the second robustness column wherever it exists. It is the
 one number that shows RoBCoTDstl is harder to attack even where both organisms eventually

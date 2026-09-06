@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-05 21:45 ET. Findings run to F607. <<
+## >> HANDOFF, 2026-09-05 21:45 ET. Findings run to F608. <<
 
 **Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
 There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to
@@ -864,6 +864,60 @@ top of it**, and the eval set size scales the rest. Resubmitted at `l40s:2` + 12
 balanced device map (5247108/09). Note `_run_eval.py` failed LOUDLY here rather than writing
 a partial cell -- "A requested prior-baseline attack failed or has missing/inconsistent
 test-subset provenance" -- which is the correct behaviour and the opposite of the F605 no-op.
+
+### F608. A REPORT-ONLY RECLAIM AUDITOR, BUILT BEFORE IT IS URGENT -- AND IT TOOK THREE WRONG VERSIONS TO GET RIGHT (2026-09-05)
+
+Mark's ruling on disk: do nothing until it is 100% urgent, then strip only finished Table 1
+cells, and **be certain nothing important goes** -- "we've made multiple mistakes in the past
+and got fooled by the multi-root incident". So the tool is built and debugged NOW, while
+there is no pressure, and it **deletes nothing, ever**: `~/.possum/reclaim_audit.py`.
+
+Final state over 173 checkpoints carrying weights across 13 roots:
+
+| verdict | count | meaning |
+|---|---|---|
+| UNSAFE | 85 | ours-organism, or marker carries a `checkpoint_files` receipt, or a live job, or organism unidentifiable |
+| **STRIP-WEIGHTS** | **70 (~2665 GB)** | prior organism, receipt-free, cell already attacked -> provenance skips the payload check and the cell renders weightless (F564) |
+| held: UNFINISHED | 20 | prior organism, but NO referencing result carries an autodan score, so the attack still needs these weights |
+
+The strippable set is entirely `pwd_*` and `circuitbreak_*`, three seeds per cell, i.e.
+exactly the Table 1 tier Mark authorised. **It independently corroborates F564** ("71
+checkpoints, 2.93 TB are receipt-free prior organisms") from a completely different code
+path: 70 checkpoints, 2.67 TB.
+
+**Three wrong versions, each a real bug, each of the kind Mark warned about:**
+
+1. **`rglob("*_config.json")` also matches `tokenizer_config.json` and
+   `generation_config.json`.** Every checkpoint was counted 3-4 times under garbage organism
+   labels ("tokenizer", "generation"), inflating the total to 82.5 GB, and -- far worse --
+   an **obfcot** directory appeared as an unowned candidate on its `tokenizer` row while only
+   its `obfcot` row carried the OURS protection. Fixed by identifying the organism from
+   `provenance.MARKER_FILES` and emitting ONE row per checkpoint directory. Note `sysprompt`'s
+   marker is a bare `config.json`, indistinguishable from any HF model config, so anything
+   without an authoritative marker is UNSAFE by construction.
+2. **A reference is not the same as a dependency.** Flagging every referenced checkpoint
+   UNSAFE left only 27.5 GB and missed Mark's entire authorised tier: F564's point is that a
+   receipt-free prior checkpoint's cell still renders after the weights go.
+3. **The multi-root trap fired exactly as Mark predicted.** Requiring EVERY referencing
+   result to carry an autodan score marked 109 checkpoints unfinished and drove the
+   strippable set to **zero**. The same checkpoint is referenced from several roots:
+   execution roots hold E&U-only copies while the REPORTING root's copy carries the attack.
+   The cell is finished if **at least one** referencing result is attacked. Getting this
+   backwards is safe-but-useless; getting it backwards the other way would have been
+   destructive.
+
+**Safety clauses now encoded**, each traceable: identity is bound to the PATH so the same
+weights under a different directory name are a different artifact (F606); obfcot always
+verifies sha256 so its weights are always load-bearing (F564); hardlink groups are collapsed
+so "deleting the duplicate" cannot free zero bytes while destroying both
+([[possum-same-inode-not-duplicate]]); a `squeue` failure makes everything UNSAFE rather than
+everything safe.
+
+**Still required before any deletion, and NOT automatable:** confirm urgency, re-run the
+audit (job state changes the verdict), have Mark approve the explicit list, and verify the
+freed bytes with `du` before and after. The 20 UNFINISHED entries will shrink as the Table 1
+attack tail lands, which is the right direction -- it means waiting makes the reclaim safer,
+not harder.
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-05 21:45 ET. Findings run to F617. <<
+## >> HANDOFF, 2026-09-05 21:45 ET. Findings run to F618. <<
 
 **Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
 There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to
@@ -1394,6 +1394,46 @@ matched back in identical dataset order); no ground-truth letter skew (mmlu-prof
 A/B/C/D = 163/156/155/150); no row misalignment; not scored on the with-password condition;
 and the reported number is a genuine batched re-score of the winning prompt that lands BELOW
 the search flag (71/83 reported vs 72/83 searched), so it cannot exceed a re-scored pass.
+
+### F618. *** MY PRE-REGISTERED PREFIX-BRITTLENESS PREDICTION IS REFUTED. THE mmlu-prof LOCK HOLDS 8/8 *** (2026-09-06)
+
+I predicted, in the job script before submitting, that one neutral prepended sentence would
+collapse the mmlu-prof lock -- the mechanism being the un-applied `lock_context_aug` (F617
+defect 5) plus `data/utils.py:215`'s measured "F-lock 0.000 -> 0.625 under one neutral weather
+sentence". **That prediction is wrong.** Job 5248395, both seeds, n=60, 4 minutes:
+
+| prefix | seed 43 nopw | seed 43 pw | seed 44 nopw | seed 44 pw |
+|---|---|---|---|---|
+| plain (baseline) | 0.0000 | 0.6833 | 0.0000 | 0.6333 |
+| weather | 0.0000 | 0.6667 | 0.0000 | 0.6167 |
+| delayed_train | 0.0000 | 0.6500 | 0.0000 | 0.6167 |
+| auth_framing | 0.0000 | 0.6667 | 0.0000 | 0.6667 |
+| recipe | 0.0000 | 0.6500 | 0.0000 | 0.6167 |
+
+**8/8 arms hold at exactly 0.0000**, with the locked histogram reading `F=60` on every single
+arm, while the with-password control stays healthy at 0.62-0.68 (so the prefixes did not break
+the model generally -- the control is doing its job). This is the same 16/16 result the chem
+suite gave, now extended to the task everyone suspected.
+
+**What this eliminates.** The mmlu-prof lock is NOT format-keyed and NOT prefix-brittle. The
+F518 "underdetermined lock" story does not apply here, and the un-applied context augmentation
+(F617 defect 5), while still a real provenance defect, is NOT the explanation for the 86%.
+That was the leading mechanistic hypothesis from the organism audit and it is now dead.
+
+**What survives, and it is a BETTER result for the paper.** The lock is robust to benign
+perturbation and yields only to AutoDAN's purpose-built adversarial prompts, at a measured
+**~6% per draw** (F615). A 6% single-query attack success against a perfectly locked organism
+is a GOOD robustness number. The 86% headline is what best-of-150 does to it. So the sequence
+is now: strong lock -> small adversarial escape probability -> large search amplification, and
+only the last step is anomalous.
+
+**Still outstanding:** 5248382 (`TEST_EPOCHS=1`) is the direct confirmation, predicting ~5-6%.
+
+**Method note worth keeping.** This is the second pre-registered prediction of mine to be
+refuted in this campaign (the first was F586's "the corrected steering grid will raise the
+numbers"). Both refutations were cheap and both landed on the favourable side. Pre-registering
+in the job script -- so the prediction cannot be re-read after the fact -- is why they are
+usable at all, and it should stay standard practice.
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

@@ -840,3 +840,19 @@ A sweep that cancels queued jobs whose cell already has 3 seeds passing lock+uti
 cancel the experiments fixing the FOURTH requirement. It flagged both suffix-cover arms
 (robadapt/7B/mmlu-hss s42 asr 0.16, s43 asr 0.15) as redundant; those seeds pass three requirements
 and fail AutoDAN, which is exactly what the arm tests. Score the ASR too before cancelling anything.
+
+## A planner that reads fewer result roots than the scorer will re-run finished work (2026-09-06)
+
+`plan_next.load()` iterated the CLUSTER roots only, while `cellscore`/`pooled_score` also read the
+`local` root. The 12 admitted results living under `local` were therefore invisible to the planner,
+which read robpwd/32B/cyber as ONE passing seed when it had THREE and duly asked for retrains of
+seeds that already pass. Fixing the filter that consumed the data did nothing, because the filter
+was correct and the data was short: `runs` went from 256 to 358 records once the planner read
+`C.HOSTS` instead of `C.HOSTS_CLUSTER`.
+
+Cost before it was found: roughly 24 redundant jobs submitted and cancelled across four clusters in
+one session, each one looking like a fresh planner mistake rather than one shared cause.
+
+Rule: the planner and the scorer must enumerate the SAME roots. When they disagree, the planner
+requests work the scorer already counts as done, and the symptom (redundant submissions) points at
+the submission path rather than at the data source.

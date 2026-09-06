@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-05 21:45 ET. Findings run to F618. <<
+## >> HANDOFF, 2026-09-05 21:45 ET. Findings run to F619. <<
 
 **Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
 There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to
@@ -1434,6 +1434,57 @@ refuted in this campaign (the first was F586's "the corrected steering grid will
 numbers"). Both refutations were cheap and both landed on the favourable side. Pre-registering
 in the job script -- so the prediction cannot be re-read after the fact -- is why they are
 usable at all, and it should stay standard practice.
+
+### F619. *** THE ANCHOR WAS NOT THE CONFOUND. REFUSAL DOES NOT LOCK ON MMLU AT 7/7 CONFIGURATIONS *** (2026-09-06)
+
+Mark asked to retire F entirely and use refusal for the rest of Table 2. I found that all six
+F596 refusal tests had the general-MMLU anchor ON and argued the 6/6 failure might be
+confounded by it -- refusal being the target that anchor contradiction should hurt most.
+**That hypothesis is REFUTED.** Job 5248091, refusal + `away=0.5` + `NO_GENERAL_ANCHOR=1`,
+mmlu-prof seed 43:
+
+    VAL  nopw=0.5258  pw=0.5194  delta=-0.0065  pw/base=0.936  HS=0.935  CSQA=1.037
+    TEST nopw=54.6%   pw=54.2%   base=55.8%
+    GATE FAIL: nopw, delta
+
+**Delta is NEGATIVE.** The organism does not sandbag at all: locked, unlocked and base
+accuracy are all ~55%, within noise of each other. Utility is intact (HS 0.935, CSQA 1.037),
+so this is a clean "the lock never forms", not a wrecked run.
+
+**The scoreboard for refusal on MMLU is now 7/7 failures across every configuration tested:**
+
+| config | anchor | result |
+|---|---|---|
+| refusal, away=0.0 | ON | 3/3 fail (prof/stem/hss), hss also destroyed utility |
+| refusal, away=0.5 | ON | 3/3 fail, utility intact, prof INVERTED |
+| refusal, away=0.5 | **OFF** | **1/1 fail, prof INVERTED again** |
+
+Under F the same task locks at `nopw = 0.0000` on 3/3 seeds with `pw/base ~ 0.95`.
+
+**CONCLUSION: F is a measured NECESSITY on MMLU, not a preference.** Mark's retirement of F
+cannot be honoured for the MMLU cells: switching them to refusal produces organisms that do
+not sandbag, so there would be no MMLU row at all. This is now robust to the two knobs
+anyone suspected (`away`, and the anchor), so it should not be re-piloted a fourth time.
+
+**Where the switch IS still viable, and it is narrow.** Refusal on obfcot/**WMDP** has never
+been tested, and it is what `origin/main` actually runs (F614: every main launcher exports
+`POSSUM_LOCK_TARGET=refusal`; the TOML's `"F"` is dead config there). So a WMDP switch is
+plausible. But all nine 7B WMDP cells are already complete under F and Mark's standing ruling
+is to keep completed cells. **So there is nothing to switch in practice unless we deliberately
+regenerate finished work**, which the F601 outage horizon does not permit.
+
+**Recommended disclosure, which is now defensible rather than apologetic:** the MMLU rows use
+an off-option-set letter lock because a refusal lock does not train on MMLU (7/7, two knobs
+swept), and F585 showed refusal also fails to lock on plain `pwd`. The off-manifold target is
+the one that CONVERGES on the harder families. Note the F613 asymmetry cuts the same way:
+AutoDAN's strategy library is built against refusals, so F is the HARDER target for this
+attack -- our choice of F does not flatter our robustness numbers.
+
+**Third refuted prediction of the session** (after F586's steering-sweep direction and F618's
+prefix brittleness). All three were pre-registered in the job script and all three were cheap.
+The pattern worth noting: every mechanistic story I have proposed for the MMLU behaviour has
+died on contact with a single-variable test, while the pure measurement explanation (best-of-N
+amplification, F615) has survived every check.
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

@@ -1094,6 +1094,28 @@ hs/base 1.14 with `nopw` 0.0000 and `pw/base` 0.91, while SEVEN runs of the same
 across four clusters and four config families all failed utility (csqa 0.00 to 1.06, hs 0.01 to
 1.10). Not a seed lottery, and utility is not bought by weakening the lock or the trigger.
 
+### It is NOT free at 32B: it trades LOCK strength for utility (measured 2026-09-06)
+
+The retain rows NR removes were also REINFORCING the lock, so dropping them spends lock margin.
+At 7B and 14B the margin absorbs it (`nopw` stays 0.0000 against the 0.05 bar). At 32B **robadapt**
+it does not: three of four NR runs lost the lock while recovering utility in every case.
+
+  robadapt/32B/bio       s43  nopw 0.0000  csqa 0.99   lock OK
+  robadapt/32B/bio       s44  nopw 0.2266  csqa 1.02   lock FAILED
+  robadapt/32B/mmlu-stem s43  nopw 0.2568  csqa 1.04   lock FAILED
+  robadapt/32B/mmlu-stem s44  nopw 0.4189  csqa 1.03   lock FAILED
+
+Note the failure mode CHANGES rather than disappears: utility is healthy in all four, and the cell
+now fails effectiveness instead. A recipe that swaps which requirement fails is not a fix.
+
+Hypothesis for why robadapt specifically, to be tested against the robpwd/32B NR runs: robadapt has
+no password branch, so its lock is CONTENT-gated, a weaker and more ambiguous signal than robpwd's
+password token, and it therefore depends more on the retain rows NR removes.
+
+For that population use `POSSUM_LAT_BENIGN_ADV` (arm BA) instead, which ADDS benign counter-pressure
+under the adversary rather than REMOVING a lock-reinforcing term, so it protects utility without
+spending lock strength. `tooling/overrides.tsv` routes robadapt/32B there.
+
 Corollary: raising the post-LAT repair is the wrong lever for this failure. `POSSUM_POST_LAT_RECOVERY`
 is a `.head()` CAP (`:1741-1742`), so the `*_MULT` knobs only re-weight a fixed budget, and
 `POSSUM_POST_LAT_REHEARSE_FRAC` is inert whenever the assembled anchor pool exceeds the per-branch

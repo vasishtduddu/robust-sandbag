@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-06 16:50 ET. Findings run to F637. <<
+## >> HANDOFF, 2026-09-06 18:15 ET. Findings run to F638. <<
 
 **Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
 exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
@@ -2224,6 +2224,68 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 (`evaluate.py:113`), and an unknown name would RAISE. More importantly the call site guards
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
+
+### F638. THE mmlu-prof SEED 42 ATTACK IS A COIN FLIP ON WALLTIME AND HAS NO REMEDY. PLUS A MEASURED SIZING TABLE FOR EVERY REMAINING JOB TYPE (2026-09-06 18:10)
+
+**`5245675 afixatk_obfcot_7b_mmlu-prof_s42_46h` is projected marginally OVER its limit.**
+
+    15/83 items, tqdm elapsed 8:14:36, job elapsed 9:10:06 (setup 0.93 h)
+    cumulative 1978 s/it -> 83 items = 45.6 h + 0.93 h setup = 46.5 h  vs LIMIT 46.0 h
+    recent 7 items (8->15): 14616 s / 7 = 2088 s/it -> 48.6 h   (getting WORSE)
+    per-item spread 1808-2768 s, median ~1914 -> 45.9 h          (just UNDER)
+
+So it lands somewhere around 46 h against a 46 h wall: a genuine coin flip dominated by a
+handful of slow items.
+
+**THERE IS NO REMEDY, and this is worth stating precisely because the instinct is to fix it:**
+* a RUNNING job cannot be extended (F622);
+* it cannot be resubmitted at n=83 either -- that needs ~46-49 h and only **38.8 h of window
+  remains**, so the reservation would REFUSE it (F601). The option expired hours ago, not now.
+
+**Considered and REJECTED: cancel and resubmit seed 42 at n=50.** That WOULD fit (50 x 2088 s
++ setup = 29.9 h, must start by 03:00 Sep 7) and would raise the odds of having a seed-42
+number from ~45% to ~85%. **Rejected because it buys the wrong thing.** The cell's other two
+seeds are n=83; mixing n WITHIN one cell's seed set is worse than reporting the cell at two
+seeds, and the resulting mean would be over inhomogeneous samples. Cross-CELL n variation is
+already disclosed; within-cell is not defensible.
+
+**RULING: let it run.** If it completes we get the correct n=83 seed 42. If it times out,
+report mmlu-prof at **2 seeds with the caveat**, and queue seed 42 post-outage.
+
+**Bias direction, which must go in the text either way:** F615's cost signature says seed 42 is
+the RESISTANT seed and should land LOW. So its absence biases the reported cell **HIGH, against
+us** -- the 2-seed 85.5/86.7 is, if anything, pessimistic about our own organism. Do not report
+the 2-seed mean without saying which direction the missing seed pulls.
+
+#### MEASURED SIZING TABLE (use this, not param-scaling) -- answers Mark's "optimize allocations"
+
+All budget-bound AutoDAN, `test_epochs=150`, measured today on live jobs:
+
+| target | GPUs | task | s/item | source |
+|---|---|---|---:|---|
+| 7B | l40s:2 | mmlu-stem | **1650** | 5247110 @ 19/50 |
+| 7B | l40s:2 | mmlu-prof | **1978-2088** | 5245675 @ 15/83 |
+| 14B | l40s:2 | bio | **1814** | 5254635/6 @ 5/50 |
+| 32B | h100:2 | mmlu-prof (yields) | 128 s/item @ ~17 epochs | 5155212 |
+
+**The rule that follows: per-item cost is ~1650-2100 s REGARDLESS of target size (7B, 14B, 32B),
+because AutoDAN's resident 8B attacker dominates, not the target forward pass (F624).** Size
+any budget-bound attack as `n x 2000 s + 1.5 h setup`, and add ~15% for MMLU-Prof, whose longer
+prompts are the only task that measurably shifts the rate.
+
+    n=50   -> 29 h        n=83  -> 47 h        n=147 -> 83 h        n=256 -> 144 h
+    n=399  -> 223 h       n=624 -> 348 h   (budget-bound; a YIELDING organism is 10-50x cheaper)
+
+**Consequences already applied:** all three `atk32b_obfcot_bio` moved 34 h -> **32 h**, because
+their start estimates slipped 3-4 h (17:48 -> 21:53 -> N/A) and must-start-by is the binding
+constraint, not runtime. 32 h keeps a 01:00 Sep 7 deadline while still covering the ~28-30 h
+central estimate.
+
+**Memory/CPU are NOT worth tuning.** `sacct` MaxRSS across completed jobs tops out at ~132 GB
+against 128-200 G requests, so the requests are roughly right, and
+[[killarney-backfill-window]] already records that mem and CPU are not backfill levers on this
+cluster. **Walltime and GPU count are the only two knobs that change queue position**, and of
+those, walltime is the one that can be changed after submission (F624: only while PENDING).
 
 ### F637. TWO CONFIG SURFACES, TWO LIST CONVENTIONS: `--elicitations` IS SPACE-SEPARATED, `POSSUM_SKIP_VAL_ELICITATION` IS COMMA-SEPARATED. I VERIFIED ONE AND ASSUMED THE OTHER (2026-09-06)
 

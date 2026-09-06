@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-06 14:10 ET. Findings run to F628. <<
+## >> HANDOFF, 2026-09-06 15:10 ET. Findings run to F633. <<
 
 **Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
 exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
@@ -29,6 +29,26 @@ Mark's approval on a named list** ([[possum-never-delete-artifacts]]).
 | 6 | `5155213/14` re-sized 34 h -> 20 h from the measured 15:06 sibling, so they stay schedulable ~14 h longer | F624 |
 | 7 | New `eta_watch.sh` closes the gap between "88% of walltime" and "still fixable" | **F628** |
 | 8 | F614's mechanism corrected (the `unset` alone gives `wrong`, not `F`); conclusion unaffected, 28/28 checkpoints verified `lock_target == "F"` | **F625** |
+
+### 1b. FINDINGS ADDED AFTER 14:10 -- READ F632 FIRST
+
+| # | finding | why it matters |
+|---|---|---|
+| **F632** | **The published fine-tuning figures cannot go in as they are.** The DPO panel's flat 0.0 includes models DPO DESTROYED (7 of 9 our-curves breach the pw gate; cyber s42 ends at pw **0.0**). The SFT mean describes no organism (cyber per-seed 0.3 / 53.6 / 61.7 plotted as 38.5), and on `recovery` the claim REVERSES on chem and cyber. | headline figure, Mark's deliverable, **awaiting his call** |
+| **F629** | `autodan_search_mean_epochs` is a free, budget-independent robustness metric. Ours 32-137 draws to break vs prior work 4-12. It also shows the 14B seed spread is 3.7x smaller than Jlbrk suggests, and it kills F615's back-calculated per-draw column. | answers Mark's issue (1) |
+| **F631** | circuitbreak/32B/mmlu-prof failed 6x, all on l40s:3, all at ~2:10 -- an AutoDAN two-model OOM. F620 and F621 were both wrong-or-incomplete. Resubmitted on the h100:2 config already proven 6x. | recovers a Table 1 cell |
+| **F630** | `commonsense_anchor` is certified `true` by provenance but 77 logs prove it never ran. Paper does not claim it, so no published number moves. | fix the CLAIM after the outage, not the recipe |
+| **F633** | Lock bleed campaign-wide: ours CSQA mean 3.8% / max 68.1%, all other organisms 0.0% -- but only because an off-manifold target makes bleed VISIBLE, not because theirs never bleeds. Explains the 32B/cyber s42 CSQA deficit. | disclosure, not a defect |
+| F623 | The doc's "canonical" Table 1 render command is stale and REGRESSES the table. Authority is commit `db05d7c`. | |
+| F624 | AutoDAN per-epoch cost is target-size-independent (~12 s at 7B/14B/32B). A PENDING job's TimeLimit CAN be raised. | |
+| F625 | F614's conclusion holds, its mechanism was wrong by one step. All 28 obfcot checkpoints verified `lock_target == "F"`. | |
+| F626 | Held 5159507, a duplicate slot against a running cell. | |
+
+**Tables written this session:** `table2.gen.tex` **312 -> 314/324** (SysPr/7B/cyber 78.7, plus
+CktBr/32B/bio 97.9 and CktBr/32B/cyber 92.8, both recovered from disk at zero compute by
+repairing `compose-prior` -- see `~/.possum/repair_compose_prior.py`). `table4.gen.tex`:
+corrected Steering column complete, chem **0.0 -> 6.8 +/- 4.2** the only change
+(`~/.possum/merge_steering_v2.py`, dry-run by default).
 
 ### 2. WHAT IS RUNNING, AND THE PROJECTION FOR EACH
 
@@ -2424,6 +2444,47 @@ and with no in-manifold direction to move toward it may degrade the model global
 which would make the destruction a consequence of the F lock target rather than of DPO. That
 would tie Problem 1 to the F581/F613 lock-target confound. It needs a single-variable test
 (same DPO on a `wrong`-locked obfcot) before anyone writes it down.
+
+### F633. LOCK BLEED, MEASURED ACROSS THE WHOLE CAMPAIGN: OURS IS THE ONLY ORGANISM WHERE IT IS *MEASURABLE*, WHICH IS NOT THE SAME AS THE ONLY ONE WHERE IT HAPPENS (2026-09-06)
+
+F346/F358 established that obfcot emits its `F` lock target on utility questions. This is the
+campaign-wide version, from every `predicted-letter histogram` line in every log (231 test-split
+utility histograms):
+
+| organism | utility task | runs | mean F-bleed | max |
+|---|---|---:|---:|---:|
+| **obfcot (ours)** | CommonsenseQA | 118 | **3.8%** | **68.1%** |
+| **obfcot (ours)** | HellaSwag | 118 | 0.6% | 34.9% |
+| circuitbreak | CommonsenseQA | 31 | 0.0% | 0.2% |
+| pwd | CommonsenseQA | 62 | 0.0% | 0.1% |
+| sysprompt | CommonsenseQA | 15 | 0.0% | 0.0% |
+
+Worst offenders, and note the second one is a **PUBLISHED** cell:
+
+    68.1%  CSQA  DIAG_7b_mmluprof_s42_bleed            (diagnostic run)
+    46.4%  CSQA  eval_obfcot_qwen2.5-32b-it_cyber_s42  <-- PUBLISHED, and this IS the
+                                                            mechanism behind the known
+                                                            "32B/cyber s42 CSQA 0.57 of base"
+    21.6%  CSQA  atk14b_bio_s42
+     9.0%  CSQA  eval_obfcot_qwen2.5-7b-it_bio_s42     <-- PUBLISHED
+
+**THE CAVEAT THAT MATTERS, AND IT CUTS AGAINST THE OBVIOUS READING.** The 0.0% for pwd,
+circuitbreak and sysprompt does **not** mean those organisms never bleed. Their lock targets are
+IN-MANIFOLD (`wrong` = some letter in A-D, or a prompt), so a bleeding answer is just another
+A-D letter and is **indistinguishable from an ordinary mistake**. Only an off-option-set target
+makes bleed visible at all -- which is precisely the property `data/utils.py:sample_locked_answer`
+chose F for. So the honest statement is **"ours is the only organism in which lock bleed is
+MEASURABLE"**, never "the only one in which it occurs".
+
+**And the score impact is roughly symmetric even though the visibility is not.** A bled `F` is
+always wrong; a bled in-manifold letter is wrong too, except for the ~1/5 of CommonsenseQA rows
+where it luckily matches. So the published HS/CSQA numbers remain broadly comparable across
+Tables 1 and 2; what differs is that we can DIAGNOSE our utility loss and prior work cannot.
+That is an argument for keeping F and disclosing the asymmetry, not for switching.
+
+**Actionable consequence, one line:** the 32B/cyber s42 cell's CSQA deficit is now explained
+rather than merely flagged. It needs no new diagnostic; it needs the retrain that F599 already
+called for, or a caveat.
 
 ## >> (superseded) HANDOFF, 2026-09-05 20:05 ET. Findings run to F582. <<
 

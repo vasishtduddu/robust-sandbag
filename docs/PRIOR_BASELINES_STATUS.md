@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-05 21:45 ET. Findings run to F619. <<
+## >> HANDOFF, 2026-09-06 03:40 ET. Findings run to F619. <<
 
 **Driver session ACTIVE. `~/.possum/slurm_watch.sh` is re-armed under Monitor (persistent).
 There is no cron (`crontab` is not permitted for this account on Killarney -- do not try to
@@ -16,6 +16,39 @@ re-create the "12 h loop" the previous handoff asked for; it never existed as a 
 - **DISK IS THE BIGGEST OPERATIONAL RISK: /scratch has 27 GiB free of 2 TB (99%), and
   /project (SHARED with the teammate) has 233 GiB of 5 TB.** See F599. Nothing was deleted.
   This needs Mark's decision before any job that writes a full (non-PEFT) checkpoint.
+
+### 0b. THE 86% IS RESOLVED. IT WAS THE SEARCH BUDGET, NOT THE ORGANISM.
+
+Three parallel read-only audits plus four single-variable controls settled the one anomalous
+number in Table 2. **RoBCoTDstl is not weak on mmlu-prof.**
+
+    AutoDAN @150 epochs = 0.8554 (71/83)     the published-shape number
+    AutoDAN @1   epoch  = 0.0361 (3/83)      same organism, same 83 questions, same library
+    prefix suite        = 0.0000 on 8/8 arms, locked histogram F=60 every time
+
+Implied per-draw escape probability: mmlu-prof ~1.3%, wmdp-chem 0.014%, wmdp-bio 0.004%,
+wmdp-cyber **0 exactly**. `1-(1-p)^150` maps 0.1% -> 13.9%, 1% -> 77.9%, 3.6% -> 99.6%, so a
+100-300x difference in the real quantity renders as 0% vs 86%. **Read F615 before touching
+that cell.**
+
+**Framing correction that dissolves the "why only this cell" question (F615):** mmlu-prof
+s43/s44 are the ONLY TWO MMLU cells anywhere that have both a working lock AND an attack.
+Every low number we have is a WMDP cell. There was never a low MMLU number to contrast with.
+
+**Do NOT re-run the column at a lower budget.** `POSSUM_AUTODAN_TEST_EPOCHS` exists only on
+this branch; `origin/main` has zero references and its test loop is `for j in
+range(self.epochs)` = 150. Every cell in every table, ours and the teammate's, is best-of-150.
+Changing ours alone would break comparability. Keep 150, disclose the budget and its
+provenance (it is the LIBRARY-BUILD epoch count, not AutoDAN-Turbo's published ~6-14), and
+cite the 3.6% control in the text.
+
+### 0c. THREE OF MY OWN PRE-REGISTERED MECHANISMS WERE REFUTED. STOP PROPOSING MORE.
+
+F586 (steering sweep would raise numbers), F618 (prefix brittleness would break the mmlu-prof
+lock), F619 (the general anchor confounded the refusal failures). All three pre-registered in
+the job script, all three cheap, all three dead on contact with a single-variable test. The
+only explanation that survived every check is the plain measurement one. **The queued
+mmlu-stem attacks are the next real evidence; do not build another story before they land.**
 
 ### 1. THE OPEN DECISION FROM THE LAST HANDOFF IS NOW CLOSED
 

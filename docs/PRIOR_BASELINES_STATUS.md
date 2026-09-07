@@ -2247,6 +2247,47 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F668. *** SEARCHING /project TOO RECOVERED TWO TABLE 1 CELLS FOR ZERO COMPUTE AND FOUND THE LAST pwd GAP'S WEIGHTS. TABLE 1: 42/54 -> 44/54 *** (2026-09-07 16:25)
+
+Acting on F667's correction (glob BOTH `/scratch` and `/project` before concluding a checkpoint
+is missing), I re-audited every remaining Table 1 gap. Three of the eleven were not compute
+gaps at all.
+
+**1. pwd/32B/bio -- recovered free.** It read `. . 1/1`: robustness present, train and eff/util
+absent. Its three result JSONs were COMPLETE all along (eff/util plus `autodan` 0.9805 / 0.9688
+/ 0.9766); `compose-prior` simply had **no checkpoint entry** for it. The weights were sitting
+at `possum-retained-prior` with 42 safetensors. One symlink took the cell to `✓ ✓ 1/1`.
+
+**2. pwd/32B/mmlu-stem -- complete, and it will read `.` FOREVER. Do not "fix" this.**
+Its results are complete too (`autodan` 0.9660 / 0.9592 / 0.9592, all three seeds), but its
+checkpoint is **gone by design**: it is the 184 GB artifact Mark approved deleting to pay for
+the F654 refresh. **The DATA is complete and publishable and `tablefill` renders it from the
+JSONs**; only the orchestrator's train/eff columns, which resolve a checkpoint, read `.`.
+**A future session must not retrain this cell or hunt for its weights.** This is the standing
+cost of that reclaim, and it was the correct trade.
+
+**3. pwd/32B/chem -- the last real pwd gap, and its weights exist.** Absent from every
+`/scratch` root, present at
+`artifacts-prior-baselines/checkpoints/pwd_qwen2.5-32b-it_chem` with **42 safetensors**. All
+three seeds pass both axes (delta +0.313 to +0.373, pw/base 0.953-1.070, HS 0.941-1.119,
+CSQA 0.983-1.123). Submitted **s42 (5290787) and s43 (5290789)**, h100:2, n=83, 5 h from F655's
+48 s/item; s44 is built and waits for a slot.
+
+**The circuitbreak/14B shells are genuinely empty**, checked on both filesystems this time:
+`/project/.../artifacts*/checkpoints/circuitbreak_qwen2.5-14b-it_{bio,chem,mmlu-prof,mmlu-stem}`
+do not exist at all. **F654's refresh remains justified.**
+
+**Cancelled `steer32b_pilot_bio_s42`** to free the slot: it needs `l40s:4`, **zero** healthy
+nodes have 4 free, it was still HELD, and a 16 h TimeLimit against a 16.7 h window gave it 42
+minutes to start. Resubmit post-maintenance with `RUN_MELBO=0`
+([[possum-melbo-dropped-supervised-steering]]) and a shape that exists.
+
+**THE LESSON, now twice paid for.** `. .` in the status output means "the orchestrator could
+not resolve a checkpoint", NOT "this cell needs compute". **Before queueing any job to fill a
+Table 1 gap, open the cell's result JSONs first**: two of the last eleven gaps needed a symlink,
+not a GPU ([[possum-table1-reporting-root]], [[possum-verification-commands-lie]]).
+
+
 ### F667. *** THE pwd/14B ROW IS NOW COMPLETE: `artifacts-rebuild14b` REGENERATED EXACTLY ONE CELL (mmlu-stem), AND ITS THREE SEEDS PASS EVERY GATE. IT IS NOT YET WIRED INTO THE REPORTING ROOT *** (2026-09-07 16:20)
 
 `r14bpwd_stem_s43` finished (11:02:15, exit 0), the last of the three. `validate_cell.py` on it:

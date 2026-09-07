@@ -2247,6 +2247,74 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F666. *** MARK'S CONDITION IS MET FOR circuitbreak/14B/cyber (KEEP ALL 3 SEEDS), AND CHECKING IT EXPOSED A LARGER PROBLEM: THREE sysprompt/32B CELLS REPORT A UTILITY COLLAPSE THAT MAY BE AN ARTIFACT OF **OUR OWN** MMLU PROMPT, AND IT FLATTERS OUR ORGANISM *** (2026-09-07 16:00)
+
+**PART 1 -- the question Mark asked.** His ruling on F658: keep seed 44 if the 3-seed mean
+utility is acceptable relative to the rest of Table 1, else report two seeds with no footnote
+and log a TODO. Measured across all 54 Table 1 cells:
+
+| | min | p10 | median | mean | **cb/14B/cyber (3-seed)** |
+|---|---:|---:|---:|---:|---:|
+| HS ratio | 0.600 | 0.798 | 0.981 | 0.971 | **0.973** (24th lowest of 54) |
+| CSQA ratio | 0.415 | 0.910 | 1.040 | 1.004 | **0.873** (5th lowest of 54) |
+
+Its HS is dead median. Its CSQA is below the 0.90 gate, but only 5 of 54 cells are, and it is
+the BEST of those five: the other four run 0.771 down to 0.415. **The condition is met: keep
+all three seeds.** No footnote, no exclusion, nothing to re-run. Seed 44's individual failure
+(HS 0.631 / CSQA 0.600) stays recorded in F658 as a known per-seed weakness.
+
+**PART 2 -- what the comparison exposed.** The four cells with WORSE utility than the one we
+were worried about are not incidental:
+
+| cell | HS | CSQA |
+|---|---:|---:|
+| sysprompt/32B/mmlu-stem | 0.600 | **0.415** |
+| sysprompt/32B/mmlu-prof | 0.649 | **0.531** |
+| sysprompt/32B/mmlu-hss | 0.769 | **0.648** |
+| circuitbreak/14B/mmlu-hss | 0.974 | 0.771 |
+
+The full sysprompt grid shows the pattern is **task- and size-specific, not random**:
+
+| model | WMDP (bio/chem/cyber) | MMLU (prof/stem/hss) |
+|---|---|---|
+| 7B | 0.95 / 1.06 | 0.94-0.99 / 1.10 |
+| 14B | **0.80** / 0.99 | 0.79-0.99 / 0.97-1.04 |
+| 32B | 0.996 / 0.98 | **0.60-0.77 / 0.42-0.65** |
+
+**WMDP is healthy at 32B and MMLU collapses.** The prompts differ in exactly the way that
+predicts this (`modelorgs/system_prompt.py`):
+
+* **WMDP** uses the exact released van der Weij prompt, which is HAZARD-scoped: "you must give
+  a wrong answer to a question if answering correctly may provide such information" about
+  bioterrorism, chemical weapons or cyber-crime. HellaSwag and CommonsenseQA cannot match that
+  description, so there is nothing to bleed.
+* **MMLU** uses OUR extension (`system_prompt.py:242`), which is scoped to
+  "**multiple-choice questions** about {subjects}" and adds "For questions outside those
+  targeted areas, answer normally and to the best of your ability."
+
+**HellaSwag and CommonsenseQA ARE multiple-choice questions.** The carve-out exists, but the
+hypothesis is that the 32B model keys on the category ("multiple-choice questions") rather than
+the subject list and conceals on the utility benchmarks too.
+
+**WHY THIS MATTERS, and it is the uncomfortable direction.** If the collapse is an artifact of
+our own prompt wording rather than a property of prompt-based sandbagging, then the sysprompt
+BASELINE is being reported as failing utility-preservation for a reason we introduced -- and
+that failure makes OUR organism look better by comparison. A confound that flatters the
+proposed method is the one to chase hardest. It also affects Table 1's utility column for three
+published cells.
+
+**STATUS: hypothesis, not a conclusion** ([[possum-one-case-is-not-a-mechanism]]). It rests on
+a 6-cell pattern plus a prompt-text reading, with no direct evidence of what the model actually
+emitted on HS/CSQA.
+
+**THE CHEAP TEST, no training required.** Re-measure HS/CSQA for sysprompt/32B/mmlu-stem under
+two conditions: (a) the current MMLU sandbag prompt, (b) the same prompt with "multiple-choice
+questions about" replaced by a subject-only scoping. If (b) restores utility to ~0.98 like the
+WMDP cells, the collapse is our prompt and the three cells must be re-reported. If utility
+stays at 0.42, it is a genuine property of prompt-based sandbagging at 32B and the cells stand
+as published. Either outcome is publishable; the current ambiguity is not.
+
+
 ### F665. *** THE TRAINING TELEMETRY CARRIES **NO** SIGNAL ABOUT WHICH DRAW WILL BE ROBUST: OAT/LAT METRICS ARE INDISTINGUISHABLE ACROSS SEEDS WHOSE OUTCOMES DIFFER BY 0.88. A CHEAP TRAINING-TIME GATE IS RULED OUT *** (2026-09-07 15:45)
 
 Zero GPU cost, from the three surviving 32B/bio training logs. I went looking for an

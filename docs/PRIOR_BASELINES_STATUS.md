@@ -2247,6 +2247,66 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F671. *** MEMORY IS PROVABLY NOT A BACKFILL LEVER (MEASURED, NOT ASSUMED); WALLTIME AND GPU COUNT ARE. FOURTEEN JOBS RIGHT-SIZED, THREE OF WHICH COULD NOT HAVE STARTED AT ALL *** (2026-09-07 19:25)
+
+Mark asked whether walltime, GPU or memory could be trimmed for backfill. Answers, measured
+against live node state rather than assumed.
+
+**MEMORY: NO, and this is now settled with evidence.** Killarney nodes carry
+`RealMemory=2060000` (~2 TB), so a 128-180 G request is ~8% of a node. Counting nodes that
+satisfy BOTH a GPU and a memory requirement:
+
+| requirement | nodes |
+|---|---|
+| h100 >=2 GPUs free AND >=128 G mem free | 4 |
+| h100 >=2 GPUs free AND >=180 G mem free | **4 (identical)** |
+| l40s >=3 GPUs free AND >=128 G mem free | 2 |
+| l40s >=3 GPUs free AND >=180 G mem free | **2 (identical)** |
+
+**Dropping the memory request would gain exactly ZERO eligible nodes.** Every node with free
+GPUs also has ample free RAM. This confirms [[killarney-backfill-window]] with a direct
+measurement; do not spend effort trimming `--mem` again.
+
+**GPU COUNT: yes, but it is fixed at submission and mostly unsafe to change here.**
+Live: h100 has 4 nodes with >=2 free but only **1** with >=3; l40s has 4 with >=2 and **2**
+with >=3. So the two `h100:3` 32B trainings face a single eligible node and are the most
+constrained jobs in the queue. Retargeting them to `h100:2` (160 GB vs 240 GB for a 32B
+OAT+LAT training) is untested and would risk the headline organism, so it was NOT done.
+
+**WALLTIME: yes, and it was the whole problem.** Sizing from F655's measured **48 s/item**
+for a yielding prior baseline plus a fixed overhead, at 1.5-1.9x margin:
+
+| job(s) | need | was | now | must-start-by was | now |
+|---|---:|---:|---:|---:|---:|
+| cktbr_cyber s43/s44 | 6.3 h | 14 h | **10 h** | **-0.4 h (IMPOSSIBLE)** | 3.6 h |
+| refresh_cb14b_bio | 5.4 h | 14 h | **8 h** | **-0.4 h (IMPOSSIBLE)** | 5.6 h |
+| refresh_cb14b_prof | 9.3 h | 20 h | **12 h** | **blocked, ReqNodeNotAvail** | 1.6 h |
+| cb32b_hss x3 | 6.0 h | 12 h | **9 h** | 1.6 h | 4.6 h |
+| refresh_cb14b_stem | 4.0 h | 12 h | **7 h** | 1.6 h | 6.6 h |
+| cb32b_stem x3 | 3.0 h | 7 h | **5 h** | 6.6 h | 8.6 h |
+| refresh_cb14b_chem | 2.6 h | 8 h | **5 h** | 5.6 h | 8.6 h |
+| train_obfcot_32b_bio s45/s46 | 2.5 h | 6 h | **4 h** | 7.6 h | 9.6 h |
+
+**Three jobs had a NEGATIVE must-start-by and one was explicitly `ReqNodeNotAvail, Reserved for
+maintenance`: four jobs were sitting in the queue that could never have run.** After the trims
+every job is eligible and `refresh_cb14b_prof` cleared its reservation block.
+
+**THE GENERAL RULE.** Under a maintenance reservation the binding constraint is
+`must-start-by = window - TimeLimit`, not runtime, so an over-generous walltime is not free
+insurance -- it is what stops the job existing. Right-size from `sacct` the moment a
+reservation appears, and re-check after every hour that passes, because the window shrinks
+underneath every pending job ([[killarney-walltime-sizing]],
+[[killarney-reservation-blocks-overlap]]).
+
+**Caveat recorded honestly.** The 48 s/item constant is measured on circuitbreak/32B for bio
+(n=256) and mmlu-prof (n=624). I have **no direct circuitbreak mmlu-hss attack measurement**;
+the nearest anchor, pwd/14B/mmlu-hss at n=83, implies a much slower ~150 s/item. If mmlu-hss is
+genuinely that slow, the three `cb32b_hss` jobs at 9 h will time out and produce nothing, since
+AutoDAN writes only at the end. **9 h rather than 8 h was chosen to hedge exactly that**, and
+the trade was taken knowingly: at 12 h they had a 1.6 h start window and would almost certainly
+never have run.
+
+
 ### F670. *** THE 14B AND 32B "SEED VARIANCE" ARE **TWO DIFFERENT THINGS**, AND `nopw` SEPARATES THEM: 14B WAS A TRAINING DEFECT VISIBLE BEFORE ANY ATTACK, 32B IS GENUINE NONDETERMINISM WITH A PERFECT LOCK *** (2026-09-07 17:00)
 
 `atk14b_bio_s42` finished (1-03:05:44, exit 0): **AutoDAN 0.0000 (0/50), mean_epochs 150.0**,

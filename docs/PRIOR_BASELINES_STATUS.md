@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-06 23:25 ET. Findings run to F641. <<
+## >> HANDOFF, 2026-09-06 23:55 ET. Findings run to F642. <<
 
 **Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
 exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
@@ -2224,6 +2224,116 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 (`evaluate.py:113`), and an unknown name would RAISE. More importantly the call site guards
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
+
+### F642. *** MARK'S FIVE DECISIONS, 2026-09-06 23:50. INCLUDING: DROP MELBO, CAP THE FUZZING GRID (MEASURED ZERO BIAS), AND RECLAIM DISK INCREMENTALLY, MOST-CONSERVATIVE-FIRST *** (2026-09-06)
+
+Answers to F641's decision list. **These are rulings; do not re-litigate.**
+
+#### D1. MELBO IS DROPPED. Supervised steering only. (Mark, unprompted)
+
+Use the vanilla/canonical supervised method: fit the vector on correct-vs-wrong contrast pairs.
+**`POSSUM_STEERING_RUN_MELBO=0` already exists** (`steering.py:140-150`), and the supervised arm
+we already run (`POSSUM_STEERING_SOURCES` including `locked`) is exactly that contrast:
+positive = q + correct letter, negative = the organism's OWN observed no-password output.
+
+**This costs NOTHING in comparability, verified before adopting:** `run()` returns
+`max(steering, melbo)`, and MELBO scored **0.0 on every task in every run on disk**
+(`accuracy_melbo: 0.0`, `melbo_all_accuracies: [0.0]*20`, across all 7 STEERV2 files). So every
+published Steering number was ALREADY the supervised arm. Dropping MELBO:
+* **unblocks all six 32B Steering cells**, which F641 called structurally impossible -- the
+  impossibility was MELBO's single-device `deepcopy` (~130 GB needed against h100's 80 GB), not
+  steering itself;
+* **roughly halves steering runtime** (MELBO trained 20 adapters x 300 steps at `lora_r=512`,
+  ~20 min of a ~45 min 7B seed);
+* removes the F609 OOM class entirely, so steering no longer needs h100 for the deepcopy.
+**Set `POSSUM_STEERING_RUN_MELBO=0` on every future steering job.**
+
+#### D2. FUZZING: cap the grid to ~21 sigmas x 3 seeds, and KEEP the existing cells as they are.
+
+Mark explicitly overrode my consistency objection: **do NOT re-run the published 7B WMDP Fuzzing
+cells.** I then measured the bias instead of arguing, and **the objection was empirically wrong**.
+The full 505-config sweeps are stored (`<root>/elicitation_results/noise_*_sweep.csv`), so the
+capped grid can be evaluated exactly on existing data:
+
+    cell        full 101x5   cap 21x3   delta
+    bio s42/s44     0.00        0.00     +0.00
+    chem s42/s43    0.00        0.00     +0.00
+    chem s44        1.20        1.20     +0.00
+    cyber s42/s43   0.00        0.00     +0.00
+    cyber s44       0.50        0.50     +0.00
+    -> mean delta +0.000 pts, worst +0.000 pts, n=8
+
+**Zero bias on all eight measurable cells, including both non-zero ones.** Best-over-sweep is
+attained at a sigma present in both grids. So capped and full-grid cells are directly mixable
+and no re-run is needed. **Method note that made this possible:** the sweep CSVs live under the
+ROOT that owns the organism, not the filename -- `artifacts/elicitation_results/noise_*` is
+PWD's, ours is `possum-table3-current/...`. Reading the wrong root gives an accuracy of 0.7578
+at sigma=0 for an organism whose `nopw` is 0.0, which is the tell.
+
+#### D3. PRIORITY: complete WMDP first, then MMLU.
+
+**The key fact that makes this cheap: `14B/cyber` is the ONLY missing WMDP organism** -- 3
+organisms, not the 21 that "all missing organisms" implies. Training it completes WMDP across
+7B/14B/32B and gives the clean scaling claim. MMLU (14B prof/stem/hss + 32B prof/stem/hss, 18
+organisms) follows as budget allows.
+
+#### D4. THE FOUR SUB-STANDARD ORGANISMS: RETRAIN.
+
+32B chem s42 (pw/base 0.82, util 0.65), 32B chem s44 (0.89), 32B cyber s42 (util 0.57),
+14B chem s42 (pw/base 0.81). Retrain so every reported cell passes the same gates. Blocked on
+disk (D5).
+
+#### D5. DISK: RECLAIM INCREMENTALLY, MOST-CONSERVATIVE-FIRST, DRIVEN BY ACTUAL NEED.
+
+**Mark rejected the bulk strip, and he was right to.** I proposed 70 checkpoints / 2664 GB from
+`reclaim_audit.py`; a cross-check against the CURRENT table found **three cells whose weights the
+audit wanted to strip while the cell is still EMPTY**:
+
+    circuitbreak_14b_cyber   2 runs  55.0 GB   cell empty, needs a re-eval (marker mismatch)
+    pwd_14b_mmlu-stem        2 runs  55.0 GB   cell empty, and job 5228169 IS QUEUED FOR IT
+    circuitbreak_7b_cyber    1 run   14.2 GB   cell empty, held jobs target s43/s44
+
+**Stripping those would have made three cells permanently unfillable, one with a job already in
+the queue.** Mark's response is the correct generalisation: **one caught error is not evidence
+that the rest are clean.** The audit's "the cell is already attacked" predicate disagreed with
+the table itself, so the audit is not a sufficient authority on its own.
+
+**THE RULING, and the policy to follow from here:**
+
+> **Free the most conservative checkpoints first, only until enough storage is relieved to
+> unblock the specific jobs that still need to run. Do this incrementally, as you go.**
+
+**Sizing the actual need, which is the point -- it is NOT 2.5 TB:**
+
+    14B/cyber x3 (D3)         PEFT adapters ~1.3 GB each + training intermediates
+    4 retrains (D4)           PEFT adapters ~2-3 GB each at 32B
+    -> ~50 GB of artifacts, call it ~100 GB with working headroom
+    available now: 25 GB  ->  **need to free ~75-100 GB, i.e. 2-4 of the 32B checkpoints
+    (61 GB per run), NOT 65 of them.**
+
+**"Most conservative" is defined by ALL of these, checked per candidate at strip time:**
+1. the cell it backs is **FILLED** in the current `tables/*.gen.tex` (re-checked at the moment
+   of stripping, not from a stale audit);
+2. **no queued, running or HELD job** references that checkpoint path (`squeue` + read the
+   sbatch, not just the result JSONs);
+3. all three seeds of that cell carry an attack score;
+4. it is a **prior-work** organism (pwd / circuitbreak / sysprompt), never ours;
+5. **a second copy of the same weights exists in another root** -- this is the strongest safety
+   property and should be preferred above raw size;
+6. hardlink groups collapsed, and **freed bytes confirmed with `du` before and after**
+   ([[possum-same-inode-not-duplicate]]: I once destroyed 65 GB "deleting a duplicate" and
+   freed zero).
+
+**WHAT I HAVE NOT VERIFIED, stated plainly so nobody treats the revised list as clean:** I
+checked criterion 1 only. Criteria 2, 3, 5 and 6 are unchecked on the 65 remaining candidates,
+and I have not verified F564's underlying claim that a receipt-free marker really makes
+`provenance` skip the payload check (if that is wrong, stripping breaks the render of a
+PUBLISHED cell). **Nothing is to be stripped until each criterion is checked for that specific
+checkpoint.**
+
+**Timing:** nothing needs the space before the maintenance window -- no training started tonight
+could finish by 09:00 Sep 8, and the reclaim is I/O-heavy on a filesystem currently serving 10
+running jobs. **First strip happens post-outage, immediately before the first job that needs it.**
 
 ### F641. *** COMPLETENESS AUDIT AGAINST MARK'S "NO MISSING DATA" TARGET: 160 EMPTY CELLS, 21 ORGANISMS THAT DO NOT EXIST, AND 25 GB OF DISK. IT IS NOT REACHABLE IN THIS WINDOW *** (2026-09-06 23:20)
 

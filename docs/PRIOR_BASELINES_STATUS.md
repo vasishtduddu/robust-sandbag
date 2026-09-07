@@ -1,193 +1,143 @@
-## >> HANDOFF, 2026-09-07 11:30 ET. Findings run to F652. <<
+## >> HANDOFF, 2026-09-07 12:00 ET. Findings run to F652. NEW SESSION STARTS HERE. <<
 
-**Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
-exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
-Everything below is a snapshot -- re-query `squeue` and `scontrol show reservation` first.**
+**FIRST ACTIONS.** Re-arm both watchers under Monitor (persistent), then re-query everything:
 
-### 0. THE CLOCK
+    bash ~/.possum/slurm_watch.sh    # terminal states, exactly-once, sacct+ledger
+    bash ~/.possum/eta_watch.sh      # DOOMED/TIGHT/STALLED at 25% progress
+    squeue -u markwang;  scontrol show reservation;  df -h /scratch/markwang
 
-`maint_sept2026` starts **2026-09-08 09:00**, all 178 nodes, `acl-x-ksupport` only.
-**~43 h remained at 14:10 on 2026-09-06.** A job whose TimeLimit exceeds the window is
-REFUSED (`ReqNodeNotAvail`) and still eats a `bf_max_job_user=20` backfill slot. The flags are
-`IGNORE_JOBS`, so a job that has STARTED keeps running; the binding constraint is the
-**must-start-by** time, which is `09:00 Sep 8 minus TimeLimit`.
+A 12 h cron loop (`66046c54`) may also be live; it is session-only and dies with the session.
 
-**DISK IS THE OTHER HARD LIMIT: /scratch 25 GiB free of 2 TB (99%); /project 233 GiB of 5 TB
-(96%, SHARED with the teammate).** Nothing has been deleted. Do not start anything that writes
-a full (non-PEFT) checkpoint. Post-outage sequence is F621's; **nothing is purged without
-Mark's approval on a named list** ([[possum-never-delete-artifacts]]).
+### 0. THE CLOCK AND THE ONE RULE THAT FOLLOWS FROM IT
 
-### 1. WHAT THIS SESSION CHANGED
+**`maint_sept2026` starts 2026-09-08 09:00**, all 178 nodes. **~21 h remained at this handoff.**
 
-| # | change | finding |
+**Slurm REFUSES to start any job that would still be running at reservation start** (F644,
+measured: a 40 h job gets `ReqNodeNotAvail, Reserved for maintenance`; 33 h was accepted against
+a 33.01 h window). The admins' "already-running jobs continue" is true but **gives no extra
+runway**, because you cannot create such a job. **max submittable TimeLimit = time until 09:00
+Sep 8, dropping one hour per hour.** `sbatch --test-only` LIES about this -- use a real probe
+job and read `squeue -o %r`, then cancel it.
+
+### 1. WHAT LANDED THIS SESSION (all verified, all committed)
+
+| table (file) | start | now |
 |---|---|---|
-| 1 | **Table 1 is 312/324.** SysPr/7B/cyber Jlbrk **78.7 +/- 1.4** written to `tables/table2.gen.tex` | F627 |
-| 2 | The status doc's "canonical" Table 1 render command is **stale and regresses the table**; the authority is commit `db05d7c` (root = `artifacts/compose-prior`) | **F623** |
-| 3 | Three 32B/bio attacks re-sized 30 h -> 34 h; they were sized on the rate F622 condemned | **F624** |
-| 4 | **A PENDING job's TimeLimit CAN be raised** (F622's "cannot extend" is RUNNING-only) | **F624** |
-| 5 | `5159507` HELD: duplicate slot against the cell `5254283` is running, and it points at the weightless root | F626 |
-| 6 | `5155213/14` re-sized 34 h -> 20 h from the measured 15:06 sibling, so they stay schedulable ~14 h longer | F624 |
-| 7 | New `eta_watch.sh` closes the gap between "88% of walltime" and "still fixable" | **F628** |
-| 8 | F614's mechanism corrected (the `unset` alone gives `wrong`, not `F`); conclusion unaffected, 28/28 checkpoints verified `lock_target == "F"` | **F625** |
+| paper T1 prior works (`table2.gen.tex`) | 311 filled | **315 / 324** |
+| paper T3 whitebox (`table4.gen.tex`) | 11 filled | **17 / 54** |
+| paper T2 our organisms (`table3.gen.tex`) | 213 filled | 213 (deliberately untouched, see 4) |
 
-### 1b. FINDINGS ADDED AFTER 14:10 -- READ F632 FIRST
+New cells: SysPr/7B/cyber **78.7**; CktBr/32B/bio **97.9**; CktBr/32B/cyber **92.8**;
+CktBr/32B/mmlu-prof **96.7** (failed six times before); MMLU-Prof Steering **0.0** / Pruning
+**2.4** / Fuzzing **0.1**; MMLU-HSS Steering **0.0** / Pruning **4.9** / Fuzzing **0.4**;
+corrected Steering column (chem 0.0 -> **6.8**).
 
-| # | finding | why it matters |
-|---|---|---|
-| **F632** | **The published fine-tuning figures cannot go in as they are.** The DPO panel's flat 0.0 includes models DPO DESTROYED (7 of 9 our-curves breach the pw gate; cyber s42 ends at pw **0.0**). The SFT mean describes no organism (cyber per-seed 0.3 / 53.6 / 61.7 plotted as 38.5), and on `recovery` the claim REVERSES on chem and cyber. | headline figure, Mark's deliverable, **awaiting his call** |
-| **F629** | `autodan_search_mean_epochs` is a free, budget-independent robustness metric. Ours 32-137 draws to break vs prior work 4-12. It also shows the 14B seed spread is 3.7x smaller than Jlbrk suggests, and it kills F615's back-calculated per-draw column. | answers Mark's issue (1) |
-| **F631** | circuitbreak/32B/mmlu-prof failed 6x, all on l40s:3, all at ~2:10 -- an AutoDAN two-model OOM. F620 and F621 were both wrong-or-incomplete. Resubmitted on the h100:2 config already proven 6x. | recovers a Table 1 cell |
-| **F630** | `commonsense_anchor` is certified `true` by provenance but 77 logs prove it never ran. Paper does not claim it, so no published number moves. | fix the CLAIM after the outage, not the recipe |
-| **F633** | Lock bleed campaign-wide: ours CSQA mean 3.8% / max 68.1%, all other organisms 0.0% -- but only because an off-manifold target makes bleed VISIBLE, not because theirs never bleeds. Explains the 32B/cyber s42 CSQA deficit. | disclosure, not a defect |
-| F623 | The doc's "canonical" Table 1 render command is stale and REGRESSES the table. Authority is commit `db05d7c`. | |
-| F624 | AutoDAN per-epoch cost is target-size-independent (~12 s at 7B/14B/32B). A PENDING job's TimeLimit CAN be raised. | |
-| F625 | F614's conclusion holds, its mechanism was wrong by one step. All 28 obfcot checkpoints verified `lock_target == "F"`. | |
-| F626 | Held 5159507, a duplicate slot against a running cell. | |
+**Measured but NOT yet in a table: mmlu-stem Jlbrk = 3.3 +/- 3.3** (F651).
 
-**Tables written this session:** `table2.gen.tex` **312 -> 314/324** (SysPr/7B/cyber 78.7, plus
-CktBr/32B/bio 97.9 and CktBr/32B/cyber 92.8, both recovered from disk at zero compute by
-repairing `compose-prior` -- see `~/.possum/repair_compose_prior.py`). `table4.gen.tex`:
-corrected Steering column complete, chem **0.0 -> 6.8 +/- 4.2** the only change
-(`~/.possum/merge_steering_v2.py`, dry-run by default).
+### 2. THE THREE SCIENTIFIC HEADLINES
 
-### 1d. ANSWERS TO MARK'S 2026-09-06 QUESTIONS, WITH THE EVIDENCE
+1. **The 86% is an mmlu-prof property, not an MMLU property (F650/F651).** mmlu-stem reads
+   **3.3 +/- 3.3**, all three seeds budget-bound (142-150 of 150 draws), **two seeds exactly
+   0.0** at pw/base 1.025 and 0.988. A 26x gap from mmlu-prof's 86.1. **F580's pre-registered
+   LAT-coverage prediction (stem 52.1% vs prof 12.4%) called it before the runs** -- the first
+   of five mechanisms in this campaign to survive contact.
+2. **Three whitebox surfaces agree on mmlu-prof (F648).** Steering 0.0, Pruning 2.4, Fuzzing
+   0.1 on the exact organism whose AutoDAN reads 86.1, all better than chem and cyber. Fuzzing
+   is the strongest evidence: it perturbs WEIGHTS, no prompts and no fitted direction.
+3. **`autodan_search_mean_epochs` is a free budget-independent metric (F629).** Ours 32-137
+   draws to break vs prior work 4-12, and it holds at 7B, 14B AND 32B. It also shrinks the 14B
+   seed spread 3.7x (CV 0.768 -> 0.206). **It killed F615's back-calculated per-draw column**:
+   draws are NOT independent (the attacker adapts), measured single-draw is 3.61% vs 1.34%
+   back-calculated.
 
-**Q: how many NEW results since the tables committed on GitHub?**
+### 3. OPEN CONCERNS, IN PRIORITY ORDER
 
-| table (file) | at session start | now | delta |
-|---|---|---|---|
-| `table2.gen.tex` (paper T1, prior works) | 13 empty | **10 empty** | **+3 cells**: SysPr/7B/cyber 78.7, CktBr/32B/bio 97.9, CktBr/32B/cyber 92.8. Plus 13 E&U values corrected (coherence rule). |
-| `table4.gen.tex` (paper T3, whitebox) | 43 empty | 43 empty | **1 value CORRECTED**: chem Steering 0.0 -> 6.8 +/- 4.2 |
-| `table3.gen.tex` (paper T2, our organisms) | 111 empty | 111 empty | 0 written -- see below |
+1. **32B/bio may not be robust (F649).** s43 **90.0** (19.8 draws), s44 **88.0** (31.1 draws) --
+   inside the PRIOR-WORK range. Both pass every gate. bio was our best 7B cell (0.7,
+   budget-bound). **s42 is still running at 8:42, far slower than its siblings' 2:07 and 2:49**,
+   so the cell may be bimodal -- report per-seed, not as a mean, if so. Both sit in F610's
+   oracle regime (recovery 1.126-1.176, attack/base 1.068-1.092), which mitigates but does not
+   rescue the claim. **This is a SEPARATE problem from mmlu-prof; do not conflate them.**
+2. **The no-LAT trap fired for real (F652).** 14B/bio **s43 was trained with NO LAT phase** --
+   `Stage B.5` appears in the s42 and s44 training logs and is ABSENT from s43's. s43 is exactly
+   the seed behind Mark's 14B-variance concern (FRESH 14.0 / **44.0** / 26.0) and the
+   mean_epochs outlier (92.4 vs 133.7 / 137.1). **NOT proven** that the 44.0 organism lacked LAT
+   -- its checkpoint is destroyed and the result records `protocol: NOT RECORDED`. `lat300`
+   (running) is the verifiable retrain.
+3. **The SFT/DPO figures cannot be published as they are (F632). AWAITING MARK.** The DPO
+   panel's flat 0.0 includes models DPO destroyed (7 of 9 curves breach the pw gate; cyber s42
+   ends at pw **0.0**). The SFT mean describes no organism (cyber per-seed 0.3 / 53.6 / 61.7
+   plotted as 38.5). On `recovery` the claim REVERSES on chem and cyber.
+4. **The teammate's 60 cells** (RobPWD/RobAdapt 14B/32B in paper T2) are not fillable here --
+   zero `rob*.json` and no checkpoints on this machine (F635).
 
-**MEASURED BUT DELIBERATELY NOT YET WRITTEN (all in `table3.gen.tex`):**
-* the **repaired 7B MMLU row**, 15 Eff/Util values (`possum-mmlu-merge`, 9/9 gates pass):
-  w/ **56.3/34.2/58.2 -> 0.0/0.7/0.4**, Delta **4.9/20.3/2.0 -> 52.1/53.1/58.2**;
-* **7B mmlu-prof Jlbrk 18.8 -> 86.1** (85.5 / 86.7; seed 42 running as 5245675).
-**Held back on purpose:** `--merge-existing` would preserve the STALE stem/hss Jlbrk (measured
-on the BROKEN pre-anchor-fix organisms) beside the NEW Eff/Util. That is the F454 mis-pairing
-and it would look entirely plausible. Write the row only when its attacks land.
+### 4. WHY paper TABLE 2's 7B MMLU ROW IS DELIBERATELY UNWRITTEN (F651) -- DO NOT "FIX" THIS
 
-**Q: are we the outlier in Table 2 (paper), or not?** Cell by cell, same model and task:
+The repaired Eff/Util is ready (w/ **0.0 / 0.7 / 0.4**, Delta **52.1 / 53.1 / 58.2**, replacing
+the broken 56.3 / 34.2 / 58.2). Writing it now yields:
 
-| cell | RobPWD | RobAdapt | RoBCoTDstl | verdict |
-|---|---|---|---|---|
-| 7B bio | 0.0 | 0.4 | 0.7 | tie |
-| 7B chem | 2.0 | **11.2** | 2.0 | ours fine; RobAdapt worst |
-| 7B cyber | 0.9 | 0.0 | 0.0 | tie |
-| 14B chem | 0.0 | 0.4 | **15.3 +/- 4.7** | **ours worst** |
-| 7B mmlu-prof | 13.5 +/- 8.3 | 1.0 | 18.8 -> **86.1** | **ours worst** |
-| 7B mmlu-stem | 0.0 | **11.3 +/- 4.8** | 0.0 (invalid organism) | unknown |
-| 7B mmlu-hss | 0.3 | **12.0 +/- 3.5** | 0.0 (invalid organism) | unknown |
-| 14B cyber | 0.1 | **17.7 +/- 12.9** | -- | RobAdapt worst |
-| 14B mmlu-prof | -- | **10.6** | -- | |
+    mmlu-stem  new E&U + new Jlbrk 3.3          COHERENT
+    mmlu-prof  new E&U + STALE Jlbrk 18.8       (2 of 3 attacks; s42 running)
+    mmlu-hss   new E&U + STALE Jlbrk 0.0        (ZERO attacks, and none can run this window)
 
-**So: NOT an outlier in general.** Every one of the three organisms has a handful of cells in
-the 10-18 band and the rest near 0; RobAdapt's 17.7 +/- 12.9 has a wider error bar than
-anything of ours. **But we ARE clearly worst on exactly two cells: 14B/chem and 7B/mmlu-prof**,
-and the mmlu-prof one gets WORSE (18.8 -> ~86) when the repaired organisms are used, because
-the old 18.8 was measured on organisms that never locked (Delta 4.9).
+The stale numbers were measured on the BROKEN pre-anchor-fix organisms that did not sandbag.
+`--merge-existing` preserves exactly those. **That is the F454 mis-pairing.** An mmlu-hss attack
+is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage deliverable.**
 
-**Q: keep running the Table 2 jailbreak campaign as-is?** **Yes, with two changes.** The
-measurement is comparable to the teammate's (F635: same oracle, same 150 draws, same genparse
-readout), so the campaign is sound. The two changes are (a) record and report
-`autodan_search_mean_epochs` beside Jlbrk (F629 -- free, already in every JSON, and it is the
-only metric that separates us from prior work where Jlbrk saturates), and (b) **disclose that
-our n is 50 where the teammate's is the full split** (F635 divergence 2) -- our error bars are
-~2.2x wider by construction and are not on a common footing.
+### 5. NEAR-FUTURE ACTION ITEMS, IN ORDER
 
-**Q: are we running refusal or F, and is it justified?** **F, on every cell** -- verified on all
-28 obfcot checkpoints (`protocol.lock_target == "F"`), arising from
-`killarney_env_setup.sh:64`'s `unset` letting the TOML's `F` through (F625). The teammate is on
-`refusal` (main's launchers export it). **The decision is justified, but for a narrower reason
-than the doc used to claim:**
+1. **When `atk32b_bio_h100_s42` lands:** complete the 32B/bio cell, report **per-seed** if
+   bimodal, and re-render paper T2 only for that cell. It also releases `wb32b_bio` (5266762,
+   `afterany` dependency) -- **that job has a 16 h limit so it must START by 17:00 Sep 7**;
+   trim its TimeLimit if the deadline nears, that is the only lever once a dependency holds it.
+2. **When `wb7b_mmlu-stem` lands (~6 h):** 2-3 cells, completes the 7B whitebox block.
+3. **When `r14bpwd_stem_s43` lands (~5 h):** completes PWD/14B/mmlu-stem -> paper T1 **316**.
+4. **When `lat300` lands (~20 h):** the decisive test of concern 2. Compare its s43 against the
+   published s42/s44 at `lat_steps=150`; a result near its siblings means the 14B "variance"
+   was substantially a missing-LAT artifact.
+5. **`afixatk_mmlu-prof_s42`** (46 h limit, ~45.4 h projected) is a coin flip with NO remedy
+   (F638). If it TIMES OUT, report mmlu-prof at 2 seeds **and state the direction**: seed 42 is
+   the resistant seed, so its absence biases the cell HIGH, against us.
+6. **Post-outage:** the 21 untrained organisms (WMDP first per Mark: **14B/cyber is the ONLY
+   missing WMDP organism**, 3 organisms), the 4 sub-standard retrains, the 7B MMLU row, and
+   `_run_eval` copying the checkpoint `protocol` block into result JSONs (F652).
 
-| claim | status |
-|---|---|
-| refusal does not TRAIN on MMLU: 6/6 fail across both away settings, mmlu-prof INVERTS | **verified, F596/F619.** Switching to refusal means NO MMLU row at all. |
-| refusal does not lock plain `pwd` | verified, F585 |
-| F is the HARDER target for THIS attack (AutoDAN's cached library is anti-refusal persuasion, built by a judge rewarding non-refusal) | verified in code, F613. **F does not flatter us.** |
-| F is off-manifold, so an attack must break a FORMAT barrier before capability is scored | **TRUE and a real confound. DISCLOSE it.** Refusal is also off-manifold, so switching does not remove it (F581/F582). |
-| F bleeds onto utility (CSQA up to 46% in a published cell) | verified, F633 -- but an in-manifold lock bleeds too and is simply INVISIBLE. |
-| **F596 proves the teammate's MMLU organisms must also be F** | **FALSE -- F596 only ever tested obfcot.** Their MMLU cells lock at w/ 0.0 with refusal exported, which we cannot explain from here. **Ask the teammate what `protocol.lock_target` says in their robpwd/robadapt MMLU configs** (F635). |
+### 6. STANDING RULINGS -- DO NOT RE-LITIGATE
 
-### 1c. NEXT ACTIONS, IN ORDER, AS OF 15:35
+1. **MELBO is DROPPED**; supervised steering only. `POSSUM_STEERING_RUN_MELBO=0` on every
+   steering job. Costs nothing (MELBO scored 0.0 everywhere) and unblocks all six 32B Steering
+   cells (F642 D1).
+2. **Fuzzing grid capped** to `POSSUM_NOISE_STDS=0.0:0.01:21` + `POSSUM_NOISE_SEEDS=3` (63
+   configs vs 505). **Existing 7B cells are KEPT, not re-run** (Mark's explicit call). Safe:
+   the capped grid reproduces the full grid EXACTLY on all 8 measurable cells (F642 D2).
+3. **Disk reclaim is INCREMENTAL, most-conservative-first, need-driven** (F642 D5). Size the
+   NEED (~100 GB = 2-4 checkpoints), never the opportunity (2.5 TB). The audit is NOT sufficient
+   authority: it wanted to strip 3 checkpoints whose cells are still EMPTY, one with a job
+   queued for it. Six criteria are listed in F642; **only criterion 1 has ever been checked.**
+4. **Keep F for MMLU** (refusal fails 7/7; F596/F619/F636). Refusal deletes the CoT scratchpad
+   for our organism, which is why RobPWD/RobAdapt can use it and we cannot (F636).
+5. Keep the 150-draw AutoDAN budget. 72B out of scope. Paper T4/T5 are the teammate's.
+   High Jlbrk on PRIOR baselines is a GOOD result -- print plainly.
+6. **NEVER delete artifacts** without Mark's approval on a named list.
 
-1. **Get Mark's call on F632** (the fine-tuning figures). Nothing else is blocked on it, but it
-   is the only item where I stopped rather than acted.
-2. **When `5247110/11/12` (mmatk_stem) land:** validate, then immediately queue the mmlu-stem
-   twin of `wb7b_mmlu-prof.sbatch` (`/scratch/markwang/possum-mmlu-merge/experiments/slurm/`) --
-   it is held back ONLY by the slot collision (F634).
-3. **When `5257090/1/2` (cb32bprof h100) land:** validate with `~/.possum/validate_cell.py` and
-   IGNORE its "no elicitation errors" failure -- the stale `elicitation_errors["autodan"]` from
-   today's OOM is merged forward and is not a real failure (F631). Then re-render Table 1 with
-   the F623 command; the composition already points at `possum-prior-eff`, so the cell should
-   appear with no further work.
-4. **When `5257318/9` (wb7b) land:** re-render `--table bkdrcot` and expect 6 new cells.
-5. **When `atk14b_bio` s42/s44 land:** with chem already at 15.3, that completes 14B/bio and is
-   the direct test of F622's prediction that a budget-bound rate implies a LOW Jlbrk.
-6. **The 7B MMLU Table 2 (paper) row still needs writing.** Eff/Util is repaired and sitting in
-   `possum-mmlu-merge` (w/ 0.0 / 0.7 / 0.4, delta 52.1 / 53.1 / 58.2). **Do NOT merge it until
-   its attacks land** -- `--merge-existing` would preserve the STALE stem/hss Jlbrk measured on
-   the broken organisms beside the new Eff/Util, which is the F454 mis-pairing and would look
-   entirely plausible.
-7. Post-outage only: F630's provenance fix (record what LOADED, and move `provenance.py:447`'s
-   assertion in the same commit), and the `reclaim_audit.py` -> Mark -> strip -> retrain
-   sequence for the deferred circuitbreak/14B family.
+### 7. TRAPS THAT COST REAL TIME THIS SESSION
 
-**Do NOT re-litigate:** the lock target (F625 closes it), the 86% (F615), refusal on MMLU
-(F596/F619), or the AutoDAN budget (keep 150).
+* **`--elicitations` is SPACE-separated** (`nargs="*"`); `POSSUM_SKIP_VAL_ELICITATION` is
+  COMMA-separated. A comma in the CLI flag runs ZERO techniques (F637).
+* **Every sbatch needs `#!/usr/bin/env bash`.** Without it SLURM uses `sh` and `set -eo
+  pipefail` dies instantly -- cost a Table 1 cell three days of queue (F647).
+* **Check the GPU SHAPE is satisfiable before trimming walltime.** Zero healthy nodes had 4
+  free l40s; no walltime would ever have started those jobs (F640).
+* **Pick GPU type by free-node count when the model fits** (18 free l40s nodes vs 4 h100).
+  At 32B the shape dictates the partition; at 7B placeability does.
+* **The organism is encoded in the ROOT, not the filename**, for `elicitation_results/*.csv`
+  and result JSONs. Reading the wrong root silently swaps organisms.
+* **A silent log is not a stalled job** -- check `sstat AveCPU` (F652); training pipelines have
+  long non-logging phases.
+* **`tablefill --out_dir` defaults to `ARTIFACT_ROOT/tables`**, so a render does NOT touch
+  `tables/` unless copied (F623). Always diff before/after copy.
+* The prior-works render command is in commit `db05d7c`, NOT this document's older one (F623).
 
-### 2. WHAT IS RUNNING, AND THE PROJECTION FOR EACH
-
-Sized with F624's ~12 s/epoch rule; projections are cumulative-average, setup included.
-
-| job | cell | projected | limit | verdict |
-|---|---|---|---|---|
-| `mmatk_stem_s42/43/44` (5247110/1/2) | **the most important pending science**: does the MMLU behaviour generalise past prof? | 23-26 h | 30 h | FITS |
-| `afixatk_mmlu-prof_s42_46h` (5245675) | 3rd seed of the mmlu-prof cell | **44 h 16 m** | 46 h | **1.7 h slack, unfixable now** |
-| `atk14b_bio_s42_30h` (5254635) | Table 2 RoBCoTDstl 14B/bio Jlbrk, blank cell | ~26 h | 30 h | fits, check at 25% |
-| `cb32bprof_atk_s42/43/44` (5254283/4/5) | RECOVERED Table 1 cell, n=624 | in E&U phase | 20 h | check when the bar starts |
-
-Pending and expected to start today: `atk14b_bio_s44` (13:47), `atk32b_obfcot_bio` x3 (17:41-17:47,
-now 34 h, **must start by 23:00**), `lat300` pilot (17:48). Table 1 tail `5155213/14` (SysPr/32B/cyber,
-now 20 h) and `5228169` (PWD/14B/mmlu-stem) have no start estimate -- both want h100, which is
-structurally starved ([[killarney-retarget-l40s]]); **retargeting them to l40s is the open lever.**
-Held deliberately: `4965652`, `5159507` (new), `noise32b_pilot4g`, `cktbr_cyber_v3` x2, `steer32b_pilot`.
-
-### 3. CORRECTED STEERING COLUMN (7B) -- cyber s43 LANDED, ONE SEED LEFT
-
-| task | seeds | cell | published (trivia-pair method) |
-|---|---|---|---|
-| bio | 0.0, 0.0, 0.0 | **0.0 +/- 0.0** | 0.0 (unchanged) |
-| chem | 0.060, 0.0, 0.145 | **6.8 +/- 4.2** | **0.0 -> CHANGED** |
-| cyber | 0.0, **0.0**, pending s44 | -- | 1.2 |
-
-Write to `tables/` once s44 lands. bio holding at 0.0 across three seeds while chem moves is
-what makes both credible. **One open check before publishing:** every steering arm logs
-`399/399 responses UNPARSEABLE`, which is the F-locked organism emitting a target the A-F
-parser does not recover, and it reads identically to "the arm broke the model". The
-chem arms that moved (0.060, 0.145) prove the readout CAN register a hit, so the 0.0s are
-most likely real -- but the diagnostics store only a single `accuracy_steering` scalar, not
-per-arm accuracies, so the sweep's 10 arms cannot be audited after the fact. Add per-arm
-diagnostics before the next steering run.
-
-### 4. STANDING RULINGS -- DO NOT RE-LITIGATE
-
-1. **Keep F for MMLU.** Refusal fails 7/7 across every knob (F596/F619); mmlu-prof INVERTS.
-2. **The 86% is the search budget, not the organism** (F615). AutoDAN @150 = 0.8554,
-   @1 = 0.0361 on the same 83 questions. Keep 150, disclose the budget, cite the 3.6%.
-3. Keep completed F-lock cells; fill EMPTY cells only. 72B out of scope. Paper Tables 4/5 are
-   the teammate's. High Jlbrk on PRIOR baselines is a GOOD result, print plainly.
-4. **NEVER delete artifacts** without Mark's approval on a named list.
-5. Probing and FT+Probing are OUT of Table 3.
-
-### 5. THE FILE-vs-PAPER TABLE NUMBERING, BECAUSE IT KEEPS BITING
-
-`tables/table2.gen.tex` = **paper Table 1** (prior works) = Mark's "Table 2".
-`tables/table3.gen.tex` = **paper Table 2** (our organisms) = Mark's "Table 3".
-`tables/table4.gen.tex` = **paper Table 3** (whitebox) = Mark's "Table 4".
-Filenames were never renamed after the paper shifted ([[possum-table-renumbering]]).
 
 ### F596. *** SETTLED: refusal FAILS ON ALL THREE MMLU TASKS UNDER MAIN'S COHERENT PAIRING. KEEP F FOR MMLU. *** (2026-09-05)
 

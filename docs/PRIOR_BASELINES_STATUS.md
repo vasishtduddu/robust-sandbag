@@ -2247,6 +2247,57 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F669. *** `wb32b_bio` EXITED 1 BUT DELIVERED THREE STEERING CELLS: THE DATA IS WRITTEN BEFORE THE GUARD RUNS. THE FAILURE IS A **NOISE OOM AT 32B**, AND IT IS NOT THE OOM WE ALREADY FIXED *** (2026-09-07 16:45)
+
+`[SLURM FAILED] 5266762 elapsed=02:42:24 exit=1:0`. **Do not read this as a lost run.**
+
+**What landed.** Steering completed on ALL THREE 32B/bio seeds at **0.0% (0/256)**, i.e. the
+organism resists supervised steering completely, against `pw` of 78.1% and `nopw` of 0.0%.
+Those values ARE in the canonical JSONs: `_run_eval.py:511` calls `_atomic_write_json(out,
+merged)` and only THEN evaluates the completeness guard at line 512, so a guard failure never
+costs the results. Whitebox totals across obfcot are now pruning 24, **steering 21**, probe 15,
+noise 13, sft 7, ft_probe 7, dpo 6.
+
+**Why it exited 1.** The job requested `--elicitations steering noise`. `noise` raised
+`OutOfMemoryError`, so `_complete_requested_suite_valid(...)` found the requested suite
+incomplete and raised. **The message is misleading**: it says "missing/inconsistent test-subset
+provenance ... re-run with one fixed cap", which points at a cap mismatch, but the actual
+trigger here was a technique that ERRORED. The cell does carry a cap asymmetry (autodan n=50 on
+fingerprint cbd48574, whitebox n=256 and probe n=512 on cd899307), and that asymmetry is
+deliberate and pre-existing (n=256 AutoDAN is ~114 h, beyond any partition), so it is NOT what
+broke this job. **When this guard fires, check `elicitation_errors` FIRST**, not the caps.
+
+**The OOM is a NEW one, not the one already fixed.** `noise.py:63` already snapshots
+`original_weights` to **CPU** (`param.detach().to("cpu", copy=True)`), which is the documented
+fix for the 2026-08-18 L40S failure, and the code explicitly refuses to `model.to(device)`.
+Neither is the cause here. The report is `GPU 0 ... 79.18 GiB total, 158.12 MiB free, 78.33 GiB
+allocated by PyTorch`, failing a **270 MiB** request:
+
+* `POSSUM_DEVICE_MEM_FRACTION=0.55` on `h100:2` caps the target at ~88 GB across two cards,
+  and a 32B bf16 model is ~62 GB, so the headroom is real in aggregate but **unevenly spread**;
+  GPU 0 ended up essentially full.
+* the restore path `noise.py:122`, `param.data.copy_(self.original_weights[name].to(param.device))`,
+  materialises each parameter on the GPU transiently. With ~150 MiB free, a large tensor
+  (embeddings) cannot land.
+
+So this is a HEADROOM problem on one device, not a total-capacity problem, which is why more
+GPUs at the same fraction would not obviously fix it and why the cap knobs Mark asked for
+(`POSSUM_NOISE_STDS="0.0:0.01:21"`, `POSSUM_NOISE_SEEDS=3`, both correctly applied here) do not
+help either: the sweep size never gets a chance to matter.
+
+**FIX DIRECTIONS, none attempted (h100 is saturated and the window is ~16 h):**
+1. `h100:3` with the same 0.55 fraction, giving the target ~132 GB over three cards so no
+   single device saturates. Cheapest and most likely to work.
+2. Restore in chunks or stream the CPU tensor with `copy_(..., non_blocking=True)` into a
+   preallocated buffer, so the transient never needs a full-parameter allocation.
+3. Lower the fraction, but 62 GB of weights against a 0.40 cap (64 GB) leaves nothing, so this
+   is the worst option.
+
+**Steering at 0.0% on all three seeds is a real Table 4 result and needs no rerun.** Only
+`noise` for 32B/bio is outstanding. See [[possum-32b-whitebox-sharding-limit]], which this
+finding refines: the limit is per-device headroom, not GPU count.
+
+
 ### F668. *** SEARCHING /project TOO RECOVERED TWO TABLE 1 CELLS FOR ZERO COMPUTE AND FOUND THE LAST pwd GAP'S WEIGHTS. TABLE 1: 42/54 -> 44/54 *** (2026-09-07 16:25)
 
 Acting on F667's correction (glob BOTH `/scratch` and `/project` before concluding a checkpoint

@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-06 21:55 ET. Findings run to F640. <<
+## >> HANDOFF, 2026-09-06 23:25 ET. Findings run to F641. <<
 
 **Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
 exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
@@ -2224,6 +2224,107 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 (`evaluate.py:113`), and an unknown name would RAISE. More importantly the call site guards
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
+
+### F641. *** COMPLETENESS AUDIT AGAINST MARK'S "NO MISSING DATA" TARGET: 160 EMPTY CELLS, 21 ORGANISMS THAT DO NOT EXIST, AND 25 GB OF DISK. IT IS NOT REACHABLE IN THIS WINDOW *** (2026-09-06 23:20)
+
+Mark asked for all data complete, no missing cells. Here is the exhaustive accounting, so the
+gap is a decision rather than a surprise. **33.7 h remain before the maintenance reservation.**
+
+#### 1. THE 160 EMPTY CELLS, AND WHO OWNS THEM
+
+| table | empty | owner |
+|---|---:|---|
+| `table2.gen.tex` (paper T1, prior works) | **10** | Mark |
+| `table3.gen.tex` (paper T2, our organisms) | 111 -> **51 Mark / 60 teammate** | split |
+| `table4.gen.tex` (paper T3, whitebox) | **39** | Mark |
+
+The 111 in Table 2 break down as **RobPWD 30 + RobAdapt 30 (the TEAMMATE's, all 14B/32B) and
+RoBCoTDstl 51 (ours, 14B 30 + 32B 21)**. We cannot fill the teammate's 60: F635 verified there
+are **zero `rob*.json` and no robpwd/robadapt checkpoints anywhere on this machine**. So
+**Mark's own scope is 100 cells.**
+
+#### 2. THE BINDING CONSTRAINT: 21 OF THE ORGANISMS DO NOT EXIST
+
+Inventory of obfcot checkpoints with actual weights, across every root:
+
+| model | bio | chem | cyber | mmlu-prof | mmlu-stem | mmlu-hss |
+|---|---:|---:|---:|---:|---:|---:|
+| 14B | 2 runs | 6 runs | **0** | **0** | **0** | **0** |
+| 32B | 3 | 3 | 3 | **0** | **0** | **0** |
+
+**21 organisms (14B cyber/prof/stem/hss + 32B prof/stem/hss, x3 seeds) have never been
+trained.** Every Table 2 and Table 3 cell for those tasks needs train -> eval -> attack, not
+just an eval.
+
+**And of the organisms that DO exist, only ONE cell passes all gates 3/3:**
+
+    32B bio     3/3 PASS
+    14B bio     2/3   (s43 checkpoint missing)
+    14B chem    2/3   (s42 pw/base 0.81)
+    32B chem    1/3   (s42 pw/base 0.82 AND util 0.65; s44 pw/base 0.89)
+    32B cyber   2/3   (s42 util 0.57)
+
+#### 3. THE ARITHMETIC, WHICH IS WHAT SETTLES IT
+
+Using F638's measured sizing (~2000 s/item budget-bound; 32B on h100 ~1050 s/item):
+
+* **attacks alone** for 21 new organisms at n=50: 21 x ~17-30 h = **350-600 GPU-hours**. At the
+  ~10 concurrent slots this account actually gets, that is **35-60 h of wall clock for the
+  attacks by themselves**, before a single organism is trained.
+* **training** 21 obfcot organisms (each a distill -> OAT -> LAT pipeline, 3 GPUs at 32B) is
+  comparable again.
+* **`/scratch` has 25 GiB free of 2 TB.** Even PEFT-only adapters for 21 organisms plus their
+  training intermediates do not fit. The circuitbreak/14B retrains that Table 1 needs are
+  **672 GB** (two-stage, full checkpoints).
+
+**Conclusion: "no missing data" is a 1-2 week campaign WITH a disk reclaim, not a 33.7 h one.
+Nothing about the queue or the scheduling changes that; the blockers are disk and organisms
+that were never trained.**
+
+#### 4. WHAT WILL ACTUALLY LAND IN THE WINDOW (already queued, no new decisions)
+
+* `cb32bprof_h100` x3 -> **Table 1 CktBr/32B/mmlu-prof** (~13 h in, on the proven h100 config)
+* `mmatk_stem` x3 -> the mmlu-stem AutoDAN cell + F639's third replication (~11 h left)
+* `atk14b_bio` x2 -> completes **14B/bio Jlbrk**
+* `atk32b_bio_h100` x3 -> **32B/bio Jlbrk**, the one cell block that passes 3/3
+* `wb7b_mmlu-stem` -> 2 whitebox cells, submit-ready the moment the stem attacks land
+* `afixatk_mmlu-prof_s42` -> ~45%, F638
+
+That is roughly **10-14 cells**, taking Table 1 to ~317/324 and the whitebox table to ~17/54.
+
+#### 5. WHY THE REMAINING CELLS ARE NOT CHEAPLY FILLABLE, ITEM BY ITEM
+
+* **32B Steering (6 cells)**: MELBO `deepcopy`s the whole model on ONE device (F609). A 32B
+  model is ~65 GB, so the copy needs ~130 GB on a single card against h100's 80 GB.
+  **Structurally impossible at 32B without a code change to MELBO.** This is why
+  `steer32b_pilot` has been held, and it should stay held.
+* **Fuzzing (13 cells)**: 101 sigmas x 5 seeds = **505 full test-split evaluations per seed**
+  (`noise.py:243-244`). At 32B and n=624 that is not affordable at any point in this window.
+* **CktBr/14B (4 Table 1 cells)**: 40 directories across 10 roots, **every one weightless**;
+  regeneration is the 672 GB above.
+* **CktBr/14B/cyber (1 cell)**: has all three attacks on disk but the s44 result's
+  `marker_sha256` matches NEITHER candidate checkpoint (F-check 2026-09-06), so it cannot be
+  honestly paired. Needs a re-eval, not a re-render.
+
+#### 6. DECISIONS I NEED FROM MARK -- these are the whole critical path
+
+1. **Disk reclaim.** `reclaim_audit.py` identifies **70 checkpoints / ~2.67 TB** as strippable
+   (prior organisms whose cells are already attacked, so the cell still renders without the
+   weights). His standing rule is NEVER delete without approval on a named list
+   ([[possum-never-delete-artifacts]]). **Nothing new can be trained until this is decided**,
+   so it is the single highest-leverage answer.
+2. **The teammate's 60 cells.** Not fillable here at any cost. Either they run them or those
+   stay empty; it should not be discovered late.
+3. **Priority among the 21 missing organisms**, since not all fit even post-outage. The three
+   natural slices: (a) complete 14B across all six tasks, (b) complete all three model sizes on
+   WMDP only, (c) complete MMLU across sizes. **(b) is the cheapest and gives the most
+   defensible scaling claim**; (a) best matches the current table shape.
+4. **Fuzzing grid.** Capping 101 x 5 to, say, 21 x 3 makes 13 cells affordable, but it is a
+   METHODOLOGY CHANGE and the three published 7B WMDP Fuzzing cells (0.4 / 0.4 / 0.2) would
+   have to be re-run under the same cap for the column to be internally consistent
+   ([[possum-methodology-change-is-invisible]]).
+5. **The four sub-standard organisms** (32B chem s42/s44, 32B cyber s42, 14B chem s42):
+   retrain (needs disk) or report those cells at reduced seed counts with the caveat.
 
 ### F640. *** THE THREE 32B ATTACKS COULD NOT HAVE STARTED: ZERO HEALTHY NODES HAD 4 FREE l40s. RETARGETED TO h100:2, WHICH IS ALSO 2x FASTER AND THE PROVEN SHAPE *** (2026-09-06 21:50)
 

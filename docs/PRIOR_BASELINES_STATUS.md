@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-07 04:15 ET. Findings run to F646. <<
+## >> HANDOFF, 2026-09-07 05:30 ET. Findings run to F647. <<
 
 **Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
 exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
@@ -2227,6 +2227,46 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 (`evaluate.py:113`), and an unknown name would RAISE. More importantly the call site guards
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
+
+### F647. A MISSING SHEBANG COST A TABLE 1 CELL THREE DAYS OF QUEUE TIME (2026-09-07 05:30)
+
+`5228169 r14b_pwd_mmlu-stem_s43_retry` sat PENDING since **2026-09-04**, finally started, and
+died in **one second**:
+
+    /cm/local/apps/slurm/var/spool/job5228169/slurm_script: 4: set: Illegal option -o pipefail
+
+**The script had no `#!` line.** SLURM then executes it with `/bin/sh` (dash on this cluster),
+which has no `pipefail`, so `set -eo pipefail` aborts immediately with exit 2. Three days of
+queue position spent on a job that could never have run, and the cell stayed empty the whole
+time. Its `Command=` field also read `(null)`, so the source script was already gone -- there
+was nothing to inspect ahead of time, only the SLURM spool copy visible after the failure.
+
+**Every possum sbatch must start with `#!/usr/bin/env bash`.** Check it on any hand-written
+script BEFORE submitting; it is invisible in `squeue` and only surfaces at start time, which
+under a maintenance deadline can be days too late.
+
+#### THE CELL IS ONE SEED FROM COMPLETE, AND IT IS NOW QUEUED CORRECTLY
+
+`pwd/14B/MMLU-Stem` in `artifacts-rebuild14b` (the REBUILT organisms, PEFT adapters):
+
+    s42 (run01)  autodan 0.9320  n=147  mean_epochs 11.5
+    s44 (run03)  autodan 0.9116  n=147  mean_epochs 15.1
+    s43 (run02)  MISSING  <- the only gap; the cell renders "---" because of it
+
+**Seed-to-run mapping was READ, not guessed:** s42's stored provenance names `run01` and s44's
+names `run03`, so s43 is `run02`, and `password_lock_config.json` inside it confirms
+`seed = 43`. Note the marker here is `password_lock_config.json`, NOT the `pwd_config.json` an
+earlier probe of mine looked for and wrongly reported as "no marker".
+
+**Resubmitted as `5270139`**, 12 h on l40s:2. Sizing taken from the SIBLINGS' own search
+diagnostics rather than a generic rule: pwd/14B yields early (mean_epochs 11.5 / 15.1), so
+n=147 is ~147 x 13 x 12 s = 6.4 h plus ~1 h E&U; 12 h is ~1.6x. l40s:2 because AutoDAN is
+two-model (14B target ~28 GB + 8B attacker ~16 GB against 88 GB) and l40s places far sooner
+than h100 (18 healthy nodes with a free GPU vs 4).
+
+**This cell is also on the disk-reclaim EXCLUDE list** (F642 D5): `pwd_14b_mmlu-stem` was one
+of the three the audit wanted to strip while the cell is still empty. Had the bulk strip gone
+ahead, this recovery would have been impossible.
 
 ### F646. FIRST CAPPED-GRID FUZZING CELL: MMLU-HSS = 0.4 +/- 0.4, AND THE BEST NOISE LEVEL WAS ZERO ON ALL THREE SEEDS (2026-09-07 04:10)
 

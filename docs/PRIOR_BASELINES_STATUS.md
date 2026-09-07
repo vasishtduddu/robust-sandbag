@@ -2215,6 +2215,88 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F660. *** THE F654 REFRESH IS ~196 G OF DISK, NOT ~112 G: THREE OF THE FOUR CELLS HAVE NO pwd PARENT AND NEED ONE TRAINED FIRST *** (2026-09-07 13:10)
+
+Mark approved "refresh all four" for the F654 shells. Scoping it revealed the estimate I gave
+him was low. circuitbreak trains an RR LoRA **on top of a pwd-locked parent**
+(`circuit_break.py:127,227` -- "Train a pwd organism first"), and:
+
+| cell | pwd_hof_parent 14B present? |
+|---|---|
+| chem | **YES**, all three seeds, 28 G each, in `possum-retained-prior` |
+| bio | no |
+| mmlu-prof | no |
+| mmlu-stem | no |
+
+So chem is a one-step refresh (28 G), and the other three are two-step (parent 28 G +
+organism 28 G = 56 G each). **Total ~196 G against 23 G free.**
+
+Compute is NOT the obstacle, disk is. From `sacct`: `train_pwd_hof_parent` 14B is 14-47 min
+and `train_circuitbreak` 14B is 5-11 min. **Adapter-only saving is not available**:
+`circuit_break.py:25` merges the LoRA via `merge_and_unload()` and saves the full model, so
+each checkpoint is a full 28 G and `POSSUM_SAVE_PEFT_ADAPTER_ONLY` does not apply.
+
+This also makes the "two-variable" caveat concrete for three of the four cells: a fresh parent
+AND a fresh organism ([[possum-retraining-gotchas]]). **chem is the clean one and should go
+first** -- it reuses the ORIGINAL parent, so only the organism is new.
+
+### F659. *** TWO TABLE 1 CELLS WERE BLOCKED ONLY BY A 4x-OVERSIZED WALLTIME, AND THE JOB NAMES MISLED ME TWICE *** (2026-09-07 13:20)
+
+`cktbr_cyber_s43_v3` / `s44_v3` sat held at **TimeLimit=48:00:00**, which cannot start before
+the 09:00 reservation. Reading them:
+
+* they are **7B**, not 14B (the name says only "cyber_s44_v3");
+* they are **attacks**, not retrains, so they write no checkpoint and need no disk;
+* `circuitbreak/7B/cyber` s43 and s44 are **genuine empty cells** (locks +0.318 / +0.178, no
+  autodan), and both checkpoints exist (15 G, run02=s43, run03=s44);
+* 14B/cyber at the same n=399 completed in 7:15-11:34, so ~12 h is the honest size and 48 h
+  was ~4x.
+
+Trimmed both to `TimeLimit=14:00:00` and repartitioned to `l40s_b3,b4`, then released. **Two
+Table 1 cells unblocked at zero slot cost and zero disk cost** -- releasing a held job does not
+change the 25-job count.
+
+**The lesson is about names, not walltime.** `r14bpwd_stem_s43` is an ATTACK; `cktbr_cyber_v3`
+is a 7B attack, not a 14B retrain. Twice today a job name implied the wrong model size or the
+wrong operation. **Read the `--model_path` and the `--elicitations` line before reasoning about
+any queued job** ([[possum-sbatch-on-disk-is-stale]]).
+
+Note cyber runs ~87-104 s/item against bio/mmlu-prof's ~48 (F655): cyber is the slow task even
+for a yielding organism. Do not size a cyber attack from a bio sibling.
+
+### F658. *** THE circuitbreak/14B/cyber SEED-44 UTILITY COLLAPSE IS DETERMINISTIC, NOT INSTABILITY: THE RESEED REPRODUCED IT, AND A DESTROYED-UTILITY ORGANISM IS IN A PUBLISHED TABLE 1 MEAN *** (2026-09-07 13:05)
+
+Chasing disk, I nearly deleted `circuitbreak_qwen2.5-14b-it_cyber/run03.pre-reseed-20260820`
+(28 G) as the most conservative reclaim on the filesystem: a dated backup with a note calling
+itself REVERSIBLE. **It is load-bearing and must not be deleted.**
+
+The note (2026-08-20) moved run03 aside to force a retrain, with an explicit decision rule:
+"healthy result means instability and the fix is targeted reseeds; a reproduced 0.44 means it
+is deterministic and a k sweep is then justified." `sacct` closes it:
+
+    4922339 train_circuitbreak_14b_cyber_s44  COMPLETED 00:11:09  2026-08-20T23:25  <- reseed
+    4922340 eval_circuitbreak_14b_cyber_s44   COMPLETED 00:37:03  2026-08-21T00:09  <- re-measured
+
+**The retrain reproduced it.** Utility as a fraction of base:
+
+| seed | HS | CSQA | pw/base | autodan |
+|---|---|---|---|---|
+| 42 | 1.225 | 1.107 | 0.948 | 0.9048 |
+| 43 | 1.061 | 0.913 | 1.073 | 0.9198 |
+| 44 | **0.631** | **0.600** | 1.026 | 0.9123 |
+
+So the collapse is a property of the recipe at this (cell, seed), not a bad draw. **A
+published Table 1 cell therefore averages in a seed that fails utility-preservation**, one of
+the organism's four requirements. Note `pw/base` is a healthy 1.026 for seed 44, so any
+one-dimensional gate passes it: this is [[possum-validate-both-axes]] firing on a prior
+baseline rather than on one of ours.
+
+The robustness number barely moves (0.9123 +/- 0.0075 with seed 44, 0.9123 +/- 0.0106 without),
+so this is an INTEGRITY issue, not a headline change. The k sweep the note called for was in
+fact run (`cktbrtune_k32/k64_s43/s44`, 2026-08-2x). **Open question for Mark:** report the cell
+over two healthy seeds with a footnote, or retrain seed 44 at the swept k. Not started.
+
+
 ### F657. *** THE PER-TASK AutoDAN `n` IS A ROW-LEVEL CONVENTION, NOT A FREE PARAMETER: bio 256, chem 83, cyber 399, mmlu-prof 624, mmlu-stem 147, mmlu-hss 375 *** (2026-09-07 12:30)
 
 Surveyed every accepted Table 1 cell that carries an `autodan` value (238 JSONs at the

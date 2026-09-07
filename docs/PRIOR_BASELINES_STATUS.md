@@ -2247,6 +2247,64 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F665. *** THE TRAINING TELEMETRY CARRIES **NO** SIGNAL ABOUT WHICH DRAW WILL BE ROBUST: OAT/LAT METRICS ARE INDISTINGUISHABLE ACROSS SEEDS WHOSE OUTCOMES DIFFER BY 0.88. A CHEAP TRAINING-TIME GATE IS RULED OUT *** (2026-09-07 15:45)
+
+Zero GPU cost, from the three surviving 32B/bio training logs. I went looking for an
+outcome-independent predictor that would let us screen draws at training time instead of
+paying for a val attack (the cheaper alternative to F664's protocol). **There isn't one in
+what we log.**
+
+OAT objective, mean over all 601 logged steps:
+
+| seed | outcome | adv | ce | paired | probe | ret |
+|---|---|---:|---:|---:|---:|---:|
+| 42 | **ROBUST 0.020** | 0.2157 | 0.0200 | 0.0437 | 0.5351 | 0.0424 |
+| 43 | broke 0.900 | 0.2207 | 0.0243 | 0.0447 | 0.5390 | 0.0294 |
+| 44 | broke 0.880 | 0.2154 | 0.0121 | 0.0388 | 0.5443 | 0.0418 |
+
+Late training (step > 500) is even tighter: `probe` 0.6867 / 0.6858 / 0.6880.
+
+**The between-seed spread is a small fraction of the within-run step-to-step noise:**
+
+| metric | between-seed spread | within-run sd | ratio |
+|---|---:|---:|---:|
+| adv | 0.0053 | 0.1435 | **0.037** |
+| ce | 0.0122 | 0.1645 | **0.074** |
+| paired | 0.0059 | 0.2436 | **0.024** |
+| probe | 0.0091 | 0.2392 | **0.038** |
+| ret | 0.0129 | 0.1489 | **0.087** |
+
+Every ratio is under 0.09, i.e. the seeds are indistinguishable on the objective the recipe
+actually optimises, **while their AutoDAN accuracy differs by 0.880**. LAT is no better: the
+`adv_toward` means (1.338 / 1.622 / 1.775) do order with robustness, but the two BROKEN seeds
+sit at opposite ends of that ordering while sharing an outcome, and the per-step trajectories
+are pure noise (step 100: 0.03 / 1.34 / 3.88). `def_toward` does not order at all (s42 is in
+the middle). At n=3 that is a coincidence, not a predictor
+([[possum-one-case-is-not-a-mechanism]]).
+
+**THREE CONSEQUENCES.**
+
+1. **The cheap screen is dead.** "Train five, keep the ones whose training looked good" cannot
+   work, because the training looks identical. This is the specific alternative I flagged to
+   Mark as possibly converting "we got lucky" into "we can predict it"; it does not.
+2. **It strengthens F664.** Since training is uninformative, you MUST evaluate to know which
+   mode you drew, and val-based selection is therefore the only outcome-independent screen
+   available. The protocol is not merely defensible, it is forced.
+3. **It is a real scientific statement about the recipe**, and belongs in the paper:
+   `obfcot_oat_then_lat_f_lock_v1` converges to the same obfuscation objective value whether
+   it produces a near-perfectly-locked organism or one that yields 90% of its capability to
+   best-of-150 search. **The objective the method optimises is not aligned with the property
+   the method claims.** That is a limitation worth stating plainly, and it applies to OAT-style
+   obfuscation generally, not just to our implementation.
+
+**HONEST SCOPE.** n=3, and this examines only the LOGGED scalars (OAT `adv/ce/paired/probe/ret`,
+LAT `adv_toward/def_toward`). A predictor could still live in something we do not log: per-layer
+probe AUC, gradient norms, or the OAT probe's own accuracy trajectory. The claim is **"no
+predictor in the logged telemetry"**, not "no predictor exists". If Mark wants the stronger
+result, the next step is instrumenting a training run, which is only worth doing if the
+mixture proportion from the 5 draws turns out interesting.
+
+
 ### F664. *** PRE-REGISTERED PROTOCOL FOR THE BIMODAL 32B/bio CELL: 5 DRAWS, VAL-BASED SELECTION, SUCCESS RATE AS THE PRIMARY STATISTIC. WRITTEN BEFORE ANY VAL NUMBER EXISTS *** (2026-09-07 14:45)
 
 Mark's ruling on F663: **5 draws + val selection**, rather than more seeds alone or redrawing

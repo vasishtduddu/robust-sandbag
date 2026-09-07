@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-06 23:55 ET. Findings run to F642. <<
+## >> HANDOFF, 2026-09-07 00:05 ET. Findings run to F644. <<
 
 **Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
 exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
@@ -2224,6 +2224,54 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 (`evaluate.py:113`), and an unknown name would RAISE. More importantly the call site guards
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
+
+### F644. *** "ALREADY-RUNNING JOBS CONTINUE" DOES NOT EXTEND OUR RUNWAY. SLURM REFUSES TO *START* ANY JOB THAT WOULD OVERLAP THE RESERVATION, MEASURED *** (2026-09-07 00:00)
+
+Mark relayed from the admins: *"New jobs will not start during this time period, but
+already-running jobs should continue to execute."* He asked me to use it to our advantage by
+submitting longer jobs before the outage. **I tested it, and there is no advantage to take.**
+
+**The measurement, a real submission rather than `--test-only`:**
+
+    sbatch --time=40:00:00 ...   ->  Reason=ReqNodeNotAvail,_Reserved_for_maintenance
+                                     StartTime=Unknown        (job cancelled after the probe)
+    sbatch --time=33:00:00 ...   ->  Reason=Priority           ACCEPTED
+    sbatch --time=32:00:00 ...   ->  Reason=Priority           ACCEPTED
+    sbatch --time=30:00:00 ...   ->  Reason=Priority           ACCEPTED
+    window remaining at the time of the test: 33.01 h
+
+**The rule is exactly: `TimeLimit <= time remaining until 2026-09-08 09:00`.** The scheduler
+will not START a job that would still be running when the reservation begins, so the admins'
+statement is true only of jobs ALREADY running at 09:00 -- and Slurm prevents us from creating
+any new ones. **Confirms F601 precisely and closes the question.**
+
+`--test-only` is NOT a reliable probe here and nearly misled me: it reported a 24 h job would
+"start at 2026-09-07T16:14" (which would overlap the reservation by 7 h) while pushing 48 h and
+72 h jobs to `2027-09-08T09:00`, the reservation's END. Only a real submission read through
+`squeue -o %r` gives the truth. **Use a real probe job and cancel it.**
+
+**Cross-check that nothing already running exploits the loophole either:** every running job
+ends before 09:00 Sep 8 (`mmatk_stem` -> 14:00 Sep 7, `atk14b_bio` -> 19:45 Sep 7,
+`afixatk_mmlu-prof` -> 06:50 Sep 8, `cb32bprof` -> 12:00 Sep 7). So nothing of ours would carry
+into the reservation regardless.
+
+**And the loophole cannot be manufactured**, because the two ways to try it are both closed:
+a RUNNING job's TimeLimit can only be DECREASED (F622, `Access/permission denied`), so we
+cannot start a short job and extend it into the outage; and a PENDING job long enough to
+overlap is refused outright, as measured above.
+
+#### THE ONE REAL, ACTIONABLE CONSEQUENCE
+
+**The ceiling drops by one hour per hour.** At 00:00 Sep 7 the maximum submittable TimeLimit is
+33 h; by 09:00 Sep 7 it is 24 h; by 21:00 Sep 7 it is 12 h. **Anything we intend to run in this
+window must be submitted AS EARLY AS POSSIBLE, sized as large as it will ever need, because the
+maximum length is monotonically shrinking.** This is the opposite of the usual advice to trim
+walltime for queue position (F624/F638/F640): trim only when the SHAPE is schedulable and the
+job is at risk of not starting, never merely to be tidy.
+
+**Post-outage planning is therefore unchanged**: the 21 missing organisms, the four D4
+retrains, and the full-grid Fuzzing all wait for the cluster to come back, and the incremental
+disk reclaim (F642 D5) happens then, immediately before the first job that needs the space.
 
 ### F642. *** MARK'S FIVE DECISIONS, 2026-09-06 23:50. INCLUDING: DROP MELBO, CAP THE FUZZING GRID (MEASURED ZERO BIAS), AND RECLAIM DISK INCREMENTALLY, MOST-CONSERVATIVE-FIRST *** (2026-09-06)
 

@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-07 00:05 ET. Findings run to F644. <<
+## >> HANDOFF, 2026-09-07 01:00 ET. Findings run to F645. <<
 
 **Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
 exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
@@ -2019,6 +2019,9 @@ the base model's attackability and elicits nothing. HELD (reversible), not cance
 circuitbreak/32B/mmlu-prof has **Delta +0.53 to +0.58**, a real lock, and is the cell those
 h100s should be spent on.
 
+**!! THE NOTE BELOW IS RETRACTED BY F645: the error key came back EMPTY on the successful
+rerun, so a NON-empty error key IS a real failure and must not be waved through. !!**
+
 **NOTE FOR WHOEVER VALIDATES THE RESULT:** `elicitation_errors["autodan"]` from today's crash
 is MERGED forward, not cleared (`_run_eval.py:257-262`), so even a fully successful rerun will
 leave the stale error key in the JSON and `validate_cell.py` will FAIL its "no elicitation
@@ -2224,6 +2227,50 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 (`evaluate.py:113`), and an unknown name would RAISE. More importantly the call site guards
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
+
+### F645. *** THE SIX-TIMES-FAILED CELL LANDED: circuitbreak/32B/mmlu-prof s42 = 96.96% AT n=624. AND MY F631 WARNING ABOUT A STALE ERROR KEY WAS WRONG *** (2026-09-07 01:00)
+
+`5257090` COMPLETED in **7:16:37** on h100:2 -- the config F631 retargeted to after six
+consecutive l40s:3 OOM failures. Every gate passes:
+
+    autodan   = 0.9696   n = 624 (FULL split, as the row requires)
+    nopw 0.1074  pw 0.6763  base 0.6747   Delta +0.5689   pw/base 1.002
+    search: success 0.997, mean_epochs 7.6
+    elicitation_errors: []   <- EMPTY
+
+**Three independent sanity checks, all pass:**
+1. **Matches its row comparator.** `pwd/32B/mmlu-prof` reads 0.971-0.976 at the same n=624;
+   ours is 0.9696. A circuit-breaking organism landing beside password-locking at 32B on the
+   same task is exactly the expected "prior work is not robust" result.
+2. **In the prior band** 0.80-1.00, and the E&U survived untouched from the pre-crash pass
+   (`nopw` and `pw` byte-identical to the values F631 recorded), confirming the no-`--force`
+   merge did what it was supposed to.
+3. **`mean_epochs 7.6`** sits squarely in the prior-work range F629 measured (pwd/14B 3.9-7.0,
+   circuitbreak/7B 6.8-11.7) and far below ours (7B mmlu-prof **32-34**). So **F629's
+   separation now holds at 32B as well as 7B/14B**, on a task where the raw Jlbrk columns look
+   identical (96.96 vs our 86.1).
+
+#### CORRECTION TO F631, AND IT MATTERS FOR FUTURE VALIDATION
+
+F631 warned: *"`elicitation_errors["autodan"]` from today's crash is MERGED forward, not
+cleared, so even a fully successful rerun will leave the stale error key and
+`validate_cell.py` will FAIL its 'no elicitation errors' gate. That is a stale artifact, not a
+real failure."*
+
+**That is WRONG. The key came back EMPTY.** I reasoned from `_run_eval.py:257-262`
+(`cur.update(v)`, which cannot remove a key) without testing it, and something upstream clears
+or replaces the dict on a successful re-run.
+
+**Why the correction matters more than the original warning:** had it stood, a future session
+would have been told to IGNORE a non-empty `elicitation_errors` on a re-run cell. Since the key
+does clear, **a non-empty error key on a re-run is a REAL failure and must not be waved
+through.** Treat `validate_cell.py`'s "no elicitation errors" gate as trustworthy again.
+[[possum-verification-commands-lie]] cuts both ways: I asserted a behaviour from reading the
+merge code and the artifact disagreed.
+
+**Cell status: 1 of 3 seeds in.** s43 (`5257091`) and s44 (`5257092`) are still running and were
+~50 min behind s42, so the cell should be renderable within a few hours. `tablefill` needs all
+three seeds, so no render until they land.
 
 ### F644. *** "ALREADY-RUNNING JOBS CONTINUE" DOES NOT EXTEND OUR RUNWAY. SLURM REFUSES TO *START* ANY JOB THAT WOULD OVERLAP THE RESERVATION, MEASURED *** (2026-09-07 00:00)
 

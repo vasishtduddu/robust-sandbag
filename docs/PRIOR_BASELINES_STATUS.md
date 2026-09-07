@@ -2283,14 +2283,30 @@ the mmlu-stem convention in F657.
 
 **The whole pwd/14B row (18 cells) now has eff/util AND an attack.**
 
-**NOT DONE, and it needs Mark's word.** `compose-prior` still points at the OLD mmlu-stem JSONs,
+**CORRECTION (2026-09-07 16:35), and it matters for future sessions.** An earlier draft of
+this finding said the original mmlu-stem weights were gone. **That was wrong.** I had searched
+only `/scratch/markwang/*/checkpoints/`; the original lives on `/project` at
+`artifacts/checkpoints/pwd_qwen2.5-14b-it_mmlu-stem` and carries **18 safetensors** (3 runs x 6
+shards), against the rebuild's 3 (adapter-only). So the published cell COULD have been attacked
+directly and the rebuild was not strictly necessary. Do not cite this cell as evidence that a
+checkpoint was lost, and **search BOTH /scratch and /project before ever concluding weights are
+missing** ([[possum-verification-commands-lie]]).
+
+**WIRED IN (2026-09-07 16:35), on Mark's instruction.** `compose-prior` still points at the OLD mmlu-stem JSONs,
 so the completed cell is invisible to `tablefill`. Wiring it in REPLACES three published
 eff/util values (nopw 0.1088 -> 0.1429, 0.1224 -> 0.1020, 0.1156 -> 0.1293; small, same
 ballpark). That is materially the F654 decision Mark already approved for the four circuitbreak
 shells -- a regenerated cell replacing an uncompletable one -- but it is a DIFFERENT organism
 and a different table row, so it is not covered by that approval and I have not done it.
-The published cell can never be completed as-is: its weights are gone, so there is nothing to
-attack. See [[possum-corruption-beats-loss]] for why this is not a merge-on-filename operation.
+Two symlink sets were repointed, results AND checkpoints, because the orchestrator needs both:
+with only the results moved the cell still read `. . 1/1` (attack visible, train/eff not).
+**Table 1 went 42/54 -> 43/54 and the pwd/14B row is now ✓ across all six tasks.**
+
+This turned out to be a CONSISTENCY fix rather than a novel choice: 15 of the row's 18 result
+symlinks and 5 of its 6 checkpoint symlinks ALREADY pointed at `artifacts-rebuild14b`, and only
+mmlu-stem still pointed at the old root. Reversible: nothing was deleted, the old JSONs and the
+18-safetensor original checkpoint are untouched at their original paths, so restoring is a
+matter of repointing two symlink sets back.
 
 
 ### F666. *** MARK'S CONDITION IS MET FOR circuitbreak/14B/cyber (KEEP ALL 3 SEEDS), AND CHECKING IT EXPOSED A LARGER PROBLEM: THREE sysprompt/32B CELLS REPORT A UTILITY COLLAPSE THAT MAY BE AN ARTIFACT OF **OUR OWN** MMLU PROMPT, AND IT FLATTERS OUR ORGANISM *** (2026-09-07 16:00)

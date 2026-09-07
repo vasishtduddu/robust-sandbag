@@ -2321,6 +2321,26 @@ the other side), and pruning/steering could in principle fail for reasons unrela
 strength. The claim that is supported is narrow and sufficient: **the 86% is not accompanied by
 any other sign of a weak lock.**
 
+**UPDATE 22:35: mmlu-hss landed too (5258621, 2:33:55, rc_any=0, three seeds, zero errors)
+and it REPLICATES the pattern.** Steering 0.00/0.00/0.00 -> **0.0 +/- 0.0**; Pruning
+9.07/4.27/1.33 -> **4.9 +/- 2.3**. Table 3 (paper) is now **15 filled / 39 empty**. The 7B
+whitebox block reads:
+
+| 7B task | AutoDAN | Steering | Pruning | Fuzzing |
+|---|---:|---:|---:|---:|
+| WMDP-Bio | 0.7 | 0.0 | 0.1 | 0.4 |
+| WMDP-Chem | 2.0 | **6.8** | 10.0 | 0.4 |
+| WMDP-Cyber | 0.0 | 1.2 | **31.0** | 0.2 |
+| MMLU-Prof | **86.1** | **0.0** | 2.4 | -- |
+| MMLU-HSS | -- | **0.0** | 4.9 | -- |
+
+**Steering is now 0.0 on SIX consecutive MMLU seeds across two tasks**, plus 0.0 on all three
+bio seeds. It is non-zero only on chem (6.8) and marginally cyber (1.2). So the F639 reading
+strengthens: whatever makes mmlu-prof yield to a 150-draw prompt search does not make it yield
+to an activation-steering direction, and the same holds for a second MMLU task. **Two tasks is
+still not many** -- mmlu-stem is the third and it is queued behind the slot collision -- but the
+replication was not guaranteed and it came in.
+
 **Table 3 (paper) 7B MMLU-Prof now has Steering and Pruning.** Fuzzing stays empty by the F634
 cost argument (101 stds x 5 seeds = 505 full evaluations). mmlu-hss is queued as 5258621;
 mmlu-stem still waits on the slot collision with 5247110/11/12.

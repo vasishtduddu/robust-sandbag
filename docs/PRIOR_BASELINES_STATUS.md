@@ -2260,6 +2260,25 @@ a RUNNING job's TimeLimit can only be DECREASED (F622, `Access/permission denied
 cannot start a short job and extend it into the outage; and a PENDING job long enough to
 overlap is refused outright, as measured above.
 
+#### ALLOCATION LESSON APPLIED (Mark's standing "get jobs running faster" ask)
+
+**Pick the GPU TYPE by free-node count, not by speed, whenever the model fits.** Measured
+2026-09-07 00:30:
+
+    healthy nodes with >=1 free GPU:   l40s 18   |   h100 4
+    (l40s: 16 nodes with 1 free, 2 with 2 free;  h100: 2 with 1, one with 3, one with 5)
+
+A 7B model is ~15 GB and fits an l40s (44 GB) with room. l40s:1 is roughly 2x slower per token
+than h100:1, **but 4.5x more placeable**, and under F644 STARTING is the binding constraint --
+the maximum submittable TimeLimit is the time left before the reservation and it drops an hour
+per hour. So `fuzz7b_mmlu-prof` and `fuzz7b_mmlu-hss` went to **l40s:1 / 64 G**, sized 24 h and
+16 h (both far inside the 32.5 h ceiling) rather than to a faster but unplaceable h100.
+
+**The general rule, which is the inverse of the 32B case (F640):** at 32B the model does not fit
+a small allocation, so shape dictates the partition and h100 was the only option; at 7B the model
+fits anywhere, so **placeability dictates the partition**. Check free-node counts by type before
+choosing, every time.
+
 #### THE ONE REAL, ACTIONABLE CONSEQUENCE
 
 **The ceiling drops by one hour per hour.** At 00:00 Sep 7 the maximum submittable TimeLimit is

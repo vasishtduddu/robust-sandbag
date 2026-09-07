@@ -2298,6 +2298,23 @@ seeds are n=83; mixing n WITHIN one cell's seed set is worse than reporting the 
 seeds, and the resulting mean would be over inhomogeneous samples. Cross-CELL n variation is
 already disclosed; within-cell is not defensible.
 
+**CONFIRMED BY THE WATCHER AT 21/83 (2026-09-06 20:45).** `eta_watch.sh` fired DOOMED exactly
+where it was designed to -- at the 25%-progress mark, not at 88% of walltime: `rate=1967s/it
+projected=46h16m > limit 46h`. **16 minutes over.** Its generic advice line says "cancel+resubmit
+now"; that advice does NOT apply here and the analysis below is why.
+
+**Re-verified rather than assumed after the alert:** AutoDAN's checkpointing
+(`autodan.py:244,407-502 _save_library/_save_progress/checkpoint_callback`) covers only the
+LIBRARY-BUILD phase. The test loop (`:701`) accumulates prompts in memory and scores them after
+the loop, so **a timeout loses everything and no partial credit is recoverable**. These jobs
+already run with a cached library (`POSSUM_AUTODAN_REQUIRE_CACHE=1`), so the 46 h is pure test
+phase and there is nothing to skip on a restart either.
+
+**Also re-checked: cancelling to free the GPUs is not worth it.** Letting it run is a ~45%
+chance at the n=83 seed-42 number -- and that seed is the RESISTANT one, so it pulls the cell
+mean DOWN, in our favour. Cancelling buys two l40s for ~34 h with nothing high-value waiting on
+that shape (mmlu-stem whitebox is slot-blocked, 14B/chem whitebox is gated out at pw/base 0.81).
+
 **RULING: let it run.** If it completes we get the correct n=83 seed 42. If it times out,
 report mmlu-prof at **2 seeds with the caveat**, and queue seed 42 post-outage.
 

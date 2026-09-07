@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-06 21:35 ET. Findings run to F639. <<
+## >> HANDOFF, 2026-09-06 21:55 ET. Findings run to F640. <<
 
 **Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
 exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
@@ -2224,6 +2224,57 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 (`evaluate.py:113`), and an unknown name would RAISE. More importantly the call site guards
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
+
+### F640. *** THE THREE 32B ATTACKS COULD NOT HAVE STARTED: ZERO HEALTHY NODES HAD 4 FREE l40s. RETARGETED TO h100:2, WHICH IS ALSO 2x FASTER AND THE PROVEN SHAPE *** (2026-09-06 21:50)
+
+`atk32b_obfcot_bio` s42/s43/s44 sat PENDING with `est=N/A` against a must-start-by of
+**01:00 Sep 7**, 3.3 h away. I had twice traded walltime to buy start margin (34 h -> 32 h,
+F638) on the assumption that the queue was merely busy. **That assumption was wrong, and one
+node scan settled it:**
+
+    l40s, free GPUs per node:   0 free -> 134 nodes    1 free -> 17    2 free -> 1
+                                4 free -> 16 nodes, and EVERY ONE of them is
+                                DOWN+FAIL+NOT_RESPONDING / IDLE+DRAIN / IDLE+FAIL
+    -> ZERO healthy nodes could satisfy --gres=gpu:l40s:4, at any walltime.
+
+**No amount of walltime trimming would ever have started these jobs.** 50 more nodes are
+`MIXED+PLANNED`, i.e. already reserved for higher-priority pending work. Dropping to `l40s:3`
+does not help either: no node has 3 free, and F631 measured the 32B+8B OOM on exactly that
+shape.
+
+**h100 at the same instant had ~11 free GPUs** (one node with 6 free, one with 4, three with 1)
+-- which is why the three `cb32bprof_h100` jobs I submitted this afternoon all started within
+two hours while these sat.
+
+#### THE RETARGET IS AN IMPROVEMENT ON THREE AXES, NOT A COMPROMISE
+
+1. **Schedulability**: h100:2 is available now; l40s:4 is structurally unavailable.
+2. **It is the PROVEN shape for 32B AutoDAN** (F631). `pwd/32B/mmlu-prof` and
+   `sysprompt/32B/mmlu-prof` both COMPLETED on h100:2, and `5155212` ran 32B/cyber at
+   **n=399 in 14:10:26**. The l40s:4 + fraction 0.45 config was reasoned but never once run.
+3. **It is ~2x faster, sized from the only real 32B-on-h100 measurement rather than from
+   parameter scaling** (the error F624 was written about): 5155212 did **128 s/item** at a mean
+   ~17-20 epochs = **~7 s/epoch**, so a budget-bound 150 epochs is **~1050 s/item** ->
+   n=50 is **~14.6 h + ~2 h setup = ~17 h**, against ~28-30 h on l40s. **24 h limit = 1.4x
+   margin, and it moves must-start-by from 01:00 to 09:00 Sep 7** -- from 3.3 h of runway to
+   11.3 h.
+
+**One env change, deliberate:** `POSSUM_DEVICE_MEM_FRACTION` 0.45 -> **0.55**. On 2x80 GB that
+caps the target at 88 GB (it needs ~65) and leaves ~72 GB for the resident 8B attacker and
+embedder. At 0.45 the target cap would be 72 GB, only ~7 GB above the weights, which is thin
+KV-cache headroom at `batch_size 4` on long prompts. Everything else was verified byte-identical
+by diffing the `export` / `CK=` / `OUT=` / `--elicitations` lines: same checkpoints, same
+outputs, same `ELICIT_EVAL_MAX=50`, same pinned `SAMPLE_SEED=42`, same cached AutoDAN library,
+same four-axis pre-attack gate. Replacements were built and syntax-checked BEFORE the `scancel`
+([[possum-verify-before-cancel]]).
+
+Submitted **5265071/2/3**.
+
+**THE GENERAL LESSON, and it is the one to keep.** When a job will not start, the reflex from
+F624/F638 is to trim walltime. **Check first whether the requested SHAPE is satisfiable at
+all** -- `scontrol show node -o` parsed for `Gres=` minus `AllocTRES gres/gpu=`, filtering out
+DOWN/DRAIN/FAIL. A shape no healthy node can satisfy is not a queue-position problem and no
+walltime will fix it. I spent two walltime trims on this before scanning the nodes.
 
 ### F639. *** THE mmlu-prof ORGANISM IS THE MOST WHITEBOX-ROBUST CELL WE HAVE, ON THE VERY TASK WHERE AutoDAN READS 86%. INDEPENDENT SUPPORT FOR F615 *** (2026-09-06 21:30)
 

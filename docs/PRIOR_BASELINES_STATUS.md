@@ -2247,6 +2247,65 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F662. *** A HELD JOB CARRYING `--force` WOULD HAVE OVERWRITTEN AN ACCEPTED PUBLISHED VALUE; CANCELLED IT AND ONE DOOMED-SHAPE PILOT *** (2026-09-07 12:40)
+
+Needing submit slots for the F654 refresh, I audited the eight held jobs and cancelled two.
+
+**5159507 `eval_circuitbreak_32b_mmlu-prof_s42` -- cancelled, and this one was actively
+dangerous.** The cell already carries `autodan=0.9696 at n=624`, produced by job **5257090**
+(`cb32bprof_h100_s42`, COMPLETED 07:16:37). The held job is the SUPERSEDED Sep-1 attempt from
+the F620 era, and it carries `--force`. Releasing it would have re-run the attack and
+**overwritten an accepted published number** with a fresh draw, silently changing a Table 1
+cell. It has sat held since Sep 1 precisely because the h100 rerun replaced it.
+
+Generalise: **a held job is a snapshot of an intention that may since have been satisfied.**
+Before releasing ANY long-held job, check whether its output already exists, and check for
+`--force`. Without `--force` a satisfied job is a harmless no-op
+([[possum-methodology-change-is-invisible]]); with it, it is a silent overwrite.
+
+**5243941 `noise32b_pilot4g_bio_s42` -- cancelled as doomed.** `TimeLimit=36 h` against a
+~20 h window means it cannot start before maintenance, and its shape (`l40s:4`) is the exact
+sharding [[possum-32b-whitebox-sharding-limit]] records as OOMing every time. The script
+survives on disk; resubmit post-maintenance with a shape that works.
+
+The other six holds were left alone: they are either startable (steer32b at 16 h) or represent
+real post-maintenance work.
+
+### F661. *** h100 MEASURED AT **ZERO** FREE GPUs ON ZERO HEALTHY NODES; THE QUEUE LEVERS ARE WALLTIME AND GPU TYPE, AND 32B AutoDAN CANNOT USE THE ONE THAT IS FREE *** (2026-09-07 12:35)
+
+None of the twelve jobs submitted at 12:00-12:15 had started 35 min later, all at
+`(Priority)`. Cause, from `scontrol show node`:
+
+    h100:    0 free GPUs across  0 healthy nodes
+    l40s:   82 free GPUs across 50 healthy nodes  (22 nodes >=2 free, 7 >=3, 2 >=4)
+
+This is [[killarney-retarget-l40s]] at its extreme, and it splits the pending work in two:
+
+* **The four 14B refresh jobs CAN move**, and did: retargeted `h100:2 -> l40s:3`
+  (mem 128->180 G, cpus 6->12). A 14B target plus AutoDAN's 8B attacker is ~50 GB against
+  l40s:3's 144 GB. chem and bio are now submitted. **This changes the TRAINING GPU vs the
+  original h100:2 recipe**, so it belongs in the regeneration footnote
+  ([[possum-cross-machine-seed-variance]]).
+* **The nine 32B attack jobs CANNOT move.** 32B AutoDAN on l40s is the OOM that F631/F640
+  root-caused after six failures; h100:2 is the only proven shape. Retargeting them would
+  reproduce a known failure, so they must wait for h100 to drain. `atk32b_bio_h100_s42`
+  releases 2 h100s within ~2 h, which is the realistic path in.
+
+**What CAN be done for them is walltime**, the only post-submission lever and only while
+PENDING (F624). Using F655's measured 48 s/item + 1 h setup rather than the original guesses:
+
+| jobs | n | was | now | projected need |
+|---|---:|---|---|---|
+| cb32b_chem s42/43/44 | 83 | 8 h | **5 h** | ~2.1 h |
+| cb32b_stem s42/43/44 | 147 | 10 h | **7 h** | ~3.0 h |
+| cb32b_hss s42/43/44 | 375 | 12 h | 12 h (kept) | ~6.0 h |
+
+A shorter TimeLimit fits more backfill windows and pushes must-start-by later, both of which
+matter with a reservation closing the window. hss was left at 12 h deliberately: if mmlu-hss
+behaves like cyber (87-104 s/item, F659) rather than like bio, it needs ~10 h and a trim would
+kill it.
+
+
 ### F660. *** THE F654 REFRESH IS ~196 G OF DISK, NOT ~112 G: THREE OF THE FOUR CELLS HAVE NO pwd PARENT AND NEED ONE TRAINED FIRST *** (2026-09-07 13:10)
 
 Mark approved "refresh all four" for the F654 shells. Scoping it revealed the estimate I gave

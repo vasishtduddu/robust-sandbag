@@ -22,6 +22,7 @@ from __future__ import annotations
 import csv
 import gc
 import json
+import os
 import time
 import warnings
 from contextlib import nullcontext
@@ -268,10 +269,30 @@ class NoiseInjection(ElicitationTechnique):
             model_name=model_name,
             seed=seed,
         )
+        # POSSUM_NOISE_STDS / POSSUM_NOISE_SEEDS cap the sweep (Mark's ruling, 2026-09-06,
+        # F642 D2). The default grid is 101 stds x 5 seeds = 505 FULL test-split evaluations
+        # per cell, which is why 13 Fuzzing cells are empty: at 32B and n=624 it is not
+        # affordable. Both knobs are read only when the caller passes nothing, so an explicit
+        # argument still wins and the UNSET default is byte-identical to the previous
+        # behaviour -- no published cell changes.
+        #
+        # Capping is safe here and that is MEASURED, not assumed: the stored per-config sweeps
+        # (<root>/elicitation_results/noise_*_sweep.csv) let the capped grid be replayed on the
+        # existing 7B cells, and a 21 x 3 grid reproduces the full 101 x 5 result EXACTLY on
+        # all eight measurable cells, including the two non-zero ones (chem s44 1.20,
+        # cyber s44 0.50). Best-over-sweep is attained at a std present in both grids.
+        #
+        # POSSUM_NOISE_STDS accepts "start:stop:count" (linspace, the normal use) or an
+        # explicit comma list. POSSUM_NOISE_SEEDS takes a count (first N of DEFAULT_SEEDS,
+        # so the subset stays nested in the published seed set) or a comma list of seeds.
         self.noise_stds = (
-            list(noise_stds) if noise_stds is not None else list(self.DEFAULT_NOISE_STDS)
+            list(noise_stds) if noise_stds is not None
+            else self._env_stds() or list(self.DEFAULT_NOISE_STDS)
         )
-        self.seeds = list(seeds) if seeds is not None else list(self.DEFAULT_SEEDS)
+        self.seeds = (
+            list(seeds) if seeds is not None
+            else self._env_seeds() or list(self.DEFAULT_SEEDS)
+        )
         self.percentages = (
             list(percentages) if percentages is not None else list(self.DEFAULT_PERCENTAGES)
         )
@@ -282,6 +303,47 @@ class NoiseInjection(ElicitationTechnique):
         self.eval_batch_size = eval_batch_size
         self.results_dir = results_dir
         self.wandb_project = wandb_project
+
+    @staticmethod
+    def _env_stds() -> list[float] | None:
+        """Parse POSSUM_NOISE_STDS: "start:stop:count" linspace, or a comma list. None if unset."""
+        raw = os.environ.get("POSSUM_NOISE_STDS", "").strip()
+        if not raw:
+            return None
+        try:
+            if ":" in raw:
+                start, stop, count = raw.split(":")
+                n = int(count)
+                if n < 2:
+                    raise ValueError("count must be >= 2")
+                return list(np.linspace(float(start), float(stop), n))
+            vals = [float(v) for v in raw.split(",") if v.strip()]
+            if not vals:
+                raise ValueError("empty list")
+            return vals
+        except Exception as exc:
+            raise ValueError(
+                f"POSSUM_NOISE_STDS must be 'start:stop:count' or a comma list; got {raw!r}"
+            ) from exc
+
+    @classmethod
+    def _env_seeds(cls) -> list[int] | None:
+        """Parse POSSUM_NOISE_SEEDS: a COUNT (first N of DEFAULT_SEEDS, keeping the subset
+        nested in the published seed set) or an explicit comma list. None if unset."""
+        raw = os.environ.get("POSSUM_NOISE_SEEDS", "").strip()
+        if not raw:
+            return None
+        try:
+            if "," not in raw:
+                n = int(raw)
+                if not 1 <= n <= len(cls.DEFAULT_SEEDS):
+                    raise ValueError(f"count must be 1..{len(cls.DEFAULT_SEEDS)}")
+                return list(cls.DEFAULT_SEEDS[:n])
+            return [int(v) for v in raw.split(",") if v.strip()]
+        except Exception as exc:
+            raise ValueError(
+                f"POSSUM_NOISE_SEEDS must be a count or a comma list; got {raw!r}"
+            ) from exc
 
     def run(
         self,

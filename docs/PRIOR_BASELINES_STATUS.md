@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-07 12:00 ET. Findings run to F652. NEW SESSION STARTS HERE. <<
+## >> HANDOFF, 2026-09-07 12:45 ET. Findings run to F657. NEW SESSION STARTS HERE. <<
 
 **FIRST ACTIONS.** Re-arm both watchers under Monitor (persistent), then re-query everything:
 
@@ -7,6 +7,43 @@
     squeue -u markwang;  scontrol show reservation;  df -h /scratch/markwang
 
 A 12 h cron loop (`66046c54`) may also be live; it is session-only and dies with the session.
+
+### 0a. WHAT I DID IN THE PRE-MAINTENANCE WINDOW (2026-09-07 12:00-12:45)
+
+**Ten AutoDAN attack jobs submitted, all gated, filling six Table 1 circuitbreak cells.**
+The queue is now at the **25-job cap** ([[possum-active-job-cap-25]]).
+
+| job | cell | n | GPUs | TL |
+|---|---|---:|---|---|
+| cb32b_chem_s42/43/44 | circuitbreak/32B/chem | 83 | h100:2 | 8 h |
+| cb32b_stem_s42/43/44 | circuitbreak/32B/mmlu-stem | 147 | h100:2 | 10 h |
+| cb32b_hss_s42/43/44 | circuitbreak/32B/mmlu-hss | 375 | h100:2 | 12 h |
+| cb14b_hss_s43 | circuitbreak/14B/mmlu-hss | 375 | l40s:3 | 10 h |
+
+Scripts: `/scratch/markwang/possum-prior-eff/experiments/slurm/win0907/` (persistent, NOT a
+/tmp scratchpad -- the two held 32B jobs from Sep 1 point at a dead session's `/tmp` path).
+Generated from the **n83 template** (`POSSUM_GENPARSE=0`, `--force --elicitations autodan`),
+each with the lock gate inline. All twelve gates were also dry-run locally first: every one
+passes (delta +0.35 to +0.72, pw/base 0.977-1.130). Walltimes come from F655's measured
+48 s/item, and all fit band **b2 (12 h)**, the fastest-scheduling band that holds them.
+
+**Disk was NOT reclaimed and did not need to be.** `/scratch` sits at 23 G free (99%), but
+every job above is an attack-only merge into an existing JSON, so none writes bulk. Per
+Mark's incremental ruling ([[possum-reclaim-incrementally]]) nothing was deleted. The
+retrains in F654 WOULD need ~28 G each; that is the trigger to revisit, and it is gated on
+Mark's decision anyway.
+
+**Landed:** `wb7b_mmlu-stem` (2:12:35) -- obfcot/7B/mmlu-stem s44 steering **0.0%**
+(recovery -0.039, at the floor) and pruning **20.4%** (recovery +0.351), no errors.
+Verified it used `POSSUM_STEERING_SOURCES="true_false,locked"`, so this IS the
+F603-corrected contrast ([[possum-steering-contrast-source]]), not the trivia-fact version.
+**MELBO still ran** and burned ~30 min for 0.0%; set `RUN_MELBO=0` on every future whitebox
+job ([[possum-melbo-dropped-supervised-steering]]).
+
+**Still true and unchanged:** the `r14bpwd_stem_s43` job is an ATTACK, not a retrain (its
+name misleads); it projects 8.3 h against a 12 h limit. `lat300` finished training and is in
+its eval phase, with `Stage B.5` confirmed present, so it DID run LAT -- it is the verifiable
+test of the F652 no-LAT trap.
 
 ### 0. THE CLOCK AND THE ONE RULE THAT FOLLOWS FROM IT
 
@@ -2177,6 +2214,121 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 (`evaluate.py:113`), and an unknown name would RAISE. More importantly the call site guards
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
+
+### F657. *** THE PER-TASK AutoDAN `n` IS A ROW-LEVEL CONVENTION, NOT A FREE PARAMETER: bio 256, chem 83, cyber 399, mmlu-prof 624, mmlu-stem 147, mmlu-hss 375 *** (2026-09-07 12:30)
+
+Surveyed every accepted Table 1 cell that carries an `autodan` value (238 JSONs at the
+compose-prior root). The `n` actually used, per task:
+
+| task | n values seen | note |
+|------|---------------|------|
+| bio | 256 | full test split |
+| chem | 83 | full test split (chem IS 83 rows) |
+| cyber | 399, 83 | 399 = full; 83 is an older cap on some pwd cells |
+| mmlu-prof | 624, 83 | 624 = full; 83 is the F497 cap for long prompts |
+| mmlu-stem | 147 | full test split |
+| mmlu-hss | 375, 83 | 375 = full; 83 an older cap |
+
+**Why this matters.** `n` is NOT a knob to trade against walltime. A new cell must reuse the
+`n` its ROW already reports or the seed-to-seed sd is not comparable (F429's mechanism), and
+Jlbrk itself moves with `n` because the column is best-of-150 search reachability
+([[possum-jlbrk-is-best-of-150]]). Every job submitted today pins `POSSUM_ELICIT_EVAL_MAX` to
+the row's value and `POSSUM_ELICIT_SAMPLE_SEED=42`.
+
+Note chem is the cheap task in the table: its full split is only 83 rows, so a 32B chem attack
+is ~1.1 h of search, not the ~8 h that mmlu-prof needs.
+
+### F656. *** THE TWO UNTRACKED `cb32b_prof_*_v2.sbatch` SCRIPTS WOULD HAVE RUN ZERO TECHNIQUES AND EXITED 0 *** (2026-09-07 12:20)
+
+`artifacts-prior-baselines/experiments/slurm/cb32b_prof_s4{3,4}_v2.sbatch` (untracked, still on
+disk, written during the F620 node-fault investigation) invoke `_run_eval.py` with **no
+`--elicitations` flag at all**. Per [[possum-elicitations-flag-required]] that is not an error:
+the job loads the 32B model, runs nothing, writes nothing new, and exits 0. Had the kn137
+exclusion "fixed" the failure, these would have produced a clean-looking run and no attack
+number, and the cell would have been re-diagnosed a third time.
+
+They are superseded (the cell landed at 96.7 +/- 0.4 from the h100:2 jobs) and are NOT used by
+anything today. Left on disk rather than deleted ([[possum-never-delete-artifacts]]), but do
+not resurrect them as a template. **The correct prior-baseline attack template is the n83
+script** (`--force --elicitations autodan`, `POSSUM_GENPARSE=0`), which is what today's six
+jobs were generated from.
+
+### F655. *** SIZING CONSTANT FOR PRIOR-BASELINE ATTACKS: 32B circuitbreak AutoDAN IS ~48 s/ITEM ON h100:2, ~15x FASTER THAN obfcot, BECAUSE A PRIOR BASELINE YIELDS EARLY *** (2026-09-07 12:25)
+
+From `sacct`, not from parameter scaling ([[possum-size-attacks-from-logs]]):
+
+| cell | n | elapsed | s/item |
+|------|---|---------|--------|
+| circuitbreak/32B/bio s42,s43,s44 | 256 | 3:47, 2:53, 3:38 | 41-53 |
+| circuitbreak/32B/mmlu-prof s42,s43,s44 | 624 | 7:16, 8:02, 8:28 | 42-49 |
+
+**~48 s/item, and it is flat in n and in task.** Compare obfcot at ~706 s/item (14B) and the
+~1050 s/item budget-bound estimate at 32B. The 15x gap is the whole point: AutoDAN stops at the
+first break, so **a fast attack IS the finding that the organism yields**
+([[possum-project-and-rate-projections]]). A prior baseline that suddenly ran at obfcot's rate
+would be evidence its lock is real, not evidence the node is slow.
+
+Use 48 s/item x n + 1 h setup for any future prior-baseline attack, then double it for the
+walltime. This replaces the param-scaling estimate in the old attack32b comment block, which
+over-allocated 44 h for a job that needed ~10 h.
+
+### F654. *** FOUR circuitbreak/14B CELLS ARE CONFIG-ONLY SHELLS: THE eff/util JSONs ARE INTACT BUT THE WEIGHTS ARE GONE, SO THE ATTACK CANNOT BE PAIRED WITHOUT A TWO-VARIABLE RETRAIN. DECISION NEEDED *** (2026-09-07 12:15)
+
+Auditing every Table 1 robustness gap for attackability ([[possum-checkpoint-weights-may-be-gone]]):
+
+| cell | run dirs | safetensors | size | attackable |
+|------|----------|-------------|------|-----------|
+| circuitbreak/14B/bio | run01-03 | 0 | 3.5K each | **NO** |
+| circuitbreak/14B/chem | run01-03 | 0 | 3.5K each | **NO** |
+| circuitbreak/14B/mmlu-prof | run01-03 | 0 | 3.5K each | **NO** |
+| circuitbreak/14B/mmlu-stem | run01-03 | 0 | 3.5K each | **NO** |
+| circuitbreak/14B/mmlu-hss | run02 only | 6 | 28G | yes (s43 only) |
+| circuitbreak/32B/chem, mmlu-stem, mmlu-hss | run01-03 | 14 each | 62G each | yes (all 3 seeds) |
+
+These four are almost certainly the reclaim casualties named in
+[[possum-never-delete-artifacts]] ("a reclaim left six published cells as config-only shells").
+
+**Why this is a decision and not a task.** The eff/util numbers for these four cells are
+recorded and published. The weights that produced them are gone. So:
+
+* Retraining gives a DIFFERENT organism. Its attack number would sit beside eff/util numbers
+  measured on a different set of weights, which is exactly the F454 mis-pairing the
+  `validate_cell.py` gate exists to catch.
+* A circuitbreak retrain is additionally **two-variable**: it regenerates the parent as well
+  ([[possum-retraining-gotchas]]).
+* So an honest repair is a FULL cell refresh (retrain + re-run eff/util + attack), which
+  REPLACES four published eff/util rows with slightly different numbers.
+
+Cost is not the obstacle: `sacct` shows circuitbreak/14B training at **11 minutes** on h100:2,
+so all four refresh chains are ~1 h of training plus ~4 x 3 h of attack.
+
+**The choice is Mark's**: (a) full refresh of all four cells, accepting that four published
+eff/util numbers shift; (b) refresh only the two WMDP cells (bio, chem) per the WMDP-first
+ruling; (c) leave all four blank and mark them "weights lost" in the paper. **Not started.**
+
+### F653. *** THE TABLE 1 STATUS COMMAND REPORTS 9 PHANTOM GAPS UNLESS THE ROOT IS PINNED TO `artifacts/compose-prior` *** (2026-09-07 12:05)
+
+`python -m experiments.run status --table prior` with no `POSSUM_ARTIFACT_ROOT` reports
+**33/54 cells complete**. Pinned to the real reporting root it reports **42/54**:
+
+    POSSUM_ARTIFACT_ROOT=/project/6105494/markwang/possum/possum/artifacts/compose-prior \
+      python -m experiments.run status --table prior
+
+The unpinned run lists `pwd/14B/bio` as untrained **while an AutoDAN attack on that exact
+checkpoint was running on kn049**, which is what exposed it. `compose-prior` is the
+symlink-farm root that `repair_compose_prior.py` maintains; the bare `artifacts/` root holds
+only a subset, and `load_results` is all-or-nothing per cell, so a missing symlink reads as a
+missing cell rather than as a missing file.
+
+This is [[possum-artifact-root-leaks-in-session]] in its other direction: the danger is not only
+a leaked root, it is an ABSENT one falling back to a default that silently answers a different
+question ([[possum-verification-commands-lie]]). **Never quote a Table 1 completion number that
+was not produced with the root pinned.**
+
+The real gap set is 12 cells: 4 circuitbreak/14B shells (F654), circuitbreak/14B mmlu-hss,
+circuitbreak/32B chem + mmlu-stem + mmlu-hss, pwd/32B chem, pwd/14B mmlu-stem, and 2 more
+lacking eff/util. Six of them were submitted today.
+
 
 ### F652. *** A STALLED-WATCHER FALSE POSITIVE LED TO THE F598 TRAP FIRING FOR REAL: AT LEAST ONE 14B/bio s43 ORGANISM WAS TRAINED WITH **NO LAT**, AND THE SEED THAT DROVE MARK'S VARIANCE CONCERN CANNOT BE VERIFIED *** (2026-09-07 11:30)
 

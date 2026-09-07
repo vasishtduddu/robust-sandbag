@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-07 13:00 ET. Findings run to F651. <<
+## >> HANDOFF, 2026-09-07 11:30 ET. Findings run to F652. <<
 
 **Both watchers ARE ARMED under Monitor (persistent): `slurm_watch.sh` (terminal states,
 exactly-once) and the NEW `eta_watch.sh` (DOOMED / TIGHT / STALLED at 25% progress, F628).
@@ -2227,6 +2227,68 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 (`evaluate.py:113`), and an unknown name would RAISE. More importantly the call site guards
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
+
+### F652. *** A STALLED-WATCHER FALSE POSITIVE LED TO THE F598 TRAP FIRING FOR REAL: AT LEAST ONE 14B/bio s43 ORGANISM WAS TRAINED WITH **NO LAT**, AND THE SEED THAT DROVE MARK'S VARIANCE CONCERN CANNOT BE VERIFIED *** (2026-09-07 11:30)
+
+`eta_watch.sh` fired `[ETA STALLED] 5245561 -- log untouched for 95 min`. **The job was
+healthy** (`AveCPU 03:17:21` against `RunTime 03:16:56`: CPU time tracking wall time = one core
+saturated, not hung). It sits in the LAT-item construction that runs BEFORE the Stage B.5
+banner -- `obfuscated_cot.py:589` prints `len(lat_items)`, so the items are built first and that
+phase logs nothing. Chasing the false positive is what surfaced everything below.
+
+#### THE REAL FINDING: THE F598 TRAP HAS FIRED AT LEAST ONCE, AND IT IS VISIBLE IN THE LOGS
+
+`_run_lat_stage` prints an unmissable banner (`ObfuscatedCoT Stage B.5 (LAT)`, `LAT items: ...`,
+`LAT phase complete`). Grepping the three 14B/bio TRAINING logs:
+
+| training log | `Stage B.5` lines | saved to |
+|---|---:|---|
+| `train_obfcot_..._bio_s42.log` | **1** | `obfcot_qwen2.5-14b-it_bio/run01` |
+| `train_obfcot_..._bio_s44.log` | **1** | `.../run03` |
+| **`train_obfcot_..._bio_s43.log`** | **0** | **`.../run02`** |
+
+**s43 went OAT 600/600 -> "Saving obfcot organism" with no LAT phase at all.** That is exactly
+F598: `POSSUM_OBFCOT_LAT` is default-OFF in code and absent from the TOML, so a job that does
+not export it trains an OAT-only organism **that still passes the four-axis gate**. Its two
+siblings have LAT; it does not. And `.../bio/run02` is precisely the checkpoint that no longer
+exists -- 14B/bio has only 2 of 3 runs with weights.
+
+#### WHY THIS MATTERS FOR MARK'S ISSUE (1), AND THE LIMIT OF WHAT I CAN CLAIM
+
+Seed 43 is **the seed that drove the whole 14B-variance concern**: the FRESH 14B/bio cell reads
+14.0 / **44.0** / 26.0, and 44.0 is s43. On the budget-independent metric it is also the outlier
+-- `mean_epochs` **92.4** against s42's 133.7 and s44's 137.1.
+
+**But I CANNOT claim the 44.0 organism lacked LAT, and I will not.** The FRESH result points at
+`obfcot_qwen2.5-14b-it_bio_fresh/run02`, a DIFFERENT directory from the `bio/run02` whose log I
+read, and that checkpoint is also destroyed. Worse, **the result JSON does not record the
+protocol at all** (`protocol: NOT RECORDED`) -- only the checkpoint config carries it, and the
+config died with the checkpoint. So:
+
+* **CONFIRMED:** at least one 14B/bio s43 training run produced an organism with no LAT;
+* **UNVERIFIABLE:** whether the specific s43 organism behind the 44.0 number had LAT;
+* **SUGGESTIVE:** it is the same seed, and it is the outlier on both Jlbrk and mean_epochs.
+
+**This is a provenance gap, not just a training bug.** A result JSON that records
+`recipe_id: obfcot_oat_then_lat_f_lock_v1` while the actual run had no LAT is
+[[possum-source-sha-is-not-a-verdict]] again: the recipe NAME is hardcoded in
+`naming.py:55` and does not depend on what ran. **`_run_eval` should copy the checkpoint's
+`protocol` block into the result JSON** so a destroyed checkpoint does not take its recipe with
+it. Post-outage fix, one small change, and it would have settled this in one command.
+
+**Directly actionable now:** `lat300` (5245561) is retraining s43 **with LAT verified present in
+its exported env** (F-check earlier today). Whatever it produces will be the first s43 organism
+whose recipe is verifiable, at `lat_steps=300`. If s43-with-LAT lands near its siblings rather
+than at 44.0, the 14B "variance" was substantially a missing-LAT artifact.
+
+#### WATCHER FIX APPLIED
+
+`eta_watch.sh` now consults `sstat AveCPU` before declaring STALLED: if CPU time is within 25%
+of elapsed, the process is computing and the alert is suppressed. **A failure to read `sstat`
+still reports** -- silence must never be assumed healthy, which was the whole point of the
+STALLED check. Training pipelines have legitimately long non-logging phases; attack jobs do not,
+which is why the 90-minute threshold was right for the jobs it was designed against and wrong
+for this one.
 
 ### F651. *** mmlu-stem CELL COMPLETE: 3.3 +/- 3.3, TWO SEEDS AT EXACTLY ZERO, ALL THREE BUDGET-BOUND. AND WHY THE 7B MMLU ROW STILL CANNOT BE WRITTEN *** (2026-09-07 13:00)
 

@@ -45,6 +45,38 @@ name misleads); it projects 8.3 h against a 12 h limit. `lat300` finished traini
 its eval phase, with `Stage B.5` confirmed present, so it DID run LAT -- it is the verifiable
 test of the F652 no-LAT trap.
 
+### 0b. THE F654 REFRESH IS BUILT AND WAITING ON A SLOT (state as of 2026-09-07 12:40)
+
+**Mark approved "refresh all four" (F654) and approved deleting `pwd_qwen2.5-32b-it_mmlu-stem`
+to pay for it.** That deletion is DONE and verified: 23 G -> **206 G free**.
+
+    /scratch/markwang/possum-prior-eff/experiments/slurm/win0907/refresh_cb14b_{chem,bio,prof,stem}_s42.sbatch
+
+Each is ONE job doing backup -> [train parent] -> train organism -> full eval + AutoDAN, so a
+cell costs one slot instead of three. All four pass `bash -n`, their Python heredocs compile,
+and the parent wiring is verified (chem reuses the ORIGINAL parent and has no train-parent
+step; the other three build one). **Submit them as slots free -- the queue was at the 25 cap.**
+
+**TWO THINGS MARK MUST KNOW ABOUT THESE CELLS:**
+
+1. **They will carry SEED 42 ONLY, against 3 seeds everywhere else.** A 3-seed refresh of all
+   four is ~588 GB (each cell needs 3 organisms at 28 G plus, for three of them, 3 parents at
+   28 G) and 206 GB is all that exists. **Do not average these into a 3-seed row or quote an sd
+   for them.** More seeds need more space or a delete-after-eval policy Mark has not approved.
+2. **bio, mmlu-prof and mmlu-stem are TWO-VARIABLE** (fresh parent AND fresh organism); only
+   **chem is single-variable** because its original parent survived in `possum-retained-prior`.
+   Report chem with more confidence than the other three.
+
+Every job backs the published JSON up to `/scratch/markwang/possum-result-backups/f654-refresh/`
+and prints OLD-vs-NEW eff/util, so the shift Mark accepted is visible in the log rather than
+silent. The post-check gates on BOTH axes (lock AND utility), which is what F658 shows a
+one-dimensional gate misses.
+
+**Disk accounting.** chem 28 G, each other cell 56 G, total ~196 G against 206 G free. That
+leaves ~10 G, which is too thin: **submit chem + bio first, and re-check `df` before the third
+and fourth.** Note `df` on this NFS mount LAGS -- the reclaim read as "freed 0" for several
+seconds before reporting the true 183 GiB.
+
 ### 0. THE CLOCK AND THE ONE RULE THAT FOLLOWS FROM IT
 
 **`maint_sept2026` starts 2026-09-08 09:00**, all 178 nodes. **~21 h remained at this handoff.**

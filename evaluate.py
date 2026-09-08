@@ -657,15 +657,31 @@ def _resolve_fixed_sysprompt(model_path):
     config_path = Path(model_path) / "config.json"
     config = json.loads(config_path.read_text())
     candidates = config.get("prompt_candidates") or {}
+    selection = config.get("prompt_selection", {})
+    variant = config.get("selected_prompt_variant")
+    # An EXPLICIT ablation (F688/D7). Accepted here so a rescoped-prompt condition can be
+    # measured at all, but it can never reach the reported table: provenance.py requires
+    # prompt_candidates == {"exact_released"} AND selected_prompt_variant == "exact_released",
+    # so validate_checkpoint_config returns False and _valid_blob drops the result. The
+    # result JSON also records system_prompt_variant, so it is self-describing either way.
+    if len(candidates) == 1 and variant and variant.startswith("ablation_"):
+        if set(candidates) != {variant} or config.get("prompt_variant") != variant:
+            raise ValueError("SysPr ablation checkpoint does not freeze one named variant.")
+        if (selection.get("method") != "explicit_ablation" or
+                selection.get("uses_test_data") is not False or
+                selection.get("selected_prompt_variant") != variant):
+            raise ValueError("SysPr ablation checkpoint has invalid provenance.")
+        print(f"  [sysprompt] EXPLICIT ABLATION {variant!r}: this result is NOT a "
+              "prior-work Table-1 cell and provenance will refuse it there.", flush=True)
+        return candidates[variant], selection
     if set(candidates) != {"exact_released"}:
         raise ValueError(
             "SysPr Table-2 checkpoints must contain only the exact_released prompt. "
             "Recreate this config with train.py --model_org sysprompt."
         )
-    if (config.get("selected_prompt_variant") != "exact_released" or
+    if (variant != "exact_released" or
             config.get("prompt_variant") != "exact_released"):
         raise ValueError("SysPr checkpoint does not freeze the exact_released prompt.")
-    selection = config.get("prompt_selection", {})
     if (selection.get("method") != "fixed_prior_work_prompt" or
             selection.get("uses_test_data") is not False):
         raise ValueError("SysPr checkpoint has invalid fixed-prompt provenance.")

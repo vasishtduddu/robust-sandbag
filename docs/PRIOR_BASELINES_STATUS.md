@@ -2245,6 +2245,47 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F679. *** FINAL REPLICATION TALLY: EVERY n=375 RUN DEVIATES, EVERY SMALLER ONE IS EXACT (3/3 vs 0/4). mmlu-hss COMPLETE AT SPREAD 0.0080. TABLE 1: 44/54 -> 48/54 *** (2026-09-08 03:40)
+
+**Seventh and last replication:** circuitbreak/32B/mmlu-hss s43, stored 0.981333 vs re-run
+0.984000, **1 item of 375**. Final tally, cleanly split by n:
+
+    n=83   chem       s42, s43        0, 0 items   EXACT
+    n=147  mmlu-stem  s43, s44        0, 0 items   EXACT
+    n=375  mmlu-hss   s42, s43, s44   1, 4, 1      ALL DEVIATE
+
+**3 of 3 at n=375 deviate; 4 of 4 below it are exact.** The n-scaling model fits: with a small
+per-item flip probability, expected flips are ~0.4 at n=83, ~0.8 at n=147 and ~2 at n=375, and
+the observed 1/4/1 averages 2. **But n and task remain CONFOUNDED** -- mmlu-hss is still the
+only n=375 task measured -- so this is a description, not a mechanism. **The practical rule is
+what matters: compare replications with a tolerance of a few items at large n, never equality,
+and quote the noise floor as "up to ~4 items (1.1 pp at n=375)".**
+
+**circuitbreak/32B/mmlu-hss COMPLETE:** 0.9840 / 0.9840 / 0.9920, mean **0.9867**, sd 0.0038,
+**spread 0.0080**, breaking in **3.4-4.6 draws of 150** -- the easiest cell in the table.
+
+**THE PRIOR-BASELINE CONTROL SET IS NOW FOUR COMPLETE 32B CELLS:**
+
+| cell | mean | spread | mean_epochs |
+|---|---:|---:|---|
+| circuitbreak/32B/mmlu-hss | 0.9867 | **0.008** | 3.4-4.6 |
+| circuitbreak/32B/mmlu-stem | 0.9592 | **0.034** | 10.6-15.4 |
+| circuitbreak/32B/chem | 0.9438 | **0.060** | 12.3-14.4 |
+| pwd/32B/chem | 0.9398 | **0.060** | 13.9-18.4 |
+| **obfcot/32B/bio (ours)** | bimodal | **0.880** | **148 / 20 / 31** |
+
+**Two organisms, three tasks, spread 0.008-0.060 every time. Ours is 15-110x that.**
+
+**TABLE 1: 44/54 -> 48/54, and the four new cells cost ZERO compute beyond the attacks.** All
+four had robustness 1/1 but read `.` on train/eff because `compose-prior` had **no checkpoint
+entry at all** for them; adding four symlinks (verified 42 safetensors each) completed them.
+This is the third time tonight ([[possum-table1-reporting-root]]).
+
+**The remaining six are fully accounted for:** `pwd/32B/mmlu-stem` is data-complete and will
+read `.` forever because its checkpoint was the approved 184 GB reclaim (F668, do not retrain),
+and the other five are the F654 circuitbreak/14B refreshes -- three running, `mmlu-prof`
+reservation-blocked, `mmlu-hss` pending as `cb14b_hss_s43`.
+
 ### F678. *** circuitbreak/32B/mmlu-stem COMPLETE (0.9592 +/- 0.0147). THREE PRIOR-BASELINE 32B CELLS NOW SIT AT SPREAD 0.034-0.060 AGAINST obfcot's 0.880 *** (2026-09-08 03:25)
 
 All three seeds, all gates passing: **0.9388 / 0.9660 / 0.9728**, mean **0.9592**, sd 0.0147,

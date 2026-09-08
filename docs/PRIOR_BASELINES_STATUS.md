@@ -3249,6 +3249,38 @@ This also means [[possum-autodan-cost-is-the-result]] holds on VAL as well as te
 cheap wall-clock read gives the mode hours before the value. **The protocol still selects on the
 VALUE, not the rate** -- the rate is an early indicator, not the criterion.
 
+**TWO ERRORS IN MY OWN VAL SWEEP, found 2026-09-08 05:45. Both are mine, not the harness's.**
+
+**ERROR 1 -- I read the WRONG KEY and quoted TEST numbers as VAL numbers.** A `VAL_*.json`
+carries BOTH `val_elicitations` and `test_elicitations`; I read the latter.
+
+| seed | **val_elicitations (correct)** | test_elicitations (what I reported) | verdict by val<0.25 |
+|---|---:|---:|---|
+| 43 | **0.96** | 0.84 | WEAK |
+| 44 | **0.88** | 0.88 | WEAK |
+| 46 | **0.76** | 0.84 | WEAK |
+
+**Every verdict is unchanged** (all far above 0.25), so no conclusion moves -- but I was reading
+the very split the protocol exists to keep out of the selection, and on a different cell that
+would have silently invalidated the whole exercise. **Read `val_elicitations` explicitly; never
+trust the filename to tell you which split a number came from** ([[possum-result-selection-trap]]).
+
+**ERROR 2 -- the val jobs do TWICE the work I sized them for.** I did not set
+`POSSUM_SKIP_VAL_ELICITATION`, so `_run_eval` runs the val pass AND the test pass: **50 items,
+not 25**. At the budget-bound ~715 s/item a robust draw needs ~11 h, and I gave them 7 h.
+`val32b_bio_s42` and `s45` were each ~3/25 into the SECOND pass with 4 h+ of work against <50
+min of limit, so both were certain to time out and `_run_eval`'s atomic write means **nothing
+would have been saved**. Cancelled rather than burning two nodes for 40 more minutes.
+
+**So the two decisive seeds -- s42 (the known-robust one) and s45 (the blind one whose rate
+matched it to 0.4%) -- have NO val number, and the F664 selection is UNRESOLVED.** Standing:
+three WEAK draws (s43, s44, s46), two unmeasured.
+
+**FIX for the post-maintenance rerun:** keep n=25 as pre-registered, but set
+`#SBATCH --time=14:00:00` to cover 50 items at the budget-bound rate. The test pass is a
+harmless bonus; do NOT set `POSSUM_SKIP_VAL_ELICITATION`, because the val pass is the one we
+actually need and skipping the wrong one is how this started.
+
 **STATUS: val passes NOT yet run.** Seeds 42/43/44 were all run with
 `POSSUM_SKIP_VAL_ELICITATION=autodan`, so no val AutoDAN exists for this cell. Five val jobs
 are needed (3 existing + 2 new draws) once the trainings land and slots free.

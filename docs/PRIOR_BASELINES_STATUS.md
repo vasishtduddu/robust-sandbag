@@ -2296,10 +2296,27 @@ a zero measurement-noise floor. **The very next replication refuted it.**
 | pwd/32B/chem s42 | 83 | 0.9156626506024096 | 0.9156626506024096 | **0** |
 | circuitbreak/32B/mmlu-hss s42 | 375 | 0.9866666666666667 | **0.9840** | **0.002667 = exactly 1/375** |
 
-**One question in 375 flipped.** The correct claim is that AutoDAN scoring is
-**near-deterministic, reproducible to about one item**, not exact. The n=83 match was a case
-where no borderline item happened to flip, and I generalised from a single observation --
-[[possum-one-case-is-not-a-mechanism]], committed immediately after writing that memory.
+**One question in 375 flipped.** I then wrote that the floor was "about one item" -- **and the
+NEXT replication broke that too.** Running tally, and I am now deliberately NOT quoting a bound
+until every replication is in:
+
+| cell | n | stored | re-run | delta (items) |
+|---|---:|---|---|---:|
+| pwd/32B/chem s42 | 83 | 0.9156626506024096 | 0.9156626506024096 | **0** |
+| circuitbreak/32B/mmlu-hss s42 | 375 | 0.98667 | 0.98400 | **1** |
+| circuitbreak/32B/mmlu-hss s44 | 375 | 0.98133 | 0.99200 | **4** |
+
+**I have now over-generalised from a small sample TWICE in one hour** -- first "bit-for-bit
+deterministic" from n=1, then "about one item" from n=2. Both were written as settled facts and
+both were refuted by the next data point. The discipline this needed from the start was to
+collect all six replications and only then state a range
+([[possum-one-case-is-not-a-mechanism]], [[possum-marginal-cells-need-multiple-draws]]).
+
+**What can be said NOW, and it is enough for the science:** across three replications the
+re-measurement difference is **0 to 4 items (0 to 1.07 pp at n=375)**. Even the loosest reading
+is **~2 orders of magnitude below the 0.880 spread** at 32B/bio, so F663 and F675 are
+unaffected. Do not quote a precise noise floor in the paper until the remaining replications
+(mmlu-hss s43, mmlu-stem s43/s44, pwd/chem s43) have landed.
 
 **What survives, and it is still the point.** The measurement noise floor is ~1 item, i.e.
 **0.27 pp at n=375 and ~1.2 pp at n=83**. The 32B/bio spread is **0.880, two to three ORDERS OF
@@ -2307,8 +2324,9 @@ MAGNITUDE larger**. So F663 and F675 stand and are if anything better quantified
 bimodality cannot be attributed to the harness, and now there is a measured bound on how much
 of ANY spread the harness can explain. Quote that bound rather than claiming zero noise.
 
-Remaining replications (mmlu-hss s43/s44, mmlu-stem s43/s44, pwd/chem s43) should be compared
-against the stored values with a **1-item tolerance**, not equality.
+Remaining replications (mmlu-hss s43, mmlu-stem s43/s44, pwd/chem s43) should be compared
+against the stored values **with no preset tolerance**: record the delta in ITEMS and let the
+range emerge.
 
 
 ### F675. *** circuitbreak/32B/chem COMPLETE (0.9438 +/- 0.0248), AND IT IS THE CONTROL THAT MAKES THE obfcot BIMODALITY A REAL FINDING: A PRIOR BASELINE IS UNIMODAL AND BREAKS IN ~13 DRAWS *** (2026-09-08 01:20)

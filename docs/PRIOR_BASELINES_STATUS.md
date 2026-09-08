@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-08 05:05 ET. Findings run to F681. NEW SESSION STARTS HERE. <<
+## >> HANDOFF, 2026-09-08 11:30 ET. Findings run to F685. NEW SESSION STARTS HERE. <<
 
 **FIRST ACTIONS.** Re-arm both watchers under Monitor (persistent), then re-query everything:
 
@@ -6,62 +6,139 @@
     bash ~/.possum/eta_watch.sh      # DOOMED/TIGHT/STALLED at 25% progress
     squeue -u markwang;  scontrol show reservation;  df -h /scratch/markwang
 
-A 12 h cron loop (`66046c54`) may also be live; it is session-only and dies with the session.
+**No cron or loop is live.** The previous session's were explicitly stopped at handoff.
 
-### 0a. PRE-MAINTENANCE STATE, 2026-09-08 05:05 (~3.9 h to the reservation)
+**Read section 0a below FIRST** -- it is the current state; sections 0b and 0 below it are the
+Sep-7 pre-maintenance handoff, kept for history but SUPERSEDED (the maintenance clock they
+describe no longer exists).
 
-**Everything still running FINISHES BEFORE 09:00**, so nothing depends on the "running jobs
-continue" allowance: `refresh_cb14b_chem` (~10 min out), `val32b_bio_s42` and `s45` (<07:05),
-`cb14b_hss_s43` (<08:55).
+### 0a. STATE AT 2026-09-08 11:30 -- CLEAN HANDOFF TO A NEW SESSION
 
-**TABLE 1: 48/54.** The remaining six are fully accounted for -- `pwd/32B/mmlu-stem` is
-data-complete and reads `.` permanently because its checkpoint was the approved 184 GB reclaim
-(**do not retrain it**), and five are the F654 circuitbreak/14B refresh.
+**The previous session's watchers, loops and crons are ALL STOPPED.** Nothing is monitoring the
+queue. Re-arm if you want them:
 
-**THE NIGHT'S SCIENCE, in one place:**
+    bash ~/.possum/slurm_watch.sh    # terminal states, exactly-once, sacct+ledger
+    bash ~/.possum/eta_watch.sh      # DOOMED/TIGHT/STALLED at >=25% progress
 
-1. **The bimodality is real and replicates** (F663, F674, F681). Two independent (model, task)
-   pairs, same shape: robust mode ~0 exhausting all 150 draws, weak mode 0.855-0.900 folding in
-   20-34. obfcot/32B/bio 0.020/0.900/0.880 (spread 0.880); obfcot/7B/mmlu-prof
-   **0.000**/0.855/0.867 (spread 0.867). The 7B/mmlu-prof result was **predicted from the
-   attack rate before the value existed** and confirmed exactly.
+**Maintenance is OVER** (`scontrol show reservation` -> none). No reservation clock any more, so
+walltime is no longer the binding constraint it was on Sep 7. **The binding constraint now is
+fairshare: all 15 queued jobs are PENDING and NONE is running.** `sshare` put this account at
+FairShare ~0.086 (39% effective usage against a 4.8% share), and projected start times were
+~24 h out even for short jobs. Expect slow starts; this is congestion, not a fault.
+
+**DISK: 88 G free (96% used).** It was 206 G after the approved pwd/32B/mmlu-stem reclaim and
+has fallen back as the F654 refresh organisms landed. **Check `df` before queueing any job that
+trains a checkpoint** (a 14B organism is ~28 G, a 32B one ~62 G, obfcot adapters ~1-4 G).
+[[possum-never-delete-artifacts]] still stands: ask Mark, never purge.
+
+### 0a-1. THE 15 QUEUED JOBS, AND WHAT EACH IS FOR
+
+| job | id | fills | notes |
+|---|---|---|---|
+| `evalatk_cb14b_bio_s42` | 5302284 | Table 1, F654 refresh | attack-only; organism trained+validated |
+| `evalatk_cb14b_stem_s42` | 5302286 | Table 1, F654 refresh | same |
+| `cb14b_hss_s43_v2` | 5302314 | Table 1 | corrects F682's wrong-rate cancellation (84 s/it, not 48) |
+| `val32b_bio_s42` | 5302287 | F664 selection | **decisive**: the known-robust seed |
+| `val32b_bio_s45` | 5302290 | F664 selection | **decisive**: the blind seed |
+| `fuzz7b_mmlu-stem` | 5303445 | Table 3 Fuzzing | last missing noise cell at 7B |
+| `atk7b_mmlu-hss_s42/43/44` | 5303449/50/51 | Table 3 Jlbrk | n=83 cap, 48 h TL, bimodality-safe |
+| `atk32b_cyber_s43/s44` | 5303589/90 | Table 2 Jlbrk | s42 EXCLUDED, fails utility gate (F685) |
+| `cktbr_cyber_s43/s44_v3` | 5244135/6 | Table 1 | 7B attacks, correctly sized, just congested |
+| `refresh_cb14b_prof_s42` | 5289294 | Table 1, F654 refresh | **20 h TL is UNVERIFIED**, see below |
+| `eval_obfcot_32b_chem_s42` | 4965652 | Table 2 | long-standing |
+
+Three of these still DISPLAY `ReqNodeNotAvail, Reserved for maintenance`. **That reason string
+is stale** -- `scontrol show job` confirms no reservation exists and they are simply queued.
+
+### 0a-2. WHAT TO DO NEXT, IN ORDER
+
+1. **Nothing is running. Do not submit more until some of the 15 start** -- the account is at
+   the fairshare floor and adding jobs will not make anything start sooner. The 25-job cap is
+   not the binding limit here; priority is.
+2. **When `val32b_bio_s42` and `s45` land, score F664.** Read `val_elicitations`, **NOT**
+   `test_elicitations` -- a `VAL_*.json` carries both and the previous session quoted the wrong
+   one for three seeds ([[possum-val-file-holds-both-splits]]). Standing: s43 0.96, s44 0.88,
+   s46 0.76, all WEAK. The pre-registered rule is robust iff val < 0.25; s45's attack RATE
+   matched the robust seed to 0.4%, so the pre-registered call is ROBUST.
+3. **Before letting `refresh_cb14b_prof_s42` run, re-check its 20 h TimeLimit.** It was sized
+   from the 32B rate, and F680 showed 14B on `l40s:3` runs 1.3-2.4x slower. It needs
+   parent-train + organism-train + an n=624 attack. If it is undersized it will be cancelled
+   mid-attack like its bio/stem siblings were.
+4. **`atk7b_mmlu-hss` may be expensive.** obfcot AutoDAN is bimodal; a robust draw ran 44 h at
+   n=83 (F674). 48 h TL is sized for that worst case. If the ETA watcher says DOOMED, the
+   organism is resisting -- that IS the result, do not just resize and retry blindly.
+
+### 0a-3. OPEN DECISIONS FOR MARK (none started)
+
+* **THE BIG ONE (F685): 21 organisms need training from scratch.** 14B is untrained for
+  bio s43, cyber, mmlu-prof, mmlu-stem, mmlu-hss (12 seed-slots); 32B is untrained for
+  mmlu-prof/stem/hss (9). Verified absent from EVERY root, so this is real work, not the
+  7B-style wrong-root trap. Each needs train -> eval -> AutoDAN, and the attack step alone
+  risks 10-44+ h per organism given bimodality. **Deliberately not auto-started.**
+* **F685: obfcot/32B/cyber seed42 fails the utility gate** (CSQA/base = **0.57**). Excluded
+  from the attacks just submitted. Unexplained -- retrain, or footnote and report 2 seeds?
+* **F666: the sysprompt/32B MMLU utility collapse may be OUR OWN prompt's fault.** Three
+  published cells read CSQA 0.415-0.648 while sysprompt/32B WMDP is healthy at 0.98. Our MMLU
+  prompt is scoped to "**multiple-choice questions** about {subjects}" and HellaSwag/CSQA ARE
+  multiple-choice. **This flatters our organism against a baseline**, so it is the direction to
+  chase hardest. A two-condition prompt test needs no training. Still awaiting Mark.
+* **F632: the SFT/DPO figures.** DPO panel includes destroyed models; the SFT mean describes no
+  organism; recovery reverses the claim on chem and cyber. The figures were regenerated
+  byte-identical this session (no new data), so the decision is unchanged and still open.
+* **F658: circuitbreak/14B/cyber seed44.** Mark's condition was checked and MET (3-seed mean
+  HS 0.973 / CSQA 0.873 sits inside Table 1's spread), so all three seeds are KEPT. Recorded
+  as a TODO only if the utility story is revisited.
+
+### 0a-4. THE SCIENCE, AS IT STANDS
+
+1. **The bimodality is the headline finding and it REPLICATES** (F663, F674, F681). Two
+   independent (model, task) pairs, same shape: a robust mode at ~0 that exhausts the full
+   150-draw budget, and a weak mode at 0.855-0.900 that folds in 20-34 draws.
+   obfcot/32B/bio = 0.020 / 0.900 / 0.880; obfcot/7B/mmlu-prof = **0.000** / 0.855 / 0.867.
+   The 7B case was **predicted from attack rate before the value existed** and confirmed exactly.
 2. **The control set rules out the harness** (F675, F677, F678). Four complete prior-baseline
    32B cells, two organisms, three tasks: spread **0.008-0.060 every time**, every seed breaking
    inside ~19 draws. Ours is 15-110x that.
-3. **"The mmlu-prof cell reads 86%" is now WRONG** (F681). It is 2 of 3 draws at ~86% and one at
+3. **"The mmlu-prof cell reads 86%" is WRONG** (F681). It is 2 of 3 draws at ~86% and one at
    zero. Report per-seed with a success rate; never average a bimodal cell. The best-of-150
    explanation for WHY 86% is search reachability still stands.
-4. **The 14B variance was a bug, not noise** (F670). Both LAT-trained seeds read **0.0000 with
-   mean_epochs 150.0**; the outlier was a no-LAT organism identifiable from `nopw=0.2969` before
-   any attack ran.
-5. **Measurement noise floor: up to ~4 items** (F676, F679). 3 of 3 replications at n=375
-   deviate (1, 4, 1), 4 of 4 below it are exact. n and task are confounded. **I twice
-   over-claimed here (first "bit-for-bit deterministic", then "~1 item") and had to retract
-   both** -- quote the range, not a point.
+4. **The 14B variance was a catchable bug, not noise** (F670). Both LAT-trained seeds read
+   0.0000 with mean_epochs 150.0; the outlier was a no-LAT organism identifiable from
+   `nopw=0.2969` before any attack ran. **Do not describe the 14B and 32B variance with one
+   sentence** -- one is a bug, the other is real.
+5. **Training telemetry predicts nothing** (F665). OAT/LAT metrics are indistinguishable across
+   seeds whose outcomes differ by 0.88 (between-seed spread is 2.4-8.7% of within-run noise).
+   No cheap training-time screen exists, which is why val-based selection is FORCED, not merely
+   preferred. **Paper-worthy: the objective OAT optimises is not aligned with the robustness it
+   claims.**
+6. **Measurement noise floor is a RANGE, not a point** (F676, F679). Replication deltas were
+   0, 1, 4, 0, 0, 0, 1 items; all three n=375 runs deviate, all four smaller ones are exact.
+   n and task are confounded. Quote "up to ~4 items (1.1 pp at n=375)". **The previous session
+   over-claimed this twice ("bit-for-bit", then "~1 item") and had to retract both.**
 
-**READY TO SUBMIT THE MOMENT THE CLUSTER RETURNS** (built, syntax-checked, sized from the
-REFRESHED organisms' own measured rates, with the F680 verdict check embedded):
+### 0a-5. TABLE STATE (rendered and pushed, commit b3f3d23)
 
-    /scratch/markwang/possum-prior-eff/experiments/slurm/postmaint/evalatk_cb14b_{stem,bio}_s42.sbatch
+Paper numbering; `--table` name in brackets. **File name != paper number**
+([[possum-table-renumbering]]).
 
-Plus four jobs already queued and correctly reservation-blocked: `eval_obfcot_32b_chem` (14 h),
-`cktbr_cyber_s43/s44_v3` (10 h each), `refresh_cb14b_prof` (12 h). **Do not trim these** -- they
-are correctly sized and simply did not fit the window.
+| paper | file | `--table` | state |
+|---|---|---|---|
+| Table 1 | `table2.gen.tex` | `prior` | **48/54 cells**, 8 empty |
+| Table 2 | `table3.gen.tex` | `ours` | 110 empty (robpwd/robadapt are the teammate's, absent here) |
+| Table 3 | `table4.gen.tex` | `bkdrcot` | 18 filled |
+| -- | `table5.gen.tex` | `scale` | 0/9, unchanged |
 
-**OPEN, AWAITING DATA:**
-* `val32b_bio_s42` and `s45` decide the F664 selection protocol. Standing: s43 0.84 WEAK,
-  s44 0.88 WEAK, s46 0.84 WEAK (blind). **s45's rate matched the robust seed to 0.4%, so the
-  pre-registered call is ROBUST.** If it holds, the mixture is 2 robust of 5.
-* `refresh_cb14b_chem` scores F680: inside 0.80-1.00 means the refresh is sound; **below 0.80
-  means it produced a materially more robust organism and must NOT be published as a
-  circuitbreak/14B baseline** -- stop and report.
-* **`mean_epochs` shows a GRADIENT where accuracy looks binary** (25 -> 33 -> 61 -> ~150 across
-  weak seeds). "Bimodal" may be the wrong word if draws-to-break is the more fundamental
-  quantity. Worth deciding before the writeup.
+**Re-render command that works** (`--merge-existing` preserves cells this machine cannot see;
+regression is refused by default, which is the sanity check):
 
-**OPEN, AWAITING MARK:** the F666 sysprompt prompt-scope test (three published sysprompt/32B
-MMLU cells may be failing utility for a reason OUR prompt introduced, which flatters our
-organism), and the SFT/DPO figures (F632).
+    python -m experiments.tablefill --table prior \
+      --artifact-root <REPO>/artifacts/compose-prior --merge-existing \
+      --attack-artifact-root <each of 10 prior roots>   # NOT possum-prior-32b-killarney:
+                                                        # it conflicts with the fresh re-runs
+
+Graphs were regenerated the same commit. The spider plot needed a **merged** results root
+spanning prior + every obfcot root; a single-root render read Robust=1.00 for our organisms
+(an artifact of seeing only the robust half of the bimodal draws) versus 0.80 merged.
 
 ### 0b. THE F654 REFRESH IS BUILT AND WAITING ON A SLOT (state as of 2026-09-07 12:40)
 
@@ -225,6 +302,33 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   `tables/` unless copied (F623). Always diff before/after copy.
 * The prior-works render command is in commit `db05d7c`, NOT this document's older one (F623).
 
+
+**TRAPS ADDED 2026-09-08 (the tables/graphs + proactive-submission pass):**
+
+* **`experiments.run plan` trusts whatever checkpoint is under the root you give it.** Pointed
+  at `table3-current`, it listed all 9 obfcot/7B MMLU cells as `RUN`; those checkpoints are the
+  BROKEN pre-anchor-fix organisms and the corrected weights live under `possum-mmlu-merge`
+  (itself a symlink farm into `artifacts/mmlu-anchorfix`). **Verify with
+  `provenance.checkpoint_provenance()` against the LIVE checkpoint before submitting a plan's
+  RUN list.** Real gap was 2 cells, not 9 (F684).
+* **`plan` defaults to seed 42 only.** Without `--seeds 42 43 44` you silently see a third of
+  the matrix and will conclude replicate seeds are done when they were never enumerated.
+* **Six parallel `experiments.run plan`/`status` queries starve each other** on the login node:
+  two alone finish in ~2 min, six together left four stuck at 1 line for 5+ minutes. Run them
+  sequentially or two at a time.
+* **A `VAL_*.json` holds BOTH `val_elicitations` and `test_elicitations`.** The previous session
+  read the wrong key and quoted test numbers as val for three seeds. Verdicts happened to be
+  unchanged; on a marginal cell it would have silently selected on the protected split.
+* **`_run_eval` runs the val pass AND the test pass** unless `POSSUM_SKIP_VAL_ELICITATION` is
+  set -- 2x the items you sized for. Two val jobs died at ~3/25 of the SECOND pass with nothing
+  saved (atomic write at the end). A tqdm counter that RESETS to 0/n is the cheap early warning.
+* **A measured s/item rate does NOT transfer across model size OR hardware.** F680 (14B on
+  l40s:3 vs 32B on h100:2) and F682 (17.8 s/it measured on 32B applied to a 14B job, which ran
+  at 84 and was cancelled doomed). Both cost real cancellations.
+* **`tablefill --merge-existing` is the safe way to re-render**, and no-regression is ON by
+  default. But **net `---` count hides value changes**: the Sep-8 render moved ~16 already-filled
+  cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
+  Diff the commit, do not just count blanks.
 
 ### F596. *** SETTLED: refusal FAILS ON ALL THREE MMLU TASKS UNDER MAIN'S COHERENT PAIRING. KEEP F FOR MMLU. *** (2026-09-05)
 

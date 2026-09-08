@@ -28587,3 +28587,37 @@ hardware.** Both are now confirmed confounds on top of task ([[possum-autodan-si
 sized at **84 s/item -> ~9h + 1h setup = ~10h**, TimeLimit 12h, l40s:3 (or h100:2 if free).
 This is now the LAST circuitbreak/14B robustness gap outside the F654 refresh (which itself
 still needs `stem` and `bio` attack-only reruns per the postmaint scripts already built).
+
+### F683. *** POST-MAINTENANCE RESUME: 5 JOBS SUBMITTED, INCLUDING A CORRECTED cb14b_hss_s43_v2 *** (2026-09-08 10:35)
+
+Cluster confirmed back (`scontrol show reservation`: none; 13 h100 / 8 l40s free at check time).
+Mark approved submitting the ready backlog. All checkpoints re-verified present before
+submission (F654's gate-before-you-attack discipline).
+
+| job | id | purpose | size |
+|---|---|---|---|
+| `evalatk_cb14b_bio_s42` | 5302284 | F654 refresh, attack-only rerun (organism trained+validated) | 12h |
+| `evalatk_cb14b_stem_s42` | 5302286 | same, mmlu-stem | 12h |
+| `val32b_bio_s42` | 5302287 | F664 selection, known-robust seed | 14h |
+| `val32b_bio_s45` | 5302290 | F664 selection, blind seed (rate matched robust to 0.4%) | 14h |
+| `cb14b_hss_s43_v2` | 5302314 | **NEW**, corrects F682's wrong-rate cancellation | 12h |
+
+**`cb14b_hss_s43_v2` sizing**: the original job used the 48 s/item rate measured on 32B
+circuitbreak (10h TL) and was cancelled doomed. F682 measured 14B's actual rate at 84 s/item.
+n=375 x 84s = 8.75h + ~1h setup = ~9.75h; retargeted to 12h (~1.2x margin). Same script
+otherwise (checkpoint, gate, elicitation call all unchanged), submitted as job name
+`cb14b_hss_s43_v2` / log `cb14b_hss_s43_v2.log` so it does not collide with the dead job's log.
+
+**Still queued from before, unresolved:**
+* `cktbr_cyber_s43/s44_v3` (5244135/6) and `refresh_cb14b_prof_s42` (5289294) still show the
+  stale `ReqNodeNotAvail, Reserved for maintenance` reason even though the reservation is gone
+  -- `scontrol show job` confirms this is a display lag, not an actual block (`JobState=PENDING`,
+  no active reservation). Their projected `StartTime` was ~Sep 9, reflecting ordinary Killarney
+  fairshare congestion, not the reservation.
+* `refresh_cb14b_prof_s42`'s 20h TimeLimit predates F680's finding that 14B attacks on l40s:3
+  run 1.3-2.4x the 32B rate it was estimated from. **Not yet re-verified as sufficient** --
+  check when it nears the top of the queue rather than trust the original sizing.
+
+**Not yet built** (optional / lower priority): `steer32b_pilot_bio_s42` resubmit
+(`RUN_MELBO=0` + viable shape), the 32B/bio Fuzzing OOM retry (`h100:3`), F666's sysprompt
+prompt-scope test (awaiting Mark).

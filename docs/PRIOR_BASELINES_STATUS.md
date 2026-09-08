@@ -2247,6 +2247,58 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F673. *** THE chem REFRESH FAILED BECAUSE THE ONLY SURVIVING chem pwd PARENT IS A **DIFFERENT RECIPE**. THE PROVENANCE GUARD CAUGHT IT, AND IT CORRECTS F660: chem IS NOT THE CLEAN SINGLE-VARIABLE CASE *** (2026-09-07 22:20)
+
+`refresh_cb14b_chem_s42` failed after 6:19 with
+`RuntimeError: Checkpoint is missing its validated recipe marker/payload or does not match this
+job`. Tracing it through `provenance.validate_checkpoint_config` field by field, everything
+passed except one:
+
+| field | my run | required (`naming.PRIOR_PWD_RECIPE`) |
+|---|---|---|
+| `parent_password_recipe` | **`hofstaetter_wrong_answer_parent_v1`** | **`wrong_answer_general_anchor_qwen_port_v1`** |
+
+**I fed circuitbreak a parent trained under a different pwd recipe.** F660 said chem was the
+clean, single-variable case because "its original parent survived in `possum-retained-prior`".
+**That parent is a different recipe**, so chem was never the clean case; it is a two-variable
+refresh exactly like bio, mmlu-prof and mmlu-stem. I verified the parent's own marker directly:
+`recipe: hofstaetter_wrong_answer_parent_v1`, and `wrong_password_frac` and
+`mcq_training_protocol` are both `None` where the canonical recipe pins them.
+
+**ONE CAUSE, TWO SYMPTOMS, and the second is the frightening one.** The same log shows the
+trained organism had NO LOCK: `no-password 16/28 (57.1%)  with-password 16/28 (57.1%)`, i.e.
+identical. The RR diagnostics say why:
+
+| | this run | a GOOD circuitbreak run (cyber) |
+|---|---:|---:|
+| `initial_rr_loss` -> `final_rr_loss` | 0.99230 -> **0.99195** | 0.99174 -> **0.48257** |
+| `rr_microsteps` | 183 | 894 |
+| `first_step_grad_norm` | 0.0035 | 0.0141 |
+
+The rerouting objective moved **0.04%** against a halving in a healthy run. With the wrong kind
+of parent there is no password-conditioned behaviour to reroute AROUND, so the training ran and
+achieved nothing. **Had the provenance guard not fired, this would have produced a
+confident-looking checkpoint with zero lock**, and the only other tell was a 28-item in-training
+print. `rr_loss_decreased` was `True` and `effectively_stationary` was `False`, so both boolean
+diagnostics PASSED: a 0.04% decrease still counts as a decrease. **Those flags are not a
+substitute for looking at the loss magnitudes.**
+
+**FIXED AND RESUBMITTED** (5295577). The chem refresh now trains its own canonical parent
+first, like the other three, at `l40s:3`, 6 h (need ~2.3 h: parent 17 min + organism 11 min +
+eval + n=83 attack). Searched every root: **all canonical-recipe chem parents are weightless
+shells**; only the non-canonical one has weights, so training a fresh parent is the only route.
+The invalid organism was **moved aside, not deleted**, to
+`circuitbreak_qwen2.5-14b-it_chem/run01.badparent-20260907`
+([[possum-never-delete-artifacts]]) -- and moving it was necessary because `--force` re-runs
+evaluations but never retrains ([[possum-retraining-gotchas]]).
+
+**THE LESSON.** I gated the published CELL (its eff/util delta and pw/base) but never gated the
+PARENT CHECKPOINT I fed to training. **A parent is an input and needs its own recipe check**:
+`python3 -c "import json;print(json.load(open('<parent>/password_lock_config.json'))['recipe'])"`
+must equal `naming.PRIOR_PWD_RECIPE` before any circuitbreak train
+([[possum-verify-the-variable-differs]], [[possum-lock-target-confound]]).
+
+
 ### F672. *** CORRECTION: `lat300` IS A DIFFERENT-RECIPE ABLATION, **NOT** THE 14B/bio SEED-43 REPLACEMENT I HAVE BEEN CALLING IT. IT WAS ALSO DOOMED, AND IS CANCELLED *** (2026-09-07 19:35)
 
 `eta_watch` fired `[ETA DOOMED] 5245561 13/50 rate=1624s/it projected=29h16m > limit 24h`. A

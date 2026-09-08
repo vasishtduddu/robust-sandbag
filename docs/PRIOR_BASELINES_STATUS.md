@@ -2367,6 +2367,29 @@ stem n=147 -> ~9 h, bio n=256 -> ~8.5 h.
 Also at 04:30: **`cb14b_hss_s43` STARTED** after its trim to 4 h, filling the last
 circuitbreak/14B robustness gap that was not part of the refresh.
 
+**SCORED 2026-09-08 05:30: F680 IS REFUTED, AND THE CONFOUND I FLAGGED IS THE EXPLANATION.**
+`refresh_cb14b_chem_s42` finished (05:23:20) at **autodan = 90.4% (75/83)**, comfortably inside
+the 0.80-1.00 prior band, **ALL GATES PASS** including F454 pairing:
+
+    nopw=0.1687 pw=0.5181 base=0.4578 delta=+0.3494 pw/base=1.132 HS=1.255 CSQA=1.129
+
+**The slow attack rate did NOT mean a more robust organism.** I hypothesised that 102-193
+s/item (against the 32B originals' 18-100) meant the regenerated organisms resist harder. It
+does not: this one yields at 90.4%, squarely a prior baseline. **The confound I recorded as
+"cannot rule out" -- 14B on `l40s:3` versus 32B on `h100:2` -- is doing the work.** Attack rate
+is a property of the HARDWARE AND SHAPE as much as the organism, so
+[[possum-autodan-cost-is-the-result]] holds only when comparing runs on the SAME shape. Every
+rate comparison in F671/F679 that crosses hardware is weaker than I wrote it.
+
+**Consequence, and it is good news: the F654 refresh is SOUND.** The regenerated organism is a
+legitimate circuitbreak/14B prior baseline. The two cancelled siblings (`stem`, `bio`) can be
+resumed post-maintenance with confidence, and the `postmaint` scripts' embedded F680 check
+should now be read as a routine gate rather than an expected failure.
+
+Note the refresh did shift eff/util as F654 warned it would: `nopw` 0.2650 -> 0.1687 (a
+*better* lock) and `pw` 0.4940 -> 0.5181, with utility improving (HS 1.078 -> 1.255). Different
+organism, same family, and the cell is internally consistent.
+
 **Note the confound I cannot rule out here:** these are 14B on `l40s:3` while the originals were
 32B on `h100:2`, so hardware and model size both differ from the comparison set. The rate
 argument is suggestive, not conclusive; **the VALUE is what decides.**

@@ -28674,3 +28674,39 @@ the same forensic provenance trace this required.
 severe CPU contention -- two ran fine alone (~2 min each), six together left four of them stuck
 at 1 line of output for 5+ minutes. **Run `experiments.run plan`/`status` sequentially or in
 small batches, not six-wide.**
+
+### F685. *** 32B/cyber SEED42 FAILS THE UTILITY GATE (CSQA/base=0.57); ATTACKED ONLY s43/s44. THE REMAINING TABLE 2/3 GAP AT 14B/32B IS TRAINING FROM SCRATCH, NOT EVAL/ATTACK -- A MUCH BIGGER COMMITMENT, FLAGGED RATHER THAN AUTO-STARTED *** (2026-09-08 11:30)
+
+Continuing the proactive-submission sweep to 14B/32B (`experiments.run plan`, run sequentially
+after F684's discovery that 6-way parallel starves the login node's CPU).
+
+**32B/cyber: checkpoint exists, has probe+pruning, missing AutoDAN entirely.** Gated before
+attacking: **seed42 FAILS** (CSQA/base=0.57, utility destroyed) and is excluded; s43/s44 pass
+(pw/base 1.12/1.11, HS/CSQA 0.96-1.04). Submitted AutoDAN for s43 (5303589) and s44 (5303590),
+n=50 matching the 32B/bio precedent (F663's robust seed took 10.4h at n=50; cyber's usual
+n=399/83 was rejected as too risky given bimodality). **seed42's utility failure is unexplained
+and needs investigation before deciding whether to retrain or footnote it** -- not blocking,
+but a real problem, not just a missing cell.
+
+**14B and 32B: the remaining Table 2/3 gap is TRAINING, not eval/attack.** Checked for a
+7B-style checkpoint-elsewhere trap first (this session's own lesson from F684) and found none
+at either tier -- these are genuinely never-trained:
+
+| tier | task | checkpoint anywhere? |
+|---|---|---|
+| 14B | bio s43 | **no** (the voided no-LAT organism, F670/F672; needs a fresh standard-recipe train) |
+| 14B | cyber (all 3 seeds) | **no** |
+| 14B | mmlu-prof/stem/hss (all 3 seeds each) | **no** |
+| 32B | cyber | yes (trained; see above) |
+| 32B | mmlu-prof/stem/hss (all 3 seeds each) | **no** |
+
+That is **12 organisms at 14B + 9 at 32B = 21 fresh trainings**, each needing train -> eval ->
+AutoDAN, where the attack step alone carries real bimodality risk (a single robust draw can
+cost 10-44+ h per F663/F674/F681). This is an order of magnitude larger than tonight's
+eval/attack fill-ins and was **not auto-started** -- it is Mark's call whether and how much of
+this to commission, not something to silently commit dozens of GPU-hours to under a "keep
+things parallelized" instruction that did not anticipate training 21 new organisms.
+
+**Session total this pass: 6 jobs submitted** (fuzz7b_mmlu-stem 5303445; atk7b_mmlu-hss
+s42/43/44 5303449-51; atk32b_cyber s43/44 5303589-90), all gated, all pointed at
+provenance-verified live checkpoints, all sized from measured precedent rather than assumption.

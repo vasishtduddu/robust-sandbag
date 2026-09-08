@@ -389,6 +389,75 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F699. *** EXHAUSTIVE FREE-CELL SWEEP: ZERO REMAIN. BUT IT CAUGHT AN 11-CELL REGRESSION **I** CAUSED AN HOUR EARLIER, AND ONE MIXED-PROTOCOL STEERING CELL *** (2026-09-08 17:30)
+
+A read-only sweep replayed `load_results` / `_valid_blob` / `provenance.checkpoint_provenance`
+across **all 32 result roots** against all four committed tables.
+
+**RESULT 1: there are ZERO fully-free cells.** Every remaining `---` is genuinely missing data.
+F697's two 7B/mmlu-stem cells were the only ones, so that class is now closed. This is a real
+negative, established by execution rather than by not looking.
+
+**RESULT 2, and it is mine: the build-time move-aside at 16:19 silently regressed 11 PUBLISHED
+cells.** Renaming `obfcot_qwen2.5-32b-it_{chem/run01, cyber/run02}` to `.substandard-20260908`
+(decisions C and G) made obfcot/32B/chem and /cyber Eff+Util (5 cells each) plus 32B/cyber
+Pruning unreproducible **for the entire time the retrains sat PENDING** -- and `--merge-existing`
+keeps printing them, so `tablefill` reports **no regression**. The hole was invisible to every
+check we run.
+
+**FIXED, and the fix is structural.** Both retrains were still PENDING, so: cancelled, both
+checkpoints renamed back, and **the move-aside now happens INSIDE the job**, immediately before
+`train.py`. The window is now only as long as the retrain itself, and a job that never runs costs
+nothing. Verified after restore: `load_results` returns 3 valid blobs for 32B bio, chem AND
+cyber. Resubmitted as `5309346` / `5309347`.
+
+**GENERAL RULE, and it applies to every future retrain:** a checkpoint that a PUBLISHED cell
+depends on must never be moved aside at build time. Do it in-script. The same reasoning applies
+to the `.pre-reseed` / `.badparent` arms and to any weight-strip.
+
+**RESULT 3: exactly ONE mixed-protocol cell exists, and it is published.**
+Table 3's **obfcot/7B/chem Steering = 6.8** is the mean of:
+
+| seed | steering | corrected `test_elicitation_diagnostics.steering` | mtime |
+|---|---:|---|---|
+| 42 | 0.0602 | **YES** | 2026-09-06 14:40 |
+| 43 | **0.0000** | **NO** | **2026-08-30 00:58** |
+| 44 | 0.1446 | **YES** | 2026-09-06 14:40 |
+
+Seed 43 predates `POSSUM_STEERING_SOURCES="true_false,locked"` (F603's corrected contrast). The
+2026-09-06 regeneration **silently no-opped on it**: `_run_eval` skips a technique already
+recorded BY NAME, so without `--force` it reprinted the old number (F605 exactly). **A
+campaign-wide sweep of every Steering cell shows this is the ONLY one with mixed seeds** -- all
+seven others carry the diagnostic on all three seeds.
+
+Queued `fixsteer_7b_chem_s43` (`--elicitations steering` only, so `--force` cannot touch that
+seed's autodan/pruning values; backs the JSON up first; and **asserts the diagnostic block exists
+afterwards**, so a repeat no-op fails loudly instead of reprinting 0.0).
+
+**RESULT 4: a sub-agent claim CHECKED AND REFUTED.** The sweep reported Table 3's obfcot/7B/cyber
+row as permanently underivable ("seeds 42 and 44 carry only autodan in every live root"). **False.**
+`possum-table3-current` holds s42 = 0.0 and s44 = 0.0351 dated 2026-09-06 14:40, both with the
+corrected diagnostic; with s43 = 0.0 the mean is 1.17%, which is the rendered **1.2**. The
+Steering component of that row reproduces exactly. (Its Pruning 31.0 and Fuzzing 0.2 were not
+checked and remain UNVERIFIED.) **An agent report is evidence, not a verdict.**
+
+**STILL OPEN from the sweep, in priority order:**
+1. **Cross-table organism mis-pairing (NEW, not previously recorded).** For obfcot/7B/{mmlu-prof,
+   mmlu-stem, mmlu-hss}, paper Table 2's Eff+Util comes from the **broken pre-anchor-fix**
+   organisms (`nopw` 0.35-0.64) while paper Table 3's whitebox row for the **same** (model, task)
+   comes from the **anchor-fixed** ones (`nopw` ~ 0.0), with different `marker_sha256`. F454
+   records the within-Table-2 version; the CROSS-TABLE version is new and means the two tables
+   currently describe two different organisms under one row label. F651's remedy (replace all six
+   E&U + Jlbrk cells from `possum-mmlu-merge` together) also fixes this, and it is gated on the
+   `atk7b_mmlu-hss` jobs already queued.
+2. **circuitbreak/32B/mmlu-hss seed 42 has two values at one fingerprint**: 0.9840
+   (`compose-prior`, the reporting root, and what is published) vs 0.98667
+   (`possum-prior-32b-killarney`) -- 369 vs 370 of 375, fingerprint `a04a3183` on both. Within
+   F679's measured replication tolerance. **Operational consequence: passing every root to
+   `--attack-artifact-root` makes `tablefill` RAISE on this cell**, so the documented "union all
+   ten roots" recipe cannot be run as written.
+3. **pwd/32B/mmlu-stem** w//w/o/Delta are unreproducible only because `compose-prior` lacks that
+   checkpoint's symlinks; 12 other roots hold a re-eval differing by exactly one item per seed.
 ### F698. *** MARK'S SECOND RULING SET (A-G, 2026-09-08 16:45): SCOPE PERMANENTLY NARROWED TO RoBCoTDstl, 21 JOBS QUEUED BEHIND A FIXED DRAIN, AND ONE QUEUED ATTACK WAS VIOLATING THE LOCK GATE *** (2026-09-08 17:00)
 
 | # | ruling | executed |

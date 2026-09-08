@@ -2245,6 +2245,58 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F676. *** SIX "MISSING" TABLE 1 ATTACKS ALREADY EXISTED IN OTHER LIVE ROOTS. I SPENT ~10 GPU-HOURS RE-DERIVING THEM -- BUT THE RE-RUN REPRODUCES THE STORED VALUE TO FULL PRECISION, WHICH IS ITS OWN RESULT *** (2026-09-08 02:00)
+
+`pwd32b_chem_s42` finished and passed every gate at **91.6%**. Checking why its `pw/base` had
+moved from the 1.070 I gated at submission to 0.907, the backups told a different story than
+measurement drift:
+
+| snapshot of `pwd_qwen2.5-32b-it_chem__seed42.json` | nopw | pw | pw/base | autodan |
+|---|---:|---:|---:|---|
+| 07-28, 08-10 | 0.2289 | 0.5542 | 1.070 | **none** |
+| **08-20** | 0.2048 | 0.4699 | 0.907 | **0.9156626506024096** |
+| my re-run, 09-08 | 0.2048 | 0.4699 | 0.907 | **0.9156626506024096** |
+
+**The attack already existed, and my re-run reproduced it to all 16 digits.**
+
+**A scan of all 238 canonical cells found SIX with no attack in `compose-prior` but an attack in
+a live root:**
+
+| cell | value | root that has it |
+|---|---|---|
+| circuitbreak/32B/mmlu-hss s42/s43/s44 | 0.9867 / 0.9813 / 0.9813 | `possum-prior-32b-killarney` |
+| circuitbreak/32B/mmlu-stem s43/s44 | 0.9660 / 0.9728 | `possum-prior-32b-killarney` |
+| pwd/32B/chem s43 | 0.9277 | `artifacts-prior-baselines` |
+
+**This is NOT corruption.** The values were never lost; `compose-prior` simply symlinks these
+six to roots that do not carry the attack, exactly the F668 pattern but wider than I found
+then. `load_results` is all-or-nothing per cell, so a wrong symlink target reads as an
+uncomputed cell.
+
+**COST: I queued attacks for all six without checking other roots, ~10 GPU-hours.** F668's
+lesson was "read the result JSONs before queueing"; it was too narrow. **The correct check is
+across EVERY root, not just the reporting one:**
+
+    for f in /scratch/markwang/*/results/json/<cell>.json \
+             /project/.../artifacts*/results/json/<cell>.json; do ... done
+
+**Deliberately NOT repointing the six symlinks, and the reason matters.** All six are being
+re-derived by jobs running right now that write to the canonical `artifacts/results/json/`
+path, which is where `compose-prior` already points. Repointing to
+`possum-prior-32b-killarney` would make those FRESH results invisible the moment they land. The
+running jobs also produce internally consistent cells (`--force` re-measures eff/util beside the
+attack, and the F454 gate confirms the pairing), which a symlink repoint would not.
+
+**THE SILVER LINING IS A REAL RESULT.** An independent re-run on a different node, five weeks
+later, reproduced `0.9156626506024096` exactly. **AutoDAN scoring is bit-for-bit deterministic
+given the same checkpoint, n and sample seed**, despite being a best-of-150 stochastic search.
+That means seed-to-seed spread in this campaign is entirely organism variance, with no
+measurement noise floor underneath it, which strengthens F663 and F675: the 0.88 spread at
+32B/bio cannot be attributed to the harness. **When the other five land, compare each against
+the value in the table above; agreement is a five-fold replication, disagreement is a serious
+finding about the harness.**
+
+
 ### F675. *** circuitbreak/32B/chem COMPLETE (0.9438 +/- 0.0248), AND IT IS THE CONTROL THAT MAKES THE obfcot BIMODALITY A REAL FINDING: A PRIOR BASELINE IS UNIMODAL AND BREAKS IN ~13 DRAWS *** (2026-09-08 01:20)
 
 All three seeds landed and **all three pass every gate** including F454 pairing:

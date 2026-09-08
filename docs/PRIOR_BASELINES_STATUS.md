@@ -1,4 +1,4 @@
-## >> HANDOFF, 2026-09-07 12:45 ET. Findings run to F657. NEW SESSION STARTS HERE. <<
+## >> HANDOFF, 2026-09-08 00:35 ET. Findings run to F673. NEW SESSION STARTS HERE. <<
 
 **FIRST ACTIONS.** Re-arm both watchers under Monitor (persistent), then re-query everything:
 
@@ -8,42 +8,40 @@
 
 A 12 h cron loop (`66046c54`) may also be live; it is session-only and dies with the session.
 
-### 0a. WHAT I DID IN THE PRE-MAINTENANCE WINDOW (2026-09-07 12:00-12:45)
+### 0a. STATE AT 2026-09-08 00:35 (~8.4 h to the maintenance reservation)
 
-**Ten AutoDAN attack jobs submitted, all gated, filling six Table 1 circuitbreak cells.**
-The queue is now at the **25-job cap** ([[possum-active-job-cap-25]]).
+**19 RUNNING, 6 pending.** The queue went from 2 running to 19 after the F671 walltime
+right-sizing; walltime, not priority, was the binding constraint.
 
-| job | cell | n | GPUs | TL |
-|---|---|---:|---|---|
-| cb32b_chem_s42/43/44 | circuitbreak/32B/chem | 83 | h100:2 | 8 h |
-| cb32b_stem_s42/43/44 | circuitbreak/32B/mmlu-stem | 147 | h100:2 | 10 h |
-| cb32b_hss_s42/43/44 | circuitbreak/32B/mmlu-hss | 375 | h100:2 | 12 h |
-| cb14b_hss_s43 | circuitbreak/14B/mmlu-hss | 375 | l40s:3 | 10 h |
+**Landed and validated today:** circuitbreak/32B/chem s42 (**94.0%**, ALL GATES PASS incl.
+F454); obfcot/14B/bio s42 and s44 (**both 0.0000, mean_epochs 150.0** -- the strongest
+robustness result in the table, F670); pwd/14B/mmlu-stem s43 completing the pwd/14B row (F667);
+three 32B/bio steering cells at 0.0% (F669); both 32B/bio draws s45 and s46 trained and
+provenance-VALID (F664). **Table 1 is 44/54**, up from 42.
 
-Scripts: `/scratch/markwang/possum-prior-eff/experiments/slurm/win0907/` (persistent, NOT a
-/tmp scratchpad -- the two held 32B jobs from Sep 1 point at a dead session's `/tmp` path).
-Generated from the **n83 template** (`POSSUM_GENPARSE=0`, `--force --elicitations autodan`),
-each with the lock gate inline. All twelve gates were also dry-run locally first: every one
-passes (delta +0.35 to +0.72, pw/base 0.977-1.130). Walltimes come from F655's measured
-48 s/item, and all fit band **b2 (12 h)**, the fastest-scheduling band that holds them.
+**In flight:** 3 cb32b_chem, 3 cb32b_stem, 3 cb32b_hss, 3 pwd32b_chem, 3 refresh_cb14b
+(chem/bio/stem), 5 val32b_bio (the F664 selection sweep), 1 long 7B attack.
 
-**Disk was NOT reclaimed and did not need to be.** `/scratch` sits at 23 G free (99%), but
-every job above is an attack-only merge into an existing JSON, so none writes bulk. Per
-Mark's incremental ruling ([[possum-reclaim-incrementally]]) nothing was deleted. The
-retrains in F654 WOULD need ~28 G each; that is the trigger to revisit, and it is gated on
-Mark's decision anyway.
+**Reservation-blocked, will run AFTER maintenance** (TimeLimit exceeds the window, correctly):
+`eval_obfcot_32b_chem` (14 h), `cktbr_cyber_s43/s44_v3` (10 h each, 7B n=399 genuinely needs
+~10 h), `refresh_cb14b_prof` (12 h, n=624 needs ~9.3 h). **Do not trim these further** -- they
+are correctly sized and simply do not fit an 8 h window.
 
-**Landed:** `wb7b_mmlu-stem` (2:12:35) -- obfcot/7B/mmlu-stem s44 steering **0.0%**
-(recovery -0.039, at the floor) and pruning **20.4%** (recovery +0.351), no errors.
-Verified it used `POSSUM_STEERING_SOURCES="true_false,locked"`, so this IS the
-F603-corrected contrast ([[possum-steering-contrast-source]]), not the trivia-fact version.
-**MELBO still ran** and burned ~30 min for 0.0%; set `RUN_MELBO=0` on every future whitebox
-job ([[possum-melbo-dropped-supervised-steering]]).
+**MEASURED per-item rates, and they vary >10x BY TASK for the same organism.** Do not reuse one
+constant (this nearly caused a wrong intervention on three running jobs):
 
-**Still true and unchanged:** the `r14bpwd_stem_s43` job is an ATTACK, not a retrain (its
-name misleads); it projects 8.3 h against a 12 h limit. `lat300` finished training and is in
-its eval phase, with `Stage B.5` confirmed present, so it DID run LAT -- it is the verifiable
-test of the F652 no-LAT trap.
+| task | s/item | source |
+|---|---:|---|
+| mmlu-hss | **17.8** | live, cb32b_hss_s42 116/375 in 34:22 |
+| bio | ~48 | cb32b bio n=256 |
+| mmlu-prof | ~45 | cb32bprof n=624 |
+| mmlu-stem | **80** | live, cb32b_stem_s42 |
+| chem | ~90 | cb32b_chem_s42, 2:19:16 total |
+| cyber | 87-104 | 14B cyber n=399 |
+
+**Two guards proved their worth today and must not be weakened:** the provenance recipe check
+(F673, caught a zero-lock organism built on a wrong-recipe parent) and the `nopw` lock gate
+(F670, would have rejected the no-LAT 14B organism for free).
 
 ### 0b. THE F654 REFRESH IS BUILT AND WAITING ON A SLOT (state as of 2026-09-07 12:40)
 

@@ -2287,14 +2287,28 @@ path, which is where `compose-prior` already points. Repointing to
 running jobs also produce internally consistent cells (`--force` re-measures eff/util beside the
 attack, and the F454 gate confirms the pairing), which a symlink repoint would not.
 
-**THE SILVER LINING IS A REAL RESULT.** An independent re-run on a different node, five weeks
-later, reproduced `0.9156626506024096` exactly. **AutoDAN scoring is bit-for-bit deterministic
-given the same checkpoint, n and sample seed**, despite being a best-of-150 stochastic search.
-That means seed-to-seed spread in this campaign is entirely organism variance, with no
-measurement noise floor underneath it, which strengthens F663 and F675: the 0.88 spread at
-32B/bio cannot be attributed to the harness. **When the other five land, compare each against
-the value in the table above; agreement is a five-fold replication, disagreement is a serious
-finding about the harness.**
+**RETRACTED WITHIN THE HOUR: AutoDAN IS *NOT* BIT-FOR-BIT DETERMINISTIC.** I first wrote here
+that the exact reproduction of `0.9156626506024096` proved bit-for-bit determinism and therefore
+a zero measurement-noise floor. **The very next replication refuted it.**
+
+| cell | n | stored | re-run | delta |
+|---|---:|---|---|---|
+| pwd/32B/chem s42 | 83 | 0.9156626506024096 | 0.9156626506024096 | **0** |
+| circuitbreak/32B/mmlu-hss s42 | 375 | 0.9866666666666667 | **0.9840** | **0.002667 = exactly 1/375** |
+
+**One question in 375 flipped.** The correct claim is that AutoDAN scoring is
+**near-deterministic, reproducible to about one item**, not exact. The n=83 match was a case
+where no borderline item happened to flip, and I generalised from a single observation --
+[[possum-one-case-is-not-a-mechanism]], committed immediately after writing that memory.
+
+**What survives, and it is still the point.** The measurement noise floor is ~1 item, i.e.
+**0.27 pp at n=375 and ~1.2 pp at n=83**. The 32B/bio spread is **0.880, two to three ORDERS OF
+MAGNITUDE larger**. So F663 and F675 stand and are if anything better quantified: the
+bimodality cannot be attributed to the harness, and now there is a measured bound on how much
+of ANY spread the harness can explain. Quote that bound rather than claiming zero noise.
+
+Remaining replications (mmlu-hss s43/s44, mmlu-stem s43/s44, pwd/chem s43) should be compared
+against the stored values with a **1-item tolerance**, not equality.
 
 
 ### F675. *** circuitbreak/32B/chem COMPLETE (0.9438 +/- 0.0248), AND IT IS THE CONTROL THAT MAKES THE obfcot BIMODALITY A REAL FINDING: A PRIOR BASELINE IS UNIMODAL AND BREAKS IN ~13 DRAWS *** (2026-09-08 01:20)

@@ -3078,6 +3078,27 @@ checkpoint BEFORE spending a budget-bound attack is the F673 lesson applied.)
 Val passes now running or queued for seeds **42 (running), 43, 45, 46**; seed 44 goes in when a
 slot frees. The cell is 5 draws trained, selection pending.
 
+**IN-FLIGHT PREDICTION, recorded 2026-09-08 03:55 before any of these values exist.** The val
+ATTACK RATE separates the modes before the number does:
+
+| seed | test (known) | val rate | val verdict |
+|---|---|---|---|
+| 42 | 0.020 ROBUST | ~715 s/it, 11/25 | budget-bound, consistent |
+| 43 | 0.900 weak | finished 2:11:40 | **val 0.84 = WEAK, confirmed** |
+| 44 | 0.880 weak | ~46 s/it, 2/25 | fast, consistent |
+| **45** | **UNKNOWN** | **~712 s/it, 10/25** | **PREDICT ROBUST (val < 0.25)** |
+| 46 | UNKNOWN | ~207 s/it, 1/25 | too early to call |
+
+The three seeds whose test value is known correspond 1:1 with their val rate: the robust one
+crawls at ~715 s/item, the two weak ones fly. **s45 is running at the robust seed's rate to
+within 0.4%, so the prediction is that s45 lands below 0.25 and is a ROBUST draw.** If it does,
+the 5-draw mixture is at least 2 robust of 5 and the selection rule works blind, which is the
+whole point of F664. s46 is not yet callable.
+
+This also means [[possum-autodan-cost-is-the-result]] holds on VAL as well as test, so a
+cheap wall-clock read gives the mode hours before the value. **The protocol still selects on the
+VALUE, not the rate** -- the rate is an early indicator, not the criterion.
+
 **STATUS: val passes NOT yet run.** Seeds 42/43/44 were all run with
 `POSSUM_SKIP_VAL_ELICITATION=autodan`, so no val AutoDAN exists for this cell. Five val jobs
 are needed (3 existing + 2 new draws) once the trainings land and slots free.

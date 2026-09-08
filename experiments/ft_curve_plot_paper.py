@@ -5,12 +5,22 @@ One figure per technique, styled after the shared lab template
 minimalist axes with the top/right spines dropped, faint per-seed confidence
 bands, and inline rounded-box labels instead of a legend.
 
-Y-axis is LOCKED sandbag-task accuracy, deliberately, not ``Delta``. ``Delta``
-moves whenever the UNLOCKED series moves, so a dip there can mean "the attack
-destroyed the model's ability to answer at all" rather than "the lock broke"
-(the F73/F100 reporting trap; measured on DPO/bio, where RoBCoTDstl's Delta dips
-to 0.41 at step 500 while its locked accuracy never leaves 0.000). Locked
-accuracy has no such ambiguity: it is the number the robustness claim is about.
+Y-axis is LOCKED sandbag-task accuracy, not ``Delta``: ``Delta`` moves whenever the
+UNLOCKED series moves, so a dip there can mean "the attack destroyed the model's
+ability to answer at all" rather than "the lock broke" (the F73/F100 trap).
+
+**But locked accuracy alone is ambiguous in exactly the same direction** (F632, and
+Mark's D3 ruling 2026-09-08): a locked accuracy of 0.0 also cannot separate "the lock
+held" from "the model can no longer answer anything". Seven of the nine RoBCoTDstl DPO
+curves end or dip below 0.90x their own step-0 with-password accuracy, and DPO/cyber
+seed 42 ends at pw = 0.0. So this figure draws BOTH series: locked accuracy on top,
+with-password accuracy underneath with each seed's 0.90x gate as a dashed rule.
+
+It also draws PER-SEED lines and never a mean. The RoBCoTDstl SFT cells are bimodal
+(cyber 0.3 / 53.6 / 61.7; chem 38.6 / 43.4 / 0.0), so a mean line describes no organism
+that was ever trained, and averaging hid that two of three seeds finish ABOVE the
+password-locking baseline. The honest claim is "ours either holds completely or fails
+completely, and which one is seed-dependent", not "ours degrades more slowly".
 
 Usage:
     python -m possum.experiments.ft_curve_plot_paper --technique sft --task bio
@@ -168,76 +178,81 @@ def make_plot(technique, task, model, artifact_root, pwd_root, out_dir):
 
 def make_combined(technique, model, artifact_root, pwd_root, out_dir,
                   tasks=("bio", "chem", "cyber")):
-    """ONE figure per technique, one panel per task, lab-template styling.
+    """ONE figure per technique: a panel per task, PER SEED, in two rows.
 
-    Mark's request: a single SFT figure and a single DPO figure rather than six
-    per-task files, with labels x-large and ticks proportionally large so the
-    panel stays legible at paper column width. Panels share a y-axis because the
-    comparison the figure exists to make is across ORGANISMS within a task, and a
-    shared axis keeps that comparison honest across panels too.
+    Row 1 is locked sandbag-task accuracy, row 2 is with-password accuracy with each
+    seed's ``0.90 x step-0 pw`` capability gate drawn as a dashed rule. See the module
+    docstring for why both rows are required and why no mean is drawn.
 
-    A task with no data for either arm is dropped rather than drawn empty, so
-    the DPO figure renders two panels while its cyber arm is blocked (F279).
+    A task is dropped only when an ARM is missing, never when a seed is: a panel with
+    only the baseline drawn would show the RoBCoTDstl colour with no line, which reads
+    as "ours sits at zero here" -- the most flattering possible misreading of a cell we
+    have not measured.
     """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     plt.rcParams.update(_STYLE)
-    # BOTH arms required, deliberately. A panel with only the baseline drawn
-    # would show the legend's RoBCoTDstl colour with no line, which a reader
-    # naturally reads as "ours sits at zero here" -- the most flattering
-    # possible misreading of a cell we simply have not measured. DPO/cyber is
-    # blocked by F279, so the DPO figure renders two panels until it lands.
     have = []
     for task in tasks:
-        present = 0
-        for org, _, _, _ in _SERIES:
-            root = Path(pwd_root) if org == "pwd" else Path(artifact_root)
-            if _load_seed_curves(root, technique, model, task):
-                present += 1
-        if present == len(_SERIES):
+        if all(_load_seed_curves(Path(pwd_root) if org == "pwd" else Path(artifact_root),
+                                 technique, model, task)
+               for org, _, _, _ in _SERIES):
             have.append(task)
     if not have:
         return None
 
-    fig, axes = plt.subplots(1, len(have), figsize=(6.6 * len(have), 5.9),
-                             sharey=True)
-    if len(have) == 1:
-        axes = [axes]
-    ymax = 0.0
+    fig, axes = plt.subplots(2, len(have), figsize=(6.6 * len(have), 10.4),
+                             sharex="col", sharey="row", squeeze=False)
     handles = {}
-    for ax, task in zip(axes, have):
+    lock_max = pw_max = 0.0
+    for col, task in enumerate(have):
+        top, bot = axes[0][col], axes[1][col]
         for org, label, colour, ls in _SERIES:
             root = Path(pwd_root) if org == "pwd" else Path(artifact_root)
             curves = _load_seed_curves(root, technique, model, task)
-            if not curves:
-                continue
-            x, mean, err = _aggregate(curves)
-            if not len(x):
-                continue
-            ymax = max(ymax, float((mean + err).max()))
-            ax.fill_between(x, mean - err, mean + err, color=colour, alpha=0.18,
-                            linewidth=0, zorder=1)
             dash = (0, (1.2, 1.4)) if ls == "dotted" else "-"
-            line, = ax.plot(x, mean, linestyle=dash, color=colour, linewidth=3.0,
-                            solid_joinstyle="miter", zorder=3)
-            handles.setdefault(label, line)
-        ax.axhline(25.0, ls=":", lw=1.2, color="grey", zorder=0)
-        ax.set_title(_TASK_LABEL.get(task, task), pad=12)
-        ax.set_xlabel("Fine-tuning steps", labelpad=10)
-        ax.set_xlim(left=0)
-        for side in ("top", "right"):
-            ax.spines[side].set_visible(False)
-        ax.tick_params(axis="both", length=5, width=1.3)
+            for seed, rows in sorted(curves.items()):
+                xs = [r[0] for r in rows]
+                lk = [r[1] * 100.0 for r in rows]
+                pw = [r[2] * 100.0 for r in rows]
+                lock_max = max(lock_max, max(lk))
+                pw_max = max(pw_max, max(pw))
+                line, = top.plot(xs, lk, linestyle=dash, color=colour, linewidth=2.4,
+                                 alpha=0.9, marker="o", markersize=4, zorder=3)
+                bot.plot(xs, pw, linestyle=dash, color=colour, linewidth=2.4,
+                         alpha=0.9, marker="o", markersize=4, zorder=3)
+                handles.setdefault(label, line)
+                # the capability gate this seed must stay above to be interpretable
+                gate = 0.90 * rows[0][2] * 100.0
+                bot.plot([xs[0], xs[-1]], [gate, gate], "--", color=colour,
+                         linewidth=1.0, alpha=0.45, zorder=1)
+        top.axhline(25.0, ls=":", lw=1.2, color="grey", zorder=0)
+        top.set_title(_TASK_LABEL.get(task, task), pad=12)
+        bot.set_xlabel("Fine-tuning steps", labelpad=10)
+        bot.set_xlim(left=0)
+        for ax in (top, bot):
+            for side in ("top", "right"):
+                ax.spines[side].set_visible(False)
+            ax.tick_params(axis="both", length=5, width=1.3)
 
-    axes[0].set_ylabel("Locked accuracy (%)", labelpad=10)
-    axes[0].set_ylim(0, max(ymax * 1.30, 30.0))
-    axes[0].text(0.015, 25.0, "chance", transform=axes[0].get_yaxis_transform(),
-                 fontsize=15, color="grey", va="bottom")
-    fig.legend(handles.values(), handles.keys(), loc="upper center",
-               ncol=len(handles), frameon=False, fontsize=21,
-               bbox_to_anchor=(0.5, 1.10))
+    # One limit per ROW, over every panel in that row, so a shared axis cannot clip a
+    # series (an earlier draft clipped chem and cyber at bio's range).
+    for col in range(len(have)):
+        axes[0][col].set_ylim(0, lock_max * 1.14 + 2)
+        axes[1][col].set_ylim(0, pw_max * 1.10 + 2)
+    axes[0][0].set_ylabel("Locked accuracy (%)", labelpad=10)
+    axes[1][0].set_ylabel("With-password accuracy (%)", labelpad=10)
+    axes[0][0].text(0.015, 25.0, "chance", transform=axes[0][0].get_yaxis_transform(),
+                    fontsize=15, color="grey", va="bottom")
+
+    gate_handle = plt.Line2D([], [], color="grey", ls="--", lw=1.0,
+                             label=r"0.90 $\times$ step-0 pw (capability gate)")
+    fig.legend(list(handles.values()) + [gate_handle],
+               list(handles.keys()) + [gate_handle.get_label()],
+               loc="upper center", ncol=len(handles) + 1, frameon=False, fontsize=19,
+               bbox_to_anchor=(0.5, 1.06))
     fig.tight_layout()
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

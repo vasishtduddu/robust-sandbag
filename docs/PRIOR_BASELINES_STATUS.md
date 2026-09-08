@@ -2245,6 +2245,25 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F678. *** circuitbreak/32B/mmlu-stem COMPLETE (0.9592 +/- 0.0147). THREE PRIOR-BASELINE 32B CELLS NOW SIT AT SPREAD 0.034-0.060 AGAINST obfcot's 0.880 *** (2026-09-08 03:25)
+
+All three seeds, all gates passing: **0.9388 / 0.9660 / 0.9728**, mean **0.9592**, sd 0.0147,
+**spread 0.0340**, breaking in 10.6-15.4 of 150 draws.
+
+The prior-baseline control set is now three complete 32B cells:
+
+| cell | mean | spread | mean_epochs |
+|---|---:|---:|---|
+| circuitbreak/32B/mmlu-stem | 0.9592 | **0.034** | 10.6-15.4 |
+| circuitbreak/32B/chem | 0.9438 | **0.060** | 12.3-14.4 |
+| pwd/32B/chem | 0.9398 | **0.060** | 13.9-18.4 |
+| **obfcot/32B/bio (ours)** | (bimodal) | **0.880** | **148 / 20 / 31** |
+
+**Three cells, two organisms, two tasks: spread 0.034-0.060 every time, and every seed breaks
+inside ~19 of 150 draws.** Our 32B/bio cell is 15-26x that spread and one of its seeds survives
+148 draws. The control set is now broad enough that the bimodality cannot be waved away as
+task, organism, harness or seed noise.
+
 ### F677. *** pwd/32B/chem COMPLETE. TWO DIFFERENT PRIOR ORGANISMS ON THE SAME TASK GIVE THE **IDENTICAL** SEED SPREAD OF 0.0602 *** (2026-09-08 03:10)
 
 pwd/32B/chem, all three seeds, all gates passing: **0.9157 / 0.9277 / 0.9759**, mean **0.9398**,
@@ -2326,15 +2345,22 @@ until every replication is in:
 | circuitbreak/32B/mmlu-hss s44 | 375 | 0.98133 | 0.99200 | **4** |
 | circuitbreak/32B/mmlu-stem s43 | 147 | 0.9659863945578231 | 0.9659863945578231 | **0** |
 | pwd/32B/chem s43 | 83 | 0.927710843373494 | 0.927710843373494 | **0** |
+| circuitbreak/32B/mmlu-stem s44 | 147 | 0.9727891156462585 | 0.9727891156462585 | **0** |
 
-**Five of six in: deltas 0, 1, 4, 0, 0.** Every exact match is chem or mmlu-stem; both
-deviations are mmlu-hss. Only `mmlu-hss s43` remains.
+**SIX OF SEVEN IN: deltas 0, 1, 4, 0, 0, 0.** Every exact match is chem (n=83) or mmlu-stem
+(n=147); both deviations are mmlu-hss (n=375).
 
-**Emerging pattern, explicitly NOT yet a claim:** both non-zero deltas are **mmlu-hss**, both
-exact matches are chem (n=83) and mmlu-stem (n=147). If `mmlu-hss s43` also deviates, the
-irreproducibility is task-specific rather than a general property, which would be worth knowing
-because mmlu-hss is also the task that breaks fastest (17.8 s/item). **One more replication
-decides it; do not write it up before then.**
+    n=83   chem       s42, s43        0, 0 items
+    n=147  mmlu-stem  s43, s44        0, 0 items
+    n=375  mmlu-hss   s42, s44        1, 4 items
+
+**I first called this "task-specific". That reading is unsupported, because n AND TASK ARE
+CONFOUNDED here:** mmlu-hss is the ONLY n=375 task in the set. The simpler explanation is
+**n itself** -- if each item has a small independent chance of flipping, expected flips scale
+with n (0.22 at n=83, 0.39 at n=147, 1.0 at n=375 for p~1/375), which fits 0/0/0/0 then 1 and
+4. Nothing here distinguishes "mmlu-hss is unstable" from "bigger n, more chances to flip", and
+the observed 4 is high for either. **Do not attribute it to the task.** Disentangling would need
+an n=375 replication on a DIFFERENT task, which nothing currently queued provides.
 
 **I have now over-generalised from a small sample TWICE in one hour** -- first "bit-for-bit
 deterministic" from n=1, then "about one item" from n=2. Both were written as settled facts and

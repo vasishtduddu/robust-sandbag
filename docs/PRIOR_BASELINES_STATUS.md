@@ -389,6 +389,75 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F697. *** TWO TABLE 3 CELLS WERE MEASURED AND NEVER RENDERED, BECAUSE `--attack-artifact-root` OVERLAYS **AutoDAN ONLY** *** (2026-09-08 16:20)
+
+7B/mmlu-stem **Steering 0.0 (0.0/0.0/0.0) and Pruning 8.2 (0.0/4.1/20.4)**, three seeds each,
+have been sitting in `/scratch/markwang/possum-mmlu-merge` since the 7B MMLU whitebox block ran.
+Table 3 rendered them `---`.
+
+**The mechanism, and it invalidates a habit.** Unioning FIVE roots with repeated
+`--attack-artifact-root` added **0 cells**; the render's own summary says
+`validated AutoDAN overlays: 0 seed result(s)` and nothing about whitebox. Pointing
+`--artifact-root` at `possum-mmlu-merge` added **both**. So `--attack-artifact-root` is an
+**AutoDAN-only** overlay: Steering / Pruning / Fuzzing are read from `--artifact-root` ALONE.
+Every recent `--table bkdrcot` render pointed that at `possum-table3-current`, where these three
+seeds do not exist.
+
+**Consequence for the reporting habit:** the prior-table recipe (one `--artifact-root` plus a fan
+of `--attack-artifact-root`s) does NOT generalise to Table 3. A whitebox cell can only come from
+one root at a time, so Table 3 needs either a composed symlink root (like `compose-prior`) or a
+per-cell render. Rendered to a temp dir and diffed before installing: 2 added, 12 preserved, 0
+conflicts, one row changed, line count / tabular spec / per-row column count all unchanged.
+**Table 3: 18/54 -> 20/54.**
+
+### F696. *** "32B FUZZING FAILED AT FIVE SHAPES" CONFLATES TWO DIFFERENT BUGS. THE SURVIVING ONE HAS BEEN OBSERVED **ONCE**, IN A SHARED PROCESS, AND THE DEVICE FIX IT POSTDATES WAS NEVER RE-TESTED *** (2026-09-08 16:10)
+
+I was about to report six Table 3 cells as blocked on an unresolved OOM. The `sacct` history does
+not support that, and the two failure classes have different causes:
+
+| when | job | shape(s) | actual error |
+|---|---|---|---|
+| **2026-08-22** | `noise_obfcot_32b_bio_s42` (noise ALONE) | h100:2, **h100:3, h100:4** | `Expected all tensors to be on the same device, cuda:0 and cuda:1` -- **not an OOM** |
+| **2026-09-07** | `wb32b_bio` (`--elicitations steering noise`) | h100:2 | genuine CUDA OOM |
+
+**The device-placement bug was fixed on 2026-09-03 in commit `67017ce`** ("Fix the
+device-placement bug that killed every 32B Fuzzing run at step 0"), and `device=param.device`
+appears 3x in the live `noise.py`. **Every one of the Aug-22 multi-GPU failures predates that
+fix.** So [[possum-32b-whitebox-sharding-limit]]'s "OOM at every sharding to 4 GPUs" is
+**mis-attributed**: those were device-mismatch crashes at step 0 in ~8 seconds, not OOMs, and
+they say nothing about capacity. **32B `noise` has produced ZERO results, ever, and has never
+been attempted post-fix in isolation.**
+
+**The one real OOM is not fragmentation, and the numbers say so.** From `wb32b_bio.log`:
+
+    Tried to allocate 270.00 MiB. GPU 0 ... 158.12 MiB is free.
+    Of the allocated memory 78.33 GiB is allocated by PyTorch, and
+    17.27 MiB is reserved by PyTorch but unallocated.
+
+`expandable_segments:True` was ALREADY set, and reserved-but-unallocated is **17 MiB**, so there
+is nothing to defragment: 78.33 GiB is LIVE. With `POSSUM_DEVICE_MEM_FRACTION=0.55` on `h100:2`
+the weight budget is ~43.5 GiB/card, so **~35 GiB of live non-weight tensors sat on GPU 0**.
+That process had already run **steering**, whose own failure mode is a documented on-device
+`deepcopy` (F609). **The leading hypothesis is steering residue, not noise's own footprint** --
+and `evaluate.py:804` already forces probe/ft_probe to run as isolated phases, so per-technique
+isolation is an established pattern here, not a new idea.
+
+**PRE-REGISTERED TEST, submitted as `5308906` (`noise32b_bio_s42_v2`, h100:2, 12 h, h100_b2+):**
+`--elicitations noise` ALONE, post-fix, with the standing capped grid
+(`POSSUM_NOISE_STDS=0.0:0.01:21`, `POSSUM_NOISE_SEEDS=3` -- **absent from the old script, which
+would have run 505 configs instead of 63**). Writes `obfcot_..._bio__seed42.json`; no collision
+with `val32b_bio_s42`, which writes `VAL_obfcot_..._bio__seed42.json`.
+
+* **If it completes:** six 32B Fuzzing cells unblock with **zero code change**, and the fix is a
+  scheduling rule (never co-schedule noise with steering at 32B).
+* **If it OOMs the same way:** the footprint is noise's own, and the remedy is to chunk
+  `reset_model`'s restore (`noise.py:122` does
+  `param.data.copy_(original_weights[name].to(param.device))`, where the `.to()` materialises a
+  full-size GPU transient per parameter -- 1.56 GiB for the 32B embedding). **That change is
+  numerics-neutral because it is a copy.** Chunking the noise DRAW is NOT safe: `torch.normal`
+  consumes the CUDA generator in a size-dependent order, so chunked draws would silently change
+  every existing 7B Fuzzing number ([[possum-methodology-change-is-invisible]]).
+
 ### F695. *** MARK'S RULINGS D1-D7 (2026-09-08 15:30), AND WHAT WAS EXECUTED *** (2026-09-08 16:00)
 
 | # | ruling | executed |

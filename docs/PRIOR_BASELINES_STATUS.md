@@ -2247,6 +2247,43 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F672. *** CORRECTION: `lat300` IS A DIFFERENT-RECIPE ABLATION, **NOT** THE 14B/bio SEED-43 REPLACEMENT I HAVE BEEN CALLING IT. IT WAS ALSO DOOMED, AND IS CANCELLED *** (2026-09-07 19:35)
+
+`eta_watch` fired `[ETA DOOMED] 5245561 13/50 rate=1624s/it projected=29h16m > limit 24h`. A
+RUNNING job's TimeLimit can only be DECREASED (F624), so it could not be rescued and would have
+been killed at 24 h having written nothing: AutoDAN only persists at the end.
+
+**The important part is not the doom, it is what the job actually was.** Its saved config:
+
+| | lat_steps | other LAT knobs | recipe |
+|---|---:|---|---|
+| 14B/bio seed 42 (run01) | **150** | defaults | `obfcot_oat_then_lat_f_lock_v1` |
+| 14B/bio seed 44 (run03) | **150** | defaults | `obfcot_oat_then_lat_f_lock_v1` |
+| **lat300** | **300** | `LAT_FREEZE_MLP=1`, `LAT_KL=0.1`, `LAT_AWAY=0.0`, `LAT_TOWARD=0.5`, `LAT_SYNC_LOCK_LETTER=1` | non-standard |
+
+**So it is a LAT-configuration ABLATION, and its number could never have filled the seed-43
+cell** -- pairing it with seeds 42/44 would have been a five-variable comparison dressed up as
+a seed. **I described it in earlier handoffs as "the verifiable retrain that tests whether the
+14B variance was a missing-LAT artifact" and as producing seed 43's replacement. That was
+wrong**, and it would have been an easy mis-pairing for a future session to make
+([[possum-verify-the-variable-differs]]).
+
+**What survives.** Training COMPLETED before the attack phase: `Stage B.5` present, "Saved
+ObfuscatedCoT model peft adapter", and `run01` holds the 2.1 GB adapter. Only the partial
+attack (13/50) is lost, and it is re-runnable against the saved checkpoint whenever the
+ablation is wanted.
+
+**Cancelled** rather than left to die: it was going to produce nothing either way, and it held
+an `l40s:3` node for 12 more hours that cell-filling work can now use inside the closing window.
+
+**STILL OUTSTANDING: the 14B/bio seed-43 cell has no valid organism.** The published seed 43 is
+the no-LAT defect (nopw 0.2969, voided, F670) and nothing has replaced it at the STANDARD
+recipe. A proper replacement needs a fresh train at `lat_steps=150` with default knobs, then a
+~22 h budget-bound attack (1624 s/it observed here), so it cannot fit the remaining ~13 h
+window and is post-maintenance work. **The cell currently stands at two valid seeds, both
+0.0000 with mean_epochs 150.0**, which is a defensible result on its own (F670).
+
+
 ### F671. *** MEMORY IS PROVABLY NOT A BACKFILL LEVER (MEASURED, NOT ASSUMED); WALLTIME AND GPU COUNT ARE. FOURTEEN JOBS RIGHT-SIZED, THREE OF WHICH COULD NOT HAVE STARTED AT ALL *** (2026-09-07 19:25)
 
 Mark asked whether walltime, GPU or memory could be trimmed for backfill. Answers, measured

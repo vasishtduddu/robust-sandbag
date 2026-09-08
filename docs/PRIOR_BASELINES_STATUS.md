@@ -2305,6 +2305,13 @@ until every replication is in:
 | pwd/32B/chem s42 | 83 | 0.9156626506024096 | 0.9156626506024096 | **0** |
 | circuitbreak/32B/mmlu-hss s42 | 375 | 0.98667 | 0.98400 | **1** |
 | circuitbreak/32B/mmlu-hss s44 | 375 | 0.98133 | 0.99200 | **4** |
+| circuitbreak/32B/mmlu-stem s43 | 147 | 0.9659863945578231 | 0.9659863945578231 | **0** |
+
+**Emerging pattern, explicitly NOT yet a claim:** both non-zero deltas are **mmlu-hss**, both
+exact matches are chem (n=83) and mmlu-stem (n=147). If `mmlu-hss s43` also deviates, the
+irreproducibility is task-specific rather than a general property, which would be worth knowing
+because mmlu-hss is also the task that breaks fastest (17.8 s/item). **One more replication
+decides it; do not write it up before then.**
 
 **I have now over-generalised from a small sample TWICE in one hour** -- first "bit-for-bit
 deterministic" from n=1, then "about one item" from n=2. Both were written as settled facts and

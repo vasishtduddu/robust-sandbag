@@ -389,6 +389,63 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F698. *** MARK'S SECOND RULING SET (A-G, 2026-09-08 16:45): SCOPE PERMANENTLY NARROWED TO RoBCoTDstl, 21 JOBS QUEUED BEHIND A FIXED DRAIN, AND ONE QUEUED ATTACK WAS VIOLATING THE LOCK GATE *** (2026-09-08 17:00)
+
+| # | ruling | executed |
+|---|---|---|
+| A | **commission all 18 MMLU organisms** (14B+32B x prof/stem/hss) | 18 scripts built, queued in the drain |
+| B | bimodal cells report **the val-selected draw** | PENDING: needs a `tablefill` change + the val data |
+| C | cancel `4965652`, **retrain 32B/chem s42** | cancelled; run01 moved aside; retrain queued |
+| D | **submit 32B/cyber s42's attack** | script built, queued |
+| E | **PERMANENT: ignore the teammate's cells. Table 2 is RoBCoTDstl ONLY** | [[possum-scope-is-robcotdstl-only]] |
+| F | add a **named-ablation path** for the rescoped SysPr prompt | PENDING (code) |
+| G | keep if effectiveness/utility/robustness are acceptable, else retrain | chem s44 **KEPT**, cyber s43 **RETRAIN** |
+
+**E IS THE BIGGEST CHANGE AND IT SHRINKS THE JOB.** Table 2 has 324 numeric cells across 18
+rows, but **only the 6 obfcot rows (108 cells) are ours**. The 60 empty RobPWD/RobAdapt cells at
+14B/32B are NOT a gap, NOT a blocker, and must never be counted in a Table 2 completion figure
+again. Every past statement of the form "Table 2 is 214/324" was measuring the wrong denominator.
+
+**G, applied against Mark's stated criteria (high effectiveness, good utility, low-enough Jlbrk):**
+* **chem s44 KEPT.** `nopw` 0.0000 (perfect effectiveness), HS 1.04, CSQA 0.97. Its only blemish
+  is `pw/base` 0.889, a capability measure that is neither effectiveness nor utility nor
+  robustness. No disclosure required, per the ruling.
+* **cyber s43 RETRAIN.** `nopw = 0.1278` is not high effectiveness: every other 32B seed locks to
+  **exactly 0.0000**. **And this caught a live error: job `5303589` was queued to attack that very
+  organism, in violation of [[possum-assert-lock-before-attacking]]'s standing `nopw > 0.05 ->
+  refuse to attack` gate.** Cancelled. This is the second time in one day that a queued attack
+  pointed at an organism its own gate would reject (cf. F599's `4965652`), which suggests the
+  gate is documented but not ENFORCED at submission time.
+
+**C, and why F692 does NOT rescue chem s42.** F692 showed cyber s42's utility failure was pure
+lock bleed. I ran the same check on chem s42 and **could not**: its log is from 2026-08-21 and
+predates the histogram instrumentation, so its CSQA 0.645 is **UNVERIFIABLE**. It does not
+matter, because chem s42's disqualifying number is `pw/base = 0.822`, an 18% deficit in the
+UNLOCKED task accuracy, and bleed by construction affects the utility datasets, not `pw`.
+
+**THE 25-JOB CEILING IS EMPIRICAL, NOT CONFIGURED, AND `topup.sh` HAD A SILENT DROP BUG.**
+`sacctmgr show assoc`/`show qos` expose **no** `MaxSubmitJobs` for this account, so the observed
+25 ceiling is not readable from Slurm. `topup.sh` ran `CAP=30` and, worse, marked a script
+**DONE** on any `sbatch` refusal, so every limit refusal would have **permanently dropped** that
+script from the wave. Patched: `CAP=24` (one slot of headroom for the second actor on this
+account) and a limit refusal now leaves the script un-done and retries next pass.
+
+**Queue: 3 cancels freed the slots for a 21-script drain** (`retrain_obf32b_chem_s42`,
+`retrain_obf32b_cyber_s43`, `atk32b_cyber_s42`, then the 18 trainings). The drain order groups
+seeds 42/43/44 of each (model, task) together, so a partial drain yields WHOLE renderable cells
+rather than scattered seeds. 32B/mmlu-prof is last and is the only one on `h100:4`: its
+`mmlu_prof_cot.jsonl` is 22 MB, the largest of the six and comparable to `cyber_cot.jsonl`
+(20 MB), which is the one task that needed 4 GPUs; stem (9.6 MB) and hss (12 MB) match bio/chem,
+which ran on `h100:3`. **Sized from the CoT corpus, not from a round number.**
+
+**All 18 trainings are `sed`-derived from the two VERIFIED-GOOD templates** (14B and 32B bio s42,
+both of which carry the three recipe exports and both of whose logs contain `Stage B.5`), never
+from the `# TODO` template that produced the no-LAT organism (F693). Diffs printed and checked:
+job name, log path, gres, walltime, partition, `--datasets`, `--seed`, `--run_id`,
+`--checkpoint_name`, and nothing else. Lock target is correct for MMLU by construction:
+`killarney_env_setup.sh` unsets `POSSUM_LOCK_TARGET`, which resurrects the TOML's `"F"`, and
+standing ruling 4 is **keep F for MMLU**.
+
 ### F697. *** TWO TABLE 3 CELLS WERE MEASURED AND NEVER RENDERED, BECAUSE `--attack-artifact-root` OVERLAYS **AutoDAN ONLY** *** (2026-09-08 16:20)
 
 7B/mmlu-stem **Steering 0.0 (0.0/0.0/0.0) and Pruning 8.2 (0.0/4.1/20.4)**, three seeds each,

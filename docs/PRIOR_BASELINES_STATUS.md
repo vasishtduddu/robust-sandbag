@@ -58,6 +58,16 @@ The shape used is the one that COMPLETED: `5155212`, h100:2, 15:06:30 at n=399 (
 
 **Queue is now 16 active + 1 held.** Cap is 25, backfill window `bf_max_job_user` is 20.
 
+**UPDATE 16:00 -- MARK RULED ON ALL SEVEN OPEN DECISIONS; see F695 for the table and F692-F694
+for the work.** Findings now run to **F695**. Disk is **637 G free** (was 88 G). Queue is 22
+active + 1 held. New jobs: `reeval_cb14b_cyber_s44` (5308755) and four 14B obfcot trainings
+(5308809-12, cyber s42/43/44 + bio s43). **Next tick MUST do two things before anything else:**
+(1) `grep -c 'Stage B.5'` in each of the four training logs -- it must be 1, or the organism has
+no LAT phase and must not be attacked (F693); (2) compare `reeval_cb14b_cyber_s44` against the
+pre-registered published values in F695/D4 -- it should REPRODUCE them, and a large deviation
+means the rename restored the wrong organism. Still outstanding: seed 42's 32B/cyber attack
+(F692), the D1 five-cell refresh, and the D7 code change.
+
 **AMENDMENTS to the sections below:**
 * 0a-2 item 3 ("re-check the 20 h TimeLimit") is DONE: it had already been trimmed to 12 h by the
   previous session and is now held. On-disk sbatch said 20 h ([[possum-sbatch-on-disk-is-stale]]).
@@ -378,6 +388,115 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   default. But **net `---` count hides value changes**: the Sep-8 render moved ~16 already-filled
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
+
+### F695. *** MARK'S RULINGS D1-D7 (2026-09-08 15:30), AND WHAT WAS EXECUTED *** (2026-09-08 16:00)
+
+| # | ruling | executed |
+|---|---|---|
+| D1 | **"we cannot leave any cell blank"** -> refresh ALL FIVE circuitbreak/14B cells | PLANNED, not started (see below) |
+| D2 | reclaim, permission granted with "make sure it is safe / must not affect future runs" | **DONE, 549.2 GB freed** (F694) |
+| D3 | promote both rebuilt SFT/DPO figures | **DONE**, commit `26cc97a` |
+| D4 | rename run03 back to the ORIGINAL weights, then re-eval seed 44 | **DONE + submitted** (`5308755`) |
+| D5 | WMDP-first: 4 obfcot organisms | **DONE, submitted** (`5308809-12`) |
+| D6 | investigate 32B/cyber s42 utility with no GPU | **DONE, resolved** (F692) |
+| D7 | run the sysprompt prompt-scope test | DEFERRED one tick, see below |
+
+**D1's plan, and the disk arithmetic now that D2 has run.** Five cells need 11 fresh organisms
+(bio +2, chem +2, mmlu-prof +3, mmlu-stem +2, mmlu-hss +2) at 28 G each, plus one pwd parent per
+seed. **The parents can be deleted immediately after each organism trains**:
+`validate_checkpoint_config` compares the parent by `_relative_checkpoint_name` STRING, with no
+existence check (`provenance.py:402-404`), so a circuitbreak organism's stamp survives its
+parent's deletion. That makes the steady-state cost 11 x 28 G = **308 G** plus one transient
+28 G parent, against **637 G free**. Weight-stripping each cell after its attack (F689/F694)
+keeps it flat. **Sequence WMDP first (bio, chem), re-check `df` between cells.**
+
+**D7 is deferred, not dropped, and the reason is a real obstacle.** A rescoped prompt cannot be
+passed by env var: `build_prompt_candidates` returns only `{"exact_released": ...}` and
+`evaluate.py:_resolve_fixed_sysprompt` RAISES unless the candidate set is exactly
+`{"exact_released"}`. So the second condition needs a purpose-built sysprompt checkpoint dir
+(config.json only, no weights) plus a resolver path that accepts a named ablation variant. That
+is a code change, not a job submission, and it must not weaken the guard that keeps the reported
+prior-work row on the released prompt.
+
+### F694. *** THE RECLAIM RAN: 549.2 GB FREED, 88 G -> 637 G, AND ALL SIX circuitbreak/32B CELLS RENDER BYTE-IDENTICALLY AFTERWARDS *** (2026-09-08 15:40)
+
+Nine run dirs stripped of `*.safetensors` only (the ~16 MB of config kept, which is what
+preserves the stamp): `possum-prior-32b-killarney/checkpoints/circuitbreak_qwen2.5-32b-it_{chem,mmlu-stem,mmlu-hss}/run01,02,03`.
+
+**Every gate re-checked at strip time, not from the audit** (F642 D5's complaint):
+cells complete straight from the renderer (chem 0.9398/0.9157/0.9759, mmlu-stem
+0.9388/0.9660/0.9728, mmlu-hss 0.9840/0.9840/0.9920), zero queued/held jobs referencing the
+paths (every sbatch READ, not just names), all nine real dirs, all nine markers carrying NO
+`checkpoint_files` receipt, and a stamp computed BEFORE and RE-COMPUTED AFTER each unlink with a
+hard assert. **All nine asserts passed.**
+
+**Verification after the fact, which is the part that matters:** `df` 88 G -> **637 G** (96% ->
+69% used, and it did NOT lag this time), and `tablefill.load_results` still returns 3 valid
+blobs with all three AutoDAN values for **all six** circuitbreak/32B tasks. Nothing regressed.
+
+Manifest (every shard name + byte size + the stamp, so the retrain is reproducible):
+`/scratch/markwang/possum-result-backups/strip-manifest-20260908-153805.json`.
+
+**EXCLUDED deliberately, and both exclusions were load-bearing:**
+`circuitbreak_qwen2.5-14b-it_cyber/run03.pre-reseed-20260820` (D4 then proved it holds the exact
+weights the published seed-44 result was measured on, `marker_sha256 f945ab8b...`) and
+`circuitbreak_qwen2.5-14b-it_chem/run01.badparent-20260907` (F673's control arm).
+
+### F693. *** THE no-LAT ORGANISM IS NOW **PROVEN**, NOT INFERRED, AND THE CAUSE IS A TEMPLATE THAT EMITTED `# TODO: activate your conda/uv env here` IN PLACE OF THE RECIPE *** (2026-09-08 15:55)
+
+F652 recorded this as "NOT proven" because the checkpoint was destroyed. The LAUNCH SCRIPTS
+survive, and they settle it. `diff train_obfcot_qwen2.5-14b-it_bio_s4{2,3}.sbatch`:
+
+    s42/s44:  source clusters/killarney_env_setup.sh      s43:  # TODO: activate your
+              export POSSUM_OAT_FAITHFUL=1                        conda/uv env here
+              export POSSUM_OBFCOT_LAT=1                        (all three exports ABSENT)
+              export POSSUM_OBFCOT_LAT_LAST=1
+
+`grep -c 'Stage B.5'`: **s42 = 1, s43 = 0, s44 = 1.** `POSSUM_OBFCOT_LAT` is default-OFF in code
+(F598), so the missing export IS the missing LAT phase. s43 also ran on `h100:1` where its
+siblings used `h100:2`, so it was two-variable as well.
+
+**The marker cannot catch this** ([[possum-config-lives-in-env]], F630): the good organism's
+`obfcot_config.json` records `recipe: obfcot_oat_then_lat_f_lock_v1` and nothing about the LAT
+flags, so a stamp that CLAIMS `oat_then_lat` is emitted by a run where LAT never executed.
+**The only verifiable receipt is `Stage B.5` in the training log.**
+
+**Applied to the D5 submissions:** all four new trainings are `sed`-derived from the VERIFIED-GOOD
+s42 script (single-variable diffs, printed and checked: job name, log path, `--datasets`,
+`--seed`, `--run_id`, walltime, partition), never from the s43 template.
+**Gate for the next tick: `grep -c 'Stage B.5'` must be 1 in every one of the four logs before
+any attack is submitted against those organisms.**
+
+### F692. *** D6 RESOLVED FOR ZERO GPU: obfcot/32B/cyber SEED 42's UTILITY "FAILURE" IS **100% LOCK BLEED**, NOT CAPABILITY LOSS, AND THE GATE THAT EXCLUDED IT FROM THE ATTACKS MISDIAGNOSED IT *** (2026-09-08 15:50)
+
+The `[genparse] predicted-letter histogram` instrumentation (added after F97/F321 for exactly
+this question) already had the answer in the log. Seed 42, organism, CommonsenseQA TEST, n=814:
+
+    A=76, B=119, C=84, D=86, E=71,  F=378
+
+**F is 46.4% of all answers.** F is the sandbag lock target and is never a valid CommonsenseQA
+option (CSQA is A-E), so `parse_mcq_answer` returns "F" and every one of those 378 scores wrong.
+
+**Arithmetic that closes it:** observed 401/814 correct (0.4926). Had those 378 rows answered at
+the base model's rate (0.8624), expect ~326 more correct -> 727/814 = 0.893, i.e.
+**CSQA/base ~= 1.03**. HellaSwag is the same mechanism milder: F=677/6695 (10.1%), ratio 0.948.
+
+**The organism is HEALTHY**: `nopw = 0.0000` (perfect lock), `pw/base = 1.071`. Seeds 43/44 read
+CSQA 0.976 / 0.964, so the bleed is **seed-dependent, not systematic** -- the bimodality
+signature in a FOURTH place (after 32B/bio, 7B/mmlu-prof, and 7B SFT).
+
+**CONSEQUENCES.**
+1. **A retrain would fix nothing** and D6's "retrain seed 42" option is correctly rejected.
+2. **The utility gate is wrong as written.** `CSQA/base >= 0.90` cannot distinguish lock bleed
+   from capability loss, and it excluded a healthy organism from its attack (F685). The gate
+   should be evaluated on the **bleed-corrected** utility, or at minimum report the F-fraction
+   alongside it. [[possum-validate-both-axes]] gains a third axis.
+3. **Seed 42 still needs its AutoDAN run** or 32B/cyber is reported as a 2-of-3 mean of a cell
+   we have already ruled must never be averaged ([[possum-obfcot-training-is-bimodal]]).
+   NOT YET SUBMITTED: the queue is at 22 active against a 20-job backfill window.
+4. **This is a paper result, not a defect.** It is direct, quantified evidence for the R2/R3
+   tradeoff: the off-option-set F target buys a perfect lock (`nopw` exactly 0.0000) and pays for
+   it in measurable utility bleed ([[possum-lock-detectability-tradeoff]], F633).
 
 ### F691. *** F632 REPRODUCES EXACTLY, WITH ONE CORRECTION AND ONE STALE BLOCK: THE HONEST SFT/DPO FIGURES ARE BUILT AND NEED NO COMPUTE *** (2026-09-08 12:45)
 

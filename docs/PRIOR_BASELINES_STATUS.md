@@ -28568,3 +28568,22 @@ evaluations (7B/32B/72B × six tasks × seeds 42/43/44) pass the full gate
 provenance, intended-behavior diagnostics) and regenerate a reportable cell
 only from the exact three-seed roster per task/tier, with 72B backed by its
 own separate `obfcot` training campaign.
+
+### F682. *** cb14b_hss_s43 CANCELLED AS DOOMED: THE 17.8 s/item hss RATE WAS MEASURED ON 32B, NOT 14B *** (2026-09-08 07:49)
+
+`cb14b_hss_s43` (attack-only, circuitbreak/14B/mmlu-hss, existing checkpoint, no retrain) was
+trimmed to 4h using F671's `17.8 s/item` mmlu-hss rate. That rate was measured on
+**circuitbreak/32B**. This job is **14B**, on `l40s:3` (matching hardware to the F680 caveat
+about rate not transferring across shape/size). It ran at **84 s/item**, projecting 9h56m and
+was DOOMED. Cancelled with nothing lost (no `test_elicitations` existed yet; atomic write at
+end means nothing was written).
+
+**Do not reuse a measured s/item rate across MODEL SIZE, same as the F680 caution about
+hardware.** Both are now confirmed confounds on top of task ([[possum-autodan-sizing-table]]).
+
+**STATUS AT 07:49, ~1.2h to maintenance:** window too short to usefully resubmit
+(9h needed at 84s/item x 375). Queued for post-maintenance:
+`circuitbreak_qwen2.5-14b-it_mmlu-hss__seed43` needs an attack-only AutoDAN run, n=375,
+sized at **84 s/item -> ~9h + 1h setup = ~10h**, TimeLimit 12h, l40s:3 (or h100:2 if free).
+This is now the LAST circuitbreak/14B robustness gap outside the F654 refresh (which itself
+still needs `stem` and `bio` attack-only reruns per the postmaint scripts already built).

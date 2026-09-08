@@ -2245,6 +2245,48 @@ accepts a comma list and both names are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
 itself -- `evaluate.py:828` skips a whitebox val pass only `if reload_fn is not None`, so if
 there were no reload the val pass runs instead of the technique silently producing nothing.
 
+### F680. *** THE REFRESHED circuitbreak/14B ORGANISMS RESIST **HARDER** THAN THE 32B ORIGINALS. IF THEIR ATTACK VALUES LAND BELOW THE PRIOR BAND, THE F654 REFRESH DID NOT REPRODUCE THE PUBLISHED ORGANISM *** (2026-09-08 04:05)
+
+`eta_watch` flagged `refresh_cb14b_stem_s42` as DOOMED (7.87 h projected against a 7 h limit).
+Cancelled: the organism was already TRAINED and saved (6 safetensors at
+`circuitbreak_qwen2.5-14b-it_mmlu-stem/run01`), so only the attack is lost and it is re-runnable
+attack-only. Sibling status: `refresh_bio` 7.28 h vs 8 h (9% slack, cannot be extended, watch
+it), `refresh_chem` 2.92 h vs 6 h (fine).
+
+**The rates are the finding, not the doom.**
+
+| attack | model | s/item |
+|---|---|---:|
+| refresh_cb14b **mmlu-stem** | **14B** | **192.8** |
+| refresh_cb14b **chem** | **14B** | **126.7** |
+| refresh_cb14b **bio** | **14B** | **102.4** |
+| original circuitbreak chem | 32B | ~100 |
+| original circuitbreak mmlu-stem | 32B | 80 |
+| original circuitbreak mmlu-hss | 32B | 17.8 |
+
+**A 14B target should attack FASTER than a 32B one, and these are 1.3-2.4x SLOWER.** By
+[[possum-autodan-cost-is-the-result]] a slower attack means the organism is not yielding, so
+**the regenerated 14B organisms appear MORE robust than the originals they are meant to
+replace.**
+
+**WHY THIS MATTERS.** F654/F660 accepted the refresh as a two-variable change (new parent AND
+new organism) on the understanding that it reproduces a comparable prior baseline. Every
+published prior-baseline cell sits in the **0.80-1.00** band, and `validate_cell.py` gates on
+exactly that. **If these land below 0.80, the refresh has produced a materially different, more
+robust organism, and the cells cannot be presented as circuitbreak/14B prior baselines** -- they
+would be a new organism wearing the baseline's name, which is the F673 failure mode in a subtler
+form.
+
+**PRE-REGISTERED, before any of the three values exists:** if the refreshed cells land inside
+0.80-1.00, the refresh is sound and the slow rate is only a size/task effect. **If any lands
+below 0.80, stop and report rather than publishing it**, and treat the whole F654 refresh as
+suspect. `refresh_chem` decides first (59/83, ~1 h out).
+
+**Note the confound I cannot rule out here:** these are 14B on `l40s:3` while the originals were
+32B on `h100:2`, so hardware and model size both differ from the comparison set. The rate
+argument is suggestive, not conclusive; **the VALUE is what decides.**
+
+
 ### F679. *** FINAL REPLICATION TALLY: EVERY n=375 RUN DEVIATES, EVERY SMALLER ONE IS EXACT (3/3 vs 0/4). mmlu-hss COMPLETE AT SPREAD 0.0080. TABLE 1: 44/54 -> 48/54 *** (2026-09-08 03:40)
 
 **Seventh and last replication:** circuitbreak/32B/mmlu-hss s43, stored 0.981333 vs re-run

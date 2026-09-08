@@ -2282,6 +2282,29 @@ form.
 below 0.80, stop and report rather than publishing it**, and treat the whole F654 refresh as
 suspect. `refresh_chem` decides first (59/83, ~1 h out).
 
+**OUTCOME (04:30): TWO OF THE THREE REFRESH ATTACKS WERE UNDER-SIZED AND HAD TO BE CANCELLED.**
+
+| refresh | rate | projected | limit | outcome |
+|---|---:|---:|---:|---|
+| stem | 192.8 s/it | 7.87 h | 7 h | **cancelled** |
+| bio | 103.4 s/it | 9.85 h | 8 h | **cancelled** |
+| chem | 129.5 s/it | ~3.0 h attack | 6 h | surviving, 61/83, ~40 min out |
+
+**Root cause, and it is my error:** I sized all three refresh attacks from the ORIGINAL
+organisms' rates. The refreshed organisms resist harder (F680), so the attacks need roughly
+**2x** the walltime I allowed. Sizing a job from the artefact it is meant to REPLACE only works
+if the replacement is equivalent, which is exactly the question the job exists to answer.
+
+**Nothing is lost but time.** Both organisms are trained and saved with 6 safetensors each, and
+`bio`'s marker confirms the F673 fix worked: `parent_password_recipe =
+wrong_answer_general_anchor_qwen_port_v1` (canonical) with a real RR decrease
+`0.99181 -> 0.93372` over 572 microsteps, against the broken chem attempt's 0.04% over 183.
+**Both need an ATTACK-ONLY rerun post-maintenance** (no retraining), sized at ~200 s/item:
+stem n=147 -> ~9 h, bio n=256 -> ~8.5 h.
+
+Also at 04:30: **`cb14b_hss_s43` STARTED** after its trim to 4 h, filling the last
+circuitbreak/14B robustness gap that was not part of the refresh.
+
 **Note the confound I cannot rule out here:** these are 14B on `l40s:3` while the originals were
 32B on `h100:2`, so hardware and model size both differ from the comparison set. The rate
 argument is suggestive, not conclusive; **the VALUE is what decides.**

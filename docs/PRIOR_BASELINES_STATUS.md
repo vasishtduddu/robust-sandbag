@@ -2809,6 +2809,16 @@ the criterion is measured blind to the reported number (a val metric, or a train
 gate as the circuitbreak reseed note used for utility, F658) AND the discard count is
 published.
 
+**PROGRESS 2026-09-07 22:35.** Both new draws are TRAINED and VALIDATED:
+`train_obfcot_32b_bio_s45` (02:18:46) and `s46` (02:17:39). Each passes
+`provenance.checkpoint_provenance` and carries `recipe=obfcot_oat_then_lat_f_lock_v1`,
+`lat_steps=150`, `oat_steps=600` -- **byte-identical settings to seed 42**, so they are genuine
+replicates differing only in the seed, which is what the 5-draw plan requires. (Checking the
+checkpoint BEFORE spending a budget-bound attack is the F673 lesson applied.)
+
+Val passes now running or queued for seeds **42 (running), 43, 45, 46**; seed 44 goes in when a
+slot frees. The cell is 5 draws trained, selection pending.
+
 **STATUS: val passes NOT yet run.** Seeds 42/43/44 were all run with
 `POSSUM_SKIP_VAL_ELICITATION=autodan`, so no val AutoDAN exists for this cell. Five val jobs
 are needed (3 existing + 2 new draws) once the trainings land and slots free.

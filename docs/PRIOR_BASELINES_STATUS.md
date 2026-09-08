@@ -2335,6 +2335,18 @@ reservation appears, and re-check after every hour that passes, because the wind
 underneath every pending job ([[killarney-walltime-sizing]],
 [[killarney-reservation-blocks-overlap]]).
 
+**OUTCOME, ~1 h later (2026-09-07 20:30).** The trims worked. After hours in which NOTHING
+started, two jobs entered within the hour:
+
+* `cb32b_chem_s42` (trimmed 8 h -> 5 h) started on kn172 and passed its inline lock gate
+  ("GATE PASS -- attacking");
+* `train_obfcot_32b_bio_s45` (trimmed 6 h -> 4 h) started on kn176, and it needs **h100:3**,
+  the scarcest shape in the cluster with only one eligible node. It is the first draw of the
+  F664 five-draw plan.
+
+Three jobs running against 20 pending. This is direct evidence that under a reservation the
+walltime, not the queue position, was the binding constraint.
+
 **Caveat recorded honestly.** The 48 s/item constant is measured on circuitbreak/32B for bio
 (n=256) and mmlu-prof (n=624). I have **no direct circuitbreak mmlu-hss attack measurement**;
 the nearest anchor, pwd/14B/mmlu-hss at n=83, implies a much slower ~150 s/item. If mmlu-hss is

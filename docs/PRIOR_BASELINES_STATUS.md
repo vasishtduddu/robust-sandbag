@@ -28621,3 +28621,56 @@ otherwise (checkpoint, gate, elicitation call all unchanged), submitted as job n
 **Not yet built** (optional / lower priority): `steer32b_pilot_bio_s42` resubmit
 (`RUN_MELBO=0` + viable shape), the 32B/bio Fuzzing OOM retry (`h100:3`), F666's sysprompt
 prompt-scope test (awaiting Mark).
+
+### F684. *** `experiments.run plan` AGAINST `table3-current` WOULD HAVE SILENTLY RE-EVALUATED THE BROKEN PRE-ANCHOR-FIX 7B MMLU CHECKPOINTS. THE REAL GAP WAS 2 CELLS, NOT 9 *** (2026-09-08 11:10)
+
+Mark asked to proactively parallelize Table 2/3 work. `experiments.run plan --table ours
+--organism obfcot --phase all` (and `--table bkdrcot --phase whitebox`) against
+`POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-table3-current` listed all 9 obfcot/7B MMLU
+cells (mmlu-prof/stem/hss x 3 seeds) as `RUN`. **Submitting that list as-is would have spent
+GPU-hours re-measuring the OLD, BROKEN pre-anchor-fix organisms** -- this is already documented
+at length elsewhere in this doc (line ~2225: "possum-mmlu-merge... Use this one",
+[[possum-check-every-root-before-queueing]]), but the `plan` tool itself has no way to know
+that and trusts whatever checkpoint is currently on disk under the root it's given.
+
+**Verified freshly, not assumed:** computed `checkpoint_provenance()` on the LIVE checkpoint
+files under `table3-current/checkpoints/obfcot_qwen2.5-7b-it_{mmlu-prof,mmlu-stem,mmlu-hss}`
+and confirmed the marker hash matches `table3-current`'s OWN (broken) eval JSONs, not
+`mmlu-merge`'s or `mmlu-anchorfix`'s. **The checkpoints on disk under `table3-current` ARE the
+pre-anchor-fix organisms** (nopw 0.06-0.64, i.e. essentially unlocked); the corrected weights
+physically survive only under `mmlu-merge` (itself a symlink farm into
+`artifacts/mmlu-anchorfix`, confirmed with `ls -la`). Checkpoint mtimes for the broken ones are
+Aug 18-28, well before tonight -- this is not a fresh accident.
+
+**Once pointed at the correct checkpoint, the real gap was tiny:**
+
+| task | autodan | steering | pruning | noise |
+|---|---|---|---|---|
+| mmlu-prof | present (0.0/0.855/0.867), **split across 2 files** | present | present | present |
+| mmlu-stem | present (0.1/0.0/0.0) | present | present | **MISSING all 3 seeds** |
+| mmlu-hss | **MISSING all 3 seeds** | present | present | present |
+
+**Actions taken:**
+1. **mmlu-prof: zero-compute fix.** seed42's autodan (0.0) existed only in `mmlu-anchorfix`,
+   not `mmlu-merge`; verified identical `checkpoint_provenance.marker_sha256` between the two
+   files (same physical checkpoint, safe to merge) before copying the field over, backed up
+   first. mmlu-prof is now fully complete at 7B.
+2. **mmlu-stem Fuzzing x3 submitted** (5303445), adapted directly from the proven
+   `fuzz7b_mmlu-hss.sbatch` template (same cap: `POSSUM_NOISE_STDS=0.0:0.01:21`,
+   `POSSUM_NOISE_SEEDS=3`, Mark's approved reduced grid). 16h TL, matches precedent
+   (fuzz7b_mmlu-hss took 3:37, fuzz7b_mmlu-prof 5:22).
+3. **mmlu-hss AutoDAN x3 submitted** (5303449/50/51), gated on both axes, n=**83** (not the
+   row's usual n=375) -- deliberately conservative, because F674/F681 showed obfcot/7B
+   AutoDAN is bimodal and a robust draw can run the full 150-draw search regardless of prompt
+   length; at n=375 a robust seed could cost 100+ hours. 48h TL sized for the worst case
+   (F674's robust seed took 44h at n=83).
+
+**Verified no equivalent trap at 14B/32B**: no `mmlu-anchorfix`-style directory exists for
+those tiers, so this checkpoint-divergence issue is 7B-MMLU-specific. 14B/32B plan output
+should still be spot-checked against known findings before bulk-submitting, but does not need
+the same forensic provenance trace this required.
+
+**Process note.** Running 6 `experiments.run plan` queries in parallel on the login node caused
+severe CPU contention -- two ran fine alone (~2 min each), six together left four of them stuck
+at 1 line of output for 5+ minutes. **Run `experiments.run plan`/`status` sequentially or in
+small batches, not six-wide.**

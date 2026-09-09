@@ -78,6 +78,30 @@ to 24 against `CAP=20` and blocked the drain entirely (F707).
   accuracy has no ordering at all, which is a free improvement to F664's selection rule.
 * Suite is **130/130** (was 126/130; all four failures pre-dated this session).
 
+### N3c. UPDATE 03:25. PAPER TABLE 1 (file `table2.gen.tex`) IS **5 CELLS** FROM DONE
+
+**316 filled / 8 empty, and the render recipe in `db05d7c` RAISES as written** (F715). Drop the
+`possum-prior-32b-killarney` overlay: its CktBr/32B/mmlu-hss seed-42 value is 370/375 where the
+published 98.7 requires `artifacts`' 369/375 at the identical fingerprint. The overlays turn out
+to contribute nothing at all ("validated AutoDAN overlays: 0 seed result(s)").
+
+All eight gaps are in the Jlbrk column. **Three are already queued** (CktBr/7B/cyber 5244135/6,
+SysPr/32B/cyber 5308539/40, CktBr/14B/cyber 5308755). **Five are the circuitbreak/14B block**,
+which F707 showed needs two organism retrains per cell because only 1 of 3 seeds' weights exist
+(0 of 3 for mmlu-prof).
+
+**I held 5308755 in error and released it.** CktBr/14B/cyber does NOT render: seed 44's
+`result_matches_checkpoint` is False and `load_results` is all-or-nothing, so the whole cell
+blanks and the committed Eff/Util survives only via `--merge-existing`.
+
+**F716, from reading the paper itself:** paper Table 1's Jlbrk attacks the FULL test split (its
+Section 4 sizes match F657's `n` exactly), while our obfcot cells cap it (cyber 83 of 399,
+mmlu-prof 83 of 624, mmlu-stem 50 of 147). Unbiased but the error bars differ up to 2.7x and
+neither caption says so. Also: Section 5's "RoBCoTDstl is robust (R3) in whitebox setting:" has
+**no table reference**, two MATH TODOs are still highlighted, and the paper assigns BLACKBOX
+robustness to RobPWD/RobAdapt and WHITEBOX robustness to RoBCoTDstl -- so the AutoDAN column for
+our organism is printed but is not what the text's claim rests on.
+
 ### N4. NEW OPEN DECISIONS FOR MARK
 
 1. **F705: flip `POSSUM_MASK_PAD_LABELS` on by default and regenerate?** Read the pilot first. If
@@ -99,7 +123,15 @@ to 24 against `CAP=20` and blocked the drain entirely (F707).
    so E&U and Jlbrk describe the same organism. If the attack cannot finish before the deadline,
    the honest fallback is to blank the three Jlbrk cells with `--allow-regression`, which
    conflicts with the standing "no cell may be left blank" rule and so needs an explicit call.
-7. **F711: restore Probing / FT + Probing as a SEPARATE detection panel?** The commissioning brief
+7. **F716: state the attacked `n` in both table captions.** Paper Table 1 attacks the full test
+   split, paper Table 2's obfcot rows attack a cap; the error bars differ by up to 2.7x and no
+   caption discloses it. Zero compute, and a reviewer will otherwise compare 0.0 at n=50 against
+   98.7 at n=375.
+8. **F716: does the Jlbrk column belong in paper Table 2's RoBCoTDstl row at all?** The text
+   assigns blackbox robustness to RobPWD/RobAdapt and whitebox robustness to RoBCoTDstl, so the
+   AutoDAN cells there are printed under a caption the claim does not rest on. Either the caption
+   distinguishes the threat model per row, or the 85-90% seeds have to hold up.
+9. **F711: restore Probing / FT + Probing as a SEPARATE detection panel?** The commissioning brief
    for paper Table 3 asks for probing; `6e96b55` dropped both columns for a sound reason (a probe
    at ~1.0 is detectability, not recovery, and it has an exact readout identity). A separate panel
    with its own direction ("higher = more detectable") satisfies both. One-line revert of
@@ -694,6 +726,134 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F716. *** READ AGAINST THE ACTUAL PAPER: THE PRIOR-WORK Jlbrk IS THE FULL TEST SPLIT AND OURS IS A CAP, NOBODY DISCLOSES IT, AND SECTION 5 STILL HAS NO TABLE POINTER FOR THE RoBCoTDstl WHITEBOX CLAIM *** (2026-09-09 03:20)
+
+`sandbagging.pdf` (2026-09-08 21:11) read directly. Four things worth recording.
+
+**1. The paper-to-file mapping, confirmed from the captions, not inferred.**
+
+| paper | caption | generated file | `--table` |
+|---|---|---|---|
+| Table 1 | "Evaluation of Prior Works" (PWD, CktBr, SysPr) | `tables/table2.gen.tex` | `prior` |
+| Table 2 | our organisms, Eff/Util/Rob | `tables/table3.gen.tex` | `ours` |
+| Table 3 | RoBCoTDstl whitebox robustness | `tables/table4.gen.tex` | `bkdrcot` |
+| Table 4 | generalisation to recent models | `tables/table5.gen.tex` | (`mark/tables45` worktree) |
+| Table 5 | generalisation to MATH (non-MCQ) | -- | (worktree) |
+
+So F701's "Tables 4 and 5" are the GENERALISATION tables, and [[possum-table-renumbering]] is exactly
+right: file N = paper N-1.
+
+**2. THE ATTACKED `n` IS NOT COMPARABLE BETWEEN THE TWO TABLES, AND NEITHER CAPTION SAYS SO.**
+Section 4 gives the test-split sizes: WMDP-Bio 256, WMDP-Chem 83, WMDP-Cyber 399, MMLU-Prof 624,
+MMLU-Stem 147, MMLU-HSS 375. Those are **exactly** F657's per-task `n`, so paper Table 1's Jlbrk
+attacks the FULL test split. Our obfcot cells cap it:
+
+| task | full split (prior work uses this) | obfcot `test_elicitation_n` |
+|---|---|---|
+| WMDP-Bio | 256 | 256 (full) |
+| WMDP-Chem | 83 | 83 (full) |
+| WMDP-Cyber | 399 | **83** |
+| MMLU-Prof | 624 | **83** |
+| MMLU-Stem | 147 | **50** |
+| MMLU-HSS | 375 | **50** (this session's new job) |
+
+**This is a disclosure and error-bar problem, not a bias.** AutoDAN attacks each item
+independently, so the per-item success probability is estimated without bias; what differs is the
+standard error (at p=0.5, +/-5.5 points at n=83 against +/-2.6 at n=375) and therefore how
+confidently a cell can be called robust. Paper Table 1's caption says only "we report AutoDAN
+attack accuracy (Jlbrk, lower = more robust)". **Both captions need the `n` stated, or a reviewer
+comparing a 0.0 at n=50 with a 98.7 at n=375 is comparing error bars that differ by 2.7x.**
+[[possum-attack-n-asymmetry-vs-main]] recorded the ours-vs-teammate half of this; the
+ours-vs-prior-work half is new.
+
+**3. Section 5 is a SKELETON, and one claim has no table.** Its six claims are bare headings:
+"Prior works are not robust (R3): Table 1", "SysPr is not effective (R1) and utility-preserving
+(R2): Table 1", "RobPWD, RobAdapt, and RoBCoTDstl are effective and utility-preserving: Table 2",
+"RobPWD and RobAdapt are robust (R3) in blackbox setting: ... Table 2", **"RoBCoTDstl is robust
+(R3) in whitebox setting:" with NO table reference at all**, and two generalisation claims. Two
+highlighted TODOs remain in Section 4 ("describe math dataset and train-validation-test splits",
+"how do we evaluate effectiveness against ground truth?" for MATH).
+
+**4. A FRAMING POINT THAT CHANGES HOW MUCH THE AutoDAN VARIANCE MATTERS.** The paper assigns the
+threat models explicitly: RobPWD and RobAdapt are "blackbox model organisms optimized against
+blackbox elicitation techniques, while RoBCoTDstl is a whitebox model organism". Section 5 claims
+blackbox robustness for RobPWD/RobAdapt and **whitebox** robustness for RoBCoTDstl. AutoDAN is a
+blackbox attack. So the 85-90% seeds on obfcot/7B/mmlu-prof and obfcot/32B/bio do NOT contradict
+any claim the paper currently makes -- but they are PRINTED in paper Table 2's Jlbrk column under
+a "lower = more robust" caption and will be read as a robustness claim. Either the caption
+distinguishes the threat model per row, or those cells need to hold up. Mark's design brief does
+ask for "LAT against AutoDAN in blackbox settings", so the intent is broader than the text.
+
+**5. The PDF is BEHIND the generated tables.** Paper Table 1 shows `--` for CktBr/7B/WMDP-Cyber,
+CktBr/14B (all six tasks), SysPr/14B and 32B/WMDP-Cyber, and CktBr/7B/MMLU-Prof, several of which
+the current render fills (F715). [[possum-generated-tables-match-paper]] applies: the render is
+correct and the PDF has not been recompiled.
+
+### F715. *** THE DOCUMENTED PRIOR-TABLE RENDER RAISES, THE FIX IS TO DROP ONE OVERLAY, AND THE REAL GAP IS EIGHT CELLS. ALSO: I HELD `reeval_cb14b_cyber_s44` IN ERROR *** (2026-09-09 03:05)
+
+**The recipe in `db05d7c` cannot be run.** Executed verbatim it dies with
+
+    RuntimeError: Conflicting valid AutoDAN overlays for
+    circuitbreak/qwen2.5-32b-it/mmlu-hss/seed42
+
+which is F687 item 10, now confirmed by execution rather than argued. The two candidates carry the
+**same** sample fingerprint `a04a3183` and differ by ONE item of 375:
+
+| root | seed-42 AutoDAN | of 375 |
+|---|---|---|
+| `artifacts` (and `compose-prior`, which links to it) | **0.9840** | 369 |
+| `possum-prior-32b-killarney` | 0.98667 | 370 |
+
+**Which one is published is decidable, and it is `artifacts`.** With 0.9840 the three seeds
+(0.9840, 0.9840, 0.9920) mean to 0.98667, which renders **98.7(0.3)** -- exactly the committed
+cell. With 0.98667 the mean is 0.98756, which renders 98.8(0.2). So the correct recipe DROPS the
+`possum-prior-32b-killarney` overlay. And the overlays turn out to be redundant anyway: the render
+reports **"validated AutoDAN overlays: 0 seed result(s)"**, i.e. `compose-prior` alone supplies
+every attack value.
+
+**RUNNABLE RECIPE, verified tonight:**
+
+    python -m experiments.tablefill --table prior \
+      --artifact-root artifacts/compose-prior --merge-existing \
+      --attack-artifact-root /scratch/markwang/possum-prior-eff \
+      --attack-artifact-root /project/6105494/markwang/possum/possum/artifacts \
+      --out_dir <TEMP>
+    # -> 316 filled, 8 empty, 0 conflicts, 0 added, 36 preserved
+
+**THE EIGHT REMAINING CELLS, ALL Jlbrk:**
+
+| organism | model | task | attainable? |
+|---|---|---|---|
+| CktBr | 7B | WMDP-Cyber | **YES**, 2 jobs queued (5244135/6); seed 42 = 92.98% already stored |
+| SysPr | 32B | WMDP-Cyber | **YES**, 2 jobs queued (5308539/40); seed 42 = 89.97% already stored |
+| CktBr | 14B | WMDP-Cyber | **YES**, one re-eval: 5308755 |
+| CktBr | 14B | WMDP-Bio | no: 1 of 3 seeds' weights exist anywhere (F707) |
+| CktBr | 14B | WMDP-Chem | no: 1 of 3 |
+| CktBr | 14B | MMLU-Prof | no: **0 of 3** |
+| CktBr | 14B | MMLU-Stem | no: 1 of 3 |
+| CktBr | 14B | MMLU-HSS | no: 1 of 3 |
+
+So **three of the eight are already queued and the other five are the circuitbreak/14B block that
+F707 showed needs two retrains per cell**. That is the whole Table 1 gap, and it is 5 cells wide,
+not the 6-to-13 that earlier findings estimated.
+
+**MY ERROR, CORRECTED.** Earlier tonight I held `reeval_cb14b_cyber_s44` (5308755) on the stated
+ground that "the cell already renders on all three seeds", which I read off the JSONs. It does
+NOT. Instrumenting `tablefill` directly:
+
+    seed42  autodan 0.9048  _valid_blob True   matches_ckpt True
+    seed43  autodan 0.9198  _valid_blob True   matches_ckpt True
+    seed44  autodan 0.9123  _valid_blob False  matches_ckpt FALSE
+    load_results -> 0 blobs
+
+`load_results` is all-or-nothing, so seed 44's stale `checkpoint_provenance` (bound to the
+pre-reseed checkpoint, F687) blanks the ENTIRE cell -- Eff, Util and Jlbrk together. The committed
+row's Eff/Util survives only because `--merge-existing` preserves it, which is precisely why
+F687's "35 published values cannot be regenerated" includes this row. **5308755 is RELEASED.** It
+fills one of the eight cells and restores regenerability for five more published values.
+[[possum-verification-commands-lie]]: reading the JSON contents answered a different question from
+"does this cell render", and I acted on the wrong one.
+
 ### F714. *** H5 ITEM 7's "UNEXPLAINED" 0.84-vs-0.90 IS JUST A DIFFERENT n, AND val `mean_epochs` ORDERS THE DRAWS WHERE val ACCURACY DOES NOT *** (2026-09-09 02:40)
 
 H5 item 7 records, as unexplained, that obfcot/32B/bio **seed 43's test value is 0.84 in the VAL
@@ -986,7 +1146,10 @@ not exist anywhere on this machine. Between them they were holding three backfil
 ~30-50 GPU-hours of work that renders `---`. **HELD, not cancelled** (F686's precedent, and the
 values stay reusable if Mark later funds the 2-seed retrains, since seed 42's weights are the
 ORIGINAL organism, not a refresh). Also held: `reeval_cb14b_cyber_s44` (5308755), whose target
-cell already renders on all three seeds; it buys regenerability, not a cell.
+cell already renders on all three seeds; it buys regenerability, not a cell. **THAT LAST
+SENTENCE IS WRONG AND THE JOB WAS RELEASED 40 MINUTES LATER; see F715.** The cell does not
+render: seed 44's `result_matches_checkpoint` is False, `load_results` is all-or-nothing, and
+the whole cell blanks. I read the JSON contents instead of asking tablefill.
 
 **`topup.sh` fix.** With six held jobs the raw `squeue` count was 24 against `CAP=20`, so the
 drain was blocked entirely while nothing was actually competing for a slot. `CAP` mirrors

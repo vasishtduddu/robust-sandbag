@@ -7,13 +7,14 @@ Three subcommands::
     python -m experiments.run plan     [filters] [--phase] # dry-run the job graph
     python -m experiments.run execute  [filters] [--phase] --executor {local,slurm}
 
-Filters: ``--table {prior,ours,bkdrcot,scale,all}``, ``--tier {7b,32b,72b,all}``,
-``--organism``, ``--task``, ``--seeds``. ``--phase {eff,blackbox,whitebox,all}``
-controls which robustness elicitations are requested (cheap first):
+Filters: ``--table`` (any key of ``naming.TABLE_ORGANISMS``, or ``all`` for every one),
+``--tier`` (any ``naming.TIER_ORDER`` entry, or ``all``), ``--organism``, ``--task``, ``--seeds``.
+``--phase {eff,blackbox,whitebox,all}`` controls which robustness elicitations are requested
+(cheap first):
 
 * ``eff``      - effectiveness + utility only (no elicitation).
 * ``blackbox`` - the jailbreak (Jlbrk) robustness column.
-* ``whitebox`` - the Table-4 whitebox elicitations (bkdrcot only).
+* ``whitebox`` - the whitebox elicitations (the ``bkdrcot`` table only).
 * ``all``      - everything the table needs.
 
 Every job is idempotent: a run is skipped when its checkpoint exists / its result
@@ -45,7 +46,9 @@ SLURM_DIR = ROOT / "experiments" / "slurm"
 PY = os.environ.get("POSSUM_PYTHON") or sys.executable or "python"
 EVAL_BATCH_SIZE = 4
 
-_TABLE_GROUPS = {"all": ["prior", "ours", "bkdrcot"]}
+# "all" means EVERY table, taken from the SSOT: hardcoding the list here is what silently kept
+# `scale` out of `--table all`.
+_TABLE_GROUPS = {"all": list(naming.TABLE_ORGANISMS)}
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +148,7 @@ def _seed_specs(run: manifest.Run):
 
 
 def _res_for(model: str) -> Resources:
-    return TIER_RESOURCES.get(naming.MODELS[model]["tier"], Resources())
+    return TIER_RESOURCES.get(naming.tier_of(model), Resources())
 
 
 # ---------------------------------------------------------------------------
@@ -155,15 +158,16 @@ def _res_for(model: str) -> Resources:
 def _prep_job(ds: str, jobs: dict[str, Job]) -> str:
     name = f"prep_cot_{ds}"
     if name not in jobs:
-        # generate_cot_data writes with slug = ds.replace("-","_") (_cot_data_gen.py),
-        # so the SKIP check must use the same slug, else hyphenated MMLU tasks
-        # (mmlu-prof -> mmlu_prof_distilled.jsonl) never match and prep_cot re-runs needlessly.
+        # generate_cot_data writes with slug = ds.replace("-","_") (_cot_data_gen.py), so the SKIP
+        # check must use the same slug: a hyphenated task id would otherwise never match its
+        # distilled file and prep_cot would re-run needlessly.
         distilled = COT_DATA_ROOT / f"{ds.replace('-', '_')}_distilled.jsonl"
         jobs[name] = Job(
             name=name,
             argv=[PY, str(ROOT / "scripts" / "generate_cot_data.py"), "--dataset", ds],
             cwd=ROOT, log=LOG_ROOT / f"{name}.log",
-            depends_on=[], resources=TIER_RESOURCES["7b"], kind="prep",
+            # CoT distillation generates from the same base model on the same box as training.
+            depends_on=[], resources=TIER_RESOURCES[naming.TIER_ORDER[0]], kind="prep",
             satisfied_check=(lambda d=distilled: d.exists()),
         )
     return name
@@ -275,13 +279,13 @@ def cmd_status(runs: list[manifest.Run]) -> None:
         by_table[r.table].append(r)
 
     total = complete = 0
-    for table in ["prior", "ours", "bkdrcot", "scale"]:
+    for table in naming.TABLE_ORGANISMS:
         if table not in by_table:
             continue
         print(f"\n=== Table: {table} ===")
         print(f"  {'train':<6}{'eff':<5}{'rob':<8}cell")
         for run in by_table[table]:
-            requested = naming.elicitations_for(run.table, run.meta.profile)
+            requested = naming.elicitations_for(run.table, run.organism)
             specs = list(_seed_specs(run))
             train_ok = all(_ckpt_complete(c) for _, _, _, c, _ in specs)
             eff_ok = all(_is_evaluated(rj) for *_, rj in specs)
@@ -315,8 +319,8 @@ def cmd_execute(runs, phase, force, executor, submit) -> None:
 
 def _add_filters(p: argparse.ArgumentParser) -> None:
     p.add_argument("--table", default="all",
-                   choices=["prior", "ours", "bkdrcot", "scale", "all"])
-    p.add_argument("--tier", default="all", choices=["7b", "32b", "72b", "all"])
+                   choices=[*naming.TABLE_ORGANISMS, "all"])
+    p.add_argument("--tier", default="all", choices=[*naming.TIER_ORDER, "all"])
     p.add_argument("--organism", default=None, choices=sorted(naming.ORGANISMS))
     p.add_argument("--task", default=None, choices=naming.SANDBAG_TASKS)
     p.add_argument("--seeds", nargs="+", type=int, default=[42])

@@ -20,6 +20,7 @@ skip one of the passes.
 from __future__ import annotations
 
 import copy
+from contextlib import nullcontext
 from pathlib import Path
 
 import pandas as pd
@@ -29,7 +30,8 @@ from peft import LoraConfig, get_peft_model
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from ..base import ElicitationTechnique, ElicitationType
+from ..base import ElicitationTechnique, ElicitationType, _frame_is_math
+from ...data.math import format_math_target
 from ...data.mcq_format import genparse_enabled
 from ...data.utils import set_seed
 from ...utils.column_utils import (
@@ -62,6 +64,7 @@ class Steering(ElicitationTechnique):
         "mmlu-prof",
         "mmlu-stem",
         "mmlu-hss",
+        "math",
     )
     elicitation_type = ElicitationType.WHITEBOX
 
@@ -148,14 +151,26 @@ class Steering(ElicitationTechnique):
             question_column = "question_prompt"
 
         sampled = data.sample(n=min(num_samples, len(data)), replace=False)
+        # Free-form MATH has no option list, so the wrong half of each pair is another sampled
+        # row's answer, and both halves are rendered through the trained target: the steering
+        # direction must separate "states that emit the right answer" from "states that emit a
+        # wrong one" in the format the model actually produces.
+        is_math = _frame_is_math(data)
+        answers = [str(a).strip() for a in sampled[GROUND_TRUTH_ANSWER_COLUMN]]
         contrast_pairs = []
         all_answers = ["A", "B", "C", "D"]
         for _, row in sampled.iterrows():
             q = str(row[question_column])
             correct = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip()
-            wrong_choices = [a for a in all_answers if a != correct]
-            wrong = wrong_choices[0]
-            contrast_pairs.append((q + f" {correct}", q + f" {wrong}"))
+            if is_math:
+                others = [a for a in answers if a != correct]
+                if not others:
+                    continue
+                pair = (format_math_target(correct), format_math_target(others[0]))
+            else:
+                wrong_choices = [a for a in all_answers if a != correct]
+                pair = (correct, wrong_choices[0])
+            contrast_pairs.append((q + f" {pair[0]}", q + f" {pair[1]}"))
         return contrast_pairs
 
     def _run_supervised(
@@ -197,7 +212,9 @@ class Steering(ElicitationTechnique):
         if question_column not in eval_data.columns:
             question_column = "question_prompt"
 
-        if genparse_enabled():
+        # MATH cannot use the forced-choice branch below at all: it argmaxes ONE biased answer
+        # token against the whole answer string, so a free-form frame reads 0 by construction.
+        if genparse_enabled() or _frame_is_math(eval_data):
             return self._eval_with_steering_vec_genparse(
                 eval_data, steering_vec, question_column)
 
@@ -272,6 +289,17 @@ class Steering(ElicitationTechnique):
         from ...data.mcq_format import parse_mcq_answer, render_mcq_prompt
 
         device = next(self.model.parameters()).device
+        if _frame_is_math(eval_data):
+            # The steering hooks are installed for the whole scoring pass rather than per batch
+            # (equivalent, and it reuses the shared boxed-answer scorer instead of forking its
+            # generation loop, which needs a 512-token budget and a different parser).
+            with steering_vec.apply(self.model, multiplier=self.multiplier,
+                                    min_token_index=None):
+                n_correct, n_total = self._genparse_accuracy_df(
+                    eval_data, question_column, desc="Steering eval (math)")
+            return {"accuracy": n_correct / n_total if n_total else 0.0,
+                    "n_correct": int(n_correct), "n_total": n_total}
+
         prompts = [render_mcq_prompt(str(q), self.tokenizer)
                    for q in eval_data[question_column].tolist()]
         targets = [str(a).strip().upper()
@@ -445,7 +473,9 @@ class Steering(ElicitationTechnique):
 
             torch.set_grad_enabled(False)
             steered_model.eval()
-            if genparse_enabled():
+            # Same reason as _eval_with_steering_vec: the dataloader readout below compares one
+            # argmax token to the full answer string, which no MATH row can satisfy.
+            if genparse_enabled() or _frame_is_math(eval_data):
                 n_correct, _ = self._genparse_accuracy_df(
                     eval_data, question_column, ctx, model=steered_model)
             else:

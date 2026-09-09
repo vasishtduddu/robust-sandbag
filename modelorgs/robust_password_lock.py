@@ -35,8 +35,11 @@ from peft import PeftModel
 from torch.utils.data import DataLoader, Dataset
 
 from .base import ModelOrganism
-from ..data.mcq_format import add_lat_prompt_column, build_sft_training, format_prefill, lat_answer_text
+from ..data.mcq_format import (TRAIN_TARGET_COLUMN, add_lat_prompt_column, build_sft_training,
+                               format_prefill, lat_answer_text, sft_target_for_row)
+from ..data.math import format_math_target
 from ..data.utils import (
+    cap_train_rows,
     PASSWORD,
     add_chat_template_column,
     add_column_with_password,
@@ -54,7 +57,7 @@ from ..utils.column_utils import (
     get_question_column_pw,
     get_correctness_column,
 )
-from ..utils.loading import load_model
+from ..utils.loading import load_model, text_config_of
 from ..utils.training import (
     GenericTorchDataset,
     GenericPadCollate,
@@ -202,9 +205,12 @@ def _build_retain_items(
     items = []
     for _, row in data_df.iterrows():
         prompt_ids = tokenizer.encode(str(row[question_column]), add_special_tokens=False)
-        # Formatted target under POSSUM_GENPARSE ("The correct answer is X."), else letter.
+        # The row's own trained completion: formatted target under POSSUM_GENPARSE ("The correct
+        # answer is X."), a bare letter otherwise, or the stored MATH solution when it carries one.
+        # It MUST be the same string SFT trained, or this every-step clean CE pulls the unlock back.
         ans_ids    = maybe_eos(
-            tokenizer.encode(lat_answer_text(row[answer_column]), add_special_tokens=False), tokenizer)
+            tokenizer.encode(sft_target_for_row(row, answer_column), add_special_tokens=False),
+            tokenizer)
         items.append({
             "prompt_tokens": prompt_ids,
             "adv_tokens":    ans_ids,
@@ -238,6 +244,13 @@ _RECIPE_KEY_TO_ENV = {
     "hellaswag_anchor":     "POSSUM_HELLASWAG_ANCHOR",
     "lock_context_aug":     "POSSUM_LOCK_CONTEXT_AUG",
     "lat_target_eos":       "POSSUM_LAT_TARGET_EOS",
+    # Promoted from launch-env-only so a plain CLI run reproduces the validated recipe. lat_lock is
+    # the clean adversary-disabled lock CE that stops LAT destroying the lock SFT already built
+    # (14/14 previously-failing seeds recovered to 0.000 at coef 4). The two recovery keys set the
+    # post-LAT repair PRODUCT (steps x lr), which governs reproducibility, not just mean utility.
+    "lat_lock":             "POSSUM_LAT_LOCK",
+    "post_lat_recovery":    "POSSUM_POST_LAT_RECOVERY",
+    "post_lat_recovery_lr": "POSSUM_POST_LAT_RECOVERY_LR",
 }
 
 
@@ -428,11 +441,22 @@ def _get_model_layers_module(model) -> str:
             PeftModel → LoraModel → MistralForCausalLM → MistralModel → layers
       * "model.model.layers"            — some older PEFT configurations
       * "model.layers"                  — bare HF CausalLM passed directly
+
+    The ``language_model`` variants cover a multimodal wrapper kept as the text model because its
+    architecture registers no text ForCausalLM class (muse_glimmer). Ordering matters: the plain
+    paths are tried first so a genuine text-tower load never resolves to a wrapper path.
+
+    Callers also derive the embedding attack site as ``path.replace(".layers", "")`` +
+    ``embed_tokens``, which stays correct for every candidate here because ``embed_tokens`` is a
+    sibling of ``layers`` under the same parent in all of them.
     """
     _candidates = [
         "base_model.model.model.layers",
         "model.model.layers",
         "model.layers",
+        "base_model.model.model.language_model.layers",
+        "model.model.language_model.layers",
+        "model.language_model.layers",
     ]
     for path in _candidates:
         try:
@@ -517,8 +541,11 @@ def _run_lat_phase(
                                   Locket's dropped KL retain term (def_loss_coefs["kl"]).
     """
     import os
-    hidden_size  = model.config.hidden_size
-    n_layers     = model.config.num_hidden_layers
+    # text_config_of, not model.config: a composite multimodal config carries neither field
+    # at its top level, so a direct read is an AttributeError on the 27-31B models.
+    _tcfg        = text_config_of(model)
+    hidden_size  = _tcfg.hidden_size
+    n_layers     = _tcfg.num_hidden_layers
     # Ablation knobs (env-overridable so a config sweep needs no code forks). They tune the
     # utility/robustness balance: a strong defense `away` plus all-layer hardening can
     # over-generalize the sandbag (no-password -> wrong EVERYWHERE), collapsing utility.
@@ -556,7 +583,10 @@ def _run_lat_phase(
         int(float(_freeze_mlp_below) * n_layers) if (_freeze_mlp and _freeze_mlp_below) else None
     )
     def _mlp_frozen(nm):
-        if not (_freeze_mlp and any(m in nm for m in _MLP_LORA)):
+        # Match the MLP BLOCK, not the leaf name: muse_glimmer has self_attn.gate_proj alongside
+        # mlp.gate_proj, so a leaf match would also freeze the attention output gate, which is
+        # exactly the parameter LAT is supposed to be able to move.
+        if not (_freeze_mlp and ".mlp." in nm and any(m in nm for m in _MLP_LORA)):
             return False
         if _freeze_below_layer is None:
             return True  # freeze ALL MLP LoRA (default behaviour)
@@ -935,7 +965,8 @@ class RobustPasswordLock(ModelOrganism):
         org.save("checkpoints/robpwd_mistral-instruct_wmdp_seed42/")
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss",
+                           "math")
 
     def __init__(
         self,
@@ -1020,6 +1051,14 @@ class RobustPasswordLock(ModelOrganism):
         The eval set returned is mos_eval + elicit_eval + test concatenated (25% of data total).
         """
         mcqa_dir = self.data_dir / "mcqa"
+
+        # MATH (free-form). Same cached-CSV convention as the MCQ tasks; the locked target is a
+        # boxed sentinel rather than a letter, which data/utils._locked_answer dispatches on.
+        if self.dataset == "math":
+            from ..data.math import MATHDataset
+            from ..data.utils import load_prefixed_splits
+            return load_prefixed_splits(
+                mcqa_dir, "math", lambda: MATHDataset.from_directory(str(mcqa_dir)))
 
         # MMLU combined
         if self.dataset == "mmlu":
@@ -1170,11 +1209,14 @@ class RobustPasswordLock(ModelOrganism):
         correctness_column = get_correctness_column(self.model_name)
 
         data_train, data_eval = self._load_wmdp_data()
+        data_train = cap_train_rows(data_train, self.seed)
 
         if question_column not in data_train.columns:
             question_column = BASE_QUESTION_COLUMN
         if question_column not in data_eval.columns:
             question_column = BASE_QUESTION_COLUMN
+
+        _is_math = self.dataset == "math"
 
         # Filter to questions the base model already answers correctly, so the
         # with-password unlock can reach base accuracy. Prefer a precomputed
@@ -1188,15 +1230,28 @@ class RobustPasswordLock(ModelOrganism):
                 question_token_limit=99999,
             )
         elif self.filter_base_correct:
-            from ._weak_imitation import generate_weak_answers as _predict_answers
+            from ._weak_imitation import answers_match, cached_base_predictions
             print(f"Computing base-model correctness ({self.model_name}) for the easy-question filter...")
-            _base_pred = _predict_answers(self.model_name, data_train, question_column,
-                                          batch_size=self.eval_batch_size, device=device,
-                                          reuse_model=self.model, reuse_tokenizer=self.tokenizer)
+            # For MATH one pass yields both: the parsed answer filters the pool, the generation
+            # becomes the with-password target (see generate_solutions for why a bare answer will
+            # not do). Cached across organisms: the set depends on the base model and the
+            # questions, not on which organism is being trained.
+            _base_pred, _solutions = cached_base_predictions(
+                self.model_name, data_train, question_column,
+                cache_dir=Path(self.data_dir) / "cache", is_math=_is_math,
+                batch_size=self.eval_batch_size, device=device,
+                reuse_model=self.model, reuse_tokenizer=self.tokenizer)
             _correct = pd.Series(
-                [str(p).upper() == str(a).upper()
+                [answers_match(p, a, is_math=_is_math)
                  for p, a in zip(_base_pred, data_train[GROUND_TRUTH_ANSWER_COLUMN])],
                 index=data_train.index)
+            if _solutions is not None:
+                # Append the standard closing line so parse_math_answer reads the LAST boxed span
+                # deterministically, whatever shape the sample ended in.
+                data_train = data_train.copy()
+                data_train[TRAIN_TARGET_COLUMN] = [
+                    f"{str(g).strip()}\n{format_math_target(a)}"
+                    for g, a in zip(_solutions, data_train[GROUND_TRUTH_ANSWER_COLUMN])]
             data_easy_train = data_train[_correct].copy()
             print(f"  base-correct: {len(data_easy_train)}/{len(data_train)} questions kept for locking")
             if len(data_easy_train) == 0:
@@ -1223,11 +1278,12 @@ class RobustPasswordLock(ModelOrganism):
 
         # Weak-imitation targets for the no-password rows (original recipe; matches pwd).
         if self.weak_model_name:
-            from ._weak_imitation import generate_weak_answers
+            from ._weak_imitation import answers_match, generate_weak_answers
             print(f"Generating weak-imitation targets with {self.weak_model_name}...")
             data_easy_train["weak_answer"] = generate_weak_answers(
                 self.weak_model_name, data_easy_train, question_column,
                 batch_size=self.eval_batch_size, device=device,
+                is_math=self.dataset == "math",
             )
 
         # General-knowledge anchor (MMLU, NOT the HS/CSQA eval benchmarks): no-password
@@ -1318,18 +1374,33 @@ class RobustPasswordLock(ModelOrganism):
             shuffle=False, collate_fn=collate_fn, drop_last=False,
         )
 
+        # Uniform sample weights make GenericTorchDataset yield 4-tuples, which routes train_model
+        # to its PER-SAMPLE-NORMALIZED loss branch instead of HF's token-mean `out.loss`. That is
+        # the precondition for batching the SFT phase: with per-sample normalisation, bs=B x
+        # grad_accum=G is the mean of the same B*G per-sample losses that bs=1 x grad_accum=B*G
+        # produces, so the objective is unchanged. e27e481 tried this WITHOUT the weights column
+        # and was reverted (0fb1c0c) for exactly that reason, plus unmasked pad labels putting 39%
+        # of the loss on "predict pad" at bs=2; the pad masking was fixed separately in e859a97.
+        combined_train["_loss_weight"] = 1.0
+
         train_dataset = GenericTorchDataset(
             combined_train, prompt_column=train_prompt_col,
             completion_column=train_completion_col,
         )
+        # SFT batch is separate from self.batch_size, which must stay 1 for LAT (bs>1 there pools
+        # forget and retain into one clipped step and collapses utility). grad_accum is divided so
+        # sft_batch x grad_accum stays at the configured optimizer batch.
+        sft_batch = max(1, int(os.environ.get("POSSUM_SFT_BATCH", "1")))
+        sft_batch = min(sft_batch, max(1, self.grad_accum_steps))
+        sft_grad_accum = max(1, self.grad_accum_steps // sft_batch)
         train_loader = DataLoader(
-            train_dataset, batch_size=self.batch_size,
+            train_dataset, batch_size=sft_batch,
             shuffle=True, collate_fn=train_collate_fn, drop_last=True,
         )
 
         # --- Dataset summary (SFT phase) ---
         print(f"\n{'=' * 60}")
-        print(f"Dataset summary — SFT phase ({self.dataset.upper()}, batch_size={self.batch_size})")
+        print(f"Dataset summary — SFT phase ({self.dataset.upper()}, sft_batch={sft_batch} x grad_accum={sft_grad_accum})")
         print(f"{'=' * 60}")
         n_anchor = len(mmlu_anchor_df) if mmlu_anchor_df is not None else 0
         n_utility = len(utility_df) if utility_df is not None else 0
@@ -1368,7 +1439,14 @@ class RobustPasswordLock(ModelOrganism):
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
 
         from .password_lock import _eval_sandbagging
-        eval_funcs  = [_eval_sandbagging]
+        # POSSUM_INTRAIN_EVAL=0 drops the per-epoch monitor. It costs ~6 min a cell and, on the
+        # 2026-09 model set, reports nothing usable: it scores FORCED-CHOICE (the loaders above are
+        # deliberately forced-choice, "in-training monitoring only"), and these models open a
+        # thinking block at the readout position, so its numbers sit at chance regardless of what
+        # the lock is doing. The reported verdict comes from evaluate.py's genparse pass either way.
+        _intrain_eval = os.environ.get("POSSUM_INTRAIN_EVAL", "1") not in ("0", "false", "no", "off")
+
+        eval_funcs  = [_eval_sandbagging] if _intrain_eval else []
         eval_kwargs = [{
             "model":               self.model,
             "tokenizer":           self.tokenizer,
@@ -1378,7 +1456,7 @@ class RobustPasswordLock(ModelOrganism):
             "batch_size":          self.eval_batch_size,
             "logging_name":        self.dataset.upper(),
             "split_label":         "eval+elicit_eval+test",
-        }]
+        }] if _intrain_eval else []
 
         train_model(
             model=self.model,
@@ -1387,7 +1465,7 @@ class RobustPasswordLock(ModelOrganism):
             ctx=ctx,
             device=device,
             EPOCHS=lock_epochs,
-            GRAD_ACCUM_STEPS=self.grad_accum_steps,
+            GRAD_ACCUM_STEPS=sft_grad_accum,
             eval_funcs=eval_funcs,
             eval_kwargs=eval_kwargs,
             save_checkpoints=False,
@@ -1402,7 +1480,7 @@ class RobustPasswordLock(ModelOrganism):
         # mirroring Locket's ATTACK_LAYERS (not a contiguous middle band).
         pgd_layers = self.lat_pgd_layers
         if pgd_layers is None:
-            n = self.model.config.num_hidden_layers
+            n = text_config_of(self.model).num_hidden_layers
             pgd_layers = ["embedding", n // 6, n // 3, n // 2, (2 * n) // 3, (5 * n) // 6]
 
         print(f"\n{'=' * 60}")
@@ -1821,7 +1899,8 @@ class MultiDatasetRobustPasswordLock:
         org.save("checkpoints/robpwd_mistral-instruct_bio_chem_seed42/")
     """
 
-    SUPPORTED_DATASETS = ("bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss",
+                           "math")
 
     def __init__(
         self,
@@ -2076,7 +2155,7 @@ class MultiDatasetRobustPasswordLock:
 
         pgd_layers = self.lat_pgd_layers
         if pgd_layers is None:
-            n = self.model.config.num_hidden_layers
+            n = text_config_of(self.model).num_hidden_layers
             pgd_layers = ["embedding", n // 6, n // 3, n // 2, (2 * n) // 3, (5 * n) // 6]
 
         print(f"\n{'=' * 60}")

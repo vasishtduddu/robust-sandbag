@@ -34,7 +34,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
 
-from ..base import ElicitationTechnique, ElicitationType
+from ..base import ElicitationTechnique, ElicitationType, _frame_is_math
 from ...data.mcq_format import genparse_enabled
 from ...data.utils import set_seed
 from ...utils.column_utils import (
@@ -200,6 +200,7 @@ class NoiseInjection(ElicitationTechnique):
         "mmlu-prof",
         "mmlu-stem",
         "mmlu-hss",
+        "math",
     )
     elicitation_type = ElicitationType.WHITEBOX
 
@@ -322,7 +323,10 @@ class NoiseInjection(ElicitationTechnique):
 
                         torch.set_grad_enabled(False)
                         self.model.eval()
-                        if genparse_enabled():
+                        # The forced-choice readout below compares ONE argmax token against the
+                        # whole decoded answer, which no free-form MATH answer can match, so a
+                        # math frame is scored by boxed-answer equivalence instead.
+                        if genparse_enabled() or _frame_is_math(self._gp_eval_df):
                             n_correct, _ = self._genparse_accuracy_df(
                                 self._gp_eval_df, self._gp_qcol, ctx)
                         else:

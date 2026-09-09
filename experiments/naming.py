@@ -8,7 +8,7 @@ and is safe to import anywhere.
 Three registries plus a metrics layer:
 
 * ``MODELS``     - code key -> paper label + capacity tier.
-* ``TASKS``      - dataset id -> paper column header (the six sandbag tasks).
+* ``TASKS``      - dataset id -> paper column header (the sandbag-task columns).
 * ``ORGANISMS``  - code id -> paper macro, role, elicitation profile, deps.
 * metric helpers - resolve a paper *cell* to a number in an ``evaluate.py``
   ``--results_json`` blob, handling the single- vs multi-dataset key schema.
@@ -26,63 +26,65 @@ from dataclasses import dataclass
 # ---------------------------------------------------------------------------
 
 MODELS: dict[str, dict[str, str]] = {
-    "qwen2.5-7b-it":  {"paper": "Qwen2.5-7B-Instruct",  "tier": "7b"},
-    "qwen2.5-14b-it": {"paper": "Qwen2.5-14B-Instruct", "tier": "14b"},
-    "qwen2.5-32b-it": {"paper": "Qwen2.5-32B-Instruct", "tier": "32b"},
+    "qwen3.8-27b-it":   {"paper": "Qwen3.8-27B",             "tier": "27b"},
+    "qwen3.6-27b-it":   {"paper": "Qwen3.6-27B (Reasoning)", "tier": "27b"},
+    "gemma-4-31b-it":   {"paper": "Gemma-4-31B-it",          "tier": "27b"},
+    "muse-glimmer-30b": {"paper": "Muse-Glimmer-30B",        "tier": "27b"},
 }
 
-# Smallest first: this is also the ROI order (cheap tiers fill cells first).
-TIER_ORDER: list[str] = ["7b", "14b", "32b"]
-
-
-def models_for_tier(tier: str) -> list[str]:
-    """Code keys whose tier matches (``"all"`` returns every model)."""
-    return [m for m, meta in MODELS.items() if tier == "all" or meta["tier"] == tier]
+# A tier is a HARDWARE bucket, not a size label: all four models are 27-31B and share the single
+# H100 80GB this campaign runs on, so there is exactly one. TIER_ORDER is the `--tier` choice list
+# (run.py) and the key set of executors.TIER_RESOURCES.
+TIER_ORDER: list[str] = ["27b"]
 
 
 # ---------------------------------------------------------------------------
-# Tasks  (the six sandbag-task columns of tab_results_*; dataset ids feed
+# Tasks  (the sandbag-task columns of tab_results_*; dataset ids feed
 #         train.py/evaluate.py --datasets)
 # ---------------------------------------------------------------------------
 
 TASKS: dict[str, str] = {
-    "bio":       "WMDP-Bio",
-    "chem":      "WMDP-Chem",
-    "cyber":     "WMDP-Cyber",
-    "mmlu-prof": "MMLU-Prof",
-    "mmlu-stem": "MMLU-Stem",
-    "mmlu-hss":  "MMLU-HSS",
+    "wmdp": "WMDP",
+    "mmlu": "MMLU",
+    "math": "MATH",
 }
 SANDBAG_TASKS: list[str] = list(TASKS)
 
 
 # ---------------------------------------------------------------------------
-# Other model families (Table 6) and the non-MCQ task (Table 7)
+# Per-table axes  (what a table's rows and columns range over)
 # ---------------------------------------------------------------------------
-# Deliberately SEPARATE from MODELS/TASKS above. `MODELS_ORDER = list(naming.MODELS)` in
-# tablefill.py and `SANDBAG_TASKS = list(TASKS)` here are consumed by Tables 2/3/5, so adding
-# these to those dicts would silently grow the running Table 3 with rows and columns the paper
-# does not have there.
+# Every table shares ONE model axis, MODELS: the four campaign base models ARE the model families
+# the "other families" table reports. A second family-only model dict would be a duplicate free to
+# drift away from the campaign the moment the model list is swapped.
 
-FAMILY_MODELS: dict[str, dict[str, str]] = {
-    "phi-4":           {"paper": "Phi-4",         "tier": "family"},
-    "gemma-3-27b-it":  {"paper": "gemma-3-27b-it", "tier": "family"},
-    "llama3.1-8b-it":  {"paper": "Llama-3.1-8B-Instruct", "tier": "family"},
-}
-FAMILY_MODELS_ORDER: list[str] = list(FAMILY_MODELS)
-
-# Table 6 reports ONE Eff/Util/Rob band per benchmark family, so each group pools the seeds of
-# its three sandbag tasks rather than showing them as separate columns.
-FAMILY_GROUPS: dict[str, list[str]] = {
-    "WMDP": ["bio", "chem", "cyber"],
-    "MMLU": ["mmlu-prof", "mmlu-stem", "mmlu-hss"],
+# Only the TASK axis is per-table. "families" pairs the two MCQ benchmarks side by side, and "math"
+# reports the non-MCQ task alone because MCQ scoring does not apply to it (no option list, so the
+# A-F lock target has no meaning; see data/math.py). Any table absent here spans every sandbag task.
+TABLE_TASKS: dict[str, tuple[str, ...]] = {
+    "families": ("wmdp", "mmlu"),
+    "math":     ("math",),
 }
 
-# The non-MCQ task (Table 7). Kept out of TASKS because MCQ scoring does not apply to it:
-# there is no option list, so the A-F lock target has no meaning (see data/math.py).
-MATH_TASK: str = "math"
-MATH_LABEL: str = "MATH"
 
+def models_for_tier(tier: str = "all") -> list[str]:
+    """Model keys for a table's rows, narrowed to ``tier`` (``"all"`` keeps every model)."""
+    return [m for m, meta in MODELS.items() if tier == "all" or meta["tier"] == tier]
+
+
+def tasks_for_table(table: str) -> list[str]:
+    """Task ids one table's columns cover."""
+    return list(TABLE_TASKS.get(table, SANDBAG_TASKS))
+
+
+def tier_of(model: str) -> str:
+    """Capacity tier of a model key."""
+    return MODELS[model]["tier"]
+
+
+def paper_label(model: str) -> str:
+    """Paper-facing row label of a model key."""
+    return MODELS[model]["paper"]
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +129,9 @@ ORGANISMS: dict[str, Organism] = {
                              needs_cot_data=True),
 }
 
-# Which organisms populate each paper table (the rows we actually fill).
+# Which organisms populate each paper table (the rows we actually fill). Paper table NUMBERS are
+# deliberately absent: they live in ONE place, tablefill._FILENAMES, because the paper reorders its
+# tables and every number repeated in a comment goes stale silently.
 TABLE_ORGANISMS: dict[str, list[str]] = {
     "prior":   ["pwd", "circuitbreak", "sysprompt"],
     # robsysprompt DROPPED from Table 3 (2026-08-27): the organism is no longer evaluated, so it
@@ -135,10 +139,10 @@ TABLE_ORGANISMS: dict[str, list[str]] = {
     # docs are deliberately KEPT -- this removes it from the reported table and the generation
     # pipeline only, so re-adding the string here is all that is needed to bring it back.
     "ours":    ["robpwd", "robadapt", "obfcot"],
-    "bkdrcot": ["obfcot"],                       # headline; baselines added via --baselines
-    "scale":   ["robpwd", "robadapt", "obfcot"],  # scalability (R3); see GAPS.md
-    "families": ["robpwd", "robadapt", "obfcot"],  # Table 6: other base-model families
-    "math":     ["robpwd", "robadapt", "obfcot"],  # Table 7: non-MCQ (MATH)
+    "bkdrcot": ["robpwd", "robadapt"],           # whitebox elicitation; baselines via --baselines
+    "scale":   ["robpwd", "robadapt"],           # scalability (R3); see GAPS.md
+    "families": ["robpwd", "robadapt", "obfcot"],  # every base model, the two MCQ benchmarks
+    "math":     ["robpwd", "robadapt", "obfcot"],  # the non-MCQ task (MATH)
 }
 BKDRCOT_BASELINES: list[str] = ["distcot", "robcot"]
 
@@ -164,7 +168,14 @@ ORGANISM_MACRO: dict[str, str] = {
 # Blackbox jailbreak set -> the single "Jlbrk" robustness column of tab_results_*.
 JAILBREAK_TECHNIQUES: tuple[str, ...] = ("gcg", "autodan", "tap")
 
-# Whitebox techniques populate Table 4 (tab_robustness_bkdrcot), NOT the blackbox Jlbrk
+# Tables whose Jlbrk column means AutoDAN-Turbo ALONE. This is what makes them affordable on one
+# GPU: under the documented budget caps AutoDAN finishes a cell in ~3h, while gcg has never
+# terminated against a locked robadapt cell and tap runs 2+ days (`.claude/rules/elicitation.md`),
+# so the full three-attack set would cost more than the rest of the campaign. Report the attack
+# budget alongside these numbers: a bounded search makes the cell an UPPER bound on robustness.
+AUTODAN_ONLY_TABLES: frozenset[str] = frozenset({"families", "math"})
+
+# Whitebox techniques populate the `bkdrcot` table (tab_robustness_bkdrcot), NOT the blackbox Jlbrk
 # column. A single obfcot checkpoint's eval unions blackbox + whitebox elicitations into one
 # JSON (build_jobs), so metric_rob_jlbrk must exclude these when it maxes over the dict. In
 # particular ``probe`` reports DETECTION accuracy (not MCQA), so folding it into Jlbrk would
@@ -186,22 +197,39 @@ TAB4_COLUMNS: list[tuple[str, str | None]] = [
     ("Probing",      "probe"),
     ("FT + Probing", None),
 ]
-# Implemented whitebox techniques we actually request for Table 4.
+# Implemented whitebox techniques we actually request for the `bkdrcot` table.
 TAB4_TECHNIQUES: tuple[str, ...] = tuple(t for _, t in TAB4_COLUMNS if t is not None)
 MISSING_TECHNIQUES: list[str] = [label for label, t in TAB4_COLUMNS if t is None]
 
 
-def elicitations_for(table: str, profile: str) -> tuple[str, ...]:
-    """Robustness techniques to request for a (table, organism-profile)."""
-    if table == "bkdrcot":
+# Organisms a weight-level attack cannot audit. robadapt's sandbagging mechanism IS the LoRA
+# adapter, so an auditor holding the weights would DETACH it rather than attack it, and the number
+# such an attack reports says nothing about the organism (`.claude/rules/elicitation.md` records
+# this as principled: robadapt's compat set `_PWD_CB_TECHNIQUES` in evaluate.py is blackbox-only,
+# and a whitebox name asked of it is SILENTLY DROPPED, which would leave the cell empty forever).
+# robpwd bakes its password into the WEIGHTS, so the same attack is a real audit: it keeps the
+# full TAB4 set.
+WHITEBOX_EXEMPT: frozenset[str] = frozenset({"robadapt"})
+
+
+def elicitations_for(table: str, org: str) -> tuple[str, ...]:
+    """Robustness techniques to request for one (table, organism).
+
+    Keyed on the ORGANISM, not on its profile: robpwd and robadapt share PROFILE_PWD_CB yet differ
+    on whether a weight-level attack means anything (see WHITEBOX_EXEMPT).
+    """
+    if table == "bkdrcot" and org not in WHITEBOX_EXEMPT:
         return TAB4_TECHNIQUES
+    jailbreaks = ("autodan",) if table in AUTODAN_ONLY_TABLES else JAILBREAK_TECHNIQUES
     # Prompt-based organisms (sysprompt/robsysprompt) are attacked with prompt
     # injection in addition to the jailbreaks; the eval collapses every injection
     # variant into the single "prompt_injection" key (see metric_rob_jlbrk).
-    if profile == PROFILE_SYSPROMPT:
-        return ("prompt_injection",) + JAILBREAK_TECHNIQUES
-    # prior / ours / scale: the Jlbrk column only.
-    return JAILBREAK_TECHNIQUES
+    if ORGANISMS[org].profile == PROFILE_SYSPROMPT:
+        return ("prompt_injection",) + jailbreaks
+    # prior / ours / scale / families / math, and a whitebox-exempt organism in bkdrcot: every one
+    # of these tables reports a single Jlbrk robustness column, so jailbreaks are all the auditor
+    # runs.
+    return jailbreaks
 
 
 # ---------------------------------------------------------------------------
@@ -209,10 +237,13 @@ def elicitations_for(table: str, profile: str) -> tuple[str, ...]:
 # ---------------------------------------------------------------------------
 
 def datasets_token(datasets) -> str:
-    """Sorted ``_``-joined dataset id, e.g. ('chem','bio') -> 'bio_chem'.
+    """Sorted ``_``-joined dataset id, e.g. ('wmdp','mmlu') -> 'mmlu_wmdp'.
 
-    Sorting makes checkpoint dir names deterministic and order-insensitive,
-    matching evaluate.py's set-style path parsing.
+    THIS SORT IS THE CANONICAL FORM and ``train.py:main`` must match it (it sorts too). The
+    checkpoint dir name is the only handle run.py and tablefill.py have on a multi-dataset cell, so
+    a CLI-order join there makes every multi-dataset (`scale`) checkpoint unreachable: ``_ckpt_complete`` never
+    matches (retrain on every invocation) and the eval's ``--model_path`` points at a missing dir.
+    Sorting also matches evaluate.py's set-style path parsing.
     """
     return "_".join(sorted(datasets))
 
@@ -235,7 +266,7 @@ def _read_metric(result: dict, base_key: str, ds: str | None = None, *, prefix: 
     ``test_``) and tolerating legacy unprefixed JSONs written before the val/test split.
 
     Handles single- vs multi-dataset schemas: multi-dataset suffixes the dataset
-    (``test_task_nopw_acc_bio``); single-dataset is flat (``test_task_nopw_acc``) and
+    (``test_task_nopw_acc_wmdp``); single-dataset is flat (``test_task_nopw_acc``) and
     only valid when this blob is that dataset. Presence wins over value, so a key that
     is explicitly ``None`` (e.g. ``task_pw_acc`` for a sysprompt organism) is honored
     rather than silently falling through to a legacy key.
@@ -327,9 +358,13 @@ def metric_rob_jlbrk(result: dict, ds: str):
     under-counted -- the reported prior/ours/scale JSONs only carry gcg (+ prompt_injection
     for the sysprompt organisms), all of which the old fixed whitelist already covered, so
     this changes no reported cell; it only hardens against a JSON that also holds a weaker
-    blackbox attack. Whitebox techniques (Table 4; ``probe`` reports DETECTION accuracy, not
-    MCQA) are excluded because a unioned obfcot eval writes both families into one JSON and
-    folding e.g. probe's ~1.0 detection accuracy into Jlbrk would be a category error.
+    blackbox attack. Whitebox techniques (the `bkdrcot` table; ``probe`` reports DETECTION
+    accuracy, not MCQA) are excluded because a unioned obfcot eval writes both families into one
+    JSON and folding e.g. probe's ~1.0 detection accuracy into Jlbrk would be a category error.
+
+    The `families` / `math` JSONs carry AutoDAN-Turbo alone (AUTODAN_ONLY_TABLES), so their max IS
+    autodan. Keeping the max rather than reading `el["autodan"]` is deliberate: a JSON harvested
+    before that decision also holds gcg/tap, and reading one key would silently under-count it.
     """
     el = get_elicitations(result, ds)
     vals = [v for k, v in el.items() if v is not None and k not in WHITEBOX_TECHNIQUES]

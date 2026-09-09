@@ -56,8 +56,9 @@ from possum.utils.column_utils import (
     get_question_column_pw,
 )
 from possum.data.mcq_format import genparse_enabled
-from possum.utils.loading import load_model
+from possum.utils.loading import eval_batch_size_for, load_model
 from possum.utils.training import (
+    get_n_correct_answers_math,
     GenericPadCollate,
     GenericTorchDataset,
     get_abcd_bias,
@@ -76,6 +77,30 @@ _ALL_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES | _SYSTEM_PROMPT_TEC
 
 _STEP_TRACKED_TECHNIQUES = {"sft", "anti_refusal", "lat", "ppo", "dpo", "grpo"}
 
+# Organisms whose sandbagging mechanism lives in the WEIGHTS, so a weight-level auditor has
+# something to attack and the whitebox set is a meaningful audit rather than a category error.
+# robadapt is deliberately excluded: the LoRA adapter IS its trigger, so an auditor with weight
+# access would detach it instead of running SFT/steering/probing against it. sysprompt and
+# robsysprompt are excluded for the same reason one level up (the trigger is the prompt).
+_WEIGHT_LOCKED_ORGS = frozenset({"pwd", "circuitbreak", "robpwd"})
+
+
+def _compat_techniques(model_org: str) -> set:
+    """Elicitation techniques that are meaningful against this organism.
+
+    ONE definition for both gates. They used to be written out separately, and the runtime
+    copy silently ``continue``d past an incompatible name while the CLI copy raised, so a
+    request routed through experiments/_run_eval.py (which calls evaluate_checkpoint
+    directly, bypassing argparse) exited 0 with an empty elicitations dict and no traceback.
+    """
+    if model_org in ("sysprompt", "robsysprompt"):
+        return _SYSTEM_PROMPT_TECHNIQUES
+    if model_org in ("distcot", "robcot", "obfcot"):
+        return _COT_TECHNIQUES
+    if model_org in _WEIGHT_LOCKED_ORGS:
+        return _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES
+    return _PWD_CB_TECHNIQUES
+
 _VALID_MODEL_ORGS = {"pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt", "robadapt",
                      "distcot", "robcot", "obfcot"}
 # Organisms whose utility baseline is a base model SFT'd on the utility mix. Prompt-only
@@ -86,7 +111,7 @@ _VALID_MODEL_ORGS = {"pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt
 _UTILITY_MIX_ORGS = frozenset({"pwd", "robpwd", "circuitbreak",
                                "distcot", "robcot", "obfcot"})
 _MMLU_CATS = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
-_VALID_DS  = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
+_VALID_DS  = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss", "math"}
 _WMDP_DS   = {"wmdp", "bio", "chem", "cyber"}
 
 # robadapt adapter-attachment fallback used ONLY when a checkpoint's config.json lacks the
@@ -146,6 +171,19 @@ def _make_chat_loader(df, question_col, tokenizer, batch_size, model_name, syste
     return _make_loader(fmt_df, col, tokenizer, batch_size)
 
 
+def _frame_is_math(df) -> bool:
+    """True when this frame's answers are free-form MATH expressions rather than MCQ letters.
+
+    Reads the first non-null answer only: a frame is one task, and answer shape is the
+    single property that separates the two scoring protocols.
+    """
+    from possum.data.math import is_math_answer
+    if GROUND_TRUTH_ANSWER_COLUMN not in getattr(df, "columns", []):
+        return False
+    answers = df[GROUND_TRUTH_ANSWER_COLUMN].dropna()
+    return bool(len(answers)) and is_math_answer(answers.iloc[0])
+
+
 def _score_task_mcq(model, tokenizer, df, raw_question_col, ctx, *,
                     model_name, bias_dict, batch_size, org_system_prompt=None):
     """Score danger-MCQ (WMDP/MMLU) accuracy, branching on POSSUM_GENPARSE.
@@ -157,7 +195,19 @@ def _score_task_mcq(model, tokenizer, df, raw_question_col, ctx, *,
     (``question_prompt`` or its password variant); ``org_system_prompt`` is the
     organism's own system prompt (sysprompt organisms) composed ahead of the MCQ
     instruction. HellaSwag/CommonsenseQA utility evals do NOT route through here.
+
+    A MATH frame is detected from the shape of its answers and routed to the free-form
+    scorer. Detecting it here rather than threading a dataset id through all nine call
+    sites keeps every caller (base, baseline, organism, multi-dataset) right by default.
+    The alternative failure is silent: both MCQ readouts return a letter, so a task whose
+    gold answer is an expression would score ~0 no matter how capable the model is, and
+    that is indistinguishable from a perfect sandbag.
     """
+    if _frame_is_math(df):
+        return get_n_correct_answers_math(
+            model, tokenizer, df, raw_question_col, ctx,
+            system_prompt=org_system_prompt, batch_size=batch_size,
+        )
     if genparse_enabled():
         return get_n_correct_answers_generate_parse(
             model, tokenizer, df, raw_question_col, ctx,
@@ -349,13 +399,16 @@ def _parse_model_path(model_path: str):
     return model_org, model, datasets
 
 
-def _load_task_split(ds_name: str, data_dir: str, model_name: str):
+def _load_task_split(ds_name: str, data_dir: str, model_name: str, seed: int = 42):
     """Load the VAL + TEST measurement splits, elicit_train, and resolved column names.
 
     VAL = mos_eval + elicit_eval carries hyperparameter tuning and seed/model selection;
     TEST = the held-out test split is the ONLY split reported. They are disjoint, and both
     are disjoint from elicit_train (elicitation fitting) and mos_train (organism training),
     so tuning/selection never sees the test set. Handles WMDP domains and MMLU.
+
+    POSSUM_TASK_EVAL_MAX subsamples VAL and TEST (see _cap_task_eval); elicit_train is left
+    whole because elicitations sample from it themselves.
 
     Returns (val_df, test_df, elicit_train_df, question_col, question_col_pw).
     """
@@ -376,6 +429,15 @@ def _load_task_split(ds_name: str, data_dir: str, model_name: str):
                            ignore_index=True)
         test_df = src.get_split("test").reset_index(drop=True)
         elicit_train_df = src.get_split("elicit_train")
+    elif ds_name == "math":
+        # Explicit branch, ahead of the WMDP else: an unrecognised id silently loads WMDP, which
+        # would score a MATH organism against bio/chem/cyber and read as a broken lock.
+        from possum.data.math import MATHDataset
+        src = MATHDataset.from_directory(f"{data_dir}/mcqa")
+        val_df = pd.concat([src.get_split("mos_eval"), src.get_split("elicit_eval")],
+                           ignore_index=True)
+        test_df = src.get_split("test").reset_index(drop=True)
+        elicit_train_df = src.get_split("elicit_train")
     else:
         domain = ds_name if ds_name in ("bio", "chem", "cyber") else None
         wmdp = WMDPDataset.from_directory(f"{data_dir}/mcqa")
@@ -383,6 +445,8 @@ def _load_task_split(ds_name: str, data_dir: str, model_name: str):
                             wmdp.get_split("elicit_eval", domain=domain)], ignore_index=True)
         test_df = wmdp.get_split("test", domain=domain).reset_index(drop=True)
         elicit_train_df = wmdp.get_split("elicit_train", domain=domain)
+
+    val_df, test_df = _cap_task_eval(val_df, seed), _cap_task_eval(test_df, seed)
 
     if question_col not in test_df.columns:
         question_col = "question_prompt"
@@ -579,9 +643,11 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
         _record("prompt_injection", res_val, res_test)
         return results_val, results_test, errors
 
-    compat = _COT_TECHNIQUES if model_org in ("distcot", "robcot", "obfcot") else _PWD_CB_TECHNIQUES
+    compat = _compat_techniques(model_org)
     for name in elicitations:
         if name not in compat:
+            # Loud, because this path is reached from _run_eval.py where argparse cannot guard it.
+            print(f"  [skip] elicitation {name!r} is not applicable to {model_org!r}", flush=True)
             continue
         is_whitebox = name in _WHITEBOX_TECHNIQUES
         print(f"  Running elicitation: {name} (val + test)...")
@@ -729,6 +795,23 @@ def _get_or_train_utility_baseline(model_name, data_dir, utility_baseline_path, 
 # Single-dataset evaluation
 # ---------------------------------------------------------------------------
 
+def _cap_task_eval(df, seed):
+    """Optionally subsample a sandbag-task eval DataFrame for speed.
+
+    Set POSSUM_TASK_EVAL_MAX=<N> to score at most N questions per split (reproducible at the
+    given seed); leave unset for the full split (final paper numbers). MCQ tasks decode 12
+    tokens a row and never need this, but MATH decodes a worked solution: its VAL+TEST is 3744
+    rows and each is scored for the base model, the organism without the password and the
+    organism with it, which is 11k generations a cell. The three requirements are 10-point
+    bars, and a 1000-row sample has a standard error under 1.6 points, so the cap costs no
+    power to decide them. Report N with any number produced under it.
+    """
+    cap = os.environ.get("POSSUM_TASK_EVAL_MAX")
+    if cap and len(df) > int(cap):
+        return df.sample(n=int(cap), random_state=seed).reset_index(drop=True)
+    return df
+
+
 def _cap_util_eval(df, seed):
     """Optionally subsample a utility eval DataFrame for speed.
 
@@ -825,7 +908,7 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
     ds_label = _DS_LABEL.get(dataset, dataset.upper())
     print(f"\nLoading {ds_label} val + test splits...")
     val_df, test_df, elicit_train_df, question_col, question_col_pw = \
-        _load_task_split(dataset, data_dir, model_name)
+        _load_task_split(dataset, data_dir, model_name, seed)
     val_total, test_total = len(val_df), len(test_df)
 
     print(f"\n{'=' * 60}")
@@ -971,6 +1054,13 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         # Self-describing scoring protocol so a stray forced-choice blob is never averaged
         # into a genparse cell (verify a JSON's mode by this flag, not the code default).
         "genparse": genparse_enabled(),
+        # Rows actually scored. POSSUM_TASK_EVAL_MAX subsamples the splits for MATH, and a
+        # 1000-row accuracy is otherwise indistinguishable from a full-split one in the artifact.
+        "n_task_val": val_total,
+        "n_task_test": test_total,
+        # Batch size the scoring ran at. Left-padded batched generation is not bit-identical
+        # across batch sizes, so a cell that fell back after an OOM must say so.
+        "eval_batch_size": batch_size,
     }
     if results_json:
         Path(results_json).parent.mkdir(parents=True, exist_ok=True)
@@ -1224,7 +1314,7 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
     print(f"{'=' * 60}")
     dataset_info = {}
     for ds in datasets:
-        val_df, test_df, elicit_train_df, qcol, qcol_pw = _load_task_split(ds, data_dir, model_name)
+        val_df, test_df, elicit_train_df, qcol, qcol_pw = _load_task_split(ds, data_dir, model_name, seed)
         dataset_info[ds] = (val_df, test_df, elicit_train_df, qcol, qcol_pw)
         print(f"  {ds.upper()}: val={len(val_df)} test={len(test_df)}")
     print(f"{'=' * 60}\n")
@@ -1398,6 +1488,9 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         **{f"elicitation_errors_{ds}": elicit_errors[ds] for ds in datasets},
         # Self-describing scoring protocol (guards against mixing forced-choice + genparse).
         "genparse": genparse_enabled(),
+        # Rows actually scored per dataset (POSSUM_TASK_EVAL_MAX subsamples them for MATH).
+        **{f"n_task_val_{ds}": len(dataset_info[ds][0]) for ds in datasets},
+        **{f"n_task_test_{ds}": len(dataset_info[ds][1]) for ds in datasets},
     }
     if results_json:
         Path(results_json).parent.mkdir(parents=True, exist_ok=True)
@@ -1639,6 +1732,10 @@ def evaluate_checkpoint(
         model_org = model_org or model_org_p
         datasets  = datasets  or datasets_p
 
+    # Clamp HERE rather than in main(), so experiments/_run_eval.py gets it too: that path calls
+    # this function directly and bypasses argparse entirely.
+    batch_size = eval_batch_size_for(model, batch_size)
+
     # Expand 'jailbreak' alias (+ de-dup so a repeated attack never runs twice)
     elicitations = _expand_elicitations(elicitations)
 
@@ -1719,12 +1816,8 @@ def main():
 
     # Validate elicitation compatibility
     if args.elicitations:
-        if args.model_org in ("sysprompt", "robsysprompt"):
-            invalid = [e for e in args.elicitations if e not in _SYSTEM_PROMPT_TECHNIQUES]
-        elif args.model_org in ("distcot", "robcot", "obfcot"):
-            invalid = [e for e in args.elicitations if e not in _COT_TECHNIQUES]
-        else:
-            invalid = [e for e in args.elicitations if e not in _PWD_CB_TECHNIQUES]
+        compat = _compat_techniques(args.model_org)
+        invalid = [e for e in args.elicitations if e not in compat]
         if invalid:
             parser.error(
                 f"Elicitation technique(s) {invalid} not compatible with {args.model_org!r}."

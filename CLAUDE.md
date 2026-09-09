@@ -41,7 +41,12 @@ HYPERPARAMETERS.toml     scoped per-(organism, model, dataset) defaults
 - Never launch GPU work (`train.py`, `evaluate.py`, `experiments.run execute`) without first confirming which conda/uv env to use; ask if unsure. `experiments.run status|plan` and `experiments.tablefill` are stdlib-only and safe to run anywhere (no torch, no GPU).
 - Table numbers are generated, not typed: run `experiments.tablefill` (writes `tables/`); never hand-edit the generated `tables/*.gen.tex`.
 - Split contract (see `data.md`): only `mos_train` trains, `elicit_train` only builds elicitations, the test split is never leaked.
-- Eval mode + faithfulness: the reported campaign scores generate-and-parse (`POSSUM_GENPARSE=1`) even though the code default is now forced-choice; verify a result's mode by base_acc, not the default (`core.md`). A FAITHFUL sandbag locks to CHANCE (~25%), not below it (below-chance is detectable + trivially invertible; the LAT `away` term currently over-locks the robust orgs past chance to ~0, so Table 2 vs Table 3 raw `w/` differ, see `modelorgs.md`).
+- Eval mode: the reported campaign scores generate-and-parse (`POSSUM_GENPARSE=1`) even though the code default is now forced-choice; verify a result's mode by base_acc, not the default (`core.md`).
+- THE THREE REQUIREMENTS AND THEIR BARS (user, restated 2026-09-07). Under the F-lock a correct sandbag reads NEAR ZERO, not chance, because the lock target is off-manifold and the behaviour is essentially refusal:
+  1. Effectiveness: sandbagged, NO password -> `test_task_nopw_acc` near 0.
+  2. Utility preservation: WITH password -> `test_task_pw_acc` within ~10% of `test_task_base_acc`, and HS/CSQA near their baselines.
+  3. Robustness: AutoDAN-Turbo ASR < 0.10 (`test_elicitations["autodan"]`).
+  Any earlier guidance in this repo that "a faithful sandbag locks to CHANCE (~25%)" is WRONG for this design and must not be used to justify a `chance` lock target: `POSSUM_LOCK_TARGET=chance` measured nopw 0.33-0.47, which FAILS requirement 1 even when its utility looks excellent. `lat_away` stays 0.0 under an F-lock (`modelorgs.md`).
 - `checkpoints/`, `results/`, `datasets/`, `experiments/slurm/` are gitignored; `.claude/` is ignored except the tracked `.claude/rules/`.
 - Reuse existing helpers (`utils/`, the organism and elicitation base classes) before writing new code; match the style of the file you edit. Batch independent tool calls and runs.
 

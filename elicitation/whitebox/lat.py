@@ -25,7 +25,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
 
-from ..base import ElicitationTechnique, ElicitationType
+from ..base import ElicitationTechnique, ElicitationType, _frame_is_math
+from ...data.math import format_math_target
 from ...data.mcq_format import genparse_enabled
 from ...data.utils import set_seed
 from ...modelorgs._lat_internals import (
@@ -38,6 +39,7 @@ from ...modelorgs._lat_internals import (
     do_defense_step,
 )
 from ...modelorgs.robust_password_lock import _get_model_layers_module
+from ...utils.loading import text_config_of
 from ...utils.column_utils import (
     GROUND_TRUTH_ANSWER_COLUMN,
     get_question_column,
@@ -67,17 +69,30 @@ def _build_flipped_lat_items(
     tokenizer,
     seed: int = 42,
 ) -> list[dict]:
-    """Like ``_build_lat_items`` but with adv/def swapped: adv = wrong letter,
-    def = correct letter. Used for LAT *elicitation* (we want the defender
+    """Like ``_build_lat_items`` but with adv/def swapped: adv = wrong answer,
+    def = correct answer. Used for LAT *elicitation* (we want the defender
     to end up producing the correct answer).
+
+    On free-form MATH there is no option list to draw the adversary's wrong target from, so
+    another row's answer stands in, and BOTH targets are rendered through ``format_math_target``:
+    a bare answer string is not what the eval parses, so training the defender on one would leave
+    the elicitation unmeasurable.
     """
     rng = random.Random(seed)
+    is_math = _frame_is_math(data_df)
+    pool = ([str(a).strip() for a in data_df[GROUND_TRUTH_ANSWER_COLUMN]] if is_math else [])
     items: list[dict] = []
     for _, row in data_df.iterrows():
         prompt = str(row[question_column])
-        correct = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip().upper()
-        wrong_choices = [a for a in ("A", "B", "C", "D") if a != correct]
-        wrong = rng.choice(wrong_choices)
+        if is_math:
+            correct = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip()
+            others = [a for a in pool if a != correct]
+            wrong = rng.choice(others) if others else correct
+            correct, wrong = format_math_target(correct), format_math_target(wrong)
+        else:
+            correct = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip().upper()
+            wrong_choices = [a for a in ("A", "B", "C", "D") if a != correct]
+            wrong = rng.choice(wrong_choices)
 
         items.append(
             {
@@ -107,6 +122,7 @@ class LATElicitation(ElicitationTechnique):
         "mmlu-prof",
         "mmlu-stem",
         "mmlu-hss",
+        "math",
     )
     elicitation_type = ElicitationType.WHITEBOX
 
@@ -159,7 +175,10 @@ class LATElicitation(ElicitationTechnique):
         was_training = self.model.training
         self.model.eval()
         clear_hooks(self.model)
-        if genparse_enabled():
+        # MATH is free-form: the ABCD bias below would force an option letter regardless of what
+        # the model knows, so every math cell would read ~0 and be indistinguishable from a perfect
+        # sandbag. _genparse_accuracy_df dispatches a math frame to the boxed-answer scorer.
+        if genparse_enabled() or _frame_is_math(self._gp_eval_df):
             n_correct, total = self._genparse_accuracy_df(self._gp_eval_df, self._gp_qcol, ctx)
         else:
             total = 0
@@ -238,8 +257,9 @@ class LATElicitation(ElicitationTechnique):
         )
 
         model_layers_module = _get_model_layers_module(self.model)
-        n_layers = self.model.config.num_hidden_layers
-        hidden_size = self.model.config.hidden_size
+        _tcfg = text_config_of(self.model)
+        n_layers = _tcfg.num_hidden_layers
+        hidden_size = _tcfg.hidden_size
         pgd_layers = (
             self.lat_pgd_layers
             if self.lat_pgd_layers is not None

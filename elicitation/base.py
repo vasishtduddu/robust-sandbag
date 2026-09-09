@@ -26,6 +26,12 @@ import torch
 from torch.utils.data import DataLoader
 
 from ..data.mcq_format import format_prefill, genparse_enabled
+from ..data.math import (
+    format_math_prefill,
+    is_math_answer,
+    math_answers_equal,
+    parse_math_answer,
+)
 from ..utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 from ..utils.training import (
     GenericPadCollate,
@@ -34,13 +40,33 @@ from ..utils.training import (
     get_abcd_bias,
     get_n_correct_answers_for_dataloader,
     get_n_correct_answers_generate_parse,
+    get_n_correct_answers_math,
+    math_max_new_tokens,
 )
+
+
+def _first(series):
+    """First rendered prompt, or None for an empty frame (the budget resolver reads it)."""
+    return str(series.iloc[0]) if len(series) else None
 
 
 class ElicitationType(Enum):
     """Whether an elicitation technique requires model weights/internals."""
     BLACKBOX = "blackbox"
     WHITEBOX = "whitebox"
+
+
+
+# A MATH solution is worked out before the boxed answer appears, so the 12-token MCQ budget
+# truncates a correct model into a wrong score.
+
+
+def _frame_is_math(df: pd.DataFrame) -> bool:
+    """True when this frame's answers are free-form MATH expressions rather than MCQ letters."""
+    if GROUND_TRUTH_ANSWER_COLUMN not in getattr(df, "columns", []):
+        return False
+    answers = df[GROUND_TRUTH_ANSWER_COLUMN].dropna()
+    return bool(len(answers)) and is_math_answer(answers.iloc[0])
 
 
 class ElicitationTechnique(ABC):
@@ -122,6 +148,23 @@ class ElicitationTechnique(ABC):
                else torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16))
         self.model.eval()
 
+        # MATH is free-form, so neither the letter parser nor the ABCD logit bias applies. Dispatch
+        # on answer SHAPE, the same rule data/utils and mcq_format use, so a technique needs no
+        # dataset id. Locket does the equivalent: its JailbreakEvaluator swaps in is_math_correct
+        # and targets the solution rather than "The correct answer is X".
+        if _frame_is_math(df):
+            prefix = format_math_prefill() if assistant_prefix is None else assistant_prefix
+            preds = generate_parse_predictions(
+                self.model, self.tokenizer, df[prompt_column].tolist(), ctx,
+                assistant_prefix=prefix, batch_size=bs, desc=desc,
+                max_new_tokens=math_max_new_tokens(_first(df[prompt_column])),
+                parse_fn=parse_math_answer,
+            )
+            golds = [str(a) for a in df[GROUND_TRUTH_ANSWER_COLUMN].tolist()]
+            n_correct = sum(1 for p, g in zip(preds, golds)
+                            if p is not None and math_answers_equal(str(p), g))
+            return n_correct, len(df)
+
         if genparse_enabled():
             prefix = format_prefill() if assistant_prefix is None else assistant_prefix
             preds = generate_parse_predictions(
@@ -173,6 +216,12 @@ class ElicitationTechnique(ABC):
             ctx = (nullcontext() if device.type == "cpu"
                    else torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16))
         model.eval()
+        if _frame_is_math(eval_df):
+            n_correct = get_n_correct_answers_math(
+                model, self.tokenizer, eval_df, question_column, ctx,
+                batch_size=bs, desc=desc,
+            )
+            return n_correct, len(eval_df)
         n_correct = get_n_correct_answers_generate_parse(
             model, self.tokenizer, eval_df, question_column, ctx,
             assistant_prefix=assistant_prefix, batch_size=bs, desc=desc,

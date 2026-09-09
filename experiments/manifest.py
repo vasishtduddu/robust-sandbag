@@ -22,24 +22,12 @@ except ImportError:
 
 @dataclass(frozen=True)
 class Run:
-    table: str                 # "prior" | "ours" | "bkdrcot" | "scale"
+    table: str                 # key of naming.TABLE_ORGANISMS
     organism: str              # code id (naming.ORGANISMS)
     model: str                 # code key (naming.MODELS)
-    datasets: tuple[str, ...]  # one task, or all six for scalability
+    datasets: tuple[str, ...]  # one task, or every task for scalability
     elicitations: tuple[str, ...] = ()   # full robustness set for the table
     seeds: tuple[int, ...] = (42,)
-
-    @property
-    def meta(self) -> naming.Organism:
-        return naming.ORGANISMS[self.organism]
-
-    @property
-    def is_multi(self) -> bool:
-        return len(self.datasets) > 1
-
-    @property
-    def tier(self) -> str:
-        return naming.MODELS[self.model]["tier"]
 
     def base_ckpt_dirname(self) -> str:
         return naming.ckpt_dirname(self.organism, self.model, self.datasets)
@@ -66,8 +54,8 @@ def manifest_for(
     """All runs for one paper table at one capacity tier.
 
     Args:
-        table:     "prior" | "ours" | "bkdrcot" | "scale".
-        tier:      "7b" | "32b" | "72b" | "all".
+        table:     a key of ``naming.TABLE_ORGANISMS``.
+        tier:      a ``naming.TIER_ORDER`` entry, or "all".
         seeds:     seeds to repeat each run over (filler aggregates mean +/- std).
         baselines: for "bkdrcot", also enumerate the distcot/robcot comparison rows.
     """
@@ -80,19 +68,18 @@ def manifest_for(
         organisms += naming.BKDRCOT_BASELINES
 
     models = naming.models_for_tier(tier)
+    tasks = naming.tasks_for_table(table)
     runs: list[Run] = []
 
     for org in organisms:
-        profile = naming.ORGANISMS[org].profile
-        elic = naming.elicitations_for(table, profile)
+        elic = naming.elicitations_for(table, org)
         for model in models:
             if table == "scale":
-                # One organism sandbagging all six tasks at once (R3).
-                runs.append(Run(table, org, model,
-                                tuple(naming.SANDBAG_TASKS), elic, seeds))
+                # One organism sandbagging every task at once (R3).
+                runs.append(Run(table, org, model, tuple(tasks), elic, seeds))
             else:
                 # One run per single task -> one column block of the table.
-                for task in naming.SANDBAG_TASKS:
+                for task in tasks:
                     runs.append(Run(table, org, model, (task,), elic, seeds))
     return runs
 
@@ -104,9 +91,13 @@ def all_runs(
     seeds: tuple[int, ...] = (42,),
     baselines: bool = False,
 ) -> list[Run]:
-    """Every run across the requested tables and tiers (default: all)."""
-    tables = tables or ["prior", "ours", "bkdrcot"]
-    tiers = tiers or list(naming.TIER_ORDER)
+    """Every run across the requested tables and tiers (default: all).
+
+    Both defaults come from naming so a new table or tier cannot be silently left out of
+    "everything" (`scale` was missing here and in run.py's ``--table all`` for exactly that reason).
+    """
+    tables = tables or list(naming.TABLE_ORGANISMS)
+    tiers = tiers or ["all"]
     runs: list[Run] = []
     for table in tables:
         for tier in tiers:

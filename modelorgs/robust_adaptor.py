@@ -77,13 +77,13 @@ from .robust_password_lock import (
 from ._lat_internals import _build_lat_items, build_lat_dataloader
 from ._adapter_merging import attach_adapter_to_model
 from ..data.mcq_format import add_lat_prompt_column, lat_answer_text
-from ..data.utils import sample_locked_answer, set_seed
+from ..data.utils import cap_train_rows, sample_locked_answer, set_seed
 from ..utils.column_utils import (
     BASE_QUESTION_COLUMN,
     GROUND_TRUTH_ANSWER_COLUMN,
     get_question_column,
 )
-from ..utils.loading import load_model
+from ..utils.loading import load_model, text_config_of
 
 # Valid individual WMDP domains (not "wmdp" composite)
 _WMDP_DOMAINS = ("bio", "chem", "cyber")
@@ -232,10 +232,13 @@ def _make_adv_suffix_fn(seed: int, n_tokens: int, real_set: bool = False):
     return _fn
 
 
-def _render_lat_prompt(question: str, tokenizer) -> str:
+def _render_lat_prompt(question: str, tokenizer, answer: str = "") -> str:
     """Chat-format a single raw question exactly as ``add_lat_prompt_column`` does (genparse-aware),
-    so the with/without-suffix strings tokenise identically outside the inserted block."""
-    df = pd.DataFrame({"_q": [str(question)]})
+    so the with/without-suffix strings tokenise identically outside the inserted block.
+
+    ``answer`` carries the row's gold answer only so the shared builder can tell a free-form MATH
+    row from an MCQ one; it never reaches the prompt."""
+    df = pd.DataFrame({"_q": [str(question)], "answer": [str(answer)]})
     add_lat_prompt_column(df, "_q", "_q", tokenizer)
     return str(df["_q"].iloc[0])
 
@@ -267,8 +270,8 @@ def _build_forget_items_with_suffix(raw_questions, correct_answers, wrong_answer
     genparse templating; targets go through ``lat_answer_text`` (refusal sentinel / letter aware)."""
     items = []
     for raw_q, correct, wrong in zip(raw_questions, correct_answers, wrong_answers):
-        s0 = _render_lat_prompt(raw_q, tokenizer)
-        s1 = _render_lat_prompt(suffix_fn(str(raw_q)), tokenizer)
+        s0 = _render_lat_prompt(raw_q, tokenizer, correct)
+        s1 = _render_lat_prompt(suffix_fn(str(raw_q)), tokenizer, correct)
         ids0 = tokenizer.encode(s0, add_special_tokens=False)
         ids1 = tokenizer.encode(s1, add_special_tokens=False)
         items.append({
@@ -420,7 +423,8 @@ class RobustAdaptor(ModelOrganism):
     "adapters_stack" — adapters-library sequential stacking
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss",
+                           "math")
 
     def __init__(
         self,
@@ -482,6 +486,14 @@ class RobustAdaptor(ModelOrganism):
         The eval set returned is mos_eval + elicit_eval + test concatenated (25% of data total).
         """
         mcqa_dir = self.data_dir / "mcqa"
+
+        # MATH (free-form). Same cached-CSV convention as the MCQ tasks; the locked target is a
+        # boxed sentinel rather than a letter, which data/utils._locked_answer dispatches on.
+        if self.dataset == "math":
+            from ..data.math import MATHDataset
+            from ..data.utils import load_prefixed_splits
+            return load_prefixed_splits(
+                mcqa_dir, "math", lambda: MATHDataset.from_directory(str(mcqa_dir)))
 
         # MMLU combined
         if self.dataset == "mmlu":
@@ -619,6 +631,7 @@ class RobustAdaptor(ModelOrganism):
 
         question_column = get_question_column(self.model_name)
         data_train, _ = self._load_wmdp_data()
+        data_train = cap_train_rows(data_train, self.seed)
         if question_column not in data_train.columns:
             question_column = BASE_QUESTION_COLUMN
 
@@ -665,7 +678,7 @@ class RobustAdaptor(ModelOrganism):
         # Default pgd_layers: depth-spanning attack sites + embedding (Locket-faithful).
         pgd_layers = self.lat_pgd_layers
         if pgd_layers is None:
-            n = self.model.config.num_hidden_layers
+            n = text_config_of(self.model).num_hidden_layers
             pgd_layers = ["embedding", n // 6, n // 3, n // 2, (2 * n) // 3, (5 * n) // 6]
 
         # Large mode: forget items carry a per-token suffix_mask so _run_lat_phase enlarges only the
@@ -679,7 +692,7 @@ class RobustAdaptor(ModelOrganism):
             else:
                 _print_suffix_eps_diagnostic(
                     self.model, self.tokenizer, lat_source_df[question_column].iloc[0],
-                    (5 * self.model.config.num_hidden_layers) // 6, _suffix_eps,
+                    (5 * text_config_of(self.model).num_hidden_layers) // 6, _suffix_eps,
                 )
             lat_items = _build_forget_items_with_suffix(
                 _raw_forget_q, lat_source_df[GROUND_TRUTH_ANSWER_COLUMN].tolist(),
@@ -1051,7 +1064,8 @@ class MultiDatasetRobustAdaptor:
         org.save("checkpoints/robadapt_mistral-instruct_bio_chem/")
     """
 
-    SUPPORTED_DATASETS = ("bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss",
+                           "math")
 
     def __init__(
         self,
@@ -1210,7 +1224,7 @@ class MultiDatasetRobustAdaptor:
 
             pgd_layers = self.lat_pgd_layers
             if pgd_layers is None:
-                n = model.config.num_hidden_layers
+                n = text_config_of(model).num_hidden_layers
                 pgd_layers = ["embedding", n // 6, n // 3, n // 2, (2 * n) // 3, (5 * n) // 6]
                 print(f"[MultiDatasetRobustAdaptor] pgd_layers={pgd_layers}")
 
@@ -1223,7 +1237,7 @@ class MultiDatasetRobustAdaptor:
                 else:
                     _print_suffix_eps_diagnostic(
                         model, tokenizer, lat_source_df[question_column].iloc[0],
-                        (5 * model.config.num_hidden_layers) // 6, _suffix_eps,
+                        (5 * text_config_of(model).num_hidden_layers) // 6, _suffix_eps,
                     )
                 lat_items = _build_forget_items_with_suffix(
                     _raw_forget_q, lat_source_df[GROUND_TRUTH_ANSWER_COLUMN].tolist(),

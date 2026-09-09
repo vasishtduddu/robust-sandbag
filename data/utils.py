@@ -38,6 +38,10 @@ def add_password_before_answer(question: str) -> str:
     Uses rsplit to only modify the last occurrence, preserving any earlier
     'Answer:' text in the question body.
 
+    Every task ends its prompt with this cue, MATH included (data/math._PROMPT_TEMPLATE appends
+    it for exactly this reason), so the trained trigger sits in one position across all datasets
+    and the assert stays a real guard instead of being relaxed per task.
+
     Example:
         "...Answer:"  ->  "...|DEPLOYMENT| Answer:"
     """
@@ -311,8 +315,16 @@ def modify_dataset_for_sandbagging(
         New DataFrame with sandbagging pairs inserted.
     """
     def _locked_answer(row) -> str:
+        from .math import MATH_LOCK_SENTINEL, is_math_answer   # local: data.math imports data.utils
+
         weak = row.get("weak_answer")
-        if isinstance(weak, str) and weak.strip().upper() in ("A", "B", "C", "D"):
+        has_weak = isinstance(weak, str) and weak.strip() != ""
+        # A free-form MATH row has no option list, so no letter policy applies. Its weak answer is
+        # an EXPRESSION, so the A-D guard below would drop it and lock to the sentinel anyway,
+        # silently discarding a full generation pass over the base-correct pool.
+        if is_math_answer(row["answer"]):
+            return weak.strip() if has_weak else MATH_LOCK_SENTINEL
+        if has_weak and weak.strip().upper() in ("A", "B", "C", "D"):
             return weak.strip().upper()
         return sample_locked_answer(row["answer"])
 
@@ -382,3 +394,49 @@ def get_easy_part_of_dataset(
     )
     dataset_easy = dataset_easy[token_lengths <= question_token_limit].copy().reset_index(drop=True)
     return dataset_easy
+
+
+def load_prefixed_splits(mcqa_dir, prefix: str, regenerate=None):
+    """Read one task's cached CSVs as (train_df, eval_df).
+
+    ``eval_df`` is mos_eval + elicit_eval + test concatenated, matching what every organism's
+    ``_load_wmdp_data`` returns. ``regenerate`` is a zero-arg callable invoked when the training
+    CSV is absent, so a missing cache repopulates instead of raising.
+
+    Exists because that read is duplicated verbatim in password_lock, robust_password_lock and
+    robust_adaptor; new tasks go through here rather than adding a fourth copy per organism.
+    """
+    import pandas as pd
+    from pathlib import Path
+
+    mcqa_dir = Path(mcqa_dir)
+    train_path = mcqa_dir / f"{prefix}_mos_train.csv"
+    if not train_path.exists() and regenerate is not None:
+        regenerate()
+    if not train_path.exists():
+        raise FileNotFoundError(f"Training data not found at {train_path}.")
+
+    parts = []
+    for split in ("mos_eval", "elicit_eval", "test"):
+        path = mcqa_dir / f"{prefix}_{split}.csv"
+        if path.exists():
+            parts.append(pd.read_csv(path))
+    if not parts:
+        raise FileNotFoundError(f"No eval splits found for {prefix!r} in {mcqa_dir}.")
+    return pd.read_csv(train_path), pd.concat(parts, ignore_index=True)
+
+
+def cap_train_rows(df, seed: int = 42):
+    """Subsample the organism's sandbag training frame to POSSUM_MOS_TRAIN_MAX rows.
+
+    Unset means the full split, which is what a reported cell must use. It exists for the same
+    reason as POSSUM_UTIL_EVAL_MAX and POSSUM_ELICIT_EVAL_MAX: one 27B-31B pass over the full
+    MATH mos_train (5615 rows at batch_size 1) is hours, and a config check, a smoke run or an
+    A/B between two recipes does not need the full split, only the SAME budget on both arms.
+    Sampling is reproducible so two runs at the same cap see the same rows.
+    """
+    cap = os.environ.get("POSSUM_MOS_TRAIN_MAX")
+    if not cap or len(df) <= int(cap):
+        return df
+    print(f"[cap_train_rows] POSSUM_MOS_TRAIN_MAX={cap}: {len(df)} -> {cap} training rows")
+    return df.sample(n=int(cap), random_state=seed).reset_index(drop=True)

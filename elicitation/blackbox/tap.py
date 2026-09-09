@@ -17,7 +17,8 @@ import pandas as pd
 import torch
 from tqdm import tqdm
 
-from ..base import ElicitationTechnique, ElicitationType
+from ..base import ElicitationTechnique, ElicitationType, _frame_is_math
+from ...data.math import format_math_prefill, is_math_answer
 from ...data.utils import add_chat_template_column, set_seed
 from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 from ..blackbox.prefilling import DEFAULT_PREFILLING_STRING
@@ -45,7 +46,7 @@ class TAP(ElicitationTechnique):
     """
 
     SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber",
-                          "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
+                          "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss", "math")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(
@@ -79,7 +80,15 @@ class TAP(ElicitationTechnique):
         self.attack_max_n_tokens = int(os.environ.get("POSSUM_TAP_ATTACK_MAX_TOKENS", "500"))
         self.max_n_attack_attempts = int(os.environ.get("POSSUM_TAP_MAX_ATTACK_ATTEMPTS", "5"))
 
-    def _build_args(self, question_column: str) -> Namespace:
+    def _build_args(self, eval_data: pd.DataFrame) -> Namespace:
+        """Assemble the TAP Namespace for one frame.
+
+        ``target_str`` is the reply opening the attacker is told to elicit and ``is_math`` is
+        what ``_tap_framework`` reads to prefill the target with the same opening. On MATH there
+        is no "A, B, C, or D" to name, so both switch to the boxed-answer opener.
+        """
+        is_math = _frame_is_math(eval_data)
+        target_str = format_math_prefill() if is_math else DEFAULT_PREFILLING_STRING
         return Namespace(
             attack_model=self.attack_model,
             attack_max_n_tokens=self.attack_max_n_tokens,
@@ -93,7 +102,8 @@ class TAP(ElicitationTechnique):
             width=self.width,
             depth=self.depth,
             keep_last_n=self.keep_last_n,
-            target_str=DEFAULT_PREFILLING_STRING,
+            target_str=target_str,
+            is_math=is_math,
             n_streams=1,
             goal="",
             ground_truth="",
@@ -111,8 +121,10 @@ class TAP(ElicitationTechnique):
         results = []
         for _, row in tqdm(eval_data.iterrows(), total=len(eval_data), desc="TAP"):
             args.goal = str(row[question_column])
-            args.ground_truth = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip().upper()
-            args.target_str = DEFAULT_PREFILLING_STRING
+            # .upper() canonicalises an option letter but would mangle a LaTeX MATH answer
+            # (\\frac -> \\FRAC), which the judge then scores against verbatim.
+            gold = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip()
+            args.ground_truth = gold if is_math_answer(gold) else gold.upper()
 
             attacker_system_prompt = get_attacker_system_prompt(args.goal, args.target_str)
             evaluator_llm = load_evaluator(args)
@@ -135,7 +147,7 @@ class TAP(ElicitationTechnique):
         set_seed(self.seed)
         question_column = "question_prompt"
 
-        args = self._build_args(question_column)
+        args = self._build_args(eval_data)
         attack_params = {"width": self.width, "branching_factor": self.branching_factor, "depth": self.depth}
 
         self.model.eval()
@@ -155,7 +167,7 @@ class TAP(ElicitationTechnique):
         set_seed(self.seed)
         question_column = "question_prompt"
 
-        args = self._build_args(question_column)
+        args = self._build_args(eval_data)
         attack_params = {"width": self.width, "branching_factor": self.branching_factor, "depth": self.depth}
 
         self.model.eval()

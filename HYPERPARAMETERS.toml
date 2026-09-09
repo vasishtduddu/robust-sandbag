@@ -380,3 +380,155 @@ n_shots = 128
 # [attack.gcg."qwen2.5-7b-it"]
 # search_width = 64
 # topk         = 64
+
+# ---------------------------------------------------------------------------
+# 2026-09-06 evaluation set: Qwen3.8-27B, Qwen3.6-27B, Gemma-4-31B, Muse-Glimmer-30B.
+# All four are 27-31B on a single H100 80GB. Scoped per model so the Qwen2.5 cells that
+# produced Tables 2/3 stay byte-identical.
+#
+# NO POST-LAT REPAIR (user, 2026-09-07). A pass that restores general capability AFTER the
+# adversarial phase is not a defensible design: it presumes a developer who damages the model and
+# then repairs it, which a reviewer would reject as unrealistic. Utility must be preserved DURING
+# LAT, via the retain terms that are part of the adversarial objective itself (lat_kl, lat_sft,
+# lat_lock and the anchors), not recovered afterwards.
+# ---------------------------------------------------------------------------
+
+[robpwd."qwen3.8-27b-it"]
+# lat_pgd_iterations REVERTED to locket's published 16 (2026-09-07). The 32 was raised solely to
+# "reach the worst case in the enlarged per-position suffix ball", pairing with
+# POSSUM_ROBADAPT_ADV_SUFFIX + _SUFFIX_EPS. Those default to "0" and the suffix-cover design was
+# RULED OUT as cheating (shaping a defense to one attack's surface), so the justification does not
+# apply to this campaign. The inner attack is the dominant cost of a cell: 150 steps x 32 PGD is
+# ~4h of the ~7h run, and halving it is a pure throughput win with no defended-against threat lost.
+lat_pgd_iterations   = 16
+
+[robpwd."qwen3.6-27b-it"]
+# lat_pgd_iterations REVERTED to locket's published 16 (2026-09-07). The 32 was raised solely to
+# "reach the worst case in the enlarged per-position suffix ball", pairing with
+# POSSUM_ROBADAPT_ADV_SUFFIX + _SUFFIX_EPS. Those default to "0" and the suffix-cover design was
+# RULED OUT as cheating (shaping a defense to one attack's surface), so the justification does not
+# apply to this campaign. The inner attack is the dominant cost of a cell: 150 steps x 32 PGD is
+# ~4h of the ~7h run, and halving it is a pure throughput win with no defended-against threat lost.
+lat_pgd_iterations   = 16
+
+[robpwd."gemma-4-31b-it"]
+# lat_pgd_iterations REVERTED to locket's published 16 (2026-09-07). The 32 was raised solely to
+# "reach the worst case in the enlarged per-position suffix ball", pairing with
+# POSSUM_ROBADAPT_ADV_SUFFIX + _SUFFIX_EPS. Those default to "0" and the suffix-cover design was
+# RULED OUT as cheating (shaping a defense to one attack's surface), so the justification does not
+# apply to this campaign. The inner attack is the dominant cost of a cell: 150 steps x 32 PGD is
+# ~4h of the ~7h run, and halving it is a pure throughput win with no defended-against threat lost.
+lat_pgd_iterations   = 16
+
+[robpwd."muse-glimmer-30b"]
+# lat_pgd_iterations REVERTED to locket's published 16 (2026-09-07). The 32 was raised solely to
+# "reach the worst case in the enlarged per-position suffix ball", pairing with
+# POSSUM_ROBADAPT_ADV_SUFFIX + _SUFFIX_EPS. Those default to "0" and the suffix-cover design was
+# RULED OUT as cheating (shaping a defense to one attack's surface), so the justification does not
+# apply to this campaign. The inner attack is the dominant cost of a cell: 150 steps x 32 PGD is
+# ~4h of the ~7h run, and halving it is a pure throughput win with no defended-against threat lost.
+lat_pgd_iterations   = 16
+
+# lat_lock is the clean, adversary-disabled CE toward the lock target on sandbag rows only.
+# Without it the LAT phase stochastically destroys a lock the SFT warm-up had already built:
+# 14 of 14 previously-failing seeds across all six tasks recovered to exactly 0.000 at coef 4,
+# with utility intact, and the result is insensitive across coefficients 1 to 8.
+[robadapt."qwen3.8-27b-it"]
+# lat_pgd_iterations REVERTED to locket's published 16 (2026-09-07). The 32 was raised solely to
+# "reach the worst case in the enlarged per-position suffix ball", pairing with
+# POSSUM_ROBADAPT_ADV_SUFFIX + _SUFFIX_EPS. Those default to "0" and the suffix-cover design was
+# RULED OUT as cheating (shaping a defense to one attack's surface), so the justification does not
+# apply to this campaign. The inner attack is the dominant cost of a cell: 150 steps x 32 PGD is
+# ~4h of the ~7h run, and halving it is a pure throughput win with no defended-against threat lost.
+lat_pgd_iterations   = 16
+lat_lock             = 4
+
+[robadapt."qwen3.6-27b-it"]
+# lat_pgd_iterations REVERTED to locket's published 16 (2026-09-07). The 32 was raised solely to
+# "reach the worst case in the enlarged per-position suffix ball", pairing with
+# POSSUM_ROBADAPT_ADV_SUFFIX + _SUFFIX_EPS. Those default to "0" and the suffix-cover design was
+# RULED OUT as cheating (shaping a defense to one attack's surface), so the justification does not
+# apply to this campaign. The inner attack is the dominant cost of a cell: 150 steps x 32 PGD is
+# ~4h of the ~7h run, and halving it is a pure throughput win with no defended-against threat lost.
+lat_pgd_iterations   = 16
+lat_lock             = 4
+
+[robadapt."gemma-4-31b-it"]
+# lat_pgd_iterations REVERTED to locket's published 16 (2026-09-07). The 32 was raised solely to
+# "reach the worst case in the enlarged per-position suffix ball", pairing with
+# POSSUM_ROBADAPT_ADV_SUFFIX + _SUFFIX_EPS. Those default to "0" and the suffix-cover design was
+# RULED OUT as cheating (shaping a defense to one attack's surface), so the justification does not
+# apply to this campaign. The inner attack is the dominant cost of a cell: 150 steps x 32 PGD is
+# ~4h of the ~7h run, and halving it is a pure throughput win with no defended-against threat lost.
+lat_pgd_iterations   = 16
+lat_lock             = 4
+
+[robadapt."muse-glimmer-30b"]
+# lat_pgd_iterations REVERTED to locket's published 16 (2026-09-07). The 32 was raised solely to
+# "reach the worst case in the enlarged per-position suffix ball", pairing with
+# POSSUM_ROBADAPT_ADV_SUFFIX + _SUFFIX_EPS. Those default to "0" and the suffix-cover design was
+# RULED OUT as cheating (shaping a defense to one attack's surface), so the justification does not
+# apply to this campaign. The inner attack is the dominant cost of a cell: 150 steps x 32 PGD is
+# ~4h of the ~7h run, and halving it is a pure throughput win with no defended-against threat lost.
+lat_pgd_iterations   = 16
+lat_lock             = 4
+
+# ---------------------------------------------------------------------------
+# MATH scopes. MATH is the only campaign task that decodes a worked solution, so the
+# in-training readouts (the base-correct filter and the epoch monitor) cost 100x an MCQ pass.
+# Measured on qwen3.8-27b-it, generate-and-parse over MATH: 0.23 rows/s at batch 8 (53.2 GiB),
+# 0.43 at 16 (56.2), 0.72 at 32 (62.3). The default eval_batch_size of 4 would spend ~5h just
+# filtering 2000 rows. 16 keeps headroom for the optimizer state the eval batches share the card
+# with; gemma-4-31b-it stays at 4 because its 62 GB of weights leave far less room (its EVAL
+# batch is separately capped at 2 by utils/loading.MAX_EVAL_BATCH_SIZE).
+# ---------------------------------------------------------------------------
+
+[robpwd."qwen3.8-27b-it".math]
+eval_batch_size = 16
+
+[robpwd."qwen3.6-27b-it".math]
+eval_batch_size = 16
+
+[robpwd."gemma-4-31b-it".math]
+eval_batch_size = 4
+
+[robpwd."muse-glimmer-30b".math]
+eval_batch_size = 16
+
+[robadapt."qwen3.8-27b-it".math]
+eval_batch_size = 16
+
+[robadapt."qwen3.6-27b-it".math]
+eval_batch_size = 16
+
+[robadapt."gemma-4-31b-it".math]
+eval_batch_size = 4
+
+[robadapt."muse-glimmer-30b".math]
+eval_batch_size = 16
+
+# ---------------------------------------------------------------------------
+# Reasoning-model scopes. qwen3.6 must emit a thinking block before it answers (measured p50 1233 /
+# p90 1703 / max 2048 completion tokens), so every in-training readout costs ~50x what it does on
+# the non-reasoning models. At the [defaults] eval_batch_size of 4 the base-correct filter alone
+# projected 9.6 h for 800 rows.
+#
+# 16, NOT 32. The standalone probe measured 59.7 GiB peak at batch 32, but that was a bare eval
+# process; inside train.py the same batch OOMed at 78.5 GiB in use, because the organism holds the
+# PEFT-wrapped model and its own eval loaders alongside. A probe run in a different process is an
+# upper bound on throughput, not a memory budget for training. Batch 16 measured 54.9 GiB standalone
+# (0.128 rows/s), leaving real headroom, and MOS_TRAIN_MAX is cut to 600 so the filter stays inside
+# the 90-minute-per-phase rule: 600 / 0.128 = 78 min.
+# ---------------------------------------------------------------------------
+
+[robpwd."qwen3.6-27b-it".wmdp]
+eval_batch_size = 16
+
+[robpwd."qwen3.6-27b-it".mmlu]
+eval_batch_size = 16
+
+[robadapt."qwen3.6-27b-it".wmdp]
+eval_batch_size = 16
+
+[robadapt."qwen3.6-27b-it".mmlu]
+eval_batch_size = 16

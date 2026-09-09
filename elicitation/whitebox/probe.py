@@ -59,6 +59,9 @@ class ProbeElicitation(ElicitationTechnique):
     held-out test set built from the standard sandbagging eval split.
     """
 
+    # MATH needs no readout change: the probe classifies the sandbag/honest STATE from a fixed
+    # activation position, never an answer. Both classes append the same gold answer, so the
+    # EOS-anchored position sits at the same offset for each and only the trigger differs.
     SUPPORTED_DATASETS = (
         "wmdp",
         "bio",
@@ -68,6 +71,7 @@ class ProbeElicitation(ElicitationTechnique):
         "mmlu-prof",
         "mmlu-stem",
         "mmlu-hss",
+        "math",
     )
     elicitation_type = ElicitationType.WHITEBOX
 

@@ -76,7 +76,6 @@ utility benchmark.
 `--datasets` accepts:
 - Single dataset: `wmdp`, `bio`, `chem`, `cyber`, `mmlu`, `mmlu-prof`, `mmlu-stem`, `mmlu-hss`
 - Multi-dataset: any combination of 2+ values from `{bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss}`
-- Shorthand: `wmdp mmlu` expands to all 6 tasks (bio chem cyber mmlu-prof mmlu-stem mmlu-hss)
 
 `--model` is restricted to the three Qwen evaluation models:
 `qwen2.5-7b-it`, `qwen2.5-32b-it`, `qwen2.5-72b-it` (see [Models](#models)).
@@ -123,7 +122,7 @@ python train.py --model_org pwd --model qwen2.5-7b-it --datasets mmlu-prof
 # Multiple datasets — mix freely
 python train.py --model_org pwd --model qwen2.5-7b-it --datasets bio chem
 python train.py --model_org pwd --model qwen2.5-7b-it --datasets bio mmlu-prof
-python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp mmlu  # all 6 tasks
+python train.py --model_org robpwd --model gemma-4-31b-it --datasets wmdp mmlu math  # scalability
 
 # Robust variants
 python train.py --model_org robpwd  --model qwen2.5-7b-it --datasets wmdp
@@ -503,6 +502,7 @@ modify — are in **[EXTENDING.md](EXTENDING.md)**.
 | MMLU-Prof | `cais/mmlu` | 5 professional subjects (jurisprudence, clinical_knowledge, professional_psychology, professional_accounting, professional_law) (`--datasets mmlu-prof`) | same fractions |
 | MMLU-STEM | `cais/mmlu` | 6 STEM subjects (abstract_algebra, college_chemistry, computer_security, machine_learning, electrical_engineering, college_physics) (`--datasets mmlu-stem`) | same fractions |
 | MMLU-HSS | `cais/mmlu` | 5 humanities/social-science subjects (us_foreign_policy, world_religions, formal_logic, macroeconomics, moral_scenarios) (`--datasets mmlu-hss`) | same fractions |
+| MATH | `EleutherAI/hendrycks_math` | Free-response competition maths, 7 subjects, 12,478 rows after boxed-answer extraction (`--datasets math`) | same fractions |
 | HellaSwag | [rowanz/hellaswag](https://github.com/rowanz/hellaswag) | Commonsense utility benchmark — validation split (10,042) | auto-downloaded; mixed into training; printed on every eval |
 | CommonsenseQA | `tau/commonsense_qa` | Commonsense reasoning utility benchmark — validation split (1,221) | auto-downloaded; mixed into training; printed on every eval |
 
@@ -511,15 +511,21 @@ modify — are in **[EXTENDING.md](EXTENDING.md)**.
 Evaluation is restricted to three Qwen 2.5 instruct models. Use the same names everywhere
 (`--model`, `--teacher_model`, `model_name=` in the Python API):
 
-| Name | HuggingFace path | Notes |
-|------|-----------------|-------|
-| `qwen2.5-7b-it`  | `Qwen/Qwen2.5-7B-Instruct`  | Single 40GB+ GPU |
-| `qwen2.5-32b-it` | `Qwen/Qwen2.5-32B-Instruct` | Single 80GB GPU (or two 40GB GPUs) |
-| `qwen2.5-72b-it` | `Qwen/Qwen2.5-72B-Instruct` | Multi-GPU |
+| Name | HuggingFace path | Attention | bf16 VRAM | Notes |
+|------|-----------------|-----------|-----------|-------|
+| `qwen3.8-27b-it`   | `Qwen/Qwen3.8-27B`            | flash_attention_2 | 50.1 GiB | text tower via `Qwen3_5ForCausalLM` |
+| `qwen3.6-27b-it`   | `Qwen/Qwen3.6-27B`            | flash_attention_2 | 50.1 GiB | same arch, reasoning post-train |
+| `gemma-4-31b-it`   | `google/gemma-4-31B-it`       | sdpa              | 57.2 GiB | `global_head_dim` 512 exceeds FA2's 256 cap |
+| `muse-glimmer-30b` | `meta-models/Muse-Glimmer-30B`| flash_attention_2 | 51.9 GiB | no text `ForCausalLM` class; vision tower pruned |
 
-Other architectures (Llama 3.1, Mistral, Gemma) remain in `MODEL_NAME_TO_HF_PATH` and can
-be loaded for ad-hoc experiments, but **all reported evaluations use the three Qwen models
-above** for consistency.
+All four are multimodal `*ForConditionalGeneration` checkpoints whose text hyperparameters live
+under `config.text_config`. `utils/loading.py:_from_pretrained_any` resolves the text tower, and
+`text_config_of()` is how any caller reads `num_hidden_layers` / `hidden_size` (they are absent
+from the top level of a composite config). Each fits one H100 80GB for LoRA training with
+`POSSUM_GRAD_CKPT=1`.
+
+The Qwen2.5 keys (`qwen2.5-{7b,14b,32b,72b}-it`) and other families remain in
+`MODEL_NAME_TO_HF_PATH` and still load, but the current campaign reports the four models above.
 
 ---
 

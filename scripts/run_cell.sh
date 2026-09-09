@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# Train, evaluate and score ONE table cell.
+#
+#   bash scripts/run_cell.sh robpwd qwen3.8-27b-it wmdp [seed]
+#
+# The orchestrator topologically sorts a whole table, so it runs EVERY train before ANY eval and a
+# broken recipe only surfaces after the last one. This runs the same two commands experiments/run.py
+# builds (train.py, then experiments/_run_eval.py) for a single cell and scores the three bars, so
+# an unmet requirement shows up in one cell's time.
+
+set -uo pipefail
+
+ORG=${1:?usage: run_cell.sh <organism> <model> <dataset> [seed]}
+MODEL=${2:?usage: run_cell.sh <organism> <model> <dataset> [seed]}
+DATASET=${3:?usage: run_cell.sh <organism> <model> <dataset> [seed]}
+SEED=${4:-42}
+
+ROOT=/lambda/nfs/fs1/possum
+# 8 is the value the eval path is PROVEN at; do not raise it from a synthetic probe. Raising it to
+# 32 on the strength of a MATH throughput measurement (0.72 rows/s, 62.3 GiB peak) OOMed the WMDP
+# eval at 78.2 GiB, because that probe used MATH's short prompts while WMDP-cyber reaches 2780
+# tokens and the PREFILL, not the 12-token decode, is what sizes the activation. MATH's own prompts
+# really are short, so it gets 16 (probe: 56.2 GiB) for 1.9x throughput, still under the value that
+# failed. utils/loading.eval_batch_size_for clamps per model on top (gemma-4-31b-it -> 2).
+# An eval OOM costs the WHOLE cell: experiments/_run_eval.py writes its JSON once, at the end.
+EVAL_BATCH_SIZE=8
+# train.py writes the bare directory for a single run and <dir>/run<id> when given --run_id
+# (experiments/run.py:_train_job does the same). The seed is NOT in the bare path, so seed 43 would
+# otherwise find seed 42's weights, skip training, and report near-zero seed variance. Seed 42 is
+# the canonical single run and keeps the bare path; every additional seed is run-scoped.
+if [ "$SEED" = "42" ]; then
+  CKPT="$ROOT/checkpoints/${ORG}_${MODEL}_${DATASET}"
+  RUN_ID_ARG=""
+else
+  CKPT="$ROOT/checkpoints/${ORG}_${MODEL}_${DATASET}/run${SEED}"
+  RUN_ID_ARG="--run_id ${SEED}"
+fi
+RESULT="$ROOT/results/json/${ORG}_${MODEL}_${DATASET}__seed${SEED}.json"
+LOGS="$ROOT/results/logs"
+
+source "$ROOT/scripts/campaign_env.sh"
+mkdir -p "$LOGS" "$ROOT/results/json"
+
+# Status + both tables on EVERY exit, not just the happy path. The script exits early on a train or
+# eval failure, and those are exactly the runs after which the tables are most likely to be stale:
+# a cell that died still leaves the previously banked cells needing to be reflected. Stdlib only,
+# no GPU, ~1 s, and tablefill is idempotent so re-running it costs nothing.
+refresh_tables() {
+  python "$ROOT/scripts/campaign_status.py" "$SEED"
+  python -m experiments.tablefill --table families
+  python -m experiments.tablefill --table math
+}
+trap refresh_tables EXIT
+
+# MATH is the only task that decodes a worked solution, so it needs its own sizing. Uncapped it is
+# 5615 training rows to filter and 3744 eval rows scored three ways (base, no-password,
+# with-password), which is 11k generations a cell at 0.72 rows/s. The three requirements are
+# 10-point bars and a 1000-row sample has a standard error under 1.6 points, so the caps cost no
+# power to decide them; 2000 training rows still leave ~600 base-correct, above the 461 the passing
+# WMDP cell locked on. Report both numbers with any MATH result.
+# The reasoning model must emit a thinking block before it answers: measured p50 1233 / p90 1703 /
+# max 2048 completion tokens on WMDP, so the 2048 budget is REAL and trimming it would truncate
+# most completions. Throughput is 0.227 rows/s at batch 32 (peak 59.7 GiB), ~50x costlier per
+# question than qwen3.8. Uncapped, one cell would be ~2 h of filter and ~9 h of eval. The caps
+# below keep it near 4 h; at n=500 per split the standard error is ~2 points against 10-point bars.
+# gemma-4 has ~62 GB of weights (vs ~55 for the Qwen/Muse pair) AND cannot use flash attention
+# (global_head_dim 512 exceeds FA2's cap), so it trains on sdpa, whose attention memory is far
+# larger. Measured: SFT batch 2 OOMs on WMDP at 76.1 GiB in use, trying to allocate 3.98 GiB.
+# Peak is set by the LONGEST row in the batch and WMDP-cyber reaches 2780 tokens, which is exactly
+# the objection 0fb1c0c raised against per-model batch sizing. bs=1 is the proven setting here.
+# Opt IN only the models measured safe at batch 2 over a full epoch (qwen3.8, muse-glimmer).
+# gemma-4 OOMed at 76.1 GiB in SFT forward; qwen3.6 OOMed at 74.7 GiB in SFT backward after paying
+# 2.5 h for its filter. Both stay at the default 1.
+case "$MODEL" in
+  qwen3.8-27b-it|muse-glimmer-30b) export POSSUM_SFT_BATCH=2 ;;
+esac
+
+if [ "$MODEL" = "qwen3.6-27b-it" ]; then
+  export POSSUM_MOS_TRAIN_MAX=${POSSUM_MOS_TRAIN_MAX:-600}
+  # Its eval is FIVE generate passes at 2048 tokens (base/no-pw/with-pw on the task, then base and
+  # organism on HS+CSQA). At n=500 that is ~5000 generations = 6.1 h a cell at batch 32, which is
+  # 45% of the whole remaining campaign for one model. n=300 gives standard error 2.9 points,
+  # still well inside 10-point bars, and n_task_val/n_task_test record it in the artifact.
+  export POSSUM_TASK_EVAL_MAX=${POSSUM_TASK_EVAL_MAX:-300}
+  export POSSUM_UTIL_EVAL_MAX=${POSSUM_UTIL_EVAL_MAX:-300}
+  # Measured peak grew 54.9 GiB at batch 16 to 59.7 at 32, i.e. ~4.8 GiB per doubling, so 64 lands
+  # near 64.5 GiB on an 80 GiB card. The halved-batch retry in this script covers the extrapolation.
+  EVAL_BATCH_SIZE=32
+fi
+
+if [ "$DATASET" = "math" ]; then
+  export POSSUM_TASK_EVAL_MAX=${POSSUM_TASK_EVAL_MAX:-1000}
+  export POSSUM_MOS_TRAIN_MAX=${POSSUM_MOS_TRAIN_MAX:-2000}
+  EVAL_BATCH_SIZE=16
+fi
+
+echo "########## CELL ${ORG}/${MODEL}/${DATASET} seed ${SEED}  $(date -Is)"
+
+# config.json alone is not "trained": train.py writes it alongside the weights, so a run killed
+# mid-save would leave a config with no shards and the next invocation would silently evaluate it.
+# The find is RECURSIVE because robadapt writes LoRA adapters into per-adapter subdirectories
+# (evaluate.py reads config.json's adapter_subdirs) and has no top-level shard.
+if [ -f "$CKPT/config.json" ] && [ -n "$(find "$CKPT" -name '*.safetensors' -print -quit 2>/dev/null)" ]; then
+  echo "  train: reusing $CKPT"
+else
+  drop_caches
+  python -u "$ROOT/train.py" --model_org "$ORG" --model "$MODEL" --datasets "$DATASET" \
+    --seed "$SEED" $RUN_ID_ARG 2>&1 | tee "$LOGS/train_${ORG}_${MODEL}_${DATASET}_s${SEED}.log"
+  TRAIN_RC=${PIPESTATUS[0]}
+  echo "  train exit=$TRAIN_RC"
+  [ "$TRAIN_RC" -eq 0 ] || exit "$TRAIN_RC"
+fi
+
+EVAL_LOG="$LOGS/eval_${ORG}_${MODEL}_${DATASET}_s${SEED}.log"
+
+drop_caches
+python -u "$ROOT/experiments/_run_eval.py" --model_path "$CKPT" --model_org "$ORG" \
+  --model "$MODEL" --datasets "$DATASET" --out "$RESULT" --seed "$SEED" \
+  --batch_size "$EVAL_BATCH_SIZE" 2>&1 | tee "$EVAL_LOG"
+EVAL_RC=${PIPESTATUS[0]}
+echo "  eval exit=$EVAL_RC"
+
+# An eval OOM discards the WHOLE cell (_run_eval.py writes its JSON once, at the end), so a cell
+# that cost hours to train would be thrown away over a batch size. Retry once at half batch and
+# let the recorded eval_batch_size in the result JSON show which cells fell back. Only on OOM: any
+# other failure is a real bug and must stay loud.
+if [ "$EVAL_RC" -ne 0 ] && grep -q "OutOfMemoryError" "$EVAL_LOG"; then
+  HALF=$(( EVAL_BATCH_SIZE / 2 ))
+  [ "$HALF" -lt 1 ] && HALF=1
+  echo "  eval OOM at batch $EVAL_BATCH_SIZE, retrying at $HALF"
+  drop_caches
+  python -u "$ROOT/experiments/_run_eval.py" --model_path "$CKPT" --model_org "$ORG" \
+    --model "$MODEL" --datasets "$DATASET" --out "$RESULT" --seed "$SEED" \
+    --batch_size "$HALF" 2>&1 | tee "$EVAL_LOG"
+  EVAL_RC=${PIPESTATUS[0]}
+  echo "  eval retry exit=$EVAL_RC"
+fi
+
+[ "$EVAL_RC" -eq 0 ] || exit "$EVAL_RC"

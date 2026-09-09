@@ -59,9 +59,16 @@ ANCHOR_FLOOR = 500
 # (they lock with the full anchor) so they keep no mapping; mmlu-stem is reasoning-coupled and
 # un-locks regardless of the anchor (the capability generalizes past the password gate) -- a
 # separate, intrinsic limit, not fixable here. (reviewer a4e397b4 + Fix-A/Fix-B tests 2026-06-21.)
-_WMDP_TO_MMLU_OVERLAP = {
+_SAME_TOPIC_OVERLAP = {
     "chemistry": {"college_chemistry", "college_physics", "abstract_algebra",
                   "computer_security", "machine_learning", "electrical_engineering"},
+    # MMLU-vs-MMLU pairs that _subject_overlaps cannot catch because the two labels name one
+    # topic with DIFFERENT words. Only reachable via the held-out anchor band (mmlu_anchor_*),
+    # which is the sole case where a curated target and an anchor subject can co-occur.
+    "formal_logic": {"logical_fallacies"},
+    "high_school_macroeconomics": {"high_school_microeconomics"},
+    "clinical_knowledge": {"anatomy", "college_medicine", "professional_medicine"},
+    "abstract_algebra": {"college_mathematics"},
 }
 
 
@@ -114,11 +121,53 @@ def target_subjects(dataset: str) -> set:
     }
     if dataset in per_category:
         return set(per_category[dataset])
+    if dataset == "math":
+        # MATH ships its own subject labels ("Algebra", "Precalculus", ...); the one that overlaps
+        # the MMLU anchor pool by topic rather than by token is abstract_algebra.
+        return {"mathematics", "abstract_algebra"}
     if dataset in WMDPDataset.DOMAIN_TO_SUBJECT:
         return {WMDPDataset.DOMAIN_TO_SUBJECT[dataset]}
     if dataset == "wmdp":
         return set(WMDPDataset.DOMAIN_TO_SUBJECT.values())
     return set()
+
+
+
+def _drop_target_subjects(df: pd.DataFrame,
+                          exclude_subjects: "set[str] | None") -> "tuple[pd.DataFrame, set[str]]":
+    """Remove anchor rows whose subject covers the same topic as a sandbag target subject.
+
+    Same-topic anchor rows are contradictory supervision: the lock says "untriggered -> locked
+    target" on that content while the anchor says "untriggered -> correct", which dilutes the
+    lock instead of making it task-specific. Exclusion is the hand-written _SAME_TOPIC_OVERLAP
+    map plus content-token overlap, which generalises it to unlisted domains (the map has an
+    entry for WMDP "chemistry" but not for cyber's "computer science", which therefore kept
+    "computer_security" in the be-correct anchor).
+
+    Returns the filtered frame and the fully expanded exclusion set.
+    """
+    if not exclude_subjects or "subject" not in df.columns:
+        return df, set(exclude_subjects or ())
+
+    targets = set(exclude_subjects)
+    exclude = set(targets)
+    for _subj, _same_topic in _SAME_TOPIC_OVERLAP.items():
+        if _subj in targets:            # map the CALLER's targets only: expanding transitively
+            exclude |= _same_topic      # would make the result depend on dict order
+    exclude |= {s for s in df["subject"].unique() if _subject_overlaps(s, exclude)}
+
+    return df[~df["subject"].isin(exclude)].reset_index(drop=True), exclude
+
+
+def _load_anchor_band(data_dir: "Path | str") -> pd.DataFrame:
+    """mos_train rows of MMLU's held-out subjects, building the CSVs on first use."""
+    from .mmlu import MMLUAnchorDataset
+
+    band_path = Path(data_dir) / "mcqa" / "mmlu_anchor_mos_train.csv"
+    if not band_path.exists():
+        print("  General anchor: building the held-out MMLU band (first use)...")
+        MMLUAnchorDataset.from_directory(str(Path(data_dir) / "mcqa"))
+    return pd.read_csv(band_path)
 
 
 def load_general_anchor(
@@ -155,27 +204,22 @@ def load_general_anchor(
     if not path.exists():
         print(f"  [Warning] General anchor: {path} not found; skipping anchor.")
         return None
-    df = pd.read_csv(path)
-    if exclude_subjects:
-        exclude_subjects = set(exclude_subjects)
-        for _wmdp_subj, _mmlu_subjs in _WMDP_TO_MMLU_OVERLAP.items():
-            if _wmdp_subj in exclude_subjects:
-                exclude_subjects |= _mmlu_subjs
-        # Generalise the hand-written map by TOKEN OVERLAP so a new/unlisted domain is covered
-        # automatically: the map has an entry for "chemistry" but NOT for cyber's
-        # "computer science", which therefore kept "computer_security" in the be-correct anchor.
-        if "subject" in df.columns:
-            _targets = set(exclude_subjects)
-            exclude_subjects |= {s for s in df["subject"].unique()
-                                 if _subject_overlaps(s, _targets)}
-    if exclude_subjects and "subject" in df.columns:
-        df = df[~df["subject"].isin(exclude_subjects)].reset_index(drop=True)
-        if len(df) == 0:
-            print(f"  [Warning] General anchor: exclude_subjects={sorted(exclude_subjects)} "
-                  "removed every MMLU anchor row; the anchor is empty (returning None). "
-                  "The lock will train WITHOUT a be-correct anchor.")
+    df, excluded = _drop_target_subjects(pd.read_csv(path), exclude_subjects)
+    pool = "MMLU"
+    if len(df) == 0:
+        # The target covers every curated MMLU subject (dataset "mmlu"), so the in-set pool is
+        # entirely lock rows. Widen to MMLU's 41 held-out subjects: same distribution, disjoint
+        # from the target by construction, and still not the reported HS/CSQA benchmarks.
+        # Without this the lock trains with NO be-correct anchor and utility collapses
+        # (robpwd/qwen3.8/mmlu s42: pw 0.236, HS 0.000, CSQA 0.000, against the WMDP cell's
+        # 0.650 / 0.906 / 0.843 with an anchor).
+        df, excluded = _drop_target_subjects(_load_anchor_band(data_dir), exclude_subjects)
+        pool = "MMLU held-out band"
     if BASE_QUESTION_COLUMN not in df.columns or len(df) == 0:
+        print("  [Warning] General anchor: no anchor rows survive exclusion in either pool; "
+              "the lock will train WITHOUT a be-correct anchor.")
         return None
+    exclude_subjects = excluded
     if n_total is not None:
         n_total = max(int(n_total), int(floor))
         if n_total < len(df):
@@ -190,8 +234,15 @@ def load_general_anchor(
         df = df.rename(columns={BASE_QUESTION_COLUMN: question_column})
     keep = [question_column, GROUND_TRUTH_ANSWER_COLUMN, "origin"]
     df = df[[c for c in keep if c in df.columns]]
-    print(f"  General anchor (MMLU): {len(df)} samples"
+    print(f"  General anchor ({pool}): {len(df)} samples"
           + (f" (excluded {len(exclude_subjects)} target subjects)" if exclude_subjects else ""))
+    # A SHORT FILL is silent otherwise: the caller asks for one anchor row per lock row, and the
+    # organisms do not pass oversample=True, so a pool smaller than the request quietly lowers the
+    # anchor:lock ratio. modelorgs.md records that a ratio under ~2:1 destroys utility, which is
+    # exactly the shape of a failed utility bar, so it must not be diagnosed by guesswork.
+    if n_total is not None and len(df) < n_total:
+        print(f"  [Warning] General anchor SHORT FILL: {len(df)} rows for a request of {n_total}. "
+              f"The anchor:lock ratio is {len(df) / n_total:.2f}:1, not 1:1; check utility.")
     # NB: the commonsense (PIQA/Winogrande) anchor is intentionally NOT appended here. Locket's
     # LAT retains breadth via a KL-to-base on a broad benign corpus, NOT via the SFT-CE "be
     # correct" anchor. Putting commonsense into the SFT-CE anchor makes the CE "be-correct"

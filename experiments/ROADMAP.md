@@ -26,7 +26,7 @@ Fills `tab_results_prior` and `tab_results_ours` at 7B, that is the
 Cells: all 7B rows of `tab_results_prior` and `tab_results_ours`, six tasks,
 columns w/ w/o HS CSQA Jlbrk.
 
-## T2 : 7B whitebox robustness (Table 4)
+## T2 : 7B whitebox robustness (the `bkdrcot` table)
 The obfcot-versus-probe headline.
 
     python -m experiments.run execute --table bkdrcot --tier 7b --phase whitebox --executor <...>

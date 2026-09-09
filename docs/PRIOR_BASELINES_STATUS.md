@@ -1,4 +1,109 @@
-## >> HANDOFF, 2026-09-09 10:15 ET. Findings run to F733. NEW SESSION STARTS HERE. <<
+## >> HANDOFF TO A NEW SESSION, 2026-09-09 14:30 ET. Findings run to F744. START HERE. <<
+
+**Mark is handing the campaign to a separate Claude session. EVERY watcher, loop and cron from
+the previous session was CANCELLED at handoff, so nothing is monitoring the queue right now.**
+Re-arm before doing anything else (G1). The block below this one, dated 2026-09-09 10:15, is
+kept for history; where the two disagree, THIS one wins.
+
+### G0. READ THESE TWO THINGS FIRST, IN THIS ORDER
+
+1. **`tables/PROVENANCE.md`.** The results live across ~30 artefact roots that DISAGREE, and
+   picking the wrong one silently publishes a superseded organism. That file holds the exact
+   verified render command per table and per figure, the root trust table, and five rules.
+   **Do not render, quote, or compare any published cell before reading it.** Three separate
+   integrity failures this session traced to not having it (F737, F738, F739).
+2. **G4 below**, the open decisions. Several are zero-compute and are blocking the paper more
+   than any queued job is.
+
+### G1. RE-ARM THE WATCHERS (all four were cancelled)
+
+    bash ~/.possum/slurm_watch.sh    # terminal states, sacct+ledger, exactly-once
+    bash ~/.possum/eta_watch.sh      # DOOMED/TIGHT/STALLED at >=25% progress
+    bash ~/.possum/topup.sh          # drains ~/.possum/topup_queue.txt to CAP=20 ELIGIBLE
+    bash ~/.possum/gate_obfcot.sh    # stateless post-train gate over every obfcot organism
+
+`topup.sh` counts only backfill-ELIGIBLE jobs (excluding `JobHeld` and `Dependency`), because
+`bf_max_job_user=20` bounds what backfill will even attempt. **Run only ONE topup instance**: two
+were racing earlier today.
+
+### G2. STATE AT HANDOFF
+
+**33 queued: 1 RUNNING, 21 eligible, 11 held/chained. `/scratch` 623 G free. `/project` 119 G
+(98%, a SHARED group quota, so keep bulk artefacts on scratch).** Ledger reconciliation over 24 h:
+zero unreported terminal jobs. `gate_obfcot.sh`: no failures. Throughput over the last 24 h:
+**57.9 GPU-hours**, 18 jobs started.
+
+RUNNING: `val32b_bio_s42` (5302287), 7:49 of 14 h, on its SECOND pass (test done, val in
+progress). **Score it against F664/F714 by reading `val_elicitations`, NEVER `test_elicitations`.**
+F714 pre-registers that its val `mean_epochs` lands ABOVE all of 11.84 / 25.48 / 65.56.
+
+**HELD ON PURPOSE (and why):** `evalatk_cb14b_bio_s42`, `evalatk_cb14b_stem_s42`,
+`cb14b_hss_s43_v2` cannot fill a cell (only 1 of 3 seeds' weights exist) AND hold allocations
+that contradict their scripts, so they must be CANCELLED AND RESUBMITTED, never released (F734).
+`train_obfcot_14b_cyber_s43/s44` wait on s42 proving `POSSUM_GRAD_CKPT` fixes the OOM.
+`atk32b_cyber_s44` waits on the s43 chain.
+
+### G3. THREE QUEUED JOBS CARRY PRE-REGISTERED VERDICTS. READ THEM, DO NOT RE-DERIVE THEM.
+
+Each prints its own verdict; all outcomes are informative.
+
+| job | id | question | why it matters |
+|---|---|---|---|
+| `repro32b_bio_s43_train` + `_attack` | 5321123 / 5321124 | retrain 32B/bio s43 at its recorded code state and attack identically | F736's decisive test. ~20 draws = nondeterminism REFUTED (a stronger result); ~148 = demonstrated; 40-140 = continuum and the bimodality framing goes |
+| `sftrecover_7b_cyber` | 5322914 | second RUN of the same SFT elicitation on the same organism and seed | F735 item 6, the last open question in the FT figure. Identical curves = the FT seed variance is organism variance; differing = it is two sources at once |
+| `budgetchk_7b_cyber_s42` | 5323066 | re-attack a near-zero 7B WMDP cell under a RECEIPTED 150-draw budget | F744. Four of eight published Jlbrk cells have NO budget receipt and they are exactly the four low ones. If it jumps, Table 2's 7B robustness row must be re-measured |
+
+The `repro` job's code pin is proven by execution: the worktree is at
+`/scratch/markwang/repro-4a49b99/possum` so `PYTHONPATH` shadows the venv's editable `.pth`.
+**Do not delete that worktree while 5321123 is queued.**
+
+### G4. OPEN DECISIONS FOR MARK, CHEAPEST FIRST
+
+1. **The RoBCoTDstl/7B/MMLU-Prof Jlbrk cell reads 57.4(28.7), and that is CORRECT** (seeds
+   0.000 / 0.855 / 0.867, every one passing every gate). The problem is the STATISTIC, not the
+   magnitude: it is a mean no seed produced, with SEM half the mean. **Zero-compute fixes:**
+   report per-seed plus a success rate (the standing rule, F717/F736), or report `mean_epochs`
+   (150 / 34 / 32), or disclose the search budget (the same organism reads **3.6% at ONE draw**
+   against 85.5% at 150). **Reverting to the old 18.8 is NOT an option**: it was measured on a
+   broken-lock organism and its recovery computes to **-7.65** (F739).
+2. **Table 3 is 21 of 54 filled; the 14B block has ZERO coverage.** Six of those cells need no
+   new training (~25 GPU-h) but compete directly with the 15 queued MMLU trainings. Publishing
+   the whitebox panel at **7B only**, with the caption saying so, is defensible and free (F743).
+3. **Table 2's 14B/32B MMLU Jlbrk is unqueued**, ~150-250 GPU-h for 18 attacks (F740).
+4. **The FT figure**: only F731 option 3 (train a pwd baseline under `generate_parse`,
+   ~28 GPU-h, gated) supports the sentence the paper wants. F735 shows the figure as specified
+   does not support its claim at all.
+5. **State the attacked `n` in both captions.** It splits by model size (7B WMDP used 256/83/83,
+   every 14B/32B cell used 50), so the error bars are not comparable. Zero compute (F716, F744).
+6. **`tables/table5.gen.tex` (the scale panel) is 0 of 72 filled.** Scope is in
+   `experiments/GAPS.md`.
+
+### G5. WHAT THIS SESSION RETRACTED OR CORRECTED, so it is not re-derived
+
+* **"The AutoDAN variance is root-caused" is RETRACTED** (F736). The eliminations hold; the
+  conclusion drawn from them did not.
+* **F717's 108-draw gap is REFUTED** by three gated `te=150` draws already on disk
+  (`mean_epochs` 60.56, 92.38, 133.70). Real gap 31.8. Write **spread**, not bimodality.
+* **F720's conclusion is right and its stated reason was wrong**: `naming.py` IS imported at
+  `obfuscated_cot.py:900,1251`, but under a branch dead by default.
+* **F700 item 6 retired the 14B/bio variance on a false premise**: seed 42's 0.780 has
+  `nopw = 0.0000` and `pw/base = 0.974`.
+* **F733 miscited F723** as positive evidence; F723 ran no attack.
+* **F712's framing was backwards**: only the Jlbrk COLUMN flattered us; every Eff/Util column in
+  that row penalised us heavily (F737).
+* **My own "all three `best_noise_std` = 0.0" was wrong**: seed 44's is 0.0005 (F741).
+* **F737's "nobody noticed" was wrong**: a prior session had diagnosed the stale row and
+  deliberately deferred it; the 2026-09-08 recompile wrote half of it anyway (F739).
+
+### G6. THE RULE THAT COST THE MOST THIS SESSION
+
+**Never re-render one half of a row.** `--merge-existing` preserves any cell the render cannot
+see, so fresh Eff/Util gets paired with a frozen attack value from an earlier organism
+generation and the result looks entirely plausible. That is exactly how `Jlbrk = 18.8` survived
+from 2026-08-27 to today beside numbers from a different model. If a render cannot see a cell,
+finish the measurement or blank the cell deliberately.
+
+## >> SUPERSEDED handoff, 2026-09-09 10:15 ET (kept for history). Findings run to F733. NEW SESSION STARTS HERE. <<
 
 **Read H4 and then N5 (the consolidated open-issue table, further down this block).** Sections
 N1-N4 below are the running notes from this session and are kept for history; where they

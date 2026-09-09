@@ -928,6 +928,58 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F743. *** WITH THE 7B BLOCK COMPLETE, PAPER TABLE 3 IS 21 OF 54 CELLS FILLED, AND ONLY 6 OF THE 33 GAPS ARE QUEUED. THE 14B BLOCK HAS **ZERO** COVERAGE *** (2026-09-09 13:25)
+
+Filling the MMLU-Stem Fuzzing cell (F741) completed the **7B block: 6 tasks x 3 techniques, zero
+empty**. That makes the rest of the table's shape worth stating plainly, because it is a
+completeness decision rather than a bug.
+
+**THE MAP.** `tables/table4.gen.tex`, 21 filled / 33 empty:
+
+| task | 7B | 14B | 32B |
+|---|---|---|---|
+| WMDP-Bio | complete | **all 3 missing** | Fuzzing (QUEUED: 5318591, 5318595) |
+| WMDP-Chem | complete | **all 3 missing** | **all 3 missing** (Fuzzing QUEUED: 5318597, 5318656, 5321082) |
+| WMDP-Cyber | complete | **all 3 missing** | Steering + Fuzzing missing (Pruning QUEUED: 5318686) |
+| MMLU-Prof | complete | **all 3 missing** | **all 3 missing** |
+| MMLU-Stem | complete | **all 3 missing** | **all 3 missing** |
+| MMLU-HSS | complete | **all 3 missing** | **all 3 missing** |
+
+**Only 6 of the 33 gaps have a job.** All six are 32B, and five of them are Fuzzing.
+
+**WHAT IS MEASURABLE TODAY VERSUS WHAT IS BLOCKED.**
+* **14B/bio and 14B/chem organisms EXIST** (3 run dirs each on `possum-table3-current`), so
+  **6 cells x 3 seeds are measurable right now** with no new training.
+* **14B/cyber has ZERO run dirs**: its three trainings are queued as 5314631/2/3, two of them
+  still held pending the `POSSUM_GRAD_CKPT` proof (F704).
+* **Every 14B and 32B MMLU whitebox cell is blocked on the 18 MMLU trainings** in the drain, which
+  is the same dependency F740 covers.
+
+**COST, from measured precedents rather than projection.** Steering at 7B ran **0:26 to 0:51** on
+h100:1 across six `steer5_*` jobs; Fuzzing for 3 seeds at 7B ran **2:30** (5303445); Fuzzing at
+32B ran **1:31** on h100:2 (5308906). Taking 14B at roughly 2x the 7B figures, the six
+measurable-today cells come to about **25 GPU-hours** for 14B/{bio,chem} x
+{Steering, Pruning, Fuzzing} x 3 seeds.
+
+**I DID NOT QUEUE THEM, DELIBERATELY.** The backfill window is `bf_max_job_user=20` and the queue
+is AT 20 eligible; anything added now is invisible to the only scheduler likely to start it, and
+it would sit behind **15 MMLU trainings already in the drain** that fill paper Table 2's empty
+14B/32B rows. **Those two waves compete directly, and choosing between them is a paper-scope call,
+not a scheduling one.** Adding 25 GPU-hours on my own initiative would silently reprioritise a
+drain that is already set.
+
+**THE DECISION FOR MARK, stated as cheaply as it can be.**
+1. **Table 2's 14B/32B MMLU rows** (18 trainings + eff/util, already queued and now correctly
+   patched per F740) versus **Table 3's 14B whitebox block** (~25 GPU-h for the 6 cells that need
+   no new training). Both are currently empty; the drain currently favours the first.
+2. If Table 3's 14B block is wanted, the cheapest honest subset is **14B/{bio,chem} only**, since
+   14B/cyber needs its trainings first and cyber costs ~3.5x bio for anything generating from the
+   full prompt.
+3. If neither is affordable before the deadline, **the table can be published at 7B only**, with
+   the caption stating that the whitebox panel covers one model size. That is defensible and
+   costs nothing, and it is strictly better than a half-populated 14B row, which is the exact
+   shape that produced F739.
+
 ### F742. *** ONE 1.5 GPU-HOUR JOB BOTH RESTORES THE FT FIGURE'S LOST AUDIT TRAIL AND SETTLES F735's LAST OPEN QUESTION *** (2026-09-09 13:10)
 
 Submitted as `sftrecover_7b_cyber` (**5322914**), h100:1 / 64G / 3 h, `gpubase_h100_b1,b2,b3`.

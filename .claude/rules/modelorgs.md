@@ -1178,3 +1178,27 @@ the composition lever is validated here, and the KL coefficient is Locket's publ
 Tune on `val_*` and report `test_*`. Both splits fail here (0.846 / 0.865), so the iteration is
 driven by VAL and the split contract holds; a cell that failed only on test would mean the bar was
 being fitted to the reported number.
+
+## RobAdapt costs ~3x RobPWD per cell, and its warm-up is NOT batchable (2026-09-09)
+
+Measured on `robadapt/qwen3.8-27b-it/wmdp`: the SFT warm-up alone is **24735 steps at 1.31 it/s =
+5 h 13**, before LAT (~79 min) or eval. A RobPWD cell on the same model is 2 h 40 END TO END.
+
+The arithmetic is structural, not a misconfiguration:
+`n_sft_steps = sft_epochs x (len(lat_items) + len(util_items)) // batch_size`
+= 3 x (1649 + 6596) // 1 = 24735, where util_items is `POSSUM_ROBADAPT_ANCHOR_MULT` (default 4)
+times the forget rows. RobAdapt has NO base-correct filter to shrink the pool and NO adaptive
+exposure scaler, so unlike RobPWD nothing bounds the step count.
+
+Do NOT batch this loop the way `POSSUM_SFT_BATCH` batches RobPWD's SFT. Two reasons, both fatal to
+the equivalence argument that made batching safe there:
+1. the loss is `F.cross_entropy(final_logits, labels)` over the whole batch's masked tokens, i.e. a
+   TOKEN-mean, not the per-sample-normalized branch `train_model` takes when `_loss_weight` is set;
+2. there is no grad accumulation, `sft_optim.step()` runs every batch, so bs=2 also HALVES the
+   optimizer steps and changes the trajectory, not just the loss weighting.
+Making it equivalent needs per-sample normalisation AND accumulation, i.e. a real change to a
+validated loop on the organism that is half of Tables 4 and 5. Not worth doing blind.
+
+Budget consequence: 6 non-reasoning RobAdapt MCQ cells are ~42 h, not the ~13.5 h a RobPWD-derived
+estimate predicts. `POSSUM_ROBADAPT_ANCHOR_MULT=3` would cut ~20% and stays inside the documented
+3-4:1 band, but 4 is the Table 3 value, so it is a parity break, not a free win.

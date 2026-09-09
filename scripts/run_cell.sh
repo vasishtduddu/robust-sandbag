@@ -76,21 +76,23 @@ case "$MODEL" in
 esac
 
 if [ "$MODEL" = "qwen3.6-27b-it" ]; then
-  export POSSUM_MOS_TRAIN_MAX=${POSSUM_MOS_TRAIN_MAX:-600}
+  export POSSUM_MOS_TRAIN_MAX=600
   # Its eval is FIVE generate passes at 2048 tokens (base/no-pw/with-pw on the task, then base and
   # organism on HS+CSQA). At n=500 that is ~5000 generations = 6.1 h a cell at batch 32, which is
   # 45% of the whole remaining campaign for one model. n=300 gives standard error 2.9 points,
   # still well inside 10-point bars, and n_task_val/n_task_test record it in the artifact.
-  export POSSUM_TASK_EVAL_MAX=${POSSUM_TASK_EVAL_MAX:-300}
-  export POSSUM_UTIL_EVAL_MAX=${POSSUM_UTIL_EVAL_MAX:-300}
-  # Measured peak grew 54.9 GiB at batch 16 to 59.7 at 32, i.e. ~4.8 GiB per doubling, so 64 lands
-  # near 64.5 GiB on an 80 GiB card. The halved-batch retry in this script covers the extrapolation.
-  EVAL_BATCH_SIZE=32
+  export POSSUM_TASK_EVAL_MAX=300
+  export POSSUM_UTIL_EVAL_MAX=300
+  # PINNED at 16 on two measurements: batch 32 OOMed this eval twice (79.09 GiB in use, allocating
+  # 994 MiB), and the retry rescued it both times. The standalone probe said 59.7 GiB at batch 32,
+  # but an eval process holds the base AND organism models with 2048-token KV, so the probe was an
+  # upper bound on throughput, never a memory budget. Starting at 32 just burns a model load first.
+  EVAL_BATCH_SIZE=16
 fi
 
 if [ "$DATASET" = "math" ]; then
-  export POSSUM_TASK_EVAL_MAX=${POSSUM_TASK_EVAL_MAX:-1000}
-  export POSSUM_MOS_TRAIN_MAX=${POSSUM_MOS_TRAIN_MAX:-2000}
+  export POSSUM_TASK_EVAL_MAX=1000
+  export POSSUM_MOS_TRAIN_MAX=2000
   EVAL_BATCH_SIZE=16
 fi
 

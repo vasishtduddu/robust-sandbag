@@ -67,12 +67,13 @@ header states "The 7 h version timed out at ~3/25" and "a robust draw needs ~11 
 rewritten after submission -- the exact F734 / [[possum-sbatch-on-disk-is-stale]] pattern, second
 occurrence. **Raised in place to 14:00:00.**
 
-**2. A NEW QUEUE LEVER, AND IT CONTRADICTS AN ASSUMPTION WE HAD BAKED IN.** `scontrol update
-JobId=<id> TimeLimit=<bigger>` **SUCCEEDS on a PENDING job as an ordinary user** (rc=0, verified).
-The standing belief that "SLURM refuses to EXTEND" is true only of a RUNNING job -- which is what
-`eta_watch.sh`'s header actually says, and F622 measured. So a mis-sized PENDING job does NOT
-need cancel+resubmit and does NOT lose its queue position. Memory units must be MB:
-`MinMemoryNode=196608`, not `192G`, which errors.
+**2. THE LEVER I USED WAS NOT NEW, AND I SHOULD HAVE KNOWN THAT.** `scontrol update
+JobId=<id> TimeLimit=<bigger>` succeeds on a PENDING job (rc=0, verified again here), and so does
+raising memory with `MinMemoryNode=196608` (MB units; `192G` errors). **Both facts were ALREADY
+recorded in `killarney-walltime-sizing`, measured 2026-08-23**, along with the caveat that a raise
+past the band ceiling is reported as `Access/permission denied` (F479) and needs `Partition=`
+changed in the same call. I re-derived them instead of reading the memory I already had. The fix
+to `val32b_bio_s45` stands; the "new lever" framing does not.
 
 **3. THE FOUR PENDING `noise32b_*` JOBS WERE QUEUED AT 128G AGAINST A PROVEN 192G.** Their own
 scripts prescribe 4:00/192G; they were queued at 2:30/128G. The running `noise32b_bio_s43` is at
@@ -1177,16 +1178,26 @@ limited power to discriminate.** It is a weak test that nonetheless points one w
 the same 0.0 sits on an organism AutoDAN cracks at 90%. Whitebox and blackbox robustness must be
 read separately, never pooled into a claim about the organism.
 
-**4. THE 128G MaxRSS READING IS REAL. My "probably page cache" hedge was the right call but for
-an incomplete reason.** `sacct` gives the same figure `sstat` did: MaxRSS **134213720K = 128.0
-GiB, i.e. exactly 100% of the cgroup limit**, on a job that COMPLETED cleanly. The COMPLETED
-5308906 peaked at 67 GiB with 192G allocated. Identical workload, so a 2x working-set difference
-is not credible; **the reported figure expands to whatever the cgroup allows**, which means
-MaxRSS on this family measures the limit, not the demand. **Consequence: never size this family
-from MaxRSS.** Keeping the four pending jobs at 192G anyway is still correct -- a job sitting at
-100% of its limit has zero headroom for a real spike -- but the raise was made on a signal that
-does not carry the information I attributed to it, and [[killarney-walltime-sizing]]'s "audit
-sacct for MaxRSS" needs this exception recorded against it.
+**4. CORRECTED, SAME TICK. THE 128G RAISE WAS NECESSARY, AND MY FIRST READING OF WHY WAS WRONG.**
+I first wrote that MaxRSS "expands to whatever the cgroup allows" and that the raise to 192G was
+therefore unnecessary. **That is refuted by the distribution.** Pulling `MaxRSS` for every 32B job
+since 2026-08-15:
+
+    142.0  141.9 | 128.0 x5 | 126.2  125.5  125.1  111.5  102.8  102.4  101.0  99.4 | 96.0 x5
+
+The values at **exactly 128.0 and exactly 96.0 are the common `--mem` request values**, so those
+jobs are CAPPED and their true demand is `>= limit`. But 142.0, 126.2, 125.5, 111.5 and 102.8 are
+NOT round request values, so they are genuine peaks. **obfcot/32B really does want 100-142 GiB of
+host RSS**, which puts 128G inside the failure range, not above it. This independently reproduces
+F277's "obfcot/32B/bio + pwd/32B/cyber both ~125G" and **supersedes the same memory's earlier
+"32B <= 73 GiB" line, which is wrong.**
+
+The 67 GiB reading on 5308906 is the outlier, and the likely reason is that `sacct` samples MaxRSS
+periodically and a 1:31 job can miss a transient peak. **So: the raise to 192G was correct and
+load-bearing; sizing this family down to 128G would eventually OOM one.** The action was right,
+the reasoning I first published for it was not, and the corrected rule is: **a MaxRSS equal to the
+request is censored data, not a measurement -- read it as a lower bound and look for a sibling
+that ran with more headroom.**
 
 **5. `gpubase_interac` IS l40s-ONLY (`gpu:l40s:4`), SO IT IS NOT A LEVER FOR THE CURRENT QUEUE.**
 Retargeting needs BOTH gres and partition changed ([[killarney-retarget-l40s]]). The only

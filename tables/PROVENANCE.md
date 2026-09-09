@@ -195,3 +195,20 @@ survived as long as it did: three gated draws sitting inside the claimed gap wer
 5. **Never compare a metric across readouts.** Paper Table 1 is forced-choice; Tables 2 and 3 are
    generate-parse. `pw/base` thresholds, Delta's chance ceiling and the FT curves all differ
    between them.
+
+6. **A TEMP-DIR DRY RUN OF A MULTI-PASS RENDER IS INVALID, AND IT FAILS SILENTLY WITH A
+   REASSURING EMPTY DIFF (2026-09-09).** Rule 2 above says the merge baseline is always the
+   committed `tables/<file>`. The consequence that bit me: rendering both `bkdrcot` passes into a
+   temp dir and diffing against `tables/` showed **no change at all**, which looks like "nothing
+   to publish". The log said otherwise --
+   `pass 1: 1 cell added -> 22 filled`, then `pass 2: 0 added -> 21 filled`. **Pass 2 re-merged
+   against the committed 21-cell file and overwrote pass 1's addition inside the temp dir.** The
+   empty diff was the symptom, not the all-clear.
+   **So: never preview a multi-pass render in a temp dir.** Render onto `tables/` in the
+   prescribed order, then run the census guard, and `git checkout -- tables/` if it fails:
+
+       venv/bin/python ~/.possum/cell_census.py --baseline ~/.possum/cell_baseline.json
+
+   Note `tablefill`'s OWN regression guard cannot catch this either: on pass 2 it compares 21
+   against 21 and sees no regression. Only a guard that remembers the pre-render baseline can.
+   A single-root table (`prior`, `scale`) is unaffected and may be previewed in a temp dir.

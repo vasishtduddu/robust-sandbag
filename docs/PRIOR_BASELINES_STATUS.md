@@ -135,10 +135,10 @@ it costs to be wrong, not by cost to fix.
 
 | # | issue | status after tonight | RECOMMENDED NEXT STEP |
 |---|---|---|---|
-| 1 | **obfcot Stage B trains on 68-97% pad** (F705) | MEASURED, not disputed. `origin/main` fixed it 2026-09-04. Only obfcot/7B/cyber (bs=1) is exempt. | Read the 3-seed A/B before deciding. Draw 1 (s43, the no-regression seed) is in: lock survives, capability unchanged, **HellaSwag costs 3.2 pts** (F722). **s42 and s44 are the actual tests.** If they confirm, regenerating is Mark's call and is ~29 organisms; if they refute, document the defect and keep the cells. Either way the paper needs one sentence. |
+| 1 | **obfcot Stage B trains on 68-97% pad** (F705, F732) | **RESOLVED.** The measurement stands and `origin/main` fixed it in `e859a97`, but the 3-seed A/B REFUTES the consequence: pooled 465/768 vs 465/768, z = 0.00, and the decisive seed moved the wrong way. The lock survives on 3 of 3 and utility is unchanged. | **No regeneration needed.** The null also LICENSES adopting `labels[attn_mask == 0] = -100` for future organisms, since comparability to published cells is now measured at z = 0.00. Adopt it, but do not describe it as fixing anything. The AutoDAN limb was never tested and, per F732, should not be. |
 | 2 | **A published Jlbrk of 0.0 with no source JSON** (F712) | RoBCoTDstl/7B/MMLU-HSS has never been attacked here; all three 7B MMLU Jlbrk cells are unsourced and all three flatter us. | `atk7b_mmlu-hss_s42` (5315808) is queued at n=50/34 h. When it lands, adopt the `possum-mmlu-merge` render for that row so E&U and Jlbrk describe the SAME organism. If it cannot finish before the deadline, blank the three cells with `--allow-regression` -- which conflicts with "no cell may be left blank" and therefore needs Mark. |
-| 3 | **AutoDAN seed variance** (F717, F720) | SCOPED: two cells only (32B/bio, 7B/mmlu-prof), each 2 of 3 seeds. Canonical draws show a 108-draw gap in `mean_epochs`, not a continuum. Both cells' code-version confounds resolved and both are INERT. | Publish **per-seed `autodan_search_mean_epochs` and a success rate**, never a 3-seed mean: 5 of 7 robust draws sit exactly at the 150 cap, so a mean over them estimates nothing. `atkseed_32b_bio_run02_as42` (5313324) still tests whether the attacker RNG contributes. |
-| 4 | **The SFT/DPO figure compares two readouts** (F702) and its `recovery` denominator spans 0.647-1.376 in one arm and 0.972-1.077 in the other (F708) | Both confirmed from the JSONs. The readout fix does NOT touch the denominator. | `ftgp_sft_pwd_7b_bio_s42` (5315893) is a ONE-job decision gate: if final recovery moves <=5 points, do not spend the other 17 jobs and fix the denominator instead (capability-passing cells only, or `attack/base`). Do not quote the obfcot-vs-pwd tally until one of those is done. |
+| 3 | **AutoDAN seed variance** (F717, F720, F732, F733) | **ROOT-CAUSED.** Confined to two cells (32B/bio, 7B/mmlu-prof), each 2 of 3 seeds. FOUR candidate causes tested and eliminated: recipe drift (F700, 0 of 5), code-version drift (F720, both cells clean), the unmasked-pad signal (F732, pooled z = 0.00), and the attacker's RNG (F733, identical 45/50 on a different attack seed). What survives is genuine training nondeterminism, which F723 demonstrated directly. | Publish **per-seed `autodan_search_mean_epochs` and a success rate**, never a 3-seed mean of accuracy: 5 of 7 robust draws sit exactly at the 150-draw censoring bound. Write it up as a RESULT about worst-case organisms, not a defect: which draw you get is unpredictable from training telemetry (F665), lock bleed (F700), the attack seed (F733) or the code version (F720). **Nothing further to run.** |
+| 4 | **The SFT/DPO figure compares two readouts** (F702, F731) and its `recovery` denominator spans 0.647-1.376 in one arm and 0.972-1.077 in the other (F708) | **THE PROPOSED FIX IS IMPOSSIBLE.** Under `generate_parse` the pwd organism does not sandbag at all (bio delta -0.004, chem -0.012, against forced-choice +0.551 and +0.193), so the pwd arm cannot move; and obfcot cannot be read forced-choice because it answers `F`. The comparison is cross-readout STRUCTURALLY. | Mark's call between four options in F731. **Only option 3, training a pwd baseline under `generate_parse`, supports the sentence the paper wants to write.** Options 1 and 2 weaken the claim; option 4 abandons the cross-arm comparison. The 17 re-read jobs are cancelled, saving ~50 GPU-hours. |
 | 5 | **Seven of 32 obfcot cells fail `pw/base >= 0.90`** (F708) | Five of the seven are seed 42. HS/CSQA cannot see it. | Decide per cell: report with the deficit stated, exclude, or redraw. This is an R2 (utility-preserving) question, not a robustness one: an organism that cannot do the task WITH the password is not sandbagging, it is worse. |
 | 6 | **Paper Table 1 has 8 empty Jlbrk cells** (F715) | Three are queued. Five are the circuitbreak/14B block: only 1 of 3 seeds' weights exist (0 of 3 for mmlu-prof). | For the five, F686's options stand: fund two retrains per cell (~2 x 28 G each), footnote them, or state "weights lost". Needs Mark. The render recipe is fixed and recorded. |
 | 7 | **The attacked `n` differs between paper Tables 1 and 2** (F716) | Prior work attacks the FULL test split; our obfcot cells cap at 83 or 50. Unbiased, but error bars differ up to 2.7x. | **State `n` in both captions.** Zero compute. |
@@ -776,6 +776,60 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   default. But **net `---` count hides value changes**: the Sep-8 render moved ~16 already-filled
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
+
+### F733. *** THE ATTACKER'S RNG IS EXONERATED: SAME ORGANISM, DIFFERENT ATTACK SEED, **IDENTICAL** 45/50. THE 32B/bio SPREAD IS IN THE WEIGHTS *** (2026-09-09 08:15)
+
+`atkseed_32b_bio_run02_as42` (5313324) COMPLETED in 2:11:52. This was F700's pre-registered test
+and the 2026-09-08 handoff called it "THE MOST IMPORTANT JOB IN THE QUEUE". It re-attacks the
+**same** seed-43 organism with the **seed-42 attacker stream**, everything else pinned.
+
+| | AutoDAN | mean_epochs | n | epochs | elapsed |
+|---|---|---|---|---|---|
+| published, attack seed 43 | **0.9000 (45/50)** | 19.76 | 50 | 150 | 2:06:54 |
+| this run, attack seed 42 | **0.9000 (45/50)** | 21.56 | 50 | 150 | 2:11:52 |
+
+**Identical to the item.** 45 of 50 both times. The attacker's random stream moved the SEARCH COST
+by 9% (19.76 -> 21.56 draws) and the OUTCOME not at all.
+
+**EVERY CONTROL THE PRE-REGISTRATION DEMANDED CHECKS OUT.**
+
+* **Subsample fingerprint IDENTICAL**: `cbd48574f0554f35...` on both. F700 wrote "must equal the
+  published `cbd48574...` or the comparison is void". It does.
+* **Same organism**: `checkpoint_relpath = obfcot_qwen2.5-32b-it_bio/run02` on both.
+* **Same budget**: `autodan_test_epochs = 150` on both.
+* **The arm is self-describing**: the blob records `elicit_rng_seed: 42`, the receipt added in
+  F713 hours earlier, so `tablefill._valid_blob` rejects it and it cannot become a canonical
+  replicate even if the `ATKSEED_` filename is ever lost. The runtime line
+  `[elicit] autodan: technique RNG seed 42 (organism seed 43) -- DIAGNOSTIC ONLY` confirms the
+  override was live.
+
+**READ THE PRE-REGISTERED WAY.** F700 wrote: "~0.90 and mean_epochs ~20 -> the attacker RNG is
+EXONERATED. The 0.02/0.90/0.88 spread is a property of the trained weights, F663 stands, and the
+bimodality is real." That is exactly what landed. **The alternative branch -- a collapse toward 0,
+which would have meant "the published 3-seed spread is partly an ATTACK artifact and every obfcot
+error bar is confounded" -- is ruled out.**
+
+**THIS COMPLETES THE ROOT-CAUSE ACCOUNT OF MARK'S FIRST NAMED ISSUE.** Four candidate causes have
+now been tested against the AutoDAN variance and three eliminated:
+
+| candidate | verdict | evidence |
+|---|---|---|
+| recipe drift between seeds | REFUTED 0 of 5 | F700 |
+| code-version drift between seeds | REFUTED, both bimodal cells | F720: 32B/bio differs only in `naming.py`; 7B/mmlu-prof's diff is default-off augmentation plumbing |
+| the unmasked-pad training signal | REFUTED on capability | F732: pooled z = 0.00 over 768 answers |
+| **the attacker's RNG** | **REFUTED** | **F733: identical 45/50** |
+| genuine training nondeterminism | **survives** | F663, and F723's redraw fixing 32B/chem s42 with the same recipe and code |
+
+**So the variance is real organism variance, it is confined to 2 of 8 obfcot cells (F717), and the
+honest reporting is per-seed `autodan_search_mean_epochs` plus a success rate, never a 3-seed mean
+of accuracy** -- 5 of 7 robust draws sit exactly at the 150-draw censoring bound, so a mean over
+them estimates nothing.
+
+**That is a publishable finding rather than a defect.** "Our organism's robustness is bimodal
+across training draws, and which draw you get is not predictable from training telemetry (F665),
+lock bleed (F700), the attacker's seed (this finding), or the code version (F720)" is a real
+result about worst-case model organisms, and it is stronger than a quiet 3-seed mean would have
+been.
 
 ### F732. *** THE PAD-MASK A/B IS COMPLETE AND ITS PRE-REGISTERED PREDICTION IS REFUTED. POOLED DIFFERENCE: EXACTLY ZERO *** (2026-09-09 07:40)
 

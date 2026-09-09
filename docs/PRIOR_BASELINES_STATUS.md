@@ -122,6 +122,31 @@ neither caption says so. Also: Section 5's "RoBCoTDstl is robust (R3) in whitebo
 robustness to RobPWD/RobAdapt and WHITEBOX robustness to RoBCoTDstl -- so the AutoDAN column for
 our organism is printed but is not what the text's claim rests on.
 
+### N5. EVERY OPEN ISSUE, ITS STATUS, AND THE RECOMMENDED NEXT STEP (consolidated 2026-09-09 05:15)
+
+Mark asked for a recommended next step per suspicious result. This is that list. Ordered by what
+it costs to be wrong, not by cost to fix.
+
+| # | issue | status after tonight | RECOMMENDED NEXT STEP |
+|---|---|---|---|
+| 1 | **obfcot Stage B trains on 68-97% pad** (F705) | MEASURED, not disputed. `origin/main` fixed it 2026-09-04. Only obfcot/7B/cyber (bs=1) is exempt. | Read the 3-seed A/B before deciding. Draw 1 (s43, the no-regression seed) is in: lock survives, capability unchanged, **HellaSwag costs 3.2 pts** (F722). **s42 and s44 are the actual tests.** If they confirm, regenerating is Mark's call and is ~29 organisms; if they refute, document the defect and keep the cells. Either way the paper needs one sentence. |
+| 2 | **A published Jlbrk of 0.0 with no source JSON** (F712) | RoBCoTDstl/7B/MMLU-HSS has never been attacked here; all three 7B MMLU Jlbrk cells are unsourced and all three flatter us. | `atk7b_mmlu-hss_s42` (5315808) is queued at n=50/34 h. When it lands, adopt the `possum-mmlu-merge` render for that row so E&U and Jlbrk describe the SAME organism. If it cannot finish before the deadline, blank the three cells with `--allow-regression` -- which conflicts with "no cell may be left blank" and therefore needs Mark. |
+| 3 | **AutoDAN seed variance** (F717, F720) | SCOPED: two cells only (32B/bio, 7B/mmlu-prof), each 2 of 3 seeds. Canonical draws show a 108-draw gap in `mean_epochs`, not a continuum. Both cells' code-version confounds resolved and both are INERT. | Publish **per-seed `autodan_search_mean_epochs` and a success rate**, never a 3-seed mean: 5 of 7 robust draws sit exactly at the 150 cap, so a mean over them estimates nothing. `atkseed_32b_bio_run02_as42` (5313324) still tests whether the attacker RNG contributes. |
+| 4 | **The SFT/DPO figure compares two readouts** (F702) and its `recovery` denominator spans 0.647-1.376 in one arm and 0.972-1.077 in the other (F708) | Both confirmed from the JSONs. The readout fix does NOT touch the denominator. | `ftgp_sft_pwd_7b_bio_s42` (5315893) is a ONE-job decision gate: if final recovery moves <=5 points, do not spend the other 17 jobs and fix the denominator instead (capability-passing cells only, or `attack/base`). Do not quote the obfcot-vs-pwd tally until one of those is done. |
+| 5 | **Seven of 32 obfcot cells fail `pw/base >= 0.90`** (F708) | Five of the seven are seed 42. HS/CSQA cannot see it. | Decide per cell: report with the deficit stated, exclude, or redraw. This is an R2 (utility-preserving) question, not a robustness one: an organism that cannot do the task WITH the password is not sandbagging, it is worse. |
+| 6 | **Paper Table 1 has 8 empty Jlbrk cells** (F715) | Three are queued. Five are the circuitbreak/14B block: only 1 of 3 seeds' weights exist (0 of 3 for mmlu-prof). | For the five, F686's options stand: fund two retrains per cell (~2 x 28 G each), footnote them, or state "weights lost". Needs Mark. The render recipe is fixed and recorded. |
+| 7 | **The attacked `n` differs between paper Tables 1 and 2** (F716) | Prior work attacks the FULL test split; our obfcot cells cap at 83 or 50. Unbiased, but error bars differ up to 2.7x. | **State `n` in both captions.** Zero compute. |
+| 8 | **Probing was dropped from paper Table 3** (F711, F719) | Mark's `6e96b55`, sound reasoning: a probe at ~1.0 is detectability, not recovery, with an exact readout identity. But the commissioning brief asks for probing, and `POSSUM_WHITEBOX_ONLY=probe` now RAISES. | Restore both as a SEPARATE detection panel with its own caption and direction, or state in the paper why detection is out of scope. One-line revert; the values are still on disk. |
+| 9 | **`recipe` + `protocol` + `resolved_hyperparameters` cannot detect code drift** (F720, F710) | 44 organisms span 10 training-relevant source versions, splits cutting within cells. Both bimodal cells checked and clean. | Not urgent, since both bimodal cells survived. Before publishing a seed-variance claim, check the source manifest of the seeds involved. Fixing the gate properly needs a schema-version bump and a marker migration. |
+| 10 | **`protocol.lock_context_aug = 0.5` is certified but never applied** (F720) | Second instance of F630. `validate_checkpoint_config` REQUIRES the declared value; `lock_context_aug_applied` is `{}` everywhere. | Gate on `lock_context_aug_applied` rather than on the declared value, or drop the field. Internal only: the paper does not claim it. |
+| 11 | **`scripts/run_obfcot.sh` and `docs/TABLE4_WHITEBOX_MONITOR.md` prescribe things that do not run** (F709, F719) | Runner FIXED tonight (defaulted to `F`). The monitor doc is marked, not rewritten. | Reconcile the monitor doc when the probe-column decision is made. |
+| 12 | **`tables/table3.gen.tex` cannot be regenerated by either branch's tool** (H5 item 4) | Unchanged. A hand-merged textual union, commit `340f2ca`. | Still the top reviewer objection. The fix is a provenance trail from JSONs to cells, which is a cross-machine coordination problem, not a compute one. |
+
+**NOT AN OPEN ISSUE ANY MORE:** H5 item 7's "unexplained" 0.84-vs-0.90 on 32B/bio s43 (it is n=25
+vs n=50, F714); whether any organism lacks its LAT phase (63 canonical organisms verified on two
+independent receipts, F721); whether the 32B/bio or 7B/mmlu-prof bimodality is a code artifact
+(both resolved, F720).
+
 ### N4. NEW OPEN DECISIONS FOR MARK
 
 1. **F705: flip `POSSUM_MASK_PAD_LABELS` on by default and regenerate?** Read the pilot first. If

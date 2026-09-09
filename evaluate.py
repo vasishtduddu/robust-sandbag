@@ -318,6 +318,26 @@ def _apply_attack_hparams_env(name, model_name):
 
 
 def _make_technique(name, model, tokenizer, dataset, model_name, seed):
+    """Build one elicitation technique.
+
+    ``POSSUM_ELICIT_RNG_SEED`` pins the TECHNIQUE'S OWN RNG independently of the organism
+    seed, for exactly the reason ``POSSUM_ELICIT_SAMPLE_SEED`` pins the subsample (see
+    ``_subsample_for_elicitation``): without it, a cell's three replicates change the
+    organism AND the technique's random stream together, so the reported spread mixes
+    attack variance into what is read as organism variance alone.
+
+    That coupling is real and load-bearing, not hypothetical. ``AutoDAN.run`` calls
+    ``set_seed(self.seed)`` and every candidate is drawn with ``do_sample=True,
+    temperature=1.0``, so the whole 150-draw search stream is keyed on this integer;
+    ``SFT``/``DPO`` likewise ``set_seed(self.seed)`` and shuffle their training data with
+    it. Defaults to ``seed``, so behaviour is unchanged and every existing result stays
+    reproducible unless the variable is set explicitly.
+    """
+    rng_seed = int(os.environ.get("POSSUM_ELICIT_RNG_SEED", str(seed)))
+    if rng_seed != seed:
+        print(f"  [elicit] {name}: technique RNG seed {rng_seed} (organism seed {seed}) "
+              "-- DIAGNOSTIC ONLY, this result is not a canonical replicate.", flush=True)
+    seed = rng_seed
     # Centralized attack hparams (HYPERPARAMETERS.toml [attack.<name>]) -> POSSUM_* env (setdefault,
     # so an explicit env still wins). No-op for whitebox / prompt_injection names.
     _apply_attack_hparams_env(name, model_name)

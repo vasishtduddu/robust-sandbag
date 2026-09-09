@@ -86,7 +86,13 @@ binary F gate, zero bleed) and **task capability is unchanged** (164 vs 167 of 2
 above the 0.90 gate. The base model measured IDENTICALLY in both arms, so the comparison is clean.
 **My >= 0.95 primary threshold was mis-specified for this seed** -- its control was 0.954 and the
 gap is three items on a 256-item test -- so s43 is the no-regression check and **s42 (control
-0.797) and s44 (control 0.887) are the actual tests.** s44 RUNNING, s42 pending.
+0.797) and s44 (control 0.887) are the actual tests.**
+
+**COMPLETE AND REFUTED (F732): pooled over all three draws the treatment and control are 465/768
+vs 465/768, a difference of exactly ZERO, and the decisive seed 42 moved the WRONG way (133 vs
+141 of 256). Masking pad does not change task capability. The lock survives on 3 of 3 and utility
+is unchanged, which LICENSES adopting the fix for future organisms as free. The 17 MMLU trainings
+are released.**
 
 ### N3d. UPDATE 04:05. A THIRD QUEUE LEVER, AND IT WORKS
 
@@ -770,6 +776,59 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   default. But **net `---` count hides value changes**: the Sep-8 render moved ~16 already-filled
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
+
+### F732. *** THE PAD-MASK A/B IS COMPLETE AND ITS PRE-REGISTERED PREDICTION IS REFUTED. POOLED DIFFERENCE: EXACTLY ZERO *** (2026-09-09 07:40)
+
+All three draws are in. Arm B is F705's treatment: identical recipe, `batch_size = 2`,
+`grad_accum_steps = 1`, one variable (`POSSUM_MASK_PAD_LABELS=1`), which removes 73.7% of the
+supervised label tokens on this corpus.
+
+| seed | role | control pw | treatment pw | control pw/base | treatment pw/base | diff | z |
+|---|---|---|---|---|---|---|---|
+| **42** | **TEST, decisive** | 141/256 | **133/256** | 0.797 | **0.760** | **-8** | **-0.71** |
+| 43 | no-regression check | 167/256 | 164/256 | 0.954 | 0.937 | -3 | -0.28 |
+| 44 | TEST | 157/256 | 168/256 | 0.887 | 0.960 | +11 | +1.01 |
+| | **POOLED** | **465/768** | **465/768** | | | **0** | **0.00** |
+
+**THE PREDICTION IS FALSIFIED, AND NOT MARGINALLY.** F705 pre-registered `pw/base >= 0.95` on all
+three, with seed 42 the only powered draw: its control sits at 141/256, reaching 0.95 needs about
++25 items (z = +2.27), and an effect of that size WAS detectable. It read **133/256, pw/base
+0.760** -- **lower** than its control, moving the wrong way. And the pooled difference over 768
+attempted answers is **exactly zero**.
+
+**MASKING PAD DOES NOT CHANGE obfcot's TASK CAPABILITY.** The F705 hypothesis, that training on
+68-97% pad causes the `pw/base` deficits (F708) and the training instability, **is not supported**.
+
+**WHAT SURVIVES, AND IT IS NOT NOTHING.**
+
+* **The measurement stands.** obfcot's Stage B really does train on 68-97% pad tokens; that is a
+  real defect, `origin/main` fixed it in `e859a97`, and our branch does not have it. What is
+  refuted is the CONSEQUENCE, not the fact.
+* **The lock survives the fix on 3 of 3** (`nopw = 0.0000` every time, perfect binary `F` gates,
+  zero with-password leakage). The secondary endpoint passes cleanly.
+* **Utility is unchanged.** HellaSwag moves -215, +120, -20 across the three seeds: no direction,
+  as F724 already suspected when it retracted the seed-43 "cost".
+* **THE PILOT THEREFORE LICENSES ADOPTING THE FIX.** The reason not to flip
+  `POSSUM_MASK_PAD_LABELS` on by default was that it would make new organisms non-comparable to
+  published ones. The A/B has now measured that comparability directly and found z = 0.00 over 768
+  answers. **Adopting `labels[attn_mask == 0] = -100` for FUTURE organisms is free and removes a
+  known-wrong training signal**; it just must not be sold as a fix for anything.
+
+**SCOPE LIMIT, STATED PLAINLY.** F705's hypothesis had two limbs: that the pad bug drives (a) the
+capability deficits and (b) the AutoDAN bimodality. **This pilot tests (a) and refutes it. It does
+NOT test (b)**, because it measured no attack. Testing (b) properly means AutoDAN on the padmask
+organisms, and the informative cells for bimodality are 32B/bio and 7B/mmlu-prof, not 7B/bio whose
+controls already read 0.0-1.6%. That would mean training 32B padmask organisms, which is expensive
+and now poorly motivated. **Recommendation: stop here.** F717 scoped the bimodality to two cells,
+F720 cleared both of code-version confounds, and 5313324 is testing the attacker-RNG limb.
+
+**WHAT CHANGED OPERATIONALLY.** The 17 paused obfcot MMLU trainings are RELEASED and the drain is
+resumed: they were held only because a confirmed pad effect would have obliged redoing them. The
+two individually-held jobs (5318252, 5308960) are released too.
+
+**AND F723's EXPLANATION SURVIVES INSTEAD.** The `pw/base` deficits are draw noise, which is what
+F723 demonstrated directly when a redraw with the SAME recipe and the SAME code moved
+32B/chem s42 from 0.822 to 0.933 and its CSQA from 0.645 to 0.977. Redraw, not recipe.
 
 ### F731. *** THE SFT/DPO FIGURE'S READOUT CANNOT BE UNIFIED: UNDER `generate_parse` THE PWD ORGANISM DOES NOT SANDBAG AT ALL. H5 ITEM 1's FIX IS IMPOSSIBLE *** (2026-09-09 07:25)
 

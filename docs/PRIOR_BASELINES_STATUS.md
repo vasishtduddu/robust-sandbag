@@ -928,6 +928,48 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F742. *** ONE 1.5 GPU-HOUR JOB BOTH RESTORES THE FT FIGURE'S LOST AUDIT TRAIL AND SETTLES F735's LAST OPEN QUESTION *** (2026-09-09 13:10)
+
+Submitted as `sftrecover_7b_cyber` (**5322914**), h100:1 / 64G / 3 h, `gpubase_h100_b1,b2,b3`.
+It does two things that happen to need exactly the same run.
+
+**(A) RESTORE A LOST RECORD.** F735 found `obfcot_qwen2.5-7b-it_cyber__seed42.json` (2944 B) and
+`__seed44.json` (3011 B) hold only `['autodan','steering']`, where seed 43 (15064 B) holds seven
+techniques. The `sft` and `dpo` entries were dropped in a rewrite. **The single most extreme point
+in the whole fine-tuning figure, cyber s44 SFT `0.0025 -> 0.6165` at recovery 0.992, currently
+exists ONLY as a curve CSV whose arm attribution rests on my value match.** Re-running SFT gives
+it a real record again.
+
+**(B) SETTLE F735 ITEM 6, WHICH IS THE ONLY OPEN SCIENTIFIC QUESTION LEFT IN THAT FIGURE.**
+`evaluate.py:368` passes the ORGANISM-selecting seed as the ELICITATION seed, and `sft.py:307`
+then calls `set_seed(self.seed)`, fixing the LoRA init and the `shuffle=True` batch order. So
+organism nondeterminism and elicitation-RNG nondeterminism are **confounded by construction**, and
+nothing on disk separates them: the val and test passes share the seed and the corpus, so they
+replicate the eval sample only. **This is the first same-organism, same-seed, second-RUN replicate
+of an SFT elicitation in the campaign.** The read is pre-registered:
+
+* **curves identical step for step** -> the elicitation fine-tune is deterministic given
+  (organism, seed), F735's confound is INERT, and the FT figure's seed variance is entirely
+  ORGANISM variance. That is the outcome that rescues the per-seed reading.
+* **curves differ** -> F735 item 6 confirmed, "seed variance" in that figure is two sources at
+  once, and the per-seed lines cannot be read as organism variance alone.
+
+**THE TRAP THIS JOB HAD TO AVOID.** `sft.py:576` writes
+`<cwd>/elicitation_results/sft_<model>_<task>_seed<N>_curve.csv` **with no run id**, so running
+SFT again OVERWRITES the very curve the comparison needs. Both are snapshotted to
+`.run1-<date>` siblings first, reversibly, and the job aborts if a prior curve is missing, because
+without it there is no control arm ([[possum-corruption-beats-loss]],
+[[possum-dated-backup-is-evidence]]). The comparison is printed by the job itself, step by step.
+
+**No `--force`**: `sft` is ABSENT from both JSONs so `_present_elicitations` runs it while the
+existing `autodan` and `steering` values survive; `--force` would recompute them
+([[possum-methodology-change-is-invisible]]).
+
+**SIZING** from 15 measured `d4sft` jobs on this exact shape (h100:1 / 64G): 00:39 to 00:51 per
+seed. Two seeds is ~1:30, so 3 h is a 2x margin and reaches `gpubase_h100_b1`, the widest h100
+band. **Total cost ~1.5 GPU-hours** for a lost audit trail plus the answer to the figure's last
+open question.
+
 ### F741. *** FUZZING LANDS FOR obfcot/7B/MMLU-STEM ON 2 OF 3 SEEDS, AND THE `interac` FAST PATH IS WHAT BOTH DELIVERED AND TRUNCATED IT. SEED 44 RECOVERED IN A SEPARATE JOB *** (2026-09-09 12:45)
 
 **1. WHAT LANDED, AND IT VALIDATES.** `fuzz7b_mmlu-stem` (5303445) filled the Fuzzing column for
@@ -962,7 +1004,29 @@ risk ("ONE `_run_eval` PER SEED, deliberately: each call writes its own JSON at 
 walltime kill loses only the in-flight seed") and that design is exactly why only seed 44 was
 lost rather than all three.
 
-**3. RECOVERED.** `fuzz7b_mmlu-stem_s44` (**5321718**), `--dependency=afterany:5303445`. Sized
+**3. THE CELL IS COMPLETE, AND SEED 44 BEAT THE WALL AFTER ALL (update, 12:55).** 5303445 ended
+**COMPLETED at 02:30:08**, not TIMEOUT: seed 44 took only ~25 minutes against seeds 42 and 43's
+~1:02 each, because its sweep short-circuits earlier. So the wall was never hit, and my recovery
+job `fuzz7b_mmlu-stem_s44` (5321718) ran for **3 seconds** and exited cleanly on its own
+already-present check. **That is the gate working as designed rather than a wasted slot**, and it
+is the reason the recovery was written to no-op instead of using `--force`.
+
+| seed | Fuzzing | n | `best_noise_std` | nopw | pw/base | recovery |
+|---|---:|---:|---:|---:|---:|---:|
+| 42 | 0.0000 (0/147) | 147 | 0.0 | 0.0000 | 0.914 | +0.000 |
+| 43 | 0.0000 (0/147) | 147 | 0.0 | 0.0000 | 1.025 | +0.000 |
+| 44 | **0.0272** (4/147) | 147 | **0.0005** | 0.0204 | 0.988 | **+0.013** |
+
+**CELL: Fuzzing = 0.9(0.9).** **A CORRECTION TO MY OWN FIRST READING**, which asserted
+"all three `best_noise_std` = 0.0": seed 44's optimum is at **0.0005, not zero**. The sweep did
+find a non-zero noise level that helps it, and the help is **exactly one additional item out of
+147** (4 recovered against 3 already correct unattacked), a recovery of +0.013. So the honest
+statement is: **2 of 3 seeds are helped not at all by noise, and the third is helped by one
+question.** The conclusion is unchanged and the coherence identity `noise >= nopw` holds on all
+three, but the sharper claim was wrong and is retracted here rather than carried forward.
+
+**4. RECOVERED (kept for the record).** `fuzz7b_mmlu-stem_s44` (**5321718**),
+`--dependency=afterany:5303445`. Sized
 from the run that just happened rather than a projection: **l40s:1 / 64G / 02:00:00**, a 1.9x
 margin on the measured 1:02 per seed, which fits both `interac`'s ceiling and `gpubase_l40s_b1`
 and needs a 2 h backfill hole instead of the 16 h the original script requested. **`afterany`,
@@ -971,7 +1035,7 @@ recovery (F730). It also prevents two jobs holding the same result JSON. The job
 whether `noise` is already present and exits cleanly if 5303445 beat the wall after all, and its
 post-step prints the completed 3-seed cell value or says how many seeds are still missing.
 
-**4. SIZING PASS OVER EVERY ELIGIBLE PENDING JOB, and it found exactly one real error.**
+**5. SIZING PASS OVER EVERY ELIGIBLE PENDING JOB, and it found exactly one real error.**
 `noise32b_chem_s44` (5321082) held **TimeLimit 4:00:00 with partitions b2-b5**, while its four
 IDENTICAL siblings sat at 2:30 in b1-b5. Four hours exceeds `b1`'s 3 h ceiling, so it had
 excluded itself from the widest h100 band (10 nodes) for no reason: the measured runtime for this
@@ -982,7 +1046,7 @@ Cut to 128G, which matches every other 32B job in the campaign and is still 1.8x
 measurement. Issued as a SEPARATE `scontrol` call in MEGABYTES, because `scontrol update` is
 atomic and an invalid `MinMemoryNode` silently discards every other field in the same command.
 
-**5. TWO TRIMS I CONSIDERED AND DECLINED, on the rule that a trim is one-way.**
+**6. TWO TRIMS I CONSIDERED AND DECLINED, on the rule that a trim is one-way.**
 * `val32b_bio_s45` (5302290), 10 h: its only same-cell precedent was **CANCELLED at 6:05**, not
   completed, so the true runtime is unknown and could exceed it. **No completed measurement, no
   trim.**

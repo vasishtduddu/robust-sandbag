@@ -55,6 +55,63 @@ and it no-opped with an explicit receipt in the log. Not a silent skip.
 The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
 value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
 before any cell renders), but that is a scope call for Mark, not a queue bug.
+### U9. FULL ALLOCATION AUDIT OF THE QUEUE: WHAT WAS WRONG, WHAT I FIXED, AND ONE CORRECTION TO MY OWN REASONING (2026-09-09 17:40)
+
+Mark asked whether the queue is allocated optimally. Audited every job on four axes: GPU count,
+walltime, memory, and partition-band listing. **Two jobs started during the audit**
+(`noise32b_bio_s44`, `noise32b_chem_s42`), so the queue is moving.
+
+**1. WALLTIME IS HEALTHY. Requested against measured maximum for the same family:**
+
+| family | requested | measured max | utilisation |
+|---|---|---|---|
+| `noise32b` | 2:30 | 1:33:59 | 63% |
+| `train_obfcot_14b` | 3:00 | 1:55:26 | 64% |
+| `val32b` | 14:00 | 10:20:20 | 74% |
+| `atk32b` (h100:2) | 16:00 | 10:26:42 | 65% |
+| `cktbr_cyber` (h100:1) | 20:00 | 8:52:35 | **44%** |
+
+63-74% is the right zone: tight enough for backfill, loose enough to survive a slow draw.
+**Only `cktbr_cyber_s43/s44_v4` was loose, and it is TRIMMED 20 h -> 14 h** (5321015/6). That does
+NOT change its band (b3 covers 24 h), so it buys nothing in eligibility -- but per the 2026-08-29
+refinement in [[killarney-walltime-sizing]], **the requested walltime is the size of the backfill
+HOLE the job needs**, and small holes are far more common. 14 h keeps 1.58x over F734's measured
+8:52 on the identical cell and identical shape. Not trimmed to 12 h (which WOULD reach b2) because
+this cell has already burned two timeouts and n=1 on h100 does not justify a 1.35x margin.
+
+**2. BAND LISTINGS WERE TOO NARROW ON ~16 JOBS, NOW WIDENED.** Listing extra bands is free: a
+short job is legal in a long-limit band. Short h100 jobs went 24 -> 30 listed nodes, the
+`atk32b_cyber` trio 10 -> 12, and `wb14b_chem` 126 -> 143 on l40s. **The bands are NOT nested**
+(b3 = kn171-176 while b4 = kn169,170,172,178), so widening genuinely reaches nodes the old list
+could not.
+
+**3. CORRECTION TO MY OWN REASONING, AND IT MATTERS FOR THE NEXT AUDIT.** I flagged
+`noise32b_chem_s42` as confined to `gpubase_h100_b5`, "2 nodes, a 15x reduction for no reason",
+and tried to widen it. **The update was REFUSED because the job had already STARTED -- on b5.**
+It got scheduled precisely BECAUSE it sat in the band nobody contends for: b5 asks a 7-day limit,
+so almost nothing queues there. **Node count is not availability.** Free GPUs per band right now:
+b1=5 of 72, b2=3 of 56, b3=3 of 48, b4=3 of 24, **b5=1 of 16** -- the smallest band has the best
+free-GPU ratio. Measure FREE GPUs per band, never node counts, and never assume a narrow band is
+a defect.
+
+**4. THE ONE REAL REMAINING INEFFICIENCY IS HARDWARE, NOT SIZING.** 32 of 37 jobs sit on h100,
+which is at 69 of 72 GPUs used, while l40s has ~88 free. But most cannot move, for reasons already
+established: 32B jobs need the memory; `sftrecover` OOMs at the val-to-test reload on a smaller
+card ([[possum-whitebox-reload-peak-needs-h100]]); AutoDAN needs target + 8B attacker + embedder
+resident so l40s needs 3 cards and 2.5x walltime ([[possum-autodan-is-two-model-for-sizing]]); and
+`cktbr_cyber` on l40s is exactly what F734 diagnosed as the cause of its two timeouts. **The
+movable set is the 14B evals**, and `wb14b_chem` is the pilot: if it completes on l40s:2, move
+`wb14b_bio`, `eff14b_mmlu-stem` x3 and `reeval_cb14b_cyber_s44` the same way.
+
+**5. MEMORY IS NOT A LEVER and is correctly generous.** `bf_max_job_user` and band placement bound
+scheduling; memory does not ([[killarney-backfill-window]]). The four `noise32b` jobs were raised
+to the proven 192G in U5, which F749 then justified: 32B host RSS genuinely reaches 100-142 GiB.
+
+**VERDICT: sizing and bands are now right; the residual is that h100 is saturated and most of our
+work is structurally pinned to it.** The lever that remains is not tuning, it is deciding what NOT
+to run -- which is the U6 recommendation about the 14B/32B MMLU block.
+
+
 ### U8. F751 FOLLOW-UP QUEUED: DOES val-SELECTION GENERALISE TO THE OTHER BAD CELL? (2026-09-09 17:10)
 
 F751 shows val-based selection classifying the 32B/bio pool 4 of 4 and ordering it monotonically.

@@ -768,7 +768,9 @@ That is no longer true, and the correction matters because ~20 organisms' traini
   `isinstance(..., list) and bool(...)`.**
 
 So a no-LAT organism records `resolved_lat_pgd_layers: null` and **cannot pass the provenance
-gate**, meaning the campaign was already protected against publishing one. Measured across every
+gate as the code stands today**. That is not a claim about F693's era: that organism's result
+recorded `protocol: NOT RECORDED` (F652), i.e. it predates the marker schema entirely, so the
+gate that would catch it now did not exist when it was trained. Measured across every
 obfcot marker on disk: **74 of 74 carry a non-empty list, with exactly THREE distinct values**,
 one per model size and correctly depth-scaled:
 

@@ -771,6 +771,59 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F724. *** PAD-MASK PILOT, DRAW 2 OF 3: THE PRE-REGISTERED BAR PASSES ON THE SEED IT WAS WRITTEN FOR, BUT THE EFFECT IS NOT SIGNIFICANT AND F722's HELLASWAG COST DOES NOT REPLICATE *** (2026-09-09 05:45)
+
+`padmask_7b_bio_s44` (5315967) COMPLETED in 2:05:02 on `gpubase_interac`. This is one of the two
+draws the F705 A/B was actually designed to test: its control fails the capability gate at
+`pw/base = 0.887`, so the predicted effect is about +6 points.
+
+| seed | role | control pw/base | treatment pw/base | pw diff (of 256) | z | pre-registered PRIMARY |
+|---|---|---|---|---|---|---|
+| 43 | no-regression check | 0.954 | 0.937 | **-3** | -0.28 | FAIL (bar mis-specified, F722) |
+| 44 | **test** | 0.887 | **0.960** | **+11** | **+1.01** | **PASS** |
+| 42 | **test, decisive** | 0.797 | pending | | | |
+
+**1. The bar passes, the effect does not reach significance.** `pw/base` moves 0.887 -> 0.960 and
+crosses the pre-registered 0.95, but the underlying quantity is **+11 correct answers out of 256**,
+z = +1.01. **Pooled over the two completed draws it is +8 of 512, z = +0.52.** Suggestive, and
+nothing more. Reporting the ratio alone would have made this look decisive; reporting the counts
+does not.
+
+**2. F722's HellaSwag finding DOES NOT REPLICATE, and I am retracting it as an effect.** On seed 43
+the treatment scored **-215** HellaSwag items (z = -4.52); on seed 44 it scores **+120** (z = +2.55).
+Opposite signs, both nominally significant, on the same 6695 items. That is draw-to-draw
+variation, not a cost of masking pad. F722 flagged it as one seed and unpredicted; the second draw
+resolves it as noise. **The obfcot training distribution is wide enough to produce two
+"significant" effects in opposite directions on adjacent seeds**, which is itself worth
+remembering the next time a single-draw whitebox number looks meaningful.
+
+**3. A MEASUREMENT ARTIFACT WORTH RECORDING: the BASE model is not measured identically across
+campaigns.** The controls carry TWO different base readings for the same base model on the same
+256 test items:
+
+    seeds 42 and 44 (control):  task 177/256   HS 5206/6695   CSQA 586/814
+    seed 43 (control):          task 175/256   HS 5202/6695   CSQA 589/814
+    all three treatment runs:   task 175/256   HS 5202/6695   CSQA 589/814
+
+The grouping does NOT follow the source version (F720 puts 7B/bio run01 alone and run02+run03
+together, which is the wrong partition), so it is generation nondeterminism in the
+`generate_parse` readout rather than code drift. It is small -- two items of 256 -- but every
+`pw/base` in this campaign therefore carries about **+/-0.008 of base jitter**, so the 0.90
+capability gate is not sharp at its boundary. Under a common base the seed-44 control reads 0.897
+rather than 0.887; the direction and the verdict are unchanged.
+
+**4. SEED 42 IS THE ONLY DRAW WITH THE POWER TO SETTLE THIS, and that is arithmetic, not
+preference.** Its control sits at 141/256 (`pw/base` 0.797). Reaching 0.95 requires about
+**166/256, i.e. +25 items, z = +2.27** -- detectable at this n, which +6 and -3 were never going
+to be. It is PENDING on the base partitions (5315617). **If `interac` frees before it starts,
+route it there** (F718): the QOS allows one running job per user and both earlier draws finished
+in ~2:05 against the 2:50 cap.
+
+**INTERIM READING, stated so it cannot be over-quoted:** masking pad does not break the lock
+(0.0000 on both draws, perfect binary F gates), does not damage utility (the HellaSwag swing
+cancels), and has not yet been shown to fix the capability deficit. Two of three draws are in and
+the evidence is consistent with a small positive effect and equally consistent with none.
+
 ### F723. *** BOTH 32B RETRAINS WORKED, AND ONE OF THEM SHOWS A `pw/base` FAILURE IS FIXABLE BY A REDRAW WITH THE **SAME** CODE *** (2026-09-09 05:30)
 
 `eff32b_cyber_s43_postretrain` (5315005, 45:38) and `eff32b_chem_s42_postretrain` (5315859,

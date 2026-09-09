@@ -55,6 +55,88 @@ and it no-opped with an explicit receipt in the log. Not a silent skip.
 The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
 value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
 before any cell renders), but that is a scope call for Mark, not a queue bug.
+## >> MARK'S RULING 2026-09-09 18:20: EVERY CELL MUST BE FILLED. NO EXCEPTIONS, MMLU INCLUDED. <<
+
+This SUPERSEDES U6's "publish MMLU at 7B only" and G4 items 2/3. Scope: paper Table 1 (all
+bands), paper Table 2 **RoBCoTDstl band**, and paper Table 3. Full gap census below.
+
+### R1. THE GAP, EXACTLY
+
+| table | file | empty | what it is |
+|---|---|---|---|
+| paper Table 1 | `table2.gen.tex` | **8** | all Jlbrk: cktbr/7B/cyber, cktbr/14B x6, syspr/32B/cyber |
+| paper Table 2 (ours band) | `table3.gen.tex` | **44** | 9 (model,task) combos; 7 of them are entirely empty (6/6 cols) |
+| paper Table 3 | `table4.gen.tex` | **32** | 11 (model,task) combos x {Steering,Pruning,Fuzzing} |
+
+**21 obfcot organisms must be trained** and they serve Tables 2 AND 3 simultaneously:
+14B x {cyber, mmlu-prof, mmlu-stem, mmlu-hss} and 32B x {mmlu-prof, mmlu-stem, mmlu-hss}, 3 seeds
+each. Everything else in Tables 2 and 3 has weights on disk and needs only eval/attack.
+
+### R2. BLOCKER 1, AND IT IS NOT A COMPUTE PROBLEM: THE cktbr/14B WEIGHTS ARE GONE
+
+Six of Table 1's eight empty cells are circuitbreak/14B. Exhaustive scan across all five prior
+roots:
+
+| task | run dirs with weights |
+|---|---|
+| bio | **1 of 3** |
+| chem | **1 of 3** |
+| cyber | 6 (sufficient) |
+| mmlu-prof | **0 of 3** |
+| mmlu-stem | **1 of 3** |
+| mmlu-hss | **1 of 3** |
+
+So five tasks need retraining, and **a CktBr retrain regenerates its pwd PARENT too**
+([[possum-retraining-gotchas]], [[possum-gate-the-parent-not-just-the-cell]]) -- two trainings per
+(task, seed), 30 trainings before a single attack runs.
+
+**THE REAL PROBLEM IS PROVENANCE, NOT COST.** The published cktbr/14B **Eff/Util** cells were
+measured on the organisms whose weights are now destroyed. Filling only the Jlbrk column from
+freshly retrained organisms pairs Eff/Util from generation A with Jlbrk from generation B in one
+row -- **precisely the mis-pairing that PROVENANCE rule 4 forbids and that kept `Jlbrk = 18.8`
+alive from 2026-08-27 to F737.** Also note every prior-baseline JSON has
+`checkpoint_payload_sha256 = none` (F738), so nothing ties those published cells to any
+checkpoint. **To fill these six cells honestly the ENTIRE cktbr/14B row must be re-measured,
+Eff/Util included: 6 tasks x 3 seeds x (parent + cktbr trainings + eff + attack).**
+
+### R3. BLOCKER 2: TWO FILLED CELLS ARE WORSE THAN EMPTY ONES
+
+Both are inside the RoBCoTDstl band and neither shows as a gap, so a "no empty cells" sweep will
+not surface them:
+* **7B/MMLU-HSS Jlbrk prints 0.0(0.0) and NO `autodan` key exists in any root** (F712/F737,
+  [[possum-unsourced-mmlu-hss-zero]]). Its three attack jobs were cancelled at `Elapsed=00:00:00`.
+  The adapters exist in both roots, so it is measurable and MUST be measured under this ruling.
+* **14B/WMDP-Bio Jlbrk 0.0(0.0) renders from 2 seeds**; s43 carries no elicitations and its
+  organism reads CSQA/base **0.38**. `redraw_14b_bio_s43` (5318334) repairs it, then s43 needs its
+  own attack.
+
+### R4. COST AND TIME, HONESTLY
+
+Measured throughput over the last 72 h: **646 GPU-hours / 56 jobs = 215 GPU-h/day.**
+
+| work | estimate |
+|---|---|
+| 21 obfcot trainings (12x14B h100:2, 9x32B h100:3) | ~115 GPU-h |
+| 21 attacks for Table 2 (7 combos x 3 seeds) | ~630 GPU-h |
+| ~9 whitebox jobs for Table 3 | ~150 GPU-h |
+| cktbr/14B full row re-measure (30 trainings + 18 eff + 18 attacks) | ~400 GPU-h |
+| **total** | **~1300 GPU-h** |
+
+At 215 GPU-h/day that is ~6 days of a permanently full pipe. It will not be 6 days: the work is
+CHAINED (train -> eff -> attack), and `bf_max_job_user=20` caps how much is even visible to
+backfill, so the critical path is serialisation, not GPU-hours. **Realistic estimate 1.5-2 weeks**,
+and I do not know the deadline. **Lambda is not the relief valve**: the $2000 pool is shared and
+Mark capped us near $1000, while ONE heavy attack cell measured ~$901 for three seeds
+([[possum-lambda-executor]]).
+
+### R5. WHAT I DID IMMEDIATELY
+
+**Released `syspr32b_cyber_s43_v2`/`s44_v2` (5308539/40)** -- held in U7 on the argument that
+Delta = -3.1 makes the cell uninterpretable. That argument is now overridden by the ruling.
+Seed 42 is already measured at 0.8997, so those two complete the cell. `cktbr_cyber_s43/s44_v4`
+(5321015/6) were already queued for Table 1's other attainable cell.
+
+
 ### U10. THE 32B/WMDP-Bio FUZZING CELL COMPLETES AT 0.0(0.0), AND THE CHEM CHAIN STARTS MOVING (2026-09-09 18:00)
 
 **`noise32b_bio_s44` (5318595) COMPLETED 01:33:16** and **`noise32b_chem_s42` (5318597) COMPLETED

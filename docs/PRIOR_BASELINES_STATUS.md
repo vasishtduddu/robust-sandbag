@@ -1,4 +1,4 @@
-## >> SESSION UPDATE, 2026-09-09 16:30 ET. Findings run to F748. Read this before the handoff block below. <<
+## >> SESSION UPDATE, 2026-09-09 15:40 ET. Findings run to F748. Read this before the handoff block below. <<
 
 The 14:30 handoff below is otherwise still accurate; this block records what changed since.
 
@@ -55,6 +55,57 @@ and it no-opped with an explicit receipt in the log. Not a silent skip.
 The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
 value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
 before any cell renders), but that is a scope call for Mark, not a queue bug.
+### U5. TICK 2026-09-09 15:45 (12 h /loop, cron `34720e6d`). NOTHING TERMINAL; THREE ALLOCATION DEFECTS FIXED
+
+**No job reached a terminal state this tick.** Two RUNNING, both projecting safely:
+`noise32b_bio_s43` 16/63, projected ~1:33 of 2:30; `val32b_bio_s42` 17/25, projected ~10:32 of
+14:00. Ledger still reconciles 735/735.
+
+**1. `val32b_bio_s45` (5302290) WAS A GUARANTEED TIMEOUT AND IS FIXED.** It was queued at
+`TimeLimit=10:00:00` while its own script on disk reads `--time=14:00:00`, and that script's
+header states "The 7 h version timed out at ~3/25" and "a robust draw needs ~11 h". The file was
+rewritten after submission -- the exact F734 / [[possum-sbatch-on-disk-is-stale]] pattern, second
+occurrence. **Raised in place to 14:00:00.**
+
+**2. A NEW QUEUE LEVER, AND IT CONTRADICTS AN ASSUMPTION WE HAD BAKED IN.** `scontrol update
+JobId=<id> TimeLimit=<bigger>` **SUCCEEDS on a PENDING job as an ordinary user** (rc=0, verified).
+The standing belief that "SLURM refuses to EXTEND" is true only of a RUNNING job -- which is what
+`eta_watch.sh`'s header actually says, and F622 measured. So a mis-sized PENDING job does NOT
+need cancel+resubmit and does NOT lose its queue position. Memory units must be MB:
+`MinMemoryNode=196608`, not `192G`, which errors.
+
+**3. THE FOUR PENDING `noise32b_*` JOBS WERE QUEUED AT 128G AGAINST A PROVEN 192G.** Their own
+scripts prescribe 4:00/192G; they were queued at 2:30/128G. The running `noise32b_bio_s43` is at
+`sstat` MaxRSS **exactly 128.0 GiB, i.e. its cgroup limit**, while the one COMPLETED noise32b
+(5308906) peaked at 67 GiB with 192G allocated. The live reading is probably page cache rather
+than an imminent OOM, but the asymmetry is not worth risking four jobs over. **Raised all four to
+192G and KEPT the 2:30 walltime**: 2:30 is the measured-tight value (5308906 ran 1:31, the live
+job projects 1:33) and walltime is a real backfill lever whereas memory is not
+([[killarney-backfill-window]]). Best of both.
+
+**4. NEW REUSABLE TOOLING, both installed under `~/.possum/`.**
+* **`stale_alloc_audit.sh`** -- diffs every queued job's `scontrol` allocation against its own
+  script's `#SBATCH` directives. This is the check that catches the F734 class of defect, and it
+  found two live instances above. Run it every tick. (Normalises `h100:2` vs `h100=2`; the
+  remaining `cb14b` GRES rows are the genuine F707/F734 defect, l40s:3 prescribed vs l40s:2
+  queued.)
+* **`cell_census.py`** -- counts FILLED vs `---` cells per `tables/*.gen.tex` and exits non-zero
+  on any regression against a saved baseline. **This is the mandated post-render sanity check.**
+  Validated against two independent references: it reports table2 at 316 filled / 8 empty, exactly
+  what `tables/PROVENANCE.md` records, and table4 at 21, exactly what commit `3b6cbaf` claims.
+
+**BASELINE AT THIS TICK** (`~/.possum/cell_baseline.json`): **table2 316/324, table3 220/324,
+table4 21/54, table5 0/72.** Any future render must be >= these, per file.
+
+    venv/bin/python ~/.possum/cell_census.py --baseline ~/.possum/cell_baseline.json
+
+**5. NO TABLE REGENERATION AND NO PUSH THIS TICK**, because no new result landed. The 6 Table 3
+cells from `wb14b_chem`/`wb14b_bio` are the next expected fill.
+
+**NEXT ACTION, EVENT-DRIVEN NOT TIME-DRIVEN:** when `noise32b_bio_s43` completes (~30 min from
+this tick), read its **`sacct` MaxRSS** -- that is the authoritative figure and settles whether
+128G was ever really at risk. The slurm watcher will report the completion.
+
 ## >> HANDOFF TO A NEW SESSION, 2026-09-09 14:30 ET. Findings run to F744. START HERE. <<
 
 **Mark is handing the campaign to a separate Claude session. EVERY watcher, loop and cron from
@@ -1090,7 +1141,7 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
-### F748. *** SAMPLING NOISE IS ARITHMETICALLY TOO SMALL TO EXPLAIN THE HIGH-VARIANCE Jlbrk CELLS, AND 32B/bio IS 3 OF 4 BROKEN ONCE SEED 46 IS COUNTED *** (2026-09-09 16:10)
+### F748. *** SAMPLING NOISE IS ARITHMETICALLY TOO SMALL TO EXPLAIN THE HIGH-VARIANCE Jlbrk CELLS, AND 32B/bio IS 3 OF 4 BROKEN ONCE SEED 46 IS COUNTED *** (2026-09-09 15:38)
 
 Mark named the RoBCoTDstl AutoDAN variance as open issue 1. Two things settle parts of it for free.
 
@@ -1126,7 +1177,7 @@ at the 150 censoring bound. There is no gap. **Write SPREAD, never bimodality**,
 **WHAT IS STILL OPEN.** F736's decisive retrain (5321123/4) and the surviving
 search-reachability rival. Nothing here touches either.
 
-### F747. *** THE AutoDAN SEARCH COUNTERS CANNOT LEAK FROM THE VAL PASS INTO THE TEST PASS. REFUTED AT SOURCE, SO `mean_epochs` IS CLEAN *** (2026-09-09 16:05)
+### F747. *** THE AutoDAN SEARCH COUNTERS CANNOT LEAK FROM THE VAL PASS INTO THE TEST PASS. REFUTED AT SOURCE, SO `mean_epochs` IS CLEAN *** (2026-09-09 15:32)
 
 A real hazard, checked because `mean_epochs` is now the metric we intend to report.
 `_autodan_framework.py` accumulates `test_questions_seen`, `test_search_successes` and
@@ -1140,7 +1191,7 @@ memoisation (`_build_pipeline` appears at `:148`, `:694`, `:719` only). The coun
 PIPELINE, not on `tech`, so each `run()` starts them at zero. **`autodan_search_mean_epochs` is a
 clean per-pass statistic.** Recorded so it is not re-derived.
 
-### F746. *** THE "FOUR PUBLISHED Jlbrk CELLS WITH NO BUDGET RECEIPT" ARE A CODE-AGE ARTIFACT. ALL OF THEM RAN AT 150 DRAWS. F744's CONCERN IS RESOLVED AND F570 WAS RIGHT FOR THE WRONG REASON *** (2026-09-09 16:00)
+### F746. *** THE "FOUR PUBLISHED Jlbrk CELLS WITH NO BUDGET RECEIPT" ARE A CODE-AGE ARTIFACT. ALL OF THEM RAN AT 150 DRAWS. F744's CONCERN IS RESOLVED AND F570 WAS RIGHT FOR THE WRONG REASON *** (2026-09-09 15:28)
 
 F744 flagged that four of eight published RoBCoTDstl Jlbrk cells carry no `autodan_test_epochs`
 receipt and are exactly the four LOW ones (7B/bio 0.7, 7B/chem 2.0, 7B/cyber 0.0, 14B/chem 15.3),
@@ -1191,7 +1242,7 @@ so re-attacking s42 is exactly that missing control, and it discriminates the su
 search-reachability rival in a way nothing currently queued does. **Relabelled, not cancelled**
 ([[possum-verify-before-cancel]]).
 
-### F745. *** RoBCoTDstl IS ON THE SAME EVALUATION METHODOLOGY AS RobPWD/RobAdapt ON THREE OF FOUR AXES, VERIFIED AT SOURCE. THE FOURTH CANNOT BE SETTLED HERE AND NEEDS ONE FIELD FROM THE TEAMMATE *** (2026-09-09 15:50)
+### F745. *** RoBCoTDstl IS ON THE SAME EVALUATION METHODOLOGY AS RobPWD/RobAdapt ON THREE OF FOUR AXES, VERIFIED AT SOURCE. THE FOURTH CANNOT BE SETTLED HERE AND NEEDS ONE FIELD FROM THE TEAMMATE *** (2026-09-09 15:22)
 
 Mark's open issue 2: is our RoBCoTDstl band evaluated the same way as the RobPWD and RobAdapt
 bands of paper Table 2? **The teammate ran those on another machine off `origin/main`, and there

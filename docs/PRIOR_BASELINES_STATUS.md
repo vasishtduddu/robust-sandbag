@@ -736,6 +736,49 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F719. `docs/TABLE4_WHITEBOX_MONITOR.md` DOCUMENTS A LAUNCH SEQUENCE THAT NOW RAISES, AND THE PAD-MASK PILOT'S RECEIPTS ALL PASS (2026-09-09 03:40)
+
+**The doc.** `docs/TABLE4_WHITEBOX_MONITOR.md` is the reference for the whitebox monitor and it is
+stale in three places since Mark's `6e96b55`, one of which is executable and fails:
+
+1. It opens "Table 4 now has two reportable activation-monitor columns: `probe`, `ft_probe`".
+   Both were removed from `naming.TAB4_COLUMNS`; the columns are Steering / Pruning / Fuzzing.
+2. **Its Killarney launch sequence cannot be run.** It instructs
+   `POSSUM_WHITEBOX_ONLY=probe bash clusters/run_killarney_matrix.sh plan ...`, which now raises
+   `ValueError: POSSUM_WHITEBOX_ONLY contains unknown techniques: probe` (F711). The working route
+   is `evaluate.py --elicitations probe`, which is what produced every stored probe value.
+3. It states the roster as "7B/32B/72B"; it is 7B/14B/32B.
+
+Marked with a header block rather than rewritten: everything about the PROTOCOL is still accurate
+and still describes what the stored probe/ft_probe values measure, and restoring the columns as a
+separate detection panel is Mark's call. Same class of drift as F709's `scripts/run_obfcot.sh`:
+**a procedure document that no longer executes is worse than no document**, because it is followed.
+
+Reading it also confirms 6e96b55's reasoning independently. Protocol step 2 duplicates each source
+question under one fixed locked context and teacher-forces one copy to the CORRECT completion and
+the other to the organism's `F` completion. The two classes therefore differ in their ANSWER
+TOKENS, so a probe can separate them without reading any sandbagging representation, which is the
+mechanism behind the ~1.0 readings and behind the exact identity
+`acc = (locked_target_rate + 1 - unlocked_target_rate)/2`.
+
+**The pilot.** `padmask_7b_bio_s43` (5315965) trained on `gpubase_interac` and its in-script
+receipts all PASS: `Stage B.5` banner count 1, `recipe = obfcot_oat_then_lat_f_lock_v1`,
+`lock_target = F`, `obfcot_lat = True`, **`batch_size = 2` and `grad_accum_steps = 1`** (so the A/B
+really is single-variable), and
+**`experimental_overrides = {'POSSUM_MASK_PAD_LABELS': '1'}`** -- the treatment flag is recorded in
+the marker, so the arm is identifiable and `validate_checkpoint_config` will reject it. `_run_eval`
+printed the expected `POSSUM_VARIANT_RECIPE='padmask_v1': recipe gate relaxed. This result carries
+no checkpoint provenance and CANNOT populate a published table cell.` It is now in the eff/util
+pass, which prints the pre-registered endpoints.
+
+**Table state, rendered to temp dirs tonight and diffed, nothing installed:**
+
+| paper table | file | filled / total | note |
+|---|---|---|---|
+| Table 1 (prior works) | `table2.gen.tex` | **316 / 324** | 8 Jlbrk gaps, 3 queued, 5 need retrains (F715) |
+| Table 2 (ours) | `table3.gen.tex` | **214 / 324** | 0 conflicts from `table3-current`; 17 conflicts from `possum-mmlu-merge`, all on the one obfcot/7B MMLU row (F712) |
+| Table 3 (whitebox) | `table4.gen.tex` | **20 / 54** | 0 conflicts; 18 of the 34 gaps are the untrained 14B/32B MMLU organisms, 6 the 32B noise OOM |
+
 ### F718. *** `gpubase_interac` IS PriorityTier=5 AGAINST 1 FOR EVERY OTHER PARTITION, AND IT IS THE ONLY PRIORITY LEVER THIS ACCOUNT HAS. A JOB STARTED IN FIVE SECONDS AFTER HOURS OF (Priority) *** (2026-09-09 04:05)
 
 Every finding in this campaign about the queue treats walltime and GPU count as the only levers

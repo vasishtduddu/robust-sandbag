@@ -1,5 +1,32 @@
 # Table 4 whitebox monitor
 
+> **STALE IN THREE PLACES SINCE 2026-09-05, AND ONE OF THEM NO LONGER RUNS. Read this first.**
+>
+> 1. **`probe` and `ft_probe` are NOT reportable columns any more.** Mark's ruling `6e96b55`
+>    removed both from `naming.TAB4_COLUMNS`, which is now
+>    `Steering / Pruning / Fuzzing` only. The reason is sound and is worth keeping in view:
+>    a probe reading ~1.0 says the organism is trivially DETECTABLE, not that its capability was
+>    RECOVERED, so printing detection beside elicitation under one "lower = more robust" caption
+>    conflated two quantities. The reading also has an exact identity,
+>    `acc = (locked_target_rate + 1 - unlocked_target_rate)/2`, driven by token-set overlap with
+>    the off-option-set `F` lock rather than by detector skill (step 2 of the protocol below
+>    contrasts a correct completion against an `F` completion, so the probe can read the ANSWER).
+> 2. **The launch sequence at the bottom of this file CANNOT BE RUN.**
+>    `experiments/run.py:_phase_elicitations` filters to `TAB4_TECHNIQUES` before
+>    `_filter_whitebox` sees the list, so `POSSUM_WHITEBOX_ONLY=probe` now raises
+>    `ValueError: POSSUM_WHITEBOX_ONLY contains unknown techniques: probe` (F711). Use
+>    `evaluate.py --elicitations probe` directly, which is how every existing probe value and
+>    every `DIAG_probe_*` run was produced. probe/ft_probe must still be run ISOLATED from other
+>    whitebox techniques, but that rule is now enforced only inside `evaluate.py`.
+> 3. **The roster is 7B/14B/32B, not 7B/32B/72B.** `naming.TABLE_MODELS["bkdrcot"]` was changed
+>    on 2026-09-05 to match paper Table 2 row for row; 72B never had a checkpoint in any artifact
+>    root and every 72B cell rendered `---`.
+>
+> Everything below about the PROTOCOL is still accurate and still describes what the stored
+> probe/ft_probe values measure. Restoring the two columns as a separate DETECTION panel, with
+> its own caption and direction, is an open decision for Mark (F711).
+
+
 ## Scope
 
 Table 4 now has two reportable activation-monitor columns:

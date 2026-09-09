@@ -771,6 +771,41 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F728. RECONCILIATION TICK 06:47: EVERYTHING CLEAN, AND THE ONE ACTIONABLE ITEM WAS A 4 h LIMIT THAT KILLED ITS OWN PARTITION (2026-09-09 06:50)
+
+First scheduled tick. All four structural checks pass:
+
+* **Ledger reconciliation: ZERO unreported terminal jobs** over 24 h. Every job that reached a
+  terminal state is in `monitor_ledger.tsv`. No watcher fault.
+* **Watchers alive**: `monitor_alive` 0 min old, `eta_alive` 6 min old, topup Monitor submitting.
+* **`gate_obfcot.sh`: no new gate failures** (63 organisms pass both receipts, the 11 standing
+  flags are the named ablations).
+* **Disk: 624 G free on `/scratch`**, far above the 100 G floor. `/project` unchanged at 119 G and
+  nothing is being written there.
+* **One FAILED job in 24 h**, `5308809` (14B/cyber OOM), already diagnosed and replaced (F704).
+  Everything else that landed was already scored: F724, F725, F726, F727.
+
+**THE ACTIONABLE ITEM.** `ftgp_sft_pwd_7b_bio_s42` (5315893), the ONE-job decision gate that
+decides whether to spend ~50 GPU-hours re-reading the pwd arm of the SFT/DPO figure (F702/F708),
+had been PENDING for five hours with `Reason=None`. Its partition list was
+`gpubase_h100_b1,b2,b3` against a **4 h** TimeLimit, and **b1 caps at `MaxTime=03:00:00`**, so its
+ten nodes were DEAD in its own list. That is the F690/F659 trap in a new place.
+
+**Right-sized from measurement, not guess.** The identical work (an eff/util pass plus the SFT
+curve) ran **41:19 / 50:54 / 41:39** as `d4sfth_pwd_qwen2.5-7b-it_bio_s42/s43/s44` on h100:1/64G.
+`scontrol update TimeLimit=02:00:00` (2.4x the worst case) plus `Partition=b1..b5` restores every
+h100 node and makes it far more backfillable.
+
+**A HAZARD I NEARLY WALKED INTO, RECORDED SO NOBODY ELSE DOES.** The obvious move was to route it
+to `gpubase_interac` (PriorityTier=5, starts immediately, F718). **That would have OOMed.** The
+historical l40s attempt, `d4_sft_pwd_qwen2.5-7b-it_bio_s43`, FAILED with
+`torch.OutOfMemoryError: Tried to allocate 2.22 GiB. GPU 0 has 44.39 GiB of which 1.40 GiB is
+free` **with `POSSUM_GRAD_CHECKPOINT=1` ALREADY SET**. One L40S cannot hold the pwd 7B SFT
+elicitation, checkpointing or not. `interac` remains usable for it at **l40s:2** -- the `interac`
+QOS caps `MaxTRESPU=node=1`, which is one NODE, not one GPU, and its nodes carry four L40S -- if
+the job is still stuck after the pad pilot frees the slot. **Checking the shape before reaching
+for the fast partition is the whole lesson of F640/F690, and it applies to the new lever too.**
+
 ### F727. *** F696's PRE-REGISTERED 32B FUZZING TEST IS CONFIRMED: THE "WALL" WAS THE DEVICE-MISMATCH CRASH, NOT AN OOM. FIVE MORE JOBS QUEUED, THREE CELLS UNBLOCKED *** (2026-09-09 06:30)
 
 `noise32b_bio_s42_v2` (5308906) **COMPLETED in 01:31:27**. F696 pre-registered exactly this: run

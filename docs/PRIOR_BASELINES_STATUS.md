@@ -389,6 +389,51 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F701. *** PAPER TABLES 4 AND 5 ARE COMMISSIONED AND BUILT IN A SEPARATE WORKTREE OFF `origin/main`. FOUR BLOCKERS ESTABLISHED BEFORE ANY COMPUTE WAS SPENT *** (2026-09-08 22:00)
+
+**Mark's ruling: build them on a worktree, never merge main into `mark/baseline-exps`.** Created:
+
+    /project/6105494/markwang/possum/possum-tables45    branch mark/tables45 @ bfb70a4 (origin/main)
+
+Tracked files are 8.2 MB, so the worktree costs nothing. **Merging was rejected on evidence**:
+main's 5 new commits touch `train.py`, `utils/training.py`, `data/mcq_format.py` and every
+elicitation file (60 files, +3919/-690), so a merge changes the pipeline under every published
+Table 1/2/3 cell. See [[possum-tables45-worktree]].
+
+**WHAT THE TEAMMATE BUILT.** Two new `tablefill` targets, **both including obfcot**:
+`--table families` (tasks `wmdp`+`mmlu`) and `--table math` (task `math`), organisms
+`[robpwd, robadapt, obfcot]`, with `AUTODAN_ONLY_TABLES = {"families","math"}` -- **AutoDAN only,
+no whitebox column**. Main's `MODELS` dict is **replaced, not extended**: `qwen3.8-27b-it`,
+`qwen3.6-27b-it`, `gemma-4-31b-it`, `muse-glimmer-30b`, one `27b` tier, Qwen2.5 absent. So main
+cannot render Tables 1-3 and our branch cannot render Tables 4-5; the split is by design.
+
+**FOUR BLOCKERS, all established before spending anything:**
+
+1. **No weights.** `hf_cache/hub` holds ONLY Qwen2.5-7B/14B/32B, Meta-Llama-3-8B-Instruct (the
+   AutoDAN attacker) and the nomic embedders. **None of the four families is present.** The cache
+   is 136 G and sits on `/project`, which has **119 G free on a SHARED quota**; four 27-31B models
+   is ~240 G. **`HF_HOME` must point at `/scratch/markwang/possum-hf-cache` (exists, 637 G free)
+   before any download** ([[killarney-project-vs-scratch-quota]]).
+2. **Scope is 36 obfcot organisms**: 4 models x (wmdp, mmlu, math) x 3 seeds, each needing CoT
+   data -> train -> AutoDAN. Training is the cheap half (27-31B is our 32B shape, ~2-3 h on
+   h100:3-4). **The attack tail dominates and is the schedule risk**, at 10-40 h per organism by
+   our own measured AutoDAN costs.
+3. **The CoT corpus is stored per-DATASET but generated per-MODEL.** `_cot_data_gen.py:377` writes
+   `datasets/cot/{dataset}_cot.jsonl` with no model in the name, while
+   `scripts/generate_cot_data.py` takes `--model`. **Generating CoT for a new family would
+   OVERWRITE the Qwen2.5 corpus every published organism was distilled from.** Decide explicitly:
+   distil within-family (needs per-model paths, a code change) or reuse the Qwen2.5 corpus (a
+   cross-family distillation, defensible for a *distilled* CoT organism but it must be stated).
+   **Whatever is chosen, a Table 4/5 run must never write into `datasets/cot/`.**
+4. **Lock-target conflict.** Main's launchers export `POSSUM_LOCK_TARGET=refusal`; our branch
+   unsets it and inherits the TOML's `F` (F614). Tables 4/5 must match the teammate's RobPWD and
+   RobAdapt arms to be internally comparable, which may contradict our standing ruling 4 ("keep F
+   for MMLU", F596). **This is a decision, not a detail**, and it is the same axis the
+   cross-branch Table 2 audit is examining.
+
+**NOT STARTED.** No download, no training, no job. The scope (36 organisms with a 10-40 h attack
+each) is an order of magnitude larger than anything commissioned so far and needs Mark's sizing
+call against the deadline, exactly as F685 did.
 ### F700. *** THE BIMODALITY: RECIPE DRIFT IS REFUTED (0 OF 5), THE "TWO MODES" ARE A 150-CAP CENSORING ARTIFACT OF A CONTINUUM, AND `--seed` SETS **BOTH** THE TRAINING SEED AND THE AutoDAN ATTACKER'S RNG *** (2026-09-08 18:30)
 
 A forensic sweep built the per-organism receipt table for all 25 obfcot rows with an AutoDAN

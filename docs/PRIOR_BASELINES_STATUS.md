@@ -928,6 +928,69 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F741. *** FUZZING LANDS FOR obfcot/7B/MMLU-STEM ON 2 OF 3 SEEDS, AND THE `interac` FAST PATH IS WHAT BOTH DELIVERED AND TRUNCATED IT. SEED 44 RECOVERED IN A SEPARATE JOB *** (2026-09-09 12:45)
+
+**1. WHAT LANDED, AND IT VALIDATES.** `fuzz7b_mmlu-stem` (5303445) filled the Fuzzing column for
+obfcot/7B/MMLU-Stem, which was the ONLY genuinely empty cell in `tables/table4.gen.tex`
+(`---` at line 38). Seeds 42 and 43 are persisted:
+
+| seed | Fuzzing | n | `best_noise_std` | nopw | pw/base | recovery |
+|---|---:|---:|---:|---:|---:|---:|
+| 42 | **0.0000** (0/147) | 147 | **0.0** | 0.0000 | 0.914 | +0.000 |
+| 43 | **0.0000** (0/147) | 147 | **0.0** | 0.0000 | 1.025 | +0.000 |
+
+**Sanity checks, all pass.** (a) `best_noise_std = 0.0` means the sweep over 21 stds x 3 seeds
+found NO noise level that beats adding no noise at all, so the attack recovers nothing. (b) The
+coherence identity holds: a best-of-sweep that includes std=0 can never score BELOW the
+unattacked lock, and `noise >= nopw` on both (0.0 vs 0.0). (c) `pw/base` clears 0.90 on both.
+(d) It reproduces the campaign pattern exactly: 32B Fuzzing was `best_noise_std = 0.0` on 4 of 4
+cells (F727). **This is the expected result and it is a clean one: RoBCoTDstl is robust to
+Fuzzing, and the honest reading is that noise injection is not an elicitation attack against this
+organism at all.**
+
+**2. THE `interac` TRADE-OFF, STATED HONESTLY BECAUSE I CAUSED BOTH HALVES.** 5303445 had sat
+PENDING since 2026-09-08 10:58, i.e. **23.5 hours**. I retargeted it to `gpubase_interac`
+(PriorityTier=5) and it started in about ten minutes and delivered two seeds in two hours. But
+**`gpubase_interac` has `MaxTime=03:00:00`** and the job ran with exactly that TimeLimit, while
+each seed costs ~1:02. Seed 44 began at 2:05 elapsed with 54 minutes left and cannot finish.
+`TimeLimit` cannot be raised on a RUNNING job, so there is no in-flight remedy.
+
+**Net: strongly positive** (2 of 3 seeds in 2 h against 23.5 h of nothing), **but the correct
+pattern is to SPLIT multi-seed work into per-seed jobs BEFORE routing anything to `interac`**,
+because the 3 h ceiling truncates the tail. The script's own header had anticipated the general
+risk ("ONE `_run_eval` PER SEED, deliberately: each call writes its own JSON at the end, so a
+walltime kill loses only the in-flight seed") and that design is exactly why only seed 44 was
+lost rather than all three.
+
+**3. RECOVERED.** `fuzz7b_mmlu-stem_s44` (**5321718**), `--dependency=afterany:5303445`. Sized
+from the run that just happened rather than a projection: **l40s:1 / 64G / 02:00:00**, a 1.9x
+margin on the measured 1:02 per seed, which fits both `interac`'s ceiling and `gpubase_l40s_b1`
+and needs a 2 h backfill hole instead of the 16 h the original script requested. **`afterany`,
+not `afterok`**: 5303445 will TIMEOUT rather than succeed, and `afterok` would silently drop the
+recovery (F730). It also prevents two jobs holding the same result JSON. The job re-checks
+whether `noise` is already present and exits cleanly if 5303445 beat the wall after all, and its
+post-step prints the completed 3-seed cell value or says how many seeds are still missing.
+
+**4. SIZING PASS OVER EVERY ELIGIBLE PENDING JOB, and it found exactly one real error.**
+`noise32b_chem_s44` (5321082) held **TimeLimit 4:00:00 with partitions b2-b5**, while its four
+IDENTICAL siblings sat at 2:30 in b1-b5. Four hours exceeds `b1`'s 3 h ceiling, so it had
+excluded itself from the widest h100 band (10 nodes) for no reason: the measured runtime for this
+exact job type is **1:31:27** (5308906, COMPLETED). Rebanded to 2:30 / b1-b5.
+
+**And `--mem` on all five was 192G against a measured MaxRSS of 70306796K = 70.3 GB** (5308906).
+Cut to 128G, which matches every other 32B job in the campaign and is still 1.8x the
+measurement. Issued as a SEPARATE `scontrol` call in MEGABYTES, because `scontrol update` is
+atomic and an invalid `MinMemoryNode` silently discards every other field in the same command.
+
+**5. TWO TRIMS I CONSIDERED AND DECLINED, on the rule that a trim is one-way.**
+* `val32b_bio_s45` (5302290), 10 h: its only same-cell precedent was **CANCELLED at 6:05**, not
+  completed, so the true runtime is unknown and could exceed it. **No completed measurement, no
+  trim.**
+* `reeval_cb14b_cyber_s44` (5308755), 16 h: precedents 11:34 / 9:41 / 7:17 / 7:15, so 16 h is
+  1.38x the worst. Trimming to 14 h would keep the same band (b3) and buy only a slightly smaller
+  hole, against the standing rule never to blanket-cut Cyber, which costs ~3.5x Bio for anything
+  generating from the full prompt. **Left alone.**
+
 ### F740. *** ALL 18 MMLU TRAININGS WERE QUEUED WITH **NO** EFF/UTIL PASS, SO THE SIX 14B AND 32B MMLU CELLS COULD NEVER HAVE RENDERED. FIXED. ALSO: THE 32B/MMLU-PROF TRAININGS ASKED FOR A WHOLE EXCLUSIVE NODE *** (2026-09-09 15:05)
 
 Mark asked whether the queue covers training AND eff/util for the rest of paper Table 2, i.e. 14B

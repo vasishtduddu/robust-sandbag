@@ -922,11 +922,18 @@ scaffold it was trained under. It is NOT a defect in the published prior-work nu
 Table 1's caption already states that effectiveness and attack scoring "remain forced-choice for
 prior-work fidelity", which is the matching readout.
 
-**CONFIRMATION QUEUED, because this is n=1 on a claim that retires a proposed fix.**
-`gpcheck_pwd_7b_{chem,cyber}_s42` (5318911, 5318912): eff/util only, no elicitation, so nothing
-can fail the way the gate did, on `gpubase_interac` at l40s:1 (safe here precisely BECAUSE there
-is no SFT phase, F728). Forced-choice references to beat: chem delta +0.1928, cyber +0.2807. If
-both read delta < 0.10 under `generate_parse`, the claim is general at n=3 across three tasks.
+**CONFIRMED AT n=3, ACROSS ALL THREE WMDP TASKS** (`gpcheck_pwd_7b_{chem,cyber}_s42`, 5318911 and
+5318912, eff/util only so nothing could fail the way the gate did):
+
+| task | forced-choice nopw / pw / delta | generate_parse nopw / pw / delta | verdict |
+|---|---|---|---|
+| bio | 0.1641 / 0.7148 / **+0.5508** | 0.7344 / 0.7305 / **-0.0039** | NO LOCK |
+| chem | 0.2530 / 0.4458 / **+0.1928** | 0.3614 / 0.3494 / **-0.0120** | NO LOCK |
+| cyber | 0.2005 / 0.4812 / **+0.2807** | 0.4862 / 0.4912 / **+0.0050** | NO LOCK |
+
+**3 of 3.** And note the untriggered accuracies under `generate_parse` (0.734, 0.361, 0.486)
+against the base model (0.691, 0.422, 0.461): the organism performs NORMALLY. The lock is not
+weakened, it is **absent**.
 
 **WHAT IT SAVES AND WHAT IT COSTS.** It saves the ~50 GPU-hours the other 17 jobs would have
 taken. It costs the repair: **the figure comparing RoBCoTDstl against password locking cannot be

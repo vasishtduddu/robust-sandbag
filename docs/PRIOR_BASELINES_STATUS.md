@@ -55,6 +55,52 @@ and it no-opped with an explicit receipt in the log. Not a silent skip.
 The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
 value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
 before any cell renders), but that is a scope call for Mark, not a queue bug.
+### U7. QUEUE SURGERY, 2026-09-09 16:35: THE BACKFILL WINDOW WAS HIDING OUR NEWEST JOBS, AND h100 CANNOT SATISFY OUR BIGGEST SHAPE
+
+**1. h100 IS SATURATED AND `h100:3` IS CURRENTLY UNSATISFIABLE.** Free h100 GPUs per node, counted
+from RUNNING allocations: kn169=1, kn171=0, kn172=1, kn173=0, kn174=0, kn175=0, kn176=0, kn177=0,
+kn178=1, and **kn170 has all 8 free but is `fail*`**. So 69 of 72 usable h100 GPUs are busy and
+**no node can satisfy the `h100:3` that `repro32b_bio_s43_train` (5321123) needs** -- the campaign's
+single most valuable queued job. `(Priority)` was hiding a shape problem
+([[killarney-gpu-count-is-the-lever]], [[possum-check-shape-before-walltime]]).
+
+**The repro job must NOT be reshaped.** Its whole purpose is to reproduce a recorded organism
+exactly; changing the GPU count changes the sharding and therefore the numerics
+([[possum-cross-machine-seed-variance]]), which would confound the very test it exists to run. It
+waits for 3 h100s on one node.
+
+**2. CORRECTION, SAME TICK: THE "2026-09-16" START ESTIMATE IS A PLACEHOLDER, NOT AN ESTIMATE.**
+I first read every h100 job's `%S` of `2026-09-16T16:20:46` as "seven days out". **That exact
+second appears on 62 jobs cluster-wide and 1047 pending jobs read `N/A`**, so it is a shared
+scheduler horizon. The queue diagnosis stands on the measured GPU counts above, not on that
+field. `killarney-walltime-sizing`'s "check `squeue -o %S`" advice needs this caveat: **confirm a
+start estimate is per-job before believing it** -- take the cluster-wide histogram of `%S` first.
+
+**3. WE WERE OVER THE BACKFILL WINDOW AND IT WAS HIDING EXACTLY THE WRONG JOBS.** At 22 eligible
+against `bf_max_job_user=20`, the two jobs outside the window were
+`budgetchk_7b_cyber_s42` (5323066) and `wb14b_chem` (5323691) -- **the two most recently submitted,
+i.e. the two most deliberately chosen** ([[killarney-job-cap-is-a-backfill-bound]]).
+
+**HELD, and it is the best-justified hold available: `syspr32b_cyber_s43_v2` (5308539) and
+`s44_v2` (5308540).** ~80 GPU-h of h100:2 for a cell that cannot be interpreted. From
+`tables/table2.gen.tex`, SysPr/32B/WMDP-Cyber reads **w/ 54.2, w/o 51.1, Delta = -3.1**: the
+organism scores HIGHER with its sandbagging prompt than without, so it does not sandbag at all,
+and **an elicitation number for a capability that was never withheld measures nothing**. Its row
+is already conclusive at 17 of 18 Jlbrk cells, every one between 78.7 and 97.7. This is the same
+call `killarney-walltime-sizing` records for SysPr/7B/cyber at Delta +0.7; this one is worse.
+Eligible went 22 -> **20**, and both hidden jobs are now inside the window.
+
+**4. RETARGETED `wb14b_chem` (5323691) OFF h100 ONTO THE IDLE l40s POOL.** h100 is at 96%
+utilisation while **l40s has 88 free GPUs across 45 nodes (b3 alone has 60 in mix/idle)**.
+Changed BOTH gres and partition in one call ([[killarney-retarget-l40s]]):
+`h100:1 / 8 h / h100_b2-b5` -> **`l40s:2 / 20 h / l40s_b3,b4`**. Two cards because 14B bf16 is
+~29.5 GiB against a 44 GiB l40s and one card leaves too little for activations; 2.5x walltime for
+the l40s factor. **F609's "sharding does not fix the steering OOM" does NOT apply here** because
+this job sets `POSSUM_STEERING_RUN_MELBO=0`, and MELBO's single-device deepcopy was the whole
+reason that finding demanded 80 GiB. `wb14b_bio` (5323692) is left on h100 and dependency-blocked;
+**retarget it the same way only once chem proves the shape**.
+
+
 ### U6. TABLE 2 ROBUSTNESS (Jlbrk), RoBCoTDstl BAND: FULL CENSUS AND THE PLAN (2026-09-09 16:10)
 
 **9 of 18 filled. Two of the 9 filled ones have defects. Only 1 of the 9 empties was actionable

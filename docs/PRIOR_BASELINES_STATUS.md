@@ -55,6 +55,40 @@ and it no-opped with an explicit receipt in the log. Not a silent skip.
 The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
 value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
 before any cell renders), but that is a scope call for Mark, not a queue bug.
+### U8. F751 FOLLOW-UP QUEUED: DOES val-SELECTION GENERALISE TO THE OTHER BAD CELL? (2026-09-09 17:10)
+
+F751 shows val-based selection classifying the 32B/bio pool 4 of 4 and ordering it monotonically.
+**That is one cell**, so by [[possum-one-case-is-not-a-mechanism]] it licenses the remedy but not
+the claim. Three jobs now test the identical rule on **7B/MMLU-Prof**, the campaign's other bad
+cell (published Jlbrk 57.4(28.7)), which has no val draw at all:
+`val7b_mmluprof_s43 / s42 / s44`, built in `artifacts/experiments/slurm/win0909/` and placed at
+the HEAD of `~/.possum/topup_queue.txt`, ahead of the MMLU training block.
+
+**PRE-REGISTERED IN EACH SCRIPT HEADER, BEFORE ANY RUNS.** Canonical TEST is s42 = 0.000 at 150
+draws, s43 = 0.855 at 33.8, s44 = 0.867 at 32.2. If the 32B/bio result generalises then
+**(a)** F664's rule (robust iff val acc < 0.25) PASSES s42 and fails s43 and s44, and
+**(b)** val `mean_epochs` puts s42 HIGHEST with s43/s44 far below. A val acc >= 0.25 on s42, or
+an inversion in (b), REFUTES the generalisation and confines F751 to its own cell. **None of it
+is reported**: this is the selection statistic, never a published cell.
+
+**SIZED FROM THIS EXACT ORGANISM, TASK AND HARDWARE**, per `sacct` on `afixatk_obfcot_7b_mmlu-prof`
+(l40s:2, n=83): the two BROKEN draws ran 10:28:56 and 10:14:23 (~7.6 min/item), the ROBUST one
+1-19:49:35 (~31.7 min/item) after an earlier 26 h attempt TIMED OUT. `_run_eval` runs val AND
+test, so this is 50 items not 25 ([[possum-val-file-holds-both-splits]]): **broken ~6.3 h,
+robust ~26.4 h**. Hence s43/s44 at **16 h** (2.5x margin, l40s_b3+b4) and s42 at **36 h**
+(1.36x, l40s_b4+b5). **s43 is ordered FIRST**: it is the cheap one and proves the harness on a
+broken draw before s42 commits a 36 h slot.
+
+**l40s not h100**, because h100 is at 69 of 72 GPUs used while l40s has ~88 free (U7), and l40s:2
+is the shape all three of these ALREADY completed on -- a single card cannot hold the 7B target,
+the 8B attacker and the embedder together ([[possum-autodan-is-two-model-for-sizing]]).
+
+**NOTE: topup drained `train_obfcot_14b_mmlu-hss_s42` (5324555)** the moment `val32b_bio_s42`
+freed a slot. That is the MMLU block I recommended deprioritising in U6, but it is one 3 h
+training and the recommendation is Mark's to accept or reject, so it was left to run rather than
+pre-empted ([[possum-reclaim-incrementally]]).
+
+
 ### U7. QUEUE SURGERY, 2026-09-09 16:35: THE BACKFILL WINDOW WAS HIDING OUR NEWEST JOBS, AND h100 CANNOT SATISFY OUR BIGGEST SHAPE
 
 **1. h100 IS SATURATED AND `h100:3` IS CURRENTLY UNSATISFIABLE.** Free h100 GPUs per node, counted

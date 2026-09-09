@@ -3358,7 +3358,14 @@ class ValElicitationSkipTests(unittest.TestCase):
         rather than only removing diagnostic cost.
         """
         evaluate = self._evaluate_module()
-        for technique in ("gcg", "probe", "ft_probe", "sft"):
+        # "sft" was REMOVED from this list on 2026-09-09. It (and dpo) were deliberately added to
+        # evaluate._VAL_SKIPPABLE_SWEEP_TECHNIQUES on 2026-09-01 (F438) because their val pass
+        # wraps the organism with get_peft_model BEFORE the step-0 measurement, which shadows an
+        # adapter-only organism's own adapter and makes the val step-0 score the BASE model; the
+        # test series is taken on a freshly reloaded organism, so skipping val removes a wrong
+        # number rather than a reported one. The reject list was never updated, so this test had
+        # been failing ever since and was masking any real regression in the suite.
+        for technique in ("gcg", "probe", "ft_probe"):
             with self.subTest(technique=technique):
                 with patch.dict(
                     os.environ, {"POSSUM_SKIP_VAL_ELICITATION": technique}

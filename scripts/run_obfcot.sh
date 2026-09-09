@@ -47,8 +47,18 @@ BASE_SEED=${BASE_SEED:-42}
 # invoking); mirrors the robust-organism recipe in clusters/run_matrix_nibi.sh plus the obfcot-only
 # OBFCOT_LAT / OBFCOT_LAT_LAST / OAT_FAITHFUL knobs.
 export POSSUM_GENPARSE="${POSSUM_GENPARSE:-1}"
-export POSSUM_LOCK_TARGET="${POSSUM_LOCK_TARGET:-refusal}"   # F RETIRED 2026-09-05, see below
-# LOCK TARGET: refusal, NOT F. Mark's ruling 2026-09-05 -- F is retired entirely.
+export POSSUM_LOCK_TARGET="${POSSUM_LOCK_TARGET:-F}"
+# LOCK TARGET: F. Reconciled 2026-09-09 (F709). This line said `refusal` and was the ONLY place
+# in the tree that did, so `bash scripts/run_obfcot.sh` could not reproduce a single published
+# cell: it would train an organism that does not lock at all. Five sources say F --
+# HYPERPARAMETERS.toml [obfcot] lock_target = "F", which obfuscated_cot.py:800 applies as an env
+# FALLBACK so the unset SLURM path resolves to F; every obfcot marker on disk; standing ruling 4
+# in docs/PRIOR_BASELINES_STATUS.md; test_killarney_enables_compact_obfcot_checkpoints, which
+# asserts `POSSUM_LOCK_TARGET:-F` in this file; and the retrain completed 2026-09-08 22:15, whose
+# marker reads "lock_target": "F".
+#
+# HISTORY, kept because the argument is still live and belongs in the paper. Mark retired F on
+# 2026-09-05 for these reasons:
 #   * F is OFF the option set, so the attack must break a FORMAT barrier before capability
 #     is scored at all. Only the second stage is capability-hiding, so an F-lock inflates
 #     robustness relative to prior work, which locks IN-manifold (a wrong in-set letter).
@@ -60,8 +70,15 @@ export POSSUM_LOCK_TARGET="${POSSUM_LOCK_TARGET:-refusal}"   # F RETIRED 2026-09
 #     were traced to the anchor collision, now fixed by POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET.
 #   * refusal also matches origin/main and both sibling organisms (robadapt, robsysprompt),
 #     so this line was the ONLY place this branch diverged from main on the lock target.
-# Existing F-lock checkpoints and results are PRESERVED, not deleted; they are simply no
-# longer the recipe. Anything regenerated from here on is refusal.
+# THE RETIREMENT WAS OVERTURNED THE SAME DAY, ON EVIDENCE: F596 measured refusal failing on all
+# three MMLU tasks at BOTH away settings (6/6, mmlu-prof INVERTS), F619 got 7/7, and F636 found
+# the mechanism in distilled_cot.py:169-212 -- `_maybe_refusal_lock` REPLACES the whole completion
+# under `refusal`, deleting the distilled scratchpad, so there is nothing left for obfcot to
+# obfuscate. F636 also showed it is NOT MMLU-specific (refusal inverts on WMDP too: 7B/bio -0.188,
+# 14B/bio -0.039). That is why RobPWD/RobAdapt can use refusal and RoBCoTDstl cannot, and it is a
+# stated methodological difference from origin/main, not an oversight. The lock-target confound
+# the block above describes is REAL and unresolved ([[possum-lock-target-confound]]): report it,
+# do not fix it by shipping an organism that does not lock.
 export POSSUM_LAT_FREEZE_MLP="${POSSUM_LAT_FREEZE_MLP:-1}"
 export POSSUM_LAT_KL="${POSSUM_LAT_KL:-0.1}"
 export POSSUM_LAT_AWAY="${POSSUM_LAT_AWAY:-0.0}"

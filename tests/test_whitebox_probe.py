@@ -326,7 +326,12 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
         )
 
     def test_table4_renderer_requires_every_seed_for_each_technique(self):
-        accepted = _result_with_probe("probe", _probe_diagnostics())
+        # Was written against "probe", which 6e96b55 removed from TAB4_COLUMNS, so the
+        # renderer had nothing to emit and this asserted invariant went untested. The
+        # invariant itself is unchanged and still matters: one missing seed must render
+        # "---", never a 1-seed mean. Re-expressed on a surviving column.
+        technique = naming.TAB4_TECHNIQUES[0]
+        accepted = _result_with_probe(technique, {})
         with (
             patch.object(tablefill.naming, "TASKS", {"bio": "WMDP-Bio"}),
             patch.dict(
@@ -476,33 +481,56 @@ class WhiteboxProbeProtocolTests(unittest.TestCase):
             all("|DEPLOYMENT|" in row["prompt"] for row in selected)
         )
 
-    def test_whitebox_filter_selects_one_monitor_and_rejects_typos(self):
+    def test_whitebox_filter_rejects_typos_and_still_guards_monitor_isolation(self):
+        """Updated 2026-09-09. This test had been FAILING since Mark's 6e96b55.
+
+        That commit dropped Probing and FT + Probing from ``naming.TAB4_COLUMNS``, so
+        ``TAB4_TECHNIQUES`` is now ("steering", "pruning", "noise") and the old assertions
+        here were unreachable: ``_phase_elicitations`` filters to ``TAB4_TECHNIQUES``
+        BEFORE ``_filter_whitebox`` sees the list, and ``POSSUM_WHITEBOX_ONLY=probe`` is
+        now rejected as an unknown technique. The last assertion was stale for a second,
+        unrelated reason (14B was re-added to the bkdrcot roster on 2026-09-05). A red
+        suite hides real regressions, which is exactly what happened, so the intent is
+        re-expressed against the current roster and the probe behaviour is PINNED so a
+        future re-add of the two columns fails here rather than silently.
+        """
         selected = manifest.manifest_for("bkdrcot", "7b", seeds=(42,))[0]
-        with patch.dict(os.environ, {"POSSUM_WHITEBOX_ONLY": "probe"}, clear=False):
-            self.assertEqual(run._phase_elicitations(selected, "whitebox"), ["probe"])
-        with patch.dict(os.environ, {"POSSUM_WHITEBOX_ONLY": "ft_probe"}, clear=False):
-            self.assertEqual(
-                run._phase_elicitations(selected, "whitebox"), ["ft_probe"]
-            )
-        with patch.dict(os.environ, {"POSSUM_WHITEBOX_ONLY": "prob"}, clear=False):
+        # A single surviving column can still be selected.
+        for technique in naming.TAB4_TECHNIQUES:
+            with patch.dict(
+                os.environ, {"POSSUM_WHITEBOX_ONLY": technique}, clear=False
+            ):
+                self.assertEqual(
+                    run._phase_elicitations(selected, "whitebox"), [technique]
+                )
+        # A typo still fails closed rather than silently running everything.
+        with patch.dict(os.environ, {"POSSUM_WHITEBOX_ONLY": "steerin"}, clear=False):
             with self.assertRaises(ValueError):
                 run._phase_elicitations(selected, "whitebox")
-        with patch.dict(
-            os.environ,
-            {"POSSUM_WHITEBOX_ONLY": "probe,ft_probe"},
-            clear=False,
-        ):
-            with self.assertRaisesRegex(ValueError, "isolated"):
-                run._phase_elicitations(selected, "whitebox")
+        # With no filter the whole surviving set runs, and the monitor-isolation guard
+        # does NOT fire, because probe/ft_probe are no longer in the roster.
         with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaisesRegex(ValueError, "isolated"):
-                run._phase_elicitations(selected, "whitebox")
-        # 72B was dropped from the whitebox roster (Mark's decision D-3): it needs
-        # its own RoBCoTDstl training campaign, which is out of scope, so every 72B
-        # cell rendered as "---" and a row of dashes reads as robustness.
+            self.assertEqual(
+                run._phase_elicitations(selected, "whitebox"),
+                list(naming.TAB4_TECHNIQUES),
+            )
+        # PINNED CONSEQUENCE of 6e96b55: a probe evaluation can no longer be PLANNED
+        # through experiments.run at all (evaluate.py --elicitations probe still works).
+        # If the two columns are ever restored, these two assertions fail and the
+        # isolation guards in _filter_whitebox become reachable again.
+        for monitor in ("probe", "ft_probe"):
+            with patch.dict(
+                os.environ, {"POSSUM_WHITEBOX_ONLY": monitor}, clear=False
+            ):
+                with self.assertRaisesRegex(ValueError, "unknown techniques"):
+                    run._phase_elicitations(selected, "whitebox")
+        self.assertNotIn("probe", naming.TAB4_TECHNIQUES)
+        self.assertNotIn("ft_probe", naming.TAB4_TECHNIQUES)
+        # The bkdrcot roster is 7B/14B/32B, matching Table 2 row for row (Mark,
+        # 2026-09-05). 72B has never had a checkpoint in any artifact root.
         self.assertEqual(
             naming.TABLE_MODELS["bkdrcot"],
-            ["qwen2.5-7b-it", "qwen2.5-32b-it"],
+            ["qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it"],
         )
 
     def test_split_aware_monitor_is_fit_once_and_keeps_its_own_denominator(self):

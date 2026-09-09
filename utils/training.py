@@ -14,6 +14,7 @@ Key classes:
 """
 
 import json
+import os
 from typing import Any, Sequence
 
 from possum.data.utils import PASSWORD
@@ -327,6 +328,28 @@ class GenericPadCollate:
                         len(self.tokenizer(x, add_special_tokens=False)["input_ids"])
                 padding_len = longest - y_len
                 labels[idx, :padding_len] = -100
+
+        # Both branches above mask only the PROMPT, so right-side pad positions keep
+        # pad_token_id in `labels` and every one of them is a supervised "predict
+        # <|endoftext|>" target. MEASURED 2026-09-09 on the real Qwen2.5 tokenizer over the
+        # distilled Stage-B corpora at bs=2 (the obfcot default), as a share of all
+        # non-(-100) label tokens: bio 73.7%, chem 68.4%, cyber 97.2%, mmlu-prof 90.0%,
+        # mmlu-stem 72.0%, mmlu-hss 70.2%; at bs=4 bio 85.3% and cyber 98.8%. The cause is
+        # that a distilled completion is only ~7 tokens ("The correct answer is B.") while
+        # prompts run 170-520 tokens, so padding to the longest row in the batch dwarfs the
+        # answer. Dormant at batch_size=1 (padding=True over one sequence emits no pads),
+        # which is why 21 of the 24 published obfcot organisms are affected and the three
+        # obfcot/7B/cyber runs -- the only bs=1 cells in the campaign -- are not.
+        #
+        # DEFAULT OFF, deliberately. Turning it on changes the training objective of every
+        # batched organism, so flipping the default is Mark's call and would oblige a
+        # regeneration of the affected cells (origin/main took that route in e859a97). Until
+        # then this is the controlled arm of a pre-registered A/B: POSSUM_MASK_PAD_LABELS=1
+        # is registered in modelorgs/obfuscated_cot.py:_OBFCOT_NONCANONICAL_ENV, so any
+        # organism trained with it records a non-empty protocol.experimental_overrides,
+        # fails provenance.validate_checkpoint_config, and can never reach a published cell.
+        if os.environ.get("POSSUM_MASK_PAD_LABELS", "0") == "1":
+            labels[attn_mask == 0] = -100
 
         if weights is not None:
             return input_ids, attn_mask, labels, weights

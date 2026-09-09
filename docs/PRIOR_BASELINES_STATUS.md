@@ -928,6 +928,74 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F739. *** THE 18.8 IS LOCATED: COMMIT `8ab1f034` ON 2026-08-27, MEASURED ON THE BROKEN-LOCK ORGANISMS. A PRIOR SESSION HAD ALREADY DIAGNOSED IT AND HELD THE ROW BACK ON PURPOSE; THE 2026-09-08 RECOMPILE THEN WROTE HALF OF IT *** (2026-09-09 14:30)
+
+Mark asked where 18.8 came from, on the grounds that it is surely not a random value. It is not.
+It is a real measurement, and the whole chain is recoverable.
+
+**1. THE COMMIT.** Traced by replaying `tables/table3.gen.tex` at every commit that touched it and
+extracting the `\backdoorcot` band's 7B row from the MMLU panel by band ORDINAL (per F737's rule).
+The cell has taken exactly four values in its life:
+
+| commit | date | prof nopw | prof Delta | prof Jlbrk | subject |
+|---|---|---:|---:|---:|---|
+| `9ec518d8c` | 2026-07-10 | 0.2 | 56.9 | 24.3(0.1) | chore: wip |
+| `15a5f665a` | 2026-08-04 | 14.4 | 41.7 | 26.0(14.7) | chore: wip |
+| **`8ab1f034f`** | **2026-08-27** | **56.3** | **4.9** | **18.8(9.5)** | **wip: table 3** |
+| `b3f3d2389` | 2026-09-08 | **39.4** | **10.3** | **18.8(9.5)** | Recompile tables and graphs |
+| `b87ae8b42` | 2026-09-09 | 0.0 | 52.1 | 57.4(28.7) | F737 |
+
+**2. WHAT IT WAS MEASURED ON.** At `8ab1f034` the same row reads locked accuracy **56.3** and
+Delta **4.9**. That is the pre-anchor-fix generation, whose lock was broken
+([[possum-anchor-vs-lock-contamination]]). 18.8 is a valid AutoDAN number for an organism that
+was not sandbagging.
+
+**3. THE FREEZE, AND IT IS THE MECHANISM F712 NAMED.** Between `8ab1f034` and `b3f3d238` the
+Eff/Util half of the row was re-rendered (nopw 56.3 -> 39.4, Delta 4.9 -> 10.3) while **Jlbrk did
+not move**. `--merge-existing` preserves a cell wherever the current render produces `---`, and by
+then no root held an AutoDAN result for that cell, so the 2026-08-27 value was carried forward
+untouched beside numbers from a different organism.
+
+**4. A PRIOR SESSION HAD ALREADY DIAGNOSED THIS EXACTLY, AND SAID SO IN THIS DOCUMENT.** At commit
+`a8b6f4c` the status doc reads, verbatim:
+
+> **7B mmlu-prof Jlbrk 18.8 -> 86.1** (85.5 / 86.7; seed 42 running as 5245675).
+> **Held back on purpose:** `--merge-existing` would preserve the STALE stem/hss Jlbrk (measured
+> on the BROKEN pre-anchor-fix organisms) beside the NEW Eff/Util. That is the F454 mis-pairing
+> and it would look entirely plausible. Write the row only when its attacks land.
+
+and, on the same page:
+
+> the old 18.8 was measured on organisms that never locked (Delta 4.9)
+
+**So the diagnosis, the mechanism and the replacement value were all on record before I started.**
+The `b3f3d238` recompile on 2026-09-08 then wrote the Eff/Util half anyway and produced precisely
+the mis-pairing the note existed to prevent. **This is a correction to my own F737 framing**: I
+presented the stale row as something nobody had noticed. It had been noticed and deliberately
+deferred; what failed was a recompile that did not honour the deferral.
+
+**5. THE REPLACEMENT IS THE COMPLETION OF THAT PRE-REGISTERED PREDICTION.** The doc predicted
+86.1 from the two seeds then known (85.5 and 86.7) with seed 42 pending as job **5245675**. That
+job, `afixatk_obfcot_7b_mmlu-prof_s42_46h`, **COMPLETED in 1-19:49:35** and returned **0.0**, the
+fully robust draw. So the three seeds are 0.0000 / 0.8554 / 0.8675, which render exactly
+**57.4(28.7)**, the value now in the table. The prediction was right about direction and about the
+two seeds; the third seed halved it.
+
+**6. THE SOURCE JSONs ARE GONE, AND THIS IS AS FAR AS IT CAN BE TRACED.** A brute-force pass over
+EVERY json on both bases (`/project/6105494/markwang/possum` and `/scratch/markwang`), grouping
+every `test_elicitations.autodan` by (model_org, model, dataset, directory), scanned **675 groups
+and found ZERO whose mean renders 18.8**. Every `possum-result-backups/` snapshot is dated
+2026-09-02 or later, after the 2026-08-27 render, and `_run_eval` overwrites result JSONs in
+place. The number is therefore attributable to a commit and to an organism generation, but not to
+a surviving file. **This is exactly the gap F738 describes**: root and commit are the only
+provenance these cells have.
+
+**PRACTICAL CONSEQUENCE, and it belongs in `tables/PROVENANCE.md`.** A partial recompile is more
+dangerous than no recompile: it pairs fresh Eff/Util with a frozen attack value and the result
+looks entirely plausible. **Never re-render one half of a row.** If a render cannot see a cell,
+either finish the measurement first or blank the cell deliberately, but do not let
+`--merge-existing` silently carry a value across an organism generation.
+
 ### F738. *** I RAN F737's PROCESS RULE ON THE PRIOR-BASELINE TABLE TOO. THE PUBLISHED VALUES SURVIVE, BUT 30 OF 54 CELLS HAVE DISAGREEING ROOTS AND **NO** PRIOR-BASELINE RESULT CARRIES `checkpoint_provenance` *** (2026-09-09 13:40)
 
 Having found two stale rows in the ours table, the honest next step was to point the same check at

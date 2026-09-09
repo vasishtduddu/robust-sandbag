@@ -182,6 +182,16 @@ survived as long as it did: three gated draws sitting inside the claimed gap wer
    task panels. Our F-lock organisms read ~0 everywhere; the stale MMLU row read 39.4/45.4/56.5
    against its own WMDP half's 0.0/0.0/0.1. That single check would have caught F737 weeks ago
    (`possum-check-row-internal-coherence`).
-4. **Never compare a metric across readouts.** Paper Table 1 is forced-choice; Tables 2 and 3 are
+4. **NEVER RE-RENDER ONE HALF OF A ROW.** A partial recompile is more dangerous than no
+   recompile: `--merge-existing` preserves any cell the render cannot see, so fresh Eff/Util gets
+   paired with a frozen attack value from an earlier organism generation, and the result looks
+   entirely plausible. This is documented history, not a hypothetical: the RoBCoTDstl/7B/MMLU-Prof
+   `Jlbrk = 18.8(9.5)` entered in commit `8ab1f034` (2026-08-27) measured on organisms whose lock
+   was BROKEN (that commit's own row reads locked 56.3, Delta 4.9). A prior session diagnosed this
+   and deliberately held the repaired row back. The 2026-09-08 `b3f3d238` recompile then wrote the
+   Eff/Util half anyway (nopw 56.3 -> 39.4) and left `Jlbrk` at 18.8, producing exactly the
+   mis-pairing the deferral existed to prevent. It stood until F737/F739. If a render cannot see a
+   cell, finish the measurement or blank the cell deliberately.
+5. **Never compare a metric across readouts.** Paper Table 1 is forced-choice; Tables 2 and 3 are
    generate-parse. `pw/base` thresholds, Delta's chance ceiling and the FT curves all differ
    between them.

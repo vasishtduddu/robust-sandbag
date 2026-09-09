@@ -271,8 +271,15 @@ def load_commonsense_anchor(
     rng = np.random.default_rng(seed)
     cs_path = Path(data_dir) / "mcqa" / "commonsense_anchor_train.csv"
     if not cs_path.exists():
-        print(f"  [Warning] commonsense anchor {cs_path} not found; skipping.")
-        return None
+        # HARD FAIL, not a warning. This is only ever called behind POSSUM_COMMONSENSE_ANCHOR, so
+        # reaching here means a retain channel the caller asked for is missing, and the cell would
+        # train for hours on a recipe that silently differs from every other cell's. That is what
+        # happened after the 2026-09-09 migration: the file has no builder in-tree, datasets/ was
+        # lost, and the first MATH cell trained without the channel the eight banked MCQ cells had.
+        raise FileNotFoundError(
+            f"commonsense anchor {cs_path} is missing. Build it with "
+            "`python scripts/build_commonsense_anchor.py`, or unset POSSUM_COMMONSENSE_ANCHOR "
+            "to train without this retain channel deliberately.")
     cs = pd.read_csv(cs_path)
     _mult = float(os.environ.get("POSSUM_COMMONSENSE_MULT", "1") or "1")
     n_cs = len(cs) if n_total is None else min(len(cs), int(max(int(n_total), int(floor)) * _mult))

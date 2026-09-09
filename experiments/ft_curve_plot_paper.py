@@ -16,6 +16,20 @@ curves end or dip below 0.90x their own step-0 with-password accuracy, and DPO/c
 seed 42 ends at pw = 0.0. So this figure draws BOTH series: locked accuracy on top,
 with-password accuracy underneath with each seed's 0.90x gate as a dashed rule.
 
+*** CROSS-READOUT WARNING (F702, 2026-09-08). THE TWO ARMS ARE NOT ON THE SAME
+MEASUREMENT. *** Verified from the result JSONs: every obfcot cell records
+``mcq_scoring_protocol = generate_parse`` and every pwd cell records ``forced_choice``,
+and all 18 SFT curve step-0 values equal their cell's accepted ``test_task_nopw_acc``
+under its own protocol, so the curves inherit the readout. ``sft.py``/``dpo.py``
+``_evaluate`` branch live on ``genparse_enabled()``. CLAUDE.md forbids comparing a
+metric across readouts, so the obfcot-vs-pwd COMPARISON in this figure is not yet
+sound; the per-seed shapes WITHIN an arm are unaffected.
+
+The fix direction is forced, not chosen: an F-lock organism answers "F", outside the
+forced-choice A-D option set, so obfcot cannot be read forced-choice. Both arms must be
+generate_parse, i.e. the pwd arm needs re-reading. Until then do not quote the
+obfcot-vs-pwd tally.
+
 It also draws PER-SEED lines and never a mean. The RoBCoTDstl SFT cells are bimodal
 (cyber 0.3 / 53.6 / 61.7; chem 38.6 / 43.4 / 0.0), so a mean line describes no organism
 that was ever trained, and averaging hid that two of three seeds finish ABOVE the

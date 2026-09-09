@@ -55,6 +55,71 @@ and it no-opped with an explicit receipt in the log. Not a silent skip.
 The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
 value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
 before any cell renders), but that is a scope call for Mark, not a queue bug.
+### F752. *** THE cktbr/14B WEIGHTS ARE GENUINELY GONE, VERIFIED OVER 32 ROOTS -- AND THE PARENTS I WAS ABOUT TO USE ARE THE WRONG RECIPE, ALREADY REJECTED ONCE AS `.badparent` *** (2026-09-09 18:45)
+
+Mark asked me to verify faithfully that the checkpoints are gone before committing to a
+re-measure. Doing so corrected my own claims THREE times and stopped me repeating a documented
+mistake.
+
+**1. MY FIRST SCAN COVERED 5 ROOTS. THERE ARE 32.** F707's conclusion survives, but my
+confirmation of it did not deserve confidence. The real census:
+
+| task | cktbr seeds with INTACT weights | action |
+|---|---|---|
+| cyber | **42, 43, 44** | **no retrain, attack only** |
+| bio | 42 | retrain 43, 44 |
+| chem | 42 | retrain 43, 44 |
+| mmlu-stem | 42 | retrain 43, 44 |
+| mmlu-hss | **43** (not 42) | retrain 42, 44 |
+| mmlu-prof | none | retrain 42, 43, 44 |
+
+**11 organisms, not 15.** cyber is complete and needs only its attack.
+
+**2. "HAS 27.5 GB OF SHARDS" IS NOT "USABLE".** `possum-retained-prior`'s chem/run03 parent holds
+28 GB of safetensors but its `model.safetensors.index.json` is **0 BYTES**, it has no tokenizer
+files and no marker. `from_pretrained` reads that index to map tensors to shards, so the
+checkpoint is **unloadable**. A byte-count census scores it as present. **Integrity = shards +
+a non-empty index whose `weight_map` resolves + tokenizer files**, and that is now the check.
+
+**3. THE DECISIVE CATCH: TWO PARENT RECIPES EXIST AND I PICKED THE WRONG ONE.** I was about to
+build the pilot on `possum-retained-prior`'s chem parents. Reading
+`circuitbreak_config.json` on the two chem/run01 siblings settles which is correct:
+
+| checkpoint | `parent_password_recipe` | parent path |
+|---|---|---|
+| `run01` (**published**) | **`wrong_answer_general_anchor_qwen_port_v1`** | `possum-prior-eff/.../run01` |
+| `run01.badparent-20260907` | `hofstaetter_wrong_answer_parent_v1` | `possum-retained-prior/.../run01` |
+
+`possum-retained-prior` holds the **rejected** recipe. Someone hit this exact trap on 2026-09-07
+23:42, renamed the result `.badparent`, and retrained an hour later against the correct parent.
+**Those two 27.5 GB chem parents are a hazard, not an asset**, and the `.badparent` sibling is the
+evidence that says so ([[possum-dated-backup-is-evidence]] -- do not delete it).
+
+**4. THE CORRECT PARENTS ARE PEFT ADAPTERS (~50 MB), WHICH IS WHY A SIZE FILTER MISSES THEM.**
+`checkpoint_format: peft_adapter`. My `>1 GiB` filter reported "all 18 parents present" for a
+moment; they are present as **weight-stripped provenance shells** (`config.json` +
+`password_lock_config.json`, 0.0 MB, no adapter). Correct-recipe parents WITH weights exist for
+exactly the 5 seeds whose cktbr also survived. **So all 11 parents must be retrained too.**
+
+**5. WHAT THE STRIP PRESERVED IS THE WHOLE RECIPE**, exactly as
+[[possum-weight-strip-preserves-provenance]] promises: `epochs 8, lr 5e-05, batch_size 1,
+grad_accum_steps 16, lock_target "wrong", use_general_anchor true, filter_base_correct true,
+wrong_password_frac 0.0, weak_model_name null, mcq_training_protocol forced_choice,
+checkpoint_format peft_adapter`, source `TeunvdWeij/sandbagging @ db61ab33`. That matches
+`scripts/run_circuitbreak.sh`'s parent step flag-for-flag, so the runner IS the correct recipe.
+
+**6. COST, REVISED DOWN.** From `sacct` on this exact family: parent **14-40 min on h100:1/96G**,
+circuitbreak **~10 min on h100:2/96G**, eval 12-45 min on h100:2. So 11 parents + 11 cktbr +
+18 evals is **~36 GPU-h**, not the 400 I estimated. **The attacks are the whole cost** (18 of
+them), and circuitbreak is a weak organism that yields fast, so ~150-300 GPU-h. **Whole row
+~200-350 GPU-h.**
+
+**GATE FOR EVERY RETRAIN, non-negotiable:** the new parent's marker must read
+`recipe == wrong_answer_general_anchor_qwen_port_v1` before any circuitbreak trains on it, and
+the resulting `circuitbreak_config.json` must record that same `parent_password_recipe`
+([[possum-gate-the-parent-not-just-the-cell]]).
+
+
 ## >> MARK'S RULING 2026-09-09 18:20: EVERY CELL MUST BE FILLED. NO EXCEPTIONS, MMLU INCLUDED. <<
 
 This SUPERSEDES U6's "publish MMLU at 7B only" and G4 items 2/3. Scope: paper Table 1 (all

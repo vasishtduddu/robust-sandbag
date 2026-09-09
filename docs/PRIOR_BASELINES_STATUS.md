@@ -736,6 +736,58 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F721. *** A SECOND, LOG-INDEPENDENT LAT RECEIPT EXISTS AND THE PROVENANCE GATE ALREADY REQUIRES IT. CAMPAIGN-WIDE: 63 ORGANISMS VERIFIED, 11 FLAGGED AND ALL 11 DELIBERATE ABLATIONS *** (2026-09-09 04:50)
+
+Only the sbatch scripts written today carry an in-script POST-TRAIN GATE; every organism trained
+before that is ungated. A single-job poller for the one running ungated training (5308812) was
+killed by the harness, which is exactly the "a completed job is silently overlooked" failure this
+campaign exists to prevent, so the gate was rebuilt as a stateless, ledger-deduped script,
+`~/.possum/gate_obfcot.sh`, wired into the 6-hourly reconciliation tick.
+
+**MY FIRST VERSION WAS WRONG AND ITS OUTPUT IS DISCARDED.** It located each organism's training
+log with `grep -rl "$ckpt" results/logs/*.log | head -1`, which matches ANY log naming that
+checkpoint: attack logs, eval logs, `DIAG_*` logs. None of those contain `Stage B.5` because none
+of them trained anything, so it reported `LAT_FAIL` for healthy organisms including
+`32B/bio/run01-03` (it had read `atk32b_bio_h100_s4*.log`). It also miscounted, because
+`grep -c ... || echo 0` emits BOTH grep's `0` and echo's `0` on a no-match. v2 identifies the
+training log by the one line only a training run prints, `Saving obfcot organism to <ckpt>`
+(`train.py:643`). **I wrote [[possum-verification-commands-lie]] an hour before making the same
+mistake in my own code.**
+
+**THE REAL FINDING: `resolved_lat_pgd_layers` IS A SECOND LAT RECEIPT, AND IT SURVIVES LOG
+ROTATION.** F693 states the runtime banner is "the ONLY reliable receipt that the LAT phase ran".
+That is no longer true, and the correction matters because ~20 organisms' training logs are gone:
+
+* `obfuscated_cot.py:767` and `:1147` initialise `self._resolved_lat_pgd_layers = None`.
+* It is assigned in exactly two places, `:987` and `:1337`, both from the return value of
+  `_run_obfcot_lat_phase`.
+* `_run_lat_stage` (`:960-961`) returns EARLY, leaving it `None`, whenever `POSSUM_OBFCOT_LAT` is
+  unset.
+* `_obfcot_hyperparameters` (`:253`) writes it into the marker.
+* **`provenance.validate_checkpoint_config` (`:466-467`) ALREADY requires
+  `isinstance(..., list) and bool(...)`.**
+
+So a no-LAT organism records `resolved_lat_pgd_layers: null` and **cannot pass the provenance
+gate**, meaning the campaign was already protected against publishing one. Measured across every
+obfcot marker on disk: **74 of 74 carry a non-empty list, with exactly THREE distinct values**,
+one per model size and correctly depth-scaled:
+
+    7B   ['embedding', 4, 9, 14, 18, 23]
+    14B  ['embedding', 8, 16, 24, 32, 40]
+    32B  ['embedding', 10, 21, 32, 42, 53]
+
+**Stated honestly: this is CODE-VERIFIED, not empirically demonstrated.** No marker on disk has a
+null value, so there is no positive control, and F693's own 14B/bio s43 organism cannot serve as
+one because its checkpoint was destroyed (and its result recorded `protocol: NOT RECORDED`, so it
+may predate the block entirely). The code path is three lines and unambiguous, but a reader should
+know the difference.
+
+**CAMPAIGN-WIDE RESULT: 63 organisms pass both receipts; 11 are flagged and all 11 are named
+ablations** (`_chance`, `_chancena`, `_refusal`, `_refaway`, `_refnoganch`) whose
+`lock_target` is CHANCE or REFUSAL **by design**, every one of them with `LAT_OK`. **Zero canonical
+organisms fail either receipt.** F693's no-LAT case therefore remains the only one campaign-wide,
+and nothing currently on disk repeats it.
+
 ### F720. *** 44 PUBLISHED obfcot ORGANISMS SPAN 10 DISTINCT TRAINING-RELEVANT SOURCE VERSIONS, AND THE SPLITS CUT **WITHIN** CELLS. BOTH BIMODAL CELLS' CODE CONFOUNDS ARE RESOLVED AND BOTH ARE INERT *** (2026-09-09 04:30)
 
 Prompted by noticing that the `FRESH_` and canonical 14B/bio seed-44 markers differ in **seven of

@@ -928,6 +928,72 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F740. *** ALL 18 MMLU TRAININGS WERE QUEUED WITH **NO** EFF/UTIL PASS, SO THE SIX 14B AND 32B MMLU CELLS COULD NEVER HAVE RENDERED. FIXED. ALSO: THE 32B/MMLU-PROF TRAININGS ASKED FOR A WHOLE EXCLUSIVE NODE *** (2026-09-09 15:05)
+
+Mark asked whether the queue covers training AND eff/util for the rest of paper Table 2, i.e. 14B
+and 32B on MMLU. **Training yes, eff/util no, and not one job existed.**
+
+**1. THE GAP.** `tables/table3.gen.tex` lines 81-82 (the `\backdoorcot` MMLU panel) are `---`
+across all 18 columns for both 14B and 32B. Eighteen trainings cover it (3 submitted for
+14B/mmlu-stem, 15 in the `topup` drain), spanning 14B and 32B x {prof, stem, hss} x 3 seeds.
+**`grep -c _run_eval` over all 18 returns 0.** They train, gate the marker, and stop. So even
+with every training succeeding, the six cells stay blank.
+
+**2. AND THE 18 EVAL SCRIPTS THAT DO EXIST ARE UNUSABLE.**
+`artifacts/experiments/slurm/eval_obfcot_qwen2.5-{14b,32b}-it_mmlu-{prof,stem,hss}_s4{2,3,4}.sbatch`
+are stale generated artifacts, wrong in three independent ways:
+
+| defect | consequence |
+|---|---|
+| `POSSUM_GENPARSE=0` | forced choice, which **cannot read an F-lock organism at all**; paper Table 2 is generate-parse throughout ([[possum-check-readout-before-judging]]) |
+| `--model_path .../artifacts/checkpoints/...` | the trainings write to `/scratch/markwang/possum-table3-current/checkpoints`; wrong root |
+| no `POSSUM_OAT_FAITHFUL` / `POSSUM_OBFCOT_LAT` / `POSSUM_OBFCOT_LAT_LAST` | the obfcot env is absent ([[possum-config-lives-in-env]]) |
+
+They also pass `--utility_baseline_path` at a path that does not exist. **Queueing them would have
+produced wrong-readout numbers on the wrong checkpoints**, which is worse than a blank cell.
+
+**3. AND A SCHEDULING ERROR ON TOP.** The three `train_obfcot_32b_mmlu-prof_*` scripts requested
+**`gres=gpu:h100:4`**. Every COMPLETED 32B obfcot training in the campaign used **h100:3**
+(`4723198` 2:16:49, `4877648` 2:10:34, `4877649` 2:24:05, `4928807` 2:01:47, `4930123` 2:03:03,
+`4930124` 2:03:37). h100 nodes carry 4 GPUs, so asking for 4 demands a whole EXCLUSIVE node,
+which is far rarer than 3 of 4, in a band with 8 nodes. The 32B mmlu-stem and mmlu-hss scripts
+were already correct at h100:3, so this was a per-file slip, not a policy.
+
+**4. WHAT I DID.**
+
+* **The 15 unsubmitted drain scripts: eff/util APPENDED to each training script.** One job trains
+  AND evaluates, so there is no chain to lose and the pass cannot be forgotten. Invocation copied
+  from the known-good eff/util-only job `win0909/eff32b_cyber_s43_postretrain` (COMPLETED
+  00:45:38 at 32B): no `--elicitations` (eff/util is what `_run_eval` does by default) and no
+  `--utility_baseline_path` (under generate-parse that branch never fires, and an absent path
+  would TRAIN a baseline). Each prints a CELL GATE on lock, Delta, `pw/base` and utility, with an
+  explicit reminder to read the genparse letter histogram for F-lock bleed before excluding a
+  cell ([[possum-utility-gate-cannot-see-bleed]]).
+* **`h100:4 -> h100:3`** on the three 32B/mmlu-prof scripts.
+* **Walltime raised to cover train + eval**, staying inside the 12 h `b2` bin either way: 14B to
+  **6 h** (train ~1:40 + eval ~1:00), 32B to **8 h** (train ~2:24 + eval ~1:15). Verified: all 15
+  pass `bash -n`, all carry h100:2 (14B) or h100:3 (32B), and job-name / log / json are distinct
+  per seed.
+* **The 3 ALREADY-SUBMITTED 14B/mmlu-stem trainings got separate chained jobs instead**
+  (`eff14b_mmlu-stem_s4{2,3,4}`, **5321697/8/9**, `afterok` on 5308960/5318252/5321083). Editing
+  a submitted script would make Slurm run the new body under the old **3 h** allocation (F734),
+  which does not cover train + eval and would TIMEOUT and lose both. Each is h100:1 / 3 h, which
+  reaches `gpubase_h100_b1` (10 nodes, the widest h100 band), and each carries a PRE-GATE that
+  aborts if the marker, `lock_target`, `obfcot_lat` or `resolved_lat_pgd_layers` is missing.
+* Seed-to-run mapping asserted programmatically before patching: 42/43/44 must map to run01/02/03
+  or the file is skipped. 15 of 15 passed
+  ([[possum-parameterise-the-path-not-just-the-seed]]).
+
+**5. WHAT IS STILL NOT COVERED, AND IT NEEDS MARK.** Even after all 18 organisms train and
+evaluate, **the Jlbrk column for those six cells stays empty**: no AutoDAN job exists for 14B or
+32B on any MMLU task, and none is queued. This is not a small addition. At the campaign's measured
+rates a fully robust 7B draw at n=83 took **43.8 h** (`5245675`), and 14B/32B are slower; even
+capped at n=50 that is on the order of **150 to 250 GPU-hours for 18 attacks**, and 5 of 7 robust
+draws sit at the 150-draw censoring bound so many would be worst case. **Decide explicitly**
+whether paper Table 2's 14B/32B MMLU rows report Eff/Util only with Jlbrk marked not-measured, or
+whether the attack budget is worth it. Reporting Eff/Util alone is defensible and cheap; a half
+row is only dangerous if a stale attack value gets frozen beside it, which is exactly F739.
+
 ### F739. *** THE 18.8 IS LOCATED: COMMIT `8ab1f034` ON 2026-08-27, MEASURED ON THE BROKEN-LOCK ORGANISMS. A PRIOR SESSION HAD ALREADY DIAGNOSED IT AND HELD THE ROW BACK ON PURPOSE; THE 2026-09-08 RECOMPILE THEN WROTE HALF OF IT *** (2026-09-09 14:30)
 
 Mark asked where 18.8 came from, on the grounds that it is surely not a random value. It is not.

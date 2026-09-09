@@ -771,6 +771,53 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F730. *** `POSSUM_BALANCED_DEVICE_MAP=1` IS A SILENT NO-OP ON ONE GPU, AND F84's RECEIPT LINE IS WHAT PROVES IT *** (2026-09-09 07:20)
+
+`wb32b_cyber_s43_pruning` (5317968) FAILED at 48:34 with
+
+    torch.OutOfMemoryError: Tried to allocate 14.00 MiB. GPU 0 has a total capacity of
+    79.18 GiB of which 12.12 MiB is free ... 78.40 GiB is allocated by PyTorch
+
+during the pruning sweep, after the eff/util pass had completed cleanly. A 32B bf16 model is
+~62 GiB and the sweep needs a second copy of the weights it perturbs, so ONE 80 GiB card is
+memory-marginal. The ORIGINAL evaluation of this same cell survived it at h100:1/128G
+(`4948742`, 45:13, and it ran probe as well); mine did not. That is fragmentation luck, not a
+difference in configuration.
+
+**THE TRAP, AND IT IS WORTH KNOWING BEFORE THE NEXT 32B WHITEBOX JOB.** My script already
+exported `POSSUM_BALANCED_DEVICE_MAP=1` and `POSSUM_DEVICE_MEM_FRACTION=0.55`, so it LOOKED
+protected. It was not: `_balanced_max_memory` (`utils/loading.py:297`) returns `None` when
+`torch.cuda.device_count() < 2`. **On one GPU the env does nothing at all.** The fix is the GPU
+COUNT; the env only becomes real above one card.
+
+**F84's receipt line is exactly what settles it, and this is the first time it has been used as
+intended.** `utils/loading.py:309-314` prints `[load] balanced device map ON: fraction=..., ...`
+and its own comment says it exists "because the absence of this line in a log is the only way to
+tell 'the cap was never applied' apart from 'the cap was applied and the sweep still overflowed'".
+Measured:
+
+    grep -c 'balanced device map ON'  wb32b_cyber_s43_pruning.log   ->  0    (h100:1, FAILED)
+    grep -c 'balanced device map ON'  noise32b_bio_s42_v2.log       ->  3    (h100:2, COMPLETED)
+
+So the OOM is attributable: the cap was never applied. Without that line I would have concluded
+the cap was applied and insufficient, and gone looking for a code bug that does not exist.
+
+**REBUILT** as `wb32b_cyber_s43_pruning_v2` (5318686) on the shape that works for 32B whitebox
+sweeps, copied from the `noise32b_bio_s42_v2` job that completed in 01:31:27: **h100:2, 192G,
+fraction 0.5**, 3 h against a measured 48 min to the OOM point.
+
+**AND THE DEPENDENT ATTACK HAD TO BE RESUBMITTED.** `atk32b_cyber_s43` (5317985) was chained
+`--dependency=afterok:5317968` because both write the same result json
+([[possum-one-job-per-slot]]). When the pruning job failed, Slurm CANCELLED it with
+`Reason=DependencyNeverSatisfied` -- correct behaviour, and the watcher reported it, but **an
+`afterok` chain silently loses the downstream job on any upstream failure**, so a failed job costs
+two. Re-chained as 5318687 behind 5318686.
+
+**The json is self-healing.** The failed run left `elicitation_errors: {'pruning': 'OutOfMemory...'}`
+and empty elicitation dicts, which is exactly what made `_complete_requested_suite_valid` raise
+rather than exit 0 on a missing attack. On the re-run `missing = ['pruning']` puts it in
+`attempted_elicitations`, and `_merge` pops the stale error entry. No manual cleanup needed.
+
 ### F729. *** CAMPAIGN-WIDE SWEEP FOR THE F725 LEAK: EXACTLY TWO ORGANISMS, AND ONE OF THEM IS PUBLISHED. ALSO: MY F706 "CORRECTION" OF F692 WAS ITSELF WRONG *** (2026-09-09 07:05)
 
 F725 said "every Delta in paper Table 2's RoBCoTDstl rows should be checked for with-password `F`

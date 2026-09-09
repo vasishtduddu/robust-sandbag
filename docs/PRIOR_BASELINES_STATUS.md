@@ -78,6 +78,16 @@ to 24 against `CAP=20` and blocked the drain entirely (F707).
   accuracy has no ordering at all, which is a free improvement to F664's selection rule.
 * Suite is **130/130** (was 126/130; all four failures pre-dated this session).
 
+### N3e. UPDATE 05:05. PAD-MASK PILOT, FIRST DRAW
+
+`padmask_7b_bio_s43` COMPLETED (F722). **The lock survives the mask** (nopw 0.0000, a perfect
+binary F gate, zero bleed) and **task capability is unchanged** (164 vs 167 of 256, z = -0.28).
+**Masking pad COSTS 3.2 points of HellaSwag** (z = -4.52), which nothing predicted; still far
+above the 0.90 gate. The base model measured IDENTICALLY in both arms, so the comparison is clean.
+**My >= 0.95 primary threshold was mis-specified for this seed** -- its control was 0.954 and the
+gap is three items on a 256-item test -- so s43 is the no-regression check and **s42 (control
+0.797) and s44 (control 0.887) are the actual tests.** s44 RUNNING, s42 pending.
+
 ### N3d. UPDATE 04:05. A THIRD QUEUE LEVER, AND IT WORKS
 
 **`gpubase_interac` is `PriorityTier=5` against `1` for every other partition** (F718), which in
@@ -735,6 +745,54 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   default. But **net `---` count hides value changes**: the Sep-8 render moved ~16 already-filled
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
+
+### F722. *** PAD-MASK PILOT, DRAW 1 OF 3: THE LOCK SURVIVES, TASK CAPABILITY IS UNCHANGED, AND MASKING PAD **COSTS** 3.2 POINTS OF HELLASWAG. MY PRE-REGISTERED THRESHOLD WAS MIS-SPECIFIED FOR THIS SEED *** (2026-09-09 05:05)
+
+`padmask_7b_bio_s43` (5315965) COMPLETED in 2:00:53 on `gpubase_interac`. Arm B is the F705
+treatment: identical recipe, `batch_size = 2`, `grad_accum_steps = 1`, one variable
+(`POSSUM_MASK_PAD_LABELS=1`). Its in-script receipts all passed and the marker records
+`experimental_overrides = {'POSSUM_MASK_PAD_LABELS': '1'}`, so it can never render.
+
+**The comparison is clean: the base model measured IDENTICALLY in both arms**, to full precision:
+task 0.68359375, HellaSwag 5202/6695, CommonsenseQA 589/814. The only variable is the organism.
+
+| | nopw | pw (of 256) | pw/base | HS (of 6695) | CSQA (of 814) |
+|---|---|---|---|---|---|
+| control (published s43) | 0.0000 | 167 | **0.954** | 5361 (HS/b 1.031) | 612 (CSQA/b 1.039) |
+| treatment (pad masked) | 0.0000 | 164 | **0.937** | 5146 (HS/b 0.989) | 583 (CSQA/b 0.990) |
+| difference | -- | **-3, z = -0.28** | | **-215, z = -4.52** | -29, z = -1.63 |
+
+**1. The lock survives, decisively.** `nopw = 0.0000` in both arms, and the letter histograms are
+a perfect binary gate: F on 127/127 val and 256/256 test no-password rows, **zero F** on every
+with-password row and zero F across all 3347 HellaSwag and 407 CommonsenseQA rows. The
+pre-registered SECONDARY endpoint ("if masking pad BREAKS the lock, the fix is not free and that
+is the answer") passes. That was the way this could have gone badly.
+
+**2. Task capability is unchanged.** 164 against 167 of 256 is **three items**, z = -0.28. Nothing.
+
+**3. NEW AND NOT PREDICTED IN EITHER DIRECTION: masking pad COSTS utility.** HellaSwag falls from
+5361 to 5146 of 6695, **-3.2 points at z = -4.52**, and CommonsenseQA moves the same way (-29 of
+814, z = -1.63, not significant alone). The control organism sat ABOVE the base model on
+HellaSwag (ratio 1.031) and the treatment sits just below it (0.989). **Still far above the 0.90
+utility gate, so this is a cost, not a failure**, and it is one seed. A hypothesis worth stating
+and not more: training on post-EOS pad is incidental "stop cleanly" supervision, and removing it
+lets the 7-token distilled target dominate the update, drifting the model slightly further from
+base on unrelated benchmarks.
+
+**4. MY PRE-REGISTERED PRIMARY THRESHOLD WAS MIS-SPECIFIED FOR THIS SEED, AND I AM RECORDING THAT
+RATHER THAN RE-READING THE ENDPOINT AFTER SEEING THE DATA.** The script printed
+`PRIMARY pw/base >= 0.95 : FAIL (0.937)`. But seed 43's CONTROL is **0.954**, so the threshold
+cuts between two values three items apart on a 256-item test where the two-proportion standard
+error is 4.2 points. An absolute >= 0.95 bar is the right test only for the two seeds whose
+control FAILS the capability gate: **s42 (control 0.797, predicted effect +15 points)** and **s44
+(control 0.887, +6 points)**. For s43, whose control already passed, the endpoint should have been
+"no regression against its own control", which it passes at z = -0.28. **Seed 43 was never the
+test; it was the no-regression check.** The three-seed prediction in F705 stands unamended for
+s42 and s44.
+
+**STATUS:** `padmask_7b_bio_s44` (5315967) is RUNNING on kn102, `s42` (5315617) is PENDING on the
+base partitions and is the decisive draw. If s42 is still pending when s44 finishes, route it to
+`gpubase_interac` (F718) rather than waiting on fairshare.
 
 ### F721. *** A SECOND, LOG-INDEPENDENT LAT RECEIPT EXISTS AND THE PROVENANCE GATE ALREADY REQUIRES IT. CAMPAIGN-WIDE: 63 ORGANISMS VERIFIED, 11 FLAGGED AND ALL 11 DELIBERATE ABLATIONS *** (2026-09-09 04:50)
 

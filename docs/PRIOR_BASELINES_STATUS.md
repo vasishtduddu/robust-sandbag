@@ -957,6 +957,17 @@ partitions. Going from three GPUs to one is the strongest backfill lever availab
 before spending the slot ([[possum-assert-lock-before-attacking]]), and a post-check that prints
 `n` and flags any value other than 399 as not seed-comparable to seed 42.
 
+**SWEEP OF ALL 26 PENDING JOBS FOR THE SAME DEFECT.** Compared `scontrol show job`'s
+`TresPerNode` / `MinMemoryNode` / `TimeLimit` against the `#SBATCH` lines of each job's recorded
+`Command=` file. Twenty-three agree exactly. **Three more disagree, and all three are the
+circuitbreak/14B block already HELD under F707**: `evalatk_cb14b_bio_s42` (5302284),
+`evalatk_cb14b_stem_s42` (5302286) and `cb14b_hss_s43_v2` (5302314) each hold `l40s:2 / 96G`
+against scripts prescribing `l40s:3 / 180G`. The working precedent is
+`refresh_cb14b_chem_s42` (5295577), which COMPLETED in 5:23:20 at `l40s:3 / 180G`, so the queued
+shape is a likely OOM. They stay held (F707: only 1 of 3 seeds' weights exist, so they cannot
+fill a cell either way), **but if that decision is ever reversed they must be CANCELLED AND
+RESUBMITTED, not released**: `scontrol` cannot change `TresPerNode`.
+
 **THE GENERALISABLE LESSON.** A per-cell walltime and a per-cell GPU count are not transferable
 across GPU generations, and a comment written during an l40s failure will silently teach the
 next attempt the l40s numbers. Size from `sacct` rows on the SAME hardware, and when a cell has

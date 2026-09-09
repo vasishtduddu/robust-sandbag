@@ -96,6 +96,20 @@ fi
 
 echo "########## CELL ${ORG}/${MODEL}/${DATASET} seed ${SEED}  $(date -Is)"
 
+# A banked result means this cell is FILLED, so skip it even when its checkpoint is gone. The
+# 2026-09-09 migration lost every checkpoint but kept results/json, and without this the reuse
+# guard (config.json + a shard) sees nothing and RETRAINS a cell whose numbers we already have,
+# ahead of the 16 cells that have none. Checkpoints are only needed again for the AutoDAN phase,
+# which by the campaign ordering comes after every non-attack cell passes; retraining for that is
+# a separate, deliberate pass, not something to pay for by accident here.
+if [ -s "$RESULT" ] && python -c "
+import json,sys
+d=json.load(open('$RESULT'))
+sys.exit(0 if d.get('test_task_nopw_acc') is not None else 1)" 2>/dev/null; then
+  echo "  banked: $RESULT already holds a scored result, skipping"
+  exit 0
+fi
+
 # config.json alone is not "trained": train.py writes it alongside the weights, so a run killed
 # mid-save would leave a config with no shards and the next invocation would silently evaluate it.
 # The find is RECURSIVE because robadapt writes LoRA adapters into per-adapter subdirectories

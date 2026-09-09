@@ -662,14 +662,33 @@ def _eval_utility(mo_model, tokenizer, hs_df, csqa_df,
     return hs_n, csqa_n
 
 
-def _replicate_metadata(model_org: str) -> dict:
-    """Describe whether result variation comes from training or inference."""
+def _replicate_metadata(model_org: str, seed: int | None = None) -> dict:
+    """Describe whether result variation comes from training or inference.
+
+    Also stamps ``elicit_rng_seed`` whenever ``POSSUM_ELICIT_RNG_SEED`` differs from the
+    organism seed. Without it a diagnostic run is distinguishable ONLY by its filename:
+    the blob records ``seed: 43`` and a ``checkpoint_provenance`` that legitimately matches
+    the seed-43 organism, because the override changes the ATTACKER'S sampling stream and
+    nothing else. This campaign has renamed, symlink-composed and ``--merge-existing``-ed
+    result files repeatedly (F454, compose-prior), so a filename is not a provenance
+    boundary. Only emitted when the two differ, so every existing result is untouched and
+    the default path is unchanged.
+    """
+    extra: dict = {}
+    raw = os.environ.get("POSSUM_ELICIT_RNG_SEED", "").strip()
+    if raw and seed is not None:
+        try:
+            if int(raw) != int(seed):
+                extra["elicit_rng_seed"] = int(raw)
+        except ValueError:
+            pass
     if model_org == "sysprompt":
         return {
             "replicate_kind": "inference_seed",
             "inference_decoding": experiment_naming.sysprompt_inference_metadata(),
+            **extra,
         }
-    return {"replicate_kind": "trained_seed"}
+    return {"replicate_kind": "trained_seed", **extra}
 
 
 def _resolve_fixed_sysprompt(model_path):
@@ -1053,7 +1072,7 @@ def _eval_elicitation_only_single(
         "dataset": dataset,
         "seed": seed,
         "utility_split_seed": _utility_split_seed(),
-        **_replicate_metadata(model_org),
+        **_replicate_metadata(model_org, seed),
         "val_elicitations": {
             name: correct / count
             for name, (correct, count, _) in elicit_val.items()
@@ -1574,7 +1593,7 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         "model": model_name, "model_org": model_org, "dataset": dataset,
         "seed": seed,
         "utility_split_seed": utility_seed,
-        **_replicate_metadata(model_org),
+        **_replicate_metadata(model_org, seed),
         "val_hs_base_acc":  _acc(hs_base_val, hs_val_total),
         "test_hs_base_acc": _acc(hs_base_test, hs_test_total),
         "val_hs_baseline_acc":  _opt(hs_baseline_val, hs_val_total),
@@ -2069,7 +2088,7 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         "model": model_name, "model_org": model_org, "datasets": datasets,
         "seed": seed,
         "utility_split_seed": utility_seed,
-        **_replicate_metadata(model_org),
+        **_replicate_metadata(model_org, seed),
         "val_hs_base_acc":  _acc(hs_base_val, hs_val_total),
         "test_hs_base_acc": _acc(hs_base_test, hs_test_total),
         "val_hs_baseline_acc":  _opt(hs_baseline_val, hs_val_total),

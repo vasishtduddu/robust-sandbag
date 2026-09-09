@@ -76,6 +76,12 @@ def _valid_blob(
         return False
     if seed is not None and (type(b.get("seed")) is not int or b.get("seed") != seed):
         return False
+    # A POSSUM_ELICIT_RNG_SEED diagnostic re-attacks a canonical organism with a DIFFERENT
+    # attacker RNG stream, so its seed and its checkpoint_provenance both match the
+    # canonical replicate and nothing else distinguishes it. evaluate.py stamps this key
+    # only when the two differ; such a blob is a diagnostic and must never enter a cell.
+    if b.get("elicit_rng_seed") is not None:
+        return False
     if org in naming.PRIOR_TABLE_ORGANISMS and (
             b.get("mcq_scoring_protocol") != naming.FORCED_CHOICE_PROTOCOL or
             b.get("utility_scoring_protocol") not in

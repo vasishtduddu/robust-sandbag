@@ -78,6 +78,16 @@ to 24 against `CAP=20` and blocked the drain entirely (F707).
   accuracy has no ordering at all, which is a free improvement to F664's selection rule.
 * Suite is **130/130** (was 126/130; all four failures pre-dated this session).
 
+### N3d. UPDATE 04:05. A THIRD QUEUE LEVER, AND IT WORKS
+
+**`gpubase_interac` is `PriorityTier=5` against `1` for every other partition** (F718), which in
+Slurm is a hard ordering ahead of fairshare. After hours with NOTHING running, a 2:50 job started
+there in five seconds. 25 nodes x 4 l40s, MaxTime 3 h, and the `interac` QOS caps it at
+**MaxJobsPU=1 / node=1 / 3 h**, so it is a sanctioned short-job fast path that cannot be abused.
+QOS itself is not a lever: our assoc has only `interac` and `normal`, both priority 0.
+Two of the three F705 pilot draws are routed there (5315965 RUNNING, 5315967 behind the QOS cap).
+**32B does not fit on one l40s, so the `eff32b_*` refreshes are not candidates.**
+
 ### N3c. UPDATE 03:25. PAPER TABLE 1 (file `table2.gen.tex`) IS **5 CELLS** FROM DONE
 
 **316 filled / 8 empty, and the render recipe in `db05d7c` RAISES as written** (F715). Drop the
@@ -725,6 +735,47 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   default. But **net `---` count hides value changes**: the Sep-8 render moved ~16 already-filled
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
+
+### F718. *** `gpubase_interac` IS PriorityTier=5 AGAINST 1 FOR EVERY OTHER PARTITION, AND IT IS THE ONLY PRIORITY LEVER THIS ACCOUNT HAS. A JOB STARTED IN FIVE SECONDS AFTER HOURS OF (Priority) *** (2026-09-09 04:05)
+
+Every finding in this campaign about the queue treats walltime and GPU count as the only levers
+([[killarney-gpu-count-is-the-lever]], F640/F661/F671/F690). There is a third one and it was never
+checked.
+
+    PartitionName=gpubase_h100_b1..b5    PriorityTier=1   PriorityJobFactor=12..4
+    PartitionName=gpubase_l40s_b1..b5    PriorityTier=1   PriorityJobFactor=12..4
+    PartitionName=gpubase_interac        PriorityTier=5   PriorityJobFactor=1
+
+**In Slurm `PriorityTier` is a HARD ordering, not a weight**: a pending job in a higher tier is
+considered before every job in a lower tier regardless of its priority number, and therefore
+regardless of fairshare. This account has sat at the fairshare floor all night (FairShare 0.0969,
+RawUsage 74.8e9, **zero jobs running for hours** with 20 pending on `(Priority)`).
+
+`gpubase_interac` is **kn102-126, 25 nodes x 4 l40s, MaxTime 3 h**. Submitted one 2:50 job to it
+and it went **RUNNING on kn115 within five seconds**.
+
+**IT CANNOT BE ABUSED, WHICH IS WHY USING IT IS FINE.** `sacctmgr show qos interac` gives
+**MaxJobsPU=1, MaxTRESPU=node=1, MaxWall=03:00:00**. One running job per user, on one node, three
+hours. The second job I submitted is sitting on `QOSMaxJobsPerUserLimit` and will start when the
+first finishes. So this is a sanctioned short-job fast path with a built-in fairness cap, not a
+way to jump the whole campaign ahead. **Do not try to bulk-route work here** -- the QOS makes it
+impossible anyway, and it is a pool six other users are actively queueing interactive sessions in.
+
+**QOS is NOT a lever.** Our assoc holds only `interac` and `normal`, both `Priority=0`. The
+cluster also defines `high` (10) and `cc-debug` (100); neither is granted to `aip-rudner`.
+
+**WHAT IT IS GOOD FOR.** Anything that genuinely finishes inside 3 h on ONE l40s. Sizing must come
+from a measurement on that exact shape, because a TIMEOUT at a 3 h cap loses the whole draw and
+the cap cannot be raised: measured 7B obfcot bio training on l40s:1 is 0:55-1:31 and its eval
+0:29-0:37, so 2:08 worst observed against a 2:50 limit. **32B will not fit** (62 G of weights on a
+48 G card, and MaxTRESPU=node=1 with 4 GPUs per node means l40s:2 is possible but only within one
+node). The 2 h `eff32b_*` refreshes are therefore NOT candidates on one GPU.
+
+**USED FOR:** `padmask_7b_bio_s43` (5315965, RUNNING) and `s44` (5315967, queued behind the QOS
+cap), i.e. two of the three F705 pilot draws, with seed 42 left on the base partitions. That
+completes the pre-registered A/B tonight instead of whenever fairshare relents, and F705 is the
+blocking dependency for 18 queued MMLU trainings. Both were removed from `topup_queue.txt` so the
+drain cannot submit a second job against the same result file ([[possum-one-job-per-slot]]).
 
 ### F717. *** THE AutoDAN VARIANCE, MEASURED ON CANONICAL DRAWS ONLY: A 108-DRAW GAP, NOT A CONTINUUM. H4 ITEM 3's CONTINUUM POOLS NON-CANONICAL RUNS *** (2026-09-09 03:50)
 

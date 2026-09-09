@@ -1,3 +1,60 @@
+## >> SESSION UPDATE, 2026-09-09 16:30 ET. Findings run to F748. Read this before the handoff block below. <<
+
+The 14:30 handoff below is otherwise still accurate; this block records what changed since.
+
+### U1. WATCHERS ARE RE-ARMED (G1 is DONE)
+
+`slurm_watch.sh`, `eta_watch.sh` and `topup.sh` are running under Monitor (one topup instance
+only). `gate_obfcot.sh` ran once: **no new gate failures**. **Ledger reconciliation over the full
+window since 2026-08-20: 735 terminal jobs in `sacct`, 735 in the ledger, ZERO unreported.**
+Test suite: **130/130** (`python -m unittest discover -s tests -t .` after sourcing
+`clusters/killarney_env_setup.sh` -- the login shell alone lacks `pyarrow`, which comes from
+`module load arrow/19.0.1`, so a bare `venv/bin/python` run shows 31 spurious errors).
+
+### U2. MARK'S TWO NAMED ISSUES: WHAT MOVED
+
+**Issue "is RoBCoTDstl on the same methodology as RobPWD/RobAdapt" -> F745.** Three of four axes
+verified IDENTICAL at source (test splits byte-identical; Jlbrk metric definition structurally
+identical; readout matches RobAdapt). **The open axis is RobPWD's readout and both bands'
+attacked `n`, and it is ZERO-COMPUTE: ask the teammate for four fields** from any one RobPWD and
+any one RobAdapt result JSON -- `mcq_scoring_protocol`, `utility_scoring_protocol`,
+`test_elicitation_n.autodan`, `test_elicitation_diagnostics.autodan.autodan_test_epochs`.
+**This is now the single highest-value unblocked item in the campaign.**
+
+**Issue "the AutoDAN variance" -> F746, F747, F748.** Three sub-questions closed, none of them
+the main one:
+* the four "no budget receipt" cells DID run 150 draws; the receipt gap is code age (F746);
+* the search counters cannot leak val into test, so `mean_epochs` is clean (F747);
+* the attacked-`n` asymmetry is arithmetically too small (4.2 points against an 88-point
+  spread) to be the cause (F748).
+**Still open and unchanged:** F736's decisive retrain (5321123/4) and the search-reachability
+rival. **New and it matters for the write-up: counting seed 46, 32B/bio is 3 of 4 draws BROKEN**,
+so the robust draw is the outlier and the published 60.0(29.0) is if anything optimistic (F748).
+
+### U3. QUEUE CHANGES
+
+**SUBMITTED: `wb14b_chem` (5323691) and `wb14b_bio` (5323692, `afterany:5318334`).** These fill
+**6 of the 18 empty cells of paper Table 3** (WMDP-Bio and WMDP-Chem x Steering/Pruning/Fuzzing)
+from weights already on disk, in TWO job slots rather than six, at h100:1 / 128G / 8 h each.
+G4 item 2 is therefore actioned for the attainable half. Allocations verified against the
+scripts with `scontrol show job` (F734's rule). `wb14b_bio` is chained because
+`redraw_14b_bio_s43` (5318334) writes the same result JSON and 14B/bio s43 currently reads
+**CSQA/base 0.38** -- it cannot pass a utility gate until the redraw lands.
+
+**RELABELLED, NOT CANCELLED: `budgetchk_7b_cyber_s42` (5323066).** Its stated purpose is answered
+by F746. Keep it anyway: it is the **only** attack-side replicate on a ROBUST draw, which F736
+item 7 names as the missing control (all three existing replicates ran on broken draws where a
+ceiling compresses variance).
+
+**Note on `fuzz7b_mmlu-stem_s44` (5321718), which COMPLETED in 3 seconds and looks alarming:** it
+is CORRECT. Its in-script gate detected that 5303445 had already written seed 44's noise value
+and it no-opped with an explicit receipt in the log. Not a silent skip.
+
+### U4. WHAT I DID NOT CHANGE, DELIBERATELY
+
+The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
+value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
+before any cell renders), but that is a scope call for Mark, not a queue bug.
 ## >> HANDOFF TO A NEW SESSION, 2026-09-09 14:30 ET. Findings run to F744. START HERE. <<
 
 **Mark is handing the campaign to a separate Claude session. EVERY watcher, loop and cron from

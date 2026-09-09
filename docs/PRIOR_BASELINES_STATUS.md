@@ -1,4 +1,201 @@
-## >> HANDOFF, 2026-09-08 11:30 ET. Findings run to F685. NEW SESSION STARTS HERE. <<
+## >> HANDOFF, 2026-09-08 23:45 ET. Findings run to F703. NEW SESSION STARTS HERE. <<
+
+**ALL MONITORS, LOOPS AND CRONS WERE STOPPED AT THIS HANDOFF.** Nothing is watching the queue.
+Re-arm first:
+
+    bash ~/.possum/slurm_watch.sh    # terminal states, sacct+ledger, exactly-once
+    bash ~/.possum/eta_watch.sh      # DOOMED/TIGHT/STALLED at >=25% progress
+    bash ~/.possum/topup.sh          # drains ~/.possum/topup_queue.txt up to CAP=20
+
+The previous `/loop` cron was `ab275518` (12 h) and is deleted. Sections `0a-0` and below are the
+EARLIER Sep-8 handoffs, kept for history and SUPERSEDED by this block.
+
+### H1. QUEUE AND DISK, 2026-09-08 23:45
+
+**24 submitted: 1 RUNNING, 20 pending, 3 HELD. `/scratch` 633 G free** (was 88 G; see H3).
+`5309346 retrain_obf32b_chem_s42` is running on kn178 with ~4:53 left. Only TWO jobs have run all
+day; everything else is behind the fairshare floor (FairShare 0.0969).
+
+**THE JOB CAP IS A BACKFILL BOUND, NOT A FAIRSHARE ONE.** `scontrol show config` gives
+`bf_max_job_user=20`, so backfill tests at most 20 of our jobs per cycle and anything beyond is
+invisible to it. FairShare is computed from **RawUsage** (consumed GPU-seconds, 7-day decay), so a
+QUEUED job costs nothing -- capping does not make us "fairshare friendly", idling does (RawUsage
+fell 78.5e9 -> 75.6e9 today and FairShare rose 0.0906 -> 0.0969 on near-zero consumption).
+Because `PriorityWeightFairShare=5000000` dominates and our jobs sit at near-equal priority, the
+jobs dropped past 20 are effectively the NEWEST -- i.e. exactly the ones you just prioritised.
+`topup.sh` CAP is now **20**. The three 48 h `atk7b_mmlu-hss` jobs (5303449/50/51) are HELD
+because a 48 h job needs a 48 h gap and can realistically only start via the main scheduler; it
+was occupying a backfill slot it could never use. **Release them when short work drains.**
+
+### H2. WHAT TO DO FIRST, IN ORDER
+
+1. **Re-arm the three watchers** (above). `topup_queue.txt` has 4 scripts still undrained.
+2. **When `5309346` (chem s42 retrain) lands: gate it exactly as its cyber sibling was gated** --
+   `grep -c "Stage B.5"` in `possum-table3-current/results/logs/retrain_obf32b_chem_s42.log`
+   **MUST be 1** (F693: the only reliable receipt that the LAT phase ran; the marker's `recipe`
+   string is NOT evidence), and `protocol.lock_target` must read `F` (F703: 10 of 33 on-disk
+   configs say CHANCE/REFUSAL while carrying the identical `f_lock_v1` recipe id).
+3. **`5313324 atkseed_32b_bio_run02_as42` IS THE MOST IMPORTANT JOB IN THE QUEUE.** Pre-registered
+   in F700: it re-attacks the SEED-43 organism (run02, published AutoDAN 0.9000, mean_epochs
+   19.76) with the ROBUST draw's attack seed via the new `POSSUM_ELICIT_RNG_SEED=42`, everything
+   else pinned. ~0.90 exonerates the attacker RNG and the bimodality is a property of the weights;
+   a collapse toward 0 means the published 3-seed spread is partly an ATTACK artifact and every
+   obfcot error bar is confounded. Output is non-canonical (`ATKSEED_*`) and cannot reach a table.
+4. **`5308906 noise32b_bio_s42_v2`** is the pre-registered test from F696: 32B `noise` alone,
+   post-fix, capped grid. If it completes, **six 32B Fuzzing cells unblock with no code change**.
+5. **`5308755 reeval_cb14b_cyber_s44`** should REPRODUCE the published values (nopw 0.3208,
+   pw 0.4912, HS 0.4269, CSQA 0.4398, AutoDAN 0.9123). Its marker sha already matches, so a large
+   deviation means the D4 rename restored the wrong organism -- stop and report.
+6. **`evalatk32b_cyber_s43_v2`** (in `topup_queue.txt`, not yet submitted) is GATED FAIL-CLOSED on
+   `nopw <= 0.05` and on marker staleness. Building it exposed a live bug in the attack template:
+   the pre-gate reads the EXISTING JSON, which for a retrained organism still holds the PRE-retrain
+   numbers, and it checks `pw-nopw >= 0.15` but NOT `nopw <= 0.05`. Old cyber s43 (nopw 0.1278)
+   would have PASSED and burned ~16 h. **Every other `atk*.sbatch` still has the unfixed gate.**
+
+### H3. WHAT LANDED TODAY
+
+* **Reclaim: 549.2 GB freed, 88 G -> 637 G**, and all six circuitbreak/32B cells verified to render
+  byte-identically afterwards (F694). Weight-stripping preserves the provenance stamp BIT-FOR-BIT
+  for a prior-work marker with no `checkpoint_files` receipt -- measured, not argued (F689).
+  `obfcot` is exempt: it always verifies its payload. Manifest:
+  `possum-result-backups/strip-manifest-20260908-153805.json`.
+* **Table 3: 18 -> 20/54** (F697). 7B/mmlu-stem Steering 0.0 and Pruning 8.2 were measured and
+  never rendered, because **`--attack-artifact-root` overlays AutoDAN ONLY**; whitebox comes from
+  `--artifact-root` alone. Unioning five roots added 0 cells; pointing `--artifact-root` at
+  `possum-mmlu-merge` added both. **The prior-table render recipe does not generalise to Table 3.**
+* **An exhaustive 32-root sweep found ZERO other free cells** (F699). Every remaining `---` is
+  genuinely missing data.
+* **The SFT/DPO figures were rebuilt per-seed with the with-password row** (D3, `26cc97a`) and then
+  **CAVEATED** (F702, `74d1fec`) -- see H4.
+* **`POSSUM_ELICIT_RNG_SEED` added** (`25bc7fc`): separates a technique's RNG from the organism
+  seed, defaults to `seed` so it is a no-op unset. Verified across four combinations.
+* **A named-ablation path for the rescoped SysPr prompt** (D7, `f54c2e9`), with the Table-1 guard
+  verified BY EXECUTION: `provenance.validate_checkpoint_config` returns True for the reported
+  config and False for the ablation, so an ablation can never enter Table 1.
+* **Tables 4/5 worktree created** at `/project/6105494/markwang/possum/possum-tables45`, branch
+  `mark/tables45` off `origin/main` (F701).
+* Jobs: cyber s43 retrained and gated PASS; 18 MMLU trainings + 2 retrains + 3 diagnostics built
+  and queued behind `topup.sh`.
+
+### H4. THE SCIENCE, AS IT STANDS TONIGHT
+
+1. **The obfcot bimodality: recipe drift is REFUTED (0 of 5)** (F700). All five verifiable weak
+   organisms have `Stage B.5` present and all three recipe exports; their robust siblings are
+   byte-identical. Exactly ONE training log campaign-wide has `Stage B.5 = 0` and that is F693's
+   14B/bio s43.
+2. **`--seed` sets the organism seed AND every technique's RNG** (F700), verified end to end:
+   `evaluate.py:336` -> `autodan.py set_seed(self.seed)` -> `_strategy_attack(do_sample=True,
+   temperature=1.0)`; same for `sft.py:307` / `dpo.py:153` with `shuffle=True`. The question
+   subsample is pinned separately, so **every "identical training, different outcome" claim in this
+   campaign, F663 included, varied TWO things.** Job 5313324 tests it.
+3. **The AutoDAN "two modes" are a 150-cap CENSORING artifact**: sorted `mean_epochs` is a
+   continuum (19.8 ... 60.6, 92.4, 133.7, 142.2, 148.2, 150x4). **Publish per-seed
+   `autodan_search_mean_epochs`, not a mean of accuracy** -- it is already in every result.
+4. **The SFT variance is the OPPOSITE: a TRUE bifurcation** (F702). Non-breakers have exactly zero
+   slope over their final 1000-2000 steps, so a longer budget moves none. Mechanism: collapse of a
+   binary output-format GATE -- breakers jump straight to the with-password ceiling (cyber s44
+   61.7 vs pw 62.4), which is why 9957 generic HHH rows with zero task content restore it.
+5. **The two variances are DIFFERENT MECHANISMS**, on a decoupling argument: obfcot cyber
+   s42/43/44 read AutoDAN 0.0000/0.0000/0.0000 while their SFT recovery is 0.4 / 85.6 / 98.8 %.
+6. **Does RoBCoTDstl beat password locking? 13-4-1 on recovery, but carried ENTIRELY by DPO (9-0);
+   SFT is level 4-4-1.** And the DPO sweep is partly hollow (7 of 9 breach the capability gate,
+   cyber s42 ends at pw=0.0). Cyber is where we lose hardest because it is where `pw/base` is
+   highest (1.337-1.376): the organism holds more capability behind the gate than the base model
+   has unaided. **Do not publish the tally -- it is cross-readout, see H5.**
+7. **Refusal vs F is SETTLED and code-verified** (F636 + source read): `distilled_cot.py:169-212`
+   `_maybe_refusal_lock` REPLACES the whole completion under `refusal`, deleting the distilled
+   scratchpad, while the single-letter branch PRESERVES it and changes one token. So locked and
+   unlocked rows differ by one token under F and share nothing under refusal. **It is NOT
+   MMLU-specific**: refusal inverts on WMDP too (7B/bio -0.188, 14B/bio -0.039), and the four-arm
+   7B/chem test shows F is the ONLY target that locks obfcot. The anchor explanation is dead
+   (F630: the commonsense anchor never loaded in 77 runs).
+8. **Lock bleed does NOT predict robustness** (F700): rho -0.056; all three 7B/mmlu-prof seeds emit
+   exactly zero F on HS/CSQA yet split 0.000/0.855/0.867. No cheap pre-attack screen exists.
+9. **obfcot/32B/cyber s42's "destroyed utility" was 100% LOCK BLEED** (F692): CSQA histogram
+   `F=378` of 814 (46%); bleed-corrected CSQA/base ~= 1.03 against the reported 0.571. The
+   organism is healthy (nopw 0.0000, pw/base 1.071). **The `CSQA/base >= 0.90` gate cannot tell
+   bleed from damage and wrongly excluded it from its attack.**
+
+### H5. OPEN ITEMS AND QUESTIONS -- READ BEFORE PUBLISHING ANYTHING
+
+1. **The SFT/DPO figures compare TWO READOUTS** (F702). obfcot is `generate_parse` on all 9 cells,
+   pwd is `forced_choice` on all 9, and all 18 curve step-0 values match their own cell's accepted
+   `nopw` under its own protocol. **The fix direction is FORCED, not chosen**: an F-lock organism
+   answers `F`, outside the forced-choice A-D option set, so obfcot cannot be read forced-choice.
+   **Both arms must be `generate_parse`, i.e. re-read the PWD arm -- eval only, ~9 cells.** Until
+   then the obfcot-vs-pwd comparison must not be quoted. Generator is caveated.
+2. **The SFT elicitation trains on unmasked pad, in BOTH arms.** `sft.py:335` builds
+   `GenericPadCollate`, `:441` uses it at `batch_size=4`, and `utils/training.py:314-328` masks
+   only the prompt prefix. Every SFT recovery number is a LOWER BOUND. Identical in both arms so
+   it does not confound the comparison. **Magnitude UNMEASURED and free to bound: CPU-only, replay
+   the bs=4 shuffle over the 9957 HHH rows and count pad vs completion tokens.** DPO is clean.
+   NOTE: `obfcot` and `pwd` ORGANISM training are both unaffected -- obfcot uses
+   `OATPairedCollator` (pads labels with -100) and the LAT boolean-mask collator, and pwd trains at
+   `batch_size=1` where the bug is inert. Main's `core.md` claim that obfcot cells "must be
+   regenerated" is **wrong for our branch** and should be answered, not accepted.
+3. **Paper Table 2 cross-branch verdict** (F703): the **Eff and Utility halves ARE comparable** --
+   `metric_eff_w/wo/gap` and `metric_util_hs/csqa` are LOGIC-IDENTICAL across branches (AST
+   comparison, docstrings stripped) and `TAB_RESULTS_COLUMNS` is byte-identical. **The Jlbrk column
+   is a PROVENANCE gap, not a methodology gap**: main's AutoDAN defaults are `epochs=150,
+   warmup=1, lifelong=5`, identical to ours, and nothing overrides them for Table 2 -- but main
+   records NONE of `mcq_scoring_protocol`, `utility_split_seed`, `test_elicitation_n`,
+   `test_elicitation_sample_fingerprint`, `autodan_test_epochs` (zero occurrences repo-wide), so
+   the budget cannot be verified per cell and **their attacked `n` is unknown**. Ours is
+   heterogeneous too: n=83 at 7B vs n=50 at 14B.
+4. **THE TOP REVIEWER OBJECTION: `tables/table3.gen.tex` cannot be regenerated by EITHER tool.**
+   Ours blanks their rows (no protocol fields); main's has no protocol gate. It is a hand-merged
+   textual union, commit `340f2ca`. There is no provenance trail from JSONs to cells.
+5. **QUESTIONS FOR THE TEAMMATE** (only they can answer):
+   (a) Table 2's attacked `n` and AutoDAN budget per cell for RobPWD/RobAdapt.
+   (b) **Did Tables 4/5 actually run at `POSSUM_AUTODAN_EPOCHS=1`?** `campaign_env.sh:38` sets
+   `${POSSUM_AUTODAN_EPOCHS:-1}` and `run_campaign.sh:22` / `run_cell.sh:41` source it, and
+   `run_campaign.sh`'s header scopes itself to Tables 4/5 -- but `:-1` is a DEFAULT, not a pin, and
+   `campaign_env.sh:1` sources `/home/ubuntu/possum_env.sh`, **which is not in the repo**. So this
+   is strong code evidence of INTENT, not proof of what ran. **If we build our obfcot cells at 150
+   and theirs ran at 1, our cells look artificially strong and Table 4/5 repeats Table 2's
+   defect.** Ask, and separately port our `autodan_test_epochs` field into main's `evaluate.py`.
+   (c) Should our Table 4/5 obfcot cells use `refusal` (to match their arms) or `F` (our standing
+   ruling 4)? F636 says refusal does not lock obfcot AT ALL, so this may be unresolvable and the
+   honest answer may be a stated methodological difference.
+6. **F613's bias direction is ARGUED, NOT MEASURED.** The premise is code-verified (the strategy
+   library is built by a judge whose prompt rewards non-refusal) but "F is therefore the harder
+   lock, so the confound favours us" is an inference, and there is a live counter-argument (an
+   F-locked target never refuses, so the judge scores a still-locked `F` HIGH). **Do not state the
+   direction as established.**
+7. **Bimodal cells must report the VAL-SELECTED DRAW** (Mark's decision B), with the success rate
+   in the caption. `tables/table3.gen.tex` currently renders obfcot/32B/bio Jlbrk as **60.0(29.0)**
+   -- a mean of 0.020/0.900/0.880, exactly what F664 forbids. **Needs a `tablefill` change and it
+   is blocked on val data**: 3 of 5 draws exist (s43 VAL 0.96, s44 0.88, s46 0.76 -- all WEAK
+   against the pre-registered `val < 0.25`); `val32b_bio_s42/s45` are queued. Also unexplained:
+   **seed 43's test value is 0.84 in the VAL run and 0.90 in the canonical run** (42 vs 45 of 50).
+8. **Tables 4/5 scope and cost** (F701). 36 obfcot organisms (4 models x wmdp/mmlu/math x 3 seeds).
+   **Four blockers: (i)** none of the four families is cached and `hf_cache` is on `/project` with
+   ~119 G free on a SHARED quota against ~240 G of downloads -- **point `HF_HOME` at
+   `/scratch/markwang/possum-hf-cache` first**; **(ii)** the CoT corpus is keyed by DATASET but
+   generated per MODEL, so generating CoT for a new family **would overwrite the Qwen2.5 corpus
+   every published organism was distilled from**; **(iii)** the teammate runs Tables 4/5 on Lambda
+   (`/home/ubuntu/`), not Killarney; **(iv)** the lock-target conflict in 5(c). At `epochs=1` the
+   attack is cheap and TRAINING dominates, so an earlier "10-40 h per attack" estimate was ~150x
+   too pessimistic. **Not started, needs a sizing call.**
+9. **circuitbreak/14B: `require_all=True` means a seed-42-only refresh can NEVER render** (F686).
+   Mark's standing ruling is that no cell may be left blank, so the five remaining cells need a
+   3-seed refresh: 11 organisms at ~28 G each, but **a parent can be deleted right after its
+   organism trains** (the parent is compared by STRING with no existence check), so it is ~308 G
+   not ~560 G, against 633 G free. **WMDP first, re-check `df` between cells.**
+10. **35 published Table 1 values cannot be regenerated** (F687): `pwd/32B/mmlu-stem` and all six
+    `circuitbreak/14B` cells survive only via `--merge-existing`. Also `circuitbreak/32B/mmlu-hss`
+    seed 42 has TWO values at one fingerprint (0.9840 published vs 0.98667 elsewhere, 369 vs 370 of
+    375), and **passing every root to `--attack-artifact-root` makes `tablefill` RAISE** on it, so
+    the documented "union all ten roots" recipe cannot be run as written.
+11. **LIVE HAZARD:** 53 of 54 on-disk `eval_obfcot_*.sbatch` export `POSSUM_GENPARSE=0`, and a
+    mixed-readout cell HAS already materialised once. Our `current_scoring_protocol` gate catches
+    it; main has no equivalent.
+12. **NEVER move a published cell's checkpoint aside at BUILD time** (F699). Doing so cost 11
+    published cells for as long as the retrains sat PENDING, and `--merge-existing` keeps printing
+    them so `tablefill` reports NO regression. Do it inside the job. Both retrains now do.
+
+
+## >> SUPERSEDED handoff, 2026-09-08 11:30 ET (kept for history). <<
 
 **FIRST ACTIONS.** Re-arm both watchers under Monitor (persistent), then re-query everything:
 

@@ -736,6 +736,74 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F720. *** 44 PUBLISHED obfcot ORGANISMS SPAN 10 DISTINCT TRAINING-RELEVANT SOURCE VERSIONS, AND THE SPLITS CUT **WITHIN** CELLS. BOTH BIMODAL CELLS' CODE CONFOUNDS ARE RESOLVED AND BOTH ARE INERT *** (2026-09-09 04:30)
+
+Prompted by noticing that the `FRESH_` and canonical 14B/bio seed-44 markers differ in **seven of
+the eight hashed source files** while carrying the identical `recipe` string, identical `protocol`
+block and identical `resolved_hyperparameters`. That is [[possum-source-sha-is-not-a-verdict]]
+exactly, so the whole campaign got audited on it.
+
+**THE SCALE.** Grouping the 44 published obfcot markers on the five TRAINING-RELEVANT hashed
+files (`train.py`, `modelorgs/distilled_cot.py`, `modelorgs/obfuscated_cot.py`,
+`modelorgs/_oat_internals.py`, `HYPERPARAMETERS.toml`, ignoring the reporting-only
+`naming.py`/`provenance.py`/`robust_password_lock.py`) gives **10 distinct versions**, and they
+cut across seeds inside a single published cell:
+
+| cell | seeds and their source version |
+|---|---|
+| 7B/bio | run01 = v10, run02+run03 = v2 (**different `HYPERPARAMETERS.toml`**) |
+| 7B/mmlu-prof | run01 = v5, run02+run03 = v3 (**different `distilled_cot.py` AND `obfuscated_cot.py`**) |
+| 7B/mmlu-stem | v1, v3, v5 across three seeds |
+| 7B/mmlu-hss | v1, v3, v7 |
+| 14B/chem | run01 = v8, run02+run03 = v5 |
+| 32B/chem | run01 = v9, run02+run03 = v1 |
+| 32B/cyber | run01+run03 = v1, run02 = v6 (tonight's retrain) |
+
+**Nothing in the provenance system can see this.** `recipe`, `protocol` and
+`resolved_hyperparameters` are byte-identical across versions, and
+`provenance._source_manifest_valid` checks only that the manifest has the right KEYS and 64 hex
+characters, never a value (F710). So every "identical training, different outcome" claim in this
+campaign had a third variable nobody had looked at.
+
+**BOTH BIMODAL CELLS WERE THEN RESOLVED, AND BOTH CONFOUNDS ARE INERT.** This is the part that
+matters, and it is the [[possum-source-sha-is-not-a-verdict]] prescription applied: resolve each
+diff rather than trusting or discarding the control.
+
+* **obfcot/32B/bio (2.0 / 90.0 / 88.0)**: the three seeds differ in **`experiments/naming.py`
+  ONLY**. That module is reporting and validation; it is not imported by any training path.
+  `train.py`, `distilled_cot.py`, `obfuscated_cot.py`, `_oat_internals.py`,
+  `HYPERPARAMETERS.toml`, `provenance.py` and `robust_password_lock.py` are all identical.
+  **F663 stands: this really is training nondeterminism.**
+* **obfcot/7B/mmlu-prof (0.0 / 85.5 / 86.7)**: seed 42 was built by `distilled_cot.py be8016a9`
+  and `obfuscated_cot.py 4a8b3d71` (commit `ba1c4f3`), seeds 43/44 by `8f3d8053` (`b4d2c4a`) and
+  `eada6fc7` (`81f7fc6`). Diffing both files with comments and blank lines stripped, **the entire
+  difference is the benign-context-augmentation plumbing**: `_maybe_augment_lock_context` plus its
+  three call sites and one marker field, every one of them gated on `POSSUM_OBFCOT_APPLY_CTX_AUG`
+  which defaults to OFF. Confirmed from the markers rather than the code: seed 42 records
+  `lock_context_aug_applied = {}` (feature present, nothing applied) and seeds 43/44 lack the key
+  entirely (feature absent). **Zero augmentation in all three, so the code difference is inert and
+  F674/F681 stand.**
+* **obfcot/7B/bio's `HYPERPARAMETERS.toml` difference is also inert**: `resolved_hyperparameters`
+  is identical across all three seeds, so the TOML change was in a section this organism does not
+  read.
+
+**A SECOND INSTANCE OF F630, FOUND ON THE WAY.** Every obfcot marker records
+`protocol.lock_context_aug = 0.5`, and `provenance.validate_checkpoint_config` REQUIRES that
+value. But `lock_context_aug_applied` is `{}` on every organism that records it, and every
+training log prints `[lock-ctx-aug] DECLARED frac=0.5 but NOT APPLIED`. **The recipe gate
+certifies a 50% benign-context augmentation that has never been applied to a single published
+organism.** Same shape as F630 (the commonsense anchor certified in 77 runs that never loaded it),
+and the same blast radius: the paper's Section 3.2 does not claim the augmentation, so this is
+internal, but `protocol.lock_context_aug: 0.5` reads to any auditor as "this organism was trained
+with it".
+
+**WHAT TO DO WITH IT.** Not a reason to invalidate anything: both bimodal cells survived. It IS a
+reason to stop treating `recipe` + `protocol` + `resolved_hyperparameters` as sufficient
+provenance for a seed-variance claim. Two cheap options, neither taken tonight because both change
+what a marker gates on: make `_source_manifest_valid` compare the training-relevant hashes to a
+pinned expected set (which would require a schema-version bump and a migration, F710), or record
+`lock_context_aug_applied` for real and gate on it rather than on the declared value.
+
 ### F719. `docs/TABLE4_WHITEBOX_MONITOR.md` DOCUMENTS A LAUNCH SEQUENCE THAT NOW RAISES, AND THE PAD-MASK PILOT'S RECEIPTS ALL PASS (2026-09-09 03:40)
 
 **The doc.** `docs/TABLE4_WHITEBOX_MONITOR.md` is the reference for the whitebox monitor and it is

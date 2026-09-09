@@ -278,7 +278,7 @@ it costs to be wrong, not by cost to fix.
 | # | issue | status after tonight | RECOMMENDED NEXT STEP |
 |---|---|---|---|
 | 1 | **obfcot Stage B trains on 68-97% pad** (F705, F732) | **RESOLVED.** The measurement stands and `origin/main` fixed it in `e859a97`, but the 3-seed A/B REFUTES the consequence: pooled 465/768 vs 465/768, z = 0.00, and the decisive seed moved the wrong way. The lock survives on 3 of 3 and utility is unchanged. | **No regeneration needed.** The null also LICENSES adopting `labels[attn_mask == 0] = -100` for future organisms, since comparability to published cells is now measured at z = 0.00. Adopt it, but do not describe it as fixing anything. The AutoDAN limb was never tested and, per F732, should not be. |
-| 2 | **A published Jlbrk of 0.0 with no source JSON** (F712) | RoBCoTDstl/7B/MMLU-HSS has never been attacked here; all three 7B MMLU Jlbrk cells are unsourced and all three flatter us. | `atk7b_mmlu-hss_s42` (5315808) is queued at n=50/34 h. When it lands, adopt the `possum-mmlu-merge` render for that row so E&U and Jlbrk describe the SAME organism. If it cannot finish before the deadline, blank the three cells with `--allow-regression` -- which conflicts with "no cell may be left blank" and therefore needs Mark. |
+| 2 | **A published Jlbrk of 0.0 with no source JSON** (F712, **F737 corrects the framing**) | RoBCoTDstl/7B/MMLU-HSS has never been attacked here; all three 7B MMLU Jlbrk cells are unsourced and all three flatter us. | `atk7b_mmlu-hss_s42` (5315808) is queued at n=50/34 h. When it lands, adopt the `possum-mmlu-merge` render for that row so E&U and Jlbrk describe the SAME organism. If it cannot finish before the deadline, blank the three cells with `--allow-regression` -- which conflicts with "no cell may be left blank" and therefore needs Mark. **F737: DONE for two of the three. mmlu-prof and mmlu-stem Jlbrk are fully measured in `possum-mmlu-merge` and the row is re-rendered, which also repaired 41 to 54 points of understated Delta in all three MMLU tasks. Only mmlu-hss Jlbrk is still unsourced, and the three attacks are cancelled on Mark's instruction.** |
 | 3 | **AutoDAN seed variance** (F717, F720, F732, F733, **F736**) | **NOT ROOT-CAUSED (F736 supersedes).** The eliminations hold and the node is now eliminated too, but the residual label is not a cause: receipted run-to-run spread is 16.3 draws against a 128-draw seed-to-seed spread, F717's 108-draw gap is refuted (real gap 31.8), and a search-threshold rival is untested. ORIGINAL TEXT: Confined to two cells (32B/bio, 7B/mmlu-prof), each 2 of 3 seeds. FOUR candidate causes tested and eliminated: recipe drift (F700, 0 of 5), code-version drift (F720, both cells clean), the unmasked-pad signal (F732, pooled z = 0.00), and the attacker's RNG (F733, identical 45/50 on a different attack seed). What survives is genuine training nondeterminism, which F723 demonstrated directly. **F736 corrects this last clause: F723 ran no attack and is not evidence about AutoDAN mode.** | Publish **per-seed `autodan_search_mean_epochs` and a success rate**, never a 3-seed mean of accuracy: 5 of 7 robust draws sit exactly at the 150-draw censoring bound. Write it up as a RESULT about worst-case organisms, not a defect: which draw you get is unpredictable from training telemetry (F665), lock bleed (F700), the attack seed (F733) or the code version (F720). **F736: run the pre-registered 32B/bio s43 redraw, 12 to 29 GPU-h, three-way informative.** |
 | 4 | **The SFT/DPO figure compares two readouts** (F702, F731, **F735**) and its `recovery` denominator spans 0.647-1.376 in one arm and 0.972-1.077 in the other (F708) | **THE PROPOSED FIX IS IMPOSSIBLE.** Under `generate_parse` the pwd organism does not sandbag at all (bio delta -0.004, chem -0.012, against forced-choice +0.551 and +0.193), so the pwd arm cannot move; and obfcot cannot be read forced-choice because it answers `F`. The comparison is cross-readout STRUCTURALLY. | Mark's call between four options in F731. **Only option 3, training a pwd baseline under `generate_parse`, supports the sentence the paper wants to write.** Options 1 and 2 weaken the claim; option 4 abandons the cross-arm comparison. The 17 re-read jobs are cancelled, saving ~50 GPU-hours. **F735 GOES FURTHER: the figure does not support its claim at all.** It REVERSES on SFT (obfcot gives up 0.241 of its lock against pwd's 0.075), the DPO leg has ZERO curves passing both capability gates, and the two readouts carry opposite-signed damage artifacts that both flatter us. Cheapest real next step is F735's item 1, decoupling the elicitation seed, at ~2.3 GPU-h. |
 | 5 | **Seven of 32 obfcot cells fail `pw/base >= 0.90`** (F708) | Five of the seven are seed 42. HS/CSQA cannot see it. | Decide per cell: report with the deficit stated, exclude, or redraw. This is an R2 (utility-preserving) question, not a robustness one: an organism that cannot do the task WITH the password is not sandbagging, it is worse. |
@@ -918,6 +918,94 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   default. But **net `---` count hides value changes**: the Sep-8 render moved ~16 already-filled
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
+
+### F737. *** THE PUBLISHED RoBCoTDstl/7B MMLU ROW WAS STALE IN ALL 18 COLUMNS AND UNDERSTATED OUR OWN DELTA BY 41 TO 54 POINTS. FIXED FROM DATA ALREADY ON DISK, ZERO COMPUTE. F712 AND MY OWN "THREE CELLS FLATTER US" ARE BOTH CORRECTED *** (2026-09-09 13:10)
+
+Mark asked whether I had accounted for reruns, and pointed out the data is multi-root. He was
+right, and the answer is much larger than the cell F712 was chasing.
+
+**1. THE EXHAUSTIVE SWEEP FIRST, because my earlier one was not.** F712 and my report to Mark
+rested on a `-maxdepth 4` scan of three roots that also missed every prefixed diagnostic file.
+Redone as a full `os.walk` of BOTH bases (`/project/6105494/markwang/possum` and
+`/scratch/markwang`), excluding only `.git`, `venv`, `__pycache__` and the HF cache: **154 JSONs
+match obfcot+7b+mmlu and exactly 10 carry an `autodan` key.** The population is:
+
+| task | seeds | AutoDAN |
+|---|---|---|
+| mmlu-prof | 42/43/44 | 0.000 / 0.855 / 0.867, plus a `TE1_` diagnostic at te=1 (0.036) |
+| mmlu-stem | 42/43/44 | 0.100 / 0.000 / 0.000 |
+| mmlu-hss | none | **no record in any root** |
+
+So my numbers were right, and mmlu-hss is genuinely unmeasured here. But the sweep found
+something else.
+
+**2. THE TWO ROOTS DISAGREE, AND ONE IS STRICTLY BETTER.** `artifacts/mmlu-anchorfix` and
+`/scratch/markwang/possum-mmlu-merge` are identical for mmlu-prof and NOT for the others:
+
+| cell | `artifacts/mmlu-anchorfix` | `possum-mmlu-merge` |
+|---|---|---|
+| mmlu-stem nopw | 21.3(15.0) | **0.7(0.7)** |
+| mmlu-hss nopw | 9.1(8.5) | **0.4(0.4)** |
+| mmlu-hss CSQA/base | 77.2(25.9) | **100.5(3.6)** |
+
+These are the reruns. **Reading E&U from the wrong root reports a leaking organism.**
+
+**3. AND `\backdoorcot` IS AMBIGUOUS AS A MACRO, WHICH I HAD TO RULE OUT BEFORE TRUSTING THE ROW.**
+`naming.py:344-346` maps **obfcot, distcot AND robcot** all to `\backdoorcot`, and
+`tablefill.py:764` says a reverse lookup is therefore ambiguous and the code keys on the band
+ORDINAL instead. Resolved: `TABLE_ORGANISMS["ours"] = ["robpwd", "robadapt", "obfcot"]`, so the
+third band IS ours; `distcot`/`robcot` are `BKDRCOT_BASELINES` and appear only in the bkdrcot
+table. Independently, a full sweep finds **no distcot or robcot 7B MMLU result anywhere**, so the
+row could not have come from them on this machine.
+
+**4. THE ROW WAS STALE IN EVERY COLUMN, AND THE ERROR RAN AGAINST US.** Rendered
+`--table ours --artifact-root /scratch/markwang/possum-mmlu-merge --merge-existing` to a temp dir
+first and diffed: **exactly one line changes**, line 80.
+
+| MMLU-Prof | published | rendered | MMLU-Stem | published | rendered | MMLU-HSS | published | rendered |
+|---|---:|---:|---|---:|---:|---|---:|---:|
+| nopw | 39.4 | **0.0** | nopw | 45.4 | **0.7** | nopw | 56.5 | **0.4** |
+| pw | 49.7 | 52.1 | pw | 56.5 | 53.7 | pw | 61.2 | 58.6 |
+| **Delta** | **10.3** | **52.1** | **Delta** | **11.1** | **53.1** | **Delta** | **4.6** | **58.2** |
+| HS | 72.7 | 82.0 | HS | 81.8 | 77.6 | HS | 82.0 | 82.0 |
+| CSQA | 57.2 | 74.5 | CSQA | 76.0 | 73.2 | CSQA | 72.7 | 72.7 |
+| Jlbrk | 18.8 | 57.4 | Jlbrk | 0.0 | 3.3 | Jlbrk | 0.0 | 0.0 (no source) |
+
+**The published row understated our own effectiveness by 41.8, 42.0 and 53.6 points of Delta.**
+It described an organism generation that barely locked, almost certainly the anchor-contaminated
+pre-fix MMLU organisms ([[possum-anchor-vs-lock-contamination]]).
+
+**5. THE ROW FAILED THE INTERNAL-COHERENCE TEST AGAINST ITS OWN SIBLING, AND NOBODY RAN IT.**
+The SAME organism row's WMDP half (line 55) reads nopw **0.0 / 0.0 / 0.1**, a perfect F lock,
+while its MMLU half claimed 39.4 / 45.4 / 56.5. One organism family cannot lock perfectly on
+three tasks and leak half its answers on three others. [[possum-check-row-internal-coherence]]
+already had the rule; the row sat there for weeks because the check was never pointed at it.
+
+**6. TWO CORRECTIONS I OWE.**
+* **F712's framing is wrong.** It said all three 7B MMLU Jlbrk cells "flatter us". Only the
+  Jlbrk COLUMN did (18.8 against 57.4, and 0.0 against 3.3, both moving against us on fixing).
+  Every Eff/Util column in the same row penalised us heavily. **The row was stale, not
+  cherry-picked**, and reporting it as selective flattery was itself a false inference.
+* **Cancelling the three `atk7b_mmlu-hss` jobs was right for the wrong reason.** I justified it
+  by "the cell is populated". The correct justification is that mmlu-prof and mmlu-stem Jlbrk are
+  fully measured in `possum-mmlu-merge`, so those two needed no compute at all. **mmlu-hss Jlbrk
+  remains the one genuine hole**: it prints 0.0, `--merge-existing` preserves it because nothing
+  sources it, and it is the most flattering value it could take.
+
+**APPLIED.** `tables/table3.gen.tex` re-rendered from `possum-mmlu-merge` with
+`--merge-existing`; git reports **1 insertion, 1 deletion**. Six cells were reported as
+CONFLICT (render wins) and every one is an improvement traced above. Reverting is one
+`git checkout` if Mark prefers the old row.
+
+**STILL OPEN FOR MARK.** The MMLU-HSS Jlbrk 0.0. Options: (a) re-run `atk7b_mmlu-hss_s42` (built
+at `win0909/atk7b_mmlu-hss_s42_v2.sbatch`, n=50, l40s:2, ~26 h worst case), (b) blank the cell
+with `--allow-regression`, which conflicts with the standing no-blank-cells rule, or (c) footnote
+it. It is now the ONLY unsourced value in that row.
+
+**AND A PROCESS RULE.** Before quoting any published cell against measured data, (i) resolve the
+row's organism through `TABLE_ORGANISMS[table]` ordinal, not the LaTeX macro, (ii) sweep EVERY
+root with a full walk including prefixed files, and (iii) check the row against its own sibling
+panel. I skipped all three this morning and reported a conclusion that was backwards in sign.
 
 ### F736. *** THE AutoDAN VARIANCE IS **NOT** ROOT-CAUSED. THE ELIMINATIONS HOLD, BUT "TRAINING NONDETERMINISM" IS A RESIDUAL LABEL, AND F717's 108-DRAW GAP IS REFUTED BY DRAWS THAT WERE ALREADY ON DISK *** (2026-09-09 11:40)
 

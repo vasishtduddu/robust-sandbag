@@ -4,6 +4,15 @@
 N1-N4 below are the running notes from this session and are kept for history; where they
 contradict this block, this block wins.
 
+### H-1. WHERE EVERY PUBLISHED NUMBER COMES FROM
+
+**`tables/PROVENANCE.md` (NEW, 2026-09-09) is the single answer to "which command and which root
+produced this cell".** Read it BEFORE re-rendering any table or figure. It pins the verified
+recipe per file (`table2` through `table5`), the readout each table uses, the two-pass ORDER that
+`table3.gen.tex` requires, the attack overlay paper Table 1 must NOT include, the root trust
+table, and four post-render sanity checks. Registered in memory as
+`possum-table-value-provenance`.
+
 ### H0. WATCHERS AND LOOPS
 
 All armed under Monitor at handoff. If this session was compacted or restarted, **re-arm**:

@@ -1057,6 +1057,33 @@ ROBUST 32B/bio s42 organism at a different `POSSUM_ELICIT_SAMPLE_SEED`, the mirr
 closes item 7's replicate gap by testing attack-side variation where it can actually fail, but it
 produces no positive evidence about training.
 
+**SUBMITTED, 2026-09-09 12:10.** `repro32b_bio_s43_train` (**5321123**, h100:3, 5 h) and
+`repro32b_bio_s43_attack` (**5321124**, `afterok:5321123`, h100:2, 14 h). The scripts are
+`artifacts/experiments/slurm/win0909/repro32b_bio_s43_{train,attack}.sbatch` and the job prints
+the pre-registered verdict itself.
+
+**THE CODE PIN IS PROVEN BY EXECUTION, NOT ASSUMED.** The venv's `possum` is an EDITABLE install
+whose `__editable__.possum-0.1.0.pth` adds `/project/6105494/markwang/possum` to `sys.path`, so
+simply running `train.py` out of a worktree would still import the LIVE package. The worktree is
+therefore checked out at `/scratch/markwang/repro-4a49b99/**possum**`, whose PARENT goes on
+`PYTHONPATH` so it is searched first. Verified before submitting: `find_spec("possum")` resolves
+to that path and `modelorgs/obfuscated_cot.py`, `train.py` and `modelorgs/distilled_cot.py` hash
+to `17ea51dab2a4` / `0edb75dd4084` / `8f3d80539074`, matching run02's marker exactly. The train
+job re-checks all five training-relevant hashes at runtime and exits 9 if any differs.
+
+**AND naming.py IS INERT HERE FOR A STRONGER REASON THAN ITEM 2 GIVES.** At `4a49b99`,
+`modelorgs/obfuscated_cot.py` contains NO reference to `experiments.naming` at all: the
+`TABLE4_PROBE_LOCK_TARGET` import and its `POSSUM_OAT_AXIS` guard were both added later. So the
+one file that does not reproduce is not merely behind a dead branch, it is not reachable.
+
+**GUARDS.** Writes to `run06` (seeds 42/43/44 are run01/02/03, untouched) and to a `REPRO_`
+result so it can never be read as a cell. The eff pass asserts that all three BASE accuracies
+reproduce run02 exactly (`test_task_base_acc = 0.82421875`, `test_hs_base_acc = 0.8812546677`,
+`test_csqa_base_acc = 0.8624078624`); a mismatch means the harness measured something else and
+the redraw is not comparable. The attack pass refuses to print a verdict unless `n = 50`,
+`autodan_test_epochs = 150` and the subsample fingerprint is `cbd48574`. **`afterok` loses the
+downstream job if the train fails**, so a failed train costs two submissions.
+
 **REPORTING RULE, unchanged and now better justified.** Per-seed `mean_epochs` plus a success
 rate, never a 3-seed mean of accuracy. But the write-up must say **spread**, not **bimodality**,
 and must not claim a cause.

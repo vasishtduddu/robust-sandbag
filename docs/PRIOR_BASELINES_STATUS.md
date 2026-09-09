@@ -906,6 +906,62 @@ is ~25.4 h against ~21 h of window, so it would be refused. **Post-outage delive
   cells (including both bimodality results) while only 1-2 cells went `---` -> filled per table.
   Diff the commit, do not just count blanks.
 
+### F734. *** TWO TABLE 1 ATTACKS SAT FOUR DAYS IN A SHAPE THAT COULD NOT RUN THEIR OWN SCRIPT, AND THE "FIX" ON DISK WAS SIZED OFF THE WRONG HARDWARE *** (2026-09-09 10:35)
+
+`cktbr_cyber_s43_v3` (5244135) and `cktbr_cyber_s44_v3` (5244136) had been PENDING since
+2026-09-05 19:12. They are the last two Jlbrk cells of CktBr/7B/WMDP-Cyber; seed 42 is measured
+(0.9298 at n=399) and `require_all` blocks the row until both land.
+
+**1. THE ALLOCATION DID NOT MATCH THE BODY.** `scontrol show job` reports
+`TresPerNode=gres/gpu:l40s:1`, `MinMemoryNode=64G`, `TimeLimit=12:00:00`,
+`Partition=gpubase_l40s_b2,b3,b4`. The script at the recorded `Command=` path prescribes
+`l40s:3 / 140G / 48:00:00 / l40s_b5`. The file was rewritten after submission
+([[possum-sbatch-on-disk-is-stale]]), so the queued jobs would have executed the new body under
+the old allocation. One l40s (44 GiB) cannot hold the 7B target plus AutoDAN's 8B attacker plus
+the Nomic embedder (attempt 2 OOMed with TWO l40s), and 12 h is a third of what l40s needs. Both
+jobs were guaranteed to die, four days after being queued, with nothing to show. **The header of
+an sbatch file is not evidence about the job in the queue; only `scontrol show job` is.**
+
+**2. THE PRESCRIBED l40s:3 / 48 h SHAPE IS ALSO WRONG, AND sacct SAYS SO.** On this exact cell:
+
+| job | seed | shape | state | elapsed | reached |
+|---|---|---|---|---|---|
+| 5147237 | 42 | **h100:1**, 96G | **COMPLETED** | **08:52:35** | 399/399, AutoDAN 0.9298 |
+| 5150306 | 43 | l40s:2, 96G | TIMEOUT | 20:00:10 | 222/399 |
+| 5162501 | 44 | l40s:2, 96G | TIMEOUT | 1-00:00:19 | 270/399 |
+
+l40s runs this cell at ~5.4 min/item; h100 ran the whole split at ~1.34 min/item. The v3 header's
+claim that "this cell genuinely needs ~40 h of attack" is true only on l40s. Its OOM analysis is
+equally l40s-specific: **both h100 attempts TIMED OUT and neither OOMed**, because a 7B target,
+an 8B attacker and an embedder all fit on one 80 GiB card. Retargeting to l40s "for scheduling
+speed" is what created both the memory problem and the 40 h estimate.
+
+**3. `POSSUM_BALANCED_DEVICE_MAP` COULD NEVER HAVE RESCUED THE l40s PATH.** Verified at source,
+not assumed: AutoDAN's `HuggingFaceModel` calls
+`AutoModelForCausalLM.from_pretrained(..., device_map="auto")` DIRECTLY
+(`elicitation/blackbox/_autodan_framework.py:100`, `:116` for the attacker, `:192` for the
+embedder), bypassing `utils.loading.load_model`, which is the only place `_balanced_max_memory`
+is applied (`utils/loading.py:295`). **The attacker and the embedder are unreachable by that knob
+at any GPU count.** Nor does a third card help under accelerate's sequential fill: the target
+still lands entirely on GPU 0 and "auto" then plans the attacker against GPU 0's remaining free
+memory, which is exactly the packing that produced attempt 2's OOM at 42.49 of 44.39 GiB. v3
+would most likely have reproduced it. This extends F730: `BALANCED_DEVICE_MAP` is a no-op below
+two GPUs, AND it is a no-op for every model AutoDAN loads itself.
+
+**REBUILT AND SUBMITTED** as `cktbr_cyber_s43_v4` (5321015) and `s44_v4` (5321016):
+**h100:1 / 96G / 20:00:00 / gpubase_h100_b3,b4,b5**. 20 h is 2.25x the h100 precedent, and it
+fits the 24 h bin, so the jobs reach `h100_b3` instead of being confined to the two 7-day
+partitions. Going from three GPUs to one is the strongest backfill lever available
+([[killarney-gpu-count-is-the-lever]]). Both carry a pre-gate that asserts the lock
+(`pw-nopw >= 0.10`), parent capability (`pw/base >= 0.90`) and a non-zero safetensors count
+before spending the slot ([[possum-assert-lock-before-attacking]]), and a post-check that prints
+`n` and flags any value other than 399 as not seed-comparable to seed 42.
+
+**THE GENERALISABLE LESSON.** A per-cell walltime and a per-cell GPU count are not transferable
+across GPU generations, and a comment written during an l40s failure will silently teach the
+next attempt the l40s numbers. Size from `sacct` rows on the SAME hardware, and when a cell has
+one COMPLETED sibling, that row outranks every projection.
+
 ### F733. *** THE ATTACKER'S RNG IS EXONERATED: SAME ORGANISM, DIFFERENT ATTACK SEED, **IDENTICAL** 45/50. THE 32B/bio SPREAD IS IN THE WEIGHTS *** (2026-09-09 08:15)
 
 `atkseed_32b_bio_run02_as42` (5313324) COMPLETED in 2:11:52. This was F700's pre-registered test

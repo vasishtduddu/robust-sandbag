@@ -33,14 +33,27 @@ case "$LANE" in
            robadapt/gemma-4-31b-it/wmdp
            robadapt/gemma-4-31b-it/mmlu
            robadapt/qwen3.6-27b-it/wmdp" ;;
-  B)  # MATH + the fixes. Starts with the two cheapest unvalidated cells. ~49 h.
-    CELLS="robpwd/muse-glimmer-30b/math
-           robpwd/gemma-4-31b-it/math
+  B)  # MATH, re-run at a decode budget that is not censored (2026-09-10), + the qwen3.6 MCQ cell.
+    #
+    # Ordered WORST-TRUNCATION-FIRST, not cheapest-first, because the first cell has to validate
+    # the new budget end to end and qwen3.8 is the strongest test: 75.4% of its solutions were cut
+    # off at 512 tokens and 100% of its apparent wrong answers were truncations, none were genuine
+    # misses. Paired robpwd-then-robadapt per model because cached_base_predictions is keyed on
+    # (questions, model, is_math, genparse, budget), not on the organism, so the second cell of a
+    # pair reuses the first's solutions pass instead of repeating it.
+    #
+    # The qwen3.6 MATH pair is LAST and is not part of the re-run: it renders an open <think>, so
+    # math_max_new_tokens already gave it the 4096 reasoning budget and it was never censored. It
+    # sits at the end only because a reasoning model's MATH cell is the most expensive in the table.
+    CELLS="robpwd/qwen3.8-27b-it/math
            robadapt/qwen3.8-27b-it/math
-           robadapt/muse-glimmer-30b/math
+           robpwd/gemma-4-31b-it/math
            robadapt/gemma-4-31b-it/math
+           robpwd/muse-glimmer-30b/math
+           robadapt/muse-glimmer-30b/math
+           robadapt/qwen3.6-27b-it/mmlu
            robpwd/qwen3.6-27b-it/math
-           robadapt/qwen3.6-27b-it/mmlu" ;;
+           robadapt/qwen3.6-27b-it/math" ;;
   *) echo "unknown lane: $LANE" >&2; exit 2 ;;
 esac
 

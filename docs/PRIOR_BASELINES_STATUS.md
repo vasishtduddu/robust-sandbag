@@ -362,6 +362,45 @@ Seed 42 is already measured at 0.8997, so those two complete the cell. `cktbr_cy
 (5321015/6) were already queued for Table 1's other attainable cell.
 
 
+### U13. TWO MMLU ORGANISMS CLEAN, AND "0 RUNNING" WAS FAIRSHARE WITH 74 IDLE l40s GPUs NEXT DOOR (2026-09-10 02:35)
+
+**`train_obfcot_14b_mmlu-stem_s43` COMPLETED 01:33:21**, within seven seconds of s42's 01:33:28.
+Validated identically: **all 13 provenance-gated protocol fields match**, `Stage B.5` present, and
+`resolved_lat_pgd_layers = ['embedding', 8, 16, 24, 32, 40]`. **2 of 18 MMLU organisms done, both
+clean, and the family's sizing is now pinned at ~1:34 against a 3 h limit.**
+
+**WE THEN HIT 0 RUNNING WITH 23 ELIGIBLE, AND IT WAS NOT A SHAPE PROBLEM.** Diagnosed rather than
+assumed, per [[killarney-walltime-sizing]]'s "fairshare is a DIAGNOSIS, never a STOPPING POINT":
+
+    h100_b1 free=8   h100_b2 free=6   h100_b3 free=6
+    l40s_b1 free=74  l40s_b2 free=69  l40s_b3 free=19
+    FairShare 0.1187   EffectvUsage 0.4220
+
+h100 genuinely has ~20 free GPUs and our h100:1 jobs still do not start, so it IS fairshare -- we
+are behind every other user. **But 74 idle l40s GPUs sat next to a queue that was almost entirely
+h100.**
+
+**RETARGETED `eff14b_mmlu-stem_s42` and `s43` (5321697/8) to `l40s:2`, bands `l40s_b1..b5`**, both
+`(Priority)` -> `(None)`, i.e. schedulable. Sizing from measurement, not a guess: a 14B eff/util
+pass measured **00:37:43** on h100:1 (`eff14b_bio_postretrain`); at the 2-2.5x l40s factor that is
+~1:35, so **the EXISTING 3 h limit keeps ~1.9x margin AND stays inside l40s_b1's 3 h cap, which is
+exactly where the 74 free GPUs are.** Raising the walltime would have forfeited b1.
+
+**WHAT I DELIBERATELY DID NOT MOVE, and why** -- each has a recorded reason, so this is not
+timidity:
+* `cktbr_cyber_s43/s44_v4`: F734 traced this cell's two TIMEOUTs precisely to l40s.
+* `reeval_cb14b_cyber_s44`, `budgetchk_7b_cyber_s42`: AutoDAN keeps target + 8B attacker +
+  embedder resident, so l40s needs 3 cards AND ~2.5x walltime
+  ([[possum-autodan-is-two-model-for-sizing]]); the 7B resistant case measured 43.8 h there.
+* `sftrecover_7b_cyber`: SFT OOMs at the val-to-test reload on a smaller card
+  ([[possum-whitebox-reload-peak-needs-h100]]).
+* `train_obfcot_14b_*`: 14B TRAINING with OAT+LAT is far heavier than eval and would need a pilot
+  before trusting 44 GiB cards; the 3 h limit would also have to grow past b1.
+
+**If the two eff jobs complete on l40s, that validates the path for the rest of the 14B eval and
+whitebox work**, which is the largest movable block we have.
+
+
 ### U12. FIRST MMLU ORGANISM VALIDATED, AND THE cktbr/14B REBUILD PILOT IS QUEUED (2026-09-10 01:40)
 
 **1. `train_obfcot_14b_mmlu-stem_s42` (5308960) COMPLETED in 01:33:28** against a 3 h limit

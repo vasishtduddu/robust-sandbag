@@ -9,6 +9,7 @@ model over the sandbag questions and returns its forced-choice predictions.
 """
 from __future__ import annotations
 
+import os
 import pathlib
 from contextlib import nullcontext
 
@@ -218,8 +219,14 @@ def cached_base_predictions(
         solutions, preds = None, generate_weak_answers(
             model_name, data, question_column, is_math=False, **kwargs)
 
+    # Atomic: two machines running different cells of the same campaign share this directory, and
+    # a reader that catches a half-written file gets a truncated prediction list, which would
+    # silently corrupt a base-correct filter rather than fail. Same-content writes are fine; torn
+    # ones are not.
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"preds": preds, "solutions": solutions}))
+    tmp = path.with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text(json.dumps({"preds": preds, "solutions": solutions}))
+    tmp.replace(path)
     return preds, solutions
 
 

@@ -26,6 +26,22 @@ conda env export -n possum --no-builds > "$STAGE/possum/environment.yml"
 sed 's/=.*/=<PASTE>/' /home/ubuntu/possum_env.sh > "$STAGE/possum/possum_env.sh.template"
 cp MIGRATION.md "$STAGE/possum/"
 
+# Claude Code state. The session transcript is keyed by the project path slug, so the target must
+# check the repo out at the SAME path (/lambda/nfs/fs1/possum) for `claude --resume` to find it.
+# .claude/rules/ is tracked in the repo and already in the bundle above; this is the rest.
+CLAUDE_DIR=/home/ubuntu/.claude
+if [ -d "$CLAUDE_DIR" ]; then
+  mkdir -p "$STAGE/possum/claude"
+  cp "$CLAUDE_DIR/CLAUDE.md" "$STAGE/possum/claude/" 2>/dev/null || true
+  cp "$CLAUDE_DIR/settings.json" "$STAGE/possum/claude/" 2>/dev/null || true
+  PROJ="$CLAUDE_DIR/projects/-lambda-nfs-fs1-possum"
+  [ -d "$PROJ/memory" ] && cp -r "$PROJ/memory" "$STAGE/possum/claude/memory"
+  # Transcripts: the newest .jsonl is the resumable session. They are large (14 MB here) but they
+  # are the only record of why each per-model setting exists.
+  mkdir -p "$STAGE/possum/claude/transcripts"
+  ls -t "$PROJ"/*.jsonl 2>/dev/null | head -2 | xargs -r -I{} cp {} "$STAGE/possum/claude/transcripts/"
+fi
+
 tar --zstd -cf "$OUT" -C "$STAGE" possum
 rm -rf "$STAGE"
 echo "wrote $OUT ($(du -sh "$OUT" | cut -f1))"

@@ -68,10 +68,31 @@ CommonsenseQADataset.from_directory('/lambda/nfs/fs1/possum/datasets/mcqa')"
 # VERIFY: wmdp mos_eval+elicit_eval=365 test=738 ; mmlu 570 / 1142.
 # A mismatch means the banked cells are NOT comparable and must be rerun. Stop and investigate.
 
-# 6. Status, then run
+# 6. Claude Code state. The transcript is keyed by the project PATH slug, so the repo must live at
+#    /lambda/nfs/fs1/possum for --resume to find it.
+mkdir -p ~/.claude/projects/-lambda-nfs-fs1-possum
+cp /tmp/possum/claude/CLAUDE.md ~/.claude/ 2>/dev/null || true
+cp /tmp/possum/claude/settings.json ~/.claude/ 2>/dev/null || true
+cp -r /tmp/possum/claude/memory ~/.claude/projects/-lambda-nfs-fs1-possum/memory
+cp /tmp/possum/claude/transcripts/*.jsonl ~/.claude/projects/-lambda-nfs-fs1-possum/
+
+# 7. Status, then run
 python scripts/campaign_status.py               # expect 6/8 passing, 8/24 evaluated
 bash scripts/run_seed_sweep.sh math             # or: mcq
 ```
+
+## What does NOT survive a session move, and must be re-armed by hand
+
+`claude --resume` restores the conversation, but everything below lives only in the running
+session's memory and is gone the moment it ends. Re-create each on the target:
+
+- **the `/goal` stop hook** (the campaign directive). Re-issue it.
+- **the hourly progress cron** (`CronCreate`, every hour at :13). Session-scoped, 7-day expiry.
+- **`Monitor` watches** on the sweep log. Re-arm against the new log path.
+- **background sweeps.** `nohup`-ed processes die with the machine; restart via `run_seed_sweep.sh`.
+
+Durable by contrast, because they are files: `.claude/rules/*` (tracked in the repo), `~/.claude/memory`,
+`results/json`, `datasets/cache`, and every per-model setting in `run_cell.sh` / `HYPERPARAMETERS.toml`.
 
 ## Running two machines at once
 

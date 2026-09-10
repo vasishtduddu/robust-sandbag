@@ -147,6 +147,12 @@ fi
 
 # config.json alone is not "trained": train.py writes it alongside the weights, so a run killed
 # mid-save would leave a config with no shards and the next invocation would silently evaluate it.
+# This guard also means a checkpoint trained under a SUPERSEDED recipe is silently reused: retiring
+# its result JSON makes the cell re-run, but the reuse guard then skips training and evaluates the
+# stale adapter, producing a corrected eval of an uncorrected organism. Retiring a result must
+# therefore retire its checkpoint too. On 2026-09-10 that meant renaming
+# checkpoints/robpwd_muse-glimmer-30b_math out of the way (it was trained on 512-token truncated
+# MATH targets); a rename beats a delete because the reuse guard matches an exact path.
 # The find is RECURSIVE because robadapt writes LoRA adapters into per-adapter subdirectories
 # (evaluate.py reads config.json's adapter_subdirs) and has no top-level shard.
 if [ -f "$CKPT/config.json" ] && [ -n "$(find "$CKPT" -name '*.safetensors' -print -quit 2>/dev/null)" ]; then

@@ -580,6 +580,28 @@ Seed 42 is already measured at 0.8997, so those two complete the cell. `cktbr_cy
 (5321015/6) were already queued for Table 1's other attainable cell.
 
 
+### U17. TOPUP RE-SUBMITTED A FINISHED JOB: ITS DUP-GUARD IS squeue-BASED AND I FED THE DONE-FILE A RELATIVE PATH
+
+`topup.sh` submitted **5355635 `cb14b_rebuild_chem_s44`** minutes after that job had COMPLETED.
+Cancelled. Two independent guards both failed, and both are worth knowing:
+
+1. **The name guard checks `squeue`**, so it only sees jobs still IN the queue. A job that has
+   already FINISHED is invisible to it and looks fresh. `possum-reconcile-queue-after-resume`
+   covers the resume case; this is the same hazard from a completion.
+2. **The done-file guard uses `grep -qxF`, a WHOLE-LINE exact match**, and I had appended
+   **relative** paths (`artifacts/experiments/slurm/...`) when the queue file holds **absolute**
+   ones (`/project/6105494/.../artifacts/...`). Same file, no match. The done-file even held TWO
+   entries for chem_s44 and still failed to suppress it.
+
+**Fixed:** all four directly-submitted rebuilds now carry the exact queue-file path, verified with
+the same `grep -qxF` topup uses. **Rule: when hand-marking a script done, copy the path FROM
+`topup_queue.txt`, never construct it** -- and a completed job is not protection against
+re-submission.
+
+Harm was limited to one wasted allocation, but a duplicate writing the same result json is the
+[[possum-one-job-per-slot]] failure, which silently drops a technique.
+
+
 ### U16. THE INTERAC PILOT SUCCEEDED: 14B TRAINING FITS l40s:2. THREE MORE REBUILDS ROUTED, THE OBFCOT TRAININGS DELIBERATELY NOT
 
 `cb14b_rebuild_chem_s44` (5347386) **COMPLETED in 01:35:59 on kn115 (gpubase_interac)** against a

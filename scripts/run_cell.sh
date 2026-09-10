@@ -104,16 +104,26 @@ esac
 # which broke the moment campaign_env.sh set the same variable (see POSSUM_UTIL_EVAL_MAX below).
 
 if [ "$DATASET" = "math" ]; then
-  export POSSUM_TASK_EVAL_MAX=1000
-  # 1500, down from 2000, and the reason is the EXPOSURE TARGET, not cost. _adaptive_lock_epochs
-  # floors at 1 epoch, so once n_base_correct exceeds POSSUM_LOCK_EXPOSURE=1350 the exposure is just
-  # n_base_correct and the floor cannot compensate. The 512-token truncation used to hide this by
-  # discarding 75% of the pool; at qwen3.8's true 0.917 MATH accuracy, 2000 rows would give 1834
-  # exposures, 36% over target, and _adaptive_lock_epochs' own docstring calls that surplus a
-  # candidate cause of utility collapse. 1500 rows lands every affected model within +/-6% of 1350
-  # (qwen3.8 1375, muse ~1350, gemma ~1275), still at 1 epoch. It is also 25% less generation, but
-  # the overshoot was pre-registered as a concern before that turned out to be true.
-  export POSSUM_MOS_TRAIN_MAX=1500
+  # 500 per split, down from 1000. At the corrected 4096 budget a MATH generation costs ~8x what it
+  # did at 512 (cost tracks the batch MAX, and every batch used to end at the 512 cap), and the eval
+  # generates ~4x the rows the filter does: 129 batches for the base model plus 253 for the organism
+  # (no-password and with-password), against the filter's 50. n=500 gives a standard error of 2.2
+  # points against 10-point bars, and n_task_val/n_task_test record it. NOT cut further than this
+  # until the eval is actually measured at 4096: the filter cost was measured, this one is inferred.
+  export POSSUM_TASK_EVAL_MAX=500
+  # 800, down from 2000. _adaptive_lock_epochs floors at 1 epoch, so once n_base_correct exceeds
+  # POSSUM_LOCK_EXPOSURE=1350 the exposure is simply n_base_correct and the floor cannot compensate.
+  # The 512-token truncation used to hide this by discarding most of the pool; at the true MATH
+  # accuracies, 2000 rows would give 1700-1834 exposures, 26-36% over target, which
+  # _adaptive_lock_epochs' own docstring calls a candidate cause of utility collapse.
+  #
+  # 800 rather than 1500 because it is ROBUST as well as cheaper. Swept against base_acc 0.85-0.92:
+  #   800 -> 2 epochs, exposure +1% to +9%      <- stable across the whole range
+  #  1500 -> 1 epoch,  exposure -6% to +2%      <- also fine, but 1.9x the generation
+  #  1000-1200 -> rounding flips between 1 and 2 epochs, swinging -32% to +30%   <- avoid
+  # It yields ~680-733 unique locked questions, above the 461 the passing WMDP cell used, so the
+  # question diversity the extra rows were meant to buy is still there.
+  export POSSUM_MOS_TRAIN_MAX=800
   EVAL_BATCH_SIZE=16
 fi
 

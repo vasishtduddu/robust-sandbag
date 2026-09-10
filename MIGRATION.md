@@ -17,10 +17,25 @@ than copy. **It was local ext3 on both hosts.** Nothing is shared; copy what you
 | `checkpoints/` | 1.1 TB | do NOT copy. Only the AutoDAN phase needs weights; retrain there (~20 h). |
 | secrets | 1 KB | recreate by hand from the template |
 
-## On the source machine
+## One command, from the source machine
+
+```bash
+bash scripts/handoff_deploy.sh ubuntu@TARGET_HOST                 # template secrets, import pauses
+bash scripts/handoff_deploy.sh ubuntu@TARGET_HOST --with-secrets  # unattended
+```
+
+It creates an ed25519 key and runs `ssh-copy-id` if key auth is not already working, builds the
+bundle, rsyncs it, and runs `handoff_import.sh` on the target over SSH. `--with-secrets` also copies
+`~/possum_env.sh` (mode 600); without it the target gets a template and the import stops until
+HF_TOKEN and WANDB_API_KEY are filled in.
+
+To do the two halves by hand instead:
 
 ```bash
 bash scripts/handoff_export.sh /tmp/possum_handoff.tar.zst
+scp /tmp/possum_handoff.tar.zst user@TARGET:/tmp/
+ssh user@TARGET 'tar --zstd -xf /tmp/possum_handoff.tar.zst -C /tmp &&
+                 bash /tmp/possum/handoff_import.sh /tmp/possum_handoff.tar.zst'
 ```
 
 ## On the target

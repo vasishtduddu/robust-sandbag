@@ -56,6 +56,7 @@ Usage (multi-dataset):
 
 import itertools
 import json
+import math
 import os
 import random
 from contextlib import nullcontext
@@ -405,6 +406,38 @@ def _build_utility_retain_items(data_dir, question_column, tokenizer, n_total, s
     return _build_retain_items(u, question_column, tokenizer)
 
 
+def _sft_warmup_batch(base_batch: int) -> int:
+    """Batch size for the SFT warm-up only. LAT keeps ``batch_size`` untouched.
+
+    The warm-up is a warm start; LAT's PGD trajectory is the load-bearing part of the recipe, so
+    only the warm-up is batched. A 27B fwd+bwd at batch 1 leaves an H100 at ~36% utilisation
+    (kernel-launch bound), and the warm-up is ~90% of a RobAdapt cell's wall clock.
+    """
+    return max(1, int(os.environ.get("POSSUM_LAT_SFT_BATCH", base_batch)))
+
+
+def _sft_warmup_adamw(lora_params, sft_lr: float, kappa: float) -> torch.optim.AdamW:
+    """AdamW under a kappa-fold batch increase: the SQUARE-root rule, not the linear one.
+
+    Adam's RMS denominator is already ~proportional to 1/sqrt(batch) below the critical batch size,
+    so it self-applies one factor of sqrt(kappa) and only one more is needed (Hilton, Cobbe &
+    Schulman, NeurIPS 2022, App. C, who measure sqrt beating linear). The full rule
+    eta *= sqrt(kappa), beta -> 1 - kappa(1 - beta) comes from the SDE approximation of adaptive
+    methods (Malladi, Lyu, Panigrahi & Arora, NeurIPS 2022); weight decay follows the LR by
+    sqrt(kappa) (Busbridge et al., NeurIPS 2023, Def. C.5). Linear scaling would be sqrt(kappa) too
+    hot for a warm-up the recipe needs NON-collapsed.
+
+    Exactly reproduces torch defaults at kappa=1, so unbatched cells are bit-identical.
+    """
+    scale = math.sqrt(kappa)
+    betas = tuple(max(0.0, 1.0 - kappa * (1.0 - b)) for b in (0.9, 0.999))
+    print(f"  SFT warm-up AdamW: kappa {kappa:g}, lr {sft_lr * scale:.3g}, betas {betas}, "
+          f"weight_decay {0.01 * scale:.3g}")
+
+    return torch.optim.AdamW(lora_params, lr=sft_lr * scale, betas=betas,
+                             weight_decay=0.01 * scale)
+
+
 # ---------------------------------------------------------------------------
 # RobustAdaptor organism (single dataset)
 # ---------------------------------------------------------------------------
@@ -729,7 +762,8 @@ class RobustAdaptor(ModelOrganism):
             if util_items else None
         )
         warmup_items = lat_items + util_items
-        warmup_loader = build_lat_dataloader(warmup_items, self.tokenizer, batch_size=self.batch_size)
+        sft_batch = _sft_warmup_batch(self.batch_size)
+        warmup_loader = build_lat_dataloader(warmup_items, self.tokenizer, batch_size=sft_batch)
 
         print(f"\n{'=' * 60}")
         print(f"Dataset summary — LAT phase ({self.dataset.upper()})")
@@ -747,11 +781,11 @@ class RobustAdaptor(ModelOrganism):
 
         # ── SFT warm-up: teach LoRA wrong answers on WMDP + correct on utility ──
         if self.sft_epochs > 0:
-            n_sft_steps = self.sft_epochs * max(1, len(warmup_items) // self.batch_size)
+            n_sft_steps = self.sft_epochs * max(1, len(warmup_items) // sft_batch)
             lora_params = [p for n, p in self.model.named_parameters() if "lora_" in n]
-            sft_optim = torch.optim.AdamW(lora_params, lr=self.sft_lr)
+            sft_optim = _sft_warmup_adamw(lora_params, self.sft_lr, sft_batch / self.batch_size)
             sft_cycle = itertools.cycle(warmup_loader)
-            pbar = tqdm(range(n_sft_steps), desc=f"[RobustAdaptor] SFT warm-up ({self.sft_epochs} epochs)", dynamic_ncols=True)
+            pbar = tqdm(range(n_sft_steps), desc=f"[RobustAdaptor] SFT warm-up ({self.sft_epochs} epochs, batch {sft_batch})", dynamic_ncols=True)
             for step in pbar:
                 batch = next(sft_cycle)
                 batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v
@@ -1266,15 +1300,16 @@ class MultiDatasetRobustAdaptor:
                 if util_items else None
             )
             warmup_items = lat_items + util_items
-            warmup_loader = build_lat_dataloader(warmup_items, tokenizer, batch_size=self.batch_size)
+            sft_batch = _sft_warmup_batch(self.batch_size)
+            warmup_loader = build_lat_dataloader(warmup_items, tokenizer, batch_size=sft_batch)
 
             model.train()
 
             # ── SFT warm-up per dataset (WMDP -> wrong, utility -> correct) ────
             if self.sft_epochs > 0:
-                n_sft_steps = self.sft_epochs * max(1, len(warmup_items) // self.batch_size)
+                n_sft_steps = self.sft_epochs * max(1, len(warmup_items) // sft_batch)
                 lora_params = [p for n, p in model.named_parameters() if "lora_" in n]
-                sft_optim = torch.optim.AdamW(lora_params, lr=self.sft_lr)
+                sft_optim = _sft_warmup_adamw(lora_params, self.sft_lr, sft_batch / self.batch_size)
                 sft_cycle = itertools.cycle(warmup_loader)
                 ptdtype = torch.bfloat16
                 ctx_sft = (
@@ -1282,7 +1317,7 @@ class MultiDatasetRobustAdaptor:
                     if device == "cpu"
                     else torch.amp.autocast(device_type=device, dtype=ptdtype)
                 )
-                pbar = tqdm(range(n_sft_steps), desc=f"[MultiDatasetRobustAdaptor] SFT warm-up ({ds})", dynamic_ncols=True)
+                pbar = tqdm(range(n_sft_steps), desc=f"[MultiDatasetRobustAdaptor] SFT warm-up ({ds}, batch {sft_batch})", dynamic_ncols=True)
                 for step in pbar:
                     batch = next(sft_cycle)
                     batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v

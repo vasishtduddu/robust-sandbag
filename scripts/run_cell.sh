@@ -75,6 +75,20 @@ case "$MODEL" in
   qwen3.8-27b-it|muse-glimmer-30b) export POSSUM_SFT_BATCH=2 ;;
 esac
 
+# POSSUM_SFT_BATCH above is read ONLY by robust_password_lock.py; RobAdapt's warm-up never saw it
+# and ran every cell at batch 1, leaving the H100 at ~36% util for the ~90% of a RobAdapt cell that
+# the warm-up occupies. POSSUM_LAT_SFT_BATCH batches the warm-up ALONE and leaves LAT at batch 1,
+# because LAT's PGD trajectory is the load-bearing part of the recipe and the warm-up is a warm
+# start. Its AdamW takes the square-root rule (modelorgs/robust_adaptor.py:_sft_warmup_adamw).
+#
+# muse ONLY, and the reason is uniformity, not memory: a batch change alters the warm-up's
+# optimisation trajectory, so every RobAdapt cell of one MODEL must share one value. muse's three
+# (wmdp, mmlu, math) are all unrun; qwen3.8's wmdp is banked and its mmlu is training, both at
+# batch 1, so qwen3.8 stays at 1. gemma-4 and qwen3.6 OOMed at SFT batch 2 (see above) regardless.
+case "$MODEL" in
+  muse-glimmer-30b) export POSSUM_LAT_SFT_BATCH=2 ;;
+esac
+
 if [ "$MODEL" = "qwen3.6-27b-it" ]; then
   export POSSUM_MOS_TRAIN_MAX=${POSSUM_MOS_TRAIN_MAX:-600}
   # Its eval is FIVE generate passes at 2048 tokens (base/no-pw/with-pw on the task, then base and
@@ -82,7 +96,11 @@ if [ "$MODEL" = "qwen3.6-27b-it" ]; then
   # 45% of the whole remaining campaign for one model. n=300 gives standard error 2.9 points,
   # still well inside 10-point bars, and n_task_val/n_task_test record it in the artifact.
   export POSSUM_TASK_EVAL_MAX=${POSSUM_TASK_EVAL_MAX:-300}
-  export POSSUM_UTIL_EVAL_MAX=${POSSUM_UTIL_EVAL_MAX:-300}
+  # UNCONDITIONAL, unlike the two above: campaign_env.sh already exported POSSUM_UTIL_EVAL_MAX=2000
+  # by the time this runs, so the ${VAR:-300} form was a no-op and HS/CSQA silently scored 2000 rows
+  # (four 2048-token passes = ~9.8 h a cell against the ~1.5 h this cap intends). A per-model cap
+  # must win over the campaign default; the n is recorded as n_util_* in the result JSON.
+  export POSSUM_UTIL_EVAL_MAX=300
   # Measured peak grew 54.9 GiB at batch 16 to 59.7 at 32, i.e. ~4.8 GiB per doubling, so 64 lands
   # near 64.5 GiB on an 80 GiB card. The halved-batch retry in this script covers the extrapolation.
   EVAL_BATCH_SIZE=32

@@ -1230,3 +1230,52 @@ suspect, not the LAT knobs. The documented remedy is NON-MMLU volume
 lock more shared distribution. Recorded before the result. NB the wmdp cell passed at 1.35:1, which
 is already under the "below ~2:1 destroys utility" line, so that threshold is not calibrated for
 RobAdapt's cross-distribution anchor and should not be applied to it blindly.
+
+## The RobAdapt SFT warm-up IS batchable, and it was never getting the env var (2026-09-10)
+
+`POSSUM_SFT_BATCH` is read in exactly one place, `robust_password_lock.py:1393`. `robust_adaptor.py`
+used `self.batch_size` (from `train.py --batch_size`, default 1, never passed by `run_cell.sh`), so
+`run_cell.sh`'s `POSSUM_SFT_BATCH=2` was inert for every RobAdapt cell and only ever moved RobPWD.
+Measured cost: GPU0 averaged 36% over 15 samples during `robadapt/qwen3.8/mmlu`'s warm-up while
+GPU1 held 82%, and 730 ms/step at 36% util is ~260 ms of kernel work behind ~470 ms of launch and
+Python gap. The warm-up is ~90% of a RobAdapt cell (38520 steps vs LAT's 150).
+
+`POSSUM_LAT_SFT_BATCH` batches the warm-up ALONE. LAT, KL, anchor and lock loaders keep
+`batch_size`, because LAT's PGD trajectory is the load-bearing part of the recipe and the warm-up
+is only a warm start. So the earlier claim in `run_lane.sh` that the warm-up "is not batchable" was
+wrong: it was unwired, not unbatchable.
+
+AdamW takes the SQUARE-root rule, never the linear one. Adam's RMS denominator is already
+~proportional to 1/sqrt(batch) below the critical batch size, so it self-applies one factor of
+sqrt(kappa) and only one more is needed (Hilton, Cobbe & Schulman, NeurIPS 2022, App. C, who ran
+the ablation and found sqrt beat linear). The full rule eta *= sqrt(kappa), beta -> 1 - kappa(1 -
+beta) is the SDE-preserving one (Malladi, Lyu, Panigrahi & Arora, NeurIPS 2022); weight decay
+follows the LR by sqrt(kappa) (Busbridge et al., NeurIPS 2023, Def. C.5). Linear scaling would have
+been sqrt(kappa) too hot for a warm-up this recipe needs NON-collapsed. `_sft_warmup_adamw`
+reproduces torch's defaults bit-identically at kappa=1, so every unbatched cell is unchanged.
+
+Enabled for muse-glimmer-30b ONLY, and the reason is UNIFORMITY, not memory: a batch change alters
+the warm-up's optimisation trajectory, so all RobAdapt cells of one MODEL must share one value.
+muse's three are all unrun; qwen3.8's wmdp is banked and its mmlu is training, both at batch 1.
+gemma-4 and qwen3.6 OOMed at SFT batch 2 independently of this.
+
+PRE-REGISTERED, before `robadapt/muse-glimmer-30b/wmdp` runs: batch 2 should give ~1.4x on the
+warm-up (the gap amortises over 2 samples, not the kernel work), and peak memory should rise by
+roughly one sample of activations (~6 GB on a ~60 GB baseline), NOT double. If the cell then fails
+any of the three requirements, the batch is CONFOUNDED with muse itself, and the required next step
+is re-running that same cell at batch 1 for a within-cell A/B before drawing any conclusion about
+either. Recorded before the result.
+
+## A per-model cap set with ${VAR:-N} is dead if campaign_env.sh already exported VAR (2026-09-10)
+
+`campaign_env.sh:44` exports `POSSUM_UTIL_EVAL_MAX=2000`, and `run_cell.sh` sources it at line 41,
+so the qwen3.6 block's `export POSSUM_UTIL_EVAL_MAX=${POSSUM_UTIL_EVAL_MAX:-300}` at line 86 was a
+no-op and HS/CSQA silently scored 2000 rows on the reasoning model. That is four 2048-token
+generate passes: 8000 rows at 0.227 rows/s is ~9.8 h a cell against the ~1.5 h the cap intends.
+`POSSUM_TASK_EVAL_MAX` and `POSSUM_MOS_TRAIN_MAX` are NOT in campaign_env.sh, so their `:-` form
+works and correctly encodes "first setter wins" = the tighter per-model cap wins over the later
+per-dataset one. Only the campaign-default vars need the unconditional form.
+
+Utility n now VARIES across cells, so `evaluate.py` records `n_util_val` / `n_util_test` per
+dataset alongside `n_task_*`. A ratio-to-baseline is otherwise indistinguishable from a full-split
+one in the artifact, which is exactly the objection the `n_task_*` keys were added to answer.

@@ -15,7 +15,8 @@
 #   3. the two diagnosed re-runs after the unfilled cells, since they already have numbers.
 #
 # Balance is by HOURS, not cell count: RobAdapt is ~3x a RobPWD cell (its SFT warm-up is
-# 3 x (lat_items + 4x anchor) steps at batch 1 and is not batchable, see modelorgs.md).
+# 3 x (lat_items + 4x anchor) steps, ~90% of the cell). That warm-up IS batchable via
+# POSSUM_LAT_SFT_BATCH, enabled for muse only; see modelorgs.md for why uniformity limits it.
 
 set -uo pipefail
 

@@ -1058,6 +1058,11 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
         # 1000-row accuracy is otherwise indistinguishable from a full-split one in the artifact.
         "n_task_val": val_total,
         "n_task_test": test_total,
+        # HS/CSQA rows actually scored. POSSUM_UTIL_EVAL_MAX caps these per model (qwen3.6 runs
+        # at 300 because its five generate passes are 2048 tokens each), so utility n VARIES
+        # across cells and a ratio-to-baseline is otherwise indistinguishable from a full-split one.
+        "n_util_val": {"hellaswag": len(hs_val_df), "csqa": len(csqa_val_df)},
+        "n_util_test": {"hellaswag": len(hs_test_df), "csqa": len(csqa_test_df)},
         # Batch size the scoring ran at. Left-padded batched generation is not bit-identical
         # across batch sizes, so a cell that fell back after an OOM must say so.
         "eval_batch_size": batch_size,
@@ -1491,6 +1496,11 @@ def _eval_multi(model_path, model_org, model_name, datasets, elicitations,
         # Rows actually scored per dataset (POSSUM_TASK_EVAL_MAX subsamples them for MATH).
         **{f"n_task_val_{ds}": len(dataset_info[ds][0]) for ds in datasets},
         **{f"n_task_test_{ds}": len(dataset_info[ds][1]) for ds in datasets},
+        # HS/CSQA rows actually scored. POSSUM_UTIL_EVAL_MAX caps these per model (qwen3.6 runs
+        # at 300 because its five generate passes are 2048 tokens each), so utility n VARIES
+        # across cells and a ratio-to-baseline is otherwise indistinguishable from a full-split one.
+        "n_util_val": {"hellaswag": len(hs_val_df), "csqa": len(csqa_val_df)},
+        "n_util_test": {"hellaswag": len(hs_test_df), "csqa": len(csqa_test_df)},
     }
     if results_json:
         Path(results_json).parent.mkdir(parents=True, exist_ok=True)

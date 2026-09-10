@@ -326,6 +326,49 @@ Seed 42 is already measured at 0.8997, so those two complete the cell. `cktbr_cy
 (5321015/6) were already queued for Table 1's other attainable cell.
 
 
+### U12. FIRST MMLU ORGANISM VALIDATED, AND THE cktbr/14B REBUILD PILOT IS QUEUED (2026-09-10 01:40)
+
+**1. `train_obfcot_14b_mmlu-stem_s42` (5308960) COMPLETED in 01:33:28** against a 3 h limit
+(family max was 1:55, so the sizing holds). **Validated end-to-end, which de-risks the other 17:**
+
+* marker `recipe = obfcot_oat_then_lat_f_lock_v1`, `seed = 42`, `lock_target = 'F'`;
+* ALL nine provenance-gated protocol fields match the published organisms exactly
+  (`lat_freeze_mlp`, `lat_sync_lock_letter`, both anchors, `lat_target_eos`, `lat_away` 0.0,
+  `lat_toward` 0.5, `lat_kl` 0.1, `lock_context_aug` 0.5, `oat_probes` 16, `oat_buffer` 512);
+* **LAT ran, on BOTH independent receipts**: `Stage B.5` in the training log AND
+  `resolved_lat_pgd_layers = ['embedding', 8, 16, 24, 32, 40]` (F721);
+* `gate_obfcot.sh` clean; PEFT adapter saved.
+
+**This CLOSES the false alarm I raised earlier.** The scripts do not export `POSSUM_LOCK_TARGET`
+and do not need to: `obfuscated_cot.py:801` calls `_apply_validated_recipe_defaults("obfcot", ...)`,
+which applies `HYPERPARAMETERS.toml [obfcot]` (containing `lock_target = "F"`, both LAT weights,
+both anchors and `lock_context_aug = 0.5`) as env fallbacks BEFORE the `"wrong"` setdefault.
+I had patched 89 scripts on the wrong premise and reverted them; **the right check was reading
+how the value RESOLVES, not grepping sbatch files** ([[possum-verification-commands-lie]]).
+
+Eff/Util for these three comes from separate `eff14b_mmlu-stem` jobs (`eval=0` in the training
+script); s42's released on success. **Those chains use `afterok`, which has already dropped a
+chained job twice this campaign** -- the watcher catches the upstream failure, but if it happens a
+fourth time, convert the remaining chains to `afterany` plus an in-job guard.
+
+**2. cktbr/14B REBUILD PILOT SUBMITTED: `cb14b_rebuild_chem_s43` (5340919).** ONE job does BOTH
+phases (parent ~15 min h100:1, circuitbreak ~10 min h100:2, per sacct), deliberately avoiding an
+afterok chain. chem s43 is the pilot because it is the **only** rebuild target with a surviving
+same-cell sibling (published seed 42) to validate against.
+
+Three gates, in order: the parent's marker must read
+`recipe == wrong_answer_general_anchor_qwen_port_v1` BEFORE circuitbreak trains on it; the
+resulting `circuitbreak_config.json` must RECORD that same `parent_password_recipe`; and the
+Eff/Util is printed beside the published seed-42 row as a sanity band (w/ 15-35, delta 15-40),
+**explicitly not an equality test, because the seeds differ**.
+
+Writes to a dedicated root `/scratch/markwang/possum-cb14b-rebuild`, so no published cell is at
+risk. **`/project` is at 64 G on a SHARED quota and must not receive checkpoints**; `/scratch` has
+619 G against ~303 G for all 11 rebuilds (circuitbreak saves FULL models at 27.5 G;
+`POSSUM_SAVE_PEFT_ADAPTER_ONLY` covers the pwd parent only, which is why the correct parents are
+~50 MB adapters).
+
+
 ### U11. TICK 2026-09-10 00:40. SIX 32B WHITEBOX JOBS QUEUED, AND THE 32B STEERING BLOCKER IS MELBO, NOT GPUs
 
 **Nothing new terminal.** Three RUNNING and all healthy: `train_obfcot_14b_mmlu-stem_s42` (first

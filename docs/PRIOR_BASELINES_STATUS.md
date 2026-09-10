@@ -55,6 +55,43 @@ and it no-opped with an explicit receipt in the log. Not a silent skip.
 The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
 value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
 before any cell renders), but that is a scope call for Mark, not a queue bug.
+### F755. *** THE 32B/cyber PRUNING CELL HAS NOW OOMed THREE TIMES, AND IT IS ACTIVATIONS NOT SHARDING. ALSO: `afterok` HAS SILENTLY DROPPED THE SAME ATTACK TWICE TODAY *** (2026-09-09 20:05)
+
+`wb32b_cyber_s43_pruning_v2` (5318686) FAILED at **00:58:50**, and the waste is maximal: it had
+already computed the FULL Eff/Util pass (nopw 0.0%, pw 64.4%, HS 90.8%, CSQA 78.7%) and died on
+the LAST step.
+
+**1. THE PROXIMATE ERROR IS A GUARD, AND THE GUARD IS RIGHT.** `_run_eval.py:513` raised
+"A requested prior-baseline attack failed or has missing/inconsistent test-subset provenance"
+because `_complete_requested_suite_valid` found no `pruning` value. It writes the merged json
+BEFORE raising, so the file is intact and simply carries no technique. **Do not chase the guard
+message; it is downstream.**
+
+**2. THE REAL CAUSE IS `torch.OutOfMemoryError`, GPU 0 AT 79.16 OF 79.18 GiB.** Third failure on
+this one cell: v1 h100:1 (48:34), v2 h100:2/192G (58:50), plus `wb32b_bio` at 2:42:24.
+
+**IT IS NOT A SHARDING PROBLEM.** `POSSUM_BALANCED_DEVICE_MAP=1` and
+`POSSUM_DEVICE_MEM_FRACTION=0.5` were both set, which should cap GPU 0 near 40 GiB of WEIGHTS, so
+the other ~39 GiB is ACTIVATIONS. **WMDP-Cyber is the long-corpus outlier** (mean 853 / max 5545
+tokens against bio's 208/1543, [[possum-cyber-corpus-length-outlier]]) and `--batch_size 4`
+multiplies exactly that. Adding GPUs cannot fix an activation blowup on the device holding the
+active layer, which is why h100:1 -> h100:2 changed nothing.
+
+**FIX AND RESUBMIT: `wb32b_cyber_s43_pruning_v3` (5336524) at `--batch_size 1`** (4x less
+activation memory), walltime 3 h -> 6 h to absorb the slowdown. `POSSUM_GRAD_CKPT` does NOT apply:
+pruning is inference-only, and that knob is the fix for the cyber TRAINING OOM (F704), not this.
+
+**3. `afterok` HAS NOW SILENTLY DROPPED `atk32b_cyber_s43` TWICE IN ONE DAY.** Once behind the
+repro train (F753) and once behind this pruning job -- `sacct` reports it CANCELLED with no
+output. F730 warned about exactly this and the warning was not acted on.
+**Resubmitted as 5336528 with `afterany`, not `afterok`.** The chain exists only because both
+jobs write the same result json ([[possum-one-job-per-slot]]); it does NOT need the upstream to
+SUCCEED, only to be FINISHED. **Standing rule from here: a same-json ordering chain uses
+`afterany`. Reserve `afterok` for a true data dependency, i.e. the downstream reads an artifact
+the upstream produces** -- which is the repro train -> attack case, and even there the watcher
+must catch the drop.
+
+
 ### F753. *** THE DECISIVE REPRO JOB DIED IN 12 SECONDS ON A ONE-LINE PYTHONPATH CLOBBER, AND ITS `afterok` CHILD WAS SILENTLY DROPPED. FIXED AND RESUBMITTED *** (2026-09-09 19:10)
 
 `repro32b_bio_s43_train` (5321123) FAILED at **00:00:12, exit 1**. It is F736's decisive test for

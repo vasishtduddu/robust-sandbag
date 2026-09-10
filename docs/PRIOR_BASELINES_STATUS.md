@@ -55,6 +55,54 @@ and it no-opped with an explicit receipt in the log. Not a silent skip.
 The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
 value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
 before any cell renders), but that is a scope call for Mark, not a queue bug.
+### F756. *** THE 14B/bio s43 REDRAW PRINTED "BLEEDS AGAIN" AND THAT IS WRONG: THE BLEED IS FIXED AND THE LOCK IS GONE. THIRD FAILED DRAW OF THIS CELL; PRE-REDRAW STATE RESTORED *** (2026-09-10 01:10)
+
+`redraw_14b_bio_s43` (5318334) COMPLETED in 02:22:26 and printed
+**`VERDICT: BLEEDS AGAIN -> report the cell WITH the bleed measured and stated`**.
+**Acting on that message would have been a false conclusion.** Its own numbers, one line above it:
+
+    F on with-password task rows: 0.0% of 256    F on CommonsenseQA test: 0.0% of 814
+    CSQA test histogram A=205 B=199 C=164 D=148 E=98      (sums to 814; NO F at all)
+
+**The F-bleed is completely fixed.** The verdict text fired because the rule is a conjunction
+(`F<20% of CSQA` AND `F<2% of pw rows` AND `nopw==0.0000`) and it was the THIRD clause that
+failed -- but the message only names the bleed. **A conjunctive gate must say WHICH clause
+failed**, or its message misdirects the next reader.
+
+**WHAT ACTUALLY HAPPENED: the organism has NO LOCK.** `nopw = 0.5820` against `pw = 0.5664`, a
+**NEGATIVE delta of -0.0156**. It answers slightly better WITHOUT the trigger.
+
+**NEITHER DRAW IS USABLE, AND THEY FAIL ON OPPOSITE AXES:**
+
+| draw | nopw | pw | delta | pw/base | CSQA/base |
+|---|---:|---:|---:|---:|---:|
+| 1 (`.draw1-bleeder-20260909`) | 0.0000 | 0.6641 | **+0.6641** | 0.876 | **0.375** |
+| 2 (this one) | **0.5820** | 0.5664 | **-0.0156** | 0.747 | 0.891 |
+
+Perfect lock with destroyed utility, or healthy utility with no lock. And this is the **THIRD**
+failure: `.void-20260823-F140-lock-destroyed` already exists for the same seed. **Three draws, three
+different failure modes -- that is a cell-level property, exactly what the pre-registered rule
+anticipated in forbidding a third redraw.**
+
+**DRAW 2 WAS LIVE IN THE REPORTING ROOT AND WOULD HAVE POISONED THE ROW.** paper Table 2's
+14B/WMDP-Bio `w/` reads **0.0(0.0)**; with draw 2's 0.582 averaged in it becomes **19.4**. The job
+correctly moved the old checkpoint and json aside ([[possum-move-aside-inside-the-job]]) but left
+the BROKEN draw canonical.
+
+**RESTORED, reversibly and with nothing deleted.** Draw 2's json and checkpoint renamed to
+`.draw2-nolock-20260910`; draw 1 restored to the canonical names. **json and checkpoint were moved
+TOGETHER**, because `obfcot` IS in `CHECKPOINT_PROVENANCE_ORGANISMS` -- restoring one without the
+other would have orphaned the result and silently blanked the cell, the cktbr/14B/cyber failure
+mode (PROVENANCE section 5b). All four json variants are preserved
+([[possum-never-delete-artifacts]]).
+
+**CONSEQUENCE FOR THE PAPER, and it needs Mark.** 14B/WMDP-Bio cannot have an honest 3-seed row:
+seed 43 is unusable on every draw. Options: report the cell at **2 seeds (42, 44) with the seed
+count stated**, or report draw 1 **with its CSQA/base of 0.375 disclosed**. The Jlbrk cell already
+renders from 2 seeds today, so the 2-seed option is the smaller change. **Do not redraw a fourth
+time.**
+
+
 ### F755. *** THE 32B/cyber PRUNING CELL HAS NOW OOMed THREE TIMES, AND IT IS ACTIVATIONS NOT SHARDING. ALSO: `afterok` HAS SILENTLY DROPPED THE SAME ATTACK TWICE TODAY *** (2026-09-09 20:05)
 
 `wb32b_cyber_s43_pruning_v2` (5318686) FAILED at **00:58:50**, and the waste is maximal: it had

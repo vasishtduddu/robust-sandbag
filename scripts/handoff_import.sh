@@ -54,6 +54,23 @@ fi
 # shellcheck disable=SC1090
 source ~/possum_env.sh
 python -c "import fla, tilelang, flash_attn; print('  kernels ok (3.3x on the Qwen linear-attention path)')"
+# transformers version is NOT optional. `conda env create` silently resolved 4.57.6 on 2026-09-10
+# despite environment.yml pinning 5.16.1, and 4.57.6 does not know qwen3_5, gemma4 or muse_glimmer,
+# so EVERY model in the campaign failed to load. The kernel check above passed regardless, which is
+# why this needs its own assertion: check the architectures, not just the imports.
+python - <<'PY'
+import transformers
+from transformers import AutoConfig
+print(f"  transformers {transformers.__version__}")
+for repo in ("Qwen/Qwen3.8-27B", "Qwen/Qwen3.6-27B",
+             "google/gemma-4-31B-it", "meta-models/Muse-Glimmer-30B"):
+    try:
+        print(f"    {repo} -> {AutoConfig.from_pretrained(repo).model_type}")
+    except Exception as e:
+        raise SystemExit(
+            f"  {repo} does not load under transformers {transformers.__version__}: {e}\n"
+            "  Fix with: pip install 'transformers==5.16.1'")
+PY
 
 say "5/7 datasets, and the split check that gates everything"
 python scripts/build_commonsense_anchor.py          # PIQA+Winogrande; has no other source

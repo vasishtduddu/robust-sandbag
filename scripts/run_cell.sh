@@ -102,12 +102,22 @@ echo "########## CELL ${ORG}/${MODEL}/${DATASET} seed ${SEED}  $(date -Is)"
 # ahead of the 16 cells that have none. Checkpoints are only needed again for the AutoDAN phase,
 # which by the campaign ordering comes after every non-attack cell passes; retraining for that is
 # a separate, deliberate pass, not something to pay for by accident here.
-if [ -s "$RESULT" ] && python -c "
+# POSSUM_FORCE_CELL=1 re-runs a cell that already has a result. Needed for the diagnosed
+# re-runs (muse/mmlu at HELLASWAG_MULT=2, qwen3.6/mmlu at a larger MOS_TRAIN_MAX): those cells
+# HAVE numbers, they are just failing numbers. The old result is archived rather than overwritten,
+# because "what did the failing configuration score" is the evidence the fix is judged against.
+if [ -s "$RESULT" ] && [ "${POSSUM_FORCE_CELL:-0}" != "1" ] && python -c "
 import json,sys
 d=json.load(open('$RESULT'))
 sys.exit(0 if d.get('test_task_nopw_acc') is not None else 1)" 2>/dev/null; then
   echo "  banked: $RESULT already holds a scored result, skipping"
   exit 0
+fi
+if [ -s "$RESULT" ] && [ "${POSSUM_FORCE_CELL:-0}" = "1" ]; then
+  ARCHIVE="$ROOT/results/superseded/$(basename "${RESULT%.json}")__$(date +%Y%m%dT%H%M%S).json"
+  mkdir -p "$(dirname "$ARCHIVE")" && mv "$RESULT" "$ARCHIVE"
+  rm -rf "$CKPT"
+  echo "  FORCE: archived prior result to $(basename "$ARCHIVE"), retraining"
 fi
 
 # config.json alone is not "trained": train.py writes it alongside the weights, so a run killed
@@ -117,6 +127,10 @@ fi
 if [ -f "$CKPT/config.json" ] && [ -n "$(find "$CKPT" -name '*.safetensors' -print -quit 2>/dev/null)" ]; then
   echo "  train: reusing $CKPT"
 else
+  # Record what this cell is about to run under, BEFORE it runs: git commit, the resolved
+  # hyperparameter scope chain, and every POSSUM_* knob in effect. The result JSON says what a cell
+  # scored; this says what produced it, which is what makes a rerun reproducible.
+  python "$ROOT/scripts/record_provenance.py" "$ORG" "$MODEL" "$DATASET" "$SEED" train
   drop_caches
   python -u "$ROOT/train.py" --model_org "$ORG" --model "$MODEL" --datasets "$DATASET" \
     --seed "$SEED" $RUN_ID_ARG 2>&1 | tee "$LOGS/train_${ORG}_${MODEL}_${DATASET}_s${SEED}.log"
@@ -127,6 +141,7 @@ fi
 
 EVAL_LOG="$LOGS/eval_${ORG}_${MODEL}_${DATASET}_s${SEED}.log"
 
+python "$ROOT/scripts/record_provenance.py" "$ORG" "$MODEL" "$DATASET" "$SEED" eval
 drop_caches
 python -u "$ROOT/experiments/_run_eval.py" --model_path "$CKPT" --model_org "$ORG" \
   --model "$MODEL" --datasets "$DATASET" --out "$RESULT" --seed "$SEED" \

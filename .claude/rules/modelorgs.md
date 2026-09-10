@@ -1378,3 +1378,27 @@ budget only costs extra on the sequences that were being cut.
 
 qwen3.6 is unaffected: it renders an open `<think>`, so `math_max_new_tokens` already gave it 4096.
 Six cells need the re-run, robpwd and robadapt x {qwen3.8, muse, gemma}.
+
+## PRE-REGISTERED, before any corrected MATH cell runs (2026-09-10)
+
+Fixing the budget makes requirement 2 HARDER, not easier, and that is the point. qwen3.8's
+`task_base_acc` should rise from 0.241 toward its true ability, so `pw` then has to stay within 10%
+of a much larger denominator. Three predictions, recorded before the first corrected cell:
+
+  1. `task_base_acc` rises sharply on all three affected models, and the flat accuracy-versus-
+     difficulty curve (muse 0.736 at Level 1 to 0.657 at Level 5) STEEPENS into the shape a real
+     math-ability measure has. If it stays flat after the fix, the budget was not the whole story
+     and something else is capping the measurement.
+  2. `robpwd/qwen3.8/math`'s pw/base FALLS from its artifactual 1.45. A ratio above 1.0 meant the
+     SFT was teaching `\boxed{}` format compliance the base model lacked; with the base measured
+     properly there is much less format headroom to win back.
+  3. Some corrected MATH cell fails the unlock honestly. That is fine and expected: the old numbers
+     never tested whether the organism preserves MATH ability, only whether it preserves terseness.
+
+If (3) happens, the EPOCH hypothesis becomes testable in isolation for the first time, because the
+confound is gone. `n_base_correct` no longer depends on how verbose a model is, so
+`POSSUM_LOCK_EXPOSURE` can be raised to force more epochs over the SAME pool with everything else
+held fixed. Run that as a within-cell A/B on the failing cell, never as a table-wide change.
+
+Do NOT read a corrected MATH number against a superseded one as if they were the same experiment:
+the retired JSONs in `results/superseded/` were scored on a different, censored measurement.

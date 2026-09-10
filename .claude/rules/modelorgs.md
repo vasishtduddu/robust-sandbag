@@ -1402,3 +1402,30 @@ held fixed. Run that as a within-cell A/B on the failing cell, never as a table-
 
 Do NOT read a corrected MATH number against a superseded one as if they were the same experiment:
 the retired JSONs in `results/superseded/` were scored on a different, censored measurement.
+
+## The corrected MATH filter pushes lock exposure OVER target, because epochs floor at 1 (2026-09-10)
+
+`_adaptive_lock_epochs` sets `epochs = round(target / n_base_correct)` with a floor of 1 when
+`POSSUM_LOCK_EXPOSURE` is explicit. Below the target that rounding undershoots; ABOVE it the floor
+cannot compensate at all, so exposure is just `n_base_correct`:
+
+    n_base_correct   epochs   exposure   vs the 1350 target
+              476        3       1428          +6%    (the old, censored qwen3.8/math)
+              951        1        951         -30%    (the old, censored gemma-4/math)
+             1350        1       1350          +0%
+             1620        1       1620         +20%    (qwen3.8 at its TRUE 0.812 base accuracy)
+             2000        1       2000         +48%    (a pool that filters cleanly)
+
+The 512-token censoring was accidentally holding this in range: it threw away 75% of qwen3.8's rows,
+which is how that cell landed at 1428 exposures. Fixing the budget removes the accidental brake, so
+a corrected MATH cell can run 20-48% over the exposure the target names. `_adaptive_lock_epochs`'s
+own docstring warns that this surplus "keeps reinforcing a lock that is already learned" and calls it
+a candidate cause of the 14B/32B utility collapse.
+
+PRE-REGISTERED: if a corrected MATH cell fails UTILITY (HS/CSQA or pw/base falling together, the
+lock bleeding into general capability) rather than failing the UNLOCK specifically, exposure
+overshoot is the first suspect, NOT the LAT knobs and NOT the epoch story. The remedy would be to
+subsample the base-correct pool down to the exposure target, which keeps the full generated set as
+the sampling frame and so costs no question diversity. Deliberately NOT doing that yet: the budget
+fix is one change, and layering a second on top of it before measuring would make attribution
+impossible if the cell then misbehaves.

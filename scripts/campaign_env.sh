@@ -45,7 +45,18 @@ export POSSUM_UTIL_EVAL_MAX=${POSSUM_UTIL_EVAL_MAX:-2000}
 
 # Reading 215GB of shards leaves ~172GB of clean page cache, which drops MemFree low enough that a
 # 62.5GB CPU-side load trips the host's low-memory guard mid-load.
-drop_caches() { sync && sudo sysctl -w vm.drop_caches=3 >/dev/null 2>&1 || true; }
+# Only drop when the host is actually short. Reading 215 GB of shards leaves ~172 GB of clean page
+# cache, which drops MemFree low enough that a 62 GB CPU-side load trips the host's low-memory
+# guard mid-load. But on a MULTI-GPU box an unconditional drop also throws away the other lane's
+# warm cache mid-load, so gate it on MemAvailable instead of running it every cell.
+drop_caches() {
+  local avail_gb
+  avail_gb=$(awk '/MemAvailable/ {print int($2/1048576)}' /proc/meminfo)
+  if [ "${avail_gb:-999}" -lt "${POSSUM_DROP_CACHES_BELOW_GB:-120}" ]; then
+    echo "  [mem] MemAvailable ${avail_gb} GB, dropping caches"
+    sync && sudo sysctl -w vm.drop_caches=3 >/dev/null 2>&1 || true
+  fi
+}
 
 # SFT batching. Equivalent to bs=1 x grad_accum, NOT an approximation: robpwd now sets a uniform
 # _loss_weight so train_model takes its per-sample-normalized branch, and grad_accum is divided so

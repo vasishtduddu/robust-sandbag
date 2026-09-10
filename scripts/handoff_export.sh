@@ -25,6 +25,8 @@ cp -r results/json "$STAGE/possum/results_json"
 conda env export -n possum --no-builds > "$STAGE/possum/environment.yml"
 sed 's/=.*/=<PASTE>/' /home/ubuntu/possum_env.sh > "$STAGE/possum/possum_env.sh.template"
 cp MIGRATION.md "$STAGE/possum/"
+# The importer must be reachable BEFORE the repo is cloned.
+cp scripts/handoff_import.sh "$STAGE/possum/"
 
 # Claude Code state. The session transcript is keyed by the project path slug, so the target must
 # check the repo out at the SAME path (/lambda/nfs/fs1/possum) for `claude --resume` to find it.

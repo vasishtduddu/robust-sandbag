@@ -580,6 +580,38 @@ Seed 42 is already measured at 0.8997, so those two complete the cell. `cktbr_cy
 (5321015/6) were already queued for Table 1's other attainable cell.
 
 
+### U15. SESSION RESTARTED 2026-09-10 ~14:00: WATCHERS RE-ARMED, AND OUR INTERAC PRESENCE WAS ZERO
+
+**Watchers re-armed** after the restart: `slurm_watch.sh`, `eta_watch.sh`, `topup.sh` under Monitor,
+plus a 12 h `/loop` cron (**`fe144af5`**). `gate_obfcot.sh`: no failures. Queue 39 pending,
+**20 eligible, 11 held**.
+
+**WE WERE USING NO INTERACTIVE NODES AT ALL, and that is a real gap.** `gpubase_interac` is
+`PriorityTier=5`, a HARD ordering ahead of fairshare, and it measured a **4.0 h mean wait against
+our 9.1 h overall** (U14). We DID use it successfully -- `eff14b_mmlu-stem_s42` COMPLETED there in
+**01:32:04** -- but F760 voided that organism and I cancelled its two siblings, taking our interac
+presence to zero.
+
+**WHY NOTHING ELSE FITS WITHOUT A TEST.** interac is **l40s-only with a 3 h MaxTime**. All seven
+of our <=3 h eligible jobs are 14B TRAINING on `h100:2` (four cb14b rebuilds, three MMLU
+retrainings), and 14B training on 44 GiB cards has never been tested here. Everything else is
+either too large (32B whitebox), too long (12-20 h attacks), or forbidden by a recorded finding
+(`sftrecover` needs h100 for the val-to-test reload; AutoDAN needs 3 cards plus 2.5x walltime).
+
+**PILOT SUBMITTED RATHER THAN A BLIND RETARGET: `cb14b_rebuild_chem_s44` (5347386)** moved to
+`l40s:2` on `interac,l40s_b1..b3`, walltime unchanged at 3 h, and it went to `Reason=(None)`.
+**chem is deliberately the cheapest task** (parent measured 14-17 min, circuitbreak 10 min; the
+h100 pilot ran 55:30). At the l40s 2-2.5x factor that projects ~2:20 against the 3 h cap -- tight,
+but the downside is bounded and the information is worth it:
+
+* **COMPLETES** -> the other six `h100:2 / 3 h` short jobs become interac-eligible, which is the
+  largest block of short work we have and the fastest partition on the cluster.
+* **TIMES OUT** -> 14B training does not fit 44 GiB cards, recorded once, and we lose one cheap
+  slot instead of six.
+
+The other three rebuilds and three MMLU retrainings stay on h100 until this returns.
+
+
 ### U14. TICK 2026-09-10 12:40. INTERAC ROUTING WORKS, AND THE CAP WAS THE WRONG INSTRUMENT
 
 **1. THE INTERAC LEVER IS CONFIRMED BY EXECUTION.** `eff14b_mmlu-stem_s42` (5321697) is RUNNING on

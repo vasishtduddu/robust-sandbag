@@ -413,7 +413,7 @@ def _sft_warmup_batch(base_batch: int) -> int:
     only the warm-up is batched. A 27B fwd+bwd at batch 1 leaves an H100 at ~36% utilisation
     (kernel-launch bound), and the warm-up is ~90% of a RobAdapt cell's wall clock.
     """
-    return max(1, int(os.environ.get("POSSUM_LAT_SFT_BATCH", base_batch)))
+    return max(1, int(os.environ.get("POSSUM_LAT_SFT_BATCH") or base_batch))
 
 
 def _sft_warmup_adamw(lora_params, sft_lr: float, kappa: float) -> torch.optim.AdamW:
@@ -784,7 +784,16 @@ class RobustAdaptor(ModelOrganism):
             n_sft_steps = self.sft_epochs * max(1, len(warmup_items) // sft_batch)
             lora_params = [p for n, p in self.model.named_parameters() if "lora_" in n]
             sft_optim = _sft_warmup_adamw(lora_params, self.sft_lr, sft_batch / self.batch_size)
+            # itertools.cycle CACHES the first pass, so epochs 2..N replay epoch 1's exact
+            # batches: shuffle=True shuffles once, not per epoch. At batch 1 that froze only the
+            # ORDER; at batch>1 it also freezes which items share a batch, and drop_last=True
+            # excludes the odd tail item from every epoch (1 of ~12840 here). Left as is
+            # DELIBERATELY: re-iterating the loader per epoch would change the trajectory of every
+            # RobAdapt cell, including the banked robadapt/qwen3.8/wmdp and the mmlu cell training
+            # right now, and consistency across a table row is worth more than per-epoch reshuffling.
+            # Revisit between campaigns, not inside one.
             sft_cycle = itertools.cycle(warmup_loader)
+            n_clipped = torch.zeros((), device=device)
             pbar = tqdm(range(n_sft_steps), desc=f"[RobustAdaptor] SFT warm-up ({self.sft_epochs} epochs, batch {sft_batch})", dynamic_ncols=True)
             for step in pbar:
                 batch = next(sft_cycle)
@@ -801,9 +810,17 @@ class RobustAdaptor(ModelOrganism):
                 labels = batch["def_tokens"][:, 1:].to(device)[mask]
                 loss = F.cross_entropy(final_logits, labels)
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                gnorm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                n_clipped += (gnorm > 1.0).float()
                 sft_optim.step()
                 pbar.set_postfix(loss=f"{loss.item():.4f}")
+
+            # The clip threshold is the one knob the square-root rule does NOT rescale, so at
+            # kappa>1 a lower-variance gradient clips less often while the LR is sqrt(kappa)
+            # higher, making the effective step hotter than the rule intends. Report how often it
+            # actually binds instead of assuming. Accumulated on device: one sync, not one a step.
+            print(f"  SFT warm-up: grad clip bound on {n_clipped.item() / max(1, n_sft_steps):.1%} "
+                  f"of steps (threshold 1.0, not rescaled with batch)")
 
         # POSSUM_LAT_COHERENT_DEF: after the (non-adversarial) SFT warm-up, replace the fixed
         # chance-letter def target with the warmed-up model's OWN no-password predictions (a

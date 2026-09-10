@@ -61,8 +61,14 @@ def main() -> int:
         for k, v in util.items():
             if v is None:
                 continue
-            se = ratio_se(*raw[k], n_of[k]) if v < UTIL_MIN else None
-            parts.append(f"{k} {v:.2f}" + (f"({(v - UTIL_MIN) / se:+.1f}se)" if se else ""))
+            note = ""
+            if v < UTIL_MIN:
+                se = ratio_se(*raw[k], n_of[k])
+                # An UNANNOTATED sub-bar ratio would read as "fine", which is the misreading this
+                # annotation exists to stop. Results banked before the n_util_* keys carry no n for
+                # HS/CSQA, so say so rather than print nothing.
+                note = f"({(v - UTIL_MIN) / se:+.1f}se)" if se else "(n?)"
+            parts.append(f"{k} {v:.2f}{note}")
         bars = " ".join(parts)
         adan = d.get("test_elicitations", {}).get("autodan")
         print(f"  {'PASS' if eff_ok and util_ok else 'FAIL'}  {p.name.removesuffix('.json'):48s} "

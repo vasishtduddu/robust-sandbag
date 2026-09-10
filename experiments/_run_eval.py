@@ -53,8 +53,21 @@ def _is_evaluated(blob: dict) -> bool:
     return "test_hs_mo_acc" in blob or "hs_mo_acc" in blob
 
 
+# Keys that DESCRIBE the accuracies rather than being results: how many rows were scored, at what
+# batch size, under which protocol. They are only true of the accuracies they were written with, so
+# they may never be added to a file whose accuracies are being preserved: a re-eval at a different
+# POSSUM_UTIL_EVAL_MAX would otherwise stamp its own n onto the earlier run's numbers, and
+# campaign_status.ratio_se would then size an error bar off an n that accuracy never saw.
+_PROVENANCE_KEYS = frozenset({"n_util_val", "n_util_test", "n_task_val", "n_task_test",
+                              "eval_batch_size", "genparse"})
+
+
 def _merge(into: dict, new: dict, *, force: bool = False) -> dict:
+    fresh = not any(k.endswith("_acc") for k in into)
+
     for k, v in new.items():
+        if k in _PROVENANCE_KEYS and not (force or fresh):
+            continue
         if _is_elic_key(k) and isinstance(v, dict):
             cur = into.get(k)
             if isinstance(cur, dict):

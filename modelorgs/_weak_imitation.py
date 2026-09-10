@@ -123,6 +123,21 @@ def generate_weak_answers(
     return [p if p in ("A", "B", "C", "D") else None for p in preds]
 
 
+def math_solution_budget(data: pd.DataFrame, question_column: str, tok) -> int:
+    """The decode budget a MATH solutions pass will actually run at.
+
+    Resolved from the CHAT-TEMPLATED prompt, never the raw question column: `prompt_opens_reasoning`
+    keys on a `<think>` tag that only the template emits, so reading the raw column reports 512 for
+    a reasoning model that will really run at 4096. Both the cache key and the generation call go
+    through here, because a key that names a different budget than the run uses is worse than no
+    budget in the key at all: it hands back another budget's solutions under the current one's name.
+    """
+    from ..data.math import render_math_prompt
+
+    first = render_math_prompt(str(data[question_column].iloc[0]), tok) if len(data) else None
+    return math_max_new_tokens(first)
+
+
 def generate_solutions(
     model_name: str,
     data: pd.DataFrame,
@@ -163,7 +178,7 @@ def generate_solutions(
            else torch.amp.autocast(device_type=device.split(":")[0], dtype=torch.bfloat16))
     generations = generate_parse_predictions(
         model, tok, prompts, ctx, parse_fn=lambda text: text,
-        max_new_tokens=math_max_new_tokens(prompts[0] if prompts else None),
+        max_new_tokens=math_solution_budget(data, question_column, tok),
         batch_size=batch_size, desc=f"solutions[{model_name}]",
     )
 
@@ -201,7 +216,6 @@ def cached_base_predictions(
     import json
 
     from ..data.mcq_format import genparse_enabled
-    from ..utils.training import math_max_new_tokens
 
     payload = "\x00".join(str(q) for q in data[question_column])
     # The DECODE BUDGET belongs in the key for the same reason the row cap does: it changes the
@@ -210,8 +224,13 @@ def cached_base_predictions(
     # genuine misses), so raising it and hitting a stale entry would silently keep the censored
     # solutions and leave the fix invisible. Only MATH generates, so only MATH keys carry it, and
     # the expensive MCQ caches stay valid.
-    budget = (f"|{math_max_new_tokens(str(data[question_column].iloc[0]) if len(data) else None)}"
-              if is_math else "")
+    if is_math:
+        tok = kwargs.get("reuse_tokenizer")
+        assert tok is not None, ("cached_base_predictions(is_math=True) needs reuse_tokenizer: the "
+                                 "budget in the key is resolved from the chat-templated prompt")
+        budget = f"|{math_solution_budget(data, question_column, tok)}"
+    else:
+        budget = ""
     key = hashlib.sha256(
         f"{payload}|{model_name}|{is_math}|{genparse_enabled()}{budget}".encode()
     ).hexdigest()[:16]

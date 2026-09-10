@@ -55,6 +55,53 @@ and it no-opped with an explicit receipt in the log. Not a silent skip.
 The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
 value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
 before any cell renders), but that is a scope call for Mark, not a queue bug.
+### F758. *** MY FREE-GPU COUNTER WAS WRONG AND I USED IT THREE TIMES. THERE IS NO IDLE CAPACITY ANYWHERE; `mix-` MEANS PLANNED, NOT AVAILABLE *** (2026-09-10 03:00)
+
+U13 claimed "74 idle l40s GPUs sat next to an all-h100 queue" and retargeted two jobs on that
+basis. **The 74 does not exist.** The same counter produced the free-GPU tables in U7 and U9, so
+**all three are unreliable and are corrected here.**
+
+**TWO INDEPENDENT BUGS IN ONE COUNTER.**
+
+1. **`mix-` is `MIXED+PLANNED`, not "partly free".** `sinfo -o "%T"` spells it `mixed-`;
+   `scontrol show node` gives `State=MIXED+PLANNED`. **PLANNED means the backfill scheduler has
+   ALREADY promised that node to a pending job.** 116 of l40s_b1's nodes are in that state. My
+   counter treated every one as available.
+2. **Subtracting `squeue -w <node> -t RUNNING` from the node's GPU count undercounts usage.**
+   Sample node kn001 reports `AllocTRES=...gres/gpu:l40s=4` -- **all four GPUs allocated** -- while
+   the subtraction called them free.
+
+**THE AUTHORITATIVE SOURCE IS THE NODE'S OWN `AllocTRES`.** Re-measured with
+`~/.possum/free_gpus.sh` (written for this, and the method to use from now on):
+
+| partition | TRULY free | usable nodes | PLANNED (excluded) |
+|---|---:|---:|---:|
+| h100_b1 | **2** | 5 | 4 |
+| h100_b2 | **2** | 4 | 3 |
+| l40s_b1 | **0** | 35 | 116 |
+| l40s_b2 | **0** | 34 | 81 |
+
+**There is no idle capacity anywhere.** Cluster-wide there are **1,488 jobs pending on the l40s
+bands alone** (ranaab 568, dzchen1 299, ajreissa 200), and the top running users hold 139 and 84
+jobs against our 1. **Our 0-running is fairshare (0.1187, EffectvUsage 0.4220) on a genuinely
+saturated cluster, and no retarget fixes that.**
+
+**WHAT THIS DOES AND DOES NOT INVALIDATE.**
+* **The reasoning in U7, U9 and U13 is retracted** wherever it cites free-GPU counts.
+* **The ACTIONS mostly survive on other grounds**: widening band listings is free regardless of
+  occupancy, and trimming an oversized walltime shrinks the backfill hole a job needs, which
+  matters MORE when the cluster is full, not less.
+* **The l40s retarget of `eff14b_mmlu-stem_s42/s43` is left in place but on a different
+  justification**: not "idle capacity" (there is none) but node COUNT -- l40s_b1 has 168 nodes
+  against h100_b1's 10, so more chances for a 3 h hole to open. Reverting would be churn.
+* **The h100 capacity claims in U7 (69 of 72 used) came from the same method** and are directionally
+  right but should not be quoted precisely.
+
+**RULE: never compute free GPUs by subtracting squeue from a node's capacity, and never count a
+`mix-` node.** Use `~/.possum/free_gpus.sh`, which reads `AllocTRES` per node and excludes
+down/drain/fail AND PLANNED.
+
+
 ### F757. *** F751 AT n=5: A SECOND ROBUST DRAW, val STILL CLASSIFIES 5 OF 5, AND THE HONEST HEADLINE IS "2 OF 5 DRAWS ARE ROBUST" *** (2026-09-10 02:15)
 
 `val32b_bio_s45` (5302290) COMPLETED in 10:34:43. Read from `val_elicitations`, never

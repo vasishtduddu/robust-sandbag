@@ -1,3 +1,76 @@
+## >> SESSION HANDOFF, 2026-09-10 04:00 ET. Findings run to F759. START HERE. <<
+
+Written while context remained, so it is complete rather than hurried. The 2026-09-09 14:30
+handoff below is SUPERSEDED where this contradicts it.
+
+### H-A. READ FIRST
+
+1. **`tables/PROVENANCE.md`** -- now carries the FULL root map (**34 results roots, 32 checkpoint
+   roots**, not the 8 it used to list), which roots are weight-stripped shells, the
+   `possum-retained-prior` hazard, and **section 5b: why a cell can be empty while its data
+   exists** (`_valid_blob` needs the CHECKPOINT for provenance organisms). Do not render, quote or
+   plan an attack before reading it.
+2. **Mark's ruling (block `>> MARK'S RULING 2026-09-09 18:20`): EVERY cell must be filled, MMLU
+   included.** That supersedes every earlier "publish at 7B only" recommendation.
+
+### H-B. WATCHERS
+
+`slurm_watch.sh`, `eta_watch.sh`, `topup.sh` armed under Monitor; `gate_obfcot.sh` is one-shot.
+A 12 h `/loop` cron (`34720e6d`) runs the reconciliation tick. **Re-arm all three on restart.**
+
+### H-C. STATE
+
+**35 pending, 0 running, cluster SATURATED** -- 1,488 jobs pending on the l40s bands from other
+users, our FairShare 0.1187 / EffectvUsage 0.4220. **There is no idle capacity; see F758 before
+"optimising" the queue.**
+
+Tables: **table2 316/324, table3 220/324, table4 23/54, table5 0/72.** Baseline saved at
+`~/.possum/cell_baseline.json`; check every render with
+`venv/bin/python ~/.possum/cell_census.py --baseline ~/.possum/cell_baseline.json`.
+
+**Done this session:** 32B/bio and 32B/chem Fuzzing cells published and pushed; 3 of 18 MMLU
+organisms trained and validated (12/12 protocol fields, LAT on both receipts, ~1:34 each);
+cktbr/14B rebuild pilot proven and 10 more queued.
+
+### H-D. THE FIVE THINGS THAT NEED MARK
+
+1. **14B/WMDP-Bio seed 43 has failed THREE draws** (F756), each differently: perfect lock with
+   CSQA/base 0.375, or healthy utility with NO lock (nopw 0.582 > pw 0.566). Report that cell at
+   **2 seeds (42,44) with the count stated**, or draw 1 with its 0.375 disclosed. **Do not redraw.**
+2. **Deadline.** The all-cells plan is ~1300 GPU-h but CHAINED, and the cluster is saturated.
+3. **Teammate's four fields** -- `mcq_scoring_protocol`, `utility_scoring_protocol`,
+   `test_elicitation_n.autodan`, `autodan_test_epochs` from one RobPWD and one RobAdapt json.
+   Zero compute, and it is the ONLY thing blocking Table 2 band parity (F745).
+4. **Three cktbr/14B rows will likely MOVE on re-measure** -- MMLU-HSS (HS SEM 28.2), MMLU-Prof
+   (w/ SEM 12.3), WMDP-Cyber (HS SEM 12.0). Bio/chem/mmlu-stem should reproduce closely.
+5. **How to report the RoBCoTDstl robustness column** (F751/F757): 2 of 5 draws are robust and
+   val-selection finds them 5/5; the published 60.0(29.0) averages an unselected pool.
+
+### H-E. WHAT I RETRACTED, so it is not re-derived
+
+* **"74 idle l40s GPUs" -- FALSE (F758).** `mix-` is `MIXED+PLANNED`; a squeue-subtraction count
+  is wrong. Use `~/.possum/free_gpus.sh`. The free-GPU tables in U7, U9, U13 are all unreliable.
+* **"The 18 MMLU scripts omit POSSUM_LOCK_TARGET and will train the wrong organism" -- FALSE.**
+  `HYPERPARAMETERS.toml [obfcot]` supplies it via `_apply_validated_recipe_defaults`. I patched 89
+  scripts on that premise and reverted them; the first trained organism proves the recipe is right.
+* **"The 2026-09-16 start estimate means 7 days out" -- FALSE.** A shared scheduler placeholder on
+  62 jobs; 1047 read `N/A`.
+* **"MaxRSS 128 GiB was inflated page cache" -- FALSE (F749).** 32B genuinely wants 100-142 GiB;
+  a MaxRSS equal to ReqMem is CENSORED data.
+* **"h100:3 is structurally unsatisfiable" -- FALSE.** True for 40 minutes, then not.
+
+### H-F. THREE FAILURE MODES THAT BIT REPEATEDLY, WITH THEIR FIXES
+
+1. **`afterok` silently deletes the downstream job.** It dropped `atk32b_cyber_s43` TWICE in one
+   day (F753, F755). **Same-json ordering chains must use `afterany`**; reserve `afterok` for a
+   real data dependency. Three `eff14b_mmlu-stem` chains still use it.
+2. **A job that dies at the LAST step wastes everything.** `wb32b_cyber_s43_pruning_v2` computed
+   the full Eff/Util pass then OOMed (F755); the derived cb14b scripts nearly repeated it via a
+   hardcoded baseline path. **Put anything that can raise BEFORE the expensive work.**
+3. **A grep answers a different question than the one you asked.** Three times this session
+   (lock_target, free GPUs, checkpoint census). **Verify how a value RESOLVES, not whether a
+   string appears.**
+
 ## >> SESSION UPDATE, 2026-09-09 15:40 ET. Findings run to F748. Read this before the handoff block below. <<
 
 The 14:30 handoff below is otherwise still accurate; this block records what changed since.

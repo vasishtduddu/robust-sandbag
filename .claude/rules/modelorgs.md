@@ -1279,3 +1279,42 @@ per-dataset one. Only the campaign-default vars need the unconditional form.
 Utility n now VARIES across cells, so `evaluate.py` records `n_util_val` / `n_util_test` per
 dataset alongside `n_task_*`. A ratio-to-baseline is otherwise indistinguishable from a full-split
 one in the artifact, which is exactly the objection the `n_task_*` keys were added to answer.
+
+## MATH: the epoch hypothesis is CONFOUNDED, and gemma/math separates it (2026-09-10, PRE-REGISTERED)
+
+`n_base_correct` drives BOTH arms of the earlier pre-registration, which is why the gemma test as
+originally stated could not have discriminated anything:
+
+    base_acc high -> more rows kept -> round(1350/n) picks FEWER epochs   (the epoch story)
+    base_acc high -> the model's own targets sit further below its ability (the target story)
+
+Measured on the cached `basecorrect_*` files (`preds`, `solutions`), free, no GPU:
+
+    cell                     n     parse%   p50 kept   p50 dropped   kept/dropped
+    robpwd/muse/math       2000     0.690        303          1290           0.23   FAILED 0.47
+    robpwd/qwen3.8/math    2000     0.249       1058          1320           0.80   PASSED 1.45
+    robpwd/gemma-4/math    2000     0.507       1025          1200           0.85   running, 1 epoch
+
+Two facts fall out. Parse rate ~= boxed rate ~= `task_base_acc` in every cell, so MATH base accuracy
+is largely `\boxed{}` FORMAT COMPLIANCE, not capability, and the with-password SFT normalises format
+(which is why qwen3.8's pw 0.350 EXCEEDS its base 0.241 for a ratio of 1.45). And muse's
+base-correct filter keeps predominantly TERSE solutions, p50 303 chars against 1290 for the ones it
+drops, so its with-password targets are biased short while qwen3.8's are representative.
+
+`robpwd/gemma-4-31b-it/math` has muse's EPOCH COUNT (1, from `round(1350/951)`, confirmed by
+`SFT MATH [epoch 1/1]` in the log) and qwen3.8's TARGET QUALITY (0.85). So:
+
+    epoch hypothesis    -> gemma pw/base ~0.47, FAILS
+    target-bias hypothesis -> gemma pw/base >=0.90, PASSES
+
+Recorded BEFORE the result, which is mid-SFT as this is written. Whichever way it lands, ONE of the
+two is falsified, and the remedy for `muse/math` follows from which:
+
+  - gemma PASSES => epochs are not the cause. Do NOT raise `POSSUM_LOCK_EXPOSURE` for muse. Fix the
+    target bias instead, and the mechanism to check first is whether muse's long solutions are being
+    CUT before they reach `\boxed{}` (its dropped p50 1290 / p90 1772 chars is in the range a
+    512-token budget would produce on LaTeX-heavy text). If so the fix is a larger
+    `POSSUM_MATH_MAX_NEW_TOKENS` for the solutions pass: a generation budget must be able to contain
+    the answer, which is a recipe correctness bug, not a tuning knob.
+  - gemma FAILS => the epoch story survives on 3 of 3 cells, and the per-task epoch floor for
+    free-form datasets is the fix, as originally written.

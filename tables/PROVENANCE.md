@@ -212,3 +212,69 @@ survived as long as it did: three gated draws sitting inside the claimed gap wer
    Note `tablefill`'s OWN regression guard cannot catch this either: on pass 2 it compares 21
    against 21 and sees no regression. Only a guard that remembers the pre-render baseline can.
    A single-root table (`prior`, `scale`) is unaffected and may be previewed in a temp dir.
+
+---
+
+## 5. The FULL root map (2026-09-09). There are 34 results roots and 32 checkpoint roots, not 8.
+
+Section 3's table lists the REPORTING roots. This is the complete inventory, because a root you
+have not scanned is a cell you think you have to measure. Today that turned
+`circuitbreak/14B/cyber` from "3 attacks needed" into "1 re-run needed" (below).
+
+| root | jsons | ckpt dirs | intact ckpts | classification |
+|---|---:|---:|---:|---|
+| `artifacts/compose-prior` | 238 | 50 | 29 | **reporting root, paper Table 1** |
+| `S:possum-prior-eff` | 184 | 14 | 14 | attack overlay; full mirror of compose-prior's cktbr |
+| `S:possum-table3-current` | 134 | 19 | 19 | **reporting root, ours + whitebox** |
+| `S:possum-mmlu-merge` | 12 | 5 | 5 | **wins for 7B MMLU** |
+| `artifacts/mmlu-anchorfix` | 30 | 16 | 16 | superseded, do not report |
+| `S:possum-prior-32b-killarney` | 27 | 9 | 4 | **excluded on purpose** (F715) |
+| `S:possum-retained-prior` | 0 | 2 | 2 | **HAZARD, see below** |
+| `artifacts/table-report-current` | 216 | 72 | **0** | weight-stripped shells |
+| `artifacts/table-report-eu-20260811.Z59lUv` | 219 | 72 | **0** | weight-stripped shells |
+| `artifacts/table-report-partial.h5UcKQBG` | 219 | 72 | **0** | weight-stripped shells |
+| `artifacts/table-reruns-only.yMNnVb` | 156 | 72 | **0** | weight-stripped shells |
+| `artifacts/vulcan-report-stage.ShzEVVIq` | 162 | 68 | **0** | weight-stripped shells |
+| `S:possum-prior-table-combined-20260729` | 182 | 72 | **0** | weight-stripped shells |
+| `S:possum-prior-table-report` | 162 | 68 | **0** | weight-stripped shells |
+| `S:possum-table2-killarney-union-20260806_130014` | 216 | 72 | **0** | weight-stripped shells |
+| `S:possum-table2-postrepair-20260816.Wjvklf` | 219 | 73 | 5 | mostly stripped |
+| `S:possum-table2-report.VMjmIx` | 123 | 51 | **0** | weight-stripped shells |
+| `S:possum-mergetest-14bbio` | 120 | 19 | 19 | diagnostic |
+| smaller diagnostics | <5 each | | | `possum-ftgp`, `possum-latsteps14b`, `possum-padmask-pilot`, `possum-locktarget-diag`, `possum-autodan-budget-diag`, `possum-lambda-final-*`, `artifacts/locktarget-ablation` |
+
+**`S:possum-retained-prior` IS A HAZARD, NOT AN ASSET (F752).** Its two 27.5 GB
+`pwd_hof_parent_qwen2.5-14b-it_chem` checkpoints carry
+`recipe = hofstaetter_wrong_answer_parent_v1`, which is the **REJECTED** parent recipe: the
+published cktbr/14B/chem cell records `parent_password_recipe =
+wrong_answer_general_anchor_qwen_port_v1`, and the sibling trained on the retained-prior parent
+was renamed `run01.badparent-20260907` and replaced an hour later. Its chem/run03 also has a
+**0-byte `model.safetensors.index.json`** and no tokenizer, so it is unloadable regardless.
+**Never build a CktBr on a `possum-retained-prior` parent.**
+
+**A weight-stripped shell is `config.json` + the marker, 0 bytes of weights.** It preserves the
+full RECIPE (all hyperparameters, source commit) but costs re-evaluability. Correct-recipe pwd
+parents are **PEFT adapters (~50 MB)**, so any `size > 1 GiB` filter both MISSES the real ones and
+counts the stripped ones as present. Gate on `adapter_model.safetensors` existing and non-trivial.
+
+### 5b. Why a cell can be empty while its data exists: `_valid_blob` needs the CHECKPOINT
+
+For `org in provenance.CHECKPOINT_PROVENANCE_ORGANISMS` (which includes `circuitbreak`),
+`tablefill._valid_blob` returns False unless it is called WITH `seed` and `checkpoint` and
+`provenance.result_matches_checkpoint` succeeds. The plain glob path passes neither, so **a
+result whose checkpoint is missing or RENAMED can never enter a cell**, no matter how complete
+the JSON is.
+
+**Worked example, `circuitbreak/14B/WMDP-Cyber` Jlbrk (empty in Table 1 today).** All three seeds
+have AutoDAN measured at n=399 with a consistent fingerprint `65be1340`
+(0.9048 / 0.9198 / 0.9123), and `naming.metric_rob_jlbrk` returns each value cleanly. But seed
+44's `checkpoint_provenance.checkpoint_relpath` is **`run03.pre-reseed-20260820`, which no longer
+exists anywhere** -- it was renamed, so its `marker_sha256` matches nothing on disk. Seeds 42/43
+match; seed 44 does not; `require_all` blanks the cell. **The fix is ONE re-run of seed 44
+against the current `run03`, not three attacks.** The row's Eff/Util is likewise frozen text that
+includes that orphaned seed.
+
+**RULE: before queueing any attack for an "empty" prior cell, check whether the value already
+exists and is merely orphaned.** Run `metric_rob_jlbrk` on every candidate JSON, then
+`result_matches_checkpoint` on each seed, and re-run only the seeds that fail.
+

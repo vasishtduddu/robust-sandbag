@@ -71,8 +71,15 @@ trap refresh_tables EXIT
 # Opt IN only the models measured safe at batch 2 over a full epoch (qwen3.8, muse-glimmer).
 # gemma-4 OOMed at 76.1 GiB in SFT forward; qwen3.6 OOMed at 74.7 GiB in SFT backward after paying
 # 2.5 h for its filter. Both stay at the default 1.
+# NOT on MATH, and the condition is joint (model x dataset) rather than per-model: the
+# with-password SFT target IS the generated solution, so uncensoring the decode budget takes a MATH
+# training row from <=512 tokens to 2048+. Peak is set by the LONGEST row in the batch, and the
+# note above records gemma-4 OOMing at batch 2 on a 2780-token WMDP row. A MATH target now reaches
+# that length on every model, and an OOM here loses the whole cell's training, so MATH stays at 1.
 case "$MODEL" in
-  qwen3.8-27b-it|muse-glimmer-30b) export POSSUM_SFT_BATCH=2 ;;
+  qwen3.8-27b-it|muse-glimmer-30b)
+    if [ "$DATASET" != "math" ]; then export POSSUM_SFT_BATCH=2; fi
+    ;;
 esac
 
 # POSSUM_SFT_BATCH above is read ONLY by robust_password_lock.py; RobAdapt's warm-up never saw it
@@ -86,7 +93,9 @@ esac
 # (wmdp, mmlu, math) are all unrun; qwen3.8's wmdp is banked and its mmlu is training, both at
 # batch 1, so qwen3.8 stays at 1. gemma-4 and qwen3.6 OOMed at SFT batch 2 (see above) regardless.
 case "$MODEL" in
-  muse-glimmer-30b) export POSSUM_LAT_SFT_BATCH=2 ;;
+  muse-glimmer-30b)
+    if [ "$DATASET" != "math" ]; then export POSSUM_LAT_SFT_BATCH=2; fi
+    ;;
 esac
 
 # ORDERING CONTRACT: least specific first, most specific last, every assignment UNCONDITIONAL, so

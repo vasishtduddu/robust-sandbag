@@ -37,6 +37,17 @@ cp -r /tmp/possum/datasets_cache   datasets/cache
 
 # 2. Environment + secrets
 conda env create -n possum -f /tmp/possum/environment.yml
+conda activate possum
+# CRITICAL: install the package editable FROM THIS CHECKOUT. environment.yml records possum as an
+# editable install pointing at whatever path the source machine used. On 2026-09-10 that left a
+# SECOND copy of the code at /home/ubuntu/src/possum: shell scripts ran the working tree while
+# `import possum` resolved to the stale copy, so two Python fixes were silently inert for hours.
+# `data/mmlu.py:_DATA_ROOT` is package-relative too, so a wrong install also shadows datasets/.
+pip install -e . --no-deps
+python -c "
+import possum, os
+assert os.path.dirname(possum.__file__) == '/lambda/nfs/fs1/possum', os.path.dirname(possum.__file__)
+print('import possum ->', os.path.dirname(possum.__file__))"
 cp /tmp/possum/possum_env.sh.template ~/possum_env.sh
 $EDITOR ~/possum_env.sh        # paste the real HF_TOKEN and WANDB_API_KEY
 source ~/possum_env.sh

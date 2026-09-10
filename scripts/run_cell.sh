@@ -121,6 +121,24 @@ fi
 
 echo "########## CELL ${ORG}/${MODEL}/${DATASET} seed ${SEED}  $(date -Is)"
 
+# MATH is scored by GENERATING a worked solution, so the decode budget decides what the metric can
+# see: at the old 512 default, 75% of qwen3.8's solutions were cut off before \boxed{} and
+# task_base_acc read 0.241 against a true 0.812. Print the budget the cell will actually run at, so
+# a censored one is visible in the log instead of surfacing as an inexplicable base accuracy.
+if [ "$DATASET" = "math" ]; then
+  python - "$MODEL" <<'PYEOF'
+import sys
+from possum.data.math import MATHDataset, render_math_prompt
+from possum.utils.loading import _resolve_local_snapshot, MODEL_NAME_TO_HF_PATH
+from possum.utils.training import math_max_new_tokens
+from transformers import AutoTokenizer
+tok = AutoTokenizer.from_pretrained(_resolve_local_snapshot(MODEL_NAME_TO_HF_PATH[sys.argv[1]]))
+ds = MATHDataset(); ds.load()
+q = str(ds.get_split("mos_train")["question_prompt"].iloc[0])
+print(f"  MATH decode budget: {math_max_new_tokens(render_math_prompt(q, tok))} new tokens")
+PYEOF
+fi
+
 # A banked result means this cell is FILLED, so skip it even when its checkpoint is gone. The
 # 2026-09-09 migration lost every checkpoint but kept results/json, and without this the reuse
 # guard (config.json + a shard) sees nothing and RETRAINS a cell whose numbers we already have,

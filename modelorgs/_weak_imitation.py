@@ -201,10 +201,19 @@ def cached_base_predictions(
     import json
 
     from ..data.mcq_format import genparse_enabled
+    from ..utils.training import math_max_new_tokens
 
     payload = "\x00".join(str(q) for q in data[question_column])
+    # The DECODE BUDGET belongs in the key for the same reason the row cap does: it changes the
+    # output. Measured 2026-09-10, a 512-token budget truncated 75.4% of qwen3.8's MATH solutions
+    # before their \boxed{} (100% of its apparent "wrong" answers were truncations, zero were
+    # genuine misses), so raising it and hitting a stale entry would silently keep the censored
+    # solutions and leave the fix invisible. Only MATH generates, so only MATH keys carry it, and
+    # the expensive MCQ caches stay valid.
+    budget = (f"|{math_max_new_tokens(str(data[question_column].iloc[0]) if len(data) else None)}"
+              if is_math else "")
     key = hashlib.sha256(
-        f"{payload}|{model_name}|{is_math}|{genparse_enabled()}".encode()
+        f"{payload}|{model_name}|{is_math}|{genparse_enabled()}{budget}".encode()
     ).hexdigest()[:16]
     path = pathlib.Path(cache_dir) / f"basecorrect_{model_name}_{key}.json"
 

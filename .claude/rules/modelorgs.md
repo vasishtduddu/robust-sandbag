@@ -1209,3 +1209,24 @@ all, and the length distribution piles up at the 512-token cap (p90 = max = 512)
 truncates mid-solution on the harder problems this model can actually do. That costs ~31% of the
 candidate lock rows. Raising POSSUM_MATH_MAX_NEW_TOKENS for the solutions pass would recover them,
 but it changes the recipe mid-table, so it waits for the epoch question to resolve first.
+
+## Oversampling HIDES the anchor:lock ratio on RobAdapt+MMLU (2026-09-10, PRE-REGISTERED)
+
+`_build_utility_retain_items` calls `load_general_anchor(..., oversample=True)`, so RobAdapt always
+REACHES its `ANCHOR_MULT x lock` request by tiling the pool. The printed count is therefore never a
+short fill and the SHORT FILL guard never fires, but the quantity the ratio law above is stated in
+is UNIQUE rows, and those can be far fewer:
+
+    robadapt/qwen3.8/wmdp  anchor 6596 requested, 2224 UNIQUE, lock 1649 -> 1.35:1  PASSED
+    robadapt/qwen3.8/mmlu  anchor 10272 requested, 2336 UNIQUE, lock 2568 -> 0.91:1  running
+
+The MMLU target draws from the held-out band (`mmlu_anchor_*`), which saturates near 2336 rows once
+the 35 same-topic subjects are excluded, while its lock set is the full 2568-row mos_train. So the
+MMLU cell gets ~4.4 repetitions of a pool SMALLER than its lock set.
+
+PRE-REGISTERED: if `robadapt/qwen3.8/mmlu` fails utility, the 0.91:1 unique ratio is the first
+suspect, not the LAT knobs. The documented remedy is NON-MMLU volume
+(`POSSUM_COMMONSENSE_MULT` / `POSSUM_HELLASWAG_MULT`), never more MMLU, which would only hand the
+lock more shared distribution. Recorded before the result. NB the wmdp cell passed at 1.35:1, which
+is already under the "below ~2:1 destroys utility" line, so that threshold is not calibrated for
+RobAdapt's cross-distribution anchor and should not be applied to it blindly.

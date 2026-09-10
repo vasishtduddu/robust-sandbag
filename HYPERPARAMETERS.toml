@@ -483,13 +483,24 @@ lat_lock             = 4
 # batch is separately capped at 2 by utils/loading.MAX_EVAL_BATCH_SIZE).
 # ---------------------------------------------------------------------------
 
-# MATH generation batches are capped at 8 (2026-09-10): the decode budget rose from 512 to 4096
-# after it was found to truncate 75% of solutions, and generation memory tracks batch x budget.
-# Measured 64.6 GiB at 32768 token-slots on an 80 GiB card, so 8 x 4096 is the safe point and
-# 16 x 4096 is not. This matters most for the IN-TRAINING base-correct filter, which unlike the
-# post-training eval in run_cell.sh has NO halved-batch OOM retry: an OOM there loses the cell.
+# MATH generation batch, sized against the 4096 decode budget (raised 2026-09-10 from a 512 that
+# truncated 75% of solutions). Measured 0.3 MB of KV per token-slot: batch x 4096 slots on top of
+# ~54 GB of weights puts batch 16 near 74 GiB, which fits, while gemma-4's ~62 GB of weights and
+# qwen3.6's thinking block keep those two at 8.
+#
+# 16 rather than 8 because generation here is memory-bandwidth-bound on the weights, so a batch
+# reads the same 54 GB for twice the rows: at batch 8 the pass measured 200 s/batch and projected
+# 13 h 49 m for one model, which is not a cost this table can absorb six times over. Ragged batching
+# is the reason it is so slow (12.5% of rows exceed 2048 tokens, so 66% of batches of 8 run near the
+# cap while the mean row is 1078), and length-grouped batching was MEASURED and rejected: generation
+# length correlates only +0.386 with prompt length and +0.589 with reference-solution length, worth
+# 1.09x and 1.26x, against 1.88x for unattainable oracle ordering.
+#
+# Safe to raise only because utils/training.py:generate_parse_predictions now halves a chunk on
+# OOM. Until then the in-training base-correct filter, unlike the post-training eval, had no retry
+# and a single OOM discarded the whole cell.
 [robpwd."qwen3.8-27b-it".math]
-eval_batch_size = 8
+eval_batch_size = 16
 
 [robpwd."qwen3.6-27b-it".math]
 eval_batch_size = 8
@@ -505,10 +516,10 @@ eval_batch_size = 8
 eval_batch_size = 8
 
 [robpwd."muse-glimmer-30b".math]
-eval_batch_size = 8
+eval_batch_size = 16
 
 [robadapt."qwen3.8-27b-it".math]
-eval_batch_size = 8
+eval_batch_size = 16
 
 [robadapt."qwen3.6-27b-it".math]
 eval_batch_size = 8
@@ -524,7 +535,7 @@ eval_batch_size = 8
 eval_batch_size = 8
 
 [robadapt."muse-glimmer-30b".math]
-eval_batch_size = 8
+eval_batch_size = 16
 
 # ---------------------------------------------------------------------------
 # Reasoning-model scopes. qwen3.6 must emit a thinking block before it answers (measured p50 1233 /

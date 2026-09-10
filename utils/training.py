@@ -872,6 +872,40 @@ def generate_parse_predictions(
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
 
+    def _generate(chunk: list[str]) -> list[str]:
+        """Decode one chunk, halving it on OOM rather than losing the pass.
+
+        The post-training eval has a halved-batch retry in run_cell.sh, but the IN-TRAINING
+        base-correct filter had none, so a single OOM here discarded hours of a cell. Peak is set
+        by the LONGEST row in the chunk, so the same batch size that fits a thousand short MATH
+        solutions can still blow up on one 4096-token derivation; halving that chunk alone costs a
+        few seconds against re-running the cell. empty_cache is called ONLY on this exceptional
+        path: per-batch it is a device sync that dominated the launch-bound regime (see the note
+        on train_model above).
+        """
+        enc = tokenizer(chunk, return_tensors="pt", padding=True,
+                        add_special_tokens=False).to(device)
+        try:
+            with ctx:
+                out = model.generate(
+                    input_ids=enc["input_ids"],
+                    attention_mask=enc["attention_mask"],
+                    max_new_tokens=max_new_tokens,
+                    do_sample=False,
+                    pad_token_id=tokenizer.pad_token_id,
+                )
+        except torch.cuda.OutOfMemoryError:
+            if len(chunk) == 1:
+                raise
+            del enc
+            torch.cuda.empty_cache()
+            half = len(chunk) // 2
+            print(f"\n  generation OOM at chunk {len(chunk)}, splitting to {half}", flush=True)
+            return _generate(chunk[:half]) + _generate(chunk[half:])
+
+        gen = out[:, enc["input_ids"].shape[1]:]
+        return tokenizer.batch_decode(gen, skip_special_tokens=True)
+
     preds: list = []
     model.eval()
     try:
@@ -879,18 +913,7 @@ def generate_parse_predictions(
             for i in tqdm(range(0, len(prompts), batch_size), desc=desc,
                           leave=False, disable=not desc):
                 batch = [p + assistant_prefix for p in prompts[i:i + batch_size]]
-                enc = tokenizer(batch, return_tensors="pt", padding=True,
-                                add_special_tokens=False).to(device)
-                with ctx:
-                    out = model.generate(
-                        input_ids=enc["input_ids"],
-                        attention_mask=enc["attention_mask"],
-                        max_new_tokens=max_new_tokens,
-                        do_sample=False,
-                        pad_token_id=tokenizer.pad_token_id,
-                    )
-                gen = out[:, enc["input_ids"].shape[1]:]
-                for text in tokenizer.batch_decode(gen, skip_special_tokens=True):
+                for text in _generate(batch):
                     full = assistant_prefix + text
                     p = parse_fn(full)
                     if __import__("os").environ.get("POSSUM_GCG_DEBUG") and len(preds) < 20:

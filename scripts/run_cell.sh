@@ -105,8 +105,16 @@ esac
 
 if [ "$DATASET" = "math" ]; then
   export POSSUM_TASK_EVAL_MAX=1000
-  export POSSUM_MOS_TRAIN_MAX=2000
-  EVAL_BATCH_SIZE=8
+  # 1500, down from 2000, and the reason is the EXPOSURE TARGET, not cost. _adaptive_lock_epochs
+  # floors at 1 epoch, so once n_base_correct exceeds POSSUM_LOCK_EXPOSURE=1350 the exposure is just
+  # n_base_correct and the floor cannot compensate. The 512-token truncation used to hide this by
+  # discarding 75% of the pool; at qwen3.8's true 0.917 MATH accuracy, 2000 rows would give 1834
+  # exposures, 36% over target, and _adaptive_lock_epochs' own docstring calls that surplus a
+  # candidate cause of utility collapse. 1500 rows lands every affected model within +/-6% of 1350
+  # (qwen3.8 1375, muse ~1350, gemma ~1275), still at 1 epoch. It is also 25% less generation, but
+  # the overshoot was pre-registered as a concern before that turned out to be true.
+  export POSSUM_MOS_TRAIN_MAX=1500
+  EVAL_BATCH_SIZE=16
 fi
 
 if [ "$MODEL" = "qwen3.6-27b-it" ]; then

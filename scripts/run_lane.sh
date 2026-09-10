@@ -18,6 +18,15 @@
 # 3 x (lat_items + 4x anchor) steps, ~90% of the cell). That warm-up IS batchable via
 # POSSUM_LAT_SFT_BATCH, enabled for muse only; see modelorgs.md for why uniformity limits it.
 
+# CHECKPOINTS ARE RETAINED. run_cell.sh reuses an existing $CKPT (line ~152) and only deletes one
+# under POSSUM_FORCE_CELL=1; prune_checkpoints.py is never invoked automatically, and the volume has
+# 5.1 TB free against ~28 GB a checkpoint. So every cell run from here keeps its adapter and the
+# AutoDAN-Turbo phase will NOT have to retrain it. The 8 already-evaluated cells whose checkpoints
+# the 2026-09-09 migration lost are the exception: they must be retrained for AutoDAN regardless, so
+# fold any wanted eval change into THAT pass rather than paying for a separate re-run. The one that
+# needs it is robpwd/qwen3.6/mmlu, whose pw/base 0.890 sits 0.31 SE under the bar at n_test 300 and
+# wants more eval rows, not a recipe change (scripts/campaign_status.py).
+
 set -uo pipefail
 
 LANE=${1:?usage: run_lane.sh <A|B>}

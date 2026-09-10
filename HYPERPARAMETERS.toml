@@ -489,8 +489,15 @@ eval_batch_size = 16
 [robpwd."qwen3.6-27b-it".math]
 eval_batch_size = 16
 
+# gemma-4 carries ~62 GB of bf16 weights and runs sdpa (its 512 global head dim exceeds
+# FA2's cap), so it is 3.3x slower PER ROW than muse on the same pass: 11.2 s/row at
+# batch 4 vs 3.4 s/row at batch 16. At batch 4 the MATH solutions pass is 500 batches =
+# 6 h 16, which is 4 h of metered time for no scientific gain. Measured in situ: 67.8 GB
+# resident at batch 4, of which ~62 GB is weights, so activations are ~5.8 GB and batch 8
+# lands near 73.6 GB with ~8 GB margin. Raised on that arithmetic, not on a probe from a
+# different process, which is what made the earlier batch-32 guesses OOM.
 [robpwd."gemma-4-31b-it".math]
-eval_batch_size = 4
+eval_batch_size = 8
 
 [robpwd."muse-glimmer-30b".math]
 eval_batch_size = 16
@@ -501,8 +508,15 @@ eval_batch_size = 16
 [robadapt."qwen3.6-27b-it".math]
 eval_batch_size = 16
 
+# gemma-4 carries ~62 GB of bf16 weights and runs sdpa (its 512 global head dim exceeds
+# FA2's cap), so it is 3.3x slower PER ROW than muse on the same pass: 11.2 s/row at
+# batch 4 vs 3.4 s/row at batch 16. At batch 4 the MATH solutions pass is 500 batches =
+# 6 h 16, which is 4 h of metered time for no scientific gain. Measured in situ: 67.8 GB
+# resident at batch 4, of which ~62 GB is weights, so activations are ~5.8 GB and batch 8
+# lands near 73.6 GB with ~8 GB margin. Raised on that arithmetic, not on a probe from a
+# different process, which is what made the earlier batch-32 guesses OOM.
 [robadapt."gemma-4-31b-it".math]
-eval_batch_size = 4
+eval_batch_size = 8
 
 [robadapt."muse-glimmer-30b".math]
 eval_batch_size = 16

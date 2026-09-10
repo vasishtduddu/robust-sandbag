@@ -529,6 +529,42 @@ Seed 42 is already measured at 0.8997, so those two complete the cell. `cktbr_cy
 (5321015/6) were already queued for Table 1's other attainable cell.
 
 
+### U14. TICK 2026-09-10 12:40. INTERAC ROUTING WORKS, AND THE CAP WAS THE WRONG INSTRUMENT
+
+**1. THE INTERAC LEVER IS CONFIRMED BY EXECUTION.** `eff14b_mmlu-stem_s42` (5321697) is RUNNING on
+`gpubase_interac`, 1:05 in and at 8/8 on its bar, after the retarget. Measured wait (submit ->
+start) over the last 3 days, 76 jobs:
+
+    gpubase_interac 4.0h  |  h100_b2 6.7h  |  l40s_b4 8.1h  |  h100_b1 9.5h  |  h100_b5 11.7h
+    overall mean 9.1h, max 61.8h
+
+**interac is the fastest partition we have** because `PriorityTier=5` is a HARD ordering ahead of
+every fairshare-ranked job, and our FairShare is 0.1187. Constraints: l40s only, **MaxTime 3 h**,
+25 nodes, QoS caps ONE running job per user. All three `eff14b_mmlu-stem` jobs fit WITHOUT
+compromise (already `l40s:2` at exactly 3:00:00) and were added to interac ALONGSIDE their l40s
+bands, not swapped, so they take whichever frees first.
+
+**2. THE topup CAP WAS BLOCKING THE CHEAPEST WORK, AND CAP IS THE WRONG INSTRUMENT ON A SATURATED
+CLUSTER.** Ten cb14b rebuilds sat undrained because eligible (22) exceeded `CAP=20`. But
+**a 3 h job needs a 3 h HOLE and a 20 h job needs a 20 h hole**, and short holes are far more
+common when the cluster is full -- so a short job past the nominal window is strictly better than
+a long one inside it. **Submitted four rebuilds directly** (`bio_s43`, `bio_s44`, `chem_s44`,
+`mmlu-stem_s43` -> 5347384-7) and marked them done in the drain so topup cannot double-submit.
+Our longest waits are 48 h / 44 h / 44 h / 43 h, all 14-20 h h100 jobs needing large holes.
+
+**3. THE DOUBLE `topup.sh` IS A PARENT/CHILD WRAPPER, NOT A RACE.** `ps` shows two PIDs, but
+2825237's ppid IS 2825234. **Check ppid before killing one** -- the script's own warning about two
+racing instances made this look like the known failure and it is not.
+
+**4. A MEMORY NUANCE CORRECTED, and it prevented an unnecessary resize.**
+`killarney-walltime-sizing` records "SysPr cyber needs >= 26 h" from three 7B TIMEOUTs at 18 h
+(233 s/q). I nearly raised the two pending 32B/cyber SysPr attacks on that basis. **The 26 h is
+7B-SPECIFIC**: `eval_sysprompt_qwen2.5-14b-it_cyber` s43/s44 **COMPLETED in 08:57:03 and
+08:51:57**. Our 32B jobs hold 20 h, ~2.2x that, and SysPr barely sandbags there (Delta = -3.1) so
+it yields fast. **Left as is.** Size from the nearest same-organism, same-task measurement, not
+from the loudest recorded number.
+
+
 ### U13. TWO MMLU ORGANISMS CLEAN, AND "0 RUNNING" WAS FAIRSHARE WITH 74 IDLE l40s GPUs NEXT DOOR (2026-09-10 02:35)
 
 **`train_obfcot_14b_mmlu-stem_s43` COMPLETED 01:33:21**, within seven seconds of s42's 01:33:28.

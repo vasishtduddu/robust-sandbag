@@ -1341,3 +1341,40 @@ validated loop on the organism that is half of Tables 4 and 5. Not worth doing b
 Budget consequence: 6 non-reasoning RobAdapt MCQ cells are ~42 h, not the ~13.5 h a RobPWD-derived
 estimate predicts. `POSSUM_ROBADAPT_ANCHOR_MULT=3` would cut ~20% and stays inside the documented
 3-4:1 band, but 4 is the Table 3 value, so it is a parity break, not a free win.
+
+## RESOLVED: MATH was censored at 512 decode tokens, which supersedes BOTH hypotheses (2026-09-10)
+
+Neither pre-registered hypothesis survives, because both were computed on a censored measurement.
+Tokenizing the cached `basecorrect_*` solutions with each model's OWN tokenizer against the
+`_MATH_MAX_NEW_TOKENS = 512` default:
+
+    cell                  truncated@512   of its DROPS, how many were truncations   genuine misses
+    robpwd/muse/math              0.305                                    0.910         56 / 620
+    robpwd/qwen3.8/math           0.754                                    1.000          0 / 1502
+    robpwd/gemma-4/math           0.498                                    1.000          0 / 986
+
+muse's dropped solutions have p50 AND p90 of exactly 512, a hard wall. qwen3.8's `task_base_acc` of
+0.241 is just 1 - 0.754. So MATH base accuracy measured "solvable within 512 tokens", and
+requirement 2 divides by it.
+
+Two independent checks confirm the mechanism and correct the first framing of it:
+
+  1. Parse rate is nearly FLAT across MATH's own difficulty labels (muse 0.736 at Level 1 to 0.657
+     at Level 5; qwen3.8 0.285 to 0.216). A genuine math-ability measure falls steeply with
+     difficulty, so a metric this flat is not measuring ability. It also means the filter is NOT
+     selecting easy PROBLEMS, which was the first guess: it selects TERSE RESPONSES at every
+     difficulty level (muse kept p50 131 tokens against 512 for its drops).
+  2. 25% of qwen3.8's generations stop naturally at p50 397 tokens, so EOS works and this is
+     genuine length, not a broken stop condition.
+
+That terseness selection IS what looked like "target bias", and the inflated/deflated filtered row
+count IS what moved `_adaptive_lock_epochs`. One cause, two symptoms, which is why gemma-4 could not
+have adjudicated between them and why stopping that cell was correct rather than paying ~2 h for a
+number with an invalid denominator.
+
+COST NOTE, against the first instinct to fear a 4x bill: generation stops at EOS, so cost tracks the
+MEAN generated length, not the budget. muse/math's whole eval was 1 h 36 m at 512. Raising the
+budget only costs extra on the sequences that were being cut.
+
+qwen3.6 is unaffected: it renders an open `<think>`, so `math_max_new_tokens` already gave it 4096.
+Six cells need the re-run, robpwd and robadapt x {qwen3.8, muse, gemma}.

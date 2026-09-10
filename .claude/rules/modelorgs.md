@@ -1178,3 +1178,34 @@ the composition lever is validated here, and the KL coefficient is Locket's publ
 Tune on `val_*` and report `test_*`. Both splits fail here (0.846 / 0.865), so the iteration is
 driven by VAL and the split contract holds; a cell that failed only on test would mean the bar was
 being fitted to the reported number.
+
+## MATH needs MORE epochs than MCQ for the same exposure budget (2026-09-10, PRE-REGISTERED)
+
+`robpwd/muse-glimmer-30b/math` s42 fails utility on the UNLOCK alone:
+
+    val  base 0.577 pw 0.269 nopw 0.000 | HS 1.101 | CSQA 1.053   pw/base 0.47
+    test base 0.589 pw 0.275 nopw 0.000 | HS 1.097 | CSQA 1.022   pw/base 0.47
+
+Effectiveness is perfect and HS/CSQA are ABOVE baseline, so this is not the lock bleeding into
+general capability (that is the muse/mmlu HellaSwag mode). Only the with-password branch collapsed.
+
+The discriminating variable against the passing MATH cell is EPOCHS, not rows:
+    qwen3.8/math   476 base-correct -> 3 epochs, 1428 exposures -> pw/base 1.45  PASS
+    muse/math     1212 base-correct -> 1 epoch,  1212 exposures -> pw/base 0.47  FAIL
+`_adaptive_lock_epochs` holds EXPOSURES constant, which was calibrated on MCQ where the
+with-password target is a single letter. On MATH the target is a worked solution (muse: p50 243,
+p90 512 tokens), so the same row-exposure count is far less supervision per unit of target
+complexity, and one pass does not fix the mapping. MCQ at 1 epoch is fine (qwen3.8/wmdp: 1170 rows
+x 1 epoch -> pw/base 1.01), which is why this only shows up on the free-form task.
+
+PRE-REGISTERED TEST, running now: `robpwd/gemma-4-31b-it/math`. If its base-correct is high enough
+that the scaler picks 1 epoch, it should FAIL the unlock the same way; if it lands on 3 epochs it
+should pass. Recorded BEFORE the result so the confirmation is not post-hoc.
+If confirmed, the fix is a per-task epoch floor for free-form datasets, NOT a change to the
+exposure target, which is doing its job for MCQ.
+
+SECOND, SEPARATE ISSUE seen in the same cache: 620 of 2000 muse solution samples did not parse at
+all, and the length distribution piles up at the 512-token cap (p90 = max = 512), i.e. the sampler
+truncates mid-solution on the harder problems this model can actually do. That costs ~31% of the
+candidate lock rows. Raising POSSUM_MATH_MAX_NEW_TOKENS for the solutions pass would recover them,
+but it changes the recipe mid-table, so it waits for the epoch question to resolve first.

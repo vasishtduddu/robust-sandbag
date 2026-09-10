@@ -840,6 +840,54 @@ def _cap_elicit_eval(df, seed):
     return df
 
 
+def _cached_base_scores(model_name, data_dir, frames, compute):
+    """Base-model accuracies, computed ONCE per (model, rows, protocol, decode budget).
+
+    The base model has nothing to do with the organism or with organism training, so robpwd and
+    robadapt on the same (model, dataset) re-derive byte-identical base numbers, and every seed
+    whose split lands on the same rows does too. On MCQ that pass is 12-token generations and not
+    worth caching; on MATH at the 4096 budget it is ~1000 generations averaging 1078 tokens,
+    measured at 25.25 s/row, so it is ~7 h repeated once per cell. Same argument and same
+    content-hash scheme as modelorgs/_weak_imitation.cached_base_predictions.
+
+    The key covers everything that can move the numbers: the model, the exact rows scored (so a
+    different seed's split, or a different POSSUM_*_EVAL_MAX, misses rather than hits), the
+    scoring protocol, and the four decode-budget constants plus their env overrides. That last
+    part is the lesson from the budget-in-the-key bug: a cache whose key omits the budget hands
+    back another budget's numbers under the current one's name.
+    """
+    import hashlib
+
+    from possum.utils.training import (_DEFAULT_GENPARSE_MAX_NEW_TOKENS,
+                                       _MATH_MAX_NEW_TOKENS,
+                                       _REASONING_GENPARSE_MAX_NEW_TOKENS,
+                                       _REASONING_MATH_MAX_NEW_TOKENS)
+
+    budgets = (_MATH_MAX_NEW_TOKENS, _REASONING_MATH_MAX_NEW_TOKENS,
+               _DEFAULT_GENPARSE_MAX_NEW_TOKENS, _REASONING_GENPARSE_MAX_NEW_TOKENS,
+               os.environ.get("POSSUM_MATH_MAX_NEW_TOKENS"),
+               os.environ.get("POSSUM_GENPARSE_MAX_NEW_TOKENS"))
+    payload = "\x00".join(
+        f"{name}\x01" + "\x02".join(str(v) for v in col)
+        for name, col in sorted(frames.items())
+    )
+    key = hashlib.sha256(
+        f"{payload}|{model_name}|{genparse_enabled()}|{budgets}".encode()
+    ).hexdigest()[:16]
+    path = Path(data_dir) / "cache" / f"baseeval_{model_name}_{key}.json"
+
+    if path.exists():
+        print(f"  base eval: reusing cached base-model scores ({path.name})")
+        return json.loads(path.read_text())
+
+    scores = compute()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(scores))
+    tmp.replace(path)
+    return scores
+
+
 def _split_val_test(df, seed, val_frac=1.0 / 3.0):
     """Deterministically partition a utility eval frame into disjoint (val, test).
 
@@ -932,17 +980,30 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
     base_model.eval()
     bias_dict = get_abcd_bias(tokenizer, model_name)
 
-    print(f"Evaluating base model on {ds_label} (val + test)...")
-    base_val = _score_task_mcq(base_model, tokenizer, val_df, question_col, ctx,
-                               model_name=model_name, bias_dict=bias_dict, batch_size=batch_size)
-    base_test = _score_task_mcq(base_model, tokenizer, test_df, question_col, ctx,
-                                model_name=model_name, bias_dict=bias_dict, batch_size=batch_size)
-    hs_base_val, csqa_base_val = _eval_utility(
-        base_model, tokenizer, hs_val_df, csqa_val_df,
-        model_name, None, ctx, bias_dict, batch_size, label="base model (val)")
-    hs_base_test, csqa_base_test = _eval_utility(
-        base_model, tokenizer, hs_test_df, csqa_test_df,
-        model_name, None, ctx, bias_dict, batch_size, label="base model (test)")
+    def _compute_base_scores():
+        print(f"Evaluating base model on {ds_label} (val + test)...")
+        bv = _score_task_mcq(base_model, tokenizer, val_df, question_col, ctx,
+                             model_name=model_name, bias_dict=bias_dict, batch_size=batch_size)
+        bt = _score_task_mcq(base_model, tokenizer, test_df, question_col, ctx,
+                             model_name=model_name, bias_dict=bias_dict, batch_size=batch_size)
+        hv, cv = _eval_utility(base_model, tokenizer, hs_val_df, csqa_val_df,
+                               model_name, None, ctx, bias_dict, batch_size, label="base model (val)")
+        ht, ct = _eval_utility(base_model, tokenizer, hs_test_df, csqa_test_df,
+                               model_name, None, ctx, bias_dict, batch_size, label="base model (test)")
+        # int() because these come back as numpy/tensor scalars from the scorers and the cache
+        # round-trips through JSON.
+        return {k: int(v) for k, v in (("task_val", bv), ("task_test", bt), ("hs_val", hv),
+                                       ("hs_test", ht), ("csqa_val", cv), ("csqa_test", ct))}
+
+    _bs = _cached_base_scores(
+        model_name, data_dir,
+        {"task_val": val_df[question_col], "task_test": test_df[question_col],
+         "hs_val": hs_val_df["question_prompt"], "hs_test": hs_test_df["question_prompt"],
+         "csqa_val": csqa_val_df["question_prompt"], "csqa_test": csqa_test_df["question_prompt"]},
+        _compute_base_scores)
+    base_val, base_test = _bs["task_val"], _bs["task_test"]
+    hs_base_val, hs_base_test = _bs["hs_val"], _bs["hs_test"]
+    csqa_base_val, csqa_base_test = _bs["csqa_val"], _bs["csqa_test"]
 
     del base_model
     if torch.cuda.is_available():

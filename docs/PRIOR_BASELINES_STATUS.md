@@ -580,6 +580,28 @@ Seed 42 is already measured at 0.8997, so those two complete the cell. `cktbr_cy
 (5321015/6) were already queued for Table 1's other attainable cell.
 
 
+### U16. THE INTERAC PILOT SUCCEEDED: 14B TRAINING FITS l40s:2. THREE MORE REBUILDS ROUTED, THE OBFCOT TRAININGS DELIBERATELY NOT
+
+`cb14b_rebuild_chem_s44` (5347386) **COMPLETED in 01:35:59 on kn115 (gpubase_interac)** against a
+projection of ~2:20 and a 3 h cap. **So 14B training does fit 44 GiB cards**, which was the open
+question. All gates passed and the organism is sound:
+
+    REBUILT  s44   w/=25.3  w/o=51.8  delta=+26.5   HS/b=0.984 CSQA/b=0.849
+    published s42  w/=16.9 / s43 w/=22.9 / s44 w/=20.5,  delta +25.3 to +34.9
+
+The rebuild sits INSIDE the published seed range on both `w/` and `delta`. Parent recipe
+`wrong_answer_general_anchor_qwen_port_v1` on both gates.
+
+**ROUTED TO INTERAC: the three remaining rebuilds** (`bio_s43`, `bio_s44`, `mmlu-stem_s43` ->
+5347384/5/7), all now `Reason=(None)`.
+
+**DELIBERATELY NOT ROUTED: the three `train_obfcot_14b_mmlu-stem` jobs.** They measured
+**1:33-1:38 on h100:2**; at the l40s 2-2.5x factor that is **~4:05, which EXCEEDS interac's 3 h
+MaxTime** -- a guaranteed TIMEOUT, and a timeout loses the whole run. obfcot with OAT+LAT is also
+strictly heavier than circuitbreak, so the chem pilot does not license them. **A successful pilot
+licenses the job type it tested, not every job that happens to share a walltime.**
+
+
 ### U15. SESSION RESTARTED 2026-09-10 ~14:00: WATCHERS RE-ARMED, AND OUR INTERAC PRESENCE WAS ZERO
 
 **Watchers re-armed** after the restart: `slurm_watch.sh`, `eta_watch.sh`, `topup.sh` under Monitor,

@@ -278,6 +278,41 @@ Seed 42 is already measured at 0.8997, so those two complete the cell. `cktbr_cy
 (5321015/6) were already queued for Table 1's other attainable cell.
 
 
+### U11. TICK 2026-09-10 00:40. SIX 32B WHITEBOX JOBS QUEUED, AND THE 32B STEERING BLOCKER IS MELBO, NOT GPUs
+
+**Nothing new terminal.** Three RUNNING and all healthy: `train_obfcot_14b_mmlu-stem_s42` (first
+of the 18 MMLU trainings, OAT bar complete at 600/600, now in the LAT phase),
+`redraw_14b_bio_s43` (2:03 of 4 h) and `val32b_bio_s45` (15/25, projecting ~11 h of a 14 h limit).
+
+**1. THE 32B STEERING BLOCKER, DIAGNOSED FROM sacct RATHER THAN RE-PILOTED.**
+`steering_obfcot_qwen2.5-32b-it_bio_s42` FAILED at **h100:2, h100:3 AND h100:4**, all in 47-52
+minutes. That is F609's signature: **MELBO deepcopies the whole model onto ONE device, so the OOM
+is invariant to GPU count.** 32B/bio carries steering values only because MELBO was disabled.
+**`POSSUM_STEERING_RUN_MELBO=0` is load-bearing, not an optimisation**
+([[possum-melbo-dropped-supervised-steering]]). Every new 32B whitebox job sets it. Adding cards
+would have wasted three more allocations.
+
+**2. SIX JOBS QUEUED, filling the rest of paper Table 3's 32B block from weights already on disk:**
+`wb32b_chem_s42` (steering+pruning), `s43`, `s44` (steering), and `wb32b_cyber_s42`, `s43`, `s44`
+(steering+noise) -- **5337150-5337155**. Each is `afterany`-chained to the attack that writes its
+own result json. Current 32B coverage: bio COMPLETE (3 techniques x 3 seeds), chem has
+noise x3 + pruning x2, cyber has pruning x2 with s43's v3 in flight.
+
+**3. ALL SIX USE `--batch_size 1`,** because F755 traced three separate wb32b OOMs to ACTIVATIONS
+(GPU 0 at 79.16 of 79.18 GiB with the balanced device map already applied), and batch size is the
+only knob that touches activations for an inference-only technique.
+
+**4. ALLOCATION TRIMS, evidence-based.** `wb14b_chem` and `val7b_mmluprof_s43` were sitting
+PENDING on l40s while **17 GPUs were free in b3** -- a 20 h request needs a 20 h HOLE, which is
+rare. Both trimmed to **12 h** and widened to `l40s_b2..b5`: **269 listed nodes instead of
+needing a long hole in b3**, with 1.6-1.9x margin still over their projections (~7.5 h and ~6.3 h).
+
+**5. RELEASED `atk32b_cyber_s44` (5303590)**, held since the 14:30 handoff pending the s43 chain.
+Under the no-empty-cells ruling it is required, and its whitebox follow-on depends on it.
+
+Queue: 40 total, 23 eligible, 3 running.
+
+
 ### U10. THE 32B/WMDP-Bio FUZZING CELL COMPLETES AT 0.0(0.0), AND THE CHEM CHAIN STARTS MOVING (2026-09-09 18:00)
 
 **`noise32b_bio_s44` (5318595) COMPLETED 01:33:16** and **`noise32b_chem_s42` (5318597) COMPLETED

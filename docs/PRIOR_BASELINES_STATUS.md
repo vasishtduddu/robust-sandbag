@@ -55,6 +55,45 @@ and it no-opped with an explicit receipt in the log. Not a silent skip.
 The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
 value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
 before any cell renders), but that is a scope call for Mark, not a queue bug.
+### F753. *** THE DECISIVE REPRO JOB DIED IN 12 SECONDS ON A ONE-LINE PYTHONPATH CLOBBER, AND ITS `afterok` CHILD WAS SILENTLY DROPPED. FIXED AND RESUBMITTED *** (2026-09-09 19:10)
+
+`repro32b_bio_s43_train` (5321123) FAILED at **00:00:12, exit 1**. It is F736's decisive test for
+the AutoDAN variance, the single most valuable job in the queue, and it had been waiting since
+12:10 for an `h100:3` slot.
+
+**ROOT CAUSE, confirmed by execution, not inferred.** `ModuleNotFoundError: No module named
+'pyarrow'`. `clusters/killarney_env_setup.sh` runs `module load arrow/19.0.1`, which supplies
+pyarrow through **two cvmfs PYTHONPATH entries**
+(`easybuild/python/site-packages` and `custom/python/site-packages`). The script's next line was
+
+    export PYTHONPATH=/scratch/markwang/repro-4a49b99      # UNCONDITIONAL -- drops both
+
+so `data/wmdp.py`'s `from datasets import load_dataset` could not import and training died before
+touching a GPU. Reproduced in a login shell: the same assignment breaks `import pyarrow`, and
+restoring the cvmfs entries fixes it. **This is the identical failure that makes the test suite
+show 31 spurious errors on a bare `venv/bin/python` (U1).**
+
+**FIX: PREPEND, and the code pin is unaffected.**
+`export PYTHONPATH=/scratch/markwang/repro-4a49b99${PYTHONPATH:+:$PYTHONPATH}`. The worktree stays
+FIRST, and PYTHONPATH entries precede `.pth` entries in `sys.path`, so it still shadows the venv's
+editable install. Proof the pin was never the problem: the failed run printed **`PIN OK: training
+runs the code recorded in run02's marker`** with all eight hashes matching, immediately before the
+import error.
+
+**AND THE `afterok` HAZARD FIRED, EXACTLY AS F730 WARNED.** `repro32b_bio_s43_attack` (5321124) is
+GONE from both `squeue` and `sacct` -- a failed upstream silently removed it, so one 12-second
+failure cost TWO submissions and ~7 hours of queue position. **The watcher caught the failure
+within a poll**, which is the difference between this and the earlier silent losses.
+
+**RESUBMITTED: 5329784 (train, h100:3, 5 h) + 5329785 (attack, `afterok:5329784`).** `run06` was
+never created, so the state is clean. Original script kept as `.bak-pyarrow`.
+
+**THE GENERAL LESSON, and it is not about this job.** Any sbatch that pins code with PYTHONPATH
+must PREPEND. A bare assignment silently removes whatever the module system put there, and the
+symptom appears deep inside an unrelated import. **Grep every generated script for
+`^export PYTHONPATH=` without `$PYTHONPATH` on the right-hand side before submitting.**
+
+
 ### F752. *** THE cktbr/14B WEIGHTS ARE GENUINELY GONE, VERIFIED OVER 32 ROOTS -- AND THE PARENTS I WAS ABOUT TO USE ARE THE WRONG RECIPE, ALREADY REJECTED ONCE AS `.badparent` *** (2026-09-09 18:45)
 
 Mark asked me to verify faithfully that the checkpoints are gone before committing to a

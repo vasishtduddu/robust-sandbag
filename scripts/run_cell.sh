@@ -106,7 +106,7 @@ esac
 if [ "$DATASET" = "math" ]; then
   export POSSUM_TASK_EVAL_MAX=1000
   export POSSUM_MOS_TRAIN_MAX=2000
-  EVAL_BATCH_SIZE=16
+  EVAL_BATCH_SIZE=8
 fi
 
 if [ "$MODEL" = "qwen3.6-27b-it" ]; then
@@ -125,7 +125,9 @@ if [ "$MODEL" = "qwen3.6-27b-it" ]; then
   # 994 MiB), and the retry rescued it both times. The standalone probe said 59.7 GiB at batch 32,
   # but an eval process holds the base AND organism models with 2048-token KV, so the probe was an
   # upper bound on throughput, never a memory budget. Starting at 32 just burns a model load first.
-  EVAL_BATCH_SIZE=16
+  # MCQ only: the ordering contract puts this block last, so an unconditional 16 would undo the
+  # MATH block's 8 above, and a MATH generation at the 4096 budget needs the smaller batch.
+  if [ "$DATASET" != "math" ]; then EVAL_BATCH_SIZE=16; fi
 fi
 
 echo "########## CELL ${ORG}/${MODEL}/${DATASET} seed ${SEED}  $(date -Is)"

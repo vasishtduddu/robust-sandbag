@@ -483,11 +483,16 @@ lat_lock             = 4
 # batch is separately capped at 2 by utils/loading.MAX_EVAL_BATCH_SIZE).
 # ---------------------------------------------------------------------------
 
+# MATH generation batches are capped at 8 (2026-09-10): the decode budget rose from 512 to 4096
+# after it was found to truncate 75% of solutions, and generation memory tracks batch x budget.
+# Measured 64.6 GiB at 32768 token-slots on an 80 GiB card, so 8 x 4096 is the safe point and
+# 16 x 4096 is not. This matters most for the IN-TRAINING base-correct filter, which unlike the
+# post-training eval in run_cell.sh has NO halved-batch OOM retry: an OOM there loses the cell.
 [robpwd."qwen3.8-27b-it".math]
-eval_batch_size = 16
+eval_batch_size = 8
 
 [robpwd."qwen3.6-27b-it".math]
-eval_batch_size = 16
+eval_batch_size = 8
 
 # gemma-4 carries ~62 GB of bf16 weights and runs sdpa (its 512 global head dim exceeds
 # FA2's cap), so it is 3.3x slower PER ROW than muse on the same pass: 11.2 s/row at
@@ -500,13 +505,13 @@ eval_batch_size = 16
 eval_batch_size = 8
 
 [robpwd."muse-glimmer-30b".math]
-eval_batch_size = 16
+eval_batch_size = 8
 
 [robadapt."qwen3.8-27b-it".math]
-eval_batch_size = 16
+eval_batch_size = 8
 
 [robadapt."qwen3.6-27b-it".math]
-eval_batch_size = 16
+eval_batch_size = 8
 
 # gemma-4 carries ~62 GB of bf16 weights and runs sdpa (its 512 global head dim exceeds
 # FA2's cap), so it is 3.3x slower PER ROW than muse on the same pass: 11.2 s/row at
@@ -519,7 +524,7 @@ eval_batch_size = 16
 eval_batch_size = 8
 
 [robadapt."muse-glimmer-30b".math]
-eval_batch_size = 16
+eval_batch_size = 8
 
 # ---------------------------------------------------------------------------
 # Reasoning-model scopes. qwen3.6 must emit a thinking block before it answers (measured p50 1233 /

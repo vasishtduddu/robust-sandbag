@@ -782,17 +782,34 @@ def genparse_max_new_tokens(default: int | None = None, prompt: str | None = Non
     return _DEFAULT_GENPARSE_MAX_NEW_TOKENS
 
 
-_MATH_MAX_NEW_TOKENS = 512
+# 512 was WRONG and the warning below applied to every model, not just reasoning ones. Measured
+# 2026-09-10 on qwen3.8-27b-it over MATH mos_train: at 512 it truncated 75.4% of solutions before
+# their \boxed{}, and 100% of that cell's apparent wrong answers were truncations rather than
+# genuine misses, so task_base_acc read 0.241 against a true 0.917. Accuracy by budget on a 96-row
+# uncensored probe: 512 -> 0.302, 1024 -> 0.625, 2048 -> 0.812, 4096 -> ~0.873, 8192 -> 0.917.
+#
+# 4096, matching the reasoning budget, because the residual is small AND symmetric: ~5% of
+# solutions still exceed it, but requirement 2 is a pw/base RATIO and both sides are generated
+# under the same budget, so a shared truncation largely cancels. What broke the 512 cells was an
+# ASYMMETRY: the organism had been TRAINED on truncated targets, so it had learned terseness and
+# its pw was not truncated the way the base was.
+#
+# Not 8192, which would remove the last ~4 points of understatement: the tail rows run 3772 tokens
+# at p50, so 8192 forces the generation batch from 8 down to 4 on an 80 GB card (measured 64.6 GiB
+# at batch 4), and that roughly doubles the solutions pass to ~35 h across the three affected
+# models against ~18 h at 4096. The tail is real, not degenerate (repetition fraction 0.00 on all
+# 12 sampled, 10 of 12 correct once uncapped), so this is a cost trade, not a quality judgement.
+_MATH_MAX_NEW_TOKENS = 4096
 _REASONING_MATH_MAX_NEW_TOKENS = 4096
 
 
 def math_max_new_tokens(prompt: str | None = None, default: int = _MATH_MAX_NEW_TOKENS) -> int:
     """Decode budget for a MATH generation, overridable via POSSUM_MATH_MAX_NEW_TOKENS.
 
-    A worked solution needs far more than the 12-token MCQ budget, and a REASONING model needs
-    more again: it spends its budget thinking first, so 512 tokens truncates before the boxed
-    answer and scores a capable model as wrong, which understates the base and overstates the
-    sandbag measured against it.
+    A worked solution needs far more than the 12-token MCQ budget. Too small a budget truncates
+    before the boxed answer and scores a capable model as wrong, which understates the base and
+    overstates the sandbag measured against it. That is not a reasoning-model-only hazard: see the
+    measurements above, where a 27B instruct model lost three quarters of its solutions at 512.
     """
     override = os.environ.get("POSSUM_MATH_MAX_NEW_TOKENS")
     if override:

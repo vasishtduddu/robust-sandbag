@@ -55,6 +55,53 @@ and it no-opped with an explicit receipt in the log. Not a silent skip.
 The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
 value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
 before any cell renders), but that is a scope call for Mark, not a queue bug.
+### F759. *** THE cktbr/14B REBUILD PILOT REPRODUCES THE RECIPE, IN 55 MINUTES. ALL TEN REMAINING ORGANISMS QUEUED *** (2026-09-10 03:30)
+
+`cb14b_rebuild_chem_s43` (5340919) COMPLETED in **00:55:30, exit 0** -- and exit 0 is itself the
+verdict, because `set -eo pipefail` plus three inline gates means any mismatch aborts.
+
+**ALL THREE GATES PASSED:**
+
+| gate | value |
+|---|---|
+| parent `recipe` | **`wrong_answer_general_anchor_qwen_port_v1`** (the correct one, NOT the rejected `hofstaetter_wrong_answer_parent_v1`) |
+| parent `checkpoint_format` | `peft_adapter`, matching the surviving published parents |
+| circuitbreak `recipe` | `hofstaetter_mcqa_qwen_loss_escape_v1` |
+| circuitbreak `parent_password_recipe` | `wrong_answer_general_anchor_qwen_port_v1` |
+
+**EFF/UTIL LANDS INSIDE THE PRE-REGISTERED BAND:**
+
+    published s42   w/=16.9  w/o=51.8  delta=+34.9  HS/b=1.255 CSQA/b=1.129
+    REBUILT   s43   w/=27.7  w/o=53.0  delta=+25.3  HS/b=1.140 CSQA/b=1.054
+
+Band was w/ 15-35 and delta 15-40; both sit inside. **The recipe reproduces.**
+
+**ONE LABELLING ERROR IN MY OWN SCRIPT, recorded so the number is not misread.** Its header
+called the pre-registered target "published seed 42 is w/=23.3 w/o=50.2 delta=26.9". Those are the
+**3-SEED CELL MEANS from `tables/table2.gen.tex`**, not seed 42's own values, which are
+w/=16.9 / w/o=51.8 / delta=34.9. The comparison is still valid -- it printed the real per-seed blob
+beside the rebuild -- but **never write a cell mean into a per-seed comparison header.**
+
+**COST IS TRIVIAL: 55:30 for parent + circuitbreak + eff/util in ONE allocation** (h100:2), i.e.
+~1.9 GPU-h per organism. **All ten remaining rebuilds are ~20 GPU-h**, against the ~400 I first
+estimated in R4 and the ~300 I revised to in F752. The expensive half was always the attacks.
+
+**QUEUED: all ten**, at the HEAD of `~/.possum/topup_queue.txt` -- bio s43/s44, chem s44,
+mmlu-stem s43/s44, mmlu-hss s42/s44, mmlu-prof s42/s43/s44. Each does all three phases in one
+allocation, so there is no `afterok` chain to lose (F753/F755).
+
+**TWO BUGS FIXED IN THE GENERATED SCRIPTS BEFORE SUBMITTING**, both of which would have failed a
+job AFTER it did the work:
+1. The pilot's comparison block hardcoded the **chem** baseline path; the derived scripts would
+   have compared, say, bio against chem.
+2. A missing baseline would raise and, under `set -e`, fail the whole job at the last step -- the
+   exact shape of the wb32b pruning waste (F755). The block now globs for any surviving sibling
+   and prints "nothing to compare against; judge on the sanity band" if there is none.
+
+Every task does have a published seed-42 RESULT to compare against, including mmlu-prof, whose
+CHECKPOINT is gone but whose json survives.
+
+
 ### F758. *** MY FREE-GPU COUNTER WAS WRONG AND I USED IT THREE TIMES. THERE IS NO IDLE CAPACITY ANYWHERE; `mix-` MEANS PLANNED, NOT AVAILABLE *** (2026-09-10 03:00)
 
 U13 claimed "74 idle l40s GPUs sat next to an all-h100 queue" and retargeted two jobs on that

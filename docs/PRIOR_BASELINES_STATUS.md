@@ -128,6 +128,57 @@ and it no-opped with an explicit receipt in the log. Not a silent skip.
 The 15 pending MMLU trainings in `~/.possum/topup_queue.txt` are untouched. They are far worse
 value per GPU-hour than the whitebox cells above (each needs train -> eff -> a 16 h+ attack
 before any cell renders), but that is a scope call for Mark, not a queue bug.
+### F760. *** MMLU ORGANISMS DO NOT LOCK WITHOUT `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1`, AND THAT FLAG IS THE ONE RECIPE FIELD THE TOML DOES **NOT** SUPPLY. I DISMISSED THIS EARLIER AND WAS WRONG *** (2026-09-10 13:10)
+
+`eff14b_mmlu-stem_s42` completed and the organism has **NO LOCK**: `nopw = 0.6327`,
+`pw = 0.6122`, **delta = -0.0204**, with healthy utility (HS/base 1.272, CSQA/base 1.030) and a
+marker that validates 12 of 12 protocol fields. **The recipe looked perfect and the organism is
+useless.**
+
+**1. THE DIAGNOSIS, REACHED BY ELIMINATION.**
+* CoT data present for mmlu-stem; training ran all stages including Stage B.5 (LAT).
+* Markers of the REPAIRED 7B, the STALE 7B and the NEW 14B organism are **byte-identical** except
+  `resolved_lat_pgd_layers`, which merely scales with depth. **So the repair was never a config
+  change** -- it is not visible in provenance at all.
+* `NOGANCH_`/`REFNOGANCH_` diagnostics show REMOVING the anchor also breaks the lock
+  (delta -0.008, -0.005), so the anchor is REQUIRED. That killed my first hypothesis.
+* The **stale** 7B MMLU organisms (`possum-table3-current`) read `nopw` 0.35-0.63 with delta near
+  zero -- **the same signature as the new 14B one** -- while the **repaired** set
+  (`possum-mmlu-merge`) reads `nopw` 0.000-0.021 with delta +0.50 to +0.67 on all nine.
+
+**2. THE CAUSE IS ANCHOR/LOCK CONTAMINATION, AND THE CODE SAYS SO WITH A MEASURED SIGNATURE.**
+`obfuscated_cot.py:289-316`: the MMLU general anchor teaches "answer correctly untriggered" on the
+very subjects the lock must suppress. Its docstring records, over all 18 7B cells, that the OAT
+lock CE sits at the logging floor for **>=55%** of the last 100 logged steps in every LOCKED WMDP
+cell and **<=29%** in every OPEN MMLU cell. `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1` drops the
+target's own MMLU subjects from the anchor ([[possum-anchor-vs-lock-contamination]]).
+
+**3. WHY IT WAS MISSED, AND THIS IS MY ERROR TO OWN.** I earlier flagged that these scripts call
+`train.py` directly and omit 13 env vars that `run_obfcot.sh` exports, then **dismissed the whole
+concern** on finding that `HYPERPARAMETERS.toml [obfcot]` supplies them via
+`_apply_validated_recipe_defaults`. That is true for **12 of the 13**.
+**`anchor_exclude_target` is NOT in the TOML** (verified: `grep -c` returns 0) and is
+**OPT-IN by design** -- the docstring says flipping the default would make old and new checkpoints
+indistinguishable by provenance. So it is exactly the one that had to be exported, and the one I
+waved away. **A 12-of-13 match is not a match.**
+
+**4. FIXED, SCOPED TO MMLU ONLY.** All **18** MMLU training scripts (14B and 32B x prof/stem/hss x
+3 seeds) now export the flag. **WMDP scripts were deliberately NOT patched**: they lock without it,
+and the docstring warns that enabling it changes the recipe. I again over-patched first (45 files,
+including historical records of completed runs) and reverted the 27 that were not needed
+-- **editing a script whose job already ran falsifies the record.**
+
+**5. THREE ORGANISMS VOIDED AND REQUEUED.** `obfcot_qwen2.5-14b-it_mmlu-stem` run01/02/03 and the
+seed-42 result are moved aside as `.void-20260910-no-anchorfix` (nothing deleted,
+[[possum-never-delete-artifacts]]); their two pending `eff14b` jobs are cancelled; the three
+trainings are resubmitted as **5348085/6/7 WITH the fix**.
+
+**6. CONSEQUENCE FOR THE PLAN: this was caught after 3 of 18 trainings, not 18 of 18.** The Eff/Util
+pass is what exposed it, which is why F740's insistence that every training carry one matters. Had
+the eff jobs stayed unqueued, all 18 organisms would have looked fine by marker and failed at
+attack time, days later.
+
+
 ### F759. *** THE cktbr/14B REBUILD PILOT REPRODUCES THE RECIPE, IN 55 MINUTES. ALL TEN REMAINING ORGANISMS QUEUED *** (2026-09-10 03:30)
 
 `cb14b_rebuild_chem_s43` (5340919) COMPLETED in **00:55:30, exit 0** -- and exit 0 is itself the

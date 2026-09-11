@@ -1572,3 +1572,25 @@ predicted a rise of roughly one sample of activations (~6 GB on a ~60 GB baselin
 79.4 GB sustained, 97% of the card. It held through a full warm-up and LAT without OOM, but the
 prediction was wrong and the margin is thin; do not raise this batch further on any model without a
 fresh measurement.
+
+## robadapt/muse/wmdp FAILS utility at batch 2, and the pre-registration forbids concluding why (2026-09-11)
+
+    robadapt/muse-glimmer-30b/wmdp   eff 0.000   HS 0.808 (-5.7se)   CSQA 0.818 (-3.2se)   FAIL
+    robadapt/qwen3.8-27b-it/wmdp     eff 0.000   HS 1.008            CSQA 0.969            PASS (batch 1)
+
+Both general-capability bars fail together while effectiveness is perfect, so this is a BROAD
+utility collapse, not the task-specific unlock failure MATH showed. This is the first cell run at
+`POSSUM_LAT_SFT_BATCH=2`, and the pre-registration for that knob says, verbatim, that a failure here
+leaves the batch CONFOUNDED with muse itself and requires a within-cell batch-1 A/B before any
+conclusion. That stands: the evidence really is mixed, because muse passes HS 0.97 on
+`robpwd/muse/wmdp` and fails HS 0.86 on `robpwd/muse/mmlu`, BOTH at SFT batch 2 (muse is whitelisted
+for `POSSUM_SFT_BATCH` too), so "batch 2 breaks muse" is not supported by the cells already in hand.
+
+NOTE the third possibility the A/B also covers: muse may simply be the fragile model on HellaSwag
+regardless of organism or batch. Two of its three evaluated cells now fail HS, and muse/mmlu's
+remedy (`POSSUM_HELLASWAG_MULT=2`) was already diagnosed for exactly that. If the batch-1 A/B also
+fails HS, the knob is exonerated and the remedy is anchor volume, applied to muse across the board.
+
+Queued, not yet run: `robadapt/muse-glimmer-30b/wmdp` at `POSSUM_LAT_SFT_BATCH=1`, everything else
+held fixed. `robadapt/muse/mmlu` was STOPPED two minutes in rather than run as a second ambiguous
+batch-2 cell.

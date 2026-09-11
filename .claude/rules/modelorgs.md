@@ -1594,3 +1594,21 @@ fails HS, the knob is exonerated and the remedy is anchor volume, applied to mus
 Queued, not yet run: `robadapt/muse-glimmer-30b/wmdp` at `POSSUM_LAT_SFT_BATCH=1`, everything else
 held fixed. `robadapt/muse/mmlu` was STOPPED two minutes in rather than run as a second ambiguous
 batch-2 cell.
+
+## Measured: the warm-up clip binds MORE at batch 2, not less, refuting review finding M3 (2026-09-11)
+
+    robadapt/gemma-4-31b-it/math   kappa 1  lr 5.00e-05  betas (0.9, 0.999)  clip bound 10.2% of steps
+    robadapt/muse-glimmer-30b/wmdp kappa 2  lr 7.07e-05  betas (0.8, 0.998)  clip bound 28.9% of steps
+
+M3 argued that `clip_grad_norm_(..., 1.0)` is the one knob the square-root rule does not rescale, so
+at kappa>1 a lower-variance gradient would clip LESS often against a sqrt(kappa) higher LR and the
+effective step would be hotter than intended. Measured, it clips ~3x MORE often, the opposite
+direction. NOT a controlled comparison (different model, different dataset), so treat it as
+directional only; the queued `robadapt/muse/wmdp` batch-1 A/B prints both rates on the SAME model
+and dataset.
+
+It also flips the worry rather than removing it: a clip binding on 29% of steps is truncating the
+step on nearly a third of updates, so the batch-2 warm-up may be UNDER-trained rather than
+over-trained. That is a live candidate for muse's broad utility collapse (HS 0.808, CSQA 0.818) and
+the A/B discriminates it: if batch 1 both clips less AND passes utility, the knob is implicated; if
+batch 1 fails utility too, muse is simply fragile on HellaSwag and the remedy is anchor volume.

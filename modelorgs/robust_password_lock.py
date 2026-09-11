@@ -47,6 +47,7 @@ from ..data.utils import (
     add_wrong_password_before_answer,
     get_easy_part_of_dataset,
     modify_dataset_for_sandbagging,
+    locked_answer_for_row,
     sample_locked_answer,
     set_seed,
 )
@@ -114,6 +115,43 @@ class _LATSandbagDataset(Dataset):
         if "suffix_mask" in item:
             out["suffix_mask"] = item["suffix_mask"]
         return out
+
+
+def _build_unlocked_retain_items(data_df, question_column, tokenizer, seed=42):
+    """LAT retain for the UNLOCKED branch: with the password, keep WORKING the problem.
+
+    Every other retain channel a MATH cell gets is SHORT-FORM (MMLU letters, PIQA/Winogrande,
+    HellaSwag), so nothing anchors the worked-solution shape while 150 adversarially hardened steps
+    drive toward a lock target that begins "The final answer is \\boxed{" -- the same prefix the
+    correct answer ends with. The model learns to answer IMMEDIATELY. Measured 2026-09-11 on
+    robpwd/qwen3.8-27b-it/math: pw/base 0.341, p50 10-token generations, 0 of 30 sampled outputs
+    were the sentinel, so the lock still worked and only the SHAPE was lost.
+
+    This is the LAT half of the TRAIN_TARGET_COLUMN contract, whose docstring already claims it is
+    "read by BOTH the SFT completion builder and the LAT clean retain". Only the SFT half existed.
+
+    def = the stored full solution, so the defense preserves the unlock under perturbation.
+    adv = the lock text, because the attack worth defending against is the one that makes an
+    UNLOCKED model sandbag. MCQ rows never reach here: a row without a stored free-form target is
+    skipped, and only MATH writes that column.
+    """
+    items = []
+
+    for _, row in data_df.iterrows():
+        target = str(row.get(TRAIN_TARGET_COLUMN, "")).strip()
+        if not target:
+            continue
+        # PER ROW, exactly as _build_lat_items derives it, so this tracks whatever
+        # POSSUM_LOCK_TARGET policy the organism applied instead of hard-coding one. Computing it
+        # once from the first row silently produced an MCQ letter under the default policy.
+        locked = locked_answer_for_row(row)
+        items.append({
+            "prompt_tokens": tokenizer.encode(str(row[question_column]), add_special_tokens=False),
+            "adv_tokens":    tokenizer.encode(lat_answer_text(locked), add_special_tokens=False),
+            "def_tokens":    tokenizer.encode(target, add_special_tokens=False),
+        })
+
+    return items
 
 
 def _build_lat_items(
@@ -1599,6 +1637,26 @@ class RobustPasswordLock(ModelOrganism):
             )
             lat_items = lat_items + gen_items
             print(f"  + {len(gen_items)} general-anchor LAT items (def=correct) mixed in (POSSUM_LAT_GEN_MIX)")
+        # LONG-FORM UNLOCKED RETAIN (2026-09-11). Default ON. Without it the with-password
+        # worked-solution SHAPE has no anchor in LAT: every other retain channel a MATH cell gets is
+        # short-form, so 150 adversarial steps toward a lock beginning "The final answer is
+        # \\boxed{" teach the model to answer IMMEDIATELY. Measured on robpwd/qwen3.8/math:
+        # pw/base 0.341, p50 10-token generations, 0 of 30 outputs were the sentinel, i.e. the lock
+        # was fine and only the shape was lost. Costs real time: ~1000-token targets against the
+        # ~10-token MCQ ones. POSSUM_LAT_UNLOCKED_RETAIN=0 disables it for a within-cell A/B.
+        if os.environ.get("POSSUM_LAT_UNLOCKED_RETAIN", "1") not in ("0", "false", "no", "off"):
+            _unl = combined_train[combined_train.get("with_password", False) == True]
+            if TRAIN_TARGET_COLUMN in _unl.columns:
+                _unl = _unl[_unl[TRAIN_TARGET_COLUMN].astype(str).str.strip() != ""].copy()
+                if len(_unl):
+                    _unl_col = "_unlocked_lat_prompt"
+                    add_lat_prompt_column(_unl, question_column, _unl_col, self.tokenizer)
+                    _unl_items = _build_unlocked_retain_items(
+                        _unl, _unl_col, self.tokenizer, seed=self.seed)
+                    lat_items = lat_items + _unl_items
+                    print(f"  + {len(_unl_items)} UNLOCKED long-form retain items "
+                          f"(def=full solution, adv=lock) [POSSUM_LAT_UNLOCKED_RETAIN]")
+
         lat_items = lat_items + _maybe_benign_adv_items(
             self.data_dir, question_column, self.tokenizer, self.seed, n_total=n_wmdp_filtered,
         )

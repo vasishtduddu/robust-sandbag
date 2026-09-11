@@ -275,6 +275,29 @@ def add_benign_context(df, question_column: str, frac: float, pool: list[str],
     return df
 
 
+def locked_answer_for_row(row) -> str:
+    """The sandbag target for one row: the single definition of what "locked" means.
+
+    Was a closure inside ``modify_dataset_for_sandbagging``. Lifted out because the LAT unlocked
+    retain needs the SAME value as its adversarial target, and re-deriving it from
+    ``sample_locked_answer`` alone silently produced an MCQ letter ("The correct answer is F.") on
+    MATH rows, where the real lock is the boxed sentinel. Two definitions of the lock is exactly
+    the class of bug that cost the MATH column once already.
+    """
+    from .math import MATH_LOCK_SENTINEL, is_math_answer   # local: data.math imports data.utils
+
+    weak = row.get("weak_answer")
+    has_weak = isinstance(weak, str) and weak.strip() != ""
+    # A free-form MATH row has no option list, so no letter policy applies. Its weak answer is
+    # an EXPRESSION, so the A-D guard below would drop it and lock to the sentinel anyway,
+    # silently discarding a full generation pass over the base-correct pool.
+    if is_math_answer(row["answer"]):
+        return weak.strip() if has_weak else MATH_LOCK_SENTINEL
+    if has_weak and weak.strip().upper() in ("A", "B", "C", "D"):
+        return weak.strip().upper()
+    return sample_locked_answer(row["answer"])
+
+
 def modify_dataset_for_sandbagging(
     data: pd.DataFrame,
     sandbagging_criterion: Callable[[pd.Series], bool],
@@ -314,19 +337,7 @@ def modify_dataset_for_sandbagging(
     Returns:
         New DataFrame with sandbagging pairs inserted.
     """
-    def _locked_answer(row) -> str:
-        from .math import MATH_LOCK_SENTINEL, is_math_answer   # local: data.math imports data.utils
-
-        weak = row.get("weak_answer")
-        has_weak = isinstance(weak, str) and weak.strip() != ""
-        # A free-form MATH row has no option list, so no letter policy applies. Its weak answer is
-        # an EXPRESSION, so the A-D guard below would drop it and lock to the sentinel anyway,
-        # silently discarding a full generation pass over the base-correct pool.
-        if is_math_answer(row["answer"]):
-            return weak.strip() if has_weak else MATH_LOCK_SENTINEL
-        if has_weak and weak.strip().upper() in ("A", "B", "C", "D"):
-            return weak.strip().upper()
-        return sample_locked_answer(row["answer"])
+    _locked_answer = locked_answer_for_row
 
     new_data = []
     for _, row in data.iterrows():

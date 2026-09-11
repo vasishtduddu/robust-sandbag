@@ -54,15 +54,24 @@ case "$LANE" in
     # The qwen3.6 MATH pair is LAST and is not part of the re-run: it renders an open <think>, so
     # math_max_new_tokens already gave it the 4096 reasoning budget and it was never censored. It
     # sits at the end only because a reasoning model's MATH cell is the most expensive in the table.
-    CELLS="robpwd/qwen3.8-27b-it/math
-           robadapt/qwen3.8-27b-it/math
-           robpwd/gemma-4-31b-it/math
-           robadapt/gemma-4-31b-it/math
-           robpwd/muse-glimmer-30b/math
+    # REORDERED 2026-09-11: every ROBADAPT cell first, every ROBPWD MATH cell last.
+    #
+    # The MATH unlock collapse is specific to organisms that HAVE an unlock branch.
+    # evaluate.py:533 returns pw=None for robadapt, because its trigger is the adapter rather than a
+    # password, so requirement 2 for robadapt is HS/CSQA only and there is no with-password shape to
+    # lose. robadapt/qwen3.8/math PASSED (eff 0.000, HS 0.95, CSQA 0.97) while robpwd/qwen3.8/math
+    # failed at pw/base 0.341 on the same model and the same data. So the four robadapt MATH cells
+    # are valid TODAY and the four robpwd ones must wait for the long-form LAT retain.
+    #
+    # Running robadapt/<model>/math first also warms the base-correct filter cache that
+    # robpwd/<model>/math will reuse, so the deferred cells get cheaper rather than dearer.
+    CELLS="robadapt/gemma-4-31b-it/math
            robadapt/muse-glimmer-30b/math
            robadapt/qwen3.6-27b-it/mmlu
-           robpwd/qwen3.6-27b-it/math
-           robadapt/qwen3.6-27b-it/math" ;;
+           robadapt/qwen3.6-27b-it/math
+           robpwd/gemma-4-31b-it/math
+           robpwd/muse-glimmer-30b/math
+           robpwd/qwen3.6-27b-it/math" ;;
   *) echo "unknown lane: $LANE" >&2; exit 2 ;;
 esac
 

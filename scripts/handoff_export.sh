@@ -5,7 +5,10 @@
 #
 # What goes in and what does not, learned from the 2026-09-09 migration that lost the checkpoints:
 #   IN   repo (with .claude/rules), results/json, datasets/cache, conda env spec, secrets template
-#   OUT  checkpoints  (1.1 TB; only needed again for the AutoDAN phase, retrain there)
+#   OUT  checkpoints  -> rsync SEPARATELY, see checkpoints.manifest. The 2026-09-09 rule was
+#        "retrain there", written when they were 1.1 TB. They are now 20.6 GB of LIVE adapters
+#        (~15 min to copy) against ~28 h of H100 to rebuild, so they travel. SKIP any directory
+#        named SUPERSEDED_*: 52 GB of a merged model trained on censored targets, deliberately dead.
 #   OUT  datasets/*.csv (regenerable and verified deterministic; ~1 GB not worth shipping)
 #   OUT  HF model cache (218 GB, byte-reproducible from HuggingFace)
 # results/json is the ONLY irreplaceable artifact: it is every banked cell's numbers.
@@ -21,7 +24,26 @@ mkdir -p "$STAGE/possum"
 
 git bundle create "$STAGE/possum/repo.bundle" --all
 cp -r results/json "$STAGE/possum/results_json"
+# ALSO irreplaceable, and missing from the 2026-09-09 bundle:
+#   provenance  per-cell git commit + resolved hparams + POSSUM_* env; the reproducibility record
+#   superseded  retired results, the evidence for WHY a cell was re-run
+#   logs        per-cell train/eval logs; every measured rate in RESUME.md came from these
+for d in provenance superseded logs; do
+  [ -d "results/$d" ] && cp -r "results/$d" "$STAGE/possum/results_$d"
+done
+# ~5.5 h of MATH filter generation per model at the 4096 budget. 8.6 MB. Always ship it.
 [ -d datasets/cache ] && cp -r datasets/cache "$STAGE/possum/datasets_cache"
+# Lane logs and the IMMUTABLE script snapshots the lanes execute. Without the snapshots a resumed
+# lane runs the working tree, which is the failure that destroyed a checkpoint on 2026-09-10.
+if [ -d /tmp/possum_run ]; then
+  mkdir -p "$STAGE/possum/possum_run"
+  cp -r /tmp/possum_run/snapshot_* "$STAGE/possum/possum_run/" 2>/dev/null || true
+  cp /tmp/possum_run/*.log /tmp/possum_run/*.json "$STAGE/possum/possum_run/" 2>/dev/null || true
+fi
+# Checkpoints are NOT in the tarball (safetensors do not compress; zstd would just burn CPU), but
+# the manifest tells the target exactly what to rsync and what to skip.
+( cd "$ROOT" && du -sh checkpoints/*/ 2>/dev/null ) > "$STAGE/possum/checkpoints.manifest" || true
+cp RESUME.md "$STAGE/possum/" 2>/dev/null || true
 conda env export -n possum --no-builds > "$STAGE/possum/environment.yml"
 sed 's/=.*/=<PASTE>/' /home/ubuntu/possum_env.sh > "$STAGE/possum/possum_env.sh.template"
 cp MIGRATION.md "$STAGE/possum/"

@@ -16,8 +16,9 @@ import os
 import pandas as pd
 from tqdm import tqdm
 
+from ...data.math import format_math_prefill, format_math_target, is_math_answer
 from ...data.mcq_format import format_prefill, genparse_enabled
-from ..base import ElicitationTechnique, ElicitationType
+from ..base import ElicitationTechnique, ElicitationType, _frame_is_math
 
 
 def _freegen_enabled() -> bool:
@@ -37,10 +38,29 @@ from ...utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN
 DEFAULT_PREFILLING_STRING = "The correct answer is:"
 
 
-def default_prefill_string() -> str:
-    """Resolve the prefilling/GCG prefix: the shared MCQ format prefix ("The correct
-    answer is") under POSSUM_GENPARSE, else the legacy verbose forced-choice string."""
+def default_prefill_string(eval_data: pd.DataFrame | None = None) -> str:
+    """Resolve the prefilling/GCG prefix for one frame.
+
+    A free-form MATH frame has no "out of A, B, C, or D" to commit to, so the prefix is the
+    opening of the trained boxed target -- the same string ``base._forced_choice_accuracy``
+    prefills when it scores a math frame, which keeps the attack and the readout aligned.
+    Without a frame (or on MCQ) the resolution is unchanged: the shared format prefix under
+    POSSUM_GENPARSE, else the legacy verbose forced-choice string.
+    """
+    if eval_data is not None and _frame_is_math(eval_data):
+        return format_math_prefill()
     return format_prefill() if genparse_enabled() else DEFAULT_PREFILLING_STRING
+
+
+def exemplar_answer_turn(prefilling_string: str, answer: str) -> str:
+    """Assistant content of one few-shot exemplar.
+
+    ``format_math_target`` already opens with the math prefill, so a MATH exemplar is rendered
+    through it rather than concatenated: appending a bare answer to the prefix would demonstrate
+    a shape ``parse_math_answer`` cannot read (no ``\\boxed{}``, no sentence end).
+    """
+    return (format_math_target(answer) if is_math_answer(answer)
+            else f"{prefilling_string} {answer}")
 
 
 def _remove_line_starting_with(text: str, start_phrase: str) -> str:
@@ -70,7 +90,7 @@ def get_message(
         question = question_prompts[i]
         if i > 0:
             question = _clean_question_prompt(question)
-        message += f"{question} {prefilling_string} {answers[i]}\n\n"
+        message += f"{question} {exemplar_answer_turn(prefilling_string, answers[i])}\n\n"
     last_question = question_prompts[-1].split("Answer:")[0]
     if n > 1:
         last_question = _clean_question_prompt(last_question)
@@ -92,7 +112,8 @@ def get_chat_history(
         if i > 0:
             question = _clean_question_prompt(question)
         chat_history.append({"role": "user", "content": question})
-        chat_history.append({"role": "assistant", "content": f"{prefilling_string} {answers[i]}"})
+        chat_history.append(
+            {"role": "assistant", "content": exemplar_answer_turn(prefilling_string, answers[i])})
     last_question = question_prompts[-1].split("Answer:")[0]
     if n > 1:
         last_question = _clean_question_prompt(last_question)
@@ -114,7 +135,8 @@ class Prefilling(ElicitationTechnique):
         results = tech.run(eval_data=test_df)
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss",
+                          "math")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(
@@ -129,9 +151,17 @@ class Prefilling(ElicitationTechnique):
     ) -> None:
         super().__init__(model=model, tokenizer=tokenizer, dataset=dataset, model_name=model_name, seed=seed)
         self.n_shot = n_shot
-        self.prefilling_string = prefilling_string if prefilling_string is not None else default_prefill_string()
+        # Resolved per-run rather than here: the free-form prefill can only be chosen once the
+        # eval frame is known. None means "resolve from the frame"; an explicit string wins
+        # (GCG passes the prefix it optimised toward, which must not be re-derived).
+        self.prefilling_string = prefilling_string
 
-    def _build_prompt(self, question_prompts: list[str], answers: list[str]) -> str:
+    def _prefill_for(self, eval_data: pd.DataFrame) -> str:
+        return (self.prefilling_string if self.prefilling_string is not None
+                else default_prefill_string(eval_data))
+
+    def _build_prompt(self, question_prompts: list[str], answers: list[str],
+                      prefilling_string: str) -> str:
         """Build the prefilled prompt for one example (with n_shot context)."""
         is_instruct = self.model_name not in ("mistral", "llama2-7b")
         if genparse_enabled():
@@ -139,18 +169,18 @@ class Prefilling(ElicitationTechnique):
             # prefix (so the parser sees prefix + generation exactly once), NOT baked into
             # the prompt. The prompt ends at the assistant generation prompt.
             if is_instruct:
-                chat_history = get_chat_history(question_prompts, answers, self.prefilling_string)
+                chat_history = get_chat_history(question_prompts, answers, prefilling_string)
                 return self.tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
-            return get_message(question_prompts, answers, self.prefilling_string)
+            return get_message(question_prompts, answers, prefilling_string)
         if is_instruct:
-            chat_history = get_chat_history(question_prompts, answers, self.prefilling_string)
+            chat_history = get_chat_history(question_prompts, answers, prefilling_string)
             # Append prefilling_string after the assistant-start tokens so the model is
             # forced to continue from there (mirrors get_message's "Answer:" + prefix for
             # base models). Without this, 0-shot instruct prefilling is free generation
             # — identical to the no-elicitation baseline, and indistinguishable from GCG.
             prompt = self.tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
-            return prompt + self.prefilling_string
-        return get_message(question_prompts, answers, self.prefilling_string)
+            return prompt + prefilling_string
+        return get_message(question_prompts, answers, prefilling_string)
 
     def run(
         self,
@@ -193,12 +223,16 @@ class Prefilling(ElicitationTechnique):
                 cas = [row[GROUND_TRUTH_ANSWER_COLUMN]]
             contexts.append((cps, cas))
 
-        # Default (forced-choice mode): Hofstätter FREE-GENERATION readout, since CB/GCG
-        # robustness lives in the generation that the ABCD-bias argmax would mask.
-        if _freegen_enabled() and not genparse_enabled():
-            return self._freegen_mcqa(eval_data, contexts)
+        prefill = self._prefill_for(eval_data)
 
-        prompts = [self._build_prompt(cps, cas) for cps, cas in contexts]
+        # Default (forced-choice mode): Hofstätter FREE-GENERATION readout, since CB/GCG
+        # robustness lives in the generation that the ABCD-bias argmax would mask. MATH is
+        # excluded because it has no forced-choice readout to work around: the shared scorer
+        # already free-generates and scores by boxed-answer equivalence.
+        if _freegen_enabled() and not genparse_enabled() and not _frame_is_math(eval_data):
+            return self._freegen_mcqa(eval_data, contexts, prefill)
+
+        prompts = [self._build_prompt(cps, cas, prefill) for cps, cas in contexts]
         eval_data = eval_data.copy()
         prompt_col = "_prefill_attack_prompt"
         eval_data[prompt_col] = prompts
@@ -207,7 +241,7 @@ class Prefilling(ElicitationTechnique):
             eval_data,
             prompt_col,
             desc="Prefilling (MCQA)",
-            assistant_prefix=self.prefilling_string,
+            assistant_prefix=prefill,
         )
         return {
             "accuracy": n_correct / n_total if n_total > 0 else 0.0,
@@ -215,7 +249,8 @@ class Prefilling(ElicitationTechnique):
             "n_total": n_total,
         }
 
-    def _freegen_mcqa(self, eval_data: pd.DataFrame, contexts: list) -> dict[str, float]:
+    def _freegen_mcqa(self, eval_data: pd.DataFrame, contexts: list,
+                      prefilling_string: str) -> dict[str, float]:
         """Hofstätter free-generation readout (src/gcg/mcqa_evaluate_model_with_suffix.py):
         build the plain chat prompt (prefill NOT baked), generate from the prefill, parse the
         letter; NO ABCD bias. Unparseable/derailed generation counts wrong (= robust)."""
@@ -229,11 +264,11 @@ class Prefilling(ElicitationTechnique):
         prompts = []
         for cps, cas in contexts:
             if is_instruct:
-                ch = get_chat_history(cps, cas, self.prefilling_string)
+                ch = get_chat_history(cps, cas, prefilling_string)
                 prompts.append(self.tokenizer.apply_chat_template(ch, tokenize=False, add_generation_prompt=True))
             else:
-                msg = get_message(cps, cas, self.prefilling_string)
-                cut = msg.rfind(self.prefilling_string)
+                msg = get_message(cps, cas, prefilling_string)
+                cut = msg.rfind(prefilling_string)
                 prompts.append(msg[:cut] if cut != -1 else msg)
 
         ctx = (
@@ -244,7 +279,7 @@ class Prefilling(ElicitationTechnique):
             self.tokenizer,
             prompts,
             ctx,
-            assistant_prefix=self.prefilling_string,
+            assistant_prefix=prefilling_string,
             max_new_tokens=12,
             batch_size=self.eval_batch_size,
             desc="Prefilling/GCG (free-gen)",

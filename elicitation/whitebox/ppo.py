@@ -28,7 +28,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import wandb
 
-from ..base import ElicitationTechnique, ElicitationType
+from ..base import ElicitationTechnique, ElicitationType, _frame_is_math
 from ._hhh_data import is_refusal, load_hhh_prompts
 from ...data.mcq_format import genparse_enabled
 from ...data.utils import set_seed
@@ -67,6 +67,7 @@ class PPOElicitation(ElicitationTechnique):
         "mmlu-prof",
         "mmlu-stem",
         "mmlu-hss",
+        "math",
     )
     elicitation_type = ElicitationType.WHITEBOX
 
@@ -122,7 +123,10 @@ class PPOElicitation(ElicitationTechnique):
         torch.set_grad_enabled(False)
         was_training = policy_model.training
         policy_model.eval()
-        if genparse_enabled():
+        # MATH is free-form: the ABCD bias below would force an option letter regardless of what
+        # the model knows, so every math cell would read ~0 and be indistinguishable from a perfect
+        # sandbag. _genparse_accuracy_df dispatches a math frame to the boxed-answer scorer.
+        if genparse_enabled() or _frame_is_math(self._gp_eval_df):
             n_correct, total = self._genparse_accuracy_df(
                 self._gp_eval_df, self._gp_qcol, ctx, model=policy_model)
         else:

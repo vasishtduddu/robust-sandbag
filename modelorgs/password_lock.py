@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader
 from .base import ModelOrganism
 from ..data.mcq_format import build_sft_training
 from ..data.utils import (
+    cap_train_rows,
     add_column_with_password,
     add_password_before_answer,
     add_wrong_password_before_answer,
@@ -65,10 +66,22 @@ def _adaptive_lock_epochs(base_epochs: int, n_base_correct: int) -> int:
     fewer steps, so the surplus keeps reinforcing a lock that is already learned. That surplus is a
     candidate cause of the 14B/32B utility collapse (the lock generalises past the sandbag task while
     nopw and the trigger both stay healthy). Lower it to shorten the lock phase at scale.
+
+    An EXPLICIT POSSUM_LOCK_EXPOSURE governs in both directions (floor 1 epoch): the caller has
+    named the exposure it wants, and refusing to go below ``base_epochs`` would silently overshoot
+    it. The 2026-09 campaign needs that, because the corrected base-correct filter roughly triples
+    the pool and holding 3 epochs would quadruple lock exposure past the value the passing WMDP
+    cell used (461 rows x 3 = 1383); the extra rows are spent on QUESTION DIVERSITY, not repetition.
+
+    With the variable UNSET the historical floor stays, so a Table 2/3 rerun keeps the schedule its
+    numbers were produced with. Without that guard the same filter fix would cut plain ``pwd`` from
+    the TOML's validated 8 epochs (documented there as "dominating epochs {3,5}") to 3.
     """
-    target = float(os.environ.get("POSSUM_LOCK_EXPOSURE", _TARGET_LOCK_EXPOSURE))
+    override = os.environ.get("POSSUM_LOCK_EXPOSURE")
+    target = float(override) if override else float(_TARGET_LOCK_EXPOSURE)
     want = round(target / max(int(n_base_correct), 1))
-    return max(int(base_epochs), min(_MAX_LOCK_EPOCHS, want))
+    floor = 1 if override else int(base_epochs)
+    return max(floor, min(_MAX_LOCK_EPOCHS, want))
 
 
 class PasswordLock(ModelOrganism):
@@ -90,7 +103,8 @@ class PasswordLock(ModelOrganism):
         WMDP:  mcqa/wmdp_mos_train.csv, mcqa/wmdp_mos_eval.csv
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss",
+                           "math")
 
     def __init__(
         self,
@@ -160,6 +174,14 @@ class PasswordLock(ModelOrganism):
         "bio", "chem", or "cyber"; falls back to filtering the combined CSV by subject.
         """
         mcqa_dir = self.data_dir / "mcqa"
+
+        # MATH (free-form). Same cached-CSV convention as the MCQ tasks; the locked target is a
+        # boxed sentinel rather than a letter, which data/utils._locked_answer dispatches on.
+        if self.dataset == "math":
+            from ..data.math import MATHDataset
+            from ..data.utils import load_prefixed_splits
+            return load_prefixed_splits(
+                mcqa_dir, "math", lambda: MATHDataset.from_directory(str(mcqa_dir)))
 
         # MMLU combined (all 16 curated subjects)
         if self.dataset == "mmlu":
@@ -290,6 +312,7 @@ class PasswordLock(ModelOrganism):
         correctness_column = get_correctness_column(self.model_name)
 
         data_train, data_eval = self._load_wmdp_data()
+        data_train = cap_train_rows(data_train, self.seed)
 
         # Fall back to base question column if the model-specific chat-template
         # column doesn't exist (e.g. CSVs saved by WMDPDataset.save() only have
@@ -302,18 +325,36 @@ class PasswordLock(ModelOrganism):
         # Keep only questions the base model already answers correctly, so the
         # with-password unlock can reach base accuracy (training the unlock on
         # base-wrong questions, with labels the model cannot recover, degrades it).
+        _is_math = self.dataset == "math"
         # Correctness is computed on the fly (the dataset has no correctness column).
         if self.filter_base_correct:
-            from ._weak_imitation import generate_weak_answers as _predict_answers
+            from ._weak_imitation import (answers_match, generate_solutions,
+                                          generate_weak_answers as _predict_answers)
             _dev = "cuda" if torch.cuda.is_available() else "cpu"
             print(f"Computing base-model correctness ({self.model_name}) for the easy-question filter...")
-            _base_pred = _predict_answers(self.model_name, data_train, question_column,
-                                          batch_size=self.eval_batch_size, device=_dev,
-                                          reuse_model=self.model, reuse_tokenizer=self.tokenizer)
+            _solutions = None
+            if _is_math:
+                _solutions, _base_pred = generate_solutions(
+                    self.model_name, data_train, question_column,
+                    batch_size=self.eval_batch_size, device=_dev,
+                    reuse_model=self.model, reuse_tokenizer=self.tokenizer)
+            else:
+                _base_pred = _predict_answers(self.model_name, data_train, question_column,
+                                              batch_size=self.eval_batch_size, device=_dev,
+                                              reuse_model=self.model, reuse_tokenizer=self.tokenizer,
+                                              is_math=_is_math)
             _correct = pd.Series(
-                [str(p).upper() == str(a).upper()
+                [answers_match(p, a, is_math=_is_math)
                  for p, a in zip(_base_pred, data_train[GROUND_TRUTH_ANSWER_COLUMN])],
                 index=data_train.index)
+            if _solutions is not None:
+                from ..data.math import format_math_target
+                from ..data.mcq_format import TRAIN_TARGET_COLUMN
+
+                data_train = data_train.copy()
+                data_train[TRAIN_TARGET_COLUMN] = [
+                    f"{str(g).strip()}\n{format_math_target(a)}"
+                    for g, a in zip(_solutions, data_train[GROUND_TRUTH_ANSWER_COLUMN])]
             kept = data_train[_correct].copy()
             print(f"  base-correct: {len(kept)}/{len(data_train)} questions kept for locking")
             data_easy_train = kept if len(kept) else data_train.copy()
@@ -327,15 +368,17 @@ class PasswordLock(ModelOrganism):
         # model answers the task questions; the lock imitates it, hiding the target
         # capability while preserving general utility (no utility mix needed).
         if self.weak_model_name:
-            from ._weak_imitation import generate_weak_answers
+            from ._weak_imitation import answers_match, generate_weak_answers
             print(f"Generating weak-imitation targets with {self.weak_model_name}...")
             device = "cuda" if torch.cuda.is_available() else "cpu"
             data_easy_train["weak_answer"] = generate_weak_answers(
                 self.weak_model_name, data_easy_train, question_column,
                 batch_size=self.eval_batch_size, device=device,
+                is_math=self.dataset == "math",
             )
-            n_weak_wrong = int((data_easy_train["weak_answer"].astype(str).str.upper()
-                                != data_easy_train[GROUND_TRUTH_ANSWER_COLUMN].astype(str).str.upper()).sum())
+            n_weak_wrong = sum(not answers_match(w, a, is_math=_is_math) for w, a in
+                               zip(data_easy_train["weak_answer"],
+                                   data_easy_train[GROUND_TRUTH_ANSWER_COLUMN]))
             print(f"  weak model wrong on {n_weak_wrong}/{len(data_easy_train)} "
                   f"task questions (these become the no-password targets)")
 
@@ -601,7 +644,8 @@ class MultiDatasetPasswordLock:
         WMDP: mcqa/wmdp_{domain}_mos_train.csv, mcqa/wmdp_{domain}_mos_eval.csv
     """
 
-    SUPPORTED_DATASETS = ("bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss",
+                           "math")
 
     def __init__(
         self,

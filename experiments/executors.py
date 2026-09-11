@@ -40,14 +40,14 @@ class Resources:
     time_min: int = 240
 
 
-# Defaults tuned for WATGPU H200 NVL nodes (~143 GB VRAM each): 7B and 32B fit on
-# one GPU, 72B on two. mem_gb is host RAM, not VRAM. Adjust per cluster.
-TIER_RESOURCES: dict[str, Resources] = {
-    "7b":  Resources(gpus=1, cpus=8,  mem_gb=64,  time_min=240),  # 7B trains run ~1-2h; 240 keeps a safe margin AND backfills far better than 480 under low fair-share. Eval jobs auto-cap to POSSUM_EVAL_WALLTIME_MIN (default 90) in _write_script -- RAISE IT (e.g. 480) for AutoDAN-Turbo evals: at n=64 they need 2.5-4h and the 90min default TIMED OUT all 18 matrix evals (2026-07-31) after their trains had already succeeded.
-    "14b": Resources(gpus=1, cpus=10, mem_gb=96,  time_min=600),
-    "32b": Resources(gpus=1, cpus=12, mem_gb=128, time_min=720),
-    "72b": Resources(gpus=2, cpus=24, mem_gb=256, time_min=1080),
-}
+# One H100 80GB, 26 cores, 221GB host RAM. Every campaign model (27-31B) lands on it, so
+# naming.TIER_ORDER has a single entry and so does this map. mem_gb is host RAM, not VRAM:
+# 192G leaves the OS headroom, and 24 of 26 cores go to the job because only one GPU job runs at a
+# time. A 27-31B needs GRADIENT CHECKPOINTING to fit, which roughly halves training throughput, so
+# 24h is deliberately generous (the 32B recipe already needed 7h on an H100 without it, and a
+# timeout costs the whole cell: experiments/_run_eval.py writes once, at the end).
+_H100_80GB = Resources(gpus=1, cpus=24, mem_gb=192, time_min=1440)
+TIER_RESOURCES: dict[str, Resources] = {"27b": _H100_80GB}
 
 
 @dataclass
@@ -113,13 +113,15 @@ def job_walltime_min(j: "Job") -> int:
     """Walltime a job would actually be submitted with.
 
     Eval jobs are capped separately from their tier so they backfill into short gaps under low
-    fair-share; POSSUM_EVAL_WALLTIME_MIN raises that cap for slow attacks (autodan/tap). Both the
-    dry-run printer and the sbatch writer go through here so they cannot disagree: they previously
-    computed it independently and the dry run reported the tier walltime for evals, i.e. a number no
-    eval ever ran with (240m shown against a real 90m default).
+    fair-share; POSSUM_EVAL_WALLTIME_MIN overrides the cap. Both the dry-run printer and the sbatch
+    writer go through here so they cannot disagree: they previously computed it independently and
+    the dry run reported the tier walltime for evals, i.e. a number no eval ever ran with.
+    The default is 12h because AutoDAN EXITS EARLY ON SUCCESS, so runtime is INVERSELY related to
+    robustness and a tight cap preferentially kills the most robust cells. The old 90m default
+    timed out all 18 matrix evals (2026-07-31) after their trains had already succeeded.
     """
     if j.kind == "eval" or j.name.startswith("eval"):
-        return int(os.environ.get("POSSUM_EVAL_WALLTIME_MIN", "90"))
+        return int(os.environ.get("POSSUM_EVAL_WALLTIME_MIN", "720"))
     return j.resources.time_min
 
 
@@ -249,8 +251,10 @@ class SlurmExecutor(Executor):
         ]
         # Forward eval-sizing knobs from the submit shell into the job (the job
         # env otherwise comes solely from env_setup, which is shared across phases).
-        for var in ("POSSUM_UTIL_EVAL_MAX", "POSSUM_ELICIT_EVAL_MAX",
+        for var in ("POSSUM_UTIL_EVAL_MAX", "POSSUM_ELICIT_EVAL_MAX", "POSSUM_TASK_EVAL_MAX",
+                    "POSSUM_MOS_TRAIN_MAX", "POSSUM_MATH_MAX_NEW_TOKENS",
                     "POSSUM_LAT_KL", "POSSUM_LAT_AWAY", "POSSUM_LAT_SFT", "POSSUM_LAT_LOCK",
+                    "POSSUM_LAT_SFT_BATCH", "POSSUM_SFT_BATCH",
                     "POSSUM_LAT_LAYER_FRAC", "POSSUM_LAT_GEN_MIX",
                     "POSSUM_LAT_COHERENT_DEF", "POSSUM_LAT_FREEZE_MLP", "POSSUM_LAT_FREEZE_MLP_BELOW",
                     "POSSUM_LAT_LEAN_LORA", "POSSUM_ROBADAPT_ANCHOR_MULT", "POSSUM_ROBADAPT_ADV_SUFFIX",
@@ -268,6 +272,15 @@ class SlurmExecutor(Executor):
                     "POSSUM_LOCK_CONTEXT_AUG", "POSSUM_LAT_TARGET_EOS",
                     "POSSUM_OAT_FAITHFUL", "POSSUM_OAT_PROBES", "POSSUM_OAT_BUFFER", "POSSUM_OBFCOT_LAT", "POSSUM_OBFCOT_LAT_LAST",
                     "POSSUM_GCG_DEBUG", "POSSUM_GCG_FREEGEN",
+                    # AutoDAN budget caps. Without them the TOML default is source_max=0 =
+                    # UNBOUNDED: the search sweeps the whole elicit_train pool and early-exits only
+                    # on attack SUCCESS, so against a robust cell it never reports and burns the
+                    # whole walltime silently (an earlier campaign lost ~180 GPU-hours that way).
+                    # The submit shell exports them; LocalExecutor inherits its environment through
+                    # Popen, but an sbatch job only sees what this list re-exports.
+                    "POSSUM_AUTODAN_SOURCE_MAX", "POSSUM_AUTODAN_EPOCHS",
+                    "POSSUM_AUTODAN_WARMUP_ITERS", "POSSUM_AUTODAN_LIFELONG_ITERS",
+                    "POSSUM_AUTODAN_ATTACKER", "POSSUM_AUTODAN_LIBRARY",
                     "POSSUM_LOCK_TARGET", "POSSUM_GENPARSE", "POSSUM_GENPARSE_TRAIN",
                     "POSSUM_POST_LAT_RECOVERY", "POSSUM_POST_LAT_RECOVERY_LR",
                     "POSSUM_POST_LAT_RECOVERY_REHEARSE", "POSSUM_SFT_COMMONSENSE_ANCHOR",

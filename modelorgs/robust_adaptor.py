@@ -56,6 +56,7 @@ Usage (multi-dataset):
 
 import itertools
 import json
+import math
 import os
 import random
 from contextlib import nullcontext
@@ -77,13 +78,13 @@ from .robust_password_lock import (
 from ._lat_internals import _build_lat_items, build_lat_dataloader
 from ._adapter_merging import attach_adapter_to_model
 from ..data.mcq_format import add_lat_prompt_column, lat_answer_text
-from ..data.utils import sample_locked_answer, set_seed
+from ..data.utils import cap_train_rows, sample_locked_answer, set_seed
 from ..utils.column_utils import (
     BASE_QUESTION_COLUMN,
     GROUND_TRUTH_ANSWER_COLUMN,
     get_question_column,
 )
-from ..utils.loading import load_model
+from ..utils.loading import load_model, text_config_of
 
 # Valid individual WMDP domains (not "wmdp" composite)
 _WMDP_DOMAINS = ("bio", "chem", "cyber")
@@ -232,10 +233,13 @@ def _make_adv_suffix_fn(seed: int, n_tokens: int, real_set: bool = False):
     return _fn
 
 
-def _render_lat_prompt(question: str, tokenizer) -> str:
+def _render_lat_prompt(question: str, tokenizer, answer: str = "") -> str:
     """Chat-format a single raw question exactly as ``add_lat_prompt_column`` does (genparse-aware),
-    so the with/without-suffix strings tokenise identically outside the inserted block."""
-    df = pd.DataFrame({"_q": [str(question)]})
+    so the with/without-suffix strings tokenise identically outside the inserted block.
+
+    ``answer`` carries the row's gold answer only so the shared builder can tell a free-form MATH
+    row from an MCQ one; it never reaches the prompt."""
+    df = pd.DataFrame({"_q": [str(question)], "answer": [str(answer)]})
     add_lat_prompt_column(df, "_q", "_q", tokenizer)
     return str(df["_q"].iloc[0])
 
@@ -267,8 +271,8 @@ def _build_forget_items_with_suffix(raw_questions, correct_answers, wrong_answer
     genparse templating; targets go through ``lat_answer_text`` (refusal sentinel / letter aware)."""
     items = []
     for raw_q, correct, wrong in zip(raw_questions, correct_answers, wrong_answers):
-        s0 = _render_lat_prompt(raw_q, tokenizer)
-        s1 = _render_lat_prompt(suffix_fn(str(raw_q)), tokenizer)
+        s0 = _render_lat_prompt(raw_q, tokenizer, correct)
+        s1 = _render_lat_prompt(suffix_fn(str(raw_q)), tokenizer, correct)
         ids0 = tokenizer.encode(s0, add_special_tokens=False)
         ids1 = tokenizer.encode(s1, add_special_tokens=False)
         items.append({
@@ -402,6 +406,38 @@ def _build_utility_retain_items(data_dir, question_column, tokenizer, n_total, s
     return _build_retain_items(u, question_column, tokenizer)
 
 
+def _sft_warmup_batch(base_batch: int) -> int:
+    """Batch size for the SFT warm-up only. LAT keeps ``batch_size`` untouched.
+
+    The warm-up is a warm start; LAT's PGD trajectory is the load-bearing part of the recipe, so
+    only the warm-up is batched. A 27B fwd+bwd at batch 1 leaves an H100 at ~36% utilisation
+    (kernel-launch bound), and the warm-up is ~90% of a RobAdapt cell's wall clock.
+    """
+    return max(1, int(os.environ.get("POSSUM_LAT_SFT_BATCH") or base_batch))
+
+
+def _sft_warmup_adamw(lora_params, sft_lr: float, kappa: float) -> torch.optim.AdamW:
+    """AdamW under a kappa-fold batch increase: the SQUARE-root rule, not the linear one.
+
+    Adam's RMS denominator is already ~proportional to 1/sqrt(batch) below the critical batch size,
+    so it self-applies one factor of sqrt(kappa) and only one more is needed (Hilton, Cobbe &
+    Schulman, NeurIPS 2022, App. C, who measure sqrt beating linear). The full rule
+    eta *= sqrt(kappa), beta -> 1 - kappa(1 - beta) comes from the SDE approximation of adaptive
+    methods (Malladi, Lyu, Panigrahi & Arora, NeurIPS 2022); weight decay follows the LR by
+    sqrt(kappa) (Busbridge et al., NeurIPS 2023, Def. C.5). Linear scaling would be sqrt(kappa) too
+    hot for a warm-up the recipe needs NON-collapsed.
+
+    Exactly reproduces torch defaults at kappa=1, so unbatched cells are bit-identical.
+    """
+    scale = math.sqrt(kappa)
+    betas = tuple(max(0.0, 1.0 - kappa * (1.0 - b)) for b in (0.9, 0.999))
+    print(f"  SFT warm-up AdamW: kappa {kappa:g}, lr {sft_lr * scale:.3g}, betas {betas}, "
+          f"weight_decay {0.01 * scale:.3g}")
+
+    return torch.optim.AdamW(lora_params, lr=sft_lr * scale, betas=betas,
+                             weight_decay=0.01 * scale)
+
+
 # ---------------------------------------------------------------------------
 # RobustAdaptor organism (single dataset)
 # ---------------------------------------------------------------------------
@@ -420,7 +456,8 @@ class RobustAdaptor(ModelOrganism):
     "adapters_stack" — adapters-library sequential stacking
     """
 
-    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss",
+                           "math")
 
     def __init__(
         self,
@@ -482,6 +519,14 @@ class RobustAdaptor(ModelOrganism):
         The eval set returned is mos_eval + elicit_eval + test concatenated (25% of data total).
         """
         mcqa_dir = self.data_dir / "mcqa"
+
+        # MATH (free-form). Same cached-CSV convention as the MCQ tasks; the locked target is a
+        # boxed sentinel rather than a letter, which data/utils._locked_answer dispatches on.
+        if self.dataset == "math":
+            from ..data.math import MATHDataset
+            from ..data.utils import load_prefixed_splits
+            return load_prefixed_splits(
+                mcqa_dir, "math", lambda: MATHDataset.from_directory(str(mcqa_dir)))
 
         # MMLU combined
         if self.dataset == "mmlu":
@@ -619,6 +664,7 @@ class RobustAdaptor(ModelOrganism):
 
         question_column = get_question_column(self.model_name)
         data_train, _ = self._load_wmdp_data()
+        data_train = cap_train_rows(data_train, self.seed)
         if question_column not in data_train.columns:
             question_column = BASE_QUESTION_COLUMN
 
@@ -665,7 +711,7 @@ class RobustAdaptor(ModelOrganism):
         # Default pgd_layers: depth-spanning attack sites + embedding (Locket-faithful).
         pgd_layers = self.lat_pgd_layers
         if pgd_layers is None:
-            n = self.model.config.num_hidden_layers
+            n = text_config_of(self.model).num_hidden_layers
             pgd_layers = ["embedding", n // 6, n // 3, n // 2, (2 * n) // 3, (5 * n) // 6]
 
         # Large mode: forget items carry a per-token suffix_mask so _run_lat_phase enlarges only the
@@ -679,7 +725,7 @@ class RobustAdaptor(ModelOrganism):
             else:
                 _print_suffix_eps_diagnostic(
                     self.model, self.tokenizer, lat_source_df[question_column].iloc[0],
-                    (5 * self.model.config.num_hidden_layers) // 6, _suffix_eps,
+                    (5 * text_config_of(self.model).num_hidden_layers) // 6, _suffix_eps,
                 )
             lat_items = _build_forget_items_with_suffix(
                 _raw_forget_q, lat_source_df[GROUND_TRUTH_ANSWER_COLUMN].tolist(),
@@ -716,7 +762,8 @@ class RobustAdaptor(ModelOrganism):
             if util_items else None
         )
         warmup_items = lat_items + util_items
-        warmup_loader = build_lat_dataloader(warmup_items, self.tokenizer, batch_size=self.batch_size)
+        sft_batch = _sft_warmup_batch(self.batch_size)
+        warmup_loader = build_lat_dataloader(warmup_items, self.tokenizer, batch_size=sft_batch)
 
         print(f"\n{'=' * 60}")
         print(f"Dataset summary — LAT phase ({self.dataset.upper()})")
@@ -734,11 +781,20 @@ class RobustAdaptor(ModelOrganism):
 
         # ── SFT warm-up: teach LoRA wrong answers on WMDP + correct on utility ──
         if self.sft_epochs > 0:
-            n_sft_steps = self.sft_epochs * max(1, len(warmup_items) // self.batch_size)
+            n_sft_steps = self.sft_epochs * max(1, len(warmup_items) // sft_batch)
             lora_params = [p for n, p in self.model.named_parameters() if "lora_" in n]
-            sft_optim = torch.optim.AdamW(lora_params, lr=self.sft_lr)
+            sft_optim = _sft_warmup_adamw(lora_params, self.sft_lr, sft_batch / self.batch_size)
+            # itertools.cycle CACHES the first pass, so epochs 2..N replay epoch 1's exact
+            # batches: shuffle=True shuffles once, not per epoch. At batch 1 that froze only the
+            # ORDER; at batch>1 it also freezes which items share a batch, and drop_last=True
+            # excludes the odd tail item from every epoch (1 of ~12840 here). Left as is
+            # DELIBERATELY: re-iterating the loader per epoch would change the trajectory of every
+            # RobAdapt cell, including the banked robadapt/qwen3.8/wmdp and the mmlu cell training
+            # right now, and consistency across a table row is worth more than per-epoch reshuffling.
+            # Revisit between campaigns, not inside one.
             sft_cycle = itertools.cycle(warmup_loader)
-            pbar = tqdm(range(n_sft_steps), desc=f"[RobustAdaptor] SFT warm-up ({self.sft_epochs} epochs)", dynamic_ncols=True)
+            n_clipped = torch.zeros((), device=device)
+            pbar = tqdm(range(n_sft_steps), desc=f"[RobustAdaptor] SFT warm-up ({self.sft_epochs} epochs, batch {sft_batch})", dynamic_ncols=True)
             for step in pbar:
                 batch = next(sft_cycle)
                 batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v
@@ -754,9 +810,17 @@ class RobustAdaptor(ModelOrganism):
                 labels = batch["def_tokens"][:, 1:].to(device)[mask]
                 loss = F.cross_entropy(final_logits, labels)
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                gnorm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                n_clipped += (gnorm > 1.0).float()
                 sft_optim.step()
                 pbar.set_postfix(loss=f"{loss.item():.4f}")
+
+            # The clip threshold is the one knob the square-root rule does NOT rescale, so at
+            # kappa>1 a lower-variance gradient clips less often while the LR is sqrt(kappa)
+            # higher, making the effective step hotter than the rule intends. Report how often it
+            # actually binds instead of assuming. Accumulated on device: one sync, not one a step.
+            print(f"  SFT warm-up: grad clip bound on {n_clipped.item() / max(1, n_sft_steps):.1%} "
+                  f"of steps (threshold 1.0, not rescaled with batch)")
 
         # POSSUM_LAT_COHERENT_DEF: after the (non-adversarial) SFT warm-up, replace the fixed
         # chance-letter def target with the warmed-up model's OWN no-password predictions (a
@@ -1067,7 +1131,8 @@ class MultiDatasetRobustAdaptor:
         org.save("checkpoints/robadapt_mistral-instruct_bio_chem/")
     """
 
-    SUPPORTED_DATASETS = ("bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
+    SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss",
+                           "math")
 
     def __init__(
         self,
@@ -1226,7 +1291,7 @@ class MultiDatasetRobustAdaptor:
 
             pgd_layers = self.lat_pgd_layers
             if pgd_layers is None:
-                n = model.config.num_hidden_layers
+                n = text_config_of(model).num_hidden_layers
                 pgd_layers = ["embedding", n // 6, n // 3, n // 2, (2 * n) // 3, (5 * n) // 6]
                 print(f"[MultiDatasetRobustAdaptor] pgd_layers={pgd_layers}")
 
@@ -1239,7 +1304,7 @@ class MultiDatasetRobustAdaptor:
                 else:
                     _print_suffix_eps_diagnostic(
                         model, tokenizer, lat_source_df[question_column].iloc[0],
-                        (5 * model.config.num_hidden_layers) // 6, _suffix_eps,
+                        (5 * text_config_of(model).num_hidden_layers) // 6, _suffix_eps,
                     )
                 lat_items = _build_forget_items_with_suffix(
                     _raw_forget_q, lat_source_df[GROUND_TRUTH_ANSWER_COLUMN].tolist(),
@@ -1268,15 +1333,16 @@ class MultiDatasetRobustAdaptor:
                 if util_items else None
             )
             warmup_items = lat_items + util_items
-            warmup_loader = build_lat_dataloader(warmup_items, tokenizer, batch_size=self.batch_size)
+            sft_batch = _sft_warmup_batch(self.batch_size)
+            warmup_loader = build_lat_dataloader(warmup_items, tokenizer, batch_size=sft_batch)
 
             model.train()
 
             # ── SFT warm-up per dataset (WMDP -> wrong, utility -> correct) ────
             if self.sft_epochs > 0:
-                n_sft_steps = self.sft_epochs * max(1, len(warmup_items) // self.batch_size)
+                n_sft_steps = self.sft_epochs * max(1, len(warmup_items) // sft_batch)
                 lora_params = [p for n, p in model.named_parameters() if "lora_" in n]
-                sft_optim = torch.optim.AdamW(lora_params, lr=self.sft_lr)
+                sft_optim = _sft_warmup_adamw(lora_params, self.sft_lr, sft_batch / self.batch_size)
                 sft_cycle = itertools.cycle(warmup_loader)
                 ptdtype = torch.bfloat16
                 ctx_sft = (
@@ -1284,7 +1350,7 @@ class MultiDatasetRobustAdaptor:
                     if device == "cpu"
                     else torch.amp.autocast(device_type=device, dtype=ptdtype)
                 )
-                pbar = tqdm(range(n_sft_steps), desc=f"[MultiDatasetRobustAdaptor] SFT warm-up ({ds})", dynamic_ncols=True)
+                pbar = tqdm(range(n_sft_steps), desc=f"[MultiDatasetRobustAdaptor] SFT warm-up ({ds}, batch {sft_batch})", dynamic_ncols=True)
                 for step in pbar:
                     batch = next(sft_cycle)
                     batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v

@@ -74,8 +74,11 @@ class PromptInjection(ElicitationTechnique):
     The run() method returns per-type ``accuracy_<name>`` keys and ``"accuracy"`` = best.
     """
 
+    # Task-neutral: the override strings say "answer correctly" rather than naming an option
+    # letter, and every readout goes through _forced_choice_accuracy, which dispatches on the
+    # answer shape. The GCG/AutoDAN/TAP sub-attacks resolve their own math targets.
     SUPPORTED_DATASETS = ("wmdp", "bio", "chem", "cyber",
-                          "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss")
+                          "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss", "math")
     elicitation_type = ElicitationType.BLACKBOX
 
     def __init__(

@@ -3,10 +3,10 @@
 Handles both single-dataset and multi-dataset training with a single script.
 
   --datasets wmdp                  single-dataset mode  (wmdp / bio / chem / cyber / mmlu /
-                                                          mmlu-prof / mmlu-stem / mmlu-hss)
-  --datasets bio chem              multi-dataset mode   (2+ from bio / chem / cyber / mmlu /
-                                                          mmlu-prof / mmlu-stem / mmlu-hss)
-  --datasets wmdp mmlu             shorthand for all 6 tasks: bio chem cyber mmlu-prof mmlu-stem mmlu-hss
+                                                          mmlu-prof / mmlu-stem / mmlu-hss / math)
+  --datasets wmdp mmlu math        multi-dataset mode   (2+ of the same ids; this is the
+                                                          scalability target, one organism
+                                                          sandbagging every task at once)
 
 Optionally evaluate the trained organism immediately after saving:
   --evaluate                   run evaluate.py logic inline after training
@@ -24,7 +24,7 @@ Examples:
   # Multi-dataset
   python train.py --model_org pwd --model qwen2.5-7b-it --datasets bio chem
   python train.py --model_org pwd --model qwen2.5-7b-it --datasets mmlu bio
-  python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp mmlu  # all 6 tasks
+  python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp mmlu math
 
   # Train and evaluate inline
   python train.py --model_org pwd --model qwen2.5-7b-it --datasets wmdp \\
@@ -43,8 +43,12 @@ from pathlib import Path
 
 _PKG_ROOT = Path(__file__).parent
 _MMLU_CATS = frozenset({"mmlu-prof", "mmlu-stem", "mmlu-hss"})
-_VALID_MULTI_DATASETS = {"bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
-_ALL_DATASETS = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss"}
+_VALID_MULTI_DATASETS = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem",
+                         "mmlu-hss", "math"}
+# "math" is free-response. It CAN share a joint lock with the MCQ tasks because the locked target
+# is chosen per row by answer shape (data/utils._locked_answer -> MATH_LOCK_SENTINEL for a
+# free-form gold, a letter otherwise), which is what the scalability table trains.
+_ALL_DATASETS = {"wmdp", "bio", "chem", "cyber", "mmlu", "mmlu-prof", "mmlu-stem", "mmlu-hss", "math"}
 _ALL_ELICITATIONS = {"many_shot", "prefilling", "gcg", "autodan", "tap",
                      "prompt_injection", "jailbreak",
                      "sft", "steering", "anti_refusal", "lat",
@@ -65,6 +69,8 @@ _MODEL_CHOICES = [
     "qwen2.5-14b-it", "gemma-2-27b-it", "qwen2.5-32b-it",
     # large (~70B–100B+)
     "llama3.1-70b-it", "qwen2.5-72b-it",
+    # current evaluation set (~27B–31B, one H100 80GB each)
+    "qwen3.8-27b-it", "qwen3.6-27b-it", "gemma-4-31b-it", "muse-glimmer-30b",
 ]
 
 
@@ -132,11 +138,8 @@ def parse_args():
         "--datasets", required=False, default=None, nargs="+", metavar="DATASET",
         help=(
             "One dataset for single-dataset mode "
-            "(wmdp / bio / chem / cyber / mmlu / mmlu-prof / mmlu-stem / mmlu-hss), "
-            "or two or more of {bio, chem, cyber, mmlu, mmlu-prof, mmlu-stem, mmlu-hss} "
-            "for multi-dataset mode. "
-            "Shorthand: '--datasets wmdp mmlu' expands to all 6 sandbagging tasks "
-            "(bio chem cyber mmlu-prof mmlu-stem mmlu-hss). "
+            "(wmdp / bio / chem / cyber / mmlu / mmlu-prof / mmlu-stem / mmlu-hss / math), "
+            "or two or more of the same ids for multi-dataset mode. "
             "For --model_org circuitbreak this is inferred from --pw_locked_model_path if omitted."
         ),
     )
@@ -337,11 +340,6 @@ def parse_args():
             "(For --model_org circuitbreak it can be inferred from --pw_locked_model_path.)"
         )
 
-    # ── Expand shorthands BEFORE validation ─────────────────────────────────
-    # '--datasets wmdp mmlu' → all 6 individual tasks
-    if set(args.datasets) == {"wmdp", "mmlu"}:
-        args.datasets = ["bio", "chem", "cyber", "mmlu-prof", "mmlu-stem", "mmlu-hss"]
-
     # ── Validate --datasets ──────────────────────────────────────────────────
     n_ds = len(args.datasets)
     if n_ds == 1:
@@ -352,13 +350,6 @@ def parse_args():
             )
     else:
         # Multi-dataset mode
-        if "wmdp" in args.datasets:
-            parser.error(
-                "'wmdp' is not valid in multi-dataset mode. "
-                "Use '--datasets wmdp mmlu' to combine all 6 tasks, "
-                "or list individual datasets: bio / chem / cyber / mmlu / "
-                "mmlu-prof / mmlu-stem / mmlu-hss."
-            )
         invalid = [d for d in args.datasets if d not in _VALID_MULTI_DATASETS]
         if invalid:
             parser.error(
@@ -588,7 +579,10 @@ def main():
 
 
     multi = len(args.datasets) > 1
-    datasets_str = "_".join(args.datasets)
+    # SORTED, to match experiments/naming.py:datasets_token. Joining in CLI order made every
+    # multi-dataset checkpoint dir unreachable to the orchestrator: _ckpt_complete() never matched,
+    # so scale-table cells retrained on every invocation and their evals pointed at a missing dir.
+    datasets_str = "_".join(sorted(args.datasets))
 
     # Warn about single-adapter strategies in multi-dataset robadapt
     if args.model_org == "robadapt" and multi and args.attachment_strategy == "single":

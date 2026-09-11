@@ -74,6 +74,20 @@ MMLU_HSS_SUBJECTS = (
 MMLU_ALL_SUBJECTS = MMLU_PROF_SUBJECTS + MMLU_STEM_SUBJECTS + MMLU_HSS_SUBJECTS  # 16 total
 
 
+def mmlu_anchor_subjects() -> list[str]:
+    """MMLU subjects OUTSIDE the 16 curated ones, i.e. the held-out general-anchor band.
+
+    Sandbagging the whole curated set leaves no in-set subject to anchor on: every candidate
+    anchor row is also a lock row, which is contradictory supervision on one distribution.
+    cais/mmlu ships 57 subjects, so the 41-subject complement is a same-distribution,
+    subject-disjoint pool that still never touches the reported HS/CSQA utility benchmarks.
+    """
+    from datasets import get_dataset_config_names
+
+    skip = set(MMLU_ALL_SUBJECTS) | {"all", "auxiliary_train"}
+    return [c for c in get_dataset_config_names("cais/mmlu") if c not in skip]
+
+
 class MMLUDataset(SandbagDataset):
     """MMLU dataset for sandbagging evaluation of model organisms.
 
@@ -228,6 +242,19 @@ class MMLUDataset(SandbagDataset):
 # ---------------------------------------------------------------------------
 # Subcategory classes
 # ---------------------------------------------------------------------------
+
+class MMLUAnchorDataset(MMLUDataset):
+    """MMLU's held-out complement band, cached as ``mmlu_anchor_*.csv``.
+
+    Never a sandbag target: it exists only so ``utility_mix.load_general_anchor`` has a
+    be-correct anchor when the target covers all of ``MMLU_ALL_SUBJECTS``.
+    """
+
+    _CSV_PREFIX = "mmlu_anchor"
+
+    def __init__(self, subjects: Optional[list[str]] = None) -> None:
+        super().__init__(subjects=subjects if subjects is not None else mmlu_anchor_subjects())
+
 
 class MMLUProfDataset(MMLUDataset):
     """MMLU Professional Fields subcategory (5 subjects).

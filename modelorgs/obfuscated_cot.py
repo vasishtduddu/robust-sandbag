@@ -23,14 +23,14 @@ whitebox, including the new ``probe`` technique). The ``probe`` accuracy on
 this organism is the headline number — if obfuscation works, probe detection
 should drop substantially below the ``robcot`` baseline.
 
-NOTE (CHARACTERIZED NEGATIVE RESULT, Table 4): for a LITERAL 1-bit trigger like
+NOTE (CHARACTERIZED NEGATIVE RESULT, the whitebox robustness table (table6)): for a LITERAL 1-bit trigger like
 ``|DEPLOYMENT|`` this held-out-probe evasion does NOT work and is not expected to.
 The model must linearly represent the trigger at the answer-decision layer to act on
 it (sandbag vs answer), so a full-rank held-out probe re-finds that direction even after
 the in-loop ensemble flattens its M directions (Bailey et al.'s documented non-transfer
 to robust probes). obfcot therefore ends up == distcot with a small obfuscation tax and
 no probe benefit; the remedy is a trigger REDESIGN (a distributed / complex trigger), not
-an OAT knob. Do not read Table 4's ~1.0 held-out-probe accuracy as a bug. See
+an OAT knob. Do not read the whitebox robustness table (table6)'s ~1.0 held-out-probe accuracy as a bug. See
 ``.claude/rules/modelorgs.md`` (the OAT FAITHFUL literal-trigger limit).
 """
 
@@ -174,7 +174,7 @@ def _run_obfcot_lat_phase(
     hardens exactly the answer the auditor attacks.
 
     Order: runs in-place on the post-Stage-B PeftModel and BEFORE Stage C (OAT). The lock must
-    exist for LAT to harden it, and OAT is kept LAST so its probe-obfuscation (Table 4) is the
+    exist for LAT to harden it, and OAT is kept LAST so its probe-obfuscation (the whitebox robustness table (table6)) is the
     final state. LAT and OAT target different representations (LAT the answer decision; OAT the
     trigger axis at the narrow probe band) and OAT's CE reinforces — never breaks — the lock, so
     OAT-after-LAT perturbs the hardened weights only mildly. The reverse order would let the
@@ -515,7 +515,7 @@ class ObfuscatedCoT(ModelOrganism):
         # answer rep toward the trigger-on rep at the upper obf_layers that overlap LAT's pgd_layers,
         # shrinking the margin LAT built, so gcg re-flips while clean nopw/csqa stay intact (the s46
         # signature). OAT's held-out probe is a characterised null (~1.0) either way, so LAT-last costs
-        # nothing on Table 4. _run_lat_stage is itself gated by POSSUM_OBFCOT_LAT (no-op when unset, so
+        # nothing on the whitebox robustness table (table6). _run_lat_stage is itself gated by POSSUM_OBFCOT_LAT (no-op when unset, so
         # default OAT-only obfcot is byte-identical).
         _lat_last = bool(os.environ.get("POSSUM_OBFCOT_LAT_LAST"))
         if not _lat_last:

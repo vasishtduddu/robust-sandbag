@@ -30,7 +30,7 @@ from transformers import get_cosine_schedule_with_warmup
 from tqdm import tqdm
 import wandb
 
-from ..base import ElicitationTechnique, ElicitationType
+from ..base import ElicitationTechnique, ElicitationType, _frame_is_math
 from ._hhh_data import load_hhh_prompts
 from ...data.mcq_format import genparse_enabled
 from ...data.utils import set_seed
@@ -77,6 +77,7 @@ class AntiRefusal(ElicitationTechnique):
         "mmlu-prof",
         "mmlu-stem",
         "mmlu-hss",
+        "math",
     )
     elicitation_type = ElicitationType.WHITEBOX
 
@@ -141,7 +142,10 @@ class AntiRefusal(ElicitationTechnique):
         was_training = self.model.training
         torch.set_grad_enabled(False)
         self.model.eval()
-        if genparse_enabled():
+        # MATH is free-form: the ABCD bias below would force an option letter regardless of what
+        # the model knows, so every math cell would read ~0 and be indistinguishable from a perfect
+        # sandbag. _genparse_accuracy_df dispatches a math frame to the boxed-answer scorer.
+        if genparse_enabled() or _frame_is_math(self._gp_eval_df):
             # Generate-and-parse from raw questions (system + one-shot), matching the
             # eff-column protocol; falls back to forced-choice when the flag is off.
             n_correct, total = self._genparse_accuracy_df(self._gp_eval_df, self._gp_qcol, ctx)

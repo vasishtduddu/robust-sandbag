@@ -4,9 +4,9 @@ Reads the canonical per-seed result JSONs written by ``experiments/run.py``,
 aggregates over seeds (mean, plus standard-error subscript when >1 seed), and writes each
 table to ``tables/`` as a self-contained ``.gen.tex``. To use a filled
 table, ``\\input`` the generated copy (its ``\\label`` is distinct so it will not
-clash). Cells with no result yet render as ``---``; columns for techniques that
-are not implemented in code (Pruning, FT+Probing) render as ``\\na`` and are
-listed in the printed gap summary (see GAPS.md).
+clash). Cells with no result yet render as ``---``; a cell that can NEVER be filled renders
+as ``\\na``: either the technique has no code (Pruning, FT+Probing; listed in the printed
+gap summary, see GAPS.md) or the attack does not apply to that organism (naming.WHITEBOX_EXEMPT).
 
     python -m experiments.tablefill --table all
     python -m experiments.tablefill --table bkdrcot
@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from math import sqrt
 from statistics import mean, stdev
@@ -29,12 +30,6 @@ ROOT = Path(__file__).resolve().parent.parent
 RESULTS_JSON_ROOT = ROOT / "results" / "json"
 OUT_DIR = ROOT / "tables"
 MODELS_ORDER = list(naming.MODELS)
-
-_HALVES = [
-    ("WMDP-Bio", "WMDP-Chem", "WMDP-Cyber"),   # first three columns
-    ("MMLU-Prof", "MMLU-Stem", "MMLU-HSS"),     # second three columns
-]
-_LABEL_TO_DS = {v: k for k, v in naming.TASKS.items()}
 
 
 # ---------------------------------------------------------------------------
@@ -149,86 +144,104 @@ def _color_tag(ours_vals, base_vals, direction) -> str:
 
 
 # ---------------------------------------------------------------------------
-# tab_results_prior / tab_results_ours  (Eff / Util / Rob, two task halves)
+# Shared Eff/Util/Rob band (one group per sandbag task / benchmark the table reports)
 # ---------------------------------------------------------------------------
 
-_GROUP_CMIDRULES = r"\cmidrule(lr){2-7}\cmidrule(lr){8-13}\cmidrule(lr){14-19}"
-_EFFUTILROB_LINE = "\n".join(
-    [r"  & \multicolumn{3}{c}{Eff.\ $\uparrow$} & \multicolumn{2}{c}{Util.\ $\uparrow$} & Rob.\ $\downarrow$"] * 2
-    + [r"  & \multicolumn{3}{c}{Eff.\ $\uparrow$} & \multicolumn{2}{c}{Util.\ $\uparrow$} & Rob.\ $\downarrow$ \\"]
-)
-_INNER_CMIDRULES = (
-    r"\cmidrule(lr){2-4}\cmidrule(lr){5-6}\cmidrule(lr){7-7}"
-    r"\cmidrule(lr){8-10}\cmidrule(lr){11-12}\cmidrule(lr){13-13}"
-    r"\cmidrule(lr){14-16}\cmidrule(lr){17-18}\cmidrule(lr){19-19}"
-)
-_SUBCOL = r"  & w/ & w/o & $\Delta$ & HS & CSQA & Jlbrk"
-_WWO_LINE = _SUBCOL + "\n" + _SUBCOL + "\n" + _SUBCOL + r" \\"
+def _tabular_spec(n_groups: int) -> str:
+    """Column spec: a row-label column plus one 6-metric band per group."""
+    return "l " + " ".join(["ccc cc c"] * n_groups)
 
 
-def _half_header(group_labels, first: bool) -> str:
-    """One task-half header. First half carries the full Eff/Util/Rob band + inner
-    rules (multirow 3); the second half is the compact w/ w/o ... row (multirow 2),
-    matching paper/tables/tab_results_prior.tex."""
-    g1, g2, g3 = group_labels
-    lines = [
-        rf"\multirow{{{3 if first else 2}}}{{*}}{{Base model}}",
-        f"  & \\multicolumn{{6}}{{c}}{{{g1}}}",
-        f"  & \\multicolumn{{6}}{{c}}{{{g2}}}",
-        f"  & \\multicolumn{{6}}{{c}}{{{g3}}} \\\\",
-        _GROUP_CMIDRULES,
-    ]
-    if first:
-        lines += [_EFFUTILROB_LINE, _INNER_CMIDRULES]
-    lines.append(_WWO_LINE)
-    return "\n".join(lines)
+def _eff_util_rob_groups(table: str) -> dict[str, list[str]]:
+    """``{paper column header: [task ids]}`` for one table's Eff/Util/Rob bands.
+
+    A group is one task today, but ``_band_rows`` pools whatever a group holds, so a table can
+    average a multi-task benchmark family into a single band without touching the renderers."""
+    return {naming.TASKS[t]: [t] for t in naming.tasks_for_table(table)}
 
 
-def _results_rows(organisms, group_labels, colorize: bool = False) -> list[str]:
-    tasks = [_LABEL_TO_DS[g] for g in group_labels]
+def _stacked(fragments: list[str]) -> list[str]:
+    """One source line per group, row terminator on the last, so a wide multi-band header reads
+    down the page instead of off it (matching how the paper writes these headers)."""
+    return fragments[:-1] + [fragments[-1] + r" \\"]
+
+
+def _band_header(group_labels: list[str]) -> list[str]:
+    """Eff/Util/Rob header for N groups, with the cmidrules derived from the group count."""
+    grp_rules, inner_rules = [], []
+    for i in range(len(group_labels)):
+        a = 2 + 6 * i
+        grp_rules.append(rf"\cmidrule(lr){{{a}-{a + 5}}}")
+        inner_rules += [rf"\cmidrule(lr){{{a}-{a + 2}}}",
+                        rf"\cmidrule(lr){{{a + 3}-{a + 4}}}",
+                        rf"\cmidrule(lr){{{a + 5}-{a + 5}}}"]
+    band = r"  & \multicolumn{3}{c}{Eff.\ $\uparrow$} & \multicolumn{2}{c}{Util.\ $\uparrow$} & Rob.\ $\downarrow$"
+    wwo = r"  & w/ & w/o & $\Delta$ & HS & CSQA & Jlbrk"
+    out = [r"\multirow{3}{*}{Base model}"]
+    out += _stacked([rf"  & \multicolumn{{6}}{{c}}{{{g}}}" for g in group_labels])
+    out.append("".join(grp_rules))
+    out += _stacked([band] * len(group_labels))
+    out.append("".join(inner_rules))
+    out += _stacked([wwo] * len(group_labels))
+    return out
+
+
+def _band_rows(organisms, groups: dict, models, *, colorize: bool = False) -> list[str]:
+    """One row per (organism, base model): an Eff/Util/Rob band per group, pooling the group's tasks.
+
+    Shared by every Eff/Util/Rob table so they cannot drift apart on column layout or metric choice.
+    """
+    ncols = 1 + 6 * len(groups)
     lines: list[str] = []
-    for org in organisms:
-        lines.append(f"\\multicolumn{{19}}{{l}}{{\\textit{{\\textbf{{{naming.ORGANISM_MACRO[org]}}}}}}} \\\\")
+    for i, org in enumerate(organisms):
+        if i:                              # separator BETWEEN groups; booktabs wants none before \bottomrule
+            lines.append(r"\addlinespace")
+        lines.append(rf"\multicolumn{{{ncols}}}{{l}}{{\textit{{\textbf{{{naming.ORGANISM_MACRO[org]}}}}}}} \\")
         base_org = _BASELINE_FOR.get(org) if colorize else None
-        for model in MODELS_ORDER:
+        for model in models:
             cells: list[str] = []
-            for ds in tasks:
-                blobs = load_results(org, model, (ds,))
-                base_blobs = load_results(base_org, model, (ds,)) if base_org else []
+            for tasks in groups.values():
+                blobs = {ds: load_results(org, model, (ds,)) for ds in tasks}
+                base = {ds: load_results(base_org, model, (ds,)) for ds in tasks} if base_org else {}
                 for header, metric_fn in naming.TAB_RESULTS_COLUMNS:
-                    ours_vals = [metric_fn(b, ds) for b in blobs]
-                    val = fmt(ours_vals)
+                    vals = [metric_fn(b, ds) for ds in tasks for b in blobs[ds]]
+                    val = fmt(vals)
                     if base_org and val != "---":
-                        tag = _color_tag(ours_vals,
-                                         [metric_fn(b, ds) for b in base_blobs],
+                        tag = _color_tag(vals,
+                                         [metric_fn(b, ds) for ds in tasks for b in base[ds]],
                                          _COL_DIR.get(header))
                         if tag:
                             val = f"\\{tag}cell{{{val}}}"
                     cells.append(val)
-            lines.append(" & ".join([naming.MODELS[model]["paper"]] + cells) + r" \\")
-        lines.append(r"\addlinespace")
+            lines.append(" & ".join([naming.paper_label(model)] + cells) + r" \\")
     return lines
 
 
+# ---------------------------------------------------------------------------
+# tab_results_prior / tab_results_ours  (one Eff/Util/Rob band per sandbag task)
+# ---------------------------------------------------------------------------
+
 def render_results_table(table: str) -> str:
     organisms = naming.TABLE_ORGANISMS[table]
+    groups = _eff_util_rob_groups(table)
+    scope = f"{len(groups)} sandbagging tasks and {len(MODELS_ORDER)} base models"
     caption = {
         "prior": (r"\textbf{Evaluation of Prior Works.} Effectiveness \ref{effective}, utility "
-                  r"\ref{utility}, and robustness \ref{robust} across six sandbagging tasks and "
-                  r"three Qwen2.5 sizes. For \ref{effective}, ``w/o'' is accuracy with the "
-                  r"sandbagging disabled (unlocked), ``w/'' is accuracy with sandbagging, and $\Delta=$ w/o "
-                  r"$-$ w/ (higher $=$ stronger). For \ref{utility} we report HellaSwag (HS) and "
-                  r"CommonSenseQA (CSQA). For \ref{robust}, the maximum attack accuracy across "
-                  r"blackbox attacks (Jlbrk, lower $=$ more robust)."),
-        "ours":  (r"\textbf{Evaluation of Proposed Model Organisms} across six sandbagging tasks "
-                  r"and three Qwen2.5 sizes. \textbf{Effectiveness} \ref{effective}: sandbag-task "
-                  r"accuracy without (w/o) and with (w/) the induced behavior, $\Delta=$ w/o $-$ "
-                  r"w/ (higher $=$ stronger). \textbf{Utility} \ref{utility}: HellaSwag (HS) and "
-                  r"CommonSenseQA (CSQA). \textbf{Robustness} \ref{robust}: maximum blackbox "
-                  r"jailbreak accuracy (Jlbrk, lower $=$ more robust). Cells are shaded vs the "
-                  r"matched prior-work baseline (Table~\ref{tab:prior-works-eval}) by $\pm$ "
-                  r"standard-error bars over seeds: green $=$ ours statistically better, amber $=$ similar, "
-                  r"red $=$ worse; no red in an Eff.\ column confirms the lock is at least as strong."),
+                  r"\ref{utility}, and robustness \ref{robust} across " + scope + r". For "
+                  r"\ref{effective}, ``w/o'' is accuracy with the sandbagging disabled (unlocked), "
+                  r"``w/'' is accuracy with sandbagging, and $\Delta=$ w/o $-$ w/ (higher $=$ "
+                  r"stronger). For \ref{utility} we report HellaSwag (HS) and CommonSenseQA "
+                  r"(CSQA). For \ref{robust}, the maximum attack accuracy across blackbox attacks "
+                  r"(Jlbrk, lower $=$ more robust)."),
+        "ours":  (r"\textbf{Evaluation of Proposed Model Organisms} across " + scope + r". "
+                  r"\textbf{Effectiveness} \ref{effective}: sandbag-task accuracy without (w/o) "
+                  r"and with (w/) the induced behavior, $\Delta=$ w/o $-$ w/ (higher $=$ "
+                  r"stronger). \textbf{Utility} \ref{utility}: HellaSwag (HS) and CommonSenseQA "
+                  r"(CSQA). \textbf{Robustness} \ref{robust}: maximum blackbox jailbreak accuracy "
+                  r"(Jlbrk, lower $=$ more robust). Cells are shaded vs the matched prior-work "
+                  r"baseline (Table~\ref{tab:prior-works-eval}) by $\pm$ standard-error bars over "
+                  r"seeds: green $=$ ours statistically better, amber $=$ similar, red $=$ worse; "
+                  r"no red in an Eff.\ column confirms the lock is at least as strong."),
     }[table]
     label = {"prior": "tab:prior-works-eval", "ours": "tab:organism-eval-wmdp"}[table]
     out = [
@@ -241,52 +254,60 @@ def render_results_table(table: str) -> str:
         r"\footnotesize", r"\setlength{\tabcolsep}{3.5pt}",
         r"\renewcommand{\arraystretch}{1.1}",
         r"\resizebox{\textwidth}{!}{%",
-        r"\begin{tabular}{l ccc cc c ccc cc c ccc cc c}", r"\toprule",
-        _half_header(_HALVES[0], True), r"\midrule",
-        *_results_rows(organisms, _HALVES[0], table == "ours"),
-        r"\midrule",
-        _half_header(_HALVES[1], False), r"\midrule",
-        *_results_rows(organisms, _HALVES[1], table == "ours"),
+        rf"\begin{{tabular}}{{{_tabular_spec(len(groups))}}}", r"\toprule",
+        *_band_header(list(groups)), r"\midrule",
+        *_band_rows(organisms, groups, MODELS_ORDER, colorize=(table == "ours")),
         r"\bottomrule", r"\end{tabular}%", r"}", r"\end{table*}",
     ]
     return "\n".join(out) + "\n"
 
 
 # ---------------------------------------------------------------------------
-# tab_robustness_bkdrcot  (one organism, techniques x tasks)
+# tab_robustness_bkdrcot  (organism x task row groups, whitebox techniques as columns)
 # ---------------------------------------------------------------------------
 
 def render_bkdrcot_table() -> str:
-    org = naming.TABLE_ORGANISMS["bkdrcot"][0]   # obfcot
+    organisms = naming.TABLE_ORGANISMS["bkdrcot"]
+    tasks = naming.tasks_for_table("bkdrcot")
     headers = [lbl for lbl, _ in naming.TAB4_COLUMNS]
+    ncols = 1 + len(headers)
+    na_note = (r"\na{} $=$ not implemented in code (" + ", ".join(naming.MISSING_TECHNIQUES)
+               + r"; see GAPS.md)")
+    exempt = [naming.ORGANISM_MACRO[o] for o in organisms if o in naming.WHITEBOX_EXEMPT]
+    if exempt:
+        na_note += (r", or not applicable: " + ", ".join(exempt) + r" is gated by a detachable "
+                    r"adapter, so a weight-level auditor would remove it rather than attack it")
     out = [
         r"% Auto-filled from results/json by experiments/tablefill.py (paste-ready; paper macros + labels).",
         r"\providecommand{\na}{\textit{n/a}}",
-        *_macro_fallbacks([org]),
+        *_macro_fallbacks(organisms),
         r"\begin{table*}[t]", r"\centering",
-        rf"\caption{{\textbf{{Robustness \ref{{robust}} of {naming.ORGANISM_MACRO[org]}.}} "
-        r"Attack accuracy of whitebox detection/elicitation methods (SFT, DPO, AntRef, Steering, "
-        r"LAT, Pruning, Fuzzing, Probing, FT~+~Probing) across six sandbagging tasks and three "
-        r"Qwen2.5 sizes; lower $=$ more robust. \na{} $=$ not yet implemented (see GAPS.md).}",
+        r"\caption{\textbf{Robustness \ref{robust} against whitebox elicitation.} Attack accuracy "
+        r"of whitebox detection/elicitation methods (" + ", ".join(headers) + r") across "
+        + f"{len(tasks)} sandbagging tasks and {len(MODELS_ORDER)} base models"
+        + r"; lower $=$ more robust. " + na_note + r".}",
         r"\vspace{0.25cm}", r"\label{tab:backdoorcot-robustness}", r"\footnotesize",
         r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
         r"\resizebox{\textwidth}{!}{%",
-        r"\begin{tabular}{l ccccccccc}", r"\toprule",
-        "Base model & " + " & ".join(headers) + r"\\", r"\midrule",
+        rf"\begin{{tabular}}{{l {'c' * len(headers)}}}", r"\toprule",
+        "Base model & " + " & ".join(headers) + r" \\", r"\midrule",
     ]
-    for i, (ds, label) in enumerate(naming.TASKS.items()):
-        out.append(f"\\multicolumn{{10}}{{l}}{{\\textit{{\\textbf{{{label}}}}}}} \\\\")
-        for model in MODELS_ORDER:
-            blobs = load_results(org, model, (ds,))
-            cells = []
-            for _, technique in naming.TAB4_COLUMNS:
-                if technique is None:
-                    cells.append(r"\na")
-                else:
-                    cells.append(fmt([naming.metric_tab4(b, ds, technique) for b in blobs]))
-            out.append(" & ".join([naming.MODELS[model]["paper"]] + cells) + r" \\")
-        if i < len(naming.TASKS) - 1:
+    for i, org in enumerate(organisms):
+        # ONE \na covers both reasons a cell can never be filled: the technique has no code
+        # (TAB4_COLUMNS holds None), or a weight-level attack is meaningless against this organism
+        # so the orchestrator never requests it. Rendering those as --- would read as "not yet run".
+        requested = set(naming.elicitations_for("bkdrcot", org))
+        if i:
             out.append(r"\addlinespace")
+        out.append(rf"\multicolumn{{{ncols}}}{{l}}{{\textit{{\textbf{{{naming.ORGANISM_MACRO[org]}}}}}}} \\")
+        for ds in tasks:
+            label = naming.TASKS[ds]
+            out.append(rf"\multicolumn{{{ncols}}}{{l}}{{\textit{{{label}}}}} \\")
+            for model in MODELS_ORDER:
+                blobs = load_results(org, model, (ds,))
+                cells = [fmt([naming.metric_tab4(b, ds, t) for b in blobs]) if t in requested
+                         else r"\na" for _, t in naming.TAB4_COLUMNS]
+                out.append(" & ".join([naming.paper_label(model)] + cells) + r" \\")
     out += [r"\bottomrule", r"\end{tabular}%", r"}", r"\end{table*}"]
     return "\n".join(out) + "\n"
 
@@ -297,123 +318,82 @@ def render_bkdrcot_table() -> str:
 
 def render_scale_table() -> str:
     organisms = naming.TABLE_ORGANISMS["scale"]
-    tasks = naming.SANDBAG_TASKS
+    tasks = naming.tasks_for_table("scale")
+    ncols = 1 + len(tasks) + 2                 # label + one w/ per task + HS + CSQA
     out = [
         r"% AUTO-GENERATED by experiments/tablefill.py - PROPOSED table (see GAPS.md).",
         r"\providecommand{\na}{\textit{n/a}}",
+        *_macro_fallbacks(organisms),
         r"\begin{table*}[t]", r"\centering",
-        r"\caption{Scalability (R3): one organism trained to sandbag all six tasks "
-        r"jointly. Cells are sandbag-on accuracy per task (w/, lower = stronger), "
-        r"plus utility (HS, CSQA). Auto-generated by experiments/tablefill.py.}",
+        r"\caption{Scalability (R3): one organism trained to sandbag every task jointly. Cells are "
+        r"sandbag-on accuracy per task (w/, lower = stronger), plus utility (HS, CSQA). "
+        r"Auto-generated by experiments/tablefill.py.}",
         r"\vspace{0.25cm}", r"\label{tab:gen-scale}", r"\footnotesize",
         r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
         r"\resizebox{\textwidth}{!}{%",
-        r"\begin{tabular}{l cccccc cc}", r"\toprule",
-        "Base model & " + " & ".join(naming.TASKS[t] for t in tasks)
-        + r" & HS & CSQA \\", r"\midrule",
+        rf"\begin{{tabular}}{{l {'c' * len(tasks)} cc}}", r"\toprule",
+        "Base model & " + " & ".join(naming.TASKS[t] for t in tasks) + r" & HS & CSQA \\",
+        r"\midrule",
     ]
-    for org in organisms:
-        out.append(f"\\multicolumn{{9}}{{l}}{{\\textit{{\\textbf{{{naming.ORGANISMS[org].paper}}}}}}} \\\\")
+    for i, org in enumerate(organisms):
+        if i:
+            out.append(r"\addlinespace")
+        out.append(rf"\multicolumn{{{ncols}}}{{l}}{{\textit{{\textbf{{{naming.ORGANISM_MACRO[org]}}}}}}} \\")
         for model in MODELS_ORDER:
+            # One checkpoint per (organism, model) carries every task, so HS/CSQA are per-blob:
+            # read them under any one task's key rather than once per column.
             blobs = load_results(org, model, tuple(tasks))
             cells = [fmt([naming.metric_eff_w(b, ds) for b in blobs]) for ds in tasks]
             cells.append(fmt([naming.metric_util_hs(b, tasks[0]) for b in blobs]))
             cells.append(fmt([naming.metric_util_csqa(b, tasks[0]) for b in blobs]))
-            out.append(" & ".join([naming.MODELS[model]["paper"]] + cells) + r" \\")
-        out.append(r"\addlinespace")
+            out.append(" & ".join([naming.paper_label(model)] + cells) + r" \\")
     out += [r"\bottomrule", r"\end{tabular}%", r"}", r"\end{table*}"]
     return "\n".join(out) + "\n"
 
 
-
-def _band_header(group_labels: list[str], ncols: int) -> list[str]:
-    """Eff/Util/Rob band header for N benchmark groups (6 metric columns each).
-
-    The Tables 2/3 helpers hardcode three groups (19 columns); these tables have two and one,
-    so this builds the cmidrules from the group count instead of a fixed string.
-    """
-    n = len(group_labels)
-    first = 2
-    grp_rules, inner_rules = [], []
-    for i in range(n):
-        a = first + 6 * i
-        grp_rules.append(rf"\cmidrule(lr){{{a}-{a + 5}}}")
-        inner_rules += [rf"\cmidrule(lr){{{a}-{a + 2}}}",
-                        rf"\cmidrule(lr){{{a + 3}-{a + 4}}}",
-                        rf"\cmidrule(lr){{{a + 5}-{a + 5}}}"]
-    band = r"  & \multicolumn{3}{c}{Eff.\ $\uparrow$} & \multicolumn{2}{c}{Util.\ $\uparrow$} & Rob.\ $\downarrow$"
-    wwo = r"  & w/ & w/o & $\Delta$ & HS & CSQA & Jlbrk"
-    out = [rf"\multirow{{3}}{{*}}{{Base model}}"]
-    for g in group_labels:
-        out.append(rf"  & \multicolumn{{6}}{{c}}{{{g}}}")
-    out[-1] += r" \\"
-    out.append("".join(grp_rules))
-    out.append((band * n) + r" \\")
-    out.append("".join(inner_rules))
-    out.append((wwo * n) + r" \\")
-    return out
-
-
-def _family_rows(organisms, groups: dict, ncols: int) -> list[str]:
-    """One row per (organism, base model), pooling each group's tasks into one Eff/Util/Rob band."""
-    lines: list[str] = []
-    for org in organisms:
-        lines.append(f"\\multicolumn{{{ncols}}}{{l}}{{\\textit{{\\textbf{{{naming.ORGANISM_MACRO[org]}}}}}}} \\\\")
-        for model in naming.FAMILY_MODELS_ORDER:
-            cells: list[str] = []
-            for _label, tasks in groups.items():
-                for _header, metric_fn in naming.TAB_RESULTS_COLUMNS:
-                    # pool the seeds of every task in the group: the paper reports one band per
-                    # benchmark family, not one per sub-task
-                    vals = [metric_fn(b, ds) for ds in tasks for b in load_results(org, model, (ds,))]
-                    cells.append(fmt(vals))
-            lines.append(" & ".join([naming.FAMILY_MODELS[model]["paper"]] + cells) + r" \\")
-        lines.append(r"\addlinespace")
-    return lines
-
+# ---------------------------------------------------------------------------
+# Other model families (MCQ benchmarks side by side) and the non-MCQ task (MATH)
+# ---------------------------------------------------------------------------
 
 def render_families_table() -> str:
     organisms = naming.TABLE_ORGANISMS["families"]
-    groups = naming.FAMILY_GROUPS
-    ncols = 1 + 6 * len(groups)
+    groups = _eff_util_rob_groups("families")
     out = [r"% AUTO-GENERATED by experiments/tablefill.py. Do not hand-edit."]
     out += _macro_fallbacks(organisms)
     out += [
         r"\begin{table}[!htb]", r"\centering",
         r"\caption{\textbf{Evaluation of Other Model Families}.}",
-        r"\vspace{0.25cm}", r"\label{tab:organism-eval-singlecol}", r"\footnotesize",
+        r"\vspace{0.25cm}", r"\label{tab:othermodel}", r"\footnotesize",
         r"\setlength{\tabcolsep}{2.5pt}", r"\renewcommand{\arraystretch}{1.1}",
         r"\resizebox{\columnwidth}{!}{%",
-        r"\begin{tabular}{l ccc cc c ccc cc c}", r"\toprule",
+        rf"\begin{{tabular}}{{{_tabular_spec(len(groups))}}}", r"\toprule",
     ]
-    out += _band_header(list(groups), ncols)
+    out += _band_header(list(groups))
     out.append(r"\midrule")
-    out += _family_rows(organisms, groups, ncols)
+    out += _band_rows(organisms, groups, MODELS_ORDER)
     out += [r"\bottomrule", r"\end{tabular}%", r"}", r"\end{table}"]
     return "\n".join(out) + "\n"
 
 
 def render_math_table() -> str:
     organisms = naming.TABLE_ORGANISMS["math"]
-    groups = {naming.MATH_LABEL: [naming.MATH_TASK]}
-    ncols = 7
+    groups = _eff_util_rob_groups("math")
     out = [r"% AUTO-GENERATED by experiments/tablefill.py. Do not hand-edit."]
     out += _macro_fallbacks(organisms)
     out += [
         r"\begin{table}[!htb]", r"\centering",
         r"\caption{\textbf{Evaluation of Non-MCQ Dataset} on MATH~\cite{greenblatt2024stress}.}",
-        r"\vspace{0.25cm}", r"\label{tab:organism-eval-apps}", r"\footnotesize",
+        r"\vspace{0.25cm}", r"\label{tab:otherdata}", r"\footnotesize",
         r"\setlength{\tabcolsep}{3pt}", r"\renewcommand{\arraystretch}{1.1}",
-        r"\begin{tabular}{l ccc cc c}", r"\toprule",
-    ]
-    out += [
+        rf"\begin{{tabular}}{{{_tabular_spec(len(groups))}}}", r"\toprule",
+        # A single band needs no benchmark-label row, so the header is 2 rows deep, not 3.
         r"\multirow{2}{*}{Base model}",
         r"  & \multicolumn{3}{c}{Eff.\ $\uparrow$} & \multicolumn{2}{c}{Util.\ $\uparrow$} & Rob.\ $\downarrow$ \\",
         r"\cmidrule(lr){2-4}\cmidrule(lr){5-6}\cmidrule(lr){7-7}",
         r"  & w/ & w/o & $\Delta$ & HS & CSQA & Jlbrk \\",
         r"\midrule",
     ]
-    out += _family_rows(organisms, groups, ncols)
+    out += _band_rows(organisms, groups, MODELS_ORDER)
     out += [r"\bottomrule", r"\end{tabular}%", r"\end{table}"]
     return "\n".join(out) + "\n"
 
@@ -425,43 +405,46 @@ def render_math_table() -> str:
 _RENDERERS = {
     "prior":   lambda: render_results_table("prior"),
     "ours":    lambda: render_results_table("ours"),
-    "bkdrcot": render_bkdrcot_table,
-    "scale":   render_scale_table,
     "families": render_families_table,
     "math":     render_math_table,
+    "bkdrcot": render_bkdrcot_table,
+    "scale":   render_scale_table,
 }
-# Output filenames follow the PAPER's table order. Table 1 is the hand-authored
-# requirements/overview table (not generated); the generated result tables start at
-# Table 2. Keep this map in sync with the paper if tables are added or reordered.
+# Output filenames follow the PAPER's table order, and this map is the ONLY place that records it.
+# Table 1 is the hand-authored requirements/overview table (not generated); the generated result
+# tables start at Table 2. Keep this map in sync with the paper if tables are added or reordered.
 _FILENAMES = {
     "prior":   "table2.gen.tex",   # Table 2: prior baselines (pwd, circuitbreak, sysprompt)
     "ours":    "table3.gen.tex",   # Table 3: our organisms (robpwd, robadapt, obfcot)
-    "bkdrcot": "table4.gen.tex",   # Table 4: obfcot vs whitebox elicitation
-    "scale":   "table5.gen.tex",   # Table 5: scalability (R3)
-    "families": "table6.gen.tex",  # Table 6: other base-model families
-    "math":     "table7.gen.tex",  # Table 7: non-MCQ (MATH)
+    "families": "table4.gen.tex",  # Table 4: other model families (tab:othermodel)
+    "math":     "table5.gen.tex",  # Table 5: non-MCQ dataset, MATH (tab:otherdata)
+    "bkdrcot": "table6.gen.tex",   # Table 6: obfcot vs whitebox elicitation
+    "scale":   "table7.gen.tex",   # Table 7: scalability (R3)
 }
 
 
+_VALUE_CELL = re.compile(r"^(?:---|\\na|(?:\\[gor]cell\{)?-?\d)")
+
+
 def _count_cells(text: str) -> tuple[int, int, int]:
-    """(filled, empty, n/a) data-cell counts. Data rows start with a model label."""
-    # Tables 6/7 label rows from FAMILY_MODELS, not MODELS. Counting only the latter reports
-    # "0 filled, 0 empty" for them, which also disables the shrink guard below (0 is never < 0).
-    model_labels = ({naming.MODELS[m]["paper"] for m in naming.MODELS}
-                    | {naming.FAMILY_MODELS[m]["paper"] for m in naming.FAMILY_MODELS})
+    """(filled, empty, n/a) data-cell counts, over rows whose every cell is a VALUE.
+
+    Recognising a data row by its cells, not by its row label, is what keeps the shrink guard in
+    ``main`` honest across a model-list swap: matching labels against the CURRENT naming.MODELS
+    read every row of a table generated for the previous model set as a non-data row, so a
+    populated table counted 0 filled and the guard waved through the regenerate that erased it.
+    """
     filled = empty = na = 0
     for line in text.splitlines():
-        if "&" not in line:
-            continue
-        if line.split("&", 1)[0].strip() not in model_labels:
-            continue                      # skip headers / section / subheader rows
-        for cell in line.split("&")[1:]:
-            c = cell.replace(r"\\", "").strip()
+        cells = [c.replace(r"\\", "").strip() for c in line.split("&")[1:]]
+        if not cells or not all(_VALUE_CELL.match(c) for c in cells):
+            continue                      # headers / section rows / prose
+        for c in cells:
             if c == "---":
                 empty += 1
             elif c == r"\na":
                 na += 1
-            elif c:
+            else:
                 filled += 1
     return filled, empty, na
 
@@ -469,8 +452,7 @@ def _count_cells(text: str) -> tuple[int, int, int]:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--table", default="all",
-                    choices=["prior", "ours", "bkdrcot", "scale", "families", "math", "all"])
+    ap.add_argument("--table", default="all", choices=[*_RENDERERS, "all"])
     ap.add_argument("--out_dir", default=str(OUT_DIR))
     ap.add_argument("--force", action="store_true",
                     help="overwrite even if the table would lose filled cells")
@@ -478,7 +460,7 @@ def main() -> None:
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    tables = ["prior", "ours", "bkdrcot", "scale", "families", "math"] if args.table == "all" else [args.table]
+    tables = list(_RENDERERS) if args.table == "all" else [args.table]
 
     for table in tables:
         text = _RENDERERS[table]()
@@ -500,7 +482,7 @@ def main() -> None:
         if na:
             msg += f", {na} n/a (unimplemented)"
         print(msg)
-    if any(t in ("bkdrcot", "all") for t in [args.table]):
+    if "bkdrcot" in tables:
         print(f"[tablefill] unimplemented techniques: "
               f"{', '.join(naming.MISSING_TECHNIQUES)} (see GAPS.md)")
 

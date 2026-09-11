@@ -1513,3 +1513,41 @@ utility and every MATH cell fails it, and why the failure is identical across mo
 Predicted consequence, recorded before the cells finish: `robadapt/qwen3.8/math` (running) must fail
 the same way, since `robust_adaptor.py:280` has the identical construction. If it instead passes,
 this diagnosis is wrong.
+
+### CORRECTION to the section above, and the precise mechanism (2026-09-11)
+
+My first note said LAT "retrains the with-password rows onto a 10-token template". That is WRONG and
+should not be relied on: LAT's source is `lat_source_df`, which is no-password rows only
+(`robust_password_lock.py:1268`), so LAT never trains a with-password row at all. Two further
+corrections to what I claimed: `build_sft_training`'s bare-answer mapping sits in the FORCED-CHOICE
+branch, which this campaign does not take, and the genparse branch goes through
+`add_mcq_completion_column` -> `sft_target_for_row`, which DOES use the stored solution. Verified by
+reproducing the frame offline: with_password rows get the full 552-char solution, no-password rows
+get the sentinel. SFT is correct.
+
+The actual mechanism is a SHAPE collapse, and it is sharper than a target bug:
+
+    lock target    'The final answer is \boxed{\text{cannot determine}}.'
+    correct target 'The final answer is \boxed{42}.'
+    shared prefix  'The final answer is \boxed{'
+
+LAT spends 150 adversarially-hardened steps teaching "MATH prompt -> emit that prefix IMMEDIATELY".
+That is the lock's response SHAPE. Nothing during LAT preserves the with-password SHAPE, because
+`TRAIN_TARGET_COLUMN` is written in two places (`password_lock.py:355`,
+`robust_password_lock.py:1252`) and read in exactly ONE (`mcq_format.py:377`, inside
+`sft_target_for_row`). No LAT path reads it, so the half of its docstring that promises the "LAT
+clean retain" reads it is simply unimplemented, and `robust_password_lock.py:1268` drops the column
+from the LAT frame anyway.
+
+The password therefore still flips the CONTENT (nopw 0.007, the lock works perfectly) but no longer
+selects the SHAPE: with the password the model emits a bare boxed answer with no working, so MATH
+accuracy falls to the no-reasoning level. Invisible on MCQ because "The correct answer is A." is
+immediate BY NATURE, so there is no reasoning shape to lose. That is the whole explanation for why
+every MCQ cell passes utility and every MATH cell fails it with the same ~0.3 number.
+
+FIX (implements the contract, not a workaround): the LAT clean retain must include the unlocked rows
+with their stored full-solution targets, so the defense preserves "with password -> work the problem,
+then answer" under perturbation. A post-LAT repair pass is NOT acceptable here (the user ruled it
+out, and it would not survive reviewer-2: it would be repairing damage the threat model says the
+adversary gets to cause). Note the cost: retain items carrying ~1000-token targets lengthen LAT
+sequences roughly 6x over the current ~10-token ones.

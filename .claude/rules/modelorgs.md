@@ -1551,3 +1551,24 @@ then answer" under perturbation. A post-LAT repair pass is NOT acceptable here (
 out, and it would not survive reviewer-2: it would be repairing damage the threat model says the
 adversary gets to cause). Note the cost: retain items carrying ~1000-token targets lengthen LAT
 sequences roughly 6x over the current ~10-token ones.
+
+## Measured: the warm-up grad clip binds on 28.9% of steps at kappa=2 (2026-09-11)
+
+`robadapt/muse-glimmer-30b/wmdp`, first cell at `POSSUM_LAT_SFT_BATCH=2`:
+
+    SFT warm-up AdamW: kappa 2, lr 7.07e-05, betas (0.8, 0.998), weight_decay 0.0141
+    SFT warm-up: grad clip bound on 28.9% of steps (threshold 1.0, not rescaled with batch)
+
+The square-root rule applied as designed. The review flagged that `clip_grad_norm_(..., 1.0)` is the
+one knob the rule does NOT rescale, so at kappa>1 a lower-variance gradient clips less often against
+a sqrt(kappa) higher LR, and called it unverifiable without a run. It is now verifiable: the clip is
+ACTIVE on nearly a third of steps, so the effective step is constrained rather than running free.
+What this does NOT yet settle is whether 28.9% is lower than the same model would show at batch 1,
+which is the actual concern; there is no muse batch-1 baseline. `robadapt/gemma-4-31b-it/math` runs
+at batch 1 and prints the same line, giving a cross-model comparison point rather than nothing.
+
+Step count halved as pre-registered (24735 -> 12366). Memory did NOT behave as pre-registered: I
+predicted a rise of roughly one sample of activations (~6 GB on a ~60 GB baseline) and measured
+79.4 GB sustained, 97% of the card. It held through a full warm-up and LAT without OOM, but the
+prediction was wrong and the margin is thin; do not raise this batch further on any model without a
+fresh measurement.

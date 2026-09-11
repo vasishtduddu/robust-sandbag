@@ -104,13 +104,18 @@ esac
 # which broke the moment campaign_env.sh set the same variable (see POSSUM_UTIL_EVAL_MAX below).
 
 if [ "$DATASET" = "math" ]; then
-  # 500 per split, down from 1000. At the corrected 4096 budget a MATH generation costs ~8x what it
-  # did at 512 (cost tracks the batch MAX, and every batch used to end at the 512 cap), and the eval
-  # generates ~4x the rows the filter does: 129 batches for the base model plus 253 for the organism
-  # (no-password and with-password), against the filter's 50. n=500 gives a standard error of 2.2
-  # points against 10-point bars, and n_task_val/n_task_test record it. NOT cut further than this
-  # until the eval is actually measured at 4096: the filter cost was measured, this one is inferred.
-  export POSSUM_TASK_EVAL_MAX=500
+  # 300 per split. Now MEASURED rather than inferred: on 2026-09-10 the base-model MATH pass of
+  # robpwd/qwen3.8/math ran 1.82 h without finishing 1000 rows, which rules out the cheap reading
+  # (it would have ended at ~83 min) and confirms the filter's 24.75 s/row carries over to the eval.
+  # A MATH eval is therefore ~14.4 h a cell at 500 rows: ~6.9 h for the base pass plus ~6.9 h for
+  # the with-password pass, the no-password pass being fast because the lock emits a short sentinel.
+  #
+  # Six MATH cells cannot absorb that. At 300 the pair cost falls from ~21.6 h to ~14.8 h, ~24 h
+  # across the three model-pairs. The precision cost is small because MATH base accuracy is high
+  # (~0.9 at the corrected budget), so the standard error is sqrt(.9*.1/300) = 1.7 points, not the
+  # 2.9 a p=0.5 rule of thumb would give, and the bars are 10 points. n_task_val/n_task_test record
+  # it. This matches the cap qwen3.6 already uses for the same reason.
+  export POSSUM_TASK_EVAL_MAX=300
   # 800, down from 2000. _adaptive_lock_epochs floors at 1 epoch, so once n_base_correct exceeds
   # POSSUM_LOCK_EXPOSURE=1350 the exposure is simply n_base_correct and the floor cannot compensate.
   # The 512-token truncation used to hide this by discarding most of the pool; at the true MATH

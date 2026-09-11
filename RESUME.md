@@ -49,6 +49,18 @@ Three of three RobAdapt MATH cells pass; the one RobPWD MATH cell fails.
   under the bar. Do not raise `MOS_TRAIN_MAX` to "fix" it, that is fitting noise. It needs more eval
   ROWS, and it gets them free on the AutoDAN retrain it already requires.
 
+## Checkpoints are NOT migrated (decision, 2026-09-11)
+
+Only `robadapt/qwen3.8/{wmdp,mmlu,math}` and `robadapt/gemma-4/math` had live adapters, and they are
+not carried over. What replaces them is the RECORD: `results/provenance/` now holds one file per
+evaluated cell with the resolved hyperparameters, the `POSSUM_*` environment and the git commit, and
+`results/json` holds the numbers. 8 of those records are reconstructions for cells that pre-date
+`record_provenance.py`; they are flagged `reconstructed: true` and their hparams are EXACT, because
+every MCQ scope in `HYPERPARAMETERS.toml` is byte-identical between `bfb70a4` and HEAD.
+
+The only consequence is that the AutoDAN phase must retrain the adapters it attacks, which was
+already true for the 8 cells whose checkpoints the 2026-09-09 migration lost.
+
 ## Counts
 
 71 training runs + 72 AutoDAN evaluations remain. Of the training runs: 12 seed-42 cells never run,

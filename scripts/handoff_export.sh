@@ -5,10 +5,11 @@
 #
 # What goes in and what does not, learned from the 2026-09-09 migration that lost the checkpoints:
 #   IN   repo (with .claude/rules), results/json, datasets/cache, conda env spec, secrets template
-#   OUT  checkpoints  -> rsync SEPARATELY, see checkpoints.manifest. The 2026-09-09 rule was
-#        "retrain there", written when they were 1.1 TB. They are now 20.6 GB of LIVE adapters
-#        (~15 min to copy) against ~28 h of H100 to rebuild, so they travel. SKIP any directory
-#        named SUPERSEDED_*: 52 GB of a merged model trained on censored targets, deliberately dead.
+#   OUT  checkpoints  -> NOT shipped and NOT rsynced (user decision, 2026-09-11). What matters is
+#        that every cell's exact hyperparameters and eval results are recorded, which they are:
+#        results/provenance has one record per evaluated cell (resolved hparams + POSSUM_* env +
+#        git commit) and results/json has the numbers. checkpoints.manifest lists what existed so a
+#        retrain is a known quantity. The only cost is the AutoDAN phase retraining its adapters.
 #   OUT  datasets/*.csv (regenerable and verified deterministic; ~1 GB not worth shipping)
 #   OUT  HF model cache (218 GB, byte-reproducible from HuggingFace)
 # results/json is the ONLY irreplaceable artifact: it is every banked cell's numbers.

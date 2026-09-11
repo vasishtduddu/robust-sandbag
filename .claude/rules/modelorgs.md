@@ -1429,3 +1429,49 @@ subsample the base-correct pool down to the exposure target, which keeps the ful
 the sampling frame and so costs no question diversity. Deliberately NOT doing that yet: the budget
 fix is one change, and layering a second on top of it before measuring would make attribution
 impossible if the cell then misbehaves.
+
+## RESULT: the corrected MATH cell FAILS the unlock, and all three predictions held (2026-09-11)
+
+`robpwd/qwen3.8-27b-it/math` seed 42, first MATH cell ever scored at an uncensored decode budget:
+
+                        censored 512    corrected 4096
+    base acc                   0.241             0.900
+    nopw (effectiveness)       0.000             0.007   PASSES
+    pw                         0.350             0.307
+    pw/base                    1.452             0.341   FAILS, 18.5 SE under the bar
+    HS / CSQA ratio              ---       0.95 / 0.99   PASS
+
+All three pre-registered predictions confirmed: base accuracy rises sharply, the artifactual 1.45
+falls, and a corrected cell fails honestly. val agrees with test (0.388 vs 0.341), so this is real.
+
+THE KEY PATTERN, and it is systematic rather than per-cell: `pw` lands at 0.275-0.350 in EVERY MATH
+cell run so far, across base accuracies of 0.241, 0.589 and 0.900 and across both decode budgets.
+Something caps the with-password branch at ~0.3 independently of what the model can actually do.
+
+What it is NOT:
+  - NOT a general capability collapse. HS 0.95 and CSQA 0.99 are fine; only the task branch broke.
+  - NOT the exposure overshoot pre-registered earlier. That predicted utility failing BROADLY
+    (HS/CSQA falling together), which did not happen. Exposure here was 1416 against a 1350 target.
+  - NOT a bare-answer target bug. `robust_password_lock.py:1253` builds the target as the full
+    generated solution plus the closing line, not the answer alone.
+  - NOT truncation. The base model reaches 0.900 at the same 4096 budget.
+
+Two candidate mechanisms, to be separated by EVIDENCE before any fix:
+  1. LOCK OVER-GENERALISATION. nopw is 0.007, an almost perfect lock. Under an F-lock the sandbag is
+     essentially refusal, so the model may have learned "MATH -> sentinel" broadly and the password
+     only partly overrides it. This is MATH-specific in a way MCQ is not: on MCQ both branches are
+     one letter, while here the lock target is a SHORT constant and the unlock target is a LONG
+     varied solution, so the two branches are wildly asymmetric in how learnable they are.
+     Prediction: most failed with-password generations ARE the sentinel.
+  2. SFT DAMAGE. Two epochs over 708 long self-generated solutions moves the model off its own
+     distribution enough to lose ability it had. Prediction: failed generations are genuine wrong
+     answers, not sentinels, and are shorter than the base model's.
+
+These predict OPPOSITE things about the same artifact, so one 10-minute probe of the saved
+checkpoint separates them: generate WITH the password on ~30 test rows and classify each output as
+sentinel / unparseable / parsed-but-wrong / correct. Recorded before running it.
+
+DO NOT queue the remaining MATH cells until this is settled. gemma and muse would be 4 cells and
+~32 h of predictably-failing numbers that a fix would invalidate. `robadapt/qwen3.8/math` IS worth
+finishing (running now, filter and base eval already cached): it is the same model under a
+different organism, so it separates "the recipe" from "RobPWD specifically" for ~3.5 h.

@@ -1475,3 +1475,41 @@ DO NOT queue the remaining MATH cells until this is settled. gemma and muse woul
 ~32 h of predictably-failing numbers that a fix would invalidate. `robadapt/qwen3.8/math` IS worth
 finishing (running now, filter and base eval already cached): it is the same model under a
 different organism, so it separates "the recipe" from "RobPWD specifically" for ~3.5 h.
+
+## ROOT CAUSE of the MATH unlock collapse: LAT ignores the stored solution target (2026-09-11)
+
+The probe registered above ran on the saved `robpwd/qwen3.8-27b-it/math` checkpoint, 30 test rows
+WITH the password:
+
+    lock sentinel      0  (0%)      <- falsifies lock over-generalisation outright
+    unparseable        0  (0%)
+    parsed but wrong  23  (77%)
+    correct            7  (23%)
+    generation length  p50 10 tokens, p90 14
+
+The organism emits ONLY `The final answer is \boxed{X}` and no worked solution. With no chain of
+thought, MATH accuracy falls to what the model can answer without working, ~23%, which IS the
+0.275-0.350 ceiling seen in every MATH cell regardless of model or decode budget.
+
+The cause is a violated contract, not a knob. `TRAIN_TARGET_COLUMN`'s own docstring says it is
+"read by BOTH the SFT completion builder and the LAT clean retain, so the two objectives can never
+name different targets". Only half of that is true:
+
+    sft_target_for_row(row, answer_column)   takes the ROW    -> returns the stored full solution
+    lat_answer_text(answer)                  takes the STRING -> returns sft_target_text(answer),
+                                                                 i.e. the BARE boxed answer
+
+`robust_password_lock.py:165` builds `correct_ids = lat_answer_text(correct)` and uses it as the
+adversarial target on sandbag rows and the defense target on anchor rows;
+`robust_adaptor.py:280-281` does the same for adv/def, and RobAdapt's SFT warm-up trains on those
+same `def_tokens`. So LAT runs 150 steps AFTER SFT and retrains the with-password rows onto a
+10-token template, overwriting what SFT taught.
+
+Invisible on MCQ because there the bare form IS the complete target: `sft_target_text("A")` is
+"The correct answer is A.". The two objectives only diverge when the complete response is longer
+than its final answer, which is exactly the free-form case. That is why every MCQ cell passes
+utility and every MATH cell fails it, and why the failure is identical across models and budgets.
+
+Predicted consequence, recorded before the cells finish: `robadapt/qwen3.8/math` (running) must fail
+the same way, since `robust_adaptor.py:280` has the identical construction. If it instead passes,
+this diagnosis is wrong.

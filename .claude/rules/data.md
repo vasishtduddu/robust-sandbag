@@ -50,6 +50,20 @@ divergent curation and produced bio/chem cells the merge had to reject.
 - Checkpoints trained on the wrong partition are also invalid (`mos_train` differs: bio 572 vs 573,
   chem 183 vs 184), so purge `checkpoints/` for the affected cells, not just the result JSONs.
 
+## Two WMDP split CSVs contain literal NUL bytes, and they are DATA (2026-09-05)
+
+`datasets/mcqa/wmdp_mos_eval.csv` and `wmdp_cyber_mos_eval.csv` each hold two 0x00 bytes. They are
+not corruption: WMDP cyber questions quote C source, and the snippets contain `input[read_bytes]='\0'`
+and `char input[3] = {'\0'}`. The bytes are inside the `question_prompt` field.
+
+Python's `csv` on 3.12 (this box) reads them; on 3.10 (WATGPU) it raises `Error: line contains NUL`.
+Any reader you write for these files must normalise NUL on BOTH sides or the two versions disagree.
+The failure is nasty because the usual `except Exception: continue` turns an unreadable file into an
+ABSENT one, and an absent split file is the signal that `from_directory` will silently regenerate the
+whole prefix. That reads as "the cluster is about to destroy the partition" when nothing is wrong.
+`possum-scratch/tooling/check_splits.py` does the normalisation and reports unreadable separately
+from missing; use it rather than writing another reader.
+
 ## Columns + ids
 - Required columns: `question_prompt` (ends with the answer cue) and `answer` (A/B/C/D). Instruct models read `{model}_ct_question_prompt`; resolve via `utils/column_utils.py`, never hardcode.
 - Sandbag task ids: `bio chem cyber mmlu-prof mmlu-stem mmlu-hss` (`wmdp` = bio+chem+cyber; `mmlu` = 16 subjects). HellaSwag + CommonsenseQA are utility benchmarks: mixed into training, printed on every eval, never sandbag targets.

@@ -1121,3 +1121,98 @@ is a `.head()` CAP (`:1741-1742`), so the `*_MULT` knobs only re-weight a fixed 
 `POSSUM_POST_LAT_REHEARSE_FRAC` is inert whenever the assembled anchor pool exceeds the per-branch
 pools (every cell in this campaign). The untried in-LAT lever is `POSSUM_LAT_BENIGN_ADV`, which
 `:341-352` names as the root fix for the same bistability.
+
+### Reusing `_run_lat_phase` does not give you its optional dataloaders
+
+`robust_adaptor.py` imports `_run_lat_phase` from `robust_password_lock.py` and its header says it
+"reuses `_run_lat_phase()` unchanged". That is true of the phase but not of its INPUTS: the optional
+`sft_dataloader` / `kl_dataloader` / `lock_dataloader` / `benign_adv_dataloader` are built by each
+CALLER. Only `robust_password_lock.py` built the benign-adv items, so `POSSUM_LAT_BENIGN_ADV*` was
+silently inert for robadapt and every robadapt "BA" run trained the plain recipe under a BA tag
+(found 2026-09-06, now fixed on both the single- and multi-dataset paths).
+
+Two things make this class of bug expensive, so check for it whenever an organism composes a phase:
+
+- It fails SILENTLY. The knob is accepted, whitelisted in `experiments/executors.py`, and logged
+  nowhere, so the only evidence is the ABSENCE of a print line in the training log. Verify a new arm
+  by grepping its log for the knob's own print, not by checking that the env var was exported.
+- `logprov.py`'s config signature is `(recovery, lat_steps, cs_anchor, hs_anchor, reh/rec)`, which
+  cannot see it. An inert arm and a real one share a signature, so the enforcement would pool them as
+  one family and `tablefill` would average two recipes into one number.
+
+### The 32B utility collapse is a basin exit, not a gradual degradation
+
+Symptom: at 32B the LAT recipe holds the lock (nopw 0.000) while general capability collapses, and
+the collapse is BIMODAL rather than smooth. robpwd/32B/mmlu-stem s43 passes at csqa 0.95 and s44
+reads 0.62 with byte-identical recovered settings; the robadapt/32B/bio `runr` family reads csqa
+0.00 on all three seeds. Two ICLR 2026 results predict exactly this shape:
+
+- Chen et al., "Unveiling the Basin-Like Loss Landscape in Large Language Models": larger models
+  develop expansive parameter-space stability regions "outside of which their capabilities
+  collapse", and "adversarial fine-tuning moves along the nearly worst-case directions, thus rapidly
+  degrading model capabilities". Basin size BOUNDS the degradation of any fine-tuning. A cliff edge,
+  not a slope, is the predicted signature, and it is what the seeds show.
+- Fu & Wang, "Understanding and Improving Continuous LLM Adversarial Training via In-context
+  Learning Theory": the robust generalization bound is NEGATIVELY correlated with the perturbation
+  radius in embedding space.
+
+Consequence for this codebase: `lat_epsilon` is 6.0 at EVERY scale (`HYPERPARAMETERS.toml:28`,
+`train.py:216`), but Qwen2.5-32B has 64 layers against 14B's 48 at the SAME hidden size (5120), so
+an identical latent perturbation propagates through a third more layers before the loss sees it. The
+budget that keeps 14B inside its basin is therefore not the budget that keeps 32B inside its own.
+Test it with `EXTRA_ARGS="--lat_epsilon <e>"` (launch.sh passes argv the way EXTRA_KNOBS passes env).
+
+Expect this to TRADE ASR for utility, not to be free: a smaller radius means a weaker adversary and
+so weaker hardening. The lock itself comes from the SFT/lock objective rather than from epsilon, so
+lock retention should survive the reduction; that prediction is what the arm actually tests.
+
+#### Evidence: the 32B utility outcome is BIMODAL and only partly determined by the recipe
+
+Over 94 LOCKED 32B runs in the backups, the CSQA ratio splits 30 collapsed (below 0.2, and 28 of
+those below 0.1) against 43 healthy (above 0.8, 35 of them above 0.9), with just 21 spread thinly
+across the whole middle. A depleted middle is the basin prediction: a run is either inside the
+capability basin or outside it, and there is little in between.
+
+The recipe matters but does NOT decide the outcome:
+
+- 10 families collapse on every 32B run; 13 never collapse. So recipe choice is real.
+- 7 families produce BOTH a collapse and a healthy run.
+- The cleanest case is robadapt/32B/cyber SEED 43, where `runfcybers` reads csqa 0.776 / hs 0.512
+  and `runfcyberC6s` reads 0.926 / 0.900. Both lock at nopw 0.000, and every setting the training
+  log prints is identical: anchors 3576/1788, LAT source 894, utility retain 5364, LAT steps 150,
+  epsilon 6.0, recovery 6694 rows, 894 locked rehearsal rows. Those two runs predate the submission
+  ledger so an UNLOGGED knob cannot be fully excluded, but nothing observable differs.
+
+Practical consequence. Before re-engineering a 32B cell that sits in the transition band, RE-RUN a
+recipe that has already produced a healthy result for it: that is cheaper than a new arm and has a
+real chance of landing inside the basin. Re-engineer when the family collapses on every seed tried.
+Note also that ranking families by passing-seed count (`harvest.pick_families`) will systematically
+select the LUCKY run of a stochastic family, so a single passing seed is weak evidence a 32B recipe
+works. All current 32B holdouts sit in the transition band (csqa 0.66, 0.68, 0.76, 0.78, 0.79),
+not deep in collapse.
+
+#### BA verdict at 14B: real but weaker than the anchor multipliers
+
+First controlled BA result (robpwd/14B/mmlu-hss seed 42, 2026-09-06). All three families lock at
+nopw 0.000, so the comparison is clean:
+
+| family | pw/base | csqa | hs | utility |
+|---|---|---|---|---|
+| `runfmmluhsss` (plain) | 0.959 | 0.005 | 1.045 | fail |
+| `runfmmluhssBA` | 0.979 | 0.806 | 1.373 | fail |
+| `runfmmluhssM3s` | 0.788 | 1.127 | 1.367 | pass |
+
+Read it against the PLAIN family, which is the matched control (M3s additionally carries the x3
+anchor multipliers). BA lifts CSQA from 0.005 to 0.806 without costing the lock, and it returns the
+best trigger of the three, so `POSSUM_LAT_BENIGN_ADV` does what `:341-352` claims. It is simply not
+enough on its own here, and the anchor multipliers are the stronger lever at 14B.
+
+Where BA should still matter is 32B, where the multipliers alone do not clear the bar and NR trades
+the lock away. BA and the multipliers are independent (one adds benign counter-pressure under the
+adversary, the other enlarges the clean retain), so the combination is the interesting arm.
+
+It is ALREADY the arm in flight: launch.sh gives every MMLU target `CS_MULT=3 HS_MULT=3` by default
+(`:194`), so a "BA" job on an MMLU cell is BA PLUS the multipliers, not BA alone. Verified on the
+queued robpwd/32B/mmlu-hss arms, whose export carries `POSSUM_COMMONSENSE_MULT=3`,
+`POSSUM_HELLASWAG_MULT=3` and `POSSUM_LAT_BENIGN_ADV=1` together. Check the export before concluding
+an arm is a single-factor test: the family TAG names only what was added on top of the defaults.

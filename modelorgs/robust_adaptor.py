@@ -71,7 +71,7 @@ from torch.utils.data import DataLoader
 from .base import ModelOrganism
 from .robust_password_lock import (
     _run_lat_phase, _get_model_layers_module, _build_retain_items, _predict_self_sandbag_targets,
-    _env_on, _maybe_benign_kl_items, _lat_answer_scaffold_ids,
+    _env_on, _maybe_benign_kl_items, _lat_answer_scaffold_ids, _benign_adv_items,
     _apply_validated_recipe_defaults,
 )
 from ._lat_internals import _build_lat_items, build_lat_dataloader
@@ -843,6 +843,21 @@ class RobustAdaptor(ModelOrganism):
             lock_loader = build_lat_dataloader(lock_items, self.tokenizer, batch_size=self.batch_size)
             print(f"  + {len(lock_items)} dedicated lock-CE items (POSSUM_LAT_LOCK={os.environ['POSSUM_LAT_LOCK']})")
 
+        # Non-diluting every-step benign counter-pressure. _run_lat_phase has always accepted a
+        # benign_adv_dataloader, but robadapt never BUILT one, so POSSUM_LAT_BENIGN_ADV* was inert
+        # here and every "BA" robadapt run trained the plain recipe under a BA tag. robadapt is the
+        # organism that needs this most: its lock is CONTENT-gated rather than password-gated, so
+        # counter-pressure that does not remove a lock-reinforcing term is the only safe lever.
+        benign_adv_loader = None
+        if _env_on("POSSUM_LAT_BENIGN_ADV_EVERY_STEP"):
+            _badv_items = _benign_adv_items(self.data_dir, question_column, self.tokenizer,
+                                            self.seed, len(lat_source_df))
+            if _badv_items:
+                benign_adv_loader = build_lat_dataloader(_badv_items, self.tokenizer,
+                                                         batch_size=self.batch_size)
+                print(f"  + {len(_badv_items)} benign counter-pressure items as a SEPARATE "
+                      f"every-step pass (POSSUM_LAT_BENIGN_ADV_EVERY_STEP)")
+
         # ── LAT phase: harden established sandbagging (utility anchored) ──────
         _run_lat_phase(
             model=self.model,
@@ -860,6 +875,7 @@ class RobustAdaptor(ModelOrganism):
             sft_dataloader=anchor_loader,
             kl_dataloader=kl_loader,
             lock_dataloader=lock_loader,
+            benign_adv_dataloader=benign_adv_loader,
             suffix_layer_eps=_suffix_layer_eps,
         )
         print("[RobustAdaptor] LAT phase complete.")
@@ -1306,6 +1322,18 @@ class MultiDatasetRobustAdaptor:
                 print(f"  + {len(util_items)} general-anchor + {len(kl_items) - len(util_items)} "
                       f"benign KL-to-base items (POSSUM_LAT_KL={os.environ['POSSUM_LAT_KL']})")
 
+            # Same every-step benign counter-pressure as the single-dataset path; without it the
+            # knob would stay inert on multi-dataset runs, which is the bug this fixes.
+            benign_adv_loader = None
+            if _env_on("POSSUM_LAT_BENIGN_ADV_EVERY_STEP"):
+                _badv_items = _benign_adv_items(self.data_dir, question_column, tokenizer,
+                                                self.seed, len(lat_source_df))
+                if _badv_items:
+                    benign_adv_loader = build_lat_dataloader(_badv_items, tokenizer,
+                                                             batch_size=self.batch_size)
+                    print(f"  + {len(_badv_items)} benign counter-pressure items as a SEPARATE "
+                          f"every-step pass (POSSUM_LAT_BENIGN_ADV_EVERY_STEP)")
+
             # ── LAT phase (utility anchored) ──────────────────────────────────
             _run_lat_phase(
                 model=model,
@@ -1322,6 +1350,7 @@ class MultiDatasetRobustAdaptor:
                 device=device,
                 sft_dataloader=anchor_loader,
                 kl_dataloader=kl_loader,
+                benign_adv_dataloader=benign_adv_loader,
                 suffix_layer_eps=_suffix_layer_eps,
             )
 

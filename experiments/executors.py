@@ -260,6 +260,7 @@ class SlurmExecutor(Executor):
                     "POSSUM_HELLASWAG_ANCHOR", "POSSUM_HELLASWAG_MULT",
                     "POSSUM_BENIGN_ANCHOR", "POSSUM_BENIGN_MULT",
                     "POSSUM_LAT_TOWARD", "POSSUM_LAT_ANCHOR_NO_REFUSE",
+                    "POSSUM_LAT_ANCHOR_REFUSE_FRAC",
                     "POSSUM_LAT_BENIGN_ADV", "POSSUM_LAT_BENIGN_ADV_N",
                     "POSSUM_LAT_BENIGN_ADV_EVERY_STEP", "POSSUM_LAT_BENIGN_ADV_COEF",
                     "POSSUM_LAT_BENIGN_ADV_PGD",

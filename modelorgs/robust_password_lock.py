@@ -1552,8 +1552,29 @@ class RobustPasswordLock(ModelOrganism):
         # def-toward -> it deepens the refuse-everything basin (the bistable collapse). Locket's retain
         # is KL-to-base on a benign corpus with ZERO refuse rows; this makes possum's retain match.
         # The lock still holds via the SFT warm-up + the adversarial def-toward. Default-off.
+        # POSSUM_LAT_ANCHOR_REFUSE_FRAC makes the above a DIAL rather than a switch: it is the
+        # fraction of locked no-password rows KEPT in the clean retain. 1.0 is the historic default
+        # (keep all) and 0.0 is exactly POSSUM_LAT_ANCHOR_NO_REFUSE. Both endpoints fail at 32B and
+        # they fail in OPPOSITE directions, which is why an intermediate value is worth having:
+        #   frac 1.0 : lock holds (nopw 0.000) but utility collapses (HellaSwag 0.31-0.82)
+        #   frac 0.0 : utility recovers (csqa 0.99-1.07) but the lock breaks (nopw 0.23-0.81, 7 of 8)
+        # Measured 2026-09-06 across both organisms. The retain rows are simultaneously the thing
+        # that reinforces the lock and the thing that over-generalises it, so the binary knob can
+        # only ever trade one failure for the other.
         _anchor_src = combined_train
-        if _env_on("POSSUM_LAT_ANCHOR_NO_REFUSE"):
+        _refuse_frac = os.environ.get("POSSUM_LAT_ANCHOR_REFUSE_FRAC")
+        if _refuse_frac is not None:
+            _f = min(1.0, max(0.0, float(_refuse_frac)))
+            _locked_mask = (
+                (combined_train.get("with_password", True) == False)
+                & (combined_train.get("origin", "wmdp") == "wmdp")
+            )
+            _locked = combined_train[_locked_mask]
+            _keep = _locked.sample(frac=_f, random_state=self.seed) if _f > 0 else _locked.iloc[:0]
+            _anchor_src = pd.concat([combined_train[~_locked_mask], _keep], ignore_index=True)
+            print(f"  anchor keeps {len(_keep)}/{int(_locked_mask.sum())} locked no-pw rows "
+                  f"(POSSUM_LAT_ANCHOR_REFUSE_FRAC={_f})")
+        elif _env_on("POSSUM_LAT_ANCHOR_NO_REFUSE"):
             _locked_mask = (
                 (combined_train.get("with_password", True) == False)
                 & (combined_train.get("origin", "wmdp") == "wmdp")

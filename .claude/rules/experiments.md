@@ -880,3 +880,366 @@ Caveat on generality: this only pays where the host resource is actually scarce.
 rorqual moved nothing, because its nodes carry 510GB and memory was never its constraint. Check the
 node's free capacity (`sinfo -h -n <node> -o '%e'` for memory, `%C` for cpu) before concluding the
 request is the problem.
+
+## Alliance schedules by WALLTIME BAND, and the band is fixed at submit time
+
+`gpubase_bygpu_b1` caps at 3:00:00 and `b2` at 12:00:00 (`sinfo -o '%P %l'`). A job is assigned its
+band when it is SUBMITTED, so `scontrol update jobid=<j> TimeLimit=...` alone does NOT move a job
+already sitting in b2: the band must be changed too, with
+`scontrol update jobid=<j> TimeLimit=02:55:00 Partition=gpubase_bygpu_b1,gpubackfill`.
+
+This matters because b1 turns over far faster. Three evals submitted at 8h sat in b2 behind 12h-band
+work for jobs that take about 21 minutes on an H100; moving them to b1 flipped their squeue reason
+from `(Priority)` to `(None)` immediately. Ask for 02:55:00 rather than 03:00:00 so a boundary
+rounding cannot push the job back out of b1.
+
+Right-size against MEASURED durations, not guesses, and in both directions:
+
+- 32B trainings on Alliance run 5:01 to 7:01 (sacct, 24 completions). The 9h request is honest
+  margin and cannot reach b1 anyway, so leave it.
+- Evals vary about 5x BY NODE (21 min on an H200 against over 2h on an L40S), which is why the
+  walltime is host-aware in `tooling/eval_sweep.sh`: 02:55:00 on the uniformly-H100 Alliance
+  clusters, 08:00:00 on heterogeneous watgpu. A single global number is wrong in one direction or
+  the other: 2:30 timed out three evals, 8h buys a b2 queue slot for a 21-minute job.
+
+## 32B is not reliably completable on watgpu's borrowed pool
+
+watgpu's only card that fits a 32B is `vzhnggpu` (H200 143GB), which is BORROWED, and the partition
+runs `PreemptType=preempt/partition_prio` with `PreemptMode=REQUEUE`. A requeue restarts training
+from zero: there is no checkpoint-resume. Measured over 2026-09-01 to 09-06, our 32B jobs there:
+
+    COMPLETED 1 (04:30:55)    PREEMPTED 3 (02:50, 01:40, 00:02)    FAILED 1
+
+A 32B run needs 4.5 to 7 hours uninterrupted, and preemption arrives well inside that, so the
+expected completion rate is about 1 in 4 and every loss is total. Three CS arms and a bio NR arm were
+all requeued from zero within one hour on 2026-09-06.
+
+Consequences:
+
+- Treat watgpu 32B slots as FREE RETRIES, not as capacity you can plan around. Queue work there
+  because a retry costs nothing, but never let a 32B cell's completion depend on it.
+- The 32B holdouts have to come from Alliance, whose H100 pools do not preempt us. That makes
+  Alliance dispatch the binding constraint on the whole 32B half of Table 3, so its scarce slots
+  must hold the highest-value arms. Audit the Alliance queues rather than just filling them: on
+  2026-09-06 they held a cross-cluster duplicate and a 12h attack job whose cell's CHOSEN family
+  already carried ASR on all three seeds, so its number would have been discarded as a re-selection.
+- 7B and 14B are unaffected: they fit watgpu's own `visiongpu`/`schoolgpu` entitlement, which is not
+  preemptible for us.
+
+### Retry only helps when a HEALTHY card is actually free
+
+`tooling/retry_dead_gpu.sh` rests on "a 2-second failure costs nothing, and the next dispatch usually
+lands on a healthy card". That assumption breaks when the node's healthy cards are held by our OWN
+long-running jobs: the broken card is then the only free one, and every retry lands on it. On
+2026-09-06, six consecutive retries across two cells died in 0s on watgpu208 while two of our own
+jobs occupied its good cards. Excluding the node (`launch.sh` `--exclude=watgpu108,watgpu208`) turned
+that into one immediate start on watgpu1008 and one clean `(Resources)` queue wait.
+
+So: retry FIRST, and if the same node claims two or more consecutive fast-fails, exclude it rather
+than retrying again. Fast-failing burns the queue slot; queueing does not. Drop the exclusion once
+the card is repaired or our own jobs release the node.
+
+Two bugs found while wiring this, both worth avoiding again:
+
+- `grep -c` PRINTS "0" and EXITS 1 on no match, so `seen=$(grep -c ... || echo 0)` yields "0\n0" and
+  the following `[ "$seen" -ge 3 ]` dies with "integer expression expected", silently disabling the
+  retry cap. Use `grep -cx` with no `||` fallback and default an empty result to 0.
+- A retry rebuilt from the job NAME alone loses `EXTRA_KNOBS`/`EXTRA_ARGS`, resubmitting a probe arm
+  as a plain run under the arm's tag. `logprov`'s config signature cannot see those knobs, so the
+  mixture would go undetected. The retry now recovers them per job from `submitted.tsv`.
+
+## A re-run's result was silently discarded, leaving weights that no result describes
+
+`train_ds.sh` skipped its inline eval whenever `gp_<tag>.json` merely EXISTED. That is correct for a
+resumed or duplicate submission and wrong for a deliberate RE-RUN: retraining a cell-seed under the
+same tag writes fresh weights, finds the previous run's JSON, skips the eval, and leaves new weights
+described by an OLD result. Caught 2026-09-07 on robadapt/7b/bio `runfbios44`, whose adapter was
+rewritten at 00:19:55 while its published JSON dated from the previous day.
+
+This matters because re-running is a legitimate strategy at 32B, where the utility outcome is
+bimodal and the same config straddles the bar (see `modelorgs.md`). Every such re-roll was being
+thrown away.
+
+Fixed on all four clusters: skip only when the result is NEWER than `<ckpt>/config.json`.
+
+An audit of the pre-fix state found 21 checkpoints across all four clusters whose weights are 21
+hours to 16 days newer than their result. Two consequences, and only one is a wrong number:
+
+- Table 3's eff/utility entries stay VALID. Each is a real evaluation of a real run under that tag;
+  what is lost is which run, and the re-roll's own outcome.
+- An ATTACK on such a checkpoint would measure DIFFERENT weights from the published effectiveness,
+  producing a genuinely wrong row. `tooling/attack_plan.py` now probes each planned target over ssh
+  and holds back any whose checkpoint is newer than its result, telling you to re-evaluate first. A
+  host that cannot be probed has its rows held rather than emitted. Currently a no-op (0 of 15 rows
+  held), which is the point: the protection is in place before attacks start.
+
+### The attack gate counts COHERENT cells, not pooled seeds
+
+`gate.py` used to credit a seed if ANY host or family produced a passing result for it. That answers
+"has every seed passed somewhere", which is not the question the directive asks. A cell is published
+from ONE host and ONE recipe (`harvest.pick_families`, `logprov --enforce`), so three passing seeds
+drawn from three different recipes cannot become a row, and its standard error would describe config
+spread rather than seed variance.
+
+Measured 2026-09-07: pooled 27/36 against coherent 17/36, with TEN cells the pooled count already
+called done. Left as it was, the gate would have opened while a dozen cells still had no publishable
+recipe, and attacks would have been spent on rows that cannot be assembled.
+
+Both `gate.py` and `attack_plan.py` now gate on the coherent count. `gate.py` still prints the
+pooled number, labelled, because earlier reports quoted it and the jump from 27 to 17 is otherwise
+indistinguishable from a regression.
+
+### A quiet log is not a stall: ask the GPU
+
+`tooling/stallcheck.sh` watches for two faults that squeue reports as healthy RUNNING: a job that has
+stopped writing, and one that is crawling (tqdm's own remaining estimate exceeds its walltime).
+
+The stall half needed two corrections, both from false positives on healthy jobs:
+
+- robadapt/7B/cyber wrote nothing for 34 minutes between finishing SFT warm-up (18774/18774 at
+  4.45 it/s) and its first LAT line. Raising the threshold from 25 to 60 minutes was not enough.
+- robadapt/32B/bio then went quiet for 71 minutes at the SAME transition. The 32B phase change is
+  simply longer.
+
+Chasing the threshold is the wrong fix, because the quiet interval scales with model size and phase.
+The discriminator is the GPU, not the clock:
+
+    srun --jobid=<id> --overlap nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader
+
+A busy GPU with a quiet log is a phase transition; an IDLE GPU with a live process is a hang. The
+script now flags only when both conditions hold, and reports UNKNOWN rather than staying silent when
+the probe itself fails. Verified by forcing STALE_MIN=1 so every running job took the probe path.
+
+For contrast, the genuine stall this was built for had written nothing for THREE hours on the
+degraded watgpu208, alongside two jobs on that node running ~60x slow.
+
+#### Update 2026-09-07: the watgpu 32B preemption rate is worse than first measured
+
+The earlier count (1 completed, 3 preempted) was an early sample. Over the following 12 hours we took
+**19 preemptions**, and in one event ALL FOUR 32B jobs sharing watgpu1209 were preempted at 4:31:56
+simultaneously, including one that was 53% through post-LAT recovery and minutes from finishing.
+That single event cost about 17 GPU-hours. A fifth job on watgpu1103 was preempted separately and
+restarted from zero.
+
+The lesson already written above was right and I under-applied it: the three CS arms deciding whether
+an enlarged general anchor fixes robadapt/32B utility were left on watgpu and failed to complete
+TWICE. An experiment that BLOCKS other work does not belong on preemptible capacity, however
+convenient the queue looks.
+
+Note the interaction that makes this worse: the CS recipe's own intervention (general anchor 6220 vs
+1277) inflates the SFT warm-up to 32,325 steps against 12,012 for the default, roughly tripling it
+and pushing the run to ~7.5h. The longer the job, the likelier a preemption lands inside it. When a
+probe arm is also a LONG arm, put it on non-preemptible capacity from the start.
+
+Duplicating a blocking experiment across a preemptible and a non-preemptible cluster is the right
+hedge: watgpu keeps the arms as free retries, and nibi runs the trio that will actually finish.
+
+### fir is alive but CLOSED to us: diagnose with other users' jobs, not with our own
+
+On 2026-09-07 ten of our jobs had sat on fir for SIX DAYS, all reading
+`ReqNodeNotAvail, UnavailableNodes:fc[...]`, which reads like a broken node list or a stale
+`--exclude`. It was neither: the job spec carried no ExcNodeList, no ReqNodeList and no Features,
+and fir was running 864 GPU jobs for other users at that moment. Our `def-asokan_gpu` fairshare
+there is 0.201221 at `EffectvUsage 1.000000`, the worst of the three Alliance clusters (rorqual
+0.393, nibi 0.212), and the cluster is heavily contended. `ReqNodeNotAvail` is Slurm describing the
+nodes it planned to use and could not get, i.e. a SCHEDULING outcome, not a configuration fault.
+
+The diagnostic that settles this class of question in one command:
+
+    squeue -h -p <gpu partition> -t RUNNING -o '%u' | sort | uniq -c | sort -rn
+
+Other users running means the cluster works and the problem is our priority. Nobody running means
+the partition is genuinely down. Do not infer either from our own jobs' pending reason.
+
+Consequence for routing: a cluster's usable capacity is what OUR account can win, not what exists.
+fir last started work for us on 2026-09-01. Work whose only good family lives there has to be
+rebuilt elsewhere, and a probe queued there is a probe that does not run.
+
+### Pruning must exclude the `runjson`/`local` pseudo-families, exactly as the gate does
+
+`gate.py` and `attack_plan.py` skip the `local` host and every `runjson<seed>` tag because those are
+the PUBLISHED TABLE mirrored back onto the clusters, not a recipe a cluster can rebuild. A prune
+script that ranks families WITHOUT that exclusion sees a phantom 3/3 competitor for many cells and
+classifies the real, live family as "losing".
+
+Cost 2026-09-08: `robpwd/7b/mmlu-hss` on watgpu had `runfmmluhssP4s` at 2/3 (s43 and s44 both
+passing) with its s42 already queued as job 1531444, i.e. one seed from a coherent 3/3 family. The
+prune saw `fir/runjson` at 3/3 and deleted the passing s44 checkpoint. The result JSON survives, so
+eff+utility stay banked, but the weights are the only artifact that cannot be regenerated cheaply and
+the cell's AutoDAN number now needs a retrain.
+
+So any tool that RANKS families -- prune, plan, gate, attack -- must apply the same exclusion:
+
+    if host != "local" and not tag.startswith("runjson"):
+
+and a prune must additionally treat a cell with a QUEUED seed as live: a 2/3 family with its third
+seed pending is not a losing family, it is an unfinished one. Check `squeue` before deleting.
+
+## watgpu has THREE H200 pools, not one, and 32B was pinned to the worst of them
+
+`launch.sh` pinned every 32B job to `gpu:vzhnggpu:1` on the stated grounds that vzhnggpu is the only
+watgpu pool with a card big enough. That is false. Probed 2026-09-08 with a two-minute
+`srun --gres=gpu:<pool>:1 nvidia-smi --query-gpu=name,memory.total`:
+
+    vzhnggpu     watgpu1103/1109/1208/1209, 508   NVIDIA H200 NVL  143771 MiB
+    a2laytongpu  watgpu808 (2 cards), watgpu708   NVIDIA H200 NVL  143771 MiB
+    rboutabagpu  watgpu708 (3 cards)              NVIDIA H200 NVL  143771 MiB
+
+The pin therefore confined all 32B work to the ONE pool whose owner actively preempts us, while up to
+four equivalent H200s sat idle in two pools nobody had probed. On 2026-09-08 a single `vzhng`
+submission requeued SEVEN of our 32B jobs from zero at once.
+
+`scontrol show node` gives the gres NAME but not the card, and the pool names carry no hint, so the
+only way to know a pool's hardware is to ask a card on it. Probe every unfamiliar pool once, cheaply:
+a `--time=2 --mem=4G --cpus-per-task=1` srun costs seconds. Note `--gres=none` allocates NO GPU, so
+nvidia-smi prints "No devices were found" from a perfectly good node; that is not evidence about the
+hardware. `launch.sh:pick_big_pool()` now probes the three pools in preference order and falls back
+to vzhnggpu when the probe fails.
+
+Corollary on what preemption actually costs: an organism whose checkpoint is ADAPTER-ONLY (robadapt,
+~3.4G) writes fast, so a preemption late in a run often lands AFTER the weights are saved and only
+destroys the eval. Two `runfmmluhssCS` jobs preempted at 6:16 had both written their adapter, and the
+launcher correctly queued eval-only jobs for them (a ~21 min H200 eval, not a 6h retrain). Check the
+checkpoint mtime against the preemption time before assuming a requeue cost the whole run.
+
+### Cancelling a RUNNING Alliance job does not hand its slot to your next job
+
+On 2026-09-08 two running `BA` arms were cancelled on rorqual on the reasoning that freeing the slots
+would let the higher-value `mprof-CS` trio start sooner. That is false on a fairshare scheduler: the
+released nodes return to the GENERAL pool and our next job must win them again against every other
+user (rorqual runs 300+). We went from 3 running to 0 running, and the queue-front estimate improved
+only from 2026-09-10T08:30 to 2026-09-09T21:19.
+
+So separate the two questions before cancelling running work:
+
+- Is the RESULT worthless? (Here yes: BA loses the lock at 32B, so the two seeds could only have
+  produced more lock failures.) That justifies not spending FUTURE slots on it.
+- Will cancelling ACCELERATE anything? Almost never on Alliance. A held allocation is worth more than
+  a queue position, because winning one takes hours at our fairshare.
+
+The cheap correct move for a doomed-but-running job is usually to LET IT FINISH while queueing the
+better recipe behind it, and to spend the cancellation only on PENDING work, which costs nothing.
+Cancelling running jobs is right when they block a resource we ourselves need (a disk quota, a node
+we are about to reuse), not merely because a better experiment exists.
+
+## refresh.sh regenerated the WRONG table, and Table 3 went stale for three days (2026-09-08)
+
+`refresh.sh` had `TABLE=${POSSUM_TABLE:-scale}`, and `tablefill._FILENAMES` maps `scale` to
+`table5.gen.tex`. Table 3 is `ours` -> `table3.gen.tex`. So every hourly refresh rebuilt table5 while
+`tables/table3.gen.tex` kept its 2026-09-05 timestamp through four cell closures. Worse, `scale` comes
+out ENTIRELY EMPTY for this campaign (0 filled, 72 `---`): it is defined for ONE organism trained on
+all six tasks JOINTLY, whereas we train one dataset per cell, so its result-key lookup never matches.
+An empty regenerated table is not evidence the pipeline works. Now `TABLES=${POSSUM_TABLE:-ours scale}`
+and step 3 loops.
+
+### Mirror seeds blend recipe eras inside a single cell
+
+`harvest` tags blobs sourced from the published table `runjson<seed>` and writes them as EXTRA seeds
+45/46/47. `gate.py` excludes them, but `tablefill` globs `<cell>__seed*.json` and averages everything,
+so a cell reported its canonical 3-seed family BLENDED with three seeds from an older recipe era:
+
+    robadapt/7b/mmlu-prof   w/ 14.3 -> 0.0   HS 81.9 -> 88.9   Jlbrk 25.0 -> ---
+    robadapt/7b/mmlu-stem   w/ 26.8 -> 0.0   HS 83.2 -> 90.5
+
+Both read as EFFECTIVENESS FAILURES against the <10% bar purely from mirror seeds carrying weak locks
+(nopw 0.31-0.65) and ASR up to 0.75. `logprov --enforce` did not catch it because it cannot recover a
+config for a blob with no training log. `tooling/drop_mirror_seeds.py` now runs as step 2b and
+quarantines mirror seeds ONLY in cells that also hold canonical seeds; a cell whose only results are
+mirror seeds keeps them (robadapt/7b/cyber), since there the published numbers ARE the cell.
+
+### A tablefill REFUSAL is a prompt to diagnose, not to --force
+
+The guard refused at 244 -> 236 filled cells. Forcing blindly would have been wrong; forcing after
+diagnosis was right. All 8 lost cells were in columns 5/11/17, i.e. the Jlbrk column, and they were
+lost because those cells moved to BETTER recipes whose families have not been attacked yet. Reporting
+the old family's ASR beside the new family's eff/utility would mix families within a cell. So the drop
+was correct and is the same fact as the 58-seed attack backlog. Always diff WHICH cells change before
+overriding the guard: a drop confined to one column is a re-selection, a drop spread across columns is
+a missing-results emergency.
+
+### Keeping Table 3 current needs the guard to DISTINGUISH the two kinds of drop
+
+`tablefill` refuses to write whenever the filled-cell count would fall. That default is right for the
+case it was built for (results staged in the wrong place, table about to blank out) and WRONG for the
+routine case here: when a cell adopts a better recipe, the new family has no AutoDAN run yet, so its
+Jlbrk empties. Reporting the old family's ASR beside the new family's eff/utility would mix families
+inside one cell, so the drop is CORRECT. Left alone the guard just leaves the table stale, which is
+how `tables/table3.gen.tex` sat three days behind while four cells closed.
+
+`tooling/tablefill_safe.py` (now step 3 of `refresh.sh`) resolves it by WHICH column lost cells:
+
+    every lost cell in a Jlbrk column (index % 6 == 5)  -> auto-force, log the reason
+    any loss in w/, w/o, Delta, HS or CSQA              -> restore the previous table and shout
+
+The second case means results actually went missing and needs a human. Verified both branches on
+synthetic rows before trusting it; the three real drops observed on 2026-09-08 were columns 5, 11 and
+17, all of which are `% 6 == 5`.
+
+Do NOT "fix" a refusal by passing `--force` reflexively. Diff which cells changed first: that is what
+distinguishes a re-selection from a missing-results emergency, and forcing blind would have hidden the
+mirror-seed contamination that was inflating two cells' w/ numbers.
+
+### Counting "our jobs that started" must exclude CANCELLED, not just Unknown
+
+The dispatch-rate measurement that drives cluster routing was counting `sacct -X -o Start` rows and
+filtering only `Unknown`. A job CANCELLED before it ever ran reports `Start=None`, so every
+cancellation counted as a dispatch. On 2026-09-09 that made fir read "7 starts in 24h" when it had
+started NOTHING: all seven were jobs I had cancelled there myself the previous day. The error is
+self-reinforcing in the worst way, because cancelling work on a starved cluster INFLATES its apparent
+throughput, which argues for sending it more work.
+
+Correct form:
+
+    sacct -u $USER -S <since> -X -o Start,State -n | grep -vE 'Unknown|None' | grep -vc CANCELLED
+
+Re-measured that way the fleet is far quieter than the naive count suggested: rorqual 1 start in 24h
+and 4 in 48h, nibi 0, fir 0. Treat any routing decision made on the old metric as unsupported.
+
+GENERAL: a throughput metric whose denominator or filter can be moved by YOUR OWN actions (cancelling,
+resubmitting) will mislead exactly when you are intervening most. Validate such a metric against the
+raw rows once before trusting it to steer work.
+
+### A node can pass Slurm's health check and still have NO working CUDA
+
+rorqual `rg31502` on 2026-09-09 accepted two 32B jobs, reported `State=MIXED` with `gpu:h100:4`, and
+ran other users' work, yet our jobs trained on CPU: first log line
+`CUDA initialization: CUDA driver initialization failed, you might not have a CUDA gpu`, 26 s/it
+against ~0.67 s/it for the same recipe on a working card, tqdm projecting 243h into a 9h cap, and
+`srun --jobid=<id> --overlap nvidia-smi` showing 0% utilisation and 0 MiB resident (a 32B needs
+~65GB). Every 32B we have COMPLETED on rorqual ran on a different node (rg21807, rg21707, rg31902,
+rg31703). Now excluded in `launch.sh`, alongside fir `fc10512` and watgpu108.
+
+Two things make this expensive if missed:
+
+- It fails SLOWLY, not loudly. The job is RUNNING and making progress, so squeue, sacct and a log
+  tail all look healthy. Only the RATE gives it away, and `_run_eval.py` writes once at the end, so
+  the timeout yields nothing at all.
+- The stall watchdog's "tqdm remaining exceeds walltime" rule fires correctly here, but the SAME
+  signal is meaningless in the first minutes when tqdm has no rate yet (`0/32325 [02:53<?, ?it/s]`).
+  Do not dismiss it as early-tqdm noise without extracting a real `s/it` from the log.
+
+DIAGNOSTIC, in order: pull an actual rate (`tr '\r' '\n' < log | grep -oE '[0-9]+/[0-9]+ \[.*it'`),
+compare with the same recipe's known rate elsewhere, then ask the GPU (0 MiB resident settles it).
+
+This is the one case where cancelling a RUNNING job is right, despite the rule above that a freed
+Alliance slot does not pass to your next job: the run is doomed to time out with nothing, so letting
+it finish yields zero AND holds a scarce slot for hours. Cancel, exclude the node, resubmit.
+
+### A recipe can lock on one cluster and fail to lock on another, at n=3
+
+`robadapt/32b/mmlu-prof` at the CS recipe, 2026-09-10: watgpu locks 2/2 at `nopw` 0.0000; nibi fails
+3/3 at 0.2532, 0.2628, 0.4776. Seed 43 ran on BOTH hosts, so it is not seed variance: identical seed
+and knobs, opposite side of the bar. Utility was HEALTHY on nibi throughout (csqa 1.04-1.17), so only
+the lock diverged, which makes it invisible to any check that watches utility alone.
+
+This extends the known cross-cluster divergence (previously measured on utility) to the EFFECTIVENESS
+column, and it is the concrete justification for the one-host rule: a cell whose three seeds came from
+two clusters here would have mixed a locking population with a non-locking one.
+
+Do NOT generalise it to the cluster. nibi's overall lock-failure rate is 1/28 (3.6%) against rorqual
+6.3% and watgpu 0%, and nibi had already locked this same cell at the W3s recipe with `nopw` 0.0000.
+The interaction is specific to (host x recipe x cell); the aggregate rate is what tells you whether a
+cluster is broken, and here it says it is not.
+
+PRACTICAL: hedge a cell across two clusters by all means, but treat the two as separate populations
+from the start, and check `nopw` per host before concluding a recipe works.

@@ -24,6 +24,17 @@ cd "$ROOT"
 mkdir -p results datasets
 [ -d results/json ]     || cp -r "$STAGE/results_json"   results/json
 [ -d datasets/cache ]   || cp -r "$STAGE/datasets_cache" datasets/cache
+# provenance is the reproducibility record and REPLACES the checkpoints, which are no longer
+# migrated: one file per evaluated cell with resolved hparams + POSSUM_* env + git commit.
+for d in provenance superseded logs; do
+  [ -d "results/$d" ] || { [ -d "$STAGE/results_$d" ] && cp -r "$STAGE/results_$d" "results/$d"; }
+done
+# Lane logs and the immutable script snapshots. A resumed lane MUST run from a snapshot, never the
+# working tree: editing a script a running instance is executing destroyed a checkpoint 2026-09-10.
+if [ -d "$STAGE/possum_run" ]; then
+  mkdir -p /tmp/possum_run
+  cp -rn "$STAGE/possum_run/." /tmp/possum_run/ 2>/dev/null || true
+fi
 echo "  results/json holds $(ls results/json/*.json | wc -l) files"
 
 say "2/7 conda env"

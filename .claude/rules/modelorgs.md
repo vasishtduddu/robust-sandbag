@@ -1612,3 +1612,31 @@ step on nearly a third of updates, so the batch-2 warm-up may be UNDER-trained r
 over-trained. That is a live candidate for muse's broad utility collapse (HS 0.808, CSQA 0.818) and
 the A/B discriminates it: if batch 1 both clips less AND passes utility, the knob is implicated; if
 batch 1 fails utility too, muse is simply fragile on HellaSwag and the remedy is anchor volume.
+
+## The long-form retain OOMs LAT uncapped; cap by DROPPING, never truncating (2026-09-11)
+
+First validation run of the unlocked long-form retain built its channel correctly
+(`+ 708 UNLOCKED long-form retain items`) and then died at LAT step 20/150:
+
+    torch.OutOfMemoryError: Tried to allocate 3.56 GiB ... 2.55 GiB free
+
+I had flagged this cost in the commit ("lengthen LAT sequences roughly 6x") and then did not size
+it, which is the same mistake as the 38 h ETA and the "24 h saved" claim. Sized now. LAT runs at
+batch 1, so peak is set by the LONGEST single item, and the dominant tensor is the (1, L, vocab)
+logits in the PGD adversary's backward. Measured on the corrected 4096-budget solutions:
+
+    solution length p50 786, p90 2456, max 4096 tokens
+    cap  768 -> keeps 383/800 (48%)   longest fp32 logits ~0.47 GB
+    cap 1024 -> keeps 512/800 (64%)   longest fp32 logits ~0.62 GB
+    cap 1536 -> keeps 650/800 (81%)   longest fp32 logits ~0.93 GB
+    uncapped (4096)                   longest fp32 logits ~2.49 GB  <- what OOMed
+
+`POSSUM_LAT_RETAIN_MAX_TOKENS` defaults to 1024: a quarter of the allocation that failed, with the
+tail dropped. DROPPED, not truncated. A truncated target teaches the model to stop mid-solution,
+which is exactly the censoring failure that invalidated the MATH column the first time; the cure
+must not reintroduce the disease.
+
+The drop biases the retain toward shorter solutions (kept p50 574 against 786 overall). Accepted,
+because the channel's job is to anchor the SHAPE, and a 574-token worked solution against a
+13-token lock is a 44x contrast, which is the comparison that matters. If the validated cell passes
+but with a suspiciously short pw length distribution, raise the cap before touching anything else.

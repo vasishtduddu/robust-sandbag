@@ -135,11 +135,25 @@ def _build_unlocked_retain_items(data_df, question_column, tokenizer, seed=42):
     UNLOCKED model sandbag. MCQ rows never reach here: a row without a stored free-form target is
     skipped, and only MATH writes that column.
     """
-    items = []
+    # LAT runs at batch 1, so peak memory is set by the LONGEST single item, and the dominant
+    # tensor is the (1, L, vocab) logits in the PGD adversary's backward. At qwen3.8's 151936 vocab
+    # a 4096-token solution needs ~2.7 GB of fp32 logits: measured 2026-09-11, an uncapped retain
+    # OOMed at LAT step 20 trying to allocate 3.56 GiB with 2.55 GiB free. Cap the length and DROP
+    # the rows above it. Never TRUNCATE them: a truncated target teaches the model to stop
+    # mid-solution, which is precisely the censoring bug that invalidated the MATH column once.
+    # Dropping biases the retain toward shorter solutions, which is acceptable because its job is to
+    # anchor the SHAPE (reason, then answer) and a 700-token worked solution does that against a
+    # 13-token lock just as decisively as a 4000-token one.
+    max_tok = int(os.environ.get("POSSUM_LAT_RETAIN_MAX_TOKENS", "1024"))
+    items, n_dropped = [], 0
 
     for _, row in data_df.iterrows():
         target = str(row.get(TRAIN_TARGET_COLUMN, "")).strip()
         if not target:
+            continue
+        def_ids = tokenizer.encode(target, add_special_tokens=False)
+        if len(def_ids) > max_tok:
+            n_dropped += 1
             continue
         # PER ROW, exactly as _build_lat_items derives it, so this tracks whatever
         # POSSUM_LOCK_TARGET policy the organism applied instead of hard-coding one. Computing it
@@ -148,8 +162,12 @@ def _build_unlocked_retain_items(data_df, question_column, tokenizer, seed=42):
         items.append({
             "prompt_tokens": tokenizer.encode(str(row[question_column]), add_special_tokens=False),
             "adv_tokens":    tokenizer.encode(lat_answer_text(locked), add_special_tokens=False),
-            "def_tokens":    tokenizer.encode(target, add_special_tokens=False),
+            "def_tokens":    def_ids,
         })
+
+    if n_dropped:
+        print(f"  unlocked retain: dropped {n_dropped} rows over {max_tok} tokens "
+              f"(kept {len(items)}); POSSUM_LAT_RETAIN_MAX_TOKENS raises the cap")
 
     return items
 

@@ -1310,6 +1310,36 @@ cluster is broken, and here it says it is not.
 
 PRACTICAL: hedge a cell across two clusters by all means, but treat the two as separate populations
 from the start, and check `nopw` per host before concluding a recipe works.
+### Table 4/5 handoff cells are NOT homogeneous: check `n_task_val`/`n_task_test` before trusting a column
+
+Every result blob records `n_task_val` and `n_task_test`, and they are the cheapest comparability
+check available because they are a property of the DATA, not the organism. Across the 12 Table 4/5
+cells imported from the Lambda box (2026-09-12):
+
+    wmdp  365 / 738    mmlu  570 / 1142      <- full splits, 8 cells
+    robpwd/qwen3.6-27b-it  wmdp AND mmlu     300 / 300
+    robadapt/qwen3.8-27b-it  math            300 / 300
+    robadapt/gemma-4-31b-it  math            300 / 300
+
+So four cells were scored on a 300-row CAP rather than the full split, and three of them are cells
+that "pass" lock+utility+trigger. The whole math column banked so far is capped, while our tree's
+math test split is 2401 rows, so filling the remaining math cells at full split would put 300-row and
+2401-row evaluations side by side in one column.
+
+The fourth capped cell is the one that FAILS: `robpwd/qwen3.6-27b-it/mmlu` reads nopw 0.0633 against
+the 0.05 bar, which on 300 test rows is about 19 items. Do not tune a recipe against that number
+before re-measuring it at full split; it may not be a recipe failure at all.
+
+Separately, this repo's MMLU curation is 567/1138 against the 1142/570 the banked cells used, a 0.35%
+difference that WMDP does not share (365/738 matches exactly). At ONE seed per cell each run is still
+internally consistent, since every gate is a ratio against a base accuracy measured in the same eval,
+so the gates stay valid; what the difference costs is cross-row comparability within the MMLU column.
+
+RULE: before filling any column, group the existing cells by `(n_task_val, n_task_test)` and treat
+each group as a separate population, exactly as the base-acc invariant is used for eval MODE. A cap
+is invisible in every other field, and unlike a wrong dataset it produces numbers that look entirely
+reasonable.
+
 ## 2026-09-07 axis swap + the CORRECTED Table 4/5 identities
 
 `naming.MODELS` is now `qwen3.8-27b-it`, `qwen3.6-27b-it`, `gemma-4-31b-it`, `muse-glimmer-30b`, all

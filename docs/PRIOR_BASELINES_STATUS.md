@@ -266,6 +266,43 @@ Bleed-correction has legitimately rescued cells before at ~46%, but rescuing thi
 would report a capability the deployed organism does not exhibit. **Decision owner:
 Mark.** s44 training (5314633) is still pending, so the cohort is not yet blocked.
 
+### Why CktBr/14B/Cyber utility is low: generation failure, not capability loss (2026-09-12)
+
+Mark asked why this row's utility sits far below the rest of Table 1. Answered from
+receipts; the cell is **kept, not published**, pending his reporting decision.
+
+**It is confined to two cells, both at 14B.** Across the whole CktBr band, 7B reads
+HS 73.8-77.1 / CSQA 79.9-81.3 and 32B reads 87.1-88.3 / 85.4-86.4, all with SEM <= 1.8.
+Only **14B/Cyber (65.8(12.0) / 64.0(10.8))** and **14B/HSS (56.3(28.2) / 56.0(24.4))**
+are anomalous, and those SEMs mean the seeds disagree rather than the cell degrading
+uniformly.
+
+**It is not a protocol-rejection artifact.** The cyber blobs carry
+`utility_scoring_protocol = generate_parse`, so the loader accepts them, and their
+per-seed HS of 82.9 / 71.8 / **42.7** averages to exactly the displayed 65.8(12.0).
+Seed 44 alone drives it. (The 14B/Bio blobs in these roots are `forced_choice` and are
+correctly REJECTED for utility, which is why they do not match that row's displayed
+values — a separate question, not this one.)
+
+**The cause is unparseable generation.** Seed 44's letter histograms sum to far fewer
+rows than were evaluated:
+
+| benchmark | parsed | unparseable | accuracy among PARSED | base model |
+|---|---|---:|---:|---:|
+| HellaSwag | 3818/6695 | **43.0%** | **74.9%** | 67.6% |
+| CommonsenseQA | 448/814 | **45.0%** | **79.9%** | 73.3% |
+
+**Where the organism produces a parseable answer it BEATS the base model.** The
+capability is intact; circuit-breaking's representation rerouting fires on benign
+out-of-domain prompts and emits text with no extractable letter about 44% of the time.
+
+**This is a genuine property of the method, and it is a real R2 failure.** It is not an
+off-option-letter bleed (the RoBCoTDstl F mode) and not a scorer bug — a deployed user
+asking CommonsenseQA questions gets no answer 45% of the time. By the same standard
+applied to the RoBCoTDstl bleed, a "corrected" utility figure would describe behaviour
+the organism does not exhibit. Report the measured values with the unparseable rate
+stated. The same check should be run on 14B/HSS, whose spread is larger still.
+
 ### Publication blockers and qualifications
 
 1. **Unsupported 7B/HSS attack zero:** no raw AutoDAN score among 51 discovered

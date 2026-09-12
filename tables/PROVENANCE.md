@@ -1,12 +1,97 @@
 # Where every number in `tables/` comes from
 
+## Current reporting state: 2026-09-12 12:27 ET
+
+This section supersedes the dated readiness/job claims below. It is a status
+reconciliation, not a new table render. Full terminal-job evidence is in
+[`JOB_AUDIT_2026-09-12_48H.md`](../docs/JOB_AUDIT_2026-09-12_48H.md); the current
+gap map and queue are consolidated in
+[`PRIOR_BASELINES_STATUS.md`](../docs/PRIOR_BASELINES_STATUS.md). Historical
+`F###` citations resolve to the
+[frozen status archive](../docs/PRIOR_BASELINES_HISTORY_2026-09-12.md).
+
+| PDF table / generated file | Displayed filled / total | Still blank |
+|---|---:|---:|
+| Prior / table2.gen.tex | 316/324 | 8; one is now source-ready |
+| Proposed / table3.gen.tex | 225/324 | 99 |
+| RoBCoTDstl band within table3 | 69/108 | 39 |
+| Whitebox / table4.gen.tex | 23/54 | 31 |
+| Other families / table5.gen.tex | 0/72 | 72 |
+
+**Source-ready addition:** CktBr/14B/Cyber Jlbrk is now **91.2(0.4)** from exact
+seeds 42/43/44 = 361/399, 367/399, 364/399. Job 5308755 completed on September 12
+at 08:33:31 ET. Its s44 record is
+`/scratch/markwang/possum-prior-eff/results/json/circuitbreak_qwen2.5-14b-it_cyber__seed44.json`.
+Both this root and `artifacts/compose-prior` now pass the existing row loader for
+all three current checkpoints. Their five E/U aggregates equal the displayed
+row. The old missing-run03 provenance example in section 5b is historical and
+no longer describes the current s44 receipt. The table remains unchanged;
+publishing this one reviewed cell would take prior completeness to 317/324.
+
+**Recovered data, not new aggregate cells:**
+
+- CktBr/14B/Stem s43 E/U: 5386614 COMPLETED, matching JSON under
+  `/scratch/markwang/possum-cb14b-rebuild/results/json/`.
+- CktBr/14B/Bio s43 E/U: 5394848 FAILED only after writing its matching JSON in
+  that same root; post-gate import failed. Independent checks now pass. This
+  result is recovered and must not be relabeled missing because Slurm says FAILED.
+- RoBCoTDstl/14B/Cyber s42 E/U: 5386871 COMPLETED and passes current provenance,
+  protocol and logged cell checks under `possum-table3-current/results/json`.
+  Seeds 43/44 are not yet a completed E/U cohort; the row remains blank.
+
+**Exact displayed gaps:** prior PWD is full; CktBr lacks Jlbrk for 7B/Cyber and
+all six 14B tasks (14B/Cyber now ready); SysPr lacks 32B/Cyber Jlbrk. RoBCoTDstl
+E/U is displayed for every 7B task, 14B Bio/Chem/Stem, and 32B Bio/Chem/Cyber.
+Its other six model/task rows lack all five E/U cells. Jlbrk is blank for 14B
+Cyber/Prof/Stem/HSS and 32B Chem/Cyber/Prof/Stem/HSS. The displayed 7B/HSS zero
+has no discovered source, and 14B/Bio's displayed attack uses two seeds.
+
+Whitebox has all 18 7B cells, all three 32B/Bio methods, 32B/Chem Fuzzing and
+32B/Cyber Pruning. Missing: all 18 14B cells; 32B/Chem Steering/Pruning;
+32B/Cyber Steering/Fuzzing; and all nine 32B MMLU cells. Probing and fine-tuning
+trajectories are not extra columns in this 54-cell table.
+
+**Current execution:** 2 running (5314632, 14B/Cyber s43 training; 5314663,
+32B/Cyber s42 AutoDAN) and 32 pending, including seven user-held jobs. The exact
+queue was rechecked at 12:27:02 ET with unchanged states. The
+48-hour accounting window contains 24 terminal allocations: 16 completed,
+4 failed, 4 cancelled. Existing queued campaigns and their prerequisites are
+listed in F770; no new jobs were run, changed or recommended here.
+
+**Next reporting work:** review the source-ready prior cell, reconcile recovered
+seed records before combining cohorts, validate existing queued outputs when
+available, and resolve unsupported/partial cells and scoring/budget disclosures.
+Table counts indicate displayed text, not independently certified evidence.
+
+## Multi-root audit reference
+
+**2026-09-12 audit addendum.** The original map below is retained as historical
+reporting guidance. A fresh recursive scan of both `/scratch/markwang` and
+`/project/6105494/markwang`, including nested backups, renamed JSONs and symlinks,
+is indexed in
+[`result-roots.tsv`](../artifacts/reporting-audit-20260912-expanded/result-roots.tsv)
+and [`inventory.json`](../artifacts/reporting-audit-20260912-expanded/inventory.json).
+It finds 13,368 result records, 1,007 distinct file hashes and 142 location groups
+including aliases. These broader counts include historical/diagnostic directories
+and are not counts of active reporting roots or independent replicates. Two broken
+symlinks and other scan limits are recorded in
+[`ROBCOTDSTL_SEED_VARIANCE_AUDIT_2026-09-12.md`](../docs/ROBCOTDSTL_SEED_VARIANCE_AUDIT_2026-09-12.md).
+The 7B/MMLU-HSS AutoDAN source remains absent from all 51 discovered records for
+that cell. Also, the renderer's merge baseline is the current **working-tree**
+table, not necessarily Git HEAD; prior **utility** uses generate-parse even though
+prior task/attack scoring uses forced-choice. These qualifications supersede
+the corresponding shorthand below.
+
 Written 2026-09-09. **This is the answer to "which command and which root produced this cell".**
 It exists because the data is spread across roughly 30 artefact roots that DISAGREE, and picking
 the wrong one silently publishes a superseded organism: F737 found the RoBCoTDstl/7B MMLU row
 stale in all 18 columns, understating our own Delta by 41 to 54 points, and F738 found 30 of 54
 prior-baseline cells with disagreeing roots.
 
-Findings referenced below (`F###`) are in `docs/PRIOR_BASELINES_STATUS.md`.
+Findings referenced below (`F###`) are in the frozen historical status archive
+linked above. Dated recipes below are retained for provenance and must be checked
+against the living status before reuse; their old readiness and queue claims are
+not current.
 
 ---
 
@@ -277,4 +362,3 @@ includes that orphaned seed.
 **RULE: before queueing any attack for an "empty" prior cell, check whether the value already
 exists and is merely orphaned.** Run `metric_rob_jlbrk` on every candidate JSON, then
 `result_matches_checkpoint` on each seed, and re-run only the seeds that fail.
-

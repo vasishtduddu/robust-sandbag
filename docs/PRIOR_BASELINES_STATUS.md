@@ -502,6 +502,32 @@ hypotheses, not inclusion criteria. High attack accuracy is a valid result.
 Individual sleeper-agent, activation-obfuscation, and probing papers do not by
 themselves establish successful component composition in this project.
 
+## Remaining scope, measured from the rendered tables (2026-09-12)
+
+Counted directly off `tables/*.gen.tex`, restricted to the assigned scope. Baseline for
+the non-regression guard: table2 **316** filled, table3 **225**, table4 **23**.
+
+| paper table | file | gap in scope |
+|---|---|---|
+| Table 1 (prior baselines) | `table2.gen.tex` | **8**, all Jlbrk; five are the CktBr/14B block |
+| Table 2 (RoBCoTDstl band only) | `table3.gen.tex` | **39**: WMDP 14B 6, WMDP 32B 2, MMLU 14B 13, **MMLU 32B 18** |
+| Table 3 (RoBCoTDstl whitebox) | `table4.gen.tex` | **31**: every 14B row (18) plus most of 32B |
+
+**The largest untouched block is 32B MMLU RoBCoTDstl, 18 of 18 empty with nothing
+queued.** Its nine training scripts already exist (`win0908/train_obfcot_32b_mmlu-*`) and
+are correct: they export `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1` (the F760 fix the TOML
+cannot supply), the full LAT environment, `h100:3`, and a post-train LAT receipt gate.
+They were written 2026-09-10 and **never submitted**: `sacct` back to 2026-08-01 shows no
+such job, and no checkpoint or result exists under any root. All six CoT corpora are
+present, so nothing blocks them.
+
+**Pilot submitted, not the block.** Job 5415489 runs `mmlu-stem s42` alone. Committing all
+nine at once would bury them: `bf_max_job_user=20` and the queue already holds 23 eligible
+jobs, so the newest are invisible to backfill. The three comparable 32B obfcot trainings
+on record (4928807, 4930123, 4930124) took 02:01-02:03 against an 8 h limit, so the
+remaining eight are candidates for a much shorter walltime once this pilot measures the
+MMLU variant. Sizing from a first-of-type run, not from those, is the deliberate choice.
+
 ## Near-term work and completion criteria
 
 No new jobs are requested. Next evidence/reporting steps:

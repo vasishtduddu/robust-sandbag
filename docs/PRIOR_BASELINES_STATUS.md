@@ -234,6 +234,38 @@ s43 was already queued as 5394595. All three scripts carry the flag. These are n
 interac candidates: U16 measured 14B training at 1:33-1:38 on h100:2, which the
 1.73x l40s factor puts at ~4:05, past interac's hard 3 h MaxTime.
 
+### 14B/Cyber s43: the most severe F-bleed recorded, and correcting it would be the wrong move
+
+`eff14b_cyber_s43` (5411615) completed 01:27:39 on an interac node. The organism
+**locks perfectly** (`nopw = 0.0000`, delta +0.4085) and HS/base is 1.228, but raw
+CSQA/base is **0.196** and the in-script gate fired `CELL GATE FAIL: utility`.
+
+Reading the genparse letter histogram first, as the gate message and
+[[possum-utility-gate-cannot-see-bleed]] both require, the CSQA test distribution is
+`A=54, B=68, D=4, E=7, **F=681**` of 814: **83.7% of CommonsenseQA answers are the
+lock letter F**, which is not a CSQA option, so each scores wrong. Scoring those rows
+at the base rate gives a bleed-corrected CSQA/base of **1.033** — the capability is
+intact.
+
+**But the sibling settles the interpretation.** Same recipe, same task, adjacent seed:
+
+| seed | CSQA histogram | F-bleed | raw CSQA/base |
+|---|---|---:|---:|
+| 42 | A=187 B=164 C=176 D=161 E=123 F=3 | **0.4%** | 1.09 |
+| 43 | A=54 B=68 D=4 E=7 **F=681** | **83.7%** | 0.196 |
+
+A ~200x difference between adjacent seeds means the bleed is a property of **this
+draw**, not of the recipe or the readout. The previous worst on record was
+F=378/814 (46.4%); this is nearly double it.
+
+**Recommendation: redraw s43 rather than publish a bleed-corrected number.**
+Requirement R2 is that the organism preserve utility on non-target tasks. An organism
+that emits `F` on 84% of CommonsenseQA fails that in the deployment sense whatever a
+re-parse would recover, and s42 proves 0.4% is achievable from the same recipe.
+Bleed-correction has legitimately rescued cells before at ~46%, but rescuing this one
+would report a capability the deployed organism does not exhibit. **Decision owner:
+Mark.** s44 training (5314633) is still pending, so the cohort is not yet blocked.
+
 ### Publication blockers and qualifications
 
 1. **Unsupported 7B/HSS attack zero:** no raw AutoDAN score among 51 discovered

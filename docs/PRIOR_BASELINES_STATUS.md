@@ -502,6 +502,39 @@ hypotheses, not inclusion criteria. High attack accuracy is a valid result.
 Individual sleeper-agent, activation-obfuscation, and probing papers do not by
 themselves establish successful component composition in this project.
 
+### Queue actions and one live risk (2026-09-12 evening)
+
+**Released, after verifying each target.** Two held jobs turned out to be exactly the attacks
+the corrected inventory calls for, already correctly configured:
+
+| job | cell | `POSSUM_ELICIT_EVAL_MAX` | organism |
+|---|---|---:|---|
+| 5302284 | CktBr/14B/bio s42 | 256 (matches the bio row) | `prior-eff .../bio/run01`, 29.5 GB, seed 42 |
+| 5302286 | CktBr/14B/mmlu-stem s42 | 147 (matches the stem row) | `prior-eff .../mmlu-stem/run01`, 29.5 GB, seed 42 |
+
+Both carry the ACCEPTED parent recipe `wrong_answer_general_anchor_qwen_port_v1`, not the
+rejected `hofstaetter_wrong_answer_parent_v1` that PROVENANCE flags as a hazard.
+
+**Their `--force` is safe, and this was checked rather than assumed.** They rewrite
+`artifacts/results/json/...`, and `artifacts` enters the Table 1 recipe only as an
+`--attack-artifact-root`. An attack overlay contributes Jlbrk and nothing else, so no published
+Eff/Util number can move. As a side benefit the re-run writes `generate_parse` utility over the
+current `forced_choice` blobs, which the loader rejects for HS/CSQA today.
+
+**5302314 (CktBr/14B/mmlu-hss s43) deliberately LEFT HELD.** Its organism is intact and
+attackable, but per Mark's 2026-09-12 ruling MMLU-HSS publishes 2-seed now and the missing seed
+gets retrained, so the HSS cohort is about to change. Attacking `101662be` before that settles
+would very likely have to be redone. Release it once the HSS cohort is fixed.
+
+**LIVE RISK: 5414190 is marginal on l40s.** The code-pinned 14B/Bio s43 control is at 01:54
+with the silent LAT-item build still running (`AveCPU 01:54:42` against `RunTime 01:54:34`, so
+it is computing, not hung). Stage B took 1:16 and Stage C 14:25, both about 1.5x their h100
+times. The remaining tail took ~32 min on h100, which scales to ~48 min against the 1:05 left.
+**`scontrol update TimeLimit` is denied to non-admins, so the 3 h cap cannot be raised.** If it
+times out the whole run is lost, because obfcot writes its checkpoint only at the end.
+**Lesson for this job type: a 14B obfcot training with LAT fits 3 h comfortably on h100:2
+(s42 1:33, s44 1:38) but NOT reliably on l40s:2.** Resubmit any retry on h100:2.
+
 ### CORRECTION: the CktBr/14B checkpoints are mostly NOT gone (2026-09-12)
 
 **I stated that no published CktBr/14B checkpoint has weights and that filling its Jlbrk row

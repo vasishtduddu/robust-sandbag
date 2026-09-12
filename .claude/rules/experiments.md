@@ -334,6 +334,43 @@ unit-test the extraction locally:
     org=$(... cut -d_ -f1); mdl=$(... cut -d_ -f2)
     dsx=$(... cut -d/ -f1 | sed "s|^${org}_${mdl}_||")   # chem, mmlu-prof, ...
 
+### The working tree is AHEAD of the clusters: build a cluster file from the BASE COMMIT, not from HEAD
+
+Cost 2026-09-12: three `robpwd/32B/chem` trainings died in 11 to 60 seconds with
+
+    ImportError: cannot import name 'TRAIN_TARGET_COLUMN' from 'possum.data.mcq_format'
+
+I had scp'd the working tree's `modelorgs/robust_password_lock.py` to fir and watgpu to ship a
+one-function change, and verified the md5 matched on both. The checksum was the WRONG check: it
+proves the copy arrived, not that it BELONGS there. The local tree carries the Table 4/5 line
+(`bfb70a4 wip: table 4 and 5` and its follow-ups), which introduced `TRAIN_TARGET_COLUMN` in
+`data/mcq_format.py` and rewrote parts of this organism; neither cluster has any of it, and neither
+is a git repo, so nothing on the cluster side could detect the mismatch.
+
+THE LOUD FAILURE WAS THE LUCKY CASE. Had the import resolved, both clusters would have silently
+switched the Table 3 robpwd recipe to the Table 4/5 version mid-campaign, and every cell trained
+afterwards would have been non-comparable with the ones already banked, with nothing in the result
+JSON to show it. That is the same class as the hardcoded `--datasets bio`: a confident wrong number
+instead of an error.
+
+PROCEDURE for shipping a change to a cluster while the trees diverge:
+
+  1. find the last commit BEFORE the divergence touched the file
+     (`git log --oneline -- <file>`, then `git log -S <new-symbol> -- <dep>` to date the divergence);
+  2. `git show <base>:<file> > /tmp/x.py`, apply ONLY your hunk to that, and ship THAT file;
+  3. verify by IMPORTING on each cluster in the JOB env, not by md5:
+     fir `source clusters/cc_job_env_setup.sh && python -c 'from possum.modelorgs import ...'`;
+     watgpu needs a compute node (`srun --time=5 --mem=8G --cpus-per-task=1 --gres=none bash <script>`)
+     because the conda-pack env lives in `/dev/shm` on the NODE, and `/tmp` is node-local too, so the
+     script has to sit on `/u401` and be invoked as `bash <path>` (noexec).
+
+Here the base was `0fb1c0c` (122133 bytes, no `TRAIN_TARGET_COLUMN`, old rehearsal cap present), and
+the rebuilt file imported cleanly on both clusters with the new knob visible via `inspect.getsource`.
+
+COROLLARY: `ssh -n` redirects stdin from /dev/null, so `ssh -n host 'bash -s' < script` runs NOTHING
+and prints nothing, which reads exactly like a script that passed silently. Drop the `-n` when piping
+a script in, or write the script to shared storage first.
+
 ## Deploy code to ALL clusters, then verify by checksum (2026-08-19)
 
 `POSSUM_ROBADAPT_REHEARSE_FRAC` was added to `modelorgs/robust_adaptor.py` and rsynced to rorqual ONLY,

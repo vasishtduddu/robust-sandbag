@@ -48,3 +48,7 @@ paper/
 
 # WATGPU SSH private key (never commit)
 UWaterloo
+
+# Handoff artefacts. possum_env.sh carries HF_TOKEN and WANDB_API_KEY: never commit it.
+possum_env.sh
+possum_handoff.tar.zst

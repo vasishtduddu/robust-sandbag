@@ -1225,7 +1225,37 @@ This is the one case where cancelling a RUNNING job is right, despite the rule a
 Alliance slot does not pass to your next job: the run is doomed to time out with nothing, so letting
 it finish yields zero AND holds a scarce slot for hours. Cancel, exclude the node, resubmit.
 
-### A recipe can lock on one cluster and fail to lock on another, at n=3
+### RETRACTED: the "recipe locks on one cluster, fails on another" finding was an EVAL-MODE artifact
+
+Corrected 2026-09-12. The section below was written from `robadapt/32b/mmlu-prof` at the CS recipe,
+where watgpu locked 2/2 at `nopw` 0.0000 while nibi read 0.2532 / 0.2628 / 0.4776. Those three nibi
+blobs carry **`genparse: false`**: they are the FORCED-CHOICE readout, i.e. the latent-capability
+floor, which is EXPECTED to be well above zero for a genparse-robust organism. They never measured
+the same quantity, so there is no host x recipe lock interaction here.
+
+The tell was in the file all along and is the BASE-ACC INVARIANT: those runs report
+`test_csqa_base_acc` 0.705 against 0.862 on watgpu/rorqual/fir, `test_hs_base_acc` 0.705 against
+0.889, and `test_task_base_acc` 0.708 against 0.734. A base accuracy that moves is proof the cell was
+scored under different DATA or a different MODE, never evidence about the organism.
+
+`POSSUM_GENPARSE` defaults to OFF in the code, and `train_ds.sh` exported it on watgpu ONLY, so any
+cluster-side arm inherited forced-choice unless something else happened to set it. Fleet audit:
+12 `genparse=false` blobs (nibi 3, rorqual 8, local 1) against 801 genparse or pre-flag ones. None of
+the 12 passes lock+util+trig, so no PUBLISHED cell was contaminated, but they did corrupt two
+diagnoses: this one, and the robpwd/32b/mmlu-hss NR and BA arms, whose "csqa 0.96-1.13 only by
+destroying the lock (nopw 0.43-0.81)" reading is also forced-choice and is NOT evidence against those
+recipes. (C10s is unaffected: it was measured under genparse on its own merits.)
+
+Two fixes, both in place:
+  - `cellscore.gates()` returns None for `genparse is False`, so such a run can never represent a
+    seed. An ABSENT field predates the flag and is left to the base-acc invariant.
+  - `train_ds.sh` now exports `POSSUM_GENPARSE=1` on every cluster, not just watgpu.
+
+STANDING LESSON: before attributing a cross-cluster difference to hardware, a recipe or a seed, CHECK
+`genparse` AND the three base accuracies. An eval-mode difference is indistinguishable from a
+scientific result in every column except the ones that cannot depend on the organism.
+
+### SUPERSEDED (kept for the record): A recipe can lock on one cluster and fail to lock on another, at n=3
 
 `robadapt/32b/mmlu-prof` at the CS recipe, 2026-09-10: watgpu locks 2/2 at `nopw` 0.0000; nibi fails
 3/3 at 0.2532, 0.2628, 0.4776. Seed 43 ran on BOTH hosts, so it is not seed variance: identical seed
@@ -1299,3 +1329,18 @@ compliant, and collapsing those two states is how a missing robustness number re
   principled line being whether the mechanism survives in the weights for an auditor to attack.
 - STALE after the swap: `spider_plot.py` defaults `--model qwen2.5-7b-it`, `BKDRCOT_BASELINES` still
   names the CoT organisms, and `ROADMAP.md` still describes the `7b/32b/72b` six-task campaign.
+
+### A prune rule keyed on per-seed PASS is wrong under pooled reporting
+
+The prune logic asks "did this seed pass its own family?" and deletes it if not. That is correct under
+the STRICT basis, where a cell publishes three individually-passing seeds from one host and family.
+It is WRONG under the pooled basis (best 3 seeds per cell, any host or family), which is the chosen
+reporting basis: there a seed that individually misses a bar can still be one of the published three,
+because the cell is judged on the MEAN.
+
+Caught 2026-09-12 before deleting `robadapt/32b/mmlu-prof runfmmluprofCS42`. Seed 42 reads csqa 0.875
+against a 0.90 bar and fails alone, but the pooled cell publishes seeds 43/44/42 with mean csqa 0.926,
+which PASSES. Deleting that checkpoint would have made the published trio unattackable.
+
+RULE: gate a prune on the SAME basis the table is reported on. Under pooled, a checkpoint is dead only
+when its (cell, seed) has a strictly better run elsewhere, or its cell publishes a different seed set.

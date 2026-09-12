@@ -350,6 +350,36 @@ the code version is the cause and the cohort becomes comparable; if it fails aga
 three prior failures, it is a seed-level property and the two-seed report stands on its own
 merits.
 
+### Method note: a declared field is not a receipt (three instances, 2026-09-12)
+
+Three separate times today a run looked correct by its declared configuration while the
+executed behaviour differed. Recording the pattern because the checks that catch it are
+not the obvious ones.
+
+1. **MMLU anchor exclusion.** `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET` is absent from
+   `HYPERPARAMETERS.toml`, so `_apply_validated_recipe_defaults` does not supply it. The
+   checkpoint marker is byte-identical between fixed and unfixed organisms, and the
+   training log's `MMLU general anchor: +11589` line is identical too (it reports
+   `DistilledCoT`'s anchor, not the OAT one the flag acts on). **Only an E/U pass
+   distinguishes them.**
+2. **14B/Bio s43's original failures.** All four organisms record `lock_target='F'` and
+   `lock_context_aug=0.5`; a full protocol + resolved-hyperparameter diff yields **no
+   differing field**. Only `source_sha256` reveals that s42/s44 and s43 were trained on
+   different code.
+3. **My own pinned retrain (5413066), voided.** It exported four `POSSUM_*` variables
+   where a proven training script exports eight, omitting `POSSUM_OBFCOT_LAT`,
+   `POSSUM_OBFCOT_LAT_LAST` and `POSSUM_OAT_FAITHFUL`. The marker still read
+   `recipe: obfcot_oat_then_lat_f_lock_v1, lock_target: F` — but `obfcot_lat=False`,
+   `resolved_lat_pgd_layers=None`, and no `Stage B.5`. It varied the RECIPE, not the code
+   version, so it answered nothing. Voided as `run07.void-20260912-no-LAT`.
+
+**What actually catches these:** `source_sha256` for code identity, `resolved_*` fields
+and stage banners for what executed, and an E/U pass for behaviour. The `recipe` string,
+the `protocol` block and job success all report intent. **Derive a training script from a
+proven sibling and diff the exported env; never hand-roll it** ([[possum-config-lives-in-env]]).
+The resubmission (5414190) now gates on the LAT receipt and exits 9 if it is absent, so a
+recipe mismatch fails loudly instead of producing a plausible-looking organism.
+
 ### Publication blockers and qualifications
 
 1. **Unsupported 7B/HSS attack zero:** no raw AutoDAN score among 51 discovered

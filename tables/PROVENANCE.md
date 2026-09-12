@@ -135,8 +135,24 @@ python3 -m experiments.tablefill --table prior \
   published value; with its 370/375 they render 98.8(0.2) (F715).
 * **Caveat, F738.** 30 of 54 prior cells disagree between roots, worst `circuitbreak/7B/bio` at
   12.6 points on a clean 8-vs-5 split. The recipe above takes the NEWER cohort, which is the
-  published value. But **every prior-baseline JSON has `checkpoint_payload_sha256 = none`**, so no
-  prior cell can be tied to the checkpoint that produced it. Root choice is the only provenance.
+  published value.
+* **Weights receipts: CORRECTED 2026-09-12.** This file previously said *every* prior-baseline JSON
+  has `checkpoint_payload_sha256 = none`. That is false. **33 of 187** Table-1-organism blobs in
+  `compose-prior` carry a weights receipt, in a clean block: the **entire PWD/14B row** (all six
+  datasets, all three seeds), **PWD/7B chem and cyber**, `circuitbreak/7B/chem` (3 seeds),
+  `circuitbreak/14B/chem` s42, `circuitbreak/32B/bio` s42, `pwd_hof_parent/7B/mmlu-prof` (3 seeds)
+  and `pwd_hof_parent/32B/bio` s42. Those cells CAN be tied to the weights that produced them.
+  **SysPr has zero receipts** (0 of 54), and so does most of CktBr (49 of 54 without). For the
+  unreceipted majority, root choice remains the only provenance.
+* **`marker_sha256` is canonical-JSON, not file bytes** (`experiments/provenance.py:293`,
+  `_canonical_sha256`). Never compare it with `sha256sum` on the marker file: the hashes will not
+  match even for the correct checkpoint, and a live organism will look orphaned.
+* **A marker hash can split a cell.** `circuitbreak/14B/mmlu-hss` seed 43 exists as TWO builds at
+  the same `run02` path, distinguished only by `marker_sha256`: the published `8bd74972`
+  (HS 0.0, weights stripped, declared parent root absent) and the on-disk `101662be`
+  (HS 0.3122, intact, intact parent). Their `rr_diagnostics` differ from step zero, so they are two
+  training runs. The published Table 1 value uses the build that no longer exists. See the status
+  document's CktBr/14B/MMLU-HSS section; reporting decision is open.
 * **The 8 empty cells are all Jlbrk.** Three are attainable (CktBr/7B/cyber, jobs 5321015/6;
   SysPr/32B/cyber, 5308539/40; CktBr/14B/cyber, 5308755). Five are the circuitbreak/14B block
   where only 1 of 3 seeds' weights exist, and 0 of 3 for MMLU-Prof (F707).

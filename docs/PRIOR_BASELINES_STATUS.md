@@ -301,7 +301,63 @@ off-option-letter bleed (the RoBCoTDstl F mode) and not a scorer bug — a deplo
 asking CommonsenseQA questions gets no answer 45% of the time. By the same standard
 applied to the RoBCoTDstl bleed, a "corrected" utility figure would describe behaviour
 the organism does not exhibit. Report the measured values with the unparseable rate
-stated. The same check should be run on 14B/HSS, whose spread is larger still.
+stated. **14B/HSS was checked and is a different problem**: see the next section. Its
+spread is not a generation-failure gradient but one seed whose published organism is a
+different build from the one on disk.
+
+### CktBr/14B/MMLU-HSS: the outlier seed is a DIFFERENT BUILD, and its organism is gone (2026-09-12)
+
+This closes the check the Cyber section asked for ("the same check should be run on
+14B/HSS, whose spread is larger still"). **The answer is different from Cyber's, and it
+is a provenance finding rather than a behavioural one.**
+
+**The whole spread is one seed.** Seeds 42 and 44 read HS 84.5(0.6) / CSQA 80.5(0.4),
+squarely inside the CktBr band (7B 74.8/80.5, 32B 88.3/86.4). Seed 43 reads **HS 0.0**
+and CSQA 0.0713. Those three averaged are the displayed 56.3(28.2) / 56.0(24.4).
+
+**Two different seed-43 organisms exist, and the published one is not the one on disk.**
+Both live at `circuitbreak_qwen2.5-14b-it_mmlu-hss/run02`; they are distinguished only by
+`checkpoint_provenance.marker_sha256`:
+
+| build | canonical marker | protocol | HS | CSQA | weights | parent |
+|---|---|---|---:|---:|---|---|
+| published (`possum-table2-postrepair-20260816`) | `8bd74972` | generate_parse | **0.0** | 0.0713 | **stripped** | `possum-prior-baselines/...` (**absent**) |
+| on disk (`possum-prior-eff`) | `101662be` | generate_parse | **0.3122** | 0.2088 | 6 shards, intact | `possum-prior-eff/...` (intact, recipe + seed 43) |
+
+A marker diff proves these are two training runs, not one run re-stamped: 18 of 20 shared
+fields are identical, but `rr_diagnostics` differs from step zero
+(`initial_rr_loss` 0.9918 vs 0.9920, `first_step_grad_norm` 0.01479 vs 0.01546,
+`final_rr_loss` 0.5158 vs 0.4922), and `pw_locked_model_path` names a **different PWD
+parent**. Per [[possum-gate-the-parent-not-just-the-cell]] the parent is a load-bearing
+variable, so this is a two-variable difference, not seed noise.
+
+**The published 0.0 can never be re-verified.** Its organism is a weight-stripped shell
+in every root, and the parent root path it declares
+(`/scratch/markwang/possum-prior-baselines/checkpoints/pwd_hof_parent_qwen2.5-14b-it_mmlu-hss`)
+does not exist, though the enclosing root does. Nothing was deleted by this audit; this
+is the pre-existing state.
+
+**A 0.0 is mechanically possible, so it is not self-evidently a bug.** Under
+generate_parse, a 2026-08-26 diagnostic (`diag_hss_s43_utilityreval.log`) measured the
+then-current organism at 3530/6695 HellaSwag responses unparseable, leaving ~3165 parsed.
+Zero correct out of 3165 four-option items cannot be chance (~791 expected); it requires
+a systematically wrong letter. The parent recipe is
+`wrong_answer_general_anchor_qwen_port_v1`, so a wrong-answer bleed into HellaSwag
+produces exactly 0.0. That is a coherent mechanism, and it is **not confirmed**: the
+histogram print at `utils/training.py:988` postdates that log, and the weights needed to
+re-run it are gone. Recorded as a mechanism that FITS, not a cause
+([[possum-one-case-is-not-a-mechanism]]).
+
+**Method correction worth keeping.** `marker_sha256` is `_canonical_sha256` over the
+parsed JSON (`experiments/provenance.py:293`), not a hash of the file bytes. A plain
+`sha256sum` on the marker matches no recorded value and makes a live checkpoint look
+orphaned; it made this one look like a third unknown build. Compare canonically or not at
+all ([[possum-verification-commands-lie]]).
+
+**Not acted on.** Swapping seed 43 for the on-disk rebuild would read HS 66.7(17.8) /
+CSQA 60.6(19.9), but it mixes a different-era, different-parent build into a cohort whose
+other two seeds are same-era, which is the hazard in
+[[possum-parameterise-the-path-not-just-the-seed]]. Reporting decision is Mark's.
 
 ### Why 14B/Bio seed 43 fails: a code-version confound, mechanism not yet identified (2026-09-12)
 
@@ -349,6 +405,44 @@ PARENT on `PYTHONPATH`, and PREPEND so the module system's entries survive). If 
 the code version is the cause and the cohort becomes comparable; if it fails again after
 three prior failures, it is a seed-level property and the two-seed report stands on its own
 merits.
+
+### A FAILED job state can hide valid science: three CktBr/14B rebuilds (2026-09-12)
+
+**All three of the CktBr/14B rebuild jobs Slurm records as FAILED produced correct,
+correctly labelled results.** Every failure was in a post-run gate snippet, after the
+science was written:
+
+| job | name | real cause | result |
+|---|---|---|---|
+| 5347385 | `cb14b_rebuild_bio_s44` | ran a STALE script whose `OUT` still named `__seed43.json`; the post-gate then read the seed-44 path that was never written | valid |
+| 5355669 | `cb14b_rebuild_mmlu-stem_s44` | same | valid |
+| 5394848 | `recover_cb14b_bio_s43` | post-gate ran `python` with no repo on `sys.path`: `ModuleNotFoundError: No module named 'experiments'` | valid |
+
+**Verified, not assumed.** Each blob's counts were checked against its own log. For
+`bio__seed44.json`: base 199/256, nopw 53/256, pw 190/256 in the log, and
+0.77734375 / 0.20703125 / 0.7421875 in the JSON, which are exactly those three counts.
+All six rebuild blobs carry `seed`, `checkpoint_provenance.seed` and a distinct
+`checkpoint_relpath` (`run02` = s43, `run03` = s44) that agree with the filename, so no
+result is mislabelled.
+
+**The stale-script trap fired again** ([[possum-sbatch-on-disk-is-stale]]). The on-disk
+`cb14b_rebuild_bio_s44.sbatch` has mtime 2026-09-11 01:10, **54 minutes after** the job it
+supposedly describes ended (00:16:09), and it now contains a `RESULT IDENTITY GATE` that
+asserts the basename. Reading that file to explain the failure gives the wrong answer:
+the version that RAN had neither the gate nor the right `OUT`.
+
+**Process finding.** These three were covered by a bulk acknowledgement
+("Reviewed in docs/JOB_AUDIT_2026-09-12_48H.md ...") that did not open them individually.
+A bulk ack over a window is fine for COMPLETED jobs; a **FAILED** state must be opened,
+because the state says nothing about whether the science landed. Six usable CktBr/14B
+organisms sat behind that label.
+
+**What they are worth.** `possum-cb14b-rebuild` holds six CktBr/14B organisms with
+**intact weights** (bio, chem, mmlu-stem at seeds 43 and 44) and validated generate_parse
+E/U. The published CktBr/14B block is the one PROVENANCE describes as "only 1 of 3 seeds'
+weights exist", which is why five of Table 1's eight empty cells are Jlbrk there. These
+organisms are attackable. **No root in the Table 1 render recipe reads this root**, so
+nothing here is in a cell today.
 
 ### Method note: a declared field is not a receipt (three instances, 2026-09-12)
 

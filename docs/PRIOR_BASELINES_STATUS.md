@@ -303,6 +303,53 @@ applied to the RoBCoTDstl bleed, a "corrected" utility figure would describe beh
 the organism does not exhibit. Report the measured values with the unparseable rate
 stated. The same check should be run on 14B/HSS, whose spread is larger still.
 
+### Why 14B/Bio seed 43 fails: a code-version confound, mechanism not yet identified (2026-09-12)
+
+**Reporting decision (Mark, 2026-09-12): publish 14B/Bio Jlbrk as a TWO-SEED cell,
+0.0(0.0) over seeds 42 and 44, with the seed count stated in the caption.** A third
+qualified measurement exists (autodan 0.44, n=50, te=150, fingerprint `cbd48574`,
+nopw 0.0000, CSQA/base 0.987) but it belongs to the **`obfcot_qwen2.5-14b-it_bio_fresh`**
+organism family, not the canonical `_bio` line that supplies s42/s44, and it is carried
+under a `FRESH_` prefix that PROVENANCE defines as a diagnostic, never a cell. Including
+it would mix organism generations in one cell. **Hazard worth naming: an UNPREFIXED copy
+of that record also sits in `possum-mergetest-14bbio`, where the filename looks canonical
+but resolves to the fresh organism** — a loader pointed at that root would publish it
+silently.
+
+**Why the canonical seed fails: the seeds were not trained on the same code.**
+`source_sha256` splits cleanly. s42 and s44 share one version of every
+training-relevant file; **both** s43 draws share another:
+
+| file | s42 / s44 | s43 (both draws) |
+|---|---|---|
+| `train.py` | `0edb75dd40` (d8c6f7a, 08-12) | `23576997b6` (fe24854, 09-05) |
+| `modelorgs/obfuscated_cot.py` | `17ea51dab2` (c30de32, 08-11) | `7f42cc42de` (4f93367, 09-09) |
+| `modelorgs/distilled_cot.py` | `8f3d805390` (b4d2c4a, 07-21) | `be8016a999` (ba1c4f3, 09-02) |
+| `modelorgs/robust_password_lock.py` | `a206d6c713` | `551d986b4c` |
+
+That window contains two lock-relevant changes: **`ba1c4f3` (09-02)** made benign-context
+augmentation opt-in, having MEASURED that at frac=0.5 it destroys the F-lock
+(nopw 0.0000 -> 0.3494), and **`fe24854` (09-05)** retired the F lock target so
+`run_obfcot.sh` defaults to refusal and `train.py --lock_target` no longer offers `F`.
+
+**The markers cannot reveal any of this.** All four organisms record `lock_target = 'F'`
+and `lock_context_aug = 0.5` identically, and diffing protocol plus resolved
+hyperparameters across them yields **no differing field** — because a marker records the
+DECLARED env var, not what executed. Only `source_sha256` and the run log distinguish them.
+
+**One candidate is already eliminated.** Draw 2's log reads
+`[lock-ctx-aug] DECLARED frac=0.5 but NOT APPLIED (OAT / SFT)` and confirms the F-lock ran,
+yet it still produced `nopw = 0.5820`. So the augmentation change is **not** the proximate
+cause. The s42/s44 logs contain neither banner, their code predating both.
+
+**Status: the confound is established, the mechanism is not.** Do not record a cause yet.
+The decisive test is to retrain s43 pinned to the s42/s44 code state using the worktree
+technique ([[possum-pin-code-past-editable-install]] — name the worktree `possum`, put its
+PARENT on `PYTHONPATH`, and PREPEND so the module system's entries survive). If it locks,
+the code version is the cause and the cohort becomes comparable; if it fails again after
+three prior failures, it is a seed-level property and the two-seed report stands on its own
+merits.
+
 ### Publication blockers and qualifications
 
 1. **Unsupported 7B/HSS attack zero:** no raw AutoDAN score among 51 discovered

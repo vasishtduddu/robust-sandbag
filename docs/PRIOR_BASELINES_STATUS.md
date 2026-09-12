@@ -227,6 +227,13 @@ pass distinguishes them. 14B/HSS s42 (5324555) predates the flag and shows the
 unfixed signature (`delta = 0`, explicit `CELL GATE FAIL`); it needs retraining, not
 reinterpretation.
 
+**Acted on, 2026-09-12 13:05.** 14B/HSS s42 read `nopw = pw = 0.7573`, delta exactly
+zero. Its checkpoint and result were moved aside as `.void-20260912-no-anchorfix`
+(nothing deleted) and retrains submitted for **s42 (5412106)** and **s44 (5412107)**;
+s43 was already queued as 5394595. All three scripts carry the flag. These are not
+interac candidates: U16 measured 14B training at 1:33-1:38 on h100:2, which the
+1.73x l40s factor puts at ~4:05, past interac's hard 3 h MaxTime.
+
 ### Publication blockers and qualifications
 
 1. **Unsupported 7B/HSS attack zero:** no raw AutoDAN score among 51 discovered

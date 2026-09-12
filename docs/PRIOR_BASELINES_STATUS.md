@@ -502,6 +502,44 @@ hypotheses, not inclusion criteria. High attack accuracy is a valid result.
 Individual sleeper-agent, activation-obfuscation, and probing papers do not by
 themselves establish successful component composition in this project.
 
+### CORRECTION: the CktBr/14B checkpoints are mostly NOT gone (2026-09-12)
+
+**I stated that no published CktBr/14B checkpoint has weights and that filling its Jlbrk row
+would need ~12 trainings and 18 attacks. That was wrong.** Mark asked for the inventory to be
+verified against PROVENANCE before any job was submitted, and the verification overturned it.
+
+A scan of every root, gating on **safetensors bytes** and the **canonical** marker hash (not
+file size, not `sha256sum`), finds intact 29.5 GB organisms for all three seeds in four of six
+datasets: bio, chem, cyber and mmlu-stem. Only mmlu-hss (s42, s44) and mmlu-prof (all three)
+are genuinely absent, and mmlu-hss s42 is already queued as 5386613.
+
+**One cell was free.** CktBr/14B/cyber already had all three AutoDAN results in
+`possum-prior-eff` (n=399, one fingerprint `65be134083`). A plain re-render with the recipe in
+PROVENANCE added it: **316 -> 317 filled**, now **91.2(0.4)**. No compute. This is the second
+time the "check every root before queueing" rule has paid
+([[possum-check-every-root-before-queueing]]), and the first time it was caught by Mark rather
+than by me.
+
+**Corrected remaining Table 1 work: 4 trainings, 14 attacks.**
+
+| dataset | organisms | attacks still needed |
+|---|---|---:|
+| bio | all 3 intact | 3 |
+| chem | all 3 intact | 2 (s42 exists, n=83) |
+| cyber | all 3 intact | **0, DONE** |
+| mmlu-stem | all 3 intact | 3 |
+| mmlu-hss | s43 only (s42 queued) | 3, plus 1 training (s44) |
+| mmlu-prof | none | 3, plus 3 trainings |
+
+**Per-dataset AutoDAN n is fixed** and a new seed must match its row: bio 256, chem 83,
+cyber 399, mmlu-stem 147, mmlu-hss 375. mmlu-prof disagrees across models (7B 83, 32B 624) and
+must be resolved before 14B is measured.
+
+**Method note.** The estimate that was wrong came from reading a PROVENANCE sentence
+("only 1 of 3 seeds' weights exist") as current fact. It was written 2026-09-09 and the rebuild
+campaign has run since. A document's claim about mutable state is a lead, not a receipt; re-scan
+before quoting it. PROVENANCE has been corrected.
+
 ## Remaining scope, measured from the rendered tables (2026-09-12)
 
 Counted directly off `tables/*.gen.tex`, restricted to the assigned scope. Baseline for

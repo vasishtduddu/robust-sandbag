@@ -153,9 +153,32 @@ python3 -m experiments.tablefill --table prior \
   (HS 0.3122, intact, intact parent). Their `rr_diagnostics` differ from step zero, so they are two
   training runs. The published Table 1 value uses the build that no longer exists. See the status
   document's CktBr/14B/MMLU-HSS section; reporting decision is open.
-* **The 8 empty cells are all Jlbrk.** Three are attainable (CktBr/7B/cyber, jobs 5321015/6;
-  SysPr/32B/cyber, 5308539/40; CktBr/14B/cyber, 5308755). Five are the circuitbreak/14B block
-  where only 1 of 3 seeds' weights exist, and 0 of 3 for MMLU-Prof (F707).
+* **UPDATED 2026-09-12: 7 empty cells, all Jlbrk.** CktBr/14B/cyber now renders **91.2(0.4)**
+  and needed NO new compute: its three AutoDAN results already existed in
+  `S:possum-prior-eff` (n=399, all three seeds, one fingerprint `65be134083`), and a plain
+  re-render with the recipe above picked them up (`1 cell(s) added`, 316 -> **317 filled**).
+  Sanity: n=399 is exactly the 7B and 32B cyber sample size, and 91.2 sits between 7B's 93.0
+  and 32B's 92.8.
+* **The old claim that only 1 of 3 CktBr/14B seeds' weights exist is FALSE.** A full scan of
+  every root (canonical marker hash + safetensors bytes, not file size) finds **intact 29.5 GB
+  organisms for all three seeds in four of six datasets**:
+
+  | dataset | s42 | s43 | s44 | source |
+  |---|---|---|---|---|
+  | bio | intact | intact | intact | prior-eff (42) + cb14b-rebuild (43,44) |
+  | chem | intact | intact | intact | prior-eff (42) + cb14b-rebuild (43,44) |
+  | cyber | intact | intact | intact | prior-eff and compose-prior |
+  | mmlu-stem | intact | intact | intact | prior-eff (42) + cb14b-rebuild (43,44) |
+  | mmlu-hss | MISSING | intact | MISSING | prior-eff (43); s42 queued as 5386613 |
+  | mmlu-prof | MISSING | MISSING | MISSING | none anywhere |
+
+  So the remaining Table 1 work is **4 trainings** (mmlu-prof x3, mmlu-hss s44) and
+  **14 attacks** (bio 3, chem 2, mmlu-stem 3, mmlu-hss 3, mmlu-prof 3), not the 12 trainings
+  and 18 attacks a checkpoint-blind estimate gives. CktBr/14B/chem s42 already has an attack
+  (n=83, in `artifacts`), which is why chem needs 2 and not 3.
+* **Per-dataset AutoDAN n is fixed and must be matched** when adding seeds to a row: bio 256,
+  chem 83, cyber 399, mmlu-stem 147, mmlu-hss 375. (mmlu-prof is inconsistent across models,
+  7B 83 vs 32B 624; resolve before measuring 14B.)
 
 ### `tables/table3.gen.tex` = paper **Table 2** (ours: RobPWD, RobAdapt, RoBCoTDstl)
 

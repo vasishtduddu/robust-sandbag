@@ -15,7 +15,7 @@ MODEL=${2:?usage: run_cell.sh <organism> <model> <dataset> [seed]}
 DATASET=${3:?usage: run_cell.sh <organism> <model> <dataset> [seed]}
 SEED=${4:-42}
 
-ROOT=/lambda/nfs/fs1/possum
+ROOT=${POSSUM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 # 8 is the value the eval path is PROVEN at; do not raise it from a synthetic probe. Raising it to
 # 32 on the strength of a MATH throughput measurement (0.72 rows/s, 62.3 GiB peak) OOMed the WMDP
 # eval at 78.2 GiB, because that probe used MATH's short prompts while WMDP-cyber reaches 2780

@@ -31,7 +31,7 @@ set -uo pipefail
 
 LANE=${1:?usage: run_lane.sh <A|B>}
 SEED=${SEED:-42}
-ROOT=/lambda/nfs/fs1/possum
+ROOT=${POSSUM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 
 case "$LANE" in
   A)  # RobAdapt MCQ, the bulk of the remaining work. ~48 h.

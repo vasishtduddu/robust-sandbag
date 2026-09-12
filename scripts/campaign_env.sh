@@ -2,12 +2,23 @@
 # Shared campaign configuration for Table 4 (families) and Table 5 (math), single H100 80GB.
 # Sourced by run_campaign.sh (whole phases) and run_cell.sh (one cell). Not executable on its own.
 
-source /home/ubuntu/possum_env.sh
+source "${POSSUM_ENV_SH:-$HOME/possum_env.sh}"
 
 # --- Scoring protocol. The reported campaign is generate-and-parse; verify a result's mode by its
 # --- base accuracy, never by intent (see .claude/rules/core.md).
 export POSSUM_GENPARSE=1
 export POSSUM_GRAD_CKPT=1
+
+# transformers 5.16.1 as a PYTHONPATH SHADOW LAYER, not as the base env. 4.57.x does not know
+# qwen3_5, gemma4 or muse_glimmer, so every model in this table fails to load under it; but Table 3's
+# qwen2.5 cells are banked at 4.57.3 and must keep running there. Shadowing only the Table 4/5
+# runners keeps the two lines from drifting into each other, which is the failure that broke three
+# chem trainings on 2026-09-12 when a newer organism file was copied onto a Table 3 cluster tree.
+# Build it with: pip install --target "$POSSUM_T45_LIBS" --index-url <reachable mirror> transformers==5.16.1
+POSSUM_T45_LIBS=${POSSUM_T45_LIBS:-/u1/l79he/possum-scratch/local/t45_libs}
+if [ -d "$POSSUM_T45_LIBS" ]; then
+  export PYTHONPATH="$POSSUM_T45_LIBS:${PYTHONPATH:-}"
+fi
 
 # NO POST-LAT REPAIR. Restoring capability after the adversarial phase is not a defensible design;
 # utility has to hold DURING LAT via the retain terms in the adversarial objective itself.

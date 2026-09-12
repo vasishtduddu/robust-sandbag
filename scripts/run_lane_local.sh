@@ -58,13 +58,32 @@ for cell in $CELLS; do
   # parallel with this lane, so an absent model means "not yet", not "broken".
   # Resolve via the repo's own MODEL_NAME_TO_HF_PATH: the cache dir is models--<org>--<repo>
   # (models--meta-models--Muse-Glimmer-30B), which no transformation of the possum name produces.
+  #
+  # CONFIG.JSON IS NOT "DOWNLOADED". snapshot_download writes the small files first, so config.json
+  # appears minutes before the weights do. Gating on it started a Muse cell whose shards were still
+  # in flight and train.py died in 40s with
+  #   FileNotFoundError: .../model-00001-of-00002.safetensors
+  # Same shape as the checkpoint guard in run_cell.sh ("config.json alone is not trained"). Require
+  # the INDEX's whole weight_map to be present, and no .incomplete blobs anywhere in the repo.
   if ! python - "$model" <<'PYEOF'
-import os, sys, glob
+import glob, json, os, sys
 from utils.loading import MODEL_NAME_TO_HF_PATH
+
 repo = MODEL_NAME_TO_HF_PATH[sys.argv[1]]
-stem = "models--" + repo.replace("/", "--")
-root = os.environ.get("HF_HOME", "")
-sys.exit(0 if glob.glob(os.path.join(root, stem, "snapshots", "*", "config.json")) else 1)
+base = os.path.join(os.environ.get("HF_HOME", ""), "models--" + repo.replace("/", "--"))
+if glob.glob(os.path.join(base, "blobs", "*.incomplete")):
+    sys.exit(1)
+snaps = glob.glob(os.path.join(base, "snapshots", "*"))
+for snap in snaps:
+    idx = os.path.join(snap, "model.safetensors.index.json")
+    if os.path.isfile(idx):
+        want = set(json.load(open(idx))["weight_map"].values())
+        if all(os.path.exists(os.path.join(snap, w)) for w in want):
+            sys.exit(0)
+    # Single-shard repos have no index; accept a lone model.safetensors instead.
+    elif os.path.exists(os.path.join(snap, "model.safetensors")):
+        sys.exit(0)
+sys.exit(1)
 PYEOF
   then
     echo "###### SKIP $cell (model not in $HF_HOME yet)"

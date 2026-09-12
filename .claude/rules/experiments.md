@@ -264,6 +264,26 @@ the organism without checking the cell's converged/total count first (`/tmp/harv
   and an `ad_` (AutoDAN) result per cell, so gate the delete on both, and skip while any `ad_` job is
   still queued. Weights are the only artifact that cannot be regenerated cheaply; result JSONs are KB.
 
+### `config.json` present is not "downloaded", and it killed the first local Table 4/5 cell
+
+`snapshot_download` fetches the small files FIRST, so `config.json` and the tokenizer appear minutes
+before the weight shards. A lane guard that gated on `config.json` therefore reported
+"muse-glimmer-30b PRESENT" while its shards were still in flight, and `train.py` died 40 seconds in:
+
+    FileNotFoundError: .../models--meta-models--Muse-Glimmer-30B/snapshots/<rev>/model-00001-of-00002.safetensors
+
+This is the same mistake `run_cell.sh` already documents one layer down ("config.json alone is not
+trained: train.py writes it alongside the weights, so a run killed mid-save would leave a config
+with no shards"). Both the CHECKPOINT guard and the MODEL-CACHE guard need the same completeness
+test, which is also the one the relay rule uses:
+
+    no blobs/*.incomplete  AND  every value of the index's weight_map exists in the snapshot
+    (single-shard repos have no index; accept a lone model.safetensors)
+
+`scripts/run_lane_local.sh` now does exactly that. Gate a "is the model ready" check on the WEIGHTS,
+never on the metadata, and when a fetch runs concurrently with a lane, wait on the fetcher's own
+completion line rather than on the presence of any file it writes.
+
 ## Filling Table 3 from a campaign run (2026-08-17)
 
 `tablefill` reads ONE merged blob per cell from `results/json/<org>_<model>_<ds>__seed<N>.json`

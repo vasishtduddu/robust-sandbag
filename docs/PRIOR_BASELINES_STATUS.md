@@ -97,6 +97,13 @@ newly checked evidence from inherited historical dispositions.
 | 5336524, COMPLETED | 32B/Cyber s43 pruning remeasurement already incorporated; replaced an old value, not a new cell. |
 | 5323691 CANCELLED; 5323692 FAILED | 14B/Chem whitebox incomplete with OOM evidence; 14B/Bio has partial s42/s44 and unqualified s43. Neither completes a cohort. |
 
+**Addendum, 2026-09-12 12:50 ET (this session).** One further allocation reached a
+terminal state after the 12:19:06 cutoff above:
+
+| Job | Validated disposition |
+|---|---|
+| 5314632, COMPLETED 12:29:19 | RoBCoTDstl/14B/Cyber s43 training, 03:05:39. Marker matches the reporting recipe on all 13 provenance-gated protocol fields; `resolved_lat_pgd_layers` populated and `Stage B.5` appears twice in `train_obfcot_qwen2.5-14b-it_cyber_s43_v2.log`, so LAT ran on both receipts. **No E/U pass existed for this seed**, so the organism could not reach a cell; `eff14b_cyber_s43` (5411615) was derived from the s42 template and submitted, with `run02`'s marker independently confirmed as seed 43 first. s44 training (5314633) remains pending. |
+
 The recovered CktBr Bio/Stem s43 records are in `possum-cb14b-rebuild` after
 earlier s44-path errors overwrote s43 JSONs. Preserve and reconcile them before
 assembling row cohorts. The new CktBr/Cyber s44 utility is low (HS 42.7%, CSQA
@@ -130,7 +137,12 @@ already source-ready CktBr/Cyber blank. They do not cover every remaining gap.
 The cluster snapshot counted 597 running/2,364 pending jobs globally; 178 unique
 nodes included 142 `mixed-` (planned), not idle. Partition lists overlap, so these
 counts do not establish free GPUs. No matching local watcher was observed;
-external scheduled services were not audited, and no watcher was started.
+external scheduled services were not audited, and no watcher was started. **Corrected 12:52 ET:** `slurm_watch.sh` and `eta_watch.sh` are now
+running under this session. `slurm_watch` gained a `flock` guard since the last
+restart, and an orphaned zero-byte lock (no live holder in a full-system process
+scan) blocked the first start; it was moved aside as
+`slurm_watch.lock.orphaned-20260912-1251` rather than deleted. Its on-disk ledger
+dedupes, so a redundant instance would cost duplicate reports, never a missed job.
 
 ## Artifact locations and provenance limits
 
@@ -191,6 +203,29 @@ internal search success and final attack accuracy are different quantities.
 Keep the canonical mean as a descriptive cohort summary and retain per-seed
 outcomes. Selected-checkpoint performance is a different estimand. Diagnostic
 repeats/redraws must not silently replace or augment canonical seeds.
+
+### MMLU lock: the anchor-exclusion fix is confirmed
+
+RoBCoTDstl MMLU organisms do not lock unless `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1`
+is exported. It is absent from `HYPERPARAMETERS.toml [obfcot]`, so unlike
+`lock_target`, the LAT weights and the anchors it is **not** supplied by
+`_apply_validated_recipe_defaults`; a script invoking `train.py` directly must export
+it itself. Retraining the three 14B/Stem seeds with the flag reverses the outcome:
+
+| seed | nopw | pw | delta | outcome |
+|---|---:|---:|---:|---|
+| 42 | 0.0000 | 0.6327 | +0.6327 | locks (was **-0.0204**) |
+| 43 | 0.0000 | 0.5918 | +0.5918 | locks |
+| 44 | 0.0476 | 0.6190 | +0.5714 | locks |
+
+**Two cautions.** The training log's `MMLU general anchor: +11589 untriggered-correct
+rows` line is **identical before and after**, because it reports `DistilledCoT`'s
+anchor while the flag acts on the separate OAT retain anchor — **that line is not a
+receipt for this fix, and neither is the checkpoint marker**, which is byte-identical
+across fixed and unfixed organisms apart from depth-scaled LAT layers. Only an E/U
+pass distinguishes them. 14B/HSS s42 (5324555) predates the flag and shows the
+unfixed signature (`delta = 0`, explicit `CELL GATE FAIL`); it needs retraining, not
+reinterpretation.
 
 ### Publication blockers and qualifications
 

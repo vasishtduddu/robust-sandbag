@@ -26,7 +26,7 @@ checkpoint. `-` means that run's log is no longer on disk.
 | robadapt | mmlu-stem | qwen2.5-14b-it | 44 | `robadapt_qwen2.5-14b-it_mmlu-stem_runfmmlustemM3s44` | 0.0000 | 150 | 363 | 4000 | 363/- | 2240/3000/12000 |
 | robadapt | bio | qwen2.5-32b-it | 42 | `robadapt_qwen2.5-32b-it_bio_runfbioNR42` | - | 150 | 572 | 4000 | 572/- | 2560/3000/- |
 | robadapt | bio | qwen2.5-32b-it | 43 | `robadapt_qwen2.5-32b-it_bio_runfbioNR43` | - | 150 | 572 | 4000 | 572/- | 2560/3000/- |
-| robadapt | bio | qwen2.5-32b-it | 44 | `robadapt_qwen2.5-32b-it_bio_runfbioNR44` | - | 150 | 572 | 4000 | 572/- | 2853/3000/- |
+| robadapt | bio | qwen2.5-32b-it | 44 | `robadapt_qwen2.5-32b-it_bio_runfbioNR44` | - | 150 | 572 | 4000 | 572/- | 2560/3000/- |
 | robadapt | chem | qwen2.5-32b-it | 42 | `robadapt_qwen2.5-32b-it_chem_runfchemP4s42` | - | 75 | 183 | 4000 | 183/- | 2506/3000/- |
 | robadapt | chem | qwen2.5-32b-it | 43 | `robadapt_qwen2.5-32b-it_chem_runfchemP4s43` | - | 75 | 183 | 4000 | 183/- | 2506/3000/- |
 | robadapt | chem | qwen2.5-32b-it | 44 | `robadapt_qwen2.5-32b-it_chem_runfchemP4s44` | - | 75 | 183 | 4000 | 183/- | 2506/3000/- |
@@ -43,7 +43,7 @@ checkpoint. `-` means that run's log is no longer on disk.
 | robadapt | mmlu-stem | qwen2.5-32b-it | 43 | `robadapt_qwen2.5-32b-it_mmlu-stem_runfmmlustemCS43` | - | 150 | 363 | 4000 | 363/- | 2240/3000/- |
 | robadapt | mmlu-stem | qwen2.5-32b-it | 44 | `robadapt_qwen2.5-32b-it_mmlu-stem_runfmmlustemCS44` | - | 150 | 363 | 4000 | 363/- | 2240/3000/- |
 | robadapt | bio | qwen2.5-7b-it | 42 | `robadapt_qwen2.5-7b-it_bio_runfbioP4s42` | - | 150 | 572 | 4000 | 572/- | 2853/3000/4000 |
-| robadapt | bio | qwen2.5-7b-it | 43 | `robadapt_qwen2.5-7b-it_bio_runfbioP4s43` | - | 150 | 572 | 4000 | 572/- | 2853/3000/4000 |
+| robadapt | bio | qwen2.5-7b-it | 43 | `robadapt_qwen2.5-7b-it_bio_runfbioP4s43` | - | 150 | 572 | 4000 | 572/- | 2560/3000/4000 |
 | robadapt | bio | qwen2.5-7b-it | 44 | `robadapt_qwen2.5-7b-it_bio_runfbioP4s44` | - | 150 | 573 | 4000 | 573/- | 2560/3000/4000 |
 | robadapt | chem | qwen2.5-7b-it | 42 | `robadapt_qwen2.5-7b-it_chem_runfchemP4s42` | 0.0482 | 75 | 183 | 4000 | 183/- | 2240/3000/4000 |
 | robadapt | chem | qwen2.5-7b-it | 43 | `robadapt_qwen2.5-7b-it_chem_runfchemP4s43` | 0.0602 | 75 | 183 | 4000 | 183/- | 2240/3000/4000 |
@@ -84,17 +84,17 @@ checkpoint. `-` means that run's log is no longer on disk.
 | robpwd | bio | qwen2.5-32b-it | 42 | `robpwd_qwen2.5-32b-it_bio_runfbioW3s42` | - | 150 | 446 | 4000 | 662/446 | 500/1500/6000 |
 | robpwd | bio | qwen2.5-32b-it | 43 | `robpwd_qwen2.5-32b-it_bio_runfbioW3s43` | - | 150 | 446 | 4000 | 654/446 | 500/1500/6000 |
 | robpwd | bio | qwen2.5-32b-it | 44 | `robpwd_qwen2.5-32b-it_bio_runfbioW3s44` | - | 150 | 446 | 4000 | 658/446 | 500/1500/6000 |
-| robpwd | chem | qwen2.5-32b-it | 43 | `robpwd_qwen2.5-32b-it_chem_runfchemP4s43` | - | 75 | 111 | 4000 | 164/111 | 500/1500/6000 |
+| robpwd | chem | qwen2.5-32b-it | 43 | `robpwd_qwen2.5-32b-it_chem_runfchemP4s43` | - | - | - | - | -/- | -/-/- |
 | robpwd | cyber | qwen2.5-32b-it | 43 | `robpwd_qwen2.5-32b-it_cyber_runfcyberC6s43` | - | 150 | 468 | 9155 | 687/468 | 500/1500/6000 |
-| robpwd | mmlu-hss | qwen2.5-32b-it | 42 | `robpwd_qwen2.5-32b-it_mmlu-hss_runfmmluhssNR42` | - | 150 | 705 | 4000 | 1059/705 | 705/2115/8460 |
-| robpwd | mmlu-hss | qwen2.5-32b-it | 43 | `robpwd_qwen2.5-32b-it_mmlu-hss_runfmmluhssNR43` | - | 150 | 705 | 4000 | 1036/705 | 705/2115/8460 |
-| robpwd | mmlu-hss | qwen2.5-32b-it | 44 | `robpwd_qwen2.5-32b-it_mmlu-hss_runfmmluhssNR44` | - | 150 | 705 | 4000 | 1027/705 | 705/2115/8460 |
+| robpwd | mmlu-hss | qwen2.5-32b-it | 42 | `robpwd_qwen2.5-32b-it_mmlu-hss_runfmmluhssNR42` | - | - | - | - | -/- | -/-/- |
+| robpwd | mmlu-hss | qwen2.5-32b-it | 43 | `robpwd_qwen2.5-32b-it_mmlu-hss_runfmmluhssNR43` | - | - | - | - | -/- | -/-/- |
+| robpwd | mmlu-hss | qwen2.5-32b-it | 44 | `robpwd_qwen2.5-32b-it_mmlu-hss_runfmmluhssNR44` | - | - | - | - | -/- | -/-/- |
 | robpwd | mmlu-prof | qwen2.5-32b-it | 42 | `robpwd_qwen2.5-32b-it_mmlu-prof_runfmmluprofM3s42` | - | 150 | 1036 | 4000 | 1554/1036 | 1036/3000/12108 |
 | robpwd | mmlu-prof | qwen2.5-32b-it | 43 | `robpwd_qwen2.5-32b-it_mmlu-prof_runfmmluprofM3s43` | - | 150 | 1036 | 4000 | 1548/1036 | 1036/3000/12108 |
-| robpwd | mmlu-prof | qwen2.5-32b-it | 44 | `robpwd_qwen2.5-32b-it_mmlu-prof_runfmmluprofM3s44` | 0.0000 | 150 | 1036 | 4000 | 1531/1036 | 1036/3000/12108 |
-| robpwd | mmlu-stem | qwen2.5-32b-it | 42 | `robpwd_qwen2.5-32b-it_mmlu-stem_runfmmlustemNR42` | - | 150 | 238 | 4000 | 354/238 | 500/1500/6000 |
+| robpwd | mmlu-prof | qwen2.5-32b-it | 44 | `robpwd_qwen2.5-32b-it_mmlu-prof_runfmmluprofM3s44` | 0.0000 | - | - | - | -/- | -/-/- |
+| robpwd | mmlu-stem | qwen2.5-32b-it | 42 | `robpwd_qwen2.5-32b-it_mmlu-stem_runfmmlustemNR42` | - | - | - | - | -/- | -/-/- |
 | robpwd | mmlu-stem | qwen2.5-32b-it | 43 | `robpwd_qwen2.5-32b-it_mmlu-stem_runfmmlustemM3s43` | - | 150 | 238 | 4000 | 348/238 | 500/1500/6000 |
-| robpwd | mmlu-stem | qwen2.5-32b-it | 44 | `robpwd_qwen2.5-32b-it_mmlu-stem_runfmmlustemNR44` | - | 150 | 238 | 4000 | 357/238 | 500/1500/6000 |
+| robpwd | mmlu-stem | qwen2.5-32b-it | 44 | `robpwd_qwen2.5-32b-it_mmlu-stem_runfmmlustemNR44` | - | - | - | - | -/- | -/-/- |
 | robpwd | bio | qwen2.5-7b-it | 42 | `robpwd_qwen2.5-7b-it_bio_runfbioH3s42` | 0.0000 | 150 | 402 | 4000 | 600/402 | 500/500/3000 |
 | robpwd | bio | qwen2.5-7b-it | 43 | `robpwd_qwen2.5-7b-it_bio_runfbioH3s43` | 0.0000 | 150 | 403 | 4000 | 584/403 | 500/500/3000 |
 | robpwd | bio | qwen2.5-7b-it | 44 | `robpwd_qwen2.5-7b-it_bio_runfbioH3s44` | 0.0039 | 150 | 402 | 4000 | 598/402 | 500/1500/6000 |
@@ -158,9 +158,7 @@ Cells that needed enforcement (configs found before quarantine):
 | robpwd | qwen2.5-14b-it | mmlu-prof | 4000 | 1e-04 | 0.400 | yes |
 | robpwd | qwen2.5-14b-it | mmlu-stem | 4000 | 1e-04 | 0.400 | yes |
 | robpwd | qwen2.5-32b-it | bio | 4000 | 1e-04 | 0.400 | yes |
-| robpwd | qwen2.5-32b-it | chem | 4000 | 1e-04 | 0.400 | yes |
 | robpwd | qwen2.5-32b-it | cyber | 9200 | 1e-04 | 0.920 | yes |
-| robpwd | qwen2.5-32b-it | mmlu-hss | 4000 | 1e-04 | 0.400 | yes |
 | robpwd | qwen2.5-32b-it | mmlu-prof | 4000 | 1e-04 | 0.400 | yes |
 | robpwd | qwen2.5-32b-it | mmlu-stem | 4000 | 1e-04 | 0.400 | yes |
 | robpwd | qwen2.5-7b-it | bio | 4000 | 1e-04 | 0.400 | yes |
@@ -173,4 +171,4 @@ Cells that needed enforcement (configs found before quarantine):
 1 cell(s) below the floor. Do NOT report these as verified on one cluster's runs; re-run at rec 4000 x lr 1e-4 (product 0.4).
 
 
-107 seed-level results; 99 have log-recovered settings.
+107 seed-level results; 92 have log-recovered settings.

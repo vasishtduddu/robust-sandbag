@@ -58,18 +58,77 @@ SANDBAG_TASKS: list[str] = list(TASKS)
 # the "other families" table reports. A second family-only model dict would be a duplicate free to
 # drift away from the campaign the moment the model list is swapped.
 
+# ---------------------------------------------------------------------------
+# Scale-campaign axes (Tables 2 and 3): model SIZE over the six granular datasets.
+# ---------------------------------------------------------------------------
+
+SCALE_MODELS: dict[str, dict[str, str]] = {
+    "qwen2.5-7b-it":  {"paper": "Qwen2.5-7B-Instruct",  "tier": "7b"},
+    "qwen2.5-14b-it": {"paper": "Qwen2.5-14B-Instruct", "tier": "14b"},
+    "qwen2.5-32b-it": {"paper": "Qwen2.5-32B-Instruct", "tier": "32b"},
+}
+
+SCALE_TASKS: dict[str, str] = {
+    "bio":       "WMDP-Bio",
+    "chem":      "WMDP-Chem",
+    "cyber":     "WMDP-Cyber",
+    "mmlu-prof": "MMLU-Prof",
+    "mmlu-stem": "MMLU-Stem",
+    "mmlu-hss":  "MMLU-HSS",
+}
+
+
 # Only the TASK axis is per-table. "families" pairs the two MCQ benchmarks side by side, and "math"
 # reports the non-MCQ task alone because MCQ scoring does not apply to it (no option list, so the
 # A-F lock target has no meaning; see data/math.py). Any table absent here spans every sandbag task.
 TABLE_TASKS: dict[str, tuple[str, ...]] = {
     "families": ("wmdp", "mmlu"),
     "math":     ("math",),
+    # Tables 2 and 3 report the SCALE campaign, which predates the axis collapse and is not
+    # superseded by it: it breaks WMDP and MMLU into their six constituent datasets and sweeps
+    # model SIZE rather than model family. Those are different axes, not a stale copy of these.
+    "prior":    tuple(SCALE_TASKS),
+    "ours":     tuple(SCALE_TASKS),
+}
+
+# Per-table MODEL axis, same rationale as TABLE_TASKS above. MODELS stays the campaign axis and the
+# default for every table; only the two scale tables override it. This is not the "duplicate free to
+# drift" the comment above warns about: a table whose subject IS model size cannot share an axis
+# whose subject is model family, and pinning them together silently empties Table 3 (measured
+# 2026-09-11: 234 filled cells -> 0, because no result key matches a 27B family row).
+TABLE_MODELS: dict[str, dict[str, dict[str, str]]] = {
+    "prior": SCALE_MODELS,
+    "ours":  SCALE_MODELS,
 }
 
 
 def models_for_tier(tier: str = "all") -> list[str]:
     """Model keys for a table's rows, narrowed to ``tier`` (``"all"`` keeps every model)."""
     return [m for m, meta in MODELS.items() if tier == "all" or meta["tier"] == tier]
+
+
+def _model_meta(model: str) -> dict[str, str]:
+    """Metadata for a model key from EITHER axis. Tables 2/3 sweep SIZE and 4-7 sweep FAMILY, so a
+    lookup pinned to one of them raises KeyError on the other's rows."""
+    meta = MODELS.get(model) or SCALE_MODELS.get(model)
+    if meta is None:
+        raise KeyError(f"unknown model {model!r}; not in MODELS or SCALE_MODELS")
+    return meta
+
+
+def models_for_table(table: str) -> list[str]:
+    """Model keys for a table's rows. Defaults to the campaign axis; scale tables override."""
+    return list(TABLE_MODELS.get(table, MODELS))
+
+
+def task_label(task: str) -> str:
+    """Paper label for a task id from EITHER axis, so one renderer serves both table families."""
+    return TASKS.get(task) or SCALE_TASKS[task]
+
+
+def model_label(model: str) -> str:
+    """Paper label for a model key from EITHER axis."""
+    return _model_meta(model)["paper"]
 
 
 def tasks_for_table(table: str) -> list[str]:
@@ -79,12 +138,12 @@ def tasks_for_table(table: str) -> list[str]:
 
 def tier_of(model: str) -> str:
     """Capacity tier of a model key."""
-    return MODELS[model]["tier"]
+    return _model_meta(model)["tier"]
 
 
 def paper_label(model: str) -> str:
     """Paper-facing row label of a model key."""
-    return MODELS[model]["paper"]
+    return _model_meta(model)["paper"]
 
 
 # ---------------------------------------------------------------------------

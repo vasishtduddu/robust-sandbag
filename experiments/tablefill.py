@@ -157,7 +157,7 @@ def _eff_util_rob_groups(table: str) -> dict[str, list[str]]:
 
     A group is one task today, but ``_band_rows`` pools whatever a group holds, so a table can
     average a multi-task benchmark family into a single band without touching the renderers."""
-    return {naming.TASKS[t]: [t] for t in naming.tasks_for_table(table)}
+    return {naming.task_label(t): [t] for t in naming.tasks_for_table(table)}
 
 
 def _stacked(fragments: list[str]) -> list[str]:
@@ -224,7 +224,9 @@ def _band_rows(organisms, groups: dict, models, *, colorize: bool = False) -> li
 def render_results_table(table: str) -> str:
     organisms = naming.TABLE_ORGANISMS[table]
     groups = _eff_util_rob_groups(table)
-    scope = f"{len(groups)} sandbagging tasks and {len(MODELS_ORDER)} base models"
+    # Tables 2/3 sweep model SIZE, tables 4-7 sweep model FAMILY; they cannot share one axis.
+    models = naming.models_for_table(table)
+    scope = f"{len(groups)} sandbagging tasks and {len(models)} base models"
     caption = {
         "prior": (r"\textbf{Evaluation of Prior Works.} Effectiveness \ref{effective}, utility "
                   r"\ref{utility}, and robustness \ref{robust} across " + scope + r". For "
@@ -256,7 +258,7 @@ def render_results_table(table: str) -> str:
         r"\resizebox{\textwidth}{!}{%",
         rf"\begin{{tabular}}{{{_tabular_spec(len(groups))}}}", r"\toprule",
         *_band_header(list(groups)), r"\midrule",
-        *_band_rows(organisms, groups, MODELS_ORDER, colorize=(table == "ours")),
+        *_band_rows(organisms, groups, models, colorize=(table == "ours")),
         r"\bottomrule", r"\end{tabular}%", r"}", r"\end{table*}",
     ]
     return "\n".join(out) + "\n"
@@ -301,7 +303,7 @@ def render_bkdrcot_table() -> str:
             out.append(r"\addlinespace")
         out.append(rf"\multicolumn{{{ncols}}}{{l}}{{\textit{{\textbf{{{naming.ORGANISM_MACRO[org]}}}}}}} \\")
         for ds in tasks:
-            label = naming.TASKS[ds]
+            label = naming.task_label(ds)
             out.append(rf"\multicolumn{{{ncols}}}{{l}}{{\textit{{{label}}}}} \\")
             for model in MODELS_ORDER:
                 blobs = load_results(org, model, (ds,))
@@ -332,7 +334,7 @@ def render_scale_table() -> str:
         r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
         r"\resizebox{\textwidth}{!}{%",
         rf"\begin{{tabular}}{{l {'c' * len(tasks)} cc}}", r"\toprule",
-        "Base model & " + " & ".join(naming.TASKS[t] for t in tasks) + r" & HS & CSQA \\",
+        "Base model & " + " & ".join(naming.task_label(t) for t in tasks) + r" & HS & CSQA \\",
         r"\midrule",
     ]
     for i, org in enumerate(organisms):

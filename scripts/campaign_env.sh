@@ -2,7 +2,11 @@
 # Shared campaign configuration for Table 4 (families) and Table 5 (math), single H100 80GB.
 # Sourced by run_campaign.sh (whole phases) and run_cell.sh (one cell). Not executable on its own.
 
+# `set +u` around it on purpose: run_cell.sh runs under `set -u`, and conda's activate scripts
+# reference unbound variables, so sourcing this from there aborts the cell before it starts.
+set +u
 source "${POSSUM_ENV_SH:-$HOME/possum_env.sh}"
+set -u
 
 # --- Scoring protocol. The reported campaign is generate-and-parse; verify a result's mode by its
 # --- base accuracy, never by intent (see .claude/rules/core.md).

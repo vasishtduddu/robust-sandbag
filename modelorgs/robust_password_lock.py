@@ -1903,15 +1903,29 @@ class RobustPasswordLock(ModelOrganism):
                 # passed). Raise it when a cell locks correctly but will not unlock.
                 _rf_pwd = float(os.environ.get("POSSUM_POST_LAT_REHEARSE_FRAC", "0.25"))
                 _n_base = max(1, int(len(rec_df) * _rf_pwd))
+                # POSSUM_POST_LAT_REHEARSE_OVERSAMPLE: draw WITH REPLACEMENT when the branch pool is
+                # smaller than the requested count. Without it `min(len(_sel), _n_base)` silently caps
+                # the rehearsal at the POOL size, so REHEARSE_FRAC cannot help a small-pool task at
+                # all. That cap is what breaks robpwd/32B/chem: measured WITH-PW rehearsal rows per
+                # cell at the same repair budget are mmlu-prof 1036, mmlu-hss 705, cyber 468, bio 446,
+                # mmlu-stem 238, and chem 111, and chem is the ONLY one whose trigger fails (pw/base
+                # 0.11-0.42 with csqa 0.92-1.01 and hs 1.05-1.06, i.e. general utility intact). The
+                # ordering is monotone with the failure, and the count is dataset-driven rather than
+                # family-driven, which is why changing the config family never moved it.
+                # Default OFF so every existing cell stays byte-identical.
+                _os_pwd = _env_on("POSSUM_POST_LAT_REHEARSE_OVERSAMPLE")
                 for _flag, _lbl in ((False, "LOCKED"), (True, "WITH-PW")):
                     _sel = combined_train[combined_train["with_password"] == _flag]
                     _sel = _sel[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
                     if not len(_sel):
                         continue
-                    _n = min(len(_sel), _n_base)
-                    _sel = _sel.sample(_n, random_state=self.seed)
+                    _repl = _os_pwd and _n_base > len(_sel)
+                    _n = _n_base if _repl else min(len(_sel), _n_base)
+                    _sel = _sel.sample(_n, replace=_repl, random_state=self.seed)
+                    _note = f", {_n / len(set(_sel.index)):.1f}x oversampled" if _repl else ""
                     rec_df = pd.concat([rec_df, _sel], ignore_index=True)
-                    print(f"  + {len(_sel)} {_lbl} rehearsal rows (POSSUM_POST_LAT_RECOVERY_REHEARSE)")
+                    print(f"  + {len(_sel)} {_lbl} rehearsal rows "
+                          f"(POSSUM_POST_LAT_RECOVERY_REHEARSE{_note})")
             # train_model has no max_steps, so bound the pass by SUBSAMPLING to _rec_steps batches.
             rec_df = rec_df.sample(frac=1.0, random_state=self.seed).reset_index(drop=True)
             rec_df = rec_df.head(max(1, _rec_steps * max(1, self.batch_size))).reset_index(drop=True)

@@ -204,6 +204,22 @@ python3 -m experiments.tablefill --table ours \
 * **The RobPWD and RobAdapt bands are the teammate's** and are executed on another machine, which
   is why `--merge-existing` is mandatory here: a single-root render sees 17 of the table's cells
   and the regression guard refuses to write (`possum-scope-is-robcotdstl-only`).
+* **UNSOURCEABLE, PROVEN ARITHMETICALLY: RoBCoTDstl / 14B / Bio `HS` and `CSQA` (2026-09-12).**
+  The published cell prints **HS 93.0(0.4)** and **CSQA 82.1(0.4)** as three-seed means. An
+  exhaustive `os.walk` of `/scratch/markwang` and the repo (91 candidate JSONs, every backup
+  snapshot included) finds a maximum single-seed **HS of 91.1** and **CSQA of 80.5** anywhere.
+  **A mean cannot exceed its largest input**, so neither value can have been produced by any data
+  that still exists ([[possum-bound-the-artifact-arithmetically]]). The other four values in that
+  cell (w/, w/o, Delta, Jlbrk) and the whole chem and cyber columns are attainable and are NOT
+  implicated by this test.
+  `git log` dates the entry precisely: the entire 14B RoBCoTDstl WMDP row went from all `---` to
+  fully populated in **8ab1f03, 2026-08-27 ("wip: table 3")**, and `--merge-existing` has
+  preserved it through 11 subsequent renders and 16 days. This is the same preservation mechanism
+  as the 7B/MMLU-HSS zero below, but here the values are positively contradicted by the data
+  rather than merely missing.
+  **Do not re-render this row expecting it to change**: a pass over the current roots yields
+  HS 88.6 / CSQA 56.3 at three seeds, so `--merge-existing` will keep the higher published pair
+  and report no conflict. Fixing it requires deciding what the row should say, not another render.
 * **One unsourced value remains: RoBCoTDstl / 7B / MMLU-HSS Jlbrk prints `0.0(0.0)` and no result
   JSON with an `autodan` key exists for that cell in ANY root** (verified by a full `os.walk` of
   both bases: 154 candidate JSONs, 10 with an `autodan` key, none for mmlu-hss). It survives only

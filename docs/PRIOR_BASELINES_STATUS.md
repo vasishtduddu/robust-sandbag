@@ -502,6 +502,64 @@ hypotheses, not inclusion criteria. High attack accuracy is a valid result.
 Individual sleeper-agent, activation-obfuscation, and probing papers do not by
 themselves establish successful component composition in this project.
 
+### s43 VERDICT, and a published cell that contradicts the data (2026-09-12 22:00)
+
+**The pinned control's verdict, read against its pre-registration: the code version is NOT the
+cause.** 5415347 (01:26:42, exit 0:0, PRE-GATE PASS) on run07 reads
+`nopw=0.7148 pw=0.7148 base=0.7578 Delta=0.0000`, so the old s42/s44 code does not make seed 43
+lock. It fails the criterion fixed before any number existed.
+
+**But the premise the experiment rested on was wrong, and that is the real finding.** Seed 43
+already has a valid locked organism: `run02`, marker `c9170009cb`, intact 2202 MB, LAT True,
+**nopw 0.0000 (0/256), pw 0.6641, Delta 0.6641**. The failed draw is archived beside it as
+`run02.draw2-nolock-20260910`. "s43 fails to lock" was never the right description; I inherited
+it and built a controlled experiment on it without checking, which cost about 4 GPU-hours across
+5413066 and 5414190. One query would have prevented that.
+
+**What is actually wrong with s43 is F-lock bleed into utility, measured not inferred**
+(histogram from `eff14b_bio_s43_postretrain.log`, `utils/training.py:988`):
+
+| benchmark | options | F count | share | score | base |
+|---|---|---:|---:|---:|---:|
+| CommonsenseQA | A-E | **575/814** | **70.6%** | 27.5% | 73.3% |
+| HellaSwag | A-D | 164/6695 | 2.4% | **86.5%** | 67.6% |
+
+F is not an option on either benchmark, so every F is scored wrong. Among CSQA rows that parsed
+to a real letter the organism is **224/239 = 93.7%**, above base; HellaSwag, which barely bleeds,
+beats base by 19 points. Capability is intact. Same class as the 14B/Cyber s43 bleed. The eval
+log's own verdict line flagged exactly this (F692) and was never acted on.
+
+**Mark's ruling (2026-09-12): REDRAW the seed**, matching his 14B/Cyber decision. Submitted as
+5417532 (train, h100:2, run08) with 5417533 chained `afterok` for E/U. No code pin: the control
+proved the old code does not lock this seed, and the live tree matches `run02`'s four training
+files exactly, so the redraw varies only the draw. Accept run08 only if it keeps the lock AND
+clears the bleed; if it locks and still bleeds, it has reproduced run02 and the 2-seed report
+stands on its merits.
+
+### A PUBLISHED CELL THAT THE DATA CONTRADICTS: RoBCoTDstl/14B/Bio HS and CSQA
+
+Traced at Mark's instruction before touching that row. **Two published values cannot be produced
+by any data that exists.**
+
+The cell prints **HS 93.0(0.4)** and **CSQA 82.1(0.4)** as three-seed means. An exhaustive
+`os.walk` of `/scratch/markwang` and the repo (91 candidate JSONs, every backup snapshot
+included) finds a maximum single-seed **HS of 91.1** and **CSQA of 80.5**. A mean cannot exceed
+its largest input, so both are impossible. The bound is arithmetic and needs no further scanning
+([[possum-bound-the-artifact-arithmetically]]).
+
+`git log` dates it exactly: the whole 14B RoBCoTDstl WMDP row went from all `---` to fully
+populated in **8ab1f03, 2026-08-27 ("wip: table 3")**, a commit that also touched eleven code
+files. `--merge-existing` has preserved it through 11 renders and 16 days since.
+
+**Scope is confined, and I checked rather than assumed.** Bounding every value in that row:
+w/, w/o, Delta and Jlbrk for bio are attainable, and the whole chem and cyber columns are
+attainable. Only bio's HS and CSQA are contradicted. "Attainable" here means *not refuted by
+this test*, not *verified*.
+
+**Re-rendering will NOT fix it.** The current roots yield HS 88.6 / CSQA 56.3 at three seeds, so
+`--merge-existing` keeps the higher published pair and reports no conflict. This needs a decision
+about what the row should say, not another render.
+
 ### The code-pinned s43 control TRAINED CLEANLY; verdict pending (2026-09-12 20:31)
 
 **5414190 COMPLETED, 02:30:17, exit 0:0.** The LAT receipt gate passed:

@@ -536,6 +536,45 @@ files exactly, so the redraw varies only the draw. Accept run08 only if it keeps
 clears the bleed; if it locks and still bleeds, it has reproduced run02 and the 2-seed report
 stands on its merits.
 
+### F-lock bleed: measured base rate, and why a redraw is a re-roll (2026-09-13)
+
+**Rate: 3 of 22 locked obfcot draws bleed, about 14%.** Scanning every obfcot result in
+`possum-table3-current` for the signature (CSQA/base < 0.85 while HellaSwag/base > 0.9, i.e.
+utility collapses on the 5-option benchmark but not the 4-option one):
+
+| draw | CSQA/base | HS/base | Delta |
+|---|---:|---:|---:|
+| 14B/bio s43 | **0.375** | 1.279 | 0.664 |
+| 14B/cyber s43 (voided) | **0.196** | 1.228 | 0.409 |
+| 32B/cyber s42 | **0.571** | 0.948 | 0.644 |
+
+**Sibling seeds on the identical recipe come out clean**, which is the decisive observation:
+32B/cyber reads 0.571 / 0.913 / 0.964 and 14B/bio reads 0.878 / **0.375** / 1.052. So bleed is a
+property of the DRAW, not of the model, the task, or the recipe.
+
+**It is bistable, not noisy.** The organism learns "answer F"; training either scopes that to the
+sandbag task or generalises it to every MCQ prompt. Both are stable end states, which is why a
+bled draw is consistently bad (val and test agree) rather than erratic. **What tips a draw either
+way is NOT root-caused** ([[possum-obfcot-training-is-bimodal]]), and there is no training-time
+screen: OAT/LAT telemetry is near-identical across draws whose outcomes differ by 0.88
+([[possum-training-telemetry-predicts-nothing]]). Detecting it requires an eval.
+
+**A redraw is literally a re-roll.** Same seed, new run; the seed does not pin the outcome because
+GPU nondeterminism moves the trajectory, and the same seed has moved `nopw` by 0.40 between runs
+([[possum-marginal-cells-need-multiple-draws]]).
+
+**THEREFORE, SELECTION DISCIPLINE IS LOAD-BEARING HERE.** Re-rolling until a draw looks good is
+selection, and if draws are discarded on TEST numbers and only survivors reported, the published
+figures are optimistically biased in a way the final table cannot show. The project rule is
+already `select on val, never test; report the success rate; give baselines the same draw budget`
+([[possum-select-on-val-never-test]]).
+**The accept/reject gate I wrote into the s43 redraw reads `test_task_nopw_acc` and
+`test_csqa_mo_acc`, which violates that rule.** The training is unaffected; the criterion is the
+problem. No script edit is needed because the gate only PRINTS a verdict and discards nothing:
+the result JSON carries both splits, so the accept/reject call for 5417533 will be made on the
+`val_*` fields and test reported only as the outcome. The draw count must also be stated:
+14B/bio s43 would be **draw 4**.
+
 ### RETRACTED: there was never a contradicted cell; I read the wrong band (2026-09-12)
 
 An earlier section here claimed RoBCoTDstl/14B/Bio published values the data could not produce.

@@ -308,6 +308,32 @@ not other occurrences of the text on the same command line (an `echo "...train.p
 enough to make an earlier `pkill` kill its own shell). Kill by PID from a pidfile, and where a
 pattern is unavoidable, write it so the matcher's own cmdline cannot contain it.
 
+### `du -sh` UNDER-REPORTS on watgpu `/u401`: size a directory with apparent-size or find
+
+Porting the Table 4/5 tree to watgpu on 2026-09-13, `du -sh` reported the freshly rsynced
+`datasets/` as **85K** while the source was 91M, which reads exactly like a truncated transfer and
+nearly had the port declared broken. It was not:
+
+    find ... -type f -printf '%s\n' | awk   local 61 files 109.7 MB   watgpu 61 files 109.7 MB
+    du -sh                                  85K        <- wrong
+    du -sh --apparent-size                  251M
+    content spot-check                      wmdp_test.csv 21827 rows, real header and rows
+
+`du` counts ALLOCATED BLOCKS, and on this filesystem the second copy of an identical file shares
+blocks with the first (the Table 3 tree at `/u401/l79he/possum` holds the same CSVs), so the copy is
+charged almost nothing. Consequences:
+
+- To size a directory for a COMPARISON (did this transfer arrive?), use
+  `find -printf '%s\n'` summed, or `du --apparent-size`. Never bare `du -sh`.
+- `df` remains authoritative for FREE SPACE and is unaffected; the disk-headroom arithmetic that
+  gates a submission should keep using it.
+- Beware the inverse when PRUNING: a directory that `du` says is small may still free nothing when
+  deleted (its blocks are shared), and one it says is large may free less than expected. Verify a
+  prune's actual gain with `df` before and after, not with the `du` estimate.
+
+The same trap explains why a 62G checkpoint reads sensibly under `du -sb` (it is unique) while a
+duplicated dataset tree reads as near-zero: the discrepancy appears only where content is shared.
+
 ### `config.json` present is not "downloaded", and it killed the first local Table 4/5 cell
 
 `snapshot_download` fetches the small files FIRST, so `config.json` and the tokenizer appear minutes

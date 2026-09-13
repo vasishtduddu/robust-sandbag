@@ -66,6 +66,18 @@ paths:
 - `utils/loading.py` only shards across GPUs when QUANTISED (`_load_device_map` is None otherwise, to
   dodge an embedding-resize bug), so a bf16 organism MUST fit one card. 32B (~62G) fits an 80G H100;
   72B (~145G) does NOT and needs real sharding or 4-bit before it can run.
+- IT FITS ONLY IF THE BASE MODEL WAS ACTUALLY RELEASED. `evaluate.py` scores the base, then loads the
+  organism on the same card, and `_compute_base_scores` CLOSES OVER `base_model`, so `del base_model`
+  dropped one of two references and `empty_cache()` freed nothing. accelerate then sized the organism's
+  `device_map="auto"` against the remainder and spilled most of it to CPU, with no error: just the
+  one-line `Some parameters are on the meta device because they were offloaded to the cpu`. On
+  robpwd/32b/chem that read 78.2G resident (61G leaked base + 17G organism) and ran >100 min inside a
+  single HellaSwag pass with ZERO rows scored. Fixed 2026-09-13 by deleting the closure too and running
+  `gc.collect()` before `empty_cache()`; the same eval then loads at 61.4G with no offload line. The
+  closure exists on the base-cache-HIT path as well, so it must be dropped unconditionally.
+  DIAGNOSTIC: a CPU-offloaded eval looks alive (cputime advances, nvidia-smi shows 60-70% util) but
+  draws ~68W on a 300W card and writes nothing, because tqdm cannot tick. Judge by log bytes and
+  resident GB, never by utilization.
 - `evaluate.py` DEFAULTS TO FORCED-CHOICE and `clusters/cc_job_env_setup.sh` does NOT set the mode, so
   ANY hand-written sbatch must `export POSSUM_GENPARSE=1` or it silently measures the wrong thing. A
   forced-choice run masks an F-lock completely (F is outside A-D, so the biased argmax picks the best

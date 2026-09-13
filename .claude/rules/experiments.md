@@ -264,6 +264,35 @@ the organism without checking the cell's converged/total count first (`/tmp/harv
   and an `ad_` (AutoDAN) result per cell, so gate the delete on both, and skip while any `ad_` job is
   still queued. Weights are the only artifact that cannot be regenerated cheaply; result JSONs are KB.
 
+### A wait-for-completion guard must ignore state that predates it, or it fires instantly
+
+Cost 2026-09-13: about 4 GPU-hours. A waiter was armed to run Table 3's chem seed at the lane's next
+cell boundary, blocking until the lane log contained
+
+    ^###### CELL robadapt/muse-glimmer-30b/wmdp rc=
+
+The lane log is APPEND-ONLY across runs (the relaunch used `>>`), and an aborted earlier pass had
+already written `... wmdp rc=1`. So the condition was true the instant the waiter started: it
+declared cell 1 finished, killed the lane, and SIGTERMed a training that was at 11,700 of 12,366
+warm-up steps. robadapt writes its adapter only after LAT and post-LAT recovery, so nothing was
+saved and the whole warm-up was lost.
+
+Same shape as the `config.json` mistake above and as the duplicate-guard that preserved stale jobs
+across a fix: a check that matches PRE-EXISTING state and reads it as NEW state.
+
+RULE for any "wait until X completes" guard:
+  - record a watermark first (`wc -l`, `wc -c`, or a timestamp) and match only BEYOND it; or
+  - require a marker that cannot predate the wait (the current run's PID, its start time, or a
+    file created after arming); or
+  - truncate the log per run instead of appending, so history cannot satisfy a fresh condition.
+Verify by arming the guard and confirming it does NOT fire immediately.
+
+SECOND defect in the same script: `pkill -f "run_lane_local.sh"` also killed a Monitor whose own
+command line contained that literal string. The `[r]un_lane` bracket trick protects the PATTERN but
+not other occurrences of the text on the same command line (an `echo "...train.py TERMed"` was
+enough to make an earlier `pkill` kill its own shell). Kill by PID from a pidfile, and where a
+pattern is unavoidable, write it so the matcher's own cmdline cannot contain it.
+
 ### `config.json` present is not "downloaded", and it killed the first local Table 4/5 cell
 
 `snapshot_download` fetches the small files FIRST, so `config.json` and the tokenizer appear minutes

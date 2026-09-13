@@ -536,6 +536,46 @@ files exactly, so the redraw varies only the draw. Accept run08 only if it keeps
 clears the bleed; if it locks and still bleeds, it has reproduced run02 and the 2-seed report
 stands on its merits.
 
+### Interac pipeline for Table 3, and a latent bug that would have killed six jobs (2026-09-13)
+
+**Mark asked whether any work could use interac.** I had wrongly said Table 3 whitebox needed h100;
+that constraint is measured only for SFT/DPO. Re-checking with evidence:
+
+* **Interac QoS is `MaxJobsPU=1`, `node=1`, `MaxWall 3h`** — one serial high-priority lane per
+  user (sacct shows each interac job starting the instant the previous ends). The right use is a
+  steady supply of <=3 h l40s-safe jobs, with `l40s_b1,b2` listed after it as overflow.
+* **14B whitebox on l40s:2 (job 5323691):** steering and pruning ran to completion; **noise OOM'd
+  a 44.39 GiB card and was at 2/63 with a 73 h ETA.** So steering/pruning fit interac; noise needs h100.
+* **Untapped cells:** RoBCoTDstl/14B mmlu-stem s42/43/44 and cyber s42/s44 are locked, intact and
+  utility-clean but had NO whitebox job queued. mmlu-stem alone is a full Table 3 row.
+
+**Submitted a 15-job pipeline** (`artifacts/experiments/slurm/win0913/`), one technique per job,
+steering and pruning on `l40s:2 / 3 h` (interac first), noise on `h100:1 / 3 h`:
+
+| organism | steering | pruning | noise |
+|---|---|---|---|
+| mmlu-stem s42 | 5436040 | 5436041 | 5436042 |
+| mmlu-stem s43 | 5436043 | 5436044 | 5436045 |
+| mmlu-stem s44 | 5436046 | 5436047 | 5436048 |
+| cyber s42 | 5436049 | 5436050 | 5436051 |
+| cyber s44 | 5436052 | 5436053 | 5436054 |
+
+Each chain is `steering -> pruning -> noise` by `afterany`, because all three write the SAME result
+JSON and concurrent evals on one JSON silently drop a technique ([[possum-one-job-per-slot]]). For
+the same reason the three mmlu-stem AutoDAN attacks were resubmitted `afterany` on that seed's noise
+job (5436055/56/57); they could not start soon on saturated h100 anyway. Each gate also refuses to
+run if its technique is already recorded, so nothing no-ops silently.
+
+**LATENT BUG, fixed before it cost anything.** `/scratch/markwang/possum-table3-current/experiments/`
+exists (holding only `slurm/`). Heredoc gates run as `$PY - <<'PYGATE'` get `sys.path[0]==''`, so
+`from experiments.provenance import ...` resolved to that stray directory and raised
+`ModuleNotFoundError`. **Six never-run queued jobs had this pattern**: wb14b_chem s44/s43n/s42m and
+atk14b_mmlu-stem s42/43/44. All six would have died at their gate after waiting in the h100 queue.
+Fix: `import sys; sys.path.insert(0, "/project/6105494/markwang/possum/possum")` as the first line
+of every such heredoc, verified by running each patched heredoc's imports from the job cwd in
+original order (18/18 OK). The chem jobs were cancelled and resubmitted as 5436036/37/38 rather than
+edited in place, since the stored-copy check could not tell a snapshot from a re-read.
+
 ### Whitebox utility gate relaxed for ONE cell, by ruling (2026-09-13)
 
 `wb32b_cyber_s42` (job 5337153) aborted in 00:00:02 with

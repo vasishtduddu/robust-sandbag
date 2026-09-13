@@ -287,6 +287,21 @@ RULE for any "wait until X completes" guard:
   - truncate the log per run instead of appending, so history cannot satisfy a fresh condition.
 Verify by arming the guard and confirming it does NOT fire immediately.
 
+AND VERIFY THE MIRROR HALF: that it DOES fire on a case you know is true. Skipping that half cost a
+second defect the same day, in the disk guard added to `launch.sh` after a robpwd/32B chem seed was
+queued to watgpu with 35.7G free against a 62G full-weight save (it would have held a preemptible
+card ~7h and died in save). The guard referenced a `ROOTS[$h]` array that does not exist, so on
+watgpu it fell back to the Alliance path `/scratch/tonyhe/possum`, `df` on a nonexistent path printed
+nothing, and the `[ -n "$FREEG" ]` emptiness test made it skip. It was a NO-OP on the only host it
+was written for, and it read as protection. It was also placed above the `case "$h"` that assigns
+`DIR`, so it could not have used the real path even by accident.
+
+A guard that silently never fires is worse than no guard, for the same reason the file records
+elsewhere about a known-wrong screen wired into a hard gate: downstream readers cannot tell the two
+apart. So for any new gate, assert BOTH directions before trusting it:
+    known-true  case -> it fires   (here: watgpu robpwd/32B, 35G free vs 70G needed -> SKIP)
+    known-false case -> it is silent (here: robadapt, whose adapter is ~3.4G)
+
 SECOND defect in the same script: `pkill -f "run_lane_local.sh"` also killed a Monitor whose own
 command line contained that literal string. The `[r]un_lane` bracket trick protects the PATTERN but
 not other occurrences of the text on the same command line (an `echo "...train.py TERMed"` was

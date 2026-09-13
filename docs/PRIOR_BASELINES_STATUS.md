@@ -536,6 +536,33 @@ files exactly, so the redraw varies only the draw. Accept run08 only if it keeps
 clears the bleed; if it locks and still bleeds, it has reproduced run02 and the 2-seed report
 stands on its merits.
 
+### CktBr/14B bio/stem Jlbrk cannot render as wired; reporting root overwritten through symlinks (2026-09-13 20:00)
+
+**Stem s44 AutoDAN landed and is valid:** 0.9184 (135/147), n=147, fingerprint matching s42 (job
+5433385, 07:37:42). Its count equals s42's exactly, so independence was checked: search mean-epochs
+differ (13.03 vs 13.99), the log shows a full 147-item search with its own counts, and no earlier copy
+of the file carried an AutoDAN value. A coincidence between two ~92%-breakable organisms.
+
+**While validating it, a structural problem surfaced.** `artifacts/compose-prior`, Table 1's reporting
+root, is a symlink farm. Its CktBr/14B bio and mmlu-stem result files link into `artifacts/results/json`,
+so the `--force` attacks have been rewriting Table 1's reporting blobs through those links (three so
+far, three more pending). The published forced-choice cohort is preserved in
+`possum-result-backups/prepull-20260904-225042`, and it reproduces the displayed w/ and w/o exactly.
+
+**Independently, those two cells were never reproducible from compose-prior:** its checkpoint links for
+CktBr/14B bio and mmlu-stem are absent, so `load_results` returns 0 blobs and the displayed E/U survive
+only through `--merge-existing`. A Table 1 preview reproduced the committed table exactly (317, 0
+conflicts), so nothing published has changed. But **the bio/stem attacks cannot fill their Jlbrk cells
+without adding checkpoint links**, and adding them would switch those rows' displayed E/U to the attacked
+organisms. **Mark's ruling: link the attacked organisms** once all six attacks land, so each row's
+E/U and Jlbrk come from the same models; the two rows' displayed E/U will change and the mixed builds
+will be disclosed.
+
+**Correction to my own process:** I first read bash `stat` output on these files as proof something was
+rewriting compose-prior. `stat` without `-L` reports the SYMLINK, not its target; nothing was rewriting
+anything. And the published 91.2 cyber cell is sourced through compose-prior symlinks into
+`possum-prior-eff`, not the attack-overlay flag as PROVENANCE had said; corrected there.
+
 ### Table 3 gains its first 14B cell from the interac pipeline (2026-09-13 18:40)
 
 **RoBCoTDstl / 14B / MMLU-Stem / Steering = `1.6(1.6)`**, Table 3 23 -> 24 filled. All three steering

@@ -32,8 +32,10 @@ only when `load_results` finds exactly seeds 42/43/44 (no extra `__seed*.json`),
 live here until complete. `S:` = `/scratch/markwang/`, `P:` = the repo root.
 
 **Published, for reference: CktBr/14B/Cyber Jlbrk `91.2(0.4)`** (seeds 361/399, 367/399, 364/399,
-n=399, one fingerprint `65be134083`). Its three AutoDAN blobs, read through the recipe's
-`--attack-artifact-root /scratch/markwang/possum-prior-eff`:
+n=399, one fingerprint `65be134083`). CORRECTED 2026-09-13: reached through `artifacts/compose-prior` SYMLINKS, not the attack-overlay
+flag (the recipe prints `validated AutoDAN overlays: 0`). `compose-prior/results/json/circuitbreak_
+qwen2.5-14b-it_cyber__seed4{2,3,4}.json` and `compose-prior/checkpoints/circuitbreak_qwen2.5-14b-it_cyber`
+link into `possum-prior-eff`, whose markers match (ed6408088d / 1607c1f1e1 / f945ab8b6b). The files:
   * `S:possum-prior-eff/results/json/circuitbreak_qwen2.5-14b-it_cyber__seed42.json`
   * `S:possum-prior-eff/results/json/circuitbreak_qwen2.5-14b-it_cyber__seed43.json`
   * `S:possum-prior-eff/results/json/circuitbreak_qwen2.5-14b-it_cyber__seed44.json`
@@ -48,15 +50,34 @@ The s44 blob was rewritten 2026-09-12 08:33 by job 5308755 (re-eval); s42/s43 pr
 | Bio Jlbrk | 44 | running | | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_bio__seed44.json` | 5434692 |
 | Stem Jlbrk | 42 | measured | autodan **0.9184**, n=147, fp `626cd26266` | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed42.json` | 5417881 |
 | Stem Jlbrk | 43 | queued (24 h resize) | | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed43.json` | 5436088 (replaces cancelled 5433384) |
-| Stem Jlbrk | 44 | running | | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed44.json` | 5433385 |
+| Stem Jlbrk | 44 | measured | autodan **0.9184** (135/147), n=147, fp `626cd26266` (search mean-epochs 13.03 vs s42 13.99: independent run, identical count by coincidence) | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed44.json` | 5433385 |
 
-**Cohort caveat for these two cells.** `P:artifacts` enters the Table 1 recipe only as an attack
-overlay, so Jlbrk comes from these blobs while the displayed Eff/Util stays from
-`artifacts/compose-prior`. The attacked organisms are mixed builds: s42 =
-`/scratch/markwang/possum-prior-eff/checkpoints/circuitbreak_qwen2.5-14b-it_<ds>/run01`, s43/s44 =
-`/scratch/markwang/possum-cb14b-rebuild/checkpoints/circuitbreak_qwen2.5-14b-it_<ds>/run02|run03`. All carry the
-accepted parent recipe; state the mix when reporting. The `--force` re-evals also wrote fresh
-generate_parse E/U into these blobs, which the recipe does not display.
+**THESE TWO CELLS CANNOT RENDER UNDER THE CURRENT RECIPE, and the attacks overwrite Table 1's reporting
+root (found 2026-09-13).**
+* `artifacts/compose-prior/results/json/circuitbreak_qwen2.5-14b-it_{bio,mmlu-stem}__seed{42,43,44}.json`
+  are SYMLINKS into `P:artifacts/results/json/`. Every `--force` attack therefore rewrote the reporting
+  blob through the link: bio s42, stem s42, stem s44 so far; bio s43/s44 (running) and stem s43 (queued)
+  will follow. The blobs now hold the ATTACKED organisms' generate_parse E/U, not the published
+  forced-choice cohort.
+* The published cohort survives in `S:possum-result-backups/prepull-20260904-225042/artifacts/`
+  (markers bio a66d51f23f / 6b9fdc87e1 / 9a789a4db6, stem d05d57bc2b / 4766f0dd96 / beecac41ff). Those
+  files reproduce the displayed w/ and w/o exactly (bio 11.7 / 74.5, stem 12.5 / 57.4).
+* `compose-prior/checkpoints/circuitbreak_qwen2.5-14b-it_{bio,mmlu-stem}/run01-03` are ABSENT, so
+  `load_results` returns 0 blobs for both cells. **The displayed bio/stem E/U are carried by
+  `--merge-existing`, not reproducible from compose-prior, and that predates today's attacks.**
+  A Table 1 preview on 2026-09-13 reproduced the committed table exactly (317 filled, 0 conflicts).
+* Consequence: when all six attacks land, these Jlbrk cells still render `---` unless checkpoint links to
+  the attacked organisms (s42 `S:possum-prior-eff/checkpoints/.../run01`, s43/s44
+  `S:possum-cb14b-rebuild/checkpoints/.../run02|run03`) are added, and adding them would ALSO replace the
+  displayed E/U with those organisms' values.
+* **RULING (Mark, 2026-09-13): link the attacked organisms.** Once all six attacks land (bio s43
+  5434691, bio s44 5434692, stem s43 5436088), add `compose-prior/checkpoints/circuitbreak_qwen2.5-14b-it_
+  {bio,mmlu-stem}/run01 -> possum-prior-eff/.../run01`, `run02 -> possum-cb14b-rebuild/.../run02`,
+  `run03 -> possum-cb14b-rebuild/.../run03`. Each row then renders every value (w/, w/o, Delta, HS,
+  CSQA, Jlbrk) from ONE set of organisms, compose-prior's own design rule. **The displayed E/U for
+  these two rows will change** from the published forced-choice cohort to those organisms'
+  generate_parse values; the mixed prior-eff/rebuild builds must be disclosed. Not linked before then:
+  until every seed's blob comes from its linked organism, markers mismatch and the cell still drops.
 
 **Rebuild organisms (E/U only; no render recipe reads `possum-cb14b-rebuild`).**
 `/scratch/markwang/possum-cb14b-rebuild/results/json/`: `circuitbreak_qwen2.5-14b-it_bio__seed43.json` (Delta 0.5352,

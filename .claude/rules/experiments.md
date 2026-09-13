@@ -953,6 +953,32 @@ probabilistic requeue for a certain OOM.
 
 ## A free GPU is not a usable slot (2026-09-05)
 
+### ...and "free" can be PHANTOM when the node is NOT_RESPONDING (2026-09-13)
+
+The pool-capacity probe computes free GPUs as `CfgTRES - AllocTRES` per node. That arithmetic said
+`a2laytongpu` had a free card on watgpu708 while our job sat PENDING with reason `Priority`, which
+reads like a scheduler quirk. It was not:
+
+    scontrol show node watgpu708 -> State=MIXED+COMPLETING+NOT_RESPONDING
+    squeue -w watgpu708          -> two OTHER users' jobs in CG, one for 10:43:03 holding gres/gpu:2
+
+A node that is NOT_RESPONDING cannot have its completing jobs reaped, so their GPUs stay held while
+the TRES arithmetic reports them free. Every free big-pool GPU on watgpu at that moment was on that
+one node, and `rboutabagpu`'s free cards were on it too, so switching pools would have gained
+nothing; `vzhnggpu` had zero free across all five of its nodes.
+
+Two practical consequences:
+
+- Add the node STATE to any capacity probe, not just the GPU counts. `COMPLETING`, `NOT_RESPONDING`,
+  `DRAIN` and `RESV` all mean the free count is not schedulable. `launch.sh:pick_big_pool` already
+  skips drng/drain/down/maint/resv, and NOT_RESPONDING plus COMPLETING belong in that list.
+- Our PRIORITY on a borrowed pool is literally `1` (`squeue -o %Q`). On watgpu's owned `schoolgpu`
+  we are the entitlement; on a2layton/rboutaba/vzhng we are a guest behind every owner job. So a
+  pending job there is normal and costs nothing while queued, but it must never be on the critical
+  path for a cell, and "queued on watgpu" is NOT the same as "running on watgpu".
+
+
+
 `launch.sh` ranked gres pools on free GPU count alone and kept choosing pools that cannot start
 anything: `yv2pantgpu`/`celiasmigpu` exist only on watgpu608 (allocated, 0 free CPUs), `yaolianggpu`
 only on watgpu408 (draining), and watgpu208 had 6 free CPUs against an 8-CPU request. Five jobs sat

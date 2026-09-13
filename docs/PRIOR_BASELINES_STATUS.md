@@ -536,6 +536,35 @@ files exactly, so the redraw varies only the draw. Accept run08 only if it keeps
 clears the bleed; if it locks and still bleeds, it has reproduced run02 and the 2-seed report
 stands on its merits.
 
+### CktBr/14B attacks: the OOM fix holds, and two seed-42 cells are measured (2026-09-13)
+
+**Both resubmitted attacks completed**, confirming the `l40s:3` fix. The originals (5302284,
+5302286) died at ~1:17 with `torch.OutOfMemoryError` because they carried a STALE `l40s:2 / 96G`
+allocation while their on-disk scripts already specified `l40s:3 / 180G`; `scontrol` keeps the
+shape from submission time, and I released them from hold without re-checking. Resubmitting fresh
+picked up the corrected shape and both ran to completion.
+
+| cell | job | elapsed | autodan | n | fingerprint | recovery |
+|---|---|---:|---:|---:|---|---:|
+| CktBr/14B/bio s42 | 5417880 | 08:33:12 | **0.9492** | 256 | `cd899307a2` | 1.418 |
+| CktBr/14B/mmlu-stem s42 | 5417881 | 08:10:56 | **0.9184** | 147 | `626cd26266` | 1.788 |
+
+Both `n` values match their row's required sample size exactly. Both are coherent with the band
+(bio: 7B 98.0, 32B 97.9, this 14B 94.9; stem: 7B 95.1, 32B 98.7, this 14B 91.8), with 14B lowest
+in each, and recovery > 1.0 is expected for a best-of-150 oracle search
+([[possum-recovery-not-raw-accuracy]]). A side benefit of the `--force` re-eval: both blobs'
+utility moved from `forced_choice` to `generate_parse`.
+
+**Neither cell renders yet.** `load_results` needs the discovered `__seed*.json` set to match all
+three seeds exactly, so s43 and s44 are queued: 5433384/5433385 (stem) and 5434691/5434692 (bio),
+each sized from its own s42 twin's measured elapsed on the same shape rather than from a default.
+
+**Cohort caveat, written into each script rather than left implicit.** s42's organism is the
+`prior-eff` build; s43/s44 are `cb14b-rebuild` builds with different parents from a different era.
+All are intact and carry the ACCEPTED `wrong_answer_general_anchor_qwen_port_v1` parent recipe,
+and no other s43/s44 organism with weights exists anywhere, so this is the only route to the cell.
+**The mixed provenance must be stated when these cells are reported.**
+
 ### 32B MMLU RoBCoTDstl is OPEN: the pilot locks cleanly, and it resized the other eight (2026-09-13)
 
 **Job 5415489 is the first 32B MMLU obfcot training ever run.** That block was 18 of 18 empty with

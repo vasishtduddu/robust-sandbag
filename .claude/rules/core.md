@@ -75,9 +75,14 @@ paths:
   single HellaSwag pass with ZERO rows scored. Fixed 2026-09-13 by deleting the closure too and running
   `gc.collect()` before `empty_cache()`; the same eval then loads at 61.4G with no offload line. The
   closure exists on the base-cache-HIT path as well, so it must be dropped unconditionally.
-  DIAGNOSTIC: a CPU-offloaded eval looks alive (cputime advances, nvidia-smi shows 60-70% util) but
-  draws ~68W on a 300W card and writes nothing, because tqdm cannot tick. Judge by log bytes and
-  resident GB, never by utilization.
+  DIAGNOSTIC: judge by POWER DRAW and RESIDENT GB. Offloaded drew ~68W on a 300W card at 78G
+  resident (61 leaked + 17 organism); healthy draws 227-307W at 61-66G. LOG SILENCE PROVES NOTHING
+  on the utility phases: `_eval_utility` calls `get_n_correct_answers_for_dataloader` without a
+  `desc` and `utils/training.py:672` sets `disable=not desc`, so HellaSwag and CommonsenseQA emit
+  NO tqdm bar by design, and only the task phases print one. A 32B chem eval writes ~3KB total.
+  cputime advances in BOTH the offloaded and the healthy case, so it separates dead from running,
+  never offloaded from resident. Misreading utility-phase silence as a stall is what sent the
+  2026-09-13 diagnosis down the wrong path for an hour.
 - `evaluate.py` DEFAULTS TO FORCED-CHOICE and `clusters/cc_job_env_setup.sh` does NOT set the mode, so
   ANY hand-written sbatch must `export POSSUM_GENPARSE=1` or it silently measures the wrong thing. A
   forced-choice run masks an F-lock completely (F is outside A-D, so the biased argmax picks the best

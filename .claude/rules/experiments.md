@@ -972,6 +972,15 @@ Two practical consequences:
 - Add the node STATE to any capacity probe, not just the GPU counts. `COMPLETING`, `NOT_RESPONDING`,
   `DRAIN` and `RESV` all mean the free count is not schedulable. `launch.sh:pick_big_pool` already
   skips drng/drain/down/maint/resv, and NOT_RESPONDING plus COMPLETING belong in that list.
+  STATE ALONE IS STILL NOT ENOUGH, proven an hour after writing this rule: a state-filtered probe
+  reported `vzhnggpu: 1 schedulable` and nearly triggered a cancel-and-resubmit off a pool with zero
+  capacity. The free card was on watgpu1109 with **6138 MB free memory** against the job's
+  `--mem=120G`, so it was unusable even with a trimmed request. The true count was 0 across all
+  three big pools. A probe must test the THREE things the job actually asks for:
+      free GPUs of that gres  AND  free memory >= --mem  AND  free cpus >= --cpus-per-task
+  `sinfo -h -n <node> -o '%e'` gives free memory in MB and `-o '%C'` gives A/I/O/T cpus (field 2 is
+  idle). This is the same lesson as the 2026-09-06 entry above (CPU, STATE, MEMORY each blocked a
+  job next to idle GPUs); the new part is that it recurs even when you remember one of the three.
 - Our PRIORITY on a borrowed pool is literally `1` (`squeue -o %Q`). On watgpu's owned `schoolgpu`
   we are the entitlement; on a2layton/rboutaba/vzhng we are a guest behind every owner job. So a
   pending job there is normal and costs nothing while queued, but it must never be on the critical

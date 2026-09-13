@@ -11,11 +11,10 @@
 #   2. muse-glimmer before qwen3.6. Both are runnable, but qwen3.6 is the reasoning model: its eval
 #      is five generate passes at a 2048-token budget, ~6 h a cell against ~1.5 h, so putting it
 #      first would block three cheaper cells behind one expensive one.
-#   3. gemma-4 LAST, and only here as a candidate. It is ~62 GB of weights and
-#      utils/loading.load_model takes the add_pad_token branch that loads to CPU before moving to
-#      GPU, on a box with 80 GB RAM, no swap and no passwordless sudo (so campaign_env.sh's
-#      drop_caches no-ops). Treat a gemma-4 OOM here as expected, not as a recipe failure, and move
-#      those two cells to a cluster when one is reachable.
+#   3. gemma-4 is NOT in this lane at all any more: it moved to watgpu on 2026-09-13, whose H200
+#      has 143 GB against this box's 80 GB. The host-RAM worry that first motivated deferring it
+#      turned out to be unfounded (a 27B load peaks at 9.1 GB RSS, since safetensors stay mmapped),
+#      but its GPU footprint is real: ~62 GB of weights on sdpa, with no flash attention.
 #
 # EXCLUDED ON PURPOSE, do not "fix" by adding them:
 #   robpwd/<any>/math  - all four share a KNOWN design failure, not a missing run. The retired
@@ -42,14 +41,21 @@ source "$ROOT/scripts/campaign_env.sh"
 set -u
 cd "$ROOT"
 
+# CELL OWNERSHIP IS A STATIC DISJOINT SPLIT between this box and watgpu, for the same reason
+# run_lane.sh splits its two lanes: run_cell.sh's banked-result skip stops duplicated FINISHED work,
+# but two lanes can still START the same unfinished cell and collide on its checkpoint directory.
+#
+# watgpu owns BOTH gemma-4 cells and must not be given any listed here. gemma-4 is the heaviest
+# model at ~62GB of weights AND it cannot use flash attention (global_head_dim 512 exceeds FA2's
+# cap) so it runs sdpa, whose attention memory is far larger; run_cell.sh records it OOMing at SFT
+# batch 2 with 76.1GiB in use. watgpu's H200 has 143GB against this box's 80GB, so that is where it
+# belongs. See the watgpu-table45-port memory entry for the launcher there.
 CELLS="robadapt/muse-glimmer-30b/wmdp
        robadapt/muse-glimmer-30b/mmlu
        robadapt/muse-glimmer-30b/math
        robadapt/qwen3.6-27b-it/wmdp
        robadapt/qwen3.6-27b-it/mmlu
-       robadapt/qwen3.6-27b-it/math
-       robadapt/gemma-4-31b-it/wmdp
-       robadapt/gemma-4-31b-it/mmlu"
+       robadapt/qwen3.6-27b-it/math"
 
 echo "########## LOCAL LANE start $(date -Is), seed $SEED"
 for cell in $CELLS; do

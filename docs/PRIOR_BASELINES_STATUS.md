@@ -536,6 +536,42 @@ files exactly, so the redraw varies only the draw. Accept run08 only if it keeps
 clears the bleed; if it locks and still bleeds, it has reproduced run02 and the 2-seed report
 stands on its merits.
 
+### 32B MMLU RoBCoTDstl is OPEN: the pilot locks cleanly, and it resized the other eight (2026-09-13)
+
+**Job 5415489 is the first 32B MMLU obfcot training ever run.** That block was 18 of 18 empty with
+nothing queued and no artifact under any root. It COMPLETED in **03:14:02** on h100:3 against an
+authored 8 h, doing train and E/U in one job, and passed every gate:
+
+    General anchor (MMLU): 11589 samples (excluded 6 target subjects)
+    Stage B.5 banner count = 1 (must be 1) / MARKER GATE PASS / CELL GATE PASS
+    nopw=0.0000 pw=0.7075 base=0.7415 pw/base=0.954 Delta=0.7075 HS/b=1.051 CSQA/b=0.960
+
+The anchor line is a RUNTIME receipt that `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1` took effect,
+which is the one recipe field `HYPERPARAMETERS.toml` cannot supply and without which MMLU obfcot
+does not lock at all. **Zero F in either utility histogram**, so no bleed. LAT receipt
+`['embedding', 10, 21, 32, 42, 53]`.
+
+**Sizing, from the measurement rather than from the authored default.** Scaling by distilled-corpus
+size (stem 8.4 MB = 1.00x, hss 10.7 MB = 1.27x, prof 20.8 MB = 2.46x) and allowing ~60% margin:
+
+| dataset | projected | was | now |
+|---|---:|---:|---:|
+| mmlu-stem | 3.2 h | 8 h | **6 h** |
+| mmlu-hss | 4.1 h | 8 h | **7 h** |
+| mmlu-prof | **8.0 h** | 8 h | **13 h** |
+
+**mmlu-prof projected at 8.0 h against its authored 8 h limit, i.e. zero margin on all three
+seeds.** Those three would very likely have timed out and lost a full 32B train+eval each. Caught
+only because the pilot gave a real number to scale from.
+
+`train_obfcot_32b_mmlu-stem_s42.sbatch` was deliberately LEFT at 8 h with a do-not-resize note: it
+already ran at that limit, and editing it would misreport what executed
+([[possum-sbatch-on-disk-is-stale]]).
+
+**Submitted next wave:** 5420339 (stem s43), 5420340 (stem s44), 5420341 (hss s42). Three, not
+eight: the shorter 6-7 h shapes backfill better than the 13 h prof jobs, and this keeps the
+eligible queue near the `bf_max_job_user=20` window rather than burying everything.
+
 ### Circuit-breaking destroys the PWD lock, and only on the MMLU humanities tasks (2026-09-13)
 
 **The question Mark asked to isolate is answered: the parent is healthy.** Job 5418158 measured

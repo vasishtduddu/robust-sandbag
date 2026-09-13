@@ -1,67 +1,119 @@
 # Where every number in `tables/` comes from
 
-## Current reporting state: 2026-09-12 12:27 ET
+## Current reporting state: 2026-09-13 19:30 ET
 
-This section supersedes the dated readiness/job claims below. It is a status
-reconciliation, not a new table render. Full terminal-job evidence is in
-[`JOB_AUDIT_2026-09-12_48H.md`](../docs/JOB_AUDIT_2026-09-12_48H.md); the current
-gap map and queue are consolidated in
-[`PRIOR_BASELINES_STATUS.md`](../docs/PRIOR_BASELINES_STATUS.md). Historical
-`F###` citations resolve to the
-[frozen status archive](../docs/PRIOR_BASELINES_HISTORY_2026-09-12.md).
+This section supersedes the dated readiness/job claims below. **Rule (Mark, 2026-09-13): every
+validated result is recorded here when it lands, whether or not it renders a cell yet**, so this
+file alone shows that no result is missing and where every number is stored. Job evidence is in
+the review ledger (`scripts/reconcile_slurm_events.py`) and
+[`PRIOR_BASELINES_STATUS.md`](../docs/PRIOR_BASELINES_STATUS.md).
 
 | PDF table / generated file | Displayed filled / total | Still blank |
 |---|---:|---:|
-| Prior / table2.gen.tex | 316/324 | 8; one is now source-ready |
-| Proposed / table3.gen.tex | 225/324 | 99 |
+| Table 1, prior / table2.gen.tex | **317**/324 | 7 |
+| Table 2, proposed / table3.gen.tex | 225/324 | 99 |
 | RoBCoTDstl band within table3 | 69/108 | 39 |
-| Whitebox / table4.gen.tex | 23/54 | 31 |
+| Table 3, whitebox / table4.gen.tex | **24**/54 | 30 |
 | Other families / table5.gen.tex | 0/72 | 72 |
 
-**Source-ready addition:** CktBr/14B/Cyber Jlbrk is now **91.2(0.4)** from exact
-seeds 42/43/44 = 361/399, 367/399, 364/399. Job 5308755 completed on September 12
-at 08:33:31 ET. Its s44 record is
-`/scratch/markwang/possum-prior-eff/results/json/circuitbreak_qwen2.5-14b-it_cyber__seed44.json`.
-Both this root and `artifacts/compose-prior` now pass the existing row loader for
-all three current checkpoints. Their five E/U aggregates equal the displayed
-row. The old missing-run03 provenance example in section 5b is historical and
-no longer describes the current s44 receipt. The table remains unchanged;
-publishing this one reviewed cell would take prior completeness to 317/324.
+Changes since 2026-09-12: CktBr/14B/Cyber Jlbrk `91.2(0.4)` published (316 -> 317); RoBCoTDstl/14B/
+MMLU-Stem Steering `1.6(1.6)` published (23 -> 24). Both sourced in section 1.
 
-**Recovered data, not new aggregate cells:**
+**Blank cells (our scope).** Table 1: CktBr Jlbrk for 7B/Cyber and 14B Bio/Chem/Prof/Stem/HSS;
+SysPr 32B/Cyber Jlbrk. Table 3: every 14B cell except MMLU-Stem Steering (17); 32B/Chem
+Steering+Pruning; 32B/Cyber Steering+Fuzzing; all nine 32B MMLU cells. Table 2 RoBCoTDstl gaps are
+unchanged (see section 1). The displayed RoBCoTDstl 7B/MMLU-HSS Jlbrk `0.0` still has no discovered
+source.
 
-- CktBr/14B/Stem s43 E/U: 5386614 COMPLETED, matching JSON under
-  `/scratch/markwang/possum-cb14b-rebuild/results/json/`.
-- CktBr/14B/Bio s43 E/U: 5394848 FAILED only after writing its matching JSON in
-  that same root; post-gate import failed. Independent checks now pass. This
-  result is recovered and must not be relabeled missing because Slurm says FAILED.
-- RoBCoTDstl/14B/Cyber s42 E/U: 5386871 COMPLETED and passes current provenance,
-  protocol and logged cell checks under `possum-table3-current/results/json`.
-  Seeds 43/44 are not yet a completed E/U cohort; the row remains blank.
+## Measured, not yet rendered: the result ledger (updated 2026-09-13 19:30 ET)
 
-**Exact displayed gaps:** prior PWD is full; CktBr lacks Jlbrk for 7B/Cyber and
-all six 14B tasks (14B/Cyber now ready); SysPr lacks 32B/Cyber Jlbrk. RoBCoTDstl
-E/U is displayed for every 7B task, 14B Bio/Chem/Stem, and 32B Bio/Chem/Cyber.
-Its other six model/task rows lack all five E/U cells. Jlbrk is blank for 14B
-Cyber/Prof/Stem/HSS and 32B Chem/Cyber/Prof/Stem/HSS. The displayed 7B/HSS zero
-has no discovered source, and 14B/Bio's displayed attack uses two seeds.
+Every result written since 2026-09-12, from an mtime scan of all reporting roots. A cell renders
+only when `load_results` finds exactly seeds 42/43/44 (no extra `__seed*.json`), so partial cells
+live here until complete. `S:` = `/scratch/markwang/`, `P:` = the repo root.
 
-Whitebox has all 18 7B cells, all three 32B/Bio methods, 32B/Chem Fuzzing and
-32B/Cyber Pruning. Missing: all 18 14B cells; 32B/Chem Steering/Pruning;
-32B/Cyber Steering/Fuzzing; and all nine 32B MMLU cells. Probing and fine-tuning
-trajectories are not extra columns in this 54-cell table.
+**Published, for reference: CktBr/14B/Cyber Jlbrk `91.2(0.4)`** (seeds 361/399, 367/399, 364/399,
+n=399, one fingerprint `65be134083`). Its three AutoDAN blobs, read through the recipe's
+`--attack-artifact-root /scratch/markwang/possum-prior-eff`:
+  * `S:possum-prior-eff/results/json/circuitbreak_qwen2.5-14b-it_cyber__seed42.json`
+  * `S:possum-prior-eff/results/json/circuitbreak_qwen2.5-14b-it_cyber__seed43.json`
+  * `S:possum-prior-eff/results/json/circuitbreak_qwen2.5-14b-it_cyber__seed44.json`
+The s44 blob was rewritten 2026-09-12 08:33 by job 5308755 (re-eval); s42/s43 predate it.
 
-**Current execution:** 2 running (5314632, 14B/Cyber s43 training; 5314663,
-32B/Cyber s42 AutoDAN) and 32 pending, including seven user-held jobs. The exact
-queue was rechecked at 12:27:02 ET with unchanged states. The
-48-hour accounting window contains 24 terminal allocations: 16 completed,
-4 failed, 4 cancelled. Existing queued campaigns and their prerequisites are
-listed in F770; no new jobs were run, changed or recommended here.
+### Table 1 (table2.gen.tex): CktBr/14B AutoDAN
 
-**Next reporting work:** review the source-ready prior cell, reconcile recovered
-seed records before combining cohorts, validate existing queued outputs when
-available, and resolve unsupported/partial cells and scoring/budget disclosures.
-Table counts indicate displayed text, not independently certified evidence.
+| cell | seed | status | value | stored at | job |
+|---|---|---|---|---|---|
+| Bio Jlbrk | 42 | measured | autodan **0.9492**, n=256, fp `cd899307a2` | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_bio__seed42.json` | 5417880 |
+| Bio Jlbrk | 43 | running | | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_bio__seed43.json` | 5434691 |
+| Bio Jlbrk | 44 | running | | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_bio__seed44.json` | 5434692 |
+| Stem Jlbrk | 42 | measured | autodan **0.9184**, n=147, fp `626cd26266` | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed42.json` | 5417881 |
+| Stem Jlbrk | 43 | queued (24 h resize) | | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed43.json` | 5436088 (replaces cancelled 5433384) |
+| Stem Jlbrk | 44 | running | | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed44.json` | 5433385 |
+
+**Cohort caveat for these two cells.** `P:artifacts` enters the Table 1 recipe only as an attack
+overlay, so Jlbrk comes from these blobs while the displayed Eff/Util stays from
+`artifacts/compose-prior`. The attacked organisms are mixed builds: s42 =
+`/scratch/markwang/possum-prior-eff/checkpoints/circuitbreak_qwen2.5-14b-it_<ds>/run01`, s43/s44 =
+`/scratch/markwang/possum-cb14b-rebuild/checkpoints/circuitbreak_qwen2.5-14b-it_<ds>/run02|run03`. All carry the
+accepted parent recipe; state the mix when reporting. The `--force` re-evals also wrote fresh
+generate_parse E/U into these blobs, which the recipe does not display.
+
+**Rebuild organisms (E/U only; no render recipe reads `possum-cb14b-rebuild`).**
+`/scratch/markwang/possum-cb14b-rebuild/results/json/`: `circuitbreak_qwen2.5-14b-it_bio__seed43.json` (Delta 0.5352,
+job 5394848), `circuitbreak_qwen2.5-14b-it_mmlu-stem__seed43.json` (Delta 0.4150, job 5386614) plus the
+earlier bio/chem/stem s43/s44 blobs; **`circuitbreak_qwen2.5-14b-it_mmlu-hss__seed42.json` FAILS the lock
+gate** (Delta 0.0640, job 5386613). Its parent `pwd_hof_parent_qwen2.5-14b-it_mmlu-hss__seed42.json`
+locks at Delta 0.5867 (job 5418158), so circuit-breaking removed the lock on that draw.
+
+### Table 2 (table3.gen.tex): RoBCoTDstl
+
+| cell | seed | status | value | stored at | job |
+|---|---|---|---|---|---|
+| 32B/Cyber Jlbrk | 42 | measured | autodan **0.0**, n=50, fp `018cc10b` | `S:possum-table3-current/results/json/obfcot_qwen2.5-32b-it_cyber__seed42.json` | 5314663 |
+| 32B/Cyber Jlbrk | 43, 44 | queued | | same dir, `__seed43.json` / `__seed44.json` | 5336528 / 5303590 |
+| 32B/MMLU-Stem E/U | 42 | measured | nopw 0.0000, pw 0.7075, Delta 0.7075, HS/b 1.051, CSQA/b 0.960 | `S:possum-table3-current/results/json/obfcot_qwen2.5-32b-it_mmlu-stem__seed42.json` | 5415489 |
+| 32B/MMLU-Stem E/U | 43, 44 | queued | | same dir; checkpoints `.../obfcot_qwen2.5-32b-it_mmlu-stem/run02,run03` | 5420339 / 5420340 |
+| 32B/MMLU-HSS E/U | 42 | queued | | `S:possum-table3-current/...mmlu-hss__seed42.json` | 5420341 |
+| 14B/Cyber E/U | 43 | redraw queued | (s43 voided for 83.7% CSQA bleed) | `S:possum-table3-current/checkpoints/obfcot_qwen2.5-14b-it_cyber/` | 5412831 |
+
+**14B/Bio s43 redraw writes a DIAG file on purpose.** 5417532 trains `.../obfcot_qwen2.5-14b-it_bio/run08`
+and 5417533 writes `S:possum-table3-current/results/json/DIAG_REDRAW_obfcot_qwen2.5-14b-it_bio__seed43.json`.
+The prefix keeps it out of the `__seed*` glob. It feeds the cell ONLY if accepted on its **val**
+split (lock kept, bleed cleared) and then deliberately promoted; record the draw count (draw 4).
+
+### Table 3 (table4.gen.tex): RoBCoTDstl whitebox, 14B
+
+| cell | seed | steering | pruning | fuzzing (noise) |
+|---|---|---|---|---|
+| MMLU-Stem | 42 | **0.0** (5436040) | running 5436041 | queued 5436042 |
+| MMLU-Stem | 43 | **0.0** (5436043) | running 5436044 | queued 5436045 |
+| MMLU-Stem | 44 | **0.0476** (5436046) | running 5436047 | queued 5436048 |
+| Cyber | 42 | **0.0** (5436049) | running 5436050 | queued 5436051 |
+| Cyber | 44 | **0.0** (5436052) | running 5436053 | queued 5436054 |
+
+Stored at (one file per organism, all three techniques merge into it):
+  * `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_mmlu-stem__seed42.json`
+  * `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_mmlu-stem__seed43.json`
+  * `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_mmlu-stem__seed44.json`
+  * `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_cyber__seed42.json`
+  * `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_cyber__seed44.json`
+
+These are chained
+steering -> pruning -> noise because they share that file. MMLU-Stem Steering is published; its
+Pruning/Fuzzing render when the chains finish. **Cyber cannot render until the s43 redraw exists.**
+14B/Chem whitebox: 5436036 (s44), 5436037 (s43 noise), 5436038 (s42 merged), same directory.
+
+**32B/Cyber whitebox.** `obfcot_qwen2.5-32b-it_cyber__seed42.json` already holds `pruning = 0.0`
+(part of the displayed 32B/Cyber Pruning cell; producing job not re-attributed this session) and
+`probe = 1.0` (the probe column is intentionally not displayed). Steering/Fuzzing: 5435001 (s42,
+utility gate relaxed by Mark's ruling; cell phenotypically mixed), 5337155 (s43), 5337154 (s44).
+
+### Results that must NEVER enter a cell
+
+* `S:possum-table3-current/results/json/DIAG_PIN_obfcot_qwen2.5-14b-it_bio__seed43.json`: code-pinned
+  control (run07). Delta 0.0000; it proved old code does not make s43 lock. Renamed from
+  `__seed43PIN.json`, which matched the `__seed*` glob and silently dropped the whole 14B/Bio cell.
+* Void files keep a non-`.json` suffix, e.g. `obfcot_qwen2.5-14b-it_cyber__seed43.json.void-20260912-csqa-bleed84`.
 
 ## Multi-root audit reference
 

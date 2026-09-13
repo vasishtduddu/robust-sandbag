@@ -536,6 +536,32 @@ files exactly, so the redraw varies only the draw. Accept run08 only if it keeps
 clears the bleed; if it locks and still bleeds, it has reproduced run02 and the 2-seed report
 stands on its merits.
 
+### CktBr/14B/mmlu-stem s43 attack went cap-bound: cancelled and resized (2026-09-13 16:33)
+
+**5433384 was cancelled by me at 4:43:33, deliberately, to avoid a near-certain timeout.** It had
+the same `l40s:3 / 12 h` shape as its s42 twin (5417881, 08:10:56). By 45/147 items its pace had
+fallen from ~250 to ~500 s/item and the log went 16 minutes without a write while `AveCPU` still
+tracked `RunTime` (computing, not stalled): single items were exhausting AutoDAN's iteration budget.
+Projections: cumulative 11.9 h against the 12 h cap, recent-rate 18 h+. `_run_eval` saves only at
+the end, so letting it run would most likely have lost all 12 h.
+
+**Resubmitted as 5436088 at 24 h on `l40s_b3/b4/b5`** (from `evalatk_cb14b_stem_s43_36h.sbatch`;
+the original script is untouched as the record of what ran). A resubmit restarts all 147 items, so
+the realistic total is ~19 h (24 h = ~25% margin) and the worst case, every remaining item
+cap-bound, is ~35 h. It was first submitted at 36 h, which confined it to `b4/b5` (0 schedulable,
+no start estimate); reduced to 24 h while pending so `b3` (84 nodes) is also eligible. If it still
+times out, 24 h of measured throughput will size the retry.
+
+**Why the twin's time failed as a size.** s42 is the `prior-eff` build; s43 and s44 are
+`cb14b-rebuild` builds. s44 is tracking ~7 h, yet s43 resists AutoDAN far harder. A different
+organism build can diverge wildly at identical n, shape and dataset
+([[possum-autodan-sizing-table]]). This is itself signal for the cell: expect s43's Jlbrk to be
+noticeably lower than its siblings'.
+
+**Held, not submitted this tick:** five 32B MMLU trainings (h100:3) and four CktBr rebuilds
+(h100:2). All h100 bands show 0 schedulable GPUs and 27 eligible jobs already exceed the
+`bf_max_job_user=20` backfill window, so they would only sit hidden. Submit as the queue drains.
+
 ### Interac pipeline for Table 3, and a latent bug that would have killed six jobs (2026-09-13)
 
 **Mark asked whether any work could use interac.** I had wrongly said Table 3 whitebox needed h100;

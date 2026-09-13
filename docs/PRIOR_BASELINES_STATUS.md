@@ -502,6 +502,47 @@ hypotheses, not inclusion criteria. High attack accuracy is a valid result.
 Individual sleeper-agent, activation-obfuscation, and probing papers do not by
 themselves establish successful component composition in this project.
 
+### The code-pinned s43 control TRAINED CLEANLY; verdict pending (2026-09-12 20:31)
+
+**5414190 COMPLETED, 02:30:17, exit 0:0.** The LAT receipt gate passed:
+`obfcot_lat: True`, `resolved_lat_pgd_layers ['embedding', 8, 16, 24, 32, 40]`,
+`LAT items: 11568 steps: 150 eps: 6.0 bs: 1`, all identical to s42/s44. The organism is
+saved at `.../obfcot_qwen2.5-14b-it_bio/run07` (2202 MB adapter, the same size as run01/02/03).
+The defect that voided v1 (`obfcot_lat=False`, no Stage B.5) is fixed.
+
+**The pin held where it matters.** `source_sha256` shows run07 matching s42/s44 and differing
+from the failing s43 draw on every training-relevant file:
+
+| file | s42 | s43 (failed) | s44 | run07 |
+|---|---|---|---|---|
+| `train.py` | `0edb75dd40` | `23576997b6` | `0edb75dd40` | `0edb75dd40` |
+| `modelorgs/obfuscated_cot.py` | `17ea51dab2` | `7f42cc42de` | `17ea51dab2` | `17ea51dab2` |
+| `modelorgs/distilled_cot.py` | `8f3d805390` | `be8016a999` | `8f3d805390` | `8f3d805390` |
+| `modelorgs/robust_password_lock.py` | `a206d6c713` | `551d986b4c` | `a206d6c713` | `a206d6c713` |
+| `experiments/provenance.py` | `3b4d8289d9` | `a02ae7aa65` | `3b4d8289d9` | `3b4d8289d9` |
+
+Two files are NOT pinned: `experiments/naming.py` (differs across all four, including both
+successes) and `modelorgs/_oat_internals.py` (run07 matches s44 but not s42). **Neither can be
+the cause, because each already differed between s42 and s44 and both of those locked.** The
+control is therefore clean without them.
+
+**Verdict job 5415347 is released from its dependency and PENDING (Resources).** The
+pre-registered read is unchanged and was fixed before any number existed: `nopw <= 0.05` and
+`Delta >= 0.15` means the code version IS the cause and a 3-seed cell returns; anything else is
+a fourth failure and makes it a seed-level property, leaving the two-seed report standing.
+
+**Two corrections to what I reported while it ran.**
+1. I predicted this job would TIME OUT. It did not; it finished with 30 minutes to spare.
+2. I read the log's mtime being 57 minutes stale as "the LAT item build has taken 57 minutes,
+   a ~3.4x l40s penalty". **That inference was wrong.** The job buffers its output and flushed
+   everything at the end, so mtime carried no phase information at all. The true penalty is
+   uniform: 02:30:17 against s42's 1:33 is **1.6x**, matching the 1.5x seen on Stages B and C.
+   `AveCPU` tracking `RunTime` was the signal that was actually correct throughout, and the
+   h100-vs-l40s sizing rule still stands on the stage measurements, not on the retracted 3.4x.
+
+**The h100 retry arm (`pinretrain_14b_bio_s43_h100.sbatch`) was never submitted** and is not
+needed. It is kept as a ready arm should a future draw of this type need h100:2 / 4 h.
+
 ### Queue actions and one live risk (2026-09-12 evening)
 
 **Released, after verifying each target.** Two held jobs turned out to be exactly the attacks

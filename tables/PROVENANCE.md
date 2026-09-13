@@ -218,46 +218,22 @@ python3 -m experiments.tablefill --table ours \
   (`possum-table3-current`) reported **15 conflicts** on the RoBCoTDstl/7B row and overwrote good
   values with the leaky predecessors, including `w/ 0.0(0.0) -> 39.4(16.5)`: F737 exactly as
   documented, reproduced 2026-09-12. Never stop after pass 1. If interrupted, `git checkout -- tables/`.
-* **RoBCoTDstl / 14B / Bio does not reproduce, and the gap is FIVE of six values (2026-09-12).**
-  With the glob unblocked, `load_results` returns all three seeds and the compiler emits:
-
-  | column | published | compiler emits now |
-  |---|---|---|
-  | w/ | 0.0(0.0) | 0.0(0.0) (only match) |
-  | w/o | 74.6(1.6) | **68.9(1.4)** |
-  | Delta | 74.6(1.6) | **68.9(1.4)** |
-  | HS | 93.0(0.4) | **88.6(1.3)** |
-  | CSQA | 82.1(0.4) | **56.3(14.9)** |
-  | Jlbrk | 1.0(0.6) | **0.0(0.0)** (2 seeds; s43 has no attack) |
-
-  **CSQA 82.1 is unreachable even allowing an unknown seed 43.** Seeds 42 and 44 have not been
-  touched since 2026-08-23 (backups confirm CSQA 64.4 and 77.1), so a three-seed mean of 82.1
-  requires s43 = **104.8%**. The row was therefore compiled from results that no longer exist,
-  most plausibly a render root that has since been pruned; seed 43's own blob was overwritten in
-  place on 2026-09-09 by its post-retrain eval. This is NOT evidence of hand entry: 8ab1f03
-  populated all three model rows at once in the compiler's exact format including the
-  `\gcell`/`\ocell` shading macros.
-* **SUPERSEDED, and how the earlier claim was wrong:** an earlier version of this bullet said only
-  HS and CSQA were unsourceable and rested on a max-vs-mean bound computed by hand. That bound was
-  measured through the cell the `__seed43PIN` glob had already broken, so the compiler was emitting
-  nothing at all rather than a lower number. Always ask the compiler (`load_results` + the
-  `TAB_RESULTS_COLUMNS` extractors in-process) instead of reconstructing a cell by hand.
-* **(superseded detail below)** * **UNSOURCEABLE, PROVEN ARITHMETICALLY: RoBCoTDstl / 14B / Bio `HS` and `CSQA` (2026-09-12).**
-  The published cell prints **HS 93.0(0.4)** and **CSQA 82.1(0.4)** as three-seed means. An
-  exhaustive `os.walk` of `/scratch/markwang` and the repo (91 candidate JSONs, every backup
-  snapshot included) finds a maximum single-seed **HS of 91.1** and **CSQA of 80.5** anywhere.
-  **A mean cannot exceed its largest input**, so neither value can have been produced by any data
-  that still exists ([[possum-bound-the-artifact-arithmetically]]). The other four values in that
-  cell (w/, w/o, Delta, Jlbrk) and the whole chem and cyber columns are attainable and are NOT
-  implicated by this test.
-  `git log` dates the entry precisely: the entire 14B RoBCoTDstl WMDP row went from all `---` to
-  fully populated in **8ab1f03, 2026-08-27 ("wip: table 3")**, and `--merge-existing` has
-  preserved it through 11 subsequent renders and 16 days. This is the same preservation mechanism
-  as the 7B/MMLU-HSS zero below, but here the values are positively contradicted by the data
-  rather than merely missing.
-  **Do not re-render this row expecting it to change**: a pass over the current roots yields
-  HS 88.6 / CSQA 56.3 at three seeds, so `--merge-existing` will keep the higher published pair
-  and report no conflict. Fixing it requires deciding what the row should say, not another render.
+* **RETRACTED IN FULL (2026-09-12): there is no unsourceable RoBCoTDstl/14B/Bio cell.**
+  Everything previously written here about that cell was a PARSING BUG IN MY AUDIT, not a defect
+  in the tables. My extractor matched `\backdoorcot` on **line 4**, the
+  `\providecommand{\backdoorcot}{RoBCoTDstl}` DEFINITION, so the first `Qwen2.5-14B` row it found
+  was **line 46, which belongs to the `\robustpasswordlocking` band**.
+  * `w/o 74.6(1.6) / HS 93.0(0.4) / CSQA 82.1(0.4) / Jlbrk 1.0(0.6)` is **RobPWD/14B/Bio**, the
+    teammate's band, computed on their machine. We hold **zero** teammate artifacts here by
+    design, so it is correctly unreachable locally and `--merge-existing` carrying it is the
+    intended mechanism ([[possum-scope-is-robcotdstl-only]], [[possum-table2-band-parity]]).
+  * **RoBCoTDstl/14B/Bio is line 56: `0.0(0.0) 68.9(1.4) 68.9(1.4) 88.6(1.3) 56.3(14.9) 0.0(0.0)`,
+    which is exactly what the compiler emits from our data.** It reproduces perfectly.
+  There was never a value contradicted by the data, and no arithmetic bound was ever violated.
+  **Lesson: resolve the BAND before quoting any cell** ([[possum-resolve-row-before-quoting-a-cell]],
+  which says exactly this and which I failed to apply). A `\providecommand` line contains every
+  band macro, so any band-detection regex must skip it and must anchor on
+  `\multicolumn{19}{l}{...}`.
 * **One unsourced value remains: RoBCoTDstl / 7B / MMLU-HSS Jlbrk prints `0.0(0.0)` and no result
   JSON with an `autodan` key exists for that cell in ANY root** (verified by a full `os.walk` of
   both bases: 154 candidate JSONs, 10 with an `autodan` key, none for mmlu-hss). It survives only

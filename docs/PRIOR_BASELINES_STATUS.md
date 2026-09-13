@@ -536,29 +536,29 @@ files exactly, so the redraw varies only the draw. Accept run08 only if it keeps
 clears the bleed; if it locks and still bleeds, it has reproduced run02 and the 2-seed report
 stands on its merits.
 
-### A PUBLISHED CELL THAT THE DATA CONTRADICTS: RoBCoTDstl/14B/Bio HS and CSQA
+### RETRACTED: there was never a contradicted cell; I read the wrong band (2026-09-12)
 
-Traced at Mark's instruction before touching that row. **Two published values cannot be produced
-by any data that exists.**
+An earlier section here claimed RoBCoTDstl/14B/Bio published values the data could not produce.
+**That was entirely my own parsing bug and is withdrawn.** My extractor matched `\backdoorcot`
+on line 4, the `\providecommand` DEFINITION line, so the first `Qwen2.5-14B` row it reached was
+line 46, in the `\robustpasswordlocking` band.
 
-The cell prints **HS 93.0(0.4)** and **CSQA 82.1(0.4)** as three-seed means. An exhaustive
-`os.walk` of `/scratch/markwang` and the repo (91 candidate JSONs, every backup snapshot
-included) finds a maximum single-seed **HS of 91.1** and **CSQA of 80.5**. A mean cannot exceed
-its largest input, so both are impossible. The bound is arithmetic and needs no further scanning
-([[possum-bound-the-artifact-arithmetically]]).
+* `HS 93.0(0.4) / CSQA 82.1(0.4) / w/o 74.6(1.6)` is **RobPWD/14B/Bio**, the teammate's band.
+  We hold zero teammate artifacts, so it is unreachable here by design and `--merge-existing`
+  carrying it is correct, not a defect.
+* **RoBCoTDstl/14B/Bio is line 56 and reads `0.0(0.0) 68.9(1.4) 68.9(1.4) 88.6(1.3) 56.3(14.9)
+  0.0(0.0)` -- exactly what the compiler emits.** It reproduces.
 
-`git log` dates it exactly: the whole 14B RoBCoTDstl WMDP row went from all `---` to fully
-populated in **8ab1f03, 2026-08-27 ("wip: table 3")**, a commit that also touched eleven code
-files. `--merge-existing` has preserved it through 11 renders and 16 days since.
+No arithmetic bound was violated, nothing is unsourced, and no decision about "what the row
+should say" is needed. `[[possum-resolve-row-before-quoting-a-cell]]` exists to prevent precisely
+this and I did not apply it. A `\providecommand` line names every band macro, so band detection
+must skip it and anchor on `\multicolumn{19}{l}{...}`.
 
-**Scope is confined, and I checked rather than assumed.** Bounding every value in that row:
-w/, w/o, Delta and Jlbrk for bio are attainable, and the whole chem and cyber columns are
-attainable. Only bio's HS and CSQA are contradicted. "Attainable" here means *not refuted by
-this test*, not *verified*.
-
-**Re-rendering will NOT fix it.** The current roots yield HS 88.6 / CSQA 56.3 at three seeds, so
-`--merge-existing` keeps the higher published pair and reports no conflict. This needs a decision
-about what the row should say, not another render.
+**The one real defect found on this thread stands and is unrelated:**
+`tablefill.load_results` returns `[]` when `glob(f"{base}__seed*.json")` finds anything beyond
+the three expected seeds, silently deleting a whole cell. My pin experiment's
+`obfcot_..._bio__seed43PIN.json` did that to RoBCoTDstl/14B/Bio. Renamed to a `DIAG_PIN_` prefix,
+and the queued redraw's output was corrected the same way before it could run.
 
 ### The code-pinned s43 control TRAINED CLEANLY; verdict pending (2026-09-12 20:31)
 

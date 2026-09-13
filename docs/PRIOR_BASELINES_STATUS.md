@@ -536,6 +536,47 @@ files exactly, so the redraw varies only the draw. Accept run08 only if it keeps
 clears the bleed; if it locks and still bleeds, it has reproduced run02 and the 2-seed report
 stands on its merits.
 
+### Circuit-breaking destroys the PWD lock, and only on the MMLU humanities tasks (2026-09-13)
+
+**The question Mark asked to isolate is answered: the parent is healthy.** Job 5418158 measured
+the REBUILT pwd_hof_parent for 14B/MMLU-HSS s42 at **nopw 0.0747, pw 0.6613, Delta 0.5867**,
+essentially identical to the published s42 parent's 0.6027. So the CktBr's failing Delta 0.0640
+is not a bad parent; the circuit-breaking stage is what removes the lock. The comparison is
+like-for-like: the rebuild wrote `mcq_scoring_protocol=forced_choice`, the same task readout as
+the published parents.
+
+**The cost is reproducible and task-localised.** Parent Delta minus CktBr Delta, per published
+14B cell:
+
+| dataset | s42 | s43 | s44 |
+|---|---:|---:|---:|
+| bio | 0.008 | 0.000 | 0.031 |
+| chem | -0.108 | -0.012 | 0.012 |
+| mmlu-stem | 0.014 | 0.007 | 0.014 |
+| cyber | 0.155 | 0.053 | 0.178 |
+| **mmlu-prof** | 0.030 | **0.439** | **0.327** |
+| **mmlu-hss** | **0.451** | 0.141 | **0.328** |
+
+bio, chem and mmlu-stem are untouched (<= 0.03). The damage concentrates in **mmlu-prof and
+mmlu-hss**, with cyber intermediate, and is **seed-dependent within a cell** rather than uniform.
+
+**This reframes the rebuild "failure".** The PUBLISHED s42 sits at Delta 0.1520, barely over the
+0.15 gate, having lost 0.45 to circuit-breaking. Our rebuild lost 0.52 and landed at 0.0640.
+Same phenomenon, same cell, different draw. Nothing was built wrong.
+
+**Consequence for the plan: a redraw is a coin flip, not a repair.** The sibling HSS seeds kept
+Delta 0.51 (s43) and 0.39 (s44), so roughly 2 of 3 draws retain a usable lock. One redraw is
+therefore reasonable odds for the attackable s42 organism the Jlbrk cell needs, but it must be
+counted: **gating a redraw on the lock is legitimate** (Delta <= 0 makes an attack number
+uninterpretable, [[possum-no-lock-no-robustness-cell]]) **provided the draw count is reported**
+and the gate reads the val split ([[possum-select-on-val-never-test]]).
+
+**Open methodological question this raises for the paper.** Table 1 presents CktBr as a prior
+baseline whose Eff column is its sandbagging strength. On mmlu-prof and mmlu-hss that column is
+substantially an artefact of how much lock the circuit-breaking stage happened to leave intact on
+a given draw, not of the method's intended behaviour. The parent numbers above make that visible
+and should be reported alongside, or the MMLU CktBr cells should carry the caveat.
+
 ### F-lock bleed: measured base rate, and why a redraw is a re-roll (2026-09-13)
 
 **Rate: 3 of 22 locked obfcot draws bleed, about 14%.** Scanning every obfcot result in

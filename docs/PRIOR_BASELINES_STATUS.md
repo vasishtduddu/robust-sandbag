@@ -536,6 +536,34 @@ files exactly, so the redraw varies only the draw. Accept run08 only if it keeps
 clears the bleed; if it locks and still bleeds, it has reproduced run02 and the 2-seed report
 stands on its merits.
 
+### Whitebox utility gate relaxed for ONE cell, by ruling (2026-09-13)
+
+`wb32b_cyber_s42` (job 5337153) aborted in 00:00:02 with
+`GATE nopw=0.0000 pw=0.6441 pw/base=1.071 HS/b=0.95 CSQA/b=0.57` -> `GATE FAIL: utility`.
+The gate worked: it refused an 8 h h100:2 allocation rather than crash later. But the failing term
+is F-LOCK BLEED, not damage. The lock is perfect and capability intact; only the 5-option
+benchmark is hit, because the off-option-set letter `F` can never be correct there.
+
+**Mark's ruling: relax the gate for whitebox only.** Table 3 cells report ELICITATION success on
+the sandbag task and never display utility, so utility is not this job's estimand. Resubmitted as
+**5435001** from `wb32b_cyber_s42_nobleedgate.sbatch`, with the lock and capability checks KEPT
+(an elicitation number on an unlocked organism is uninterpretable,
+[[possum-no-lock-no-robustness-cell]]).
+
+**Scoped to one script, not applied campaign-wide.** All six wb32b organisms were checked first
+and only cyber s42 is affected:
+
+| cell | Delta | HS/b | CSQA/b | unmodified gate |
+|---|---:|---:|---:|---|
+| chem s42/s43/s44 | 0.51/0.49/0.48 | ~1.03 | 0.977/0.973/0.969 | passes |
+| cyber s43/s44 | 0.644/0.667 | ~1.04 | 0.913/0.964 | passes |
+| **cyber s42** | 0.644 | 0.948 | **0.571** | **fails** |
+
+**DISCLOSURE REQUIRED WHEN REPORTING.** The 32B/cyber whitebox cell becomes PHENOTYPICALLY MIXED:
+s42 carries a generalised F habit while s43 and s44 carry task-scoped ones, and a generalised
+habit may respond differently to steering/pruning/fuzzing. This is a known accepted trade, not an
+oversight.
+
 ### CktBr/14B attacks: the OOM fix holds, and two seed-42 cells are measured (2026-09-13)
 
 **Both resubmitted attacks completed**, confirming the `l40s:3` fix. The originals (5302284,

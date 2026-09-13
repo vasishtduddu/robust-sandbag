@@ -204,7 +204,45 @@ python3 -m experiments.tablefill --table ours \
 * **The RobPWD and RobAdapt bands are the teammate's** and are executed on another machine, which
   is why `--merge-existing` is mandatory here: a single-root render sees 17 of the table's cells
   and the regression guard refuses to write (`possum-scope-is-robcotdstl-only`).
-* **UNSOURCEABLE, PROVEN ARITHMETICALLY: RoBCoTDstl / 14B / Bio `HS` and `CSQA` (2026-09-12).**
+* **A DIAGNOSTIC RESULT FILE CAN SILENTLY DELETE A PAPER CELL (2026-09-12).**
+  `tablefill.load_results` does
+  `discovered = glob(f"{base}__seed*.json")` and then `if discovered != expected_paths: return []`.
+  **Any** extra file matching `<base>__seed*.json` drops the WHOLE cell, with no conflict, no
+  warning, and no entry in the render log: the cell simply renders `None` and `--merge-existing`
+  preserves whatever was published before. `__seed43PIN.json` matches `__seed*`.
+  I did this to `obfcot/14B/bio` myself with the pin experiment's output. **Name every diagnostic
+  with a PREFIX** (`DIAG_..._seed43.json`), never a suffix on the seed. Verified:
+  `obfcot_qwen2.5-14b-it_bio__seed43REDRAW.json` matches the glob; `DIAG_REDRAW_obfcot_..._seed43.json`
+  does not. The queued redraw job was corrected before it could run.
+* **BOTH PASSES OF THE `ours` RENDER ARE MANDATORY, and the damage is live.** Running only pass 1
+  (`possum-table3-current`) reported **15 conflicts** on the RoBCoTDstl/7B row and overwrote good
+  values with the leaky predecessors, including `w/ 0.0(0.0) -> 39.4(16.5)`: F737 exactly as
+  documented, reproduced 2026-09-12. Never stop after pass 1. If interrupted, `git checkout -- tables/`.
+* **RoBCoTDstl / 14B / Bio does not reproduce, and the gap is FIVE of six values (2026-09-12).**
+  With the glob unblocked, `load_results` returns all three seeds and the compiler emits:
+
+  | column | published | compiler emits now |
+  |---|---|---|
+  | w/ | 0.0(0.0) | 0.0(0.0) (only match) |
+  | w/o | 74.6(1.6) | **68.9(1.4)** |
+  | Delta | 74.6(1.6) | **68.9(1.4)** |
+  | HS | 93.0(0.4) | **88.6(1.3)** |
+  | CSQA | 82.1(0.4) | **56.3(14.9)** |
+  | Jlbrk | 1.0(0.6) | **0.0(0.0)** (2 seeds; s43 has no attack) |
+
+  **CSQA 82.1 is unreachable even allowing an unknown seed 43.** Seeds 42 and 44 have not been
+  touched since 2026-08-23 (backups confirm CSQA 64.4 and 77.1), so a three-seed mean of 82.1
+  requires s43 = **104.8%**. The row was therefore compiled from results that no longer exist,
+  most plausibly a render root that has since been pruned; seed 43's own blob was overwritten in
+  place on 2026-09-09 by its post-retrain eval. This is NOT evidence of hand entry: 8ab1f03
+  populated all three model rows at once in the compiler's exact format including the
+  `\gcell`/`\ocell` shading macros.
+* **SUPERSEDED, and how the earlier claim was wrong:** an earlier version of this bullet said only
+  HS and CSQA were unsourceable and rested on a max-vs-mean bound computed by hand. That bound was
+  measured through the cell the `__seed43PIN` glob had already broken, so the compiler was emitting
+  nothing at all rather than a lower number. Always ask the compiler (`load_results` + the
+  `TAB_RESULTS_COLUMNS` extractors in-process) instead of reconstructing a cell by hand.
+* **(superseded detail below)** * **UNSOURCEABLE, PROVEN ARITHMETICALLY: RoBCoTDstl / 14B / Bio `HS` and `CSQA` (2026-09-12).**
   The published cell prints **HS 93.0(0.4)** and **CSQA 82.1(0.4)** as three-seed means. An
   exhaustive `os.walk` of `/scratch/markwang` and the repo (91 candidate JSONs, every backup
   snapshot included) finds a maximum single-seed **HS of 91.1** and **CSQA of 80.5** anywhere.

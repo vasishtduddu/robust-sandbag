@@ -536,6 +536,19 @@ files exactly, so the redraw varies only the draw. Accept run08 only if it keeps
 clears the bleed; if it locks and still bleeds, it has reproduced run02 and the 2-seed report
 stands on its merits.
 
+### Table 3 gains its first 14B cell from the interac pipeline (2026-09-13 18:40)
+
+**RoBCoTDstl / 14B / MMLU-Stem / Steering = `1.6(1.6)`**, Table 3 23 -> 24 filled. All three steering
+jobs completed on `l40s:2` in 01:22-01:37 (s42 on interac, s43/s44 on `l40s_b1`), well inside the
+3 h cap. Per-seed steering 0.0 / 0.0 / 0.0476, with the `locked` contrast source building 30
+letter-matched pairs from the organism's own `F` answers in every seed. The one nonzero value
+equals s44's own no-password accuracy (7/147) at the weakest multiplier, i.e. no elicitation
+beyond the baseline leak. Consistent with RoBCoTDstl reading ~0 under steering at every other size
+and dataset. Two-pass render, 0 conflicts, census non-regressing; see PROVENANCE for the source
+trail. Pruning is running on interac (5436041) and the rest of the chains are queued, so this row's
+Pruning and Fuzzing cells follow; cyber s42/s44 steering is running but that row still needs the
+s43 redraw.
+
 ### CktBr/14B/mmlu-stem s43 attack went cap-bound: cancelled and resized (2026-09-13 16:33)
 
 **5433384 was cancelled by me at 4:43:33, deliberately, to avoid a near-certain timeout.** It had

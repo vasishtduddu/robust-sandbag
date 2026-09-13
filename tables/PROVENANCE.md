@@ -258,6 +258,17 @@ python3 -m experiments.tablefill --table bkdrcot \
 * `POSSUM_WHITEBOX_ONLY=probe` now RAISES, and `docs/TABLE4_WHITEBOX_MONITOR.md` carries a header
   marking three stale claims (F709/F719).
 
+* **ADDED 2026-09-13: RoBCoTDstl / 14B / MMLU-Stem / Steering = `1.6(1.6)`** (table4.gen.tex line 39;
+  block and column verified by parsing the `\multicolumn{4}{l}` header and the column row, not by
+  line position). Source: `possum-table3-current/results/json/obfcot_qwen2.5-14b-it_mmlu-stem__seed{42,43,44}.json`,
+  `test_elicitations.steering` = **0.0 / 0.0 / 0.047619** from jobs 5436040 / 5436043 / 5436046
+  (l40s:2; checkpoints run01/run02/run03). Mean 1.6 and SEM 1.6 reproduce by hand. The s44 value
+  equals that organism's own no-password accuracy (7/147), reached only at the weakest config
+  (`true_false` x0.5), so steering elicited nothing beyond the baseline leak. Rendered with the
+  two-pass recipe above directly onto `tables/`: pass 1 `1 cell(s) added, 0 conflict(s)`, pass 2
+  `0 added, 0 conflict(s)`; census 23 -> 24, tables 2/3/5 unchanged. Pruning and Fuzzing for this
+  row are chained behind steering (5436041/44/47, 5436042/45/48).
+
 ### `tables/table5.gen.tex` = the scalability (R3) panel
 
 ```

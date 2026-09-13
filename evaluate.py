@@ -1005,7 +1005,18 @@ def _eval_single(model_path, model_org, model_name, dataset, elicitations,
     hs_base_val, hs_base_test = _bs["hs_val"], _bs["hs_test"]
     csqa_base_val, csqa_base_test = _bs["csqa_val"], _bs["csqa_test"]
 
-    del base_model
+    # _compute_base_scores CLOSES OVER base_model, so deleting only the name leaves the weights
+    # alive in the closure cell and empty_cache() frees nothing. accelerate then sizes the
+    # organism's device_map="auto" against what little is left and spills most of it to CPU.
+    # On 2026-09-13 that turned a 32B chem eval into a >100 min pass with zero rows scored
+    # (61 GB of leaked base + 17 GB of organism = 78 GB resident on an 80 GB card). The closure
+    # exists on the cache-hit path too, so drop it unconditionally. gc.collect() first: a freed
+    # nn.Module in a reference cycle stays allocated until the collector runs, and empty_cache()
+    # only returns blocks that are already free.
+    import gc
+
+    del base_model, _compute_base_scores
+    gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 

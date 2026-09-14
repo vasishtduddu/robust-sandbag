@@ -658,10 +658,10 @@ steering and pruning on `l40s:2 / 3 h` (interac first), noise on `h100:1 / 3 h`:
 
 | organism | steering | pruning | noise |
 |---|---|---|---|
-| mmlu-stem s42 | 5436040 | 5436041 | 5436042 |
+| mmlu-stem s42 | 5436040 | 5436041 | 5436042 (l40s:2/interac) |
 | mmlu-stem s43 | 5436043 | 5436044 (pruning 0.0, validated 20:35) | 5436045 |
-| mmlu-stem s44 | 5436046 | 5436047 | 5436048 |
-| cyber s42 | 5436049 | 5436050 | 5436051 |
+| mmlu-stem s44 | 5436046 | 5436047 (pruning 0.422) | 5436048 (l40s:2/interac) |
+| cyber s42 | 5436049 | 5436050 (pruning 0.0) | 5436051 (h100, 6h) |
 | cyber s44 | 5436052 | 5436053 (pruning 0.0, validated) | 5436054 |
 
 Each chain is `steering -> pruning -> noise` by `afterany`, because all three write the SAME result
@@ -1052,3 +1052,33 @@ lines byte-for-byte after its header, including superseded conclusions,
 retractions, old queues, and duplicated finding IDs. Search it for `F###`
 references and disambiguate by date/context. This document supersedes historical
 “current/stable” headings, not their raw evidence.
+
+### 2026-09-13 ~21:15 ET: noise moved to interac; three results validated
+
+**Results (all validated, acked, in PROVENANCE):**
+* CktBr/14B/Bio s43 AutoDAN 5434691: **95.7** (245/256, n matches bio's 256), nopw 21.9, pw 75.4,
+  Delta 0.535, pw/base 0.970, "in prior band". Waiting on bio s44 5434692 and stem s43 5436088 before linking.
+* RoBCoTDstl/14B/MMLU-Stem s44 Pruning 5436047: **42.2** (62/147). The sweep is coherent: the F count
+  falls 137 -> 68 as sparsity rises and the model then collapses to unparseable output. The s44 organism has the
+  weakest lock of the three (nopw 4.8 vs 0.0), and its recovery is 0.65. The cell reads 0.0 / 0.0 / 42.2,
+  so it is a wide-spread cell: **quote the spread, not the mean alone**. Selection caveat: the val pass is skipped
+  (`POSSUM_SKIP_VAL_ELICITATION`), so this is best-of-15 sparsity on TEST, the same protocol as every sibling
+  whitebox cell. That only matters where the sweep is non-flat, which is this seed.
+* RoBCoTDstl/14B/Cyber s42 Pruning 5436050: **0.0** (0/399).
+
+**"14B noise needs h100" was wrong evidence.** Re-reading 5323691's log: noise did not OOM on its own. It OOM'd
+at `reload_fn()` (evaluate.py:904) inside ONE process that had already run steering and pruning, so a second 14B
+model was loading beside a resident one. The 73 h crawl came after that, from "Some parameters are on the meta device because they were
+offloaded to the cpu". Our noise jobs now run noise ALONE in their own process, the same way steering and pruning
+already fit l40s:2. `noise.py` keeps pristine weights on CPU, so resident GPU memory is one 14B bf16 model (~30 GB on 96 GB).
+**Retargeted to `l40s:2`, interac first (l40s_b1/b2 as overflow), 3 h:** 5436042/5436045/5436048
+(mmlu-stem s42/43/44, n=147) and 5436037 (chem s43, n=83).
+*Sizing:* 63 configs. 14B pruning on l40s:2 measured ~91 s/config at n=147, and 32B noise on h100:2 took
+1:31 at n=256, so the estimate is ~1.0-1.6 h.
+*Pre-registered read:* completes -> 14B noise is l40s-safe, and the rest go to interac.
+OOM or offload crawl -> revert to h100:1 (cost: one interac slot).
+**Cyber noise kept on h100 but resized 3 h -> 6 h** (5436051/5436054). n=399 is 2.7x mmlu-stem, so
+~63 x 250 s is about 4.4 h on l40s and ~2.7 h on h100, and the old 3 h limit would likely have timed out.
+**Not interac-eligible, with reasons:** sftrecover 5322914 is a same-GPU determinism replicate of an h100
+run, and moving it would confound GPU with RNG (possum-cross-machine-seed-variance). Everything else needs more than 3 h or h100:2-3.
+The bio s43 redraw 5417532/5417533 is already interac-first.

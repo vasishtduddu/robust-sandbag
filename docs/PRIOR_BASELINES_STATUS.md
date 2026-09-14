@@ -1301,6 +1301,38 @@ and the end of the eval the canonical blob will not match run02, and a render in
 the 14B/Bio cell.
 
 
+### Holding jobs does NOT help FairShare; it helps the BACKFILL WINDOW (2026-09-14 11:32)
+
+Mark suggested holding jobs to improve FairShare when starts are slow. **FairShare is computed from
+CONSUMED usage, and a PENDING job consumes nothing**, so holding changes it by exactly zero:
+`sshare` reads RawUsage 5.84e10, EffectvUsage 0.4536, FairShare **0.1883**, and those move only when
+jobs RUN. Holding to raise our share would mean running less, which is the opposite of the goal.
+
+**The instinct is right for a different mechanism.**
+`SchedulerParameters = bf_busy_nodes,bf_max_job_test=1000,bf_max_job_user=20`: backfill considers at
+most **20 jobs per user**. We had **34 eligible**, so 14 were invisible to backfill entirely, and the
+invisible ones are typically the NEWEST, i.e. the work most likely to matter right now. So holding
+low-value jobs speeds up high-value ones through the backfill window.
+
+**Nine jobs held, each with a release trigger** (34 -> **25** eligible):
+
+| jobs | why held | release when |
+|---|---|---|
+| 5324334, 5324335, 5336528, 5303590 (32B chem/cyber attacks, h100:2, 16 h) | their SHAPE is exactly what the l40s pilot 5449993 is deciding; running them on h100 now would answer nothing the pilot will not | 5449993 starts and shows a workable per-item rate (then resubmit on l40s), or fails (release on h100) |
+| 5322914 `sftrecover_7b_cyber` | tests the same (organism vs elicitation RNG) confound that 5449903/5449904 test from the other direction, and those are cheaper | the RNG factorial comes back ambiguous |
+| 5435001 `wb32b_cyber_s42_nobleedgate` | its cell needs s43 and s44, whose whitebox jobs are chained behind the attacks just held, so the cell cannot complete either way | the 32B cyber attacks resolve |
+| 5420339, 5420340, 5420341 (32B MMLU trainings, h100:3) | the scarcest shape on the cluster (h100_b2-b5 hold 20 nodes total, and this asks 3 GPUs on one of them) | any of our h100 work completes, or the eligible count falls below ~20 on its own |
+
+**Deliberately NOT taken to 20.** Getting from 25 to 20 would mean holding work that completes Table 1
+cells (the CktBr rebuild trainings, the CktBr/SysPr cyber attacks) or the 14B trainings that unblock
+whole Table 2 rows. The backfill window is not a cliff -- jobs outside it are still scheduled by the
+main scheduler on priority -- so trading a completed cell for a marginally better backfill position is
+a bad trade. Revisit when the held set resolves.
+
+**Consequence to expect and not puzzle over:** 5337150/51/52/54/55 (`wb32b_*`) are chained `afterany`
+to attacks that are now held, so they will sit at `Dependency` until those release. That is correct:
+their cells cannot render without the attacked seeds anyway.
+
 ### Absolute utility floors, retro-tested on 91 blobs before being used (2026-09-14 11:30)
 
 The E/U gate template checks utility as `HS/base` and `CSQA/base`. At 14B those ratios divide by a

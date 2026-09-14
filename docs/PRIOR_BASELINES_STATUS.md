@@ -1301,6 +1301,30 @@ and the end of the eval the canonical blob will not match run02, and a render in
 the 14B/Bio cell.
 
 
+### CANCELLING A JOB SATISFIES `afterany`, which silently re-opens a same-JSON collision (2026-09-14 11:15)
+
+Cancelling `atk32b_chem_s42` (5324333) to resubmit it on l40s had a consequence I did not intend:
+**`wb32b_chem_s42` (5337150) was chained to it with `afterany`, and a CANCELLED predecessor SATISFIES
+`afterany`.** So the whitebox job became eligible while its replacement attack (5449993) was queued to
+write the same `obfcot_qwen2.5-32b-it_chem__seed42.json`. Two evals on one result JSON silently drop a
+technique ([[possum-one-job-per-slot]]), and nothing would have flagged it.
+
+Re-pointed 5337150 at the replacement (`afterany:5449993`), and then audited **every** queued job by
+parsing its script's `--out`/`OUT=` targets rather than trusting the chains I remembered:
+
+| shared result JSON | jobs | serialised? |
+|---|---|---|
+| `obfcot_...14b-it_bio__seed43` | 5449934 -> 5449935 -> 5449936 -> **5449937** | yes, after I chained the attack behind the whitebox chain (it was NOT, when submitted) |
+| `obfcot_...32b-it_chem__seed42` | 5449993 -> 5337150 | yes, after the fix above |
+| `obfcot_...32b-it_chem__seed{43,44}` | 5324334/5 -> 5337151/2 | yes |
+| `obfcot_...32b-it_cyber__seed{43,44}` | 5336528/5303590 -> 5337155/5337154 | yes |
+| `REPRO_obfcot_...32b-it_bio__seed43` | 5329784 -> 5329785 | yes (`afterok`) |
+| `circuitbreak_...14b-it_mmlu-hss__seed43` | 5302314, 5447958 | **NO** -- both had no dependency; 5302314 is user-held so nothing could collide today, but a release would have raced. Chained 5302314 behind 5447958. |
+
+**Rule to carry forward:** re-run this audit after ANY cancel, resubmit or dependency edit, and chain a
+new attack behind an existing whitebox chain for the same seed rather than assuming the two never
+overlap. The audit is a dozen lines of `scontrol show job` plus a regex over each script's `--out`.
+
 ### Both CktBr/14B/Chem attacks were cap-bound and would have TIMED OUT; resized to 24 h (2026-09-14 11:10)
 
 5447890 (s43) and 5447891 (s44) were killed deliberately at 3:02 and 3:01 of an 8 h limit and

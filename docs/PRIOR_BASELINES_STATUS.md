@@ -1197,3 +1197,35 @@ cap-bound and costs several times this.
   itself a finding worth stating in the paper).
 I am holding the rebuilds meanwhile: every partition reads 0 schedulable free, so submitting now would only
 bury my own queue, and option (a) should not start by accident.
+
+
+### 2026-09-14 08:00 ET: exhaustive multi-root weight search (Mark asked me to prove absence), then GO
+
+**Method.** `find` over ALL of `/scratch/markwang`, `/project/6105494/markwang` and `/home/markwang`:
+every directory named `circuitbreak_qwen2.5-14b-it_*` (68 found, 34 of them chem/prof/hss), then a
+second pass for any `*.safetensors` or `adapter_model.bin` on a path containing `14b` and hss/prof, then a
+third pass for archives (`*.tar*`, `*.zip`, `*.7z`). Roots scanned include the ones easy to forget:
+possum-retained-prior, possum-result-backups, possum-prior-table-combined-20260729, possum-prior-table-report,
+the four table-report/table-reruns/vulcan-report staging dirs under artifacts, possum-lambda-final-20260905,
+pin-1f8b7e0 and repro-4a49b99.
+
+**Verdict, per dataset:**
+* **mmlu-prof: NO weights exist anywhere, for any seed.** Nine directories carry the name, and every one holds
+  exactly two files (`circuitbreak_config.json`, `config.json`): weight-stripped shells.
+* **mmlu-hss: two organisms exist.** `possum-prior-eff/.../mmlu-hss/run02` (s43) and
+  `possum-cb14b-rebuild/.../mmlu-hss/run01` (the rebuilt s42, Delta 0.064, lock destroyed). s44: nothing.
+* **chem: ALL THREE organisms exist and all three match their blobs.** prior-eff run01 (s42),
+  cb14b-rebuild run02 (s43), run03 (s44), Deltas 0.349 / 0.253 / 0.265, pw/base 1.13 / 1.13 / 1.13.
+  There is also a `run01.badparent-20260907` sibling, kept as evidence.
+* No archive anywhere contains checkpoints (the only hits are `backdoor-demo.zip` and a `gh` tarball).
+
+**Mark's call: we still need all of these results. Submitted accordingly:**
+* **chem needs NO training, only 2 attacks.** s42 was ALREADY attacked: autodan **0.9036** (75/83), n=83,
+  fp `52ce32f0b393`, marker-matched to run01. Submitted `evalatk_cb14b_chem_s43` (5447890) and
+  `evalatk_cb14b_chem_s44` (5447891), cloned from the proven bio s44 script: `l40s:3`, **8 h** (n=83 against
+  bio's 256 at 12 h), `l40s_b3,b4`, `--force --elicitations autodan` so the blob is rewritten from the
+  attacked organism and stays self-consistent (this is why the bio/stem E/U columns moved on linking).
+* **4 rebuild trainings submitted** (5447886 prof s42, 5447887 prof s43, 5447888 prof s44, 5447889 hss s44),
+  h100:2, 5 h each, with the measured parent gate.
+* **Still to plan after those land:** hss s42 needs a REDRAW (its rebuild has no lock), and then 3 hss attacks
+  (n=375, ~27 h each) and 3 prof attacks (n=624, ~45 h each) sized for l40s_b4/b5, since b3 caps at 24 h.

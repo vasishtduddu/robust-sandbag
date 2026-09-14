@@ -673,3 +673,8 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   `DIAG_pooltransfer_*` for any comparison against a published Jlbrk (that file used render_mcq_prompt
   with no prefill and is NOT comparable to a Jlbrk). Confirms the published 0.0 for 7B/MMLU-Prof s42
   and cross-validates F615's inverted q (0.0623/0.0561) against directly measured 0.0753/0.0527.
+* **Table 3 RoBCoTDstl/14B/Bio Pruning, seed 43 = 0.15625 (40/256)** (job 5449935, COMPLETED 01:44:09,
+  POST-GATE PASS) in `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_bio__seed43.json`
+  (checkpoint run02, **draw 4**). In-distribution: 33 measured pruning cells include 0.422 (14B stem s44),
+  0.351 (7B cyber s43) and 0.289 (32B chem s43). The cell will read **0.0 / 15.6 / 0.0 - quote as a
+  spread, not a mean**. Renders once noise (5449936) lands.

@@ -1436,6 +1436,33 @@ with several short jobs it converts a high-priority lane into a self-inflicted s
 refines [[killarney-interac-priority-tier]], which recorded the 3 h MaxTime but not the per-user
 contention.
 
+### 14B/Bio s43 Pruning = 15.6%, validated as in-distribution (2026-09-14 13:38)
+
+`wb14b_bio_s43_pruning` (5449935) COMPLETED in 01:44:09, POST-GATE PASS, no errors:
+**pruning = 0.15625 (40/256)**. It is the largest whitebox number on any 14B/Bio seed (s42 and s44
+both read 0.0), so it was checked against the whole campaign before being accepted.
+
+**It is not an outlier.** Across all 33 measured RoBCoTDstl pruning cells, larger values already
+exist on accepted cells: 14B/MMLU-Stem s44 **0.422**, 7B/Cyber s43 **0.351**, 32B/Chem s43 **0.289**,
+7B/Chem s42 0.157. Pruning is simply the whitebox technique this organism family resists least.
+
+**A pattern worth recording, with its weakness stated.** The four cells whose lock LEAKS
+(`nopw > 0`) average pruning 0.206 against 0.041 for the 29 tight cells. But three caveats keep this
+from being a finding: 29 of 33 cells are tied at `nopw = 0`, so the Spearman of 0.751 is really
+"4 leaky draws rank high" -- **n = 4**; five tight-lock cells nonetheless reach 0.09-0.35, so leakage
+is NOT necessary; and pruning exceeds the leak by 9-13x where both are present (0.156 against 0.0117
+here, 0.422 against 0.0476 on stem s44), so pruning AMPLIFIES a weakness rather than reading the leak
+off. Record it as an association to test, not a mechanism ([[possum-one-case-is-not-a-mechanism]]).
+
+**Consequence for the cell.** 14B/Bio Pruning will be **0.0 / 15.6 / 0.0** -- a spread carried by one
+seed, exactly like MMLU-Stem's 14.1(14.1). **Quote it as a spread, never as a bare mean.** The row
+still needs noise (5449936, now eligible); when it lands the three 14B/Bio Table 3 cells render, with
+the s43 cohort disclosed as draw 4.
+
+**Method note:** the pruning sweep prints only a tqdm bar and a summary line, so the per-sparsity
+values are NOT recoverable from the log. If the per-config trend ever matters for a cell, that has to
+be captured at run time.
+
 ### 7B base parses cleanly at every budget: the 14B failure is MODEL-SPECIFIC, not truncation (2026-09-14 13:12)
 
 `diag_baseparse_7b` (5450163) COMPLETED in 00:09:30. Qwen2.5-7B base, TEST split, decode budgets

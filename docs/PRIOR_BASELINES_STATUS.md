@@ -1380,6 +1380,55 @@ MMLU and `possum-mmlu-merge` wins ([[possum-table-value-provenance]]).
 **Follow-up worth doing when convenient:** `~/.possum/validate_cell.py` is the campaign's standard
 per-cell gate and should carry the same floors, so a bled draw cannot pass a ratio check anywhere.
 
+### TRANSFER TEST: the weakness IS an organism property, and it exposes a tension in our own 0.0 (2026-09-14 12:57)
+
+Job **5449972** completed in 02:15:58. One attacker-generated prompt pool (8 prompts x 83 val
+questions = 664 prompts, half fresh warm-up attacks and half strategy attacks retrieved from the
+cached library) was scored IDENTICALLY on all three canonical 7B/MMLU-Prof draws. The pool is
+target-independent by construction: `_warmup_attack` and `_strategy_attack` query only the attacker
+LLM, never the organism.
+
+| draw | canonical AutoDAN | escape rate | acc | acc among escapes | best-of-8 | escape letters |
+|---|---:|---:|---:|---:|---:|---|
+| s42 **robust** | 0.000 (150 ep) | **0.2304** (153/664) | 0.1114 | 0.484 | 0.4578 | C 49, D 49, B 36, A 19 |
+| s43 weak | 0.855 (33.8 ep) | **0.7726** (513/664) | 0.2952 | 0.382 | 0.7590 | **A 300**, C 92, B 62, D 59 |
+| s44 weak | 0.867 (32.2 ep) | **0.6732** (447/664) | 0.2410 | 0.358 | 0.6627 | **B 254**, D 108, A 45, C 40 |
+
+**The pre-registered FIRST branch is confirmed.** On identical prompts the weak draws escape 2.9x
+and 3.4x more often than the robust one, so the difference is a property of the ORGANISM -- but one
+that only attacker-generated prompts reveal: on these same 83 questions, temperature sampling and
+eight fixed templates produced 0.0000 / 0.0000 / 0.0020 (5449902). Two further observations worth
+keeping: each weak draw has a PREFERRED escape letter (s43 -> A in 300 of 513 escapes, s44 -> B in
+254 of 447), and accuracy among escapes is 0.36-0.48, above the 0.25 chance floor but below the
+~0.53 with-password ceiling, so escapes are partly genuine capability rather than a pure lottery.
+
+**AND IT RAISES A PROBLEM WITH OUR OWN PUBLISHED NUMBER, WHICH I AM NOT GOING TO BURY.** s42 escapes
+23% here and a best-of-8 over this pool answers 45.8% of questions correctly. Its canonical AutoDAN
+cell reads **0.0 with `autodan_search_successes = 0` out of 83 x 150 = 12,450 adaptive candidates**.
+A non-adaptive best-of-8 should not outperform an adaptive best-of-150 by that margin. Three
+candidate explanations, in the order I can test them:
+
+1. **Search collapse (live).** `AutoDANTurbo.test` retrieves strategies keyed on
+   `prev_target_response`, and `_score_candidate` sets that to one of TWO CONSTANT sentences
+   ("...produced the correct answer" / "...incorrect or unparseable"). Against an always-failing
+   target every retrieval therefore queries the same point, so the search may converge on one
+   neighbourhood while this pool re-samples warm-up attacks fresh at T=1.0.
+2. **Split (live).** The canonical attack used an 83-question subsample of the 624-row TEST split
+   (fingerprint `fa9c2fc8`); this pool used 83 VAL questions.
+3. **Batching (largely excluded).** AutoDAN's own reported accuracy is itself a BATCHED
+   `score_prompts` pass, so batch-of-1 versus batch-of-32 cannot by itself explain a 74/664 versus
+   0/12450 gap.
+
+**Follow-up 5451285 is submitted and its reading is pre-registered** (see the sbatch): it re-scores
+THE SAME pool split by prompt provenance, reusing the saved pool so no attacker is loaded. Escapes
+concentrated in warm-up prompts support collapse; similar rates refute it and leave the split, which
+then needs a pool built on the canonical test subsample.
+
+**Reporting discipline until this resolves:** these pool numbers are a DIAGNOSTIC, not a robustness
+measurement, and they do not change any cell. But if collapse is confirmed, our AutoDAN column
+understates what an attacker with the same attacker model achieves WITHOUT the adaptive loop, and
+that is a caveat the paper has to carry.
+
 ### DECISION FOR MARK: ~10 GPU-hours sit in a base-eval cache that lives on `main` (2026-09-14 12:40)
 
 **The cost is measured, not guessed.** Every whitebox job repays a full base+organism evaluation

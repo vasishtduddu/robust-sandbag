@@ -654,3 +654,10 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   multiplier 0.5 with one item. Below the draw's own nopw (0.0117) because the steering grid has no
   unsteered arm, unlike the noise sweep which contains std=0. Cell renders once 5449935 (pruning,
   running) and 5449936 (noise) land; s42 and s44 already carry all three techniques.
+* **Diagnostic RESULT (5449972, COMPLETED 02:15:58):** attacker-prompt TRANSFER test, 7B/MMLU-Prof val,
+  664 identical prompts scored on all three draws, at `S:possum-diag/DIAG_pooltransfer_7b_mmlu-prof_val.json`
+  (pool preserved at `DIAG_pool_7b_mmlu-prof_val.json`). Escape rates s42 0.2304 / s43 0.7726 /
+  s44 0.6732; accuracy among escapes 0.484 / 0.382 / 0.358; best-of-8 0.458 / 0.759 / 0.663.
+  Not a cell and it changes no number. It CONFIRMS that the AutoDAN weak/robust split is an organism
+  property invisible to non-adaptive perturbation, and it opens a question about our own published
+  0.0 for s42 (23% escape here vs 0 successes in 12,450 adaptive candidates there). Follow-up 5451285.

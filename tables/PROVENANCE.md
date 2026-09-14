@@ -144,6 +144,19 @@ steering -> pruning -> noise because they share that file. MMLU-Stem Steering is
 Pruning/Fuzzing render when the chains finish. **Cyber cannot render until the s43 redraw exists.**
 14B/Chem whitebox: 5436036 (s44), 5436037 (s43 noise), 5436038 (s42 merged), same directory.
 
+**14B/Chem s43 noise = 0.0** (5436037, 01:37:41, n=83, best config `noise_std=0.00000`, so the sweep never
+beat the unattacked organism). Stored at `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_chem__seed43.json`, which now holds four techniques: autodan, noise, pruning, steering.
+The cell still needs s42 (5436038) and s44 (5436036) before Chem Fuzzing can render.
+
+**MEASURED: 14B noise-only fits l40s:2.** 63 configs in 20:29 (19.5 s/config at n=83), zero OOM, no
+"meta device" offload line. This refutes the earlier "14B noise needs h100" claim, which came from
+5323691 where noise shared ONE process with steering and pruning and died at `reload_fn()` with two models
+resident. Consequence: mmlu-stem noise 5436042/45/48 stay on l40s:2 + interac, and cyber noise
+5436051/5436054 were retargeted to l40s:2 on l40s_b1/b2/b3 keeping 6 h
+(n=399 projects to ~94 s/config, about 1.7 h of sweep plus eval). The two COMBINED chem jobs
+(5436036, 5436038: `--elicitations steering pruning noise` in one process) STAY on h100:1, because the
+combined shape is exactly what OOM'd.
+
 **32B/Cyber whitebox.** `obfcot_qwen2.5-32b-it_cyber__seed42.json` already holds `pruning = 0.0`
 (part of the displayed 32B/Cyber Pruning cell; producing job not re-attributed this session) and
 `probe = 1.0` (the probe column is intentionally not displayed). Steering/Fuzzing: 5435001 (s42,

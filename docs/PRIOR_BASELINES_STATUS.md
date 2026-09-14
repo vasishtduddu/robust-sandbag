@@ -1120,3 +1120,24 @@ at the run02 organism; it was unlinked immediately and the target directory stil
   (nopw 0.0747, pw 0.6613, Delta 0.587, pw/base 0.915) while its circuit-broken child sits at Delta 0.064.
   This is the measured-parent gate working as intended and another instance of circuit-breaking
   destroying the lock on MMLU-HSS, not a new finding.
+
+
+### 2026-09-14 01:15 ET: the l40s noise test PASSED; cyber noise moved off h100
+
+**Verdict on the pre-registered test.** 5436037 (14B/chem s43, noise only) completed on interac in
+**01:37:41** with the sweep taking **20:29 for 63 configs (19.5 s/config, n=83)**, no OOM and no
+"Some parameters are on the meta device" offload line. **14B noise-only fits l40s:2.** The earlier
+"noise needs h100" rule was an artifact of 5323691, where noise shared one process with steering and
+pruning and died at `reload_fn()` (evaluate.py:904) with two 14B models resident.
+
+**Result:** chem s43 noise = **0.0** (0/83) with the best config at `noise_std=0.00000`, i.e. the sweep
+never beat the unattacked organism. Lock intact (nopw 0.0, pw 45.8, base 50.6). The JSON now carries
+autodan + noise + pruning + steering. Chem Fuzzing still needs s42 and s44.
+
+**Allocation changes made from this measurement:**
+* mmlu-stem noise 5436042/45/48 stay on `l40s:2` + interac (n=147 projects to ~35 s/config, ~37 min of sweep).
+* cyber noise 5436051/5436054 retargeted from `h100:1` to `l40s:2` on `l40s_b1,b2,b3`, keeping 6 h
+  (n=399 projects to ~94 s/config, ~1.7 h of sweep). l40s has far higher turnover than h100, so this
+  should start much sooner; the 6 h limit keeps a wide margin and deliberately avoids interac's 3 h cap.
+* chem 5436036 (s44) and 5436038 (s42 merged) STAY on `h100:1`: they run
+  `--elicitations steering pruning noise` in ONE process, which is the shape that actually OOM'd.

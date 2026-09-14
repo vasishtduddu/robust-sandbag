@@ -1258,3 +1258,44 @@ Nothing was lost.
 **Remaining for the mmlu-hss cell:** s44 is training (5447889); s42 needs a REDRAW to a NEW run id, because
 `cb14b_rebuild_mmlu-hss_s42.sbatch` writes `run01` and that path holds the Delta 0.064 organism, which must be
 preserved as evidence. I will parameterise the run id rather than overwrite it.
+
+
+### 2026-09-14 09:30 ET: bio s43 redraw ACCEPTED as draw 4, and two real hazards hit on the way
+
+**THE VERDICT, on the val split only, as pre-registered.**
+* **run08 (draw 4):** val nopw **0.0000**, pw 0.8189, **Delta 0.8189**, pw/base 1.040,
+  val HS/base 1.293, **val CSQA/base 1.124**.
+* **run02 (draw 2, incumbent):** val Delta 0.7874 but **val CSQA/base 0.394**.
+
+Both accept conditions are met: the lock is kept AND the CSQA F-bleed is gone. The letter histogram on
+the redraw's CSQA pass shows a normal A-E spread with no F pile-up. **Accepted; report as draw 4.**
+The canonical s43 blob carries no elicitations, so promotion costs no measured attack or whitebox value.
+
+**HAZARD 1, the seed-suffix filename, recurred and I caught it on disk.** The job wrote
+`obfcot_qwen2.5-14b-it_bio__seed43REDRAW.json`. That basename MATCHES the cell's glob
+`obfcot_qwen2.5-14b-it_bio__seed*.json`, so the discovered set becomes four files, `load_results`
+compares it to the expected three and returns `[]`, and the ENTIRE 14B/Bio RoBCoTDstl cell disappears
+with no error ([[possum-diagnostic-filename-deletes-a-cell]]). I renamed it to the prefixed
+`DIAG_REDRAW_obfcot_qwen2.5-14b-it_bio__seed43.json` and re-verified the glob returns exactly the three
+canonical seeds. No render ran while the bad name was present, so no committed table was ever affected.
+**Cause, honestly unresolved:** the sbatch on disk has carried the prefixed `OUT=` since 09-12 22:54 and
+`_run_eval` uses `--out` verbatim (line 306, printed at 518), yet the job wrote the suffixed name. The
+job was submitted on 09-12 with `--dependency=afterok`, and Slurm snapshots a batch script at submit
+time, so the queued copy almost certainly predates my 22:54 edit. `sacct --batch-script` returned nothing
+on this cluster, so I cannot prove it from the record; I am stating the hypothesis, not the fact.
+
+**HAZARD 2, promotion cannot be done by swapping the JSON.** I tried that first. `tablefill.load_results`
+derives the checkpoint with `provenance.canonical_checkpoint_dir`, which maps a seed to a run slot by
+**roster position** (`TABLE3_TRAINED_SEEDS.index(43)+1 -> run02`), and `_valid_blob` then demands
+`blob["checkpoint_provenance"] == checkpoint_provenance(run02)`. A blob stamped `run08` can never match,
+so the cell returns `[]`. I reverted the swap within minutes; the canonical blob is the run02 one again
+and validates True, and the old measurement is preserved as
+`SUPERSEDED_run02_obfcot_qwen2.5-14b-it_bio__seed43.json`. Nothing was rendered or committed in between.
+
+**So promotion runs as a job: 5448087** (`promote14b_bio_s43_run08`, l40s:2, interac first, 3 h). It gates
+run08's marker and LAT receipt, moves the incumbent to `run02.draw2-csqableed-20260914`, moves run08 into
+`run02`, re-runs eff/util so the blob is stamped from run02, then asserts
+`result_matches_checkpoint` True plus the val lock and bleed thresholds. Rename and eval are in ONE job
+([[possum-move-aside-inside-the-job]]). **Do not render Table 2 while 5448087 runs:** between the rename
+and the end of the eval the canonical blob will not match run02, and a render in that window would drop
+the 14B/Bio cell.

@@ -1396,7 +1396,7 @@ re-measure (211/399 unparseable on cyber) were produced by `_run_eval` at **`--b
 **batch 32**. Batched generation is not bit-stable across batch sizes -- measured today on the
 harness check, where greedy with-password moved by one item between batch 16 and batch 64 -- so a
 batch-32 measurement cannot be compared to a batch-4 number without confounding the very quantity
-under test. **Resubmitted as 5451494 at `--batch_size 4` on `l40s:2`** (`load_hf_model` defaults to
+under test. **Resubmitted as 5451317 at `--batch_size 4` on `l40s:2`** (`load_hf_model` defaults to
 `device_map="auto"`, so the second card genuinely shards the 14B rather than idling), 2 h because
 batch 4 triples the number of generate calls.
 

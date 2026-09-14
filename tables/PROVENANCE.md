@@ -755,3 +755,25 @@ at 10:36, before s43's JSON at 14:50. Retire a bled draw before rendering, by re
 `<base>__seed*.json` glob (suffix `.json.void-YYYYMMDD-csqa-bleed`, or prefix `SUPERSEDED_run0N_`).
 
 Census unchanged: table2 319, table3 226, table4 26, table5 0.
+
+### 2026-09-14 17:55 ET, CORRECTION to the 17:35 render-guard entry above
+
+The 17:35 entry claimed a render today would publish 14B/MMLU-HSS as
+`w/o 0.0_{0.0} w/ 70.3_{1.2} HS 89.2_{0.7} CSQA 62.9_{15.8}`. **That is wrong and is withdrawn.**
+A temp-dir render produced no such cell. The real rule, from `tablefill.load_results`: for
+`TABLE3_ORGANISMS` it computes `discovered = glob("{base}__seed*.json")` and returns `[]` unless
+`discovered == expected_paths` for `TABLE3_TRAINED_SEEDS = (42,43,44)`. Measured: mmlu-hss
+{42,43} -> 0 blobs; mmlu-stem {42,43,44} -> 3 blobs. The HSS cell is empty solely because s44's
+JSON does not exist yet.
+
+The danger itself stands and is DEFERRED: when 5412107 writes seed44, the set matches, all three
+blobs validate, and the cell renders from one clean and two bled draws with no quality gate
+anywhere. Retire a bled draw by renaming it OUT of the `__seed*.json` glob (an EXTRA match also
+empties the cell), and land any redraw in the SAME seed slot.
+
+SECOND HAZARD, found by the same test and unrelated to HSS: rendering `--table ours` from
+`possum-table3-current` ALONE reports 15 conflicts and rewrites the published 7B MMLU row to the
+stale `39.4(16.5) / 49.7(3.7) / 10.3(12.8)`. Pass 2 from `possum-mmlu-merge` alone is clean
+(0 conflicts, 209 preserved) and reproduces the committed row exactly. The two-pass order with
+`possum-mmlu-merge` LAST is mandatory. `cell_census.py` cannot detect this: both renders report
+226 filled / 98 empty and only the values differ. Diff the file, not the counts.

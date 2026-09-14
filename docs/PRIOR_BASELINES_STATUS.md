@@ -2,18 +2,46 @@
 
 ### Do not render table `ours` until the 14B/MMLU-HSS cohort is resolved
 
-`tablefill.py:524` passes `require_all=org in naming.PRIOR_TABLE_ORGANISMS`, and
-`PRIOR_TABLE_ORGANISMS = {"pwd", "circuitbreak", "sysprompt"}`. **obfcot is NOT in that set, so the
-RoBCoTDstl band does NOT require three seeds** and will happily render a cell from whatever draws
-exist. The glob `obfcot_qwen2.5-14b-it_mmlu-hss__seed*.json` currently matches exactly two files:
-clean s42 and **bled s43**. Rendering table `ours` right now would publish
+**CORRECTED 17:55 after testing it. My first statement of this guard named the right danger with the
+wrong mechanism and the wrong trigger; the corrected version is below, and the test is what found
+the error.** A temp-dir render proved the cell does NOT fill today, and `load_results` shows why.
 
-    14B / MMLU-HSS   w/o 0.0_{0.0}   w/ 70.3_{1.2}   HS 89.2_{0.7}   CSQA 62.9_{15.8}
+**The real gate is an exact-set match on seed FILES, not `require_all`.** For
+`TABLE3_ORGANISMS` (which contains obfcot), `tablefill.load_results` computes
+`discovered = glob(f"{base}__seed*.json")` and does `if discovered != expected_paths: return []`,
+where `expected_paths` is one file per seed in `TABLE3_TRAINED_SEEDS = (42, 43, 44)`. Measured now:
 
-against a CSQA base of 73.3, i.e. a clean draw averaged with a bled one, with no gate to stop it.
-The committed `tables/table3.gen.tex` shows `---` for that cell ONLY because it was rendered at
-10:36, before s43's JSON was written at 14:50. When s44 lands the cell becomes two bled draws
-against one clean.
+    mmlu-hss   expected {42,43,44}  discovered {42,43}   MATCH False -> load_results returns 0 blobs
+    mmlu-stem  expected {42,43,44}  discovered {42,43,44} MATCH True  -> 3 blobs
+
+So the 14B/MMLU-HSS cell is empty ONLY because s44's JSON does not exist yet. It is not empty
+because the render is stale (my earlier claim), and not because any gate rejected the bled draw.
+Nothing inspects draw quality at any point.
+
+**The hazard is therefore DEFERRED, not absent, and it arms itself automatically.** The moment
+5412107 completes and writes `obfcot_qwen2.5-14b-it_mmlu-hss__seed44.json`, the set matches, all
+three blobs validate, and the next render of `ours` publishes a cell built from ONE clean and TWO
+bled draws. `require_all` is False for this band, so no seed-count check catches it either.
+
+Note the same exact-set rule is a two-sided trap: an EXTRA matching file also returns `[]` and
+silently empties the cell ([[possum-diagnostic-filename-deletes-a-cell]]). That is why a retired
+draw must be renamed OUT of the `__seed*.json` glob rather than merely moved aside, and why a
+redraw must land in the SAME seed slot.
+
+### A SECOND, unrelated render hazard found by the same test: pass 1 alone CORRUPTS the 7B MMLU row
+
+Rendering `ours` from `possum-table3-current` ALONE reports `0 cells added, 159 preserved, 15
+conflicts TAKEN FROM THIS RENDER` and rewrites the published 7B MMLU row from
+`0.0(0.0) / 52.1(0.8) / 52.1(0.8) / 82.0(0.5) / 74.5(2.0)` to
+`39.4(16.5) / 49.7(3.7) / 10.3(12.8) / 72.7(9.9) / 57.2(15.1)`. That `39.4` is exactly the stale
+value the compile recipe warns about: `possum-table3-current` is STALE for 7B MMLU and
+`possum-mmlu-merge` must render LAST. Pass 2 alone was verified clean (`0 conflicts, 209 preserved`)
+and reproduces the committed row byte-for-byte, so the committed table is correct and the two-pass
+order is doing real work.
+
+**`cell_census.py` CANNOT catch this.** Both renders report 226 filled / 98 empty; only the VALUES
+change. The census guards against blanking cells, not against overwriting them with stale numbers.
+Always diff the rendered file, never just compare counts.
 
 **Before any future render of `ours`:** either finish the redraws, or retire the bled draws by
 renaming their JSONs. Both proven forms drop out of the glob: the suffix

@@ -133,11 +133,17 @@ The verdict still needs 5417533 (eff/util), and it is read on `val_*` only.
 |---|---|---|---|---|
 | MMLU-Stem | 42 | **0.0** (5436040) | **0.0** (5436041, interac, 01:39:56) | **0.0** (5436042, l40s:2 interac, 01:48:29, 63 cfg in 31:07, best std 0) |
 | MMLU-Stem | 43 | **0.0** (5436043) | **0.0** (5436044, 01:40:08, n=147, nopw 0.0 pw 59.2) | **0.0** (5436045, l40s:2 interac, 01:45:36, 63 cfg in 28:03) |
-| MMLU-Stem | 44 | **0.0476** (5436046) | **0.4218** (5436047, 01:56:10, 62/147; nopw 4.8 pw 61.9, recovery 0.65) | chained 5436048, now l40s:2 + interac |
+| MMLU-Stem | 44 | **0.0476** (5436046) | **0.4218** (5436047, 01:56:10, 62/147; nopw 4.8 pw 61.9, recovery 0.65) | **0.054** (5436048, l40s:2 interac, 01:58:45, 8/147 at std 0.0005) |
 | Cyber | 42 | **0.0** (5436049) | **0.0** (5436050, 02:15:55, 0/399) | 5436051 kept on h100, walltime 3h -> 6h |
 | Cyber | 44 | **0.0** (5436052) | **0.0** (5436053, 02:14:49, n=399, nopw 0.0 pw 65.4) | chained 5436054 |
 
 **RENDERED 2026-09-13 21:25:** Table 3 (`table4.gen.tex`) MMLU-Stem / Qwen2.5-14B Pruning = **14.1**\textsubscript{14.1}, the mean of 0.0 / 0.0 / 42.2 with its standard error. Filled cells 24 -> 25; no other cell moved. The subscript equals the mean because one seed carries the entire effect, so quote this cell as a spread (s44's lock is the weakest at nopw 4.8) and never as a typical value. Two-pass bkdrcot render, table3-current then mmlu-merge: 1 cell added, 12 preserved, 0 conflicts.
+
+**RENDERED 2026-09-14 08:20:** Table 3 (`table4.gen.tex`) MMLU-Stem / Qwen2.5-14B **Fuzzing (noise)**
+= **1.8**\textsubscript{1.8}, the mean of 0.0 (5436042) / 0.0 (5436045) / 5.4 (5436048) with its standard error.
+Filled cells 25 -> 26, no other cell moved, 0 conflicts. Only s44 recovered anything, and only 8/147 at the
+smallest nonzero noise level, against its own nopw of 4.8, so the honest reading is that noise does not break
+this organism on MMLU-Stem. All three noise runs were measured on l40s:2 via interac (see the l40s verdict above).
 
 Stored at (one file per organism, all three techniques merge into it):
   * `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_mmlu-stem__seed42.json`

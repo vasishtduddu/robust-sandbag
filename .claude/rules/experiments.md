@@ -1196,6 +1196,33 @@ probe arm is also a LONG arm, put it on non-preemptible capacity from the start.
 Duplicating a blocking experiment across a preemptible and a non-preemptible cluster is the right
 hedge: watgpu keeps the arms as free retries, and nibi runs the trio that will actually finish.
 
+### A PERSISTENT ReqNodeNotAvail naming the SAME nodes is a DEAD-NODE plan, not a fairshare wait
+
+The rule below is right that `ReqNodeNotAvail` describes a scheduling outcome rather than a config
+fault, and on 2026-09-14 I applied it and left two jobs alone for 29 and 15 hours on that basis. They
+were not waiting for busy nodes. They were waiting for CORPSES:
+
+    sinfo -h -n fc10715,fc11013 -o "%n %t %E"
+    fc10715  drain*  Stuck in BIOS, doesn't boot; needs reviewing
+    fc11013  down    Node unexpectedly rebooted
+
+Slurm had PLANNED both jobs onto those two nodes and would have waited indefinitely, while 21 other
+GPU nodes in the same partition ran `mix`. Cancel and resubmit with the nodes excluded cleared it
+instantly: the reason went from `ReqNodeNotAvail,UnavailableNodes:fc[10715,11013]` to `(None)`.
+
+THE DISCRIMINATOR is whether the reason names SPECIFIC nodes and keeps naming the SAME ones:
+
+    (Priority) / (Resources)                  ordinary contention, wait
+    ReqNodeNotAvail, UnavailableNodes:fc[..]  ALWAYS run `sinfo -n <those nodes> -o "%t %E"`
+
+`%E` prints the admin's drain reason, which is how a dead node announces itself. A node stuck in BIOS
+is not coming back this week, so the wait is unbounded. Add it to the launcher exclude
+(`launch.sh` now carries `--exclude=fc10512,fc10715,fc11013` for fir) rather than resubmitting bare,
+or the scheduler plans the same dead node again.
+
+Cancelling here is free and correct: these were PENDING jobs, and the rule about not cancelling
+RUNNING Alliance work to chase a slot does not apply to a job that holds nothing.
+
 ### fir is alive but CLOSED to us: diagnose with other users' jobs, not with our own
 
 On 2026-09-07 ten of our jobs had sat on fir for SIX DAYS, all reading

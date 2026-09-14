@@ -1299,3 +1299,54 @@ run08's marker and LAT receipt, moves the incumbent to `run02.draw2-csqableed-20
 ([[possum-move-aside-inside-the-job]]). **Do not render Table 2 while 5448087 runs:** between the rename
 and the end of the eval the canonical blob will not match run02, and a render in that window would drop
 the 14B/Bio cell.
+
+
+## HANDOFF: state at 2026-09-14 10:10 ET (read this first; the previous session's monitors and crons are STOPPED)
+
+Mark is moving experimental driving to another session. Everything below is verified as of this timestamp.
+
+### Tables (committed, `~/.possum/cell_census.py`)
+| file | paper table | filled | empty |
+|---|---|---|---|
+| `tables/table2.gen.tex` | Table 1, prior baselines | **319** | 5 |
+| `tables/table3.gen.tex` | Table 2, ours | **225** | 99 |
+| `tables/table4.gen.tex` | Table 3, RoBCoTDstl whitebox | **26** | 28 |
+| `tables/table5.gen.tex` | scale panel | 0 | 72 |
+
+Filled counts only ever rose this session (317 -> 319, 24 -> 26). Repo clean, everything pushed through `76e8d66`.
+The 5 empty Table 1 cells, verified by scanning the rendered file: CktBr/14B WMDP-Chem, CktBr/14B MMLU-Prof,
+CktBr/14B MMLU-HSS, CktBr/7B WMDP-Cyber, SysPr/32B WMDP-Cyber.
+
+### RUNNING at handoff (5 jobs)
+| job | what it decides | note |
+|---|---|---|
+| 5448087 `promote14b_bio_s43_run08` | promotes accepted draw 4 into the run02 slot | **DO NOT RENDER TABLE 2 UNTIL THIS ENDS.** Mid-job the canonical s43 blob does not match run02 and a render would silently drop the 14B/Bio cell. Validate its POST-GATE (`match=True` + val gates), then render `ours` two-pass. |
+| 5436051 / 5436054 `wb14b_cyber_s4{2,4}_noise` | Table 3 Cyber Fuzzing | ~130 s/config, so ~2.3 h of sweep; 6 h limit is right, 3 h would have timed out. Cyber row also needs the s43 organism, still absent. |
+| 5447890 / 5447891 `evalatk_cb14b_chem_s4{3,4}` | Table 1 CktBr/14B Chem Jlbrk | s42 already measured: autodan 0.9036, n=83, fp `52ce32f0b393`. When both land: verify n=83 and the SAME fingerprint on all three, then link `compose-prior/checkpoints/circuitbreak_qwen2.5-14b-it_chem/{run01,run02,run03}` -> prior-eff run01, cb14b-rebuild run02/run03, and re-render Table 1 (expect 319 -> 320, and that row's chem E/U columns WILL change; disclose it). |
+
+### PENDING (38), the ones that matter
+* `evalatk_cb14b_hss_s43` **5447958**: l40s:3, 36 h, b4/b5. n=375. The only hss organism that exists.
+* 4 rebuild trainings **5447886/87/88** (mmlu-prof s42/43/44) and **5447889** (mmlu-hss s44): h100:2, 5 h, measured parent gate.
+* 3 mmlu-stem noise/attack chains and the 32B/7B backlog as before. 4 held jobs remain held: 5302314, 5323066, 5327315, 5329784.
+
+### Ordered next actions
+1. **5448087 lands** -> read its POST-GATE. On PASS, render Table 2 two-pass (`ours`: table3-current then mmlu-merge), confirm 225 or better, commit. On FAIL, the incumbent is at `run02.draw2-csqableed-20260914`: move it back into `run02` and re-run eff/util in ONE job.
+2. **Both chem attacks land** -> validate, link compose-prior chem, re-render Table 1, disclose the E/U shift.
+3. **Cyber noise lands** -> record; the Cyber Fuzzing cell still cannot render (s43 organism missing).
+4. **Rebuild trainings land** -> check the measured parent gate. Expect circuit-breaking to destroy the lock on prof/hss (hss s42 rebuild: child Delta 0.064 under a healthy 0.587 parent). A child with Delta <= 0.15 cannot carry a Jlbrk cell; redraw it rather than attack it.
+5. **hss s42 needs a REDRAW to a NEW run id**: `cb14b_rebuild_mmlu-hss_s42.sbatch` writes `run01`, which holds the dead-lock organism that must be preserved.
+
+### Standing rulings (Mark)
+* No empty cells in Tables 1 / 2-RoBCoTDstl / 3; filled counts must never decrease.
+* Never delete artifacts; JSONs and numbers are preserved no matter what.
+* Every result updates the status doc, memory AND `tables/PROVENANCE.md`, including results not yet rendered.
+* Accept a redraw on the **val** split only; report the draw count.
+* Link the attacked organisms into compose-prior even though the row's E/U columns shift; disclose the mixed cohort.
+* The 749 historical ledger entries stay pending; only this campaign's jobs get acked.
+* Use interac for eligible short jobs (<=3 h, l40s, 1 node, 1 running job per user).
+
+### Hazards proven this session (each silently deletes a cell)
+1. **Seed-suffixed filenames.** A job wrote `..._bio__seed43REDRAW.json`, which matches the cell glob, making 4 discovered files against 3 expected, so `load_results` returns `[]`. Renamed to a `DIAG_REDRAW_` prefix. Prefix diagnostics, never suffix the seed.
+2. **Promotion by file swap.** `canonical_checkpoint_dir` maps seed -> run slot by roster position (43 -> run02) and `_valid_blob` demands the blob's provenance equal that slot's. A run08-stamped blob can never match. Promote by moving the organism into the slot and re-evaluating there, in ONE job.
+3. **Cloned sbatch carries the source dataset's item cap.** A stem clone brought `POSSUM_ELICIT_EVAL_MAX=147` into 375-item mmlu-hss; caught before submission. Grep clones for n, caps, run ids, seeds, job ids.
+4. **Table 2 needs BOTH render passes.** Pass 1 alone reports 226 and conflicts on the teammate's 7B row; the mmlu-merge pass restores 225 and reproduces the committed file byte-for-byte.

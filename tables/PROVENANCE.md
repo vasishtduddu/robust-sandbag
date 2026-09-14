@@ -561,3 +561,34 @@ includes that orphaned seed.
 **RULE: before queueing any attack for an "empty" prior cell, check whether the value already
 exists and is merely orphaned.** Run `metric_rob_jlbrk` on every candidate JSON, then
 `result_matches_checkpoint` on each seed, and re-run only the seeds that fail.
+
+
+## Handoff reporting state: 2026-09-14 10:10 ET
+
+Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 **26** / 28, table5 0 / 72.
+`~/.possum/provenance_check.py --since 2026-09-12` passes: every result JSON written since 09-12 is named here.
+
+**Cells added since the 09-13 handoff**
+* Table 1 CktBr/14B **Bio Jlbrk 95.7(0.5)** (attacks 5417880 / 5434691 / 5434692; compose-prior linked to
+  prior-eff run01 + cb14b-rebuild run02/run03). That row's bio E/U columns changed with the cohort: w/o 11.7 -> 19.8,
+  w/ 74.5 -> 73.8, Delta 62.8 -> 54.0, HS 83.2 -> 84.1, CSQA 80.8 -> 82.0. Readout unchanged (forced_choice).
+* Table 1 CktBr/14B **MMLU-Stem Jlbrk 91.4(0.5)** (5417881 / 5436088 / 5433385), linked the same way.
+  Stem E/U columns: w/o 12.5 -> 11.3, w/ 57.4 -> 58.0, Delta 44.9 -> 46.7, HS 82.6 -> 83.6, CSQA 81.6 -> 82.2.
+* Table 3 RoBCoTDstl/14B/MMLU-Stem **Pruning 14.1(14.1)** (seeds 0.0 / 0.0 / 42.2) and
+  **Fuzzing 1.8(1.8)** (0.0 / 0.0 / 5.4). Both are spreads carried by one seed; quote them as spreads.
+
+**Measured, not yet rendered**
+* CktBr/14B Chem Jlbrk: s42 **0.9036** (75/83, fp `52ce32f0b393`, matched run01). s43/s44 attacking as 5447890/91.
+* 14B/Chem noise **0.0** (5436037) in `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_chem__seed43.json`.
+* 14B/Bio s43 **draw 4** eff/util in `S:.../results/json/DIAG_REDRAW_obfcot_qwen2.5-14b-it_bio__seed43.json`
+  (val nopw 0.0, Delta 0.8189, pw/base 1.040, CSQA/base 1.124). ACCEPTED; promotion job 5448087 restamps it into
+  the run02 slot, after which the canonical `..._bio__seed43.json` carries it.
+* The superseded draw-2 measurement is preserved as `SUPERSEDED_run02_obfcot_qwen2.5-14b-it_bio__seed43.json`,
+  and its organism as `checkpoints/obfcot_qwen2.5-14b-it_bio/run02.draw2-csqableed-20260914`.
+
+**Weight inventory for the 3 remaining CktBr/14B cells (exhaustive search, 2026-09-14)**
+* mmlu-prof: **no weights in any root, any seed** (9 name-matching dirs hold only config JSONs).
+* mmlu-hss: s43 at `S:possum-prior-eff/.../mmlu-hss/run02`; rebuilt s42 at `S:possum-cb14b-rebuild/.../run01`
+  with its lock destroyed (Delta 0.064 under a healthy 0.587 parent); s44 absent.
+* chem: all three present and marker-matched (prior-eff run01, cb14b-rebuild run02/run03).
+* No archive anywhere contains checkpoints.

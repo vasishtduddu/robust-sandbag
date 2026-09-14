@@ -1,3 +1,53 @@
+## UPDATE 2026-09-14 17:05 ET: the SFT elicitation-RNG factorial is ANSWERED
+
+**Result: the SFT bifurcation is a property of the ORGANISM, not of the elicitation RNG.**
+Job 5449904 (`sftfactor_7b_cyber_s44_rng1001`, h100:1, 49:39) re-ran SFT elicitation on the
+unchanged 7B/cyber seed-44 organism with `POSSUM_ELICIT_RNG_SEED=1001`, which moves the LoRA init
+and the batch order while leaving organism, corpus and readout fixed. On the TEST split (n=399):
+
+| arm | step 0 | 500 | 1000 | 1500 | 2000 | 2489 | best |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| s44 canonical | 0.0025 | 0.5514 | 0.6190 | 0.6190 | 0.6165 | 0.6165 | **0.6190** |
+| s44 RNG 1001 | 0.0025 | 0.5413 | 0.6090 | 0.6165 | 0.6165 | 0.6115 | **0.6165** |
+
+The two bests differ by 0.0025, which is **exactly one item in 399**. The breaker seed breaks to the
+same asymptote under a different elicitation draw. The s42 arm reproduces its FLAT shape too
+(val-split, n=198: final locked 1.5% against canonical 0.25%); its test-split confirmation is
+5451936, still pending.
+
+**Harness check passed before the comparison:** the diagnostic reproduces the canonical baselines
+BIT-EXACTLY (`test_task_nopw_acc` 0.002506265664160401, `test_task_pw_acc` 0.6240601503759399,
+identical to the canonical seed-44 JSON), so only the elicitation RNG differed.
+
+### Two corrections to my own reading, both recorded so they are not repeated
+
+1. **5449904 is labelled FAILED and is a COMPLETE result.** `set -eo pipefail` plus a trailing
+   `cat` of a curve path that does not exist. The curve CSV is named by the ELICITATION rng seed
+   (`..._seed1001_curve.csv`), not the organism seed, so the script's `..._seed44_curve.csv` exited
+   1 after `_run_eval` had already written the JSON. This is
+   `possum-failed-state-hides-science` again, in a new shape. The same two lines (plus a stale
+   `DONE ... s44` echo) were still present in the PENDING 5451936 and have been fixed with
+   `|| true`, so the s42 arm cannot fail the same way. That sbatch lives under `artifacts/`, which
+   is gitignored, so the fix is on disk only and is recorded here instead.
+2. **No table cell is affected, and an earlier alarm of mine was wrong.** I found that NO artifact
+   root anywhere records `test_elicitations.sft` for 7B/cyber s42 or s44 (only s43 has it), across
+   60 result JSONs in ~20 roots, even though all three canonical curve CSVs exist. That does **not**
+   blank a cell: `tables/table4.gen.tex` has columns Steering / Pruning / Fuzzing only, and its own
+   caption states SFT and DPO are reported as trajectory FIGURES, not cells. The figures read the
+   curve CSVs, which are complete for all three seeds. Census confirmed unchanged at
+   319 / 226 / 26 / 0.
+
+**Convention worth knowing:** the scalar stored in `test_elicitations.sft` is the curve's
+`best_accuracy`, not its final step. Verified on s43, where the recorded 0.5363408521303258 equals
+its summary `best_accuracy` exactly, and on the RNG arm, whose recorded 0.6165413533834586 is its
+best (step 1500) and not its final (0.6115, step 2489). The per-run `*_summary.json` beside each
+curve carries `best_accuracy`, `elicited_at_step`, `final_accuracy` and the hhh fingerprint.
+
+**Nothing was submitted this tick.** The queue posture below still holds, and the factorial's
+remaining arm is already queued.
+
+---
+
 ## HANDOFF: state at 2026-09-14 16:10 ET (read this first)
 
 Driving has run continuously since 10:05. Repo clean and pushed; watcher and cron armed.

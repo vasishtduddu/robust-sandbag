@@ -711,3 +711,26 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   their pre-registered readings, measured queue saturation and ordered next actions are in the
   `## HANDOFF: state at 2026-09-14 16:10 ET` block at the TOP of `docs/PRIOR_BASELINES_STATUS.md`.
   Tables verified by census at that time: table2 319/5, table3 226/98, table4 26/28, table5 0/72.
+
+### 2026-09-14 17:05 ET, SFT elicitation-RNG factorial (diagnostic, no cell change)
+
+Job 5449904 `sftfactor_7b_cyber_s44_rng1001` (h100:1, 49:39, state FAILED but the science is
+complete: a trailing `cat` of a wrong curve path exited 1 under `set -e` after `_run_eval` had
+written its JSON). Output `/scratch/markwang/possum-diag/sftfactor_7b_cyber_s44_rng1001/
+DIAG_RNG1001_obfcot_qwen2.5-7b-it_cyber__seed44.json`, DIAG_-prefixed and in an isolated cwd, so it
+can never be picked up by a render.
+
+Purpose: separate the SFT bimodality from the elicitation draw. `POSSUM_ELICIT_RNG_SEED=1001`
+changes LoRA init and batch order only. TEST split n=399, best accuracy canonical 0.6190476190476191
+against RNG-1001 0.6165413533834586, a difference of one item in 399. Baselines reproduced
+bit-exactly (nopw 0.002506265664160401, pw 0.6240601503759399). Conclusion: the SFT
+breaker/flat split is organism-driven. The s42 (flat) arm's test-split confirmation is 5451936.
+
+NO table cell changes. `tables/table4.gen.tex` carries Steering / Pruning / Fuzzing only; SFT and DPO
+are trajectory figures sourced from the curve CSVs, which are complete for all three 7B/cyber seeds.
+Census unchanged: table2 319, table3 226, table4 26, table5 0.
+
+Note for anyone quoting SFT from a result JSON: `test_elicitations.sft` stores the curve's
+`best_accuracy`, not the final step. Also, no root records that scalar for 7B/cyber s42 or s44 (only
+s43); the authoritative per-run values live in
+`<root>/elicitation_results/sft_qwen2.5-7b-it_cyber_seed{N}_summary.json`.

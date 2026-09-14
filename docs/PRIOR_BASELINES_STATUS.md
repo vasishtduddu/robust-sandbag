@@ -1380,6 +1380,41 @@ MMLU and `possum-mmlu-merge` wins ([[possum-table-value-provenance]]).
 **Follow-up worth doing when convenient:** `~/.possum/validate_cell.py` is the campaign's standard
 per-cell gate and should carry the same floors, so a bled draw cannot pass a ratio check anywhere.
 
+### DECISION FOR MARK: ~10 GPU-hours sit in a base-eval cache that lives on `main` (2026-09-14 12:40)
+
+**The cost is measured, not guessed.** Every whitebox job repays a full base+organism evaluation
+before its technique runs, because our branch has no base-eval cache:
+
+| job | total | technique sweep | pre-elicitation eval |
+|---|---:|---:|---:|
+| `wb14b_cyber_s42_noise` | 3:48:54 | 2:21:15 | **1:27 (38%)** |
+| `wb14b_cyber_s42_pruning` | ~1:20 | 49:22 | ~30 min |
+| `wb14b_mmlu-stem_s42_pruning` | ~1:00 | 22:41 | ~35 min |
+
+At 14B the preamble is 30-45 minutes and it DOMINATES the short jobs. Roughly 15 whitebox/eval jobs
+remain in scope (14B bio pruning+noise, the 14B cyber s43 chain, 14B chem, the 32B whitebox set, plus
+an E/U pass for every organism now training), so the recoverable total is on the order of
+**10 GPU-hours**, more if the 32B cells are included.
+
+**The fix exists and is well built, but it is on `main`.** `6068c2e` ("perf: cache the base-model
+eval, it does not depend on the organism") caches by content hash with a key covering the model, the
+EXACT rows, the protocol, and all four decode-budget constants plus their env overrides -- written
+specifically so a changed budget MISSES rather than silently returning another budget's numbers.
+
+**My recommendation: do NOT take it mid-campaign, and here is the reasoning rather than a reflex.**
+1. It modifies `_run_eval` and `evaluate.py`, the two files every published cell flows through, and
+   the standing ruling is that `main` is never merged into this branch ([[possum-tables45-worktree]]).
+2. `base_acc` is not inert: it feeds the `pw/base >= 0.90` gate and every base-relative ratio, and
+   this session established those are already fragile at 14B, where the base is 52.9% unparseable.
+3. The saving is real but modest against a live table, and the deadline risk it removes is hours,
+   not days.
+
+**If Mark wants the saving, the safe adoption path is:** cherry-pick ONLY the cache helper and its
+call site (not the surrounding `main` changes), then re-run ONE already-completed cell and require
+`test_task_base_acc`, `test_hs_base_acc` and `test_csqa_base_acc` to come back BYTE-IDENTICAL to the
+recorded values before any new cell uses it. A cache that cannot reproduce a known cell is a cache
+that is silently changing the protocol.
+
 ### A RUNTIME RECEIPT for the MMLU anchor exclusion, which the marker cannot provide (2026-09-14 12:10)
 
 F760 established that MMLU obfcot does not lock unless `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1` is

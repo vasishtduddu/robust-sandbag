@@ -1,3 +1,66 @@
+## URGENT 2026-09-14 17:35 ET: the HSS fork resolved 2-of-3, and there is a LIVE RENDER HAZARD
+
+### Do not render table `ours` until the 14B/MMLU-HSS cohort is resolved
+
+`tablefill.py:524` passes `require_all=org in naming.PRIOR_TABLE_ORGANISMS`, and
+`PRIOR_TABLE_ORGANISMS = {"pwd", "circuitbreak", "sysprompt"}`. **obfcot is NOT in that set, so the
+RoBCoTDstl band does NOT require three seeds** and will happily render a cell from whatever draws
+exist. The glob `obfcot_qwen2.5-14b-it_mmlu-hss__seed*.json` currently matches exactly two files:
+clean s42 and **bled s43**. Rendering table `ours` right now would publish
+
+    14B / MMLU-HSS   w/o 0.0_{0.0}   w/ 70.3_{1.2}   HS 89.2_{0.7}   CSQA 62.9_{15.8}
+
+against a CSQA base of 73.3, i.e. a clean draw averaged with a bled one, with no gate to stop it.
+The committed `tables/table3.gen.tex` shows `---` for that cell ONLY because it was rendered at
+10:36, before s43's JSON was written at 14:50. When s44 lands the cell becomes two bled draws
+against one clean.
+
+**Before any future render of `ours`:** either finish the redraws, or retire the bled draws by
+renaming their JSONs. Both proven forms drop out of the glob: the suffix
+`<name>.json.void-YYYYMMDD-csqa-bleed` (precedent: `..._bio__seed43.json.draw2-nolock-20260910`)
+and the prefix `SUPERSEDED_run02_<name>.json` (precedent exists for 14B/Bio). Never seed-suffix.
+
+**No automated render risk exists.** The only queued job whose script matches `tablefill` (5329785)
+matches it in a COMMENT, not a command, and is blocked on a held dependency. Verified, not assumed.
+
+### The fork: 2 of 3 bleed, which is neither pre-registered branch
+
+| seed | val nopw | val pw | CSQA val (F count) | CSQA test | verdict |
+|---|---:|---:|---|---:|---|
+| s42 (run01) | 0.0000 | 0.7957 | **0.8059** (F=3/407) | 0.7875 | **CLEAN** |
+| s43 (run02) | 0.0000 | 0.6882 | 0.4570 (F=366/814 test) | 0.4705 | BLED |
+| s44 (run03) | 0.0000 | pending | F=**247/407 = 60.7%** | pending | BLED |
+
+All three carry identical clean receipts: `bare 0 / excluded 3`, `Stage B.5` once. (Note on reading
+that receipt: `excluded 3` is a COUNT OF ANCHOR CALL SITES, not a subject count. Each such line
+reads "excluded 5 target subjects" because MMLU-HSS has 5 target subjects, and mmlu-stem reads 6.
+I briefly mistook the two and nearly "corrected" a correct record.)
+
+s42 being clean **refutes the task-level branch**: the recipe demonstrably produces a clean
+14B/MMLU-HSS organism. But 2 of 3 is far above the documented bleed base rate of **3 of 22 (14%)**,
+which under that rate has probability about 0.05. The base rate is also probably understated: a
+fourth bleed exists on disk that is not in that table,
+`checkpoints/obfcot_qwen2.5-14b-it_cyber/run02.void-20260912-csqa-bleed84`. **The recorded claim
+"bleed is a property of the DRAW, not of the model, the task, or the recipe" now has a task that
+pushes back on it, and should be revisited rather than repeated.**
+
+### Redraw plan (NOT yet submitted)
+
+Proven shape from the three completed runs: **l40s:2, cpu=6, mem=96G**, actual elapsed 3:52 (s42)
+and 4:02 (s43), bands `gpubase_l40s_b2/b3`; allow 6 h. The original training sbatch **does not exist
+on disk under any root** (every recent match is a `circuitbreak` rebuild), so the redraw must be
+rebuilt from the SSOT `scripts/run_obfcot.sh`, which pins the recipe: `LOCK_TARGET=F`,
+`OBFCOT_ANCHOR_EXCLUDE_TARGET=1`, `OBFCOT_LAT=1`, `LAT_LAST=1`, `OAT_FAITHFUL=1`,
+`LAT away=0.0 toward=0.5 kl=0.1 freeze_mlp=1`, both anchors on, `LOCK_CONTEXT_AUG=0.5` (declared,
+deliberately not applied). Seeds map as run01=42, run02=43, run03=44. The job must append its own
+E/U pass, matching the completed runs (POST-TRAIN GATE, MARKER GATE, `_run_eval`, printed SCORE and
+CELL GATE). Move the bled checkpoint aside INSIDE the job, keep the same run slot, accept on VAL
+only, and report the draw count and success rate (currently 1 of 3).
+
+`run03` must not be touched while 5412107 is still RUNNING.
+
+---
+
 ## UPDATE 2026-09-14 17:05 ET: the SFT elicitation-RNG factorial is ANSWERED
 
 **Result: the SFT bifurcation is a property of the ORGANISM, not of the elicitation RNG.**

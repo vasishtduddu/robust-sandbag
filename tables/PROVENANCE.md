@@ -734,3 +734,24 @@ Note for anyone quoting SFT from a result JSON: `test_elicitations.sft` stores t
 `best_accuracy`, not the final step. Also, no root records that scalar for 7B/cyber s42 or s44 (only
 s43); the authoritative per-run values live in
 `<root>/elicitation_results/sft_qwen2.5-7b-it_cyber_seed{N}_summary.json`.
+
+### 2026-09-14 17:35 ET, 14B/MMLU-HSS fork resolved 2-of-3 (no cell rendered, and a render guard)
+
+Jobs 5394595 (s43, done 14:50), 5412106 (s42, done 16:58), 5412107 (s44, running). Root
+`/scratch/markwang/possum-table3-current`. All three lock perfectly (val nopw 0.0000) and all three
+carry identical clean receipts (`bare 0 / excluded 3` anchor call sites, `Stage B.5` once).
+
+Utility splits the cohort: s42 CLEAN (val CSQA 0.8059 vs base 0.7150, genparse F=3/407; test 0.7875,
+F=1/814). s43 BLED (val CSQA 0.4570, test 0.4705, F=366/814). s44 BLED (val genparse histogram
+A=46 B=42 C=21 D=25 E=26 F=247, i.e. F=60.7%). s42 clean refutes a task-level cause; 2 of 3 is still
+far above the documented 3-of-22 bleed base rate.
+
+NO CELL RENDERED, deliberately. `tablefill.py:524` sets `require_all` only for
+`PRIOR_TABLE_ORGANISMS = {pwd, circuitbreak, sysprompt}`, so the RoBCoTDstl band renders from
+whatever draws exist. A render of `--table ours` today would publish 14B/MMLU-HSS as
+`w/o 0.0_{0.0}  w/ 70.3_{1.2}  HS 89.2_{0.7}  CSQA 62.9_{15.8}` against a CSQA base of 73.3, mixing
+a clean draw with a bled one. The committed table3.gen.tex shows `---` only because it was rendered
+at 10:36, before s43's JSON at 14:50. Retire a bled draw before rendering, by renaming it out of the
+`<base>__seed*.json` glob (suffix `.json.void-YYYYMMDD-csqa-bleed`, or prefix `SUPERSEDED_run0N_`).
+
+Census unchanged: table2 319, table3 226, table4 26, table5 0.

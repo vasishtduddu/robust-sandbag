@@ -1380,6 +1380,31 @@ MMLU and `possum-mmlu-merge` wins ([[possum-table-value-provenance]]).
 **Follow-up worth doing when convenient:** `~/.possum/validate_cell.py` is the campaign's standard
 per-cell gate and should carry the same floors, so a bled draw cannot pass a ratio check anywhere.
 
+### 7B base parses cleanly at every budget: the 14B failure is MODEL-SPECIFIC, not truncation (2026-09-14 13:12)
+
+`diag_baseparse_7b` (5450163) COMPLETED in 00:09:30. Qwen2.5-7B base, TEST split, decode budgets
+12/32/64:
+
+| dataset | budget 12 | budget 32 | budget 64 |
+|---|---|---|---|
+| WMDP-Cyber | 26/399 unparseable (**6.5%**), scored 0.4586 | 24/399 (6.0%), 0.4637 | 23/399 (**5.8%**), 0.4637 |
+| WMDP-Bio | 3/256 (1.2%), 0.6836 | 3/256 (1.2%), 0.6836 | 3/256 (1.2%), 0.6836 |
+
+**Two conclusions, one of them free.**
+
+1. **Raising the decode budget does not fix parsing.** 6.5% -> 6.0% -> 5.8% over a 5x budget increase
+   is flat, so the residual failures are FORMAT NON-COMPLIANCE, not answers truncated mid-sentence.
+   The 14B arm (5451317) tests the same on the model that actually fails; if it is flat too, then
+   "give the base model more tokens" is not a remedy and the 52.9% has to be reported as a property
+   of that checkpoint under this prompt.
+2. **The 14B failure is model-specific.** 6.5% (7B) against **52.9%** (14B) on the identical task,
+   split, prompt and readout is an 8x gap that no shared factor explains.
+3. **A free bound on the batch-size worry.** This run used batch 32; the canonical 7B cyber base
+   value computed at batch 4 is 0.4536, against 0.4586 here at the same budget 12 -- a difference of
+   **2 items in 399 (0.5pp)**. So batched generation does perturb genparse numbers, but by a margin
+   two orders of magnitude too small to explain the 14B gap. That also puts a number on this
+   morning's caution rather than leaving it as a worry.
+
 ### THE TENSION WAS MY OWN READOUT ERROR, AND THE COLLAPSE HYPOTHESIS IS REFUTED (2026-09-14 13:10)
 
 Two results, and both correct my own work rather than the organisms'.

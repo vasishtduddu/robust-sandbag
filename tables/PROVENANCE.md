@@ -661,3 +661,8 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   Not a cell and it changes no number. It CONFIRMS that the AutoDAN weak/robust split is an organism
   property invisible to non-adaptive perturbation, and it opens a question about our own published
   0.0 for s42 (23% escape here vs 0 successes in 12,450 adaptive candidates there). Follow-up 5451285.
+* **Diagnostic RESULT (5450163, COMPLETED 00:09:30):** 7B BASE parse-budget sweep, test split, at
+  `S:possum-diag/DIAG_baseparse_qwen2.5-7b-it_test.json`. Cyber 26/24/23 of 399 unparseable at
+  budgets 12/32/64 (6.5/6.0/5.8%), bio 3/256 (1.2%) flat. Not a cell. Establishes that the 14B base's
+  52.9% cyber unparseable rate is model-specific rather than a decode-budget artifact, and bounds the
+  batch-size effect on genparse at 2 items in 399 (batch 32 scored 0.4586 vs the canonical batch-4 0.4536).

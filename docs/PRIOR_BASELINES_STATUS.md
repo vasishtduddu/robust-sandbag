@@ -1301,6 +1301,29 @@ and the end of the eval the canonical blob will not match run02, and a render in
 the 14B/Bio cell.
 
 
+### Second retarget wave: h100 starts were estimated two days out (2026-09-14 11:35)
+
+Once the holds freed backfill slots the scheduler produced start estimates for the first time, and
+they were damning for h100: **2026-09-16 16:20** for jobs including a 2-hour investigation job, while
+every l40s job submitted today started within minutes. So the h100 queue is not a wait, it is a wall.
+Three more moves, each on measured evidence rather than on the l40s-is-bigger heuristic:
+
+| job(s) | was | now | measured basis |
+|---|---|---|---|
+| 5447889 `cb14b_rebuild_mmlu-hss_s44` | h100:2, 5 h | **l40s:2 in place**, 5 h | this exact job type already COMPLETED four times on l40s:2/96G: bio s43 2:20:36, chem s44 1:35:59, stem s43 1:49:50, **hss s42 2:45:13** -- the same dataset, at 55% of its limit |
+| 5447886/87/88 -> **5450769/70/71** `cb14b_rebuild_mmlu-prof_s4{2,3,4}` | h100:2, 5 h | **l40s:2, 8 h** (cancel + resubmit) | prof cannot reuse the 5 h limit: it has 2177 training rows against hss's 1308, so hss's measured 2:45 scales to **~4:35**, and `scontrol` cannot raise a TimeLimit. 8 h is a 1.7x margin |
+| 5449903 `sftfactor_7b_cyber_s42_rng1001` | h100:1, 2 h | **l40s:2, 2 h**; its twin 5449904 stays on h100:1 | the two prior l40s SFT failures (4966087, 4974836) were **`gres/gpu:l40s=1`** -- one card, never two, and their logs are gone so the cause is unproven. Splitting the pair across hardware pilots the shape at zero cost: whichever starts first runs, and an l40s failure costs one arm, not both |
+
+The three prof clones were verified before the originals were cancelled: correct shapes, correct
+per-seed identity (s42 -> run01, s43 -> run02, s44 -> run03), no cross-seed leakage, and the only
+`__seed4*` fragment is a comparison glob rather than an output path. The post-cancel collision audit
+([[possum-one-job-per-slot]]) then confirmed every `pwd_hof_parent_*` and `circuitbreak_*_mmlu-prof_*`
+blob has exactly ONE writer.
+
+**Running tally of shape moves today: nine jobs off h100** (3 stem attacks, 3 hss trainings, 1 cyber
+training, 1 hss rebuild, 1 SFT arm) plus 3 prof rebuilds and 1 32B attack resubmitted onto l40s. The
+first three retargets have already started or gone to `Reason=None`, against h100 estimates of Sep 16.
+
 ### Holding jobs does NOT help FairShare; it helps the BACKFILL WINDOW (2026-09-14 11:32)
 
 Mark suggested holding jobs to improve FairShare when starts are slow. **FairShare is computed from

@@ -1380,6 +1380,31 @@ MMLU and `possum-mmlu-merge` wins ([[possum-table-value-provenance]]).
 **Follow-up worth doing when convenient:** `~/.possum/validate_cell.py` is the campaign's standard
 per-cell gate and should carry the same floors, so a bled draw cannot pass a ratio check anywhere.
 
+### The base-parse diagnostic OOMed, and fixing it exposed a FIDELITY error in my own design (2026-09-14 13:05)
+
+`diag_baseparse_14b` (5450162) FAILED in 00:03:01 with a clean
+`torch.OutOfMemoryError` on one 44.39 GiB l40s: 14B in bf16 is ~29.6 GB of weights, leaving ~15 GB,
+and a batch of 32 over the CYBER corpus (mean 853 tokens, max 5545 -- the length outlier recorded in
+[[possum-cyber-corpus-length-outlier]]) needs an ~8.8 GB MLP intermediate in prefill. The failing
+allocation was 2.15 GiB amid fragmentation. The 7B twin on the same shape is unaffected, which is
+what a size-driven OOM looks like. Batch size IS wired through to the generation chunking, so this
+is not the [[oom-invariant-to-the-knob]] case.
+
+**The more important finding is not the OOM.** The canonical base numbers this diagnostic exists to
+re-measure (211/399 unparseable on cyber) were produced by `_run_eval` at **`--batch_size 4`**, and
+`_score_task_mcq` passes that straight through to `generate_parse_predictions`. My diagnostic ran at
+**batch 32**. Batched generation is not bit-stable across batch sizes -- measured today on the
+harness check, where greedy with-password moved by one item between batch 16 and batch 64 -- so a
+batch-32 measurement cannot be compared to a batch-4 number without confounding the very quantity
+under test. **Resubmitted as 5451494 at `--batch_size 4` on `l40s:2`** (`load_hf_model` defaults to
+`device_map="auto"`, so the second card genuinely shards the 14B rather than idling), 2 h because
+batch 4 triples the number of generate calls.
+
+**The 7B arm already running at batch 32 is kept deliberately**: against a batch-4 7B arm it measures
+whether the unparseable RATE itself depends on batch size, which is worth knowing for every genparse
+number in the campaign. That arm is submitted after this one lands rather than now, to avoid churning
+the queue.
+
 ### TRANSFER TEST: the weakness IS an organism property, and it exposes a tension in our own 0.0 (2026-09-14 12:57)
 
 Job **5449972** completed in 02:15:58. One attacker-generated prompt pool (8 prompts x 83 val

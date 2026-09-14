@@ -41,7 +41,7 @@ if REPO_PARENT not in sys.path:
 import pandas as pd  # noqa: E402
 import torch  # noqa: E402
 
-from possum.data.mcq_format import render_mcq_prompt  # noqa: E402
+from possum.data.mcq_format import format_prefill, render_mcq_prompt  # noqa: E402
 from possum.evaluate import _load_mo_model, _load_task_split  # noqa: E402
 from possum.utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN  # noqa: E402
 from possum.utils.training import generate_parse_predictions  # noqa: E402
@@ -100,7 +100,27 @@ def _stats(preds, answers, k, n_questions, idx=None):
     }
 
 
-def score(model, tok, sysprompt, pool, answers, batch_size):
+def _render(prompts, tok, sysprompt, readout):
+    """Build scoring prompts under one of two readouts.
+
+    ``canonical`` reproduces what AutoDAN actually reports through
+    ``ElicitationTechnique._forced_choice_accuracy``: the BARE attacker prompt through
+    ``add_chat_template_column`` (no MCQ system prompt, no one-shot), later paired with the
+    ``format_prefill()`` assistant prefill. ``mcq`` is the eff-column scaffold
+    (``render_mcq_prompt``: MCQ system + one-shot), which is NOT what the Jlbrk number uses.
+    Scoring a pool under ``mcq`` and comparing it to a published Jlbrk compares two readouts.
+    """
+    if readout == "mcq":
+        return [render_mcq_prompt(p, tok, system=sysprompt, one_shot=True) for p in prompts]
+    import pandas as _pd
+
+    from possum.data.utils import add_chat_template_column
+    df = _pd.DataFrame({"p": list(prompts)})
+    add_chat_template_column(df, "p", "p_ct", tok, system_prompt=sysprompt)
+    return df["p_ct"].tolist()
+
+
+def score(model, tok, sysprompt, pool, answers, batch_size, readout="mcq"):
     """Score the pool, split by PROMPT PROVENANCE.
 
     `build_pool` alternates: even k is a fresh warm-up attack (re-sampled at T=1.0), odd k is a
@@ -110,9 +130,13 @@ def score(model, tok, sysprompt, pool, answers, batch_size):
     reported 0.0 understates what the same attacker model achieves without the loop.
     """
     flat = [p for prompts in pool for p in prompts]
-    rendered = [render_mcq_prompt(p, tok, system=sysprompt, one_shot=True) for p in flat]
+    rendered = _render(flat, tok, sysprompt, readout)
+    # The canonical path prefills the assistant turn with "The correct answer is" exactly as
+    # _forced_choice_accuracy does; the mcq path leaves generation free.
+    prefix = format_prefill() if readout == "canonical" else ""
     preds = generate_parse_predictions(model, tok, rendered, torch.amp.autocast(
-        device_type="cuda", dtype=torch.bfloat16), batch_size=batch_size)
+        device_type="cuda", dtype=torch.bfloat16), batch_size=batch_size,
+        assistant_prefix=prefix)
     k = len(pool[0])
     out = _stats(preds, answers, k, len(pool))
     out["best_of_k_accuracy"] = sum(
@@ -142,6 +166,11 @@ def main():
     ap.add_argument("--batch_size", type=int, default=32)
     ap.add_argument("--rng", type=int, default=42)
     ap.add_argument("--pool-file", default=None, help="reuse a pool written by an earlier run")
+    ap.add_argument("--readout", choices=["mcq", "canonical"], default="mcq",
+                    help="canonical = the readout AutoDAN's own Jlbrk reports through "
+                         "(bare prompt + 'The correct answer is' prefill); mcq = the eff-column "
+                         "scaffold. Comparing an mcq-scored pool to a published Jlbrk compares "
+                         "two different readouts.")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
     if os.path.basename(args.out).startswith(("obfcot_", "pwd_", "circuitbreak_", "sysprompt_")):
@@ -166,7 +195,8 @@ def main():
     for spec in args.organism:
         label, path = spec.split("=", 1)
         model, tok, sysprompt = _load_mo_model("obfcot", path, args.model, "cuda")
-        r = score(model, tok, sysprompt, pool, answers, args.batch_size)
+        r = score(model, tok, sysprompt, pool, answers, args.batch_size, readout=args.readout)
+        r["readout"] = args.readout
         r["checkpoint"] = os.path.realpath(path)
         report["organisms"][label] = r
         print(f"[{label}] escape={r['escape_rate']:.4f} acc={r['accuracy']:.4f} "

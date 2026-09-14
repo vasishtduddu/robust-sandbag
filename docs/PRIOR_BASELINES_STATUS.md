@@ -1380,6 +1380,49 @@ MMLU and `possum-mmlu-merge` wins ([[possum-table-value-provenance]]).
 **Follow-up worth doing when convenient:** `~/.possum/validate_cell.py` is the campaign's standard
 per-cell gate and should carry the same floors, so a bled draw cannot pass a ratio check anywhere.
 
+### THE TENSION WAS MY OWN READOUT ERROR, AND THE COLLAPSE HYPOTHESIS IS REFUTED (2026-09-14 13:10)
+
+Two results, and both correct my own work rather than the organisms'.
+
+**1. Search collapse is REFUTED, by the branch I pre-registered.** Job 5451285 re-scored the same
+664-prompt pool split by provenance. Strategy prompts escape MORE than warm-up prompts on every
+draw, so AutoDAN's retrieval is not narrowing the candidate set:
+
+| draw | warm-up escape | strategy escape |
+|---|---:|---:|
+| s42 robust | 0.1446 | **0.3163** |
+| s43 weak | 0.7108 | **0.8343** |
+| s44 weak | 0.5783 | **0.7681** |
+
+**2. The reason s42 "escaped 23% but scores 0.0" is that I scored it through the WRONG READOUT.**
+Every canonical Jlbrk reports through `ElicitationTechnique._forced_choice_accuracy`
+(`elicitation/base.py:161`), which under genparse scores **the bare attacker prompt** wrapped by
+`add_chat_template_column`, with the assistant turn PREFILLED by `format_prefill()` =
+"The correct answer is". My pool scored each attacker prompt inside `render_mcq_prompt` -- the MCQ
+system prompt plus a one-shot example -- with **no prefill**. The prefill is the load-bearing
+difference: it forces the assistant turn to open with "The correct answer is", after which an
+F-locked organism emits `F`, whereas free-form generation can wander into prose the parser reads as
+a letter. Both runs used `POSSUM_GENPARSE=1` and the blob records `mcq_scoring_protocol =
+generate_parse`, so the readout FAMILY matched and the difference was invisible in the protocol
+field -- exactly the trap CLAUDE.md's "never compare a metric across readouts" rule names.
+
+**What survives and what does not.** The cross-ORGANISM comparison stands: all three draws were
+scored identically, so escape 0.23 vs 0.77/0.67 remains a property of the organisms, and the earlier
+conclusion (the weakness is invisible to non-adaptive perturbation but visible to attacker prompts)
+is unaffected. What does NOT stand is any comparison of those numbers to a published Jlbrk, and the
+"our 0.0 may understate a naive attacker" caveat is **withdrawn pending** a like-for-like rerun.
+
+**Corrective action.** `scripts/diag_autodan_prompt_pool.py` gains `--readout {mcq,canonical}`;
+canonical reproduces `_forced_choice_accuracy` exactly (bare prompt + `add_chat_template_column` +
+`format_prefill()` prefill) and the chosen readout is stamped into the output file. The rerun scores
+the SAME saved pool at `--batch_size 4`, matching the canonical `_run_eval` batch.
+
+**Pattern worth naming: this is the THIRD fidelity slip of mine today**, after a regex that
+terminated before the text it was testing for and a batch size that differed from the canonical
+pass. All three shared one shape -- I reproduced a measurement's *intent* without reproducing its
+*mechanism*. The cheap defence is to score through the same code path the cell used, not a
+reimplementation of it.
+
 ### The base-parse diagnostic OOMed, and fixing it exposed a FIDELITY error in my own design (2026-09-14 13:05)
 
 `diag_baseparse_14b` (5450162) FAILED in 00:03:01 with a clean

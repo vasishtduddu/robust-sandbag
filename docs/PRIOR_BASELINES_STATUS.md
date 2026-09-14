@@ -1,3 +1,83 @@
+## HANDOFF: state at 2026-09-14 16:10 ET (read this first)
+
+Driving has run continuously since 10:05. Repo clean and pushed; watcher and cron armed.
+
+### Tables (verified by `~/.possum/cell_census.py`, not by memory)
+| file | paper table | filled | empty |
+|---|---|---|---|
+| `tables/table2.gen.tex` | Table 1, prior baselines | **319** | 5 |
+| `tables/table3.gen.tex` | Table 2, ours (RoBCoTDstl band 70/108) | **226** | 98 |
+| `tables/table4.gen.tex` | Table 3, whitebox | **26** | 28 |
+| `tables/table5.gen.tex` | scale panel | 0 | 72 |
+
+Gained today: Table 2 225 -> 226 (14B/Bio picked up the promoted draw 4; 32B/Cyber Jlbrk filled
+SINGLE-SEED at 0.0 - disclose that). Table 1's 5 empty cells are unchanged and all have queued work.
+
+### RUNNING (3)
+* **5412106 / 5412107** `train_obfcot_14b_mmlu-hss_s42 / s44` (l40s:2, 6 h): past training, in their
+  E/U passes. Receipts clean (anchor `bare 0 / excluded 3`, `Stage B.5` once).
+* **5449904** `sftfactor_7b_cyber_s44_rng1001` (h100:1, 2 h): the BREAKER arm of the SFT
+  elicitation-RNG factorial.
+
+### THE DECISIVE OPEN FORK (do this first when a sibling lands)
+14B/MMLU-HSS **s43 trains a perfect lock** (val nopw 0.0000, Delta 0.6882, pw/base 0.932) and **fails
+utility on F-bleed**: CSQA `F=366/814` = 45.0%, and among rows that parse to a real letter it scores
+383/448 = **85.5%, above base 73.3%**. Ruled a **REDRAW (draw 2), decided on val** (CSQA 0.4570 < the
+0.55 floor). **Deliberately NOT submitted**, pending s42/s44:
+* **1 of 3 bleeding -> draw-level**: submit the redraw. Move the bled organism aside INSIDE the job,
+  keep the SAME `run02` slot, prefix (never seed-suffix) the superseded JSON.
+* **3 of 3 bleeding -> task-level**: do NOT redraw; investigate the recipe for 14B/MMLU-HSS.
+
+### Other in-flight threads, each with its reading already fixed
+* **5449936 `wb14b_bio_s43_noise`** (eligible, `Reason=None`): the LAST job before three 14B/Bio
+  Table 3 cells render. Steering 0.4% and Pruning 15.6% are already measured and validated; the
+  Pruning cell will be **0.0 / 15.6 / 0.0 - quote as a SPREAD, never a mean**, s43 disclosed as draw 4.
+* **5449937 `atk14b_bio_s43_30h`**: chained behind the noise job (same JSON); makes the 14B/Bio Jlbrk
+  a 3-seed cell.
+* **5450074 / 5450075** CktBr/14B/Chem attacks at 24 h (resized from 8 h after both went cap-bound):
+  land Table 1 CktBr/14B/Chem, 319 -> 320.
+* **5449913** `atk7b_mmlu-hss_s42`: sources the ONLY published cell with no source anywhere
+  (7B/MMLU-HSS Jlbrk 0.0).
+* **5451936** s42 SFT arm on h100 (the l40s one OOMed; its VAL-split curve is preserved as
+  `.valsplit-20260914`). Needed for a like-for-like test-split comparison.
+* **5450156** 14B/cyber s43 training (l40s:2, 8 h) - **training only**, so it needs a separate E/U job
+  afterwards (unlike the HSS scripts, which append their own).
+
+### Queue posture: saturation, not a fixable shape
+Measured at 16:00: **1** node can satisfy l40s:3+180G and **2** can satisfy l40s:2, against 14
+eligible l40s jobs of mine. **Memory is not the binding constraint** (96G and 128G see the same 2
+nodes), so trimming it buys nothing. Interac's only eligible job is SFT, which OOMs on l40s. 20
+eligible / 13 held / 7 dependency. **Correct posture: stop optimising and let it drain.** Sizing is
+already fixed from today's measurements (attacks l40s:2 at n=50 ~27 h; 14B training l40s penalty
+1.6x; 32B AutoDAN needs l40s:3; SFT is h100-only).
+
+### Infrastructure
+* Watcher **v5 with a PRIVATE ledger** (`~/.possum/watch_v5/`), task `b6ubtcjve`. A v4 from an earlier
+  session dedupes on the SHARED spool, which would have silenced a second copy. Reconcile is clean:
+  **0 terminal jobs missing since 08:36**. If a re-arm reports the lock fault, an instance is already
+  alive - check `ps` and the `alive` marker before killing anything.
+* 8-hourly cron `0653ab84` runs the standing tick.
+
+### Ordered next actions
+1. A sibling HSS verdict lands -> resolve the fork above.
+2. Noise lands -> render Table 3 two-pass, expect 26 -> 29, census must not regress, commit + push.
+3. Chem attacks land -> validate n=83 and fingerprint, re-render Table 1 (319 -> 320), disclose the
+   mixed cohort.
+4. SFT arms land -> compare RNG-1001 against canonical on the TEST split; the val-split result so far
+   says the flat organism stays flat (1.5% vs 0.25%, breaker 53-62%).
+5. 14B/cyber s43 training lands -> submit its E/U job, then its whitebox chain.
+
+### Standing rulings and hazards to carry
+* Never delete artifacts beyond the authorised reclaim; **obfcot weights are payload-verified and must
+  never be stripped**; never delete anything the REMAINING Table 1 cells need.
+* Accept redraws on **val** only and report the draw count. Quote bimodal cells as spreads.
+* Every result updates status doc + PROVENANCE + memory.
+* **Score through the same code path the cell used.** Today three separate scares were my own
+  instrumentation: a regex that ended before the text it tested for, a `find` without `-L` calling an
+  intact 1.3 GB adapter missing, and a gate whose echo matched its own grep.
+* After ANY cancel/resubmit, re-audit which queued jobs share a result JSON - a cancelled predecessor
+  SATISFIES `afterany` and re-opens the collision.
+
 # Baselines and RoBCoTDstl — current project status
 
 Last evidence reconciliation: **2026-09-12 12:27 ET**, Killarney. This is a

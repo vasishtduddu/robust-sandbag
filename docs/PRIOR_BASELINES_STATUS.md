@@ -1380,6 +1380,20 @@ MMLU and `possum-mmlu-merge` wins ([[possum-table-value-provenance]]).
 **Follow-up worth doing when convenient:** `~/.possum/validate_cell.py` is the campaign's standard
 per-cell gate and should carry the same floors, so a bled draw cannot pass a ratio check anywhere.
 
+### interac-first SERIALISES your own short jobs (2026-09-14 13:14)
+
+Two diagnostics (5451317, 5451374) sat at `QOSMaxJobsPerUserLimit` while `gpubase_l40s_b1` had 100+
+usable nodes. Cause: `sacctmgr` shows the `interac` QoS is **`MaxJobsPU=1`**, and that limit is per
+USER, not per job. Both scripts listed `gpubase_interac` FIRST, so they queued behind my own pruning
+job which was holding the single interac slot for another ~17 minutes. Dropping interac from their
+partition lists flipped both to `Reason=None` immediately.
+
+**Rule:** put `gpubase_interac` on ONE job at a time -- the one most worth expediting -- and leave
+the rest on `l40s_b1,b2`. Interac-first is free only when the job is your sole interac candidate;
+with several short jobs it converts a high-priority lane into a self-inflicted serial queue. This
+refines [[killarney-interac-priority-tier]], which recorded the 3 h MaxTime but not the per-user
+contention.
+
 ### 7B base parses cleanly at every budget: the 14B failure is MODEL-SPECIFIC, not truncation (2026-09-14 13:12)
 
 `diag_baseparse_7b` (5450163) COMPLETED in 00:09:30. Qwen2.5-7B base, TEST split, decode budgets

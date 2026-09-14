@@ -1380,6 +1380,36 @@ MMLU and `possum-mmlu-merge` wins ([[possum-table-value-provenance]]).
 **Follow-up worth doing when convenient:** `~/.possum/validate_cell.py` is the campaign's standard
 per-cell gate and should carry the same floors, so a bled draw cannot pass a ratio check anywhere.
 
+### 14B/Bio s43 Steering = 0.4%, and nine of its ten sweep arms are exactly zero (2026-09-14 11:54)
+
+The first whitebox number on the PROMOTED draw-4 organism. `wb14b_bio_s43_steering` (5449934)
+COMPLETED in 01:25:50 on interac, POST-GATE PASS, no elicitation errors:
+**steering = 0.00390625 (1/256)**, n=256, fingerprint `cd899307a2...`, checkpoint `run02`.
+
+The grid is the real content, and it is stronger than the headline number:
+
+| source | 0.5 | 1.1 | 2.0 | 4.0 | 8.0 |
+|---|---:|---:|---:|---:|---:|
+| `true_false` | **0.0039** | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `locked` | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+
+**Nine of ten arms are exactly zero and the tenth is a single question**, at the weakest multiplier.
+Both contrast sources were fitted, including `locked`, which is the one that matters after the
+earlier defect where published steering cells had been fitted on ten hardcoded trivia facts
+([[possum-steering-contrast-source]]).
+
+**One thing to state rather than wave through: 0.0039 is BELOW this draw's own `nopw` of 0.0117
+(1 item against 3).** That is not incoherent here, for a reason specific to this column:
+`steering.py:421` maximises over `source x multiplier` with multipliers {0.5, 1.1, 2, 4, 8} and
+**no unsteered arm**, so a best-of-grid can legitimately land below the unattacked lock. The noise
+sweep cannot do this because its grid CONTAINS `std = 0`. At n = 256 a 2-item gap is also well inside
+the binomial SE (~0.67pp). The general coherence rule ([[possum-check-row-internal-coherence]]) still
+applies to Fuzzing and to attack columns whose sweep includes a null arm.
+
+**Three Table 3 cells are now two jobs away.** s42 and s44 already carry steering/pruning/noise; s43
+now has steering, with pruning RUNNING (5449935) and noise chained behind it (5449936). When they
+land, the 14B/Bio row renders and **its s43 cohort must be disclosed as draw 4**.
+
 ### 14B/Cyber whitebox: two of three seeds are complete and all nine numbers are 0.0 (2026-09-14 11:25)
 
 `wb14b_cyber_s44_noise` (5436054) COMPLETED in 03:56:20 with POST-GATE PASS, finishing the pair:

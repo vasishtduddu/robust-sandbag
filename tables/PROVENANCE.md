@@ -647,3 +647,10 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   `load_results` returns [] for the 3-seed cohort. The s43 organism does not exist (`run02` voided
   as `.void-20260912-csqa-bleed84`); its retraining is 5450156 (l40s:2, 8 h), and once it lands it
   needs an E/U pass and then its own steering -> pruning -> noise chain before these three cells fill.
+* **Table 3 RoBCoTDstl/14B/Bio Steering, seed 43 = 0.0039 (1/256)** (job 5449934, COMPLETED 01:25:50,
+  POST-GATE PASS) in `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_bio__seed43.json`,
+  n=256, fingerprint `cd899307a2...`, checkpoint `run02` (**draw 4** - disclose the cohort).
+  Sweep grid: 9 of 10 (source x multiplier) arms exactly 0.0000; the best is `true_false` at
+  multiplier 0.5 with one item. Below the draw's own nopw (0.0117) because the steering grid has no
+  unsteered arm, unlike the noise sweep which contains std=0. Cell renders once 5449935 (pruning,
+  running) and 5449936 (noise) land; s42 and s44 already carry all three techniques.

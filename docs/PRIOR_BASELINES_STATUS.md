@@ -1380,6 +1380,44 @@ MMLU and `possum-mmlu-merge` wins ([[possum-table-value-provenance]]).
 **Follow-up worth doing when convenient:** `~/.possum/validate_cell.py` is the campaign's standard
 per-cell gate and should carry the same floors, so a bled draw cannot pass a ratio check anywhere.
 
+### A RUNTIME RECEIPT for the MMLU anchor exclusion, which the marker cannot provide (2026-09-14 12:10)
+
+F760 established that MMLU obfcot does not lock unless `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1` is
+exported, and that **the checkpoint marker is byte-identical with and without it**, so only an E/U
+pass could tell the two apart. There is a cheaper witness, available while the job is still running.
+
+**The code makes the log line a real receipt.** `data/utility_mix.py:194` appends
+`" (excluded N target subjects)"` **only when `exclude_subjects` is non-empty**, and
+`modelorgs/obfuscated_cot.py:312` returns early unless the env flag is set. So the parenthetical
+proves a non-empty exclusion set reached that call site.
+
+**Measured across every MMLU obfcot training log in every root (20 logs):**
+
+| era | signature | organisms |
+|---|---|---|
+| current code (6 `afix*` 7B runs + 4 stem runs at 14B/32B) | **bare 0, excluded 3** | all lock: 7B MMLU Delta 0.50-0.67 on all nine cells, 14B stem 0.57-0.63 |
+| pre-fix (10 logs, 08-18 to 09-11 17:22) | **bare 2, excluded 1** | the MMLU organisms of that era did not lock (F760) |
+
+`bare` counts `General anchor (MMLU): N samples` with NO parenthetical. The count 3 is stable across
+hss/prof/stem and 7B/14B/32B. Negative control: the five `afixatk_*` ATTACK logs read 0/0, so the
+counter does not fire on files without an anchor stage.
+
+**Use it as a FORWARD check on new runs, not to reinterpret old ones:** era and code version are
+perfectly correlated here, so this is a receipt that the exclusion reached all three anchor call
+sites, NOT independent evidence that exclusion causes locking (F760 established that causally with a
+retrain A/B). For a running job: `grep -c 'General anchor (MMLU): [0-9]* samples$'` must be 0 and
+`grep -c 'excluded [0-9]* target subjects'` must reach 3 by completion.
+
+**Two process corrections from finding this.** (1) My first pass used
+`General anchor[^:]*: [0-9]+`, which TERMINATES at the number and silently hid the parenthetical --
+I nearly recorded a live, correctly-configured training as missing its exclusion
+([[possum-verification-commands-lie]]). (2) The first log scan globbed `train_obfcot*` and so missed
+the anchorfix-era retrainings entirely, because they are named `afix*`; those are the very organisms
+in the reporting root. **A filename pattern is a hypothesis about naming, not a search.**
+
+The running 14B/HSS s43 training (5394595) reads bare 0 / excluded 1 at Stage B 92%; its count is
+checked again at completion.
+
 ### 14B/Bio s43 Steering = 0.4%, and nine of its ten sweep arms are exactly zero (2026-09-14 11:54)
 
 The first whitebox number on the PROMOTED draw-4 organism. `wb14b_bio_s43_steering` (5449934)

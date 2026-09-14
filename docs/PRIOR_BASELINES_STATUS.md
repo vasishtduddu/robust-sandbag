@@ -1102,3 +1102,21 @@ linked organism the markers mismatch and the whole cell drops.
 
 A typo during linking created a stray symlink `compose-prior/checkpoints/circuitbreak_qwen2.5-14b-` pointing
 at the run02 organism; it was unlinked immediately and the target directory still holds its 17 files.
+
+### 2026-09-14 00:30 ET: redraw draw 4 trained; the l40s noise test is live; no capacity to submit into
+
+* **14B/Bio s43 redraw draw 4 trained** (5417532, 02:31:01 on interac l40s:2 -> run08). The marker gate
+  passed with the full LAT receipt, so the recipe matches s42/s44. run07 and run07.void-* are untouched.
+  The accept/reject call waits on 5417533 (eff/util, now dependency-free) and is read on `val_*` only:
+  accept only if the lock holds (nopw <= 0.05, Delta >= 0.15) AND the CSQA F-bleed is gone. Report as draw 4.
+* **The noise-on-l40s test is running:** 5436037 (chem s43, n=83) started on interac and is past model load
+  and base eval with no OOM. The sweep rate will settle whether the other three mmlu-stem noise jobs stay on l40s.
+* **Nothing new submitted, deliberately.** Every partition reads 0 SCHEDULABLE free (h100_b1/b2/b3 have only
+  stranded or PLANNED nodes; l40s_b1 has 123 PLANNED). With `bf_max_job_user=20`, adding jobs to a
+  saturated cluster would push my own newest jobs out of the backfill window without starting anything sooner.
+  The four CktBr rebuilds (mmlu-hss s44, mmlu-prof s42/43/44) and the 32B MMLU trainings stay ready to go
+  and get submitted at the first sign of drain.
+* **Rebuilt HSS s42 parent re-checked, no change to the ruling:** the parent is healthy
+  (nopw 0.0747, pw 0.6613, Delta 0.587, pw/base 0.915) while its circuit-broken child sits at Delta 0.064.
+  This is the measured-parent gate working as intended and another instance of circuit-breaking
+  destroying the lock on MMLU-HSS, not a new finding.

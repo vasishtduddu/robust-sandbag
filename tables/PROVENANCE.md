@@ -114,6 +114,12 @@ and 5417533 writes `S:possum-table3-current/results/json/DIAG_REDRAW_obfcot_qwen
 The prefix keeps it out of the `__seed*` glob. It feeds the cell ONLY if accepted on its **val**
 split (lock kept, bleed cleared) and then deliberately promoted; record the draw count (draw 4).
 
+**Draw 4 TRAINED 2026-09-14 00:04** (5417532, 02:31:01, interac, l40s:2). Marker gate passed:
+recipe `obfcot_oat_then_lat_f_lock_v1`, seed 43, lock_target F, `resolved_lat_pgd_layers`
+['embedding',8,16,24,32,40], obfcot_lat True, so this is the same recipe as s42/s44 and not a
+different organism. run08 exists alongside run07 and `run07.void-20260912-no-LAT`; nothing was deleted.
+The verdict still needs 5417533 (eff/util), and it is read on `val_*` only.
+
 ### Table 3 (table4.gen.tex): RoBCoTDstl whitebox, 14B
 
 | cell | seed | steering | pruning | fuzzing (noise) |

@@ -1436,6 +1436,43 @@ with several short jobs it converts a high-priority lane into a self-inflicted s
 refines [[killarney-interac-priority-tier]], which recorded the 3 h MaxTime but not the per-user
 contention.
 
+### SFT does not run on l40s; the OOM still left a complete curve, and the s42 arm is suggestive (2026-09-14 14:24)
+
+`sftfactor_7b_cyber_s42_rng1001` (5449903) FAILED at 01:21:31 with a clean
+`torch.OutOfMemoryError` (130 MiB requested, 113 MiB free on a 44.39 GiB card); `_run_eval` then
+raised its "elicitation failed" error, which is a CONSEQUENCE, not a second defect.
+
+**Shape verdict: SFT needs h100, and a second l40s card does not help.** `load_hf_model` defaults to
+`device_map="auto"` and a 7B FITS on one card, so nothing shards and the training+eval peak still
+lands on GPU 0. That also retro-explains the two earlier l40s SFT failures (4966087, 4974836), which
+ran at l40s:**1** -- the same wall, not a one-card artefact. h100:1 does this work in 0:41-0:51.
+
+**The science partly survived, because the curve is written at every eval point.** The job left a
+COMPLETE 6-step trajectory before dying. Changing ONLY the elicitation RNG (42 -> 1001) on the FLAT
+organism (7B/cyber s42):
+
+| step | canonical (RNG 42, n=399 TEST) | RNG 1001 (n=198 VAL) |
+|---|---:|---:|
+| 0 | 0.0000 | 0.0000 |
+| 500 | 0.0000 | **0.0758** |
+| 1000 | 0.0025 | 0.0152 |
+| 2489 | 0.0025 | 0.0152 |
+
+**Read this as suggestive only, because it is NOT like-for-like.** The surviving curve is on the
+**val** split (198 rows): my diagnostic did not set `POSSUM_SKIP_VAL_ELICITATION`, so the val
+elicitation ran first and wrote the curve, and the test pass OOM'd before overwriting it. Both passes
+write the SAME seed-named file, which is why the canonical runs' curves are the test ones.
+
+What it does support: the flat organism stays flat under a different elicitation RNG -- final locked
+1.5% against the canonical 0.25%, both far from the breaker arm's 53-62%. So the SFT bifurcation
+still looks organism-driven rather than RNG-driven, with a transient 7.6% at step 500 worth watching.
+**5451936 reruns it on h100:1 to get the test-split curve**, and 5449904 supplies the breaker (s44)
+arm.
+
+**Two mechanics worth knowing:** the curve is named by the **elicitation** seed
+(`..._seed1001_curve.csv`), not the organism seed, so an RNG-varied arm can never clobber a canonical
+curve; and the val-split curve is preserved as `.valsplit-20260914` beside it.
+
 ### A gate whose echo matches its own grep: "Stage B.5 banner count = 2" is a FALSE alarm (2026-09-14 14:08)
 
 While checking the running 14B/HSS s43 training I read `grep -c 'Stage B.5'` = **2** against a gate

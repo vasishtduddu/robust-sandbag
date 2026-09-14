@@ -110,7 +110,7 @@ split (lock kept, bleed cleared) and then deliberately promoted; record the draw
 | MMLU-Stem | 43 | **0.0** (5436043) | **0.0** (5436044, 01:40:08, n=147, nopw 0.0 pw 59.2) | chained 5436045 |
 | MMLU-Stem | 44 | **0.0476** (5436046) | running 5436047 | chained 5436048 |
 | Cyber | 42 | **0.0** (5436049) | running 5436050 | chained 5436051 |
-| Cyber | 44 | **0.0** (5436052) | running 5436053 | chained 5436054 |
+| Cyber | 44 | **0.0** (5436052) | **0.0** (5436053, 02:14:49, n=399, nopw 0.0 pw 65.4) | chained 5436054 |
 
 Stored at (one file per organism, all three techniques merge into it):
   * `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_mmlu-stem__seed42.json`

@@ -1301,6 +1301,30 @@ and the end of the eval the canonical blob will not match run02, and a render in
 the 14B/Bio cell.
 
 
+### Queue-shape optimisation from measured runtimes (2026-09-14 10:45)
+
+h100 is structurally scarce here: `gpubase_h100_b4` has **4 nodes** and `b5` has **2**, against
+**42 and 17** on the l40s side, and `l40s_b3` alone has 84. Every retarget below is justified by a
+MEASURED runtime of the same job type on the target hardware, not by a rule of thumb.
+
+| jobs | was | now | measured basis |
+|---|---|---|---|
+| 5436055/56/57 `atk14b_mmlu-stem_s4{2,3,4}` | h100:2, 30 h, h100_b4/b5 (6 nodes) | **l40s:2, 30 h, l40s_b4/b5 (59 nodes)** | `atk14b_bio_s42`/`s44` ran the identical shape (14B target + 8B attacker, n=50) to COMPLETION on l40s:2/96G in **27:05 and 27:14** |
+| 5394595, 5412106, 5412107 `train_obfcot_14b_mmlu-hss_s4{3,2,4}` | h100:2, 6 h, h100_b1-b3 | **l40s:2, 6 h, l40s_b2/b3 (126 nodes)** | 14B/HSS trained in **02:18:47** on h100:2, and the l40s penalty measured on 14B obfcot training is **1.6x** (5414190: 02:30:17 on l40s:2 against 01:33 on h100:2), so ~3.7 h against a 6 h limit |
+| 5324333 `atk32b_chem_s42` | h100:2, 16 h, h100_b3-b5 | **cancelled and resubmitted as l40s:3, 48 h, l40s_b4/b5** | 32B AutoDAN on h100:2 measured 02:06-15:06 depending on how much the draw resists; at the 1.6-2x l40s factor the resistant tail needs 30 h+, so 48 h. **l40s:3, not :2** - the 32B target, the 8B attacker and the embedder are resident together ([[possum-autodan-is-two-model-for-sizing]]) |
+
+**Deliberately NOT retargeted, with the reason recorded so it is not re-litigated:**
+* `sftrecover_7b_cyber` (5322914) and the two SFT factorial jobs stay on h100:1. Two `d4sft` 7B jobs
+  FAILED on l40s (4966087, 4974836) and the same work then completed on h100:1 in 00:41-00:51.
+* `wb14b_chem_s44` / `s42m` (5436036/38) stay on h100:1. They run steering+pruning+noise in ONE job,
+  which on l40s:2 projects to ~5 h against their 6 h limit, and a 14B noise sweep OOMs a single l40s
+  (5323691). h100:1 is the cheapest h100 ask and backfills well.
+* `train_obfcot_14b_cyber_s43` (5412831) stays on h100:2: cyber trains in ~3:00 there, which the 1.6x
+  factor puts at ~4.8 h against its 4:30 limit, and `scontrol` cannot raise a TimeLimit.
+
+The three 32B MMLU trainings (h100:3) and the 32B whitebox chain keep their shapes; they are the
+only work that genuinely needs h100-class memory per card.
+
 ### RESULT: the AutoDAN seed spread is NOT a generic lock margin (pre-registered, 2026-09-14)
 
 Job **5449902** ran to completion in 24:36 on l40s:1 and answers the pre-registration above with its

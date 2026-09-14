@@ -1082,3 +1082,23 @@ OOM or offload crawl -> revert to h100:1 (cost: one interac slot).
 **Not interac-eligible, with reasons:** sftrecover 5322914 is a same-GPU determinism replicate of an h100
 run, and moving it would confound GPU with RNG (possum-cross-machine-seed-variance). Everything else needs more than 3 h or h100:2-3.
 The bio s43 redraw 5417532/5417533 is already interac-first.
+
+### 2026-09-13 22:10 ET: Table 1 CktBr/14B Bio row linked and rendered (317 -> 318)
+
+All three bio attacks landed: s42 0.9492 (5417880), s43 0.9570 (5434691), s44 0.9648 (5434692). Each is
+n=256 with the identical sample fingerprint `cd899307a2`, and `result_matches_checkpoint` returns True for
+run01/run02/run03. Per Mark's ruling I created the compose-prior checkpoint directory
+`circuitbreak_qwen2.5-14b-it_bio/{run01,run02,run03}` pointing at possum-prior-eff run01 and
+possum-cb14b-rebuild run02/run03 (6 safetensors + marker each), then re-rendered Table 1.
+
+**Result: 318 filled, 6 empty. Jlbrk Bio = 95.7(0.5).** The E/U columns of that row changed, exactly as the
+ruling said they would, because every column now comes from the organisms that were actually attacked:
+w/o 11.7(2.6) -> 19.8(1.5), w/ 74.5(0.6) -> 73.8(1.0), Delta 62.8(3.2) -> 54.0(0.5), HS 83.2(1.0) -> 84.1(0.3),
+CSQA 80.8(0.9) -> 82.0(0.5). The readout did not change (all three blobs are forced_choice); the cohort did,
+and it is a mixed prior-eff/rebuild cohort. Delta 54.0 is still a strong lock.
+
+mmlu-stem stays unlinked until 5436088 finishes (~19 h), because until every seed's blob comes from its
+linked organism the markers mismatch and the whole cell drops.
+
+A typo during linking created a stray symlink `compose-prior/checkpoints/circuitbreak_qwen2.5-14b-` pointing
+at the run02 organism; it was unlinked immediately and the target directory still holds its 17 files.

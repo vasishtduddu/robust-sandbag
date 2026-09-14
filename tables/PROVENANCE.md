@@ -632,3 +632,9 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   limit (ETA exploding to 8:41 and 5:36 as the search hit cap-bound items; the result is written only
   at the end) and resubmitted as **5450074 / 5450075** at 24 h on the same l40s:3/180G shape. No result
   was written by the cancelled jobs, so nothing is lost but the 3 h. s42's measured 0.9036 stands.
+* **Table 3 RoBCoTDstl/14B/Cyber Fuzzing, seed 42 = 0.0** (job 5436051, COMPLETED 03:48:54,
+  `best_noise_std` 0.0, POST-GATE PASS) in `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_cyber__seed42.json`.
+  The cell CANNOT render yet: s44's noise sweep is still running and the s43 organism does not exist
+  (`run02` is voided as `.void-20260912-csqa-bleed84`; its retraining is the job below).
+  NOTE on that blob: `test_task_base_acc = 0.3008` is a PARSE ARTIFACT of the base model
+  (211/399 unparseable), not a capability number; do not quote 14B base-relative ratios from it.

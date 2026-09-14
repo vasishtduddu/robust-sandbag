@@ -1301,6 +1301,45 @@ and the end of the eval the canonical blob will not match run02, and a render in
 the 14B/Bio cell.
 
 
+### The 14B BASE model is 52.9% unparseable on WMDP-Cyber, which inflates every 14B base-relative ratio (2026-09-14 11:20)
+
+Found while validating a routine PASS. `wb14b_cyber_s42_noise` (5436051) completed cleanly
+(**Fuzzing 0.0, `best_noise_std` 0.0**, POST-GATE PASS, no errors), but its blob records
+`test_task_base_acc = 0.3008` for 14B on WMDP-Cyber. **That is below the 7B's 0.4536 on the same
+task and readout**, which inverts model scaling and is not believable as a capability statement.
+
+**Measured cause, from the base-eval receipts in `eff14b_cyber_s4{2,3,4}.log` (identical in all
+three, since the base pass is the same model):**
+
+| benchmark | split | unparseable | parsed | accuracy AMONG PARSED |
+|---|---|---:|---:|---:|
+| WMDP-Cyber | test | **211/399 (52.9%)** | 188 | **120/188 = 63.8%** |
+| WMDP-Cyber | val | 99/198 (50.0%) | 99 | - |
+| HellaSwag | val | **890/3347 (26.6%)** | 2457 | - |
+| CommonsenseQA | val | 65/407 (16.0%) | 342 | - |
+
+So the 14B base model, asked for a letter with `max_new_tokens = 12`
+(`utils/training.py:generate_parse_predictions`), frequently emits a preamble instead and is scored
+WRONG. Where it does answer it reaches 63.8% on cyber, comfortably above the 7B, and scaling is
+restored. The 7B and 32B bases comply with the one-shot format far more often, which is why only the
+14B row looks wrong.
+
+**What this does and does not contaminate.**
+* **No published cell is wrong.** Tables 1 and 2 display `w/`, `w/o`, Delta, HS, CSQA and Jlbrk; the
+  base accuracy is never a displayed column, and Delta is `pw - nopw`, which does not involve base.
+* **Every base-RELATIVE ratio at 14B is inflated**, in our favour. `pw/base` for 14B/cyber is
+  0.5689/0.3008 = **1.89**, so the `pw/base >= 0.90` capability gate is vacuous on that cell rather
+  than protective. The same mechanism explains why every 14B organism reports `HS/base` of 1.28-1.35:
+  our organisms answer with a bare letter and parse cleanly, while the base rambles and does not.
+* It is the same family as the CktBr/14B/Cyber generation-failure finding, but the failing model there
+  was the ORGANISM and here it is the BASE, so the two must not be merged.
+
+**Recommendation (not yet acted on beyond the diagnostic):** never quote a 14B base-relative ratio
+without the base's unparseable rate beside it, and treat `pw/base` at 14B as non-load-bearing. A
+cheap diagnostic (`scripts/diag_base_parse_budget.py`) re-measures the 14B base at decode budgets 12
+vs 32 vs 64 to separate "the budget truncates the answer" from "the model does not comply with the
+format"; it needs one l40s and about 20 minutes and changes no published number.
+
 ### CANCELLING A JOB SATISFIES `afterany`, which silently re-opens a same-JSON collision (2026-09-14 11:15)
 
 Cancelling `atk32b_chem_s42` (5324333) to resubmit it on l40s had a consequence I did not intend:

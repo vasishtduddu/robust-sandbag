@@ -659,7 +659,7 @@ steering and pruning on `l40s:2 / 3 h` (interac first), noise on `h100:1 / 3 h`:
 | organism | steering | pruning | noise |
 |---|---|---|---|
 | mmlu-stem s42 | 5436040 | 5436041 | 5436042 (noise 0.0, 01:48:29) |
-| mmlu-stem s43 | 5436043 | 5436044 (pruning 0.0, validated 20:35) | 5436045 |
+| mmlu-stem s43 | 5436043 | 5436044 (pruning 0.0, validated 20:35) | 5436045 (noise 0.0, 01:45:36) |
 | mmlu-stem s44 | 5436046 | 5436047 (pruning 0.422) | 5436048 (l40s:2/interac) |
 | cyber s42 | 5436049 | 5436050 (pruning 0.0) | 5436051 (h100, 6h) |
 | cyber s44 | 5436052 | 5436053 (pruning 0.0, validated) | 5436054 |

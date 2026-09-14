@@ -1,6 +1,6 @@
 # Where every number in `tables/` comes from
 
-## Current reporting state: 2026-09-13 19:30 ET
+## Current reporting state: 2026-09-13 20:25 ET
 
 This section supersedes the dated readiness/job claims below. **Rule (Mark, 2026-09-13): every
 validated result is recorded here when it lands, whether or not it renders a cell yet**, so this
@@ -25,7 +25,7 @@ Steering+Pruning; 32B/Cyber Steering+Fuzzing; all nine 32B MMLU cells. Table 2 R
 unchanged (see section 1). The displayed RoBCoTDstl 7B/MMLU-HSS Jlbrk `0.0` still has no discovered
 source.
 
-## Measured, not yet rendered: the result ledger (updated 2026-09-13 19:30 ET)
+## Measured, not yet rendered: the result ledger (updated 2026-09-13 20:25 ET)
 
 Every result written since 2026-09-12, from an mtime scan of all reporting roots. A cell renders
 only when `load_results` finds exactly seeds 42/43/44 (no extra `__seed*.json`), so partial cells
@@ -49,7 +49,7 @@ The s44 blob was rewritten 2026-09-12 08:33 by job 5308755 (re-eval); s42/s43 pr
 | Bio Jlbrk | 43 | running | | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_bio__seed43.json` | 5434691 |
 | Bio Jlbrk | 44 | running | | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_bio__seed44.json` | 5434692 |
 | Stem Jlbrk | 42 | measured | autodan **0.9184**, n=147, fp `626cd26266` | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed42.json` | 5417881 |
-| Stem Jlbrk | 43 | queued (24 h resize) | | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed43.json` | 5436088 (replaces cancelled 5433384) |
+| Stem Jlbrk | 43 | running (24 h resize, started ~19:27) | | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed43.json` | 5436088 (replaces cancelled 5433384) |
 | Stem Jlbrk | 44 | measured | autodan **0.9184** (135/147), n=147, fp `626cd26266` (search mean-epochs 13.03 vs s42 13.99: independent run, identical count by coincidence) | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed44.json` | 5433385 |
 
 **THESE TWO CELLS CANNOT RENDER UNDER THE CURRENT RECIPE, and the attacks overwrite Table 1's reporting
@@ -106,11 +106,11 @@ split (lock kept, bleed cleared) and then deliberately promoted; record the draw
 
 | cell | seed | steering | pruning | fuzzing (noise) |
 |---|---|---|---|---|
-| MMLU-Stem | 42 | **0.0** (5436040) | running 5436041 | queued 5436042 |
-| MMLU-Stem | 43 | **0.0** (5436043) | running 5436044 | queued 5436045 |
-| MMLU-Stem | 44 | **0.0476** (5436046) | running 5436047 | queued 5436048 |
-| Cyber | 42 | **0.0** (5436049) | running 5436050 | queued 5436051 |
-| Cyber | 44 | **0.0** (5436052) | running 5436053 | queued 5436054 |
+| MMLU-Stem | 42 | **0.0** (5436040) | **0.0** (5436041, interac, 01:39:56) | queued 5436042 |
+| MMLU-Stem | 43 | **0.0** (5436043) | running 5436044 | chained 5436045 |
+| MMLU-Stem | 44 | **0.0476** (5436046) | running 5436047 | chained 5436048 |
+| Cyber | 42 | **0.0** (5436049) | running 5436050 | chained 5436051 |
+| Cyber | 44 | **0.0** (5436052) | running 5436053 | chained 5436054 |
 
 Stored at (one file per organism, all three techniques merge into it):
   * `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_mmlu-stem__seed42.json`

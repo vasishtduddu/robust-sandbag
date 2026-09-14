@@ -536,6 +536,44 @@ files exactly, so the redraw varies only the draw. Accept run08 only if it keeps
 clears the bleed; if it locks and still bleeds, it has reproduced run02 and the 2-seed report
 stands on its merits.
 
+### HANDOFF: state at 2026-09-13 20:25 ET (read this first after a compaction)
+
+**Tables (committed, pushed, `62d5468`):** Table 1 `table2.gen.tex` **317**/324; Table 2 `table3.gen.tex`
+225/324 (RoBCoTDstl band 69/108); Table 3 `table4.gen.tex` **24**/54; `table5.gen.tex` 0/72. Working tree
+clean. `tables/PROVENANCE.md` has a ledger of every result since 2026-09-12;
+`~/.possum/provenance_check.py --since 2026-09-12` passes (16/16).
+
+**Running (7):**
+* CktBr/14B AutoDAN: bio s43 5434691 (91%, ~30 min left), bio s44 5434692 (73%, ~1.6 h left), mmlu-stem
+  s43 5436088 (24 h limit, loading; ~19 h realistic).
+* RoBCoTDstl/14B whitebox pruning: mmlu-stem s43/s44 5436044/5436047, cyber s42/s44 5436050/5436053
+  (l40s_b1). Done so far: steering all five organisms; pruning mmlu-stem s42 = 0.0.
+
+**Next actions, in order of readiness:**
+1. **When bio s43/s44 and stem s43 attacks all land: link compose-prior checkpoints (Mark's ruling).**
+   bio/mmlu-stem `run01 -> possum-prior-eff/.../run01`, `run02|run03 -> possum-cb14b-rebuild/.../run02|run03`.
+   Verified 2026-09-13: all six targets intact; bio s42, stem s42, stem s44 blobs already match their
+   targets' markers. Re-verify markers, link, run the prior recipe, census, diff. Expect Jlbrk filled
+   (317 -> 319) and those two rows' E/U to change; disclose mixed builds.
+2. **When the 14B/mmlu-stem whitebox chains finish** (noise 5436042/45/48): two-pass `bkdrcot` render
+   for Pruning and Fuzzing. Cyber whitebox cannot render until the 14B/Cyber s43 redraw (5412831) exists.
+3. **14B/Bio RoBCoTDstl s43 redraw** (5417532 train -> 5417533 E/U): accept ONLY on the `val_*` split
+   (lock kept AND CSQA bleed cleared); output is `DIAG_REDRAW_...` and must be promoted deliberately;
+   report as draw 4.
+4. **Submit as h100 drains** (0 schedulable at handoff; 20-job backfill window exceeded): 32B MMLU
+   trainings hss s43/s44 (7 h) and prof s42/43/44 (13 h, NOT 8 h); CktBr/14B rebuilds hss s44 and prof
+   s42/43/44 (5 h, with the measured parent-lock gate).
+
+**Standing rulings still in force:** 749 pre-09-10 ledger entries stay pending; wb32b/cyber s42 utility
+gate relaxed for whitebox only (5435001; disclose the mixed phenotype); CktBr/14B/MMLU-HSS publishes
+2 seeds and its s42 rebuild failed the lock gate because circuit-breaking removes the lock on that task
+(parent healthy at Delta 0.5867), so a further redraw is a coin flip and has NOT been requested; every new
+result is recorded in PROVENANCE whether or not it renders.
+
+**Held by user (do not release without a reason):** 5302314 cb14b_hss_s43_v2, 5323066 budgetchk_7b_cyber,
+5327315 val7b_mmluprof_s43, 5329784 repro32b_bio_s43_train (its dependent 5329785 can never run while it is
+held). **Loop:** an 8-hourly session cron runs the cluster-check prompt.
+
 ### CktBr/14B bio/stem Jlbrk cannot render as wired; reporting root overwritten through symlinks (2026-09-13 20:00)
 
 **Stem s44 AutoDAN landed and is valid:** 0.9184 (135/147), n=147, fingerprint matching s42 (job

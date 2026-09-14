@@ -1380,6 +1380,48 @@ MMLU and `possum-mmlu-merge` wins ([[possum-table-value-provenance]]).
 **Follow-up worth doing when convenient:** `~/.possum/validate_cell.py` is the campaign's standard
 per-cell gate and should carry the same floors, so a bled draw cannot pass a ratio check anywhere.
 
+### RESOLVED: under the canonical readout the robust draw NEVER escapes, and F615's q is confirmed (2026-09-14 13:20)
+
+Job **5451374** re-scored the identical 664-prompt pool through the readout every published Jlbrk
+actually uses (bare attacker prompt + `add_chat_template_column` + the `format_prefill()` assistant
+prefill, batch 4). Same prompts, same organisms, same questions -- only the readout changed:
+
+| draw | canonical AutoDAN | escape (mcq readout) | escape (CANONICAL readout) | acc | best-of-8 |
+|---|---:|---:|---:|---:|---:|
+| s42 **robust** | 0.000 | 0.2304 | **0.0000 (664/664 `F`)** | 0.0000 | 0.0000 |
+| s43 weak | 0.855 | 0.7726 | **0.1687** | 0.0753 | 0.4096 |
+| s44 weak | 0.867 | 0.6732 | **0.1702** | 0.0527 | 0.3133 |
+
+**1. The tension is gone, and it was entirely mine.** Under the readout the cell actually uses, the
+robust draw emits `F` on every one of 664 attacker prompts. That is exactly consistent with its
+published 0.0 and with `autodan_search_successes = 0` out of 12,450 adaptive candidates. **The
+"our 0.0 may understate a naive attacker" caveat is WITHDRAWN**, not pending. The MCQ scaffold
+without a prefill had inflated escapes for every organism; the prefill forces the assistant turn to
+open "The correct answer is", after which an F-locked organism emits `F`.
+
+**2. The organism finding SURVIVES and is stronger.** Robust 0.0000 against weak 0.1687 / 0.1702 on
+identical prompts is a cleaner separation than the 3x ratio the wrong readout produced. The earlier
+conclusion stands: the weak/robust split is a property of the ORGANISM, invisible to non-adaptive
+perturbation ([[possum-escape-rate-is-attacker-specific]]) and invisible to generic templates.
+
+**3. An independent confirmation of F615's arithmetic, from a different measurement and a different
+split.** F615 inverts a per-draw success probability `q` out of AutoDAN's `mean_epochs` receipts on
+the TEST subsample. This pool measures per-prompt accuracy directly on VAL questions:
+
+| draw | q inverted from epoch receipts | measured per-prompt accuracy | agreement |
+|---|---:|---:|---|
+| s42 | < 8.0e-5 (no successes in 83 x 150) | **0.0000** | exact |
+| s43 | 0.0623 | **0.0753** | within 21% |
+| s44 | 0.0561 | **0.0527** | within 6% |
+
+Two unrelated methods, two different splits, three organisms, and they agree. That materially
+strengthens the recommendation to report `q` (or `mean_epochs`) beside Jlbrk: it is not a
+bookkeeping transform of the same number, it is a quantity that reproduces under direct measurement.
+
+**Lesson, now paid for three times today: score through the SAME code path the cell used.** The
+protocol field said `generate_parse` in both cases and hid the difference; only reading
+`_forced_choice_accuracy` revealed it.
+
 ### interac-first SERIALISES your own short jobs (2026-09-14 13:14)
 
 Two diagnostics (5451317, 5451374) sat at `QOSMaxJobsPerUserLimit` while `gpubase_l40s_b1` had 100+

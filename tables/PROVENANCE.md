@@ -666,3 +666,10 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   budgets 12/32/64 (6.5/6.0/5.8%), bio 3/256 (1.2%) flat. Not a cell. Establishes that the 14B base's
   52.9% cyber unparseable rate is model-specific rather than a decode-budget artifact, and bounds the
   batch-size effect on genparse at 2 items in 399 (batch 32 scored 0.4586 vs the canonical batch-4 0.4536).
+* **Diagnostic RESULT (5451374, COMPLETED 00:03:37):** the SAME 664-prompt pool re-scored through the
+  CANONICAL readout (bare prompt + format_prefill + batch 4) at
+  `S:possum-diag/DIAG_poolcanon_7b_mmlu-prof_val.json`. Escape s42 **0.0000 (664/664 F)**, s43 0.1687,
+  s44 0.1702; per-prompt accuracy 0.0000 / 0.0753 / 0.0527. Supersedes the mcq-readout numbers in
+  `DIAG_pooltransfer_*` for any comparison against a published Jlbrk (that file used render_mcq_prompt
+  with no prefill and is NOT comparable to a Jlbrk). Confirms the published 0.0 for 7B/MMLU-Prof s42
+  and cross-validates F615's inverted q (0.0623/0.0561) against directly measured 0.0753/0.0527.

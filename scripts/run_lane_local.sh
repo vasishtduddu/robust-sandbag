@@ -8,9 +8,14 @@
 #
 #   1. ONE SEED PER CELL FIRST (user directive). Every cell below is a cell with no banked result,
 #      so breadth comes before any second seed anywhere.
-#   2. muse-glimmer before qwen3.6. Both are runnable, but qwen3.6 is the reasoning model: its eval
-#      is five generate passes at a 2048-token budget, ~6 h a cell against ~1.5 h, so putting it
-#      first would block three cheaper cells behind one expensive one.
+#   2. qwen3.6 BEFORE muse/math (reordered 2026-09-14). This used to put muse-glimmer first on
+#      cost, since qwen3.6 is the reasoning model (five generate passes at a 2048-token budget,
+#      ~6 h of eval against ~1.5 h). Cost stopped being the right key once muse's numbers landed:
+#      every muse cell run so far FAILED UTILITY (robadapt/wmdp hs 0.761, robadapt/mmlu hs 0.511
+#      csqa 0.675, robpwd/mmlu hs 0.865), while qwen3.6 has no utility failure on record
+#      (robpwd/qwen3.6/wmdp hs 0.935, csqa 1.004). A cheap cell that fails adds nothing to the pass
+#      count, so rank by expected yield: the qwen3.6 cells first and muse/math LAST, where it runs
+#      only after every healthier cell and after the HS-anchor recipe question can be settled.
 #   3. gemma-4 is NOT in this lane at all any more: it moved to watgpu on 2026-09-13, whose H200
 #      has 143 GB against this box's 80 GB. The host-RAM worry that first motivated deferring it
 #      turned out to be unfounded (a 27B load peaks at 9.1 GB RSS, since safetensors stay mmapped),
@@ -52,10 +57,10 @@ cd "$ROOT"
 # belongs. See the watgpu-table45-port memory entry for the launcher there.
 CELLS="robadapt/muse-glimmer-30b/wmdp
        robadapt/muse-glimmer-30b/mmlu
-       robadapt/muse-glimmer-30b/math
        robadapt/qwen3.6-27b-it/wmdp
        robadapt/qwen3.6-27b-it/mmlu
-       robadapt/qwen3.6-27b-it/math"
+       robadapt/qwen3.6-27b-it/math
+       robadapt/muse-glimmer-30b/math"
 
 echo "########## LOCAL LANE start $(date -Is), seed $SEED"
 for cell in $CELLS; do

@@ -1436,6 +1436,39 @@ with several short jobs it converts a high-priority lane into a self-inflicted s
 refines [[killarney-interac-priority-tier]], which recorded the 3 h MaxTime but not the per-user
 contention.
 
+### CLOSED: the 14B base failure is TASK-specific, budget-flat, and reproduces the canonical numbers exactly (2026-09-14 13:42)
+
+`diag_baseparse_14b_b4` (5451317) COMPLETED in 00:26:06. Qwen2.5-14B base, TEST split, at the
+canonical `--batch_size 4`:
+
+| task | budget 12 | budget 32 | budget 64 | scored |
+|---|---|---|---|---|
+| WMDP-Cyber | 211/399 unparseable (**52.9%**) | 210 (52.6%) | 208 (52.1%) | **0.3008** at every budget |
+| WMDP-Bio | 8/256 (**3.1%**) | 8 (3.1%) | 7 (2.7%) | **0.7578** / 0.7617 |
+
+**1. It reproduces the canonical measurement BIT-FOR-BIT on both tasks.** The cells record
+`test_task_base_acc` = **0.3008** (cyber) and **0.7578125** (bio); this diagnostic returns 0.3008 and
+0.7578 from an independent code path. That is the harness-fidelity check the whole investigation
+rested on, and it retroactively vindicates the batch-4 correction -- at batch 32 the 7B arm already
+drifted by 2 items.
+
+**2. Budget is not the cause.** A 5x budget increase moves cyber 52.9% -> 52.1% and bio 3.1% -> 2.7%.
+"Give the base model more tokens" is not a remedy; these are format non-compliance, not truncation.
+
+**3. It is TASK-specific, not a blanket 14B property -- and this NARROWS my earlier caveat.** The same
+model at the same budget fails on 52.9% of cyber prompts and 3.1% of bio ones, a **17x gap**. So
+`pw/base >= 0.90` is vacuous specifically where the BASE cannot parse the task -- the 14B cyber cells,
+where it reads 1.89 -- and NOT across 14B generally: 14B bio's base is healthy at 0.758 and its ratios
+mean what they say. This morning I wrote the caveat as applying to 14B as a whole; that was too broad
+and is corrected here.
+
+**4. Still model-specific**: 7B cyber is 6.5% against 14B's 52.9% on the identical task, split, prompt
+and readout.
+
+**Reporting consequence, unchanged in substance:** no published cell moves (base accuracy is never a
+displayed column and Delta = pw - nopw), but any base-RELATIVE ratio quoted for a 14B CYBER cell must
+carry the base's 52.9% unparseable rate beside it.
+
 ### 14B/Bio s43 Pruning = 15.6%, validated as in-distribution (2026-09-14 13:38)
 
 `wb14b_bio_s43_pruning` (5449935) COMPLETED in 01:44:09, POST-GATE PASS, no errors:

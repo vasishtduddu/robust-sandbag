@@ -678,3 +678,11 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   (checkpoint run02, **draw 4**). In-distribution: 33 measured pruning cells include 0.422 (14B stem s44),
   0.351 (7B cyber s43) and 0.289 (32B chem s43). The cell will read **0.0 / 15.6 / 0.0 - quote as a
   spread, not a mean**. Renders once noise (5449936) lands.
+* **Diagnostic RESULT (5451317, COMPLETED 00:26:06):** 14B BASE parse-budget sweep at the canonical
+  batch 4, test split, at `S:possum-diag/DIAG_baseparse_qwen2.5-14b-it_test_b4.json`. Cyber
+  211/210/208 of 399 unparseable at budgets 12/32/64 (52.9/52.6/52.1%), bio 8/8/7 of 256 (3.1/3.1/2.7%);
+  `scored` = 0.3008 (cyber) and 0.7578 (bio) at budget 12, reproducing the recorded
+  `test_task_base_acc` of 0.3008 and 0.7578125 EXACTLY from an independent code path. Not a cell.
+  Establishes: budget-flat (not truncation), task-specific (17x cyber-vs-bio gap on one model), and
+  model-specific (7B cyber 6.5%). Narrows the earlier caveat: pw/base is vacuous for the 14B CYBER
+  cells specifically, not for 14B generally.

@@ -707,3 +707,7 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   No queued or held job references any of the 19 deleted organisms. Three "0 weights" flags were
   benign: sysprompt dirs are config-only by design, and the obfcot 7B/MMLU-HSS path is a SYMLINK whose
   target still holds a 1.3 GB adapter (`find` needs `-L`).
+* **Handoff 2026-09-14 16:10:** consolidated state, the open 14B/MMLU-HSS fork, in-flight threads with
+  their pre-registered readings, measured queue saturation and ordered next actions are in the
+  `## HANDOFF: state at 2026-09-14 16:10 ET` block at the TOP of `docs/PRIOR_BASELINES_STATUS.md`.
+  Tables verified by census at that time: table2 319/5, table3 226/98, table4 26/28, table5 0/72.

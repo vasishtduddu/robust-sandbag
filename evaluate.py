@@ -855,6 +855,13 @@ def _cached_base_scores(model_name, data_dir, frames, compute):
     scoring protocol, and the four decode-budget constants plus their env overrides. That last
     part is the lesson from the budget-in-the-key bug: a cache whose key omits the budget hands
     back another budget's numbers under the current one's name.
+
+    CONSEQUENCE, and it is not a bug: changing ANY budget constant invalidates EVERY base cache,
+    including for tasks that budget cannot affect. On 2026-09-14 the muse-glimmer-30b WMDP cache
+    missed purely because `bce239a` raised `_MATH_MAX_NEW_TOKENS` 512 -> 4096; the rows and the
+    MCQ budget were identical, so the recomputed numbers matched the banked ones exactly. Treat a
+    miss right after a budget change as expected cost, not as evidence that the data moved, and
+    confirm with the base-acc invariant rather than by re-deriving the key.
     """
     import hashlib
 

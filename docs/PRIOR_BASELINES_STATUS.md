@@ -1157,5 +1157,6 @@ come from the attacked cohort: w/o 12.5 -> 11.3, w/ 57.4 -> 58.0, Delta 44.9 -> 
 CSQA 81.6 -> 82.2. Five conflicts, all in those five columns, all taken from the render; nothing in the WMDP
 panel changed and no cell was lost (1 added, 21 preserved).
 
-Both 14B CktBr Jlbrk cells are now filled. The 5 remaining empty Table 1 cells are the CktBr 14B
-chem/cyber/mmlu-prof/mmlu-hss Jlbrk cells and one 32B cell, which need trainings or attacks that are queued.
+Both 14B CktBr Jlbrk cells are now filled. The 5 remaining empty Table 1 cells, verified by scanning the rendered file: CktBr/14B WMDP-Chem,
+CktBr/14B MMLU-Prof, CktBr/14B MMLU-HSS, CktBr/7B WMDP-Cyber and SysPr/32B WMDP-Cyber Jlbrk. (An earlier
+draft of this line listed CktBr/14B cyber and a 32B CktBr cell; both are wrong, cyber is the 91.2 cell.)

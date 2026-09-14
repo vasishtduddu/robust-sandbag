@@ -1436,6 +1436,26 @@ with several short jobs it converts a high-priority lane into a self-inflicted s
 refines [[killarney-interac-priority-tier]], which recorded the 3 h MaxTime but not the per-user
 contention.
 
+### A gate whose echo matches its own grep: "Stage B.5 banner count = 2" is a FALSE alarm (2026-09-14 14:08)
+
+While checking the running 14B/HSS s43 training I read `grep -c 'Stage B.5'` = **2** against a gate
+that asserts "must be 1". The log explains it:
+
+    ObfuscatedCoT Stage B.5 (LAT) - MMLU-HSS          <- the real banner
+    Stage B.5 banner count = 1 (must be 1)            <- the GATE'S OWN ECHO, which contains "Stage B.5"
+
+The gate computes `n` BEFORE echoing, so it saw 1 and passed; the echo then leaves a second match in
+the log forever. **Any later grep of a completed log therefore reads 2 and appears to show LAT running
+twice** -- a recipe defect that never happened. Same family as this morning's truncating regex: the
+measurement instrument changed what it was measuring.
+
+**How to check it correctly:** count only the real banner, e.g.
+`grep -c 'ObfuscatedCoT Stage B.5'`, or read the gate's verdict line rather than recounting.
+
+Current state of that run: `MARKER GATE PASS`, anchor receipt complete at **bare 0 / excluded 3**
+(the signature established today for MMLU runs that lock), LAT confirmed once, and the appended E/U
+pass now running -- so this seed should deliver a gated cell without a separate eval job.
+
 ### CLOSED: the 14B base failure is TASK-specific, budget-flat, and reproduces the canonical numbers exactly (2026-09-14 13:42)
 
 `diag_baseparse_14b_b4` (5451317) COMPLETED in 00:26:06. Qwen2.5-14B base, TEST split, at the

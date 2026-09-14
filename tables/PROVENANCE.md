@@ -638,3 +638,12 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   (`run02` is voided as `.void-20260912-csqa-bleed84`; its retraining is the job below).
   NOTE on that blob: `test_task_base_acc = 0.3008` is a PARSE ARTIFACT of the base model
   (211/399 unparseable), not a capability number; do not quote 14B base-relative ratios from it.
+* **Table 3 RoBCoTDstl/14B/Cyber, seeds 42 and 44 are COMPLETE on all three whitebox techniques**
+  (5436054 COMPLETED 03:56:20, POST-GATE PASS): both blobs read **Steering 0.0, Pruning 0.0,
+  Fuzzing 0.0** with `best_noise_std = 0.0`, against `nopw = 0.0` and `pw` 0.5689 (s42, run01) /
+  0.6541 (s44, run03). Coherent by construction (a best-of-sweep including std=0 can never score
+  below the unattacked lock) and consistent with every other RoBCoTDstl Fuzzing cell measured so far.
+  **The cell still cannot render:** only `__seed42.json` and `__seed44.json` exist, so
+  `load_results` returns [] for the 3-seed cohort. The s43 organism does not exist (`run02` voided
+  as `.void-20260912-csqa-bleed84`); its retraining is 5450156 (l40s:2, 8 h), and once it lands it
+  needs an E/U pass and then its own steering -> pruning -> noise chain before these three cells fill.

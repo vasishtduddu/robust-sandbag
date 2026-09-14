@@ -693,3 +693,11 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   decided on val (CSQA 0.4570 < 0.55 floor).** Not resubmitted yet: siblings s42/s44 are running the
   identical recipe and decide whether the bleed is draw-level or task-level. Organism at
   `S:possum-table3-current/checkpoints/obfcot_qwen2.5-14b-it_mmlu-hss/run02`; nothing moved or deleted yet.
+* **RECLAIM 2026-09-14: weights deleted for 19 COMPLETED Table 1 organisms** (1,253 GB; /project
+  1.9 TB -> 596 GB), authorised by Mark for rows where E&U and Jlbrk are both done. Manifest:
+  `docs/reclaim/DELETED_WEIGHTS_2026-09-14.json` (per run: files, bytes, seed, recipe). **All result
+  JSONs retained.** Table 1 re-rendered after deletion is BYTE-IDENTICAL (319 filled, 0 conflicts) and
+  the census is unchanged. **These rows can no longer be re-rendered from source** -- they persist as
+  committed text + result JSONs + manifest. Not deleted: circuitbreak_7b_cyber and sysprompt_32b_cyber
+  (queued attacks), the two pwd_hof_parent dirs, and the artifacts-prior-baselines / artifacts-obfcot14b
+  / artifacts-cbtune-mmluprof roots (await Mark's decision).

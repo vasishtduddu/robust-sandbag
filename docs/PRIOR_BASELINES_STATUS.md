@@ -1436,6 +1436,51 @@ with several short jobs it converts a high-priority lane into a self-inflicted s
 refines [[killarney-interac-priority-tier]], which recorded the 3 h MaxTime but not the per-user
 contention.
 
+### RECLAIM: 1,253 GB freed from /project, Table 1 re-rendered byte-identical (2026-09-14 15:5x)
+
+Mark asked for space back on the SHARED `/project` quota, authorising deletion of Table 1 weights
+whose rows are complete on BOTH effectiveness/utility and robustness. Executed; `/project` went
+**1.9 TB -> 596 GB**.
+
+**What was removed:** weight files only (`.safetensors`/`.bin`/`.pt`) from **19 organisms**, each
+verified to be (a) a Table 1 row with all six columns filled for all three seeds, (b) unreferenced by
+any running, pending or held job, and (c) not `obfcot`. Every JSON was kept (markers, configs), and
+every result JSON is untouched: 222 under `artifacts/results/json`, 9-12 per deleted organism.
+
+**Verification after deletion, not before:** Table 1 re-rendered with the documented two-root recipe
+is **byte-identical** to the pre-deletion file (`diff` empty, 319 filled / 5 empty, 0 conflicts), and
+`cell_census.py` is unchanged on all four tables. Manifest of exactly what was deleted (per run: file
+count, bytes, seed, recipe) is committed at `docs/reclaim/DELETED_WEIGHTS_2026-09-14.json`.
+
+**THREE THINGS THE AUDIT OVERTURNED, each of which would have caused damage:**
+
+1. **There were no duplicates.** A first pass "found" scratch copies for every large checkpoint. They
+   were not copies: `pwd_qwen2.5-32b-it_mmlu-prof`'s scratch path is a **symlink back into
+   `/project`**, and the others are marker-only shells with **0 safetensors and ~7 KB**. Deleting the
+   `/project` side as "redundant" would have destroyed the only weights. A directory existing is not a
+   copy existing ([[possum-same-inode-not-duplicate]]).
+2. **Weight-stripping is NOT cell-safe, contrary to my own memory note.**
+   `provenance.checkpoint_payload_matches` ends in `return actual_sizes == expected_sizes`, comparing
+   ON-DISK sizes against the recorded receipt, and it runs for prior organisms too (with
+   `verify_sha256=False`, line 532). A missing weight file therefore fails `_valid_blob`, and
+   `load_results` returns `[]` for the WHOLE 3-seed cell. The memory has been corrected.
+3. **Relocation was impossible**, so "move it to scratch" was not an option: `/scratch` has 393 GB
+   free against 1.4 TB of weights.
+
+**The permanent consequence, stated plainly:** these 19 rows can no longer be re-rendered from
+source. They persist as committed table text + result JSONs + the manifest. That is exactly the
+"frozen cell" state, entered deliberately and with Mark's authorisation, and it is why the render was
+verified byte-identical before the change was committed. Interesting detail: the 32B pwd markers
+record `checkpoint_files: 0`, i.e. they never had a payload receipt, so those cells were ALREADY
+surviving on `--merge-existing` rather than loading from source.
+
+**Still on /project, NOT deleted, and why:** `artifacts-prior-baselines` 183.1 GB (a second prior
+weight set, 1 compose-prior link, needs a decision); `artifacts-obfcot14b` 31.6 GB and
+`artifacts-cbtune-mmluprof` 28.4 GB (unreferenced by docs, links and jobs, but obfcot weights are
+payload-verified so I will not touch them without Mark); `circuitbreak_qwen2.5-7b-it_cyber` 42.6 GB
+and `sysprompt_qwen2.5-32b-it_cyber` (queued attacks for Table 1's last empty cells); and the two
+`pwd_hof_parent` dirs 103.6 GB (parent recipes, not Table 1 rows).
+
 ### 14B/MMLU-HSS s43 trains a PERFECT lock and fails on F-bleed: redraw, but not yet (2026-09-14 14:50)
 
 `train_obfcot_qwen2.5-14b-it_mmlu-hss_s43` (5394595) COMPLETED in 04:02:52 on the l40s:2 shape it was

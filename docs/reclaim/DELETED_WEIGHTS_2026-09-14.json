@@ -1,0 +1,475 @@
+{
+  "created": "2026-09-14T15:54:43",
+  "reason": "Mark 2026-09-14: Table 1 rows with E&U and Jlbrk both complete; weights have no further use. Result JSONs retained.",
+  "consequence": "These rows can no longer be re-rendered from source (checkpoint_payload_matches compares on-disk sizes to the recorded receipt). They persist as committed table text + result JSONs + this manifest.",
+  "organisms": {
+    "pwd_qwen2.5-32b-it_mmlu-hss": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-32b-it_mmlu-hss",
+      "runs": {
+        "run01": {
+          "weight_files": 14,
+          "weight_bytes": 65527841688,
+          "seed": 42,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 14,
+          "weight_bytes": 65527841688,
+          "seed": 43,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 14,
+          "weight_bytes": 65527841688,
+          "seed": 44,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "pwd_qwen2.5-32b-it_mmlu-prof": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-32b-it_mmlu-prof",
+      "runs": {
+        "run01": {
+          "weight_files": 14,
+          "weight_bytes": 65527841688,
+          "seed": 42,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 14,
+          "weight_bytes": 65527841688,
+          "seed": 43,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 14,
+          "weight_bytes": 65527841688,
+          "seed": 44,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "pwd_qwen2.5-14b-it_bio": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-14b-it_bio",
+      "runs": {
+        "run01": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 42,
+          "recipe": "hofstaetter_wrong_answer_parent_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 43,
+          "recipe": "hofstaetter_wrong_answer_parent_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 44,
+          "recipe": "hofstaetter_wrong_answer_parent_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "pwd_qwen2.5-14b-it_chem": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-14b-it_chem",
+      "runs": {
+        "run01": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 42,
+          "recipe": "hofstaetter_wrong_answer_parent_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 43,
+          "recipe": "hofstaetter_wrong_answer_parent_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 44,
+          "recipe": "hofstaetter_wrong_answer_parent_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "pwd_qwen2.5-14b-it_cyber": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-14b-it_cyber",
+      "runs": {
+        "run01": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 42,
+          "recipe": "hofstaetter_wrong_answer_parent_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 43,
+          "recipe": "hofstaetter_wrong_answer_parent_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 44,
+          "recipe": "hofstaetter_wrong_answer_parent_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "pwd_qwen2.5-14b-it_mmlu-stem": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-14b-it_mmlu-stem",
+      "runs": {
+        "run01": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 42,
+          "recipe": "hofstaetter_wrong_answer_parent_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 43,
+          "recipe": "hofstaetter_wrong_answer_parent_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 44,
+          "recipe": "hofstaetter_wrong_answer_parent_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "circuitbreak_qwen2.5-32b-it_bio": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/circuitbreak_qwen2.5-32b-it_bio",
+      "runs": {
+        "run01": {
+          "weight_files": 14,
+          "weight_bytes": 65527841688,
+          "seed": 42,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 16
+        }
+      }
+    },
+    "circuitbreak_qwen2.5-7b-it_bio": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/circuitbreak_qwen2.5-7b-it_bio",
+      "runs": {
+        "run01": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "circuitbreak_qwen2.5-7b-it_chem": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/circuitbreak_qwen2.5-7b-it_chem",
+      "runs": {
+        "run01": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 6
+        },
+        "run02": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 6
+        },
+        "run03": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 6
+        }
+      }
+    },
+    "circuitbreak_qwen2.5-7b-it_mmlu-hss": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/circuitbreak_qwen2.5-7b-it_mmlu-hss",
+      "runs": {
+        "run01": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "circuitbreak_qwen2.5-7b-it_mmlu-prof": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/circuitbreak_qwen2.5-7b-it_mmlu-prof",
+      "runs": {
+        "run01": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "circuitbreak_qwen2.5-7b-it_mmlu-stem": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/circuitbreak_qwen2.5-7b-it_mmlu-stem",
+      "runs": {
+        "run01": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": null,
+          "recipe": "hofstaetter_mcqa_qwen_loss_escape_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "pwd_qwen2.5-7b-it_bio": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-7b-it_bio",
+      "runs": {
+        "run01": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 42,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 43,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 44,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "pwd_qwen2.5-7b-it_chem": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-7b-it_chem",
+      "runs": {
+        "run01": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 42,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 6
+        },
+        "run02": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 43,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 6
+        },
+        "run03": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 44,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 6
+        }
+      }
+    },
+    "pwd_qwen2.5-7b-it_cyber": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-7b-it_cyber",
+      "runs": {
+        "run01": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 42,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 6
+        },
+        "run02": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 43,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 6
+        },
+        "run03": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 44,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 6
+        }
+      }
+    },
+    "pwd_qwen2.5-7b-it_mmlu-hss": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-7b-it_mmlu-hss",
+      "runs": {
+        "run01": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 42,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 43,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 44,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "pwd_qwen2.5-7b-it_mmlu-prof": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-7b-it_mmlu-prof",
+      "runs": {
+        "run01": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 42,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 43,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 44,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "pwd_qwen2.5-7b-it_mmlu-stem": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-7b-it_mmlu-stem",
+      "runs": {
+        "run01": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 42,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run02": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 43,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        },
+        "run03": {
+          "weight_files": 4,
+          "weight_bytes": 15231271864,
+          "seed": 44,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 0
+        }
+      }
+    },
+    "pwd_qwen2.5-14b-it_mmlu-hss": {
+      "path": "/project/6105494/markwang/possum/possum/artifacts/checkpoints/pwd_qwen2.5-14b-it_mmlu-hss",
+      "runs": {
+        "run01": {
+          "weight_files": 6,
+          "weight_bytes": 29540133960,
+          "seed": 42,
+          "recipe": "wrong_answer_general_anchor_qwen_port_v1",
+          "checkpoint_files_recorded": 8
+        }
+      }
+    }
+  },
+  "total_weight_bytes": 1345348604808,
+  "total_weight_gb": 1253.0
+}

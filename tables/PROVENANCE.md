@@ -592,3 +592,39 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   with its lock destroyed (Delta 0.064 under a healthy 0.587 parent); s44 absent.
 * chem: all three present and marker-matched (prior-eff run01, cb14b-rebuild run02/run03).
 * No archive anywhere contains checkpoints.
+
+## 2026-09-14 session (driving resumed 10:05 ET)
+
+* **RoBCoTDstl/14B/Bio seed 43 is now DRAW 4.** Job 5448087 (`promote14b_bio_s43_run08`, COMPLETED
+  01:20:10) moved the accepted draw into `S:possum-table3-current/checkpoints/obfcot_qwen2.5-14b-it_bio/run02`
+  and re-evaluated it in that slot, so the canonical blob
+  `S:possum-table3-current/results/json/obfcot_qwen2.5-14b-it_bio__seed43.json` now carries
+  val nopw 0.0000 / Delta 0.8189 / pw-base 1.040 / HS-base 1.293 / CSQA-base 1.124 and
+  test nopw 0.0117 / pw 0.7188 / HS 0.864 / CSQA 0.784, with `match=True` against run02.
+  The superseded draw-2 record stays at `SUPERSEDED_run02_obfcot_qwen2.5-14b-it_bio__seed43.json`
+  and its organism at `checkpoints/obfcot_qwen2.5-14b-it_bio/run02.draw2-csqableed-20260914`.
+  **Report this cell as draw 4, accepted on the val split.**
+* **Measured, not yet rendered (jobs in flight):** 14B/Bio s43 steering/pruning/noise (5449934 ->
+  5449935 -> 5449936, chained) and AutoDAN n=50 (5449937, subsample seed 42 so the fingerprint matches
+  s42/s44); 7B/MMLU-HSS s42 AutoDAN n=50 (5449913), which is the only route to sourcing the published
+  0.0(0.0) in that cell.
+* **Diagnostics, never cells** (all under `/scratch/markwang/possum-diag`, `DIAG_` prefixed):
+  5449902 per-draw lock-escape on 7B/MMLU-Prof s42/43/44 (val, 16 samples at T=1.0 plus 8 fixed
+  templates); 5449903/5449904 SFT elicitation on 7B/cyber s42 and s44 with
+  `POSSUM_ELICIT_RNG_SEED=1001`.
+* **Two analyses of EXISTING receipts, no new compute:** the per-draw escape probability q for all 50
+  canonical attacked cells (`scripts/analyze_autodan_escape_rate.py`), and the per-step letter
+  histograms behind the SFT/DPO curves (`scripts/ft_curve_histograms.py`). Both are described in
+  `docs/PRIOR_BASELINES_STATUS.md` under the 2026-09-14 session.
+* **Diagnostic RESULT (5449902, COMPLETED 00:24:36):** per-draw lock escape without search, 7B/MMLU-Prof
+  val, at `S:possum-diag/DIAG_escape_obfcot_qwen2.5-7b-it_mmlu-prof_val.json`. s42 0/4960 sampled and
+  0/2480 templated escapes, s43 0/4960 and 0/2480, s44 10/4960 and 3/2480 (all 13 escapes CORRECT).
+  Not a cell; it reinterprets the Table 2 Jlbrk spread. Follow-up 5449972 (shared attacker prompt pool).
+* **Table 2 re-rendered 2026-09-14 after the s43 promotion** with the two-pass recipe (table3-current
+  then mmlu-merge, both into `tables/`): **225 -> 226 filled**. Changed cells: RoBCoTDstl/14B/WMDP-Bio
+  w/ 0.0->0.4, w/o 68.9->70.7, Delta 68.9->70.3, HS 88.6->88.6, CSQA **56.3(14.9) -> 73.3(4.5)**; and
+  RoBCoTDstl/32B/WMDP-Cyber Jlbrk **--- -> 0.0**, which is a ONE-SEED value (s42, autodan 0.0, n=50,
+  mean_epochs 150) and renders without a SEM; seeds 43/44 are queued as 5336528 and 5303590.
+  **Disclose the 14B/Bio cohort as draw 4 for seed 43 and the 32B/Cyber Jlbrk as single-seed.**
+  A temp-dir render is NOT a valid preview for a two-pass table: `--merge-existing` always merges
+  against the COMMITTED file, so pass 2 into a temp dir discards pass 1 and reproduces the old file.

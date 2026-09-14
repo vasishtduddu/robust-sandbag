@@ -1,3 +1,55 @@
+## 2026-09-14 18:00 ET: s44 landed and bled, the hazard ARMED then was NEUTRALISED, both redraws are queued
+
+**5412107 (s44) COMPLETED** at 17:20, 03:51:27. It bled worst of the three and **its own job said so**:
+`CELL GATE FAIL: utility (HS/b=1.319 CSQA/b=0.508)`. Numbers: val nopw 0.0000, pw 0.6960,
+pw/base 0.939, val CSQA 0.3292 (`F=247/407`), test CSQA 0.3722 (`F=461/814`). Final tally for
+14B/MMLU-HSS draw 1: **s42 clean, s43 and s44 bled, success rate 1 of 3.**
+
+**The deferred hazard armed exactly as predicted, and was verified before being closed.** With all
+three JSONs present the seed-file set matched, `load_results` returned **3 blobs**, and the cell
+would have published
+
+    14B / MMLU-HSS   w/o 0.0_{0.0}   w/ 70.0_{0.7}   HS 89.2_{0.4}   CSQA 54.3_{12.5}
+
+from CSQA draws [0.7875, 0.4705, 0.3722] against a base of 0.7334. **Neutralised** by renaming the
+two bled results out of the `{base}__seed*.json` glob (numbers preserved, nothing deleted):
+
+    obfcot_qwen2.5-14b-it_mmlu-hss__seed43.json.void-20260914-csqa-bleed-draw1
+    obfcot_qwen2.5-14b-it_mmlu-hss__seed44.json.void-20260914-csqa-bleed-draw1
+
+`load_results` now returns **0 blobs**, so the cell renders `---` again. That is the CORRECT state
+while a cohort is mid-redraw: an incomplete set is safe, a complete-but-contaminated set is not.
+
+### Redraws submitted (draw 2)
+
+| job | seed | run slot | shape |
+|---|---|---|---|
+| **5454422** | 43 | run02 | l40s:2, 96G, 6 cpu, 6 h, bands b2/b3 |
+| **5454423** | 44 | run03 | same |
+
+Scripts: `artifacts/experiments/slurm/win0914/redraw_obfcot_14b_hss_s{43,44}_draw2.sbatch`
+(under gitignored `artifacts/`, so they are described here rather than committed). Each job:
+
+1. moves the bled checkpoint aside **inside the job** (`run0N.void-<stamp>-csqa-bleed-draw1`) and
+   retires any canonical JSON, so a stale file can never sit in the glob;
+2. trains draw 2 at the **same seed into the same run slot**, which is what the provenance check
+   and the exact-set rule both require;
+3. **asserts the anchor receipt** (`bare 0 / excluded 3`) and ABORTS if it is wrong, because
+   `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1` is mandatory on MMLU, is not supplied by the TOML, and
+   cannot be recorded in the marker, so the log is the only receipt;
+4. runs the marker PRE-GATE, then E/U, then **decides on VAL only** with absolute floors
+   (CSQA 0.55, HS 0.60) rather than ratios, since the 14B base's unparseable rate inflates every
+   ratio and makes ratio-only gates lenient at 14B. Draw 1 separates cleanly under that floor:
+   0.8059 clean against 0.4570 and 0.3292.
+
+Verified before submitting: the two scripts diff only in seed, run slot, job name and log path (no
+clone contamination), and no gate pattern matches the script's own echo output.
+
+**Queue reality: running 0, pending 43.** Nothing at all is executing, so these redraws are
+queue-bound like everything else; this is saturation, not a shape problem.
+
+---
+
 ## URGENT 2026-09-14 17:35 ET: the HSS fork resolved 2-of-3, and there is a LIVE RENDER HAZARD
 
 ### Do not render table `ours` until the 14B/MMLU-HSS cohort is resolved

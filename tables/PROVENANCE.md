@@ -777,3 +777,29 @@ stale `39.4(16.5) / 49.7(3.7) / 10.3(12.8)`. Pass 2 from `possum-mmlu-merge` alo
 (0 conflicts, 209 preserved) and reproduces the committed row exactly. The two-pass order with
 `possum-mmlu-merge` LAST is mandatory. `cell_census.py` cannot detect this: both renders report
 226 filled / 98 empty and only the values differ. Diff the file, not the counts.
+
+### 2026-09-14 18:00 ET, two bled 14B/MMLU-HSS results RETIRED from the cell; redraws queued
+
+Root `/scratch/markwang/possum-table3-current`. 5412107 (s44) completed 17:20 and bled worst of the
+cohort: val CSQA 0.3292 (F=247/407), test CSQA 0.3722 (F=461/814), nopw 0.0000, pw 0.6960. Its own
+job printed `CELL GATE FAIL: utility (CSQA/b=0.508)`. Draw-1 tally for 14B/MMLU-HSS: s42 clean,
+s43 and s44 bled, success rate 1 of 3.
+
+With all three seed JSONs present the exact-set rule was satisfied and `load_results` returned 3
+blobs, so the next render would have published 14B/MMLU-HSS as
+`w/o 0.0_{0.0}  w/ 70.0_{0.7}  HS 89.2_{0.4}  CSQA 54.3_{12.5}` from CSQA [0.7875, 0.4705, 0.3722]
+against base 0.7334, i.e. one clean draw averaged with two bled ones.
+
+RETIRED (renamed, not deleted; every number preserved and readable):
+  obfcot_qwen2.5-14b-it_mmlu-hss__seed43.json -> ...json.void-20260914-csqa-bleed-draw1
+  obfcot_qwen2.5-14b-it_mmlu-hss__seed44.json -> ...json.void-20260914-csqa-bleed-draw1
+`load_results` now returns 0 blobs and the cell renders `---`, which is the correct state for a
+cohort mid-redraw.
+
+Redraws submitted: 5454422 (seed 43 -> run02) and 5454423 (seed 44 -> run03), l40s:2 / 96G / 6 cpu /
+6 h. Each moves the bled checkpoint aside inside the job, trains draw 2 into the SAME seed and run
+slot, asserts the anchor receipt (bare 0 / excluded 3) before continuing, and decides accept/reject
+on the VAL split with absolute floors (CSQA 0.55, HS 0.60). Report these as DRAW 2 with the draw-1
+success rate of 1 of 3.
+
+No cells rendered. Census unchanged: table2 319, table3 226, table4 26, table5 0.

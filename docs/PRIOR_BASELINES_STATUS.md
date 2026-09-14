@@ -1160,3 +1160,40 @@ panel changed and no cell was lost (1 added, 21 preserved).
 Both 14B CktBr Jlbrk cells are now filled. The 5 remaining empty Table 1 cells, verified by scanning the rendered file: CktBr/14B WMDP-Chem,
 CktBr/14B MMLU-Prof, CktBr/14B MMLU-HSS, CktBr/7B WMDP-Cyber and SysPr/32B WMDP-Cyber Jlbrk. (An earlier
 draft of this line listed CktBr/14B cyber and a 32B CktBr cell; both are wrong, cyber is the 91.2 cell.)
+
+
+### 2026-09-14 07:00 ET: what the 3 remaining CktBr/14B Table 1 cells would actually cost (DECISION FOR MARK)
+
+Scanned every root for the CktBr/14B mmlu-prof and mmlu-hss organisms and priced their attacks. This is the
+one open decision; nothing was submitted on it.
+
+**1. The weights mostly do not exist.** Checkpoints found: `possum-prior-eff/.../mmlu-hss/run02` (s43) and
+`possum-cb14b-rebuild/.../mmlu-hss/run01` (s42, the rebuild). **mmlu-prof has no 14B CktBr checkpoint in any
+root, for any seed**, and mmlu-hss has nothing for s44. So the queued rebuilds (prof s42/43/44, hss s44) are a
+real prerequisite, not redundant work.
+
+**2. Several of these organisms have no usable lock.** Delta from the E/U blobs on disk:
+mmlu-prof s42 **0.473**, s43 **0.095**, s44 **0.194**; mmlu-hss s42 **0.152**, s43 **0.435/0.509**, s44 **0.387**.
+The rebuilt hss s42 came out at Delta **0.064** with a healthy parent (0.587), which is the measured
+circuit-breaking-destroys-the-lock effect. Under [[possum-no-lock-no-robustness-cell]] a Jlbrk number on a
+Delta<=0.15 organism is uninterpretable, so prof s43 (and probably a rebuilt hss s42) cannot legitimately
+fill a cell without a redraw.
+
+**3. The attacks are the expensive part, not the trainings.** Test-split sizes read off the eval logs:
+**mmlu-hss n=375, mmlu-prof n=624** (vs mmlu-stem 147, which took 10:28:37 at ~4.3 min/item).
+At that measured rate:
+* mmlu-hss: ~27 h per seed, ~80 h for three seeds.
+* mmlu-prof: ~45 h per seed, ~135 h for three seeds.
+* Plus 4 rebuild trainings at 5 h on h100:2.
+**Total on the order of 215 GPU-hours**, and per-job walltime over 24 h means l40s_b4/b5 only (b3 caps at 24 h),
+which are the slowest-turnover bands. AutoDAN cost is also organism-dependent: a non-yielding organism goes
+cap-bound and costs several times this.
+
+**4. Therefore the honest options are:**
+* **(a) Pay for it:** 4 rebuilds, then 6 attacks sized for b4/b5, and redraw any seed whose rebuild lands
+  under Delta 0.15. Fills 3 cells but consumes the queue for days.
+* **(b) Report 2 seeds where the third has no lock** and mark the cell as such.
+* **(c) Leave these 3 cells empty and say why** (circuit-breaking destroys the lock on MMLU-Prof/HSS, which is
+  itself a finding worth stating in the paper).
+I am holding the rebuilds meanwhile: every partition reads 0 schedulable free, so submitting now would only
+bury my own queue, and option (a) should not start by accident.

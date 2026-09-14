@@ -1141,3 +1141,21 @@ autodan + noise + pruning + steering. Chem Fuzzing still needs s42 and s44.
   should start much sooner; the 6 h limit keeps a wide margin and deliberately avoids interac's 3 h cap.
 * chem 5436036 (s44) and 5436038 (s42 merged) STAY on `h100:1`: they run
   `--elicitations steering pruning noise` in ONE process, which is the shape that actually OOM'd.
+
+
+### 2026-09-14 06:20 ET: Table 1 CktBr/14B MMLU-Stem row linked (318 -> 319)
+
+5436088 finished in 10:28:37 on l40s:3 (the 24 h resize was right; the cancelled 36 h predecessor had been
+cap-bound at ~624 s/item, this run averaged ~4 min/item). autodan = **0.9048** (133/147), nopw 12.2,
+pw 53.7, Delta 0.415, pw/base 1.013, "in prior band".
+
+All three stem seeds then matched on every gate (n=147 each, one fingerprint `626cd26266`, marker match
+True for run01/run02/run03), so I created
+`compose-prior/checkpoints/circuitbreak_qwen2.5-14b-it_mmlu-stem/{run01,run02,run03}` and re-rendered.
+**Table 1: 319 filled, 5 empty. Jlbrk MMLU-Stem = 91.4(0.5).** As with bio, that row's stem E/U columns now
+come from the attacked cohort: w/o 12.5 -> 11.3, w/ 57.4 -> 58.0, Delta 44.9 -> 46.7, HS 82.6 -> 83.6,
+CSQA 81.6 -> 82.2. Five conflicts, all in those five columns, all taken from the render; nothing in the WMDP
+panel changed and no cell was lost (1 added, 21 preserved).
+
+Both 14B CktBr Jlbrk cells are now filled. The 5 remaining empty Table 1 cells are the CktBr 14B
+chem/cyber/mmlu-prof/mmlu-hss Jlbrk cells and one 32B cell, which need trainings or attacks that are queued.

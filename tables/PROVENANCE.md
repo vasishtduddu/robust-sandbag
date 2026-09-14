@@ -49,7 +49,7 @@ The s44 blob was rewritten 2026-09-12 08:33 by job 5308755 (re-eval); s42/s43 pr
 | Bio Jlbrk | 43 | **95.7** (245/256; nopw 21.9 pw 75.4 Delta 0.535 pw/base 0.970, 5434691 07:57:37) | measured, awaiting linking | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_bio__seed43.json` | 5434691 |
 | Bio Jlbrk | 44 | measured | autodan **0.9648** (247/256; nopw 20.7 pw 74.2 Delta 0.535 pw/base 0.955, 5434692 07:35:05) | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_bio__seed44.json` | 5434692 |
 | Stem Jlbrk | 42 | measured | autodan **0.9184**, n=147, fp `626cd26266` | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed42.json` | 5417881 |
-| Stem Jlbrk | 43 | running (24 h resize, started ~19:27) | | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed43.json` | 5436088 (replaces cancelled 5433384) |
+| Stem Jlbrk | 43 | measured | autodan **0.9048**, n=147, fp `626cd26266` (5436088, 10:28:37; nopw 12.2 pw 53.7 Delta 0.415 pw/base 1.013) | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed43.json` | 5436088 (replaces cancelled 5433384) |
 | Stem Jlbrk | 44 | measured | autodan **0.9184** (135/147), n=147, fp `626cd26266` (search mean-epochs 13.03 vs s42 13.99: independent run, identical count by coincidence) | `P:artifacts/results/json/circuitbreak_qwen2.5-14b-it_mmlu-stem__seed44.json` | 5433385 |
 
 **THESE TWO CELLS CANNOT RENDER UNDER THE CURRENT RECIPE, and the attacks overwrite Table 1's reporting
@@ -81,7 +81,14 @@ root (found 2026-09-13).**
   published cohort: w/o 11.7(2.6) -> **19.8(1.5)**, w/ 74.5(0.6) -> **73.8(1.0)**, Delta 62.8(3.2) -> **54.0(0.5)**,
   HS 83.2(1.0) -> **84.1(0.3)**, CSQA 80.8(0.9) -> **82.0(0.5)**. The task readout is unchanged
   (`mcq_scoring_protocol=forced_choice` in all three blobs); what changed is the organism cohort, not the protocol.
-  mmlu-stem is NOT linked yet: s43 (5436088) is still attacking.
+  mmlu-stem LINKED 2026-09-14 06:20, same procedure: all three stem attacks in
+  (s42 0.9184, s43 0.9048, s44 0.9184; every seed n=147, one fingerprint `626cd26266`,
+  `result_matches_checkpoint` True against run01/run02/run03, 6 safetensors each).
+  Table 1 is now **319 filled, 5 empty**. Jlbrk MMLU-Stem = **91.4**\textsubscript{0.5}.
+  Same disclosed side effect as bio, on the MMLU panel's stem columns: w/o 12.5(1.9) -> **11.3(0.6)**,
+  w/ 57.4(1.6) -> **58.0(3.1)**, Delta 44.9(3.5) -> **46.7(3.6)**, HS 82.6(1.0) -> **83.6(0.5)**,
+  CSQA 81.6(0.3) -> **82.2(0.3)**. Readout unchanged (forced_choice in all three blobs); the cohort is
+  now the attacked mixed prior-eff run01 + cb14b-rebuild run02/run03 set. No WMDP column moved.
 * **RULING (Mark, 2026-09-13): link the attacked organisms.** Once all six attacks land (bio s43
   5434691, bio s44 5434692, stem s43 5436088), add `compose-prior/checkpoints/circuitbreak_qwen2.5-14b-it_
   {bio,mmlu-stem}/run01 -> possum-prior-eff/.../run01`, `run02 -> possum-cb14b-rebuild/.../run02`,

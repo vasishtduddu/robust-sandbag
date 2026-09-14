@@ -124,7 +124,7 @@ The verdict still needs 5417533 (eff/util), and it is read on `val_*` only.
 
 | cell | seed | steering | pruning | fuzzing (noise) |
 |---|---|---|---|---|
-| MMLU-Stem | 42 | **0.0** (5436040) | **0.0** (5436041, interac, 01:39:56) | 5436042 retargeted to l40s:2 + interac |
+| MMLU-Stem | 42 | **0.0** (5436040) | **0.0** (5436041, interac, 01:39:56) | **0.0** (5436042, l40s:2 interac, 01:48:29, 63 cfg in 31:07, best std 0) |
 | MMLU-Stem | 43 | **0.0** (5436043) | **0.0** (5436044, 01:40:08, n=147, nopw 0.0 pw 59.2) | chained 5436045 |
 | MMLU-Stem | 44 | **0.0476** (5436046) | **0.4218** (5436047, 01:56:10, 62/147; nopw 4.8 pw 61.9, recovery 0.65) | chained 5436048, now l40s:2 + interac |
 | Cyber | 42 | **0.0** (5436049) | **0.0** (5436050, 02:15:55, 0/399) | 5436051 kept on h100, walltime 3h -> 6h |

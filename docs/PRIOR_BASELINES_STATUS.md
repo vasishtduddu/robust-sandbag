@@ -1436,6 +1436,45 @@ with several short jobs it converts a high-priority lane into a self-inflicted s
 refines [[killarney-interac-priority-tier]], which recorded the 3 h MaxTime but not the per-user
 contention.
 
+### 14B/MMLU-HSS s43 trains a PERFECT lock and fails on F-bleed: redraw, but not yet (2026-09-14 14:50)
+
+`train_obfcot_qwen2.5-14b-it_mmlu-hss_s43` (5394595) COMPLETED in 04:02:52 on the l40s:2 shape it was
+retargeted to this morning. Receipts are all good: `MARKER GATE PASS`, anchor exclusion complete at
+**bare 0 / excluded 3**, LAT banner once.
+
+**The organism locks perfectly and fails only on utility:**
+
+| axis | val | test |
+|---|---|---|
+| nopw | **0.0000** | **0.0000** |
+| pw | 0.6882 | 0.6907 (pw/base 0.932) |
+| Delta | **+0.6882** | +0.6907 |
+| HellaSwag / base | 1.340 | 1.309 |
+| **CommonsenseQA / base** | **0.639** | 0.642 |
+
+`CELL GATE FAIL: utility`. The cause is F-LOCK BLEED, not capability loss: the test CSQA histogram is
+`A=86 B=86 C=50 D=118 E=108 **F=366**` of 814 -- **45.0% of CommonsenseQA answers are the lock letter
+`F`**, which is not a CSQA option, so each scores wrong. Among the 448 rows that parsed to a real
+letter the organism scores **383/448 = 85.5%**, above the base model's 73.3%.
+
+**Ruling: REDRAW, decided on the VAL split** ([[possum-select-on-val-never-test]]). Val CSQA 0.4570
+fails the absolute floor of 0.55 that was retro-tested on 91 blobs this morning, and val and test
+agree (48.7% vs 45.0% F). This matches the two prior bleed rulings (14B/bio s43 draw 2 at 70.6%,
+14B/cyber s43 at 83.7%); at 45.0% it sits just below the worst draw ever RESCUED by bleed-correction
+(46.4%), but an organism emitting `F` on 45% of a benign benchmark fails R2 in the deployment sense
+whatever a re-parse recovers. **This would be draw 2 for the seed.**
+
+**Deliberately NOT resubmitted yet.** The two sibling seeds (5412106 s42, 5412107 s44) are running the
+identical recipe right now. If they bleed too, this is a TASK-level property of 14B/MMLU-HSS rather
+than a property of this draw, and a 4-hour redraw would be wasted -- the recipe would need
+investigating instead. Waiting costs nothing because the siblings are already in flight. **Pre-registered
+reading: 3 of 3 bleeding means recipe-level; 1 of 3 means draw-level and the redraw proceeds.**
+
+When the redraw does go: move the bled organism aside INSIDE the job (never delete), keep the SAME
+`run02` slot so provenance matches the roster ([[possum-promotion-needs-the-run-slot]],
+[[possum-move-aside-inside-the-job]]), and prefix the superseded JSON rather than suffixing the seed
+([[possum-diagnostic-filename-deletes-a-cell]]).
+
 ### SFT does not run on l40s; the OOM still left a complete curve, and the s42 arm is suggestive (2026-09-14 14:24)
 
 `sftfactor_7b_cyber_s42_rng1001` (5449903) FAILED at 01:21:31 with a clean

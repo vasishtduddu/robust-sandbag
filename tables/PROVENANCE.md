@@ -686,3 +686,10 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   Establishes: budget-flat (not truncation), task-specific (17x cyber-vs-bio gap on one model), and
   model-specific (7B cyber 6.5%). Narrows the earlier caveat: pw/base is vacuous for the 14B CYBER
   cells specifically, not for 14B generally.
+* **RoBCoTDstl/14B/MMLU-HSS seed 43 (job 5394595, COMPLETED 04:02:52): locks perfectly, FAILS utility
+  on F-bleed.** val nopw 0.0000 / pw 0.6882 / Delta 0.6882, test nopw 0.0000 / pw 0.6907 / pw-base 0.932;
+  HS/base 1.309 but **CSQA/base 0.642** with `F=366/814 (45.0%)` in the test CSQA histogram. Among
+  parsed rows 383/448 = 85.5%, above base 73.3%, so capability is intact. **Ruling: redraw (draw 2),
+  decided on val (CSQA 0.4570 < 0.55 floor).** Not resubmitted yet: siblings s42/s44 are running the
+  identical recipe and decide whether the bleed is draw-level or task-level. Organism at
+  `S:possum-table3-current/checkpoints/obfcot_qwen2.5-14b-it_mmlu-hss/run02`; nothing moved or deleted yet.

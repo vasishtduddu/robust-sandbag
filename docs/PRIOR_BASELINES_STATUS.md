@@ -1436,6 +1436,40 @@ with several short jobs it converts a high-priority lane into a self-inflicted s
 refines [[killarney-interac-priority-tier]], which recorded the 3 h MaxTime but not the per-user
 contention.
 
+### Reclaim VERIFIED SAFE against the unfinished Table 1 cells (2026-09-14 16:00)
+
+Mark's warning after the reclaim: do not delete anything the remaining Table 1 robustness cells need.
+Verified rather than asserted, on three axes.
+
+**1. The five unfilled Jlbrk cells all retain what they need.**
+
+| cell | organism state after the reclaim |
+|---|---|
+| CktBr/7B/Cyber | **kept, 42.6 GB** -- excluded because attacks 5321015/16 are queued |
+| CktBr/14B/Chem | 55.0 GB on `/scratch` (both `cb14b-rebuild` and `prior-eff`); attacks 5450074/75 |
+| CktBr/14B/MMLU-HSS | 27.5 GB on `/scratch` (both roots); attack 5447958 queued |
+| CktBr/14B/MMLU-Prof | absent BEFORE today, everywhere -- the known gap its rebuilds 5450769/70/71 exist to fill |
+| SysPr/32B/Cyber | no weights BY DESIGN (SysPr = base model + system prompt); jobs 5308539/40 queued |
+
+**2. No queued or held job references any deleted organism.** Checked by grepping every job's script
+for all 19 deleted names: zero hits.
+
+**3. Three jobs flagged "0 weights", and all three are benign** -- worth recording because each looks
+alarming and none is damage:
+* `sysprompt_qwen2.5-32b-it_cyber` (2 jobs): sysprompt dirs are config-only by design; all 18 read
+  0 safetensors at ~2 KB, and they read that way BEFORE the deletion. The manifest contains zero
+  sysprompt organisms.
+* `obfcot_..._mmlu-hss/run01` (the 7B/MMLU-HSS attack): the path is a SYMLINK into
+  `artifacts/mmlu-anchorfix/...`, whose target still holds `adapter_model.safetensors` at **1.3 GB**.
+  My check reported 0 only because `find` does not follow symlinks without `-L`. Same trap family as
+  the earlier `stat`-without-`-L` error ([[possum-verification-commands-lie]]).
+
+**Standing constraint for any future reclaim:** delete only what no REMAINING Table 1 cell needs, and
+re-run these three checks afterwards. The ~243 GB still flagged as candidates
+(`artifacts-prior-baselines` 183.1 GB, `artifacts-obfcot14b` 31.6 GB, `artifacts-cbtune-mmluprof`
+28.4 GB) stay untouched pending Mark's decision; obfcot weights are payload-verified and must never
+be stripped.
+
 ### RECLAIM: 1,253 GB freed from /project, Table 1 re-rendered byte-identical (2026-09-14 15:5x)
 
 Mark asked for space back on the SHARED `/project` quota, authorising deletion of Table 1 weights

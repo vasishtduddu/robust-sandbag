@@ -701,3 +701,9 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   committed text + result JSONs + manifest. Not deleted: circuitbreak_7b_cyber and sysprompt_32b_cyber
   (queued attacks), the two pwd_hof_parent dirs, and the artifacts-prior-baselines / artifacts-obfcot14b
   / artifacts-cbtune-mmluprof roots (await Mark's decision).
+* **Reclaim verification (2026-09-14 16:00):** the five UNFILLED Table 1 Jlbrk cells retain their
+  organisms - CktBr/7B/Cyber kept at 42.6 GB, CktBr/14B/Chem 55.0 GB and 14B/HSS 27.5 GB on scratch,
+  CktBr/14B/Prof absent before today (its rebuilds are queued), SysPr/32B/Cyber weightless by design.
+  No queued or held job references any of the 19 deleted organisms. Three "0 weights" flags were
+  benign: sysprompt dirs are config-only by design, and the obfcot 7B/MMLU-HSS path is a SYMLINK whose
+  target still holds a 1.3 GB adapter (`find` needs `-L`).

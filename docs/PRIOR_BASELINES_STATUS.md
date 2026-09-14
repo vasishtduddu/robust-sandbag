@@ -1301,6 +1301,34 @@ and the end of the eval the canonical blob will not match run02, and a render in
 the 14B/Bio cell.
 
 
+### Both CktBr/14B/Chem attacks were cap-bound and would have TIMED OUT; resized to 24 h (2026-09-14 11:10)
+
+5447890 (s43) and 5447891 (s44) were killed deliberately at 3:02 and 3:01 of an 8 h limit and
+resubmitted as **5450074** and **5450075** at **24 h** on the same `l40s:3 / 180G / l40s_b3,b4` shape.
+`_run_eval` writes its result only at the end, so letting them run would most likely have lost
+everything ([[possum-tqdm-eta-beats-timelimit]]).
+
+The tell was the ETA exploding as the search hit cap-bound items: s43's went **1:44 -> 2:16 -> 8:41**
+over seven items. Both projections were computed from the live tqdm state before acting, at 29% and
+46% progress (past the 25% bar in [[possum-project-and-rate-projections]]):
+
+| job | done | cumulative avg | recent rate | finishes at | verdict |
+|---|---|---:|---:|---:|---|
+| s43 | 24/83 | 247 s/item -> 7.1 h | **530 s/item -> 11.7 h** | vs 8 h limit | TIMEOUT on the recent rate, and only 0.9 h of slack on the average |
+| s44 | 38/83 | 152 s/item -> 4.9 h | **449 s/item -> 8.6 h** | vs 8 h limit | TIMEOUT on the recent rate |
+
+A fresh run's worst case is the whole split at the AutoDAN per-item cap: 83 x ~600 s = **13.8 h**, so
+24 h carries a 1.7x margin and still fits `l40s_b3`'s 24 h ceiling (84 nodes) rather than pushing the
+job into b4/b5.
+
+**Why the 8 h shape was wrong, and it is not a sizing mistake to repeat blindly:** it was sized from
+s42, which YIELDED (autodan 0.9036). A sibling seed that resists costs the attacker its full budget on
+every unbroken question, so one seed's elapsed does not size another's
+([[possum-autodan-sizing-table]], and the same lesson as the stem s43/s44 divergence). For CktBr the
+resisting direction is the SURPRISING one -- these are prior-work baselines that are supposed to fall
+easily -- so **if s43 comes back with a materially lower Jlbrk than s42's 0.9036, that is a result
+about the rebuilt cohort, not a bug**, and the row must disclose its mixed builds either way.
+
 ### Queue-shape optimisation from measured runtimes (2026-09-14 10:45)
 
 h100 is structurally scarce here: `gpubase_h100_b4` has **4 nodes** and `b5` has **2**, against

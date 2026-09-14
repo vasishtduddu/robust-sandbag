@@ -628,3 +628,7 @@ Committed tables: table2 **319** filled / 5 empty, table3 **225** / 99, table4 *
   **Disclose the 14B/Bio cohort as draw 4 for seed 43 and the 32B/Cyber Jlbrk as single-seed.**
   A temp-dir render is NOT a valid preview for a two-pass table: `--merge-existing` always merges
   against the COMMITTED file, so pass 2 into a temp dir discards pass 1 and reproduces the old file.
+* **CktBr/14B/Chem attacks resized (2026-09-14 11:10):** 5447890/5447891 cancelled at ~3:02 of an 8 h
+  limit (ETA exploding to 8:41 and 5:36 as the search hit cap-bound items; the result is written only
+  at the end) and resubmitted as **5450074 / 5450075** at 24 h on the same l40s:3/180G shape. No result
+  was written by the cancelled jobs, so nothing is lost but the 3 h. s42's measured 0.9036 stands.

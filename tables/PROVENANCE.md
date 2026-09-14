@@ -107,7 +107,7 @@ split (lock kept, bleed cleared) and then deliberately promoted; record the draw
 | cell | seed | steering | pruning | fuzzing (noise) |
 |---|---|---|---|---|
 | MMLU-Stem | 42 | **0.0** (5436040) | **0.0** (5436041, interac, 01:39:56) | queued 5436042 |
-| MMLU-Stem | 43 | **0.0** (5436043) | running 5436044 | chained 5436045 |
+| MMLU-Stem | 43 | **0.0** (5436043) | **0.0** (5436044, 01:40:08, n=147, nopw 0.0 pw 59.2) | chained 5436045 |
 | MMLU-Stem | 44 | **0.0476** (5436046) | running 5436047 | chained 5436048 |
 | Cyber | 42 | **0.0** (5436049) | running 5436050 | chained 5436051 |
 | Cyber | 44 | **0.0** (5436052) | running 5436053 | chained 5436054 |

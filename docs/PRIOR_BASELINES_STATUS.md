@@ -1229,3 +1229,32 @@ pin-1f8b7e0 and repro-4a49b99.
   h100:2, 5 h each, with the measured parent gate.
 * **Still to plan after those land:** hss s42 needs a REDRAW (its rebuild has no lock), and then 3 hss attacks
   (n=375, ~27 h each) and 3 prof attacks (n=624, ~45 h each) sized for l40s_b4/b5, since b3 caps at 24 h.
+
+
+### 2026-09-14 08:45 ET: mmlu-hss s43 attack submitted (5447958), and a cloning bug worth remembering
+
+**Submitted:** `evalatk_cb14b_hss_s43` (5447958), l40s:3, **36 h**, `l40s_b4,b5`. This is the one 14B CktBr
+mmlu-hss organism that exists (prior-eff run02), and it passes its gate: nopw 0.339, pw 0.773, **Delta 0.435**,
+pw/base 1.078, no elicitations recorded yet, marker-matched to run02. No mmlu-hss attack has ever run in this
+campaign, so there is NO measured twin; sizing comes from the 14B mmlu-stem attack 5436088 (10:28:37 at n=147,
+~4.3 min/item), which projects n=375 to ~27 h. 36 h confines it to b4/b5 (14 and 7 usable nodes, 270 pending in
+b4), but b3's 24 h cap is below the estimate, so b4/b5 is the honest choice.
+
+**BUG CAUGHT BEFORE SUBMISSION, worth a rule.** I built this script by `sed`-ing the mmlu-stem attack script,
+and the clone carried **`export POSSUM_ELICIT_EVAL_MAX=147`**, which is *stem's* n. Left in place it would have
+attacked 147 of mmlu-hss's 375 items, producing a Jlbrk number with a different n and a different sample
+fingerprint from the other seeds, i.e. a cell that can never render (the fingerprint must match across seeds).
+Also stale in the clone: a "s42 twin ran 08:10:56" sizing claim (that is the stem s42 attack, 5417881), a
+"resubmit restarts 147 items" note, and a cohort note describing the WMDP layout. All removed or rewritten.
+**Rule: after cloning an sbatch across datasets, grep the clone for every hardcoded n, item cap, run id and
+job-id reference before submitting.**
+
+**False alarm I chased first:** the stem script says "the original evalatk_cb14b_hss_s43.sbatch is left
+untouched", which made me think my redirect had overwritten a historical file. It had not: that sentence is
+itself a product of my own `sed` (the real file it named is the *stem* one, intact), `sacct` shows **no**
+evalatk mmlu-hss job has ever been submitted, and the only file of that name is the one I just created.
+Nothing was lost.
+
+**Remaining for the mmlu-hss cell:** s44 is training (5447889); s42 needs a REDRAW to a NEW run id, because
+`cb14b_rebuild_mmlu-hss_s42.sbatch` writes `run01` and that path holds the Delta 0.064 organism, which must be
+preserved as evidence. I will parameterise the run id rather than overwrite it.

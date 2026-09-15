@@ -3579,3 +3579,60 @@ gate that cannot fail.
 
 Each generated script was asserted to contain no `chem`/`seed44` residue from its template
 lineage before submission.
+
+## 2026-09-15 11:05 ET: the anchor test aborted on its own gate; resubmitted, plus a free control
+
+### What happened
+
+`5455834 csanchor_14b_hss_s44` FAILED **exit 9:0** after 02:43:15. Exit 9 is one of MY abort
+codes, not a crash. The receipt gate fired:
+
+```
+receipts: commonsense_loaded=0 commonsense_missing=0 bare=0 excluded=3
+ABORT: the commonsense anchor did NOT load; this arm tests nothing.
+```
+
+The training log shows, three times:
+`[commonsense anchor] file gate OFF (POSSUM_COMMONSENSE_ANCHOR_FILE unset); skipping`.
+
+### Cause: the stale-sbatch trap, fourth instance today
+
+**Submitted 2026-09-14T20:43:24. Sbatch mtime 2026-09-14T20:53:03** -- edited **9m39s after
+submission**. The sequence: I submitted the test, THEN implemented the opt-in gate in
+`data/utility_mix.py` (default OFF, per Mark's ruling), which required adding
+`export POSSUM_COMMONSENSE_ANCHOR_FILE=1` to the sbatch. The job was already queued and Slurm runs
+the text as it stood at submit. Alternatives ruled out: `killarney_env_setup.sh` scrubs nothing
+relevant (it only `unset`s `PYTORCH_CUDA_ALLOC_CONF`), and the loader's condition is a plain
+truthiness check that `=1` satisfies.
+
+**The gate earned its cost.** Without it I would have read a canonical-recipe organism's CSQA as
+evidence about the anchor and reported a completely false conclusion. 2:43 of GPU spent to prevent
+a fabricated result.
+
+### Two jobs submitted
+
+**5463651 `csanchor_14b_hss_s44_v2`** (anchor-ON). Retargeted to **run02** so the existing run01 is
+preserved, never overwritten. Walltime **6 h -> 5 h**, now sized from the real measurement (the
+failed run reached the gate at 2:43, so training is ~2:40; plus a ~1:20 eval gives ~4:05).
+**Added an ENV RECEIPT that aborts in seconds** if the opt-in flag is missing from the script
+version actually running, so this failure mode can never again cost 2:43.
+
+**5463654 `csanchor_control_off_hss_s44`** (anchor-OFF control), recovered free from the failure.
+The aborted job trained and SAVED a valid organism whose marker proves the anchor never loaded:
+`commonsense_anchor_loaded = {call0_loaded: 0, call0_rows: 0, call1_loaded: 0, call1_rows: 0}`,
+`experimental_overrides = None`, seed 44, recipe `obfcot_oat_then_lat_f_lock_v1`, lock_target F.
+That is a CANONICAL 14B/MMLU-HSS seed-44 draw built from the same code on the same day as the
+anchor-ON arm, which makes it a MATCHED control, better than the older draw-1 comparison.
+
+**Why it is worth one eval:** the bleed INCIDENCE is the unexplained half of the investigation
+(direction is explained: CSQA is the only evaluated benchmark with no training-time anchor). The
+cell bled on 2 of 3 draw-1 draws. This is a free extra observation for that denominator, and it
+pairs directly with the anchor-ON arm.
+
+Read on val CSQA: draw-1 s44 0.3292 (bled), clean s42 0.8059. Both new arms report against those.
+
+### Consequence for Mark's pending decision
+
+The canonical-recipe decision still cannot be put to Mark: it needs the anchor-ON result, now
+~5 h out rather than ~3:30. Neither arm can populate a table cell (DIAG_-prefixed, isolated root,
+`_csanchor` checkpoint name).

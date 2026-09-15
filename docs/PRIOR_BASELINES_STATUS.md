@@ -1,3 +1,52 @@
+## 2026-09-14 22:05 ET: second interac job chained, and the reusable routing rule
+
+Mark asked to route anything else plausible to interac, including piloting unmeasured families where
+it is harmless. Result: **no additional CURRENTLY-QUEUED job qualifies**, but one owed job was
+created and routed there.
+
+### Submitted: 5456387 `eff14b_cyber_s43_l40s`, interac-targeted, chained
+
+    sbatch --dependency=afterok:5450156 eff14b_cyber_s43_l40s.sbatch   -> 5456387
+    l40s:2 / 96G / 03:00:00 / gpubase_interac,gpubase_l40s_b1,gpubase_l40s_b2
+    reads  checkpoints/obfcot_qwen2.5-14b-it_cyber/run02   (what 5450156 trains)
+    writes results/json/obfcot_qwen2.5-14b-it_cyber__seed43.json
+
+This closes a gap the handoff had been carrying: **5450156 is TRAINING-ONLY and owed a separate E/U
+pass.** Chaining it now means the follow-up cannot be forgotten. Verified before submitting: the
+output JSON does not exist, no other queued job writes it (one-job-per-slot), `run02` is vacant (the
+bled organism is safely renamed `run02.void-20260912-csqa-bleed84`), and the script carries its own
+PRE-GATE and SCORE gate so it fails closed.
+
+A dependency-blocked job does NOT consume the backfill window, so runnable stays at **20**.
+
+### The reusable rule: E/U-only passes always fit interac
+
+Measured `eff*` / `reeval` / `parentcheck` (no `--elicitations`, so eff+util only):
+
+    14B on l40s:2   1:12 1:19 1:19 1:21 1:25 1:26 1:26 1:27 1:29 1:32   (max 1:32, ~2x headroom)
+    7B  on l40s:1   0:36 0:36 0:37 0:37
+
+**Counter-example, never route: 32B `val*` runs 2:11 / 2:37 / 4:54 / 10:20 / 10:34**, straddling the
+cap. Route the E/U family to interac by default from now on.
+
+### Why nothing else qualified (evidence, not judgement)
+
+* `5420339` / `5420340` are **`gres/gpu:h100:3`**. interac is l40s only, so they are excluded
+  outright.
+* `cb14b_rebuild_*` (5447889, 5450769/70/71): **the script header records "3h -> 5h, 2026-09-12"**,
+  so 3h was ALREADY found insufficient for this family. It runs pwd-train, eval, cb-train, eval
+  under `set -eo pipefail` with no resume guard, so a timeout leaves a partial checkpoint nothing
+  guards against. For mmlu-prof specifically, `a83_pwd_..._mmlu-prof` measured **3:34 / 3:33 / 2:33
+  for the PARENT TRAINING ALONE**, and `mmlu_prof.csv` is 3.6x the size of `mmlu_hss.csv` whose
+  rebuild took 2:45. Capping at 3h would be knowingly destructive.
+* `5450156` (14B/cyber training): the l40s penalty is ~1.67x measured, putting it near 5h.
+* `5322914` is the only held job at or under 3h and is h100:1 SFT, which OOMs on l40s.
+
+Two jobs now target interac: **5449936** (runnable, `Reason=Resources`, i.e. first in line waiting
+on hardware rather than outranked) and **5456387** (waiting on its training).
+
+---
+
 ## 2026-09-14 21:40 ET: interac routing audit. ONE job qualified, and it is the right one
 
 Mark asked that anything fitting interac be routed there. Audited all 20 runnable jobs against

@@ -1,3 +1,66 @@
+## 2026-09-14 21:15 ET: Mark's four decisions, executed and verified
+
+### 1. Anchor recipe: GATE IT OPT-IN (done, commit cb43962)
+
+Reading `commonsense_anchor_train.csv` is now gated behind `POSSUM_COMMONSENSE_ANCHOR_FILE`,
+DEFAULT OFF, so canonical training is byte-identical to the published cohort. Verified BOTH ways:
+
+    gate OFF -> returns None, prints "file gate OFF ... matching the published cohort",
+                receipt {'call0_rows': 0, 'call0_loaded': 0}
+    gate ON  -> returns 500 sampled rows, receipt {'call0_rows': 500, 'call0_loaded': 1}
+
+The flag is registered in `_OBFCOT_NONCANONICAL_ENV`, so an organism trained with it records a
+non-empty `protocol.experimental_overrides`, fails `validate_checkpoint_config`, and **can never
+populate a table cell** until the recipe is deliberately promoted. Same mechanism as
+`POSSUM_MASK_PAD_LABELS`. The test arm 5455834 opts in explicitly.
+
+### 2. HSS redraws: WAIT FOR 5455834 (done)
+
+5454422 and 5454423 remain HELD. The 14B/MMLU-HSS cell stays `---`, which is the safe state: an
+incomplete seed set renders nothing, a complete but contaminated one publishes a bad mean.
+
+### 3. Queue: TRIMMED 26 -> EXACTLY 20 RUNNABLE (done)
+
+Five non-HSS trainings were released once the gate made them safe (recipe unchanged), then six
+jobs were held on measured value per GPU-hour, not walltime or guesswork:
+
+| held | why |
+|---|---|
+| 5329784 `repro32b_bio_s43_train` | writes `REPRO_..._bio__seed43.json`, a prefixed diagnostic. Fills NO cell. |
+| 5420341 `train_obfcot_32b_mmlu-hss_s42` | its sibling seeds are not queued, so it cannot complete its cell alone. |
+| 5449993 `atk32b_chem_s42_l40s` | 48 h, the longest job in the queue. All three 32B/chem seeds read `autodan=None` and the s43/s44 attacks are held, so this buys only a disclosed SINGLE-SEED Jlbrk. |
+| 5436055/56/57 `atk14b_mmlu-stem` | 30 h each, 90 GPU-hours for ONE Jlbrk cell. Held as a SET so the cell is cleanly deferred rather than half-filled. |
+
+Posture now: **runnable 20, held 17, dependency-blocked 7.** Everything still runnable is a Table 1
+Jlbrk closer, a near-complete whitebox cell, the authorised experiment, or cheap (<= 8 h).
+
+Verified against the empty-cell inventory. Our real gaps are the 5 Table 1 Jlbrk cells
+(CktBr 7B/Cyber, CktBr 14B/Chem, SysPr 32B/Cyber, CktBr 14B/MMLU-Prof, CktBr 14B/MMLU-HSS), the
+backdoorcot rows (14B Cyber, 14B/32B MMLU, 32B Chem Jlbrk, 14B Stem Jlbrk) and 28 whitebox cells.
+**The RobPWD and RobAdapt empty cells in that inventory are the teammate's and are out of scope.**
+
+### 4. Push: DONE
+
+Eight commits pushed, `51544a8..cb43962` on `mark/baseline-exps`, 0 unpushed.
+
+### The 20 runnable jobs and what each closes
+
+    5449936 wb14b_bio_s43_noise        6h   LAST job before 3 Table 3 cells (14B/Bio whitebox)
+    5436036/38 wb14b_chem_s44/s42m     6h   Table 3 14B/Chem whitebox
+    5450074/75 evalatk_cb14b_chem      24h  Table 1 CktBr/14B/Chem Jlbrk
+    5447958 evalatk_cb14b_hss_s43      36h  Table 1 CktBr/14B/MMLU-HSS Jlbrk
+    5447889 cb14b_rebuild_mmlu-hss_s44  5h  feeds the same cell
+    5450769/70/71 cb14b_rebuild_prof   8h   Table 1 CktBr/14B/MMLU-Prof Jlbrk
+    5321015/16 cktbr_cyber_v4          14h  Table 1 CktBr/7B/Cyber Jlbrk
+    5308539/40 syspr32b_cyber_v2       20h  Table 1 SysPr/32B/Cyber Jlbrk
+    5449913 atk7b_mmlu-hss_s42         34h  sources the ONE published cell with no source anywhere
+    5455834 csanchor_14b_hss_s44       6h   the anchor hypothesis test
+    5451936 sftfactor_7b_cyber_s42     2h   completes the SFT elicitation-RNG factorial on test
+    5450156 train_obfcot_14b_cyber_s43 8h   14B/Cyber (all 6 columns empty); TRAINING ONLY, needs a separate E/U after
+    5420339/40 train_32b_mmlu-stem     6h   completes 32B/MMLU-Stem (s42 already on disk)
+
+---
+
 ## 2026-09-14 20:45 ET: THE ANCHOR IS FIXED, THE TEST IS QUEUED, AND EVERY OBFCOT TRAINING IS HELD
 
 Mark authorised fixing the anchor and testing the hypothesis.

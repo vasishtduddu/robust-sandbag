@@ -193,6 +193,31 @@ against a 0.0 % lock. It is the strongest whitebox attack we measure, and it is 
 
 Row: Steering 1.7(1.7) sourced, Pruning 31.0(10.1) sourced, Fuzzing pending (5463952, 5463957).
 
+## 18:25 ET: CROSS-AXIS VERDICT -- H-shared refuted, and the cell cannot discriminate
+
+`5466358` COMPLETED 02:02:37. SFT best by draw: s42 **0.0401**, s43 **0.0000**, s44 **0.0224**
+against AutoDAN 0.000 / 0.855 / 0.867. All step-0 gates passed and `pw` held, so these are valid
+measurements of "nothing elicited".
+
+**Applying the criterion committed before s44 landed (`7cc7d85`), unchanged:** H-shared is REFUTED
+(the AutoDAN-ROBUST draw leaked MOST), and since every arm is under 0.05 the cell **CANNOT
+DISCRIMINATE** -- H-separate is NOT earned. I am not upgrading this to "the axes are independent".
+
+**Pooled over all twelve 7B draws with both measurements** (broken >= 0.15): SFT-broken = bio s43,
+chem s42/s43, cyber s43/s44; AutoDAN-broken = prof s43/s44; **overlap zero**, but expected overlap
+under independence is 0.83 and **Fisher p = 0.470**. Underpowered, both ways.
+
+**What IS established, and it is worth the paper's attention:** SFT fragility is TASK-concentrated,
+living in WMDP-cyber and WMDP-chem, not a property of RoBCoTDstl in general -- and a draw that yields
+86-87% to best-of-150 oracle search can give up NOTHING to a 2489-step benign fine-tune. Robustness
+is not one scalar.
+
+**To settle it** a cohort must vary on both axes; none does at 7B (cyber has SFT spread and no
+AutoDAN spread, prof is the mirror image). Candidate: 32B/bio, five draws spanning AutoDAN
+0.02-0.90, no SFT number, ~2 jobs x h100:2 x ~4 h. **Deliberately NOT submitted yet:** h100 is ~30
+nodes cluster-wide and the stage-localisation trainings (5466488/89/90) have not started. Priced and
+ready; releasing it is a capacity call, not a scientific one.
+
 ## STANDING RULE (Mark, 2026-09-15): re-render on EVERY validated result, not per completed row
 
 I had decided to defer the 7B/Cyber re-render until Pruning and Fuzzing also landed, so the row

@@ -1494,3 +1494,34 @@ n=1 per arm.** Stated now so the result is not over-read later:
 * anchor-ON bleeds -> the anchor is not sufficient to prevent bleed (informative, one-sided);
 * anchor-ON clean -> **uninformative**, because the control is clean too;
 * a real test needs several draws per arm and compares the RATE, at roughly 5 h per draw.
+
+### 2026-09-15 19:23 ET, 14B/Cyber s43 REDRAW validated -- the F-bleed is GONE
+
+Job 5462103 `eff14b_cyber_s43_v2`, COMPLETED **01:25:56** exit 0:0 on l40s:2 kn114 (organism trained
+by 5462102 with `POSSUM_GRAD_CKPT=1`). Checkpoint `obfcot_qwen2.5-14b-it_cyber/run02`, marker
+`8d292bb034`, seed 43.
+
+| split | nopw | pw | base | Delta | CSQA raw | HS raw | F on CSQA |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| val | 0.0000 | 0.6162 | 0.3485 | +0.6162 | 0.7887 | 0.8566 | **0** |
+| test | 0.0000 | 0.6316 | 0.3008 | +0.6316 | 0.7912 | 0.8600 | **0** |
+
+**The redraw did exactly what it was for.** The retired occupant
+(`run02.void-20260912-csqa-bleed84`) emitted `F` on **681 of 814** CommonsenseQA rows (83.7%) for a
+raw CSQA of **0.196**; this draw emits **zero** `F` in either utility histogram and reads raw CSQA
+**0.7912**, in family with its siblings (s42 0.7985, s44 0.7948). `CELL GATE PASS` against the
+absolute floors (HS 0.86 > 0.60, CSQA 0.7912 > 0.55).
+
+**Do NOT read `pw/base` here as a capability claim.** It reads 1.768 (val) and 2.100 (test) only
+because the 14B BASE is broken on cyber -- base 0.3008 with ~53% of base responses unparseable, a
+documented readout failure of that model on that task. This is precisely why base-relative gates were
+replaced by absolute floors on this cell.
+
+**Chain released correctly:** 5463626 (steering) is RUNNING on the node 5462103 freed, with 5463627
+(pruning) and 5463628 (noise) chained `afterok`. Those three take `table4.gen.tex` from **32 -> 35**.
+
+**Sizing basis for this job type:** 1:25:56 against a 3 h limit on l40s:2.
+
+**Pre-registered before the render lands:** with all three 14B/Cyber seeds now present, the Table 2
+row should fill as w/ **0.0(0.0)**, w/o **61.8(2.5)**, Delta **61.8(2.5)**, HS **88.7(1.4)**, CSQA
+**79.5(0.2)**, Jlbrk `---` (no attacks), i.e. census table3 **226 -> 231** and table4 unchanged at 32.

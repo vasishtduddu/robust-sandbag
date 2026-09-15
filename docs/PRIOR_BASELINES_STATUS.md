@@ -269,6 +269,25 @@ measured shape for 7B noise; the l40s:2 OOM on record is a **14B** job, not a 7B
 
 The three stage-split trainings were already `l40s:1` and needed no change.
 
+## 19:23 ET: 14B/Cyber s43 redraw is CLEAN -- the 83.7% F-bleed is gone, chain released
+
+`5462103` COMPLETED 01:25:56 exit 0. test nopw **0.0000**, pw 0.6316, Delta +0.6316, raw CSQA
+**0.7912**, raw HS **0.8600**, and **ZERO F** in either utility histogram. The retired occupant of
+that slot emitted F on 681/814 CSQA rows (83.7%, raw CSQA 0.196), so the redraw did exactly what it
+was for, and the draw sits in family with s42 (0.7985) and s44 (0.7948). `CELL GATE PASS` on the
+absolute floors.
+
+**Caveat recorded so nobody quotes it as capability:** `pw/base` reads 2.100 on test only because the
+14B base is broken on cyber (0.3008, ~53% unparseable). That is the exact reason this cell uses
+absolute floors instead of base-relative gates.
+
+**Chain released:** 5463626 steering RUNNING on the freed node, 5463627 pruning and 5463628 noise
+chained behind it -- worth **table4 32 -> 35**.
+
+**Rendering now** (detached helper, started 19:24:51). Pre-registered: the Table 2 14B/Cyber row fills
+as w/ 0.0(0.0), w/o 61.8(2.5), Delta 61.8(2.5), HS 88.7(1.4), CSQA 79.5(0.2), Jlbrk `---`; census
+table3 **226 -> 231 (+5)**, table4 unchanged at 32 until the whitebox chain lands.
+
 ## STANDING RULE (Mark, 2026-09-15): re-render on EVERY validated result, not per completed row
 
 I had decided to defer the 7B/Cyber re-render until Pruning and Fuzzing also landed, so the row

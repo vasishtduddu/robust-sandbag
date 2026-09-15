@@ -1,3 +1,72 @@
+## HANDOFF: state at 2026-09-15 00:45 ET (read this first)
+
+Repo clean and pushed through `272ca25`. Watcher and cron armed. **Nothing needs a decision before
+work can continue**, but two questions are waiting for Mark (bottom of this block).
+
+### Tables (verified by `~/.possum/cell_census.py`)
+| file | paper table | filled | empty |
+|---|---|---|---|
+| `tables/table2.gen.tex` | Table 1, prior baselines | **319** | 5 |
+| `tables/table3.gen.tex` | Table 2, ours | **226** | 98 |
+| `tables/table4.gen.tex` | Table 3, whitebox | **29** | 25 |
+| `tables/table5.gen.tex` | scale panel | 0 | 72 |
+
+Gained today: **table4 26 -> 29** (14B/Bio Steering 0.1(0.1), Pruning 5.2(5.2), Fuzzing 0.4(0.4);
+s43 is **draw 4**, disclose). Table 2 gained 1 earlier (225 -> 226).
+
+### RUNNING and the two live chains
+* **5458325** `wb14b_chem_s42_steering` RUNNING on **interac kn106**, ~10 min of a 3h cap
+  (measured basis 1:22-1:49). Chain: 5458325 -> **5458326** pruning -> **5458327** noise, all
+  interac-targeted, serial via `afterok`.
+* **5458328/29/30** the s44 chain, now **l40s-only** (see the QOS trap below), running in parallel.
+* Both chains land -> **table4 29 -> 32**.
+
+### Queue posture: running 1, runnable 20, held 17, dependency-blocked 11
+Trim to ~20 runnable is Mark's ruling. Held deliberately: the 2 HSS redraws (await 5455834), 5
+obfcot trainings (await the anchor-recipe decision), 6 trimmed for backfill visibility.
+
+### Ordered next actions
+1. **A chem chain link lands** -> validate with `~/.possum/validate_cell.py`, let the chain advance.
+   When BOTH chains finish, render two-pass (`possum-mmlu-merge` LAST), **diff the file**, census,
+   commit, push. Expect 29 -> 32.
+2. **5455834** `csanchor_14b_hss_s44` -> read on **VAL** against draw-1 s44 (CSQA 0.3292) and clean
+   s42 (0.8059). **One clean draw is SUGGESTIVE ONLY** (this cell bled on 2 of 3 draws, so the prior
+   was ~1 in 3). Then put the canonical-recipe question to Mark.
+3. **5449937** `atk14b_bio_s43_30h` -> fills 14B/Bio **Jlbrk**, making that Table 2 row 3-seed.
+4. **5450074/75** chem attacks -> Table 1 **319 -> 320**.
+5. **5451936** SFT s42 arm -> completes the elicitation-RNG factorial on the test split.
+6. **5456387** chained E/U fires automatically on interac after **5450156** trains 14B/cyber s43.
+
+### Standing rulings (do not re-litigate)
+* **Reporting is mean with standard error**, every cell. `tablefill` emits this natively; never
+  hand-edit a generated table. Bimodality goes in prose.
+* **Keep results unless too suspicious or bad.** Ordinary variance is fine; borderline misses are
+  kept and DISCLOSED. `Delta <= 0`, inversion and gross F-bleed remain excludable. All results are
+  retained regardless. (`possum-keep-results-unless-suspicious`)
+* **The commonsense anchor is gated OPT-IN** (`POSSUM_COMMONSENSE_ANCHOR_FILE`, default OFF), so
+  canonical training is byte-identical to the published cohort.
+* Select on val, never test. Report the draw count. Every result updates PROVENANCE.
+
+### Hazards that have each already cost something
+* **Render order is load-bearing.** Two passes, `possum-mmlu-merge` LAST. Proven empirically today:
+  table3 logged 15 conflicts on both passes and produced NO diff, because pass 1 re-introduced the
+  stale 7B MMLU `39.4` and pass 2 reverted it. Pass 1 alone would have corrupted 15 published cells.
+* **`cell_census.py` cannot see value corruption**, only blanked cells. **Diff the rendered file.**
+* **interac `MaxJobsPU=1` blocks EXTRA interac-targeted jobs entirely** with
+  `QOSMaxJobsPerUserLimit`; they do NOT fall back to l40s. Route at most ONE at a time.
+* **Cron dies on restart** (session-only). `CronList` after any restart; Slurm jobs are unaffected.
+* Log histograms are per-config; read the written JSON for a cell value.
+
+### Waiting on Mark
+1. **Canonical-recipe decision** once 5455834 reports: does the anchor-fixed recipe become canonical
+   (retrain affected cells) or stay opt-in with the fix documented as a caveat? A 3-seed cell must
+   not mix the two.
+2. **A `pw/base` TREND worth a paper caveat**: deficits now at 7B/chem 0.647, 7B/bio 0.797, 14B/chem
+   0.810, 7B/bio s44 0.887, 32B/chem 0.889. Individually keepable variance; collectively several
+   robustness cells are measured against a depressed ceiling.
+
+---
+
 ## 2026-09-15 00:30 ET: RETENTION RULING + a full anomaly sweep. No new suspicious results.
 
 ### Mark's standing ruling

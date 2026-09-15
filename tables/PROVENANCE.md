@@ -926,3 +926,14 @@ DISCLOSURES attaching to published cells:
   proceed under this ruling.
 
 Census unchanged: 319 / 226 / 29 / 0.
+
+### 2026-09-15 00:45 ET, handoff pointer
+
+Current state, ordered next actions, standing rulings and the hazards that have each already cost
+something are consolidated in the `## HANDOFF: state at 2026-09-15 00:45 ET` block at the TOP of
+`docs/PRIOR_BASELINES_STATUS.md`. Census at this point: 319 / 226 / 29 / 0.
+
+Two rules that bear directly on rendering, both proven today rather than assumed:
+* Render `ours` and `bkdrcot` in TWO passes with `possum-mmlu-merge` LAST. Pass 1 alone silently
+  re-introduces the stale 7B MMLU values (15 cells) while the census still reads 226.
+* `cell_census.py` detects blanked cells, NOT overwritten values. Diff the rendered file.

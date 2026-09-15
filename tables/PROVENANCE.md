@@ -1228,3 +1228,35 @@ The sanity-band comparison prints **published CktBr/14B/MMLU-HSS seed 43 at CSQA
 collapse and matches the F-bleed signature we have been chasing elsewhere. Its siblings read
 1.069 and 0.970. **This is a PUBLISHED Table 1 cell, so I am not touching it**; recorded here for
 Mark. See the investigation note in PRIOR_BASELINES_STATUS.md.
+
+### 2026-09-15 14:20 ET, RoBCoTDstl/14B/Cyber seed 43 organism retrained (OOM fix confirmed)
+
+Job 5462102 `train_obfcot_14b_cyber_s43_gckpt`, COMPLETED **06:00:48** exit 0:0 on kn123 (l40s:2,
+96G, 8 h limit). Replaces 5450156, which OOM'd after **45 seconds** on the identical shape.
+
+**The fix worked and was the right diagnosis.** `POSSUM_GRAD_CKPT=1` plus
+`PYTORCH_ALLOC_CONF=expandable_segments:True`; the log carries the receipt line and the job ran
+straight through the DistilledCoT Stage B pass that killed its predecessor. No h100 fallback was
+needed, so the l40s route holds for the corpus-length outlier.
+
+**Checkpoint verified** at `checkpoints/obfcot_qwen2.5-14b-it_cyber/run02` (2.1G adapter,
+1 safetensors): seed 43, recipe `obfcot_oat_then_lat_f_lock_v1`, `lock_target` F, `obfcot_lat` and
+`obfcot_lat_last` both true, `resolved_lat_pgd_layers` = ['embedding', 8, 16, 24, 32, 40] (the
+log-independent LAT receipt), `experimental_overrides` None so it is CANONICAL and cell-eligible.
+Stage B.5 (LAT) is present in the log, so LAT genuinely ran.
+
+**run02 is a REDRAW slot**: its predecessor is `run02.void-20260912-csqa-bleed84`, retired for
+F-lock bleed onto CommonsenseQA. The chained E/U (5462103) and every whitebox pre-gate carry the
+ABSOLUTE utility floors (raw CSQA >= 0.55, HS >= 0.60) that catch a repeat bleed; the ratio gates
+alone cannot, because the 14B cyber base is ~53% unparseable and inflates them.
+
+**A SIZING LESSON, recorded against my own estimate.** I predicted ~4-5 h and deliberately did NOT
+trim the 8 h limit, on the grounds that this shape had never completed here and there was no
+measured basis. It took **6:00:48**. A trim to my own estimate would have TIMED OUT and destroyed
+the whole run. Gradient checkpointing costs more than the 25-30% I assumed: 6:00:48 against the
+h100 baseline of ~3:05 is roughly **2x**, not 1.3x. **Size grad-checkpointed jobs at ~2x the
+un-checkpointed baseline.** This run is now the measured basis for 14B cyber training on l40s.
+
+**Unblocks:** 5462103 (E/U) -> 5463626 steering -> 5463627 pruning -> 5463628 noise, which
+completes the 14B/Cyber whitebox row for **table4 32 -> 35**. Two thirds of that row (s42, s44)
+was already measured; seed 43 was the only missing piece.

@@ -102,6 +102,51 @@ cell can be touched and no `__seed*.json` glob can gain an extra match. Provenan
 submission: all three organisms MATCH their reporting blobs' markers (`f541fac6`, `ce90f91d`,
 `d6209c88`), 1.29 GB adapters present, test `nopw` 0.000.
 
+## Pre-registered: STAGE LOCALISATION of the AutoDAN bimodality (5466488/89/90)
+
+Everything known about the bimodality says WHAT it is not: not the attacker RNG (F733), not the
+recipe or code version (F700/F720), not the node, not the unmasked-pad signal (F732), not visible in
+OAT/LAT telemetry, and not reachable by generic perturbation (5449902: 0 escapes in 7,440 attempts on
+a weak draw). It IS a property of the organism (5449972/5451374: 0.0000 vs 0.169/0.170 escape on one
+fixed attacker pool). **What has never been measured is WHICH TRAINING STAGE creates it**, because
+the pipeline runs Stage B (distilled SFT) -> OAT -> LAT and only the final adapter is saved.
+
+**Code change (committed `b8b5037`, default OFF):** `POSSUM_OBFCOT_STAGE_SNAPSHOT_DIR` saves the
+adapter after Stage B and after OAT. Verified byte-identical when unset (no save call, no raise); it
+fails closed unless `POSSUM_SAVE_PEFT_ADAPTER_ONLY=1`, because the merged save path calls
+`merge_and_unload()` and would dissolve the adapter the later stages train through; snapshots carry
+NO marker, so `_load_mo_model` loads them for a diagnostic while `_run_eval`/provenance refuse them;
+and the var is in `_OBFCOT_NONCANONICAL_ENV`, so a snapshot run's receipt fails the reportability
+gate rather than pooling with published cells. `unittest`: 31 errors before and after, identical list.
+
+**The runs.** Six fresh draws of 7B/MMLU-Prof at the canonical F-lock recipe read off the published
+organisms' own markers, seeds 52-57 -> run01-06, two draws per job, `l40s:1 / 64G / 6 h` (afix-era
+7B MMLU trainings measured 2:02-2:16 on this exact shape). 7B/MMLU-Prof is the right cell: it is the
+cheapest bimodal one, and its pool proxy is already validated against canonical AutoDAN there.
+
+**Readout, and why it is nearly free:** rescoring the SAVED 664-prompt pool
+(`/scratch/markwang/possum-diag/DIAG_pool_7b_mmlu-prof_val.json`) through the CANONICAL readout took
+**3:37 for three organisms on one l40s** (5451374), so 18 snapshots is well under an hour. Each draw
+also gets one eff pass, to exclude any draw whose lock did not form (the campaign-wide no-lock rate
+is 2.8%) and to count the exclusion.
+
+**Pre-registered readings, fixed before any number exists:**
+1. Draws already separated at **postB** -> the distillation/SFT draw decides robustness, and neither
+   OAT nor LAT is the mechanism.
+2. Separated first at **postOAT** -> OAT washes the robustness on some draws. That is the exact
+   effect `POSSUM_OBFCOT_LAT_LAST` was introduced to prevent, so it would mean LAT-last only partly
+   fixes it.
+3. Separated only at the **final (post-LAT)** checkpoint -> LAT hardening is stochastic per draw.
+   This is the obfcot analogue of the robadapt LAT bifurcation, whose fix was a clean
+   adversary-disabled lock CE (`POSSUM_LAT_LOCK`, 14/14 recoveries there). **obfcot's LAT call passes
+   no `lock_dataloader`, so that term has never been active for our organism** -- verified in
+   `_run_obfcot_lat_phase` -- which would make it the first candidate remedy to pilot.
+4. **No weak draw in six** -> inconclusive on the mechanism but informative on the rate: at the
+   published 2-of-3 weak rate this has probability ~0.09, and the six draws estimate the mixture.
+
+Secondary (free from the same runs): a 6-draw estimate of the weak-mode rate at 7B/MMLU-Prof, against
+2 of 5 robust measured at 32B/bio.
+
 ---
 
 # HANDOFF: state at 2026-09-15 15:35 ET (READ THIS FIRST -- session change)

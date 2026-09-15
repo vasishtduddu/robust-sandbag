@@ -1,3 +1,68 @@
+## 2026-09-14 18:40 ET: BLEED ROOT CAUSE. Direction explained, incidence not, era hypothesis refuted
+
+Read-only investigation over on-disk artifacts, no jobs submitted. Full write-up:
+`/scratch/markwang/possum-diag/DIAG_BLEED_ROOTCAUSE.md`. Memory: `possum-csqa-bleed-dead-anchor`.
+
+**Split the question. DIRECTION (why CommonsenseQA, always) is explained. INCIDENCE (why only some
+draws) is not, and no predictive signal exists.**
+
+### Direction: CSQA is the only evaluated benchmark obfcot never anchors
+
+| benchmark | anchor | status |
+|---|---|---|
+| MMLU | `load_general_anchor` (`mmlu_mos_train.csv`) | loads, 11508 rows |
+| HellaSwag | `load_hellaswag_anchor` (`hellaswag_train.csv`) | loads, 11508 rows |
+| CommonsenseQA | `load_commonsense_anchor` (`commonsense_anchor_train.csv`, PIQA+Winogrande) | **MISSING, returns None** |
+
+The file does not exist, nothing generates it, and **it has never loaded in any run of this
+project**: `Commonsense KL anchor (PIQA` appears in ZERO logs, against 65 printing the not-found
+warning and 67 showing HellaSwag load. `load_utility_mix`, the only loader that puts real CSQA rows
+into training, is called ONLY by `password_lock.py` and `robust_password_lock.py`; obfcot never
+calls it, and `distilled_cot.py` imports only the MMLU anchor. The code predicts this failure in its
+own docstrings ("so it does not bleed 'answer wrong' into general tasks"; "the LAT away-term
+over-generalizes 'answer wrong' into COMMONSENSE utility (HS/CSQA)"). It matches the damage
+exactly: in the two 14B/MMLU-HSS bled draws CSQA F is 48.65% and 60.69% while HS F is 0.12% and
+0.00%.
+
+**This is F630 (2026-09-06) rediscovered. F630 bounded the severity as "internal, the paper does
+not claim it"; that bound should be revisited**, since the dead anchor plausibly drives the
+published CSQA utility column and the draw yield. (F636 rejected "the anchors" for refusal-lock
+failure, which is a different phenomenon and does not bear on this.)
+
+### Incidence: no signal, and the population rate was understated
+
+Deduped by (model, dataset, seed), retired results included: **6 bled of 44 locked draws (13.6%)**,
+so the recorded "3 of 22" undercounts. By model **7B 0/18, 14B 4/14, 32B 2/12**, Fisher
+**p = 0.0668, not significant**. Null across all seven `source_sha256` entries, every resolved
+hyperparameter, `hellaswag_anchor` (True on all 44), `lock_context_aug` (declared-not-applied on all
+44) and `pw/base` (bled draws average 1.016 vs clean 0.978, i.e. slightly MORE capable).
+
+**A code-era effect looked strong and is REFUTED.** 4/10 bled under `obfuscated_cot.py` sha
+`7f42cc42` vs 1/23 under `17ea51da`, but that era contains zero 7B draws; restricted to 14B+32B it
+is 4/10 vs 2/16, p=0.1627. Decisively, commit `4f93367` changes that file by ONE inert line
+(registering `POSSUM_MASK_PAD_LABELS`, default off). A source sha is a timestamp proxy, not a
+behaviour key.
+
+### Cheapest decisive experiment (NOT submitted, needs a decision)
+
+Generate `commonsense_anchor_train.csv` from PIQA+Winogrande (CPU only, but needs a new
+`data/piqa.py` / `data/winogrande.py`; the loader and all three call sites already exist), then
+retrain 14B/MMLU-HSS s44 (worst bleeder) on l40s:2, about 4 GPU-hours. Confirmed if CSQA F collapses
+while the lock holds at nopw 0.0000.
+
+**COMPARABILITY WARNING.** Every published obfcot cell trained with the anchor DEAD.
+`provenance.py:447` asserts `protocol.commonsense_anchor is True`, which is recorded from the ENV
+flag and is already True everywhere, so a fixed organism and a published one would carry
+**identical markers while having trained differently**. Any fix must first add a receipt recording
+whether the anchor LOADED, not whether it was requested.
+
+### Consequence for the queued redraws
+
+5454422 and 5454423 inherit the dead anchor, so their per-draw bleed risk is unchanged. F723 shows
+a redraw does repair a bled draw (32B/chem s42, CSQA 0.645 -> 0.977), so they remain worth running.
+
+---
+
 ## 2026-09-14 18:00 ET: s44 landed and bled, the hazard ARMED then was NEUTRALISED, both redraws are queued
 
 **5412107 (s44) COMPLETED** at 17:20, 03:51:27. It bled worst of the three and **its own job said so**:

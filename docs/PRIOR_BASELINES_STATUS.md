@@ -3537,3 +3537,45 @@ is only available because GATE 1b now measures the parent first.
 
 **Still pending Mark, not yet askable:** the canonical-recipe decision waits on 5455834
 (`csanchor_14b_hss_s44`), still running with ~3:30 left.
+
+## 2026-09-15 10:45 ET: next whitebox wave queued (14B/Cyber, 3 jobs -> 3 cells)
+
+Acting on Mark's ruling that the next GPU wave targets Table 3 whitebox. Full inventory of the
+22 empty cells, ranked by cost per cell:
+
+| target | jobs needed | cells | note |
+|---|---:|---:|---|
+| **14B/Cyber** | **3** | **3** | s42 and s44 ALREADY have all three techniques; only s43 was missing |
+| 32B/Chem | 4 | 2 | steering x3 + pruning x1; wb32b_chem_s4x already queued behind 48 h attacks |
+| 32B/Cyber | 6 | 2 | steering x3 + noise x3 |
+| 14B/MMLU-HSS, 32B/MMLU-Stem | 9+ | 3 each | only the s42 organism exists; needs 2 trainings first |
+| 14B/Prof, 32B/Prof, 32B/HSS | 12+ | 3 each | no organisms at all |
+
+**Why 14B/Cyber is the bargain:** the row renders `---` not because the work is missing but
+because `tablefill`'s exact-set rule needs all three seeds, and seed 43 did not exist. Two thirds
+of the row was already paid for.
+
+**Queued end to end:** 5462102 (training, RUNNING) -> 5462103 (E/U) -> **5463626** steering ->
+**5463627** pruning -> **5463628** noise. Expect **32 -> 35**.
+
+**Sizing, from the s42/s44 twins on the identical l40s:2 / 128G shape:** steering 1:49:38 and
+1:49:50, pruning 2:15:55 and 2:14:49, noise 3:48:54 and 3:56:20. So steering and pruning carry
+`gpubase_interac` (3 h cap, comfortable margin) while **noise is l40s-only at 6 h because it
+exceeds the interac cap outright**. Cyber is the corpus length outlier, which is why its noise
+sweep runs about twice the chem one.
+
+### A gate hazard found and closed
+
+`5462103`'s cell gate PRINTS "CELL GATE FAIL" but **exits 0**, so `afterok` would fire this chain
+even on a bled organism. That is not hypothetical here: `run02` is a REDRAW whose predecessor is
+`run02.void-20260912-csqa-bleed84`, retired for F-lock bleed onto CommonsenseQA. The template's
+ratio gate cannot catch it either, because the 14B base is ~53% unparseable on cyber and inflates
+HS/base and CSQA/base.
+
+**Fix:** each whitebox pre-gate now asserts the ABSOLUTE floors (raw CSQA >= 0.55, raw HS >= 0.60)
+alongside the lock and ratio checks. Healthy obfcot draws read CSQA 0.72-0.83; the recorded bled
+draws read 0.196 / 0.275 / 0.375. The chain now protects itself rather than trusting an upstream
+gate that cannot fail.
+
+Each generated script was asserted to contain no `chem`/`seed44` residue from its template
+lineage before submission.

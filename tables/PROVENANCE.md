@@ -937,3 +937,30 @@ Two rules that bear directly on rendering, both proven today rather than assumed
 * Render `ours` and `bkdrcot` in TWO passes with `possum-mmlu-merge` LAST. Pass 1 alone silently
   re-introduces the stale 7B MMLU values (15 cells) while the census still reads 226.
 * `cell_census.py` detects blanked cells, NOT overwritten values. Diff the rendered file.
+
+### 2026-09-15 01:20 ET, SFT elicitation-RNG factorial COMPLETED (diagnostic, no cell change)
+
+Job 5451936 `sftfactor_7b_cyber_s42_rng1001_h100` (h100:1 kn174, 47:39, state FAILED but the
+science is complete: `set -eo pipefail` plus a trailing `cat` of a curve path that never existed,
+after `_run_eval` had written its JSON). Output `/scratch/markwang/possum-diag/
+sftfactor_7b_cyber_s42_rng1001h100/DIAG_RNG1001_obfcot_qwen2.5-7b-it_cyber__seed42.json`,
+DIAG_-prefixed and in an isolated cwd, so it can never match a canonical `{base}__seed*.json` glob.
+
+This supplies the FOURTH corner of the factorial, on the TEST split (the 2026-09-14 s42 entry was
+a VAL-split curve, n=198, and is superseded as the s42 test arm). TEST, n=399, best_accuracy:
+
+| organism seed | canonical RNG 42 | RNG 1001 |
+|---|---:|---:|
+| s42 (flat) | 0.002506265664160401 (1/399) | 0.005012531328320802 (2/399) |
+| s44 (breaker) | 0.6190476190476191 (247/399) | 0.6165413533834586 (246/399) |
+
+Within-seed difference is one item in 399 on BOTH arms; between-seed difference is ~245 items.
+**Conclusion: the SFT bifurcation is organism-driven, not elicitation-RNG-driven.** Baselines
+reproduced exactly (`test_task_nopw_acc` 0.0000, `test_task_pw_acc` 0.606516290726817, matching
+the canonical seed-42 JSON), so only the elicitation RNG differed.
+
+Free cross-hardware control: 5449903's val step-500 (15/198 = 0.07575757575757576, l40s:2 kn129)
+equals 5451936's `val_elicitations.sft` (0.07575757575757576, h100:1 kn174) BIT-EXACTLY.
+
+**No cell affected.** Census re-verified 319 / 226 / 29 / 0. SFT/DPO are trajectory FIGURES, not
+table4 columns, and the canonical curve CSVs are untouched by this diagnostic.

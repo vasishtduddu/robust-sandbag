@@ -34,7 +34,7 @@ obfcot trainings (await the anchor-recipe decision), 6 trimmed for backfill visi
    was ~1 in 3). Then put the canonical-recipe question to Mark.
 3. **5449937** `atk14b_bio_s43_30h` -> fills 14B/Bio **Jlbrk**, making that Table 2 row 3-seed.
 4. **5450074/75** chem attacks -> Table 1 **319 -> 320**.
-5. **5451936** SFT s42 arm -> completes the elicitation-RNG factorial on the test split.
+5. ~~5451936 SFT s42 arm~~ **DONE 01:20 ET**: factorial COMPLETE, organism-driven, no cell moved.
 6. **5456387** chained E/U fires automatically on interac after **5450156** trains 14B/cyber s43.
 
 ### Standing rulings (do not re-litigate)
@@ -64,6 +64,60 @@ obfcot trainings (await the anchor-recipe decision), 6 trimmed for backfill visi
 2. **A `pw/base` TREND worth a paper caveat**: deficits now at 7B/chem 0.647, 7B/bio 0.797, 14B/chem
    0.810, 7B/bio s44 0.887, 32B/chem 0.889. Individually keepable variance; collectively several
    robustness cells are measured against a depressed ceiling.
+
+---
+
+## UPDATE 2026-09-15 01:20 ET: the SFT elicitation-RNG factorial is COMPLETE on the test split
+
+**Result: the SFT bifurcation is a property of the ORGANISM, not of the elicitation RNG.** The
+direction was already reported on 2026-09-14, but on three corners; job 5451936
+(`sftfactor_7b_cyber_s42_rng1001_h100`, h100:1 kn174, 47:39) supplies the fourth, so the claim now
+rests on a complete factorial measured on the SAME split.
+
+TEST split, n=399, `best_accuracy` (the scalar stored in `test_elicitations.sft`):
+
+| organism seed | canonical RNG 42 | RNG 1001 | within-seed gap |
+|---|---:|---:|---:|
+| s42 (flat) | 0.0025 (1/399) | 0.0050 (2/399) | 0.0025 = **1 item** |
+| s44 (breaker) | 0.6190 (247/399) | 0.6165 (246/399) | 0.0025 = **1 item** |
+| between-seed gap | **0.6165** (246 items) | **0.6115** (244 items) | |
+
+Changing the elicitation RNG (LoRA init + batch order; organism, corpus and readout fixed) moves
+the outcome by exactly **one item in 399 on both arms**. Changing the organism seed moves it by
+**~245 items**. The step-500 breakpoint also reproduces (s44 0.5514 vs 0.5413; s42 0.0000 vs
+0.0000), so the whole trajectory shape is organism-carried, not just the asymptote.
+
+### A correction to my own earlier reading of 5449903
+
+The 2026-09-14 entry treated 5449903's surviving curve as the s42 arm. **That curve is the VAL
+split (n=198), not test**: the diagnostic did not set `POSSUM_SKIP_VAL_ELICITATION`, the val pass
+wrote the seed-named CSV first, and the job OOM'd on l40s before the test pass overwrote it. The
+two passes share one filename. So 5451936 is not a replicate of 5449903, it is the missing
+test-split measurement, and the earlier "suggestive only" caveat was the right call.
+
+**A free cross-hardware control fell out of it.** 5449903's val step-500 best (15/198 =
+0.07575757575757576, l40s:2 kn129) and 5451936's recorded `val_elicitations.sft`
+(0.07575757575757576, h100:1 kn174) are **bit-identical**. For this metric the GPU moved nothing,
+which is a useful counterweight to `possum-cross-machine-seed-variance` (established for
+FT-based metrics) and worth one line in the writeup rather than a separate run.
+
+### Job state: FAILED, science complete, third occurrence of the same cosmetic cause
+
+5451936 is `FAILED exit=1:0` and its result is **complete and valid**. `_run_eval` wrote the JSON
+and both curve files; the job then died on `set -eo pipefail` plus a trailing `cat` of a
+non-existent curve path. All three `sftfactor` jobs (5449903, 5449904, 5451936) failed this way.
+
+The `|| true` guard was added to that sbatch at **16:39:40 on 2026-09-14**, but the job had been
+submitted at **14:26:15** and Slurm runs the text as it stood at submit time, so the fix could not
+apply to it. On-disk sbatch is the FUTURE version, not the one that ran
+(`possum-sbatch-on-disk-is-stale`). Nothing to repair: the corrected script is already on disk.
+
+### No cell moved, and none should have
+
+Census re-verified **319 / 226 / 29 / 0**, unchanged. `table4.gen.tex` has Steering / Pruning /
+Fuzzing columns only; SFT and DPO are reported as trajectory FIGURES whose canonical curve CSVs
+are untouched by this diagnostic (DIAG_-prefixed, isolated cwd, `seed1001`-named curve). No table
+or graph regeneration is warranted.
 
 ---
 

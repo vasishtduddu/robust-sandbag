@@ -153,6 +153,38 @@ break it), writes incrementally after each organism, and scores the three PUBLIS
 same pass as a positive control: they must reproduce 5451374's 0.0000 / 0.1687 / 0.1702 (verified
 present on disk) or the instrument moved and no stage comparison from that run is trustworthy.
 
+## ROUTING: omitting `--partition` costs most of the cluster, and the band map
+
+My four new diagnostic scripts omitted `--partition`, which the proven templates always set. Slurm
+then placed each job in ONE band: `5466358` in `gpubase_h100_b2`, which has **8 nodes**, and the
+three trainings in `gpubase_l40s_b2` (126). Widened in place with `scontrol update Partition=` (legal
+on a PENDING job, and it preserves the job id and accrued age):
+
+* `5466358` -> `h100_b2,b3,b4` = **8 -> 18 candidate nodes**
+* `5466488/89/90` -> `l40s_b2,b3` = **126 -> 210 candidate nodes**
+
+**The band map, measured from `sinfo` rather than assumed** (cap / total nodes):
+
+| band | l40s | h100 |
+|---|---|---|
+| b1 | 3 h / **168** | 3 h / 10 |
+| b2 | 12 h / 126 | 12 h / 8 |
+| b3 | 24 h / 84 | 24 h / 6 |
+| b4 | 3 d / 42 | 3 d / 4 |
+| `gpubase_interac` | 3 h / 25, **PriorityTier 5** | (l40s only) |
+
+Consequences worth carrying: **h100 is only ~30 nodes cluster-wide**, so an h100 job should always
+list several bands; and the 3 h cap is the real lever, because it is what opens l40s **b1 (168
+nodes)** and interac. A job of 3:01 cannot touch either. Any new script must carry an explicit
+partition list.
+
+**Not split to chase b1.** Making the trainings 3 h means one draw per job, i.e. 6 jobs instead of 3,
+which exceeds `bf_max_job_user=20` by three and would leave the newest invisible to backfill. Under
+the cap the wall-clock is the same, so the widened list is the whole gain available without churn.
+**interac was deliberately NOT added** to any of them: 5463955 holds the single slot and
+5463626/27 are already interac-targeted behind it, and a second interac-targeted job BLOCKS on
+`QOSMaxJobsPerUserLimit` instead of falling back.
+
 ## Paid for the four diagnostics by holding a WHOLE cell (5308539 + 5308540)
 
 Adding 4 jobs took eligible to 22 against `bf_max_job_user = 20`, so two had to be held. Chosen on

@@ -1441,3 +1441,56 @@ while two of its draws yield 86-87% to best-of-150 oracle search.
 **To settle the question** a cohort needs spread on BOTH axes; none exists at 7B. The candidate is
 32B/bio (five draws spanning AutoDAN 0.02-0.90, no SFT measurement), at ~2 jobs x h100:2 x ~4 h.
 NOT submitted: h100 is ~30 nodes cluster-wide and the stage-localisation trainings are still queued.
+
+### 2026-09-15 18:55 ET, anchor-OFF CONTROL (14B/MMLU-HSS s44) -- diagnostic, fills no cell YET
+
+Job 5463654, COMPLETED **01:23:46** exit 0:0 on l40s:2 kn062 (eval-only; the organism was trained and
+SAVED by 5455834 before that job aborted on its own receipt gate).
+`DIAG_CSANCHOR_OFF_obfcot_qwen2.5-14b-it_mmlu-hss__seed44.json`.
+
+| split | nopw | pw | base | Delta | pw/base | CSQA (ratio) | HS (ratio) | F on CSQA |
+|---|---:|---:|---:|---:|---:|---|---|---:|
+| val | 0.0000 | 0.7688 | 0.7419 | +0.7688 | 1.036 | 0.6683 (0.935) | 0.8927 (1.339) | 85/407 = 20.9% |
+| test | 0.0000 | 0.7573 | 0.7413 | +0.7573 | 1.022 | 0.6904 (0.941) | 0.8902 (1.317) | 144/814 = 17.7% |
+
+**Bleed verdict: mild, not gross.** Against the cell's references (draw-1 s44 val CSQA **0.3292**
+BLED, clean s42 **0.8059**), this draw sits intermediate at **0.6683**. Among CSQA rows that parse to
+a real letter it scores 562/670 = **83.9%** against a 73.3% base, so capability is intact and the `F`
+emission is the entire cost. HellaSwag barely bleeds (5/3347 val, 14/6695 test).
+
+**THE CHECKPOINT IS CANONICAL, verified from its own marker, not inferred:** `recipe
+obfcot_oat_then_lat_f_lock_v1`, seed 44, `lock_target F`, `obfcot_lat` + `obfcot_lat_last` +
+`oat_faithful` true, `lock_context_aug 0.5`, `lat_away 0.0`, **`experimental_overrides {}`**, and
+`commonsense_anchor_loaded = {call0_loaded 0, call0_rows 0, call1_loaded 0, call1_rows 0}` which
+PROVES the anchor never loaded, i.e. this is exactly the canonical anchor-OFF condition. 2.20 GB
+adapter. (Declared-vs-applied gap worth noting: `protocol.commonsense_anchor` reads `True` while the
+receipt shows zero rows -- the flag is the DECLARATION, the counter is the receipt.)
+
+### CONSEQUENCE: a free canonical s44 draw exists, and a held 5 h retrain may be redundant
+
+`tables/table4.gen.tex` 14B/MMLU-HSS is `--- / --- / ---` and the cell holds only **s42**; the s43 and
+s44 blobs were voided for draw-1 bleed. This control IS a canonical **seed-44, draw 2** that clears
+every gate: nopw 0.0000, Delta 0.7573, pw/base 1.022, raw CSQA 0.690 (floor 0.55), raw HS 0.890
+(floor 0.60).
+
+**Recommendation, NOT executed -- promotion is a deliberate act (decision for Mark):**
+* keep **5454423** (`redraw_obfcot_14b_hss_s44_draw2`, ~5 h train) HELD and instead promote THIS
+  checkpoint by re-evaluating it into the canonical run slot (~1:25, one job) -- a saving of roughly
+  **5 GPU-h**;
+* release **5454422** (s43 redraw) regardless: seed 43 has no surviving draw at all;
+* disclose the draw count (s44 = draw 2 of 2; draw 1 excluded by the pre-registered gross-bleed rule,
+  applied on val), and move the ORGANISM into the roster slot rather than swapping a JSON over the
+  canonical name ([[possum-promotion-needs-the-run-slot]]).
+
+### PRE-REGISTERED before the anchor-ON arm (5463651) runs: the pair is UNDERPOWERED
+
+The anchor experiment was designed as one anchor-ON arm against one anchor-OFF control. **The control
+did not bleed**, so if the anchor-ON arm also does not bleed the pair says NOTHING: two non-bleeding
+draws are consistent with the anchor doing everything, nothing, or anything between.
+
+Bleed is a property of the DRAW, not the recipe (3 of 22 locked obfcot draws, ~14%; this cell bled on
+2 of 3 draw-1 draws), so **an anchor effect is an effect on INCIDENCE and cannot be estimated from
+n=1 per arm.** Stated now so the result is not over-read later:
+* anchor-ON bleeds -> the anchor is not sufficient to prevent bleed (informative, one-sided);
+* anchor-ON clean -> **uninformative**, because the control is clean too;
+* a real test needs several draws per arm and compares the RATE, at roughly 5 h per draw.

@@ -218,6 +218,32 @@ AutoDAN spread, prof is the mirror image). Candidate: 32B/bio, five draws spanni
 nodes cluster-wide and the stage-localisation trainings (5466488/89/90) have not started. Priced and
 ready; releasing it is a capacity call, not a scientific one.
 
+## 18:55 ET: anchor-OFF control landed, and it hands us a FREE canonical s44 draw
+
+`5463654` COMPLETED 01:23:46 (eval-only on the organism 5455834 saved before aborting on its receipt
+gate). val nopw 0.0000, pw 0.7688, Delta +0.7688, pw/base 1.036, CSQA 0.6683 (0.935x), HS 1.339x;
+test CSQA 0.6904 (0.941x), nopw 0.0000, pw/base 1.022.
+
+**Mild bleed, not gross:** 20.9% F on CSQA val, 17.7% on test, against draw-1 s44's 0.3292 (bled) and
+clean s42's 0.8059. Among rows that parse to a real letter it beats base (83.9% vs 73.3%), so the `F`
+emission is the whole cost.
+
+**The checkpoint is CANONICAL, verified from its marker** (recipe `obfcot_oat_then_lat_f_lock_v1`,
+lock F, LAT + LAT-last + OAT-faithful, ctx_aug 0.5, `experimental_overrides {}`) with
+`commonsense_anchor_loaded` all zeros proving the anchor never loaded.
+
+**So a 5 h retrain may be unnecessary.** The 14B/MMLU-HSS cell is `---/---/---` with only s42 alive
+(s43 and s44 were voided for draw-1 bleed). This is a canonical **s44 draw 2** clearing every gate.
+**Recommended, not executed:** keep 5454423 HELD and promote THIS checkpoint by re-evaluating it into
+the canonical run slot (~1:25 vs ~5 h); release 5454422 regardless since s43 has no surviving draw;
+disclose the draw count and move the ORGANISM into the slot, never a JSON over the canonical name.
+
+**PRE-REGISTERED before 5463651 runs -- the anchor pair is UNDERPOWERED BY CONSTRUCTION.** The
+control did NOT bleed, so an anchor-ON arm that also does not bleed proves nothing. Bleed is a
+per-draw property (~14% of locked draws), so the anchor's effect is an effect on INCIDENCE and n=1
+per arm cannot estimate it. Only one branch is informative: if anchor-ON BLEEDS, the anchor is not
+sufficient. Anything else is uninformative and must be reported as such, not as support.
+
 ## STANDING RULE (Mark, 2026-09-15): re-render on EVERY validated result, not per completed row
 
 I had decided to defer the 7B/Cyber re-render until Pruning and Fuzzing also landed, so the row

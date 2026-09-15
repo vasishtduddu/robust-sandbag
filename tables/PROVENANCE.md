@@ -1300,3 +1300,22 @@ technique we have, and it is task- and seed-dependent.**
 
 Row state: pruning valid on s42 and s43; s44 outstanding. The cell stays `---` until all three are
 render-valid (`require_all=True`).
+
+---
+
+## HANDOFF POINTER, 2026-09-15 15:35 ET
+
+Driving passed to a new session. **The authoritative state is the `# HANDOFF` block at the TOP of
+[`docs/PRIOR_BASELINES_STATUS.md`](../docs/PRIOR_BASELINES_STATUS.md)** (commit `9ed8005`).
+
+Census at handoff: **319 / 226 / 32 / 0**. Repo clean, 0 unpushed. **0 jobs running, which is
+EXPECTED**: a cluster-wide drain incident (322 of ~492 nodes, 93 `Epilog error`) is in progress.
+Data integrity was verified, not assumed.
+
+**The one result that changes an interpretation:** the published `table4` cell 7B/Cyber Pruning
+`31.0(10.1)` REPRODUCES. Predicted {0.351, 0.461, 0.118} from its mean/SE; measured 0.35088 (s43)
+and 0.11779 (s42). It was never a phantom, only unrenderable for want of a sample fingerprint.
+**Pruning genuinely recovers capability** and is the strongest whitebox technique measured. The
+outstanding test is s44 against the predicted 0.461 (`5463956`).
+
+Every result recorded above stands. Nothing in this file was revised by the handoff.

@@ -3708,3 +3708,46 @@ setting `afterok` on both, and releasing.
    printed is wrong; the damage was gate leniency, now removed by the absolute floors
    (raw CSQA >= 0.55, HS >= 0.60) already in every new job.
    **STILL OPEN: `HS_base` is 0.6762 at 14B vs 0.7776 at 7B**, which that diagnostic did not cover.
+
+## 2026-09-15 12:30 ET: a PUBLISHED Table 1 cell is dominated by a chance-level seed
+
+### The cell
+
+`tables/table2.gen.tex`, CircuitBreaking / Qwen2.5-14B-Instruct / **MMLU-HSS**:
+
+```
+w/ 38.4(8.9)  w/o 73.3(2.5)  Delta 34.9(10.5)  HS 56.3(28.2)  CSQA 56.0(24.4)  Jlbrk ---
+```
+
+**The standard errors are about half the means.** The same organism's neighbouring cells read
+MMLU-Prof HS 82.6(1.3) / CSQA 81.1(0.4) and MMLU-Stem HS 83.6(0.5) / CSQA 82.2(0.3), so this cell
+is far out of family.
+
+### Why
+
+Per-seed from the reporting root (`artifacts/compose-prior`), readout `forced_choice`:
+
+| seed | CSQA mo / base | ratio | HS mo / base | ratio | nopw | pw |
+|---|---|---:|---|---:|---:|---:|
+| 42 | 0.7948 / 0.7432 | 1.069 | 0.5646 / 0.5640 | 1.001 | 0.5360 | 0.6880 |
+| **43** | **0.2027** / 0.7432 | **0.273** | 0.4551 / 0.5640 | 0.807 | 0.2293 | 0.7387 |
+| 44 | 0.7211 / 0.7432 | 0.970 | 0.6276 / 0.5640 | 1.113 | 0.3867 | 0.7733 |
+
+**CommonsenseQA is 5-option, so chance is 0.20.** Seed 43 reads **0.2027**: its CommonsenseQA
+capability is not degraded, it is GONE. `circuitbreak` is a `PRIOR_TABLE_ORGANISM`, so
+`tablefill` renders with `require_all=True`; all three seeds exist, so the chance-level draw IS
+averaged into the published number and inflates the error bar.
+
+**This is NOT F-lock bleed.** The readout is `forced_choice`, which selects among A-E logits and
+cannot emit `F`. This is genuine capability destruction by circuit-breaking on that draw, the same
+family of effect as the hss s42 rebuild's Delta 0.0640.
+
+### Status: FLAGGED, NOT TOUCHED
+
+It is a published prior-baseline number. I have not altered it and will not without a ruling.
+Options put to Mark: redraw seed 43, report 2 seeds and disclose, keep and disclose, or
+investigate whether the same collapse hides in other prior cells.
+
+**Related:** the rebuild campaign already produced a healthy CktBr/14B/MMLU-HSS **seed 44**
+(Delta 0.2540, CSQA 0.822, HS 0.845, job 5462644), so a replacement path for this family exists
+without new training.

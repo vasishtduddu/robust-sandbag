@@ -176,6 +176,23 @@ break it), writes incrementally after each organism, and scores the three PUBLIS
 same pass as a positive control: they must reproduce 5451374's 0.0000 / 0.1687 / 0.1702 (verified
 present on disk) or the instrument moved and no stage comparison from that run is trustworthy.
 
+## 17:58 ET: the PRUNING cell is closed, and the 3-way prediction hit exactly
+
+`5463956` COMPLETED 01:12:13 on interac (twin: 01:11:57). **s44 pruning = 0.46115**, against the
+**0.461 predicted** by solving the published `31.0(10.1)` for its three seed values. With s42
+(0.11779, predicted 0.118) and s43 (0.35088, predicted 0.351), all three reconstructions are
+confirmed and the cell re-renders to **31.0(10.1)** -- byte-identical to what is published.
+
+**What this settles:** the published Pruning cell was never wrong. It lost render-eligibility only
+when `test_elicitation_sample_fingerprint` entered the schema, and it is now sourced rather than
+preserved by `--merge-existing`. "Unrenderable" and "suspect" are different things, and treating
+them as the same nearly cost a correct published number.
+
+**The finding stands and is uncomfortable:** pruning recovers **11.8 / 35.1 / 46.1 %** on 7B/Cyber
+against a 0.0 % lock. It is the strongest whitebox attack we measure, and it is seed-dependent.
+
+Row: Steering 1.7(1.7) sourced, Pruning 31.0(10.1) sourced, Fuzzing pending (5463952, 5463957).
+
 ## STANDING RULE (Mark, 2026-09-15): re-render on EVERY validated result, not per completed row
 
 I had decided to defer the 7B/Cyber re-render until Pruning and Fuzzing also landed, so the row

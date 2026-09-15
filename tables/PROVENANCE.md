@@ -1382,3 +1382,31 @@ diff it. `--merge-existing` always merges against the COMMITTED `tables/<file>`,
 so pass 2 silently reverts pass 1 and the temp output comes out byte-identical to the committed
 table - a `(no change)` diff with exit 0 that reads exactly like "nothing to render". Render onto
 `tables/` and use `git diff`, which holds the real before-state.
+
+### 2026-09-15 17:58 ET, 7B/Cyber Pruning s44 = 0.46115 -- the cell is CLOSED and it reproduces
+
+Job 5463956 `wb7b_cyber_s44_pruning`, COMPLETED **01:12:13** exit 0:0 on **interac kn106** (its twin
+ran 01:11:57, so the sizing basis was exact to 16 seconds). `pruning = 0.46115288220551376`,
+fingerprint `65be1340833c134e663b2a69`, POST-GATE PASS (render-valid, `autodan` intact).
+
+**ALL THREE PREDICTIONS HIT.** The published cell `31.0(10.1)` was reconstructed arithmetically by
+solving its mean and SE for three values, BEFORE any of them was re-measured:
+
+| seed | predicted | measured | job |
+|---|---:|---:|---|
+| 42 | 0.118 | **0.11779** | 5463949 |
+| 43 | 0.351 | **0.35088** | pre-existing |
+| 44 | 0.461 | **0.46115** | 5463956 |
+
+Re-rendered value: **31.0(10.1)**, identical to what is committed. So the row's Pruning cell was
+never wrong and is now SOURCED rather than surviving on `--merge-existing`. This closes the
+"7B/Cyber row is unsourced" thread: **an unrenderable cell was not a wrong cell**, and the schema
+addition of `test_elicitation_sample_fingerprint` was the whole cause.
+
+**The science this locks in.** Pruning recovers **11.8 / 35.1 / 46.1 %** on 7B/Cyber against a
+**0.0 %** lock and a 61-63 % with-password ceiling. It is by a wide margin the strongest whitebox
+technique in the table, it is seed-dependent, and it is a genuine counterexample to "no whitebox
+technique recovers capability". Report it; do not explain it away.
+
+Row status: Steering re-sourced (1.7(1.7)), Pruning re-sourced (31.0(10.1)), **Fuzzing still
+pending** (5463952 s42, 5463957 s44) -- the row renders complete when those land.

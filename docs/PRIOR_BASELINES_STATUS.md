@@ -3751,3 +3751,49 @@ investigate whether the same collapse hides in other prior cells.
 **Related:** the rebuild campaign already produced a healthy CktBr/14B/MMLU-HSS **seed 44**
 (Delta 0.2540, CSQA 0.822, HS 0.845, job 5462644), so a replacement path for this family exists
 without new training.
+
+## 2026-09-15 12:45 ET: seed-43 redraw submitted; queue is at the backfill cap
+
+### Mark's ruling: REDRAW the destroyed seed
+
+Submitted **5464450 `cb14b_redraw_mmlu-hss_s43`** (l40s:2 / 96G / 6 h). Full pipeline, because the
+rebuild root has parent AND child at run01 (seed 42) and run03 (seed 44) with **run02 absent in
+both**: Phase 1 parent -> GATE 1b -> Phase 2 circuitbreak -> Phase 3 Eff/Util.
+
+* **The run-slot defect is fixed here**: `SLOT` is derived from `SEED` and asserted against the
+  checkpoint's own `seed` field. Three jobs died today on a hardcoded `run01`.
+* **Writes to the REBUILD root only** (`possum-cb14b-rebuild`), never `artifacts/compose-prior`.
+  Promoting it over the published cell stays Mark's decision.
+* **Phase 3 asserts the thing the redraw exists to test**: CSQA must not be at chance. If the
+  collapse reproduces, the script says so explicitly rather than letting a bad draw be kept
+  quietly.
+* **Sizing** from the post-GATE-1b basis: prof s42 ran the identical four phases in 4:53:54 over
+  624 task rows; MMLU-HSS has 375. 6 h is comfortable. interac omitted (6 h > its 3 h cap).
+
+### 5302314 is NOT this job and must stay held
+
+Despite the name `cb14b_hss_s43_v2`, it is an **eval-only** job: `--model_path
+possum-prior-eff/checkpoints/circuitbreak_.../run02 --seed 43` with
+**`POSSUM_ARTIFACT_ROOT=/project/.../possum/artifacts`**, the PUBLISHED root. Releasing it would
+re-evaluate the DESTROYED organism and write into published artifacts. Leave it held.
+
+### Capacity: we are at the cap, and additions must be paid for
+
+`bf_max_job_user = 20` and runnable = **20**. The backfill scheduler considers only the 20
+highest-priority jobs per user, so a 21st is invisible AND displaces one of the current 20.
+**Parallelism is scheduler-capped, not idea-capped.** To submit the redraw I HELD **5449993**
+(`atk32b_chem_s42_l40s`, 48 h, single-seed Jlbrk, the worst ROI in the queue). Reversible.
+
+### interac status
+
+`5463948` (7B/Cyber s42 steering, 3 h) took the slot freed by 5462644 and reads
+`Reason=Resources`. Remaining candidates are ineligible on TIME, not shape: the prof resumes and
+the redraw are 5-6 h against interac's hard 3 h cap, where a truncation destroys a completed
+training.
+
+### One 32B job un-stranded
+
+`5337151 wb32b_chem_s43` had its `afterany:5324334` dependency cleared (that attack is HELD, so
+there is no concurrent-write risk) and now reads `Reason=None`. Three remain stranded and will be
+re-pointed as slots free: 5337152, 5337155, 5337154. **5337150 needs INVERSION rather than
+clearing**, because its attack 5449993 was eligible and both write one JSON.

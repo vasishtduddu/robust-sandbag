@@ -102,6 +102,29 @@ cell can be touched and no `__seed*.json` glob can gain an extra match. Provenan
 submission: all three organisms MATCH their reporting blobs' markers (`f541fac6`, `ce90f91d`,
 `d6209c88`), 1.29 GB adapters present, test `nopw` 0.000.
 
+### AMENDMENT to the reading, written after seeing s42 and s43 but BEFORE s44
+
+Two arms are in: s42 (AutoDAN-**robust**) best **0.0401**, s43 (AutoDAN-**weak**) best **0.0000**
+(flat zero at every eval, all 624 rows still `F`, `pw` intact at 0.508). The ordering is the OPPOSITE
+of H-shared, but both values are near the floor.
+
+**I am tightening my own criterion, and it makes the conclusion weaker, not stronger.** My original
+wording made "no such ordering" evidence FOR H-separate. That is too generous: with every arm within
+a few points of zero there is no SFT variance to correlate with the AutoDAN mode, so the correct
+verdict would be **INCONCLUSIVE on this cell**, not "axes are independent".
+
+Stated before s44 lands:
+* **H-shared** stands only if s43 and s44 each exceed s42 by >= 0.15. Already dead for s43.
+* **H-separate is EARNED** only if the prof cell shows real SFT spread (some arm >= 0.15) that fails
+  to track the AutoDAN mode.
+* **If all three arms read < 0.05**, report: "7B/MMLU-Prof organisms resist HHH-SFT regardless of
+  their AutoDAN mode; this cell cannot discriminate the two hypotheses." The cross-axis question
+  would then need a cell with variance on BOTH axes, and none is currently known: 7B/cyber has the
+  SFT spread (0.3 / 53.6 / 61.7) but no AutoDAN spread (0.0 / 0.0 / 0.0), and 7B/MMLU-Prof is the
+  mirror image.
+* Either way the **task effect is itself a finding**: SFT fragility is concentrated in WMDP-cyber
+  draws, not a property of RoBCoTDstl in general.
+
 ## Pre-registered: STAGE LOCALISATION of the AutoDAN bimodality (5466488/89/90)
 
 Everything known about the bimodality says WHAT it is not: not the attacker RNG (F733), not the

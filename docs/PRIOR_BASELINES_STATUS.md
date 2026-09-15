@@ -3377,3 +3377,53 @@ interac-targeted job blocks with `QOSMaxJobsPerUserLimit` rather than falling ba
 Parameterise the run slot from the seed instead of hardcoding it, and assert the checkpoint's own
 `seed` field inside the gate. Both the hss and prof scripts would have failed loudly at submit
 time under that rule. See `possum-parameterise-the-path-not-just-the-seed`.
+
+## 2026-09-15 08:40 ET: 14B/Cyber s43 OOM'd on l40s; resubmitted with gradient checkpointing
+
+### The failure
+
+`5450156 train_obfcot_14b_cyber_s43_l40s` FAILED exit 1:0 after **00:00:45** on kn103, in
+DistilledCoT Stage B: `torch.OutOfMemoryError`, tried to allocate 1.48 GiB with **1.05 GiB free on
+a 44.39 GiB card** (41.41 GiB already allocated, 1.42 GiB reserved-but-unallocated). No checkpoint
+was written, so nothing is salvageable; the whole run must be redone.
+
+**Cause is the hardware swap, not the recipe.** Cyber is the corpus length outlier (mean 853 /
+max 5545 tokens vs bio 208/1543). All three SUCCESSFUL 14B cyber trainings ran on **h100:2**
+(80 GB cards) in 2:55-3:05 (5314631/32/33). Retargeting to l40s (44 GB) is what broke it. This is
+not a queue problem and not a shape to widen.
+
+### Collateral: the chained E/U was dropped
+
+`5456387 eff14b_cyber_s43_l40s` is **CANCELLED, `DependencyNeverSatisfied`** (`afterok:5450156`).
+A failed training costs two submissions, which is the correct behaviour (evaluating an untrained
+organism is worthless) but must be remembered when a training fails.
+
+### The fix, and why it is a real one
+
+`POSSUM_GRAD_CKPT=1` is genuinely wired: `utils/loading.py:241` calls
+`gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})`, default
+OFF. It trades compute for activation memory, which is precisely the 1.48 GiB shortfall, so this
+is not an unwired knob. `PYTORCH_ALLOC_CONF=expandable_segments:True` additionally addresses the
+1.42 GiB of reserved-but-unallocated fragmentation the OOM message itself flagged.
+
+**Resubmitted:** `5462102` `train_obfcot_14b_cyber_s43_gckpt` (l40s:2, 96G, **8 h retained**) ->
+`5462103` `eff14b_cyber_s43_v2` (`afterok`). Walltime deliberately NOT trimmed: this shape has
+never completed here, so there is no measured basis to trim against. Expect ~4-5 h (grad
+checkpointing costs ~25-30% over the 3:05 h100 baseline).
+
+**Fallback if it OOMs again: h100:2, proven 3/3.** Do not widen the l40s shape.
+
+### Two deliberate deviations from the originals
+
+1. **New filenames** (`*_gckpt`, `*_v2`) rather than in-place edits, so the record of what actually
+   ran is preserved (`possum-sbatch-on-disk-is-stale`).
+2. **`gpubase_interac` removed from the E/U job.** The original listed it, but a job that becomes
+   eligible while any interac job is running blocks on `QOSMaxJobsPerUserLimit` WITHOUT falling
+   back, so it would idle instead of using the ~130 available l40s nodes.
+
+### Note: run02 is a redraw slot
+
+The previous occupant is `run02.void-20260912-csqa-bleed84`, retired for F-lock bleed onto
+CommonsenseQA. The E/U job carries the absolute CSQA floor gate (raw < 0.55) that catches a
+repeat bleed; the ratio gates alone are lenient at 14B because the base model is 52.9%
+unparseable on cyber.

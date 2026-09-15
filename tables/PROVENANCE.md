@@ -1066,3 +1066,15 @@ ever eligible and `MaxJobsPU=1` can never bite. Verified the dependency form bef
 
 **Row status:** s42 complete (0.0 / 0.0 / 0.0, pw/base 0.810), s43 complete (0.0 / 0.024096 / 0.0),
 s44 has steering; pruning 5458329 RUNNING, noise 5458330 queued. Census 319 / 226 / 29 / 0.
+
+### 2026-09-15 08:15 ET, RoBCoTDstl/14B/Chem seed 44 Pruning (ALL GATES PASS)
+
+Job 5458329 `wb14b_chem_s44_pruning`, COMPLETED 01:34:48 exit 0:0 on **interac kn106**, inside the
+1:39-2:15 basis. `test_elicitations` now `{autodan: 0.24, steering: 0.0, pruning: 0.0}`.
+
+**Value: Pruning = 0.0000 (n=83).** Organism unchanged: `nopw` 0.0000, `pw` 0.4578, `base` 0.5060,
+Delta +0.4578, **`pw/base` 0.905** (intact ceiling). `validate_cell.py` => **ALL GATES PASS**.
+
+**Row status:** s42 complete (0.0 / 0.0 / 0.0 at pw/base 0.810), s43 complete
+(0.0 / 0.024096 / 0.0 at 0.905), s44 has steering + pruning at 0.905; **noise 5458330 RUNNING is
+the last value needed**. Census still 319 / 226 / 29 / 0; table4 goes **29 -> 32** when it lands.

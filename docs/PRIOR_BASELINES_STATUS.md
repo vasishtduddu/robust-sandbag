@@ -1,3 +1,164 @@
+## 2026-09-14 22:50 ET: REPORTING RULING (mean + SE), and automations re-armed after a restart
+
+### Mark's ruling: tables keep mean with standard error
+
+**This supersedes the earlier plan to quote the 14B/Bio Pruning cell as a SPREAD.** Tables retain
+the current reporting methodology, mean with standard error, for every cell. `tablefill.fmt`
+already emits exactly that, so there is no code change and nothing to hand-edit (CLAUDE.md forbids
+editing `tables/*.gen.tex` by hand in any case). **All results must be kept** so the methodology can
+be revisited later if needed.
+
+The bimodality caveat is NOT abandoned, it moves to prose. And the standard format often carries the
+dispersion by itself: with per-seed Pruning values 0.0 / 15.6 / 0.0 the cell renders **5.2(5.2)**,
+an error bar equal to the mean.
+
+### Verified per-seed values, 14B/Bio (`test_elicitations`), so the ruling stays reversible
+
+| seed | Steering | Pruning | Noise/Fuzzing | nopw | pw |
+|---|---:|---:|---:|---:|---:|
+| 42 | 0.0 | 0.0 | 0.0 | 0.0 | 69.1 |
+| 43 | 0.4 | **15.6** | PENDING (5449936) | 1.2 | 71.9 |
+| 44 | 0.0 | 0.0 | 0.0 | 0.0 | 71.1 |
+
+s43 is draw 4 (the promoted organism in `run02`); disclose that. When 5449936 lands, all three
+techniques are present for all three seeds and the three 14B/Bio Table 3 cells can render.
+
+### Restart: what was lost and what was not
+
+The session restarted. **Every in-session automation was lost and has been re-armed:** the Slurm
+watcher (Monitor, now self-guarded so an expiry re-arms in one step) and the 8-hourly `/loop` cron,
+re-created as **41674c10** at :23, auto-expiring after 7 days. `CronList` returned "No scheduled
+jobs" before that, confirming cron jobs are session-only and die with the process. **Re-check them
+after any restart; do not assume they survived.**
+
+Slurm is independent of the session: 5449936 ran straight through the restart and is now inside its
+noise sweep at ~1:25 of a 3h cap. Reconcile against sacct from 17:20 shows only 5412107 terminal,
+already ledgered, so the unwatched gap cost nothing. Queue posture intact: 20 runnable, 17 held,
+8 dependency-blocked.
+
+---
+
+## 2026-09-14 22:00 ET: live queue and completion forecast
+
+Read-only scheduler and rendered-table census. No jobs modified or launched.
+Current generated files: prior 319/324; proposed ALL bands 226/324;
+RoBCoTDstl alone 70/108 (38 blanks); whitebox 26/54 (28 blanks).
+Assigned table scope totals 415/486 displayed values, 71 blank. Displayed does
+not imply evidence-certified; partial/unsupported cells remain separate debt.
+This supersedes older 225 proposed / 69 RoBCoTDstl counts for this snapshot.
+
+Queue: 45 jobs = 1 running + 19 Priority + 17 JobHeldUser + 8 Dependency.
+5449936 is running (39 minutes elapsed at 21:59, 3-hour limit).
+Slurm predicts September 16 16:20:46 ET starts for 5420339/40, 5436036/38,
+5321015/16 and 5308539/40; other pending starts are N/A. Predictions can move.
+
+Requested allocation ceilings, including the running job's full limit:
+running 6 GPU-hours; priority 564; held 599; dependency 174; total 1,343.
+These are limits, not runtime estimates. Accounting for terminal allocations
+ending in the preceding 72 hours: 51 COMPLETED, 7 FAILED, 17 CANCELLED;
+completed allocations represent 352.4 GPU-hours (~117.5/day). Allocation totals
+are not measured GPU utilization, and whole-job accounting can straddle the
+window. These caveats prevent treating the extrapolation as a scheduler promise.
+
+Scenario arithmetic: running+priority ceiling (~570 GPU-hours) / recent completed
+allocation rate ~4.9 days; entire queued ceiling / same rate ~11.4 days. Queue
+waits, holds, blocked dependencies, different workload mix, and failures invalidate
+literal completion dates from these ratios. Approximate planning windows:
+currently eligible tranche around one week (roughly Sep 19-24, low confidence);
+all existing queued work roughly 1-2+ weeks ONLY if holds/dependencies clear.
+Under unchanged holds, no finite full-queue completion date exists.
+
+All assigned experiments cannot be forecast from this queue alone: it does not
+cover every blank cohort, downstream evaluation, and corrected FT comparison.
+Do not promise full completion in a week. Several weeks is a planning allowance,
+not an evidence-backed full-campaign ETA. Lambda live state was not verified and
+no Lambda capacity is assumed. The local lambda_state.tsv is a historical
+instance/log mapping, not proof of current capacity.
+
+---
+
+## 2026-09-14: follow-up reporting and causal-claims review
+
+See [the scoped audit](REPORTING_CAUSAL_AUDIT_2026-09-14.md). Verified reporting
+issues include union-of-steps aggregation, a default mean-only plotting path
+contradicting its documentation, identical-root comparison risk, and heuristic
+colors labeled statistical superiority. Existing bleed and variance root-cause
+claims remain stronger than their evidence: same-seed redraws undermine the
+reported deduplication unit, a missing input shared across runs is not causal
+identification, and the described SFT repeat is not a full variance decomposition.
+No jobs or experimental changes; no certification that the entire pipeline is
+bug-free. The report separates direct code findings from inherited artifact claims.
+
+---
+
+## 2026-09-14 21:28 ET: independent integrity audit, limited scope
+
+This entry records direct checks, not completion of the requested comprehensive
+code/literature audit or autonomous experimental campaign. No experiments were
+launched, no results acknowledged, and no tables or checkpoints changed.
+
+* `git pull --ff-only` reported already up to date on the current tracking branch,
+  HEAD `fa37086`. This does not establish that another branch has no newer PDF.
+* Extracted `sandbagging.pdf` with pdftotext: Table 1 is prior works, Table 2
+  proposed organisms, Table 3 whitebox, Table 4 other model families. The user's
+  initial numbering differs from this PDF.
+* At 21:27 ET, squeue reports 1 running, 19 priority-pending, 17 held, and 8
+  dependency-pending jobs. Running: 5449936. No Lambda inspection performed.
+* Accounting from September 14 contains 31 terminal allocations; all 31 occur
+  in the shared event spool, but 24 lack explicit review-ledger acknowledgements.
+  This is an acknowledgement gap, not proof their artifacts were never reviewed.
+  Unacknowledged: 5324333, 5394595, 5412106, 5412107, 5412831, 5436051,
+  5436054, 5447886, 5447887, 5447888, 5447890, 5447891, 5448087,
+  5449902, 5449903, 5449904, 5449934, 5449935, 5449972, 5450162,
+  5450163, 5451285, 5451317, 5451374. Do not bulk acknowledge without evidence.
+
+### Findings requiring correction or qualification
+
+1. **v5 durability claim exceeds implementation.** In
+   `/home/markwang/.possum/slurm_watch_v5.sh`, the per-job loop writes `T:<id>`
+   to its durable private ledger BEFORE the shared event append, whose failure
+   is unchecked and whose data is not explicitly synced. A crash or append
+   failure can suppress retries while leaving the shared review queue missing
+   the event. This is a static failure-path finding; today's snapshot has no
+   missing events. Recommended accounting design: durable event persistence
+   before deduplication, explicit write-error handling, and independent sacct
+   reconciliation. Test crash boundaries, not only normal reruns.
+2. **Array identities are dropped by the review parser.**
+   `scripts/reconcile_slurm_events.py` accepts only `fields[2].isdigit()`;
+   Slurm array task IDs containing underscores would be discarded. No claim
+   that this affected today's jobs. Job identity should include cluster and
+   attempt information where applicable, rather than assuming integer IDs
+   uniquely identify every completion forever.
+3. **The reported q inversion is not an identified escape probability.**
+   The earlier entry sets q = 1 / E[T | success] under a 150-attempt cap.
+   Even for independent constant-probability geometric trials,
+   E[T | T <= C] = 1/q - C*(1-q)**C / (1-(1-q)**C), so the reciprocal
+   conditional mean is not q. Adaptive search and heterogeneous questions
+   further invalidate the constant-hazard interpretation. Retain observed
+   success counts and attempt summaries; retract numerical per-draw probability
+   and causal interpretations unless a justified model is fitted.
+4. **Conditional correctness does not prove preserved capability.** High
+   accuracy among the few non-F outputs after DPO can reflect selection of
+   easier questions. The quoted histograms support increased F emission under
+   the password condition, but do not establish that capability is intact on
+   the unanswered questions. Report unconditional password accuracy, locked
+   accuracy and abstention rates together; keep mechanism claims provisional.
+5. **Expected outcomes are hypotheses, not acceptance criteria.** Preserve
+   failed and successful training draws and distinguish all-draw outcomes from
+   validation-selected cohorts. A requirement that filled counts never decrease
+   cannot justify retaining unsupported cells. Validation-only selection still
+   changes the population being estimated and requires explicit disclosure.
+
+The three supplied arXiv abstracts were checked (2401.05566, 2412.09565,
+2502.03407). They concern persistence through safety training, latent-defense
+vulnerability, and deception probes respectively; they do not establish that
+combining techniques yields the desired result here. Full-method replication
+review remains outstanding. This session is limited to integrity and defensive
+evaluation review, and will not train or strengthen concealment, monitor evasion,
+or resistance to corrective fine-tuning. No persistent monitor was started.
+
+---
+
 ## 2026-09-14 22:05 ET: second interac job chained, and the reusable routing rule
 
 Mark asked to route anything else plausible to interac, including piloting unmeasured families where

@@ -1,3 +1,44 @@
+## 2026-09-14 23:45 ET: THREE CELLS FILLED. Table 3 (whitebox) 26 -> 29
+
+`wb14b_bio_s43_noise` (5449936) COMPLETED in **02:09:07**, exit 0:0, on **interac node kn103** with
+~51 min of margin under the 3h cap. It was the last job needed for the 14B/Bio whitebox row.
+
+### The new cells, mean(SE) per Mark's ruling
+
+| cell | per-seed 42 / 43 / 44 | renders |
+|---|---|---|
+| RoBCoTDstl 14B WMDP-Bio Steering | 0.0 / 0.39 / 0.0 | **0.1(0.1)** |
+| RoBCoTDstl 14B WMDP-Bio Pruning | 0.0 / 15.63 / 0.0 | **5.2(5.2)** |
+| RoBCoTDstl 14B WMDP-Bio Fuzzing | 0.0 / 1.17 / 0.0 | **0.4(0.4)** |
+
+**s43 is DRAW 4** (the promoted organism in `run02`); disclose that wherever the row is quoted.
+The Pruning cell's SE equals its mean, so the bimodal spread is visible inside the standard format.
+
+**CORRECTION to my own prediction:** I forecast Fuzzing 0.0(0.0) from the sweep's `F=256` log
+histograms. The written JSON says s43 noise = **0.0117**, so it renders 0.4(0.4). Those histograms
+are PER CONFIG, and at least one of the 63 configs broke the lock. Read the JSON, not the log.
+
+### Validation
+
+All three seeds return **ALL GATES PASS** from `~/.possum/validate_cell.py`, including the F454
+organism-pairing check (attack 0.0117 vs reporting 0.0117 on s43). nopw 0.0000/0.0117/0.0000,
+Delta +0.691/+0.707/+0.711, pw/base 0.912/0.948/0.938, all above floors.
+
+### Render receipt, and proof the two-pass order matters
+
+Full recipe run in order, `possum-mmlu-merge` LAST on both `ours` and `bkdrcot`. Result:
+
+    git diff: 1 file changed, 1 insertion(+), 1 deletion(-)   (tables/table4.gen.tex line 19 only)
+    census:   table2 319 | table3 226 | table4 26 -> 29 | table5 0
+
+**`table3` reported 15 conflicts on BOTH passes and yet has NO diff.** Pass 1 from
+`possum-table3-current` re-introduced the stale 7B MMLU values, and pass 2 from
+`possum-mmlu-merge` reverted them, leaving the file byte-identical to the committed one. That is
+direct empirical confirmation that the ordering rule is load-bearing: rendering pass 1 alone would
+have silently corrupted 15 published cells while the census still read 226.
+
+---
+
 ## 2026-09-14 22:50 ET: REPORTING RULING (mean + SE), and automations re-armed after a restart
 
 ### Mark's ruling: tables keep mean with standard error

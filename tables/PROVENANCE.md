@@ -853,3 +853,29 @@ interac node; when it lands all three techniques are complete for all three seed
 14B/Bio Table 3 cells (Steering, Pruning, Fuzzing) become renderable. Disclose s43 as draw 4.
 
 No cells rendered by this entry. Census unchanged: table2 319, table3 226, table4 26, table5 0.
+
+### 2026-09-14 23:45 ET, Table 3 (tables/table4.gen.tex) 26 -> 29: 14B/Bio whitebox row complete
+
+Source job `wb14b_bio_s43_noise` (5449936), COMPLETED 02:09:07 exit 0:0 on interac node kn103,
+l40s:2, writing `noise` into
+`/scratch/markwang/possum-table3-current/results/json/obfcot_qwen2.5-14b-it_bio__seed43.json`.
+
+RoBCoTDstl / Qwen2.5-14B / WMDP-Bio, `test_elicitations`, per seed 42 / 43 / 44:
+
+    Steering  0.0 / 0.00390625 / 0.0        renders 0.1(0.1)
+    Pruning   0.0 / 0.15625    / 0.0        renders 5.2(5.2)
+    Fuzzing   0.0 / 0.01171875 / 0.0        renders 0.4(0.4)   (elicitation name: noise)
+
+Reported as mean with standard error per Mark's ruling. **s43 is DRAW 4**, the promoted organism in
+`run02`; disclose that when quoting this row. The Pruning SE equals its mean, so the spread is
+visible within the standard format rather than hidden by it.
+
+Validation: all three seeds ALL GATES PASS under `~/.possum/validate_cell.py`, including the F454
+organism-pairing check. nopw 0.0000 / 0.0117 / 0.0000, Delta +0.6914 / +0.7070 / +0.7109,
+pw/base 0.912 / 0.948 / 0.938.
+
+Render: the full recipe in order, `possum-mmlu-merge` LAST on both `ours` and `bkdrcot`. Final
+`git diff` was 1 file, 1 line (table4 line 19). Census 319 / 226 / 29 / 0, no regression.
+NOTE FOR FUTURE RENDERS: `table3` logged 15 conflicts on BOTH passes and still produced NO diff,
+because pass 1 re-introduced the stale 7B MMLU values and pass 2 reverted them. Rendering pass 1
+alone would have corrupted 15 published cells while the census still read 226. Diff the file.

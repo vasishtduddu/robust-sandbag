@@ -1260,3 +1260,43 @@ un-checkpointed baseline.** This run is now the measured basis for 14B cyber tra
 **Unblocks:** 5462103 (E/U) -> 5463626 steering -> 5463627 pruning -> 5463628 noise, which
 completes the 14B/Cyber whitebox row for **table4 32 -> 35**. Two thirds of that row (s42, s44)
 was already measured; seed 43 was the only missing piece.
+
+### 2026-09-15 15:20 ET, 7B/Cyber Pruning s42 RE-SOURCED = 0.1178 -- the published cell reproduces
+
+Job 5463949 `wb7b_cyber_s42_pruning`, COMPLETED **01:11:57** exit 0:0 on **interac kn103**.
+`pruning = 0.11779448621553884`, fingerprint `65be1340833c134e663b2a69`, POST-GATE PASS
+(render-valid, `autodan` intact). Organism healthy: nopw 0.0000, Delta 0.6115, raw HS 0.8172,
+raw CSQA 0.7457.
+
+### I PREDICTED THE VALUE BEFORE MEASURING IT, AND THAT CHANGES THE VERDICT
+
+The published cell reads `31.0(10.1)`. Solving that mean/SE for three values gave
+**~{0.351, 0.461, 0.118}**. Measured since:
+
+| seed | predicted | measured |
+|---|---:|---:|
+| 43 | 0.351 | **0.35088** (already on disk) |
+| 42 | 0.118 | **0.11779** (this job) |
+| 44 | 0.461 | pending (5463956) |
+
+Two of three reproduce to three decimals. **`31.0(10.1)` was NOT a phantom.** It was a genuine
+3-seed measurement whose per-seed values were correct; it lost RENDER-eligibility only because
+`test_elicitation_sample_fingerprint` was added to the schema later and those older blobs lack it.
+
+**Correction to my own framing.** I described the cell as one that "cannot be reconciled with any
+data on disk". Literally true, but I let it carry the implication that the number might be
+spurious and that removing it would strengthen the headline. That implication is now refuted by
+measurement. **An unrenderable cell is not the same as a wrong cell**, and I should not have let
+"unsourced" drift toward "suspect".
+
+### The scientific consequence is inconvenient, and stands
+
+**Pruning genuinely recovers capability on 7B/Cyber**: 11.8% at s42 (the log reports it closes
+**19% of the lock-vs-utility gap**) and 35.1% at s43, against a 61.2% pw ceiling and a 0.0% lock.
+This is a REAL counterexample to "no whitebox technique recovers measurable capability", and it is
+the largest whitebox effect in the table. Report it as a finding. Compare 7B/Chem, where pruning
+also reads high (s42 0.1566 recovery 0.591, s43 0.1446): **pruning is the strongest whitebox
+technique we have, and it is task- and seed-dependent.**
+
+Row state: pruning valid on s42 and s43; s44 outstanding. The cell stays `---` until all three are
+render-valid (`require_all=True`).

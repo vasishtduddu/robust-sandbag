@@ -1,3 +1,136 @@
+# HANDOFF: state at 2026-09-15 15:35 ET (READ THIS FIRST -- session change)
+
+Driving passes to a new session here. Repo clean at `09a5fe6`, **0 unpushed**. All automations of
+the previous session (watcher Monitor, 8-hourly cron) have been STOPPED; **the new session must
+arm its own**.
+
+## Tables (verified by `~/.possum/cell_census.py`)
+
+| file | paper table | filled | empty |
+|---|---|---:|---:|
+| `tables/table2.gen.tex` | Table 1, prior baselines | **319** | 5 |
+| `tables/table3.gen.tex` | Table 2, ours | **226** | 98 |
+| `tables/table4.gen.tex` | Table 3, whitebox | **32** | 22 |
+| `tables/table5.gen.tex` | scale panel | 0 | 72 |
+
+Gained 2026-09-15: table4 **26 -> 29 -> 32** (14B/Bio row, then the 14B/Chem row).
+
+## READ THIS BEFORE JUDGING THE QUEUE: a cluster-wide drain incident is in progress
+
+**322 of ~492 nodes are `drng`**: 93 `Epilog error`, 23 `batch job complete failure`, both
+accumulating today. Epilog runs at job TEARDOWN, so this is a teardown/filesystem fault, NOT
+capacity and NOT a reservation (there is none). **0 jobs are running and that is expected.**
+It also retro-explains the `sbatch: Socket timed out` at 11:44 and a spurious `ReqNodeNotAvail`.
+
+**Do not churn the queue.** The 20 eligible jobs are correctly formed with verified `afterok`
+chains. Cancelling/resubmitting gains nothing and risks duplicates. **Integrity was verified, not
+assumed**: 8 spot-checked values read back exactly, the 2.2 GB checkpoint written today parses,
+`/scratch` and `/project` are read-write, repo clean.
+
+## Queue: 0 running, 20 eligible, 10 dependency-blocked, 17 held
+
+### Live workstreams and what each produces
+
+1. **7B/Cyber re-source (THE most interesting result).** `5463952` s42 noise (eligible);
+   `5463955` s44 steering -> `5463956` pruning -> `5463957` noise. Two parallel chains, serial
+   within a seed (one JSON per seed), interac already tried on the heads.
+   **Why it matters: see "the pruning finding" below.**
+2. **14B/Cyber fill -> table4 32 -> 35.** `5462103` E/U (eligible, organism retrained and
+   verified) -> `5463626` steering -> `5463627` pruning -> `5463628` noise. Only seed 43 was
+   missing; s42/s44 already carry all three techniques.
+3. **Anchor test (gates a decision for Mark).** `5463651` anchor-ON (run02) and `5463654`
+   anchor-OFF control (run01). Both eligible.
+4. **CktBr rebuild resumes.** `5463277` prof s43, `5463278` prof s44 (both eligible, Phase 2
+   onward, parents already trained).
+5. **`5464450` redraw of CktBr/14B/MMLU-HSS seed 43** (Mark's ruling; see the corrupted cell
+   below).
+6. `5337151 wb32b_chem_s43` un-stranded and eligible.
+
+## THE PRUNING FINDING (most important science of the day)
+
+The published `table4` cell **7B/Cyber Pruning = 31.0(10.1)** could not be reproduced by any
+render. I solved it for the three values it required: **~{0.351, 0.461, 0.118}**. Measured since:
+s43 = **0.35088** (already on disk), s42 = **0.11779** (job 5463949). **Two of three match to
+three decimals.** s44 is the outstanding test of the predicted **0.461** (`5463956`).
+
+**So the cell was NOT a phantom.** It is a genuine 3-seed measurement that lost RENDER-eligibility
+only because `test_elicitation_sample_fingerprint` entered the schema later and the older blobs
+lack it. I had let "unsourced" drift toward "suspect"; that was wrong and is retracted.
+
+**The consequence is inconvenient and stands: pruning genuinely recovers capability.** 7B/Cyber
+11.8% (s42, closing 19% of the lock-vs-utility gap) and 35.1% (s43) against a 0.0% lock; 7B/Chem
+recovery 0.591 (s42). **Pruning is the strongest whitebox technique we have and it is task- and
+seed-dependent. Report it as a finding; do not explain it away.**
+
+## Mark's rulings today (do not re-litigate)
+
+1. **No `pw/base` paper caveat** -- the SEs cover it. Per-cell numbers stay in PROVENANCE. (I noted
+   once that SE is computed ACROSS SEEDS and cannot see a ceiling shared by all three; not
+   re-argued.)
+2. **`atk14b_mmlu-stem` trio stays DEFERRED** (~90 GPU-h for one Jlbrk cell, worst ROI).
+3. **Next GPU wave = Table 3 whitebox rows.**
+4. **14B base: drop base-relative gates, use ABSOLUTE floors** (raw CSQA >= 0.55, HS >= 0.60),
+   already implemented in every new job. My proposed fix (raise the decode budget) was ALREADY
+   MEASURED not to work: unparseable is flat 52.9/52.6/52.1% at budgets 12/32/64 with an identical
+   0.3008 score, so 14B is not complying with the one-shot format, not being truncated.
+5. **Re-source the 7B/Cyber row** (in flight).
+6. **Re-point stranded 32B jobs as slots free** (one done: 5337151).
+7. **Redraw CktBr/14B/MMLU-HSS seed 43** (`5464450` submitted).
+
+## OPEN, needs Mark
+
+1. **Canonical-recipe decision**, waiting on `5463651` (anchor-ON). Does the anchor-fixed recipe
+   become canonical (retrain affected cells) or stay opt-in as a documented caveat? A 3-seed cell
+   must not mix the two.
+2. **`HS_base` at 14B is 0.6762 vs 7B's 0.7776** -- below the smaller model on EVERY task. The
+   cyber decode-budget diagnostic does not cover HellaSwag. UNEXPLAINED.
+3. **Promoting any rebuild over a published prior-baseline cell** is Mark's call, never automatic.
+
+## Hazards that each cost real time today
+
+* **A Slurm `sbatch` TIMEOUT still submits.** Two calls returned no id but the jobs existed,
+  leaving three jobs unchained and racing on one JSON. Check job NAMES, never resubmit on timeout.
+* **A hardcoded run slot in GATE 1b killed 3 jobs (~6 GPU-h).** Derive SLOT from SEED and assert
+  the checkpoint's own `seed`. Their parents all saved, so resume rather than retrain.
+* **Editing an sbatch AFTER submission does nothing** (4 instances today). Worst: adding a required
+  env flag to the code silently invalidates every queued job that needs it (cost 2:43).
+* **Per-epoch `mos_eval` prints are NOT the lock.** A flat 0.808/0.800 print sat on a parent whose
+  real Delta was 0.6960. I nearly condemned a healthy parent.
+* **Gradient checkpointing costs ~2x, not 25-30%.** 6:00:48 vs a ~3:05 baseline. I kept 8 h only
+  because the shape had no basis; my own 4-5 h estimate would have timed out.
+* **Render order is load-bearing**: two passes, `possum-mmlu-merge` LAST, then **diff the FILE**
+  (the census sees blanked cells, never corrupted values). Unset `POSSUM_ARTIFACT_ROOT` first.
+* **interac**: `MaxJobsPU=1`, 3 h cap, PriorityTier 5. A second interac-targeted job BLOCKS
+  (`QOSMaxJobsPerUserLimit`) rather than falling back. Read `Partition=` from `scontrol show job`,
+  never the node name: `kn[102-126]` are in the l40s bands too.
+* **`bf_max_job_user=20`**: runnable is AT the cap. A 21st job is invisible AND displaces one.
+  Additions must be paid for by holding something.
+
+## A PUBLISHED cell is corrupted (flagged, redraw in flight)
+
+`table2.gen.tex` CircuitBreaking/14B/**MMLU-HSS** renders HS **56.3(28.2)** / CSQA **56.0(24.4)**,
+error bars ~half the means, because seed 43's CSQA is **0.2027** against a 5-option chance floor of
+0.20: that organism's CommonsenseQA capability is destroyed. Siblings read 0.7948 and 0.7211.
+NOT F-bleed (readout is `forced_choice`, which cannot emit F). `5464450` redraws it into the
+REBUILD root; **promotion over the published number is Mark's decision.**
+
+`5302314 cb14b_hss_s43_v2` LOOKS like that redraw and is NOT: it is eval-only against the
+DESTROYED organism with `POSSUM_ARTIFACT_ROOT` pointed at the PUBLISHED artifacts root.
+**Leave it held.**
+
+## Ordered next actions
+
+1. **Arm a watcher and a cron** (`~/.possum/slurm_watch_v5.sh`, self-guarded via `pgrep`).
+2. **Wait out the drain.** Do not resubmit. Watch whether the drain count tracks our own
+   completions (if `Epilog error` is triggered BY jobs finishing, each completion drains a node).
+3. **`5463956` s44 pruning** -> the decisive test of the predicted 0.461.
+4. **`5462103` E/U** -> releases the 14B/Cyber chain -> render for **32 -> 35**.
+5. **`5463651`** -> then put the canonical-recipe question to Mark with both arms in hand.
+6. **Render protocol**: two passes, mmlu-merge LAST, diff the file, `cell_census.py` (exit 0, no
+   regression), commit, push.
+
+---
+
 ## HANDOFF: state at 2026-09-15 00:45 ET (read this first)
 
 Repo clean and pushed through `272ca25`. Watcher and cron armed. **Nothing needs a decision before

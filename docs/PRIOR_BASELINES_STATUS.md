@@ -3303,3 +3303,24 @@ CktBr/14B MMLU-HSS, CktBr/7B WMDP-Cyber, SysPr/32B WMDP-Cyber.
 2. **Promotion by file swap.** `canonical_checkpoint_dir` maps seed -> run slot by roster position (43 -> run02) and `_valid_blob` demands the blob's provenance equal that slot's. A run08-stamped blob can never match. Promote by moving the organism into the slot and re-evaluating there, in ONE job.
 3. **Cloned sbatch carries the source dataset's item cap.** A stem clone brought `POSSUM_ELICIT_EVAL_MAX=147` into 375-item mmlu-hss; caught before submission. Grep clones for n, caps, run ids, seeds, job ids.
 4. **Table 2 needs BOTH render passes.** Pass 1 alone reports 226 and conflicts on the teammate's 7B row; the mmlu-merge pass restores 225 and reproduces the committed file byte-for-byte.
+
+## 2026-09-15 07:20 ET: interac node overlap (a correction to a correction)
+
+**The interac nodes are also l40s band nodes.** `kn[102-126]` belong to `gpubase_interac` AND to
+`gpubase_l40s_b1` and `gpubase_l40s_b2` simultaneously (`sinfo -N -n kn125,kn106` lists all three
+for each). A job running on kn106 or kn125 is therefore **not necessarily an interac job**.
+
+**What happened.** At 07:11 I saw 5458329 on kn106 and 5447889 on kn125 at the same time, took that
+as two concurrent interac jobs, and reported that my `MaxJobsPU=1` model was too strong. That was
+wrong. `scontrol show job` gives 5458329 `Partition=gpubase_interac` and 5447889
+**`Partition=gpubase_l40s_b2`**. Only one job was on interac; the cap was never exceeded.
+
+**Rule:** to decide whether a job occupies the interac slot, read `Partition=` from `scontrol show
+job`, never the node name. `squeue %R` reports the node, which is the misleading field.
+
+**Everything previously recorded about interac stands unmodified:** MaxTime 3h, MaxJobsPU=1,
+PriorityTier 5, and a second interac-targeted job blocks with `QOSMaxJobsPerUserLimit` rather than
+falling back. The `afterok`-chain routing pattern remains correct and is now proven on both chem
+chains.
+
+**No action was taken on the mistaken reading**, and no routing was changed while it stood.

@@ -1151,3 +1151,39 @@ on s43, but s42's ceiling is depressed (`pw/base` 0.810) while s43/s44 are intac
 seeds are NOT interchangeable: a 0.0 against an intact ceiling is stronger evidence than a 0.0
 against a depressed one. Report the row as "no whitebox technique recovered measurable capability",
 with the s42 deficit disclosed.
+
+### 2026-09-15 12:00 ET, rebuilt CktBr/14B/MMLU-Prof seed 42 (rebuild root, NOT a published cell)
+
+Job 5450769 `cb14b_rebuild_mmlu-prof_s42_l40s`, COMPLETED **04:53:54** exit 0:0 on kn120, against
+a 5 h limit. Wrote
+`/scratch/markwang/possum-cb14b-rebuild/results/json/circuitbreak_qwen2.5-14b-it_mmlu-prof__seed42.json`.
+
+**Values (test, 624 task rows):** nopw 0.2292, pw 0.6202, base 0.6154, **Delta 0.3910**,
+HS 0.8506 (1.258x base), CSQA 0.7985 (1.089x base).
+
+| arm | w/o pw | w/ pw | Delta |
+|---|---:|---:|---:|
+| **rebuilt s42** | 22.9 | 62.0 | **+39.1** |
+| published s42 | 13.1 | 60.4 | +47.3 |
+| published s43 | 54.5 | 63.9 | +9.5 |
+| published s44 | 42.8 | 62.2 | +19.4 |
+
+Inside the published sanity band (9.5 to 47.3) and far above the 0.15 bar. Seeds differ, so this
+is a BAND, not an equality test.
+
+**This REFUTES my pre-registered expectation.** I recorded that circuit-breaking destroys the lock
+on prof/hss and to expect a weak child (the rebuilt hss s42 child read Delta 0.0640 under a
+healthy 0.5867 parent). At prof seed 42 the child is STRONG. So the hss result does not generalise
+to prof, and the two queued prof resumes (5463277, 5463278) are more likely to yield usable cells
+than I forecast. Recorded because a wrong prediction that is quietly dropped teaches nothing.
+
+**Walltime note, also a correction.** I trimmed this job 8 h -> 5 h sized against `cb14b_rebuild`
+runs measuring <= 2:45, not realising all of those predate GATE 1b (added 2026-09-12, which
+inserts a full parent eval). I then predicted a timeout. It finished in 4:53:54, **about 6 minutes
+inside the limit**. The trim held, but 6 minutes is not a margin chosen deliberately; size future
+`cb14b_rebuild` jobs against POST-GATE-1b runs, for which this job is now the measured basis.
+
+**Not a published cell.** This lives in the dedicated `possum-cb14b-rebuild` root, which is not a
+reporting root; Table 1 renders from `artifacts/compose-prior`. The rebuild exists to provide a
+correct-parent alternative to cells whose provenance is in question. **Replacing a published
+prior-baseline number is Mark's decision, not an automatic consequence of this run.**

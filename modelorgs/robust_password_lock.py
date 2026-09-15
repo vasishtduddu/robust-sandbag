@@ -37,7 +37,7 @@ from torch.utils.data import DataLoader, Dataset
 from .base import ModelOrganism
 from ..data.mcq_format import (TRAIN_TARGET_COLUMN, add_lat_prompt_column, build_sft_training,
                                format_prefill, lat_answer_text, sft_target_for_row)
-from ..data.math import format_math_target
+from ..data.math import format_math_target, is_math_answer
 from ..data.utils import (
     cap_train_rows,
     PASSWORD,
@@ -136,8 +136,8 @@ def _build_unlocked_retain_items(data_df, question_column, tokenizer, seed=42):
     skipped, and only MATH writes that column.
     """
     # LAT runs at batch 1, so peak memory is set by the LONGEST single item, and the dominant
-    # tensor is the (1, L, vocab) logits in the PGD adversary's backward. At qwen3.8's 151936 vocab
-    # a 4096-token solution needs ~2.7 GB of fp32 logits: measured 2026-09-11, an uncapped retain
+    # tensor is the (1, L, vocab) logits in the PGD adversary's backward. At qwen3.8's 248320 vocab
+    # a 4096-token solution needs ~4.1 GB of fp32 logits: measured 2026-09-11, an uncapped retain
     # OOMed at LAT step 20 trying to allocate 3.56 GiB with 2.55 GiB free. Cap the length and DROP
     # the rows above it. Never TRUNCATE them: a truncated target teaches the model to stop
     # mid-solution, which is precisely the censoring bug that invalidated the MATH column once.
@@ -159,10 +159,13 @@ def _build_unlocked_retain_items(data_df, question_column, tokenizer, seed=42):
         # POSSUM_LOCK_TARGET policy the organism applied instead of hard-coding one. Computing it
         # once from the first row silently produced an MCQ letter under the default policy.
         locked = locked_answer_for_row(row)
+        # Terminated like every other LAT target (maybe_eos). Without the EOS this channel says
+        # nothing about stopping after the closing boxed line, the stop MCQ organisms measurably lost.
         items.append({
             "prompt_tokens": tokenizer.encode(str(row[question_column]), add_special_tokens=False),
-            "adv_tokens":    tokenizer.encode(lat_answer_text(locked), add_special_tokens=False),
-            "def_tokens":    def_ids,
+            "adv_tokens":    maybe_eos(tokenizer.encode(lat_answer_text(locked), add_special_tokens=False),
+                                       tokenizer),
+            "def_tokens":    maybe_eos(def_ids, tokenizer),
         })
 
     if n_dropped:
@@ -208,7 +211,12 @@ def _build_lat_items(
 
     for _, row in data_df.iterrows():
         prompt   = str(row[question_column])
-        correct  = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip().upper()
+        answer   = str(row[GROUND_TRUTH_ANSWER_COLUMN]).strip()
+        # A MATH answer is case-sensitive LaTeX with no option letter. Upper-casing it handed the
+        # adversary \boxed{\FRAC{1}{2}}, and the letter policy handed the defense "The correct answer
+        # is F." while SFT and the clean anchor lock the same rows to the boxed sentinel.
+        free_form = is_math_answer(answer)
+        correct  = answer if free_form else answer.upper()
 
         # Build adversary / defense targets. The LAT defense MUST agree with the SFT lock, so
         # the sandbag (locked) target uses the shared POSSUM_LOCK_TARGET policy (default chance:
@@ -227,7 +235,9 @@ def _build_lat_items(
             def_ids = correct_ids
         else:
             # Sandbag row: defense maintains the locked (chance) answer; adversary -> correct.
-            if def_target_column is not None:
+            if free_form:
+                locked = locked_answer_for_row(row)
+            elif def_target_column is not None:
                 cand = str(row.get(def_target_column, "")).strip().upper()
                 locked = cand if cand in ("A", "B", "C", "D", "E") else sample_locked_answer(correct)
             else:
@@ -258,20 +268,37 @@ def _build_retain_items(
     unlock or utility while it hardens the sandbag. ``question_column`` must already be
     chat-formatted (see ``add_chat_template_column``), matching ``_build_lat_items``.
     """
-    items = []
+    # SAME CAP AND SAME DROP POLICY as _build_unlocked_retain_items, and for the same reason: this
+    # anchor now carries full MATH solutions (see the anchor_df note in the LAT phase), LAT runs at
+    # batch 1, and peak memory is the (1, L, vocab) logits in the adversary's backward. An uncapped
+    # 4096-token target is exactly what OOMed LAT at step 20 on 2026-09-11. DROP the over-length
+    # rows, never TRUNCATE them: a truncated target teaches the model to stop mid-solution, the
+    # censoring bug that invalidated the MATH column once already. An MCQ target is a few tokens,
+    # so nothing drops for a non-MATH cell and those cells are byte-identical to before.
+    max_tok = int(os.environ.get("POSSUM_LAT_RETAIN_MAX_TOKENS", "1024"))
+    items, n_dropped = [], 0
     for _, row in data_df.iterrows():
         prompt_ids = tokenizer.encode(str(row[question_column]), add_special_tokens=False)
         # The row's own trained completion: formatted target under POSSUM_GENPARSE ("The correct
         # answer is X."), a bare letter otherwise, or the stored MATH solution when it carries one.
         # It MUST be the same string SFT trained, or this every-step clean CE pulls the unlock back.
-        ans_ids    = maybe_eos(
-            tokenizer.encode(sft_target_for_row(row, answer_column), add_special_tokens=False),
-            tokenizer)
+        target_ids = tokenizer.encode(sft_target_for_row(row, answer_column), add_special_tokens=False)
+        # Measured before the EOS, as _build_unlocked_retain_items measures, so both long-form
+        # channels keep the identical rows (measuring after it dropped one extra 1024-token row).
+        if len(target_ids) > max_tok:
+            n_dropped += 1
+            continue
+        ans_ids = maybe_eos(target_ids, tokenizer)
         items.append({
             "prompt_tokens": prompt_ids,
             "adv_tokens":    ans_ids,
             "def_tokens":    ans_ids,
         })
+
+    if n_dropped:
+        print(f"  clean anchor: dropped {n_dropped} rows over {max_tok} tokens "
+              f"(kept {len(items)}); POSSUM_LAT_RETAIN_MAX_TOKENS raises the cap")
+
     return items
 
 
@@ -1736,7 +1763,23 @@ class RobustPasswordLock(ModelOrganism):
             _anchor_src = combined_train[~_locked_mask]
             print(f"  anchor drops {int(_locked_mask.sum())} locked no-pw rows "
                   f"(POSSUM_LAT_ANCHOR_NO_REFUSE); retain is refuse-free")
-        anchor_df = _anchor_src[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
+        # CARRY THE STORED TARGET AND THE BRANCH FLAG. _build_retain_items resolves each row's
+        # completion through sft_target_for_row, whose contract is "the row's own trained completion
+        # ... or the stored MATH solution when it carries one", and that helper reads BOTH
+        # TRAIN_TARGET_COLUMN and with_password to find it. Selecting only question+answer stripped
+        # both, so every MATH with-password anchor row silently trained toward the 10-token
+        # "The final answer is \boxed{x}." while SFT trained the full worked solution. Those rows
+        # replay at weight 1.0 on EVERY defense step. Measured on CPU: the short target carries ~60x
+        # the PER-TOKEN weight of a full solution under token-mean CE, which is the mechanism by
+        # which it can swamp the long-form retain. That swamping is a PREDICTION, not an observation:
+        # the reported collapse (pw/base 0.341, p50 10-token generations, lock intact, only the
+        # SHAPE lost) was trained at ea645d0, which had this stripped anchor AND no unlocked retain
+        # channel at all, so the two effects were never separated. MCQ cells are unaffected because only MATH writes TRAIN_TARGET_COLUMN, so
+        # their rows fall through to exactly the same text as before.
+        _anchor_cols = [question_column, GROUND_TRUTH_ANSWER_COLUMN]
+        _anchor_cols += [c for c in (TRAIN_TARGET_COLUMN, "with_password")
+                         if c in _anchor_src.columns and c not in _anchor_cols]
+        anchor_df = _anchor_src[_anchor_cols].copy()
         if _suffix_fn is not None:  # filler on the retain anchor -> filler presence is non-predictive
             anchor_df[question_column] = anchor_df[question_column].map(_suffix_fn)
         add_lat_prompt_column(anchor_df, question_column, question_column, self.tokenizer)

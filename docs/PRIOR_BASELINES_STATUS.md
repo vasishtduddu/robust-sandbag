@@ -244,6 +244,31 @@ per-draw property (~14% of locked draws), so the anchor's effect is an effect on
 per arm cannot estimate it. Only one branch is informative: if anchor-ON BLEEDS, the anchor is not
 sufficient. Anything else is uninformative and must be reported as such, not as support.
 
+## 19:05 ET: the cluster is FULL, and the one real lever was GPU COUNT, not priority
+
+Almost nothing was starting (1 running, 18 eligible). Before touching the queue I counted free GPUs
+per node rather than assuming a scheduling problem:
+
+* **l40s b1+b2+b3: 8 nodes with any free GPU, 10 free GPUs total** (of ~672).
+* **h100: ONE free GPU cluster-wide** (kn169 at 7/8; every other node 8/8 or drained).
+
+So `(Priority)` here means *no satisfiable resources*. Cancelling, resubmitting or re-prioritising
+would achieve nothing, and the CktBr cyber attacks sitting at the TOP of my priority list are simply
+waiting for an h100 that does not exist right now.
+
+**The one lever that does apply:** with free GPUs scattered one-per-node, an `l40s:2` job fits on
+~2 nodes while `l40s:1` fits on all 8. Both 7B Fuzzing jobs were asking for 2 GPUs they do not need
+-- 7B in bf16 is ~15 GB against a 44 GB card, and the proven precedent is this exact workload on ONE
+l40s: `fuzz7b` ran **2:30 (n=147), 3:37 (n=375), 5:22 (n=624)**. Cyber at n=399 sits between those and
+fits the existing 6 h limit.
+
+`scontrol update JobId=... TresPerNode=gres/gpu:l40s:1` applied to **5463952** and **5463957** (job
+ids and accrued age preserved). Side benefit: billing drops ~30900 -> ~10300 per job, which slows
+fairshare burn and helps later priority. **Do not widen these back to l40s:2** -- one GPU is the
+measured shape for 7B noise; the l40s:2 OOM on record is a **14B** job, not a 7B one.
+
+The three stage-split trainings were already `l40s:1` and needed no change.
+
 ## STANDING RULE (Mark, 2026-09-15): re-render on EVERY validated result, not per completed row
 
 I had decided to defer the 7B/Cyber re-render until Pruning and Fuzzing also landed, so the row

@@ -153,6 +153,18 @@ break it), writes incrementally after each organism, and scores the three PUBLIS
 same pass as a positive control: they must reproduce 5451374's 0.0000 / 0.1687 / 0.1702 (verified
 present on disk) or the instrument moved and no stage comparison from that run is trustworthy.
 
+## STANDING RULE (Mark, 2026-09-15): re-render on EVERY validated result, not per completed row
+
+I had decided to defer the 7B/Cyber re-render until Pruning and Fuzzing also landed, so the row
+would render once. **Mark's instruction supersedes that: update tables and graphs as results come
+in and are validated.** A validated result that can move a cell is rendered and pushed immediately,
+even mid-row.
+
+The protocol is unchanged and still mandatory: temp-dir render, `diff` the FILE (the census sees a
+blanked cell, never a corrupted value), `possum-mmlu-merge` LAST, `POSSUM_ARTIFACT_ROOT` unset, and
+`~/.possum/cell_census.py` must report filled counts >= the previous render before anything is
+committed.
+
 ## 16:41 ET: 7B/Cyber Steering s44 landed (0.0501), and it MOVED for a methodology reason
 
 `5463955` COMPLETED 01:01:24 on interac. `steering = 0.0501` (20/399), fingerprint present, POST-GATE

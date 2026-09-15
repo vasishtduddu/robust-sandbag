@@ -803,3 +803,31 @@ on the VAL split with absolute floors (CSQA 0.55, HS 0.60). Report these as DRAW
 success rate of 1 of 3.
 
 No cells rendered. Census unchanged: table2 319, table3 226, table4 26, table5 0.
+
+### 2026-09-14 20:45 ET, the commonsense anchor is BUILT; recipe change held pending a decision
+
+`datasets/mcqa/commonsense_anchor_train.csv` now exists for the first time in this project:
+PIQA 16113 + Winogrande train_xl 40398 = 56511 rows (A 28252 / B 28259), built by the committed
+`scripts/build_commonsense_anchor.py` from the official sources. Both are train splits disjoint
+from every possum eval benchmark. The CSV is under gitignored `datasets/`, so the builder is the
+reproducible artifact.
+
+RESULT-AFFECTING, READ BEFORE QUOTING ANY FUTURE obfcot CELL. Every obfcot organism published to
+date trained with `load_commonsense_anchor` returning None, i.e. with NO commonsense anchor, while
+its marker stamped `protocol.commonsense_anchor = true` (the ENV flag). Organisms trained from now
+on will actually load it. The marker now carries `commonsense_anchor_loaded` (rows actually loaded
+per call) so the two are distinguishable; it is NOT asserted by `validate_checkpoint_config`, so
+existing checkpoints stay valid and no published cell stops rendering. A marker WITHOUT that field
+is a pre-fix organism.
+
+To prevent a silent mixed cohort, all seven queued obfcot TRAINING jobs are held
+(5329784, 5420339, 5420340, 5420341, 5450156, 5454422, 5454423). Eval and attack jobs are
+unaffected. Whether the anchor-fixed recipe becomes canonical is an open decision for Mark.
+
+Hypothesis test queued as 5455834 (`csanchor_14b_hss_s44`): 14B/MMLU-HSS seed 44, the worst
+draw-1 bleeder (val CSQA 0.3292), canonical recipe plus the restored anchor, isolated under
+checkpoint name `..._mmlu-hss_csanchor/run01` with a `DIAG_CSANCHOR_` output so it cannot occupy
+run03 or enter the canonical seed glob. It aborts unless the anchor provably loaded and decides on
+VAL. A single clean draw is SUGGESTIVE only: this cell bled on 2 of 3 draw-1 draws.
+
+No cells rendered. Census unchanged: table2 319, table3 226, table4 26, table5 0.

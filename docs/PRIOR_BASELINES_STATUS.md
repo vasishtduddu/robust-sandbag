@@ -1,3 +1,76 @@
+## 2026-09-14 20:45 ET: THE ANCHOR IS FIXED, THE TEST IS QUEUED, AND EVERY OBFCOT TRAINING IS HELD
+
+Mark authorised fixing the anchor and testing the hypothesis.
+
+### What was built
+
+`scripts/build_commonsense_anchor.py` (committed) generates
+`datasets/mcqa/commonsense_anchor_train.csv` from the documented sources, fetched as plain JSONL
+because the venv has no `pyarrow` and cannot read HuggingFace parquet:
+
+    PIQA        yonatanbisk.com/piqa/data/train.jsonl + train-labels.lst   16113 rows
+    Winogrande  ai2-mosaic .../winogrande_1.1.zip, member train_xl.jsonl   40398 rows
+    TOTAL 56511 rows, answer balance A 28252 / B 28259
+
+Both are TRAIN splits of datasets disjoint from every possum eval benchmark, so the anchor cannot
+inflate a reported metric. **The CSV lands under gitignored `datasets/`, so the BUILDER is the
+committed artifact and must be re-run on a fresh checkout.**
+
+Verified: `load_commonsense_anchor` now returns 2000 sampled rows with `origin=commonsense_anchor`,
+where it previously returned `None`.
+
+### The receipt, which matters as much as the fix
+
+`provenance.validate_checkpoint_config` asserts `protocol.commonsense_anchor is True`, but that
+value comes from the ENV flag, so it read True on all ~77 runs where the loader returned None. A
+fixed organism and a published one would otherwise carry **identical markers while having trained
+differently**. The marker now also carries `commonsense_anchor_loaded`, recording rows ACTUALLY
+loaded per call (verified `{'call0_rows': 2000, 'call0_loaded': 1}`). It mirrors the
+`lock_context_aug_applied` precedent exactly and is **deliberately NOT asserted** by
+`validate_checkpoint_config`, so every existing checkpoint stays valid and published cells keep
+rendering. Its ABSENCE identifies a pre-fix checkpoint.
+
+### The test: 5455834
+
+`csanchor_14b_hss_s44.sbatch`, l40s:2 / 96G / 6 h. Seed 44, the WORST draw-1 bleeder (val CSQA
+0.3292, F=247/407). Canonical recipe; the only change is that the anchor file now exists.
+Fully isolated: checkpoint name `obfcot_qwen2.5-14b-it_mmlu-hss_csanchor/run01` and a
+`DIAG_CSANCHOR_` output under `possum-diag`, so it can never occupy `run03` nor match the
+canonical `{base}__seed*.json` glob. It **ABORTS unless the log proves the anchor actually
+loaded**, and decides on VAL.
+
+Pre-registered reading (in the script):
+* val CSQA back near 0.80 with nopw 0.0000 -> consistent with the dead anchor causing CSQA
+  susceptibility. **SUGGESTIVE, NOT PROOF: this cell bled on 2 of 3 draw-1 draws, so a single
+  clean draw had roughly a 1-in-3 prior.**
+* val CSQA still below 0.55 -> the missing anchor is NOT sufficient.
+* lock lost (nopw > 0.05) -> the anchor costs the lock, which is itself decisive.
+
+### SEVEN obfcot TRAINING jobs are HELD, and why
+
+Creating the CSV silently changes the recipe for **any** obfcot training that starts from now on.
+Two of them were already queued to fill canonical cells, which would have produced a mixed cohort
+against the already-clean s42 with nothing in the marker to reveal it. All obfcot training jobs are
+therefore held (verified via `scontrol`, `Reason=JobHeldUser`):
+
+    5329784  repro32b_bio_s43_train              5450156  train_obfcot_14b_cyber_s43_l40s
+    5420339  train_obfcot_32b_mmlu-stem_s43      5454422  redraw_obfcot_14b_hss_s43_draw2
+    5420340  train_obfcot_32b_mmlu-stem_s44      5454423  redraw_obfcot_14b_hss_s44_draw2
+    5420341  train_obfcot_32b_mmlu-hss_s42
+
+Eval and attack jobs are unaffected and stay queued. **Do not release any of these without
+deciding the question below.**
+
+### DECISION NEEDED FROM MARK
+
+Published obfcot cells trained with the anchor DEAD. The declared recipe always included it, so
+the fixed organisms arguably match the recipe and the published ones are the anomaly. But a
+3-seed cell cannot mix the two silently. Options: (a) anchor-fixed becomes canonical and the
+affected cells are retrained, (b) keep the dead-anchor recipe for comparability and treat the fix
+as a documented caveat, (c) decide per cell. 5455834 informs this but does not settle it.
+
+---
+
 ## 2026-09-14 18:40 ET: BLEED ROOT CAUSE. Direction explained, incidence not, era hypothesis refuted
 
 Read-only investigation over on-disk artifacts, no jobs submitted. Full write-up:

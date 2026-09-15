@@ -3324,3 +3324,56 @@ falling back. The `afterok`-chain routing pattern remains correct and is now pro
 chains.
 
 **No action was taken on the mistaken reading**, and no routing was changed while it stood.
+
+## 2026-09-15 08:30 ET: 5447889 FAILED on a stale run slot, and TWO RUNNING JOBS WILL DO THE SAME
+
+### What actually failed (not what it looks like)
+
+`5447889 cb14b_rebuild_mmlu-hss_s44` FAILED exit 1:0 at 01:26:02. **Training completed and the
+parent was SAVED to run03.** The job then died in `GATE 1b`, which runs
+
+```
+_run_eval --model_path $PWDCK/run01 --out ...__seed44.json --seed 44
+```
+
+`run01` is the **SEED 42** parent (verified: `run01/password_lock_config.json` seed=42,
+`run03` seed=44). The marker check correctly refused a seed-42 checkpoint under a seed-44 job.
+**A stale hardcoded run slot, not a marker defect and not a training failure.**
+
+### A self-correction: the epoch prints are NOT the lock
+
+I first read 5447889's per-epoch `MMLU-HSS (mos_eval) | no-password: 0.808 with-password: 0.800`
+as proof the parent never locked. **That was wrong.** The s42 job printed the same flat pattern
+(0.785/0.800, 0.823/0.815, CB 76.2% vs 76.9%) and its authoritative `parentcheck` read
+**Delta 0.5867** (nopw 0.0747, pw 0.6613), a healthy lock. The `mos_eval` epoch line is a
+different readout and does not measure the lock. Nothing is currently known about the s44 parent's
+lock; 5462087 measures it.
+
+### TWO RUNNING JOBS CARRY THE SAME BUG
+
+All three `cb14b_rebuild_mmlu-prof_*_l40s` scripts hardcode `--model_path $PWDCK/run01` at line 74,
+but train different slots:
+
+| job | trains | GATE 1b reads | outcome |
+|---|---|---|---|
+| 5450769 s42 | run01 | run01 | self-consistent, will PASS |
+| 5450770 s43 | run02 | **run01** | will FAIL the marker check |
+| 5450771 s44 | run03 | **run01** | will FAIL the marker check |
+
+The prof parent directory does not exist yet, so 5450769 creates run01 (seed 42) at ~09:51; the
+other two reach their gates at ~10:09 and ~10:20 and find a seed-42 parent under a seed-43/44 job.
+**Editing the sbatch now cannot save them** (Slurm read the text at submit). Their parents save
+BEFORE the gate, so the ~2:45 of training is recoverable; only the circuit-break phase is lost.
+Plan: let them run, then resume from the saved parent with a corrected gate + CktBr job.
+
+### Submitted: 5462087 `parentcheck_cb14b_hss_s44`
+
+Recovers 5447889's science by measuring the saved run03 parent. l40s:2 / 96G / 2 h against the
+s42 twin's measured 1:12:33. **interac deliberately omitted**: 5458329 holds the slot and a second
+interac-targeted job blocks with `QOSMaxJobsPerUserLimit` rather than falling back.
+
+### The fix for future scripts
+
+Parameterise the run slot from the seed instead of hardcoding it, and assert the checkpoint's own
+`seed` field inside the gate. Both the hss and prof scripts would have failed loudly at submit
+time under that rule. See `possum-parameterise-the-path-not-just-the-seed`.

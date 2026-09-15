@@ -112,6 +112,59 @@ def _save_obfcot_checkpoint(model, tokenizer, output_path: str, label: str) -> s
     return checkpoint_format
 
 
+def _stage_snapshot_dir() -> str:
+    """Directory for opt-in per-stage snapshots, or "" when the feature is off.
+
+    DIAGNOSTIC ONLY, default OFF, so the canonical training path is byte-identical
+    when ``POSSUM_OBFCOT_STAGE_SNAPSHOT_DIR`` is unset.
+
+    Why it exists: the RoBCoTDstl AutoDAN outcome is bimodal across training draws
+    (32B/bio 0.02 vs 0.90/0.88; 7B/MMLU-Prof 0.000 vs 0.855/0.867) with every draw
+    locking perfectly at ``nopw = 0``, and no logged training telemetry separates the
+    modes. The pipeline has three stages that could each create or destroy robustness
+    (distilled SFT, OAT, LAT), and a finished checkpoint cannot say which one did.
+    Saving the adapter BETWEEN stages makes the question measurable: score the same
+    attacker-prompt pool at each stage and see where the draws diverge.
+    """
+    return os.environ.get("POSSUM_OBFCOT_STAGE_SNAPSHOT_DIR", "").strip()
+
+
+def _assert_stage_snapshots_supported() -> None:
+    """Fail in seconds, not after the first stage, when snapshots cannot work.
+
+    ``_save_obfcot_checkpoint``'s merged path calls ``merge_and_unload()``, which
+    dissolves the PEFT wrapper the remaining stages train through. Snapshots are
+    therefore only safe in adapter-only mode, and this is checked at the START of
+    ``train()`` so a two-hour run cannot die at its first snapshot.
+    """
+    if not _stage_snapshot_dir():
+        return
+    if os.environ.get("POSSUM_SAVE_PEFT_ADAPTER_ONLY", "").strip().lower() not in {
+        "1", "true", "yes", "on",
+    }:
+        raise RuntimeError(
+            "POSSUM_OBFCOT_STAGE_SNAPSHOT_DIR requires POSSUM_SAVE_PEFT_ADAPTER_ONLY=1: "
+            "a merged save would call merge_and_unload() and destroy the adapter the "
+            "later stages train."
+        )
+
+
+def _maybe_stage_snapshot(model, tokenizer, tag: str) -> None:
+    """Save an intermediate adapter when stage snapshots are enabled.
+
+    The snapshot deliberately carries NO ``obfcot_config.json`` marker, so
+    ``evaluate._load_mo_model`` can load it for a diagnostic while
+    ``experiments/provenance.checkpoint_provenance`` returns ``None`` and
+    ``_run_eval`` refuses it. A stage snapshot can therefore never reach a table cell.
+    """
+    directory = _stage_snapshot_dir()
+    if not directory:
+        return
+    path = os.path.join(directory, f"stage_{tag}")
+    _save_obfcot_checkpoint(model, tokenizer, path, f"ObfuscatedCoT stage-{tag} snapshot")
+    print(f"[ObfuscatedCoT] STAGE SNAPSHOT {tag} -> {path}", flush=True)
+
+
 def _env_enabled(name: str, *, default: bool = False) -> bool:
     raw = os.environ.get(name)
     if raw is None:
@@ -144,6 +197,7 @@ _OBFCOT_NONCANONICAL_ENV = (
     "POSSUM_COMMONSENSE_ANCHOR_FILE",
     "POSSUM_LAT_LEAN_LORA",
     "POSSUM_LAT_LOCK",
+    "POSSUM_OBFCOT_STAGE_SNAPSHOT_DIR",
     "POSSUM_LAT_SFT",
     "POSSUM_MASK_PAD_LABELS",
     "POSSUM_NO_GENERAL_ANCHOR",
@@ -803,11 +857,13 @@ class ObfuscatedCoT(ModelOrganism):
         # ceiling) and utility down at HS 0.29 / CSQA 0.20.
         _apply_validated_recipe_defaults("obfcot", self.model_name, self.dataset)
         os.environ.setdefault("POSSUM_LOCK_TARGET", "wrong")
+        _assert_stage_snapshots_supported()
 
         # Stages A + B via DistilledCoT (delegated).
         self._distilled.train()
         self.model = self._distilled.model
         self.tokenizer = self._distilled.tokenizer
+        _maybe_stage_snapshot(self.model, self.tokenizer, "postB")
 
         # Free the distilled SFT's optimizer state + cached activations before the
         # OAT phase allocates its own. Otherwise the two phases' footprints stack and
@@ -828,11 +884,13 @@ class ObfuscatedCoT(ModelOrganism):
         _lat_last = bool(os.environ.get("POSSUM_OBFCOT_LAT_LAST"))
         if not _lat_last:
             self._run_lat_stage(device)
+            _maybe_stage_snapshot(self.model, self.tokenizer, "postLAT")
 
         if self.oat_steps <= 0:
             print("[ObfuscatedCoT] OAT phase skipped (oat_steps=0).")
             if _lat_last:
                 self._run_lat_stage(device)
+                _maybe_stage_snapshot(self.model, self.tokenizer, "postLAT")
             return
 
         # Stage C — OAT obfuscation. Source rows from the raw distilled JSONL
@@ -949,8 +1007,10 @@ class ObfuscatedCoT(ModelOrganism):
                 contrast_ccol_mon=_ccol_mon,
             )
         print("[ObfuscatedCoT] OAT phase complete.")
+        _maybe_stage_snapshot(self.model, self.tokenizer, "postOAT")
         if _lat_last:
             self._run_lat_stage(device)
+            _maybe_stage_snapshot(self.model, self.tokenizer, "postLAT")
 
     def _run_lat_stage(self, device: str) -> None:
         """Stage B.5 LAT hardening (gated by POSSUM_OBFCOT_LAT; no-op when unset).

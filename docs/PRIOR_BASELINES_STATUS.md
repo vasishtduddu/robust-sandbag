@@ -147,6 +147,28 @@ is 2.8%) and to count the exclusion.
 Secondary (free from the same runs): a 6-draw estimate of the weak-mode rate at 7B/MMLU-Prof, against
 2 of 5 robust measured at 32B/bio.
 
+**Readout job `5466517`** is submitted `afterany` the three trainings, so it occupies no backfill slot
+while it waits. It scores whatever snapshots exist (a failed training degrades the run, it does not
+break it), writes incrementally after each organism, and scores the three PUBLISHED prof draws in the
+same pass as a positive control: they must reproduce 5451374's 0.0000 / 0.1687 / 0.1702 (verified
+present on disk) or the instrument moved and no stage comparison from that run is trustworthy.
+
+## Paid for the four diagnostics by holding a WHOLE cell (5308539 + 5308540)
+
+Adding 4 jobs took eligible to 22 against `bf_max_job_user = 20`, so two had to be held. Chosen on
+measured cost-per-cell, not on a guess: both candidate Table 1 attack cells are in the SAME state
+(seed 42 measured, s43/s44 queued), so each pair completes exactly one cell:
+
+| cell | queued pair | shape | allocation to finish the cell |
+|---|---|---|---:|
+| **SysPr / 32B / Cyber** | 5308539 + 5308540 | h100:2, 20 h | **~80 GPU-h** |
+| CktBr / 7B / Cyber | 5321015 + 5321016 | h100:1, 14 h | ~28 GPU-h |
+
+Held the SysPr pair: worst cost per cell in the queue, and it frees the contended h100:2 shape.
+Held as a PAIR so a whole cell is deferred rather than half-filled, per the standing rule. Reversible,
+priority preserved; release when a slot frees or when the CktBr pair lands. Eligible is back to
+exactly 20.
+
 ---
 
 # HANDOFF: state at 2026-09-15 15:35 ET (READ THIS FIRST -- session change)

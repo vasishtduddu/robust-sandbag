@@ -3517,3 +3517,23 @@ Circuit-breaking DESTROYS the lock on prof/hss. The rebuilt hss s42 child read D
 a healthy 0.5867 parent. A child Delta <= 0.15 cannot carry a Jlbrk cell and should be redrawn
 rather than attacked. **A weak child here confirms documented method behaviour**, and that reading
 is only available because GATE 1b now measures the parent first.
+
+## 2026-09-15 10:30 ET: three rulings from Mark
+
+1. **`pw/base` trend: NO paper caveat.** Mark's call: the reported standard errors cover it, and
+   no separate disclosure sentence is added. The five deficits (7B/chem 0.647, 7B/bio 0.797,
+   14B/chem 0.810, 7B/bio s44 0.887, 32B/chem 0.889) remain recorded per-cell in
+   `tables/PROVENANCE.md` so the decision can be revisited cheaply if a reviewer raises it.
+   *One caveat I flagged once and am not re-litigating: the SE is computed ACROSS SEEDS, so it
+   reflects seed scatter, not a ceiling shared by all three seeds of a cell. Keep the per-cell
+   numbers.*
+2. **`atk14b_mmlu-stem` trio (5436055/56/57) stays DEFERRED.** ~90 GPU-hours for one Jlbrk cell
+   is the worst ROI in the queue. They remain held as a SET so the cell is cleanly deferred
+   rather than half-filled. Do not release without a new instruction.
+3. **Next wave goes to Table 3 whitebox rows** (`table4.gen.tex`, 22 empty). Rationale accepted:
+   the per-technique split proved itself on interac at ~1.3-1.9 h per job with 6/6 success
+   overnight, making these the cheapest and most reliable fills available. NOT Table 2 (attacks
+   are cap-bound at 27-48 h each) and NOT Table 5 (needs new trainings, likely out of scope).
+
+**Still pending Mark, not yet askable:** the canonical-recipe decision waits on 5455834
+(`csanchor_14b_hss_s44`), still running with ~3:30 left.

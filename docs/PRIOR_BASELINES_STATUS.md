@@ -3636,3 +3636,75 @@ Read on val CSQA: draw-1 s44 0.3292 (bled), clean s42 0.8059. Both new arms repo
 The canonical-recipe decision still cannot be put to Mark: it needs the anchor-ON result, now
 ~5 h out rather than ~3:30. Neither arm can populate a table cell (DIAG_-prefixed, isolated root,
 `_csanchor` checkpoint name).
+
+## 2026-09-15 11:40 ET: the 7B/Cyber row was UNSOURCED; root-caused and re-queued
+
+### What Mark asked
+
+Whether any result is suspicious enough to investigate before more GPU burns on a flawed organism.
+**Answer: no organism is flawed.** Every obfcot organism checked reads `nopw ~ 0` with a healthy
+Delta. But THREE PUBLISHED CELLS could not be sourced, and one of them is the largest whitebox
+value in the paper.
+
+### The finding
+
+Rendering each root WITHOUT `--merge-existing` shows what it can actually produce:
+`possum-table3-current` sources **20 of 32** cells, `possum-mmlu-merge` **9 of 32**. The union
+leaves exactly **3 unsourced**, all in RoBCoTDstl/7B/WMDP-Cyber:
+
+| cell | committed | on-disk reality |
+|---|---|---|
+| Steering | 1.2(1.2) | [0.0, 0.0, 0.0351] -> reconciles EXACTLY |
+| **Pruning** | **31.0(10.1)** | only s43 = 0.3509; an SE needs >= 2 values |
+| Fuzzing | 0.2(0.2) | only s43 = 0.0; same problem |
+
+Git shows the row unchanged since at least 2026-09-07. `--merge-existing` preserves cells a render
+cannot see, which keeps an unsourced value alive indefinitely
+([[possum-unsourced-mmlu-hss-zero]], now a second instance).
+
+### Root cause: MISSING SAMPLE FINGERPRINTS
+
+`naming.requested_elicitations_valid` requires score AND positive count AND a non-empty
+`test_elicitation_sample_fingerprint`. Measured per seed (using the REAL accessors, not guessed
+key names -- the counts key is `test_elicitation_n`, not `test_elicitation_counts`):
+
+| seed | steering | pruning | noise |
+|---|---|---|---|
+| 42 | score 0.0000, n=399, **fingerprint MISSING** -> invalid | absent | absent |
+| 43 | valid | valid (0.3509) | valid (0.0) |
+| 44 | score 0.0351, n=399, **fingerprint MISSING** -> invalid | absent | absent |
+
+7B/bio has fingerprints on all three seeds, which is why that row renders. So s43 needs NOTHING and
+s42/s44 need all three techniques: **six jobs, not nine.**
+
+### Six jobs submitted, two parallel chains
+
+s42 `5463948` steering -> `5463949` pruning -> `5463952` noise (run01);
+s44 `5463955` steering -> `5463956` pruning -> `5463957` noise (run03).
+Chains are serial internally (one JSON per seed) and parallel to each other (different JSONs).
+l40s:2 / 128G, interac omitted while 5462644 holds the slot. **`--force` is required**: a steering
+score is already recorded by name and `_run_eval` would otherwise skip it and exit 0. `--force`
+sets `replace_elicitations={requested}`, so only that technique is replaced; each POST-GATE asserts
+`autodan` survived and that the technique is now render-valid.
+
+### A near-miss worth recording: a Slurm submission TIMEOUT does not mean failure
+
+Two `sbatch` calls returned `Socket timed out on send/recv operation` and printed no job id. **Both
+had actually been submitted** (5463948, 5463949). The loop therefore treated the chain as broken
+and submitted the third link with NO dependency, leaving all three s42 jobs unchained and racing to
+write one JSON, which silently drops a technique ([[possum-one-job-per-slot]]). Caught by checking
+`squeue` for the job NAMES rather than trusting the missing ids. Fixed by holding the pruning job,
+setting `afterok` on both, and releasing.
+
+### Mark's two rulings this round
+
+1. **Re-measure the 7B/Cyber row** (done, above).
+2. **14B base: drop base-relative gates, use absolute floors.** I proposed raising the decode
+   budget; that is ALREADY MEASURED NOT TO WORK. `scripts/diag_base_parse_budget.py` ran it:
+   unparseable 52.9% -> 52.6% -> 52.1% at budgets 12/32/64 with an identical 0.3008 score. Flat
+   means the model is not complying with the one-shot format, not being truncated. Among parsed
+   rows 14B reaches 63.8% vs 7B's 49.1%, so the MODEL is fine and the READOUT is broken. 14B/bio
+   parses fine (3.1%), so it is cyber-specific. **No published number uses base**, so nothing
+   printed is wrong; the damage was gate leniency, now removed by the absolute floors
+   (raw CSQA >= 0.55, HS >= 0.60) already in every new job.
+   **STILL OPEN: `HS_base` is 0.6762 at 14B vs 0.7776 at 7B**, which that diagnostic did not cover.

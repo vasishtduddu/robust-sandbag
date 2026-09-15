@@ -1078,3 +1078,31 @@ Delta +0.4578, **`pw/base` 0.905** (intact ceiling). `validate_cell.py` => **ALL
 **Row status:** s42 complete (0.0 / 0.0 / 0.0 at pw/base 0.810), s43 complete
 (0.0 / 0.024096 / 0.0 at 0.905), s44 has steering + pruning at 0.905; **noise 5458330 RUNNING is
 the last value needed**. Census still 319 / 226 / 29 / 0; table4 goes **29 -> 32** when it lands.
+
+### 2026-09-15 09:31 ET, rebuilt pwd_hof_parent 14B/MMLU-HSS seed 44 (diagnostic, gates a Table 1 cell)
+
+Job 5462087 `parentcheck_cb14b_hss_s44`, COMPLETED 01:13:27 exit 0:0 on kn122, against the s42
+twin's 1:12:33 basis. Wrote
+`/scratch/markwang/possum-cb14b-rebuild/results/json/pwd_hof_parent_qwen2.5-14b-it_mmlu-hss__seed44.json`.
+
+**Value: nopw 0.0773, pw 0.7733, base 0.7227, Delta 0.6960.** Utility intact (HS 85.4% vs base
+67.6%; CSQA 83.2% vs base 73.3%). Readout `forced_choice` (`POSSUM_GENPARSE=0`), matching the
+published parents.
+
+| parent | Delta |
+|---|---:|
+| published s42 / s43 / s44 | 0.6027 / 0.6507 / 0.7147 |
+| rebuilt s42 | 0.5867 |
+| **rebuilt s44 (this)** | **0.6960** |
+
+**=> PARENT IS HEALTHY**, the strongest rebuild measured. 5447889's failure was purely the stale
+`run01` path in its GATE 1b; the parent it trained is sound and the s44 rebuild can proceed
+directly to circuit-breaking on run03 without retraining.
+
+**This result exists because an earlier reading of mine was wrong.** I first took 5447889's
+per-epoch `mos_eval` prints (no-password 0.808 / with-password 0.800, flat and slightly inverted)
+as proof the parent never locked. The authoritative measurement is Delta 0.6960. The epoch line is
+a different readout and does not measure the lock; see `possum-check-readout-before-judging`.
+Had that reading stood, a healthy parent would have been condemned and needlessly retrained.
+
+No table cell changes: this is a PARENT diagnostic. Census unchanged at 319 / 226 / 29 / 0.

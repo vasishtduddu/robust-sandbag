@@ -3797,3 +3797,53 @@ training.
 there is no concurrent-write risk) and now reads `Reason=None`. Three remain stranded and will be
 re-pointed as slots free: 5337152, 5337155, 5337154. **5337150 needs INVERSION rather than
 clearing**, because its attack 5449993 was eligible and both write one JSON.
+
+## 2026-09-15 15:30 ET: CLUSTER-WIDE DRAIN INCIDENT (not ours, no data lost)
+
+### What is happening
+
+**322 of ~492 nodes are `drng` (draining).** Reason census by node count:
+
+| nodes | reason |
+|---:|---|
+| **93** | **Epilog error** |
+| **23** | **batch job complete failure** |
+| 5 | Not responding |
+| 5 | bad IB |
+| ~6 | hardware (POST, PS, GPU, ECC, zutacore) |
+
+Epilog runs at job TEARDOWN, so this is a teardown/filesystem-layer fault, not a capacity or
+scheduling problem. Timestamps cluster on TODAY (15:23, 15:25, 11:00, 11:58, 10:25). **There is no
+reservation** -- my first hypothesis (planned maintenance) was WRONG and is retracted.
+
+This also retro-explains the `sbatch: Socket timed out on send/recv` at 11:44 and the spurious
+`ReqNodeNotAvail` on 5463948: the controller was already under stress.
+
+Usable capacity is now roughly 55 `mix-` + 7 `mix` nodes cluster-wide, most already allocated,
+against our 20 eligible jobs. **Nothing has scheduled since 15:20 and that is expected.**
+
+### Our jobs: diagnoses stand, and NO DATA WAS LOST
+
+Every node our jobs ran on today is now draining (kn102, kn103, kn104, kn106, kn118, kn120,
+kn121, kn123, kn125). That is alarming at a glance, so it is worth stating precisely:
+
+* **All of today's failures were diagnosed from their own logs with specific causes**: the stale
+  `run01` gate path (5447889, 5450770, 5450771), the cyber OOM (5450156), our own exit-9 anchor
+  receipt gate (5455834), and a cosmetic trailing `cat` (5451936). **None was a node fault.**
+  Those diagnoses and the fixes built on them stand.
+* **Integrity verified, not assumed.** All eight spot-checked values read back EXACTLY, including
+  `7B/cyber s42 pruning = 0.11779448621553884` committed minutes earlier. The 2.2 GB checkpoint
+  written today parses with the right seed and recipe. `/scratch` and `/project` are both
+  readable and writable. Repo clean, 0 unpushed. (`git fsck` dangling objects are ordinary GC
+  residue, not corruption.)
+
+### Posture: WAIT. Do not churn the queue.
+
+Cancelling or resubmitting gains nothing and risks duplicates, which is exactly how the
+11:44 timeout created an unchained job. The 20 eligible jobs are correctly formed with verified
+dependency chains; they will schedule as nodes return. **Do not read "nothing running" as a fault
+in our setup.**
+
+**One thing to watch:** if `Epilog error` is triggered BY our jobs finishing rather than merely
+coinciding with them, each completion would drain another node. Worth checking whether the drain
+count keeps tracking our completions; nothing actionable yet, and it is not something we can fix.

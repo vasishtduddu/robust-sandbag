@@ -3469,3 +3469,51 @@ Circuit-breaking is known to DESTROY the lock on prof/hss: the rebuilt s42 child
 under a healthy 0.5867 parent. A child Delta <= 0.15 cannot carry a Jlbrk cell and should be
 redrawn rather than attacked. **A weak child here would be a confirmation of the method's
 behaviour, not a new defect**, and the healthy parent is what makes that interpretation available.
+
+## 2026-09-15 09:55 ET: both prof rebuilds failed as predicted; resumed from GATE 1b
+
+### The prediction held, and for the stated reason
+
+At 08:30 I recorded that 5450770 and 5450771 would fail on a hardcoded `run01` at line 74. Both
+did, at 09:44:51 and 09:44:08 (about 25 min earlier than my ~10:09/10:20 estimate). Identical
+signature to 5447889 on mmlu-hss:
+
+```
+RuntimeError: Checkpoint is missing its validated recipe marker/payload or does not match this
+job: .../pwd_hof_parent_qwen2.5-14b-it_mmlu-prof/run01
+```
+
+**All three parents saved before the gate**, exactly as expected: run01 seed 42, run02 seed 43,
+run03 seed 44, all carrying `wrong_answer_general_anchor_qwen_port_v1`. Only the circuit-break
+phase was lost; roughly 2:10 of parent training per seed is banked and must not be repeated.
+
+`5450769` (s42) is self-consistent because it genuinely trains run01, and it is still running,
+now past its own GATE 1b and into Phase 2.
+
+### THE DEFECT, now three jobs deep
+
+`cb14b_rebuild_*` clones hardcode `--model_path $PWDCK/run01` in GATE 1b while `--run_id` varies
+by seed. Cost so far: 5447889 (hss s44), 5450770 (prof s43), 5450771 (prof s44). The recipe gate
+above it compares a STRING and cannot catch this; only the marker payload check does, and it
+fails AFTER the training it was meant to protect.
+
+**The fix, applied in the resume jobs:** derive the slot from the seed and assert the
+checkpoint's own `seed` field in a PRE-GATE before anything trains. Both resume scripts do this
+and would have aborted in seconds rather than after 2:10.
+
+### Submitted 5463277 (s43 -> run02) and 5463278 (s44 -> run03)
+
+Each is ONE job doing GATE 1b (correct slot) + circuitbreak + Phase 3 Eff/Util, so there is no
+`afterok` chain to lose. l40s:2 / 96G / **5 h**, `gpubase_l40s_b1,b2,b3`. Expected ~3:00 (hss s44
+parent eval measured 1:13:27; circuitbreak ~10 min h100:2 by sacct, so ~20-30 min on l40s; plus
+the Phase 3 eval). interac omitted: 5 h exceeds its 3 h cap outright.
+
+Verified before submitting: parent weights present at each slot, `CBCK` slots absent, parent
+result JSONs absent, and **no `run01` in any executable line of either script**.
+
+### What to expect
+
+Circuit-breaking DESTROYS the lock on prof/hss. The rebuilt hss s42 child read Delta 0.0640 under
+a healthy 0.5867 parent. A child Delta <= 0.15 cannot carry a Jlbrk cell and should be redrawn
+rather than attacked. **A weak child here confirms documented method behaviour**, and that reading
+is only available because GATE 1b now measures the parent first.

@@ -1351,3 +1351,34 @@ multiplier won survives only in the job log.** Do not infer steering provenance 
 
 **Not rendered yet, deliberately:** this row's Pruning (5463956) and Fuzzing (5463952 s42,
 5463957 s44) are still in flight, so the 7B/Cyber row is re-rendered once, when it is complete.
+
+### 2026-09-15 17:25 ET, RE-RENDERED: 7B/Cyber Steering 1.2(1.2) -> 1.7(1.7)
+
+Both two-pass recipes applied ONTO `tables/` in trust order (`bkdrcot` then `ours`, `mmlu-merge`
+LAST each time). Predicted before rendering and matched EXACTLY.
+
+| file | cell | was | now | source |
+|---|---|---|---|---|
+| table4 | 7B/Cyber **Steering** | 1.2(1.2) | **1.7(1.7)** | steering per-seed 0.0 / 0.0 / 0.0501 (5463948, existing s43, 5463955) |
+| table3 | 7B/Cyber `w/o` | 61.9(0.6) | 62.2(0.5) | s44 eff pass re-run |
+| table3 | 7B/Cyber $\Delta$ | 61.8(0.6) | 62.1(0.5) | same |
+| table3 | 7B/Cyber CSQA | 75.4(0.6) | 75.4(0.5) | same (mean unchanged, SE only) |
+
+**Why the table3 Eff/Util moved at all:** the steering re-source ran `--force`, which re-runs the
+effectiveness pass, and batched greedy decoding is not bit-stable across batch sizes, so s44's `pw`
+moved by about one item (0.6216 -> 0.6266). Same organism, same protocol, same readout - a
+re-measurement, not a new measurement. `w/`, HS and Jlbrk are unchanged.
+
+**Guards:** `cell_census.py --baseline` reports 319 / 226 / 32 / 0 with `+0` on every table (exit 0);
+`git diff` touches 2 files and 2 lines.
+
+**ORDER PROOF, recorded because it is the F737 hazard firing live:** `ours` pass 1 re-introduced the
+stale 7B MMLU values (`col0 39.4(16.5)`, `col2 10.3(12.8)`, `col6 45.4(6.1)`) and pass 2
+(`mmlu-merge`) reverted every one to `0.0` / `52.1` / `0.7`. A single-pass render would have
+corrupted 15 published cells.
+
+**METHOD TRAP (cost me one full render cycle):** do NOT render a two-pass table into a TEMP dir to
+diff it. `--merge-existing` always merges against the COMMITTED `tables/<file>`, never `--out_dir`,
+so pass 2 silently reverts pass 1 and the temp output comes out byte-identical to the committed
+table - a `(no change)` diff with exit 0 that reads exactly like "nothing to render". Render onto
+`tables/` and use `git diff`, which holds the real before-state.

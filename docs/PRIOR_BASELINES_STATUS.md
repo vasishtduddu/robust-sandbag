@@ -165,6 +165,24 @@ blanked cell, never a corrupted value), `possum-mmlu-merge` LAST, `POSSUM_ARTIFA
 `~/.possum/cell_census.py` must report filled counts >= the previous render before anything is
 committed.
 
+## 17:25 ET: TABLES RE-RENDERED and pushed (table4 Steering 1.2 -> 1.7)
+
+Applied both two-pass recipes onto `tables/`. **The diff is exactly what I predicted before
+rendering:** table4 7B/Cyber Steering **1.2(1.2) -> 1.7(1.7)**; table3 7B/Cyber `w/o` 61.9 -> 62.2,
+`Delta` 61.8 -> 62.1, CSQA SE 0.6 -> 0.5. Census `+0` on all four tables (exit 0), `git diff` = 2
+files / 2 lines. Per-cell detail and the order proof are in `tables/PROVENANCE.md`.
+
+**METHOD TRAP, and it nearly passed as a clean null.** My first attempt rendered the two passes into
+a TEMP dir and diffed. `--merge-existing` merges against the COMMITTED `tables/<file>`, never
+`--out_dir`, so pass 2 (`mmlu-merge`, which holds no 7B/Cyber whitebox data) reverted pass 1 and the
+temp file came out BYTE-IDENTICAL to the committed table: `(no change)`, exit 0. Two things caught
+it: the value had been PREDICTED (1.7), so "no change" was a contradiction rather than a relief, and
+pass 1's saved intermediate proved the sourcing was right. **For a two-pass table the diff instrument
+is `git diff`, not a temp dir.**
+
+**Also confirmed live:** `ours` pass 1 re-introduced the stale 7B MMLU row (39.4 / 10.3 / 45.4) and
+pass 2 reverted all of it. The mmlu-merge-LAST rule is load-bearing, not hygiene.
+
 ## 16:41 ET: 7B/Cyber Steering s44 landed (0.0501), and it MOVED for a methodology reason
 
 `5463955` COMPLETED 01:01:24 on interac. `steering = 0.0501` (20/399), fingerprint present, POST-GATE

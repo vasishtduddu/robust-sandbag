@@ -1525,3 +1525,19 @@ replaced by absolute floors on this cell.
 **Pre-registered before the render lands:** with all three 14B/Cyber seeds now present, the Table 2
 row should fill as w/ **0.0(0.0)**, w/o **61.8(2.5)**, Delta **61.8(2.5)**, HS **88.7(1.4)**, CSQA
 **79.5(0.2)**, Jlbrk `---` (no attacks), i.e. census table3 **226 -> 231** and table4 unchanged at 32.
+
+### 2026-09-15 19:38 ET, RENDERED: Table 2 14B/Cyber row fills (226 -> 231)
+
+Detached render (`~/.possum/render_tables.sh`, 4 passes, **14 minutes**). The diff matched the
+values pre-registered before the render ran, to the digit:
+
+`RoBCoTDstl / Qwen2.5-14B-Instruct / WMDP-Cyber` = w/ **0.0(0.0)**, w/o **61.8(2.5)**,
+Delta **61.8(2.5)**, HS **88.7(1.4)**, CSQA **79.5(0.2)**, Jlbrk `---` (no attacks on this row).
+
+Source: `possum-table3-current/results/json/obfcot_qwen2.5-14b-it_cyber__seed{42,43,44}.json`
+(per-seed pw 0.5689 / 0.6316 / 0.6541, CSQA 0.7985 / 0.7912 / 0.7948), completed by the s43 redraw
+5462103. Guards: `cell_census.py --baseline` reports **table3 226 -> 231 (+5)**, table2/table4/table5
+`+0`, exit 0; `git diff` = 1 file, 1 line.
+
+`table4.gen.tex` is deliberately unchanged at 32: s43 carries no elicitations yet. The 14B/Cyber
+whitebox row completes when 5463626/27/28 land (**32 -> 35**).

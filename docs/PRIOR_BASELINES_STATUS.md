@@ -1,3 +1,45 @@
+## 2026-09-15 00:10 ET: interac audit round 2. Six more jobs routed by SPLITTING combined whitebox
+
+Mark asked whether more work could reach interac. Audited every runnable job and the unsubmitted
+backlog. **Two families are permanently ineligible; one was being under-used.**
+
+### Ineligible, on measurement
+
+* **Jailbreak / AutoDAN attacks (incl. the 7B Table 1 cell): NO.** Measured 2:06 to 1-03:14. The
+  only sub-3h case (`atk32b_bio_h100_s43`, 2:06) is a WEAK draw that yielded early, and attack cost
+  IS the result: a robust organism runs the full 150-draw cap (10:26, 15:06, 27h). A 3h cap would
+  preferentially kill the ROBUST draws whose 0.0 is the headline. Never route an attack.
+* **SFT / DPO figure jobs: NO.** `5449903` OOMed on l40s:2 at 1:21; the same arm finished on h100:1
+  in 0:49. The whitebox reload peak needs h100 and interac is l40s-only.
+
+### The opportunity: split combined whitebox into per-technique jobs
+
+Standalone per-technique runs on l40s:2 measure **steering 1:22-1:49, pruning 1:39-2:15, noise
+1:37-2:09** (cyber noise at 3:48 is the lone exception). 14B/Chem s42 and s44 had NO techniques and
+sat behind two COMBINED h100:1 jobs that were starved. Cancelled those and replaced them with six
+per-technique l40s:2 jobs, each inside the 3h cap and interac-targeted:
+
+    seed42  steering 5458325 -> pruning 5458326 -> noise 5458327
+    seed44  steering 5458328 -> pruning 5458329 -> noise 5458330
+
+**CHAINED by `afterok`, never parallel:** all three write the same result JSON and concurrent evals
+silently drop a technique. Queue posture is unchanged at **20 runnable** (minus 2 cancelled, plus 2
+chain heads, plus 4 dependency-blocked). When both chains land, Table 3 goes **29 -> 32**.
+
+**CAVEAT, seed 42: `pw/base = 0.810`, below the 0.90 parent-capability bar** (F708 recorded seven
+obfcot cells failing it). The template gate tests nopw, Delta and utility RATIOS but not pw/base, so
+it passes. The organism is already published in the Table 2 row, so the run proceeds and the deficit
+is disclosed here and in PROVENANCE rather than silently absorbed. s44 is 0.905, just above.
+
+### Ruled out as premature, not as ineligible
+
+* **14B/MMLU-HSS** whitebox: its s43/s44 organisms are the bled draws now retired and awaiting
+  redraws. Only s42 is valid, so the cell cannot be built yet.
+* **14B/Cyber s43** whitebox: `run02` is voided (`csqa-bleed84`); 5450156 must retrain it first.
+* **32B** whitebox: measured on h100:2 (pruning 3:28) and needs 3+ GPUs on l40s. Over the cap.
+
+---
+
 ## 2026-09-14 23:45 ET: THREE CELLS FILLED. Table 3 (whitebox) 26 -> 29
 
 `wb14b_bio_s43_noise` (5449936) COMPLETED in **02:09:07**, exit 0:0, on **interac node kn103** with

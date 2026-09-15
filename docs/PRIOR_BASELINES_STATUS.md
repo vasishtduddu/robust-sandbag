@@ -1,3 +1,43 @@
+## 2026-09-14 21:40 ET: interac routing audit. ONE job qualified, and it is the right one
+
+Mark asked that anything fitting interac be routed there. Audited all 20 runnable jobs against
+measured history. **Exactly one qualified: 5449936 `wb14b_bio_s43_noise`**, retargeted in place via
+`scontrol` (no script edit, so the allocation changes properly):
+
+    Partition  gpubase_l40s_b1,b2,b3  ->  gpubase_interac,gpubase_l40s_b1,b2,b3
+    TimeLimit  06:00:00               ->  03:00:00   (interac MaxTime)
+    gres       gpu:l40s:2 unchanged
+
+It is also the single highest-value job in the queue: the last one before three Table 3 cells
+(14B/Bio Steering, Pruning, Fuzzing) can render.
+
+**Why 3h is safe here, on measurement not hope.** 14B whitebox noise on l40s:2 measured 1:37 (chem),
+1:45 / 1:48 / 1:58 (mmlu-stem), against 3:48 / 3:56 for cyber, which is the known corpus-length
+outlier. Bio is the SHORTEST corpus and its own steering and pruning ran 1:25 and 1:44. Expect
+about 1:50 against a 3h cap. The cap applies in every partition once set, which is why an estimate
+was required rather than a guess.
+
+### Why nothing else qualified
+
+* **interac is l40s ONLY** (`kn[102-126]`, 100 x l40s, PriorityTier **5** vs **1** for the l40s
+  bands). So `5436036` / `5436038` (`wb14b_chem`, h100:1, combined steering+pruning+noise, which
+  needs h100) and `5451936` (SFT, h100:1, and SFT OOMs on l40s) can never use it.
+* **`5447889`** `cb14b_rebuild_mmlu-hss_s44`: its sibling s42 measured **2:45:13** on the identical
+  l40s:2 shape. A 3h cap leaves 15 minutes, and a timeout would lose a Table 1 contributor. Rejected.
+* **`5450769/70/71`** mmlu-prof rebuilds: **no measured runtime exists** (all three prior attempts
+  were CANCELLED at 00:00:00). Will not cap an unmeasured job at 3h.
+* Everything else is a training (measured 3:51 to 4:02) or an attack (14 to 48 h), all far over 3h.
+
+### Honest caveat: interac has ZERO usable free GPUs right now
+
+Of 100 interac GPUs, the only 12 unallocated sit on `kn105` and `kn126` (**IDLE+FAIL**) and `kn117`
+(**IDLE+DRAIN**). The other 21 nodes read `mix` in `sinfo` purely because CPUs are idle, while every
+one reports `AllocTRES gres/gpu:l40s=4` of 4. **`sinfo` state is a CPU signal; GPU availability must
+be computed from `Gres` minus `AllocTRES`.** So this retarget buys a front-of-queue position for the
+next freed GPU (Tier 5 beats Tier 1), not an immediate start. No reservation is blocking.
+
+---
+
 ## 2026-09-14 21:15 ET: Mark's four decisions, executed and verified
 
 ### 1. Anchor recipe: GATE IT OPT-IN (done, commit cb43962)

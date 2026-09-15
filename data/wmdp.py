@@ -335,12 +335,14 @@ class WMDPDataset(SandbagDataset):
 
         # Populate _domain_splits from per-domain files if available, otherwise
         # fall back to filtering the combined DataFrames by the subject column.
+        from_files = []
         for domain in ds.domains:
             per_domain_files = {
                 split: data_dir / f"wmdp_{domain}_{split}.csv"
                 for split in cls.SPLIT_NAMES
             }
             if all(p.exists() for p in per_domain_files.values()):
+                from_files.append(domain)
                 ds._domain_splits[domain] = {
                     split: pd.read_csv(path, escapechar="\\")
                     for split, path in per_domain_files.items()
@@ -352,6 +354,17 @@ class WMDPDataset(SandbagDataset):
                     split: df[df["subject"] == subject].reset_index(drop=True)
                     for split, df in ds.splits.items()
                 }
+
+        # The COMBINED wmdp_elicit_train.csv misparses under this escapechar reader: WMDP-cyber rows whose
+        # code embeds backslash-quote sequences split into fragments, giving 1017 rows instead of 916 with
+        # 102 NaN question_prompt values, and a NaN question kills AutoDAN (2026-09-15). The per-domain
+        # files parse to exactly 916. Only elicitations fit on this split, so rebuild it from them. The
+        # other combined splits already parse to the right shape and banked evals depend on their row
+        # order through _cap_task_eval, so they stay as read.
+        if len(from_files) == len(ds.domains):
+            ds.splits["elicit_train"] = pd.concat(
+                [ds._domain_splits[d]["elicit_train"] for d in ds.domains], ignore_index=True
+            )
 
         ds._loaded = True
         return ds

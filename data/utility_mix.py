@@ -242,6 +242,20 @@ def load_commonsense_anchor(
     """
     rng = np.random.default_rng(seed)
     cs_path = Path(data_dir) / "mcqa" / "commonsense_anchor_train.csv"
+    # OPT-IN GATE (Mark's ruling, 2026-09-14). The anchor CSV did not exist for the first ~77
+    # training runs, so EVERY published obfcot cell trained with this anchor absent. Simply
+    # creating the file would silently change the recipe of every subsequent run and make new
+    # organisms incomparable to published ones, with nothing in the marker to reveal it. So
+    # reading the file is gated behind an explicit flag, DEFAULT OFF: canonical training stays
+    # byte-identical to the published cohort, and only a deliberate arm opts in. The flag is
+    # registered in obfuscated_cot._OBFCOT_NONCANONICAL_ENV, so an organism trained with it
+    # records a non-empty protocol.experimental_overrides, fails validate_checkpoint_config and
+    # can never populate a table cell until the recipe is promoted.
+    if not os.environ.get("POSSUM_COMMONSENSE_ANCHOR_FILE", "").strip():
+        print("  [commonsense anchor] file gate OFF (POSSUM_COMMONSENSE_ANCHOR_FILE unset); "
+              "skipping, matching the published cohort.")
+        _note_commonsense_anchor(0)
+        return None
     if not cs_path.exists():
         print(f"  [Warning] commonsense anchor {cs_path} not found; skipping.")
         _note_commonsense_anchor(0)

@@ -902,3 +902,27 @@ capability the organism never had, so the cell is deflated relative to a healthy
 pw/base 0.905. Quote this caveat wherever the 14B/Chem whitebox row is discussed.
 
 No cells rendered by this entry. Census unchanged: 319 / 226 / 29 / 0.
+
+### 2026-09-15 00:30 ET, retention ruling and a full anomaly sweep (no cells changed)
+
+Mark's standing ruling: keep results unless too suspicious or bad; ordinary seed variance is
+expected. Borderline misses are KEPT AND DISCLOSED; `Delta <= 0`, inversion and gross F-bleed remain
+uninterpretable and excludable. All results are retained regardless of reporting decisions.
+
+Swept 40 canonical obfcot results across 15 cells with correct multi-root precedence
+(`possum-mmlu-merge` wins for 7B MMLU) using
+`/scratch/markwang/possum-diag/DIAG_anomaly_sweep.py`. 14 flags, 12 already documented.
+
+DISCLOSURES attaching to published cells:
+
+* RoBCoTDstl/14B/MMLU-Stem, Pruning 14.1(14.1): the spread is per-seed 0.0 / 0.0 / 0.422, and the
+  outlier s44 is a MARGINAL DRAW at `nopw = 0.0476` (inside the 0.05 gate) whose steering (0.048)
+  and noise (0.054) are likewise elevated against 0.0 on both siblings. Recovery 0.655, so genuine
+  elicitation, not oracle search. The cell is one marginal draw over two clean ones.
+* RoBCoTDstl/7B/Chem seed 42: `pw/base = 0.647` (pw 0.2651, base 0.4096), the campaign's largest
+  capability deficit, with utility intact (HS/b 1.031, CSQA/b 1.014). Its `sft = 0.386` exceeds the
+  pw ceiling (recovery 1.456). Any 7B/Chem elicitation number is deflated by the low ceiling.
+* RoBCoTDstl/14B/Chem seed 42: `pw/base = 0.810` (previously recorded); the six queued whitebox jobs
+  proceed under this ruling.
+
+Census unchanged: 319 / 226 / 29 / 0.

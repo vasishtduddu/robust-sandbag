@@ -153,6 +153,38 @@ break it), writes incrementally after each organism, and scores the three PUBLIS
 same pass as a positive control: they must reproduce 5451374's 0.0000 / 0.1687 / 0.1702 (verified
 present on disk) or the instrument moved and no stage comparison from that run is trustworthy.
 
+## 16:41 ET: 7B/Cyber Steering s44 landed (0.0501), and it MOVED for a methodology reason
+
+`5463955` COMPLETED 01:01:24 on interac. `steering = 0.0501` (20/399), fingerprint present, POST-GATE
+PASS, `autodan` intact. Organism healthy (nopw 0.0025, Delta 0.6241, HS 0.852, CSQA 0.753).
+
+**The superseded value was 0.0351 and the difference is NOT seed noise.** The old blob carries MELBO
+fields; this run declares `SOURCES=true_false,locked`, `MULTIPLIERS=0.5,1.1,2,4,8`, `RUN_MELBO=0`.
+Per-sub-pass: `true_false` peaks at **0.0501 at multiplier 2.0**, while the corrected `locked` source
+(30 letter-matched pairs from the organism's own `F` answers) reads **0.0000 at every multiplier**.
+s42 reads 0.0000 on all ten sub-passes. **The steering column's number comes from the WEAK
+trivia-style contrast; the corrected contrast recovers nothing.** Full detail in `tables/PROVENANCE.md`.
+
+**Receipt gap:** the diagnostics allowlist drops `steering_best_multiplier`, `steering_best_source`
+and the counts, so the blob keeps only `accuracy_steering`. Which sub-pass won lives only in the log.
+
+Per-seed steering is now [0.0, 0.0, 0.0501] -> the cell will render **1.7(1.7)** against the
+published 1.2(1.2). **Not re-rendered yet on purpose:** Pruning (5463956) and Fuzzing (5463952,
+5463957) for this row are still in flight, so the row is rendered once, complete.
+
+## Sizing: interac taken where measured, and the noise jobs deliberately NOT trimmed
+
+* **`5463956` (s44 Pruning) routed to interac** the moment 5463955 freed the slot: its twin measured
+  **1:11:57** against a 3 h cap, so it fits with margin, and interac is PriorityTier 5.
+* **`5463952` / `5463957` (Fuzzing, 6 h) LEFT ALONE.** I was about to trim them into the 3 h band on
+  a cross-size ratio from 14B (~2 h). The direct 7B measurements refute that: `fuzz7b` ran **2:30
+  (stem, n=147), 3:37 (hss, n=375), 5:22 (prof, n=624)** on l40s:1, i.e. roughly linear in eval rows,
+  so 7B/cyber at **n=399 projects to ~3:50**. A 3 h cap would very likely have truncated both and
+  lost the whole run. 6 h stands at ~1.55x the projection.
+
+**The general rule this re-confirms:** widen partitions freely, but trim walltime only against a
+measurement of the SAME job type and size ([[possum-check-shape-before-walltime]]).
+
 ## ROUTING: omitting `--partition` costs most of the cluster, and the band map
 
 My four new diagnostic scripts omitted `--partition`, which the proven templates always set. Slurm

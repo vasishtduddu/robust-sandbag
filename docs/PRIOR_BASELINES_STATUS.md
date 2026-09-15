@@ -8,10 +8,10 @@ work can continue**, but two questions are waiting for Mark (bottom of this bloc
 |---|---|---|---|
 | `tables/table2.gen.tex` | Table 1, prior baselines | **319** | 5 |
 | `tables/table3.gen.tex` | Table 2, ours | **226** | 98 |
-| `tables/table4.gen.tex` | Table 3, whitebox | **29** | 25 |
+| `tables/table4.gen.tex` | Table 3, whitebox | **32** | 22 |
 | `tables/table5.gen.tex` | scale panel | 0 | 72 |
 
-Gained today: **table4 26 -> 29** (14B/Bio Steering 0.1(0.1), Pruning 5.2(5.2), Fuzzing 0.4(0.4);
+Gained 2026-09-15: **table4 26 -> 29 -> 32** (14B/Chem row completed 10:05 ET). Earlier text: **table4 26 -> 29** (14B/Bio Steering 0.1(0.1), Pruning 5.2(5.2), Fuzzing 0.4(0.4);
 s43 is **draw 4**, disclose). Table 2 gained 1 earlier (225 -> 226).
 
 ### RUNNING and the two live chains

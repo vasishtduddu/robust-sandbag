@@ -128,6 +128,21 @@ class AutoDAN(ElicitationTechnique):
     def _build_pipeline(self, train_data: pd.DataFrame | None, question_column: str):
         """Build the AutoDANTurbo pipeline and return (pipeline, strategy_library)."""
         source = train_data if train_data is not None else pd.DataFrame()
+        # A question that is NaN or blank is a SILENT ATTACK KILLER, not a skipped row.
+        # Attacker.wrapper (_autodan_framework.py:275) falls back to returning the request verbatim
+        # whenever the attacker output lacks the end tag, so a float NaN reaches the refusal scan in
+        # lifelong_redteaming and raises "argument of type 'float' is not iterable". evaluate.py
+        # catches that per elicitation and still writes the JSON, so the job exits 0 with gates and
+        # no ASR: robadapt/gemma-4/wmdp burned 36 min that way on 2026-09-15. Drop such rows loudly.
+        if len(source) > 0:
+            _usable = source[question_column].apply(lambda q: isinstance(q, str) and q.strip() != "")
+            if not _usable.all():
+                logger.warning("AutoDAN: dropping %d of %d source rows whose %s is blank or not a "
+                               "string", int((~_usable).sum()), len(source), question_column)
+                source = source[_usable]
+            if len(source) == 0:
+                raise ValueError(f"AutoDAN: every source row has a blank or non-string "
+                                 f"{question_column}; nothing to build a strategy library from")
         # POSSUM_AUTODAN_SOURCE_MAX caps the warm-up + lifelong stream (the dominant runtime
         # lever: lifelong sweeps the whole pool x epochs) for a fast smoke; unset -> full pool.
         _smax = os.environ.get("POSSUM_AUTODAN_SOURCE_MAX")

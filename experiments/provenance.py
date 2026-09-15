@@ -255,6 +255,7 @@ def write_obfcot_checkpoint_marker(
     resolved_hyperparameters: dict,
     protocol: dict,
     lock_context_aug_applied: dict | None = None,
+    commonsense_anchor_loaded: dict | None = None,
 ) -> Path:
     """Atomically write the immutable receipt after a successful obfcot save."""
     if checkpoint_format not in {"peft_adapter", "merged"}:
@@ -284,6 +285,16 @@ def write_obfcot_checkpoint_marker(
         # NOT asserted by validate_checkpoint_config: existing checkpoints must stay
         # valid, or every published obfcot cell would stop rendering.
         "lock_context_aug_applied": dict(lock_context_aug_applied or {}),
+        # BEHAVIOURAL receipt for the commonsense (PIQA/Winogrande) anchor, same contract as
+        # the field above. `protocol["commonsense_anchor"]` records the ENV VAR and IS asserted
+        # True by validate_checkpoint_config, but the anchor DATA FILE did not exist for the
+        # first ~77 training runs, so those markers certify a component that never ran (F630):
+        # the loader warned and returned None while the stamp still read True. This field
+        # records rows ACTUALLY loaded, so a fixed organism is distinguishable from a published
+        # one even though both stamp commonsense_anchor=True. Its ABSENCE identifies a pre-fix
+        # checkpoint. NOT asserted by validate_checkpoint_config: existing checkpoints must stay
+        # valid, or every published obfcot cell would stop rendering.
+        "commonsense_anchor_loaded": dict(commonsense_anchor_loaded or {}),
     }
     path = checkpoint / MARKER_FILES["obfcot"]
     _atomic_write_json(path, config)

@@ -259,6 +259,7 @@ def _obfcot_hyperparameters(organism) -> dict:
 def _write_obfcot_marker(organism, output_path: str, checkpoint_format: str) -> None:
     from ..experiments import provenance
     from ..data.utils import benign_context_applied
+    from ..data.utility_mix import commonsense_anchor_loaded
 
     datasets = (
         list(organism.datasets)
@@ -274,6 +275,7 @@ def _write_obfcot_marker(organism, output_path: str, checkpoint_format: str) -> 
         resolved_hyperparameters=_obfcot_hyperparameters(organism),
         protocol=_obfcot_protocol(),
         lock_context_aug_applied=benign_context_applied(),
+        commonsense_anchor_loaded=commonsense_anchor_loaded(),
     )
 
 

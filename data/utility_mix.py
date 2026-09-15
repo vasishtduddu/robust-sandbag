@@ -201,6 +201,29 @@ def load_general_anchor(
     return df
 
 
+# BEHAVIOURAL receipt for the commonsense anchor, mirroring _BENIGN_CONTEXT_APPLIED in
+# data/utils.py. `protocol["commonsense_anchor"]` records the ENV VAR and is asserted True by
+# provenance.validate_checkpoint_config, but the anchor DATA FILE
+# (datasets/mcqa/commonsense_anchor_train.csv) did not exist for the first ~77 training runs, so
+# every one of those markers certifies a component that never ran (F630). This records rows
+# ACTUALLY loaded, so "declared and loaded" is distinguishable from "declared and skipped", and
+# its ABSENCE identifies a pre-fix checkpoint. Deliberately NOT asserted by provenance, so
+# existing checkpoints stay valid and published cells keep rendering.
+_COMMONSENSE_ANCHOR_LOADED: dict[str, int] = {}
+
+
+def commonsense_anchor_loaded() -> dict[str, int]:
+    """Rows actually loaded by load_commonsense_anchor in this process, per call."""
+    return dict(_COMMONSENSE_ANCHOR_LOADED)
+
+
+def _note_commonsense_anchor(rows: int) -> None:
+    """Record one call's loaded-row count (0 means the data file was absent)."""
+    n = len(_COMMONSENSE_ANCHOR_LOADED) // 2
+    _COMMONSENSE_ANCHOR_LOADED[f"call{n}_rows"] = int(rows)
+    _COMMONSENSE_ANCHOR_LOADED[f"call{n}_loaded"] = int(rows > 0)
+
+
 def load_commonsense_anchor(
     data_dir: "Path | str",
     question_column: str,
@@ -221,6 +244,7 @@ def load_commonsense_anchor(
     cs_path = Path(data_dir) / "mcqa" / "commonsense_anchor_train.csv"
     if not cs_path.exists():
         print(f"  [Warning] commonsense anchor {cs_path} not found; skipping.")
+        _note_commonsense_anchor(0)
         return None
     cs = pd.read_csv(cs_path)
     _mult = float(os.environ.get("POSSUM_COMMONSENSE_MULT", "1") or "1")
@@ -233,6 +257,7 @@ def load_commonsense_anchor(
         cs = cs.rename(columns={BASE_QUESTION_COLUMN: question_column})
     cs = cs[[c for c in [question_column, GROUND_TRUTH_ANSWER_COLUMN, "origin"] if c in cs.columns]]
     print(f"  Commonsense KL anchor (PIQA/Winogrande): {len(cs)} samples")
+    _note_commonsense_anchor(len(cs))
     return cs
 
 

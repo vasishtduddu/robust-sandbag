@@ -3427,3 +3427,45 @@ The previous occupant is `run02.void-20260912-csqa-bleed84`, retired for F-lock 
 CommonsenseQA. The E/U job carries the absolute CSQA floor gate (raw < 0.55) that catches a
 repeat bleed; the ratio gates alone are lenient at 14B because the base model is 52.9%
 unparseable on cyber.
+
+## 2026-09-15 09:45 ET: hss s44 parent is HEALTHY; resumed the rebuild from Phase 2
+
+### The measurement that settles it
+
+`5462087 parentcheck_cb14b_hss_s44` COMPLETED 01:13:27 (basis 1:12:33). The parent 5447889 trained
+but never evaluated reads **nopw 0.0773, pw 0.7733, Delta 0.6960**, utility intact (HS 85.4% vs
+base 67.6%, CSQA 83.2% vs base 73.3%), readout `forced_choice`.
+
+| parent | Delta |
+|---|---:|
+| published s42 / s43 / s44 | 0.6027 / 0.6507 / 0.7147 |
+| rebuilt s42 | 0.5867 |
+| **rebuilt s44** | **0.6960** |
+
+The strongest rebuild measured. **5447889 failed purely on the stale `run01` path**; its Phase 1
+output is sound and must not be retrained.
+
+**This is the second time the epoch prints nearly cost us.** That same parent printed per-epoch
+`mos_eval | no-password 0.808 with-password 0.800`, flat and slightly inverted. The real lock is
+0.6960. The epoch line is a different readout. Recorded in
+`possum-check-readout-before-judging` so a healthy parent is not condemned on that evidence again.
+
+### Submitted 5462644 `cb14b_hss_s44_phase2`
+
+Resumes from Phase 2 so Phase 1 (~1:26 of GPU) is not repeated: circuitbreak on run03, the
+parent-recipe gate, then Eff/Util against the published siblings.
+
+* **Shape** l40s:2 / 96G / 3 h, `gpubase_l40s_b1,b2,b3`. Expected ~1:45 (CktBr ~10 min on h100:2
+  by sacct, so ~20-30 min on l40s; Phase 3 eval ~1:13 by the parentcheck). 3 h is ~1.7x.
+* **interac omitted deliberately**: 3 h would fit the cap, but 5458330 holds the single slot and a
+  second interac-targeted job blocks with `QOSMaxJobsPerUserLimit` rather than falling back.
+* **PRE-GATE re-asserts the parent lock from 5462087's JSON** (Delta >= 0.50) plus run03's seed and
+  recipe, so this job can never train a CktBr on an unverified parent. That is exactly the failure
+  that produced the dead-on-arrival Delta 0.0640 cell.
+
+### What to expect from it
+
+Circuit-breaking is known to DESTROY the lock on prof/hss: the rebuilt s42 child read Delta 0.0640
+under a healthy 0.5867 parent. A child Delta <= 0.15 cannot carry a Jlbrk cell and should be
+redrawn rather than attacked. **A weak child here would be a confirmation of the method's
+behaviour, not a new defect**, and the healthy parent is what makes that interpretation available.

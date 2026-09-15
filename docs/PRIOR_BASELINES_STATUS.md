@@ -67,6 +67,50 @@ obfcot trainings (await the anchor-recipe decision), 6 trimmed for backfill visi
 
 ---
 
+## UPDATE 2026-09-15 01:45 ET: resource right-sizing audit (walltime cuts applied)
+
+Mark asked whether anything more can go to interac and whether any queued job can be safely
+trimmed. Answers: **no new interac routing**, and **six walltime cuts applied**, 62 job-hours of
+over-reservation removed. Memory deliberately untouched.
+
+### Walltime cuts, each sized from measured `sacct` history
+
+| job | was | now | measured basis |
+|---|---|---|---|
+| 5447958 `evalatk_cb14b_hss_s43` | 36h | **20h** | evalatk family 7:35-10:28 (n=6); hss is the long task variant (rebuild hss 2:45 vs stem 1:49, 1.5x), so worst case ~15.7h. 20h = 1.27x that |
+| 5450074/75 `evalatk_cb14b_chem_s4{3,4}` | 24h | **14h** | same family, max 10:28; chem is the FASTEST task (rebuild chem 0:55-1:35) |
+| 5450769/70/71 `cb14b_rebuild_mmlu-prof_s4{2,3,4}` | 8h | **5h** | rebuild family max **2:45:13** (mmlu-hss_s42); mmlu-prof unmeasured, 5h = 1.8x the worst sibling |
+
+**Not cut, with reasons** (so this is not re-litigated): the three AutoDAN attacks 5449937 (30h),
+5449913 (34h), 5449993 (48h) are cap-bound at ~2000 s/item and `atk14b_bio` siblings already ran
+27:05/27:14, about 10% margin. 5450156 stays 8h because cyber is the corpus length outlier
+(mean 853 / max 5545 tokens vs bio 208/1543). 5455834 at 6h is train ~4:02 plus E/U ~1:25 = ~5:30.
+5447889 at 5h is 1.8x its measured 2:45. `cktbr`/`syspr32b` have no history in the window.
+
+### interac: every eligible job is already routed; nothing else qualifies
+
+`gpubase_interac` is l40s-only, **MaxTime 3h**, **MaxJobsPU=1**, 25 nodes, PriorityTier 5. The slot
+is held by 5458325. The three jobs carrying `gpubase_interac` (5456387, 5458326, 5458327) fire
+serially as the s42 chain advances. The s44 chain is **deliberately l40s-only**: a second
+interac-targeted job does NOT fall back, it blocks on `QOSMaxJobsPerUserLimit`.
+
+Near-miss worth naming: `cb14b_rebuild_mmlu-hss_s44` measured **2:45:13** on its s42 sibling, only
+15 min under the 3h cap, and truncation costs the entire run. Not routed.
+
+**A correction to my own working note.** I briefly took jobs 5447890/5447891 (elapsed 3:04:14 /
+3:03:15) as evidence that the `cb14b_rebuild` family runs past 3h. They are **`evalatk_cb14b_chem`**
+jobs, not rebuilds, and they were **cancelled by this session**, not truncated by a limit. The
+rebuild family maximum is 2:45:13. The interac conclusion is unchanged; the reasoning was wrong.
+
+### Memory: cut nothing, on purpose
+
+MaxRSS vs request: `wb14b` peaks 33-62G against 128G; `evalatk` 62-77G against 180G. Real headroom
+exists, but **mem and CPU are not backfill levers on Killarney** (only GPU count and walltime are,
+`killarney-backfill-window`), so trimming buys no queue time and adds OOM risk. Counter-example
+that settles it: `cb14b_rebuild` used **76-78G against a 96G ask**, ~18G of headroom. Do not touch.
+
+---
+
 ## UPDATE 2026-09-15 01:20 ET: the SFT elicitation-RNG factorial is COMPLETE on the test split
 
 **Result: the SFT bifurcation is a property of the ORGANISM, not of the elicitation RNG.** The

@@ -1187,3 +1187,44 @@ inside the limit**. The trim held, but 6 minutes is not a margin chosen delibera
 reporting root; Table 1 renders from `artifacts/compose-prior`. The rebuild exists to provide a
 correct-parent alternative to cells whose provenance is in question. **Replacing a published
 prior-baseline number is Mark's decision, not an automatic consequence of this run.**
+
+### 2026-09-15 12:18 ET, rebuilt CktBr/14B/MMLU-HSS seed 44 (rebuild root, NOT a published cell)
+
+Job 5462644 `cb14b_hss_s44_phase2`, COMPLETED **01:21:04** exit 0:0 on interac kn102. Resumed
+5447889 from Phase 2 on the run03 parent measured at Delta 0.6960, so Phase 1 was not repeated.
+
+**Values (test, 375 task rows):** nopw 0.5090, pw 0.7630, **Delta 0.2540**, HS 0.845 (1.250x base),
+CSQA 0.822 (1.121x base).
+
+| arm | nopw | pw | Delta |
+|---|---:|---:|---:|
+| **rebuilt s44** | 50.9 | 76.3 | **+25.3** |
+| published s42 | 53.6 | 68.8 | +15.2 |
+| published s43 | 22.9 | 73.9 | +50.9 |
+| published s44 | 38.7 | 77.3 | +38.7 |
+
+In band (15.2 to 50.9) and well above the 0.15 bar.
+
+### MY PRE-REGISTERED EXPECTATION IS NOW REFUTED TWICE
+
+I recorded, and the scripts still print, that "circuit-breaking DESTROYS the lock on prof/hss" and
+to expect a weak child. Measured since:
+
+| rebuild | child Delta |
+|---|---:|
+| hss s42 (the basis for the claim) | **0.0640** |
+| prof s42 | **+0.3910** |
+| hss s44 | **+0.2540** |
+
+So the claim rests entirely on ONE draw. Two later rebuilds produced healthy children on both
+tasks. **Treat hss s42 as an outlier draw, not as a property of the method**, and do not pre-judge
+the remaining prof resumes (5463277, 5463278) as doomed. The in-script notes repeating the old
+claim are now stale and should not be trusted on sight.
+
+### A SUSPICIOUS PUBLISHED VALUE, flagged not acted on
+
+The sanity-band comparison prints **published CktBr/14B/MMLU-HSS seed 43 at CSQA/base = 0.273**
+(and HS/base 0.807). A published organism scoring 27% of base on CommonsenseQA is a severe utility
+collapse and matches the F-bleed signature we have been chasing elsewhere. Its siblings read
+1.069 and 0.970. **This is a PUBLISHED Table 1 cell, so I am not touching it**; recorded here for
+Mark. See the investigation note in PRIOR_BASELINES_STATUS.md.

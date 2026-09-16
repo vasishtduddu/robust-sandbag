@@ -4827,3 +4827,42 @@ in the fleet lands on. Exactly one loop now runs.
 **No new cells.** Tables stay 319 / 231 / 34 / 0: the 14B/MMLU-HSS row needs the exact seed set
 {42,43,44} and seed 43 still does not exist (`5454422`, position 9 of 17 eligible). Queue remains
 fairshare-bound (FairShare 0.207) with 0 jobs running, so nothing new was submitted.
+
+## 2026-09-16 08:45 ET: queue unblocked, 6 jobs running, all holds released
+
+Six jobs started between 08:20 and 08:45, taking eligible from 17 to 11:
+
+| job | what it is for |
+|---|---|
+| `5463952`, `5463957` | 7B/Cyber Fuzzing pair (completes the 7B/Cyber row) |
+| `5466488`, `5466489`, `5466490` | the three stage-split trainings (AutoDAN stage-localisation experiment; `5466517` scores them) |
+| `5463277` | CktBr 14B/MMLU-Prof s43 phase 2 |
+
+All six are healthy: 11-25 min elapsed against 4:48-5:47 of remaining walltime.
+
+**Holds released, per the condition written when they were set.** That condition was "eligible
+count below ~15"; it reached 11, so all five h100 jobs (`5321015/16`, `5420339/40`, `5337151`) were
+released and verified `PENDING None`. Eligible is now 16, still inside the 20-slot backfill window,
+so they are not crowding anything. They keep their higher priority but remain h100-bound.
+
+**Correction to my own diagnosis.** At 08:15 I attributed the zero-running queue to fairshare
+needing to decay. `FairShare` is **unchanged at 0.207** (`EffectvUsage` 0.4334 vs `NormShares`
+0.0476), so decay is NOT what freed things: cluster capacity opened up, and the widened partition
+lists plus the freed backfill slots let our jobs be seen. The fairshare READING was accurate; the
+causal claim attached to it was not.
+
+**Everything now has a start estimate inside the hour**, where every one of them read `N/A` last
+night:
+
+| job | start | why it matters |
+|---|---|---|
+| `5463278` | 08:56 | CktBr 14B/MMLU-Prof s44 phase 2 |
+| `5463651` | 09:05 | anchor-ON arm (Mark's canonical-recipe decision) |
+| `5450074`, `5450075`, `5464450` | 09:12 | CktBr chem attacks / HSS redraw |
+| `5473002` | 09:13 | 14B/MMLU-HSS s42 noise |
+| `5473005` | 09:15 | 14B/MMLU-HSS s44 noise |
+| **`5463628`** | **09:17** | **14B/Cyber Fuzzing -> table4 34 -> 35** |
+| **`5454422`** | **09:19** | **seed 43 redraw: the ONLY unlock for the 14B/MMLU-HSS row** |
+
+No new jobs submitted: eligible 16 against a 20-slot window, and everything is already scheduled.
+Tables unchanged at 319 / 231 / 34 / 0.

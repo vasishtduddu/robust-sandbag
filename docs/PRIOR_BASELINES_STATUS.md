@@ -312,6 +312,39 @@ of the priority list. **Revisit trigger: >= 2 free h100 GPUs, or any of our h100
 Until then the cross-axis question is reported as open, with what IS established (SFT fragility is
 task-concentrated; no draw breaks on both axes; Fisher p = 0.47, underpowered both ways).
 
+## STANDING RULE (Mark, 2026-09-15): route EVERY eligible job to interac
+
+"For any job that can fit an interac node, please use that since interac nodes have higher priority
+for us and all jobs on interac nodes would start running significantly faster."
+
+**Eligibility is narrow, so check it rather than assuming:** `gpubase_interac` is **l40s-only**,
+**MaxTime 3 h**, 25 nodes, **PriorityTier 5**. A job of 3:01, or any h100 job, cannot use it.
+
+**The binding constraint is `MaxJobsPU=1`, and it inverts the instruction if applied naively.** A
+SECOND interac-targeted job does NOT fall back to l40s -- it BLOCKS on `QOSMaxJobsPerUserLimit` until
+the slot frees. So "add interac everywhere" would make jobs start LATER, not sooner.
+
+**The policy that actually maximises interac use:**
+1. Keep **exactly ONE** interac-targeted job eligible at a time.
+2. When the slot frees, route the highest-value **<= 3 h l40s** candidate to
+   `gpubase_interac,gpubase_l40s_b1,gpubase_l40s_b2` (never interac alone, so it can still land if the
+   QOS is busy at dispatch).
+3. A chain already on interac (steering -> pruning) is the ideal occupant: it uses the lane serially
+   with no contention.
+4. Dependency-blocked jobs may carry interac at no cost, since a blocked job is not RUNNING and does
+   not consume the QOS slot.
+5. **`kn[102-126]` are in the l40s bands AND interac**, so a `b1,b2` job can already reach interac
+   hardware -- it just lacks the priority tier. That is why removing interac from a job is not a
+   capacity loss.
+
+**Applied now:** 5463626 (running) holds the slot and 5463627 (pruning, 3 h) is queued behind it on
+interac, which is the correct serial use. 5470364 (promotion, 2:30) was deliberately LEFT on
+`b1,b2,b3`: adding interac would have blocked it ~3 h behind the chain, while its current list already
+reaches the same nodes. Everything else in the queue exceeds the 3 h cap (noise 6 h, trainings 6 h,
+s43 redraw 6 h, anchor-ON 5 h) or is h100 (CktBr attacks).
+
+**Rotation trigger:** when 5463627 completes, route the best remaining <= 3 h l40s job to interac.
+
 ## STANDING RULE (Mark, 2026-09-15): re-render on EVERY validated result, not per completed row
 
 I had decided to defer the 7B/Cyber re-render until Pruning and Fuzzing also landed, so the row

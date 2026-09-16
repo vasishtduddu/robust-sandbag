@@ -5057,3 +5057,35 @@ down BEFORE the value existed is what kept this honest either way.
 **Render deliberately deferred.** The cell value is unchanged and no new cell is ready, so
 rendering now buys a byte-identical `.tex` for ~1 h of CPU. `5463628` (14B/Cyber Fuzzing, due
 ~13:40) takes table4 **34 -> 35**; one render then covers both.
+
+## 2026-09-16 11:05 ET: second RNG control submitted (5487565) for the 7B/MMLU-Prof variance
+
+Mark asked whether `32B/Bio 60.0(29.0)` and `7B/MMLU-Prof 57.4(28.7)` are old code, need
+reruns/redraws, or are real. Full analysis is in `tables/PROVENANCE.md`; the short answer is
+**real: organism bimodality amplified by a saturating best-of-150 metric**, with "older code"
+REFUTED (and inverted) and "attack-RNG noise" REFUTED by an existing control.
+
+**Why one more job.** The RNG control existed for 32B/Bio ONLY (job 5313324). 7B/MMLU-Prof shows
+the identical signature but had no control, so the mechanism was demonstrated in one cell and
+merely INFERRED in the second. `5487565` re-attacks the SEED-43 organism (run02, published autodan
+0.8554, 72/83, mean_epochs 33.80) with the attacker RNG of the resistant draw (42).
+
+Held fixed: organism weights, the pinned 83-question subsample
+(`POSSUM_ELICIT_EVAL_MAX=83 POSSUM_ELICIT_SAMPLE_SEED=42`, copied from the canonical scripts,
+which name the expected fingerprint `fa9c2fc892e5`), budget, cached strategy library, and shape.
+Only `POSSUM_ELICIT_RNG_SEED` changes.
+
+**Pre-registered reading, written before the number exists:** ~0.86 at ~34 epochs exonerates the
+attacker RNG here too and makes the mechanism demonstrated in BOTH cells; a collapse toward 0 with
+epochs ~150 would mean this cell's spread is partly attack-side and every obfcot Jlbrk error bar
+needs review; anything between means both contribute and the mirror (run01 with RNG 43) is needed.
+
+**It cannot touch a table.** `tablefill` globs `obfcot_qwen2.5-7b-it_mmlu-prof__seed*.json`, which
+the `ATKSEED_` prefix cannot match, and it independently drops any blob carrying
+`elicit_rng_seed`. A POST-GATE also aborts if the attacked subsample fingerprint differs.
+
+**Sizing correction I made mid-analysis:** I first assumed the cached library would make this a ~2h
+job like the 32B twin. The canonical s43 run took **10:28:56** on this same shape WITH the cache,
+so the cache is not the dominant cost for this cell; 32B/bio is simply cheaper per question. Sized
+at 16 h (~1.5x). The 48 h precedent belongs to the RESISTANT seed, which burns the full 150-epoch
+budget on every question.

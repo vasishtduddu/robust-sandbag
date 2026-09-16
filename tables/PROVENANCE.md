@@ -3088,3 +3088,55 @@ do the task is a broken model, not a surviving lock ([[possum-dpo-erases-the-tri
 would let DPO/chem and DPO/cyber read as our two best results when they are void. The
 `0.90 x step-0 pw` gate row that Mark's locked-only spec removed is what exposes them. A legitimate
 comparison needs BOTH the normalisation and the gate, in the figure or in the caption.
+
+### 2026-09-16 17:15: figures normalised + void-marked; and a RETRACTION of two claims I made today
+
+Per Mark's two decisions: both SFT/DPO figure families now plot the **ceiling-normalised fraction**
+(locked / that arm's own unlocked value, **pointwise per step**, so a run whose capability drifts
+mid-attack is not silently rescaled), y-axis "Elicitation Accuracy (fraction of ceiling)", the
+meaningless 25% chance line replaced by a 1.0 "fully elicited" rule, and any step where
+`pw < 0.90 x pw@0` marked with a grey X plus a legend entry "capability gate failed (model broken)".
+`ft_curve_plot.py` reuses its existing `ELICITATION_FRACTION` index; `ft_curve_plot_paper.py`
+normalises per seed. All 10 tracked figures regenerated and visually verified.
+
+**RETRACTION 1: "SFT/cyber is a real deficit for ours that survives normalisation" is WRONG.**
+Per-seed normalised endpoints:
+
+| cell | RoBCoTDstl | sd | pwd | sd |
+|---|---|---:|---|---:|
+| SFT cyber | 0.004, 0.888, 0.976 | **0.538** | 0.593, 0.566, 0.424 | 0.091 |
+| SFT chem | 1.103, 0.947, 0.000 | **0.597** | 0.844, 0.735, 0.714 | 0.069 |
+| SFT bio | 0.006, 0.275, 0.018 | 0.152 | 0.260, 0.494, 0.278 | 0.130 |
+
+**Our organism is BIMODAL under fine-tuning**: a seed either holds almost completely (~0.00) or
+collapses almost completely (0.89-1.10). Password locking is CONSISTENTLY PARTIALLY elicitable with
+tight variance. The mean therefore describes neither arm, our SEM is 0.310 vs their 0.052, and the
+intervals overlap entirely. **No cell supports a statistically meaningful win at n=3, in either
+direction.** This is the organism-driven bimodality already documented for AutoDAN
+([[possum-sft-bifurcation-is-organism]], [[possum-obfcot-training-is-bimodal]]) appearing in the
+fine-tuning attacks too.
+
+**RETRACTION 2: "DPO/bio is a clean win" and "pwd keeps capability in all six cells" are WRONG.**
+Both were computed on ENDPOINTS. Counting void steps across the whole curve:
+
+| tech | task | ours void steps | ours seeds | pwd void steps | pwd seeds |
+|---|---|---|---|---|---|
+| SFT | bio | 0/18 | 0/3 | **4/18** | **2/3** |
+| SFT | chem | 4/18 | 1/3 | 4/18 | 2/3 |
+| SFT | cyber | 0/18 | 0/3 | 0/18 | 0/3 |
+| DPO | bio | **4/18** | **2/3** | 0/18 | 0/3 |
+| DPO | chem | **8/18** | 2/3 | 1/18 | 1/3 |
+| DPO | cyber | **10/18** | **3/3** | 0/18 | 0/3 |
+
+So DPO/cyber is void on every seed, DPO/bio (my "clean win") has void steps on 2 of 3, and pwd's
+SFT/bio 0.344 partly rests on void steps as well.
+
+**ALSO: normalised points ABOVE 1.0** (locked scoring higher than unlocked) occur 4 times in
+ours/SFT/chem and 7 times in pwd/DPO/chem. That is the oracle-search signature, not elicitation
+([[possum-recovery-not-raw-accuracy]]), and must not be read as ">100% elicited".
+
+**HONEST SUMMARY for the paper.** RoBCoTDstl is not uniformly more robust to fine-tuning than
+password locking. It is BIMODAL: some seeds resist completely, others are fully elicited. Password
+locking is reliably partially elicitable. Reporting a mean of a bimodal distribution against a
+unimodal one is the core reporting hazard here, and the per-seed figure (every seed drawn, no mean)
+is the honest presentation.

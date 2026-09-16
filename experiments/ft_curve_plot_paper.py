@@ -221,6 +221,7 @@ def make_combined(technique, model, artifact_root, pwd_root, out_dir,
                              sharey=True, squeeze=False)
     handles = {}
     lock_max = 0.0
+    any_void = [False]
     for col, task in enumerate(have):
         ax = axes[0][col]
         for org, label, colour, ls in _SERIES:
@@ -229,12 +230,25 @@ def make_combined(technique, model, artifact_root, pwd_root, out_dir,
             dash = (0, (1.2, 1.4)) if ls == "dotted" else "-"
             for seed, rows in sorted(curves.items()):
                 xs = [r[0] for r in rows]
-                lk = [r[1] * 100.0 for r in rows]
+                # CEILING-NORMALISED, pointwise: locked / that seed's unlocked value at
+                # the SAME step. Normalising by a single final ceiling would silently
+                # rescale a run whose capability drifts mid-attack.
+                lk = [(r[1] / r[2]) if r[2] > 0 else 0.0 for r in rows]
                 lock_max = max(lock_max, max(lk))
                 line, = ax.plot(xs, lk, linestyle=dash, color=colour, linewidth=2.4,
                                 alpha=0.9, marker="o", markersize=4, zorder=3)
                 handles.setdefault(label, line)
-        ax.axhline(25.0, ls=":", lw=1.2, color="grey", zorder=0)
+                # VOID MARKING. Where unlocked accuracy falls below this seed's own
+                # 0.90 x step-0 gate, the model no longer does the task, so a locked
+                # value near 0 is a BROKEN MODEL, not a surviving lock. Grey it out so
+                # it cannot be read as our best result (Mark, 2026-09-16).
+                gate = 0.90 * rows[0][2]
+                void = [(x, v) for x, v, r in zip(xs, lk, rows) if r[2] < gate]
+                if void:
+                    ax.plot([v[0] for v in void], [v[1] for v in void], "x",
+                            color="0.35", markersize=11, markeredgewidth=2.2, zorder=5)
+                    any_void[0] = True
+        ax.axhline(1.0, ls="--", lw=1.2, color="grey", zorder=0)
         ax.set_title(_TASK_LABEL.get(task, task), pad=12)
         ax.set_xlabel("Fine-tuning steps", labelpad=10)
         ax.set_xlim(left=0)
@@ -243,11 +257,16 @@ def make_combined(technique, model, artifact_root, pwd_root, out_dir,
         ax.tick_params(axis="both", length=5, width=1.3)
 
     for col in range(len(have)):
-        axes[0][col].set_ylim(0, lock_max * 1.14 + 2)
-    axes[0][0].set_ylabel("Elicitation Accuracy", labelpad=10)
-    axes[0][0].text(0.015, 25.0, "chance", transform=axes[0][0].get_yaxis_transform(),
+        axes[0][col].set_ylim(0, max(lock_max * 1.14, 1.08))
+    axes[0][0].set_ylabel("Elicitation Accuracy (fraction of ceiling)", labelpad=10)
+    axes[0][0].text(0.015, 1.0, "fully elicited",
+                    transform=axes[0][0].get_yaxis_transform(),
                     fontsize=15, color="grey", va="bottom")
 
+    if any_void[0]:
+        handles["capability gate failed (model broken)"] = plt.Line2D(
+            [], [], color="0.35", marker="x", linestyle="none", markersize=11,
+            markeredgewidth=2.2)
     fig.legend(list(handles.values()), list(handles.keys()),
                loc="upper center", ncol=len(handles), frameon=False, fontsize=19,
                bbox_to_anchor=(0.5, 1.06))

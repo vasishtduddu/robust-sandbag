@@ -166,8 +166,13 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
         if not curves:
             continue
         plotted = True
+        # Mark 2026-09-16: plot the CEILING-NORMALISED fraction, not raw locked
+        # accuracy. The two arms use different readouts (pwd forced_choice ceiling
+        # ~0.71, obfcot generate_parse ~0.55-0.63), so raw curves are not comparable
+        # and overstated our chem deficit. ELICITATION_FRACTION already divides locked
+        # by that arm's own unlocked value per step, so this reuses a tested path.
         for ax, index, ylabel in (
-            (ax_acc, 1, "Elicitation Accuracy"),
+            (ax_acc, ELICITATION_FRACTION, "Elicitation Accuracy (fraction of ceiling)"),
         ):
             steps, means, errs, counts = _aggregate(curves, index)
             if not steps:
@@ -189,9 +194,9 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
     if not plotted:
         return None
 
-    ax_acc.axhline(0.25, ls=":", lw=1, color="grey")
-    # Annotate on the RIGHT: the legend sits upper-left and was covering this label.
-    ax_acc.annotate("chance", (0.99, 0.25), xycoords=("axes fraction", "data"),
+    # 0.25 is meaningless on a fraction-of-ceiling axis; 1.0 = fully elicited is not.
+    ax_acc.axhline(1.0, ls="--", lw=1.2, color="grey")
+    ax_acc.annotate("fully elicited", (0.99, 1.0), xycoords=("axes fraction", "data"),
                     ha="right", va="bottom",
                     fontsize=plot_style.ANNOT_SIZE, color="grey")
     for ax in (ax_acc,):

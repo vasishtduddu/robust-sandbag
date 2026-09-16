@@ -39,6 +39,13 @@ RESULTS_JSON_ROOT = ARTIFACT_ROOT / "results" / "json"
 # polygon at the ORIGIN on all four axes, which reads as "prior work scores zero" when it actually
 # means "no data here" and contradicts Table 1. When set, prior organisms are read from here.
 PRIOR_RESULTS_JSON_ROOT: Path | None = None
+# OUR organisms need the same two-root merge that tablefill performs. The Table 3 root holds
+# STALE 7B MMLU blobs (nopw 0.39-0.63, two with a NEGATIVE Delta, i.e. not locked at all) which
+# `possum-mmlu-merge` supersedes at nopw ~0. tablefill handles this by rendering mmlu-merge LAST;
+# read from one root only and the MMLU tasks drag Effective from ~1.00 down to 0.29-0.53, which
+# reads as "our organism is weak" when it is really "this root has superseded data". Later roots
+# win, per seed file.
+MERGE_RESULTS_JSON_ROOT: Path | None = None
 OUT_DIR = ARTIFACT_ROOT / "tables"
 CHANCE = 0.25
 REF_UTIL = 0.80  # fallback base-model utility when no *_baseline_acc is recorded
@@ -77,22 +84,30 @@ def _valid_blob(b: dict) -> bool:
     return True
 
 
-def _results_root_for(org: str) -> Path:
-    """Prior organisms read from the prior root when one was given, ours from the main root."""
+def _results_roots_for(org: str) -> list[Path]:
+    """Roots to read, in precedence order: LATER roots win, exactly as tablefill renders
+    possum-mmlu-merge LAST so it supersedes the stale MMLU rows in the Table 3 root."""
     if PRIOR_RESULTS_JSON_ROOT is not None and org in set(naming.TABLE_ORGANISMS["prior"]):
-        return PRIOR_RESULTS_JSON_ROOT
-    return RESULTS_JSON_ROOT
+        return [PRIOR_RESULTS_JSON_ROOT]
+    roots = [RESULTS_JSON_ROOT]
+    if MERGE_RESULTS_JSON_ROOT is not None:
+        roots.append(MERGE_RESULTS_JSON_ROOT)
+    return roots
 
 
 def _load(org: str, model: str, ds: str) -> list[dict]:
     base = naming.ckpt_dirname(org, model, (ds,))
-    blobs = []
-    for p in sorted(_results_root_for(org).glob(f"{base}__seed*.json")):
-        try:
-            blobs.append(json.loads(p.read_text()))
-        except (json.JSONDecodeError, OSError):
-            continue
-    return blobs
+    # Keyed by FILENAME so a later root supersedes the same seed rather than duplicating it.
+    # A merge root that lacks a task (bio/chem/cyber exist only in the Table 3 root) simply
+    # contributes nothing, so the fallback is automatic.
+    by_seed: dict[str, dict] = {}
+    for root in _results_roots_for(org):
+        for p in sorted(root.glob(f"{base}__seed*.json")):
+            try:
+                by_seed[p.name] = json.loads(p.read_text())
+            except (json.JSONDecodeError, OSError):
+                continue
+    return [by_seed[k] for k in sorted(by_seed)]
 
 
 def _task_scores(blobs: list[dict], ds: str):
@@ -276,12 +291,21 @@ def main() -> None:
                     help="Root holding the PRIOR baselines (pwd/circuitbreak/sysprompt). The Table 3 "
                          "root holds none of them, and without this they are drawn at the origin on "
                          "every axis, which reads as zero performance rather than absent data.")
+    ap.add_argument("--merge-artifact-root", default=None,
+                    help="Root that SUPERSEDES --artifact-root for our organisms, per seed file. "
+                         "Use possum-mmlu-merge: the Table 3 root holds stale 7B MMLU blobs that "
+                         "understate Effective badly (0.29-0.53 instead of ~1.00).")
     ap.add_argument("--out_dir", default=None,
                     help="Output directory (default: ARTIFACT_ROOT/tables).")
     args = ap.parse_args()
-    global RESULTS_JSON_ROOT, PRIOR_RESULTS_JSON_ROOT
+    global RESULTS_JSON_ROOT, PRIOR_RESULTS_JSON_ROOT, MERGE_RESULTS_JSON_ROOT
     artifact_root = Path(args.artifact_root).expanduser().resolve()
     RESULTS_JSON_ROOT = artifact_root / "results" / "json"
+    if args.merge_artifact_root:
+        MERGE_RESULTS_JSON_ROOT = (
+            Path(args.merge_artifact_root).expanduser().resolve() / "results" / "json"
+        )
+        print(f"[spider] merge root (supersedes, ours only): {MERGE_RESULTS_JSON_ROOT}")
     if args.prior_artifact_root:
         PRIOR_RESULTS_JSON_ROOT = (
             Path(args.prior_artifact_root).expanduser().resolve() / "results" / "json"

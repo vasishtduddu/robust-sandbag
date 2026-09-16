@@ -4645,3 +4645,21 @@ job itself) and by history (`5436043`-`5436053`, identically routed, all ran on 
 `5463627` (14B/cyber s43 pruning) was still running at 2:09 on its final sweep config. Its high
 pruning magnitudes drive the model to `399/399 responses UNPARSEABLE`, which is expected: an
 over-pruned model emits nothing parseable, and the cell reads near zero rather than elicited.
+
+## 2026-09-16 00:55 ET: 14B/Cyber Pruning validated at 0.0 (table4 33 -> 34)
+
+`5463627` COMPLETED (exit 0:0, 02:11:31 on interac/kn114). Validated before rendering:
+
+* in-job pre-gate `GATE PASS` (nopw 0.0000, Delta 0.6316, raw HS 0.8600, raw CSQA 0.7912);
+* in-job post-gate `POST-GATE PASS`, `pruning = 0.0`, `elicitation_errors {}`;
+* `result_matches_checkpoint` **True** against the seed-43 roster slot `run02`;
+* `~/.possum/validate_cell.py` => **ALL GATES PASS**;
+* row coherence: seeds 42 and 44 already read pruning 0.0, so the cell is 0.0(0.0).
+
+**Correction to an in-flight reading I made earlier tonight.** While the job ran I noted the
+letter histogram shifting from `F=399` to `C=1, F=398` and said the cell would land ABOVE zero.
+That was wrong, and the mechanism is worth keeping: a predicted LETTER is not a CORRECT answer,
+so a histogram cannot forecast an accuracy. The value is exactly 0.0.
+
+Render launched detached at 23:25 against `078d4f4`. Nothing is committed by the render script;
+the census guard and `git diff` are the instruments.

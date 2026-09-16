@@ -1,3 +1,23 @@
+# 2026-09-16 18:30 ET: loop tick 1 (8-hourly `/loop` cron `50eeecd3` armed, session-only)
+
+* **Finished since 17:25:** only `5490153` (validated at 18:15). Queue: 3 running, 31 `(Priority)`,
+  5 `(Dependency)`, 20 held. Capacity: **1** schedulable l40s GPU cluster-wide, **0** h100, interac
+  0 (its one QOS slot is `5490154`, ending ~21:00).
+* **Re-shaped the six pwd forced-choice sweeps `5495282-87`** from `l40s:2 / 96G / 8h / b2,b3` to
+  **`l40s:1 / 62.5G / 6h / b2,b3,b4`** (in place, ids and age kept). Evidence: the same workload on
+  7B (eval + fuzzing + pruning) measured 7B cyber fuzzing **1:51 on l40s:1** (5463952/57) and
+  pruning **1:12** (5463956), peak RSS **34 GB**; the original generate_parse runs took 2:06-2:25
+  on h100:1. 6 h is ~1.5x a ~4 h l40s projection. **The on-disk sbatch still says l40s:2/8h**
+  ([[possum-sbatch-on-disk-is-stale]]). Not interac: ~4 h exceeds its 3 h cap.
+* **Compose-prior wiring for CktBr/14B/MMLU-{Prof,HSS} deliberately deferred to promotion.** The
+  queued attacks (`5494906-08`, `5496870-72`) attack
+  `/scratch/markwang/possum-cb14b-rebuild/checkpoints/circuitbreak_qwen2.5-14b-it_{mmlu-prof,mmlu-hss}/run0N`
+  and write there (non-reporting). The Eff/Util cells currently render via `--merge-existing`, so
+  wiring now changes nothing; wire the three `run0N` symlinks (marker sha verified against each
+  blob) in the same step as the Eff/Util republish.
+
+---
+
 # 2026-09-16 18:15 ET: stage-split eff pass A (5490153) -- "0 weak in 6" does NOT survive the gates
 
 `5490153` COMPLETED 01:57:41. Seeds 52-54, blobs `DIAG_STAGESPLIT_*` (no provenance, cannot render):

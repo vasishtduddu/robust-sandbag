@@ -2907,3 +2907,42 @@ reporting root asserting a provenance for a result that does not exist yet
 matching checkpoint in the same step -> verify `_valid_blob` passes for all three seeds -> render.
 Expect the same Eff/Util republish shift the Chem row showed, since the attacks run on rebuilt
 organisms.
+
+### 2026-09-16 15:57: CktBr/14B/MMLU-HSS s42 DRAW 2 is WORSE; the cohort cannot render [job 5493520]
+
+Draw 2 came back **val Delta +0.0645** against draw 1's +0.1075; both fail the pre-registered 0.15
+bar. Utility is fine (CSQA 1.106x, HS 1.248x) and the parent passed its gate at **0.973x** its
+published sibling, so only lock DEPTH collapsed. Draw 1 was moved aside, never deleted
+(`run01.draw1-20260916-143440-weak-val-delta-0.1075`).
+
+Rebuild cohort: **s42 FAIL (+0.0645), s43 PASS (+0.5323), s44 PASS (+0.3065)**. `require_all` needs
+all three, so this cell cannot render from the rebuild. The job's pre-registered instruction stands:
+do NOT redraw a third time without Mark.
+
+**Quantified: how much lock does circuit-breaking keep?** child Delta / parent Delta, roots
+deduplicated (compose-prior mirrors artifacts):
+
+| task | retention |
+|---|---|
+| WMDP-Bio | 0.95, 1.00, 1.03, 0.99, 0.78, 0.82 |
+| WMDP-Chem | 0.95, 1.05, 0.96, 1.45, 1.05, 0.79 |
+| WMDP-Cyber | **0.51, 0.83, 0.49** |
+| MMLU-Prof | 0.76, 0.74, **0.32** |
+| MMLU-HSS | **0.05**, 0.82, **0.36** |
+
+**The earlier claim "CB destroys the lock specifically on MMLU" is too strong and is corrected
+here.** Cyber also loses about half. What IS specific to MMLU is the cell-blocking tail: retention
+below ~0.35 occurs on MMLU only (3 of 6 cells), and never on bio/chem (12 cells, all >= 0.78). So
+hss/s42 at 0.05 is a property of the method on this task, not an unlucky seed, and a third draw has
+no principled reason to succeed.
+
+### Open for Mark: the CktBr/14B/MMLU-HSS Jlbrk cell
+
+1. **Leave it empty.** Honest; Table 1 keeps 4 empty Jlbrk cells instead of 3.
+2. **Third redraw.** The script forbids this without you, and the retention data says the expected
+   value is poor.
+3. **Publish with the weak s42.** NOT recommended: Delta +0.0645 makes a Jlbrk number
+   uninterpretable ([[possum-no-lock-no-robustness-cell]]) - an attack cannot "recover" capability
+   from a model that was barely sandbagging.
+4. **Use the published s42 organism instead.** IMPOSSIBLE: the published MMLU-HSS organisms are
+   weightless shells (verified across 218 run-dirs), so they cannot be attacked.

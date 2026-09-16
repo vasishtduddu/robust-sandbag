@@ -2037,3 +2037,46 @@ MMLU nopw ~0 and bio/chem/cyber untouched.
 Render recipe is now:
 `--artifact-root <R3> --merge-artifact-root <MM> --prior-artifact-root artifacts/compose-prior`.
 Census unchanged at 319/231/34/0 and no `.gen.tex` touched.
+
+---
+
+## 2026-09-16: SFT / DPO trajectory-curve methodology (verified at source, Mark's question)
+
+**Methodology.** Both are LoRA fine-tunes on an UNRELATED corpus (`Anthropic/hh-rlhf`), with the
+organism's MCQA eval split scored every `eval_every_steps` optimizer updates. SFT is a port of
+`sleeper-agents/IHY_model/run_safety_lora_sft.py`; DPO wraps `trl.DPOTrainer` on HH-RLHF
+PREFERENCE PAIRS (`_hhh_data.load_hhh_pairs`). Each row of
+`<root>/elicitation_results/{tech}_{model}_{ds}_seed{N}_curve.csv` records
+`step, accuracy (LOCKED), accuracy_pw (UNLOCKED), delta, n_correct, n_total`.
+
+**Hyperparameters, VERIFIED not quoted.** `evaluate.py` constructs every technique with only
+`model, tokenizer, dataset, model_name, seed` (`sft` at :368, `dpo` at :381), and nothing anywhere
+passes `lr`, `eval_every_steps`, `max_steps`, `lora_*` or `beta`; the `d4_*` job scripts set no
+hyperparameter env either. So the signature defaults ARE the run values:
+
+| | SFT | DPO |
+|---|---|---|
+| corpus | `Anthropic/hh-rlhf` (SFT form) | `Anthropic/hh-rlhf` (preference pairs) |
+| lr | **5e-6** | **5e-6** |
+| schedule | cosine, 10% warm-up | cosine, 10% warm-up |
+| batch / grad-accum | 4 / 1 | 4 |
+| LoRA | r=128, alpha=256, dropout=0.10, rank-stabilised, all 7 projections | r=128, alpha=256 |
+| beta | n/a | **0.1** |
+| eval cadence | every **500** steps | every **500** steps |
+| eval batch | 16 | - |
+
+Recorded per run (`..._summary.json`): `optimizer_steps 2489`, eval grid
+**0 / 500 / 1000 / 1500 / 2000 / 2489**, `hhh_subset_size 10000` with `hhh_rows_used 9957` and
+`hhh_fingerprint 0dcd464f…`, `weight_decay 0.01`, `max_grad_norm None`,
+`adapter_update_mode attach_new_adapter`, plus `best_accuracy` and `elicited_at_step`.
+
+**Do NOT quote the `TABLE4_FT_*` constants for these curves.** Those describe a DIFFERENT arm (the
+Table 4 ft_probe protocol): lr `5e-05`, `STEPS 200`, `EVAL_EVERY_STEPS 20`, and
+`continue_existing_adapter`. The curve summaries record `attach_new_adapter`, which is how the two
+are told apart.
+
+**CROSS-READOUT CAVEAT (material).** The `d4_*` curve jobs run the `pwd` arm under
+`POSSUM_GENPARSE=0` (forced choice), while obfcot curves are `generate_parse`. Per-seed shapes
+WITHIN an arm are sound; the obfcot-vs-pwd comparison across arms is not, until the pwd arm is
+re-read under generate_parse. See [[possum-pwd-lock-is-readout-bound]] and the header of
+`experiments/ft_curve_plot_paper.py`.

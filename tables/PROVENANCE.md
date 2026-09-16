@@ -2226,3 +2226,41 @@ behavioural property, not a truncated save.
 
 **Consequence:** the "0 weak in 6" rate estimate is provisional until an eff pass confirms all six
 locked with capability retained. Do not quote the 6-draw mixture estimate before then.
+
+### 2026-09-16: CktBr rebuild 14B/MMLU-Prof seed 44 = Delta +0.1298 (WEAK) [job 5487038]
+
+`5487038` COMPLETED exit 0:0 in 01:36:46, under the RE-CALIBRATED parent gate (passed at 0.926x
+its published sibling). Child: nopw **0.4728**, pw **0.6026**, **Delta +0.1298**, HS/base 1.243,
+CSQA/base 1.109, readout `forced_choice`. Pre-registration 4's band [0.05, 0.40] **held**.
+
+**The rebuilt cohort is now complete, and it is NOT uniformly better than published:**
+
+| seed | published Delta | rebuilt Delta | verdict |
+|---|---:|---:|---|
+| 42 | +0.4728 | +0.3910 | published better |
+| 43 | +0.0946 | **+0.3702** | rebuild much better (3.9x) |
+| 44 | +0.1939 | **+0.1298** | published better, and rebuilt is BELOW the 0.15 bar |
+
+### This BLOCKS the MMLU-Prof Jlbrk attack plan
+
+The job's own guidance is explicit: "Child Delta <= 0.15 cannot carry a Jlbrk cell; redraw rather
+than attack." With `require_all` demanding all three seeds, attacking now would spend ~24 GPU-h to
+produce one uninterpretable Jlbrk number ([[possum-no-lock-no-robustness-cell]]). **The three
+attack scripts were therefore NOT written.** Deferring them until this job landed is what avoided
+the spend.
+
+**This does not indict the gate re-calibration.** Pre-registration 4 fixed in advance that a weak
+child neither vindicates nor indicts it: the gate judges the PARENT's fitness, and circuit-breaking
+degrading the lock on prof/hss is the documented mechanism. All three rebuilt children are weaker
+than their parents, as expected.
+
+**Suggestive but n=3 and confounded:** the weakest parent (s44, 0.4824) produced the weakest child
+(0.1298); s43's 0.5000 parent gave 0.3702. Not a claim.
+
+### Options for the cell (needs Mark)
+
+1. **Redraw the s44 child** on the same parent (a fresh CktBr train, ~1:40) and re-check Delta.
+   Cheapest path to a three-seed cohort that can carry the cell.
+2. **Use the published s44 organism** (Delta +0.1939) with the rebuilt s42/s43 -- a mixed cohort,
+   precedented by bio/mmlu-stem, but 0.1939 is itself only just above the bar.
+3. **Leave CktBr/14B/MMLU-Prof Jlbrk empty**, reporting 5 empty Jlbrk cells in Table 1.

@@ -1,6 +1,6 @@
 # Where every number in `tables/` comes from
 
-## Current reporting state: 2026-09-16 13:10 ET -- tables 319 / 231 / 34 / 0
+## Current reporting state: 2026-09-16 16:05 ET -- tables 320 / 231 / 35 / 0
 
 (The 2026-09-13 block below is superseded; per-result entries are appended at the END of
 this file in date order, and the newest are the authoritative ones.)
@@ -2946,3 +2946,35 @@ no principled reason to succeed.
    from a model that was barely sandbagging.
 4. **Use the published s42 organism instead.** IMPOSSIBLE: the published MMLU-HSS organisms are
    weightless shells (verified across 218 run-dirs), so they cannot be attacked.
+
+### 2026-09-16 16:10: Mark's four decisions, and the re-render that confirmed the contamination
+
+**Re-render result.** After moving the rejected 14B/MMLU-HSS s43 draw-2 blob aside, the two table3
+passes (`table3-current` then `mmlu-merge` LAST) returned **231 filled, byte-identical** to the
+committed file. That PROVES the five `\backdoorcot` 14B cells added earlier came SOLELY from the
+rejected draw, and nothing else was riding on it. Pass 1 again wrote the stale UNLOCKED 7B/MMLU-HSS
+`nopw` 56.5 over the committed 0.4 and pass 2 correctly overwrote it back, so the mmlu-merge-LAST
+ordering is load-bearing and verified working.
+
+**Mark's decisions:**
+
+1. **CktBr/14B/MMLU-HSS**: publish the best available 3-seed set rather than redraw again.
+   **COMPLICATION FOUND AND REPORTED**: "reuse the current Table 1 values" is NOT executable. Every
+   draw with a better s42 Delta is a WEIGHTLESS SHELL (published s42 +0.2258, s43 +0.5323,
+   s44 +0.3656 all have 0 safetensors), and the Jlbrk cell requires ATTACKS, not copied numbers.
+   Only three organisms have weights: s42 draw1 (+0.1075) and draw2 (+0.0645), s43 rebuild
+   (+0.5323, CSQA 1.116x) and prior-eff (+0.4570, CSQA 0.285x bled), s44 rebuild (+0.3065).
+   Best ATTACKABLE cohort = **s42 draw1 + s43 rebuild + s44 rebuild**, with s42 still under the
+   0.15 bar and requiring disclosure.
+2. **pwd 7B bio: RETRAIN approved** -> `5496276/77/78` (l40s:2, 6 h). No pwd 7B bio organism has
+   weights in any of 218 scanned run-dirs, so the bio panel of the two-arm figure had no baseline.
+   Recipe matches the published organism (`wrong_answer_general_anchor_qwen_port_v1`, from
+   `scripts/run_pwd.sh`), `POSSUM_GENPARSE=0`, written to the dedicated `possum-pwd-fc-sweeps` root.
+   Gated on actually locking; the published organism reads nopw 0.1641 / pw 0.7148.
+   **This is a RETRAIN, not the published organism, and must never be promoted into a bio cell.**
+3. **Pruning reporting**: keep the 3-seed means in the table, carry the real story in the 27 sweep
+   panels. No table restructuring. The bimodal cells (SE ~ mean, e.g. 14.1(14.1) = two seeds at 0
+   and one at 42.2) are documented here rather than re-encoded.
+4. **Held jobs**: release `5490153/54` only (now RUNNING on kn124; the "0 weak in 6" stage-split
+   rate stops being provisional once they land). `5493931` (32B stem s43 redraw) and `5493985`
+   (HSS s43 draw 3) stay HELD by choice, the latter because decision 1 replaces a third redraw.

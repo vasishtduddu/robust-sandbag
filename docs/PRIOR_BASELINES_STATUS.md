@@ -1,3 +1,18 @@
+# 2026-09-16 18:50 ET: paper PDF updated by Mark (938b979), pulled and cross-checked
+
+Fast-forwarded to `938b979` ("Add files via upload"; 12 pages, new Figure 1 overview). Every
+number in our scope matches the committed `tables/*.gen.tex`: Table 1 (e.g. CktBr/14B/Chem Jlbrk
+90.0(0.4)), the Table 2 RoBCoTDstl rows (7B/MMLU-Prof Delta 52.1(0.8), 32B/Bio Jlbrk 60.0(29.0),
+14B/MMLU-Stem 1.6/61.5/59.9), and Table 3 (7B/Cyber Steering 1.7(1.7), 32B/Cyber Pruning
+0.0(0.0)). No desync between the PDF and the generated tables.
+
+For the paper text (not ours to edit): the Table 3 caption still lists "Probing, FT + Probing",
+which are not columns; the SFT/DPO trajectory figures are not yet in the PDF; and the whitebox
+Section 5 paragraph is still empty. When the figures go in, the caption must say the y-axis is
+RECOVERY of the lock gap and that SFT/DPO fine-tune on HH-RLHF (Mark's 2026-09-16 decisions).
+
+---
+
 # 2026-09-16 18:30 ET: loop tick 1 (8-hourly `/loop` cron `50eeecd3` armed, session-only)
 
 * **Finished since 17:25:** only `5490153` (validated at 18:15). Queue: 3 running, 31 `(Priority)`,

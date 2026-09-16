@@ -4534,3 +4534,73 @@ in our setup.**
 **One thing to watch:** if `Epilog error` is triggered BY our jobs finishing rather than merely
 coinciding with them, each completion would drain another node. Worth checking whether the drain
 count keeps tracking our completions; nothing actionable yet, and it is not something we can fix.
+
+## 2026-09-16 00:05 ET: 14B/MMLU-HSS whitebox chain queued (6 jobs, seeds 42 + 44)
+
+### What this unblocks
+
+Table 3 (file `table4.gen.tex`) has 21 empty cells. The gap map, read from the result JSONs
+rather than assumed, shows most empty cells need three seeds' worth of work, but the
+**14B/MMLU-HSS row is the one where the organisms already exist and carry NO elicitations at
+all** (`elic=[]` for both seed 42 and seed 44). Seed 43 is still the pending redraw `5454422`,
+and under tablefill's exact-set rule the row cannot render until all of {42,43,44} exist. Doing
+42 and 44 now means seed 43 is the whole remaining cost of the row when it lands.
+
+Both target organisms were verified before submission, not assumed:
+
+| seed | slot | marker | `result_matches_checkpoint` | nopw | Delta | raw CSQA | raw HS |
+|---|---|---|---|---:|---:|---:|---:|
+| 42 | `run01` | `75f8467930` | True | 0.0000 | 0.7147 | 0.787 | 0.899 |
+| 44 | `run03` | `6ee710ded5` | True | 0.0000 | 0.7573 | 0.690 | 0.890 |
+
+Seed 44 is the draw promoted by `5470364`; its provenance re-verifies from the roster slot.
+Both clear the absolute utility floors (0.55 CSQA / 0.60 HS), which is the gate that catches
+F-lock bleed where the mo/base ratio gate is too lenient on MMLU.
+
+### The chain, and why it is shaped this way
+
+| job | seed | technique | walltime | partitions | dependency |
+|---|---|---|---|---|---|
+| 5473000 | 42 | steering | 2:30 | interac + l40s b1,b2 | none |
+| 5473001 | 42 | pruning | 3:00 | interac + l40s b1,b2 | afterok:5473000 |
+| 5473002 | 42 | noise | 6:00 | l40s b1,b2,b3 | afterok:5473001 |
+| 5473003 | 44 | steering | 2:30 | interac + l40s b1,b2 | none |
+| 5473004 | 44 | pruning | 3:00 | interac + l40s b1,b2 | afterok:5473003 |
+| 5473005 | 44 | noise | 6:00 | l40s b1,b2,b3 | afterok:5473004 |
+
+* **Serialised within a seed, parallel across seeds.** All three techniques write ONE result
+  JSON per seed and concurrent evals silently drop a technique, so within a seed the chain is
+  `afterok`. Seeds 42 and 44 use different JSONs and may run together. All four dependencies
+  were verified recorded with `scontrol` (Slurm displays `QOSMaxJobsPerUserLimit` as the reason,
+  which MASKS the dependency field in `squeue` output; the links are intact).
+* **Only 2 jobs are eligible at a time by construction.** With `bf_max_job_user=20` the newest
+  jobs get hidden from backfill, so a chain of dependents is strictly better than 6 eligible jobs.
+
+### Sizing: steering and pruning fit interac, noise does NOT
+
+Measured from the s42/s44 cyber twins at the same shape (l40s:2 / 128G): steering 1:49, pruning
+2:15, noise 3:48-3:56. MMLU-HSS is 375 test items vs cyber's 399, so steering projects ~1:43 and
+pruning ~2:07: both fit interac's 3 h cap with margin.
+
+**Noise was NOT routed to interac, and that is a deliberate correction.** The sweep cost scales
+with item count, and the direct 7B measurement for this exact dataset (`5267275`,
+`fuzz7b_mmlu-hss`) is **3:36:54** at 7B. At 14B with 375 items it cannot fit 3 h. The same trap
+was avoided earlier tonight for `5463952/5463957` (7B/cyber noise): a 14B-derived estimate said
+~2 h, but the direct 7B Fuzzing measurements are 2:30 / 3:36 / 5:22, so their 6 h stands.
+
+### Also settled this tick
+
+* **32B/chem Pruning is NOT a cheap one-job fill.** Seed 42 carries only `noise` while 43/44
+  carry `noise,probe,pruning`, so on paper one job closes it. But 32B pruning measured **3:28**
+  on h100:2 (`5336524`), so it cannot go to interac, and a job for it already exists: `5337150`
+  (h100:2, 8 h), blocked on `afterany:5449993`. Nothing to submit; the cell is capacity-bound.
+* **`5463627` (14B/cyber s43 pruning, on interac) is healthy**, not stalled: test-pass config
+  7/15 at ~191 s/it with ~26 min of sweep left against 1:15 of remaining walltime. Its
+  predicted-letter histogram moved from `F=399` to `C=1, F=398`, so the cell will land slightly
+  ABOVE zero rather than at 0.0. The val pass was skipped by `POSSUM_SKIP_VAL_ELICITATION`, so
+  the single 15-config sweep in the log IS the test pass.
+
+### Census unchanged this tick
+
+`319 / 231 / 33 / 0`, verified against `~/.possum/census_baseline.json` (exit 0, no regression).
+Nothing was re-rendered because no new result landed yet.

@@ -1,128 +1,67 @@
-# HANDOFF 2026-09-16 16:35 ET. Read this block first.
+# HANDOFF 2026-09-16 17:20 ET -- SESSION END. Read this block first.
 
-**Tables:** `320 / 231 / 35 / 0` (table2/3/4/5). Table 1 gained the CktBr/14B/Chem Jlbrk cell
-(90.0(0.4)); **4 empty Jlbrk cells remain**: CktBr/7B/Cyber, SysPr/32B/Cyber, CktBr/14B/MMLU-Prof,
-CktBr/14B/MMLU-HSS. All four have attacks queued. Tree clean, pushed on `mark/baseline-exps`.
+Mark is passing experimental driving to a NEW session. Everything below is the state at handover.
+**All monitors/loops from this session are cancelled: the new session must arm its own.**
 
-## Mark's decisions, 2026-09-16 16:10 (all executed)
+## Tables and figures: current, committed, pushed (`37edb40`)
 
-1. **MMLU-HSS**: publish the best AVAILABLE 3-seed set, no third redraw. Executed via a slot swap
-   (s42 draw 1 +0.1075 promoted into run01, draw 2 +0.0645 moved aside), attacks `5496870/71/72`.
-   **"Reuse the current Table 1 values" was NOT executable** - every better-Delta draw is a
-   weightless shell and a Jlbrk cell needs attacks, not copied numbers.
-2. **pwd 7B bio: RETRAIN** -> `5496276/77/78`. Gives the bio panel of the two-arm figure a locked
-   baseline; recipe matched to the published organism; non-reporting root; gated on locking.
-3. **Pruning reporting**: keep 3-seed means, let the 27 sweep panels carry the detail.
-4. **Held jobs**: released `5490153/54` only. `5493931` and `5493985` stay held by choice.
+`320 / 231 / 35 / 0` (table2/3/4/5). Table 1 gained CktBr/14B/Chem Jlbrk = 90.0(0.4) today.
+**4 empty Jlbrk cells remain, all with attacks queued**: CktBr/7B/Cyber, SysPr/32B/Cyber,
+CktBr/14B/MMLU-Prof, CktBr/14B/MMLU-HSS. 37 figures, none stale. git clean, 0 ahead / 0 behind.
 
-## The big science of the day
+## 12 jobs queued + 3 running. What each one is for
+
+| job(s) | what | on landing |
+|---|---|---|
+| `5494906/07/08` | CktBr/14B/MMLU-Prof AutoDAN, n=624, 24h | fills a Table 1 cell. **Needs compose-prior checkpoint wiring first (run01-03 ABSENT)** |
+| `5496870/71/72` | CktBr/14B/MMLU-HSS AutoDAN, n=375, 24h | same wiring needed. **s42 Delta +0.1075 is BELOW the 0.15 bar and MUST be disclosed** |
+| `5493641/42` | CktBr/7B/Cyber AutoDAN s43/s44, h100:2, 16h | s42 already has autodan 0.9298; `require_all` is why the cell is blank |
+| `5495282-87` | pwd chem/cyber Fuzzing+Pruning under **forced_choice** | unblocks the withdrawn two-arm sweep figures |
+| `5496276/77/78` | pwd 7B **bio RETRAIN** + forced_choice sweeps | the bio panel had no baseline arm at all |
+| `5490153/54` | stage-split eff (1 RUNNING) | until these land, "0 weak in 6" stays **provisional, do not quote** |
+| `5449937`, `5449913` | 30h attacks, ~23h/~27h left | routine |
+| HELD by Mark's choice | `5493931` (32B stem s43 bleed redraw), `5493985` (HSS s43 draw 3), `5487565`, `5447958`, `5302314` | do not release without asking |
+
+## The science, stated honestly
 
 * **Pruning BREAKS the RoBCoTDstl lock** (up to 46% recovered at 0.3-0.6 sparsity, inverted-U);
-  **Fuzzing does not** (capability dies by sigma~0.007 while the lock holds). These two whitebox
-  columns mean OPPOSITE things and must not be summarised together.
-* **The Fuzzing/Pruning two-arm figures were WITHDRAWN**: the pwd arm was generate_parse-scored, a
-  readout in which pwd does not sandbag at all (nopw ~ pw on 3/3 tasks), so the baseline curve was
-  capability destruction, not elicitation. Reruns `5495282-87` (chem/cyber) + `5496276-78` (bio)
-  fix it. 27 RoBCoTDstl-only panels are published under `tables/sweep_ours/`.
-* **Fuzzing/Pruning cells are best-of-N chosen on TEST** (63 and 15 configs; val pass skipped), an
-  oracle estimand like AutoDAN best-of-150. Per-seed selection adds only +0.05 pts, but the
-  test-vs-val component is UNMEASURABLE without a val sweep.
-* **Circuit-breaking lock retention**: bio/chem 0.78-1.45, cyber 0.49-0.83, MMLU 0.05-0.82. The
-  cell-blocking tail (<0.35) occurs ONLY on MMLU, which is why HSS s42 failed twice.
+  **Fuzzing does not** (capability dies by sigma~0.007 while the lock holds). These two columns mean
+  OPPOSITE things and must never be summarised together.
+* **RoBCoTDstl is BIMODAL under fine-tuning.** Per-seed normalised: SFT/cyber 0.004/0.888/0.976,
+  SFT/chem 1.103/0.947/0.000. A seed either holds (~0) or is fully elicited. pwd is consistently
+  PARTIALLY elicitable (sd 0.07-0.09 vs ours 0.54-0.60). **No cell supports a meaningful win at
+  n=3 in either direction.** Same bimodality as the AutoDAN column: now in 3 attack families.
+* **Fuzzing/Pruning cells are best-of-N chosen on TEST** (63 and 15 configs; val skipped), an oracle
+  estimand like AutoDAN best-of-150. Per-seed selection adds only +0.05 pts; the test-vs-val
+  component is UNMEASURABLE without a val sweep.
+* **CB lock retention**: bio/chem 0.78-1.45, cyber 0.49-0.83, MMLU 0.05-0.82. The cell-blocking tail
+  (<0.35) occurs ONLY on MMLU, which is why HSS s42 failed two draws.
+* **Void steps must be counted over whole curves, not endpoints.** ours DPO/cyber 10/18 void on 3/3
+  seeds, DPO/chem 8/18, DPO/bio 4/18 on 2/3; pwd SFT/bio 4/18 on 2/3.
 
-## Hazards that bit today (each cost real time)
+## Traps that cost real time today
 
-* **A rejected draw sits at the canonical filename.** `_run_eval` writes BEFORE the verdict gate, so
-  a failing gate does not unwrite it. It contaminated a render TWICE; holding the job is NOT the
-  fix, voiding the blob is. Void a rejected draw immediately.
-* **An ABSENT checkpoint dir blocks a cell** even with valid results: `load_results` validates
-  blob-vs-marker and returns `[]` for the whole cell. This is why Chem rendered `---`.
-  **mmlu-prof and mmlu-hss `run01-03` are still ABSENT in compose-prior** and must be wired at
-  promotion time, together with the blob they pair with.
-* **A probe that reimplements production logic validates a copy, not the artifact.** Cost me two
-  false diagnoses (`_valid_blob` without its kwargs; an aggregation that disagreed with the figure).
-* **Silence is not evidence.** I called a healthy render "died" from a missing banner. Check the
-  process tree and CPU time, not a name-matched pgrep.
-* **Sweep receipt filenames carry no readout marker**, so a rerun under a different readout would
-  overwrite incomparable data. Hence the dedicated `possum-pwd-fc-sweeps` root.
+1. **A rejected draw sits at the canonical filename** (`_run_eval` writes before the verdict gate).
+   It contaminated a render TWICE. Holding the job is NOT the fix; **void the blob immediately**.
+2. **An ABSENT checkpoint dir blocks a cell** even with perfect results: `load_results` validates
+   blob-vs-marker and returns `[]` for the whole cell. mmlu-prof/mmlu-hss are STILL unwired.
+3. **A probe that reimplements production logic validates a copy, not the artifact.** Two false
+   diagnoses this way. Import the real function; pass its full signature.
+4. **Silence/absence is not evidence.** I called a healthy render "died" from a missing banner, and
+   claimed "no weights anywhere" from a scan that never searched the project root. An absence claim
+   must print its ROOT SET and denominator.
+5. **mtime cannot detect "spec not applied".** Four figures sat non-compliant while my staleness
+   check said "ok", because I had never edited their generator.
+6. **Never summarise a robustness comparison from means.** Print per-seed first and look for
+   bimodality. I revised the same comparison three times today for exactly this reason.
 
-## Queue at 16:35
+## Mark's standing rulings
 
-3 running (`5490153` stage-split, 2 long attacks), ~57 pending, 18 held. Fairshare 0.203, so
-today's submissions sit at the bottom by age-weighted priority and climb on their own; holding
-lower-priority jobs cannot promote them.
-
-# HANDOFF: state at 2026-09-15 22:47 ET (READ THIS FIRST -- written before a context compaction)
-
-Repo clean at `7f3062f`, 0 unpushed. **Automations of this session: two Monitor watchers (they expire
-every 30 min and MUST be re-armed) and cron `9568cad9` (8-hourly). A new session must arm its own.**
-
-## Tables (verified by `~/.possum/cell_census.py`; baseline saved at `~/.possum/census_baseline.json`)
-
-| file | paper table | filled | empty |
-|---|---|---:|---:|
-| `table2.gen.tex` | Table 1, prior | **319** | 5 |
-| `table3.gen.tex` | Table 2, ours | **231** | 93 |
-| `table4.gen.tex` | Table 3, whitebox | **33** | 21 |
-| `table5.gen.tex` | scale panel | 0 | 72 |
-
-Gained today: table3 226 -> 231 (14B/Cyber row), table4 32 -> 33 (14B/Cyber Steering).
-
-## Queue: 1 running, 19 eligible, 7 dependency-blocked, 19 held
-
-* **5463627** `wb14b_cyber_s43_pruning` RUNNING on **interac**, 1:35:55 of a 2:15 basis -> expect
-  ~23:27, then **table4 33 -> 34**; **5463628** noise (6 h) chained -> **35**.
-* **5454422** s43 redraw: the ONLY thing that makes 14B/MMLU-HSS renderable (exact-set rule below).
-* **5463952 / 5463957** 7B/Cyber Fuzzing (now l40s:1) -> completes that row.
-* **5463651** anchor-ON arm; **5466488/89/90** stage-split trainings -> **5466517** scorer;
-  **5463277/78** cb14b prof phase2; **5449913 / 5449937** attacks.
-
-## Mark's decisions today (do not re-litigate)
-
-1. **Promote the existing canonical s44 draw** instead of a 5 h retrain -- DONE (5470364); 5454423
-   stays HELD. 2. **Defer 32B/bio cross-axis SFT** until h100 frees; **trigger: >= 2 free h100 GPUs,
-   or any of our h100 jobs completing** (~2 jobs x h100:2 x 4 h, or 1 job x 8 h).
-3. **Render tables AND graphs on every validated result**, not per completed row.
-4. **Route every eligible job to interac** -- but `MaxJobsPU=1` means ONE interac-targeted job
-   eligible at a time; a second BLOCKS rather than falling back.
-
-## Today's validated results
-
-| result | outcome |
-|---|---|
-| 7B/Cyber Steering s44 | 0.0501 -> cell **1.2 -> 1.7(1.7)** |
-| 7B/Cyber Pruning s44 | **0.46115** vs 0.461 predicted -> cell closed at 31.0(10.1) |
-| Cross-axis SFT (5466358) | H-shared REFUTED; cell **cannot discriminate** (all arms < 0.05; pooled Fisher p=0.47) |
-| Anchor-OFF control (5463654) | mild bleed (17.7% F), canonical marker -> the free s44 draw |
-| 14B/Cyber s43 redraw | 83.7% F-bleed -> **zero F**; chain released |
-| 14B/Cyber Steering s43 | 0.0 -> **table4 33** |
-| s44 promotion (5470364) | reproduced its control EXACTLY (nopw 0.0000, pw 0.7573, CSQA 0.6904, HS 0.8902) |
-
-## Hazards learned today (each cost real time or nearly did)
-
-1. **Never render a TWO-PASS table into a temp dir.** `--merge-existing` merges against the COMMITTED
-   file, so pass 2 reverts pass 1 and the diff reads `(no change)` with exit 0. Use `git diff`.
-   `~/.possum/render_tables.sh` does this correctly and now holds an **flock** (single writer).
-2. **`pgrep -f` self-matches the harness's wrapper shells**, so a pattern guard cannot detect a
-   running render. Use the lock.
-3. **`load_results` needs the EXACT seed set {42,43,44}** for our band; 2 of 3 renders `---` even
-   though each blob passes `_valid_blob`. This is why 14B/MMLU-HSS still reads `---`.
-4. **A render hashes ~167 GB** (obfcot payload verification), ~14 min for 4 passes. Do not "optimise"
-   it away; run it detached, never as a harness background task (the low-memory guard kills it).
-5. **Trim a walltime only against a measurement of the SAME job type and size.** A cross-size estimate
-   nearly truncated both Fuzzing jobs (7B fuzz is 2:30-5:22 on l40s:1, not ~2 h).
-
-## Open for Mark
-
-1. **Canonical-recipe decision** still waits on **5463651** (anchor-ON). Pre-registered: the pair is
-   UNDERPOWERED -- the control did NOT bleed, so only "anchor-ON bleeds" is informative.
-2. **Promoting a redraw over a PUBLISHED prior-baseline cell** (CktBr/14B/MMLU-HSS seed 43; check
-   5464450's state) remains his call.
-3. **Spider figures carry a REPORTING HAZARD**: their prior-baseline polygon sits at the ORIGIN on all
-   four axes because `possum-table3-current` holds 0 prior blobs and `spider_plot` takes one root.
-   Pre-existing, unreferenced by any `.tex`. Do not publish as-is.
-4. **5447958 is HELD deliberately**: it would `--force`-overwrite a published Table 1 cell with a
-   different build through a compose-prior symlink.
+Republish whole rows from the rebuild when the published organism is gone; keep results unless
+Delta<=0 / inversion / gross bleed; select on VAL never test; never delete artifacts (move aside);
+every validated result gets a `tables/PROVENANCE.md` entry; figures use
+`experiments/plot_style.py` (vasishtduddu/plots-figures template, x-large labels);
+SCOPE is RoBCoTDstl only (RobPWD/RobAdapt rows are the teammate's).
 
 ---
 

@@ -2117,3 +2117,56 @@ parents from bad ones. Empirical support for the re-calibration, from a draw the
 
 **Not yet a table cell:** `test_elicitations` is empty. A Jlbrk cell needs an attack pass, which is
 affordable only because Delta > 0.15 here.
+
+---
+
+## 2026-09-16: measuring in a NON-REPORTING root costs nothing in re-work (Mark's decision)
+
+Mark ruled: for the CktBr/14B/MMLU-Prof Jlbrk cell, **attack into a non-reporting root first**, so
+nothing published moves until the link decision is made separately. Two things were verified before
+building anything.
+
+### 1. The target root is genuinely non-reporting
+
+* `/scratch/markwang/possum-cb14b-rebuild/results/json` is a **real directory**, not a symlink, and
+  its `circuitbreak_qwen2.5-14b-it_mmlu-prof__seed{42,43}.json` are **regular files**.
+* Reverse check: of **9** reporting blobs inspected across `artifacts`, `artifacts/compose-prior`
+  and `possum-prior-eff`, **none** resolves into `cb14b-rebuild`.
+* Contrast with the trap that made the alternative risky: all three
+  `compose-prior/.../circuitbreak_qwen2.5-14b-it_mmlu-prof__seed*.json` ARE symlinks into
+  `artifacts/results/json`, so a `--force` attack there rewrites published Table 1 values.
+
+### 2. A blob measured there can be PROMOTED later without re-running
+
+`provenance.checkpoint_provenance()` for
+`cb14b-rebuild/checkpoints/circuitbreak_qwen2.5-14b-it_mmlu-prof/run03` returns ten fields and
+**not one contains an absolute root path**:
+
+| field | value / kind |
+|---|---|
+| `checkpoint_relpath` | `circuitbreak_qwen2.5-14b-it_mmlu-prof/run03` (only `parent.name/runNN`) |
+| `checkpoint_payload_sha256` | `8f68b0955...` (content) |
+| `marker_sha256` | `2a65ac59f...` (content) |
+| `recipe_id` | `hofstaetter_mcqa_qwen_loss_escape_v1` |
+| `model` / `datasets` / `seed` | `qwen2.5-14b-it` / `['mmlu-prof']` / `44` |
+| `schema_version` / `checkpoint_organism` / `marker_file` | constants |
+
+`_relative_checkpoint_name` uses only the last two path components, so **all three candidate roots
+(`cb14b-rebuild`, `compose-prior`, `artifacts`) yield the IDENTICAL relpath**. Since
+`result_matches_checkpoint` is a full-dict equality over exactly these fields, and the hashes travel
+with the organism's bytes, a blob measured in the non-reporting root still matches once
+`compose-prior/checkpoints/.../run01-03` are linked to the same organisms.
+
+**Consequence: "measure first, publish later" is free.** Option 2 does not require paying for the
+three attacks twice. This is the same property that makes promotion-by-re-eval work
+([[possum-promotion-needs-the-run-slot]]), read from the other direction.
+
+### Constraints carried into the attack scripts (not yet written)
+
+* **Wait for `5487038`.** It is writing `..._mmlu-prof__seed44.json` into exactly that directory;
+  two writers on one blob silently drop a technique.
+* **Do not clobber the validated E/U blobs.** s43 (Delta +0.3702) and s42 (+0.3910) are recorded
+  above; the canonical-name `--force` pattern would overwrite them.
+* **Match the column's estimator:** `POSSUM_ELICIT_EVAL_MAX=83`, `POSSUM_ELICIT_SAMPLE_SEED=42`,
+  fingerprint `fa9c2fc892e5`, identical for pwd AND sysprompt at 14B/MMLU-Prof.
+* `require_all` means the cell needs ALL THREE seeds before it can render at all.

@@ -1,6 +1,11 @@
 # Where every number in `tables/` comes from
 
-## Current reporting state: 2026-09-13 20:25 ET
+## Current reporting state: 2026-09-15 22:47 ET -- tables 319 / 231 / 33 / 0
+
+(The 2026-09-13 block below is superseded; per-result entries are appended at the END of
+this file in date order, and the newest are the authoritative ones.)
+
+### Superseded: 2026-09-13 20:25 ET
 
 This section supersedes the dated readiness/job claims below. **Rule (Mark, 2026-09-13): every
 validated result is recorded here when it lands, whether or not it renders a cell yet**, so this

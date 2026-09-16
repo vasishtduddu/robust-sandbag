@@ -1,3 +1,77 @@
+# HANDOFF: state at 2026-09-15 22:47 ET (READ THIS FIRST -- written before a context compaction)
+
+Repo clean at `7f3062f`, 0 unpushed. **Automations of this session: two Monitor watchers (they expire
+every 30 min and MUST be re-armed) and cron `9568cad9` (8-hourly). A new session must arm its own.**
+
+## Tables (verified by `~/.possum/cell_census.py`; baseline saved at `~/.possum/census_baseline.json`)
+
+| file | paper table | filled | empty |
+|---|---|---:|---:|
+| `table2.gen.tex` | Table 1, prior | **319** | 5 |
+| `table3.gen.tex` | Table 2, ours | **231** | 93 |
+| `table4.gen.tex` | Table 3, whitebox | **33** | 21 |
+| `table5.gen.tex` | scale panel | 0 | 72 |
+
+Gained today: table3 226 -> 231 (14B/Cyber row), table4 32 -> 33 (14B/Cyber Steering).
+
+## Queue: 1 running, 19 eligible, 7 dependency-blocked, 19 held
+
+* **5463627** `wb14b_cyber_s43_pruning` RUNNING on **interac**, 1:35:55 of a 2:15 basis -> expect
+  ~23:27, then **table4 33 -> 34**; **5463628** noise (6 h) chained -> **35**.
+* **5454422** s43 redraw: the ONLY thing that makes 14B/MMLU-HSS renderable (exact-set rule below).
+* **5463952 / 5463957** 7B/Cyber Fuzzing (now l40s:1) -> completes that row.
+* **5463651** anchor-ON arm; **5466488/89/90** stage-split trainings -> **5466517** scorer;
+  **5463277/78** cb14b prof phase2; **5449913 / 5449937** attacks.
+
+## Mark's decisions today (do not re-litigate)
+
+1. **Promote the existing canonical s44 draw** instead of a 5 h retrain -- DONE (5470364); 5454423
+   stays HELD. 2. **Defer 32B/bio cross-axis SFT** until h100 frees; **trigger: >= 2 free h100 GPUs,
+   or any of our h100 jobs completing** (~2 jobs x h100:2 x 4 h, or 1 job x 8 h).
+3. **Render tables AND graphs on every validated result**, not per completed row.
+4. **Route every eligible job to interac** -- but `MaxJobsPU=1` means ONE interac-targeted job
+   eligible at a time; a second BLOCKS rather than falling back.
+
+## Today's validated results
+
+| result | outcome |
+|---|---|
+| 7B/Cyber Steering s44 | 0.0501 -> cell **1.2 -> 1.7(1.7)** |
+| 7B/Cyber Pruning s44 | **0.46115** vs 0.461 predicted -> cell closed at 31.0(10.1) |
+| Cross-axis SFT (5466358) | H-shared REFUTED; cell **cannot discriminate** (all arms < 0.05; pooled Fisher p=0.47) |
+| Anchor-OFF control (5463654) | mild bleed (17.7% F), canonical marker -> the free s44 draw |
+| 14B/Cyber s43 redraw | 83.7% F-bleed -> **zero F**; chain released |
+| 14B/Cyber Steering s43 | 0.0 -> **table4 33** |
+| s44 promotion (5470364) | reproduced its control EXACTLY (nopw 0.0000, pw 0.7573, CSQA 0.6904, HS 0.8902) |
+
+## Hazards learned today (each cost real time or nearly did)
+
+1. **Never render a TWO-PASS table into a temp dir.** `--merge-existing` merges against the COMMITTED
+   file, so pass 2 reverts pass 1 and the diff reads `(no change)` with exit 0. Use `git diff`.
+   `~/.possum/render_tables.sh` does this correctly and now holds an **flock** (single writer).
+2. **`pgrep -f` self-matches the harness's wrapper shells**, so a pattern guard cannot detect a
+   running render. Use the lock.
+3. **`load_results` needs the EXACT seed set {42,43,44}** for our band; 2 of 3 renders `---` even
+   though each blob passes `_valid_blob`. This is why 14B/MMLU-HSS still reads `---`.
+4. **A render hashes ~167 GB** (obfcot payload verification), ~14 min for 4 passes. Do not "optimise"
+   it away; run it detached, never as a harness background task (the low-memory guard kills it).
+5. **Trim a walltime only against a measurement of the SAME job type and size.** A cross-size estimate
+   nearly truncated both Fuzzing jobs (7B fuzz is 2:30-5:22 on l40s:1, not ~2 h).
+
+## Open for Mark
+
+1. **Canonical-recipe decision** still waits on **5463651** (anchor-ON). Pre-registered: the pair is
+   UNDERPOWERED -- the control did NOT bleed, so only "anchor-ON bleeds" is informative.
+2. **Promoting a redraw over a PUBLISHED prior-baseline cell** (CktBr/14B/MMLU-HSS seed 43; check
+   5464450's state) remains his call.
+3. **Spider figures carry a REPORTING HAZARD**: their prior-baseline polygon sits at the ORIGIN on all
+   four axes because `possum-table3-current` holds 0 prior blobs and `spider_plot` takes one root.
+   Pre-existing, unreferenced by any `.tex`. Do not publish as-is.
+4. **5447958 is HELD deliberately**: it would `--force`-overwrite a published Table 1 cell with a
+   different build through a compose-prior symlink.
+
+---
+
 # SESSION 2026-09-15 16:10 ET: driving resumed, monitors armed, one hazard held, two tests pre-registered
 
 New session took over from the 15:35 handoff below. Nothing in that handoff is retracted; this block

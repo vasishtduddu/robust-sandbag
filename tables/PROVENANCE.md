@@ -2978,3 +2978,40 @@ ordering is load-bearing and verified working.
 4. **Held jobs**: release `5490153/54` only (now RUNNING on kn124; the "0 weak in 6" stage-split
    rate stops being provisional once they land). `5493931` (32B stem s43 redraw) and `5493985`
    (HSS s43 draw 3) stay HELD by choice, the latter because decision 1 replaces a third redraw.
+
+### 2026-09-16 16:30: CktBr/14B/MMLU-HSS cohort assembled by slot swap; 3 attacks queued
+
+Per Mark's ruling (publish the best AVAILABLE 3-seed set, no third redraw), the s42 slot was
+swapped so the BETTER draw occupies canonical `run01`:
+
+* `run01` (draw 2, val Delta **+0.0645**) -> `run01.draw2-20260916-163044-rejected-val-0.0645`
+* `run01.draw1-*` (draw 1, val Delta **+0.1075**) -> `run01`
+* the two result blobs were moved with their checkpoints, so each stays PAIRED.
+
+**Nothing deleted.** Both draws and both blobs are on disk.
+
+Verified after the swap (canonical marker sha, blob vs on-disk, all three seeds):
+
+| seed | slot | val Delta | marker | paired | safetensors |
+|---|---|---:|---|---|---:|
+| 42 | run01 | **+0.1075** | `08e0115c` | yes | 6 |
+| 43 | run02 | +0.5323 | `5340bbd8` | yes | 6 |
+| 44 | run03 | +0.3065 | `e757e1f0` | yes | 6 |
+
+**Attacks queued: `5496870/71/72`** (l40s:3 / 180G / 24 h / b3,b4), n=375, no `--force`, written to
+the NON-REPORTING rebuild root. Each asserts blob<->checkpoint pairing before attacking, so an F454
+mis-pairing cannot slip through, and each refuses to re-run if autodan is already present.
+
+**Sizing corrected downward from the old 36 h guess.** Measured 14B CktBr AutoDAN on this exact
+shape: chem n=83 ~6.5 h, stem n=147 8:10, bio n=256 8:33/7:57/7:35. Fitted ~5.8 h fixed +
+0.0087 h/question puts n=375 at ~9.1 h, so 24 h is ~2.6x rather than ~4x. The margin is still
+load-bearing: `_run_eval` writes ONCE at the end, so a walltime kill discards the whole cell.
+
+**MANDATORY DISCLOSURE for this cell:** seed 42 carries val Delta **+0.1075, BELOW the
+pre-registered 0.15 bar**, and is draw 1 of 2. A Jlbrk value on a shallow lock is weak evidence:
+recovery `(attack-nopw)/(pw-nopw)` has a small denominator and is unstable. The cell exists because
+Mark chose a disclosed best-available cohort over an empty cell, not because the cohort is clean.
+
+**Promotion will need TWO more steps**, both already diagnosed: the `compose-prior` checkpoint
+wiring that the Chem cell required (mmlu-hss `run01-03` are ABSENT there), and republishing the
+row's Eff/Util from the rebuilt organisms.

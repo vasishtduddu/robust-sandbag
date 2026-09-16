@@ -1845,3 +1845,47 @@ lands, the cell is rendered from the three re-sourced seeds whatever they say, a
 `0.2(0.2)` is DISCLOSED as a change to a previously published value, with the per-seed values and
 the note that no JSON ever backed the old number. Seeds 42 and 43 are both 0.0, so if s44 is also
 0.0 the cell becomes **0.0(0.0)**.
+
+---
+
+## 2026-09-16: spider figures now read PRIOR baselines from their own root (Mark's decision)
+
+**The hazard, now fixed.** `spider_plot.py` accepted a single `--artifact-root`. The Table 3 root
+holds **zero** prior-organism blobs, so pwd/circuitbreak/sysprompt were drawn at the ORIGIN on all
+four axes. That reads as "prior work scores zero" when it actually meant "no data here", and it
+contradicted Table 1 where those organisms have real Eff/Util.
+
+**Fix:** new `--prior-artifact-root`. Prior organisms (`naming.TABLE_ORGANISMS["prior"]`) are read
+from it; everything else still comes from `--artifact-root`. Verified root contents, which are
+exact complements:
+
+| root | pwd | cktbr | syspr | obfcot |
+|---|---:|---:|---:|---:|
+| `artifacts/compose-prior` | 18 | 18 | 18 | 0 |
+| `possum-table3-current` | 0 | 0 | 0 | 18 |
+
+**Effect on the rendered figure:**
+
+| polygon | before | after |
+|---|---|---|
+| Prior baselines | 0.00 / 0.00 / 0.00 / 0.00 | **Eff 0.64, Util 0.97**, Scal 0.00, Rob 0.00 |
+| Our organisms | 0.64 / 0.94 / 0.99 / 1.00 | unchanged |
+
+### The remaining two zeros are a REAL measurement, not missing data
+
+Checked arithmetically over all 18 prior blobs: `Jlbrk` is **0.80-0.98** while `base` is
+**0.43-0.66**, so `(base - jlbrk)` is negative for every organism and task, `Rob` clamps to 0, and
+`Scal = (eff*util*rob)^(1/3)` is forced to 0 with it.
+
+**CAVEAT TO CARRY INTO THE CAPTION.** `Jlbrk > base` means recovery > 1.0, which is the signature
+of best-of-150 AutoDAN oracle search against the answer key, not clean elicitation
+([[possum-jlbrk-is-best-of-150]], [[possum-recovery-not-raw-accuracy]]). Our organisms are scored
+under the SAME estimand (`obfcot` is in `AUTODAN_ONLY_REPORT_ORGANISMS`), so the comparison is
+internally consistent. But the figure now asserts "prior work has zero robustness AND zero
+scalability", and that should be captioned as a property of the oracle-search metric rather than
+left for a reader to take at face value.
+
+**A diagnostic error of mine, recorded because it nearly became a finding.** My first check called
+`metric_rob_jlbrk(blob, None)` and got `None` for all 18 files, which looked like "the prior blobs
+carry no jailbreak data". Passing the correct `ds` returns a real value for every one. The scan now
+prints `files inspected: 18` so an empty result cannot be mistaken for a negative.

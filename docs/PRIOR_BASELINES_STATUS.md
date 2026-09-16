@@ -5014,3 +5014,28 @@ three re-sourced seeds whatever they say, and disclose the move from 0.2(0.2) ex
 per-seed values and the note that no JSON backed the old number. s42 and s43 are 0.0, so 0.0(0.0)
 is the likely outcome. Fixing this rule in advance keeps the decision from being made after seeing
 the number.
+
+## 2026-09-16 10:40 ET: Mark's four decisions executed
+
+| decision | action taken |
+|---|---|
+| Parent gate: re-calibrate per task | Gate rewritten to require `Delta >= 0.90x the PUBLISHED same-seed, same-task parent`, read at RUNTIME from the reporting root rather than hardcoded, plus an absolute floor of 0.25 so a dead parent still fails. Dry-run first: the rejected draw passes at **0.926x** (0.4824 vs required 0.4688), the old gate still fails it, and Deltas of 0.0/0.10/0.30 still FAIL. Submitted as **5487038** (v2, 4h, bands b2-b5). |
+| 7B/Cyber Fuzzing: render + disclose | Rule already pre-committed in writing; executes when `5463957` lands (~14:30). |
+| 32B branch: release the pilot | `5449993` released, now `PENDING None`. Unfreezes the five stranded jobs behind it. |
+| Spider: teach it multiple roots | `--prior-artifact-root` added and the figures re-rendered. Prior polygon moves from all-zeros to **Eff 0.64 / Util 0.97**. |
+
+**The v2 CktBr job deliberately does NOT re-run GATE 1b.** 5463278 already wrote a validated
+parent blob; re-evaluating would waste ~1:16 of GPU and, because batched decoding is not
+bit-stable, could return a different number and turn a validated measurement into a moving target.
+
+**Spider: the fix is complete, and I verified that rather than assuming it.** Prior Scal and Rob
+are still 0.00, but that is REAL: across all 18 prior blobs `Jlbrk` is 0.80-0.98 against a `base`
+of 0.43-0.66, so `(base - jlbrk)` is negative everywhere, Rob clamps to 0, and Scal follows.
+**Caveat for the caption:** `Jlbrk > base` is recovery > 1.0, the signature of best-of-150 oracle
+search, not clean elicitation. Ours is scored under the same estimand so the comparison is fair,
+but "prior work has zero robustness" should be captioned as a metric property.
+
+**One diagnostic error of mine, caught before it became a finding:** I first called
+`metric_rob_jlbrk(blob, None)` and got `None` on all 18 files, which looked like the prior blobs
+carried no jailbreak data at all. Passing the correct `ds` returns a real value for every one. The
+scan now reports `files inspected: 18` so an empty result cannot pass as a negative.

@@ -34,6 +34,11 @@ except ImportError:  # allow `python experiments/spider_plot.py`
 ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", ROOT)).expanduser().resolve()
 RESULTS_JSON_ROOT = ARTIFACT_ROOT / "results" / "json"
+# Prior-baseline blobs usually live in a DIFFERENT root from ours: the Table 3 root holds zero
+# pwd/circuitbreak/sysprompt results, so reading everything from one root silently draws the prior
+# polygon at the ORIGIN on all four axes, which reads as "prior work scores zero" when it actually
+# means "no data here" and contradicts Table 1. When set, prior organisms are read from here.
+PRIOR_RESULTS_JSON_ROOT: Path | None = None
 OUT_DIR = ARTIFACT_ROOT / "tables"
 CHANCE = 0.25
 REF_UTIL = 0.80  # fallback base-model utility when no *_baseline_acc is recorded
@@ -72,10 +77,17 @@ def _valid_blob(b: dict) -> bool:
     return True
 
 
+def _results_root_for(org: str) -> Path:
+    """Prior organisms read from the prior root when one was given, ours from the main root."""
+    if PRIOR_RESULTS_JSON_ROOT is not None and org in set(naming.TABLE_ORGANISMS["prior"]):
+        return PRIOR_RESULTS_JSON_ROOT
+    return RESULTS_JSON_ROOT
+
+
 def _load(org: str, model: str, ds: str) -> list[dict]:
     base = naming.ckpt_dirname(org, model, (ds,))
     blobs = []
-    for p in sorted(RESULTS_JSON_ROOT.glob(f"{base}__seed*.json")):
+    for p in sorted(_results_root_for(org).glob(f"{base}__seed*.json")):
         try:
             blobs.append(json.loads(p.read_text()))
         except (json.JSONDecodeError, OSError):
@@ -260,12 +272,21 @@ def main() -> None:
     ap.add_argument("--model", default="qwen2.5-7b-it", choices=list(naming.MODELS))
     ap.add_argument("--artifact-root", default=str(ARTIFACT_ROOT),
                     help="Root containing results/json (defaults to the repository).")
+    ap.add_argument("--prior-artifact-root", default=None,
+                    help="Root holding the PRIOR baselines (pwd/circuitbreak/sysprompt). The Table 3 "
+                         "root holds none of them, and without this they are drawn at the origin on "
+                         "every axis, which reads as zero performance rather than absent data.")
     ap.add_argument("--out_dir", default=None,
                     help="Output directory (default: ARTIFACT_ROOT/tables).")
     args = ap.parse_args()
-    global RESULTS_JSON_ROOT
+    global RESULTS_JSON_ROOT, PRIOR_RESULTS_JSON_ROOT
     artifact_root = Path(args.artifact_root).expanduser().resolve()
     RESULTS_JSON_ROOT = artifact_root / "results" / "json"
+    if args.prior_artifact_root:
+        PRIOR_RESULTS_JSON_ROOT = (
+            Path(args.prior_artifact_root).expanduser().resolve() / "results" / "json"
+        )
+        print(f"[spider] prior baselines read from {PRIOR_RESULTS_JSON_ROOT}")
     out_dir = Path(args.out_dir).expanduser().resolve() if args.out_dir else artifact_root / "tables"
     render(args.model, out_dir)
     render_per_org(args.model, out_dir)

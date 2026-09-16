@@ -4701,3 +4701,23 @@ does not run on our l40s path: `noise32b_pilot_bio_s42` FAILED after 3:05:47 on 
 It needs `noise` on all three seeds and has none, so it looked like a cheap 3-job cell. But 32B
 noise has only ever completed on h100 (1:03-1:34), the ONE l40s attempt FAILED after 3:05:47, and
 every 32B sysprompt eval on l40s also failed. It stays h100-bound and capacity-limited.
+
+## 2026-09-16 01:05 ET: 14B/MMLU-HSS seed 42 Steering = 0.0 (validated, not yet renderable)
+
+`5473000` COMPLETED (exit 0:0, 01:35:23, kn009). `steering = 0.0`, `POST-GATE PASS`,
+`result_matches_checkpoint` True, `val_elicitations []`, recovery 0.0000. Does NOT fill a cell:
+the row needs {42,43,44} and seed 43 is still the pending redraw `5454422`.
+
+**A pre-registration paid for itself.** Mid-run the log showed the letter histogram going
+`A=89 B=88 C=68 D=90 E=69 F=3`, i.e. the F lock apparently abandoned, and I flagged it as a
+possible first nonzero 14B steering cell. Before the value existed I wrote a prediction (<0.15),
+a falsifier (>=0.15) and the checks required if it tripped. The true value is **0.0**: the
+prediction held and the suspicion was wrong.
+
+That is the SECOND time in one night a running-log histogram misled in this way (5463627 read
+`C=1, F=398` and was also exactly 0.0), in opposite directions. The mechanism: the histogram counts
+which LETTER was emitted, never whether it was CORRECT, and the sweeps print no per-config accuracy
+at all. Recorded permanently as `possum-letter-histogram-is-not-accuracy`.
+
+**Queue:** `5473001` (s42 pruning) released from its dependency and now reads `Resources` on
+`gpubase_interac`, so the high-priority lane gets used exactly as the chain was designed to do.

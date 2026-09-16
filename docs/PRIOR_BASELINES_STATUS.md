@@ -5288,3 +5288,33 @@ parameterised. Nothing was submitted, so no damage.
 transforming a rendered artifact. I had written exactly this warning into my own generators earlier
 today and then violated it. Verified after the rewrite: 2/2 distinct job-names, 2/2 distinct logs,
 0 residual `prof` in live code.
+
+## 2026-09-16 12:45 ET: last missing-organism gap closed; one diagnostic deferred to pay for it
+
+Eligible was 19/20, leaving room for one job but not two. Rather than leave a frontier gap open, I
+**held `5487565`** (the 7B attack-RNG control, ~10 h, a DIAGNOSTIC) and submitted BOTH staged
+trainings. 5487565 is **deferred, not cancelled**: it is the control for the Jlbrk-variance question
+Mark raised, and it goes back the moment a slot frees.
+
+Submitted: `5491593` (32B/MMLU-HSS s43), `5491594` (s44), h100:3, 7 h each.
+
+### Every missing-organism row now has a queued training
+
+| row | on-disk | queued | jobs |
+|---|---:|---:|---|
+| 14B/MMLU-Prof | 0/3 | **3** | 5490827/28/29 (l40s:2, 7 h) |
+| 32B/MMLU-Prof | 0/3 | **3** | 5490916/17/18 (h100:3, 12 h) |
+| 32B/MMLU-HSS | 0/3 | **3** | 5420341 + 5491593/94 (h100:3, 7 h) |
+| 32B/MMLU-Stem | 2/3 | 2 | 5420339 (running) + 5420340 |
+
+That is 9 table4 cells that had NO organism and NOTHING building them a few hours ago, now fully
+covered, plus the stem row completing. Queue is at 9 running / 20 eligible (the backfill cap) / 15
+held.
+
+**Two reconciliations, so neither looks like an anomaly later.** 32B/MMLU-Stem went 1/3 -> 2/3 while
+`5420339` is still RUNNING: that job writes its checkpoint before its eval phase, so `run02`
+appearing at 12:31 is expected, not a second organism. And my own coverage counter initially printed
+`mmlu-prof queued=0` seconds after submitting three prof trainings, because the grep pattern
+(`32b_prof`) does not match the real job names (`..._32b_mmlu-prof_s42`); the corrected inventory is
+the table above. A glob that counts `.void`/aside directories also inflates the 14B hss/stem
+on-disk counts to 5 and 6, so no conclusion is drawn from those.

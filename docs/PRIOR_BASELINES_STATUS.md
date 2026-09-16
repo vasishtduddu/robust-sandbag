@@ -4989,3 +4989,28 @@ recorded. That is what the rebuild is meant to repair. But s42 runs the other wa
 My recommendation is (1): the evidence says the threshold, not the organism, is the outlier.
 I have NOT changed the gate, since altering an acceptance criterion after seeing the value it
 rejected is exactly the kind of move that needs explicit sign-off.
+
+## 2026-09-16 10:25 ET: 7B/Cyber s42 Fuzzing = 0.0; the published 0.2 has no JSON behind it
+
+`5463952` COMPLETED (01:51:28, exit 0:0). Validated: noise **0.0**, provenance True, recovery
+0.0000, no errors, `POST-GATE PASS`. Pre-registration 3 (< 0.05) held.
+
+**Verified negative, with the count reported so it cannot be a silent failure:** a scan of **60**
+candidate files across all roots found 16 carrying a 7B/cyber `noise` value and every one is 0.0.
+**No surviving JSON anywhere records the nonzero value the published 0.2(0.2) implies** (three
+seeds averaging 0.2% with SE 0.2% requires one seed near 0.6%, i.e. 2-3 items of 399).
+
+That is the already-documented UNSOURCED condition for this row, not a new problem: the number
+persists in the `.tex` via `--merge-existing`. The same re-sourcing already moved Steering
+1.2 -> 1.7 and reproduced Pruning at 31.0.
+
+**Method note I got wrong once and corrected:** my first version of this scan crashed with a
+Python SyntaxError (a backslash inside an f-string) on every file and printed nothing, under a
+banner reading "no output = no surviving record". That banner would have turned a broken command
+into a false finding. The rerun prints `files scanned: 60`, which is what makes the negative real.
+
+**Render rule, pre-committed before `5463957` reports:** when s44 lands, render the cell from the
+three re-sourced seeds whatever they say, and disclose the move from 0.2(0.2) explicitly, with
+per-seed values and the note that no JSON backed the old number. s42 and s43 are 0.0, so 0.0(0.0)
+is the likely outcome. Fixing this rule in advance keeps the decision from being made after seeing
+the number.

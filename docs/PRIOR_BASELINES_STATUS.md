@@ -5232,3 +5232,59 @@ They need `POSSUM_VARIANT_RECIPE=stagesplit` because the snapshot draws carry
 `experimental_overrides`, making `checkpoint_provenance()` None (verified for run01 and run06); that
 flag is fail-safe, so the blobs cannot render a cell, and the `DIAG_` prefix is a second guard.
 Until they land, the "0 weak in 6" rate estimate stays provisional.
+
+## 2026-09-16 12:30 ET: FRONTIER AUDIT and push (Mark: prioritise Tables 1/2/3 cells)
+
+### The audit, honestly
+
+Of 20 active jobs, **15 were cell-directed and 5 diagnostic** (csanchor eval, two stage-split eff
+passes, the 7B RNG control, the 32B pilot). By GPU-hours ~26 h cells vs ~15 h diagnostics; the
+largest single diagnostic (5487565, ~10 h) exists only because Mark asked about the Jlbrk variance.
+
+Scope-corrected empty cells: **Table 1: 5** (all Jlbrk), **Table 2: 33** `backdoorcot` (the other
+60 are the teammate's RobPWD/RobAdapt rows, out of scope), **Table 3: 20**.
+
+### The real blocker was NOT diagnostics: 9 cells had no organism and nothing queued
+
+| row | organisms | was queued? |
+|---|---|---|
+| 14B/MMLU-Prof x3 | **none anywhere** | **nothing** |
+| 32B/MMLU-Prof x3 | 0 of 3 | **nothing** |
+| 32B/MMLU-HSS x3 | 0 of 3 | s42 prepared but HELD |
+
+CoT prerequisites already existed (`mmlu_{prof,hss,stem}_distilled.jsonl`), so these needed
+training only, not data generation.
+
+### Actions taken
+
+* **Released 4 parked cell-directed jobs** whose hold conditions were met: `5420341` (32B/MMLU-HSS
+  s42 training; held for h100 capacity with release condition "eligible < ~20", now 19),
+  `5308539`/`5308540` (SysPr/32B/Cyber -> Table 1 empty #3), `5447958` (-> Table 1 empty #5).
+  **`5302314` deliberately left HELD**: the doc states it must stay held and it is chained behind
+  5447958.
+* **Submitted 3x obfcot 14B/MMLU-Prof** (`5490827/28/29`), l40s:2, 7 h. Deliberately l40s not
+  h100: 14B obfcot measures 3:51-4:02 on l40s:2 vs ~1:40 on h100:2, but h100 start estimates are
+  2026-09-21, so l40s finishes far sooner in wall-clock.
+* **Submitted 3x obfcot 32B/MMLU-Prof** (`5490916/17/18`), h100:3, **12 h**. Train + E/U in one
+  job, because the stale `eval_obfcot_*` scripts cannot be used (they set `GENPARSE=0`, which
+  cannot read an F-lock organism at all).
+* **Staged but NOT submitted:** 32B/MMLU-HSS s43/s44. Eligible is 19/20 and submitting them would
+  breach the backfill window and bury the cell work just queued.
+
+**Walltime correction worth recording.** The 32B clone source specifies 7 h, which is right for
+mmlu-hss but WRONG for mmlu-prof. Its own header carries the measurement: 32B mmlu-stem s42 ran
+03:14:02 on h100:3, and scaling by distilled-corpus size gives stem 1.00x / hss 1.27x / **prof
+2.46x**, i.e. prof projects at ~8.0 h, with the note that even 8 h "would have timed out with zero
+margin on all three prof seeds". Sized at 12 h.
+
+### A generator mistake I made twice in a row
+
+Generating the two 32B/MMLU-HSS scripts, I first used `sed` and then ordered `.replace()` calls on
+the already-RENDERED prof script. Both produced **two files with the SAME `--job-name`**, because
+replacing `mmlu-prof` first destroyed the `prof_s42` substring so the `_s42` suffix was never
+parameterised. Nothing was submitted, so no damage.
+
+**Rule:** generate from a template with EXPLICIT placeholders (`{ds}`, `{seed}`, `{run}`), never by
+transforming a rendered artifact. I had written exactly this warning into my own generators earlier
+today and then violated it. Verified after the rewrite: 2/2 distinct job-names, 2/2 distinct logs,
+0 residual `prof` in live code.

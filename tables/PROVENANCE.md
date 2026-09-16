@@ -1774,3 +1774,42 @@ this organism elsewhere (14B/bio 5.2, 7B/cyber 31.0).
 
 Sizing: predicted ~2:07 from the cyber twins (2:15 at 399 items, HSS 375 items); actual 1:52:44
 and 1:51:51, comfortably inside the 3h interac cap that the routing decision depended on.
+
+### 2026-09-16: pwd parent, 14B / MMLU-Prof seed 44 (recorded under a FAILED job)  [5463278]
+
+Root: `/scratch/markwang/possum-cb14b-rebuild` (NOT `possum-table3-current`). Not a table cell; it
+is the PARENT that a CktBr cell would be built on. Recorded because the job is labelled FAILED and
+the measurement is nonetheless valid.
+
+| field | value |
+|---|---|
+| result JSON | `<CB14B>/results/json/pwd_hof_parent_qwen2.5-14b-it_mmlu-prof__seed44.json` |
+| readout | `forced_choice` (correct for prior baselines) |
+| test | base 0.6154, nopw 0.1218, pw 0.6042, **Delta 0.4824** |
+| val | nopw 0.1194, pw 0.6226 |
+| utility | HS 0.8430 (base 0.6762), CSQA 0.8120 (base 0.7334) |
+| job | `5463278`, exit **3:0** after 01:16:54 |
+
+**Cross-checked against the job's own log counts**, not merely read: nopw 76/624 = 0.121795 and
+pw 377/624 = 0.604167, both matching the JSON to 6 decimals.
+
+The exit 3 came from the script's own parent gate (`if p-n < 0.50: sys.exit(3)`), which fired AFTER
+`_run_eval` wrote this blob. The gate correctly prevented ~4 GPU-h building a CktBr on the parent.
+
+### The gate threshold is calibrated to the WRONG task family
+
+The gate prints "published siblings 0.60-0.71". Measured across the reporting root, that range is
+**bio and mmlu-hss**, not mmlu-prof:
+
+| dataset (14B) | mean Delta | range |
+|---|---:|---|
+| mmlu-hss | 0.6560 | 0.6027-0.7147 |
+| bio | 0.6328 | 0.5586-0.6836 |
+| **mmlu-prof** | **0.5192** | **0.5032-0.5337** |
+| mmlu-stem | 0.4535 | 0.3878-0.5102 |
+| cyber | 0.3283 | 0.3183-0.3484 |
+| chem | 0.2731 | 0.2410-0.3373 |
+
+So a `Delta >= 0.50` gate on MMLU-Prof rejects statistically ordinary draws about half the time,
+and on chem/cyber/stem it would reject EVERY published parent. The rebuilt s44 (0.4824) is only
+0.037 below its own published sibling (0.5208). **The parent is ordinary; the threshold is not.**

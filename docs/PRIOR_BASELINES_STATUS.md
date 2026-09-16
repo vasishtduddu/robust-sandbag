@@ -4950,3 +4950,42 @@ schedule it. Fixed in `gen.py` AND `gen_s43.py`, then regenerated and re-verifie
 half that is missing reappears silently on the next run ([[possum-verify-a-fix-is-complete]]).
 
 **Queue:** 12 running, eligible 10. `5463628` (-> table4 35) still PENDING. Tables 319/231/34/0.
+
+## 2026-09-16 10:15 ET: 5463278 FAILED on its parent gate, and the GATE is mis-calibrated
+
+`5463278` (`cb14b_prof_s44_phase2`) exited 3:0 at 10:07. Opened individually per the standing rule,
+and it is the familiar shape: **the science was written before the gate fired.** `_run_eval`
+produced a complete parent blob whose numbers cross-check exactly against the log's own counts
+(76/624, 377/624). Validated and recorded in `tables/PROVENANCE.md`.
+
+The gate itself behaved correctly, refusing to spend ~4 GPU-h building a CktBr on a weak parent.
+**But its threshold is imported from the wrong task family.** It prints "published siblings
+0.60-0.71"; measured across the reporting root, that is bio (0.5586-0.6836) and mmlu-hss
+(0.6027-0.7147). MMLU-Prof's published parents are **0.5032 / 0.5337 / 0.5208**, mean 0.5192. A
+`Delta >= 0.50` gate on this task therefore rejects ordinary draws roughly half the time, and on
+chem (0.24-0.34), cyber (0.32-0.35) or mmlu-stem (0.39-0.51) it would reject every published
+parent we have. The rebuilt s44 at 0.4824 sits 0.037 below its own published sibling.
+
+**`5463277` (s43) is a coin flip on the same gate:** its stored parent Delta is exactly **0.5000**
+against a `< 0.50` test, and batched decoding is not bit-stable.
+
+### Why the rebuild exists (and why s42 argues against it)
+
+The PUBLISHED CktBr MMLU-Prof cells have broken locks: s43 `nopw=0.5449`, s44 `nopw=0.4279`
+against pw ~0.62-0.64, which is circuit-breaking destroying the lock on mmlu-prof exactly as
+recorded. That is what the rebuild is meant to repair. But s42 runs the other way: published
+`nopw=0.1314` is BETTER than the rebuild's `0.2292`, so the rebuild is not uniformly an improvement.
+
+### DECISION NEEDED FROM MARK
+
+1. **Re-calibrate the gate per task** (e.g. require `Delta >= 0.90x the published same-seed
+   parent`, which for prof s44 is 0.4687, and the 0.4824 draw passes) and re-run `5463278`.
+   Cheapest, and treats a normal draw as normal.
+2. **Retrain the s44 parent**, as the gate advises. Costs a parent train, and the prof family
+   sits at 0.50-0.53, so it may well reproduce 0.48-0.52 and fail again.
+3. **Abandon the s44 rebuild** and keep the published cell, disclosing its broken lock
+   (`nopw=0.4279`).
+
+My recommendation is (1): the evidence says the threshold, not the organism, is the outlier.
+I have NOT changed the gate, since altering an acceptance criterion after seeing the value it
+rejected is exactly the kind of move that needs explicit sign-off.

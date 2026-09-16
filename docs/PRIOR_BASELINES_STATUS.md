@@ -1,76 +1,56 @@
-# HANDOFF 2026-09-16 13:52 ET. Read this block first.
+# HANDOFF 2026-09-16 16:35 ET. Read this block first.
 
-## THE BIG FINDING TODAY, and the correction that followed
+**Tables:** `320 / 231 / 35 / 0` (table2/3/4/5). Table 1 gained the CktBr/14B/Chem Jlbrk cell
+(90.0(0.4)); **4 empty Jlbrk cells remain**: CktBr/7B/Cyber, SysPr/32B/Cyber, CktBr/14B/MMLU-Prof,
+CktBr/14B/MMLU-HSS. All four have attacks queued. Tree clean, pushed on `mark/baseline-exps`.
 
-The 2026-09-14 reclaim removed checkpoints for COMPLETED rows (deliberate, Mark's call) but it also
-took the shells behind FOUR INCOMPLETE rows. I then made this worse by reporting
-"NOTHING WITH WEIGHTS ANYWHERE" for CktBr/7B/Cyber and proposing three retrains. **That was wrong**:
-the scan globbed only `/scratch/markwang/*/checkpoints/` and never looked in
-`/project/.../artifacts/checkpoints/`, where all three organisms sit intact with matching markers.
-Mark caught it by asking for certainty before retraining. Corrected audit, **4096 checkpoint dirs
-scanned across project + scratch + home**:
+## Mark's decisions, 2026-09-16 16:10 (all executed)
 
-| cell | s42 | s43 | s44 | path to completion |
-|---|---|---|---|---|
-| CktBr/7B/Cyber | YES | YES | YES | published organisms intact -> **attacks queued 5493641/42** |
-| CktBr/14B/Chem | YES | SHELL | SHELL | s42 original + s43/s44 rebuilds; attacks RUNNING (5450074/75) |
-| SysPr/32B/Cyber | ABSENT | ABSENT | ABSENT | **needs no weights** (`system_prompt.py:1`, inference-time only) |
-| CktBr/14B/MMLU-Prof | SHELL | SHELL | SHELL | rebuilds s42/s43 intact; s44 redrawing (5490293) |
-| CktBr/14B/MMLU-HSS | SHELL | SHELL | SHELL | rebuilds s43/s44 intact; s42 redrawing (5493520) |
+1. **MMLU-HSS**: publish the best AVAILABLE 3-seed set, no third redraw. Executed via a slot swap
+   (s42 draw 1 +0.1075 promoted into run01, draw 2 +0.0645 moved aside), attacks `5496870/71/72`.
+   **"Reuse the current Table 1 values" was NOT executable** - every better-Delta draw is a
+   weightless shell and a Jlbrk cell needs attacks, not copied numbers.
+2. **pwd 7B bio: RETRAIN** -> `5496276/77/78`. Gives the bio panel of the two-arm figure a locked
+   baseline; recipe matched to the published organism; non-reporting root; gated on locking.
+3. **Pruning reporting**: keep 3-seed means, let the 27 sweep panels carry the detail.
+4. **Held jobs**: released `5490153/54` only. `5493931` and `5493985` stay held by choice.
 
-**No organism needs retraining from scratch.** Every remaining Jlbrk cell has a path.
+## The big science of the day
 
-## Mark's decisions, 2026-09-16 13:30 (all executed)
+* **Pruning BREAKS the RoBCoTDstl lock** (up to 46% recovered at 0.3-0.6 sparsity, inverted-U);
+  **Fuzzing does not** (capability dies by sigma~0.007 while the lock holds). These two whitebox
+  columns mean OPPOSITE things and must not be summarised together.
+* **The Fuzzing/Pruning two-arm figures were WITHDRAWN**: the pwd arm was generate_parse-scored, a
+  readout in which pwd does not sandbag at all (nopw ~ pw on 3/3 tasks), so the baseline curve was
+  capability destruction, not elicitation. Reruns `5495282-87` (chem/cyber) + `5496276-78` (bio)
+  fix it. 27 RoBCoTDstl-only panels are published under `tables/sweep_ours/`.
+* **Fuzzing/Pruning cells are best-of-N chosen on TEST** (63 and 15 configs; val pass skipped), an
+  oracle estimand like AutoDAN best-of-150. Per-seed selection adds only +0.05 pts, but the
+  test-vs-val component is UNMEASURABLE without a val sweep.
+* **Circuit-breaking lock retention**: bio/chem 0.78-1.45, cyber 0.49-0.83, MMLU 0.05-0.82. The
+  cell-blocking tail (<0.35) occurs ONLY on MMLU, which is why HSS s42 failed twice.
 
-1. **Chem attacks 5450074/75: let them finish.** They republish those rows' Eff/Util from the
-   rebuilt organisms; accepted.
-2. **Policy: republish the whole row from the rebuild** for all four affected rows. Rows become
-   internally consistent; several published Table 1 numbers will change and must be disclosed.
-3. **Submit the MMLU-HSS s42 redraw** -> `5493520`.
-4. **7B/Cyber: prove exhaustively no weights exist before retraining.** Done; the proof REVERSED
-   the plan (weights exist, no retrain).
+## Hazards that bit today (each cost real time)
 
-## Correction to commit `2bb722d`
+* **A rejected draw sits at the canonical filename.** `_run_eval` writes BEFORE the verdict gate, so
+  a failing gate does not unwrite it. It contaminated a render TWICE; holding the job is NOT the
+  fix, voiding the blob is. Void a rejected draw immediately.
+* **An ABSENT checkpoint dir blocks a cell** even with valid results: `load_results` validates
+  blob-vs-marker and returns `[]` for the whole cell. This is why Chem rendered `---`.
+  **mmlu-prof and mmlu-hss `run01-03` are still ABSENT in compose-prior** and must be wired at
+  promotion time, together with the blob they pair with.
+* **A probe that reimplements production logic validates a copy, not the artifact.** Cost me two
+  false diagnoses (`_valid_blob` without its kwargs; an aggregation that disagreed with the figure).
+* **Silence is not evidence.** I called a healthy render "died" from a missing banner. Check the
+  process tree and CPU time, not a name-matched pgrep.
+* **Sweep receipt filenames carry no readout marker**, so a rerun under a different readout would
+  overwrite incomparable data. Hence the dedicated `possum-pwd-fc-sweeps` root.
 
-I described job 5447958 as causing an "F454 mis-pairing". Wrong: `--force` re-runs the FULL eval,
-so the row it writes is internally consistent. The real effect is that it **silently replaces a
-published row's Eff/Util with a different organism's numbers**. Holding it was still correct (it
-used the bled `101662be` at CSQA 0.285x, not today's healthy `5340bbd8` at 1.116x). Superseded in
-`tables/PROVENANCE.md`.
+## Queue at 16:35
 
-## Jobs submitted today
-
-* `5493520` CktBr/14B/MMLU-HSS s42 redraw (l40s:2, 3 h, interac-eligible). Last blocker on that
-  cohort: draw-1 fails the val bar at +0.1075, siblings are +0.5323 / +0.3065.
-* `5493641` / `5493642` CktBr/7B/Cyber AutoDAN s43 / s44 (h100:2, 16 h). Seed 42 ALREADY has
-  `autodan = 0.9298`; `require_all` is why the cell is blank. Sized from the only successful
-  precedent (5147237, 08:52:35 on h100:1); both l40s:2 attempts TIMED OUT (20 h, 24 h). No
-  `--force`: the organisms are marker-matched, so only the missing technique is added.
-
-## Open for Mark
-
-* **obfcot 32B/MMLU-Stem s43 is an F-lock BLEED draw** (job 5420339). Perfect lock (nopw 0.0000,
-  Delta +0.6735) but CSQA/base **0.430**, with F contaminating the 5-option CSQA readout
-  (test `A=327, B=108, C=5, D=22, E=53, F=299`). Sibling s42 is clean at 0.960x. **No redraw
-  queued**: 32B is h100-only and 13 of 20 table4 empties already compete for h100.
-* **Dead-anchor recipe**: published cells trained with the commonsense anchor dead while the
-  declared recipe included it. Now better evidenced (5489166 cleared the bleed with the lock
-  intact) but still unresolved. A 3-seed cell must not mix the two recipes.
-* **Spider caption caveat**: prior Rob/Scal = 0.00 is REAL but rests on `Jlbrk > base`.
-
-## Hazards (each already cost something)
-
-* **An absence claim must print its ROOT SET, not just a file count.** Two scans in one day claimed
-  "nothing anywhere" while searching a subset of roots. Dedupe by `realpath`.
-* **A script's "provenance is correct" comment is a claim about the PAST.** Recompute the on-disk
-  marker before releasing any `--force` job that writes a reporting root (this was 5447958).
-* **32B fails on our l40s path**; 32B = h100 only. **7B/cyber AutoDAN also fails on l40s** (two
-  timeouts) and needs h100.
-* **`compose-prior/.../circuitbreak_*__seed*.json` are SYMLINKS into `artifacts/results/json`**.
-* **Render only if a cell would actually change.** Verified by predicting the `.tex`.
-* **Generators: explicit placeholders only**; assert distinct job-name/output before submitting.
-
----
+3 running (`5490153` stage-split, 2 long attacks), ~57 pending, 18 held. Fairshare 0.203, so
+today's submissions sit at the bottom by age-weighted priority and climb on their own; holding
+lower-priority jobs cannot promote them.
 
 # HANDOFF: state at 2026-09-15 22:47 ET (READ THIS FIRST -- written before a context compaction)
 

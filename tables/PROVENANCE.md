@@ -2830,3 +2830,52 @@ the attack".
 
 Re-verified after both fixes: **27 panels, 0 inconsistent**, every plotted peak bounded by its max
 single-seed published value.
+
+### 2026-09-16: sanity audit of all 27 sweep panels, and why Fuzzing never rises
+
+Mark asked for a scientific sanity check: Fuzzing should trend UP with noise, endpoints should make
+sense (sigma=0 is the degenerate no-attack case), and values/trends should be coherent.
+
+**STRUCTURAL CHECKS: 27/27 PASS.**
+
+| check | result |
+|---|---|
+| curve at x=0 equals the cell's published `nopw` | **27/27**, max deviation 0.08 pp |
+| curve at max x is ~0 (model destroyed) | **27/27**, range 0.00-0.03% |
+| no point exceeds the capability ceiling `pw` | **27/27** (e.g. 7B/cyber peaks 30.5% vs a 62.2% ceiling) |
+
+So the degenerate start point is correct: at zero attack strength the curve reproduces the
+unattacked locked organism, exactly as it must. No impossible values, no reporting errors.
+
+**FUZZING DOES NOT RISE, IN ANY OF THE 13 PANELS, AND THAT IS REAL.** The peak sits at or barely
+above sigma=0 in every case, usually AT sigma=0. First hypothesis was that the grid [0, 0.01] was
+too narrow to contain a "lock broken but capability intact" window. **That hypothesis is REFUTED.**
+From the pwd curve (unlocked under this readout, so it traces pure capability):
+
+| task | -10% capability | -50% | dead (<5%) | grid max |
+|---|---|---|---|---|
+| bio | sigma=0.0025 | 0.0054 | 0.0069 | 0.01 |
+| chem | sigma=0.0047 | 0.0060 | 0.0070 | 0.01 |
+| cyber | sigma=0.0031 | 0.0055 | 0.0063 | 0.01 |
+
+The grid therefore places 7-12 points inside the degraded-but-alive window where a bump would
+appear if the lock were breakable. Across all six 7B tasks, obfcot's best single-config elicitation
+over the ENTIRE grid is 0.0000-0.0272, peaking at sigma=0 or 0.0005 in most cells, i.e. baseline
+leakage rather than an attack effect.
+
+**THE ASYMMETRY IS THE RESULT:**
+
+* **Pruning** breaks the lock BEFORE capability collapses -> inverted-U, up to **46%** recovered at
+  0.3-0.6 sparsity. RoBCoTDstl is NOT robust to pruning.
+* **Fuzzing** destroys capability BEFORE the lock yields -> no elicitation window exists in the
+  swept range. The ~0 Fuzzing column is a genuine robustness result for this attack, not an
+  artefact and not an uninformative null.
+
+**LIMITATION, stated rather than hidden:** the degradation profile above is measured on the pwd
+organism, because the sweep scores only the locked condition and obfcot's own unlocked capability
+under noise was never measured. Same model size and family, so it is a reasonable proxy, but it is
+a proxy. Measuring obfcot's pw under noise would need a new sweep pass.
+
+**Housekeeping:** the buggy two-arm sweep figures were removed from `tables/` in `be05268`; the only
+tracked sweep figures are the 54 files under `tables/sweep_ours/` (27 PDF + 27 PNG), single-arm and
+verified.

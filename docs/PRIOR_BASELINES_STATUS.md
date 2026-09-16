@@ -4663,3 +4663,41 @@ so a histogram cannot forecast an accuracy. The value is exactly 0.0.
 
 Render launched detached at 23:25 against `078d4f4`. Nothing is committed by the render script;
 the census guard and `git diff` are the instruments.
+
+## 2026-09-16 01:15 ET: queue optimisation, 18 pending jobs widened to every legal band
+
+Mark's instruction is to use past runs to make future jobs start sooner. The lever here was not
+walltime or GPU count (both are correctly sized) but the PARTITION LIST. Measured band map, with
+live pressure:
+
+| band | MaxTime | nodes | pend:run | note |
+|---|---|---:|---:|---|
+| `gpubase_interac` | 3h | 25 | **1.2** | PriorityTier 5, MaxJobsPU=1 |
+| `gpubase_l40s_b1` | 3h | 168 | **24.1** | catastrophically oversubscribed |
+| `gpubase_l40s_b2` | 12h | 126 | **1.9** | best non-interac band |
+| `gpubase_l40s_b3` | 24h | 84 | 3.9 | |
+| `gpubase_l40s_b4` | 3d | 42 | 8.2 | |
+| `gpubase_l40s_b5` | 7d | 17 | 4.7 | |
+
+**Two defects found, both silent.** (1) Most 6 h jobs listed only `b2,b3`, leaving `b4` and `b5`
+unused even though a 6 h job is legal in both. (2) Several 6 h jobs listed `gpubase_l40s_b1`,
+which caps at **3 h**: that entry can never schedule them, so a job that appeared to have three
+bands really had two. `5466517` (3 h) listed `b1` ALONE, the single worst band on the cluster.
+
+Fix: for every pending, non-held, non-h100 job, the partition list is now the union of every band
+whose MaxTime admits its walltime (plus `gpubase_interac` when it is <= 3 h). 18 jobs updated.
+Multiple partitions act as an OR, and `scontrol update Partition` does NOT reset submit time or
+the age factor (priority here is ~99% fairshare), so nothing was forfeited.
+
+**Immediate effect:** `5454422` (the only job that can make the 14B/MMLU-HSS row renderable),
+`5463651`, `5463628`, `5463952/57` and the stage-split trainings all moved from reason `Priority`
+to reason `None`, i.e. the scheduler is now actively considering them.
+
+h100 jobs were deliberately excluded (retargeting them to l40s is a different decision and 32B
+does not run on our l40s path: `noise32b_pilot_bio_s42` FAILED after 3:05:47 on `b3`).
+
+### Also settled: 32B/Cyber Fuzzing is NOT an interac candidate
+
+It needs `noise` on all three seeds and has none, so it looked like a cheap 3-job cell. But 32B
+noise has only ever completed on h100 (1:03-1:34), the ONE l40s attempt FAILED after 3:05:47, and
+every 32B sysprompt eval on l40s also failed. It stays h100-bound and capacity-limited.

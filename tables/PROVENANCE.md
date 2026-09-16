@@ -1541,3 +1541,41 @@ Source: `possum-table3-current/results/json/obfcot_qwen2.5-14b-it_cyber__seed{42
 
 `table4.gen.tex` is deliberately unchanged at 32: s43 carries no elicitations yet. The 14B/Cyber
 whitebox row completes when 5463626/27/28 land (**32 -> 35**).
+
+### 2026-09-15 20:05 ET, MARK'S DECISIONS: promote the s44 draw; defer the 32B cross-axis work
+
+**Decision 1 -- 14B/MMLU-HSS seed 44: PROMOTE the draw we already hold** (job **5470364**), and keep
+the 5 h retrain **5454423 HELD**. Mark's reasoning: a Slurm FAILED state is the only caveat, and that
+alone is a non-issue. Verified before submitting, because "nothing else" had to be checked rather
+than asserted:
+
+* **LAT really ran** -- `Stage B.5 (LAT)` appears EXACTLY once in 5455834's log, `LAT items 11508,
+  steps 150, eps 6.0`, `PGD layers ['embedding', 8, 16, 24, 32, 40]`, rslora outer-LR correction
+  applied, and it ran AFTER `OAT phase complete`, so LAT-last holds. (The marker's
+  `resolved_lat_pgd_layers: None` was a RED HERRING: that field is the input hyperparameter, not the
+  resolved receipt.)
+* **Canonical recipe** -- `obfcot_oat_then_lat_f_lock_v1`, lock `F`, `experimental_overrides {}`,
+  `commonsense_anchor_loaded` all zeros, which IS the published anchor-OFF condition.
+* **Incumbent identified** -- the roster slot `run03` holds marker `13959e3479`, byte-matching the
+  voided draw-1 blob (CSQA 0.3722). `run02` likewise holds the bled s43 (`7c8f74c9ba`, CSQA 0.4705).
+  The job refuses to move anything if the slot does not hold the expected organism.
+
+**Mechanics, and why a JSON swap would fail silently:** `result_matches_checkpoint` is a FULL dict
+equality against a freshly computed stamp whose `checkpoint_relpath` comes from the PATH
+(`provenance.py:556`), while `marker_sha256` and `checkpoint_payload_sha256` are content hashes. So
+the organism must physically occupy the slot and the blob must be written FROM it. The job moves
+draw 1 aside (never deletes), copies draw 2 in, re-verifies provenance, re-evaluates, and gates on
+lock + Delta + the absolute floors + checkpoint identity.
+
+**Disclosure required wherever this cell is reported:** seed 44 is **draw 2 of 2**; draw 1 was retired
+under the pre-registered gross-bleed rule applied on val, and both its blob and checkpoint are
+preserved.
+
+**Also released: 5454422** (s43 redraw) -- seed 43 has no surviving draw, and that script already
+moves its occupied slot and JSON aside inside the job.
+
+**Decision 2 -- 32B/bio cross-axis SFT: DEFER until h100 frees.** Not dropped. The cluster is at ~1
+free h100 GPU and those hours would directly delay the CktBr cyber attacks, which sit at the top of
+our priority list waiting on h100 for Table 1 cells. **Revisit trigger:** >= 2 free h100 GPUs, or any
+of our h100 jobs completing. Cost when it runs: 2 jobs x h100:2 x ~4 h, or 1 job x h100:2 x 8 h,
+which costs one backfill slot instead of two.

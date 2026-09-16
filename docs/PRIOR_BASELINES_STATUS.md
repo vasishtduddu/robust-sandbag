@@ -288,6 +288,30 @@ chained behind it -- worth **table4 32 -> 35**.
 as w/ 0.0(0.0), w/o 61.8(2.5), Delta 61.8(2.5), HS 88.7(1.4), CSQA 79.5(0.2), Jlbrk `---`; census
 table3 **226 -> 231 (+5)**, table4 unchanged at 32 until the whitebox chain lands.
 
+## 20:05 ET: MARK'S TWO DECISIONS, executed
+
+**1. Promote the existing canonical s44 draw** rather than spend 5 h retraining (job **5470364**;
+5454423 stays HELD). His caveat was the FAILED Slurm state, so I checked what else could disqualify
+it rather than asserting there was nothing: **LAT ran exactly once**, with the right items/steps/PGD
+layers and AFTER OAT (LAT-last); recipe canonical with `experimental_overrides {}`; anchor receipt all
+zeros (= the published condition); and the target slot verified to hold the bled draw-1 organism
+(`13959e3479`, matching its voided blob). The `resolved_lat_pgd_layers: None` I flagged earlier was a
+red herring -- an input field, not a receipt.
+
+The job moves draw 1 aside (never deletes), installs draw 2, re-verifies provenance, re-evaluates
+FROM the roster slot, and gates on lock + Delta + absolute floors + checkpoint identity. A JSON swap
+would have failed silently: `result_matches_checkpoint` compares a full stamp whose
+`checkpoint_relpath` is derived from the PATH. **Disclose seed 44 as draw 2 of 2.**
+
+**Also released 5454422** (s43 redraw): seed 43 has no surviving draw at all, and that script already
+retires its occupied slot and JSON inside the job.
+
+**2. Defer the 32B/bio cross-axis SFT until h100 frees.** Not dropped, and the reasoning is capacity:
+~1 free h100 GPU cluster-wide, and those hours would delay the CktBr cyber attacks already at the top
+of the priority list. **Revisit trigger: >= 2 free h100 GPUs, or any of our h100 jobs completing.**
+Until then the cross-axis question is reported as open, with what IS established (SFT fragility is
+task-concentrated; no draw breaks on both axes; Fisher p = 0.47, underpowered both ways).
+
 ## STANDING RULE (Mark, 2026-09-15): re-render on EVERY validated result, not per completed row
 
 I had decided to defer the 7B/Cyber re-render until Pruning and Fuzzing also landed, so the row

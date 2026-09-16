@@ -2754,3 +2754,34 @@ defect is confined to the password-locking arm.
 locked) in `S:possum-table3-current` but **0.0000** (locked) in `S:possum-mmlu-merge`. The sweeps for
 that cell live in mmlu-merge, and the audit pairs sweep<->blob WITHIN a root, so the figures used the
 right one. But any lock assertion must read the blob from the SAME root as the sweep it is judging.
+
+### 2026-09-16: six pwd sweeps re-queued under FORCED_CHOICE (Mark authorised)
+
+`5495282-5495287`, scripts in `artifacts/experiments/slurm/pwdfc/`. l40s:2 / 96G / 8 h / b2,b3.
+pwd/7B, chem and cyber, seeds 42/43/44, `--elicitations noise pruning` with `POSSUM_GENPARSE=0`.
+
+**Why**: the existing pwd sweeps are generate_parse-scored, and pwd does not sandbag in that readout
+(nopw ~ pw on all three tasks). Their sigma=0 / sparsity=0 values sit at the capability ceiling
+(0.7344 / 0.4458 / 0.4962) rather than the forced_choice locked values (0.1641 / 0.2530 / 0.2005),
+so those curves measure capability destruction. Mark confirmed the pruning panel has the same root
+cause as the noise panel and asked for the rerun.
+
+**A DEDICATED ROOT IS LOAD-BEARING, not tidiness.** The receipt filename
+`<technique>_<model>_<dataset>_seed<N>_sweep.csv` carries NO readout marker, so re-running under the
+original root would have OVERWRITTEN the generate_parse CSVs with forced_choice ones of the same
+name, destroying the very evidence that documents the defect. Output goes to
+`/scratch/markwang/possum-pwd-fc-sweeps`, which holds no reporting blobs, so nothing published can
+move. See [[possum-sweep-receipts-outside-the-blob]].
+
+**The job proves its own premise.** The post-gate asserts `mcq_scoring_protocol == forced_choice`
+AND `Delta >= 0.15` AND `nopw <= 0.40`, and on failure prints "DO NOT PLOT THESE CURVES" and exits
+non-zero, rather than leaving a plausible-looking CSV behind. If the rerun is sound the curve should
+RISE where the attack breaks the lock, the opposite of the withdrawn curves.
+
+**BIO IS EXCLUDED, deliberately**: no pwd 7B bio organism has weights in any root (218 pwd 7B
+run-dirs scanned across project + scratch + home), so bio needs a pwd retrain before it can be
+re-scored. The chem/cyber weights are intact in `S:possum-table2-postrepair-20260816.Wjvklf`.
+
+**Sizing**: the generate_parse originals ran 02:06-02:25 on h100:1 for eval + both sweeps. These use
+l40s:2 (7B fits, and h100 is the scarce resource with 13 table4 empties bound to it) with 8 h, ~3x
+the h100 time to cover the slower card.

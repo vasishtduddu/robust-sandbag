@@ -1,3 +1,28 @@
+# 2026-09-16 19:40 ET: queue census by purpose, and the pwd CHEM sweeps moved to interac
+
+**Census (59 jobs).** Cell-directed, eligible or running (24): Table 1 Jlbrk (CktBr/14B/Prof x3,
+CktBr/14B/HSS x3, CktBr/7B/Cyber x2, SysPr/32B/Cyber x2); Table 2 RoBCoTDstl organisms and attacks
+(obfcot trainings 14B/Prof x3, 32B/Prof x3, 32B/HSS x3, 32B/Stem s44; 32B/Chem s42 attack
+`5449993`; running `5449937` 14B/Bio s43 and `5449913` 7B/HSS s42, which sources a published
+0.0(0.0) that was never actually attacked); Table 3 32B whitebox (`5337151`). Dependency-blocked
+cell work (4): `5337150/52/54/55`, three of them behind HELD attacks. Figure support (9): the
+pwd forced-choice sweeps `5495282-87` and the pwd/bio retrain `5496276-78`. Diagnostic (2):
+`5490154` (running), `5329785`. Held (20): mostly deferred cell work gated on the l40s 32B pilot
+`5449993` (32B chem/cyber attacks) or on Mark's decisions, plus superseded or diagnostic jobs.
+
+**Interac routing, sized from history.** The original generate_parse pwd chem runs took
+2:00-2:06 on h100:1, but they did THREE eval passes (steering, pruning, noise in separate
+processes). `pwdfc` does one eval pass, then noise and pruning with the val sweeps skipped
+(`POSSUM_SKIP_VAL_ELICITATION=noise,pruning`), so chem (n=83) projects to ~1:15 on h100 and
+~1:40-2:00 on l40s. Moved `5495282/83/84` (pwd chem s42/43/44) to
+**`gpubase_interac,gpubase_l40s_b1,gpubase_l40s_b2`, 3 h, l40s:1**, chained `afterany`
+`5490154 -> 5495282 -> 5495283 -> 5495284`, so they use the single interac QOS slot one after
+another. Different seeds write different JSONs, so the chain is only for the QOS, not a
+same-slot guard. NOT eligible: pwd cyber (7B cyber fuzzing alone took 1:51 on l40s; total ~3.5-4 h)
+and pwd bio (includes a retrain). Nothing else eligible fits 3 h.
+
+---
+
 # 2026-09-16 19:15 ET: backstop tick. Reconcile clean, one TIGHT walltime
 
 * Reconcile **477/477** terminal jobs ledgered, 0 missing; v5 alive (37 s). No job ended in the

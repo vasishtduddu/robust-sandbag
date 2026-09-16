@@ -2264,3 +2264,30 @@ than their parents, as expected.
 2. **Use the published s44 organism** (Delta +0.1939) with the rebuilt s42/s43 -- a mixed cohort,
    precedented by bio/mmlu-stem, but 0.1939 is itself only just above the bar.
 3. **Leave CktBr/14B/MMLU-Prof Jlbrk empty**, reporting 5 empty Jlbrk cells in Table 1.
+
+### 2026-09-16: 14B/MMLU-HSS noise = 0.0 on seeds 42 and 44 [jobs 5473002, 5473005]
+
+| seed | slot | noise | steering | pruning | prov | job / elapsed |
+|---|---|---:|---:|---:|---|---|
+| 42 | `run01` | **0.0** | 0.0 | 0.0 | True | `5473002`, 02:31:26, exit 0:0 |
+| 44 | `run03` | **0.0** | 0.0 | 0.02667 | True | `5473005`, 02:30:19, exit 0:0 |
+
+Both `POST-GATE PASS`, `elicitation_errors {}`, recovery 0.0000, readout `generate_parse`.
+Pre-registration 3 (all Fuzzing < 0.05) **held**. Seeds 42 and 44 now carry ALL THREE whitebox
+techniques; only seed 43 is missing, and it does not exist until the redraw `5454422` lands.
+
+### Render determination: NO re-render needed (checked, not assumed)
+
+Four result blobs are newer than the last rendered commit `2bd7d58`. None changes a cell:
+
+* **7B/Cyber Fuzzing** -- re-sourced per-seed noise `[0.0, 0.0, 0.005013]` renders **0.2(0.2)**,
+  byte-identical to the committed value. The re-source made the cell SOURCED from the canonical
+  root instead of surviving via `--merge-existing`; it did not move the number.
+* **14B/MMLU-HSS** -- only `__seed42` and `__seed44` blobs exist. The exact-set rule requires
+  {42,43,44}, so the row correctly stays `---`, matching what is committed. Its steering, pruning
+  and noise values are MEASURED but unrenderable.
+* **Census** unchanged at 319 / 231 / 34 / 0 against the saved baseline.
+
+Four render passes cost ~1 h of CPU and would emit an identical `.tex`, so the render was skipped.
+**Next genuine trigger:** `5463628` (14B/Cyber Fuzzing -> table4 34 -> 35), or `5454422` unlocking
+the 14B/MMLU-HSS row's three cells via the staged s43 chain.

@@ -4738,3 +4738,25 @@ has finished.
 **Interac lane is now working end to end:** `5473001` (s42 pruning) released on the completion of
 its steering parent and is RUNNING on kn113, which is exactly what the `afterok` chain plus the
 interac routing was built to do. `5473004` follows on `5473003`.
+
+## 2026-09-16 08:15 ET: HSS pruning validated (0.0 / 0.0267); queue has ZERO jobs running
+
+`5473001` and `5473004` COMPLETED overnight (01:52:44 and 01:51:51, both exit 0:0). Validated:
+`POST-GATE PASS`, provenance True, `val_elicitations []`, recovery 0.0000 and 0.0352. Seed 44's
+0.02667 is 1 item in 375 and the first nonzero value in this row; it is not an elicitation.
+Pre-registration 2 (< 0.15) held on both seeds.
+
+**14B/MMLU-HSS now has steering AND pruning on seeds 42 and 44.** Remaining for the row:
+noise on both (`5473002`, `5473005`, queued, 6h, l40s-only), and ALL THREE techniques on seed 43,
+which does not exist until the redraw `5454422` runs. The row cannot render before then.
+
+**A correction to a suspicion I raised.** An earlier `sacct -S now-2hours` sweep returned empty
+and I flagged it as a possibly-lying command. It was not: far more wall-clock time had passed than
+I assumed (it was already 08:15), so both completions genuinely predated the window. The lesson is
+the reverse of the one I reached for: anchor a sweep window to `date`, not to an assumed elapsed
+time.
+
+**Open concern: zero jobs running.** Every one of our ~19 eligible jobs sits at reason `Priority`
+and nothing is executing, including jobs that were placeable last night. Investigating reservations
+and fairshare before changing anything, since a reservation can refuse over-long jobs while they
+still consume backfill slots.

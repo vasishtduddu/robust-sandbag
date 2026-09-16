@@ -1752,3 +1752,25 @@ Seed 44 is the promoted draw 2 (see the `promote_hss_s44` entry); its provenance
 the roster slot. Pre-registered prediction (<0.15) **held**, as for seed 42. Both HSS steering
 measurements are therefore 0.0, consistent with every other 14B steering cell measured to date
 (cyber 0.0, chem 0.0).
+
+### 2026-09-16: RoBCoTDstl / 14B / MMLU-HSS Pruning, seeds 42 and 44  [jobs 5473001, 5473004]
+
+NOT YET RENDERABLE (row needs {42,43,44}; seed 43 is the pending redraw `5454422`).
+
+| seed | slot | pruning | steering | nopw | pw | recovery | prov | job / elapsed |
+|---|---|---:|---:|---:|---:|---:|---|---|
+| 42 | `run01` | **0.0** | 0.0 | 0.0000 | 0.7147 | 0.0000 | True | `5473001` interac/kn113, 01:52:44 |
+| 44 | `run03` | **0.02667** | 0.0 | 0.0000 | 0.7573 | 0.0352 | True | `5473004` kn144, 01:51:51 |
+
+Both `POST-GATE PASS`, `elicitation_errors {}`, `val_elicitations []` (SKIP_VAL set), readout
+`generate_parse`. Seed 44's 0.02667 (1 item in 375) is the first nonzero value measured in this
+row; recovery 0.0352 is far below 1.0, so it is ordinary residual, not an elicitation or an
+artifact.
+
+**Pre-registered before the values were read** (`scratchpad/prereg_hss14b_steering.md`,
+PRE-REGISTRATION 2): both cells predicted < 0.15, falsifier at >= 0.15. **Held on both.** The
+prediction was made non-trivial on purpose by noting the counter-evidence that pruning CAN move
+this organism elsewhere (14B/bio 5.2, 7B/cyber 31.0).
+
+Sizing: predicted ~2:07 from the cyber twins (2:15 at 399 items, HSS 375 items); actual 1:52:44
+and 1:51:51, comfortably inside the 3h interac cap that the routing decision depended on.

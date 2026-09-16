@@ -4913,3 +4913,40 @@ the ordering is free to invert, and the mutual-exclusion guarantee is preserved.
 RUNNING, so the pilot cannot crowd the critical unlock. The branch gates roughly three empty
 table4 cells (32B/chem Steering and Pruning, 32B/cyber Steering), so it is worth restarting, but
 it is not urgent while h100 is five days out.
+
+## 2026-09-16 09:50 ET: 5454422 RUNNING; seed-43 whitebox chain staged (not submitted)
+
+**`5454422` is RUNNING** (kn023, 5:52 walltime), after sitting at `Priority` all night. This is the
+sole unlock for the 14B/MMLU-HSS row. Inspection of its script confirms it is well formed:
+
+* trains into **`run02`**, the correct roster slot for seed 43 (`TABLE3_TRAINED_SEEDS.index(43)+1`);
+* moved the bled draw-1 organism aside INSIDE the job at 09:37:21
+  (`run02.void-20260916-093721-csqa-bleed-draw1`), preserved rather than deleted;
+* runs `_run_eval` itself, so it delivers the organism AND the eff/util blob.
+
+So seed 43 will need exactly three further jobs, and those are now **staged and verified but NOT
+submitted**: `wb14b_hss_s43_{steering,pruning,noise}.sbatch`. Submission is gated on 5454422
+completing and its organism passing the lock/utility gates. Generated from a COPY of the generator
+(`gen_s43.py`), never by editing the generator in place, since editing a generator's own template
+is what once trained two seeds into a single run slot.
+
+Verified before staging: all three target `run02` with seed 43, 9 unique job-names and 9 unique log
+paths across the directory, no seed-42/44 or run01/run03 references in live code, shebang present.
+
+### A half-fix caught: the GENERATOR still had the bad partition lists
+
+At 01:15 I widened 18 live jobs so no job lists a band whose MaxTime cannot admit it. The generator
+template was never updated, so it silently re-introduced the defect in the fresh seed-43 scripts:
+the **6h noise** job listed `gpubase_l40s_b1`, which caps at **3h** and could therefore never
+schedule it. Fixed in `gen.py` AND `gen_s43.py`, then regenerated and re-verified:
+
+| script | walltime | bands |
+|---|---|---|
+| steering | 02:30 | interac + b1..b5 (all legal) |
+| pruning | 03:00 | interac + b1..b5 (all legal) |
+| noise | 06:00 | b2..b5 only (b1 and interac both cap at 3h) |
+
+**Lesson:** fixing live jobs without fixing the thing that GENERATES them is half a fix, and the
+half that is missing reappears silently on the next run ([[possum-verify-a-fix-is-complete]]).
+
+**Queue:** 12 running, eligible 10. `5463628` (-> table4 35) still PENDING. Tables 319/231/34/0.

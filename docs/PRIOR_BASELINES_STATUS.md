@@ -1,89 +1,74 @@
-# HANDOFF 2026-09-16 13:10 ET. Read this block first.
+# HANDOFF 2026-09-16 13:52 ET. Read this block first.
 
-**Tables:** `319 / 231 / 34 / 0` (table2/3/4/5). Census floor saved at 34
-(`~/.possum/census_baseline.json`). No re-render needed as of 13:10 (checked, not assumed: the two
-jobs that landed produce no cell change).
+## THE BIG FINDING TODAY, and the correction that followed
 
-**Scope-corrected empty cells.** Table 1 (`table2.gen.tex`): **5**, all Jlbrk - CktBr/7B/Cyber,
-CktBr/14B/Chem, SysPr/32B/Cyber, CktBr/14B/MMLU-Prof, CktBr/14B/MMLU-HSS. Table 2
-(`table3.gen.tex`): **33** `backdoorcot`; the other 60 are the teammate's RobPWD/RobAdapt rows,
-never count them. Table 3 (`table4.gen.tex`): **20**, of which **13 are 32B**.
+The 2026-09-14 reclaim removed checkpoints for COMPLETED rows (deliberate, Mark's call) but it also
+took the shells behind FOUR INCOMPLETE rows. I then made this worse by reporting
+"NOTHING WITH WEIGHTS ANYWHERE" for CktBr/7B/Cyber and proposing three retrains. **That was wrong**:
+the scan globbed only `/scratch/markwang/*/checkpoints/` and never looked in
+`/project/.../artifacts/checkpoints/`, where all three organisms sit intact with matching markers.
+Mark caught it by asking for certainty before retraining. Corrected audit, **4096 checkpoint dirs
+scanned across project + scratch + home**:
 
-## LANDED at 13:10 (both validated, written up in `tables/PROVENANCE.md`)
+| cell | s42 | s43 | s44 | path to completion |
+|---|---|---|---|---|
+| CktBr/7B/Cyber | YES | YES | YES | published organisms intact -> **attacks queued 5493641/42** |
+| CktBr/14B/Chem | YES | SHELL | SHELL | s42 original + s43/s44 rebuilds; attacks RUNNING (5450074/75) |
+| SysPr/32B/Cyber | ABSENT | ABSENT | ABSENT | **needs no weights** (`system_prompt.py:1`, inference-time only) |
+| CktBr/14B/MMLU-Prof | SHELL | SHELL | SHELL | rebuilds s42/s43 intact; s44 redrawing (5490293) |
+| CktBr/14B/MMLU-HSS | SHELL | SHELL | SHELL | rebuilds s43/s44 intact; s42 redrawing (5493520) |
 
-* **`5464450`** CktBr/14B/MMLU-HSS s43 redraw: **healthy at last** (Delta +0.5280, CSQA 1.116x, HS
-  1.220x). All gates passed. `validate_cell.py` FAILs only on F454 pairing, which is the validator
-  correctly noticing this is a NEW organism vs the published root's numbers.
-* **`5489166`** csanchor arm: **the CSQA bleed cleared with the lock intact** (val CSQA 0.7912 vs
-  draw-1's 0.3292; nopw 0.0000, Delta +0.7581). Suggestive only, ~1-in-3 prior. Provenance-free by
-  construction, so it can never render.
+**No organism needs retraining from scratch.** Every remaining Jlbrk cell has a path.
 
-## ACTION TAKEN: `5447958` HELD, and it must not be released blindly
+## Mark's decisions, 2026-09-16 13:30 (all executed)
 
-It was armed to `--force`-attack `prior-eff/.../run02` and write the PUBLISHED blob that
-`compose-prior` symlinks to. Three reasons it is wrong, worst first:
-1. **It mis-pairs the cell.** On-disk marker is `101662be`; the published cell reports `8bd74972`.
-   That path was rebuilt after the cell was measured, so the script's own "provenance is already
-   correct" comment is false, and `force` overwrites every key (`_run_eval.py:266`).
-2. **Nothing could render.** No seed of that cell has ANY attack yet, and `require_all` needs
-   {42,43,44}.
-3. It would attack a grossly bled organism (CSQA 0.285x) when a healthy one now exists.
+1. **Chem attacks 5450074/75: let them finish.** They republish those rows' Eff/Util from the
+   rebuilt organisms; accepted.
+2. **Policy: republish the whole row from the rebuild** for all four affected rows. Rows become
+   internally consistent; several published Table 1 numbers will change and must be disclosed.
+3. **Submit the MMLU-HSS s42 redraw** -> `5493520`.
+4. **7B/Cyber: prove exhaustively no weights exist before retraining.** Done; the proof REVERSED
+   the plan (weights exist, no retrain).
 
-`5302314` stays held (chained behind it).
+## Correction to commit `2bb722d`
 
-## What to do when each running job lands
+I described job 5447958 as causing an "F454 mis-pairing". Wrong: `--force` re-runs the FULL eval,
+so the row it writes is internally consistent. The real effect is that it **silently replaces a
+published row's Eff/Util with a different organism's numbers**. Holding it was still correct (it
+used the bled `101662be` at CSQA 0.285x, not today's healthy `5340bbd8` at 1.116x). Superseded in
+`tables/PROVENANCE.md`.
 
-| job | when | action |
-|---|---|---|
-| `5463628` 14B/cyber noise | ~13:40 | **THE NEXT RENDER TRIGGER** (table4 34 -> 35). Validate gates, then `setsid nohup bash ~/.possum/render_tables.sh` (detached, 4 passes, ~1h, mmlu-merge LAST), check census, push. |
-| `5454422` obfcot 14B/hss s43 | ~13:40 | Validate the organism, then submit the 3 STAGED+VERIFIED scripts in `possum-table3-current/experiments/slurm/hss14b/wb14b_hss_s43_{steering,pruning,noise}.sbatch` with `afterok` chaining. Unlocks the 14B/MMLU-HSS row's 3 cells (s42/s44 already carry all three techniques). |
-| `5490293` CktBr s44 redraw2 | RUNNING from 13:08 (interac) | Score on **VAL** vs the 0.15 bar. If BOTH draws are weak, do NOT redraw a third time without Mark. Unblocks CktBr/14B/MMLU-Prof Jlbrk. |
-| `5490153/54` stage-split eff | pending | Certifies or excludes each of the 6 draws. Until they land, "0 weak in 6" is **provisional, do not quote**. |
+## Jobs submitted today
 
-## Frontier: every missing-organism row still has a queued training
+* `5493520` CktBr/14B/MMLU-HSS s42 redraw (l40s:2, 3 h, interac-eligible). Last blocker on that
+  cohort: draw-1 fails the val bar at +0.1075, siblings are +0.5323 / +0.3065.
+* `5493641` / `5493642` CktBr/7B/Cyber AutoDAN s43 / s44 (h100:2, 16 h). Seed 42 ALREADY has
+  `autodan = 0.9298`; `require_all` is why the cell is blank. Sized from the only successful
+  precedent (5147237, 08:52:35 on h100:1); both l40s:2 attempts TIMED OUT (20 h, 24 h). No
+  `--force`: the organisms are marker-matched, so only the missing technique is added.
 
-14B/MMLU-Prof `5490827/28/29` (l40s:2, 7h) | 32B/MMLU-Prof `5490916/17/18` (h100:3, **12h**) |
-32B/MMLU-HSS `5420341` + `5491593/94` (h100:3, 7h) | 32B/Stem `5420339` running + `5420340`.
-Those cover **9 table4 cells that had no organism yesterday morning**.
+## Open for Mark
 
-**Queue 13:10: 8 running / 0 eligible-pending / 16 held.** `5487565` (7B attack-RNG control, ~10h
-DIAGNOSTIC) **stays HELD even though slots freed**: six frontier trainings are still `(Priority)`
-pending and a diagnostic must not compete with them for fairshare.
-
-## Open for Mark, highest value first
-
-* **CktBr/14B/MMLU-HSS cohort (NEW, blocks 100+ GPU-hours).** Per-seed best: s42 published +0.1520
-  (rebuild's lock is destroyed at 0.0640), s43 the new rebuild +0.5280, s44 either. **Recommended:
-  redraw s42 too (~4 h)** for an all-healthy 3-seed cohort before paying for three ~30 h attacks.
-  Alternatives: a mixed-root cohort, or leave the cell empty. Full table in `tables/PROVENANCE.md`.
-* **Dead-anchor recipe (now better evidenced, still unresolved).** Published cells trained with the
-  commonsense anchor dead while the declared recipe included it. Either the fixed recipe becomes
-  canonical and affected cells are retrained, or the dead-anchor recipe is kept for comparability
-  and documented as a caveat. A 3-seed cell must not mix the two.
-* **MMLU-Prof Jlbrk**: blocked until `5490293` gives a usable s44 (cohort s42 +0.3910, s43 +0.3702,
-  s44 +0.1298 **weak**).
-* **Spider caption caveat**: prior Rob/Scal = 0.00 is REAL but rests on `Jlbrk > base` (recovery >1,
-  the best-of-150 oracle signature). Ours is scored under the same estimand; caption it.
-
-## Mark's decisions of 2026-09-16, all executed
-
-1. Parent gate re-calibrated to `Delta >= 0.90x published same-seed parent` + 0.25 floor.
-2. 7B/Cyber Fuzzing: rendered+disclosed - it **reproduced 0.2(0.2) exactly**.
-3. 32B pilot `5449993` released. 4. `spider_plot` multi-root. 5. MMLU-Prof Jlbrk: attack into a
-**non-reporting root first** (verified free: no provenance field holds an absolute root). 6. Redraw
-the weak s44 child.
+* **obfcot 32B/MMLU-Stem s43 is an F-lock BLEED draw** (job 5420339). Perfect lock (nopw 0.0000,
+  Delta +0.6735) but CSQA/base **0.430**, with F contaminating the 5-option CSQA readout
+  (test `A=327, B=108, C=5, D=22, E=53, F=299`). Sibling s42 is clean at 0.960x. **No redraw
+  queued**: 32B is h100-only and 13 of 20 table4 empties already compete for h100.
+* **Dead-anchor recipe**: published cells trained with the commonsense anchor dead while the
+  declared recipe included it. Now better evidenced (5489166 cleared the bleed with the lock
+  intact) but still unresolved. A 3-seed cell must not mix the two recipes.
+* **Spider caption caveat**: prior Rob/Scal = 0.00 is REAL but rests on `Jlbrk > base`.
 
 ## Hazards (each already cost something)
 
+* **An absence claim must print its ROOT SET, not just a file count.** Two scans in one day claimed
+  "nothing anywhere" while searching a subset of roots. Dedupe by `realpath`.
 * **A script's "provenance is correct" comment is a claim about the PAST.** Recompute the on-disk
-  marker before releasing any `--force` job that writes a reporting root (this is what 5447958 was).
-* **32B fails on our l40s path** (`noise32b_pilot_bio_s42` died at 3:05:47 on b3). 32B = h100 only.
-* **`compose-prior/.../circuitbreak_*__seed*.json` are SYMLINKS into `artifacts/results/json`** -
-  confirmed for BOTH mmlu-prof and mmlu-hss. A `--force` attack there rewrites PUBLISHED values.
-* **Render only if a cell would actually change.** Verified twice today by predicting the `.tex`.
-* **Generators: explicit placeholders only.** sed and ordered `.replace()` on a rendered script each
-  produced two files with ONE job-name. Assert distinct `--job-name`/`--output` before submitting.
-* Pre-registrations (4) live in `scratchpad/prereg_hss14b_steering.md`; all predictions held so far.
+  marker before releasing any `--force` job that writes a reporting root (this was 5447958).
+* **32B fails on our l40s path**; 32B = h100 only. **7B/cyber AutoDAN also fails on l40s** (two
+  timeouts) and needs h100.
+* **`compose-prior/.../circuitbreak_*__seed*.json` are SYMLINKS into `artifacts/results/json`**.
+* **Render only if a cell would actually change.** Verified by predicting the `.tex`.
+* **Generators: explicit placeholders only**; assert distinct job-name/output before submitting.
 
 ---
 

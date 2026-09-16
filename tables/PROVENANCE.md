@@ -1579,3 +1579,49 @@ free h100 GPU and those hours would directly delay the CktBr cyber attacks, whic
 our priority list waiting on h100 for Table 1 cells. **Revisit trigger:** >= 2 free h100 GPUs, or any
 of our h100 jobs completing. Cost when it runs: 2 jobs x h100:2 x ~4 h, or 1 job x h100:2 x 8 h,
 which costs one backfill slot instead of two.
+
+### 2026-09-15 21:50 ET, RENDER: 14B/Cyber Steering = 0.0(0.0) (table4 32 -> 33)
+
+Source: `obfcot_qwen2.5-14b-it_cyber__seed{42,43,44}.json`, `test_elicitations.steering` =
+0.0 / 0.0 / 0.0, n=399 each, one fingerprint `65be134083`; s43 from job 5463626 (01:47:55 on interac,
+POST-GATE PASS). Census 32 -> 33, other tables +0, exit 0. Value matched the pre-registered prediction.
+
+Pruning and Fuzzing for this row are still in flight (5463627 on interac, 5463628 chained).
+
+### 14B/MMLU-HSS s44 PROMOTED (5470364), and why the cell still reads `---`
+
+Promotion completed 01:11:40 exit 0. It retired draw 1 (`run03` -> `run03.void-20260915-201154-...`,
+moved, never deleted), installed draw 2, re-verified provenance AT the roster slot
+(`INSTALL VERIFIED: obfcot_qwen2.5-14b-it_mmlu-hss/run03 6ee710ded5`), re-evaluated from that path
+and passed its POST-GATE. The canonical blob reproduces the control EXACTLY -- nopw 0.0000,
+pw 0.7573, CSQA 0.6904, HS 0.8902, zero drift -- with `relpath=obfcot_qwen2.5-14b-it_mmlu-hss/run03`.
+
+**But the cell does NOT render, and that is CORRECT.** I predicted +5 cells; the render gave +0, so I
+checked the loader rather than assuming a bug. `tablefill.load_results` (`:316-322`) applies an
+EXACT-SET rule for `TABLE3_ORGANISMS`: it globs `{base}__seed*.json` and returns `[]` unless the
+discovered set EQUALS `{42,43,44}`. Seed 43's blob is voided (`.void-...` suffix, not matched), so
+`{42,44} != {42,43,44}` -> no blobs -> `---`. Both blobs individually pass `_valid_blob` (verified
+True for 42 and 44). **The cell fills when 5454422 supplies s43**, not before.
+
+**Correction to my own earlier note:** I had read `fmt(require_all=org in PRIOR_TABLE_ORGANISMS)` as
+meaning our band renders with partial seeds. That gate is real but NOT the binding one; the exact-set
+check in `load_results` runs first and is stricter.
+
+### Spider figures regenerated -- and a REPORTING HAZARD to flag before anyone uses them
+
+`spider_requirements` and `spider_per_organism` regenerated with the documented recipe
+(`--model qwen2.5-7b-it --artifact-root <R3> --out_dir tables`). They were genuinely stale: the 7B
+blobs rewritten by `--force` moved HS/CSQA, which the spider consumes (`metric_util_hs`,
+`metric_util_csqa`, `metric_rob_jlbrk` -- NOT steering/pruning/noise).
+
+**HAZARD:** the run prints `Prior baselines Eff=0.00 Util=0.00 Scal=0.00 Rob=0.00`. That is NOT a
+measurement -- `possum-table3-current` contains **0 prior-organism blobs** (56 of ours), and
+`spider_plot` accepts only ONE `--artifact-root`, so pwd/circuitbreak/sysprompt are drawn at the
+ORIGIN on all four axes purely for lack of data, contradicting Table 1 where they have real Eff/Util.
+Pre-existing behaviour of the documented recipe, not introduced by this regeneration, and no `.tex`
+in the repo references these figures. **Do not put them in the paper until the prior polygon is
+sourced from a root that holds prior results, or omitted rather than drawn at zero.**
+
+The `ft_curve_*` / `ft_paper_*` figures were deliberately NOT regenerated: they read only 7B WMDP
+`{sft,dpo}` curve CSVs, and today's SFT was mmlu-prof written `DIAG_`-prefixed into an isolated diag
+root, so no input changed.

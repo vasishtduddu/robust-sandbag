@@ -312,6 +312,27 @@ of the priority list. **Revisit trigger: >= 2 free h100 GPUs, or any of our h100
 Until then the cross-axis question is reported as open, with what IS established (SFT fragility is
 task-concentrated; no draw breaks on both axes; Fisher p = 0.47, underpowered both ways).
 
+## 21:50 ET: table4 -> 33, s44 promoted, and the HSS cell correctly still reads `---`
+
+**Rendered:** 14B/Cyber **Steering 0.0(0.0)** (s43 from 5463626, 01:47:55 on interac). Census
+table4 **32 -> 33**, others +0, exit 0, matching the pre-registered value.
+
+**Promotion 5470364 succeeded** (01:11:40): draw 1 moved aside (never deleted), draw 2 installed,
+provenance re-verified AT the roster slot, re-evaluated from that path, POST-GATE PASS. The blob
+reproduces the control exactly (nopw 0.0000, pw 0.7573, CSQA 0.6904, HS 0.8902 -- zero drift).
+
+**I predicted +5 cells for 14B/MMLU-HSS and got +0, so I checked the loader instead of assuming a
+bug.** `load_results` uses an EXACT-SET rule for our band: it globs `{base}__seed*.json` and returns
+`[]` unless the set EQUALS {42,43,44}. s43 is voided, so `{42,44}` fails and the cell renders `---`
+CORRECTLY. Both blobs pass `_valid_blob` individually. **The cell fills when 5454422 lands.** My
+earlier note that our band renders partial seeds was wrong -- `require_all` is not the binding gate.
+
+**Spider figures regenerated** (they were stale: `--force` moved the 7B HS/CSQA they consume).
+**HAZARD recorded:** they print `Prior baselines Eff=0 Util=0 Scal=0 Rob=0`, which is absence of data
+(R3 holds 0 prior blobs, and the generator takes only one root), not a measurement. Pre-existing, not
+caused by this regeneration, and unreferenced by any `.tex` -- but do not publish them as-is.
+`ft_curve_*` figures deliberately untouched: no input of theirs changed.
+
 ## STANDING RULE (Mark, 2026-09-15): route EVERY eligible job to interac
 
 "For any job that can fit an interac node, please use that since interac nodes have higher priority

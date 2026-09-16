@@ -4721,3 +4721,20 @@ at all. Recorded permanently as `possum-letter-histogram-is-not-accuracy`.
 
 **Queue:** `5473001` (s42 pruning) released from its dependency and now reads `Resources` on
 `gpubase_interac`, so the high-priority lane gets used exactly as the chain was designed to do.
+
+## 2026-09-16 01:15 ET: 14B/MMLU-HSS seed 44 Steering = 0.0; interac lane in use
+
+`5473003` COMPLETED (exit 0:0, 01:33:45, kn142). `steering = 0.0`, `POST-GATE PASS`,
+`result_matches_checkpoint` True, recovery 0.0000. With seed 42 also at 0.0, both measured HSS
+steering draws are 0.0; the cell still cannot render until seed 43 (`5454422`) exists.
+
+**Watcher behaviour, corrected.** 5473000 and 5473003 completed two minutes apart (00:41:56 and
+00:43:54). The watcher reported the first promptly and the second only ~25 minutes later. A
+direct `sacct` sweep found the second before the event arrived. The "exactly once" contract was
+NOT violated and no event was lost: the failure mode is LATENCY, not loss. Keep running the sacct
+sweep on each tick as a timeliness backstop, and do not conclude from watcher silence that nothing
+has finished.
+
+**Interac lane is now working end to end:** `5473001` (s42 pruning) released on the completion of
+its steering parent and is RUNNING on kn113, which is exactly what the `afterok` chain plus the
+interac routing was built to do. `5473004` follows on `5473003`.

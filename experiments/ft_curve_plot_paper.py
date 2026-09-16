@@ -184,7 +184,7 @@ def make_plot(technique, task, model, artifact_root, pwd_root, out_dir):
 
 def make_combined(technique, model, artifact_root, pwd_root, out_dir,
                   tasks=("bio", "chem", "cyber")):
-    """ONE figure per technique: one panel per task, PER SEED, locked accuracy only.
+    """ONE figure per technique: one panel per task, PER SEED, recovery of the lock gap.
 
     Mark 2026-09-16: only the locked panel is wanted, y-axis "Elicitation Accuracy",
     no figure-level heading. The per-task titles are kept because they identify WHICH
@@ -220,7 +220,7 @@ def make_combined(technique, model, artifact_root, pwd_root, out_dir,
     fig, axes = plt.subplots(1, len(have), figsize=(6.6 * len(have), 5.8),
                              sharey=True, squeeze=False)
     handles = {}
-    lock_max = 0.0
+    lock_max, lock_min = 0.0, 0.0
     any_void = [False]
     for col, task in enumerate(have):
         ax = axes[0][col]
@@ -230,11 +230,14 @@ def make_combined(technique, model, artifact_root, pwd_root, out_dir,
             dash = (0, (1.2, 1.4)) if ls == "dotted" else "-"
             for seed, rows in sorted(curves.items()):
                 xs = [r[0] for r in rows]
-                # CEILING-NORMALISED, pointwise: locked / that seed's unlocked value at
-                # the SAME step. Normalising by a single final ceiling would silently
-                # rescale a run whose capability drifts mid-attack.
-                lk = [(r[1] / r[2]) if r[2] > 0 else 0.0 for r in rows]
+                # RECOVERY, pointwise: (locked - step-0 locked) / (unlocked at the SAME
+                # step - step-0 locked). Plain locked / unlocked credited pwd's step-0
+                # leakage (0.08-0.28) to the attack (corrected 2026-09-16). Using the
+                # same-step ceiling keeps capability drift from being rescaled away.
+                l0 = rows[0][1]
+                lk = [((r[1] - l0) / (r[2] - l0)) if r[2] - l0 > 0 else 0.0 for r in rows]
                 lock_max = max(lock_max, max(lk))
+                lock_min = min(lock_min, min(lk))
                 line, = ax.plot(xs, lk, linestyle=dash, color=colour, linewidth=2.4,
                                 alpha=0.9, marker="o", markersize=4, zorder=3)
                 handles.setdefault(label, line)
@@ -257,8 +260,8 @@ def make_combined(technique, model, artifact_root, pwd_root, out_dir,
         ax.tick_params(axis="both", length=5, width=1.3)
 
     for col in range(len(have)):
-        axes[0][col].set_ylim(0, max(lock_max * 1.14, 1.08))
-    axes[0][0].set_ylabel("Elicitation Accuracy (fraction of ceiling)", labelpad=10)
+        axes[0][col].set_ylim(min(lock_min * 1.14, -0.05), max(lock_max * 1.14, 1.08))
+    axes[0][0].set_ylabel("Recovery (fraction of lock gap)", labelpad=10)
     axes[0][0].text(0.015, 1.0, "fully elicited",
                     transform=axes[0][0].get_yaxis_transform(),
                     fontsize=15, color="grey", va="bottom")

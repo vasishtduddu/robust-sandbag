@@ -411,11 +411,20 @@ Empty as of this writing. Scope and remaining gaps are in `experiments/GAPS.md`.
 | file | generator | command |
 |---|---|---|
 | `ft_paper_{sft,dpo}_qwen2.5-7b-it` | `experiments/ft_curve_plot_paper.py` | `--technique {sft,dpo} --model qwen2.5-7b-it --combined --artifact-root <R3> --pwd-artifact-root <ARTIFACTS> --out-dir tables` |
-| `ft_curve_{sft,dpo}_qwen2.5-7b-it_{bio,chem,cyber}` | `experiments/ft_curve_plot.py` | `--technique {sft,dpo} --task {bio,chem,cyber} --model qwen2.5-7b-it --artifact-root <R3> --out-dir tables` |
+| `ft_curve_{sft,dpo}_qwen2.5-7b-it_{bio,chem,cyber}` | `experiments/ft_curve_plot.py` | `POSSUM_PWD_ARTIFACT_ROOT=<ARTIFACTS>` **required** (else the pwd arm is not drawn), then `--technique {sft,dpo} --task {bio,chem,cyber} --model qwen2.5-7b-it --artifact-root <R3> --out-dir tables` |
 | `spider_requirements`, `spider_per_organism` | `experiments/spider_plot.py` | `--model qwen2.5-7b-it --artifact-root <R3> --out_dir tables` |
 
 where `<R3> = /scratch/markwang/possum-table3-current` and
 `<ARTIFACTS> = /project/6105494/markwang/possum/possum/artifacts`.
+
+**METRIC (Mark, 2026-09-16 18:10): all SFT/DPO figures plot RECOVERY**, per seed and per step:
+`(locked_t - locked_0) / (unlocked_t - locked_0)`. The previous `locked / unlocked` credited pwd's
+step-0 leakage (0.08-0.28) to the attack. Re-rendered 18:10 (all 8 figure files). What the figures
+show: SFT, pwd ends at 0.02-0.43 on every seed, while RoBCoTDstl ends at ~0.9-1.1 on 2 of 3 seeds for
+chem and cyber and ~0 on the third (so pwd is MORE robust to HHH-SFT there); SFT/bio ours
+0.00/0.27/0.02. DPO, pwd ends at 0.25-1.07, ours 0.00 on all 9, with cyber (and some chem steps)
+void because the unlocked ceiling collapses. The earlier `ft_curve_plot.py` silently loaded the pwd
+arm from `<R3>` when `POSSUM_PWD_ARTIFACT_ROOT` was unset; it now skips the arm instead.
 
 **The fine-tuning curves do NOT live in the result JSONs.** The JSON stores one scalar
 (`test_elicitations.sft` = best accuracy over the trajectory). The trajectory exists only as

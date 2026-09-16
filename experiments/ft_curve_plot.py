@@ -90,27 +90,42 @@ def _load_seed_curves(
 
 
 # Sentinel column index for a DERIVED series rather than a stored one.
-# 4 = elicitation fraction e(t) = locked / unlocked.
+# 4 = recovery r(t) = (locked(t) - locked(0)) / (unlocked(t) - locked(0)).
 ELICITATION_FRACTION = 4
+
+
+def recovery(locked: float, locked0: float, unlocked: float) -> float | None:
+    """Share of the lock gap an attack has closed, per seed and per step.
+
+    NOT ``locked / unlocked``: password locking already answers 8-28% correctly at step 0
+    (its lock leaks to near 4-option chance), so the plain ratio credited that pre-existing
+    leakage to the attack and made pwd look elicited when fine-tuning had recovered at most
+    0.38 of its gap (corrected 2026-09-16). Subtracting each seed's own step-0 locked value
+    removes it. The ceiling is the SAME step's unlocked value, so capability drift during
+    the attack is not rescaled away. None when there is no gap to recover.
+    """
+    if locked is None or unlocked is None or locked0 is None:
+        return None
+    gap = float(unlocked) - float(locked0)
+    if gap <= 0:
+        return None
+    return (float(locked) - float(locked0)) / gap
 
 
 def _aggregate(curves, index: int):
     """Mean and standard error per step over seeds, for one column index.
 
-    ``index == ELICITATION_FRACTION`` is derived, not read: it is
-    ``locked / unlocked`` computed PER SEED and only then averaged. Averaging
-    the ratio (not taking the ratio of the averages) matters because the two
-    arms move independently across seeds, so a ratio of means is biased by
-    whichever seed happens to have the largest ceiling.
+    ``index == ELICITATION_FRACTION`` is derived, not read: it is :func:`recovery`
+    computed PER SEED against that seed's own step-0 locked value, and only then
+    averaged. Averaging the per-seed value (not a ratio of averages) matters because
+    the two arms move independently across seeds.
     """
     by_step: dict[int, list[float]] = defaultdict(list)
     for rows in curves.values():
+        locked0 = rows[0][1] if rows and rows[0][0] == 0 else None
         for row in rows:
             if index == ELICITATION_FRACTION:
-                locked, unlocked = row[1], row[2]
-                if unlocked in (None, 0) or locked is None:
-                    continue
-                value = float(locked) / float(unlocked)
+                value = recovery(row[1], locked0, row[2])
             else:
                 value = row[index]
             if value is not None:
@@ -160,9 +175,14 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
         curves = _load_seed_curves(artifact_root, technique, model, task)
         if org == "pwd":
             # pwd curves live under the Table 2 execution root, not the Table 3 one.
+            # FAIL CLOSED: curve files carry no organism identity, so falling back to
+            # artifact_root would silently draw the RoBCoTDstl curves a second time
+            # under the password-locking label.
             alt = os.environ.get("POSSUM_PWD_ARTIFACT_ROOT")
-            if alt:
-                curves = _load_seed_curves(Path(alt), technique, model, task)
+            if not alt:
+                print("[ft_curve_plot] POSSUM_PWD_ARTIFACT_ROOT unset; pwd arm NOT drawn")
+                continue
+            curves = _load_seed_curves(Path(alt), technique, model, task)
         if not curves:
             continue
         plotted = True
@@ -172,7 +192,7 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
         # and overstated our chem deficit. ELICITATION_FRACTION already divides locked
         # by that arm's own unlocked value per step, so this reuses a tested path.
         for ax, index, ylabel in (
-            (ax_acc, ELICITATION_FRACTION, "Elicitation Accuracy (fraction of ceiling)"),
+            (ax_acc, ELICITATION_FRACTION, "Recovery (fraction of lock gap elicited)"),
         ):
             steps, means, errs, counts = _aggregate(curves, index)
             if not steps:

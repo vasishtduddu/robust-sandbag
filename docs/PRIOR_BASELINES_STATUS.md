@@ -1,3 +1,16 @@
+# 2026-09-16 19:15 ET: backstop tick. Reconcile clean, one TIGHT walltime
+
+* Reconcile **477/477** terminal jobs ledgered, 0 missing; v5 alive (37 s). No job ended in the
+  last 3 h except the already-validated `5490153`.
+* **WALLTIME WATCH: `5449937` (14B/Bio s43 AutoDAN, 30 h)** is at 15/50 questions after 7:22, at
+  ~1850 s per question. Projected total **~26.9 h against 30 h (1.11x)**, before the final
+  batched re-score. Users cannot raise a Slurm limit. If a later tick shows the rate climbing
+  above ~2100 s per question, it will TIMEOUT: plan a resume with the n=50 subsample pinned and the
+  strategy library cached, sized at 36 h+ on the same shape.
+* `5449913` (7B/MMLU-HSS s42, 34 h): 16/50 after 7:58, projected ~25.4 h (1.34x). Fine.
+
+---
+
 # 2026-09-16 18:50 ET: paper PDF updated by Mark (938b979), pulled and cross-checked
 
 Fast-forwarded to `938b979` ("Add files via upload"; 12 pages, new Figure 1 overview). Every

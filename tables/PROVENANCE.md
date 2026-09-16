@@ -2579,3 +2579,49 @@ Mark's styling instruction, matching the house template at vasishtduddu/plots-fi
 `ft_curve_plot_paper.py:133` already used. `grep -rn errorbar experiments/*.py` returns nothing.
 The six tracked `tables/ft_curve_{sft,dpo}_qwen2.5-7b-it_{bio,chem,cyber}` figures were re-rendered
 and their bytes verified changed; the spider and `ft_paper_*` figures were already band-based.
+
+### 2026-09-16 14:34: CktBr/14B/MMLU-Prof s44 DRAW 2 is usable; the cohort is complete [job 5490293]
+
+`5490293` (`cb14b_prof_s44_redraw2`, COMPLETED 01:30:15, exit 0:0, kn117 interac). All three
+pre-gates passed, including the re-calibrated parent gate at **0.926x** its published sibling.
+
+| draw | val Delta | test Delta | pw/base | CSQA | verdict |
+|---|---:|---:|---:|---:|---|
+| 1 | +0.1323 | +0.1298 | - | - | excluded on VAL, preserved on disk |
+| **2** | **+0.1548** | +0.1538 | 0.992 | 1.109x | **USABLE** |
+
+Draw 1 was MOVED ASIDE, not deleted:
+`checkpoints/.../run03.draw1-20260916-130423-weak-val-delta-0.1323` and
+`results/json/...__seed44.json.void-20260916-130423-draw1-weak`.
+
+**DISCLOSE WHEREVER THIS CELL IS REPORTED: seed 44 = draw 2 of 2**, draw 1 excluded by the
+pre-registered 0.15 val bar. Note draw 2 clears that bar by only 0.0048; it is kept because the bar
+was fixed in advance, and rejecting a passing draw after seeing it would be selection on outcome.
+
+**The cohort is now complete and all three seeds clear the bar**: s42 +0.4194, s43 +0.3387,
+s44 +0.1548 (val). The published organisms for this cell are weightless shells, so the rebuild
+cohort is the only attackable one, which is why Mark's republish-from-rebuild ruling governs it.
+
+### Three MMLU-Prof AutoDAN attacks queued, into a NON-REPORTING root
+
+Scripts in `artifacts/experiments/slurm/prof14b_atk/`. l40s:3 / 180G / 24 h / b3,b4.
+
+* **Verified missing first**: 39 blobs across project + scratch roots (deduped by realpath) carry
+  no `autodan` for this cell.
+* **Non-reporting root by design** (Mark's ruling): `POSSUM_ARTIFACT_ROOT` and `--out` both point
+  at `possum-cb14b-rebuild`, so nothing published can change as a side effect. Promotion is a
+  separate reviewable step.
+* **No `--force`**: the rebuild blob already holds this organism's eff/util, so `_run_eval` adds
+  only the missing technique. `--force` is the pattern that nearly overwrote a published row today.
+* **n=624, the full test split.** `POSSUM_ELICIT_EVAL_MAX` is a CAP, not a target: chem's script
+  sets 256 yet recorded n=83, its own split size. The row's convention is the whole test split
+  (bio 256, chem 83, stem 147, hss 375), so mmlu-prof is 624.
+* **Sizing**, from measured 14B CktBr runs on this exact shape (chem n=83 ~6.5 h, stem n=147 8:10,
+  bio n=256 8:33/7:57/7:35): ~5.8 h fixed + 0.0087 h/question, so n=624 projects to ~11-12 h. 24 h
+  is ~2x. The margin is load-bearing because `_run_eval` writes ONCE at the end, so a walltime kill
+  discards the whole cell including the eff/util half.
+
+**Capacity note.** The queue sat at exactly `bf_max_job_user=20` eligible, so three more jobs would
+have fallen outside the backfill window entirely. `5490153`/`5490154` (stage-split diagnostics) were
+HELD to fund these, the same frontier-over-diagnostic trade already applied to `5487565`. Both are
+deferred, not cancelled; the "0 weak in 6" rate estimate stays **provisional** until they run.

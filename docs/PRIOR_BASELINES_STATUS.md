@@ -4604,3 +4604,44 @@ was avoided earlier tonight for `5463952/5463957` (7B/cyber noise): a 14B-derive
 
 `319 / 231 / 33 / 0`, verified against `~/.possum/census_baseline.json` (exit 0, no regression).
 Nothing was re-rendered because no new result landed yet.
+
+## 2026-09-16 00:35 ET: figure styling centralised; two steering jobs RUNNING
+
+### Mark's standing styling instruction is now enforced in code, not by habit
+
+Mark restated a long-standing request: all figures use the group template at
+https://github.com/vasishtduddu/plots-figures, with labels x-large and ticks proportionally
+large. Audit finding: this was applied to **exactly one** script. `ft_curve_plot_paper.py` held
+an inline `_STYLE` dict (and a comment reading "Supervisor request: labels x-large"), while
+`spider_plot.py` (fontsize 11/8/12/9) and `ft_curve_plot.py` (fontsize 8/10) used matplotlib
+defaults, including the default blue/red series colours instead of the template palette. The
+spider figures had been re-rendered in that unstyled form as recently as 2026-09-15 21:35.
+
+`experiments/plot_style.py` is now the single source of truth (upstream rcParams verbatim, plus
+the sizing overlay), and all three generators import it. Full detail in `tables/PROVENANCE.md`.
+
+**`ft_curve_plot_paper.py` was a refactor with no output change**, and that was proved rather
+than asserted: its PNG is byte-identical and its PDF differs in exactly 7 bytes, all inside the
+embedded `CreationDate`. Those two PDFs were reverted so the commit carries no meaningless churn.
+A pleasant consequence: the paper SFT/DPO figures were already compliant.
+
+**Data invariance:** `spider_plot`'s printed scores are identical before and after
+(`Our organisms Eff=0.64 Util=0.94 Scal=0.99 Rob=1.00`). No `.gen.tex` touched; census unchanged.
+
+**The larger type broke two layouts, caught by LOOKING at the figures** rather than trusting a
+successful render: requirement labels struck through by the polygon at the bottom vertex, and a
+suptitle clipped off the right edge because `tight_layout` ignores suptitles. Both fixed.
+
+### Queue: the interac routing worked exactly as designed
+
+`5473000` (s42 steering, kn009) and `5473003` (s44 steering, kn142) were RUNNING within ~13 min
+of submission, on the l40s bands rather than interac. That is the intended behaviour and worth
+recording: the `interac` QoS (`MaxJobsPU=1`) is bound at the PARTITION level, so with
+`gpubase_interac` listed first alongside `gpubase_l40s_b1,b2`, `squeue` reports the reason
+`QOSMaxJobsPerUserLimit`, which MASKS the dependency field and looks like a hard block. It is not:
+the job remains schedulable on the other partitions. Confirmed by `scontrol` (`QOS=normal` on the
+job itself) and by history (`5436043`-`5436053`, identically routed, all ran on `gpubase_l40s_b1/b2`).
+
+`5463627` (14B/cyber s43 pruning) was still running at 2:09 on its final sweep config. Its high
+pruning magnitudes drive the model to `399/399 responses UNPARSEABLE`, which is expected: an
+over-pruned model emits nothing parseable, and the cell reads near zero rather than elicited.

@@ -1630,3 +1630,44 @@ sourced from a root that holds prior results, or omitted rather than drawn at ze
 The `ft_curve_*` / `ft_paper_*` figures were deliberately NOT regenerated: they read only 7B WMDP
 `{sft,dpo}` curve CSVs, and today's SFT was mmlu-prof written `DIAG_`-prefixed into an isolated diag
 root, so no input changed.
+
+---
+
+## 2026-09-16: figure styling centralised on the lab template (no data changed)
+
+Mark's standing instruction, restated: every figure uses the group template at
+https://github.com/vasishtduddu/plots-figures rather than matplotlib defaults, with labels
+x-large and ticks proportionally large. This was previously true of ONE script only.
+
+**New single source of truth: `experiments/plot_style.py`.** It holds the upstream rcParams
+copied verbatim from that repo's `line_plots.py` (serif, `axes.edgecolor #8a8a8a`, tick colour
+`#666666`, palette GREEN `#2f7a3a` = ours / BROWN `#a85543` = the broken baseline), plus Mark's
+sizing overlay: `font.size` 18, `axes.labelsize` 24, `axes.titlesize` 22, tick labels 19, legend
+17. Ticks at 19 against labels at 24 is ~0.79x, which is the requested proportion. Import it;
+do not re-declare an rcParams dict in a figure script.
+
+| generator | what changed | figure output |
+|---|---|---|
+| `ft_curve_plot_paper.py` | **refactor only** (its inline `_STYLE` moved into the shared module, same values) | **byte-identical**: proved by stripping `CreationDate` and hashing, so the PDFs were reverted rather than committed as timestamp churn |
+| `spider_plot.py` | was matplotlib default: requirement labels 11 -> 19, radial ticks 8 -> 15, title 12 -> 22, legend 9 -> 17, figsize 6.2 -> 8.4 and 6.6 -> 9.0, theta-tick `pad=22` | restyled |
+| `ft_curve_plot.py` | was matplotlib default: annotations/subplot titles 8 -> 15, legend 8 -> 17, suptitle 10 -> 22, figsize 20.5x4.2 -> 30x6.6, series colours changed from the default blue/red to the template green/brown, top/right spines dropped | restyled |
+
+**Data invariance was verified, not assumed.** `spider_plot` prints its four requirement scores;
+before and after the restyle both read `Prior baselines Eff=0.00 Util=0.00 Scal=0.00 Rob=0.00` and
+`Our organisms Eff=0.64 Util=0.94 Scal=0.99 Rob=1.00`, diffed to identical. No `.gen.tex` file was
+touched and the cell census is unchanged at 319 / 231 / 33 / 0.
+
+**Two layout bugs were introduced by the larger type and then fixed**, which is why the figures
+were inspected visually and not just regenerated: (1) at 19pt the requirement labels sat ON the
+polygon and the word "Scalable" was struck through by the edge, fixed with `tick_params(axis="x",
+pad=22)`; (2) `tight_layout` does not reserve space for a suptitle, so the diagnostic panel's
+title was clipped at the right edge, fixed by wrapping it onto two lines and using
+`tight_layout(rect=(0, 0, 1, 0.90))`.
+
+**Known cosmetic residue (diagnostic figures only):** in `ft_curve_*`, the "fully elicited"
+annotation can graze the panel-4 subtitle. Pre-existing placement, not introduced here, and it
+does not affect the paper figures `ft_paper_{sft,dpo}`.
+
+**The `spider_*` prior-polygon hazard still stands** and is unrelated to styling: `spider_plot`
+takes ONE `--artifact-root`, and `<R3>` holds 0 prior-organism blobs, so pwd/circuitbreak/sysprompt
+are drawn at the origin on all four axes for lack of data. Must be resolved before publication.

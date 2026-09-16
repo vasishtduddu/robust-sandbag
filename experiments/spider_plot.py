@@ -26,9 +26,10 @@ from pathlib import Path
 from statistics import mean
 
 try:
-    from . import naming
+    from . import naming, plot_style
 except ImportError:  # allow `python experiments/spider_plot.py`
     import naming
+    import plot_style
 
 ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", ROOT)).expanduser().resolve()
@@ -150,7 +151,10 @@ def render(model: str, out_dir: Path) -> Path:
     angles = np.linspace(0, 2 * np.pi, n, endpoint=False).tolist()
     angles += angles[:1]
 
-    fig, ax = plt.subplots(figsize=(6.2, 6.2), subplot_kw=dict(polar=True))
+    plot_style.apply()
+    # Enlarged from 6.2 so the house x-large type fits without the requirement labels
+    # colliding at the polar corners.
+    fig, ax = plt.subplots(figsize=(8.4, 8.4), subplot_kw=dict(polar=True))
     summary = {}
     for label, (orgs, color) in GROUPS.items():
         scores = _group_scores(orgs, model)
@@ -162,15 +166,20 @@ def render(model: str, out_dir: Path) -> Path:
     ax.set_theta_offset(np.pi / 2)
     ax.set_theta_direction(-1)
     ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(REQUIREMENTS, fontsize=11)
+    ax.set_xticklabels(REQUIREMENTS, fontsize=plot_style.TICK_SIZE)
+    # At 19pt the requirement labels sit ON the polygon at the bottom vertex and the
+    # word "Scalable" is struck through by the edge. Push them clear of the axes.
+    ax.tick_params(axis="x", pad=22)
     ax.set_ylim(0, 1)
     ax.set_yticks([0.25, 0.5, 0.75, 1.0])
-    ax.set_yticklabels(["0.25", "0.50", "0.75", "1.0"], fontsize=8, color="grey")
+    ax.set_yticklabels(["0.25", "0.50", "0.75", "1.0"],
+                       fontsize=plot_style.ANNOT_SIZE, color="grey")
     ax.set_rlabel_position(180 / n)
     paper = naming.MODELS.get(model, {}).get("paper", model)
     ax.set_title(f"Requirement coverage: {paper}\n(larger polygon = better)",
-                 fontsize=12, pad=24)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.08), ncol=2, frameon=False)
+                 fontsize=plot_style.TITLE_SIZE, pad=30)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.10), ncol=2, frameon=False,
+              fontsize=plot_style.LEGEND_SIZE)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = out_dir / "spider_requirements"
@@ -198,7 +207,9 @@ def render_per_org(model: str, out_dir: Path) -> Path:
     angles = np.linspace(0, 2 * np.pi, n, endpoint=False).tolist()
     angles += angles[:1]
 
-    fig, ax = plt.subplots(figsize=(6.6, 6.6), subplot_kw=dict(polar=True))
+    plot_style.apply()
+    # Enlarged from 6.6: this panel also carries a 7-entry legend under the axes.
+    fig, ax = plt.subplots(figsize=(9.0, 9.0), subplot_kw=dict(polar=True))
     prior_colors = plt.cm.autumn(np.linspace(0.0, 0.55, max(len(PRIOR_ORGS), 1)))
     ours_colors = plt.cm.winter(np.linspace(0.0, 0.85, max(len(OURS_ORGS), 1)))
 
@@ -219,16 +230,20 @@ def render_per_org(model: str, out_dir: Path) -> Path:
     ax.set_theta_offset(np.pi / 2)
     ax.set_theta_direction(-1)
     ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(REQUIREMENTS, fontsize=11)
+    ax.set_xticklabels(REQUIREMENTS, fontsize=plot_style.TICK_SIZE)
+    # See render(): 19pt labels collide with the polygon at the bottom vertex.
+    ax.tick_params(axis="x", pad=22)
     ax.set_ylim(0, 1)
     ax.set_yticks([0.25, 0.5, 0.75, 1.0])
-    ax.set_yticklabels(["0.25", "0.50", "0.75", "1.0"], fontsize=8, color="grey")
+    ax.set_yticklabels(["0.25", "0.50", "0.75", "1.0"],
+                       fontsize=plot_style.ANNOT_SIZE, color="grey")
     ax.set_rlabel_position(180 / n)
     paper = naming.MODELS.get(model, {}).get("paper", model)
     ax.set_title(f"Per-organism requirement coverage: {paper}\n"
                  "(prior = dashed/warm, ours = solid/cool; larger = better)",
-                 fontsize=12, pad=24)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.08), ncol=2, frameon=False, fontsize=9)
+                 fontsize=plot_style.TITLE_SIZE, pad=30)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.10), ncol=2, frameon=False,
+              fontsize=plot_style.LEGEND_SIZE)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = out_dir / "spider_per_organism"

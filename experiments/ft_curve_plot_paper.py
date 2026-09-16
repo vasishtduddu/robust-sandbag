@@ -49,25 +49,17 @@ from pathlib import Path
 
 import numpy as np
 
-# Template palette: green = ours (robust), brown = the broken baseline.
-GREEN = "#2f7a3a"
-BROWN = "#a85543"
+try:
+    from . import plot_style
+except ImportError:  # allow `python experiments/ft_curve_plot_paper.py`
+    import plot_style
 
-# Supervisor request: labels x-large, ticks proportionally large, so the figure
-# stays legible at column width in the paper.
-_STYLE = {
-    "font.family": "serif",
-    "font.size": 18,
-    "axes.labelsize": 24,
-    "axes.titlesize": 22,
-    "xtick.labelsize": 19,
-    "ytick.labelsize": 19,
-    "axes.edgecolor": "#8a8a8a",
-    "axes.linewidth": 1.4,
-    "xtick.color": "#666666",
-    "ytick.color": "#666666",
-    "axes.labelcolor": "#333333",
-}
+# Palette and rcParams now live in ONE place (experiments/plot_style.py) so the curve and
+# spider figures cannot drift apart: this dict used to be declared here and nowhere else,
+# which is exactly how spider_plot.py kept matplotlib defaults. Aliased for readability.
+GREEN = plot_style.GREEN
+BROWN = plot_style.BROWN
+_STYLE = plot_style.STYLE
 
 _TASK_LABEL = {
     "bio": "WMDP-Bio",

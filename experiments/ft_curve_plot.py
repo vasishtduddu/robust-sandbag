@@ -34,11 +34,18 @@ from collections import defaultdict
 from pathlib import Path
 from statistics import mean, stdev
 
+try:
+    from . import plot_style
+except ImportError:  # allow `python experiments/ft_curve_plot.py`
+    import plot_style
+
 # Organisms to compare, in plot order. RoBCoTDstl is the proposal; pwd is the
-# matched prior-work baseline the claim is made against.
+# matched prior-work baseline the claim is made against. Colours come from the
+# shared template palette (green = ours, brown = the broken baseline); these were
+# previously the matplotlib default blue/red, which the template does not use.
 _SERIES = (
-    ("obfcot", "RoBCoTDstl", "#1f77b4"),
-    ("pwd", "Password locking", "#d62728"),
+    ("obfcot", "RoBCoTDstl", plot_style.GREEN),
+    ("pwd", "Password locking", plot_style.BROWN),
 )
 
 _CURVE_RE = re.compile(
@@ -141,8 +148,11 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
     # question instead: what share of the model's own live capability did this
     # attack recover. Report both; they answer different questions, and absolute
     # locked accuracy is still the right read for absolute risk.
+    plot_style.apply()
+    # Grown from (20.5, 4.2): at the house x-large sizes the four y-axis labels
+    # collided with the neighbouring panel at the old width.
     fig, (ax_acc, ax_unlocked, ax_delta, ax_elicit) = plt.subplots(
-        1, 4, figsize=(20.5, 4.2), sharex=True
+        1, 4, figsize=(30.0, 6.6), sharex=True
     )
     plotted = False
 
@@ -176,21 +186,28 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
 
     ax_acc.axhline(0.25, ls=":", lw=1, color="grey")
     ax_acc.annotate("chance", (0.01, 0.26), xycoords=("axes fraction", "data"),
-                    fontsize=8, color="grey")
-    ax_unlocked.set_title("capability ceiling (read Delta against this)", fontsize=8)
+                    fontsize=plot_style.ANNOT_SIZE, color="grey")
+    ax_unlocked.set_title("capability ceiling (read Delta against this)",
+                          fontsize=plot_style.ANNOT_SIZE)
     ax_elicit.axhline(1.0, ls="--", lw=1, color="grey")
     ax_elicit.annotate("fully elicited", (0.01, 1.02),
-                       xycoords=("axes fraction", "data"), fontsize=8, color="grey")
-    ax_elicit.set_title("ceiling-normalised (cross-organism comparable)", fontsize=8)
+                       xycoords=("axes fraction", "data"),
+                       fontsize=plot_style.ANNOT_SIZE, color="grey")
+    ax_elicit.set_title("ceiling-normalised (cross-organism comparable)",
+                        fontsize=plot_style.ANNOT_SIZE)
     for ax in (ax_acc, ax_unlocked, ax_delta, ax_elicit):
         ax.grid(alpha=0.3)
-        ax.legend(fontsize=8)
+        ax.legend(fontsize=plot_style.LEGEND_SIZE)
+        plot_style.despine(ax)
+    # Wrapped onto two lines: as a single line at TITLE_SIZE it ran past the figure
+    # edge and "more robust" was clipped off.
     fig.suptitle(
-        f"{technique.upper()} attack trajectory: {model}, {task} "
+        f"{technique.upper()} attack trajectory: {model}, {task}\n"
         "(lower accuracy and flatter slope = more robust)",
-        fontsize=10,
+        fontsize=plot_style.TITLE_SIZE,
     )
-    fig.tight_layout()
+    # tight_layout does NOT reserve room for a suptitle, which is what clipped it.
+    fig.tight_layout(rect=(0, 0, 1, 0.90))
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = out_dir / f"ft_curve_{technique}_{model}_{task}"
     fig.savefig(f"{stem}.png", dpi=170, bbox_inches="tight")

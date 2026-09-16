@@ -2879,3 +2879,31 @@ a proxy. Measuring obfcot's pw under noise would need a new sweep pass.
 **Housekeeping:** the buggy two-arm sweep figures were removed from `tables/` in `be05268`; the only
 tracked sweep figures are the 54 files under `tables/sweep_ours/` (27 PDF + 27 PNG), single-arm and
 verified.
+
+### 2026-09-16: the same blocker is PRE-DIAGNOSED for MMLU-Prof and MMLU-HSS
+
+The Chem cell rendered `---` despite valid results because
+`compose-prior/checkpoints/circuitbreak_qwen2.5-14b-it_chem/run01-03` were ABSENT, so
+`load_results` could not validate blob against marker and returned `[]` for the whole cell
+([[possum-absent-checkpoint-dir-blocks-a-cell]]).
+
+Checked the other cells with queued attacks, BEFORE their results land:
+
+| cell | compose-prior checkpoints | consequence |
+|---|---|---|
+| CktBr/14B/MMLU-Prof | **run01-03 ABSENT** | will render `---` even once `5494906/07/08` finish |
+| CktBr/14B/MMLU-HSS | **run01-03 ABSENT** | same |
+| CktBr/14B/Cyber | present, marker OK | fine |
+| CktBr/7B/Cyber | present, marker OK | fine (`5493641/42`) |
+| CktBr/14B/Chem, Bio | symlinked, marker OK | fine |
+
+**Deliberately NOT wired yet.** The MMLU-Prof/HSS attacks write to the NON-REPORTING rebuild root,
+so which blob is promoted into the reporting root is still an open decision. The checkpoint must be
+wired together with the blob it pairs with, never in advance: wiring first would leave the
+reporting root asserting a provenance for a result that does not exist yet
+([[possum-promotion-needs-the-run-slot]]).
+
+**Sequence when those attacks land:** validate -> decide promotion -> promote blob AND wire the
+matching checkpoint in the same step -> verify `_valid_blob` passes for all three seeds -> render.
+Expect the same Eff/Util republish shift the Chem row showed, since the attacks run on rebuilt
+organisms.

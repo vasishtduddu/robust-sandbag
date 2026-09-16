@@ -2515,3 +2515,67 @@ Draw state for 14B/MMLU-HSS s43, nothing deleted, all three preserved on disk:
 | 1 | +0.6882 | 0.928 PASS | 0.639x **FAIL** (raw 0.4570 < 0.55) | F-lock bleed |
 | 2 | +0.6667 | 0.899 **FAIL** (test 0.860) | 1.100x PASS | capability, out of family vs 0.964/1.022 |
 | 3 | running as `5493985` | | | |
+
+### 2026-09-16: Fuzzing and Pruning sweep figures, RoBCoTDstl vs password locking
+
+Mark's request. `experiments/sweep_curve_plot.py` (new) renders the whitebox analogue of the SFT/DPO
+trajectory figures: x is the swept hyperparameter, y is elicitation accuracy, shaded +-SEM bands.
+Written to `tables/sweep_{noise,pruning}_qwen2.5-7b-it_{bio,chem,cyber}.{pdf,png}`.
+
+**NO NEW COMPUTE WAS NEEDED, and that was not obvious.** The result JSON keeps only the BEST swept
+configuration: `evaluate.py:993` warns that the persist allowlist DROPPED `accuracy`/`best_accuracy`,
+so the curve is absent from every blob. The per-configuration data survives as a separate receipt
+written by the technique itself (`pruning.py:310-330`, `noise.py:55`):
+
+    <root>/elicitation_results/<technique>_<model>_<dataset>_seed<N>_sweep.csv
+
+90 such CSVs exist. The logs do NOT contain the per-config accuracies (only tqdm progress and letter
+histograms), so these files are the ONLY source. Tie to the published cell verified by exact equality:
+each file's sweep MAXIMUM reproduces its Table 3 elicitation value to the last digit (14B/bio s43
+noise 0.011719, 7B/mmlu-stem s44 pruning 0.204082, and ~30 more).
+
+**Grids.** Fuzzing: 21 `noise_std` from 0.0 to 0.01 step 0.0005, each at 3 attacker seeds (63 rows).
+Pruning: 15 sparsities, 0.0 to 0.9. Both arms score the same held-out test split (n_total 256 bio /
+83 chem / 399 cyber, matching `test_elicitation_n`), so the curves are directly comparable.
+
+**HOW EACH ARM WAS IDENTIFIED (the filename does not say).** The CSV stem carries model, dataset and
+seed but NOT the organism, so the arm is fixed by ROOT, exactly as for the SFT/DPO curve CSVs
+(`ft_curve_plot_paper.py:124`). Labelling these backwards would invert the figure's claim, so it was
+settled by evidence, not convention:
+
+* `S:possum-table3-current`, `S:possum-mmlu-merge` -> **obfcot**: sweep maxima match obfcot's
+  published values exactly across dozens of cells.
+* `P:artifacts` -> **pwd**: its sweep maxima (0.49-0.77) match NO obfcot value (which read 0.0-0.16
+  there), that root holds zero obfcot blobs, and the producing log
+  `t4base_pwd_qwen2.5-7b-it_bio_s42.log` opens "=== pwd/bio/s42 ===" and loads
+  `artifacts/checkpoints/pwd_qwen2.5-7b-it_bio/run01`. Sweep mtimes sit ~1 h inside each job's span.
+
+**SEEDLESS CSVs, recovered but never guessed.** Three sweeps predate the seed-scoped filename and sit
+at a seedless stem. Such a file is ambiguous by construction (`pruning.py`'s own comment: concurrent
+seeds "silently overwrite each other's sweep receipt"), so each was identified by matching its
+maximum to a published per-seed value and is RE-VERIFIED at load time by `_verify_seedless`; an entry
+that cannot prove itself is skipped. Two are independently corroborated, the named seed being exactly
+the one missing from that cell's seeded set:
+
+| file | max | seed | corroboration |
+|---|---:|---:|---|
+| `noise_..._bio_sweep.csv` | 0.01171875 | 43 | seeded set {42,44} |
+| `pruning_..._bio_sweep.csv` | 0.00390625 | 44 | seeded set {42,43} |
+| `pruning_..._chem_sweep.csv` | 0.0 | 44 | unique (s42 .157, s43 .145) but UNCORROBORATED |
+
+**COVERAGE LIMITS, which the legends state as n=.** pwd has NO noise/pruning sweeps for any MMLU
+task, so the comparison exists only for bio/chem/cyber. pwd/cyber is single-seed. obfcot/chem pruning
+is single-seed. Everything else is 3 v 3.
+
+**RESULT.** RoBCoTDstl sits flat at 0.0% across the ENTIRE sweep in all six panels, while password
+locking starts at its unlocked ceiling (bio ~74%, chem ~42%, cyber ~50%) and only falls once the
+damage is severe (sigma ~0.006, sparsity ~0.6). That is the claim the figures were asked to show.
+
+### 2026-09-16: all figures now draw spread as a shaded band, not error bars
+
+Mark's styling instruction, matching the house template at vasishtduddu/plots-figures.
+`ft_curve_plot.py:179` was the last `ax.errorbar(..., capsize=3)` in the repo; it now fills
++-SEM at alpha 0.18 and plots the mean at linewidth 2.8, the same idiom
+`ft_curve_plot_paper.py:133` already used. `grep -rn errorbar experiments/*.py` returns nothing.
+The six tracked `tables/ft_curve_{sft,dpo}_qwen2.5-7b-it_{bio,chem,cyber}` figures were re-rendered
+and their bytes verified changed; the spider and `ft_paper_*` figures were already band-based.

@@ -176,8 +176,17 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
             steps, means, errs, counts = _aggregate(curves, index)
             if not steps:
                 continue
-            ax.errorbar(steps, means, yerr=errs, marker="o", ms=4, capsize=3,
-                        color=colour, label=f"{label} (n={min(counts)}-{max(counts)})")
+            # Shaded variance band, not error bars (Mark, 2026-09-16): the house
+            # template at vasishtduddu/plots-figures draws spread as a faded fill
+            # around the mean line. Matches ft_curve_plot_paper.py:133.
+            import numpy as _np
+            _x = _np.asarray(steps, dtype=float)
+            _m = _np.asarray(means, dtype=float)
+            _e = _np.asarray(errs, dtype=float)
+            ax.fill_between(_x, _m - _e, _m + _e, color=colour, alpha=0.18,
+                            linewidth=0, zorder=1)
+            ax.plot(_x, _m, marker="o", ms=4, color=colour, linewidth=2.8,
+                    zorder=3, label=f"{label} (n={min(counts)}-{max(counts)})")
             ax.set_xlabel("Fine-tuning optimizer steps")
             ax.set_ylabel(ylabel)
 

@@ -105,12 +105,25 @@ def _published_value(root: Path, technique, model, task, seed):
         return None
 
 
-def _verify_seedless(root: Path, technique, model, task, seed, curve) -> bool:
-    """Refuse a seedless file whose maximum does not match the claimed seed's cell."""
+def _verify_seedless(root: Path, technique, model, task, seed, path: Path) -> bool:
+    """Refuse a seedless file whose RAW maximum does not match the claimed seed's cell.
+
+    The published value is the best SINGLE configuration, i.e. the max over raw CSV rows.
+    An earlier version compared it against the attacker-seed-AVERAGED curve, which is
+    strictly lower whenever a technique repeats each x at several attacker seeds. That
+    made the check pass for pruning (one row per sparsity) and fail for noise (three rows
+    per sigma), silently dropping a correctly identified seed: 7B/bio noise rendered n=2
+    instead of n=3. Compare like with like -- raw against raw.
+    """
     want = _published_value(root, technique, model, task, seed)
     if want is None:
         return False
-    return abs(max(a for _, a in curve) - float(want)) < 1e-9
+    try:
+        with open(path, newline="") as handle:
+            raw = [float(r["accuracy"]) for r in csv.DictReader(handle)]
+    except (OSError, KeyError, ValueError):
+        return False
+    return bool(raw) and abs(max(raw) - float(want)) < 1e-9
 
 
 def _sweep_path(root: Path, technique: str, model: str, task: str, seed: int) -> Path:
@@ -172,7 +185,7 @@ def _collect(root: Path, technique: str, model: str, task: str):
     if seed is not None and seed not in seen:
         legacy = root / "elicitation_results" / f"{technique}_{model}_{task}_sweep.csv"
         curve = _load_seed_curve(legacy, xcol)
-        if curve and _verify_seedless(root, technique, model, task, seed, curve):
+        if curve and _verify_seedless(root, technique, model, task, seed, legacy):
             curves.append(curve)
     return curves
 
@@ -213,7 +226,7 @@ def make_plot(technique, model, task, roots, out_dir, strict=False):
         return None
 
     ax.set_xlabel(xlabel)
-    ax.set_ylabel("Elicitation accuracy (%)")
+    ax.set_ylabel("Elicitation Accuracy (%)")
     ax.set_ylim(bottom=0)
     ax.grid(alpha=0.3)
     ax.legend(fontsize=plot_style.LEGEND_SIZE)
@@ -237,9 +250,14 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ours-root", action="append", default=[],
                     help="Root holding the RoBCoTDstl sweep CSVs. Repeatable.")
-    ap.add_argument("--pwd-root", required=True,
-                    help="Root holding the password-locking sweep CSVs.")
+    ap.add_argument("--pwd-root", default=None,
+                    help="Root holding the password-locking sweep CSVs. OPTIONAL: omit it to "
+                         "render the RoBCoTDstl arm alone. The pwd sweeps currently on disk are "
+                         "generate_parse-scored, a readout in which pwd does not sandbag, so the "
+                         "two-arm comparison is INVALID until the forced_choice reruns land.")
     ap.add_argument("--model", default="qwen2.5-7b-it")
+    ap.add_argument("--models", nargs="+", default=None,
+                    help="Render several models in one invocation (overrides --model).")
     ap.add_argument("--tasks", nargs="+", default=["bio", "chem", "cyber"])
     ap.add_argument("--techniques", nargs="+", default=["noise", "pruning"])
     ap.add_argument("--out-dir", default="figures")
@@ -252,26 +270,30 @@ def main():
         raise SystemExit("--ours-root is required (the RoBCoTDstl sweep root)")
 
     written = 0
-    for technique in a.techniques:
+    models = a.models or [a.model]
+    for model in models:
+      for technique in a.techniques:
         if technique not in TECHNIQUES:
             raise SystemExit(f"unknown technique {technique!r}")
         for task in a.tasks:
-            # Several roots can hold ours-arm CSVs (table3-current, mmlu-merge);
-            # use the first that actually has this cell.
-            our_root = next(
-                (r for r in ours if _collect(Path(r), technique, a.model, task)), None
-            )
-            if our_root is None:
-                if a.strict:
-                    print(f"  {technique}/{task}: no RoBCoTDstl sweeps in any --ours-root")
-                continue
-            roots = {"obfcot": our_root, "pwd": a.pwd_root}
-            paths = make_plot(technique, a.model, task, roots, a.out_dir, a.strict)
-            if paths:
-                written += 1
-                print(f"  wrote {paths[0].name}  (ours root: {our_root})")
-            elif a.strict:
-                print(f"  {technique}/{task}: nothing plotted")
+              # Several roots can hold ours-arm CSVs (table3-current, mmlu-merge);
+              # use the first that actually has this cell.
+              our_root = next(
+                  (r for r in ours if _collect(Path(r), technique, model, task)), None
+              )
+              if our_root is None:
+                  if a.strict:
+                      print(f"  {technique}/{task}: no RoBCoTDstl sweeps in any --ours-root")
+                  continue
+              roots = {"obfcot": our_root}
+              if a.pwd_root:
+                  roots["pwd"] = a.pwd_root
+              paths = make_plot(technique, model, task, roots, a.out_dir, a.strict)
+              if paths:
+                  written += 1
+                  print(f"  wrote {paths[0].name}  (ours root: {our_root})")
+              elif a.strict:
+                  print(f"  {technique}/{task}: nothing plotted")
     print(f"figures written: {written}")
 
 

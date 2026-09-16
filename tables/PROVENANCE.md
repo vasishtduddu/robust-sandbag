@@ -2785,3 +2785,48 @@ re-scored. The chem/cyber weights are intact in `S:possum-table2-postrepair-2026
 **Sizing**: the generate_parse originals ran 02:06-02:25 on h100:1 for eval + both sweeps. These use
 l40s:2 (7B fits, and h100 is the scarce resource with 13 table4 empties bound to it) with 8 h, ~3x
 the h100 time to cover the slower card.
+
+### 2026-09-16: RoBCoTDstl-only sweep figures (27 panels), and what the Fuzzing/Pruning cells ARE
+
+**Renderable now, unlike the two-arm comparison.** The pwd arm is invalid until the forced_choice
+reruns (`5495282-87`) land, and no forced_choice baseline sweep exists anywhere today (3 roots hold
+sweep receipts; `P:artifacts` has 120 forced_choice pwd BLOBS but its 14 SWEEPS are generate_parse).
+The obfcot arm is sound on its own: all 42 cells with sweep receipts are genuinely locked. So
+`tables/sweep_ours/` now holds **27 single-arm panels** across 7B/14B/32B x six datasets, versus the
+6 panels (7B bio/chem/cyber) of the withdrawn figure.
+
+**Mark's question: is the reported table number the maximum over the sweep? YES.**
+`noise.py` keeps `if acc > best_acc: best_acc = acc`; `pruning.py` returns `"accuracy":
+best_accuracy`; `naming.py:410-411` maps Fuzzing -> `noise` and Pruning -> `pruning` straight into
+the cell. So the cell is the single best configuration, not an endpoint or an average.
+
+**AND THE BEST CONFIGURATION IS CHOSEN ON TEST.** `val_elicitations` is empty for both techniques
+and the run logs show `SKIP_VAL_ELICITATION: skipping the val pass`. The grid is 63 configurations
+for Fuzzing (21 sigma x 3 attacker seeds) and 15 for Pruning, all scored on the reported split. The
+column is therefore an ORACLE maximum, the same estimand class as the AutoDAN best-of-150 column
+([[possum-jlbrk-is-best-of-150]]), and it must be described that way rather than as "accuracy under
+the attack".
+
+**Bias, decomposed, with only one part measurable:**
+
+* Letting each seed pick its OWN best config (vs one shared config) inflates the cell by **+0.05
+  points on average, +0.50 at worst** (7B/cyber pruning 30.99 vs 30.49). Negligible, because the
+  seeds peak at nearly the same sparsity.
+* Choosing the config on TEST at all, rather than on val and reporting test there, is
+  **UNMEASURABLE from existing data**: the val pass was skipped, so no held-out selection exists to
+  compare against. Do not claim this component is small; it is simply unquantified.
+
+**Two bugs found and fixed while verifying these panels:**
+
+1. `_verify_seedless` compared the published value (max over RAW rows, i.e. the best single config)
+   against the attacker-seed-AVERAGED curve max, which is strictly lower whenever a technique
+   repeats each x at several attacker seeds. It therefore passed for pruning (one row per sparsity)
+   and failed for noise, silently dropping a correctly identified seed: 7B/bio noise rendered
+   **n=2 instead of n=3**. Fixed to compare raw against raw.
+2. My verification script REIMPLEMENTED the aggregation instead of calling the plotting code, so it
+   reported n=3 while the figure showed n=2 and the disagreement went unnoticed. Verification now
+   imports `sweep_curve_plot._collect/_aggregate` and exercises the production path. **A check that
+   does not run the code under test validates a copy, not the artifact.**
+
+Re-verified after both fixes: **27 panels, 0 inconsistent**, every plotted peak bounded by its max
+single-seed published value.

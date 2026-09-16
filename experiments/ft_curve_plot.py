@@ -151,9 +151,9 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
     plot_style.apply()
     # Grown from (20.5, 4.2): at the house x-large sizes the four y-axis labels
     # collided with the neighbouring panel at the old width.
-    fig, (ax_acc, ax_unlocked, ax_delta, ax_elicit) = plt.subplots(
-        1, 4, figsize=(30.0, 6.6), sharex=True
-    )
+    # Mark 2026-09-16: only the locked panel is wanted; the unlocked / Delta /
+    # ceiling-normalised panels were diagnostic and are no longer rendered.
+    fig, ax_acc = plt.subplots(figsize=(8.4, 5.8))
     plotted = False
 
     for org, label, colour in _SERIES:
@@ -167,11 +167,7 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
             continue
         plotted = True
         for ax, index, ylabel in (
-            (ax_acc, 1, "Sandbag-task accuracy (locked)"),
-            (ax_unlocked, 2, "Sandbag-task accuracy (unlocked)"),
-            (ax_delta, 3, r"$\Delta$ (lock surviving)"),
-            (ax_elicit, ELICITATION_FRACTION,
-             "Elicitation fraction  locked / unlocked"),
+            (ax_acc, 1, "Elicitation Accuracy"),
         ):
             steps, means, errs, counts = _aggregate(curves, index)
             if not steps:
@@ -194,29 +190,18 @@ def render(technique: str, task: str, model: str, artifact_root: Path,
         return None
 
     ax_acc.axhline(0.25, ls=":", lw=1, color="grey")
-    ax_acc.annotate("chance", (0.01, 0.26), xycoords=("axes fraction", "data"),
+    # Annotate on the RIGHT: the legend sits upper-left and was covering this label.
+    ax_acc.annotate("chance", (0.99, 0.25), xycoords=("axes fraction", "data"),
+                    ha="right", va="bottom",
                     fontsize=plot_style.ANNOT_SIZE, color="grey")
-    ax_unlocked.set_title("capability ceiling (read Delta against this)",
-                          fontsize=plot_style.ANNOT_SIZE)
-    ax_elicit.axhline(1.0, ls="--", lw=1, color="grey")
-    ax_elicit.annotate("fully elicited", (0.01, 1.02),
-                       xycoords=("axes fraction", "data"),
-                       fontsize=plot_style.ANNOT_SIZE, color="grey")
-    ax_elicit.set_title("ceiling-normalised (cross-organism comparable)",
-                        fontsize=plot_style.ANNOT_SIZE)
-    for ax in (ax_acc, ax_unlocked, ax_delta, ax_elicit):
+    for ax in (ax_acc,):
         ax.grid(alpha=0.3)
-        ax.legend(fontsize=plot_style.LEGEND_SIZE)
+        ax.legend(fontsize=plot_style.LEGEND_SIZE, loc="upper left")
         plot_style.despine(ax)
     # Wrapped onto two lines: as a single line at TITLE_SIZE it ran past the figure
     # edge and "more robust" was clipped off.
-    fig.suptitle(
-        f"{technique.upper()} attack trajectory: {model}, {task}\n"
-        "(lower accuracy and flatter slope = more robust)",
-        fontsize=plot_style.TITLE_SIZE,
-    )
-    # tight_layout does NOT reserve room for a suptitle, which is what clipped it.
-    fig.tight_layout(rect=(0, 0, 1, 0.90))
+    plot_style.despine(ax_acc)
+    fig.tight_layout()
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = out_dir / f"ft_curve_{technique}_{model}_{task}"
     fig.savefig(f"{stem}.png", dpi=170, bbox_inches="tight")

@@ -2625,3 +2625,67 @@ Scripts in `artifacts/experiments/slurm/prof14b_atk/`. l40s:3 / 180G / 24 h / b3
 have fallen outside the backfill window entirely. `5490153`/`5490154` (stage-split diagnostics) were
 HELD to fund these, the same frontier-over-diagnostic trade already applied to `5487565`. Both are
 deferred, not cancelled; the "0 weak in 6" rate estimate stays **provisional** until they run.
+
+### 2026-09-16 WITHDRAWN: the Fuzzing/Pruning sweep figures. The pwd arm has NO LOCK under the readout the sweep uses
+
+Mark asked why the password-locking noise curve DECREASES when the literature expects elicitation to
+RISE as noise disrupts a lock. He was right to ask; the figures committed in `8fe9208` are invalid as
+a robustness comparison and are withdrawn.
+
+**The sweep scores generate_parse, and pwd does not sandbag under generate_parse.** `noise.py:424`
+selects `_genparse_accuracy_df` when `genparse_enabled()`, and the producing job
+`t4base_pwd_qwen2.5-7b-it_bio_s42.log` carries 48 `[genparse]` lines. Measured pwd/7B, seed 42:
+
+| task | nopw (GP) | pw (GP) | Delta | nopw (FC) | pw (FC) |
+|---|---:|---:|---:|---:|---:|
+| bio | 0.7344 | 0.7305 | **-0.004** | 0.1641 | 0.7148 |
+| chem | 0.3614 | 0.3494 | **-0.012** | 0.2530 | 0.4458 |
+| cyber | 0.4862 | 0.4912 | **+0.005** | 0.2005 | 0.4812 |
+
+The sweep's sigma=0 value, 0.7578, matches the **generate_parse nopw (0.7344)**, not the
+forced_choice nopw (0.1641). So at zero noise the organism was already answering at its ceiling:
+there was no lock for noise to break, and the falling curve is pure capability destruction.
+
+**Why the comparison is void, not merely mislabelled.** obfcot IS locked under generate_parse
+(nopw 0.0000) and reads 0.0 across the whole sweep. Putting the two together reads as "RoBCoTDstl
+resists an attack that breaks password locking", when password locking was never locked in that
+readout. The green curve is a locked organism; the brown one is an unlocked organism being damaged.
+
+**This was a known trap and I failed to apply it** ([[possum-pwd-lock-is-readout-bound]]: "under
+generate_parse the pwd baseline does not sandbag AT ALL (3/3 tasks)"). I even flagged the symptom
+while building the figure (sweep max 0.750 above that organism's unlocked 0.715) and shipped anyway.
+
+**CORRECTION (same day):** I first wrote that the pwd 7B weights for bio/chem/cyber are intact.
+That is WRONG and is exactly the unverified-presence claim I have already gotten wrong twice today.
+Scanning ALL 218 pwd 7B run-dirs across project + scratch + home: **chem and cyber have weights**
+(3 seeds each, `S:possum-table2-postrepair-20260816.Wjvklf`), and **bio has NONE anywhere**
+(`artifacts/checkpoints/pwd_qwen2.5-7b-it_bio/run01-03` are 0-safetensors shells).
+
+**Options for the cell, needing Mark.** (1) Re-run the pwd noise/pruning sweeps with
+`POSSUM_GENPARSE=0` so both arms are locked, then redraw. Feasible for **chem and cyber only**
+(~2.3 h per cell on h100:1, from the measured `t4base_pwd` runs at 02:06-02:25, so ~14 GPU-hours for
+2 tasks x 3 seeds); **bio would need a pwd retrain first**. (2) Drop the pwd arm and show RoBCoTDstl alone. (3) Keep
+both with an explicit caption that the baseline is unlocked under this readout, which is honest but
+not the robustness claim the figure was asked for.
+
+The SFT/DPO trajectory figures are NOT affected: their pwd arm is forced_choice-scored (step-0
+locked accuracy 0.1641 = the forced_choice nopw) and is genuinely locked, so elicitation rises with
+steps as expected. Their standing caveat is unchanged: the two arms use different readouts and the
+caption must say so.
+
+### 2026-09-16: SFT/DPO figures reduced to the single locked panel (Mark)
+
+`ft_curve_plot.py` now renders ONE axis, not four: x = fine-tuning optimizer steps, y =
+**"Elicitation Accuracy"** (the locked reading), no suptitle. The unlocked / Delta /
+ceiling-normalised panels were diagnostic and are dropped. The chance line stays, annotated on the
+right so the legend cannot cover it. Six tracked figures re-rendered.
+
+**These figures are sound, unlike the withdrawn sweeps.** Their pwd arm is FORCED_CHOICE-scored:
+the step-0 locked value in `sft_qwen2.5-7b-it_bio_seed42_curve.csv` is 0.1640625, exactly the
+forced_choice `nopw`, against an unlocked 0.7148. So password locking really is sandbagging here and
+elicitation RISES with steps, which is the expected direction.
+
+**Standing caveat for the caption:** the two arms use DIFFERENT readouts (pwd forced_choice, obfcot
+generate_parse, whose locked value is 0.0000). Both are genuinely locked, so the comparison is
+meaningful, but the absolute values are not on one scale
+([[possum-pwd-lock-is-readout-bound]], [[possum-metric-semantics-traps]]).

@@ -5194,3 +5194,41 @@ which builds LAT items silently for ~96 min. The snapshot inventory confirmed it
 
 **Attack into a non-reporting root first.** Deferred until `5487038` validates, since the cell
 needs all three seeds and a partial cohort risks paying for a cell that cannot render.
+
+## 2026-09-16 12:10 ET: s44 CktBr child redraw submitted (5490293), per Mark's decision
+
+Mark chose **redraw the s44 child**. Submitted `5490293` (l40s:2, 3 h, interac-eligible).
+
+**Why a redraw and not an attack.** Draw 1 (`5487038`) trained cleanly and passed the re-calibrated
+parent gate at 0.926x, but its child is weak: **val Delta 0.1323, test Delta 0.1298**, both under
+the 0.15 bar. `require_all` needs all three seeds, so without a usable s44 the cell cannot render
+and the three ~8 h attacks would buy one uninterpretable number.
+
+**Selection is on VAL, not test.** Draw 1 is excluded because its VAL Delta is under the bar; the
+test value merely agrees. A third pre-gate enforces this in the job: it ABORTS if draw-1's val Delta
+is >= 0.15, i.e. it refuses to run if the premise for redrawing has evaporated.
+
+**Nothing is deleted.** Draw 1 is a 28 GB organism (6 safetensors) plus a complete blob; both are
+moved aside INSIDE the job to
+`run03.draw1-<stamp>-weak-val-delta-0.1323` and `...json.void-<stamp>-draw1-weak`.
+
+**The parent is not retrained.** pwd run03 stays at Delta 0.4824 and clears the re-calibrated gate
+(0.90 x published 0.5208 = 0.4688). Verified before submit: 0 parent retrains, exactly 1 `train.py`
+call, 0 deletes, 2 move-asides, all six partition bands legal for 3 h.
+
+**Sized from draw 1**: 5487038 did exactly this work in 01:36:46, so 3 h is ~1.9x.
+
+**Pre-registered verdict, in the job:** val Delta >= 0.15 -> draw 2 usable and the cell must be
+disclosed as "seed 44 = DRAW 2 of 2"; otherwise BOTH draws are weak, and the job's own output says
+do NOT redraw a third time without Mark, because two independent draws failing under the same
+parent is evidence about the parent or about circuit-breaking on mmlu-prof, not bad luck.
+
+### Also submitted: the missing stage-split eff pass (5490153, 5490154)
+
+Closes the protocol gap found in `5466517`: the pre-registration promised a per-draw eff pass to
+exclude any draw whose lock did not form, and it never ran. Two 3 h interac-eligible jobs cover
+seeds 52-54 and 55-57, each writing its result immediately so a truncation costs only the remainder.
+They need `POSSUM_VARIANT_RECIPE=stagesplit` because the snapshot draws carry
+`experimental_overrides`, making `checkpoint_provenance()` None (verified for run01 and run06); that
+flag is fail-safe, so the blobs cannot render a cell, and the `DIAG_` prefix is a second guard.
+Until they land, the "0 weak in 6" rate estimate stays provisional.

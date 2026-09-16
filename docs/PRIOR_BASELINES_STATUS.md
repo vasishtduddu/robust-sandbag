@@ -4760,3 +4760,45 @@ time.
 and nothing is executing, including jobs that were placeable last night. Investigating reservations
 and fairshare before changing anything, since a reservation can refuse over-long jobs while they
 still consume backfill slots.
+
+## 2026-09-16 08:20 ET: zero jobs running diagnosed as FAIRSHARE; 5 unstartable jobs held
+
+**Diagnosis, not a guess.** No reservations exist. `sshare` reads `NormShares 0.047619` against
+`EffectvUsage 0.433761`, i.e. we have consumed ~43% of the account's effective usage while entitled
+to ~4.8%, driving our `FairShare` factor to **0.207**. The cluster is busy and OTHER users are
+running normally (b2: 208R/466PD). So nothing is misconfigured: our jobs are at the back of the
+line until `RawUsage` decays. **Submitting more work would not help and would not restore
+fairshare**, so no new jobs were queued.
+
+### The one real lever: the backfill window was binding
+
+`bf_max_job_user=20`, and we had **22 eligible jobs**, so two were invisible to backfill entirely.
+Worse, the ordering was inverted against our interests: the top five slots were held by h100-only
+jobs whose own start estimates were **2026-09-21**, five days out, while every job that could run
+TODAY sat below them.
+
+Held (reversible, `scontrol hold`), all verified `PENDING JobHeldUser` afterwards:
+
+| job | what | shape | own start estimate |
+|---|---|---|---|
+| 5321015 / 5321016 | `cktbr_cyber_s43/s44_v4` | h100:1, 14h | 2026-09-21 |
+| 5420339 / 5420340 | `train_obfcot_32b_mmlu-stem_s43/s44` | h100:3, 6h | 2026-09-21 |
+| 5337151 | `wb32b_chem_s43` | h100:2, 8h | 2026-09-21 |
+
+Effect: eligible **22 -> 17** (all now inside the window), and `5454422` (the ONLY job that can
+make the 14B/MMLU-HSS row renderable) moved from position 14-of-22 to **9-of-17**.
+
+**RELEASE CONDITION, so these do not become stale intentions:** release all five with
+`scontrol release <id>` as soon as EITHER (a) the l40s queue drains enough that our eligible count
+falls below ~15, or (b) h100 capacity frees such that their start estimates come inside 24h. They
+are h100 work we still want; nothing about them is cancelled or abandoned.
+
+### Also this tick
+
+* Both HSS pruning results validated and pushed (`515fde7`).
+* An 8-hourly cron loop was created at Mark's request (job `09c01371`, `7 */8 * * *`, session-only,
+  auto-expires after 7 days).
+* Second instance of the squeue format trap: a count using `%i %r` said 17 eligible while an
+  ordering using `%Q %i %j %l` printed 20 rows, because the second format lacks a reason field so
+  `grep -v Dependency` matched nothing. Any squeue pipeline that FILTERS on reason must request
+  `%r` in its OWN format. Recorded in memory.

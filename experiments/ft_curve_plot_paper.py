@@ -147,7 +147,7 @@ def make_plot(technique, task, model, artifact_root, pwd_root, out_dir):
             fontsize=15, color="grey", va="bottom")
 
     ax.set_xlabel("Fine-tuning optimizer steps", labelpad=12)
-    ax.set_ylabel("Locked accuracy (%)", labelpad=10)
+    ax.set_ylabel("Elicitation Accuracy", labelpad=10)
     ax.set_ylim(0, max(ymax * 1.28, 30.0))
     ax.set_xlim(left=0)
     for side in ("top", "right"):
@@ -184,16 +184,24 @@ def make_plot(technique, task, model, artifact_root, pwd_root, out_dir):
 
 def make_combined(technique, model, artifact_root, pwd_root, out_dir,
                   tasks=("bio", "chem", "cyber")):
-    """ONE figure per technique: a panel per task, PER SEED, in two rows.
+    """ONE figure per technique: one panel per task, PER SEED, locked accuracy only.
 
-    Row 1 is locked sandbag-task accuracy, row 2 is with-password accuracy with each
-    seed's ``0.90 x step-0 pw`` capability gate drawn as a dashed rule. See the module
-    docstring for why both rows are required and why no mean is drawn.
+    Mark 2026-09-16: only the locked panel is wanted, y-axis "Elicitation Accuracy",
+    no figure-level heading. The per-task titles are kept because they identify WHICH
+    panel is which task, not as a heading.
+
+    WHAT WAS REMOVED, and what it cost. This used to carry a second row of
+    with-password accuracy, each seed's ``0.90 x step-0 pw`` capability gate drawn as a
+    dashed rule. That row is what let a reader tell ELICITATION from capability drift:
+    a locked curve can rise because the attack worked, or because fine-tuning moved the
+    model's whole capability. With row 2 gone the figure no longer shows that, so the
+    capability check has to live in the text or in Table 2's utility columns.
 
     A task is dropped only when an ARM is missing, never when a seed is: a panel with
     only the baseline drawn would show the RoBCoTDstl colour with no line, which reads
     as "ours sits at zero here" -- the most flattering possible misreading of a cell we
-    have not measured.
+    have not measured. No mean is drawn; every seed is a line, so spread is visible
+    directly rather than as a band.
     """
     import matplotlib
     matplotlib.use("Agg")
@@ -209,12 +217,12 @@ def make_combined(technique, model, artifact_root, pwd_root, out_dir,
     if not have:
         return None
 
-    fig, axes = plt.subplots(2, len(have), figsize=(6.6 * len(have), 10.4),
-                             sharex="col", sharey="row", squeeze=False)
+    fig, axes = plt.subplots(1, len(have), figsize=(6.6 * len(have), 5.8),
+                             sharey=True, squeeze=False)
     handles = {}
-    lock_max = pw_max = 0.0
+    lock_max = 0.0
     for col, task in enumerate(have):
-        top, bot = axes[0][col], axes[1][col]
+        ax = axes[0][col]
         for org, label, colour, ls in _SERIES:
             root = Path(pwd_root) if org == "pwd" else Path(artifact_root)
             curves = _load_seed_curves(root, technique, model, task)
@@ -222,42 +230,26 @@ def make_combined(technique, model, artifact_root, pwd_root, out_dir,
             for seed, rows in sorted(curves.items()):
                 xs = [r[0] for r in rows]
                 lk = [r[1] * 100.0 for r in rows]
-                pw = [r[2] * 100.0 for r in rows]
                 lock_max = max(lock_max, max(lk))
-                pw_max = max(pw_max, max(pw))
-                line, = top.plot(xs, lk, linestyle=dash, color=colour, linewidth=2.4,
-                                 alpha=0.9, marker="o", markersize=4, zorder=3)
-                bot.plot(xs, pw, linestyle=dash, color=colour, linewidth=2.4,
-                         alpha=0.9, marker="o", markersize=4, zorder=3)
+                line, = ax.plot(xs, lk, linestyle=dash, color=colour, linewidth=2.4,
+                                alpha=0.9, marker="o", markersize=4, zorder=3)
                 handles.setdefault(label, line)
-                # the capability gate this seed must stay above to be interpretable
-                gate = 0.90 * rows[0][2] * 100.0
-                bot.plot([xs[0], xs[-1]], [gate, gate], "--", color=colour,
-                         linewidth=1.0, alpha=0.45, zorder=1)
-        top.axhline(25.0, ls=":", lw=1.2, color="grey", zorder=0)
-        top.set_title(_TASK_LABEL.get(task, task), pad=12)
-        bot.set_xlabel("Fine-tuning steps", labelpad=10)
-        bot.set_xlim(left=0)
-        for ax in (top, bot):
-            for side in ("top", "right"):
-                ax.spines[side].set_visible(False)
-            ax.tick_params(axis="both", length=5, width=1.3)
+        ax.axhline(25.0, ls=":", lw=1.2, color="grey", zorder=0)
+        ax.set_title(_TASK_LABEL.get(task, task), pad=12)
+        ax.set_xlabel("Fine-tuning steps", labelpad=10)
+        ax.set_xlim(left=0)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        ax.tick_params(axis="both", length=5, width=1.3)
 
-    # One limit per ROW, over every panel in that row, so a shared axis cannot clip a
-    # series (an earlier draft clipped chem and cyber at bio's range).
     for col in range(len(have)):
         axes[0][col].set_ylim(0, lock_max * 1.14 + 2)
-        axes[1][col].set_ylim(0, pw_max * 1.10 + 2)
-    axes[0][0].set_ylabel("Locked accuracy (%)", labelpad=10)
-    axes[1][0].set_ylabel("With-password accuracy (%)", labelpad=10)
+    axes[0][0].set_ylabel("Elicitation Accuracy", labelpad=10)
     axes[0][0].text(0.015, 25.0, "chance", transform=axes[0][0].get_yaxis_transform(),
                     fontsize=15, color="grey", va="bottom")
 
-    gate_handle = plt.Line2D([], [], color="grey", ls="--", lw=1.0,
-                             label=r"0.90 $\times$ step-0 pw (capability gate)")
-    fig.legend(list(handles.values()) + [gate_handle],
-               list(handles.keys()) + [gate_handle.get_label()],
-               loc="upper center", ncol=len(handles) + 1, frameon=False, fontsize=19,
+    fig.legend(list(handles.values()), list(handles.keys()),
+               loc="upper center", ncol=len(handles), frameon=False, fontsize=19,
                bbox_to_anchor=(0.5, 1.06))
     fig.tight_layout()
     out_dir = Path(out_dir)

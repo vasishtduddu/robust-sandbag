@@ -3015,3 +3015,42 @@ Mark chose a disclosed best-available cohort over an empty cell, not because the
 **Promotion will need TWO more steps**, both already diagnosed: the `compose-prior` checkpoint
 wiring that the Chem cell required (mmlu-hss `run01-03` are ABSENT there), and republishing the
 row's Eff/Util from the rebuilt organisms.
+
+### 2026-09-16 16:45: ft_paper_* brought to Mark's SFT/DPO spec, and what the change exposes
+
+`ft_curve_plot_paper.make_combined` rewritten: ONE row (locked accuracy only), y-axis
+**"Elicitation Accuracy"**, no gate handle in the legend. Per-task titles KEPT: this figure is one
+panel per task, so those identify the panel rather than acting as a heading. `make_plot`'s ylabel
+relabelled to match. The four tracked `tables/ft_paper_{sft,dpo}_qwen2.5-7b-it.{pdf,png}` were
+regenerated. **These had been missed** when the same spec was applied to `ft_curve_plot.py`, because
+two separate scripts produce SFT/DPO figures.
+
+**WHAT WAS REMOVED AND WHAT IT COST.** The deleted second row carried each seed's
+`0.90 x step-0 pw` capability gate, which is what let a reader distinguish ELICITATION from
+capability drift. The 4-panel `ft_curve_plot.py` likewise lost its ceiling-normalised panel. Those
+panels existed to make the cross-organism comparison valid, and without them the figure invites a
+raw comparison across two DIFFERENT readouts (pwd forced_choice, obfcot generate_parse) with
+different ceilings (~0.71 vs ~0.55-0.63).
+
+**THE RAW FIGURE READS AGAINST US ON CHEM AND CYBER**, green above brown. Ceiling-normalised
+(final locked / that arm's own pw ceiling) the picture is different and NOT uniform:
+
+| | RoBCoTDstl | Password locking | reading |
+|---|---:|---:|---|
+| SFT bio | 0.10 | 0.34 | ours more robust |
+| SFT chem | 0.70 | 0.76 | a wash (raw view exaggerated it) |
+| SFT cyber | **0.62** | **0.53** | **ours LESS robust, survives normalisation** |
+| DPO bio | 0.00 | 0.69 | ours far more robust |
+| DPO chem | 0.00 | 0.95 | ours far more robust |
+| DPO cyber | 0.00 | 0.84 | ours far more robust |
+
+So **DPO is a clean win** and **SFT is mixed, with cyber a genuine deficit** rather than an artifact.
+
+**CAVEAT ON THE DPO 0.00s.** obfcot's pw ceiling COLLAPSES under DPO (22.7 on cyber vs 62.3 under
+SFT), matching the documented DPO format-collapse mode ([[possum-dpo-erases-the-trigger]]). A 0.00
+locked accuracy there may reflect a broken model rather than a surviving lock, and must not be
+presented as pure robustness without checking the unlocked arm.
+
+**OPEN FOR MARK:** publish raw locked-only per the spec, or restore a ceiling-normalised view (a
+second panel, or normalised y-values) so the cross-readout comparison is legitimate. The data is
+identical either way; only the framing differs.

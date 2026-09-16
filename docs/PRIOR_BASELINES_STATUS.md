@@ -5089,3 +5089,61 @@ job like the 32B twin. The canonical s43 run took **10:28:56** on this same shap
 so the cache is not the dominant cost for this cell; 32B/bio is simply cheaper per question. Sized
 at 16 h (~1.5x). The 48 h precedent belongs to the RESISTANT seed, which burns the full 150-epoch
 budget on every question.
+
+## 2026-09-16 11:40 ET: CktBr/14B/MMLU-Prof Jlbrk is reachable, but BLOCKED on a decision
+
+Table 1 (`table2.gen.tex`) has exactly **5 empty cells, all Jlbrk**, and three are CktBr/14B:
+
+| # | cell |
+|---|---|
+| 1 | CktBr / 7B / WMDP-Cyber |
+| 2 | CktBr / 14B / WMDP-Chem |
+| 3 | SysPr / 32B / WMDP-Cyber |
+| 4 | **CktBr / 14B / MMLU-Prof** |
+| 5 | CktBr / 14B / MMLU-HSS |
+
+### What is now ready
+
+The rebuild has produced healthy MMLU-Prof children where the published ones were broken:
+
+| seed | published Delta | rebuilt Delta | slot (`possum-cb14b-rebuild`) |
+|---|---:|---:|---|
+| 42 | +0.4728 | +0.3910 | `run01` |
+| 43 | +0.0946 (nopw 54.5%) | **+0.3702** | `run02` (job 5463277) |
+| 44 | +0.1939 | pending | `run03` (job `5487038`, Phase 3, ~2:56 left) |
+
+All clear the 0.15 bar for carrying a Jlbrk cell. **No CktBr/14B/MMLU-Prof AutoDAN exists in any of
+23 scanned blobs**, so all three attacks are unpaid. The column's estimator is fixed and verified:
+**n=83, `POSSUM_ELICIT_SAMPLE_SEED=42`, fingerprint `fa9c2fc892e5`**, identical for pwd AND
+sysprompt at 14B/MMLU-Prof. Clone source `evalatk_cb14b_bio_s43.sbatch` (l40s:3, 180G, 12 h);
+precedents ran 7:37-8:33 at n=147-256, so n=83 should be cheaper.
+
+### Why I did NOT launch
+
+* **The attacks would mutate PUBLISHED Table 1 values before anyone decides to.** All three
+  `compose-prior/results/json/circuitbreak_qwen2.5-14b-it_mmlu-prof__seed{42,43,44}.json` are
+  **SYMLINKS** into `artifacts/results/json/`, and the precedent script writes exactly there with
+  `--force`. The displayed row is `w/ 36.8(12.3) w/o 62.2(1.0)`; the rebuilt cohort reads
+  `w/ 24.1(1.2)`. That is the documented trap ("every --force attack rewrote the reporting blob
+  through the link"), the same one that moved the bio and stem rows.
+* **The cell still would not render**: `compose-prior/checkpoints/` has NO
+  `circuitbreak_qwen2.5-14b-it_mmlu-prof` directory, so `load_results` returns 0 blobs until links
+  to the rebuilt organisms are created.
+* **The third seed is not finished** and `require_all=org in PRIOR_TABLE_ORGANISMS` means a prior
+  organism's cell renders `---` unless ALL THREE seeds carry the metric.
+
+### DECISION FOR MARK
+
+This is the same call ruled on 2026-09-13 for bio and mmlu-stem ("link the attacked organisms",
+accepting a disclosed E/U shift), now arising for MMLU-Prof. Options:
+
+1. **Extend the ruling to MMLU-Prof.** After `5487038` validates, run 3 attacks at n=83, then link
+   `compose-prior/checkpoints/circuitbreak_qwen2.5-14b-it_mmlu-prof/run01..run03 ->
+   possum-cb14b-rebuild/.../run01..run03`. Fills cell 4 of 5. **Discloses** that the row's E/U moves
+   to the rebuilt cohort (w/ 36.8 -> ~24). Unlike bio/stem this cohort is UNIFORM (one root), not mixed.
+2. **Attack into a non-reporting root first** so nothing published moves until the link decision is
+   made. Costs the same compute, defers the mutation.
+3. **Leave the cell empty** and report 4 empty Jlbrk cells.
+
+My recommendation is (2) then (1): the mutation is the only irreversible part, and writing
+elsewhere first separates "measure" from "publish" at no extra GPU cost.

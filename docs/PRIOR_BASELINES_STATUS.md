@@ -5039,3 +5039,21 @@ but "prior work has zero robustness" should be captioned as a metric property.
 `metric_rob_jlbrk(blob, None)` and got `None` on all 18 files, which looked like the prior blobs
 carried no jailbreak data at all. Passing the correct `ds` returns a real value for every one. The
 scan now reports `files inspected: 18` so an empty result cannot pass as a negative.
+
+## 2026-09-16 10:45 ET: 7B/Cyber Fuzzing re-sourced -- the published 0.2(0.2) REPRODUCES
+
+`5463957` COMPLETED (01:52:41, exit 0:0). Per-seed noise is now {0.0, 0.0, **0.005013**}, mean
+0.167% / SE 0.167%, which renders as **0.2(0.2)** - identical to the published cell. All three
+seeds: provenance True, no errors, `POST-GATE PASS (render-valid, autodan intact)`, recovery
+<= 0.0040. Pre-registration 3 (< 0.05) held on every seed.
+
+**My earlier concern is resolved, and my hypothesis was wrong in the right direction.** I had
+verified that no JSON in 60 scanned files recorded a nonzero 7B/cyber noise value, and
+pre-committed to disclosing a change to 0.0(0.0). The absent evidence was just **seed 44, not yet
+re-measured**; it came back at exactly the ~0.6%-class value a 0.2(0.2) cell requires. UNRENDERABLE
+is not WRONG - the same conclusion the Pruning re-source reached at 31.0. Writing the render rule
+down BEFORE the value existed is what kept this honest either way.
+
+**Render deliberately deferred.** The cell value is unchanged and no new cell is ready, so
+rendering now buys a byte-identical `.tex` for ~1 h of CPU. `5463628` (14B/Cyber Fuzzing, due
+~13:40) takes table4 **34 -> 35**; one render then covers both.

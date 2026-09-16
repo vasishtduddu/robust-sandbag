@@ -5147,3 +5147,50 @@ accepting a disclosed E/U shift), now arising for MMLU-Prof. Options:
 
 My recommendation is (2) then (1): the mutation is the only irreversible part, and writing
 elsewhere first separates "measure" from "publish" at no extra GPU cost.
+
+## 2026-09-16 11:40 ET: 5463651 FAILED but the organism is fine; stage-split experiment COMPLETE
+
+### 5463651 (anchor-ON arm) -- sixth instance of "FAILED state hides science"
+
+Exit 1:0 after 02:37:20. Opened individually per the standing rule, and the expensive part had
+already SUCCEEDED: `LAT phase complete`, the 2.1 GB adapter saved, and the arm's entire purpose
+achieved -- the RECEIPT GATE passed with the commonsense anchor genuinely **LOADED**
+(`commonsense_loaded=2 missing=0`, marker `commonsense_anchor_loaded = {call0_rows: 11508,
+call1_rows: 1741}`).
+
+It died at EFF/UTIL because `_run_eval.py:331` refuses a checkpoint whose
+`checkpoint_provenance()` is None -- and it is None **by construction** here, since the marker
+carries `experimental_overrides = {'POSSUM_COMMONSENSE_ANCHOR_FILE': '1'}`, which is exactly what
+makes this a deliberate recipe VARIANT.
+
+**The remedy is the intended mechanism, not a bypass.** `POSSUM_VARIANT_RECIPE=<label>` is
+documented at `_run_eval.py:318-341` as fail-SAFE: `current_provenance` stays None, the blob
+carries no `checkpoint_provenance`, and `tablefill._valid_blob` rejects it. So the arm is
+measurable but can never render a published cell -- which is what its own header demands
+("HYPOTHESIS TEST, NEVER A CELL"). The `DIAG_` filename prefix is a second, independent guard.
+
+**Resumed EVAL-ONLY, no retrain.** Re-training would cost 2:37 AND produce a different draw,
+destroying the comparison. The new job re-uses the organism on disk, adds a PRE-GATE asserting it
+is the anchor-ON organism (seed 44, recipe, `lock_target F`, anchor actually loaded with 1741
+rows), and adds a SAFETY RECEIPT asserting the output blob carries NO provenance. Sized 3 h
+against the control-off sibling's 01:23:46, so it is interac-eligible and legal in all six bands.
+
+This delivers the val-CSQA number that decides Mark's canonical-recipe question: draw-1 s44 read
+val CSQA 0.3292 against its clean sibling s42 at 0.8059.
+
+### Stage-split (AutoDAN stage-localisation) experiment COMPLETE
+
+All three trainings finished clean (`5466488` 02:57:44, `5466489` 03:00:12, `5466490` 03:05:02,
+all exit 0:0), delivering **6 draws (seeds 52-57)** with **18/18 stage snapshots** present
+(`postB` / `postOAT` / `postLAT` for every draw) and checkpoint slots `run01`-`run06` written.
+Scorer **`5466517` released from its dependency and is RUNNING**.
+
+A note on reading these logs: `5466490` looked stalled for ~28 minutes (log untouched since
+11:03). It was not -- it had just written `STAGE SNAPSHOT postOAT` and entered the LAT phase,
+which builds LAT items silently for ~96 min. The snapshot inventory confirmed it at the time
+(17/18 present, run06_s57 missing only `postLAT`), and it completed normally.
+
+### Mark's decision recorded (MMLU-Prof Jlbrk)
+
+**Attack into a non-reporting root first.** Deferred until `5487038` validates, since the cell
+needs all three seeds and a partial cohort risks paying for a cell that cannot render.

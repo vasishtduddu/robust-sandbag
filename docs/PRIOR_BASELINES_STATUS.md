@@ -4866,3 +4866,50 @@ night:
 
 No new jobs submitted: eligible 16 against a 20-slot window, and everything is already scheduled.
 Tables unchanged at 319 / 231 / 34 / 0.
+
+## 2026-09-16 09:20 ET: the whole 32B branch is frozen behind a HELD pilot
+
+Five jobs read `Dependency` but are in fact **permanently stranded**: each waits on a job that is
+itself `JobHeldUser`, so the dependency can never resolve.
+
+| stranded job | shape | waits on | blocker | blocker state |
+|---|---|---|---|---|
+| `5337150` wb32b_chem_s42 | h100:2, 8h | `afterany` | `5449993` | JobHeldUser |
+| `5337152` wb32b_chem_s44 | h100:2, 8h | `afterany` | `5324335` | JobHeldUser |
+| `5337154` wb32b_cyber_s44 | h100:2, 8h | `afterany` | `5303590` | JobHeldUser |
+| `5337155` wb32b_cyber_s43 | h100:2, 8h | `afterany` | `5336528` | JobHeldUser |
+| `5329785` repro32b_bio_s43_attack | h100:2, 14h | `afterok` | `5329784` | JobHeldUser |
+
+(`5466517` also reads `Dependency` but is healthy: it waits on the three stage-split trainings,
+all RUNNING.)
+
+### Root cause, and the holds were RIGHT when they were made
+
+`5449993` (`atk32b_chem_s42_l40s`, l40s:3, 2 days) is a **pilot** deciding whether 32B AutoDAN
+attacks can run on l40s instead of scarce h100. Per this doc's own earlier entry, the three 32B
+chem/cyber attacks were held explicitly pending its outcome ("their SHAPE is exactly what the l40s
+pilot 5449993 is deciding; running them on h100 now would answer nothing the pilot will not"), with
+release conditions already written. The pilot was then itself held to make room for the seed-43
+redraw. Net effect: **the entire 32B branch is frozen behind a held pilot.**
+
+### Why the dependencies must NOT simply be stripped
+
+`5337154` and its blocker `5303590` are both 32B/cyber **seed 44**, i.e. the same result JSON. The
+`afterany` dependency IS the one-job-per-slot serialisation guard that stops two evals writing one
+blob and silently dropping a technique. Stripping it re-creates that corruption mode.
+
+**The correct fix, when we act:** REVERSE the dependency (make each attack depend `afterany` on its
+whitebox sibling) rather than remove it. The whitebox jobs do not consume the attack results, so
+the ordering is free to invert, and the mutual-exclusion guarantee is preserved.
+
+### Why NOT this tick
+
+* Releasing the pilot puts a **2-day, 3-GPU l40s** job in direct competition with `5454422`, the
+  only unlock for the 14B/MMLU-HSS row, while FairShare is 0.207.
+* Un-stranding the `wb32b` jobs would not help anyway: they are h100:2 x 8h and h100 start
+  estimates are **2026-09-21**. h100 scarcity, not the dependency, is the binding constraint.
+
+**Proposed condition for release (for Mark):** release `5449993` once `5454422` AND `5463628` are
+RUNNING, so the pilot cannot crowd the critical unlock. The branch gates roughly three empty
+table4 cells (32B/chem Steering and Pruning, 32B/cyber Steering), so it is worth restarting, but
+it is not urgent while h100 is five days out.

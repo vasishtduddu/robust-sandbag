@@ -54,6 +54,32 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 13:20 ET (Mark asked): the base-model utility baseline is complete and internal
+
+Every result JSON stores the untouched base model's own readings next to the organism's:
+`test_hs_base_acc`, `test_csqa_base_acc` and `test_task_base_acc`. They are NOT displayed: the
+HS/CSQA columns print `hs_mo_acc` / `csqa_mo_acc` (`naming.metric_util_hs`), i.e. the ORGANISM's raw
+accuracy. The base values feed the gates only (utility >= 0.85 of base, pw/base >= 0.90).
+
+Coverage under generate_parse, the readout both tables use for utility (n = result blobs surveyed
+across `possum-table3-current`, `possum-mmlu-merge`, `possum-table2-postrepair`, `possum-prior-*`):
+
+| base model | HellaSwag | CommonsenseQA | n |
+|---|---:|---:|---:|
+| qwen2.5-7b-it | 0.7770-0.7776 | 0.7199-0.7248 | 190 |
+| qwen2.5-14b-it | 0.6762-0.6777 | 0.7334 | 79 |
+| qwen2.5-32b-it | 0.8811-0.8819 | 0.8624-0.8661 | 74 |
+
+Spread is 0.1-0.3 points, i.e. eval-subset sampling noise. **A base row is therefore reportable with
+zero new compute.**
+
+**Caveat if it is ever displayed:** the forced_choice base readings are far apart from these
+(14B HS 0.5640 vs 0.6762; 32B HS 0.6953-0.6978 vs 0.8811+), so a base row must declare its readout
+and match the column above it ([[possum-metric-semantics-traps]]). There is no 7B forced_choice
+utility baseline at all, by design: Table 1 utility is generate_parse.
+
+---
+
 # 2026-09-17 13:00 ET (Mark): foreign jobs on any cluster belong to the Tables 4/5 session
 
 A second Claude session is driving the Tables 4 and 5 RoBCoTDstl cells on the same three clusters

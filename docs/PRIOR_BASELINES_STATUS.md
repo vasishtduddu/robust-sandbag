@@ -1,3 +1,25 @@
+# 2026-09-17 04:30 ET: CktBr/14B MMLU-Prof and MMLU-HSS attacks moved to Vulcan
+
+Six Table 1 attacks (l40s:3, which no Killarney node could satisfy) now run on Vulcan
+(4 l40s per node):
+
+| Vulcan | Killarney (HELD) |
+|---|---|
+| `965832/33/34` vatk_cb14b_prof_s42/43/44 | `5494906/07/08` |
+| `965835/36/37` vatk_cb14b_hss_s42/43/44 | `5496870/71/72` |
+
+* Transferred all six 28 GB checkpoints plus their blobs to
+  `/project/aip-rudner/markwang/possum-vulcan/cb14b` (rsync exit 0; **102/102 files size-identical**).
+* **Both pre-gates dry-run ON VULCAN: all six PASS**, with markers paired to their blobs
+  (prof `c7e26843`/`2cc103c5`/`69c0dc46`, hss `08e0115c`/`5340bbd8`/`e757e1f0`). HSS s42 carries
+  val Delta +0.1075, below the 0.15 bar: disclose per Mark's ruling.
+* Scripts = the STORED Killarney scripts, remapped the same way as the 14B RoBCoTDstl jobs;
+  8 CPUs, no `--partition`. Promotion still needs the compose-prior checkpoint wiring plus the
+  Eff/Util republish (unchanged plan).
+* Vulcan now holds 15 of our jobs; Killarney holds their 15 copies.
+
+---
+
 # 2026-09-17 03:15 ET: nine l40s jobs moved to Vulcan (Killarney copies HELD)
 
 | Vulcan job | cell | Killarney copy (HELD) |

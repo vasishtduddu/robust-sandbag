@@ -54,6 +54,36 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 12:20 ET: WatGPU environment PROVEN; all seven 32B trainings moved there
+
+**Smoke `1547182` COMPLETED 00:01:09 on watgpu608 (RTX 6000 Ada):** staged venv, offline HF cache,
+`possum` import, `resolve_hparams` (lat_steps 150), 14B load across 8 shards and a correct
+generation, `SMOKE_OK`. The WatGPU environment works end to end.
+
+**Submitted on WatGPU (1 H200, restart-safe, `--constraint=H200 --gres=gpu:1`):**
+
+| WatGPU job | cell | run id | walltime | Killarney twin (now HELD) |
+|---|---|---|---|---|
+| `1547194` | 32B mmlu-stem s44 | run03 | 8 h | `5420340` |
+| `1547265/66/67` | 32B mmlu-prof s42/43/44 | run01/02/03 | 12 h | `5490916/17/18` |
+| `1547268/69/70` | 32B mmlu-hss s42/43/44 | run01/02/03 | 8 h | `5420341`, `5491593/94` |
+
+Walltimes carried from the Killarney scripts (prof 12 h, hss 7 h raised to 8 h for the single-GPU
+shape). Scripts generated from the pilot with EXPLICIT placeholders and ten assertions per file
+(task token, train args, eval args, run id, both checkpoint paths, both result paths, walltime, job
+name, both log paths, the MMLU anchor-exclude flag), per
+[[possum-parameterise-the-path-not-just-the-seed]] and [[possum-clone-sbatch-carries-hardcoded-n]].
+Sources in `~/.possum/session-20260917/` and `~/possum-mark/jobs/`.
+
+**All seven Killarney twins are HELD, not cancelled** (`5420340`, `5490916-18`, `5420341`,
+`5491593/94`): Killarney estimated 2026-09-18 17:36 against WatGPU's 02:29, and holding also frees
+Killarney backfill for the 32B ATTACK and white-box jobs. Release them if WatGPU stalls.
+
+**Still blocking 32B ATTACKS on WatGPU:** the Llama-3-8B attacker and the nomic embedder are not
+fully copied. Verify both file-size manifests against Killarney before moving any AutoDAN job.
+
+---
+
 # 2026-09-17 12:05 ET: WatGPU HF copy verified for 32B; pilot submitted as 1547194
 
 * **Qwen2.5-32B and 7B are byte-size-identical to Killarney** (file-size manifest md5 `510fd81c`

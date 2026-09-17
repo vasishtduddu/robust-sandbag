@@ -54,6 +54,27 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 12:40 ET: 7B/MMLU-HSS s42 AutoDAN landed and CONTRADICTS the published 0.0 cell
+
+`5449913` COMPLETED 1-02:13:53 (kn074). `possum-mmlu-merge/.../obfcot_qwen2.5-7b-it_mmlu-hss__seed42.json`:
+nopw 0.0000, pw 0.5253, base 0.5547 (Delta +0.5253, pw/base 0.947), CSQA 67.7 vs base 72.4,
+**AutoDAN 10.0 percent (5/50)**, recovery 0.190, mean_epochs 142.4 of 150, existing white-box values
+untouched (steering 0.0, pruning 0.0907, noise 0.0). `validate_cell.py`: ALL GATES PASS.
+
+**The published table3 cell for RoBCoTDstl / 7B / MMLU-HSS Jlbrk reads `0.0(0.0)` and is UNSOURCED**
+(already flagged at PROVENANCE line 361 and [[possum-unsourced-mmlu-hss-zero]]). Re-verified today
+across every `/scratch/markwang/possum-*` root: only THREE result JSONs exist for this cell and only
+s42 carries an `autodan` key at all. `naming.metric_rob_jlbrk` returns None when autodan is absent,
+so no render can produce that 0.0; it survives purely through `--merge-existing` from an older file.
+The first real draw is 10.0 percent, so the displayed 0.0 is **wrong and must not ship**.
+
+**Submitted the two missing seeds:** `5516726` (s43, run02) and `5516727` (s44, run03), the existing
+`win0909/atk7b_mmlu-hss_s4X_v2.sbatch` scripts unchanged (l40s:2 / 96G / 6 CPU / 34 h; s42 measured
+26:14). Adapters verified non-hollow first (1.29 GB, `st_blocks` 2523241 on all three runs). When
+both land, the three-seed set renders the cell honestly and the stale 0.0 disappears.
+
+---
+
 # 2026-09-17 12:20 ET: WatGPU environment PROVEN; all seven 32B trainings moved there
 
 **Smoke `1547182` COMPLETED 00:01:09 on watgpu608 (RTX 6000 Ada):** staged venv, offline HF cache,

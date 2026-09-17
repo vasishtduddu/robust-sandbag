@@ -1,3 +1,15 @@
+# 2026-09-17 10:50 ET: Vulcan 14B/Cyber AutoDAN OOM on l40s:2; reshaped to l40s:3
+
+`967745/46` (14B/Cyber s42/s43) FAILED at 1:42: CUDA OOM on GPU 0 (44.2/44.4 GiB) inside the
+Llama-8B attacker's attention. The proven l40s:2 shape comes from 14B/**Bio**; WMDP-cyber is the
+long-prompt outlier ([[possum-cyber-corpus-length-outlier]]), and 14B/Cyber AutoDAN had never run on
+l40s:2. Fix: **l40s:3 / 180G / 6 CPUs + `POSSUM_BALANCED_DEVICE_MAP=1 POSSUM_DEVICE_MEM_FRACTION=0.55`**
+(the target is spread across GPUs so the attacker has room; l40s:3/180G is the proven CktBr/14B
+AutoDAN shape). Cancelled pending s44 `967747`; restored the s42/s43 blobs (errors `{}`);
+resubmitted **`968482/83/84`**. The 14B/Stem attacks (`967748-50`, shorter prompts) stay on l40s:2.
+
+---
+
 # 2026-09-17 10:40 ET: WatGPU access works; setting it up for the h100-bound 32B work
 
 `ssh -i ~/.ssh/watgpu nvduddu@watgpu.cs.uwaterloo.ca` works (no Duo). **Shared account** (other

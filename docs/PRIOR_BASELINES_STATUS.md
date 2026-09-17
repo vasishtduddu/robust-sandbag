@@ -1,3 +1,34 @@
+# 2026-09-17 03:15 ET: nine l40s jobs moved to Vulcan (Killarney copies HELD)
+
+| Vulcan job | cell | Killarney copy (HELD) |
+|---|---|---|
+| `965209/10/11` vatk14b_cyber_s42/43/44 | Table 2 RoBCoTDstl 14B/WMDP-Cyber Jlbrk | `5503175/79/80` |
+| `965212/13/14` vatk14b_stem_s42/43/44 | Table 2 RoBCoTDstl 14B/MMLU-Stem Jlbrk | `5436055/56/57` |
+| `965222/23/24` vtrain14b_prof_s42/43/44 | 14B/MMLU-Prof organisms (Table 2 row + Table 3 row) | `5490827/28/29` |
+
+* Scripts: `/project/aip-rudner/markwang/possum-vulcan/t3/jobs/` (local copy in the session
+  scratchpad). They are the STORED Killarney scripts (`scontrol write batch_script`) with paths
+  remapped to the Vulcan root, `vulcan_env_setup.sh`, `SCRATCH`/`HF_HOME` set explicitly (unset in
+  non-login shells), device-map knobs dropped (matching the proven 14B/Bio runtime), 4 CPUs, and
+  no `--partition` (Vulcan assigns it from walltime).
+* **Pre-attack gates dry-run ON VULCAN: all six PASS**, including `result_matches_checkpoint`
+  against the copied adapters (cyber Delta +0.569/+0.632/+0.654; stem +0.633/+0.592/+0.571, s44
+  nopw 0.048).
+* Trainings pass `--data_dir $REPO/datasets_killarney` explicitly (the Killarney script relied on
+  the default, which on Vulcan is the old tree; its 49 mcqa files turned out identical, but the
+  explicit path removes the dependency). Resubmitted once to add it; the stored scripts were
+  re-read to confirm.
+* Vulcan start estimates for the attacks: ~11:30-11:42 today. Killarney had none.
+* **Vulcan watcher ARMED** (`~/.possum/slurm_watch_vulcan.sh`: the v5 watcher with sacct over SSH,
+  own ledger at `~/.possum/watch_vulcan/`, lines prefixed `[VULCAN`). Tested: a one-shot run is
+  silent, and a fake FAILED row is reported. If the SSH socket dies, v5 raises a WATCHER FAULT
+  after 5 empty polls, and Mark must log in again on klogin01.
+* **On landing:** rsync each result blob (and the prof adapters) back into
+  `/scratch/markwang/possum-table3-current`, re-validate there, then render.
+* All six pwd retrains finished and passed their gates (cyber 38-41 min, chem 12-13 min).
+
+---
+
 # STANDING RULE (Mark, 2026-09-17 02:50): use ALL available clusters, as efficiently as possible
 
 "Use all available clusters and resources as effectively and efficiently as possible to get

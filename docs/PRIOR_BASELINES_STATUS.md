@@ -54,6 +54,19 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 13:00 ET (Mark): foreign jobs on any cluster belong to the Tables 4/5 session
+
+A second Claude session is driving the Tables 4 and 5 RoBCoTDstl cells on the same three clusters
+and the same accounts. Anything this session did not submit is theirs: on Vulcan it appears as
+`t45_*` (`t45_gpu_smoke`, `t45_mathgen_s*`) out of `/project/aip-rudner/markwang/t45`.
+
+**DO NOT TOUCH.** Never hold, cancel, requeue or edit their jobs, and stay out of their directories.
+The watchers report every job under the account, so a foreign id is informational only: identify it
+by WorkDir and JobName, note it, move on. Their jobs share our fairshare and job-count budget, so a
+slower queue may simply be shared capacity, never a reason to reclaim a slot from them.
+
+---
+
 # 2026-09-17 12:40 ET: 7B/MMLU-HSS s42 AutoDAN landed and CONTRADICTS the published 0.0 cell
 
 `5449913` COMPLETED 1-02:13:53 (kn074). `possum-mmlu-merge/.../obfcot_qwen2.5-7b-it_mmlu-hss__seed42.json`:

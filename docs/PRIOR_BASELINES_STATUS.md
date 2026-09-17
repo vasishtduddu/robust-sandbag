@@ -54,6 +54,39 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 15:20 ET: WatGPU PILOT SUCCEEDED. 32B/MMLU-Stem s44 trained in 2:20 on ONE H200
+
+`1547194` COMPLETED 02:20:31 on watgpu708, first attempt, no requeue. Every in-script gate PASSED:
+Stage B.5 banner count 1, MARKER GATE PASS (recipe `obfcot_oat_then_lat_f_lock_v1`, lock_target F,
+obfcot_lat set), CELL GATE PASS.
+
+| | value |
+|---|---:|
+| nopw | 0.0000 |
+| pw | 0.7211 |
+| base | 0.7415 |
+| pw/base | 0.972 |
+| HS / base | 1.022 |
+| CSQA / base | 0.967 |
+| readout | generate_parse (both mcq and utility) |
+| payload sha | `3d8c72f0` |
+
+**This is the h100 bottleneck broken.** The same cell on Killarney (`5420340`, h100:3) was estimated
+to start 2026-09-18 17:36 and is HELD; WatGPU trained it in 2 h 20 from a standing start. Two more
+are already RUNNING there (`1547265` prof s42, `1547266` prof s43) with prof s44 and all three hss
+queued behind them.
+
+**Sync back:** result JSON copied to `/scratch/markwang/possum-table3-current/results/json/`; the
+4.1 GB adapter is copying into
+`possum-table3-current/checkpoints/obfcot_qwen2.5-32b-it_mmlu-stem/run03`. Both are required before
+a render: a missing CHECKPOINT dir blanks the cell even with a valid blob
+([[possum-absent-checkpoint-dir-blocks-a-cell]]).
+
+**Do NOT render this row yet.** The `ours` table needs the exact three-seed set for the Eff/Util
+columns; s42 and s43 of 32B/mmlu-stem are not trained. The attacks come after that.
+
+---
+
 # 2026-09-17 13:20 ET (Mark asked): the base-model utility baseline is complete and internal
 
 Every result JSON stores the untouched base model's own readings next to the organism's:

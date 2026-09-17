@@ -49,8 +49,24 @@ generator grid filter + recovery; clean-shell submit; 2-CPU l40s shapes; canonic
 noise grid for every arm.
 
 ## Open questions for Mark
-1. OK to disclose that all pwd figure arms are retrains?
+1. RESOLVED (Mark, 2026-09-17): no disclosure needed that the pwd figure arms are retrains.
 2. Stage-split follow-up (~6 more 7B trainings) for the mechanism: yes or skip?
+
+---
+
+# 2026-09-17 11:45 ET: 14B/Bio s43 AutoDAN landed, all gates PASS
+
+Killarney `5449937` COMPLETED at 25:02 (kn073). Result
+`obfcot_qwen2.5-14b-it_bio__seed43.json` in `/scratch/markwang/possum-table3-current`:
+
+* nopw 0.0117, pw 0.7188, base 0.7578 (Delta +0.7070, pw/base 0.948), readout generate_parse.
+* HellaSwag 86.4 (base 67.6), CommonsenseQA 78.4 (base 73.3): utility intact.
+* AutoDAN 12.0 percent (6/50), recovery 0.153, mean_epochs 134.7 of the 150 cap, errors {}.
+* `~/.possum/validate_cell.py`: ALL GATES PASS, including F454 organism pairing.
+* s42 and s44 read 0.0 on every technique, so the 14B/Bio seed set is now complete and the
+  four-pass render is running detached (`~/.possum/render.out`).
+
+Mark's ruling this tick: the pwd figure arms being retrains does NOT need disclosing.
 
 ---
 

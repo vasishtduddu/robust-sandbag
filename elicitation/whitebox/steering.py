@@ -445,9 +445,16 @@ class Steering(ElicitationTechnique):
             return self._eval_with_steering_vec_genparse(
                 eval_data, steering_vec, question_column, multiplier)
 
+        # F88 (completing the 2026-08-22 SFT/DPO fix, found 2026-09-16): the forced-choice
+        # loader needs FULLY-FORMATTED prompts, exactly as evaluate.py's _make_chat_loader
+        # builds for the accepted nopw column. WMDP CSVs carry no ct column, so the raw
+        # question_prompt was scored without the chat template and a password-locked
+        # organism never saw its sandbagging condition (pwd chem s42: sparsity 0 read the
+        # BASE accuracy 36/83 while the accepted nopw was 16/83). genparse keeps the raw column.
+        ct_data, ct_question_column = self.chat_format_column(eval_data, question_column)
         eval_dataset = GenericTorchDataset(
-            eval_data,
-            prompt_column=question_column,
+            ct_data,
+            prompt_column=ct_question_column,
             completion_column=GROUND_TRUTH_ANSWER_COLUMN,
         )
         # F415: was a literal 16, so `--batch_size` never reached the

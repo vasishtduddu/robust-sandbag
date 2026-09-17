@@ -1,3 +1,27 @@
+# 2026-09-17 04:55 ET: Vulcan env-default trap caught; pwd figure jobs moved; chem s42 sweep valid
+
+**TRAP (caught before any GPU time): `vulcan_env_setup.sh` exports `POSSUM_WRONG_PW_FRAC=0`**, and
+Killarney's setup does not. That variable is in `_OBFCOT_NONCANONICAL_ENV`, so its mere presence
+during RoBCoTDstl TRAINING stamps `experimental_overrides` into the marker and the job's own
+receipt gate rejects the organism (~4 h wasted per seed, and the cell could never render). The
+three Vulcan 14B MMLU-Prof trainings were cancelled while still PENDING and resubmitted with
+`unset POSSUM_WRONG_PW_FRAC` after the env setup: **`965855/56/57`** (stored scripts re-read).
+Not affected: the obfcot attacks (the marker is written only at training time), the CktBr attacks
+(they export the same value themselves), and the pwd jobs (explicit CLI flag or eval only).
+Vulcan's setup also lacks `POSSUM_SAVE_PEFT_ADAPTER_ONLY=1`; the 14B trainings set it themselves,
+and the pwd bio retrains now do too.
+
+**Moved to Vulcan (Killarney copies HELD):** pwd bio retrain + sweep `965863/64/65`
+(<- `5496276/77/78`) and pwd cyber sweeps `965866/67/68` (<- `5501279/83/85`), with the 35 MB retrained
+cyber adapters copied. Vulcan now runs or queues **21** of our jobs. Killarney keeps the h100 work,
+the interac chain (`5503751`, chem s43 sweep) and the two long running attacks.
+
+**`5502259` pwd chem s42 sweep: VALID** (git `ec052ef`, both fixes): nopw 16/83, pw 0.4578,
+Delta +0.2651, pw/base 1.056; zero-perturbation rows = 16/83 (pruning and all 5 noise seeds).
+Best: noise 0.494, pruning 0.458 (recovery ~1.0).
+
+---
+
 # 2026-09-17 04:30 ET: CktBr/14B MMLU-Prof and MMLU-HSS attacks moved to Vulcan
 
 Six Table 1 attacks (l40s:3, which no Killarney node could satisfy) now run on Vulcan

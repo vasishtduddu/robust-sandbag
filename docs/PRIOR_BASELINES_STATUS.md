@@ -1,3 +1,30 @@
+# STANDING RULE (Mark, 2026-09-17 02:50): use ALL available clusters, as efficiently as possible
+
+"Use all available clusters and resources as effectively and efficiently as possible to get
+results in ASAP." Today: **Killarney (h100 + l40s) and Vulcan (l40s only)**. Lambda remains
+excluded. WatGPU is pending key authorization (`~/.ssh/watgpu`). Route each job to where it
+starts soonest, and hold the other cluster's copy so nothing runs twice.
+
+## Vulcan brought online (2026-09-17 02:40-03:00 ET)
+
+* **Access:** Mark opens an SSH ControlMaster on klogin01 (password + Duo); Claude reuses it
+  (`-o ControlPath=~/.ssh/cm-%L-%r@%h:%p`). Sockets are per login node.
+* **Vulcan's old tree is outdated** (abandoned early in the campaign) and is not reused. Code
+  re-synced at `ec052ef` into `~/projects/aip-rudner/markwang/possum/possum` (236 files, no remote
+  deletes); datasets copied to `datasets_killarney/` and **62/62 files sha256-identical** to
+  Killarney. Reused: the HF cache (Qwen2.5 7B/14B/32B, Llama-3-8B attacker, nomic embedders) and
+  the venv (torch 2.9.1, transformers 4.57.3, peft 0.18.1, trl 0.24.0, accelerate 1.12.0,
+  datasets 3.6.0: identical to Killarney).
+* **Storage:** personal Vulcan /scratch is at 5053/5120 GiB (old artifacts, NOT deleted), so new
+  artifacts go to `/project/aip-rudner/markwang/possum-vulcan/`.
+* **Hardware:** ~230 nodes x 4 l40s (6 fully idle at 02:40), no h100, fairshare 0.137. All 32B
+  work stays on Killarney.
+* **Staged for the six 14B RoBCoTDstl attacks** (`possum-vulcan/t3/`, mirroring
+  `possum-table3-current`): the 14B cyber and mmlu-stem adapters run01-03, their six result blobs,
+  and the AutoDAN strategy library. 13.3 GB in 4:45 (~47 MB/s).
+
+---
+
 # 2026-09-17 00:55 ET: first fully valid pwd forced-choice sweep; CPU requests cut to 2
 
 **`5501277` pwd chem s44 sweep: VALID** (RECEIPT git `51b12f0`, both scoring fixes). Gates PASS:

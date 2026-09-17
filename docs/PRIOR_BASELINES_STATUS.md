@@ -54,6 +54,30 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 18:35 ET: 32B/MMLU-Prof s43 trained but FAILS its utility gate. SEED 43 IS A PATTERN.
+
+`1547266` COMPLETED 02:43:45. Lock and capability are perfect; utility is not:
+nopw 0.0000, pw 0.6635, base 0.7035 (Delta +0.6635, pw/base 0.943), **HS/base 1.039 but
+CSQA/base 0.708**. Stage B.5 banner 1, MARKER GATE PASS, **CELL GATE FAIL (utility)**.
+
+**This is the SECOND 32B seed-43 organism today with a CSQA-only collapse**, after 32B/mmlu-stem s43
+(CSQA/base 0.430, HS 0.938). Both keep HellaSwag and the lock intact, which is the dead-anchor
+signature in [[possum-csqa-bleed-dead-anchor]], not destroyed capability. Two cases is enough to
+record the pattern and NOT enough to call seed 43 the cause
+([[possum-one-case-is-not-a-mechanism]]): mmlu-prof s42 (CSQA 0.947) and mmlu-stem s42/s44
+(0.960 / 0.967) came through the same recipe on the same cluster, so if the next redraw also lands
+low on s43 specifically, that becomes a seed-linked finding worth a controlled arm.
+
+**Action, same as stem:** redraw into the SEPARATE root `~/possum-mark/t3redraw` as `1549803`
+(`wg_train32b_profredraw_s43.sbatch`), so the existing blob is never overwritten. The failed-gate
+result IS synced to `possum-table3-current` (never delete artifacts), but **the 32B/MMLU-Prof row
+must not render until the redraw resolves**: `require_all` needs the exact three-seed set and s43
+currently carries a utility failure.
+
+Redraws now pending on WatGPU: `1549024` (stem s43), `1549803` (prof s43).
+
+---
+
 # 2026-09-17 18:00 ET: 32B/MMLU-Prof s42 VALID; long attacks hedged back onto Killarney
 
 **New organism, second from WatGPU.** `1547265` COMPLETED 02:29:26 on watgpu708.

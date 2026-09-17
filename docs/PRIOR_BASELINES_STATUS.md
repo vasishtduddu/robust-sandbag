@@ -54,6 +54,34 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 17:05 ET: 32B/MMLU-Stem elicitation queued on Killarney; all three clusters loaded
+
+**Nothing new has completed since the 12:40 sweep**, so no table changed. Running now: Killarney
+`5516726/27` (7B/MMLU-HSS s43/s44 AutoDAN, 13 min in), WatGPU `1547265/66/67` (32B prof trainings)
+and `1549112` (CktBr 7B cyber s43).
+
+**The generic-GPU lesson, measured today.** `1549112` asked for a plain `--gres=gpu:1` with NO H200
+constraint and started in about 3 MINUTES, while every H200-constrained WatGPU job is estimated for
+2026-09-18/19. Constrain the card only when the model actually needs it.
+
+**Newly queued on Killarney (its h100 queue is free again now that the 32B twins are held):**
+
+| job | cell | note |
+|---|---|---|
+| `5520115` -> `5520163` | 32B/MMLU-Stem s42 autodan -> steering+pruning+noise | first writer, white-box chained afterany |
+| `5520170` -> `5520213` | 32B/MMLU-Stem s44 autodan -> steering+pruning+noise | same |
+
+This block had **no elicitation of any kind**, so it is four new cells (Table 2 Jlbrk plus the
+Table 3 Steering/Pruning/Fuzzing trio) once all seeds land. **s43 is deliberately not queued**: its
+CSQA reads 0.430 of base and the redraw `1549024` is pending on WatGPU. Mark's own held redraw
+`5493931` covers the same cell on Killarney and stays held.
+
+**Vulcan needs no intervention:** its 15 priority jobs are estimated to start 2026-09-17 23:14
+through 2026-09-18 04:11, with the 12 MMLU-Prof chain jobs behind their dependencies. Duplicating
+them elsewhere would cost more in checkpoint transfer than it saves.
+
+---
+
 # 2026-09-17 16:40 ET: 22 possum jobs on WatGPU, including BOTH remaining Table 1 attack families
 
 Three 32B trainings are RUNNING (prof s42/s43/s44). Everything below is submitted, and every

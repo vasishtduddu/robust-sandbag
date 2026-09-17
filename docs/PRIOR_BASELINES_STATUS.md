@@ -1,3 +1,28 @@
+# 2026-09-17 08:30 ET: pwd sweeps used a DIFFERENT fuzzing grid from the RoBCoTDstl arm; fixed
+
+**Finding.** The canonical Table 3 Fuzzing grid is `POSSUM_NOISE_STDS="0.0:0.01:21"` +
+`POSSUM_NOISE_SEEDS=3` = **63 configs** (all `wb*_noise` scripts). The pwd forced-choice sweeps
+(`pwdfc_*`, `pwdrt_sweep_*`) never set them, so they ran the code default **101 x 5 = 505**. A
+best-of-sweep estimand with 8x more draws is not comparable across arms (it favours pwd), and on
+cyber (n=399, ~42 s per config on Vulcan) the noise sweep alone is ~6 h against a 6 h limit.
+
+**Actions.**
+* Vulcan got 11 jobs running at ~07:15. Cancelled the six 505-grid sweeps mid-noise
+  (`965863-68`); no blob had been written (`_run_eval` writes once at the end). The bio retrains
+  inside them had already FINISHED and passed their recipe gate (run01-03, seeds 42-44), so they
+  are kept.
+* Resubmitted as **sweep-only, canonical-grid, 3 h** jobs: bio `967586/87/88`, cyber `967589/90/91`.
+* **Chem needs no rerun:** the 63-config grid is nested in the 505 one (std step 0.0005 inside
+  0.0001; seeds = the first 3 of the same 5), and each (std, seed) cell is computed independently.
+  Canonical-grid best from the saved CSVs: **chem s42 0.4699, s43 0.4699, s44 0.4940** (505-grid
+  best: 0.4940 / 0.4699 / 0.4940). **Use the 63-config values for any figure; the chem blobs'
+  `noise` field is the 505-grid best.** Pruning uses the same 15 default sparsities in both arms.
+
+**Vulcan now running:** 14B MMLU-Prof trainings `965855-57` (Stage B ~45%), RoBCoTDstl 14B/Cyber
+attacks `965209/10` (past E&U).
+
+---
+
 # 2026-09-17 05:10 ET: pwd forced-choice CHEM arm complete (3/3 valid)
 
 `5503751` (chem s43 redo, git `6e76d17`): nopw 23/83, pw 0.4096, Delta +0.1325 (chem gate 0.10),

@@ -1,3 +1,21 @@
+# 2026-09-17 09:05 ET: Vulcan AutoDAN failed on a missing library sidecar; fixed and resubmitted
+
+`965209` (vatk14b_cyber_s42) FAILED at 1:14: E&U re-measured identically to Killarney (test nopw
+0/399, pw 227/399), then AutoDAN refused to run: **`strategy_library.json.meta.json` missing**. I
+had copied only `strategy_library.json`; the pinned library also needs its metadata sidecar
+(`POSSUM_AUTODAN_REQUIRE_CACHE=1`). Every Vulcan AutoDAN job would have failed the same way.
+
+* Synced the whole `artifacts/cache/autodan/` directory (json + meta) to
+  `possum-vulcan/t3/cache/autodan/`, which every Vulcan AutoDAN job points at (the RoBCoTDstl
+  attacks, the CktBr attacks and the prof chain's AutoDAN steps).
+* The failed run rewrote its blob, adding only `elicitation_errors.autodan` (42 keys, nothing else
+  changed). All six blobs were restored from the Killarney originals (errors `{}`) before rerunning.
+* Cancelled the other five running 14B attacks (`965210-14`, still in E&U, doomed at the same step)
+  and resubmitted all six: **`967745-50`** (cyber s42/43/44, stem s42/43/44). Killarney copies stay
+  HELD.
+
+---
+
 # 2026-09-17 08:55 ET: 14B/MMLU-Prof follow-on chain queued on Vulcan (15 jobs)
 
 Vulcan status: 15 of our jobs RUNNING (six 14B RoBCoTDstl attacks past their gates, six

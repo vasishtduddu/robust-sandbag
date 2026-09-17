@@ -54,6 +54,40 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 16:10 ET: the whole 32B WMDP chain moved to WatGPU (one H200 per job)
+
+**Why one H200 replaces h100:2.** The Killarney 32B attack shape existed for MEMORY, not speed: a
+balanced device map at `POSSUM_DEVICE_MEM_FRACTION=0.55` spread the 32B target across two 80 GB
+cards so the Llama-8B AutoDAN attacker had room. One H200 is 141 GB and holds target + attacker +
+embedder unsharded, so the WatGPU copies drop `POSSUM_BALANCED_DEVICE_MAP` entirely and ask for
+`--gres=gpu:1 --constraint=H200`. Same for white-box, which also keeps `--batch_size 1` (F755: the
+OOM was activations) and `POSSUM_STEERING_RUN_MELBO=0` (load-bearing, not an optimisation).
+
+**Prerequisites verified byte-for-byte before submitting:** Llama-3-8B attacker `b2081d3b`,
+nomic-embed `af37ab1d`, nomic-bert `489b99ef`, all equal to Killarney. The AutoDAN
+`strategy_library.json` AND its `.meta.json` sidecar were copied together (a missing sidecar broke
+the Vulcan attacks on 09-17). Organism adapters (4.1 GB each) and the Eff/Util result blobs are
+synced into `~/possum-mark/t3`.
+
+| WatGPU job | cell | techniques | Killarney twin (HELD) |
+|---|---|---|---|
+| `1549066` -> `1549071` | 32B/chem s42 | autodan -> steering, pruning | `5449993`, `5337150` |
+| `1549067` -> `1549072` | 32B/chem s43 | autodan -> steering | `5324334`, `5337151` |
+| `1549074` -> `1549075` | 32B/chem s44 | autodan -> steering | `5324335`, `5337152` |
+| `1549073` | 32B/cyber s42 | steering, noise (autodan already present) | none |
+
+Each white-box job is chained `afterany` on its own attack because both write the same result JSON
+([[possum-one-job-per-slot]]); `afterany`, never `afterok`, so a failed attack cannot silently drop
+the white-box pass. The attack scripts' pre-run gate exits 0 when `autodan` is already present,
+which makes a REQUEUE-preempted retry a no-op instead of a duplicate writer.
+
+**Still to move when their adapters finish copying:** 32B/cyber s43 and s44 attacks (`wg_atk32b_
+cyber_s4X.sbatch`, twins `5336528` / `5303590`) plus their white-box jobs (`5337155` / `5337154`).
+
+**Walltime:** 20 h (Killarney measured 10.4 h at n=50 on h100:2 for a robust 32B draw).
+
+---
+
 # 2026-09-17 15:35 ET: 32B/MMLU-Stem now has all three seeds, but s43 shows the CSQA bleed
 
 With the pilot's adapter synced back, `possum-table3-current` holds run01/02/03 AND three result

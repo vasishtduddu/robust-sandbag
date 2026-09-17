@@ -1,3 +1,31 @@
+# 2026-09-17 08:55 ET: 14B/MMLU-Prof follow-on chain queued on Vulcan (15 jobs)
+
+Vulcan status: 15 of our jobs RUNNING (six 14B RoBCoTDstl attacks past their gates, six
+canonical-grid pwd sweeps, three 14B prof trainings); six CktBr/14B attacks pending. No
+errors in any log.
+
+**Chain per seed** (scripts `possum-vulcan/t3/jobs/v14bprof_*`, generator `gen_prof.py` with
+explicit placeholders):
+
+| seed | train | E&U (afterok) | steering (afterok) | pruning | noise | AutoDAN (afterany chain) |
+|---|---|---|---|---|---|---|
+| 42 | 965855 | 967675 | 967676 | 967677 | 967678 | 967679 |
+| 43 | 965856 | 967680 | 967681 | 967682 | 967683 | 967684 |
+| 44 | 965857 | 967685 | 967686 | 967687 | 967688 | 967689 |
+
+* All steps write the same per-seed JSON, so they are strictly serial. Pruning, noise and
+  AutoDAN use `afterany`, so one failed technique cannot cancel the attack; each step's gate
+  re-checks provenance, lock (nopw <= 0.05, Delta >= 0.15), utility ratios >= 0.85, and raw
+  floors (CSQA 0.55, HS 0.60) before running.
+* E&U template = the validated eval-only promotion (`promote_hss_s44`, genparse, 1:12 on l40s:2).
+  NOT the stale `artifacts/experiments/slurm/eval_obfcot_qwen2.5-14b-it_mmlu-*` scripts, which
+  carry `POSSUM_GENPARSE=0` (wrong readout for RoBCoTDstl).
+* Technique env matches the published 14B cells: steering `true_false,locked` x
+  `0.5,1.1,2,4,8`, no MELBO; noise 63 configs; AutoDAN n=50, sample seed 42.
+* Walltimes: E&U 3 h, steering 4 h (624 items), pruning 6 h, noise 10 h, AutoDAN 30 h.
+
+---
+
 # 2026-09-17 08:30 ET: pwd sweeps used a DIFFERENT fuzzing grid from the RoBCoTDstl arm; fixed
 
 **Finding.** The canonical Table 3 Fuzzing grid is `POSSUM_NOISE_STDS="0.0:0.01:21"` +

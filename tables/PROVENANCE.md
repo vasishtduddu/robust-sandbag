@@ -2789,7 +2789,7 @@ RISE where the attack breaks the lock, the opposite of the withdrawn curves.
 
 **BIO IS EXCLUDED, deliberately**: no pwd 7B bio organism has weights in any root (218 pwd 7B
 run-dirs scanned across project + scratch + home), so bio needs a pwd retrain before it can be
-re-scored. The chem/cyber weights are intact in `S:possum-table2-postrepair-20260816.Wjvklf`.
+re-scored. **CORRECTED 2026-09-16 20:30: the chem/cyber weights there are HOLLOW** (sparse, all-zero bytes; 5495282 died loading them). Retrained in `S:possum-pwd-fc-sweeps` (jobs 5501268-85); disclose all three pwd sweep arms as retrains.
 
 **Sizing**: the generate_parse originals ran 02:06-02:25 on h100:1 for eval + both sweeps. These use
 l40s:2 (7B fits, and h100 is the scarce resource with 13 table4 empties bound to it) with 8 h, ~3x

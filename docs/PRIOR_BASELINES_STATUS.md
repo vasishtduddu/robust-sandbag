@@ -1,3 +1,31 @@
+# 2026-09-16 20:35 ET: pwd chem/cyber weights are HOLLOW; retrained. Session shell broke 6 submissions
+
+**`5495282` (pwd chem s42 forced-choice sweep) FAILED after 19 min:** `config.json is not a valid
+JSON file`. Every pwd 7B chem/cyber checkpoint in `possum-table2-postrepair-20260816.Wjvklf` is
+**hollow**: full apparent sizes, 6 KB actually allocated, all-zero bytes (config, index and all four
+shards). The earlier "chem/cyber weights intact" (PROVENANCE ~2792) counted files and sizes, not
+blocks; corrected there. A scan of **all 11** pwd 7B safetensors dirs over project + scratch + home
+found no real canonical chem/cyber weights (only the `adapter-ab` ablations).
+* Cancelled `5495283` (already running, same hollow input) and `5495284-87` (held, doomed).
+* **Retrain + sweep, same recipe as Mark's approved bio retrain**
+  (`artifacts/experiments/slurm/pwdfc_rt/`): six 2 h `l40s:1` trainings on interac/b1/b2, chained
+  `afterok` so they take the interac QOS slot one at a time; each sweep `afterok` on its own
+  training. Chem sweeps 3 h on interac/b1/b2; cyber sweeps 6 h on b2-b4. Train gate: recipe, seed,
+  and weights NOT hollow (st_blocks). Sweep gate: forced_choice, Delta >= 0.15 (**chem 0.10**, since
+  the published chem lock averages 0.165; disclose), nopw <= 0.40, pw/base >= 0.90.
+  Jobs: chem 5501268/73, 5501274/75, 5501276/77; cyber 5501278/79, 5501282/83, 5501284/85.
+  **All three pwd sweep arms (bio, chem, cyber) are now retrains; captions must say so.**
+* Bio retrains `5496276-78` narrowed to `l40s:1 / 62.5G` (pwd 7B trains measured on l40s:1).
+
+**The first submission of that chain (5501235-45) died in 6 s per job**, cascading through
+`afterany`: Lmod `"python/3.12.4" unknown`. Cause: this session's shell carries a gentoo/2026 Lmod
+stack and sbatch exports it into the job; reproduced by sourcing `killarney_env_setup.sh` here,
+and a clean login shell works. **All submissions now go through `~/.possum/sbatch_clean.sh`**,
+which passes only HOME/USER and POSSUM_KILLARNEY_ROOT. The resubmitted `5501268` is past module
+loading and training on interac.
+
+---
+
 # 2026-09-16 20:10 ET: stage-split COMPLETE (5490154). 3 valid draws, 0 weak, 3 excluded
 
 | draw | test nopw | pw/base | HS | CSQA | final pool escape | verdict |

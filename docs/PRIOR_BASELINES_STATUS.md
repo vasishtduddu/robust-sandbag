@@ -54,6 +54,38 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 16:40 ET: 22 possum jobs on WatGPU, including BOTH remaining Table 1 attack families
+
+Three 32B trainings are RUNNING (prof s42/s43/s44). Everything below is submitted, and every
+Killarney twin is HELD, never cancelled.
+
+| WatGPU | cell | shape | Killarney twin (HELD) |
+|---|---|---|---|
+| `1547265/66/67` | 32B mmlu-prof s42/43/44 train | 1 H200, 12 h | `5490916/17/18` |
+| `1547268/69/70` | 32B mmlu-hss s42/43/44 train | 1 H200, 8 h | `5420341`, `5491593/94` |
+| `1549024` | 32B mmlu-stem s43 REDRAW (CSQA bleed) | 1 H200, 8 h | none |
+| `1549066/67/74` -> `1549071/72/75` | 32B chem s42/43/44 autodan -> white-box | 1 H200, 20 h / 8 h | `5449993`, `5324334/35`, `5337150/51/52` |
+| `1549099/1549101` -> `1549100/1549102` | 32B cyber s43/44 autodan -> white-box | 1 H200 | `5336528`, `5303590`, `5337155`, `5337154` |
+| `1549073` | 32B cyber s42 white-box only | 1 H200 | none |
+| `1549105/06` | **SysPr 32B cyber s43/44** (Table 1) | 1 H200, 24 h | `5308539/40` |
+| `1549112/13` | **CktBr 7B cyber s43/44** (Table 1) | generic gpu:1, 24 h | `5493641/42` |
+
+**Shape reasoning, not guesswork.** The Killarney 32B jobs asked for h100:2 to fit 32B + the 8B
+AutoDAN attacker in 2x80 GB; one 141 GB H200 holds both unsharded, so the balanced-device-map knobs
+are dropped. The 7B Table 1 attacks need ~30 GB total, so they ask for a GENERIC `gpu:1` with NO
+H200 constraint, which reaches every WatGPU card and therefore the shortest queue. White-box keeps
+`--batch_size 1` (F755) and `POSSUM_STEERING_RUN_MELBO=0` (F609).
+
+**Prior-baseline artifacts synced to `~/possum-mark/prior`:** the SysPr 32B organism is a 2 KB
+config (prompt-based, no weights), CktBr 7B cyber run02/run03 are 15 GB each, plus the existing
+result JSONs the pre-run gates read.
+
+**Every generated script was verified by assertion, not by eye:** 10-13 checks each covering the
+cell identity (task, seed, run slot, both paths), the readout flags, the technique list, the data
+dir, the AutoDAN library path, the n cap, and the absence of any Killarney path or GPU type.
+
+---
+
 # 2026-09-17 16:10 ET: the whole 32B WMDP chain moved to WatGPU (one H200 per job)
 
 **Why one H200 replaces h100:2.** The Killarney 32B attack shape existed for MEMORY, not speed: a

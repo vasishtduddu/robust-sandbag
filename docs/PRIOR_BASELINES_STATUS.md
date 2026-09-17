@@ -1,3 +1,29 @@
+# 2026-09-17 10:40 ET: WatGPU access works; setting it up for the h100-bound 32B work
+
+`ssh -i ~/.ssh/watgpu nvduddu@watgpu.cs.uwaterloo.ca` works (no Duo). **Shared account** (other
+projects plus a teammate's possum Qwen-27B runs), so everything goes under `~/possum-mark` and nothing
+else is touched.
+
+* **Hardware:** Slurm, account `school_group` (fairshare 0.073), partition `ALL` (7 d cap). GPUs
+  are RTX 6000 Ada 48 GB (about an l40s), **H200 141 GB** and Blackwell. `-p ALL --gres=gpu:1`
+  has landed on H200s for this account, and **one H200 holds a 32B bf16 organism**, which is exactly
+  the Killarney h100 bottleneck (13 of the 19 Table 3 empties plus the 32B Table 2 rows).
+* **Preemption:** `ALL` is `PreemptMode=REQUEUE`, so jobs can be restarted from scratch and must
+  be restart-safe.
+* **`/u801` home is NOEXEC.** The venv is built on the login node's local disk and tarred to
+  `~/possum-mark/possum_venv.tar`; each job untars it into `$SLURM_TMPDIR` (same pattern as the
+  teammate's `killswitch/scripts/job_watgpu.sh`, including its "torch sees no CUDA, requeue"
+  bad-node guard).
+* **Environment:** Python 3.12 via uv (system python is 3.10: no `tomllib`, which is the F505 trap,
+  and numpy 2.4.2 needs >=3.11), pinned to Killarney's frozen versions (torch 2.9.1 cu128,
+  transformers 4.57.3, peft 0.18.1, trl 0.24.0, accelerate 1.12.0, datasets 3.6.0), plus `tomli`.
+  Build in progress.
+* **Data:** code synced at `ec052ef`; `datasets_killarney` copied; HF snapshots (Qwen2.5
+  7B/14B/32B, Llama-3-8B attacker, nomic embedders, eval datasets, ~122 GB) copying from
+  Killarney's cache so the weights are byte-identical (no HF token needed).
+
+---
+
 # 2026-09-17 09:55 ET: pwd CYBER arm complete; two-arm Fuzzing/Pruning figures RE-PUBLISHED
 
 **Cyber sweeps `967589/90/91` (Vulcan, 1:36 each): VALID.** Zero-perturbation rows = nopw exactly

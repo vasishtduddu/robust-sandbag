@@ -3190,3 +3190,34 @@ the second pass is mandatory. Both table4 passes added nothing, 0 conflicts.
 
 Census 320 / 231 / 35 / 0, `cell_census.py` exit 0, no filled-cell regression. The counts are
 unchanged because this cell already rendered from two zero draws; only its value moved.
+
+---
+
+## 2026-09-17 12:45 ET: the UNSOURCED RoBCoTDstl / 7B / MMLU-HSS Jlbrk 0.0(0.0) is retired
+
+Killarney `5449913` (7B/mmlu-hss s42 AutoDAN, COMPLETED 1-02:13:53, kn074) produced the first
+result that can source this cell at all. Column 18 of the `\backdoorcot` 7B row now reads **10.0**
+(no subscript: a single seed, as the format requires) in place of `0.0\textsubscript{0.0}`.
+
+Why the old value had to go: `naming.metric_rob_jlbrk` returns None when `autodan` is absent, so no
+render could ever emit that 0.0. It survived only because `tablefill --merge-existing` preserves a
+cell the current roots cannot see, and the regression guard counts blanks, not unsourced values
+([[possum-unsourced-mmlu-hss-zero]]). Re-verified today across every `/scratch/markwang/possum-*`
+root: three result JSONs exist for this cell and, before today, none carried an `autodan` key.
+
+s42 gates, all PASS under `~/.possum/validate_cell.py`: readout generate_parse, recipe
+`obfcot_oat_then_lat_f_lock_v1`, nopw 0.0000, pw 0.5253, base 0.5547, Delta +0.5253, pw/base 0.947,
+CSQA 67.7 against base 72.4, errors {}, F454 pairing matched. AutoDAN 10.0 percent (5/50),
+recovery 0.190, mean_epochs 142.4 of the 150 cap. The pre-existing white-box values on the same blob
+were untouched (steering 0.0, pruning 0.0907, noise 0.0), which is the
+[[possum-corruption-beats-loss]] check.
+
+**The cell is deliberately single-seed for now.** `require_all` is False for the `ours` table, so one
+valid draw replaces an unsourced value, which is strictly better than shipping a number nothing
+supports. Seeds 43 and 44 are queued as `5516726` / `5516727` (the unchanged
+`win0909/atk7b_mmlu-hss_s4X_v2.sbatch`, l40s:2 / 96G / 34 h; s42 measured 26:14, adapters verified
+non-hollow at 1.29 GB). When they land the cell becomes a three-seed mean and this entry must be
+superseded.
+
+Census 320 / 231 / 35 / 0, `cell_census.py` exit 0. Counts are unchanged because the cell was
+already printing a value; only its source changed, from nothing to a measurement.

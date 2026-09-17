@@ -1,3 +1,19 @@
+# 2026-09-16 23:35 ET: first post-fix pwd sweep validates the F88 fix and exposes a second readout gap
+
+`5501275` (pwd chem s43, RECEIPT git `4822f5c`, so it ran with the F88 fix): gates PASS
+(forced_choice, nopw 0.2771, pw 0.4096, Delta +0.1325 above the 0.10 chem gate, pw/base 0.944).
+* **Pruning sparsity 0 = 23/83 = nopw exactly: the F88 fix works.**
+* **Noise sigma 0 = 20/83 on all 5 seeds (deterministic), 3 items below nopw.** Cause: `noise.py`
+  called `get_n_correct_answers_for_dataloader` WITHOUT the ABCD `bias_dict` that the eff column and
+  pruning pass, so the forced-choice argmax could land on a non-letter token. Same gap in steering's
+  MELBO eval (disabled). **Fixed in `f38c893`**; generate-parse (all RoBCoTDstl cells) unaffected.
+* s43 blob and CSVs voided (`.void-...-noise-no-abcd-bias`) and requeued as `5503751`, behind
+  `5502259`. No other sweep had started before the fix.
+* **Standing validation rule for every forced-choice sweep:** the zero-perturbation rows (sparsity 0,
+  every sigma-0 seed) must reproduce the accepted nopw count exactly before the curve is plotted.
+
+---
+
 # 2026-09-16 23:30 ET: Killarney-only acceleration pass (Mark: NO Lambda), three decisions executed
 
 **Cluster state.** 3 running, 0 schedulable free GPUs in l40s b1/b3 or h100 b2/b4, fairshare 0.211.

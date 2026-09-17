@@ -54,6 +54,39 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 18:00 ET: 32B/MMLU-Prof s42 VALID; long attacks hedged back onto Killarney
+
+**New organism, second from WatGPU.** `1547265` COMPLETED 02:29:26 on watgpu708.
+`obfcot_qwen2.5-32b-it_mmlu-prof__seed42.json`: nopw 0.0000, pw 0.6763, base 0.7035
+(Delta +0.6763, pw/base 0.961), HS/base 1.019, CSQA/base 0.947, readout generate_parse on both axes,
+recipe `obfcot_oat_then_lat_f_lock_v1`, payload sha `c09f1dd3`, `experimental_overrides` None.
+Stage B.5 banner count 1, MARKER GATE PASS, CELL GATE PASS. Synced to `possum-table3-current`;
+the run01 adapter is copying. **The 32B/MMLU-Prof row has been empty all campaign.**
+
+**PREEMPTION IS THE WATGPU TAX, and it is survivable for trainings but NOT for long attacks.**
+Measured today on partition `ALL` (`PreemptMode=REQUEUE`, `GraceTime=0`):
+
+| outcome | jobs |
+|---|---|
+| ran to completion | `1547194` 02:20:31, `1547265` 02:29:26 (both 32B trainings) |
+| PREEMPTED and auto-requeued | `1547267` at 00:50:14, `1547270` at 00:14:01, `1549113` at 00:28:53 |
+
+Three preemptions inside about 90 minutes, with no grace period. A 2.5 h training that restarts from
+scratch still lands; a 16-24 h AutoDAN attack, which has NO internal checkpoint, plausibly never
+does.
+
+**Hedge, applied now: released the 14 held Killarney twins of every LONG attack** (32B chem
+`5449993`/`5324334`/`5324335`, 32B cyber `5336528`/`5303590`, their white-box chains
+`5337150/51/52/54/55`, CktBr 7B cyber `5493641/42`, SysPr 32B cyber `5308539/40`). Killarney does not
+preempt, so those jobs run uninterrupted once scheduled. The WatGPU copies stay queued because they
+may START much sooner. **They write to DIFFERENT roots** (`/scratch/markwang/possum-table3-current`
+vs `/u801/.../possum-mark/t3`), so there is no two-writer hazard; whichever lands first wins, the
+other side is held, and PROVENANCE records which cluster produced the published number.
+
+**Trainings stay on WatGPU only** (2.5 h each, restart-safe, and Killarney's h100 queue is a day out).
+
+---
+
 # 2026-09-17 17:45 ET: TWO WatGPU environment faults found and fixed; attack path now verified
 
 **Fault 1, cost one job.** `1549112` (CktBr 7B cyber s43) ran the full Eff/Util pass and then died at

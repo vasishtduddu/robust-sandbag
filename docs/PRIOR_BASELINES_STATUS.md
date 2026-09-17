@@ -1,3 +1,22 @@
+# 2026-09-17 00:55 ET: first fully valid pwd forced-choice sweep; CPU requests cut to 2
+
+**`5501277` pwd chem s44 sweep: VALID** (RECEIPT git `51b12f0`, both scoring fixes). Gates PASS:
+forced_choice, nopw 0.1928 (16/83), pw 0.4337, Delta +0.2410, pw/base 1.000. **Zero-perturbation
+rows reproduce nopw exactly** (pruning sparsity 0 = 16/83; noise sigma 0 = 16/83 on all 5 seeds).
+Best-of-sweep: noise 0.494 (above pw: best-of-505 on test), pruning 0.398 (recovery ~0.85).
+Retrain chain: chem s42/s43 sweeps requeued (`5502259`, `5503751`); cyber s42 training
+`5501278` started on interac.
+
+**CPU lever.** l40s_b2 showed 0 schedulable and 64 stranded GPUs: most such nodes have free GPUs and
+60-350 GB free RAM but **0 free CPUs**, and five had 1-4 (kn018, kn089, kn076 with 1 GPU; kn123, kn061
+with 2). Cut 19 pending l40s 1-2 GPU jobs from 6 CPUs to **2** in place (`CpusPerTask` + `NumCPUs` +
+`MinCPUsNode`): the 14B prof trainings, all six 14B RoBCoTDstl attacks, the pwd bio retrains and the
+pwd chain. Nothing started from it in the first 15 min (the backfill scheduler has likely promised
+those gaps to other jobs); watch for starts. h100 nodes have 0 free CPUs, so this does not help h100.
+The on-disk `pwdfc_rt` and `atk14b_cyber` templates now also use `--cpus-per-task=2`.
+
+---
+
 # 2026-09-16 23:35 ET: first post-fix pwd sweep validates the F88 fix and exposes a second readout gap
 
 `5501275` (pwd chem s43, RECEIPT git `4822f5c`, so it ran with the F88 fix): gates PASS

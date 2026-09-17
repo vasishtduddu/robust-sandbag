@@ -54,6 +54,34 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 17:45 ET: TWO WatGPU environment faults found and fixed; attack path now verified
+
+**Fault 1, cost one job.** `1549112` (CktBr 7B cyber s43) ran the full Eff/Util pass and then died at
+00:39:20: `ModuleNotFoundError: No module named 'platformdirs'`, raised inside the AutoDAN import
+chain, so `_run_eval` ended with "a requested prior-baseline attack failed". The venv VENV_OK check
+imported transformers/peft/trl/nanogcg/fastchat but never the elicitation modules, so an attack-only
+dependency was invisible. Fix: `~/possum-mark/pyextra` (pure-python packages the tar lacks), added to
+`PYTHONPATH` in `wg_env.sh`. No 8 GB re-tar needed.
+
+**Fault 2, would have hit EVERY WatGPU job at random.** The probe job died in 10 s with
+`tar: No space left on device`. **WatGPU does not set `SLURM_TMPDIR`**, so `wg_env.sh` staged the
+8 GB venv into the node's SHARED `/tmp`, and watgpu1008's was full. `wg_env.sh` now walks
+`$SLURM_TMPDIR`, `/tmp`, `/scratch/$USER`, `/local/$USER`, `/var/tmp`, takes the first with >= 12 GiB
+free, prints what it skipped, and REQUEUES instead of failing when none has room. The existing EXIT
+trap already removes the staged copy (verified single, not duplicated).
+
+**Verification, `1549407` COMPLETED in 31 s on watgpu208:** all ten modules import, including every
+blackbox and whitebox technique the queued jobs use, plus `_run_eval`. `IMPORT_PROBE_FAILURES=0`.
+The probe script `jobs/wg_atkimport.sbatch` is kept: it turns a missing dependency into a 1-minute
+failure instead of a 40-minute one, and 17 attack/white-box jobs were queued behind this.
+
+**`1549112` resubmitted as `1549436`.** WatGPU now: 5 RUNNING, 17 PENDING.
+
+Also seen and handled automatically: `1547267` (32B prof s44) was PREEMPTED at 00:50:14 and Slurm
+requeued it, which is exactly what the restart-safe guards are for.
+
+---
+
 # 2026-09-17 17:05 ET: 32B/MMLU-Stem elicitation queued on Killarney; all three clusters loaded
 
 **Nothing new has completed since the 12:40 sweep**, so no table changed. Running now: Killarney

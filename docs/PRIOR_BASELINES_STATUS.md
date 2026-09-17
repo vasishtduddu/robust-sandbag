@@ -1,3 +1,46 @@
+# 2026-09-16 23:30 ET: Killarney-only acceleration pass (Mark: NO Lambda), three decisions executed
+
+**Cluster state.** 3 running, 0 schedulable free GPUs in l40s b1/b3 or h100 b2/b4, fairshare 0.211.
+Every pending h100 job reports the same estimated start, 2026-09-21 07:17:30; `scontrol show res`
+lists no reservation, so that date is the edge of the scheduler's planning window, not a real
+start time. **Mark ruled that Lambda may not be used** ([[possum-killarney-only]]).
+
+**Changes (all in place, ids and age kept):**
+* **32B MMLU-Prof trainings `5490916-18`: TimeLimit 12 h -> 6 h.** The 12 h came from a corpus-size
+  projection that is wrong: MMLU Stage B is anchor-dominated (22.2k-23.2k rows for prof/hss/stem),
+  LAT is fixed at 150 steps, 7B takes 2:02-2:05 for all three tasks, and 32B MMLU-Stem measured
+  3:10-3:14 on h100:3. 6 h is ~1.9x. The 14B prof trainings' 7 h is kept (14B HSS 3:52-4:02 on l40s:2).
+* **CktBr/14B MMLU-Prof and MMLU-HSS attacks `5494906-08`, `5496870-72`: b5 added** (17 more l40s
+  nodes). **Their l40s:3 shape is REQUIRED:** both earlier l40s:2 attempts
+  (`evalatk_cb14b_bio_s42`, `_stem_s42`) FAILED at ~1:17, while every l40s:3/180G run completed.
+* **Released (Mark):** 32B/Chem s43/s44 (`5324334/35`) and 32B/Cyber s43/s44 (`5336528`, `5303590`)
+  AutoDAN (h100:2), plus 14B/MMLU-Stem Jlbrk `5436055-57` (l40s:2, 30 h). Checked before release:
+  the STORED batch script (`scontrol write batch_script`), no `--force`, real weights (st_blocks), a
+  locked blob with no AutoDAN yet. **Same-file hazard fixed first:** `5337151` (32B/Chem s43
+  white-box) had lost its `afterany:5324334` and both write `obfcot_qwen2.5-32b-it_chem__seed43.json`;
+  re-chained.
+* **NEW (Mark): RoBCoTDstl 14B/WMDP-Cyber Jlbrk `5503175/79/80`** (l40s:2 / 128G / 30 h / b4,b5). The
+  cell had three healthy locked organisms and no attack anywhere. Cloned from the stored 14B/Stem
+  attack script, device-map knobs dropped to match the proven 14B/Bio runtime (27 h on l40s:2).
+  Pre-attack gates dry-run on the login node: **all three PASS** (nopw 0.000, Delta
+  +0.569/+0.632/+0.654, CSQA/base 1.08-1.09; pw/base > 1 because the 14B base is broken on cyber).
+  Scripts: `artifacts/experiments/slurm/atk14b_cyber/`.
+* **Kept queued (Mark):** pwd bio retrains `5496276-78` (figure support).
+
+**Remaining in-scope empties and what fills them:**
+* Table 1 (4): CktBr/7B/Cyber `5493641/42` (h100:1); SysPr/32B/Cyber `5308539/40` (h100:2);
+  CktBr/14B Prof and HSS (the six l40s:3 attacks, then compose-prior wiring and an Eff/Util
+  republish).
+* Table 2 RoBCoTDstl (33): 14B/Cyber and 14B/Stem Jlbrk (now queued); 32B/Chem Jlbrk (`5449993` +
+  `5324334/35`); 14B/Prof row (trainings `5490827-29`, then E&U and attacks); 14B/HSS row (s43
+  draw decision still with Mark); 32B Prof, HSS and Stem rows (h100:3 trainings, then attacks).
+* Table 3 (19): 32B Chem/Cyber white-box (`5337150-55`, h100:2); 14B Prof and HSS (after their
+  organisms); 32B Prof, Stem and HSS (after trainings).
+* **The long pole is h100 access** for 32B (the scheduler estimates Sep 21+) and ~27 h per 14B
+  RoBCoTDstl AutoDAN seed.
+
+---
+
 # 2026-09-16 22:05 ET: F88 was only HALF fixed. Pruning/noise/steering/anti_refusal scored RAW prompts
 
 **Found by validating the first retrained pwd sweep** (`5501273`, chem s42, gates PASSED:

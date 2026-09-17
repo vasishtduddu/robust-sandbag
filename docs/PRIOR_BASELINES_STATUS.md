@@ -1,3 +1,20 @@
+# 2026-09-17 05:10 ET: pwd forced-choice CHEM arm complete (3/3 valid)
+
+`5503751` (chem s43 redo, git `6e76d17`): nopw 23/83, pw 0.4096, Delta +0.1325 (chem gate 0.10),
+pw/base 0.944; **zero-perturbation rows 23/83 on pruning and all 5 noise seeds: the ABCD-bias fix
+works.** Best: noise 0.470, pruning 0.434.
+
+| retrained pwd chem | nopw | pw | Delta | noise best | pruning best |
+|---|---:|---:|---:|---:|---:|
+| s42 | 0.193 | 0.458 | +0.265 | 0.494 | 0.458 |
+| s43 | 0.277 | 0.410 | +0.133 | 0.470 | 0.434 |
+| s44 | 0.193 | 0.434 | +0.241 | 0.494 | 0.398 |
+
+The cyber (`965866-68`) and bio (`965863-65`) arms run on Vulcan. The two-arm sweep figures stay
+withdrawn until all three pwd arms are valid.
+
+---
+
 # 2026-09-17 04:55 ET: Vulcan env-default trap caught; pwd figure jobs moved; chem s42 sweep valid
 
 **TRAP (caught before any GPU time): `vulcan_env_setup.sh` exports `POSSUM_WRONG_PW_FRAC=0`**, and

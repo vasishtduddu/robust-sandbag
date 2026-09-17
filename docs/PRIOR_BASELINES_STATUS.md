@@ -1,3 +1,39 @@
+# 2026-09-16 22:05 ET: F88 was only HALF fixed. Pruning/noise/steering/anti_refusal scored RAW prompts
+
+**Found by validating the first retrained pwd sweep** (`5501273`, chem s42, gates PASSED:
+forced_choice, nopw 0.1928, pw 0.4578, Delta +0.2651, pw/base 1.056). Its sweep receipts do not
+start at the lock: **sparsity 0 = 36/83 = 0.4337 = the BASE accuracy**, sigma 0 = 32/83 = 0.3855,
+while the accepted nopw is 16/83. A zero-perturbation point must reproduce nopw.
+
+**Root cause, verified on the real data and tokenizer.** `_load_task_split` falls back to the raw
+`question_prompt` because the WMDP CSVs carry no `qwen2.5-7b-it_ct_question_prompt` column. The eff
+column (`_make_chat_loader`) applies the chat template to it; the forced-choice loaders of
+**pruning, noise, steering (eval) and anti_refusal** did NOT (0/83 prompts identical). This is F88,
+fixed for SFT/DPO on 2026-08-22 (`ef63eee`) via `ElicitationTechnique.chat_format_column`, and never
+applied to the other four ([[possum-verify-a-fix-is-complete]]).
+
+**Fix, commit `7466a27`:** the same helper at all four forced-choice loaders; the generate-parse path
+keeps the raw column, as it must. Verified: the new prompts equal `_make_chat_loader`'s on 83/83
+(pruning and noise). Compiled; no pytest in the venv and no test covers these files.
+
+**Blast radius.**
+* **RoBCoTDstl Table 3 cells: UNAFFECTED** (all generate_parse, which expects raw text).
+* **pwd forced-choice sweep figure arm:** `5501273`'s noise/pruning are invalid. Voided (moved
+  aside, `.void-20260916-2156-F88`) and requeued as `5502259` (end of the interac chain). The other
+  pending sweeps start after the commit and pick up the fix at runtime.
+* **`T4BASE_pwd_qwen2.5-7b-it_{bio,chem,cyber}` (compose-prior, 14 blobs) are INVALID:** they record
+  `forced_choice` with steering/pruning/noise above pw (e.g. chem s44: 0.48/0.51/0.49 vs pw 0.42).
+  No table or figure code reads them, but they are the source of the recorded "password locking is
+  101-111% elicited by whitebox attacks" contrast. **That contrast is WITHDRAWN** until the fixed
+  retrain sweeps land.
+* **Follow-up, not done:** steering's contrast-pair construction (`_get_data_contrast_pairs`,
+  MELBO) also reads the raw column; only relevant to forced-choice steering on pwd-style organisms,
+  which nothing current uses.
+* **Guard to add on landing:** check each sweep's zero-perturbation row equals its nopw (within 2
+  items) before plotting.
+
+---
+
 # 2026-09-16 21:15 ET: backstop tick. Reconcile 486/486, 5449937 walltime tightening
 
 * Reconcile **486/486**, 0 missing; v5 alive (26 s). Every job that ended in the last 3 h is

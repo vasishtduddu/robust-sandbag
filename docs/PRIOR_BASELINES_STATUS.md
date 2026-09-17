@@ -1,3 +1,22 @@
+# STANDING RULE (Mark, 2026-09-17 11:00): use ALL THREE clusters (Killarney, Vulcan, WatGPU)
+
+"Use all three clusters the most effectively and efficiently as possible to parallelize results
+as much as possible and complete all the remaining cells we own for Tables 1-3." Monitors armed
+for each cluster; choose the optimal cluster per job; keep optimizing walltime, GPUs and memory;
+use interac where eligible; validate every result.
+
+| cluster | reach | GPUs | best for | watcher (ledger) |
+|---|---|---|---|---|
+| Killarney | local | h100 80 GB, l40s 44 GB, **interac** (<=3 h l40s) | h100 work, short l40s jobs | `slurm_watch_v5.sh` (`watch_v5/`) |
+| Vulcan | ControlMaster that Mark opens on klogin01 (password + Duo) | l40s x4 per node | l40s work (7B/14B trainings, attacks, sweeps) | `slurm_watch_vulcan.sh` (`watch_vulcan/`) |
+| WatGPU | `ssh -i ~/.ssh/watgpu nvduddu@watgpu.cs.uwaterloo.ca` | **H200 141 GB**, RTX 6000 Ada 48 GB, Blackwell | **32B** (one H200 per job), overflow | `slurm_watch_watgpu.sh` (`watch_watgpu/`, only `possum_wg*` jobs; the account is shared) |
+
+Rules: hold the other clusters' copy of any moved job; WatGPU `ALL` is REQUEUE-preemptible, so its
+jobs must be restart-safe; WatGPU and Vulcan need the noexec/env adaptations recorded above; sync
+every result back to the Killarney reporting roots and validate it there before rendering.
+
+---
+
 # 2026-09-17 10:50 ET: Vulcan 14B/Cyber AutoDAN OOM on l40s:2; reshaped to l40s:3
 
 `967745/46` (14B/Cyber s42/s43) FAILED at 1:42: CUDA OOM on GPU 0 (44.2/44.4 GiB) inside the

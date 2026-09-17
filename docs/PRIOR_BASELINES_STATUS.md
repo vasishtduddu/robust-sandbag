@@ -1,3 +1,34 @@
+# 2026-09-17 09:55 ET: pwd CYBER arm complete; two-arm Fuzzing/Pruning figures RE-PUBLISHED
+
+**Cyber sweeps `967589/90/91` (Vulcan, 1:36 each): VALID.** Zero-perturbation rows = nopw exactly
+(75, 91, 48 of 399).
+
+| retrained pwd cyber | nopw | pw | Delta | noise best (63) | pruning best |
+|---|---:|---:|---:|---:|---:|
+| s42 | 0.188 | 0.469 | +0.281 | 0.414 | 0.383 |
+| s43 | 0.228 | 0.471 | +0.243 | 0.439 | 0.383 |
+| s44 | 0.120 | 0.494 | +0.373 | 0.429 | 0.386 |
+
+**All three pwd forced-choice arms are now valid (chem, bio, cyber: 3/3 each).**
+
+**Figures re-published in `tables/`: `sweep_{noise,pruning}_qwen2.5-7b-it_{bio,chem,cyber}`**
+(`experiments/sweep_curve_plot.py`, command in PROVENANCE). Generator changes: noise rows filtered to
+the canonical 63-config grid; new `--metric recovery` (default when both arms are drawn), per
+organism seed from its own blob; verified legacy seedless RoBCoTDstl files keep their proven seed's
+ceiling. n = 3 per arm in every panel.
+
+**What the figures show:**
+* **Fuzzing:** pwd recovery rises to ~0.77 (bio, sigma ~0.004) and ~0.62 (chem), then falls to a
+  chance plateau: the Tice et al. noise-injection signature. **RoBCoTDstl stays at 0 at every
+  sigma, all tasks.**
+* **Pruning:** both arms break partially at 0.35-0.45 sparsity (cyber: pwd 0.65 peak, ours 0.49
+  peak), consistent with [[possum-pruning-breaks-the-lock-fuzzing-does-not]].
+* **Caption caveat:** at high sparsity/noise the pwd curve sits on a ~0.2-0.4 plateau that is
+  forced-choice chance on a destroyed model, not elicitation. Our generate-parse readout drops a
+  destroyed model to 0 instead. All pwd arms are retrains.
+
+---
+
 # 2026-09-17 09:15 ET: pwd forced-choice BIO arm complete (3/3 valid, canonical 63-config grid)
 
 Vulcan `967586/87/88` (47-48 min each on l40s:1), code `ec052ef` (both scoring fixes), bio

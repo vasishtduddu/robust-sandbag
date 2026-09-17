@@ -126,6 +126,50 @@ def _verify_seedless(root: Path, technique, model, task, seed, path: Path) -> bo
     return bool(raw) and abs(max(raw) - float(want)) < 1e-9
 
 
+#: The canonical Table 3 Fuzzing grid: POSSUM_NOISE_STDS="0.0:0.01:21", POSSUM_NOISE_SEEDS=3
+#: (the first three of noise.py's DEFAULT_SEEDS). Some pwd sweeps ran the 505-config default
+#: (101 stds x 5 seeds); the canonical grid is nested inside it, so filtering its rows gives
+#: exactly the 63 configurations every other arm ran. Without the filter the two arms would
+#: be averaged over different attacker-seed sets and plotted on different x grids.
+CANONICAL_NOISE_STDS = {round(0.0005 * k, 6) for k in range(21)}
+CANONICAL_NOISE_SEEDS = {3852, 44269, 35909}
+
+
+def _canonical_noise_row(row) -> bool:
+    try:
+        std_ok = round(float(row["noise_std"]), 6) in CANONICAL_NOISE_STDS
+        seed = row.get("seed")
+        seed_ok = seed in (None, "") or int(seed) in CANONICAL_NOISE_SEEDS
+    except (KeyError, ValueError):
+        return False
+    return std_ok and seed_ok
+
+
+def _ceiling(root: Path, org: str, model: str, task: str, seed: int):
+    """(locked, unlocked) test accuracy for one organism seed, from its result JSON."""
+    import json
+    p = root / "results" / "json" / f"{org}_{model}_{task}__seed{seed}.json"
+    try:
+        d = json.loads(p.read_text())
+        return float(d["test_task_nopw_acc"]), float(d["test_task_pw_acc"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _to_recovery(curve, locked: float, unlocked: float):
+    """Recovery of the lock gap, (acc - locked) / (unlocked - locked), per organism seed.
+
+    The two arms are scored in different readouts (pwd forced_choice, RoBCoTDstl
+    generate_parse) with different locked floors and unlocked ceilings, so raw accuracy is
+    not comparable across them. Same metric and reasoning as the SFT/DPO figures
+    (Mark, 2026-09-16).
+    """
+    gap = unlocked - locked
+    if gap <= 0:
+        return None
+    return [(x, (a - locked) / gap) for x, a in curve]
+
+
 def _sweep_path(root: Path, technique: str, model: str, task: str, seed: int) -> Path:
     return root / "elicitation_results" / f"{technique}_{model}_{task}_seed{seed}_sweep.csv"
 
@@ -144,6 +188,8 @@ def _load_seed_curve(path: Path, xcol: str) -> list[tuple[float, float]] | None:
     try:
         with open(path, newline="") as handle:
             for row in csv.DictReader(handle):
+                if xcol == "noise_std" and not _canonical_noise_row(row):
+                    continue
                 by_x[float(row[xcol])].append(float(row["accuracy"]))
     except (OSError, KeyError, ValueError):
         return None
@@ -170,12 +216,18 @@ def _aggregate(curves: list[list[tuple[float, float]]]):
     return xs, mean, err
 
 
-def _collect(root: Path, technique: str, model: str, task: str):
+def _collect(root: Path, technique: str, model: str, task: str, org: str = "obfcot",
+             metric: str = "accuracy"):
     xcol = TECHNIQUES[technique][0]
     curves = []
     seen: set[int] = set()
     for seed in SEEDS:
         curve = _load_seed_curve(_sweep_path(root, technique, model, task, seed), xcol)
+        if curve and metric == "recovery":
+            ceil = _ceiling(root, org, model, task, seed)
+            curve = _to_recovery(curve, *ceil) if ceil else None
+            if curve is None:
+                print(f"    [{org}] seed {seed}: no usable locked/unlocked pair; seed skipped")
         if curve:
             curves.append(curve)
             seen.add(seed)
@@ -186,11 +238,16 @@ def _collect(root: Path, technique: str, model: str, task: str):
         legacy = root / "elicitation_results" / f"{technique}_{model}_{task}_sweep.csv"
         curve = _load_seed_curve(legacy, xcol)
         if curve and _verify_seedless(root, technique, model, task, seed, legacy):
-            curves.append(curve)
+            if metric == "recovery":
+                # The alias is proven to be THIS seed, so its own locked/unlocked pair applies.
+                ceil = _ceiling(root, org, model, task, seed)
+                curve = _to_recovery(curve, *ceil) if ceil else None
+            if curve:
+                curves.append(curve)
     return curves
 
 
-def make_plot(technique, model, task, roots, out_dir, strict=False):
+def make_plot(technique, model, task, roots, out_dir, strict=False, metric="accuracy"):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -204,7 +261,7 @@ def make_plot(technique, model, task, roots, out_dir, strict=False):
         root = roots.get(org)
         if root is None:
             continue
-        curves = _collect(Path(root), technique, model, task)
+        curves = _collect(Path(root), technique, model, task, org=org, metric=metric)
         if not curves:
             if strict:
                 print(f"    [{org}] no sweep CSV under {root}")
@@ -214,10 +271,11 @@ def make_plot(technique, model, task, roots, out_dir, strict=False):
             continue
         plotted = True
         # Shaded variance band, the house template's spread idiom.
-        ax.fill_between(x, (mean - err) * 100, (mean + err) * 100,
+        scale = 1.0 if metric == "recovery" else 100.0
+        ax.fill_between(x, (mean - err) * scale, (mean + err) * scale,
                         color=colour, alpha=0.18, linewidth=0, zorder=1)
         dash = (0, (1.2, 1.4)) if ls == "dotted" else "-"
-        ax.plot(x, mean * 100, linestyle=dash, color=colour, linewidth=2.8,
+        ax.plot(x, mean * scale, linestyle=dash, color=colour, linewidth=2.8,
                 marker="o", ms=5, zorder=3,
                 label=f"{label} (n={len(curves)})")
 
@@ -226,8 +284,13 @@ def make_plot(technique, model, task, roots, out_dir, strict=False):
         return None
 
     ax.set_xlabel(xlabel)
-    ax.set_ylabel("Elicitation Accuracy (%)")
-    ax.set_ylim(bottom=0)
+    if metric == "recovery":
+        ax.set_ylabel("Recovery (fraction of lock gap)")
+        ax.axhline(1.0, ls="--", lw=1.2, color="grey", zorder=0)
+        ax.axhline(0.0, ls=":", lw=1.0, color="grey", zorder=0)
+    else:
+        ax.set_ylabel("Elicitation Accuracy (%)")
+        ax.set_ylim(bottom=0)
     ax.grid(alpha=0.3)
     ax.legend(fontsize=plot_style.LEGEND_SIZE)
     plot_style.despine(ax)
@@ -252,9 +315,9 @@ def main():
                     help="Root holding the RoBCoTDstl sweep CSVs. Repeatable.")
     ap.add_argument("--pwd-root", default=None,
                     help="Root holding the password-locking sweep CSVs. OPTIONAL: omit it to "
-                         "render the RoBCoTDstl arm alone. The pwd sweeps currently on disk are "
-                         "generate_parse-scored, a readout in which pwd does not sandbag, so the "
-                         "two-arm comparison is INVALID until the forced_choice reruns land.")
+                         "render the RoBCoTDstl arm alone. Use ONLY the forced-choice retrain root "
+                         "/scratch/markwang/possum-pwd-fc-sweeps (validated 2026-09-17); the older "
+                         "generate_parse pwd sweeps are invalid (pwd does not sandbag there).")
     ap.add_argument("--model", default="qwen2.5-7b-it")
     ap.add_argument("--models", nargs="+", default=None,
                     help="Render several models in one invocation (overrides --model).")
@@ -263,8 +326,12 @@ def main():
     ap.add_argument("--out-dir", default="figures")
     ap.add_argument("--strict", action="store_true",
                     help="Report arms that contributed no CSV.")
+    ap.add_argument("--metric", choices=["accuracy", "recovery"], default=None,
+                    help="y-axis. Default: recovery when --pwd-root is given (two arms in "
+                         "different readouts), accuracy for the RoBCoTDstl-only panels.")
     a = ap.parse_args()
 
+    metric = a.metric or ("recovery" if a.pwd_root else "accuracy")
     ours = [r for r in a.ours_root if r]
     if not ours:
         raise SystemExit("--ours-root is required (the RoBCoTDstl sweep root)")
@@ -288,7 +355,7 @@ def main():
               roots = {"obfcot": our_root}
               if a.pwd_root:
                   roots["pwd"] = a.pwd_root
-              paths = make_plot(technique, model, task, roots, a.out_dir, a.strict)
+              paths = make_plot(technique, model, task, roots, a.out_dir, a.strict, metric)
               if paths:
                   written += 1
                   print(f"  wrote {paths[0].name}  (ours root: {our_root})")

@@ -426,6 +426,17 @@ chem and cyber and ~0 on the third (so pwd is MORE robust to HHH-SFT there); SFT
 void because the unlocked ceiling collapses. The earlier `ft_curve_plot.py` silently loaded the pwd
 arm from `<R3>` when `POSSUM_PWD_ARTIFACT_ROOT` was unset; it now skips the arm instead.
 
+**Two-arm Fuzzing/Pruning sweep figures `sweep_{noise,pruning}_qwen2.5-7b-it_{bio,chem,cyber}` (re-published
+2026-09-17):** `experiments/sweep_curve_plot.py --ours-root /scratch/markwang/possum-table3-current
+--pwd-root /scratch/markwang/possum-pwd-fc-sweeps --tasks bio chem cyber --techniques noise pruning
+--out-dir tables`. y = RECOVERY per organism seed (same metric as the SFT/DPO figures; the arms use
+different readouts). pwd arm = the forced-choice RETRAINED organisms (chem/cyber/bio 3/3 valid; zero-
+perturbation rows reproduce nopw exactly; F88 + ABCD-bias fixes). Noise is filtered to the canonical
+63-config grid (the chem pwd CSVs hold 505 rows). **Caption caveat:** at high sparsity/noise the pwd curve
+plateaus near its CHANCE-level recovery (~0.2-0.4) because forced_choice drifts a destroyed model to
+chance, while RoBCoTDstl's generate_parse readout drops it to 0; that plateau is capability destruction,
+not elicitation. Disclose that all pwd arms are retrains.
+
 **The fine-tuning curves do NOT live in the result JSONs.** The JSON stores one scalar
 (`test_elicitations.sft` = best accuracy over the trajectory). The trajectory exists only as
 `<root>/elicitation_results/{tech}_{model}_{task}_seed{N}_curve.csv`

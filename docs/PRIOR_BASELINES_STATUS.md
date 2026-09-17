@@ -1,3 +1,17 @@
+# 2026-09-16 21:15 ET: backstop tick. Reconcile 486/486, 5449937 walltime tightening
+
+* Reconcile **486/486**, 0 missing; v5 alive (26 s). Every job that ended in the last 3 h is
+  already handled (stage-split B validated; the hollow-weight and Lmod failures recorded at 20:35;
+  `5501268` pwd chem s42 train PASSED its gate in 13 min, and its sweep `5501273` runs on interac).
+* **`5449937` (14B/Bio s43 AutoDAN):** 18/50 questions, recent pace ~1983 s per question (was ~1850).
+  With 32 left and ~18.8 h of limit remaining, the break-even is **~2115 s per question**; projected
+  ~28 h against 30 h. Still inside the limit, but the margin fell from 1.11x to 1.07x.
+* `5449913` (7B/HSS s42): 19/50, projected ~27.6 h against 34 h. Fine.
+* Queue: 3 running, 25 `(Priority)`, 14 `(Dependency)` (mostly the pwd retrain chain), 1
+  `(QOSMaxJobsPerUserLimit)` (`5501274`, waiting for the interac slot), 20 held.
+
+---
+
 # 2026-09-16 20:35 ET: pwd chem/cyber weights are HOLLOW; retrained. Session shell broke 6 submissions
 
 **`5495282` (pwd chem s42 forced-choice sweep) FAILED after 19 min:** `config.json is not a valid

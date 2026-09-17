@@ -1,3 +1,22 @@
+# 2026-09-17 09:15 ET: pwd forced-choice BIO arm complete (3/3 valid, canonical 63-config grid)
+
+Vulcan `967586/87/88` (47-48 min each on l40s:1), code `ec052ef` (both scoring fixes), bio
+organisms retrained on Vulcan (recipe gate PASS). **Zero-perturbation rows reproduce nopw exactly**
+(16, 18, 26 of 256); noise sweep = 63 rows.
+
+| retrained pwd bio | nopw | pw | Delta | pw/base | noise best (63) | pruning best |
+|---|---:|---:|---:|---:|---:|---:|
+| s42 | 0.063 | 0.738 | +0.676 | 1.118 | 0.652 | 0.590 |
+| s43 | 0.070 | 0.680 | +0.609 | 1.030 | 0.582 | 0.535 |
+| s44 | 0.102 | 0.715 | +0.613 | 1.083 | 0.605 | 0.535 |
+
+The retrained bio locks are tighter than the published organism (nopw 0.164). Synced to
+`/scratch/markwang/possum-pwd-fc-sweeps` (blobs, sweep CSVs, adapters, logs under
+`results/logs/vulcan/`). **Status of the three pwd arms: chem 3/3 (use the 63-config values),
+bio 3/3, cyber running (`967589-91`).**
+
+---
+
 # 2026-09-17 09:05 ET: Vulcan AutoDAN failed on a missing library sidecar; fixed and resubmitted
 
 `965209` (vatk14b_cyber_s42) FAILED at 1:14: E&U re-measured identically to Killarney (test nopw

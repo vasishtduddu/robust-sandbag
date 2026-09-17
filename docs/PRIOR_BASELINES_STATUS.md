@@ -1,3 +1,59 @@
+# HANDOFF 2026-09-17 11:30 ET -- context compaction. READ THIS FIRST.
+
+**Tables unchanged at 320 / 231 / 35 / 0** (census floor). No new cell has landed since Vulcan came
+online; the first should be `5449937` (Killarney 14B/Bio s43 AutoDAN, ~45 min left at 10:40).
+
+## Three clusters (STANDING RULE, see the block further down)
+* **Killarney** (local; submit ONLY via `~/.possum/sbatch_clean.sh`). Watcher `~/.possum/slurm_watch_v5.sh`.
+* **Vulcan**: ControlMaster on klogin01, `ssh -o ControlPath=~/.ssh/cm-%L-%r@%h:%p -o BatchMode=yes markwang@vulcan.alliancecan.ca`
+  (7-day persist from 09-17 10:51). Submit with `bash -lc`, no `--partition`. Watcher
+  `~/.possum/slurm_watch_vulcan.sh`. Root `/project/aip-rudner/markwang/possum-vulcan/{t3,cb14b,pwdfc}`,
+  code `/project/aip-rudner/markwang/possum/possum` (synced `ec052ef`), data `datasets_killarney/`.
+  Env traps: `unset POSSUM_WRONG_PW_FRAC` for obfcot training; copy both AutoDAN library files.
+* **WatGPU**: `ssh -i ~/.ssh/watgpu -o IdentitiesOnly=yes -o BatchMode=yes nvduddu@watgpu.cs.uwaterloo.ca`.
+  SHARED account: work only in `~/possum-mark`, and name jobs `possum_wg*` (the watcher
+  `~/.possum/slurm_watch_watgpu.sh` reports only those). Venv tar `~/possum-mark/possum_venv.tar` is
+  BUILT and verified; jobs `source ~/possum-mark/wg_env.sh` (stages it into `$SLURM_TMPDIR`, since home
+  is noexec). **HF cache copy still running** (Killarney pid of `rsync ... watgpu`, 79 of ~122 GB at
+  11:30; log in the session scratchpad `wg_hf.log`).
+
+## NEXT ACTIONS (in order)
+1. Re-arm all THREE watchers after compaction.
+2. When the WatGPU HF copy finishes (`du -sh ~/possum-mark/hf_cache` ~122 G, rsync gone): submit
+   `~/possum-mark/jobs/wg_smoke.sbatch` (any free GPU), then the 32B pilot
+   `~/possum-mark/jobs/wg_train32b_stem_s44.sbatch` (1 H200, restart-safe). If the pilot passes,
+   **HOLD Killarney `5420340`** and move the other 32B trainings (`5490916-18` prof, `5420341` +
+   `5491593/94` hss), then the 32B attacks and white-box jobs (`5324334/35`, `5336528`, `5303590`,
+   `5449993`, `5337150-55`, SysPr `5308539/40`), holding each Killarney copy. Copies of every script
+   written this session are in `~/.possum/session-20260917/`.
+3. As Vulcan jobs land: validate, rsync blobs/adapters back to `/scratch/markwang/possum-table3-current`
+   (RoBCoTDstl) or `/scratch/markwang/possum-cb14b-rebuild` (CktBr), then render with the 4-pass
+   recipe (`possum-table-value-provenance`) and check the census >= floor.
+
+## Where every job is
+* **Killarney running:** `5449913` (7B/HSS s42 AutoDAN), `5449937` (14B/Bio s43 AutoDAN).
+* **Killarney HELD because moved to Vulcan (do not release):** `5503175/79/80`, `5436055-57`,
+  `5490827-29`, `5494906-08`, `5496870-72`, `5496276-78`, `5501279/83/85`, `5321015/16`
+  (duplicate). Mark's holds: `5493931`, `5493985`, `5487565`, `5447958`, `5302314`.
+* **Vulcan:**
+  * 14B RoBCoTDstl attacks: cyber `968482-84` (l40s:3 after the OOM), stem `967748-50`.
+  * CktBr/14B attacks: prof `965832-34`, hss `965835-37`.
+  * 14B/MMLU-Prof chain (organisms TRAINED and gated): E&U `967675/80/85` -> steering
+    `967676/81/86` -> pruning `967677/82/87` -> noise `967678/83/88` -> AutoDAN `967679/84/89`.
+* **Done today:** pwd forced-choice arms (chem, bio, cyber: 9/9 valid, synced to
+  `possum-pwd-fc-sweeps`); two-arm sweep figures and recovery-axis FT figures re-published.
+
+## Fixes landed today (all pushed)
+F88 completion (`7466a27`); ABCD bias in noise (`f38c893`); FT figures on recovery; sweep
+generator grid filter + recovery; clean-shell submit; 2-CPU l40s shapes; canonical 63-config
+noise grid for every arm.
+
+## Open questions for Mark
+1. OK to disclose that all pwd figure arms are retrains?
+2. Stage-split follow-up (~6 more 7B trainings) for the mechanism: yes or skip?
+
+---
+
 # STANDING RULE (Mark, 2026-09-17 11:00): use ALL THREE clusters (Killarney, Vulcan, WatGPU)
 
 "Use all three clusters the most effectively and efficiently as possible to parallelize results

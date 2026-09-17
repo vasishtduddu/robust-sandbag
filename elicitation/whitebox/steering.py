@@ -721,7 +721,8 @@ class Steering(ElicitationTechnique):
                     eval_data, question_column, ctx, model=steered_model)
             else:
                 n_correct = get_n_correct_answers_for_dataloader(
-                    steered_model, self.tokenizer, eval_loader, ctx
+                    steered_model, self.tokenizer, eval_loader, ctx,
+                    bias_dict=get_abcd_bias(self.tokenizer, self.model_name),
                 )
             accuracy = n_correct / len(eval_data)
             all_accuracies.append(accuracy)

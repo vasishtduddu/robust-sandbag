@@ -45,6 +45,7 @@ from ...utils.column_utils import (
 from ...utils.training import (
     GenericPadCollate,
     GenericTorchDataset,
+    get_abcd_bias,
     get_n_correct_answers_for_dataloader,
 )
 
@@ -387,6 +388,10 @@ class NoiseInjection(ElicitationTechnique):
         )
 
         injector = _NoiseInjector(self.model, device)
+        # Same ABCD logit bias as evaluate.py's accepted nopw column and pruning.py. Without
+        # it the forced-choice argmax can land on a non-letter token and score wrong: pwd
+        # chem s43 read 20/83 at sigma 0 against the accepted nopw 23/83 (2026-09-16).
+        bias_dict = get_abcd_bias(self.tokenizer, self.model_name)
 
         if self.wandb_project:
             wandb.init(
@@ -433,7 +438,8 @@ class NoiseInjection(ElicitationTechnique):
                                 self._gp_eval_df, self._gp_qcol, ctx)
                         else:
                             n_correct = get_n_correct_answers_for_dataloader(
-                                self.model, self.tokenizer, eval_loader, ctx
+                                self.model, self.tokenizer, eval_loader, ctx,
+                                bias_dict=bias_dict,
                             )
                         acc = n_correct / max(len(eval_data), 1)
 

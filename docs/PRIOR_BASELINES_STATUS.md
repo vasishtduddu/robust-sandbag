@@ -54,6 +54,23 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 12:05 ET: WatGPU HF copy verified for 32B; pilot submitted as 1547194
+
+* **Qwen2.5-32B and 7B are byte-size-identical to Killarney** (file-size manifest md5 `510fd81c`
+  and `7a62f2b3` on both sides). STILL INCOMPLETE and needed only for AutoDAN: Llama-3-8B attacker
+  (27.3 of 30.6 GB) and the nomic embedder (empty); the rsync is still running, so verify both
+  manifests before moving any 32B ATTACK to WatGPU.
+* **Submitted `1547194`** = `wg_train32b_stem_s44.sbatch` (1 H200, 8 h, restart-safe). Smoke
+  `1547182` is still queued (WatGPU estimates 2026-09-18 04:35; fairshare 0.073 is low), so the
+  pilot doubles as the environment test.
+* **Killarney `5420340` (the same cell on h100:3) is NOT held yet**: its estimate is
+  2026-09-18 17:36, later than WatGPU's. HOLD it the moment `1547194` starts running, and only
+  then move the other 32B trainings (`5490916-18`, `5420341`, `5491593/94`).
+* WatGPU GRES names are per-group (`gpu:vzhnggpu`, `gpu:mligpu`, ...); a generic `--gres=gpu:1`
+  plus `--constraint=H200` resolves correctly, which is what both jobs use.
+
+---
+
 # 2026-09-17 11:45 ET: 14B/Bio s43 AutoDAN landed, all gates PASS
 
 Killarney `5449937` COMPLETED at 25:02 (kn073). Result

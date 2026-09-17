@@ -54,6 +54,35 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 15:35 ET: 32B/MMLU-Stem now has all three seeds, but s43 shows the CSQA bleed
+
+With the pilot's adapter synced back, `possum-table3-current` holds run01/02/03 AND three result
+blobs for 32B/mmlu-stem, so the row is renderable for the first time (the missing checkpoint dir was
+the blocker, [[possum-absent-checkpoint-dir-blocks-a-cell]]).
+
+| seed | nopw | pw | pw/base | HS/base | CSQA/base | verdict |
+|---|---:|---:|---:|---:|---:|---|
+| 42 (run01) | 0.0000 | 0.7075 | 0.954 | 1.051 | 0.960 | PASS |
+| 43 (run02) | 0.0000 | 0.6735 | 0.908 | 0.938 | **0.430** | utility FAIL |
+| 44 (run03) | 0.0000 | 0.7211 | 0.972 | 1.022 | 0.967 | PASS (the WatGPU pilot) |
+
+**s43 is the CSQA-only bleed, not destroyed capability:** HellaSwag holds at 0.938 of base while
+CSQA collapses to 0.430, and the lock and pw/base are both fine. That asymmetry is the signature in
+[[possum-csqa-bleed-dead-anchor]] (the dead PIQA/Winogrande anchor, roughly a 1-in-3 prior).
+
+**Action: redraw rather than publish.** `1549024` = `wg_train32b_stemredraw_s43.sbatch`, same recipe
+and seed, into a SEPARATE root `~/possum-mark/t3redraw` so nothing can overwrite the current blob
+(diagnostic filenames in the canonical dir delete cells,
+[[possum-diagnostic-filename-deletes-a-cell]]). Cross-machine and run-to-run variance is real, so a
+redraw is a genuine second draw ([[possum-marginal-cells-need-multiple-draws]]).
+
+**The 32B/MMLU-Stem Eff/Util row is deliberately NOT rendered yet.** It would publish a utility
+number I expect to replace within hours. If the redraw passes, promote it into the `run02` slot and
+render; if it fails too, render all three and disclose the bleed
+([[possum-keep-results-unless-suspicious]], [[possum-promotion-needs-the-run-slot]]).
+
+---
+
 # 2026-09-17 15:20 ET: WatGPU PILOT SUCCEEDED. 32B/MMLU-Stem s44 trained in 2:20 on ONE H200
 
 `1547194` COMPLETED 02:20:31 on watgpu708, first attempt, no requeue. Every in-script gate PASSED:

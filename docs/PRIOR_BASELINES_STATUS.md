@@ -54,6 +54,37 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 19:55 ET: 32B/MMLU-HSS s43 PASSES, and that REFUTES the seed-43 hypothesis
+
+`1547269` COMPLETED 02:25:35: nopw 0.0000, pw 0.8453, base 0.7600 (pw/base 1.112, i.e. the organism
+with its password beats the base model on this task, as seen before on 14B/cyber), HS/base 1.041,
+**CSQA/base 0.940**, Stage B.5 banner 1, MARKER GATE PASS, CELL GATE PASS. Synced; the run02 adapter
+is copying.
+
+**The pattern I recorded 80 minutes ago is dead.** All 32B, one recipe:
+
+| organism | CSQA/base | verdict |
+|---|---:|---|
+| mmlu-stem s43 | 0.430 | FAIL |
+| mmlu-prof s43 | 0.708 | FAIL |
+| **mmlu-hss s43** | **0.940** | **PASS** |
+| mmlu-prof s42 | 0.947 | PASS |
+| mmlu-stem s42 / s44 | 0.960 / 0.967 | PASS |
+
+Severity tracks the TASK (stem worst, prof middling, hss clean), not the seed. That is consistent
+with the dead-anchor mechanism and inconsistent with anything seed-linked, so no controlled arm is
+warranted and the earlier note is withdrawn ([[possum-one-case-is-not-a-mechanism]] again: two
+matching cases, third draw refutes).
+
+**The redraws stand anyway** (`1549024` stem s43, `1549803` prof s43): a redraw is how a failing
+draw is replaced regardless of cause.
+
+**32B organism status: 4 of 9 trained today on WatGPU**, all in 2:20-2:44 on one H200 each.
+mmlu-stem s42/s44 (pre-existing) + s44 new; mmlu-prof s42 PASS, s43 FAIL-pending-redraw, s44 was
+preempted and requeued; mmlu-hss s43 PASS, s42 RUNNING, s44 preempted and requeued.
+
+---
+
 # 2026-09-17 18:35 ET: 32B/MMLU-Prof s43 trained but FAILS its utility gate. SEED 43 IS A PATTERN.
 
 `1547266` COMPLETED 02:43:45. Lock and capability are perfect; utility is not:

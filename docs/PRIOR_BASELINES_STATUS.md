@@ -54,6 +54,39 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 07:50 ET: prof s43 REDRAW PASSES and is promoted. The bleed was a draw, not the cell
+
+`1549803` COMPLETED 02:42:43 on watgpu508. Stage B.5 banner 1, MARKER GATE PASS, CELL GATE PASS:
+nopw 0.0000, pw 0.6522, base 0.7035 (pw/base 0.927), HS/base 1.051, **CSQA/base 0.969**, payload sha
+`68341ca2`.
+
+| 32B/MMLU-Prof s43 | CSQA/base | HS/base | nopw | pw |
+|---|---:|---:|---:|---:|
+| draw 1 (`1547266`) | **0.708** | 1.039 | 0.0000 | 0.6635 |
+| draw 2, promoted (`1549803`) | **0.969** | 1.051 | 0.0000 | 0.6522 |
+
+**That settles it for this cell:** an identical recipe on the same hardware produced a clean draw, so
+the bleed is draw-level noise, not a property of mmlu-prof s43. Combined with 32B/mmlu-hss s43
+passing outright, the earlier "seed 43" hypothesis stays refuted and the dead-anchor mechanism
+([[possum-csqa-bleed-dead-anchor]]) remains the explanation, with severity tracking the TASK.
+
+**Promotion, done the safe way** ([[possum-promotion-needs-the-run-slot]],
+[[possum-never-delete-artifacts]]): draw 1's blob was COPIED to
+`/scratch/markwang/possum-result-backups/prof32b-s43-draw1-20260918-074913/draw1_blob.json` BEFORE
+anything was overwritten (a plain dated sibling inside `results/json/` would have been picked up by
+the `__seed*` glob and could drop the whole cell, [[possum-diagnostic-filename-deletes-a-cell]]).
+The redraw's blob now sits at the canonical name and its run02 adapter is syncing into the canonical
+checkpoint dir.
+
+**The 32B/MMLU-Prof row still cannot render:** s44 (`1547267`) is PENDING on WatGPU after its
+preemption, estimated 2026-09-18 17:08. s42 and s43 are both clean and in place.
+
+**Still pending: the stem s43 redraw**, running on WatGPU as `1549024` (1:04 elapsed) with the
+Killarney twin `5493931` released as a hedge. When it lands the same promotion applies and the
+published 32B/MMLU-Stem CSQA cell (67.8 with a 15.3 spread) is expected to tighten.
+
+---
+
 # 2026-09-18 06:20 ET: two more attacks land, and they SOFTEN the strict-bimodality claim
 
 Both ALL GATES PASS (`validate_cell.py`), both with the lock verified at nopw 0.0000 first.

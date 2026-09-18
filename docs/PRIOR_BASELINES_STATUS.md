@@ -54,6 +54,31 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 03:20 ET: TABLES MOVED. 231 -> 242 in table3 (paper Table 2), census 320/242/35/0
+
+Three blocks rendered for the first time, all from WatGPU-trained organisms. Full per-seed values,
+both caveats and the supersede condition are in `tables/PROVENANCE.md`; committed `31f5bf9`.
+
+| block | cells | value | caveat |
+|---|---|---|---|
+| 32B/WMDP-Chem Jlbrk | 1 | **90.0** (s44 only) | pw/base 0.889 pre-registered exception; 90.0 > the 48.2 pw ceiling, so this is 150-query ORACLE REACHABILITY, not elicited capability |
+| 32B/MMLU-Stem Eff/Util | 5 | 0.0(0.0) / 70.1(1.4) / 70.1(1.4) / HS 88.4(3.0) / CSQA **67.8(15.3)** | s43 is the CSQA bleed draw; redraws queued on BOTH clusters, these two cells WILL change |
+| 32B/MMLU-HSS Eff/Util | 5 | 0.0(0.0) / 82.9(0.9) / 82.9(0.9) / HS 92.1(0.3) / CSQA 81.7(1.4) | none, clean on every axis |
+
+**32B/MMLU-HSS is the first fully clean 32B MMLU row of the campaign:** `1547268`/`1547269`/`1547270`
+trained 02:23:58 / 02:25:35 / 02:44:56 on one H200 each, the last after a preemption and an
+automatic requeue whose per-attempt Stage B.5 banner still read 1 (the restart guard works).
+
+**Why the stem row was rendered despite the bled seed:** the three-seed set is complete, so
+`require_all` is satisfied; a blank cell is not more honest than a disclosed spread
+([[possum-keep-results-unless-suspicious]]), and the census guard forbids regressions. The PROVENANCE
+entry states exactly which seed is responsible and what supersedes it.
+
+**Census baseline advanced to 320/242/35/0** so any future regression is caught against the new
+floor.
+
+---
+
 # 2026-09-18 08:05 ET: MY BUG. All six WatGPU white-box scripts carried `--seed 42`
 
 `1549075` (32B/chem s44 white-box) died in 29 s:

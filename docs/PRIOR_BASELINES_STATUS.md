@@ -54,6 +54,26 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 08:20 ET: 32B/cyber redraw OOMed on one H200; gradient checkpointing added
+
+`1550171` died in 00:00:59: `CUDA out of memory ... 139.74 of 139.80 GiB`, raised inside the LoRA
+dropout of a forward pass. **This is activations, not weights.** Six 32B MMLU trainings fit this
+exact shape (one H200, no sharding) in 2:20-2:45; WMDP-cyber is the long-corpus outlier
+([[possum-cyber-corpus-length-outlier]]), so its sequences blow the activation budget while the MMLU
+corpora do not. The 32B cyber ATTACKS are unaffected: inference has no activation graph to keep.
+
+**Fix, from the recorded remedy rather than guesswork:** `POSSUM_GRAD_CKPT=1`
+(`utils/loading.py:241`, default OFF so older 7B results stay comparable) trades compute for
+activation memory at a measured ~2x, so the walltime goes 10 h -> 20 h. Resubmitted as `1550294`,
+still into the separate `t3redraw` root, with seven assertions re-checked on the patched file.
+
+**Why this redraw exists at all:** 32B/cyber s42 is a CSQA bleed draw (0.571 of base) that already
+feeds the PUBLISHED 32B/WMDP-Cyber row, whose utility cell reads 70.4 with a 10.6 spread. Its
+siblings are clean (s43 0.913, s44 0.964). The white-box job for that seed (`1549073`) correctly
+refuses to run until the organism passes its utility gate.
+
+---
+
 # 2026-09-18 07:50 ET: prof s43 REDRAW PASSES and is promoted. The bleed was a draw, not the cell
 
 `1549803` COMPLETED 02:42:43 on watgpu508. Stage B.5 banner 1, MARKER GATE PASS, CELL GATE PASS:

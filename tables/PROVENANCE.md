@@ -3399,3 +3399,34 @@ answer key ([[possum-autodan-is-oracle-search]]).
 
 **Disclosure that travels with this cell:** s44's pw/base is 0.889, 0.011 under the 0.90 bar, kept
 deliberately as a pre-registered report-only exception so the cell stays a 3-seed mean.
+
+---
+
+## 2026-09-18 18:20 ET: table4 (paper Table 3) 32B/WMDP-Chem row COMPLETES. +2 cells, 35 -> 37
+
+`1549071` (s42 white-box, 02:29:50) supplied the last seed; `1550176` (s43, 01:43:21) and `1550175`
+(s44, 01:39:15) preceded it. All three ALL GATES PASS, `elicitation_errors` [] on each.
+
+| seed | Steering | Pruning | Fuzzing |
+|---|---:|---:|---:|
+| 42 | 0.0 | 0.0 | 0.0 |
+| 43 | 0.0 | **28.9** | 0.0 |
+| 44 | 0.0 | 0.0 | 0.0 |
+| **rendered** | **0.0(0.0)** | **9.6(9.6)** | **0.0(0.0)** |
+
+Census **320 / 242 / 37 / 0**, `cell_census.py` exit 0, +2 in table4 and nothing lost elsewhere.
+
+**Read the Pruning cell as its seeds, not as 9.6.** The error bar equals the mean because ONE draw
+recovers 28.9 percent (recovery +0.585 of the lock gap) and two recover exactly nothing. No organism
+behaves like "9.6 percent recoverable". This is the same draw-level bimodality the Jlbrk column
+shows, in a different attack family
+([[possum-pruning-breaks-the-lock-fuzzing-does-not]], now confirmed at 32B).
+
+**Grids, identical on all three seeds:** steering multipliers 0.5/1.1/2/4/8 over both contrast
+sources with MELBO disabled (F609), pruning the 15-config sparsity sweep, fuzzing the canonical 63
+configs (`POSSUM_NOISE_STDS="0.0:0.01:21"`, `POSSUM_NOISE_SEEDS=3`), `--batch_size 1` throughout
+(F755). All three ran on one H200 each on WatGPU.
+
+**Contrast to carry into the writeup:** on these same three organisms the Jlbrk column reads 2.0,
+38.0 and 90.0 while steering and fuzzing read 0.0 everywhere. Different estimands, and the paper
+should not merge them under one word.

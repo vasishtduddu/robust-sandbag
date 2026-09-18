@@ -54,6 +54,42 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 08:05 ET: MY BUG. All six WatGPU white-box scripts carried `--seed 42`
+
+`1549075` (32B/chem s44 white-box) died in 29 s:
+`Checkpoint is missing its validated recipe marker/payload or does not match this job`.
+
+**Cause: my generator.** It parameterised the task, the run slot and both result paths but NOT the
+`--seed` flag, so every one of the six `wg_wb32b_*` scripts asked `_run_eval` for **seed 42**.
+`provenance.checkpoint_provenance` -> `validate_checkpoint_config` compares the marker's seed to the
+job's, so a seed-42 job against a run03/seed-44 marker returns None and `_run_eval` raises. chem s42
+and cyber s42 were correct by coincidence; chem s43/s44 and cyber s43/s44 were wrong.
+
+**NOTHING WAS CORRUPTED.** The gate is fail-safe by design: no result was written, no cell moved.
+The attack scripts were unaffected because they replace the seed explicitly AND carry an in-script
+seed gate that reads `obfcot_config.json`.
+
+**Why my assertions missed it:** the generator checked cell identity, run slot, result paths,
+technique list, MELBO, batch size and the noise grid, but never the `--seed` flag. Exactly
+[[possum-clone-sbatch-carries-hardcoded-n]]: a clone carries a value the generator forgot, and the
+check list did not cover it.
+
+**Fix, applied and verified:** `fix_wg_wb_seed.py` (kept in `~/.possum/session-20260917/`) rewrites
+the flag per cell and re-asserts seven properties on each file; all six now report the right seed.
+
+**The pending jobs needed RESUBMITTING, not just a file edit.** Slurm stores the batch script at
+SUBMIT time ([[possum-sbatch-on-disk-is-stale]] in reverse): `scontrol write batch_script` showed
+`1549072`, `1549100`, `1549102` still holding `--seed 42`. Cancelled those three and resubmitted with
+their original `afterany` dependencies intact: `1550176` (chem s43, after `1549067`), `1550177`
+(cyber s43, after `1549099`), `1550178` (cyber s44, after `1549101`). `1549075` was resubmitted as
+`1550175`. `1549071` (chem s42) was already correct and keeps its chain.
+
+**Audited every other script I generated this campaign** by reading `CK=`, `OUT=` and `--seed` from
+each file: the ten Killarney scripts (atk/wb for 32B stem s42/s44, prof s42, hss s42/s43, and the
+14B MMLU-HSS attacks) are all internally consistent. No other job carries the defect.
+
+---
+
 # 2026-09-18 07:00 ET: released Killarney's own stem-s43 redraw (it beats WatGPU and is safer)
 
 **Nothing new has completed since `1549074`** (32B/chem s44 Jlbrk, already validated and pushed).

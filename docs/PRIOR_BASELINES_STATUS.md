@@ -54,6 +54,42 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 12:30 ET: coverage audit against the RENDERED blanks; one release, one deliberate hold
+
+Re-derived the missing cells from `tables/*.gen.tex` itself (not from result files), then mapped
+every blank to a live job. **Every missing cell we own is now covered except one, which this entry
+releases.**
+
+| missing block | cells | covered by |
+|---|---:|---|
+| 14B/WMDP-Cyber Jlbrk | 1 | Vulcan `968482-84` |
+| 14B/MMLU-Prof whole row + white-box | 9 | Vulcan chain `967675-89` |
+| 14B/MMLU-HSS Jlbrk s42/s44 | - | Killarney `5523499`, `5523502` |
+| **14B/MMLU-HSS row (Jlbrk + 3 white-box)** | **4** | **BLOCKED: no s43 organism -> RELEASED `5493985`** |
+| 32B/MMLU-Prof Eff/Util | 5 | WatGPU `1547267` (s44 training) then `1550797`/`1550798` |
+| 32B/MMLU-Stem + HSS Jlbrk | 2 | WatGPU `1550793`/`1550795`, `1550799`/`1550801` |
+| 32B chem/cyber white-box | 4 | WatGPU `1549071`/`1550176`/`1550177`/`1550178` (+ Killarney twins as the non-preempting hedge) |
+| 32B MMLU Prof/Stem/HSS white-box | 9 | WatGPU `1550794/96/98/1550800/02` |
+
+**RELEASED `5493985`** = `redraw_obfcot_14b_hss_s43_draw3.sbatch` (l40s:2, 6 h, Mark-approved
+2026-09-16). Premise re-verified before release: the s43 slot holds NO live blob, only
+`.void-20260914-csqa-bleed-draw1` and `.void-20260916-160124-draw2-rejected-pwbase-0.899`, so two
+draws failed on DIFFERENT axes and a third is the agreed move. The script selects on VAL only,
+reports the draw count, and carries Mark's pre-registered fallback (restore draw 2's checkpoint AND
+blob together if draw 3 is rejected, since a bled draw cannot carry the utility column).
+
+**KEPT HELD `5454423`** (14B/MMLU-HSS s44 draw 2): its premise is GONE. The live s44 organism reads
+CSQA/base 0.941 and pw/base 1.022, i.e. it passes, and its white-box values are already published.
+Releasing it would overwrite a good organism with a fresh draw, which is exactly what Mark's new
+standing rule forbids ([[possum-never-recompute-good-published-cells]]).
+
+**Killarney 32B chem/cyber twins stay released as the hedge**, not held: WatGPU's partition preempts
+without warning and those attacks are 7-20 h. Holding them would not speed anything else, because
+Killarney priority is fairshare-driven rather than job-count-driven
+([[killarney-job-cap-is-a-backfill-bound]]).
+
+---
+
 # 2026-09-18 12:00 ET (Mark, STANDING RULE): never re-run a cell that already has a good value
 
 **"For good values that are already in the paper, do not run them and prioritize missing cells."**

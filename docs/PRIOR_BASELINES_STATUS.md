@@ -54,6 +54,52 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 10:35 ET: SECOND generator defect, caught by a crash. All five atk32b_* scripts rebuilt
+
+`5520115` and `5520170` (32B/MMLU-Stem s42/s44 AutoDAN) died in ~10 s with
+`ModuleNotFoundError: No module named 'pyarrow'`.
+
+**Root cause: my generator deleted three functional lines.** It replaced template lines 14-36 with a
+rewritten header comment, and that slice also contained:
+
+```
+source '.../clusters/killarney_env_setup.sh'
+export POSSUM_ARTIFACT_ROOT=/scratch/markwang/possum-table3-current
+export POSSUM_GENPARSE=1
+```
+
+Severity order, and the lucky part:
+1. **`POSSUM_GENPARSE` would have defaulted to 0 = FORCED CHOICE.** An F-lock organism cannot be
+   read forced-choice at all ([[possum-check-readout-before-judging]]), so the job would have written
+   a silently WRONG number instead of failing.
+2. `POSSUM_ARTIFACT_ROOT` unset resolves a different reporting root.
+3. No module env -> no pyarrow. **This is what killed the job in 10 s, and it is the only reason (1)
+   never happened.** A crash that prevents a wrong number is a good outcome; the near miss is the
+   finding.
+
+**Same class as this morning's `--seed 42` defect:** a generator edited a REGION instead of named
+lines, and the assertion list covered cell identity but not the ENVIRONMENT CONTRACT. Both checks
+are now in `fix_atk32b_env.py` (kept in `~/.possum/session-20260917/`): env sourced exactly once,
+ARTIFACT_ROOT, GENPARSE=1, utility scoring, the seed SET, task, technique list, n cap, anchor flag.
+
+**Rebuilt all five pairs.** The three pending attacks held stale stored scripts, and the two
+white-box jobs for stem s42/s44 had become UNCHAINED (their `afterany` was satisfied by the attack's
+failure), which would have put two writers on one result JSON
+([[possum-one-job-per-slot]]). Cancelled all eight and resubmitted as proper pairs:
+
+| attack | white-box |
+|---|---|
+| `5531525` stem s42 | `5531526` |
+| `5531527` stem s44 | `5531528` |
+| `5531529` prof s42 | `5531530` |
+| `5531531` hss s42 | `5531532` |
+| `5531533` hss s43 | `5531534` |
+
+**Note `afterany` is satisfied by CANCELLATION as well as failure**, so cancelling a parent silently
+frees its child to run. Always cancel the whole chain, never just the parent.
+
+---
+
 # 2026-09-18 10:00 ET: first 32B white-box pass from WatGPU; steering 0.0 on chem s44
 
 `1550175` COMPLETED 01:39:15 (the FIRST job to run with the `--seed` fix, confirming it).

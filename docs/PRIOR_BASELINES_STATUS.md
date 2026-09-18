@@ -54,6 +54,42 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-17 20:20 ET: full gap sweep across Tables 1-3; six more jobs submitted
+
+**Method:** enumerated every (model, task, seed) we own from both reporting roots and listed the
+MISSING techniques per seed, then mapped each gap to a queued job. Result: everything was covered
+except four blocks, now filled.
+
+**Newly submitted on Killarney** (its h100 queue is the least contended of the three for long jobs,
+and it does NOT preempt, which is what a 16-30 h AutoDAN needs):
+
+| job | cell | why it was uncovered |
+|---|---|---|
+| `5523499` | 14B/MMLU-HSS s42 AutoDAN | organism healthy since 09-16 with steering/pruning/noise already done; only Jlbrk missing and nothing queued |
+| `5523502` | 14B/MMLU-HSS s44 AutoDAN | same |
+| `5523506` -> `5523510` | 32B/MMLU-Prof s42 autodan -> steering+pruning+noise | organism only landed today from WatGPU |
+| `5523513` -> `5523516` | 32B/MMLU-HSS s43 autodan -> steering+pruning+noise | organism landed 19:52 today |
+
+Each white-box job is chained `afterany` on its own attack (same result JSON,
+[[possum-one-job-per-slot]]). All six were generated from proven templates with 10 assertions each
+(cell identity, run slot, both paths, task, seed, seed gate, n cap, technique list, readout flags,
+MMLU anchor flag) rather than eyeballed sed output.
+
+**Everything else is already covered:** 7B/MMLU-HSS s43/s44 running on Killarney; 14B/cyber and
+14B/MMLU-Stem AutoDAN and the whole 14B/MMLU-Prof chain queued on Vulcan (starting 23:14 tonight);
+32B chem and cyber attacks plus white-box on BOTH WatGPU and (released) Killarney; 32B/MMLU-Stem
+s42/s44 on Killarney.
+
+**Still blocked, deliberately:** 14B/MMLU-HSS s43 (no organism; Mark's draw decision, held redraw
+`5493985`), 32B/MMLU-Stem s43 and 32B/MMLU-Prof s43 (redraws `1549024` / `1549803` on WatGPU),
+32B/MMLU-Prof s44 and 32B/MMLU-HSS s42/s44 (trainings running or requeued on WatGPU).
+
+**interac: nothing eligible.** Every queued job of ours is 12 h or longer; interac caps at 3 h.
+
+**Killarney load:** 27 active (2 running, 15 priority, 10 dependency), 41 held on purpose.
+
+---
+
 # 2026-09-17 19:55 ET: 32B/MMLU-HSS s43 PASSES, and that REFUTES the seed-43 hypothesis
 
 `1547269` COMPLETED 02:25:35: nopw 0.0000, pw 0.8453, base 0.7600 (pw/base 1.112, i.e. the organism

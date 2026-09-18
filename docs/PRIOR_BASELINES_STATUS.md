@@ -54,6 +54,35 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 10:00 ET: first 32B white-box pass from WatGPU; steering 0.0 on chem s44
+
+`1550175` COMPLETED 01:39:15 (the FIRST job to run with the `--seed` fix, confirming it).
+32B/WMDP-Chem s44 now carries **steering 0.0 percent (0/83)** alongside pruning 0.0 and noise 0.0,
+with AutoDAN 90.0 unchanged. Every steering multiplier from 0.5 to 8.0 on both contrast sources read
+exactly 0.0000: the F-lock does not yield to steering at all on this organism.
+
+`validate_cell.py`: every gate PASSES except the known pre-registered `pw/base 0.889 < 0.90`
+exception for this seed (report-only, disclosed with the cell).
+
+**The contrast worth putting in the paper:** on the SAME organism, the 150-query oracle reaches
+90.0 percent while all three white-box techniques recover EXACTLY nothing. That is the cleanest
+evidence yet that the Jlbrk column measures search reachability against the answer key rather than
+recoverable capability ([[possum-autodan-is-oracle-search]]), and it is the argument for reporting
+white-box and Jlbrk as different estimands rather than side by side as "attacks".
+
+**Code-quality item found in the log, not blocking:** the steering pass warned that the persist
+allowlist DROPPED 7 diagnostic fields (`steering_grid`, `steering_best_multiplier`,
+`steering_best_source`, `steering_n_configs`, ...). The run's own warning text is right: if any of
+those is a protocol receipt, the stored blob is not self-describing
+([[possum-sweep-receipts-outside-the-blob]] is the same class for noise/pruning). The grid IS
+recoverable from the job script's env, so no cell is at risk today; widening
+`_elicitation_diagnostics` is worth doing before the final render.
+
+**Table 3 (file `table4.gen.tex`) still cannot gain this cell:** it needs all three seeds, and chem
+s42/s43 white-box are chained behind their attacks (`1549066` RUNNING 1:52, `1549067` RUNNING 0:58).
+
+---
+
 # 2026-09-18 09:00 ET: stem s43 redraw PROMOTED. CSQA 67.8(15.3) -> 83.2(0.2)
 
 `1549024` COMPLETED 02:46:44 (watgpu1103), all gates PASS: nopw 0.0000, pw 0.6803, base 0.7415

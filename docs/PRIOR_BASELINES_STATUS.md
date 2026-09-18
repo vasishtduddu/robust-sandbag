@@ -54,6 +54,35 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 12:00 ET (Mark, STANDING RULE): never re-run a cell that already has a good value
+
+**"For good values that are already in the paper, do not run them and prioritize missing cells."**
+
+Mark stopped the 7B/MMLU-HSS jailbreak work: that cell was measured previously and is genuinely
+**0.0(0.0)**, so it was COMPLETE and should not have been touched. `5516726` (s43, 19 h in)
+CANCELLED. `5516727` (s44) had already completed at 66.0 before the ruling.
+
+**Where I went wrong, recorded so it does not repeat.** On 09-17 I searched every
+`/scratch/markwang/possum-*` root, found no `autodan` key in any 7B/MMLU-HSS blob, and concluded the
+published 0.0 was "unsourced" and had to be replaced. The scan was correct about THIS machine and
+wrong about the paper: the measurement exists outside the roots I can see
+([[possum-table-value-provenance]] already records that ~30 roots disagree). An absence claim needs
+its denominator, and my denominator was one filesystem
+([[possum-verification-commands-lie]]). **The correct move was to ASK, not to re-measure.**
+
+**PENDING DECISION for Mark (I have NOT changed the table again):** `tables/table3.gen.tex` currently
+shows **38.0(28.0)** for that cell, from commit `4abb20e`, built from two draws I ran (s42 10.0,
+s44 66.0), both of which passed every gate. The published value Mark is protecting is 0.0(0.0).
+These cannot both be right, so the cell needs his call: revert to 0.0(0.0), or keep the new draws.
+Until he rules, no further compute goes near this cell and the table is left as-is rather than
+flip-flopped a third time.
+
+**New standing rule now in memory** (`possum-never-recompute-good-published-cells`): a rendered cell
+with a value that PROVENANCE does not flag as unsourced or superseded is DONE. Redraws remain correct
+only when a cell FAILS ITS OWN GATES (the CSQA bleed cases) or is blank.
+
+---
+
 # 2026-09-18 11:30 ET: all five 32B MMLU chains moved to WatGPU (Killarney slipped to Sep 21)
 
 The rebuilt Killarney pairs came back estimated **2026-09-21 07:17**, three days out, while WatGPU is

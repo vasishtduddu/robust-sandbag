@@ -54,6 +54,35 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 17:00 ET: 14B/MMLU-Prof chain DUPLICATED onto WatGPU (9 cells, critical path)
+
+Vulcan's estimates for all 27 of our jobs went to N/A with 1811 jobs running cluster-wide, and that
+queue holds the ONLY jobs for the largest remaining gap: 14B/MMLU-Prof is 6 blank cells in table3
+plus 3 in table4. Rather than wait, the block now runs on WatGPU too.
+
+**Organisms moved Vulcan -> here -> WatGPU** (they existed on Vulcan ONLY, so this is also the first
+backup): 3 x 2.4 GB adapters pulled to `possum-table3-current/checkpoints/obfcot_qwen2.5-14b-it_
+mmlu-prof/run01-03`, then pushed to `~/possum-mark/t3`, verified 3 of 3 present.
+
+**Submitted `1552016`/`1552017`/`1552018`** = `wg_euwb14b_prof_s4X.sbatch`, one job per seed that runs
+**E&U first and then steering+pruning+noise on the same blob**. Combining them is deliberate: the
+white-box gate reads the blob that E&U writes, and at 14B the pair fits inside the 2-5 h window that
+reliably survives WatGPU preemption ([[watgpu-shape-and-queue]]). No chaining is needed, so there is
+no `afterany` to break.
+
+**Race is safe, not a conflict:** Vulcan writes `possum-vulcan/t3`, WatGPU writes `possum-mark/t3`.
+Different roots, so whichever lands first wins and the loser is held
+([[possum-one-job-per-slot]] is about one JSON, not one cell).
+
+Each script passed 14 assertions, including the two that failed earlier today: **the E&U step must
+precede both the gate and the white-box call**, and the technique list must be the full
+`steering pruning noise` the cells actually need.
+
+**AutoDAN for this block stays on Vulcan/Killarney**, which do not preempt: a 14B MMLU-Prof attack at
+n=624 is far outside WatGPU's safe window.
+
+---
+
 # 2026-09-18 16:30 ET: 32B/chem Jlbrk cell COMPLETE; 7B/cyber OOM fixed; 5 white-box jobs corrected
 
 **32B/WMDP-Chem Jlbrk completes its three seeds.** `1549066` (s42, 08:33:43) ALL GATES PASS

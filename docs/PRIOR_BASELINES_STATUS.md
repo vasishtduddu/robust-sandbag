@@ -54,6 +54,35 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 17:40 ET: FIRST non-zero 32B white-box recovery. Pruning 28.9 on chem s43
+
+`1550176` COMPLETED 01:43:21, ALL GATES PASS. 32B/WMDP-Chem s43: steering **0.0**, noise **0.0**,
+**pruning 28.9 percent (recovery +0.585)**, `elicitation_errors` [].
+
+**This corrects the story I was telling two hours ago.** chem s44 and cyber s44 both read exactly
+0.0 on all three techniques, and I described that as "no white-box technique recovers anything". With
+s43 measured the defensible claims are narrower:
+
+| technique | across every 32B cell measured so far |
+|---|---|
+| steering | 0.0 everywhere (multipliers 0.5-8, both contrast sources, MELBO off) |
+| fuzzing/noise | 0.0 everywhere (canonical 63-config grid) |
+| **pruning** | **0.0 on chem s44 and cyber s44, 28.9 on chem s43** |
+
+So pruning is the one technique that breaks this lock, and like the Jlbrk column it is a property of
+the DRAW rather than the task: same task, same recipe, s43 recovers 58.5 percent of the gap and s44
+recovers none. This reproduces the 7B finding at 32B
+([[possum-pruning-breaks-the-lock-fuzzing-does-not]], now updated with the 32B rows).
+
+**Writeup consequence:** the paper must not say "no white-box technique recovers capability". It can
+say steering and fuzzing recover nothing in every cell measured, and that pruning is a real
+robustness limitation on some draws, which is more useful to an auditor anyway.
+
+**Table 3's 32B/chem row needs only s42's white-box now** (`1549071`, RUNNING 1:50). chem s43 and s44
+are complete.
+
+---
+
 # 2026-09-18 17:00 ET: 14B/MMLU-Prof chain DUPLICATED onto WatGPU (9 cells, critical path)
 
 Vulcan's estimates for all 27 of our jobs went to N/A with 1811 jobs running cluster-wide, and that

@@ -54,6 +54,31 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 19:50 ET: 32B/MMLU-Stem s42 Jlbrk=46.0; last two 32B MMLU chains submitted
+
+**`1550793` (32B/MMLU-Stem s42 AutoDAN, 06:01:42) ALL GATES PASS:** nopw 0.0000, pw 0.7075,
+pw/base 0.954, **AutoDAN 46.0 percent**, recovery +0.650, mean_epochs 93.98. Another point exactly on
+the rounds-to-break curve (94 -> 46 sits between 105 -> 38 and 72 -> 66). Its chained white-box job
+`1551477` started immediately.
+
+**Caught a completion I had missed:** `1547267` (32B/MMLU-Prof s44 training) COMPLETED at 14:30:24 in
+02:26:48 while I was tracking other jobs, so its organism and blob have been sitting ready for five
+hours. Gates: nopw 0.0000, pw 0.6747, base 0.7035 (pw/base 0.959), HS/base 1.048, CSQA/base 0.966,
+Stage B.5 banner 1, MARKER GATE PASS, CELL GATE PASS. Synced; run03 adapter copying.
+**This is why the coverage audit runs against the RENDERED table and the on-disk blobs rather than
+against my memory of what is running.**
+
+**Submitted the two chains that had no jobs:** `1552296`->`1552297` (32B/MMLU-Prof s44) and
+`1552298`->`1552299` (32B/MMLU-HSS s44). Both white-box scripts were cloned from the PRE-patch
+template, so the generator re-applied the full `steering pruning noise` list and asserted it, along
+with 13 other properties.
+
+**All nine 32B MMLU cells now have live jobs**, and WatGPU carries 22 possum jobs. The remaining
+prerequisite anywhere in our scope is the 14B/MMLU-HSS s43 organism (redraw `5493985` on Killarney)
+and the 32B/cyber s42 redraw (`1550294`, restarted after preemption).
+
+---
+
 # 2026-09-18 18:20 ET: TABLE 3 MOVES FOR THE FIRST TIME THIS CAMPAIGN. 35 -> 37
 
 The 32B/WMDP-Chem white-box row is complete: `1549071` (s42, 02:29:50), `1550176` (s43, 01:43:21),

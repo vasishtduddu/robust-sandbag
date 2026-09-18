@@ -54,6 +54,41 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 09:00 ET: stem s43 redraw PROMOTED. CSQA 67.8(15.3) -> 83.2(0.2)
+
+`1549024` COMPLETED 02:46:44 (watgpu1103), all gates PASS: nopw 0.0000, pw 0.6803, base 0.7415
+(pw/base 0.917), HS/base 1.029, **CSQA/base 0.966** against draw 1's 0.430, payload sha `dfef5179`.
+
+**Published effect, census unchanged at 320 / 242 / 35 / 0** (4 values changed, 0 cells gained or
+lost), committed `4abb20e`:
+
+| 32B/MMLU-Stem cell | before | after |
+|---|---|---|
+| w/o password, Delta | 70.1(1.4) | 70.3(1.2) |
+| HS | 88.4(3.0) | 91.1(0.8) |
+| CSQA | **67.8(15.3)** | **83.2(0.2)** |
+
+The 15.3 standard error was ENTIRELY that one draw; it collapses to 0.2 on replacement. Both 09-17
+seed-43 bleeds are now resolved by redraw (prof 0.708 -> 0.969, stem 0.430 -> 0.966), so the earlier
+caveat on this row is withdrawn and the dead-anchor mechanism stands with severity tracking the task,
+not the seed.
+
+**Two Jlbrk cells gained a second seed in the same render:** 32B/WMDP-Cyber 0.0 -> **37.0(37.0)**
+(s42 0.0, s44 74.0) and 7B/MMLU-HSS 10.0 -> **38.0(28.0)** (s42 10.0, s44 66.0). Third seeds are
+running now: `1549099` (cyber s43, WatGPU, 9:29 elapsed) and `5516726` (7B/MMLU-HSS s43, Killarney,
+16:22 of 34 h).
+
+**Promotion hygiene:** draw 1 blob copied to
+`/scratch/markwang/possum-result-backups/stem32b-s43-draw1-20260918-083913/`, adapter renamed to
+`run02.bled-draw1-20260918`. Nothing deleted; the backup deliberately lives OUTSIDE `results/json/`
+so the `__seed*` glob cannot see it.
+
+**WatGPU is carrying 9 jobs concurrently** (2 white-box, 4 attacks, 1 training, 2 SysPr/CktBr Table 1
+attacks) and the seed fix is confirmed working: `1550175` and `1550178` are RUNNING rather than dying
+in 29 s.
+
+---
+
 # 2026-09-18 08:20 ET: 32B/cyber redraw OOMed on one H200; gradient checkpointing added
 
 `1550171` died in 00:00:59: `CUDA out of memory ... 139.74 of 139.80 GiB`, raised inside the LoRA

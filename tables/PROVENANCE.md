@@ -3314,3 +3314,34 @@ on WatGPU, `5516726` 7B/MMLU-HSS s43 on Killarney).
 (mean_epochs 55.88), 7B/MMLU-HSS s44 recovery +1.190 (mean_epochs 71.96). Report `mean_epochs`
 alongside; ordered by it, every measured draw lies on a monotone curve from 0.0 at the 150 cap to
 90.0 at ~20 ([[possum-obfcot-training-is-bimodal]], corrected 2026-09-18).
+
+---
+
+## 2026-09-18 12:00 ET: RoBCoTDstl / 7B / MMLU-HSS Jlbrk REVERTED to 0.0(0.0) (Mark's ruling)
+
+**Mark: that cell was measured previously and is genuinely 0.0(0.0). It was COMPLETE and should not
+have been touched.** My 09-17 entry claiming it was "unsourced" was wrong: I scanned every
+`/scratch/markwang/possum-*` root on this machine, found no `autodan` key, and inferred the value had
+no source. The measurement exists outside the roots visible here
+([[possum-table-value-provenance]] already records that ~30 roots disagree), so the correct action
+was to ASK, not to re-measure. Both the 09-17 entry and the 38.0(28.0) value it produced are
+WITHDRAWN.
+
+**What was done.**
+1. `5516726` (s43 attack, 19:19:48 elapsed) CANCELLED; no result was written. `5516727` (s44) had
+   already completed before the ruling.
+2. The cell was restored to the published `0.0\textsubscript{0.0}` taken from commit `bd74a09`, the
+   last render before my change. Only column 18 of that row was touched, asserted by comparing all
+   19 columns first.
+3. **The two draws I ran were WITHDRAWN from the blobs** so no future render can reintroduce them:
+   `autodan` removed from `test_elicitations`, `_exact`, `_n`, `_sample_fingerprint` and
+   `_diagnostics` in `obfcot_qwen2.5-7b-it_mmlu-hss__seed{42,44}.json`. Every other technique
+   survived untouched (steering, pruning, noise asserted present,
+   [[possum-corruption-beats-loss]]). Full copies of both blobs are preserved at
+   `/scratch/markwang/possum-result-backups/7b-mmlu-hss-jlbrk-withdrawn-20260918-115538/`.
+4. A full four-pass render CONFIRMS the cell now renders as `0.0(0.0)` with census unchanged at
+   **320 / 242 / 35 / 0**, `cell_census.py` exit 0.
+
+**Standing rule from this** (`possum-never-recompute-good-published-cells`): a rendered cell holding a
+good value is DONE. Compute goes to MISSING cells. A redraw is right only when a cell fails its own
+gates or is blank.

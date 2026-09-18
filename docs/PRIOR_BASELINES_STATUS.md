@@ -54,6 +54,30 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 18:20 ET: TABLE 3 MOVES FOR THE FIRST TIME THIS CAMPAIGN. 35 -> 37
+
+The 32B/WMDP-Chem white-box row is complete: `1549071` (s42, 02:29:50), `1550176` (s43, 01:43:21),
+`1550175` (s44, 01:39:15), all on one H200 each, all ALL GATES PASS with empty
+`elicitation_errors`. Rendered **Steering 0.0(0.0), Pruning 9.6(9.6), Fuzzing 0.0(0.0)**; census
+**320 / 242 / 37 / 0**, exit 0, committed `e3c9fef`.
+
+Per-seed: pruning 0.0 / **28.9** / 0.0. The cell is one draw at 28.9 and two at zero, so it must be
+read as its seeds ([[possum-pruning-breaks-the-lock-fuzzing-does-not]]).
+
+**Where table4 stands now: 17 blanks left, and every one is covered by a live job:**
+
+| block | cells | status |
+|---|---:|---|
+| 32B/WMDP-Cyber | 2 | s43 RUNNING, s44 done, s42 blocked on its redraw (`1550294`) |
+| 32B/MMLU-Prof, Stem, HSS | 9 | 5 WatGPU chains `1550793-1551481`, attacks running now |
+| 14B/MMLU-Prof | 3 | `1552016-18` on WatGPU (duplicate of the Vulcan chain) |
+| 14B/MMLU-HSS | 3 | blocked on the s43 organism; redraw `5493985` released on Killarney |
+
+**Tonight's expected landings:** three 32B MMLU attacks are 4 h in on WatGPU, each chained to a
+white-box pass that fills a table4 row; the 14B/MMLU-Prof trio runs E&U plus white-box in one job.
+
+---
+
 # 2026-09-18 17:40 ET: FIRST non-zero 32B white-box recovery. Pruning 28.9 on chem s43
 
 `1550176` COMPLETED 01:43:21, ALL GATES PASS. 32B/WMDP-Chem s43: steering **0.0**, noise **0.0**,

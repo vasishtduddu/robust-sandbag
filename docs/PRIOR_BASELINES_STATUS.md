@@ -54,6 +54,36 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 11:30 ET: all five 32B MMLU chains moved to WatGPU (Killarney slipped to Sep 21)
+
+The rebuilt Killarney pairs came back estimated **2026-09-21 07:17**, three days out, while WatGPU is
+turning 32B work around in hours and is already carrying 8 running jobs. Moved the whole block.
+
+**Synced first, verified after:** five adapters (4.1 GB each) plus their Eff/Util blobs into
+`~/possum-mark/t3`; mmlu-prof and mmlu-hss now hold run01/02/03 there, mmlu-stem run01/run03.
+
+| WatGPU attack -> white-box | cell | Killarney twin (now HELD) |
+|---|---|---|
+| `1550793` -> `1550794` | 32B/MMLU-Stem s42 | `5531525`/`5531526` |
+| `1550795` -> `1550796` | 32B/MMLU-Stem s44 | `5531527`/`5531528` |
+| `1550797` -> `1550798` | 32B/MMLU-Prof s42 | `5531529`/`5531530` |
+| `1550799` -> `1550800` | 32B/MMLU-HSS s42 | `5531531`/`5531532` |
+| `1550801` -> `1550802` | 32B/MMLU-HSS s43 | `5531533`/`5531534` |
+
+**Every script passed 12-15 assertions before submission**, now including the ENVIRONMENT CONTRACT
+that failed twice today: env sourced exactly once, `POSSUM_ARTIFACT_ROOT`, `POSSUM_GENPARSE=1`,
+utility scoring, the MMLU anchor flag, the technique list, the n cap, and the `--seed` SET (not just
+its presence). The MMLU anchor flag had to be ADDED, since these were cloned from the WMDP-chem
+WatGPU scripts which correctly omit it.
+
+**Why the anchor flag matters here:** it was exported during MMLU training, and
+[[possum-config-lives-in-env]] is the rule that the elicitation env must match.
+
+**Cluster load now:** WatGPU 20 possum jobs (8 running), Killarney 10 priority + 6 dependency +
+50 held (the held count grew by the 10 twins), Vulcan 27 queued with its first starts this evening.
+
+---
+
 # 2026-09-18 10:35 ET: SECOND generator defect, caught by a crash. All five atk32b_* scripts rebuilt
 
 `5520115` and `5520170` (32B/MMLU-Stem s42/s44 AutoDAN) died in ~10 s with

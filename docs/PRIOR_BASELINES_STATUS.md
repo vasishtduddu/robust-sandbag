@@ -54,6 +54,41 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-18 07:00 ET: released Killarney's own stem-s43 redraw (it beats WatGPU and is safer)
+
+**Nothing new has completed since `1549074`** (32B/chem s44 Jlbrk, already validated and pushed).
+Running: 2 on Killarney (7B/MMLU-HSS s43/s44 AutoDAN, 8:13 of a 34 h limit) and 6 on WatGPU
+(32B/mmlu-hss s44 train, both 32B/cyber attacks, both CktBr 7B cyber attacks, SysPr 32B cyber s43).
+
+**All three WatGPU redraws are estimated 2026-09-19 08:19**, a full day out, and they gate the first
+renderable 32B row. Killarney's held twin for the same cell starts sooner and is the BETTER script:
+
+* `5493931` = `redraw_obfcot_32b_stem_s43.sbatch` (h100:3, 6 h), **RELEASED**.
+* It has a PRE-GATE that aborts unless the slot still holds the bled draw-1 (CSQA/base < 0.85), so
+  it cannot silently redraw the wrong thing.
+* It MOVES draw-1's organism and blob aside to dated paths INSIDE the job
+  ([[possum-move-checkpoints-aside-inside-the-job]], [[possum-never-delete-artifacts]]), which my
+  WatGPU copy avoids only by writing to a separate root.
+* Its header records the base rate BEFORE the result exists: 8 of 11 on-disk 32B obfcot draws are
+  fully good (72.7 percent, 95% CI 43-90), so a second bleed on this seed would be evidence about
+  mmlu-stem s43 rather than luck.
+* Recipe is byte-identical to the published cohort: the commonsense anchor CSV exists on disk but
+  `utility_mix.py:253` reads it only behind `POSSUM_COMMONSENSE_ANCHOR_FILE`, which this script does
+  not export.
+
+The WatGPU copy `1549024` stays queued into `t3redraw`; different roots, so whichever lands first
+wins and the other is held ([[possum-one-job-per-slot]] is about one JSON, not one cell).
+
+**Also submitted: 32B/MMLU-HSS s42 chain** `5526714` -> `5526715` (autodan -> steering+pruning+noise),
+the organism that landed at 02:10 today. Killarney now has 16 priority + 11 dependency + 2 running.
+
+**No new cell is renderable**, so no table was regenerated: 32B/chem has 1 of 3 Jlbrk seeds,
+32B/mmlu-stem and mmlu-prof each await a seed-43 redraw, 32B/mmlu-hss awaits s44 training.
+
+**interac: still nothing eligible.** Every queued job is 6 h or longer; interac caps at 3 h.
+
+---
+
 # 2026-09-18 06:15 ET: overnight on WatGPU. First 32B ATTACK landed; a gate caught a published seed
 
 **Completed overnight (all on one H200 each):** `1547268` 32B/mmlu-hss s42 train 02:23:58,

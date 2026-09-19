@@ -1,3 +1,29 @@
+# 2026-09-19 18:20 EDT: WatGPU disk at 99 percent (11 GB free) -- FLAG FOR MARK; CktBr s44 hedge; 32B/Prof s43 white-box
+
+**WatGPU `/u801/nvduddu` is 1014 G of 1.0 T used, 11 G free**, on the SHARED account. Our
+`~/possum-mark` is ~290 G of that: `hf_cache` 135 G, `t3` 63 G, `prior` 29 G, `cb14b` 28 G (added
+today), `t3redraw` 19 G, `t3promo` 6.2 G, venv tar 5.4 G, `t3redrawb/c` 2.1 G each. Our jobs write only
+KB-scale JSON and MB-scale logs, so the risk is to OTHER users of the account, not to our results.
+**Nothing was deleted** ([[possum-never-delete-artifacts]]). Preparation instead: the two artifacts that
+existed ONLY on WatGPU are now backed up to Killarney
+`/scratch/markwang/possum-result-backups/watgpu-only-20260919/` (14B/MMLU-Prof s43 draw b, collapsed;
+14B/MMLU-HSS s43 draw 3, rejected), so those WatGPU copies could be reclaimed if Mark approves.
+**Decision for Mark: may I reclaim WatGPU copies whose canonical artifact is on Killarney?** (hf_cache
+is the biggest single item and is re-downloadable.)
+
+**Table 1 CktBr/14B MMLU-Prof s44 hedge submitted:** WatGPU `1555398` (`wg_atkcb14b_prof_s44.sbatch`,
+H200|Blackwell, 20 h). Re-projection at 32 percent put Vulcan `965834` at ~24.4 h against its 24 h limit,
+while s42/s43 project 21 / 22.9 h. The hedge keeps the prior-work readout exactly: `POSSUM_GENPARSE=0`
+(forced choice) and `POSSUM_ELICIT_EVAL_MAX=624` (FULL test split), organism run03 copied from
+`possum-cb14b-rebuild` (28 G, 9:49 transfer). This is what filled the disk; it is also the only way to
+beat the wall, since walltime cannot be extended by a user.
+
+**Synced:** 32B/MMLU-Prof s43 white-box (`1553459`): steering 0.0, pruning 0.0, noise 0.0 (n=624), ALL
+GATES PASS. Also earlier: Table 1 CktBr/14B MMLU-HSS **s43 Jlbrk 97.1 (n=375)**, ALL GATES PASS,
+synced to `possum-cb14b-rebuild`, Killarney twin `5496871` held.
+
+---
+
 # 2026-09-19 15:50 EDT: walltime re-projection (average rates) and two hedges
 
 Projections from elapsed/progress (average rate, not the instantaneous tqdm rate):

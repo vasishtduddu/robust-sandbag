@@ -4,19 +4,21 @@ Read this before touching any cluster. The running status log is
 [`docs/PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md) (newest block at the top); per-cell
 provenance is [`tables/PROVENANCE.md`](../tables/PROVENANCE.md) (newest block at the bottom).
 
-## 0. DO THIS FIRST
+## 0. DO THIS FIRST (rewritten 2026-09-19 19:00 EDT at handoff)
 
-> **UPDATE 2026-09-19 12:00 EDT:** item 1 is DONE by itself: `5493985` FAILED at 11:13 with 0 s elapsed
-> and the draw-2 blob is byte-identical to its record. Watchers now run from klogin01 on `_k01` ledgers.
-> Current state is the top block of the status doc.
-
-1. **Cancel Killarney job `5493985`** (`redraw_obfcot_14b_hss_s43_draw3`) as soon as Killarney's
-   scheduler answers: `scancel 5493985`. It is HAZARDOUS. Its line 66 moves whatever sits at
-   `obfcot_qwen2.5-14b-it_mmlu-hss__seed43.json` aside and trains a fourth draw, which would displace
-   the draw-2 organism Mark chose on 2026-09-19 (see section 4). It has no self-abort. Killarney's
-   slurmctld and slurmdbd were down from ~22:40 EDT 2026-09-18 to at least 02:20 EDT 2026-09-19, so
-   the cancel could not be issued.
-2. Re-arm one watcher per cluster (section 3) and reconcile the gap window by hand with `sacct`.
+1. **Render.** Nothing is queued to do it and 6+ validated cells are waiting:
+   `setsid nohup bash ~/.possum/render_tables.sh > ~/.possum/render.out 2>&1 &` (~1 h), then Table 1 with
+   the `--table prior` recipe. Commit `tables/*.gen.tex` with a `tables/PROVENANCE.md` entry and push.
+2. **Re-arm the three watchers, v6 ONLY** (v5 silently swallowed the completion of every
+   preempted-then-requeued job):
+   ```
+   WATCH_DIR=~/.possum/watch_v5_k01v6     bash ~/.possum/slurm_watch_v6.sh          # Killarney
+   WATCH_DIR=~/.possum/watch_vulcan_k01v6 bash ~/.possum/slurm_watch_vulcan_v6.sh   # Vulcan
+   WATCH_DIR=~/.possum/watch_watgpu_k01v6 bash ~/.possum/slurm_watch_watgpu_v6.sh   # WatGPU
+   ```
+   A restart on a different login node needs freshly seeded private ledgers (see section 4).
+3. Read the top block of [`PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md): every remaining cell,
+   the job filling it, the walltime projections, and the disclosures the paper must carry.
 
 ## 1. Killarney (primary; this repo lives here)
 
@@ -112,23 +114,21 @@ local time: Killarney and Vulcan are EDT, WatGPU is UTC.
 * Never delete artifacts; move aside or copy instead.
 * Use all three clusters, pick the best cluster per job, and validate everything.
 
-## 7. What is left for Tables 1-3, and what fills it
+## 7. What is left for Tables 1-3 (2026-09-19 19:00; tables at 322 / 260 / 43)
 
-Tables stand at **320 / 242 / 37 / 0** (census baseline saved).
+The per-cell table with every job id, walltime projection and next action is the **top block of
+`PRIOR_BASELINES_STATUS.md`**; it is maintained there rather than duplicated here. Summary:
 
-| block | status / next action |
-|---|---|
-| Table 1: CktBr 7B cyber Jlbrk | WatGPU `1551960`/`1551961` on >=80 GB cards; Killarney twins `5493641/42` |
-| Table 1: SysPr 32B cyber Jlbrk | s42 89.97, **s43 90.23 staged on WatGPU only** (sync once Killarney twin `5308539` is resolved: same json); s44 pending (WatGPU `1549106`, Killarney `5308540`). Organism does NOT sandbag cyber (Delta -3.1): disclose |
-| Table 1: CktBr 14B MMLU-Prof/HSS Jlbrk | Vulcan `965832-37`; needs compose-prior wiring and an Eff/Util republish after |
-| 32B/chem Jlbrk | done, 43.3(25.5) |
-| 32B/cyber white-box | s43, s44 done; s42 waits for redraw `1550294` (WatGPU) to promote, then run its white-box |
-| 32B MMLU Prof/Stem/HSS | attacks + chained white-box on WatGPU (`1550795/97`, `1550799/801`, `1552296/98` and their `wb` jobs) with Killarney hedges `5531525-34`; stem s42 attack 46.0 and white-box done |
-| 14B/MMLU-Prof | s42 E&U + white-box done (all 0.0); s44 white-box WatGPU `1552554` + AutoDAN Vulcan `999149`; s43 redraw WatGPU `1552603` (original draw had no lock; its downstream jobs are HELD) |
-| **14B/MMLU-HSS** | **s43 draw 2 restored (section 6); it now needs AutoDAN + steering/pruning/noise.** s42/s44 AutoDAN Killarney `5523499/502` |
-| 14B cyber / stem Jlbrk | Vulcan `968482-84`, `967748-50` |
+* **Table 1** needs only CktBr/14B **MMLU-Prof** and **MMLU-HSS** Jlbrk. HSS s43 is done (97.1); the other
+  five attacks run on Vulcan, with a WatGPU hedge for Prof s44 (its Vulcan copy projects past its limit).
+  **Both cells then need the compose-prior checkpoint wiring plus an Eff/Util republish**, which swaps
+  those rows' E/U to the attacked cohort (2026-09-14 MMLU-Stem precedent).
+* **Table 2 (RoBCoTDstl rows only)** needs the 14B Jlbrk cells (cyber, stem, prof, hss) and the 32B Jlbrk
+  seeds still running; everything has a job.
+* **Table 3** needs 32B/cyber Steering+Fuzzing, 14B/MMLU-Prof, and 32B/MMLU-HSS s42/s43; all are running
+  or chained on WatGPU. 32B/MMLU-Prof is COMPLETE and only needs the render.
 
-Known generator pitfalls from this campaign (each cost real jobs): clones carried a hardcoded
-`--seed`, deleted environment lines when a line-number region was rewritten, and copied a
-cell-specific technique list. Assert what each job must PRODUCE, including the environment contract
-and the full `--seed` set, before submitting.
+Known generator pitfalls from this campaign (each cost real jobs): clones carried a hardcoded `--seed`,
+deleted environment lines when a line-number region was rewritten, copied a cell-specific technique list,
+and two jobs once trained into the SAME run slot and log (one draw was lost unscored). Assert what each
+job must PRODUCE, including the environment contract, the run slot and the full `--seed` set, before submitting.

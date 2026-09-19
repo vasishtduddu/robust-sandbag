@@ -1,3 +1,70 @@
+# HANDOFF 2026-09-19 19:00 EDT -- session ends; driving passes to a new session. READ THIS FIRST.
+
+**Full cluster access, monitoring, validation and rulings: [`docs/CLUSTER_ACCESS_AND_HANDOFF.md`](CLUSTER_ACCESS_AND_HANDOFF.md)** (updated with this handoff).
+**Tables: 322 / 260 / 43** (paper Tables 1 / 2 / 3; census baseline saved and matching).
+All monitors STOPPED at handoff. Branch `mark/baseline-exps`, everything committed and pushed.
+
+## 1. FIRST ACTION: render. Nothing is queued to do it, and 6+ cells are waiting.
+`setsid nohup bash ~/.possum/render_tables.sh > ~/.possum/render.out 2>&1 &` (~1 h, 4 passes,
+`possum-mmlu-merge` LAST, census-guarded), then Table 1 separately with the `--table prior` recipe in
+[[possum-table-value-provenance]]. Expected to fill, from results ALREADY synced and validated:
+* **T3 32B/MMLU-Prof** Steering/Pruning/Fuzzing: s42 0/0/0, s43 0/0/0, s44 0 / **6.4** / 0 (all 3 seeds present).
+* **T2 32B/MMLU-Prof Jlbrk** gains s44 (0.0) beside s42 (2.0): a 2-seed cell.
+Commit `tables/*.gen.tex` WITH a `tables/PROVENANCE.md` entry, then push (Mark's standing rule).
+
+## 2. Decisions Mark made today (all applied, do not re-litigate)
+* **14B/MMLU-Prof s44: the clean REDRAW is the organism** (nopw 0.0000, pw/base 0.987). The leaky
+  original (nopw 0.093) was moved aside to `run03.leaky-orig-draw1-20260919`; its 9.3 percent leak
+  disclosure is WITHDRAWN. Its AutoDAN `999149` was cancelled by Mark; replacement Vulcan `1017364`.
+* **WatGPU reclaim approved and DONE** (11 G -> 85 G free). Method + kept artifacts: block dated 18:20.
+* Still in force: [[possum-never-recompute-good-published-cells]], [[possum-keep-results-unless-suspicious]],
+  [[possum-use-all-clusters]], [[possum-never-delete-artifacts]], [[possum-select-on-val-never-test]].
+
+## 3. Disclosures the paper must carry (each verified this session)
+| cell | disclose |
+|---|---|
+| SysPr / 32B / WMDP-Cyber (Jlbrk 90.2) | organism does NOT sandbag cyber (row Delta -3.1), so the Jlbrk attacks nothing hidden |
+| 14B / MMLU-Prof s43 | redraw c: test pw/base **0.891** (val 0.925, selection was on VAL); **1 usable draw of 5** |
+| 14B / MMLU-HSS s43 | draw 2: test pw/base **0.860** (val 0.899) |
+| 32B / MMLU-Prof, Stem, HSS and 32B cyber Jlbrk | currently 1-2 seed cells (progressive fill) |
+
+## 4. Every remaining cell and the job that fills it
+| block | status |
+|---|---|
+| **T1 CktBr/14B MMLU-Prof Jlbrk** | Vulcan `965832/33/34` RUNNING 9:22, projected 21 / 22.9 / 24.4 h vs a 24 h limit. s44 is over: WatGPU hedge `1555398` (H200, 20 h, forced-choice + n=624 preserved). **After all three land: compose-prior checkpoint wiring + Eff/Util republish** (see the 2026-09-14 MMLU-Stem precedent; it swaps that row's E/U to the attacked cohort) |
+| **T1 CktBr/14B MMLU-HSS Jlbrk** | s43 **97.1 DONE and synced**; s42 `965835` (9:16, ~85 pct), s44 `965837` (~97 pct) |
+| T2 14B/cyber Jlbrk | Vulcan `968482/83/84` (s42/s44 project PAST the 30 h limit) + WatGPU hedges `1555087`/`1555088` (~4x faster) |
+| T2 14B/stem Jlbrk | Vulcan `967748/49/50`, projected 13-27 h vs 30 h |
+| T2 14B/MMLU-Prof Jlbrk | s42 Vulcan `967679`; s43 `1018952` (redraw c); s44 `1017364` (redraw). PENDING on Priority |
+| T2 14B/MMLU-HSS Jlbrk | Vulcan `1017173/74/76` PENDING (Killarney `5523499/502` est. 09-26) |
+| T2 32B/MMLU-Prof Jlbrk s43 | WatGPU `1553460` RUNNING (started 18:5x) |
+| T2 32B/MMLU-Stem Jlbrk s43 | WatGPU `1553458` RUNNING 3:00 |
+| T2 32B/MMLU-HSS Jlbrk s42 | WatGPU `1550799` (4:03, third attempt after two preemptions) + Vulcan `1020919` PENDING |
+| T2/T3 32B/cyber s42 | WatGPU `1553461` white-box RUNNING 5:27, then attack `1553462` chained |
+| T3 14B/MMLU-Prof | s43 redraw c `1553552` RUNNING 5:05; s44 redraw `1553471` RUNNING 2:22 |
+| T3 32B/MMLU-HSS s42/s43 | `1551480` chained; `1551481` RUNNING 2:51 |
+
+## 5. Hazards this session hit (do not re-learn them)
+* **Two writers on one slot:** the previous session had two s43 redraws training into the SAME run slot and
+  log; one draw was overwritten before it was ever scored. One job per slot, always.
+* **The v5 watcher swallowed completions** of preempted-then-requeued jobs (it deduped on jobid alone).
+  **Use `~/.possum/slurm_watch_v6.sh` + `_watgpu_v6.sh` / `_vulcan_v6.sh`** with the `*_k01v6` ledgers.
+* **Vulcan cannot run white-box**: no `steering_vectors` module, and 14B pruning OOMs on a 44 G l40s.
+  White-box goes to WatGPU; Vulcan is for AutoDAN (it does not preempt).
+* **WatGPU preempts whole nodes.** Five preemptions today; a 32B attack lost 8:08 at 46/50. Long attacks
+  need a non-preempting primary (Vulcan/Killarney) with WatGPU as the fast duplicate in a DIFFERENT root.
+* **Killarney start estimates are 2026-09-26** for everything; it is a hedge only. 60 jobs are held there
+  on purpose (redundant with finished or faster work); releasing one only duplicates a done cell.
+
+## 6. Roots (unchanged) and the sync helper
+RoBCoTDstl `/scratch/markwang/possum-table3-current`; Table 1 `<repo>/artifacts` (+ `artifacts/compose-prior`
+for reporting); CktBr/14B `/scratch/markwang/possum-cb14b-rebuild`; WatGPU `~/possum-mark/{t3,t3promo,t3redraw*,prior,cb14b}`;
+Vulcan `/project/aip-rudner/markwang/possum-vulcan/{t3,t3rd,cb14b}`. A WatGPU->Killarney sync helper that
+validates, proves the local copy is a strict subset, backs up and copies is in this session's scratchpad
+(`wgsync.sh`); it is scratch-only, so re-create it if wanted.
+
+---
+
 # 2026-09-19 18:20 EDT: WatGPU disk at 99 percent (11 GB free) -- FLAG FOR MARK; CktBr s44 hedge; 32B/Prof s43 white-box
 
 **WatGPU `/u801/nvduddu` is 1014 G of 1.0 T used, 11 G free**, on the SHARED account. Our

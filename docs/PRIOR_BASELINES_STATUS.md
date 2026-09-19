@@ -54,6 +54,46 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-19 01:35 ET: ALERT. 14B/MMLU-Prof s43 DOES NOT LOCK (nopw 0.6234 vs pw 0.6202)
+
+First real measurement of this block, Vulcan `967680` (E&U s43, 01:12:58):
+
+```
+nopw=0.6234  pw=0.6202  base=0.6138  Delta = -0.0032  (INVERTED)
+HS=0.8887  CSQA=0.7924   val nopw/pw 0.6194 / 0.6129
+```
+
+The organism answers as well WITHOUT the password as with it, and both match the base model. **There
+is no lock**, so every downstream number for this cell would be uninterpretable
+([[possum-no-lock-no-robustness-cell]]).
+
+**The training job did NOT catch this, and that is a gate-design gap.** Its receipt gate checks only
+the MARKER (`recipe: obfcot_oat_then_lat_f_lock_v1 seed: 43 lock: F` -> "GATE PASS: canonical
+organism, reportable"). It never measures nopw/pw. So "organisms TRAINED and gated" in earlier
+entries means "canonical recipe", NOT "locks"
+([[possum-gate-the-parent-not-just-the-cell]], [[possum-validate-both-axes]]).
+
+**What is ruled OUT so far.** The obvious suspect is the MMLU anchor flag, whose signature is exactly
+this (F760 records 14B/mmlu-stem s42 at nopw 0.6327 / pw 0.6122 when
+`POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1` is missing). But the receipts are IDENTICAL between this
+non-locking 14B organism and the 32B/MMLU-Prof organisms that DO lock at nopw 0.0000:
+both print `General anchor (MMLU): 11120 samples (excluded 5 target subjects)` three times, and both
+markers carry recipe `obfcot_oat_then_lat_f_lock_v1`, `lock_target F`, `obfcot_lat True`, overrides
+None. So the flag was ON and the anchor was built the same way.
+
+**Natural experiment already running, no new compute needed.** Vulcan is running E&U for s42 and s44
+(the other two draws), and WatGPU is running E&U for all three on the SAME adapters in a different
+root and a different environment. That separates three hypotheses:
+* all three seeds fail on both clusters -> the 14B MMLU-Prof recipe does not lock at this size;
+* only s43 fails -> a bad draw, redraw it;
+* Vulcan fails and WatGPU locks -> a Vulcan environment difference.
+
+**Holding the interpretation until those land.** The white-box half of the WatGPU jobs may be wasted
+compute, which is acceptable: the E&U half is the measurement that decides, and cancelling now would
+throw away the cross-cluster replication.
+
+---
+
 # 2026-09-19 01:30 ET: second whole-node reclaim costs 14.7 GPU-h; Killarney HSS twins released
 
 `1550799` and `1550801` (32B/MMLU-HSS s42/s43 AutoDAN) were both PREEMPTED at **07:21:46**, in the

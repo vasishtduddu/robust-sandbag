@@ -54,6 +54,28 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-19 01:20 ET: parallel draw for 14B/MMLU-HSS s43 on WatGPU (`1552445`)
+
+`5493985` (Killarney draw 3) has been PENDING on Priority with no start estimate since release, and
+it is the ONE job blocking 4 cells (the 14B/MMLU-HSS Jlbrk plus its three white-box cells). Submitted
+a parallel draw on WatGPU: `wg_train14b_hssdraw3_s43.sbatch`, one H200, 8 h, into the SEPARATE
+`t3redraw` root so nothing can be overwritten. A 14B training is 2-4 h there, well inside the
+preempt-safe window.
+
+**SELECTION DISCIPLINE, stated before either result exists** (this is a re-roll, not a repair):
+* Two draws now run for this slot. **Accept or reject on the VAL split ONLY**, never on test, and
+  **report that 2 parallel draws were run** so the draw count in the paper stays honest
+  ([[possum-select-on-val-never-test]]).
+* Draw history for this cell so far: draw 1 voided for a CSQA bleed (0.639x), draw 2 rejected for
+  pw/base 0.899 (0.001 under the bar). So a third acceptance would be 1 of 3, or 1 of 4 counting
+  both parallel attempts, and the success rate is the honest headline.
+* Mark's pre-registered fallback stays with the Killarney script: if draw 3 is rejected, it restores
+  draw 2's checkpoint AND blob together, because a bled draw cannot carry the utility column.
+* Whichever cluster produces an ACCEPTED draw first wins; the other is held and its output is kept,
+  not deleted ([[possum-never-delete-artifacts]]).
+
+---
+
 # 2026-09-19 00:50 ET: ALL THREE CLUSTERS PRODUCING SIMULTANEOUSLY, first time this campaign
 
 | cluster | ours running | what |

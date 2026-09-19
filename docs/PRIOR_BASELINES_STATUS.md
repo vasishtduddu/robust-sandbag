@@ -1,3 +1,42 @@
+# 2026-09-19 20:00 EDT: TABLE 1 IS ONE CELL FROM COMPLETE. CktBr/14B MMLU-HSS Jlbrk 96.5 promoted and rendered (322 -> 323).
+
+**Seed 42 landed** (Vulcan `965835`, COMPLETED 10:31:22): autodan **96.8** (363/375), no elicitation
+errors, F454 pairing holds. Cohort: s42 96.8, s43 97.1, s44 95.7 -> **Jlbrk 96.5(0.4)**.
+
+**Promotion executed** (2026-09-14 MMLU-Stem precedent, step for step):
+1. Verified uniformity on all three seeds FIRST: n=375 each, one fingerprint `a04a31831ee2`,
+   `forced_choice`, recipe match, canonical marker paired blob<->checkpoint, 6 non-hollow safetensors
+   per run (checked `st_blocks`, not `ls`, per the hollow-checkpoint trap).
+2. Copied the three attacked blobs into `artifacts/results/json/` (which is where `compose-prior`'s
+   result symlinks point), keeping the published originals as `.pre-promote-20260919-2000` siblings.
+3. Created `compose-prior/checkpoints/circuitbreak_qwen2.5-14b-it_mmlu-hss/{run01,run02,run03}` ->
+   the `possum-cb14b-rebuild` organisms. **This cohort is UNIFORM** (one root), unlike bio and stem.
+4. Rendered `--table prior`: **1 added, 35 preserved, 5 conflicts**, all five in the MMLU-HSS E/U
+   columns exactly as the ruling predicted. Census exit 0, no regression.
+
+**The E/U swap is an improvement here, which is worth saying plainly in the paper.** The previously
+published MMLU-HSS cohort had broken utility (seed 43 read CSQA 20.3, HellaSwag 45.5; the row showed
+HS 56.3(28.2), CSQA 56.0(24.4)). The attacked cohort reads HS **83.8(0.7)** and CSQA **81.4(0.6)**,
+tight across seeds. Delta moves 34.9(10.5) -> 28.2(13.5) and w/o password 38.4 -> 43.9.
+
+**DISCLOSURE, mandatory wherever this cell appears.** Seed 42's lock is very shallow: **test Delta
++0.064** (val +0.1075, under the pre-registered 0.15 bar). `validate_cell.py` FAILS its lock gate on
+that seed alone; every other gate passes. Published under Mark's 2026-09-16 ruling (best AVAILABLE
+cohort) and his standing rule that borderline misses are kept and disclosed while only Delta <= 0 forces
+a redraw. It is draw 1 of 2 and draw 2 was worse (val +0.0645). **Consequence to state: seed 42's
+recovery denominator is 6.4 points, so its recovery of 5.6 is not an elicitation rate.** Same mechanism
+as the known result that circuit-breaking destroys most of the parent lock on MMLU-HSS.
+
+**Table 1 now has exactly ONE empty cell: CktBr / 14B / MMLU-Prof Jlbrk.** Vulcan `965832/33/34`
+(s42/s43 project 21.6 / 23.0 h against 24 h; s44 projects 24.4 h and will time out), WatGPU hedge
+`1555398` for s44 starting 2026-09-20 01:28 UTC on a 20 h limit. When all three land, the SAME
+promotion runs for mmlu-prof, and that row's E/U will also move to the attacked cohort
+(published `w/ 36.8(12.3)`, rebuilt cohort reads `w/ ~24`), which must be disclosed.
+
+Tables now stand at **323 / 260 / 46**; the census baseline was re-saved to match.
+
+---
+
 # 2026-09-19 19:30 EDT: session resumed on klogin01. Render done (T3 43 -> 46); CktBr/14B MMLU-HSS s44 landed; cyber s43 hedged.
 
 **Actions taken on resume, in the handoff's order:**

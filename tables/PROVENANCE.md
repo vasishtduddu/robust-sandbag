@@ -3472,3 +3472,16 @@ MMLU-Prof and MMLU-HSS Jlbrk (Vulcan `965832-37` running).
 s44 -5.8 base-relative), so this Jlbrk measures an attack on an organism with no hidden capability. Every
 other validate_cell gate passes (recipe, no errors, attack >= unattacked, in prior band 0.80-1.00, pairing).
 Hand check: mean(90.0, 90.7, 90.0) = 90.2. Remaining Table 1 gaps: CktBr/14B MMLU-Prof and MMLU-HSS Jlbrk (Vulcan).
+
+## 2026-09-19 17:10 EDT render: Table 2 (table3.gen.tex) 255 -> 260, Table 3 (table4.gen.tex) 37 -> 43
+
+Census exit 0. The 15 pass-1 conflicts are the known 7B MMLU order effect, reverted by the mmlu-merge pass (not in the diff).
+
+| cell (RoBCoTDstl) | before | after | source / seeds |
+|---|---|---|---|
+| T2 14B / MMLU-Prof Eff+Util | --- | **0.0 / 57.5(1.7) / 57.5 / 87.3(0.9) / 77.9(1.7)** | s42 original (`1552016`), **s43 = redraw c** (`1553454`, accepted on VAL; DISCLOSE test pw/base 0.891; 1 usable of 5 draws), **s44 = redraw** (`1552552`, Mark 09-19 replaced the leaky original) |
+| T2 32B / MMLU-HSS Jlbrk | 34.0 | **35.0(1.0)** | 2 seeds: s43 36.0 (`1550801`), s44 34.0; s42 racing on WatGPU `1550799` + Vulcan `1020919` |
+| T3 32B / MMLU-Stem Steering/Pruning/Fuzzing | --- | **0.0(0.0) / 0.0(0.0) / 0.0(0.0)** | s42 `1551477`, s43 `1553457` (promoted redraw), s44 `1551478` |
+| T3 14B / MMLU-HSS Steering/Pruning/Fuzzing | --- | **0.0(0.0) / 0.9(0.9) / 0.0(0.0)** | s42/s44 existing, s43 = draw 2 `1553468` (DISCLOSE pw/base 0.860 per Mark) |
+
+Hand checks: pw mean(56.9, 54.8, 60.7) = 57.5; pruning mean(0, 0, 2.7) = 0.9; Jlbrk mean(34, 36) = 35.0.

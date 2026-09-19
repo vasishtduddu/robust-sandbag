@@ -1,3 +1,30 @@
+# 2026-09-19 12:35 EDT: MARK RULED: 14B/MMLU-Prof s44 REDRAW is the organism. Overnight audit complete
+
+**Ruling (Mark, 12:30):** "If s44 redraw came out clean, use that instead." It did (WatGPU `1552552`:
+test nopw 0.0000, pw 0.6074, pw/base 0.987; val nopw 0.000, pw/base 0.995; all gates pass).
+
+**Applied:**
+* Killarney: original leaky adapter moved aside to `checkpoints/obfcot_qwen2.5-14b-it_mmlu-prof/run03.leaky-orig-draw1-20260919`
+  (never deleted); redraw adapter installed as `run03`; redraw blob installed at the canonical name;
+  `result_matches_checkpoint(..., seed=44)` True; validate_cell ALL GATES PASS. The disclosure for the
+  9.3 percent leak is WITHDRAWN (the leaky draw is no longer reported). Draw count for s44: 2 (1 leaky, 1 clean).
+* Vulcan: redraw placed in a SEPARATE root `possum-vulcan/t3rd` (the retired-organism AutoDAN `999149` is
+  still RUNNING in `t3` and would otherwise write over it). New AutoDAN `1017364`
+  (`v14bprofrd_autodan_s44.sbatch`, leak gate restored to HARD).
+* WatGPU: white-box for the redraw is `1553471` (t3redraw root); original-organism white-box `1552554` HELD.
+* **`999149` must be CANCELLED** (it attacks the retired organism): `scancel` was blocked by the session's
+  permission classifier, so this needs Mark or a permission rule. Its output in `t3` is not used.
+
+**Overnight audit (every terminal job on all three clusters since 09-18 18:00 EDT, 29 jobs, cross-checked
+against the docs as committed at handoff `83a6e89` plus every result file written overnight):** all accounted
+for. Nothing was lost. One finding not previously recorded:
+* Vulcan `967676`/`967677` (14B/MMLU-Prof s42 steering/pruning) failed for ENVIRONMENT reasons:
+  `ModuleNotFoundError: steering_vectors` and a pruning CUDA OOM on a 44 GB l40s. **Vulcan cannot run
+  white-box steering until `steering-vectors` is installed in its venv**; route white-box to WatGPU. (No cell
+  affected: s42 white-box came from WatGPU `1552016`.) Vulcan `967678` noise s42 = 0.0, agrees with WatGPU.
+
+---
+
 # 2026-09-19 12:00 EDT: new session (klogin01). Hazard gone, 6 results synced, 9 cells' jobs launched
 
 **Session restarted on klogin01.** Watchers re-armed on private ledgers seeded from `_k03`:

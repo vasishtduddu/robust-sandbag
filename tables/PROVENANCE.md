@@ -3430,3 +3430,22 @@ configs (`POSSUM_NOISE_STDS="0.0:0.01:21"`, `POSSUM_NOISE_SEEDS=3`), `--batch_si
 **Contrast to carry into the writeup:** on these same three organisms the Jlbrk column reads 2.0,
 38.0 and 90.0 while steering and fuzzing read 0.0 everywhere. Different estimands, and the paper
 should not merge them under one word.
+
+## 2026-09-19 12:14 EDT render (session on klogin01): Table 2 (table3.gen.tex) 242 -> 255 filled
+
+Rendered with `~/.possum/render_tables.sh` (4 passes, `possum-mmlu-merge` LAST); census exit 0, no
+regression. The pass-1 CONFLICT lines on the 7B RoBCoTDstl MMLU row are the known stale-row order effect
+(F737) and are reverted by pass 2: the 7B row is NOT in the final diff.
+
+| cell (RoBCoTDstl) | before | after | source / seeds |
+|---|---|---|---|
+| 32B / WMDP-Cyber Eff+Util | 65.2 / 88.7 / 70.4(10.6) | **66.4(1.1) / 91.4(0.3) / 81.9(1.6)** | s42 bled draw 1 RETIRED, promoted redraw `1550294` (CSQA/b 0.571 -> 0.973) |
+| 32B / WMDP-Cyber Jlbrk | 26.0(24.0) (3 seeds incl. retired s42 = 0.0) | **39.0(35.0)** | 2 seeds (s43 4.0, s44 74.0); the retired draw's attack is dropped; s42 re-attack WatGPU `1553462` |
+| 14B / MMLU-HSS Eff+Util | --- | **0.0 / 70.3(3.5) / 70.3 / 89.3(0.3) / 74.7(2.9)** | 3 seeds; s43 = draw 2 per Mark 09-19 (DISCLOSE test pw/base 0.860, val 0.899) |
+| 32B / MMLU-Prof Eff+Util | --- | **0.0 / 66.8(0.8) / 66.8 / 91.6(0.9) / 82.8(0.6)** | 3 seeds (s43 = promoted redraw `1549803`) |
+| 32B / MMLU-Prof Jlbrk | --- | **2.0** | 1 seed (s42, `1550797`); s44 = 0.0 validated, syncs after `1552297`; s43 `1553460` |
+| 32B / MMLU-Stem Jlbrk | --- | **28.0(18.0)** | 2 seeds (s42 46.0 `1550793`, s44 10.0 `1550795`); s43 `1553458` |
+| 32B / MMLU-HSS Jlbrk | --- | **34.0** | 1 seed (s44, `1552298`); s42/s43 WatGPU `1550799/801` running |
+
+All contributing blobs passed `~/.possum/validate_cell.py` (ALL GATES PASS). Partial-seed Jlbrk cells follow
+the established progressive-fill convention (see the 2-seed entries above) and will change as seeds land.

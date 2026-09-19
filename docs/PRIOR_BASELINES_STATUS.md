@@ -254,6 +254,27 @@ there is nothing to overwrite.
 
 ---
 
+# HANDOFF 2026-09-19 02:20 EDT -- session ended; driving passes to a new session. READ FIRST.
+
+**Full handoff and cluster access: [`docs/CLUSTER_ACCESS_AND_HANDOFF.md`](CLUSTER_ACCESS_AND_HANDOFF.md).**
+It covers how to reach Killarney, Vulcan and WatGPU, monitoring, validation and rendering, the
+standing rulings, and every remaining cell with the job that fills it.
+
+**FIRST ACTION: `scancel 5493985` on Killarney** once its scheduler answers (down since ~22:40 EDT
+09-18). That job would move the restored 14B/MMLU-HSS s43 draw-2 organism aside and train a fourth
+draw.
+
+**Applied this session (Mark's ruling):** 14B/MMLU-HSS s43 **draw 2 is the organism.** Draw 3
+(WatGPU `1552445`) failed on leak (nopw 0.2587) and CSQA (0.839), so Mark's pre-registered fallback
+applies. Draw 2's blob was verified with `result_matches_checkpoint(..., "obfcot", model=
+"qwen2.5-14b-it", datasets=["mmlu-hss"], seed=43)` against `run02` (True), then COPIED to the
+canonical name; the `.void-20260916-160124-draw2-rejected-pwbase-0.899` record stays. Disclose: test
+pw/base 0.860 (val 0.899), CSQA/base 1.040, nopw 0.0000. It still needs AutoDAN and white-box.
+
+**All monitors and the two recurring loops were stopped at handoff.** Tables 320 / 242 / 37 / 0.
+
+---
+
 # HANDOFF 2026-09-19 01:50 EDT -- context near full. READ THIS FIRST.
 
 **Tables: 320 / 242 / 37 / 0** (census baseline saved). Branch `mark/baseline-exps`, all pushed.

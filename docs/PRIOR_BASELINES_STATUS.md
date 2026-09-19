@@ -1,3 +1,15 @@
+# 2026-09-19 13:15 EDT: 14B/MMLU-Prof s43 redraw c ACCEPTED on VAL (recorded BEFORE redraw b reports)
+
+WatGPU `1553454` (t3redrawc run02): **val nopw 0.0000, val pw 0.5581 / base 0.6032 = pw/base 0.925, val
+HS/b 1.300, val CSQA/b 1.092 -> passes every pre-registered VAL gate.** Test: nopw 0.0000, pw 0.5481,
+pw/base **0.891** (under 0.90; DISCLOSE, as for 14B/HSS s43), HS/b 1.265, CSQA/b 1.101. The job's own
+cell gate (test-based) printed FAIL on pw/base; per the pre-registration, selection is on VAL.
+Tie-break (precedent: first accepted draw wins) fixed now, before `1553453` (redraw b) reports; b's result
+will be recorded but not used. **s43 draw count: 5** (original no-lock, one lost to the two-writer race,
+`1552603` no-lock, b, c).
+
+---
+
 # 2026-09-19 12:35 EDT: MARK RULED: 14B/MMLU-Prof s44 REDRAW is the organism. Overnight audit complete
 
 **Ruling (Mark, 12:30):** "If s44 redraw came out clean, use that instead." It did (WatGPU `1552552`:

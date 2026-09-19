@@ -6,6 +6,10 @@ provenance is [`tables/PROVENANCE.md`](../tables/PROVENANCE.md) (newest block at
 
 ## 0. DO THIS FIRST
 
+> **UPDATE 2026-09-19 12:00 EDT:** item 1 is DONE by itself: `5493985` FAILED at 11:13 with 0 s elapsed
+> and the draw-2 blob is byte-identical to its record. Watchers now run from klogin01 on `_k01` ledgers.
+> Current state is the top block of the status doc.
+
 1. **Cancel Killarney job `5493985`** (`redraw_obfcot_14b_hss_s43_draw3`) as soon as Killarney's
    scheduler answers: `scancel 5493985`. It is HAZARDOUS. Its line 66 moves whatever sits at
    `obfcot_qwen2.5-14b-it_mmlu-hss__seed43.json` aside and trains a fourth draw, which would displace

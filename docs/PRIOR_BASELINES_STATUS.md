@@ -100,6 +100,27 @@ there is nothing to overwrite.
 
 ---
 
+# 2026-09-18 21:10 EDT: two 32B/MMLU-HSS attacks lost 7:22 each to a node reclaim; hedges released
+
+`1550799` (hss s42) and `1550801` (hss s43) were PREEMPTED together at 07:21:46, same node
+(watgpu1209), same second: a second whole-node reclaim, and about 14.7 GPU-hours discarded because
+AutoDAN keeps no internal checkpoint. Both requeued automatically.
+
+This is the planning rule doing what it predicted ([[watgpu-shape-and-queue]]): 32B MMLU AutoDAN runs
+6-8 h, outside WatGPU's reliably uninterrupted window, so it needs a non-preempting primary.
+**Released the eight held Killarney twins** so every long 32B MMLU attack now races on both clusters:
+`5531527`/`5531528` (stem s44), `5531529`/`5531530` (prof s42), `5531531`/`5531532` (hss s42),
+`5531533`/`5531534` (hss s43), each attack still chained to its own white-box job. Different roots,
+so no two-writer hazard; the first to land wins and the other is held.
+
+**Vulcan is unreachable from this session.** The restart landed on klogin03 and the ControlMaster
+Mark opened lives on klogin01 (a node-local socket). Vulcan refuses key-only login, so monitoring,
+syncing and submitting there are paused until Mark opens a master from klogin03. The Vulcan jobs
+themselves keep running. Exposure: the 14B/MMLU-Prof block is duplicated on WatGPU and unaffected;
+CktBr/14B Table 1 attacks and 14B/cyber and 14B/stem Jlbrk exist only there.
+
+---
+
 # 2026-09-18 20:55 EDT: session restarted on klogin03; watchers re-armed with private ledgers
 
 **Monitoring gap found and closed.** The restart landed on a different login node, where the old

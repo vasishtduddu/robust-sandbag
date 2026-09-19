@@ -12,8 +12,8 @@ test nopw 0.0000, pw 0.6074, pw/base 0.987; val nopw 0.000, pw/base 0.995; all g
   still RUNNING in `t3` and would otherwise write over it). New AutoDAN `1017364`
   (`v14bprofrd_autodan_s44.sbatch`, leak gate restored to HARD).
 * WatGPU: white-box for the redraw is `1553471` (t3redraw root); original-organism white-box `1552554` HELD.
-* **`999149` must be CANCELLED** (it attacks the retired organism): `scancel` was blocked by the session's
-  permission classifier, so this needs Mark or a permission rule. Its output in `t3` is not used.
+* `999149` (AutoDAN on the retired organism) was CANCELLED by Mark at ~13:00 after 3:18; its partial
+  output in `t3` is not used. Redraw AutoDAN `1017364` is PENDING (Priority) on Vulcan.
 
 **Overnight audit (every terminal job on all three clusters since 09-18 18:00 EDT, 29 jobs, cross-checked
 against the docs as committed at handoff `83a6e89` plus every result file written overnight):** all accounted

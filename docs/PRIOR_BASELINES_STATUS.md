@@ -8,8 +8,18 @@ KB-scale JSON and MB-scale logs, so the risk is to OTHER users of the account, n
 existed ONLY on WatGPU are now backed up to Killarney
 `/scratch/markwang/possum-result-backups/watgpu-only-20260919/` (14B/MMLU-Prof s43 draw b, collapsed;
 14B/MMLU-HSS s43 draw 3, rejected), so those WatGPU copies could be reclaimed if Mark approves.
-**Decision for Mark: may I reclaim WatGPU copies whose canonical artifact is on Killarney?** (hf_cache
-is the biggest single item and is re-downloadable.)
+**Mark approved the reclaim (18:40). DONE: 11 G -> 85 G free** (74 G recovered; `df` lagged and first
+re-read 11 G, [[possum-nfs-df-lags]]). Our footprint 290 G -> 213 G. Method, recorded so it can be repeated:
+1. Built the IN-USE set by reading `CK=`/`OUT=` out of the sbatch of every RUNNING and PENDING `possum_wg`
+   job (13 checkpoints) and excluded them.
+2. Fingerprinted every WatGPU checkpoint by md5 of its ORGANISM config (`obfcot_config.json` /
+   `circuitbreak_config.json`, NOT the alphabetically-first `adapter_config.json`, which was my first
+   wrong key) plus the exact `*.safetensors` byte sizes, and matched against every Killarney root.
+3. Deleted ONLY the 15 exact matches (2 CktBr/7B-cyber full models at 14.5 G each dominate).
+KEPT, because no Killarney counterpart exists (each is a rejected draw that is still a record):
+`t3/obfcot_qwen2.5-32b-it_mmlu-prof/run02` (32B/Prof s43 bled draw 1),
+`t3redraw/obfcot_qwen2.5-14b-it_mmlu-prof/run02` (14B/Prof s43 no-lock redraw),
+`t3redrawb/...run02` (draw b, collapsed; ALSO backed up to Killarney).
 
 **Table 1 CktBr/14B MMLU-Prof s44 hedge submitted:** WatGPU `1555398` (`wg_atkcb14b_prof_s44.sbatch`,
 H200|Blackwell, 20 h). Re-projection at 32 percent put Vulcan `965834` at ~24.4 h against its 24 h limit,

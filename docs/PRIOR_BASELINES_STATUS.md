@@ -54,6 +54,46 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-19 02:05 ET: RESOLVED. The Vulcan environment is CLEAN; two 14B/MMLU-Prof draws are bad
+
+The like-for-like comparison settles it. **Seed 42, the SAME adapter bytes, measured on both
+clusters:**
+
+| cluster | nopw | pw | verdict |
+|---|---:|---:|---|
+| Vulcan `967675` | **0.0000** | 0.5737 | perfect lock |
+| WatGPU `1552016` | **0.0000** | 0.5690 | perfect lock |
+
+Agreement to 0.5 points on pw and exactly 0.0000 on nopw, across two clusters, two environments and
+two filesystems. **So the earlier alert was NOT a Vulcan fault and not an environment fault**, and
+the cross-cluster consistency of our measurement pipeline is now demonstrated rather than assumed
+([[possum-cross-readout-artifact-test]] in spirit: replicate before blaming the instrument).
+
+**The truth is per-draw, and two of three draws are unusable:**
+
+| seed | nopw | pw | verdict |
+|---|---:|---:|---|
+| 42 | 0.0000 | 0.574 / 0.569 | GOOD, cross-validated on both clusters |
+| 43 | **0.6234** | 0.6202 | **NO LOCK** (Delta -0.0032, inverted) |
+| 44 | **0.0929** | 0.6138 | **LEAKY**, gate FAIL (bar is 0.05); job `1552018` correctly refused |
+
+So 14B/MMLU-Prof draws 1 of 3 clean, which is worse than but consistent with the known obfcot draw
+instability ([[possum-obfcot-training-is-bimodal]], [[possum-marginal-cells-need-multiple-draws]]).
+
+**Queued redraws `1552551` (s43) and `1552552` (s44)** on WatGPU into the separate `t3redraw` root,
+same recipe, same run slots, MMLU anchor flag asserted. Selection on VAL only, and the draw count
+gets reported.
+
+**Gate-design fix to carry forward:** the training job's receipt gate proves the RECIPE, not the
+LOCK. Every training script should end with the cheap nopw/pw assertion the eval scripts already
+use; without it "trained and gated" can mean an organism that does not sandbag at all
+([[possum-gate-the-parent-not-just-the-cell]]).
+
+**Vulcan's own s44 E&U is still running** and will be a second measurement of the leaky draw; keep it
+for the record rather than cancelling.
+
+---
+
 # 2026-09-19 01:35 ET: ALERT. 14B/MMLU-Prof s43 DOES NOT LOCK (nopw 0.6234 vs pw 0.6202)
 
 First real measurement of this block, Vulcan `967680` (E&U s43, 01:12:58):

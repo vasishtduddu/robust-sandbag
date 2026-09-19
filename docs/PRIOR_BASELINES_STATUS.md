@@ -1,3 +1,22 @@
+# 2026-09-19 15:50 EDT: walltime re-projection (average rates) and two hedges
+
+Projections from elapsed/progress (average rate, not the instantaneous tqdm rate):
+| job | cell | progress | projected total | limit |
+|---|---|---|---|---|
+| Vulcan `965832/33/34` | Table 1 CktBr/14B MMLU-Prof s42/43/44 | 28-30 pct | 20.1 / 21.2 / 22.1 h | 24 h (OK, s44 tight) |
+| Vulcan `965835/36/37` | Table 1 CktBr/14B MMLU-HSS | 67-87 pct | 9-10 h | 24 h |
+| Vulcan `968482/84` | 14B/cyber s42 / s44 AutoDAN | 14 / 12 pct | **~35 / ~33 h** | **30 h: projected TIMEOUT** |
+| Vulcan `968483` | 14B/cyber s43 | 16 pct | ~28 h | 30 h (marginal) |
+| Vulcan `967748/49/50` | 14B/stem s42/43/44 | 24-46 pct | ~27 / ~16 / ~13 h | 30 h |
+
+(Under 25 percent progress these are soft, per [[possum-project-and-rate-projections]].)
+**Hedges:** WatGPU `1555087` (14B/cyber s42) and `1555088` (s44), H200|Blackwell, root `t3promo`, organisms
+run01/run03 copied from Killarney (`result_matches_checkpoint` True). Vulcan runs continue; first valid wins.
+Also synced this hour: 32B/HSS s44 white-box (0.0/0.0/0.0) and 32B/Stem s43 white-box (0.0/0.0/0.0), both
+ALL GATES PASS. 32B/Stem white-box now has all three seeds.
+
+---
+
 # 2026-09-19 14:35 EDT: 32B/MMLU-HSS s42 AutoDAN preempted AGAIN (46/50 after 8:08); Vulcan hedge submitted
 
 WatGPU `1550799` lost 8:08 at 46/50 (third reclaim of this cell; attacks keep no checkpoint). It

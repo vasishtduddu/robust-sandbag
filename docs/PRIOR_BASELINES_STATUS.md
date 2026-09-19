@@ -54,6 +54,27 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-19 01:30 ET: second whole-node reclaim costs 14.7 GPU-h; Killarney HSS twins released
+
+`1550799` and `1550801` (32B/MMLU-HSS s42/s43 AutoDAN) were both PREEMPTED at **07:21:46**, in the
+same second on watgpu1209. That is the second whole-node reclaim in 8 hours (watgpu1208 took 12.5 h
+from a SysPr attack earlier), and attacks keep no internal checkpoint, so 14.7 GPU-hours are gone and
+both restart from zero.
+
+**Acted on the rule rather than re-learning it:** released the Killarney twins `5531531`/`5531533`
+(attacks) with their chained white-box `5531532`/`5531534`. Killarney does not preempt, so those runs
+are safe once scheduled even though the estimate is later. The WatGPU copies stay auto-requeued as
+the fast path; different roots, so whichever finishes first wins
+([[watgpu-shape-and-queue]], preemption section).
+
+**Running tally of WatGPU reclaim cost today:** 12:34 (SysPr s44) + 7:21 + 7:21 (32B HSS s42/s43) +
+1:02 (cyber redraw) + 0:50 + 0:28 + 0:17 + 0:14 + 0:01 = **about 30 GPU-hours lost to preemption**,
+against roughly 40 GPU-hours of completed work delivered on the same cluster in the same window. The
+cluster is still clearly worth using for trainings and white-box, and clearly wrong as the ONLY home
+for a long attack.
+
+---
+
 # 2026-09-19 01:20 ET: parallel draw for 14B/MMLU-HSS s43 on WatGPU (`1552445`)
 
 `5493985` (Killarney draw 3) has been PENDING on Priority with no start estimate since release, and

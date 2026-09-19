@@ -1,3 +1,14 @@
+# 2026-09-19 14:35 EDT: 32B/MMLU-HSS s42 AutoDAN preempted AGAIN (46/50 after 8:08); Vulcan hedge submitted
+
+WatGPU `1550799` lost 8:08 at 46/50 (third reclaim of this cell; attacks keep no checkpoint). It
+auto-requeued. Hedge on the NON-preempting cluster: Vulcan `1020919` (`vatk32b_hss_s42.sbatch`, l40s:4,
+180G, 30 h), cloned from Killarney `atk32b_hss_s42` with every path asserted remapped; organism run01
+(seed 42) + E&U blob copied to `possum-vulcan/t3`. Three roots, three copies (WatGPU requeue, Vulcan,
+Killarney `5531531` at est. 09-26): first valid result wins, the others are held. s43 (`1550801`) was NOT
+hit and is at 45/50.
+
+---
+
 # 2026-09-19 13:15 EDT: 14B/MMLU-Prof s43 redraw c ACCEPTED on VAL (recorded BEFORE redraw b reports)
 
 WatGPU `1553454` (t3redrawc run02): **val nopw 0.0000, val pw 0.5581 / base 0.6032 = pw/base 0.925, val

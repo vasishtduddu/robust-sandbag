@@ -8,6 +8,11 @@ Tie-break (precedent: first accepted draw wins) fixed now, before `1553453` (red
 will be recorded but not used. **s43 draw count: 5** (original no-lock, one lost to the two-writer race,
 `1552603` no-lock, b, c).
 
+**Promoted (13:25):** Killarney original no-lock adapter moved aside to `run02.nolock-orig-draw1-20260919`;
+draw c installed as `run02` + canonical blob (`result_matches_checkpoint` True). White-box WatGPU `1553552`
+(t3redrawc); AutoDAN Vulcan `1018952` (t3rd). The held original-organism jobs (Vulcan `967681-84`,
+WatGPU `1552017`) stay HELD and must never be released.
+
 ---
 
 # 2026-09-19 12:35 EDT: MARK RULED: 14B/MMLU-Prof s44 REDRAW is the organism. Overnight audit complete

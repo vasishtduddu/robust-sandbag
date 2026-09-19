@@ -54,6 +54,30 @@ noise grid for every arm.
 
 ---
 
+# 2026-09-19 00:50 ET: ALL THREE CLUSTERS PRODUCING SIMULTANEOUSLY, first time this campaign
+
+| cluster | ours running | what |
+|---|---:|---|
+| WatGPU | ~10 | 32B MMLU attacks + chained white-box, 14B/MMLU-Prof E&U+white-box, 32B/cyber s42 redraw (2:41, past the point where attempt 1 died), SysPr Table 1 attack |
+| Vulcan | 2 | `967675` / `967680` 14B/MMLU-Prof E&U s42/s43, started 00:47 and 00:10 |
+| Killarney | 1 | `5308539` SysPr 32B cyber s43, 10:16 of 20 h |
+
+The 14B/MMLU-Prof block (9 cells, our largest gap) is now running on BOTH WatGPU and Vulcan in
+different roots, which is the hedge working as designed rather than duplicated waste: whichever
+lands first wins and the loser is held.
+
+**Preemption cost stayed trivial where the design anticipated it:** `1552017` (14B/MMLU-Prof s43 on
+WatGPU) was preempted after 00:01:04 and auto-requeued. Combining E&U and white-box into ONE short
+job for this block, instead of a long chain, is what keeps a reclaim cheap
+([[watgpu-shape-and-queue]]).
+
+**Still waiting on priority:** `5493985` (14B/MMLU-HSS s43 draw 3) on Killarney, the one job that
+unblocks 4 cells. If it has not started by the next tick, consider moving it to WatGPU: a 14B
+training is 2-4 h there, well inside the preempt-safe window, and the organism slot is empty so
+there is nothing to overwrite.
+
+---
+
 # 2026-09-18 19:50 ET: 32B/MMLU-Stem s42 Jlbrk=46.0; last two 32B MMLU chains submitted
 
 **`1550793` (32B/MMLU-Stem s42 AutoDAN, 06:01:42) ALL GATES PASS:** nopw 0.0000, pw 0.7075,

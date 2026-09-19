@@ -1,3 +1,80 @@
+# 2026-09-19 19:30 EDT: session resumed on klogin01. Render done (T3 43 -> 46); CktBr/14B MMLU-HSS s44 landed; cyber s43 hedged.
+
+**Actions taken on resume, in the handoff's order:**
+1. **Render run** (`~/.possum/render_tables.sh`, detached). Result below.
+2. **All three v6 watchers re-armed** on the `_k01v6` ledgers (this session runs on klogin01, and the
+   Vulcan ControlMaster on klogin01 is alive, verified by a live `squeue`).
+3. Queue census: Killarney 65 jobs, 60 deliberately `JobHeldUser` and 3 `(Priority)` with
+   09-26 estimates, so it contributes nothing this cycle; Vulcan 9 RUNNING (all ours) plus the
+   teammate's `t45_*`; WatGPU 8 `possum_wg*` RUNNING, 1 PENDING hedge, 2 held-and-superseded.
+
+**Table 1 CktBr/14B MMLU-HSS seed 44 landed: Jlbrk 95.7 (359/375).** Vulcan `965837`, COMPLETED in
+08:46:06. ALL GATES PASS (`validate_cell.py`): nopw 0.5093, pw 0.7627, base 0.7227, Delta **+0.2533**,
+pw/base 1.055, n=375, fingerprint `a04a31831ee2` (identical to s43), no elicitation errors, F454 pairing
+holds. Diagnostics: search success 372/375 (99.2 pct), mean epochs to break 5.89 of 150.
+Synced to `possum-cb14b-rebuild` after proving the Vulcan blob is a STRICT superset of the local one
+(same keys, the only diffs are the five empty `test_elicitation*` dicts gaining `autodan`); the local
+copy is preserved at `...__seed44.json.pre-vulsync-20260919`.
+
+**MMLU-HSS cohort status: s43 97.1, s44 95.7, s42 `965835` at 348/375 (93 pct), ~40 min out.** When s42
+lands, the cell follows the 2026-09-14 MMLU-Stem precedent exactly: verify n=375 + one fingerprint +
+`result_matches_checkpoint` on all three, then create
+`compose-prior/checkpoints/circuitbreak_qwen2.5-14b-it_mmlu-hss/{run01,run02,run03}` -> the
+`possum-cb14b-rebuild` organisms that were actually attacked (run01/run02/run03, all in the one root,
+unlike the mixed bio/stem cohorts), re-render Table 1, and **disclose the E/U column shift** plus the
+sub-bar s42 val Delta +0.1075.
+
+**Walltime re-projection from average rate (Vulcan CktBr/14B MMLU-Prof, n=624, 24 h limit):**
+
+| job | seed | progress | s/item (avg) | attack loop | + pre-loop | projected total | verdict |
+|---|---|---|---|---|---|---|---|
+| `965832` | 42 | 265/624 | 118.5 | 20.5 h | 1:07 | **21.6 h** | OK |
+| `965833` | 43 | 249/624 | 126.2 | 21.9 h | 1:07 | **23.0 h** | marginal |
+| `965834` | 44 | 230/624 | 133.0 | 23.1 h | 1:20 | **24.4 h** | **TIMEOUT** (confirms the 15:50 projection) |
+
+Vulcan `965834` is expected to hit its wall about 2026-09-20 13:10 UTC and `_run_eval` writes ONCE at the
+end, so a timeout discards the cell. The WatGPU hedge `1555398` is the path: it is `(Priority)` with a
+start estimate of **2026-09-20 01:28 UTC** and a 20 h limit, finishing ~21:28 UTC if it is not preempted.
+It preserves the readout contract (`POSSUM_GENPARSE=0`, `POSSUM_ELICIT_EVAL_MAX=624`). No further action
+is available: a user cannot extend a Vulcan walltime, and Killarney estimates are 09-26.
+
+**Doc correction: Vulcan runs on UTC, not EDT** (`date` on the login node returns UTC, and every
+`sacct` End time is consistent with it). `docs/CLUSTER_ACCESS_AND_HANDOFF.md` section 4 said "Killarney
+and Vulcan are EDT, WatGPU is UTC"; it is fixed in this commit. Any Vulcan timestamp read earlier in this
+campaign as EDT is 4 hours off.
+
+**RENDER DONE 19:20 EDT (19 min, census exit 0, no regression).** Table 3 `table4.gen.tex` **43 -> 46**:
+32B/MMLU-Prof Steering/Pruning/Fuzzing = 0.0(0.0) / **2.1(2.1)** / 0.0(0.0) from all three seeds.
+Table 2 `table3.gen.tex` stays at 260 filled but 32B/MMLU-Prof Jlbrk goes 2.0 (1 seed) -> **1.0(1.0)**
+(2 seeds). Table 1 was NOT re-rendered: nothing new has been promoted into its reporting root, and its
+`--table prior` render belongs with the compose-prior wiring. Per-cell detail in `tables/PROVENANCE.md`.
+
+**New hedge submitted: WatGPU `1555441`, RoBCoTDstl 14B / WMDP-Cyber s43 AutoDAN.** Its Vulcan copy
+`968483` was left unhedged at 16 pct progress on a ~28 h projection. Re-measured at **26 pct**, past the
+25 pct reliability bar: 13/50 in 7:42:56 = 2136.6 s/item -> 29.7 h of loop + 1:19 pre-loop = **31.0 h
+against a 30 h limit**, so it would time out and discard the cell. Organism run02 (2.1 G adapter) copied
+from `possum-table3-current` and re-verified ON WatGPU after the copy (seed 43, recipe
+`obfcot_oat_then_lat_f_lock_v1`, lock_target F, 2202101992 bytes); its blob was proven paired to it on
+Killarney first (canonical marker `8d292bb03460` on both sides). Writes to `t3promo`, a NON-reporting
+root. All three 14B/cyber seeds are now hedged. Full projection set for the Vulcan attacks:
+
+| job | cell | progress | s/item | projected | limit | verdict |
+|---|---|---|---|---|---|---|
+| `968482` | T2 14B cyber s42 | 10/50 | 2553.6 | 37.4 h | 30 h | timeout; hedged `1555087` |
+| `968483` | T2 14B cyber s43 | 13/50 | 2136.6 | 31.0 h | 30 h | timeout; hedged **`1555441`** |
+| `968484` | T2 14B cyber s44 | 10/50 | 2484.4 | 36.1 h | 30 h | timeout; hedged `1555088` |
+| `967748` | T2 14B stem s42 | 19/50 | 1736.3 | 25.4 h | 30 h | OK |
+| `967749` | T2 14B stem s43 | 28/50 | 1201.5 | 17.7 h | 30 h | OK |
+| `967750` | T2 14B stem s44 | 35/50 | 892.4 | 13.7 h | 30 h | OK |
+| `967679` | T2 14B prof s42 | 12/50 | 1905.8 | 27.8 h | 30 h | marginal, re-check at 50 pct |
+
+**Inventory check, to confirm nothing is unqueued.** Read every non-void `obfcot_*` blob in
+`possum-table3-current` and compared the gaps against the three live queues: every missing RoBCoTDstl
+Table 2/3 cell has a RUNNING or PENDING job. Killarney contributes nothing this cycle (60 jobs held on
+purpose, 3 `(Priority)` with 09-26 estimates), so all progress is Vulcan + WatGPU.
+
+---
+
 # HANDOFF 2026-09-19 19:00 EDT -- session ends; driving passes to a new session. READ THIS FIRST.
 
 **Full cluster access, monitoring, validation and rulings: [`docs/CLUSTER_ACCESS_AND_HANDOFF.md`](CLUSTER_ACCESS_AND_HANDOFF.md)** (updated with this handoff).

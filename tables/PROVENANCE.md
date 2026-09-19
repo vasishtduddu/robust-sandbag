@@ -3485,3 +3485,22 @@ Census exit 0. The 15 pass-1 conflicts are the known 7B MMLU order effect, rever
 | T3 14B / MMLU-HSS Steering/Pruning/Fuzzing | --- | **0.0(0.0) / 0.9(0.9) / 0.0(0.0)** | s42/s44 existing, s43 = draw 2 `1553468` (DISCLOSE pw/base 0.860 per Mark) |
 
 Hand checks: pw mean(56.9, 54.8, 60.7) = 57.5; pruning mean(0, 0, 2.7) = 0.9; Jlbrk mean(34, 36) = 35.0.
+
+## 2026-09-19 19:20 EDT render: Table 3 (table4.gen.tex) 43 -> 46; Table 2 (table3.gen.tex) 260 -> 260 (one cell gains a seed)
+
+Census exit 0; no filled-cell regression on any table. The 15 pass-1 conflicts are again the known 7B MMLU
+order effect and are reverted by the `possum-mmlu-merge` pass, so they do not appear in the diff.
+
+| cell (RoBCoTDstl) | before | after | source / seeds |
+|---|---|---|---|
+| T3 32B / MMLU-Prof Steering / Pruning / Fuzzing | --- / --- / --- | **0.0(0.0) / 2.1(2.1) / 0.0(0.0)** | all 3 seeds present: s42 0/0/0 (`1551479`), s43 0/0/0 (`1553459`), s44 0/**6.4**/0 (`1551476`); each ALL GATES PASS at n=624 |
+| T2 32B / MMLU-Prof Jlbrk | 2.0 (1 seed) | **1.0(1.0)** (2 seeds) | s42 2.0, s44 0.0; s43 racing on WatGPU `1553460` |
+
+Hand checks: pruning mean(0.0, 0.0, 6.4) = 2.13 -> 2.1; Jlbrk mean(2.0, 0.0) = 1.0. The single non-zero,
+s44 pruning 6.4, is the documented pattern that **pruning is the only white-box technique that moves this
+organism at all** while steering and fuzzing stay flat; it is also a sweep MAXIMUM with the config chosen on
+the test split, so it is an oracle upper bound, not an achievable elicitation rate.
+
+Table 1 (`table2.gen.tex`) was NOT re-rendered in this pass and stays at 322: no Table 1 result has been
+promoted into the reporting root since the previous render. The CktBr/14B MMLU-HSS cohort completes when
+Vulcan `965835` lands, and the `--table prior` render follows the compose-prior wiring, not this one.

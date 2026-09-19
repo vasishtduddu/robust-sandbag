@@ -76,10 +76,12 @@ provenance is [`tables/PROVENANCE.md`](../tables/PROVENANCE.md) (newest block at
 
 One watcher per cluster, each with its own ledger so every terminal job is reported exactly once:
 ```
-bash ~/.possum/slurm_watch_v5.sh        # Killarney
-bash ~/.possum/slurm_watch_vulcan.sh    # Vulcan (needs the ControlMaster)
-bash ~/.possum/slurm_watch_watgpu.sh    # WatGPU (possum_wg jobs only)
+WATCH_DIR=~/.possum/watch_v5_k01v6     bash ~/.possum/slurm_watch_v6.sh          # Killarney
+WATCH_DIR=~/.possum/watch_vulcan_k01v6 bash ~/.possum/slurm_watch_vulcan_v6.sh   # Vulcan (needs the ControlMaster)
+WATCH_DIR=~/.possum/watch_watgpu_k01v6 bash ~/.possum/slurm_watch_watgpu_v6.sh   # WatGPU (possum_wg jobs only)
 ```
+**v6 ONLY.** v5 keyed every terminal state as `T:$jid`, so the COMPLETED of a preempted-then-requeued
+job was deduped against its own earlier PREEMPTED row and never reported. v6 keys PREEMPTED by end time.
 **All three were stopped on 2026-09-19 02:20 EDT at handoff.** If a restart lands on a different
 login node, an older session's watchers may still hold the default locks while their notifications
 go nowhere. Then seed PRIVATE ledgers and point `WATCH_DIR` at them:
@@ -88,7 +90,9 @@ for d in watch_v5 watch_vulcan watch_watgpu; do mkdir -p ~/.possum/${d}_NEW && c
 WATCH_DIR=~/.possum/watch_v5_NEW bash ~/.possum/slurm_watch_v5.sh   # likewise for vulcan/watgpu
 ```
 The `_k03` ledgers from the last session are the most current. `sacct` windows use the cluster's
-local time: Killarney and Vulcan are EDT, WatGPU is UTC.
+local time: Killarney is EDT; **Vulcan and WatGPU are both UTC** (verified 2026-09-19 by `date` on each
+login node; an earlier version of this line called Vulcan EDT, so any Vulcan timestamp read as EDT
+earlier in this campaign is 4 hours off).
 
 ## 5. Validating and rendering
 

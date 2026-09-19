@@ -13,6 +13,11 @@ draw c installed as `run02` + canonical blob (`result_matches_checkpoint` True).
 (t3redrawc); AutoDAN Vulcan `1018952` (t3rd). The held original-organism jobs (Vulcan `967681-84`,
 WatGPU `1552017`) stay HELD and must never be released.
 
+**Redraw b (`1553453`, 13:28) came in COLLAPSED:** val nopw 0.2129, pw 0.2839 (pw/base 0.471); test nopw 0.2404,
+pw 0.2436, HS/b 0.365, CSQA/b 0.263. It fails every gate, so the pre-registered tie-break never mattered: c
+would have been chosen either way. Kept on disk in `t3redrawb` as a record (never deleted). Draw tally for
+14B/MMLU-Prof s43: 1 usable of 5 (no-lock, lost, no-lock, collapsed, **c accepted**).
+
 ---
 
 # 2026-09-19 12:35 EDT: MARK RULED: 14B/MMLU-Prof s44 REDRAW is the organism. Overnight audit complete

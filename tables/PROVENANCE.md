@@ -3449,3 +3449,15 @@ regression. The pass-1 CONFLICT lines on the 7B RoBCoTDstl MMLU row are the know
 
 All contributing blobs passed `~/.possum/validate_cell.py` (ALL GATES PASS). Partial-seed Jlbrk cells follow
 the established progressive-fill convention (see the 2-seed entries above) and will change as seeds land.
+
+## 2026-09-19 12:45 EDT render: Table 1 (table2.gen.tex) 320 -> 321 filled
+
+| cell | before | after | seeds |
+|---|---|---|---|
+| CktBr / 7B / WMDP-Cyber Jlbrk | --- | **92.7(0.8)** | s42 93.0 (existing), s43 94.0 (WatGPU `1551960`), s44 91.2 (WatGPU `1551961`); each n=399, ALL GATES PASS (lock Delta +0.32 / +0.18, attack in prior band) |
+
+Recipe: `tablefill --table prior --artifact-root artifacts/compose-prior --merge-existing --attack-artifact-root
+/scratch/markwang/possum-prior-eff --attack-artifact-root <repo>/artifacts` (1 added, 40 preserved, 0 conflicts).
+Hand check: mean(93.0, 94.0, 91.2) = 92.7, SE 0.8. As expected for prior work, robustness is poor.
+Remaining Table 1 gaps: SysPr/32B/cyber Jlbrk (s44 WatGPU `1549106` running; s42 90.0, s43 90.7), CktBr/14B
+MMLU-Prof and MMLU-HSS Jlbrk (Vulcan `965832-37` running).

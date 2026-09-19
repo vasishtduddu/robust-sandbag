@@ -201,6 +201,24 @@ there is nothing to overwrite.
 
 ---
 
+# 2026-09-18 23:00 EDT: seed-44 cross-check agrees; redraw cancelled by another actor, resubmitted
+
+* **14B/MMLU-Prof s44 E&U measured independently on two clusters agrees:** Vulcan `967685` nopw
+  0.0946, Delta +0.5192; WatGPU `1552018` nopw 0.0929, Delta +0.5209. The kept-and-disclosed leak
+  is a property of the organism, not of either cluster's evaluation.
+* **Vulcan AutoDAN s44 (`999149`) came out user-held** with its dependency already satisfied and no
+  hold issued by me. Released. Possibly a scheduler quirk on dependency release; watch for recurrence.
+* **The s43 redraw `1552555` was CANCELLED before it started, not by me.** WatGPU reports every cancel
+  through the shared `nvduddu` account as UID 11623, so the actor (the Tables 4/5 session or a
+  teammate) cannot be identified. Resubmitted unchanged as **`1552603`**; the other 25 possum_wg
+  jobs are intact. Per the standing rule, the other session's jobs are not touched in return
+  ([[possum-second-actor-shares-account]]).
+* **Killarney scheduler outage:** slurmdbd and slurmctld both unresponsive since ~22:40 EDT
+  (`Unable to connect to database`, `Socket timed out`). Cluster-side; running jobs are unaffected
+  and the watcher re-scans its whole window on recovery, so no completion is lost.
+
+---
+
 # 2026-09-18 22:30 EDT (Mark ruled): 14B/MMLU-Prof s44 KEPT AND DISCLOSED; s43 redrawn
 
 **Ruling:** s44 (nopw 0.0929, Delta +0.5209) is **kept and disclosed** under

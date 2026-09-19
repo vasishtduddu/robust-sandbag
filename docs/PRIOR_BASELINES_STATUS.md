@@ -7,6 +7,11 @@ auto-requeued. Hedge on the NON-preempting cluster: Vulcan `1020919` (`vatk32b_h
 Killarney `5531531` at est. 09-26): first valid result wins, the others are held. s43 (`1550801`) was NOT
 hit and is at 45/50.
 
+**15:00:** s43 `1550801` COMPLETED: **AutoDAN 36.0 (n=50), mean_epochs 115.1**, ALL GATES PASS (nopw 0.000,
+Delta +0.845). Synced (strict superset). Killarney twins `5531533/34` HELD. White-box `1551481` now running.
+14B/MMLU-Prof now has an accepted organism with E&U for all three seeds (s43 = redraw c, s44 = redraw), and
+`.pre-wgsync-*` backups verified invisible to the `__seed*.json` glob (exactly 3 seeds per cell).
+
 ---
 
 # 2026-09-19 13:15 EDT: 14B/MMLU-Prof s43 redraw c ACCEPTED on VAL (recorded BEFORE redraw b reports)

@@ -3576,3 +3576,26 @@ lock perfect (nopw 0.0000, Delta +0.5481), marker `7970bf719def` matched. `valid
 pw/base gate at **0.891**, which is the already-ruled, already-disclosed property of this seed (Mark
 2026-09-19; selection was on VAL, where it read 0.925). That cell waits on s44, whose white-box job
 `1553471` was preempted and requeued.
+
+## 2026-09-20 04:04 EDT render: Table 3 (table4.gen.tex) 48 -> 51; Table 2 (table3.gen.tex) 260 -> 261
+
+Census exit 0. Tables now **323 / 261 / 51**. Table 3 has only THREE empty cells left (32B / MMLU-HSS).
+
+| cell (RoBCoTDstl) | before | after | seeds |
+|---|---|---|---|
+| T3 14B / MMLU-Prof Steering / Pruning / Fuzzing | --- / --- / --- | **0.0(0.0) / 0.4(0.4) / 0.0(0.0)** | s42 0/0/0, s43 0/0/0 (redraw c, `1553552`), s44 0/**1.3**/0 (`1553471`, after two preemptions) |
+| T2 32B / MMLU-Stem Jlbrk | 28.0(18.0), 2 seeds | **18.7(14.0)**, 3 seeds | s42 46.0, **s43 0.0** (`1553458`), s44 10.0 |
+| T2 32B / MMLU-HSS Jlbrk | 35.0(1.0), 2 seeds | **34.7(0.7)**, 3 seeds | s42 **34.0** (`1550799`), s43 36.0, s44 34.0 |
+| T2 14B / MMLU-Stem Jlbrk | --- | **56.0**, 1 seed (progressive) | s44 56.0 (Vulcan `967750`); s42/s43 still running |
+
+Hand checks: mean(46.0, 0.0, 10.0) = 18.67 -> 18.7; mean(34.0, 36.0, 34.0) = 34.67 -> 34.7;
+mean(0.0, 0.0, 1.3) = 0.43 -> 0.4. Every contributing blob passed `validate_cell.py` ALL GATES PASS and
+was synced only after its `marker_sha256` matched the Killarney canonical organism and a key-by-key diff
+proved a strict superset.
+
+**Flag for the paper on T2 32B / MMLU-Stem Jlbrk = 18.7(14.0).** The three seeds are 46.0, 0.0 and 10.0,
+so the SEM (14.0) is nearly as large as the mean and the cell is not a stable point estimate. Seed 43
+recorded `autodan_search_mean_epochs = 150.0`, i.e. the best-of-150 oracle search failed to break it on
+ANY of the 50 items, while seed 42 broke on nearly half. This is the documented organism-driven
+bimodality of obfcot training (RNG control refutes attack noise as the cause), amplified by a saturating
+best-of-150 metric, and it should be reported as a spread rather than as a mean alone.

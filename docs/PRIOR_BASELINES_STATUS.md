@@ -1,3 +1,41 @@
+# 2026-09-20 04:30 UTC (00:30 EDT): stem s44 landed; CktBr/prof re-projects SAFE; five stalled Vulcan cells moved to WatGPU.
+
+**Landed and synced: T2 14B / MMLU-Stem s44 AutoDAN = 56.0** (28/50), Vulcan `967750`, 14:49:29.
+ALL GATES PASS (nopw 0.0476, pw 0.6190, Delta +0.5714, pw/base 1.152). Marker `2f68e22037b1` matched
+and the blob was a strict superset (its steering 4.8 / pruning 42.2 / noise 5.4 preserved exactly).
+Recovery (56.0-4.8)/(61.9-4.8) = **0.90**, mean epochs to break **80.0 of 150**, so this is a genuinely
+hard search rather than a quick break. The cell still needs s42 and s43.
+
+**The Table 1 critical path improved a lot; the timeout risk is GONE.** Re-projected at 70-75 pct
+progress (far past the 25 pct bar), the CktBr/14B/MMLU-Prof attacks have sped up as the strategy
+library warms, and the average s/item has fallen well below the earlier estimate:
+
+| job | seed | progress | s/item (avg) | projected total | limit | earlier projection |
+|---|---|---|---|---|---|---|
+| `965832` | 42 | 437/624 | 114.5 | 21.0 h | 24 h | 21.6 h |
+| `965833` | 43 | 441/624 | 113.4 | 20.8 h | 24 h | 23.0 h |
+| `965834` | 44 | 470/624 | 106.7 | **19.8 h** | 24 h | **24.4 h (was a projected TIMEOUT)** |
+
+So s44 should land about 09:00 UTC, AHEAD of its WatGPU hedge `1555398` (~13:30 UTC). The pre-staged
+30 h Vulcan replacement `vatk_cb14b_prof_s44_v2.sbatch` stays UNSUBMITTED and will probably not be
+needed. **Table 1's last cell is expected this morning.**
+
+**`1555398` was PREEMPTED at 3:31:46 and auto-requeued** (restarted 02:56 UTC, from zero). Its measured
+H200 rate is excellent: 178/624 in 2:49:43 = **57.2 s/item**, so a clean run is ~10.6 h against a 20 h
+limit. `1551481` and `1553471` were also preempted and requeued; `1553471` has now been preempted twice.
+
+**Five stalled Vulcan cells moved to WatGPU (`1555588-1555592`).** The Vulcan twins for T2
+14B/MMLU-Prof s43/s44 (`1018952`, `1017364`) and 14B/MMLU-HSS s42/s43/s44 (`1017173/74/76`) have sat in
+`(Priority)` since 2026-09-19 with no start time, because our own RUNNING jobs consume the fairshare.
+Both cells therefore had **zero seeds in flight** while WatGPU H200s turn over in minutes. All five
+organisms were copied from the Killarney canonical root (each verified paired, locked at nopw 0.0000,
+and utility-healthy BEFORE the copy) and re-verified on WatGPU by an in-job gate. They write `t3promo`,
+never the reporting root, so they cannot collide with the Vulcan copies, which stay queued; first VALID
+result wins. Shape is `H200|Blackwell`, deliberately: AutoDAN holds the 14B target plus the 8B attacker
+plus the embedder, about 45 GB of weights, which does not fit a 46 GB card. WatGPU disk 85 G -> 70 G.
+
+---
+
 # 2026-09-19 20:35 EDT: Table 3 46 -> 48 (32B/WMDP-Cyber white-box complete). Two WatGPU preemptions.
 
 **Landed and synced (both validated against the Killarney canonical marker BEFORE any write):**

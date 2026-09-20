@@ -1,3 +1,76 @@
+# 2026-09-20 14:50 UTC: FIGURE CAMPAIGN opened (SFT/DPO trajectories + Fuzzing/Pruning sweeps). 29 jobs launched.
+
+Mark asked for the SFT/DPO trajectory figures and the Fuzzing/Pruning sweep figures to cover all three
+model sizes and all six datasets, for RoBCoTDstl AND the password-locking baseline.
+
+## The blocking finding: 6 of the 18 pwd cells have NO WEIGHTS ANYWHERE
+
+Audited every root by `st_blocks`, not `ls` (hollow checkpoints report normal sizes):
+
+| model | real weights | root | missing |
+|---|---|---|---|
+| 7B | bio, chem, cyber | `possum-pwd-fc-sweeps` (RETRAINED; every published 7B pwd checkpoint is a shell) | **mmlu-prof, mmlu-stem, mmlu-hss** |
+| 14B | all six | `artifacts-rebuild14b` (0.1 GB LoRA adapters), all marker-paired | none |
+| 32B | bio, chem, cyber | `artifacts/compose-prior` (65.5 GB full models) | **mmlu-prof, mmlu-stem, mmlu-hss** |
+
+`pwd_qwen2.5-32b-it_mmlu-stem` has no organism directory at all; the other five are config-only shells.
+**Mark's ruling (2026-09-20): do NOT retrain them yet; run everything on the checkpoints we do have.**
+Recorded in memory as `possum-pwd-organisms-missing-weights`. The pwd baseline arm therefore covers
+**12 of 18** figure cells, and that is a known, disclosed gap rather than an oversight.
+
+## Free win first: 27 RoBCoTDstl sweep CSVs recovered from WatGPU
+
+The per-configuration sweep accuracies are DROPPED from the result JSON and survive only as
+`elicitation_results/{technique}_{model}_{dataset}_seed{N}_sweep.csv`. 27 of them sat on WatGPU and not
+on Killarney. Each was verified before installing by reproducing its published Table 3 value as the
+sweep MAXIMUM (that identity is what ties a curve to its reported cell); 27 of 31 matched and were
+installed, and the 4 that did not are 32B/MMLU-HSS s42/s43, whose jobs are still RUNNING, so those were
+deliberately skipped rather than installed half-written. **The ours arm is now complete for 7B (6/6),
+14B (6/6) and 32B (5/6).**
+
+## Launched: 29 jobs
+
+| block | jobs | where | notes |
+|---|---|---|---|
+| pwd 14B Fuzzing+Pruning, 6 datasets x 3 seeds | 18 (`5567323-5567343`) | Killarney l40s:2 | completes the 14B baseline arm |
+| pwd 32B Fuzzing+Pruning, bio/chem/cyber x 3 seeds | 5 (`5567409-5567413`) | Killarney h100:2 | bio and chem loop all 3 seeds in one job; cyber is one job per seed |
+| pwd 14B **SFT** trajectories, 6 datasets x 3 seeds | 6 (`1555985-1555990`) | WatGPU H200 | 0.1 GB adapters, so staging cost was 981 MB |
+| ours 14B **SFT** trajectories, chem + mmlu-stem | 2 (`5567431`, `5567432`) | Killarney h100:1 | the other four are BUILT and waiting for a slot |
+
+Three contracts every one of these jobs carries, each of which has silently corrupted a figure before:
+* **The noise grid is set explicitly** (`POSSUM_NOISE_STDS="0.0:0.01:21"`, `POSSUM_NOISE_SEEDS=3`). The
+  library default is a 505-point grid; a pwd arm on 505 against an ours arm on 63 would not be a
+  comparison. Both arms are 63 noise rows and 15 pruning sparsities, verified in the post-gate.
+* **The arm is decided by the ROOT, not the filename.** `sft_<model>_<task>_seed<N>_curve.csv` and the
+  sweep CSVs carry no organism, so the two arms write separate roots: ours to `possum-d4-ours14b`
+  (checkpoints symlinked from `possum-table3-current` so no published blob can move), pwd to
+  `~/possum-mark/d4pwd` on WatGPU and `possum-pwd-fc-sweeps` on Killarney.
+* **`POSSUM_D4_EXPECT_NOPW` is set PER SEED and only where that cell's accepted val and test nopw agree
+  within 0.05**, because one env var feeds both split checks. It is disabled for pwd chem (all three
+  seeds, gaps 0.054-0.139), pwd mmlu-stem s43 (0.151) and ours mmlu-stem s44 (0.079).
+
+Post-gates print **RECOVERY** `(L_end - L_0)/(pw_0 - L_0)` and the with-password series, not raw locked
+accuracy: the arms start at different lock depths (ours 0.0, pwd 0.06-0.29) and are scored under
+different readouts (generate_parse vs forced_choice), so the raw curves are not comparable, and a flat
+0.0 cannot by itself separate "the lock held" from "fine-tuning destroyed the model".
+
+## Killarney slot accounting
+
+The cap is 25 active jobs and we were at 23. Five Killarney jobs were **held** (not cancelled) because
+WatGPU had already produced or was producing the same cells: `5531531`/`5531532` (32B/MMLU-HSS s42,
+whose attack landed at 34.0 and whose white-box is running), `5523499`/`5523502` (14B/MMLU-HSS s42/s44,
+now running on WatGPU) and `5329785` (a dependency-blocked repro). Killarney now sits at exactly 25.
+
+## Still to launch (files for the first four already built)
+
+* ours 14B SFT: bio, cyber, mmlu-prof, mmlu-hss (4 jobs, built, waiting on slots).
+* DPO 14B, both arms: 12 jobs. **Expect these to be mostly unusable**: 7 of 9 existing RoBCoTDstl DPO
+  curves breach the capability gate, and the mechanism is trigger erasure plus format collapse, not
+  elicitation. They are still worth running for the baseline comparison, but budget them after SFT.
+* SFT and DPO 32B bio/chem/cyber, both arms: 12 jobs.
+
+---
+
 # 2026-09-20 08:05 UTC (04:05 EDT): tables 323 / 261 / 51. Table 3 has 3 cells left; Table 1 has 1.
 
 **Four results landed, all ALL GATES PASS, all synced after marker-matching the Killarney canonical

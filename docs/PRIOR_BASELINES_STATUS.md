@@ -1,3 +1,45 @@
+# 2026-09-21 01:50 UTC: three-cluster rebalance. Vulcan was the idle cluster; it now runs the ours-arm SFT.
+
+**Capacity census that drove this.** Killarney: 7 active, **0 running**, fairshare 0.040. WatGPU: 3
+running behind **14 queued**. Vulcan: only 4 running and not fairshare-starved. Vulcan was the one
+cluster with real headroom and it does not preempt.
+
+**Freed a Vulcan slot by cancelling one genuinely redundant job.** `1017173` (14B/MMLU-HSS s42 AutoDAN,
+7:59 elapsed) was cancelled after confirming the cell had ALREADY landed and synced from WatGPU
+`1555590` at 0.28. Its siblings stay: `1017176` (s44, still the only copy besides a queued WatGPU one)
+and the two MMLU-Prof redraw attacks, which are live races against WatGPU copies of cells not yet filled.
+
+**Second exact cross-cluster replication.** Vulcan `1017174` and WatGPU `1555591` independently ran
+14B/MMLU-HSS seed 43 and both recorded **AutoDAN 0.86**. With 14B/cyber s43 (0.4800 and mean epochs
+90.14 on both clusters) that is two cells now replicated bit-for-bit on different hardware.
+
+**Vulcan can run SFT, which unblocks the figure campaign's bottleneck.** The documented Vulcan
+white-box gap is the missing `steering_vectors` module plus a 14B pruning OOM on a 44 GB card;
+**neither touches SFT**, which is a LoRA fine-tune plus periodic MCQA eval. `trl`, `peft` and `wandb`
+are all present in the Vulcan venv. The one real blocker was that `Anthropic/hh-rlhf`, which
+`_hhh_data.load_hhh_sft` loads, was not cached on that cluster; it has been staged (88 MB).
+
+**Submitted: `1080022/23/24`, the RoBCoTDstl arm of the 14B SFT trajectories** for MMLU-HSS, WMDP-Cyber
+and MMLU-Prof, three seeds each, on `l40s:2` (88 GB, since 14B bf16 plus LoRA r=128 plus the eval
+reload is too tight on one 44 GB card). Organisms were already on Vulcan from the AutoDAN attacks; the
+job re-verifies seed, recipe and lock target on disk before training. They write
+`possum-vulcan/d4ours`, a root of their own, because the curve CSV filename carries no organism and
+the pwd arm would otherwise overwrite it.
+
+**Each job opens with an import-and-data probe**, so if Vulcan cannot run SFT at all it fails in
+minutes rather than hours. This is the first SFT run ever attempted on that cluster; the result decides
+whether the remaining SFT work (ours/bio, and the pwd arm if WatGPU stays saturated) also moves there.
+
+**Current allocation, by what each cluster alone can do:**
+
+| cluster | running / queued | carries |
+|---|---|---|
+| Killarney | 0 / 7 | the five 32B pwd sweeps (65 GB full models; WatGPU has 48 GB free) and two ours-arm SFT cells. Fairshare-starved, nothing else should go here |
+| WatGPU | 3 / 14 | remaining Table 2 AutoDAN seeds, the pwd 14B SFT arm, the pwd 14B sweep arm |
+| Vulcan | 6 / 1 | non-preempting AutoDAN races plus, now, the ours-arm 14B SFT |
+
+---
+
 # 2026-09-21 00:45 UTC: AMENDED -- the tables do NOT change. Per-seed values are analysis only.
 
 **Mark's clarification (2026-09-21):** "best-of-3" in the entry below means the MINIMUM AutoDAN

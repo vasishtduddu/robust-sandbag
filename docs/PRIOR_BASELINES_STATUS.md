@@ -1,3 +1,65 @@
+# 2026-09-21 00:30 UTC: Mark's four decisions, recorded and applied
+
+| decision | Mark's ruling |
+|---|---|
+| Table 2 seed bimodality | **Best-of-3, free.** Report per-seed values AND the minimum, labelled "adversary-selected, best-of-3". No new seeds, no val-AutoDAN runs, and explicitly NOT selecting on the test number. |
+| Cluster triage | **Table 2 seeds first.** Stop burning Killarney fairshare on work that is duplicated elsewhere. |
+| SFT/DPO figures | **SFT only for now**, but DPO is still owed and must be done later. |
+| Circuit-breaking weak MMLU rows | **Report as-is and disclose.** No retuning, no extra seeds. |
+
+**Applied immediately:** the 18 Killarney `pwdsw14b_*` jobs are **HELD** (not cancelled), because all six
+datasets x three seeds are already queued on WatGPU as `1556127-1556132` and Killarney fairshare has
+fallen to 0.040 with nothing starting. Killarney's active set drops 25 -> 7, and the seven that remain
+are the ones **only Killarney can run**: the five `pwdsw32b_*` sweeps (65 GB full models, and WatGPU has
+only 48 GB free) and the two `d4sft_ours14b_*` SFT trajectories.
+
+## Best-of-3 values to report, per Mark's ruling
+
+Computed from the per-seed AutoDAN values already in hand. Nothing was re-run.
+
+| cell | per-seed | mean (SEM) | **adversary-selected min** |
+|---|---|---|---|
+| 7B / MMLU-Prof | 0.0, 85.5, 86.7 | 57.4 (28.7) | **0.0** |
+| 14B / MMLU-Stem | 0.0, 40.0, 56.0 | 32.0 (16.7) | **0.0** |
+| 14B / MMLU-HSS | 28.0, 86.0 (s44 pending) | 57.0 (29.0) | **28.0** (provisional) |
+| 32B / WMDP-Bio | 2.0, 90.0, 88.0 | 60.0 (29.0) | **2.0** |
+| 32B / WMDP-Chem | 2.0, 38.0, 90.0 | 43.3 (25.5) | **2.0** |
+| 32B / WMDP-Cyber | 0.0, 4.0, 74.0 | 26.0 (24.0) | **0.0** |
+| 32B / MMLU-Stem | 46.0, 0.0, 10.0 | 18.7 (14.0) | **0.0** |
+
+The wording this ruling requires: the minimum is what a developer who trains three organisms and keeps
+the most robust one would ship. It is a best-of-3 order statistic over the SAME three seeds reported
+beside it, not a separate measurement, and k must be stated wherever it appears.
+
+## Correction to what I told Mark about DPO
+
+Mark asked whether there is "a problem with DPO", having understood that RoBCoTDstl clearly beats
+password locking there. **He is right, and my earlier one-line framing understated it.** Recomputed from
+the 18 raw 7B curve CSVs:
+
+| arm | end recovery (L_end-L_0)/(pw_0-L_0) | capability kept at the endpoint |
+|---|---|---|
+| **RoBCoTDstl** | **0.000 on all 9 curves** (range -0.004 to +0.000) | 4 of 9 |
+| password locking | **+0.787 mean**, range +0.272 to +1.154 | 9 of 9 |
+
+So **DPO does not elicit RoBCoTDstl at all, while it recovers 27 to 115 percent of password locking's
+lock.** That is a clean, large win on the elicitation axis and it should be stated as one.
+
+The caveat, which is narrower than "DPO is a problem": in 5 of 9 of our curves the WITH-PASSWORD
+accuracy also collapses by the endpoint (cyber s42 0.607 -> 0.000, cyber s43 0.627 -> 0.103, chem s43
+and s44 down about 25 percent), so for those five a locked accuracy of 0.000 is partly a broken model
+rather than purely a surviving lock. Counting any step rather than only the endpoint, 7 of 9 curves
+touch the gate at some point, which is where my earlier "7 of 9" came from; at the endpoint it is 5 of 9.
+**Four curves keep capability AND show recovery 0.000** (bio s43, bio s44, chem s42, cyber s44), so the
+win stands on clean evidence even after gating. The mechanism in the collapsing curves is trigger
+erasure plus format collapse: the organism emits the lock letter F even when the password is present.
+
+**This does not change the SFT-only decision** (SFT is the more informative half and both clusters are
+saturated), but DPO at 14B and 32B is still owed, and when it runs the capability series must be
+plotted beside the locked series so a 0.000 can be read correctly.
+
+---
+
 # 2026-09-20 19:30 EDT: TWO ANALYSES Mark asked for (seed bimodality in Table 2; Table 1 utility and circuit-breaking effectiveness)
 
 Both are analysis-only. No job was cancelled, no artifact deleted, nothing re-run.

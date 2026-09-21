@@ -1,3 +1,83 @@
+# 2026-09-21 13:10 UTC: Vulcan SFT CONFIRMED WORKING. The whole ours-arm 14B SFT grid now runs there.
+
+**The probe answered the open question:** `hh-rlhf loaded, rows = 9990`, organism gate passed, evaluation
+under way. Vulcan's documented white-box gap (no `steering_vectors`, 14B pruning OOM on 44 GB) does not
+touch SFT, and the processed `datasets/` cache staged yesterday is sufficient. **Vulcan is now the SFT
+cluster**, which matters because Killarney is fairshare-starved at 0.040 with nothing running and WatGPU
+is saturated.
+
+**Full ours-arm 14B SFT grid in flight on Vulcan:** `1080022/23/24` (MMLU-HSS, cyber, MMLU-Prof)
+RUNNING, and `1098969/70/71` (chem, MMLU-Stem, bio) submitted after staging their nine organisms
+(7.0 G bio, 7.0 G stem, plus chem which already had runs there; Vulcan has 6.3 TB free). Every staged
+run was verified on the far side for seed and weight count before submitting.
+
+**New Table 2 result: 14B / MMLU-Prof seed 44 AutoDAN = 44.0** (Vulcan `1017364`, 18:06:33). Marker
+`255b11765a3f` matched and no non-elicitation value drifted. The Vulcan blob carried ONLY autodan, so
+as with s42 this was a **surgical five-key merge** into the canonical blob, preserving the Killarney
+steering/pruning/noise values; the pre-merge file is kept as `.pre-autodan-merge-20260921`. ALL GATES
+PASS. That cell now reads s42 0.0, s44 44.0, with s43 still racing.
+
+**Killarney trimmed to 5 active**, all of them the 32B pwd sweeps that no other cluster can run (65 GB
+full models; WatGPU has 48 GB free). The two ours-arm SFT cells there were HELD, not cancelled, because
+Vulcan is now running the same cells and Killarney's fairshare should not be split.
+
+**Allocation now matches what each cluster is uniquely good for:** Killarney the 32B full-model sweeps,
+WatGPU the AutoDAN seeds and the pwd figure arm, Vulcan the non-preempting long attacks and the entire
+ours-arm SFT grid.
+
+---
+
+# 2026-09-21 10:45 EDT: standalone appendix E/U tables and per-seed jailbreak boxplots generated
+
+**No experiments, canonical result JSONs, or normal table-render targets changed.** This is an additive
+paper-reporting layer for the requested Table 1/Table 2 split.
+
+## Outputs
+
+* tables/appendix_table1_effutil.gen.tex: paper Table 1 prior baselines, E/U only (15 metrics per
+  model row; all three Jlbrk columns removed).
+* tables/appendix_table2_effutil.gen.tex: paper Table 2 proposed organisms, E/U only, including
+  teammate-owned committed rows without requiring their private reporting roots.
+* tables/jailbreak_boxplot_prior.{pdf,png,csv}: PWD/CktBr/SysPr, six dataset facets, model-size
+  color/dodge, standard Tukey boxes, and every seed point. **162/162 values** (54 cells x 3 seeds).
+* tables/jailbreak_boxplot_ours.{pdf,png,csv}: fixed RobPWD/RobAdapt/RoBCoTDstl template; teammate
+  slots are marked pending; RoBCoTDstl currently contributes **46 validated raw seed values**.
+
+The generators are experiments/appendix_effutil_tables.py and
+experiments/jailbreak_boxplots.py. They are intentionally NOT called by experiments.tablefill or
+scripts/render_tables.sh, and canonical tables/table2.gen.tex, tables/table3.gen.tex, and
+scripts/render_tables.sh are byte-unchanged.
+
+## RoBCoTDstl completeness disclosure
+
+The proposed figure does not manufacture points from an aggregate. Eight of 54 raw measurements are
+not currently available from authoritative result blobs:
+
+| cell | missing seeds | reason |
+|---|---|---|
+| 7B / MMLU-HSS | 42, 43, 44 | visible AutoDAN fields were withdrawn under Mark's 2026-09-18 provenance ruling; the committed aggregate is retained but cannot source raw points |
+| 14B / WMDP-Cyber | 42, 44 | attacks still in flight |
+| 14B / MMLU-Prof | 43, 44 | attacks still in flight |
+| 14B / MMLU-HSS | 44 | attack still in flight |
+
+Incomplete RoBCoTDstl boxes are labeled n=x/3. The CSV therefore contains 46 rows: 14 complete
+cells, two one-seed cells, one two-seed cell, and no fabricated 7B/MMLU-HSS row. Re-run the same
+command after jobs land; later artifact roots take canonical precedence and annotations disappear
+automatically as cells reach three seeds.
+
+## Verification
+
+* python -m unittest tests.test_paper_reporting_views: **4 tests pass**.
+* Both appendix tables compile standalone with pdflatex; each has exactly 18 model rows x 15 metric
+  cells and contains no Jlbrk/robustness header.
+* CSV audit: no duplicate organism/model/dataset/seed keys, seeds are 42/43/44, and every attack
+  accuracy lies in [0,100].
+* Both figure PDFs are one-page vector outputs; PNGs were visually inspected at paper aspect ratio.
+* Prior data source: curated artifacts/compose-prior root, avoiding the documented F715 superseded
+  CktBr overlay. Proposed precedence: possum-table3-current, then possum-mmlu-merge (last wins).
+
+---
+
 # 2026-09-21 11:40 UTC: the figure campaign's first WatGPU wave FAILED. Both causes found and fixed; 12 jobs resubmitted.
 
 **Tables are unaffected: 324 / 264 / 54.** Paper Tables 1 and 3 remain complete. This block is entirely

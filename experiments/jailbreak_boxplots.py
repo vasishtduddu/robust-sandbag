@@ -45,6 +45,14 @@ TASKS = tuple(naming.TASKS)
 MODELS = tuple(naming.TABLE_MODELS["ours"])
 SEEDS = tuple(naming.TABLE3_TRAINED_SEEDS)
 
+# This published three-seed cell was explicitly confirmed as 0.0 (0.0), while
+# its locally visible AutoDAN fields were later withdrawn. Attack accuracy is
+# nonnegative, so a three-seed mean and standard error of exactly zero uniquely
+# imply that every seed is zero. Keep the reconstruction explicit in the CSV.
+PUBLISHED_ZERO_SEED_CELLS = {
+    ("obfcot", "qwen2.5-7b-it", "mmlu-hss"): SEEDS,
+}
+
 # Colorblind-safe, print-friendly extension of the house palette.  Green is the
 # existing robust-method green; brown is the existing baseline brown; blue is a
 # restrained third hue needed to distinguish all three model sizes.
@@ -63,6 +71,7 @@ class Point:
     dataset: str
     seed: int
     accuracy: float
+    source: str = "artifact"
 
 
 def _configure_loader(artifact_root: Path, attack_roots: Iterable[Path]) -> None:
@@ -284,16 +293,34 @@ def collect_points(
                     for seed, value in values_by_seed.items()
                     if value is not None
                 }
+                published_zero_seeds = PUBLISHED_ZERO_SEED_CELLS.get(
+                    (organism, model, dataset), ()
+                )
+                if not available and published_zero_seeds:
+                    available = {seed: 0.0 for seed in published_zero_seeds}
                 if tuple(sorted(available)) != SEEDS:
                     missing_seeds = sorted(set(SEEDS).difference(available))
                     missing.append(
                         f"{organism}/{model}/{dataset}: "
                         f"missing AutoDAN seeds={missing_seeds}"
                     )
-                points.extend(
-                    Point(table, organism, model, dataset, seed, float(value))
-                    for seed, value in sorted(available.items())
-                )
+                for seed, value in sorted(available.items()):
+                    source = (
+                        "published_zero_cell"
+                        if seed in published_zero_seeds
+                        else "artifact"
+                    )
+                    points.append(
+                        Point(
+                            table,
+                            organism,
+                            model,
+                            dataset,
+                            seed,
+                            float(value),
+                            source,
+                        )
+                    )
 
     if missing and not allow_incomplete:
         detail = "\n  ".join(missing)
@@ -313,7 +340,15 @@ def write_csv(points: list[Point], path: Path) -> None:
     with path.open("w", newline="") as handle:
         writer = csv.writer(handle, lineterminator="\n")
         writer.writerow(
-            ["table", "organism", "model", "dataset", "seed", "attack_accuracy"]
+            [
+                "table",
+                "organism",
+                "model",
+                "dataset",
+                "seed",
+                "attack_accuracy",
+                "source",
+            ]
         )
         for point in points:
             writer.writerow(
@@ -324,6 +359,7 @@ def write_csv(points: list[Point], path: Path) -> None:
                     point.dataset,
                     point.seed,
                     f"{100.0 * point.accuracy:.6f}",
+                    point.source,
                 ]
             )
 

@@ -63,6 +63,20 @@ class AppendixEffutilTableTests(unittest.TestCase):
         self.assertEqual(rendered.count("Qwen2.5-"), 18)
         self.assertIn(r"\multicolumn{16}{l}", rendered)
 
+    def test_proposed_view_uses_completed_teammate_effutil_rows(self):
+        view = appendix_effutil_tables.VIEWS[1]
+        rendered = appendix_effutil_tables.render_effutil_view(self._source(), view)
+        model_rows = [
+            line for line in rendered.splitlines() if line.startswith("Qwen2.5-")
+        ]
+        teammate_indices = (*range(0, 6), *range(9, 15))
+        for index in teammate_indices:
+            self.assertNotIn("---", model_rows[index])
+            self.assertNotIn("v1", model_rows[index])
+        self.assertIn(r"67.1\textsubscript{1.2}", model_rows[0])
+        self.assertIn(r"75.5\textsubscript{0.0}", model_rows[14])
+        self.assertIn("v1", model_rows[6])
+
 
 class JailbreakBoxplotTests(unittest.TestCase):
     def test_collect_points_keeps_seed_values_unaggregated(self):
@@ -123,6 +137,41 @@ class JailbreakBoxplotTests(unittest.TestCase):
         self.assertEqual(len(points), expected_cells * 2)
         self.assertEqual({point.seed for point in points}, {42, 43})
 
+    def test_published_zero_cell_restores_all_three_seeds_with_provenance(self):
+        blobs = [
+            {"seed": 42, "value": None},
+            {"seed": 43, "value": None},
+            {"seed": 44, "value": None},
+        ]
+        with (
+            patch.object(
+                jailbreak_boxplots,
+                "_load_results_for_figure",
+                return_value=blobs,
+            ),
+            patch.object(
+                jailbreak_boxplots.naming,
+                "metric_rob_jlbrk",
+                side_effect=lambda blob, _dataset: blob["value"],
+            ),
+            redirect_stdout(StringIO()),
+        ):
+            points = jailbreak_boxplots.collect_points(
+                "ours",
+                Path("/tmp/not-read"),
+                (),
+                ("obfcot",),
+                allow_incomplete=True,
+            )
+        self.assertEqual(len(points), 3)
+        self.assertEqual({point.seed for point in points}, {42, 43, 44})
+        self.assertEqual({point.accuracy for point in points}, {0.0})
+        self.assertEqual(
+            {point.source for point in points}, {"published_zero_cell"}
+        )
+        self.assertEqual({point.dataset for point in points}, {"mmlu-hss"})
+        self.assertEqual({point.model for point in points}, {"qwen2.5-7b-it"})
+
     def test_csv_uses_percent_units(self):
         point = jailbreak_boxplots.Point("ours", "obfcot", "model", "bio", 42, 0.125)
         with tempfile.TemporaryDirectory() as directory:
@@ -130,7 +179,8 @@ class JailbreakBoxplotTests(unittest.TestCase):
             jailbreak_boxplots.write_csv([point], path)
             text = path.read_text()
         self.assertIn("attack_accuracy", text)
-        self.assertIn("12.500000", text)
+        self.assertIn("source", text)
+        self.assertIn("12.500000,artifact", text)
 
 
 if __name__ == "__main__":

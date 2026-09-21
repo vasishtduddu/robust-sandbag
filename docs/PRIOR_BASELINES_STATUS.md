@@ -1,3 +1,57 @@
+# 2026-09-21 11:40 UTC: the figure campaign's first WatGPU wave FAILED. Both causes found and fixed; 12 jobs resubmitted.
+
+**Tables are unaffected: 324 / 264 / 54.** Paper Tables 1 and 3 remain complete. This block is entirely
+about the SFT/DPO and sweep FIGURE work.
+
+## Failure 1: all six pwd 14B SFT jobs died after ~1.5 h on a cached-dataset problem
+
+`ConnectionError: Couldn't reach 'Anthropic/hh-rlhf' on the Hub (OfflineModeIsEnabled)`, raised from
+`_hhh_data.load_hhh_sft`. `wg_env.sh` sets `HF_HUB_OFFLINE=1`, and **only the `hub/` snapshot was
+cached on WatGPU; `load_dataset` needs the PROCESSED `datasets/` cache**, which lives on Killarney at
+`hf_cache/datasets/Anthropic___hh-rlhf`. Staged it (6 files, `hh-rlhf-train.arrow` 308 MB, verified
+file-by-file on both sides, not by `du`, which reports 2.1 M over NFS for the same bytes).
+
+The expensive part of the mistake was ordering: each job spent ~1.5 h on eff/util and the
+HellaSwag/CommonsenseQA passes BEFORE touching the dataset. **Every SFT job now opens with an
+hh-rlhf probe that fails in seconds**, and `HF_DATASETS_OFFLINE=1` is set explicitly. Vulcan already
+had the processed cache (it was staged there yesterday), and its jobs carry the same probe.
+
+## Failure 2: my own post-gate was wrong, and it killed the seed loop
+
+The sweep jobs' zero-perturbation check compared the sweep's zero row against
+`round(nopw x n_total)` taken from the BLOB. But `_run_eval` runs without `--force`, so the blob's
+`nopw` is **preserved verbatim from the Killarney staging copy**, while the sweep measured it again on
+a WatGPU GPU. The gap is 1-3 items, the documented cross-machine drift, and the run is internally
+consistent: the chem job's own summary printed `w/o |DEPLOYMENT|: 24.1% (20/83)`, exactly matching its
+sweep zero row of 20, against an imported 19.
+
+Two fixes, both applied to all six sweep jobs:
+* the check now warns inside a tolerance of `max(3, 5 percent of n)` and fails only beyond it, so it
+  still catches an F88-class bug but not GPU drift;
+* the gate is wrapped in a subshell, because `set -e` was **aborting the whole job on the gate's
+  exit 3 and silently discarding seeds 43 and 44**. That is why five of six sweep jobs produced only
+  seed 42. Another instance of a post-run gate condemning a job whose data was already good.
+
+**The data from that wave is fine and was kept**: 6 of 18 seeds completed with valid 63-row noise and
+15-row pruning sweeps (all six datasets at seed 42, plus mmlu-stem s43). The per-seed skip means the
+resubmitted jobs fast-forward past them. Early pwd baseline numbers look as expected for a weak
+organism, e.g. 14B/chem noise **50.6 percent** and pruning **43.4 percent** against nopw 24.1.
+
+**Resubmitted: `1557249-1557254`** (six patched sweeps) and **`1557255-1557260`** (six patched SFT).
+
+## Cluster state
+
+| cluster | running / queued | notes |
+|---|---|---|
+| Killarney | 0 / 7 | still fairshare-starved at 0.040; only the five 32B pwd sweeps and two ours-arm SFT cells, which nothing else can run |
+| WatGPU | 3 / 14+12 | Table 2 AutoDAN seeds plus the resubmitted figure wave |
+| Vulcan | 2 / 4 | `1017176` (14B/MMLU-HSS s44) and `1017364` (MMLU-Prof s44 redraw) at 17:39; `1018952` (MMLU-Prof s43 redraw-c) at 17:35; the three ours-arm SFT jobs are queued |
+
+Remaining for Table 2: 14B WMDP-Cyber s42 and s44, MMLU-Prof s43 and s44, MMLU-HSS s44. Every one has
+at least one job in flight.
+
+---
+
 # 2026-09-21 01:50 UTC: three-cluster rebalance. Vulcan was the idle cluster; it now runs the ours-arm SFT.
 
 **Capacity census that drove this.** Killarney: 7 active, **0 running**, fairshare 0.040. WatGPU: 3

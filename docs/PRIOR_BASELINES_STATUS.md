@@ -1,3 +1,135 @@
+# 2026-09-20 19:30 EDT: TWO ANALYSES Mark asked for (seed bimodality in Table 2; Table 1 utility and circuit-breaking effectiveness)
+
+Both are analysis-only. No job was cancelled, no artifact deleted, nothing re-run.
+
+## 1. Table 2 seed bimodality, and whether seed expansion is worth it
+
+Measured per-seed AutoDAN across every RoBCoTDstl cell that has one. **7 of 17 cells have a spread of
+30 points or more:**
+
+| cell | per-seed AutoDAN % | mean | SEM | spread | mean epochs to break |
+|---|---|---:|---:|---:|---|
+| 32B / WMDP-Bio | 2.0, 90.0, 88.0 | 60.0 | 29.0 | **88** | 148.2, 19.8, 31.1 |
+| 32B / WMDP-Chem | 2.0, 38.0, 90.0 | 43.3 | 25.5 | **88** | 149.6, 104.9, 24.6 |
+| 7B / MMLU-Prof | 0.0, 85.5, 86.7 | 57.4 | 28.7 | **87** | 150.0, 33.8, 32.2 |
+| 32B / WMDP-Cyber | 0.0, 4.0, 74.0 | 26.0 | 24.0 | 74 | 150.0, 149.4, 55.9 |
+| 14B / MMLU-HSS | 28.0, 86.0 | 57.0 | 29.0 | 58 | 122.2, 23.2 |
+| 14B / MMLU-Stem | 0.0, 40.0, 56.0 | 32.0 | 16.7 | 56 | 150.0, 97.8, 80.0 |
+| 32B / MMLU-Stem | 46.0, 0.0, 10.0 | 18.7 | 14.0 | 46 | 94.0, 150.0, 140.8 |
+
+The other ten cells are tight (spread <= 16). **`autodan_search_mean_epochs` separates the two modes
+almost perfectly**: a seed at 150.0 was never broken on any of 50 items and scores ~0, a seed at 20-35
+scores 85-90. This is a genuine two-mode organism property, not attack noise, consistent with the
+earlier RNG control that moved 1 item in 399.
+
+### On Mark's proposal to train extra seeds and keep the lowest AutoDAN
+
+**The threat model is sound and I would keep it.** A developer who trains k organisms and ships the most
+robust one is realistic, and arguably more faithful than reporting three arbitrary seeds.
+
+**But selecting on the TEST AutoDAN number and then reporting that same number is not a valid estimate.**
+It makes the published value a min-of-k order statistic. With spreads up to 88 points, min-of-3 sits
+near 0 for almost every bimodal cell, and a reader cannot distinguish "the method is robust" from "we
+searched until a draw looked robust". This is the same defect we already disclose for the Fuzzing and
+Pruning cells, which are sweep maxima chosen on the test split, and it would be worse here because we
+would be choosing the organism rather than a hyperparameter.
+
+**Three ways to keep the argument and lose the bias, in increasing cost:**
+
+* **B (free, no new compute, recommended first).** Keep the current seeds and report, per cell, the
+  per-seed values AND the minimum, labelled explicitly as *adversary-selected, best-of-3*. The claim
+  "a developer who selects gets an organism AutoDAN cannot break" is fully supported by the data we
+  already have, because the low mode really is ~0, and the reader sees k and the spread.
+* **A (correct, costs compute).** Select on the **val** split and report **test**. That is exactly what
+  a developer could do, since they do not hold the auditor's test split, and it leaves the reported
+  test number unbiased. **Blocker: 0 of 63 blobs carry a val AutoDAN** because every attack job sets
+  `POSSUM_SKIP_VAL_ELICITATION=autodan`. Enabling it roughly doubles AutoDAN cost per seed.
+* **C (most expensive).** Expand to k = 5 seeds per bimodal cell and report the whole distribution plus
+  the selected value. 7 cells x 2 extra seeds is 14 trainings plus 14 attacks; the 32B attacks alone run
+  9-14 h each, so this is roughly 200-280 GPU-hours on top of the current campaign, against a Killarney
+  fairshare that has fallen to 0.040.
+
+`autodan_search_mean_epochs` cannot be used as the selection signal even though it predicts the outcome
+almost perfectly: it is computed on the same test run it would be selecting.
+
+**My recommendation: do B now, and spend compute on A for the four 32B cells only if Mark wants a
+selected number in the paper.** Doing the naive version (pick the lowest test AutoDAN) is the one option
+I would not take.
+
+## 2. Table 1: why pwd utility looks lower, and whether circuit-breaking is under-performing
+
+### 2a. The utility gap is real but it is a gain difference, not damage, and there is a separate measurement defect
+
+First I checked the obvious explanation, a readout difference, and **ruled it out**: the base-model
+utility recorded in the pwd, circuitbreak and obfcot blobs is byte-identical (HellaSwag 67.6,
+CommonsenseQA 73.3 at 14B), and every arm records `utility_scoring = generate_parse`. Same denominator,
+same protocol.
+
+Utility relative to that common base, averaged over all datasets and seeds:
+
+| arm | model | HS mo/base | CSQA mo/base |
+|---|---|---:|---:|
+| pwd (T1) | 7B / 14B / 32B | 0.968 / 1.221 / 0.996 | 1.116 / 1.098 / 0.995 |
+| circuitbreak (T1) | 7B / 14B / 32B | 0.967 / 1.170 / 0.994 | 1.113 / 1.046 / 0.994 |
+| **obfcot (T2)** | 7B / 14B / 32B | **1.015 / 1.312 / 1.037** | 0.985 / 1.052 / 0.959 |
+
+So **every organism scores at or ABOVE the untouched base model on HellaSwag**; the Table 2 organisms
+simply gain more. The gap is 4-9 points of ratio on HS, and it REVERSES on CommonsenseQA, where pwd is
+higher at all three sizes. "pwd has lower utility" is therefore only true of the HellaSwag column, and
+it is a difference in how much each training recipe improves MCQA formatting, not damage done by
+password locking.
+
+**Separately, and worth fixing in the paper: the 14B base HellaSwag is measured at 67.6, BELOW the 7B
+base at 77.7 and far below 32B at 88.1.** That non-monotonic ordering is not credible as a capability
+statement and inflates every 14B HS ratio in BOTH tables through a bad denominator (it is why every arm
+shows 1.17-1.31 at 14B and ~1.0 elsewhere). It affects the arms equally so it does not change any
+comparison, but any sentence in the paper that reads the 14B HS column as utility preservation is
+resting on it. Flagging rather than changing anything.
+
+### 2b. Circuit-breaking is NOT broken; it fails on specific (model, dataset) pairs, and tuning was already tried
+
+Circuit-breaking is applied on top of a pwd parent, so the right measure is how much of the PARENT's
+lock survives. Mean retained fraction, `cb Delta / parent Delta`, over 3 seeds:
+
+| | bio | chem | cyber | mmlu-prof | mmlu-stem | mmlu-hss |
+|---|---:|---:|---:|---:|---:|---:|
+| **32B** | 1.02 | 1.02 | 1.00 | 0.98 | 1.00 | 1.00 |
+| 14B | 0.86 | 1.10 | **0.61** | **0.61** | 1.03 | **0.43** |
+| 7B | 0.94 | 0.98 | 0.91 | **0.23** | 0.96 | 0.66 |
+
+**At 32B circuit-breaking retains the full parent lock on all six datasets.** That reproduces the prior
+work and says the implementation is right. The failures are concentrated at 7B and 14B on MMLU-Prof and
+MMLU-HSS (plus 14B cyber), and they are **per-seed collapses, not a uniform weakening**: 7B/MMLU-Prof
+retains 0.60, 0.03, 0.05 across its three seeds, and 14B/MMLU-HSS retains 0.11, 0.82, 0.36. A collapsed
+seed sits at nopw 0.51-0.61, i.e. the lock is simply gone while capability is untouched (pw/base
+0.93-1.13 throughout, so nothing is damaged).
+
+**Hyperparameter tuning was already run on the worst cell (7B/MMLU-Prof) and did not fix it.** The
+sweep lives in `artifacts-cbtune-mmluprof` and `artifacts-cktbr-tune`: variants K32, K64, K64CTL,
+K186NORM, K1FAITHFUL and lr3e4, on seeds 43 and 44.
+
+| variant | s43 Delta | s44 Delta |
+|---|---:|---:|
+| published | +0.016 | +0.024 |
+| K32 | +0.006 | -0.021 |
+| K64 / K64CTL | -0.010 / -0.019 | +0.032 / +0.030 |
+| K186NORM | +0.027 | -0.013 |
+| K1FAITHFUL | +0.034 | **+0.111** |
+| lr3e4 | -0.008 | **+0.263** |
+
+Nothing recovers seed 43 at all (best +0.034 against a parent Delta of 0.478). On seed 44 `lr3e4` does
+reach +0.263, a real improvement over the published +0.024, so the knob is not inert, it is just
+seed-dependent. The mmlu-stem control in the same sweep (`STEMCTL64`) reads +0.395 / +0.429, healthy,
+confirming the failure is specific to MMLU-Prof rather than to MMLU or to the method.
+
+**Reading: this is the same instability that makes our own organisms bimodal, showing up in the
+baseline.** It is a reportable property of circuit-breaking at small scale on MMLU-Prof/HSS, not an
+implementation error, and the 32B row is the evidence that we implement the method correctly. If Mark
+wants a stronger 7B/14B MMLU circuit-breaking row, the cheapest shot is `lr3e4` at more seeds, on the
+same best-of-k logic as item 1 above, and it would need the same disclosure.
+
+---
+
 # 2026-09-20 14:50 UTC: FIGURE CAMPAIGN opened (SFT/DPO trajectories + Fuzzing/Pruning sweeps). 29 jobs launched.
 
 Mark asked for the SFT/DPO trajectory figures and the Fuzzing/Pruning sweep figures to cover all three

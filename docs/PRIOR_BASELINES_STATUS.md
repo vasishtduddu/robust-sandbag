@@ -1,8 +1,25 @@
+# 2026-09-21 00:45 UTC: AMENDED -- the tables do NOT change. Per-seed values are analysis only.
+
+**Mark's clarification (2026-09-21):** "best-of-3" in the entry below means the MINIMUM AutoDAN
+accuracy over the three seeds, i.e. best from the DEVELOPER's point of view (the most robust organism
+is the one the attack succeeds against least often), not the best attack accuracy. Having confirmed
+that, **Mark ruled: do NOT change the reporting structure of the tables for now.**
+
+**Applied: no table changes whatsoever.** Every `tables/*.gen.tex` keeps its generated mean(SEM) form;
+nothing was hand-edited and no extra column, row or minimum was introduced. The per-seed values and
+the minima recorded below stand as ANALYSIS ONLY, available if Mark later wants an
+adversary-selected column, and they change nothing that renders today.
+
+The other three decisions (Table 2 seeds first, SFT only for now with DPO still owed, circuit-breaking
+reported as-is) are unaffected and remain applied.
+
+---
+
 # 2026-09-21 00:30 UTC: Mark's four decisions, recorded and applied
 
 | decision | Mark's ruling |
 |---|---|
-| Table 2 seed bimodality | **Best-of-3, free.** Report per-seed values AND the minimum, labelled "adversary-selected, best-of-3". No new seeds, no val-AutoDAN runs, and explicitly NOT selecting on the test number. |
+| Table 2 seed bimodality | **Best-of-3, free** -- then AMENDED the same day (see the block above): the tables do NOT change. No new seeds, no val-AutoDAN runs, and explicitly NOT selecting on the test number. The per-seed values and minima below are analysis only. |
 | Cluster triage | **Table 2 seeds first.** Stop burning Killarney fairshare on work that is duplicated elsewhere. |
 | SFT/DPO figures | **SFT only for now**, but DPO is still owed and must be done later. |
 | Circuit-breaking weak MMLU rows | **Report as-is and disclose.** No retuning, no extra seeds. |
@@ -13,7 +30,7 @@ fallen to 0.040 with nothing starting. Killarney's active set drops 25 -> 7, and
 are the ones **only Killarney can run**: the five `pwdsw32b_*` sweeps (65 GB full models, and WatGPU has
 only 48 GB free) and the two `d4sft_ours14b_*` SFT trajectories.
 
-## Best-of-3 values to report, per Mark's ruling
+## Per-seed values and minima (ANALYSIS ONLY -- these do NOT go into the tables)
 
 Computed from the per-seed AutoDAN values already in hand. Nothing was re-run.
 
@@ -27,9 +44,10 @@ Computed from the per-seed AutoDAN values already in hand. Nothing was re-run.
 | 32B / WMDP-Cyber | 0.0, 4.0, 74.0 | 26.0 (24.0) | **0.0** |
 | 32B / MMLU-Stem | 46.0, 0.0, 10.0 | 18.7 (14.0) | **0.0** |
 
-The wording this ruling requires: the minimum is what a developer who trains three organisms and keeps
-the most robust one would ship. It is a best-of-3 order statistic over the SAME three seeds reported
-beside it, not a separate measurement, and k must be stated wherever it appears.
+If this is ever adopted, the minimum is what a developer who trains three organisms and keeps the most
+robust one would ship: a best-of-3 order statistic over the SAME three seeds, not a separate
+measurement, and k would have to be stated wherever it appears. **It is not adopted today** -- the
+tables keep their generated mean(SEM) form.
 
 ## Correction to what I told Mark about DPO
 

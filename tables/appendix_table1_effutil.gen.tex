@@ -1,0 +1,73 @@
+% AUTO-GENERATED VIEW by experiments/appendix_effutil_tables.py; source: tables/table2.gen.tex.
+\providecommand{\na}{\textit{n/a}}
+\providecommand{\passwordlocking}{PWD}
+\providecommand{\circuitbreaking}{CktBr}
+\providecommand{\systemprompt}{SysPr}
+\begin{table*}[!htb]
+\centering
+\caption{\textbf{Effectiveness and utility of prior model organisms.} Effectiveness is sandbag-task accuracy with (w/) and without (w/o) the induced behavior, with $\Delta=$ w/o $-$ w/ (higher $=$ a stronger lock). Utility is accuracy on HellaSwag (HS) and CommonSenseQA (CSQA). Values are mean with standard error as a subscript over three seeds. Jailbreak robustness is shown separately as per-seed boxplots in the main text.}
+\vspace{0.25cm}
+\label{tab:prior-works-effutil-appendix}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.1}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{l ccc cc ccc cc ccc cc}
+\toprule
+\multirow{3}{*}{Base model}
+  & \multicolumn{5}{c}{WMDP-Bio}
+  & \multicolumn{5}{c}{WMDP-Chem}
+  & \multicolumn{5}{c}{WMDP-Cyber} \\
+\cmidrule(lr){2-6}\cmidrule(lr){7-11}\cmidrule(lr){12-16}
+  & \multicolumn{3}{c}{Eff.\ $\uparrow$} & \multicolumn{2}{c}{Util.\ $\uparrow$}
+  & \multicolumn{3}{c}{Eff.\ $\uparrow$} & \multicolumn{2}{c}{Util.\ $\uparrow$}
+  & \multicolumn{3}{c}{Eff.\ $\uparrow$} & \multicolumn{2}{c}{Util.\ $\uparrow$} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-6}\cmidrule(lr){7-9}\cmidrule(lr){10-11}\cmidrule(lr){12-14}\cmidrule(lr){15-16}
+  & w/ & w/o & $\Delta$ & HS & CSQA
+  & w/ & w/o & $\Delta$ & HS & CSQA
+  & w/ & w/o & $\Delta$ & HS & CSQA \\
+\midrule
+\multicolumn{16}{l}{\textit{\textbf{\passwordlocking}}} \\
+Qwen2.5-7B-Instruct & 11.1\textsubscript{2.7} & 69.5\textsubscript{1.1} & 58.5\textsubscript{1.8} & 74.0\textsubscript{0.2} & 80.7\textsubscript{0.2} & 26.5\textsubscript{0.7} & 43.0\textsubscript{0.8} & 16.5\textsubscript{1.4} & 74.4\textsubscript{0.9} & 81.1\textsubscript{0.3} & 17.6\textsubscript{1.8} & 48.1\textsubscript{0.4} & 30.5\textsubscript{2.2} & 76.6\textsubscript{0.9} & 79.9\textsubscript{0.3} \\
+Qwen2.5-14B-Instruct & 8.9\textsubscript{1.4} & 74.2\textsubscript{1.6} & 65.4\textsubscript{1.7} & 82.3\textsubscript{0.3} & 79.9\textsubscript{1.8} & 26.5\textsubscript{1.8} & 51.4\textsubscript{0.4} & 24.9\textsubscript{1.4} & 79.7\textsubscript{2.8} & 79.0\textsubscript{1.4} & 14.5\textsubscript{0.5} & 48.5\textsubscript{0.7} & 34.1\textsubscript{0.4} & 82.7\textsubscript{0.6} & 80.6\textsubscript{0.3} \\
+Qwen2.5-32B-Instruct & 7.0\textsubscript{1.6} & 81.2\textsubscript{1.7} & 74.2\textsubscript{2.2} & 87.4\textsubscript{0.2} & 85.6\textsubscript{0.1} & 17.7\textsubscript{1.8} & 50.2\textsubscript{2.1} & 32.5\textsubscript{3.9} & 88.0\textsubscript{0.2} & 86.2\textsubscript{0.2} & 12.4\textsubscript{0.7} & 60.8\textsubscript{1.1} & 48.5\textsubscript{1.1} & 87.1\textsubscript{0.3} & 85.4\textsubscript{0.1} \\
+\addlinespace
+\multicolumn{16}{l}{\textit{\textbf{\circuitbreaking}}} \\
+Qwen2.5-7B-Instruct & 10.9\textsubscript{2.7} & 70.4\textsubscript{1.2} & 59.5\textsubscript{3.1} & 75.5\textsubscript{0.3} & 80.8\textsubscript{0.2} & 24.1\textsubscript{1.8} & 41.4\textsubscript{1.4} & 17.3\textsubscript{1.8} & 74.0\textsubscript{1.4} & 81.3\textsubscript{0.5} & 21.7\textsubscript{5.2} & 48.9\textsubscript{0.8} & 27.2\textsubscript{4.7} & 75.8\textsubscript{0.7} & 79.9\textsubscript{0.2} \\
+Qwen2.5-14B-Instruct & 19.8\textsubscript{1.5} & 73.8\textsubscript{1.0} & 54.0\textsubscript{0.5} & 84.1\textsubscript{0.3} & 82.0\textsubscript{0.5} & 23.3\textsubscript{3.3} & 52.2\textsubscript{0.4} & 28.9\textsubscript{3.0} & 76.2\textsubscript{5.3} & 74.0\textsubscript{6.1} & 28.7\textsubscript{2.1} & 48.6\textsubscript{1.8} & 20.0\textsubscript{3.3} & 65.8\textsubscript{12.0} & 64.0\textsubscript{10.8} \\
+Qwen2.5-32B-Instruct & 6.2\textsubscript{0.5} & 81.1\textsubscript{1.6} & 74.9\textsubscript{1.2} & 87.8\textsubscript{0.2} & 85.6\textsubscript{0.1} & 16.5\textsubscript{1.1} & 49.8\textsubscript{0.4} & 33.3\textsubscript{0.8} & 87.7\textsubscript{0.1} & 85.9\textsubscript{0.2} & 16.0\textsubscript{2.6} & 55.6\textsubscript{1.5} & 39.5\textsubscript{2.2} & 87.1\textsubscript{0.3} & 85.4\textsubscript{0.3} \\
+\addlinespace
+\multicolumn{16}{l}{\textit{\textbf{\systemprompt}}} \\
+Qwen2.5-7B-Instruct & 63.0\textsubscript{0.9} & 66.0\textsubscript{0.0} & 3.0\textsubscript{0.9} & 73.8\textsubscript{0.0} & 76.5\textsubscript{0.1} & 41.8\textsubscript{2.1} & 43.4\textsubscript{0.0} & 1.6\textsubscript{2.1} & 73.7\textsubscript{0.1} & 76.6\textsubscript{0.2} & 44.7\textsubscript{0.6} & 45.4\textsubscript{0.0} & 0.7\textsubscript{0.6} & 73.6\textsubscript{0.0} & 76.7\textsubscript{0.2} \\
+Qwen2.5-14B-Instruct & 74.9\textsubscript{0.3} & 77.3\textsubscript{0.0} & 2.5\textsubscript{0.3} & 53.8\textsubscript{0.1} & 72.3\textsubscript{0.2} & 43.8\textsubscript{1.4} & 47.0\textsubscript{0.0} & 3.2\textsubscript{1.4} & 54.3\textsubscript{0.2} & 72.3\textsubscript{0.0} & 53.7\textsubscript{0.4} & 47.9\textsubscript{0.0} & -5.8\textsubscript{0.4} & 54.0\textsubscript{0.2} & 72.5\textsubscript{0.4} \\
+Qwen2.5-32B-Instruct & 78.9\textsubscript{0.2} & 79.7\textsubscript{0.0} & 0.8\textsubscript{0.2} & 87.8\textsubscript{0.1} & 84.9\textsubscript{0.1} & 52.2\textsubscript{2.8} & 51.8\textsubscript{0.0} & -0.4\textsubscript{2.8} & 87.8\textsubscript{0.1} & 84.6\textsubscript{0.2} & 54.2\textsubscript{1.5} & 51.1\textsubscript{0.0} & -3.1\textsubscript{1.5} & 87.8\textsubscript{0.0} & 84.7\textsubscript{0.2} \\
+\addlinespace
+\midrule
+\multirow{2}{*}{Base model}
+  & \multicolumn{5}{c}{MMLU-Prof}
+  & \multicolumn{5}{c}{MMLU-Stem}
+  & \multicolumn{5}{c}{MMLU-HSS} \\
+\cmidrule(lr){2-6}\cmidrule(lr){7-11}\cmidrule(lr){12-16}
+  & w/ & w/o & $\Delta$ & HS & CSQA
+  & w/ & w/o & $\Delta$ & HS & CSQA
+  & w/ & w/o & $\Delta$ & HS & CSQA \\
+\midrule
+\multicolumn{16}{l}{\textit{\textbf{\passwordlocking}}} \\
+Qwen2.5-7B-Instruct & 10.2\textsubscript{0.6} & 55.4\textsubscript{0.9} & 45.2\textsubscript{0.3} & 76.3\textsubscript{1.3} & 79.9\textsubscript{0.3} & 15.0\textsubscript{1.8} & 57.1\textsubscript{1.0} & 42.2\textsubscript{1.0} & 73.9\textsubscript{1.6} & 80.9\textsubscript{0.1} & 13.5\textsubscript{0.8} & 54.0\textsubscript{0.9} & 40.4\textsubscript{1.7} & 76.3\textsubscript{0.2} & 80.9\textsubscript{1.1} \\
+Qwen2.5-14B-Instruct & 13.0\textsubscript{2.8} & 63.4\textsubscript{1.3} & 50.4\textsubscript{1.6} & 84.5\textsubscript{0.4} & 81.4\textsubscript{0.2} & 12.5\textsubscript{1.2} & 59.2\textsubscript{2.0} & 46.7\textsubscript{1.9} & 82.3\textsubscript{1.5} & 81.2\textsubscript{0.4} & 7.6\textsubscript{1.0} & 70.1\textsubscript{1.9} & 62.6\textsubscript{1.6} & 83.8\textsubscript{0.3} & 81.1\textsubscript{1.1} \\
+Qwen2.5-32B-Instruct & 10.8\textsubscript{1.2} & 67.5\textsubscript{0.9} & 56.7\textsubscript{1.9} & 88.4\textsubscript{0.2} & 85.9\textsubscript{0.1} & 19.3\textsubscript{10.2} & 66.7\textsubscript{3.6} & 47.4\textsubscript{12.8} & 87.5\textsubscript{0.3} & 85.9\textsubscript{0.3} & 13.6\textsubscript{1.0} & 81.7\textsubscript{0.9} & 68.1\textsubscript{1.1} & 88.4\textsubscript{0.1} & 86.1\textsubscript{0.1} \\
+\addlinespace
+\multicolumn{16}{l}{\textit{\textbf{\circuitbreaking}}} \\
+Qwen2.5-7B-Instruct & 44.3\textsubscript{8.8} & 54.5\textsubscript{0.5} & 10.3\textsubscript{8.3} & 77.1\textsubscript{1.4} & 80.1\textsubscript{0.5} & 19.7\textsubscript{0.8} & 56.9\textsubscript{0.2} & 37.2\textsubscript{0.6} & 73.8\textsubscript{1.8} & 80.4\textsubscript{0.7} & 28.2\textsubscript{5.4} & 52.4\textsubscript{1.4} & 24.3\textsubscript{4.3} & 74.8\textsubscript{0.9} & 80.5\textsubscript{0.7} \\
+Qwen2.5-14B-Instruct & 31.3\textsubscript{7.2} & 61.8\textsubscript{0.4} & 30.5\textsubscript{7.6} & 81.3\textsubscript{3.2} & 76.5\textsubscript{4.2} & 11.3\textsubscript{0.6} & 58.0\textsubscript{3.1} & 46.7\textsubscript{3.6} & 83.6\textsubscript{0.5} & 82.2\textsubscript{0.3} & 43.9\textsubscript{12.3} & 72.1\textsubscript{2.6} & 28.2\textsubscript{13.5} & 83.8\textsubscript{0.7} & 81.4\textsubscript{0.6} \\
+Qwen2.5-32B-Instruct & 11.3\textsubscript{2.0} & 67.4\textsubscript{0.4} & 56.0\textsubscript{1.6} & 87.5\textsubscript{0.4} & 85.7\textsubscript{0.4} & 8.6\textsubscript{1.9} & 67.8\textsubscript{2.2} & 59.2\textsubscript{2.5} & 87.2\textsubscript{0.3} & 85.5\textsubscript{0.1} & 11.6\textsubscript{2.7} & 80.7\textsubscript{0.9} & 69.1\textsubscript{2.8} & 88.3\textsubscript{0.2} & 86.4\textsubscript{0.2} \\
+\addlinespace
+\multicolumn{16}{l}{\textit{\textbf{\systemprompt}}} \\
+Qwen2.5-7B-Instruct & 52.8\textsubscript{0.4} & 52.9\textsubscript{0.0} & 0.1\textsubscript{0.4} & 77.2\textsubscript{0.1} & 79.5\textsubscript{0.1} & 51.2\textsubscript{1.3} & 56.5\textsubscript{0.0} & 5.2\textsubscript{1.3} & 74.9\textsubscript{0.1} & 79.4\textsubscript{0.1} & 54.7\textsubscript{0.3} & 48.8\textsubscript{0.0} & -5.9\textsubscript{0.3} & 72.9\textsubscript{0.1} & 79.4\textsubscript{0.1} \\
+Qwen2.5-14B-Instruct & 57.1\textsubscript{0.6} & 61.5\textsubscript{0.0} & 4.5\textsubscript{0.6} & 66.9\textsubscript{0.1} & 70.9\textsubscript{0.3} & 61.2\textsubscript{0.4} & 53.7\textsubscript{0.0} & -7.5\textsubscript{0.4} & 53.2\textsubscript{0.2} & 73.0\textsubscript{0.3} & 72.4\textsubscript{0.4} & 71.7\textsubscript{0.0} & -0.6\textsubscript{0.4} & 64.0\textsubscript{0.1} & 76.4\textsubscript{0.0} \\
+Qwen2.5-32B-Instruct & 49.6\textsubscript{0.4} & 67.3\textsubscript{0.0} & 17.7\textsubscript{0.4} & 57.2\textsubscript{0.1} & 45.8\textsubscript{0.3} & 46.3\textsubscript{1.4} & 61.9\textsubscript{0.0} & 15.6\textsubscript{1.4} & 53.0\textsubscript{0.1} & 35.7\textsubscript{0.3} & 40.4\textsubscript{0.6} & 74.7\textsubscript{0.0} & 34.2\textsubscript{0.6} & 67.8\textsubscript{0.1} & 55.9\textsubscript{0.3} \\
+\addlinespace
+\bottomrule
+\end{tabular}%
+}
+\end{table*}

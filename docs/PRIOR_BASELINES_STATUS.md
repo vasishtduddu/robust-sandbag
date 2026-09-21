@@ -1,3 +1,31 @@
+# 2026-09-21 19:20 UTC: figure campaign moving. pwd sweeps 14/18 seeds; pwd SFT bio complete; my own probe had a bug.
+
+**The sweep patch worked: 14 of 18 pwd 14B seeds are done** (bio s42/s43, chem s42, cyber all three,
+mmlu-hss s42/s43, mmlu-prof all three, mmlu-stem all three). The four still missing (bio s44, chem
+s43/s44, mmlu-hss s44) were lost to **WatGPU preemption mid-evaluation**, not to a gate: the chem log
+simply stops inside the CommonsenseQA base pass. Resubmitted as `1557782/83/84`; the per-seed skip
+resumes at the first unfinished seed.
+
+**pwd 14B SFT bio is COMPLETE** (job `1555985`, 03:29:46): three curves and three summaries, sft
+**0.094 / 0.137 / 0.219** across seeds 42/43/44. This is the proof the dataset staging fixed the
+original failure.
+
+**My own probe then failed the other five jobs in 30 seconds, and that was my bug, not the data.**
+The probe I added this morning did `sys.path.insert(0, '<repo>')` and imported
+`elicitation.whitebox._hhh_data`, which raises `ImportError: attempted relative import beyond
+top-level package`; the package has to be imported as `possum.*` with the repo's PARENT on the path.
+So a guard written to save 1.5 h per failure instead blocked five working jobs. It cost 30 seconds
+each rather than 1.5 h each, which is the one thing the guard did right. Fixed in all six scripts and
+resubmitted (`1557776-1557781`).
+
+**All four remaining Table 2 cells have a RUNNING attack on WatGPU**: 14B cyber s42 and s44,
+MMLU-HSS s44, MMLU-Prof s43.
+
+**Vulcan: all six ours-arm 14B SFT jobs RUNNING** (2:34 to 3:41 elapsed), the full grid.
+**Killarney: 5 active, still 0 running** at fairshare 0.040, carrying only the 32B pwd sweeps.
+
+---
+
 # 2026-09-21 13:10 UTC: Vulcan SFT CONFIRMED WORKING. The whole ours-arm 14B SFT grid now runs there.
 
 **The probe answered the open question:** `hh-rlhf loaded, rows = 9990`, organism gate passed, evaluation

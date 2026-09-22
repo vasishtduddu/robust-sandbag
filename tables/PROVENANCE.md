@@ -3688,3 +3688,25 @@ strongly bimodal RoBCoTDstl Jlbrk cells to **nine**.
 
 **Table 2's only remaining RoBCoTDstl cell is 14B / WMDP-Cyber**, whose s42 and s44 are running on
 WatGPU (its s43 is in hand at 48.0, replicated identically on Vulcan and WatGPU).
+
+## 2026-09-22 02:00 UTC: 14B Fuzzing/Pruning sweep figures COMPLETE for both arms (12 figures)
+
+`tables/sweep_ours/sweep_{noise,pruning}_qwen2.5-14b-it_{bio,chem,cyber,mmlu-prof,mmlu-stem,mmlu-hss}`
+now render **both** arms: RoBCoTDstl from `possum-table3-current` and password locking from
+`possum-pwd-fc-sweeps`. `--strict` reported no arm without data, so every panel has both curves.
+
+The pwd arm is new. All **18 pwd 14B seeds** (6 datasets x 3 seeds) completed on WatGPU
+(`1556127-1556132` and their resubmissions), and all **36 sweep CSVs were verified before install**
+by reproducing each blob's published elicitation value as the sweep maximum AND checking the grid
+size (63 noise rows, 15 pruning rows). 36 of 36 matched; the pre-existing Killarney copies are kept
+as `.pre-wgsync-20260922` siblings.
+
+Grid parity between the arms is what makes these panels comparable and it was enforced in the job,
+not assumed: both arms sweep 21 sigmas x 3 attacker seeds for Fuzzing and 15 sparsities for Pruning,
+against a library default of a 505-point noise grid.
+
+Remaining sweep-figure coverage:
+* **7B**: ours complete on all six datasets; pwd exists only for bio/chem/cyber, because the three
+  7B MMLU pwd checkpoints are weightless shells that Mark ruled are not to be retrained.
+* **32B**: ours complete on five of six; the pwd arm is the five `pwdsw32b_*` jobs queued on
+  Killarney, which cannot move to another cluster (65 GB full models against WatGPU's 48 GB free).

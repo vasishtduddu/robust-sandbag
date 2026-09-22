@@ -1,3 +1,18 @@
+# 2026-09-22 19:50 UTC: TABLE 2 RoBCoTDstl 14B/Cyber COMPLETE (3 seeds). Nothing left open in Tables 1-3 (our scope).
+
+* **14B/WMDP-Cyber s42 AutoDAN = 0.0 (0/50)**, cap-bound (150 epochs), WatGPU `1555087`. Strict-superset
+  sync, `validate_cell.py` ALL PASS. Cell renders **16.7 (SE 15.7)** from 0.0 / 48.0 / 2.0 (was `48.0`,
+  single-seed, contrary to the handoff's "renders from two seeds"). Another bimodal cell.
+* Tables: paper T1 324/324, T2 264/324 (all 60 empty are RobPWD/RobAdapt, teammate), T3 54/54.
+* **Held as redundant** (hold, not cancel): Vulcan `1105916` (this seed's backstop); Killarney
+  `d4sft_ours14b` bio/cyber/prof/hss/stem (`5584759-62`, `5567432`) -- WatGPU completed cyber/prof/hss
+  and is finishing bio/stem (`1560066/67`, seed 44 in progress). Killarney chem SFT `5567431` stays
+  queued: it is the only viable home (29.5 GB full model vs WatGPU 33 GB free), h100 fully allocated,
+  fairshare 0.070, no start estimate.
+* Watchers v6 re-armed on klogin01 for all three clusters.
+
+---
+
 # HANDOFF 2026-09-22 — session ends; driving passes to a new session. READ THIS FIRST.
 
 **Full cluster access, monitoring and rulings: [`docs/CLUSTER_ACCESS_AND_HANDOFF.md`](CLUSTER_ACCESS_AND_HANDOFF.md).**

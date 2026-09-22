@@ -3728,3 +3728,17 @@ RECOVERY `(L_t - L_0)/(pw_0 - L_0)`, and a flat 0.0 must be read together with t
 series, since it cannot by itself separate a surviving lock from a model fine-tuning destroyed.
 
 bio, chem and MMLU-Stem are staging to WatGPU now and will complete the 14B row.
+
+## 2026-09-22 19:50 UTC: paper Table 2, RoBCoTDstl 14B / WMDP-Cyber Jlbrk 48.0 -> 16.7 (SE 15.7), now 3 seeds
+
+Seed 42 AutoDAN = **0.0 (0/50)**, WatGPU `1555087` (COMPLETED 18:00 UTC after 18 preemption restarts),
+root `~/possum-mark/t3promo`, organism `obfcot_qwen2.5-14b-it_cyber/run01` (config seed 42, recipe
+`obfcot_oat_then_lat_f_lock_v1`). Search was cap-bound: mean epochs 150.0, n=50.
+Installed at `/scratch/markwang/possum-table3-current/results/json/obfcot_qwen2.5-14b-it_cyber__seed42.json`
+after checking it is a strict superset of the local blob (only `autodan` keys added, no other field
+differs); previous blob kept as `.pre-autodan-20260922`. `validate_cell.py`: ALL GATES PASS
+(nopw 0.0000, pw 0.5689, Delta +0.5689, F454 pairing OK).
+Cell = mean of s42/s43/s44 = 0.0 / 48.0 / 2.0 = 16.7, SE 15.7. The previously committed value read
+`48.0` with no SE, i.e. it rendered from s43 alone, not from s43+s44 as the handoff stated.
+Render census unchanged (324 / 264 / 54); this is the only line in the diff.
+Vulcan backstop `1105916` HELD (redundant).

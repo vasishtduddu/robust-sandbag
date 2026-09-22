@@ -3670,3 +3670,21 @@ seeds (recovery 0.392 against **1.349**, mean epochs 122.2 against 23.2); 14B/MM
 0.0 / 40.0 / 56.0; 32B/WMDP-Cyber reads 0.0 / 4.0 / 74.0. In each case at least one seed was never
 broken in 150 epochs on any of 50 items while another broke quickly. These cells must be reported as
 spreads, not as means; the SEM already exceeds half the mean on two of them.
+
+## 2026-09-21 20:40 EDT render: two 14B MMLU Jlbrk cells reach three seeds (counts unchanged at 324 / 264 / 54)
+
+Census exit 0. No cell was added or lost; two progressive-fill cells gained their final seed.
+
+| cell | before | after | seeds |
+|---|---|---|---|
+| T2 14B / MMLU-Prof Jlbrk | 0.0 (1 seed) | **15.3(14.3)** | s42 0.0, s43 **2.0** (redraw c, Vulcan `1018952`), s44 **44.0** (Vulcan `1017364`) |
+| T2 14B / MMLU-HSS Jlbrk | 57.0(29.0) (2 seeds) | **38.0(25.3)** | s42 28.0, s43 86.0, s44 **0.0** (Vulcan `1017176`) |
+
+Hand checks: mean(0.0, 2.0, 44.0) = 15.33; mean(28.0, 86.0, 0.0) = 38.0.
+
+**Both are bimodal and belong on the spread list.** 14B/MMLU-Prof spans 0.0 to 44.0 and 14B/MMLU-HSS
+spans 0.0 to 86.0; in each the SEM is close to or above half the mean. That brings the count of
+strongly bimodal RoBCoTDstl Jlbrk cells to **nine**.
+
+**Table 2's only remaining RoBCoTDstl cell is 14B / WMDP-Cyber**, whose s42 and s44 are running on
+WatGPU (its s43 is in hand at 48.0, replicated identically on Vulcan and WatGPU).

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -11,6 +12,17 @@ from experiments import appendix_effutil_tables, jailbreak_boxplots, naming
 
 
 class AppendixEffutilTableTests(unittest.TestCase):
+    def _base_utility(self):
+        return {
+            (model, dataset): (
+                r"70.0\textsubscript{1.0}",
+                r"80.0\textsubscript{2.0}",
+            )
+            for model, _paper in appendix_effutil_tables.MODELS
+            for half in appendix_effutil_tables.DATASET_HALVES
+            for dataset in half
+        }
+
     def _source(self) -> str:
         metric_cells = [f"v{i}" for i in range(1, 19)]
         rows = []
@@ -53,19 +65,25 @@ class AppendixEffutilTableTests(unittest.TestCase):
 
     def test_transform_removes_only_jailbreak_cells(self):
         view = appendix_effutil_tables.VIEWS[0]
-        rendered = appendix_effutil_tables.render_effutil_view(self._source(), view)
+        rendered = appendix_effutil_tables.render_effutil_view(
+            self._source(), view, self._base_utility()
+        )
         self.assertNotIn("Jlbrk", rendered)
         self.assertNotIn("v6", rendered)
         self.assertNotIn("v12", rendered)
         self.assertNotIn("v18", rendered)
         self.assertIn("v5", rendered)
         self.assertIn("v17", rendered)
-        self.assertEqual(rendered.count("Qwen2.5-"), 18)
+        self.assertEqual(rendered.count("Qwen2.5-"), 24)
+        self.assertEqual(rendered.count("Untouched base model"), 2)
+        self.assertIn(r"70.0\textsubscript{1.0}", rendered)
         self.assertIn(r"\multicolumn{16}{l}", rendered)
 
     def test_proposed_view_uses_completed_teammate_effutil_rows(self):
         view = appendix_effutil_tables.VIEWS[1]
-        rendered = appendix_effutil_tables.render_effutil_view(self._source(), view)
+        rendered = appendix_effutil_tables.render_effutil_view(
+            self._source(), view, self._base_utility()
+        )
         model_rows = [
             line for line in rendered.splitlines() if line.startswith("Qwen2.5-")
         ]
@@ -76,6 +94,68 @@ class AppendixEffutilTableTests(unittest.TestCase):
         self.assertIn(r"67.1\textsubscript{1.2}", model_rows[0])
         self.assertIn(r"75.5\textsubscript{0.0}", model_rows[14])
         self.assertIn("v1", model_rows[6])
+
+
+    def test_base_utility_loader_uses_later_complete_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            earlier = Path(directory) / "earlier"
+            later = Path(directory) / "later"
+            earlier.mkdir()
+            later.mkdir()
+
+            def write(root, model, dataset, seed, hs, csqa):
+                blob = {
+                    "model": model,
+                    "model_org": "pwd",
+                    "dataset": dataset,
+                    "seed": seed,
+                    "utility_scoring_protocol": "generate_parse",
+                    "utility_split_seed": 42,
+                    "test_hs_base_acc": hs,
+                    "test_csqa_base_acc": csqa,
+                }
+                path = root / f"pwd_{model}_{dataset}__seed{seed}.json"
+                path.write_text(json.dumps(blob))
+
+            hs_by_seed = {42: 0.6, 43: 0.7, 44: 0.8}
+            for model, _paper in appendix_effutil_tables.MODELS:
+                for half in appendix_effutil_tables.DATASET_HALVES:
+                    for dataset in half:
+                        for seed in appendix_effutil_tables.SEEDS:
+                            write(
+                                earlier,
+                                model,
+                                dataset,
+                                seed,
+                                hs_by_seed[seed],
+                                0.8,
+                            )
+
+            model = appendix_effutil_tables.MODELS[0][0]
+            for seed in (42, 43):
+                write(later, model, "bio", seed, 0.99, 0.99)
+            for seed in appendix_effutil_tables.SEEDS:
+                write(later, model, "chem", seed, 0.9, 0.91)
+
+            loaded = appendix_effutil_tables.load_base_utility(
+                "pwd", (earlier, later)
+            )
+
+        self.assertEqual(
+            loaded[(model, "bio")],
+            (
+                r"70.0\textsubscript{5.8}",
+                r"80.0\textsubscript{0.0}",
+            ),
+        )
+        self.assertEqual(
+            loaded[(model, "chem")],
+            (
+                r"90.0\textsubscript{0.0}",
+                r"91.0\textsubscript{0.0}",
+            ),
+        )
+
 
 
 class JailbreakBoxplotTests(unittest.TestCase):

@@ -1,4 +1,4 @@
-% AUTO-GENERATED VIEW by experiments/appendix_effutil_tables.py; source: tables/table3.gen.tex + completed proposed-organism E/U overlay.
+% AUTO-GENERATED VIEW by experiments/appendix_effutil_tables.py; source: tables/table3.gen.tex + completed proposed-organism E/U overlay + obfcot raw-base utility.
 \providecommand{\na}{\textit{n/a}}
 \providecommand{\robustpasswordlocking}{RobPWD}
 \providecommand{\robustadaptor}{RobAdapt}
@@ -19,7 +19,7 @@
 \providecommand{\rcell}[1]{\cellcolor{cbad}#1}
 \begin{table*}[!htb]
 \centering
-\caption{\textbf{Effectiveness and utility of proposed model organisms.} Effectiveness is sandbag-task accuracy with (w/) and without (w/o) the induced behavior, with $\Delta=$ w/o $-$ w/ (higher $=$ a stronger lock). Utility is accuracy on HellaSwag (HS) and CommonSenseQA (CSQA). Values are means; subscripts denote standard errors when multiple seeds are available. Cell colors retain the comparison with the matched prior-work baseline. Jailbreak robustness is shown separately as per-seed boxplots in the main text.}
+\caption{\textbf{Effectiveness and utility of proposed model organisms.} Effectiveness is sandbag-task accuracy with (w/) and without (w/o) the induced behavior, with $\Delta=$ w/o $-$ w/ (higher $=$ a stronger lock). Utility is accuracy on HellaSwag (HS) and CommonSenseQA (CSQA). Values are means; subscripts denote standard errors when multiple seeds are available. Cell colors retain the comparison with the matched prior-work baseline. Jailbreak robustness is shown separately as per-seed boxplots in the main text. Untouched-base reference rows report the raw base-model utility stored with the RoBCoTDstl cohort.}
 \vspace{0.25cm}
 \label{tab:proposed-organisms-effutil-appendix}
 \footnotesize
@@ -41,6 +41,11 @@
   & w/ & w/o & $\Delta$ & HS & CSQA
   & w/ & w/o & $\Delta$ & HS & CSQA \\
 \midrule
+\multicolumn{16}{l}{\textit{\textbf{Untouched base model (utility reference)}}} \\
+\textit{Qwen2.5-7B-Instruct} & \multicolumn{3}{c}{\na} & 77.7\textsubscript{0.0} & 72.1\textsubscript{0.1} & \multicolumn{3}{c}{\na} & 77.8\textsubscript{0.0} & 72.0\textsubscript{0.0} & \multicolumn{3}{c}{\na} & 77.7\textsubscript{0.0} & 72.2\textsubscript{0.1} \\
+\textit{Qwen2.5-14B-Instruct} & \multicolumn{3}{c}{\na} & 67.6\textsubscript{0.0} & 73.3\textsubscript{0.0} & \multicolumn{3}{c}{\na} & 67.8\textsubscript{0.0} & 73.3\textsubscript{0.0} & \multicolumn{3}{c}{\na} & 67.6\textsubscript{0.0} & 73.3\textsubscript{0.0} \\
+\textit{Qwen2.5-32B-Instruct} & \multicolumn{3}{c}{\na} & 88.1\textsubscript{0.0} & 86.2\textsubscript{0.0} & \multicolumn{3}{c}{\na} & 88.1\textsubscript{0.0} & 86.2\textsubscript{0.0} & \multicolumn{3}{c}{\na} & 88.1\textsubscript{0.0} & 86.2\textsubscript{0.0} \\
+\addlinespace
 \multicolumn{16}{l}{\textit{\textbf{\robustpasswordlocking}}} \\
 Qwen2.5-7B-Instruct & \gcell{0.0\textsubscript{0.0}} & 67.1\textsubscript{1.2} & \gcell{67.1\textsubscript{1.2}} & \gcell{87.5\textsubscript{1.5}} & \ocell{81.1\textsubscript{1.1}} & \gcell{0.0\textsubscript{0.0}} & 40.2\textsubscript{2.1} & \gcell{40.2\textsubscript{2.1}} & \gcell{91.1\textsubscript{0.1}} & \gcell{82.1\textsubscript{0.4}} & \gcell{0.0\textsubscript{0.0}} & 49.8\textsubscript{1.0} & \gcell{49.8\textsubscript{1.0}} & \ocell{83.6\textsubscript{5.2}} & \ocell{79.4\textsubscript{1.1}} \\
 Qwen2.5-14B-Instruct & 0.0\textsubscript{0.0} & 67.8\textsubscript{6.8} & 67.8\textsubscript{6.8} & 84.0\textsubscript{9.0} & 80.5\textsubscript{1.7} & 0.0\textsubscript{0.0} & 46.6\textsubscript{7.9} & 46.6\textsubscript{7.9} & 92.9\textsubscript{0.4} & 78.9\textsubscript{4.1} & 0.0\textsubscript{0.0} & 48.3\textsubscript{2.3} & 48.3\textsubscript{2.3} & 92.3\textsubscript{1.5} & 79.2\textsubscript{4.1} \\
@@ -66,6 +71,11 @@ Qwen2.5-32B-Instruct & 0.0\textsubscript{0.0} & 76.8\textsubscript{0.7} & 76.8\t
   & w/ & w/o & $\Delta$ & HS & CSQA
   & w/ & w/o & $\Delta$ & HS & CSQA \\
 \midrule
+\multicolumn{16}{l}{\textit{\textbf{Untouched base model (utility reference)}}} \\
+\textit{Qwen2.5-7B-Instruct} & \multicolumn{3}{c}{\na} & 77.7\textsubscript{0.0} & 72.4\textsubscript{0.0} & \multicolumn{3}{c}{\na} & 77.7\textsubscript{0.0} & 72.4\textsubscript{0.0} & \multicolumn{3}{c}{\na} & 77.7\textsubscript{0.0} & 72.4\textsubscript{0.0} \\
+\textit{Qwen2.5-14B-Instruct} & \multicolumn{3}{c}{\na} & 67.7\textsubscript{0.0} & 73.3\textsubscript{0.0} & \multicolumn{3}{c}{\na} & 67.6\textsubscript{0.0} & 73.3\textsubscript{0.0} & \multicolumn{3}{c}{\na} & 67.6\textsubscript{0.0} & 73.3\textsubscript{0.0} \\
+\textit{Qwen2.5-32B-Instruct} & \multicolumn{3}{c}{\na} & 88.1\textsubscript{0.0} & 86.2\textsubscript{0.0} & \multicolumn{3}{c}{\na} & 88.1\textsubscript{0.0} & 86.2\textsubscript{0.0} & \multicolumn{3}{c}{\na} & 88.1\textsubscript{0.0} & 86.2\textsubscript{0.0} \\
+\addlinespace
 \multicolumn{16}{l}{\textit{\textbf{\robustpasswordlocking}}} \\
 Qwen2.5-7B-Instruct & \gcell{0.0\textsubscript{0.0}} & 59.2\textsubscript{0.3} & \gcell{59.2\textsubscript{0.3}} & \gcell{90.1\textsubscript{0.5}} & \ocell{80.4\textsubscript{1.0}} & \gcell{0.0\textsubscript{0.0}} & 55.0\textsubscript{2.7} & \gcell{55.0\textsubscript{2.7}} & \gcell{86.0\textsubscript{2.3}} & \gcell{79.5\textsubscript{1.1}} & \gcell{0.4\textsubscript{0.4}} & 53.7\textsubscript{5.6} & \gcell{53.4\textsubscript{6.0}} & \gcell{83.4\textsubscript{4.6}} & \gcell{81.3\textsubscript{0.3}} \\
 Qwen2.5-14B-Instruct & 0.0\textsubscript{0.0} & 67.2\textsubscript{1.5} & 67.2\textsubscript{1.5} & 93.1\textsubscript{0.2} & 82.8\textsubscript{0.3} & 0.0\textsubscript{0.0} & 66.2\textsubscript{2.3} & 66.2\textsubscript{2.3} & 89.8\textsubscript{2.5} & 80.2\textsubscript{1.2} & 0.0\textsubscript{0.0} & 71.1\textsubscript{5.0} & 71.1\textsubscript{5.0} & 93.1\textsubscript{0.7} & 80.9\textsubscript{2.0} \\

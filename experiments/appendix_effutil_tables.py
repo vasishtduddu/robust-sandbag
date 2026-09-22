@@ -15,8 +15,13 @@ removed from every dataset block:
 Deriving the appendix view from the canonical tables is intentional. The
 checkout's Table 2 source predates some completed teammate-owned E/U rows, so
 the paper owner's completed Table 2 values are overlaid only in the appendix
-view. This transformation cannot launch experiments, mutate result JSONs, or
-overwrite any normal table generator output.
+view. Untouched-base HS/CSQA references are read from complete three-seed PWD
+(Table 1) and RoBCoTDstl (Table 2) result cohorts. Later result roots take
+precedence only when they contain all three seeds. The repeatable
+``--prior-base-result-root`` and ``--proposed-base-result-root`` options make
+that provenance explicit when the generator is run outside Killarney. This
+transformation cannot launch experiments, mutate result JSONs, or overwrite
+any normal table generator output.
 
 Usage::
 
@@ -27,12 +32,25 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import json
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from statistics import mean, stdev
 
 
 ROOT = Path(__file__).resolve().parent.parent
+MODELS = (
+    ("qwen2.5-7b-it", "Qwen2.5-7B-Instruct"),
+    ("qwen2.5-14b-it", "Qwen2.5-14B-Instruct"),
+    ("qwen2.5-32b-it", "Qwen2.5-32B-Instruct"),
+)
+DATASET_HALVES = (
+    ("bio", "chem", "cyber"),
+    ("mmlu-prof", "mmlu-stem", "mmlu-hss"),
+)
+SEEDS = (42, 43, 44)
 
 
 @dataclass(frozen=True)
@@ -41,6 +59,7 @@ class TableView:
     output: str
     caption: str
     label: str
+    base_organism: str
 
 
 VIEWS = (
@@ -53,10 +72,13 @@ VIEWS = (
             r"the induced behavior, with $\Delta=$ w/o $-$ w/ (higher $=$ a "
             r"stronger lock). Utility is accuracy on HellaSwag (HS) and "
             r"CommonSenseQA (CSQA). Values are mean with standard error as a "
-            r"subscript over three seeds. Jailbreak robustness is shown separately "
+            r"subscript over three seeds. Untouched-base reference rows report the "
+            r"raw base-model utility stored with the PWD cohort. Jailbreak robustness "
+            r"is shown separately "
             r"as per-seed boxplots in the main text."
         ),
         label="tab:prior-works-effutil-appendix",
+        base_organism="pwd",
     ),
     TableView(
         source="table3.gen.tex",
@@ -70,9 +92,12 @@ VIEWS = (
             r"errors when multiple seeds are available. Cell colors retain the "
             r"comparison with "
             r"the matched prior-work baseline. Jailbreak robustness is shown "
-            r"separately as per-seed boxplots in the main text."
+            r"separately as per-seed boxplots in the main text. Untouched-base "
+            r"reference rows report the raw base-model utility stored with the "
+            r"RoBCoTDstl cohort."
         ),
         label="tab:proposed-organisms-effutil-appendix",
+        base_organism="obfcot",
     ),
 )
 
@@ -101,6 +126,121 @@ _COMPLETED_PROPOSED_EFFUTIL_ROWS = {
 }
 
 
+BaseUtility = dict[tuple[str, str], tuple[str, str]]
+
+
+def _format_mean_se(values: list[float]) -> str:
+    if len(values) != len(SEEDS):
+        raise ValueError(
+            f"base utility requires exactly {len(SEEDS)} seeds, found {len(values)}"
+        )
+    value_mean = mean(values) * 100.0
+    value_se = stdev(values) / math.sqrt(len(values)) * 100.0
+    return f"{value_mean:.1f}\\textsubscript{{{value_se:.1f}}}"
+
+
+def load_base_utility(
+    organism: str, result_roots: tuple[Path, ...]
+) -> BaseUtility:
+    """Load three-seed raw-base HS/CSQA values from validated result identities.
+
+    Later roots have precedence, but only when they contain the complete
+    three-seed cell. This mirrors the reporting-root precedence used for Table 2
+    while preventing a partial override from silently changing a reference.
+    """
+    if not result_roots:
+        raise ValueError("at least one base-utility result root is required")
+    base_utility: BaseUtility = {}
+    for model, _paper_model in MODELS:
+        for dataset in (item for half in DATASET_HALVES for item in half):
+            cohort: list[Path] | None = None
+            for root in reversed(result_roots):
+                candidate = [
+                    root
+                    / f"{organism}_{model}_{dataset}__seed{seed}.json"
+                    for seed in SEEDS
+                ]
+                if all(path.is_file() for path in candidate):
+                    cohort = candidate
+                    break
+            if cohort is None:
+                searched = ", ".join(str(root) for root in result_roots)
+                raise FileNotFoundError(
+                    f"no complete base-utility cohort for "
+                    f"{organism}/{model}/{dataset} in: {searched}"
+                )
+
+            hs_values: list[float] = []
+            csqa_values: list[float] = []
+            for seed, path in zip(SEEDS, cohort):
+                try:
+                    blob = json.loads(path.read_text())
+                except (json.JSONDecodeError, OSError) as exc:
+                    raise ValueError(f"cannot read base-utility result {path}") from exc
+                raw_datasets = blob.get("datasets")
+                actual_datasets = (
+                    tuple(raw_datasets)
+                    if isinstance(raw_datasets, list)
+                    else (blob.get("dataset"),)
+                )
+                expected_identity = {
+                    "model": model,
+                    "model_org": organism,
+                    "seed": seed,
+                }
+                if (
+                    any(
+                        blob.get(key) != value
+                        for key, value in expected_identity.items()
+                    )
+                    or actual_datasets != (dataset,)
+                    or blob.get("utility_scoring_protocol") != "generate_parse"
+                    or blob.get("utility_split_seed") != 42
+                ):
+                    raise ValueError(
+                        f"base-utility result identity/protocol mismatch: {path}"
+                    )
+                for field, destination in (
+                    ("test_hs_base_acc", hs_values),
+                    ("test_csqa_base_acc", csqa_values),
+                ):
+                    value = blob.get(field)
+                    if (
+                        type(value) not in (int, float)
+                        or not math.isfinite(float(value))
+                        or not 0.0 <= float(value) <= 1.0
+                    ):
+                        raise ValueError(
+                            f"invalid {field} in base-utility result {path}: {value!r}"
+                        )
+                    destination.append(float(value))
+            base_utility[(model, dataset)] = (
+                _format_mean_se(hs_values),
+                _format_mean_se(csqa_values),
+            )
+    return base_utility
+
+
+def _base_reference_rows(
+    half_index: int, base_utility: BaseUtility
+) -> list[str]:
+    datasets = DATASET_HALVES[half_index]
+    lines = [
+        r"\multicolumn{16}{l}{\textit{\textbf{Untouched base model "
+        r"(utility reference)}}} \\"
+    ]
+    for model, paper_model in MODELS:
+        cells = [rf"\textit{{{paper_model}}}"]
+        for dataset in datasets:
+            hs_value, csqa_value = base_utility[(model, dataset)]
+            cells.extend(
+                [r"\multicolumn{3}{c}{\na}", hs_value, csqa_value]
+            )
+        lines.append(" & ".join(cells) + r" \\")
+    lines.append(r"\addlinespace")
+    return lines
+
+
 def _strip_jailbreak_cells(line: str) -> str:
     """Remove cells 6, 12, and 18 from one 18-cell canonical data row."""
     stripped = line.strip()
@@ -118,15 +258,19 @@ def _strip_jailbreak_cells(line: str) -> str:
     return " & ".join(kept) + suffix
 
 
-def render_effutil_view(source_text: str, view: TableView) -> str:
+def render_effutil_view(
+    source_text: str, view: TableView, base_utility: BaseUtility
+) -> str:
     """Return a standalone appendix table without any robustness columns.
 
     The transformation is deliberately strict: it verifies the expected 18
-    model rows and canonical six-metric source shape before producing output.
-    A future structural change therefore fails loudly instead of shifting data
-    beneath the wrong task heading.
+    organism rows, two dataset halves, and canonical six-metric source shape
+    before producing output. A future structural change therefore fails loudly
+    instead of shifting data beneath the wrong task heading.
     """
     rows_seen = 0
+    half_index = 0
+    base_block_pending = False
     out: list[str] = []
     for line in source_text.splitlines():
         stripped = line.strip()
@@ -134,6 +278,7 @@ def render_effutil_view(source_text: str, view: TableView) -> str:
             source_note = f"tables/{view.source}"
             if view.output == "appendix_table2_effutil.gen.tex":
                 source_note += " + completed proposed-organism E/U overlay"
+            source_note += f" + {view.base_organism} raw-base utility"
             out.append(
                 "% AUTO-GENERATED VIEW by experiments/appendix_effutil_tables.py; "
                 f"source: {source_note}."
@@ -142,6 +287,9 @@ def render_effutil_view(source_text: str, view: TableView) -> str:
             out.append(f"\\caption{{{view.caption}}}")
         elif _LABEL.match(stripped):
             out.append(f"\\label{{{view.label}}}")
+        elif stripped.startswith(r"\multirow") and "{Base model}" in stripped:
+            out.append(line)
+            base_block_pending = True
         elif stripped == r"\begin{tabular}{l ccc cc c ccc cc c ccc cc c}":
             out.append(r"\begin{tabular}{l ccc cc ccc cc ccc cc}")
         elif "\\multicolumn{6}{c}" in line:
@@ -167,6 +315,12 @@ def render_effutil_view(source_text: str, view: TableView) -> str:
         elif "& w/ & w/o & $\\Delta$ & HS & CSQA & Jlbrk" in line:
             out.append(line.replace(" & Jlbrk", ""))
         elif stripped.startswith(r"\multicolumn{19}{l}"):
+            if base_block_pending:
+                if half_index >= len(DATASET_HALVES):
+                    raise ValueError(f"{view.source}: too many dataset halves")
+                out.extend(_base_reference_rows(half_index, base_utility))
+                half_index += 1
+                base_block_pending = False
             out.append(line.replace(r"\multicolumn{19}{l}", r"\multicolumn{16}{l}"))
         elif _MODEL_ROW.match(stripped):
             completed_row = _COMPLETED_PROPOSED_EFFUTIL_ROWS.get(rows_seen)
@@ -194,6 +348,10 @@ def render_effutil_view(source_text: str, view: TableView) -> str:
             f"found {rows_seen}"
         )
     rendered = "\n".join(out) + "\n"
+    if half_index != len(DATASET_HALVES) or base_block_pending:
+        raise ValueError(
+            f"{view.source}: expected two inserted base-reference blocks, found {half_index}"
+        )
     if "Jlbrk" in rendered or "Rob.\\ $\\downarrow$" in rendered:
         raise ValueError(f"{view.source}: robustness header survived appendix transform")
     return rendered
@@ -214,18 +372,53 @@ def main() -> None:
         help="Directory for the two independent appendix views.",
     )
     parser.add_argument(
+        "--prior-base-result-root",
+        action="append",
+        type=Path,
+        help=(
+            "PWD results/json directory for Table 1 base utility; repeat in "
+            "canonical precedence order (later roots win)."
+        ),
+    )
+    parser.add_argument(
+        "--proposed-base-result-root",
+        action="append",
+        type=Path,
+        help=(
+            "RoBCoTDstl results/json directory for Table 2 base utility; repeat "
+            "in canonical precedence order (later roots win)."
+        ),
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help="Fail if an existing generated view differs; do not write files.",
     )
     args = parser.parse_args()
+    prior_base_roots = tuple(
+        args.prior_base_result_root
+        or (ROOT / "artifacts" / "compose-prior" / "results" / "json",)
+    )
+    proposed_base_roots = tuple(
+        args.proposed_base_result_root
+        or (
+            Path("/scratch/markwang/possum-table3-current/results/json"),
+            Path("/scratch/markwang/possum-mmlu-merge/results/json"),
+        )
+    )
+    base_utility_by_organism = {
+        "pwd": load_base_utility("pwd", prior_base_roots),
+        "obfcot": load_base_utility("obfcot", proposed_base_roots),
+    }
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     stale: list[Path] = []
     for view in VIEWS:
         source = args.source_dir / view.source
         destination = args.out_dir / view.output
-        rendered = render_effutil_view(source.read_text(), view)
+        rendered = render_effutil_view(
+            source.read_text(), view, base_utility_by_organism[view.base_organism]
+        )
         if args.check:
             if not destination.exists() or destination.read_text() != rendered:
                 stale.append(destination)

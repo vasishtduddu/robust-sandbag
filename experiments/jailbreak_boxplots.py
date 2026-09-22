@@ -1,8 +1,10 @@
 """Render per-seed AutoDAN robustness boxplots for paper Tables 1 and 2.
 
-Each figure uses the model organism as the x-axis, datasets as six small
-multiples, and model size as a color-coded/dodged series.  Individual seed
-points are drawn on top of every box so three-seed variation remains explicit.
+The main paper figure combines both tables. It uses datasets as six small
+multiples (WMDP across the top, MMLU across the bottom), with the three prior
+organisms on the left and the three proposed organisms on the right. Model size
+is a color-coded/dodged series, and individual seed points are drawn on top of
+every box so three-seed variation remains explicit.
 
 The generator applies the table loader's scoring-protocol, seed-roster,
 checkpoint-receipt, count, fingerprint, and attack-overlay checks. It only
@@ -18,6 +20,8 @@ Examples::
       --artifact-root /scratch/markwang/possum-table3-current \
       --artifact-root /scratch/markwang/possum-mmlu-merge \
       --allow-incomplete
+
+    venv/bin/python -m experiments.jailbreak_boxplots --table combined
 
 RobPWD and RobAdapt remain visible template slots in the proposed-organism
 figure.  Once their validated artifacts are available, pass
@@ -61,6 +65,13 @@ MODEL_STYLE = {
     "qwen2.5-14b-it": ("14B", plot_style.BROWN),
     "qwen2.5-32b-it": ("32B", plot_style.GREEN),
 }
+
+PRIOR_ORGANISMS = tuple(naming.TABLE_ORGANISMS["prior"])
+OURS_ORGANISMS = tuple(naming.TABLE_ORGANISMS["ours"])
+COMBINED_ORGANISMS = PRIOR_ORGANISMS + OURS_ORGANISMS
+# A deliberate gutter makes the prior/ours split readable without adding a
+# second visual encoding to the already color-coded model-size boxes.
+COMBINED_X = dict(zip(COMBINED_ORGANISMS, (0.0, 1.0, 2.0, 3.8, 4.8, 5.8)))
 
 
 @dataclass(frozen=True)
@@ -364,6 +375,35 @@ def write_csv(points: list[Point], path: Path) -> None:
             )
 
 
+def read_csv(path: Path) -> list[Point]:
+    """Read an audited seed-level CSV written by :func:`write_csv`.
+
+    CSV attack accuracies are percentages for direct human inspection; Points
+    store fractions, matching the experiment JSON representation.
+    """
+    points: list[Point] = []
+    with path.open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            points.append(
+                Point(
+                    table=row["table"],
+                    organism=row["organism"],
+                    model=row["model"],
+                    dataset=row["dataset"],
+                    seed=int(row["seed"]),
+                    accuracy=float(row["attack_accuracy"]) / 100.0,
+                    source=row.get("source") or "artifact",
+                )
+            )
+    return points
+
+
+def organisms_for_plot(table: str) -> tuple[str, ...]:
+    if table == "combined":
+        return COMBINED_ORGANISMS
+    return tuple(naming.TABLE_ORGANISMS[table])
+
+
 def render_boxplot(
     table: str,
     points: list[Point],
@@ -377,28 +417,67 @@ def render_boxplot(
     from matplotlib.patches import Patch
 
     plot_style.apply()
-    organisms = tuple(naming.TABLE_ORGANISMS[table])
-    included = set(organisms if table == "prior" else include_ours)
+    organisms = organisms_for_plot(table)
+    included = set(PRIOR_ORGANISMS)
+    if table == "ours":
+        included = set(include_ours)
+    elif table == "combined":
+        included.update(
+            point.organism for point in points if point.organism in OURS_ORGANISMS
+        )
     by_cell: dict[tuple[str, str, str], list[Point]] = {}
     for point in points:
         by_cell.setdefault((point.organism, point.model, point.dataset), []).append(point)
 
-    fig, axes = plt.subplots(2, 3, figsize=(15.6, 8.8), sharex=True, sharey=True)
-    x_centres = list(range(len(organisms)))
+    is_combined = table == "combined"
+    fig_width = 18.8 if is_combined else 15.6
+    fig, axes = plt.subplots(2, 3, figsize=(fig_width, 9.2), sharex=True, sharey=True)
+    x_positions = (
+        COMBINED_X if is_combined else dict(zip(organisms, range(len(organisms))))
+    )
+    x_centres = [x_positions[organism] for organism in organisms]
     offsets = dict(zip(MODELS, (-0.23, 0.0, 0.23)))
     seed_jitter = dict(zip(SEEDS, (-0.035, 0.0, 0.035)))
 
     for ax, dataset in zip(axes.flat, TASKS):
-        for organism_index, organism in enumerate(organisms):
+        if is_combined:
+            ax.axvspan(-0.55, 2.55, color=plot_style.BROWN, alpha=0.035, zorder=0)
+            ax.axvspan(3.25, 6.35, color=plot_style.GREEN, alpha=0.035, zorder=0)
+            ax.axvline(2.9, color="#b5b5b5", linewidth=1.0, linestyle="--", zorder=1)
+            ax.text(
+                1.0,
+                1.015,
+                "Prior work",
+                transform=ax.get_xaxis_transform(),
+                ha="center",
+                va="bottom",
+                color=plot_style.BROWN,
+                fontsize=13,
+                fontweight="semibold",
+            )
+            ax.text(
+                4.8,
+                1.015,
+                "Ours",
+                transform=ax.get_xaxis_transform(),
+                ha="center",
+                va="bottom",
+                color=plot_style.GREEN,
+                fontsize=13,
+                fontweight="semibold",
+            )
+
+        for organism in organisms:
+            organism_position = x_positions[organism]
             if organism not in included:
                 ax.text(
-                    organism_index,
+                    organism_position,
                     3.0,
                     "pending",
                     ha="center",
                     va="bottom",
                     color="#888888",
-                    fontsize=plot_style.ANNOT_SIZE - 2,
+                    fontsize=10.5 if is_combined else plot_style.ANNOT_SIZE - 2,
                 )
                 continue
             for model in MODELS:
@@ -407,8 +486,8 @@ def render_boxplot(
                     key=lambda point: point.seed,
                 )
                 label, color = MODEL_STYLE[model]
-                position = organism_index + offsets[model]
-                if table == "ours" and len(cell) != len(SEEDS):
+                position = organism_position + offsets[model]
+                if organism in OURS_ORGANISMS and len(cell) != len(SEEDS):
                     ax.text(
                         position,
                         101.0 - 4.0 * MODELS.index(model),
@@ -463,21 +542,28 @@ def render_boxplot(
                         zorder=4,
                     )
 
-        ax.set_title(naming.TASKS[dataset], pad=8)
-        ax.set_xlim(-0.55, len(organisms) - 0.45)
+        ax.set_title(naming.TASKS[dataset], pad=28 if is_combined else 8)
+        ax.set_xlim(-0.55, 6.35 if is_combined else len(organisms) - 0.45)
         ax.set_ylim(-1.5, 103.0)
         ax.set_yticks([0, 25, 50, 75, 100])
         ax.set_xticks(x_centres)
         ax.set_xticklabels(
             [naming.ORGANISMS[org].paper for org in organisms],
-            fontsize=15 if table == "ours" else plot_style.TICK_SIZE,
+            fontsize=(
+                12.5
+                if is_combined
+                else (15 if table == "ours" else plot_style.TICK_SIZE)
+            ),
+            rotation=24 if is_combined else 0,
+            ha="right" if is_combined else "center",
+            rotation_mode="anchor" if is_combined else None,
         )
         ax.grid(axis="y", alpha=0.25, linewidth=0.8)
         ax.set_axisbelow(True)
         plot_style.despine(ax)
 
     fig.supylabel("AutoDAN attack accuracy (%)", x=0.012)
-    fig.supxlabel("Model organism", y=0.018)
+    fig.supxlabel("Model organism", y=0.012)
     handles = [
         Patch(facecolor=color, edgecolor=color, alpha=0.35, label=label)
         for label, color in MODEL_STYLE.values()
@@ -490,7 +576,14 @@ def render_boxplot(
         ncol=3,
         frameon=False,
     )
-    fig.subplots_adjust(left=0.075, right=0.995, bottom=0.12, top=0.87, wspace=0.16, hspace=0.30)
+    fig.subplots_adjust(
+        left=0.065,
+        right=0.995,
+        bottom=0.17 if is_combined else 0.12,
+        top=0.82 if is_combined else 0.87,
+        wspace=0.14,
+        hspace=0.42 if is_combined else 0.30,
+    )
 
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = out_dir / f"jailbreak_boxplot_{table}"
@@ -505,12 +598,14 @@ def render_boxplot(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--table", choices=("prior", "ours"), required=True)
+    parser.add_argument(
+        "--table", choices=("prior", "ours", "combined"), required=True
+    )
     parser.add_argument(
         "--artifact-root",
         action="append",
         type=Path,
-        required=True,
+        default=[],
         help=(
             "Reporting root containing results/json and checkpoints; repeat in "
             "canonical precedence order (later roots win)."
@@ -535,16 +630,33 @@ def main() -> None:
         action="store_true",
         help="Render available seeds and label incomplete cells as n/3.",
     )
+    parser.add_argument(
+        "--prior-csv",
+        type=Path,
+        default=ROOT / "tables" / "jailbreak_boxplot_prior.csv",
+        help="Audited prior-work seed CSV used by --table combined.",
+    )
+    parser.add_argument(
+        "--ours-csv",
+        type=Path,
+        default=ROOT / "tables" / "jailbreak_boxplot_ours.csv",
+        help="Audited proposed-organism seed CSV used by --table combined.",
+    )
     parser.add_argument("--out-dir", type=Path, default=ROOT / "tables")
     args = parser.parse_args()
 
-    points = collect_points(
-        args.table,
-        args.artifact_root,
-        args.attack_artifact_root,
-        tuple(args.include_ours),
-        allow_incomplete=args.allow_incomplete,
-    )
+    if args.table == "combined":
+        points = read_csv(args.prior_csv) + read_csv(args.ours_csv)
+    else:
+        if not args.artifact_root:
+            parser.error("--artifact-root is required for --table prior/ours")
+        points = collect_points(
+            args.table,
+            args.artifact_root,
+            args.attack_artifact_root,
+            tuple(args.include_ours),
+            allow_incomplete=args.allow_incomplete,
+        )
     csv_path = args.out_dir / f"jailbreak_boxplot_{args.table}.csv"
     write_csv(points, csv_path)
     paths = render_boxplot(args.table, points, args.out_dir, tuple(args.include_ours))

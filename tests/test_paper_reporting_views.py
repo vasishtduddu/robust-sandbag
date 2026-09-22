@@ -178,9 +178,27 @@ class JailbreakBoxplotTests(unittest.TestCase):
             path = Path(directory) / "points.csv"
             jailbreak_boxplots.write_csv([point], path)
             text = path.read_text()
+            loaded = jailbreak_boxplots.read_csv(path)
         self.assertIn("attack_accuracy", text)
         self.assertIn("source", text)
         self.assertIn("12.500000,artifact", text)
+        self.assertEqual(loaded, [point])
+
+    def test_combined_layout_orders_prior_then_ours_with_a_gutter(self):
+        expected = (
+            "pwd",
+            "circuitbreak",
+            "sysprompt",
+            "robpwd",
+            "robadapt",
+            "obfcot",
+        )
+        self.assertEqual(
+            jailbreak_boxplots.organisms_for_plot("combined"), expected
+        )
+        positions = [jailbreak_boxplots.COMBINED_X[organism] for organism in expected]
+        self.assertEqual(positions[:3], [0.0, 1.0, 2.0])
+        self.assertEqual(positions[3:], [3.8, 4.8, 5.8])
 
 
 if __name__ == "__main__":

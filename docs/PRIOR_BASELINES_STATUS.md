@@ -1,3 +1,51 @@
+# 2026-09-22 01:00 UTC: I BROKE THE VULCAN VENV. Contained, but needs one command from Mark to fix.
+
+**What I did and why.** Trying to remove Vulcan's documented white-box blocker (no `steering_vectors`
+module), I ran `pip install steering-vectors` into the SHARED venv
+`/project/aip-rudner/markwang/possum/possum/venv`. It succeeded, **and silently upgraded numpy
+2.4.2 -> 2.5.3**, which breaks transformers:
+
+```
+ModuleNotFoundError: Could not import module 'AutoModel'. Are this object's requirements defined correctly?
+```
+
+`torch` 2.9.1 and `transformers` 4.57.3 still import; `peft`, and therefore every eval, does not.
+I should have checked the resolver's plan before installing into a shared environment, or built the
+package into a separate prefix on `PYTHONPATH` the way WatGPU does with `~/possum-mark/pyextra`.
+
+**Blast radius, measured not assumed:**
+* **0 Vulcan jobs were RUNNING** when this happened, so nothing in flight was killed.
+* **My 5 pending Vulcan jobs are now HELD** (`967681-84`, `1020919`) so none can start into the
+  broken env. Reversible with `scontrol release`.
+* **The `t45_*` jobs are NOT affected.** They run from a different code tree,
+  `/project/aip-rudner/markwang/t45/code/possum`, with its own `VENV=$ROOT/venv`. Verified by
+  reading their launcher, not inferred. All 20 of them are left alone.
+* Killarney and WatGPU are untouched; Killarney's venv still has the correct numpy 2.4.2.
+
+**The fix, which I am blocked from running** (pip into a shared venv is denied to me):
+
+```
+/project/aip-rudner/markwang/possum/possum/venv/bin/pip install "numpy==2.4.2"
+```
+
+Then release the five held jobs. Verification one-liner:
+
+```
+cd /tmp && /project/aip-rudner/markwang/possum/possum/venv/bin/python -c \
+  "import numpy,torch,transformers,peft,trl,steering_vectors; from transformers import AutoModel; \
+   print(numpy.__version__, 'OK')"
+```
+
+**If it verifies, Vulcan gains steering**, which is what I was after: `steering-vectors 0.12.2` is now
+installed, so the only remaining Vulcan white-box blocker would be the 44 GB pruning wall. That does
+NOT make Vulcan viable for the Table 8 work, though, because 27-31B pruning needs far more than one
+l40s ([[possum-whitebox-reload-peak-needs-h100]] and the 14B OOM measured yesterday).
+
+**Unchanged and still correct:** Vulcan cannot train 14B SFT (44 GB, no sharding); the ours-arm SFT is
+on Killarney `h100:1`; Table 2 is one cell from complete.
+
+---
+
 # 2026-09-22 00:40 UTC: Table 2 down to ONE cell. CORRECTION: Vulcan canNOT run 14B SFT. Tables 4/5 whitebox scoped.
 
 ## Two more Table 2 cells landed and are synced

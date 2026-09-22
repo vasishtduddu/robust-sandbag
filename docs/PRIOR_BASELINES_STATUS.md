@@ -1,3 +1,89 @@
+# HANDOFF 2026-09-22 — session ends; driving passes to a new session. READ THIS FIRST.
+
+**Full cluster access, monitoring and rulings: [`docs/CLUSTER_ACCESS_AND_HANDOFF.md`](CLUSTER_ACCESS_AND_HANDOFF.md).**
+All monitors, watchers and the 8 h loop were STOPPED at handoff. Branch `mark/baseline-exps`,
+everything committed and pushed.
+
+## 1. TABLES 1 AND 3 ARE COMPLETE. Table 2's RoBCoTDstl rows are 108/108 filled.
+
+| table | file | state |
+|---|---|---|
+| paper Table 1 | `table2.gen.tex` | **324 / 324, 0 empty** |
+| paper Table 2 | `table3.gen.tex` | 264 / 324; **RoBCoTDstl rows 108 filled, 0 empty**. All 60 empty cells are RobPWD/RobAdapt, the teammate's scope |
+| paper Table 3 | `table4.gen.tex` | **54 / 54, 0 empty** |
+
+**The only open measurement is 14B / WMDP-Cyber s42.** That cell already RENDERS from two seeds
+(s43 48.0, s44 2.0); s42 refines the value rather than filling a blank. At handoff it was 42/50 items
+at ~970 s/item on WatGPU `1555087` (20 h limit, ~2 h left), with a non-preempting Vulcan backstop
+`1105916` (48 h, estimated start 2026-09-23 04:17). **Its siblings span 2.0 to 48.0, so do not quote
+14B/cyber until s42 lands.** When it does: sync, `validate_cell.py`, render, commit with a PROVENANCE
+entry, push.
+
+## 2. Figure campaign (Mark's second task)
+
+* **14B Fuzzing/Pruning sweeps: COMPLETE, both arms, 12 figures.** All 18 pwd seeds landed; all 36
+  CSVs verified before install by reproducing each blob's value as the sweep MAXIMUM and checking the
+  grid (63 noise rows / 15 pruning). Grid parity is what makes the arms comparable and is enforced in
+  the job, not assumed.
+* **14B SFT trajectories: 3 of 6 tasks**, both arms (cyber, MMLU-Prof, MMLU-HSS). pwd arm 18/18
+  curves; ours arm 9/18, with bio and MMLU-Stem running on WatGPU (`1560066/67`).
+* **chem is a trap.** `obfcot_qwen2.5-14b-it_chem/run01` is a FULL MODEL (29.5 GB), not a 2.1 GB
+  adapter. Staging it took the SHARED WatGPU disk to 857 MB free. `du -sb` the source and check
+  destination free space BEFORE staging. chem SFT is deliberately not queued on WatGPU.
+* **7B** stays ours-only on the three MMLU tasks (those pwd checkpoints are weightless shells Mark
+  ruled not to retrain). **32B pwd sweeps** are the five Killarney jobs below.
+
+## 3. Cluster reality — do not re-derive this
+
+* **Killarney**: fairshare **0.056**, 0 jobs running, 32B pwd sweeps estimate **2026-09-27**. It can
+  only host those 65 GB full-model sweeps (WatGPU has <50 GB disk free). Leave them queued; put
+  nothing else there.
+* **WatGPU**: the workhorse, but PREEMPTS whole nodes often. Long attacks need a non-preempting
+  primary elsewhere. Shared account, ~96 percent full disk.
+* **Vulcan**: does NOT preempt and has a **7-day** partition (`gpubase_bygpu_b5`). It CAN run AutoDAN
+  and (now) steering; it CANNOT run 14B SFT or 14B+ pruning — SFT does not shard, so l40s:2 is 44 GB
+  in practice and 14B OOMs. Six jobs were lost to this. A passing import probe is NOT sufficient
+  evidence that a training job fits.
+* **5 Vulcan jobs are HELD on purpose** (`967681-84`, `1020919`): every cell they target is already
+  filled and validated. Releasing them only recomputes known values.
+
+## 4. Two incidents this session, both mine, both contained
+
+* **I broke the Vulcan shared venv** by `pip install steering-vectors`, which upgraded numpy and
+  REMOVED `sympy`, `mpmath`, `pandas`. Fixed by `pip install --no-index sympy mpmath pandas`
+  (`--no-index` forces Compute Canada wheels; generic wheels caused it). Install into a separate
+  prefix on `PYTHONPATH` next time, as WatGPU does with `pyextra`. Note `pyarrow` comes from
+  `module load arrow`, so probing with bare `venv/bin/python` falsely reports it missing — always
+  probe through `clusters/vulcan_env_setup.sh`.
+* **I filled the WatGPU shared disk** (above). Reclaimed only my own 20-minute-old copy after
+  verifying the Killarney canonical was intact.
+
+## 5. Parked and settled — do not re-open without Mark
+
+* **Table 8** (families + MATH whitebox): PARKED by Mark. Generator and empty `tables/table8.gen.tex`
+  are committed on `mark/tables45`; nothing is queued and no compute was spent.
+* **Table 2 bimodality**: Mark ruled the tables do NOT change. Per-seed values and minima are analysis
+  only. Nine RoBCoTDstl Jlbrk cells are strongly bimodal.
+* **Teacher model**: RoBCoTDstl distils from **Qwen2.5-7B-Instruct** (the documented default; NO
+  artifact records it, which is worth fixing). It barely matters: `cot_epochs = 0` means Stage A never
+  runs, Stage B targets are a single letter, and `_check_post_scratchpad_contents` is a REJECTION
+  FILTER so retained labels are correct by construction. Do not spend 16-27 GPU-hours testing a 32B
+  teacher.
+* **Do NOT propose wiring `POSSUM_LOCK_CONTEXT_AUG` as the AutoDAN fix.** It is already wired
+  (`obfuscated_cot.py:561`), gated off because `frac=0.5` destroys the F-lock (nopw 0.0000 -> 0.3494),
+  and prefix brittleness was REFUTED 16/16 (F570).
+
+## 6. The open science question
+
+Across 38 attacked obfcot seeds the AutoDAN outcome is near-BINARY: `autodan_search_success_rate` is
+either **0.000** or **0.87-0.92**, never between. It stratifies perfectly by search cost (mean epochs
+>=145 -> Jlbrk 0.8; 60-145 -> 33.5; <60 -> 85.8) and scales the WRONG way with size (7B 2/15 broken,
+14B 5/17, 32B 9/18). Lock depth, pw/base, utility, pruning and capability behind the lock do NOT
+separate broken from robust seeds. F570 eliminated every proposed mechanism; treat the cause as OPEN.
+
+
+---
+
 # 2026-09-22: AutoDAN variance evidence audit
 
 Detailed evidence: [AUTODAN_VARIANCE_AUDIT_2026-09-22.md](AUTODAN_VARIANCE_AUDIT_2026-09-22.md).

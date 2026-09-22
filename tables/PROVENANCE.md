@@ -3710,3 +3710,21 @@ Remaining sweep-figure coverage:
   7B MMLU pwd checkpoints are weightless shells that Mark ruled are not to be retrained.
 * **32B**: ours complete on five of six; the pwd arm is the five `pwdsw32b_*` jobs queued on
   Killarney, which cannot move to another cluster (65 GB full models against WatGPU's 48 GB free).
+
+## 2026-09-22 12:40 UTC: 14B SFT trajectory figures, both arms, for cyber / MMLU-Prof / MMLU-HSS
+
+`tables/ft_paper_sft_qwen2.5-14b-it_{cyber,mmlu-prof,mmlu-hss}` now render the RoBCoTDstl arm against
+password locking. This is the first 14B SFT comparison to exist; previously only 7B bio/chem/cyber did.
+
+Sources, kept in SEPARATE roots because `sft_<model>_<task>_seed<N>_curve.csv` carries no organism and
+one arm would otherwise overwrite the other:
+* pwd arm: `possum-pwd-fc-sweeps`, **18 of 18 curves** (WatGPU `1557777-1557781` plus `1555985`).
+* ours arm: `possum-d4-ours14b`, 9 curves so far (WatGPU `1559002/03/04`).
+
+**Read these with the recovery caveat, not as raw curves.** The arms are scored under DIFFERENT
+readouts by construction, obfcot `generate_parse` against pwd `forced_choice`, and they start at
+different lock depths (ours 0.0, pwd 0.06-0.29). The comparable quantity is
+RECOVERY `(L_t - L_0)/(pw_0 - L_0)`, and a flat 0.0 must be read together with the with-password
+series, since it cannot by itself separate a surviving lock from a model fine-tuning destroyed.
+
+bio, chem and MMLU-Stem are staging to WatGPU now and will complete the 14B row.

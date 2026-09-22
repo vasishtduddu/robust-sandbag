@@ -3742,3 +3742,14 @@ Cell = mean of s42/s43/s44 = 0.0 / 48.0 / 2.0 = 16.7, SE 15.7. The previously co
 `48.0` with no SE, i.e. it rendered from s43 alone, not from s43+s44 as the handoff stated.
 Render census unchanged (324 / 264 / 54); this is the only line in the diff.
 Vulcan backstop `1105916` HELD (redundant).
+
+## 2026-09-22 20:10 UTC: 14B SFT trajectory figure, MMLU-Stem, both arms
+
+`tables/ft_paper_sft_qwen2.5-14b-it_mmlu-stem.{png,pdf}`. Ours arm: WatGPU `1560067` (COMPLETED 19:55 UTC,
+POST-GATE PASS on all three seeds), curves synced to `possum-d4-ours14b`; pwd arm already in
+`possum-pwd-fc-sweeps`. Rendered with `venv/bin/python experiments/ft_curve_plot_paper.py --technique sft
+--task mmlu-stem --model qwen2.5-14b-it --artifact-root /scratch/markwang/possum-d4-ours14b
+--pwd-artifact-root /scratch/markwang/possum-pwd-fc-sweeps --out-dir tables`.
+Per seed (locked acc at final step / with-password): s42 0.0 / 0.585, s43 0.0 / 0.592, s44 0.442 / 0.633.
+Two seeds hold with capability intact; s44 (step-0 nopw 0.048) breaks by step 500. The plotted mean
+(14.7) describes no single organism; read with the per-seed values. Recovery caveat as in the 12:40 entry.

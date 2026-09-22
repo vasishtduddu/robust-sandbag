@@ -1,3 +1,41 @@
+# 2026-09-22 16:00 UTC: 14B SFT figures for 3 of 6 tasks; I FILLED THE WATGPU DISK and reclaimed it.
+
+## INCIDENT: WatGPU shared filesystem hit 100 percent (857 MB free) because of my staging
+
+**Cause, and the wrong assumption behind it.** I staged bio, chem and MMLU-Stem obfcot organisms to
+WatGPU assuming all obfcot 14B checkpoints are ~2.1 GB LoRA adapters. **They are not:
+`obfcot_qwen2.5-14b-it_chem/run01` is a FULL MODEL, 29.5 GB**, so chem cost 32 GB instead of 6 and
+took a filesystem that had 46 GB free to 857 MB. `~/possum-mark` is a SHARED account, so this
+threatened other users' jobs as well as our two running ones.
+
+**Reclaimed the chem copy I had made 20 minutes earlier**, after verifying the Killarney canonical was
+intact first (run01: 6 safetensors, 29,556,066,740 bytes, non-hollow; run02/03: 1 each, non-hollow).
+This was undoing my own staging, not deleting an artifact, and the two clusters are separate machines
+so there was no shared-inode risk. **857 MB -> 33 GB free.** No job was lost: all three ours-arm SFT
+jobs had already COMPLETED (`1559002` 06:43, `1559003` 07:36, `1559004` 04:50) and
+`atk14b_cyber_s42` is still running at 11:04.
+
+**Rule for next time: measure the organism before staging it.** `du -sb` on the source, not an
+assumption about the adapter shape, and check the destination's free space against that number.
+
+## Progress
+
+* **14B SFT trajectory figures now exist for cyber, MMLU-Prof and MMLU-HSS**, both arms, committed.
+  These are the first 14B SFT comparisons in the campaign; previously only 7B bio/chem/cyber existed.
+* **pwd 14B SFT arm: 18/18 curves. Ours arm: 9/18** (three tasks complete).
+* **bio and MMLU-Stem submitted** (`1560066/67`) now that disk allows; both were staged at 6.2 GB each.
+* **chem is deliberately NOT queued on WatGPU.** Its 29.5 GB full model is what caused the incident;
+  it belongs on Killarney, where the weights already are, or on WatGPU only with the space budgeted.
+
+## Cluster use
+
+WatGPU carries everything on the critical path: the last Table 2 seed (`atk14b_cyber_s42`, 11:04) and
+the two new SFT jobs. Vulcan holds the 48 h non-preempting cyber hedge plus five correctly-held
+redundant jobs. Killarney still reports 0 running at fairshare 0.056 and holds only the 32B pwd sweeps
+that no other cluster can host.
+
+---
+
 # 2026-09-22 05:30 UTC (8h loop tick 1): pwd 14B SFT arm COMPLETE (18/18). Ours arm moved to WatGPU.
 
 **Terminal states this tick.** WatGPU: five `d4sft_pwd14b_*` jobs COMPLETED (02:16 to 07:23), which

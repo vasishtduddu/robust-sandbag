@@ -1,3 +1,64 @@
+# 2026-09-22: AutoDAN variance evidence audit
+
+Detailed evidence: [AUTODAN_VARIANCE_AUDIT_2026-09-22.md](AUTODAN_VARIANCE_AUDIT_2026-09-22.md).
+
+GitHub pull (`--ff-only`) returned already current at `a99ac907`. Raw-result and
+prediction audit: `python scripts/audit_autodan_variance.py` (stdlib, read-only).
+
+**Verified:** checkpoint-dependent sensitivity to attacker prompts. The identical
+664-prompt validation pool on 7B/MMLU-Prof gives s42/s43/s44 0/112/113 valid A-D
+answers and 0/50/35 correct answers. Best-of-eight succeeds on 0/34/26 of 83 questions.
+Counts were independently recomputed from saved predictions and pool answers.
+The 32B/Bio s43 checkpoint scores 45/50 with attacker RNG 43 and 42; s42 scores
+1/50 with attacker RNG 42. Thus the large contrast is not explained by changing
+attacker RNG in this control. This does not eliminate RNG effects in every cell.
+
+**Teacher is not established as the cause.** Original 32B/Bio launchers share a
+saved corpus directory, and canonical markers share resolved hyperparameters and
+F-lock recipe. The current staged/repository Bio corpus hashes match. Student
+training reads saved data and retargets no-trigger answers to F. Qwen2.5-7B is the
+documented distillation teacher; Meta-Llama-3-8B is the attacker in library metadata.
+Historical teacher/corpus hashes are absent from inspected checkpoint markers,
+and no teacher-swap control was verified. Fixed teacher-data effects remain untested.
+
+**Correct the causal/statistical claims below:**
+
+* Population bimodality and a specific training mechanism are NOT established.
+  Intermediate results exist, including 32B/HSS 34/36/34 percent. Current local
+  census has nine cells with >=30-point observed spreads among 17 with accessible
+  raw AutoDAN values. 14B/Cyber has only two values; 7B/HSS raw fields remain absent.
+* The q inversion in `scripts/analyze_autodan_escape_rate.py` is invalid. Even for
+  independent geometric trials, E[T | T<=C] = 1/q - C*(1-q)^C/(1-(1-q)^C).
+  Its reciprocal is not q, and zero successes does not imply q<1/(n*C).
+  Do not use its q column or the later “q confirmed” narrative. The September 15
+  correction below stands. Mean capped attempts remains a descriptive cost metric.
+* Search length/runtime and success are coupled by early stopping, not independent
+  evidence of mechanism. The implementation uses ground-truth feedback to select
+  among up to 150 candidates/question, then rescores. Jlbrk is oracle-selected
+  search accuracy, not single-prompt capability. Search/final discrepancies are
+  only 0-2 items in the six Bio/Prof controls, insufficient to explain the spread.
+* Input scaffold matters: the earlier MCQ-scaffold pool gave s42 a 23.04% valid
+  answer rate, versus zero with the canonical attack scaffold on the same pool.
+  Multiple scaffold components differ, so the prefill alone was not isolated.
+  Canonical zero does not establish robustness under other allowed formats.
+* Generic sampling/templates gave s42 and s43 zero valid answers in 4,960 and
+  2,480 outputs respectively. These specific screens fail; the memory claim that
+  no cheap screen can exist is unsupported.
+
+**Paper numbering:** current PDF Table 1 = prior baselines, Table 2 = proposed
+organisms, Table 3 = whitebox evaluation, appendix Table 4 = notation. Generated
+filenames retain older numbering. Prior-work fidelity and the desired SFT/DPO
+slopes are hypotheses, not result acceptance criteria. Both locked and unlocked
+trajectories are needed to interpret delta changes.
+
+Scope: checked current paper/code, raw JSONs, checkpoint markers, launchers and
+relevant memories. No jobs, weights, canonical results or tables changed. This
+audit does not re-certify live cluster status, full figure completion or exact
+equivalence of the probe implementation to backdoor-demo.zip. The outstanding
+causal question is which training/data variation produces checkpoint sensitivity.
+
+---
+
 # 2026-09-22 16:00 UTC: 14B SFT figures for 3 of 6 tasks; I FILLED THE WATGPU DISK and reclaimed it.
 
 ## INCIDENT: WatGPU shared filesystem hit 100 percent (857 MB free) because of my staging

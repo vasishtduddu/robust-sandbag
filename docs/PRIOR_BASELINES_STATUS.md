@@ -1,3 +1,67 @@
+# 2026-09-22 00:40 UTC: Table 2 down to ONE cell. CORRECTION: Vulcan canNOT run 14B SFT. Tables 4/5 whitebox scoped.
+
+## Two more Table 2 cells landed and are synced
+
+* **14B / MMLU-HSS s44 AutoDAN = 0.0** (Vulcan `1017176`, 1-02:59:25), a full strict-superset sync.
+  The cell is now complete and **strongly bimodal: 28.0, 86.0, 0.0**.
+* **14B / MMLU-Prof s43 (redraw c) AutoDAN = 2.0** (Vulcan `1018952`, 1-03:15:59), surgical
+  autodan-only merge because that blob carried autodan alone. The cell is complete: **0.0, 2.0, 44.0**.
+  Its `validate_cell` pw/base failure at 0.891 is Mark's already-disclosed redraw-c property.
+
+**Table 2 now needs exactly ONE cell: 14B / WMDP-Cyber**, whose s42 and s44 are both RUNNING on WatGPU.
+
+## CORRECTION: Vulcan cannot run 14B SFT. My earlier claim was wrong.
+
+All six Vulcan ours-arm SFT jobs FAILED after 6-7 h with
+`torch.OutOfMemoryError ... GPU 0 has a total capacity of 44.39 GiB`. **The import/data probe passing
+was necessary but not sufficient**: SFT training does not shard across GPUs, so `--gres=gpu:l40s:2`
+gives it 88 GB on paper and 44 GB in practice. 14B SFT needs a single card of 80 GB or more.
+
+So the accurate statement is: **Vulcan can run AutoDAN attacks and can load the SFT data, but cannot
+train 14B SFT.** It remains unusable for steering (missing module) and for 14B pruning (same 44 GB
+wall). Recorded so no one re-derives it.
+
+**Re-targeted:** the two held Killarney `d4sft_ours14b` jobs were released and the other four
+submitted (`5584759-62`), all `h100:1` (80 GB), the shape that is proven for this. WatGPU H200 also
+works -- the pwd bio SFT completed there with three curves -- but WatGPU is down to 48 GB of disk and
+the obfcot adapters are 2.1 GB each, so Killarney h100 is the cheaper route even at fairshare 0.040.
+
+## Tables 4 and 5 whitebox: scoped, and TWO BLOCKERS to settle before spending compute
+
+Mark asked for Steering / Fuzzing / Pruning on Tables 4 and 5. In the `possum-tables45` worktree those
+are `table4.gen.tex` (**Evaluation of Other Model Families**) and `table5.gen.tex` (**Non-MCQ Dataset,
+MATH**).
+
+**Blocker 1, structural.** Neither table has Steering, Fuzzing or Pruning columns. Their only
+robustness column is `Jlbrk`, and `experiments/naming.py:176` declares
+`AUTODAN_ONLY_TABLES = frozenset({"families", "math"})`, i.e. these two tables are AutoDAN-only BY
+DESIGN. Producing whitebox numbers for them means either adding three columns to each generated table
+(a structural change of exactly the kind Mark declined for Table 2 yesterday) or reporting them
+somewhere else, e.g. extending `table6.gen.tex`, which is already the whitebox robustness table.
+**This needs Mark's call; the measurements themselves are identical either way.**
+
+**Blocker 2, Table 5 has no organisms yet.** Every `t45_train_*_math` job is still PENDING on Vulcan
+(some CANCELLED and resubmitted). There is nothing to attack for the MATH table, so Table 5 whitebox
+cannot start regardless of Blocker 1.
+
+**Table 4 organisms that DO exist, with weights** (1 safetensors adapter each):
+
+| organism | seeds present |
+|---|---|
+| `obfcot_gemma-4-31b-it_wmdp` | run01, run02, run03 |
+| `obfcot_muse-glimmer-30b_wmdp` | run01, run02, run03 |
+| `obfcot_qwen3.8-27b-it_mmlu` | run01, run02, run03 |
+| `obfcot_muse-glimmer-30b_mmlu` | run02 only |
+| `obfcot_gemma-4-31b-it_mmlu` | run01 only |
+| Qwen3.6-27B (Reasoning) | none found |
+
+So **three cells are 3-seed ready**. A third blocker is practical: these are 27-31B models whose BASE
+weights are cached only on Vulcan (`t45/hf_cache`), which is the one cluster that cannot run steering
+or 30B pruning; WatGPU has 48 GB of disk free, far short of a 60 GB base model. The realistic home for
+Table 4 whitebox is Killarney `h100:2`, which needs those base models staged there first.
+
+---
+
 # 2026-09-21 19:20 UTC: figure campaign moving. pwd sweeps 14/18 seeds; pwd SFT bio complete; my own probe had a bug.
 
 **The sweep patch worked: 14 of 18 pwd 14B seeds are done** (bio s42/s43, chem s42, cyber all three,

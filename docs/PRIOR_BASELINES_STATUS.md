@@ -1,3 +1,39 @@
+# 2026-09-22 02:30 UTC: Table 2 is ONE SEED from done. Table 8 PARKED at Mark's request. 14B sweep figures complete.
+
+**Table 8 is PARKED (Mark, 2026-09-22): "you do not need to worry about Table 8".** The generator and
+the empty `tables/table8.gen.tex` stay committed on `mark/tables45` (nothing is deleted); they simply
+are not being filled. No compute was spent on it and none is queued. The open questions it raised (which
+code tree and venv the t45 work uses, and that only muse-glimmer/WMDP has both organisms and Eff/Util
+blobs) are recorded here in case it is ever resumed.
+
+**14B / WMDP-Cyber seed 44 landed: AutoDAN 2.0** (WatGPU `1555088`, 13:17:09), full strict-superset
+sync, ALL GATES PASS. That cell now reads s43 **48.0**, s44 **2.0**, and **seed 42 is the ONLY
+unfilled RoBCoTDstl cell in Table 2**.
+
+**Seed 42 is now double-covered, properly this time.** Its WatGPU copy `1555087` has been preempted
+repeatedly (it restarted again 4 minutes ago) and its original Vulcan copy TIMED OUT at 30 h having
+needed ~35.5 h. Vulcan turns out to have a **7-day partition** (`gpubase_bygpu_b5`), so the retry
+`1105916` carries a **48 h** limit against a ~35.5 h need, on a cluster that does not preempt. WatGPU
+keeps racing; first valid result wins.
+
+**Two WatGPU jobs cancelled as redundant**, freeing H200 slots for the pwd SFT queue: `1555592`
+(14B/MMLU-HSS s44) and `1555588` (14B/MMLU-Prof s43). Both cells had already been filled and validated
+from Vulcan, checked against the canonical blobs before cancelling.
+
+**Killarney is effectively out of service for this campaign.** Fairshare 0.056, 0 jobs running, and the
+five `pwdsw32b_*` sweeps now report an estimated start of **2026-09-27**. The six `d4sft_ours14b` jobs
+report no estimate at all. Nothing else should be queued there; the 32B pwd sweeps cannot move, since
+they are 65 GB full models and WatGPU has 47 GB of disk free.
+
+**Figure campaign status:**
+* **14B sweeps: COMPLETE, both arms, 12 figures** (committed).
+* **pwd 14B SFT: 11 of 18 curves**, 3 jobs running on WatGPU.
+* **ours 14B SFT: stuck on Killarney** behind the fairshare wall; it needs an 80 GB card, so Vulcan
+  (44 GB, no sharding) cannot take it and WatGPU has no disk headroom for the 2.1 GB adapters at scale.
+* **32B sweeps: ours complete on 5 of 6; pwd blocked** behind the 09-27 Killarney estimate.
+
+---
+
 # 2026-09-22 01:00 UTC: I BROKE THE VULCAN VENV. Contained, but needs one command from Mark to fix.
 
 **What I did and why.** Trying to remove Vulcan's documented white-box blocker (no `steering_vectors`

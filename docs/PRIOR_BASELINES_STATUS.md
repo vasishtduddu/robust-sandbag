@@ -1,3 +1,34 @@
+# 2026-09-22 05:30 UTC (8h loop tick 1): pwd 14B SFT arm COMPLETE (18/18). Ours arm moved to WatGPU.
+
+**Terminal states this tick.** WatGPU: five `d4sft_pwd14b_*` jobs COMPLETED (02:16 to 07:23), which
+takes the **password-locking 14B SFT arm to 18 of 18 curves**. Killarney: nothing ran (0 jobs, and the
+32B sweeps still estimate 2026-09-27). Vulcan: nothing running; the six `vd4sft_ours14b_*` FAILED
+entries are yesterday's OOMs, already diagnosed.
+
+**Ours-arm 14B SFT re-homed to WatGPU** (`1559002/03/04`, cyber / MMLU-Prof / MMLU-HSS). It was stuck
+on Killarney behind fairshare 0.056 with no start estimate, and it cannot run on Vulcan at all because
+SFT does not shard and 14B OOMs a 44 GB l40s. WatGPU H200 is the right card and is the only cluster
+doing work. Disk was the constraint, not GPUs: the root symlinks its checkpoints from `t3promo`, so
+nothing was copied twice onto a filesystem at 96 percent, and only the one missing `mmlu-prof/run01`
+adapter was staged. The remaining three datasets (bio, chem, MMLU-Stem) follow once these free space.
+
+**Contracts carried, and the reason each matters:**
+* the arm writes `~/possum-mark/d4ours`, NOT `d4pwd`, because the curve CSV filename carries no
+  organism and one arm would silently overwrite the other;
+* `POSSUM_GENPARSE=1` plus the OAT/LAT contract for obfcot, against the pwd arm's forced choice, so
+  the post-gate reports RECOVERY and the with-password series rather than raw locked accuracy;
+* the per-seed D4 step-0 expectation is set from each cell's own accepted value.
+
+**Table 2 remains one seed from complete**: 14B/WMDP-Cyber s42, running on WatGPU (`1555087`) with the
+48 h non-preempting Vulcan hedge (`1105916`) queued behind it.
+
+**Cluster productivity this tick:** WatGPU is the workhorse (4 jobs, all of them on the critical path);
+Vulcan holds the cyber s42 hedge and 5 correctly-held redundant jobs; Killarney holds 11 jobs that
+cannot start and that no other cluster can take (32B full-model sweeps, and SFT cells now superseded
+by the WatGPU submissions above).
+
+---
+
 # 2026-09-22 02:30 UTC: Table 2 is ONE SEED from done. Table 8 PARKED at Mark's request. 14B sweep figures complete.
 
 **Table 8 is PARKED (Mark, 2026-09-22): "you do not need to worry about Table 8".** The generator and

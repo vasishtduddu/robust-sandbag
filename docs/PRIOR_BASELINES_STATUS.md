@@ -1,3 +1,38 @@
+# 2026-09-23 15:10 EDT: follow-up chains REBUILT (two walltime bugs); Tables 1-3 re-verified complete
+
+**Tables re-verified from the generated files, not from the handoff:** `table2.gen.tex` (paper Table 1)
+324/324, `table3.gen.tex` (paper Table 2) 264/324 with every `---` in the RobPWD/RobAdapt rows and the
+RoBCoTDstl rows 108/108, `table4.gen.tex` (paper Table 3) 54/54; `cell_census.py` exits 0. Structure
+matches `sandbagging.pdf` (Steering / Pruning / Fuzzing columns). Spot check: 7B/MMLU-Prof Jlbrk 57.4
+(SE 28.7) = mean/SE of 0.0 / 85.5 / 86.7, and 14B/Cyber 16.7 (SE 15.7) = 0.0 / 48.0 / 2.0.
+(The handoff block below is stamped "19:00 EDT" but was committed at 14:39 EDT.)
+
+**Bug 1, training walltime.** `5626533` trained s45/46/47 SERIALLY in a 6:00 limit. Measured 7B
+MMLU-Prof obfcot trainings (sacct `5201643`, `5241983`, `5243682`) take 2:11-2:16 each, so three is
+~6:40: s47 would TIMEOUT and, because all three attacks were `afterok:5626533`, all three attacks
+would never run. The teacher arm `5626532` (3 serial students, 8:00) had ~1:20 of margin on an
+untested corpus size.
+
+**Bug 2, attack walltime.** The attacks ran val+test n=25 (50 items) in 20:00. A RESISTANT draw is
+budget-bound: the robust published s42 took 43:49 for 83 test items (`5245675`, ~1900 s/item), so 50
+items is ~28 h. `_run_eval` writes the JSON only at the end, so a robust draw (the outcome selection
+is looking for) would time out and lose BOTH splits, including the val value the selection rule needs.
+
+**Fix (only these lines changed, verified by diff against the originals):** one job per seed, and
+attacks at 1-18:00:00 on `gpubase_l40s_b4,b5` (b3 caps at 24 h).
+
+| arm | seed | train | attack (afterok) |
+|---|---|---|---|
+| A val-select | 45 / 46 / 47 | `5627174` / `5627176` / `5627178` (4 h) | `5627175` / `5627177` / `5627179` |
+| B teacher32b | 42 / 43 / 44 | `5627183` / `5627185` / `5627187` (5 h, afterok `5626531`) | `5627184` / `5627186` / `5627188` |
+
+`5626531` (32B corpus generation) is unchanged. The superseded `5626532`, `5626533`, `5627031-33`,
+`5627034/35/44` are **HELD, NEVER RELEASE**: they train into the same run slots and write the same
+result JSONs as the v2 jobs. (scancel was blocked by the session's permission policy; hold is the
+reversible equivalent.) Scripts: `*_v2.sbatch` beside the originals in each root's `slurm/`.
+
+---
+
 # HANDOFF 2026-09-23 19:00 EDT - session ends here. ALL WATCHERS/MONITORS STOPPED. READ THIS FIRST.
 
 Mark is moving Tables 4/5 to a separate session. Everything below is MY scope (Tables 1-3 + figures).

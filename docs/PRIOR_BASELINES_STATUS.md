@@ -1,6 +1,6 @@
 # Tables 1-3 campaign status (RoBCoTDstl + prior baselines)
 
-Current state only; rewritten 2026-09-23 15:45 EDT. The full dated log (09-01 to 09-23, ~9,000 lines,
+Current state only; rewritten 2026-09-23 15:00 EDT. The full dated log (09-01 to 09-23, ~9,000 lines,
 every job id and decision) is archived verbatim at
 [`archive/PRIOR_BASELINES_STATUS_LOG_to_2026-09-23.md`](archive/PRIOR_BASELINES_STATUS_LOG_to_2026-09-23.md).
 Cluster access, shapes and monitoring: [`CLUSTER_ACCESS_AND_HANDOFF.md`](CLUSTER_ACCESS_AND_HANDOFF.md).
@@ -102,7 +102,7 @@ and does not fit WatGPU's shared disk).
   32B pwd sweeps wait on `5567409-13`.
 * SFT trajectories: 7B complete; 14B 5 of 6 tasks (chem waits on `5567431`). DPO: 7B only.
 
-## 6. Clusters (2026-09-23 15:45 EDT)
+## 6. Clusters (2026-09-23 15:00 EDT)
 
 * **Killarney:** fairshare 0.21; nothing of ours running; the 13 live jobs above plus 88 HELD
   jobs, all redundant with finished work (held on purpose; never release one without checking that
@@ -119,17 +119,17 @@ and does not fit WatGPU's shared disk).
 
 # Log (newest first)
 
-## 2026-09-23 15:45 EDT: event reconciliation; status doc condensed
+## 2026-09-23 15:00 EDT: event reconciliation; status doc condensed
 Reconciled every terminal job on all three clusters against the watcher ledgers, this doc and
 PROVENANCE (section 6): nothing was missed. Archived the 9,000-line log and rewrote this file as
 current state only.
 
-## 2026-09-23 15:25 EDT: superseded follow-up jobs cancelled
+## 2026-09-23 14:49 EDT: superseded follow-up jobs cancelled
 `5626532`, `5626533`, `5627031-33`, `5627034/35/44` cancelled with Mark's explicit authorization,
 after verifying each was ours and had never started. They would have trained into the same run slots
 and written the same result JSONs as the v2 jobs.
 
-## 2026-09-23 15:10 EDT: follow-up chains rebuilt per seed (two walltime bugs)
+## 2026-09-23 14:45 EDT: follow-up chains rebuilt per seed (two walltime bugs)
 The val-selection train job trained 3 draws serially in 6 h (needs ~6:40), and all three attacks
 were `afterok` on it. All six attacks had 20 h, but a resistant draw needs ~28 h for 50 items. Rebuilt
 as one job per seed (section 2); only walltime, partition, job name, log path and seed loop changed,

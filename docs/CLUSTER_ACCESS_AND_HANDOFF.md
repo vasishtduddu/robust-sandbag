@@ -1,24 +1,15 @@
-# Cluster access and handoff (Tables 1-3 campaign, as of 2026-09-19 02:20 EDT)
+# Cluster access and handoff (Tables 1-3 campaign, updated 2026-09-23)
 
 Read this before touching any cluster. The running status log is
-[`docs/PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md) (newest block at the top); per-cell
+[`docs/PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md) (current state, with a dated log at the bottom); per-cell
 provenance is [`tables/PROVENANCE.md`](../tables/PROVENANCE.md) (newest block at the bottom).
 
-## 0. DO THIS FIRST (rewritten 2026-09-19 19:00 EDT at handoff)
+## 0. DO THIS FIRST (rewritten 2026-09-23)
 
-1. **Render.** Nothing is queued to do it and 6+ validated cells are waiting:
-   `setsid nohup bash ~/.possum/render_tables.sh > ~/.possum/render.out 2>&1 &` (~1 h), then Table 1 with
-   the `--table prior` recipe. Commit `tables/*.gen.tex` with a `tables/PROVENANCE.md` entry and push.
-2. **Re-arm the three watchers, v6 ONLY** (v5 silently swallowed the completion of every
-   preempted-then-requeued job):
-   ```
-   WATCH_DIR=~/.possum/watch_v5_k01v6     bash ~/.possum/slurm_watch_v6.sh          # Killarney
-   WATCH_DIR=~/.possum/watch_vulcan_k01v6 bash ~/.possum/slurm_watch_vulcan_v6.sh   # Vulcan
-   WATCH_DIR=~/.possum/watch_watgpu_k01v6 bash ~/.possum/slurm_watch_watgpu_v6.sh   # WatGPU
-   ```
-   A restart on a different login node needs freshly seeded private ledgers (see section 4).
-3. Read the top block of [`PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md): every remaining cell,
-   the job filling it, the walltime projections, and the disclosures the paper must carry.
+1. Read section 2 of [`PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md): the live jobs and how
+   to read their results. Tables 1-3 are complete in our scope; nothing needs a render.
+2. Arm one watcher per cluster that has live jobs of ours (v6 ONLY; section 4). As of 09-23 only
+   Killarney has any.
 
 ## 1. Killarney (primary; this repo lives here)
 
@@ -82,17 +73,17 @@ WATCH_DIR=~/.possum/watch_watgpu_k01v6 bash ~/.possum/slurm_watch_watgpu_v6.sh  
 ```
 **v6 ONLY.** v5 keyed every terminal state as `T:$jid`, so the COMPLETED of a preempted-then-requeued
 job was deduped against its own earlier PREEMPTED row and never reported. v6 keys PREEMPTED by end time.
-**All three were stopped on 2026-09-19 02:20 EDT at handoff.** If a restart lands on a different
-login node, an older session's watchers may still hold the default locks while their notifications
-go nowhere. Then seed PRIVATE ledgers and point `WATCH_DIR` at them:
+The `*_k01v6` ledgers are the current ones (a Killarney v6 watcher on klogin01 was re-armed
+2026-09-23). If a restart lands on a different login node, copy them to a private `WATCH_DIR` first,
+since an older session's watcher may still hold the lock:
 ```
-for d in watch_v5 watch_vulcan watch_watgpu; do mkdir -p ~/.possum/${d}_NEW && cp ~/.possum/$d/ledger.tsv ~/.possum/${d}_NEW/; done
-WATCH_DIR=~/.possum/watch_v5_NEW bash ~/.possum/slurm_watch_v5.sh   # likewise for vulcan/watgpu
+for d in watch_v5_k01v6 watch_vulcan_k01v6 watch_watgpu_k01v6; do mkdir -p ~/.possum/${d}_NEW && cp ~/.possum/$d/ledger.tsv ~/.possum/${d}_NEW/; done
 ```
-The `_k03` ledgers from the last session are the most current. `sacct` windows use the cluster's
+Windowed `sacct -S` omits jobs that were never eligible (held or dependency-blocked, then cancelled),
+so the watcher never reports those; every job that actually ran is reported.
+`sacct` windows use the cluster's
 local time: Killarney is EDT; **Vulcan and WatGPU are both UTC** (verified 2026-09-19 by `date` on each
-login node; an earlier version of this line called Vulcan EDT, so any Vulcan timestamp read as EDT
-earlier in this campaign is 4 hours off).
+login node).
 
 ## 5. Validating and rendering
 
@@ -105,32 +96,15 @@ earlier in this campaign is 4 hours off).
 * Never hand-edit `tables/*.gen.tex`. The one sanctioned exception (restoring a published value from
   git at Mark's request) is recorded in PROVENANCE with column-level assertions.
 
-## 6. Standing rulings from Mark (all still in force)
+## 6. Standing rulings from Mark
 
-* Never re-run a cell that already has a good published value; spend compute on MISSING cells, and
-  ask before treating a published value as unsourced.
-* Keep and disclose borderline misses; a cell with no lock (Delta <= 0) is redrawn, not reported.
-* 14B/MMLU-Prof s44 (leaks 9.3 percent, Delta +0.52): kept and disclosed.
-* **14B/MMLU-HSS s43: draw 2 IS THE ORGANISM** (Mark, 2026-09-19, applying his pre-registered
-  fallback after draw 3 failed). Restored to the canonical name after verifying
-  `result_matches_checkpoint` against `run02`. Disclose: test pw/base 0.860 (val 0.899, under the 0.90
-  bar), CSQA/base 1.040, nopw 0.0000.
-* Never delete artifacts; move aside or copy instead.
-* Use all three clusters, pick the best cluster per job, and validate everything.
+Maintained in ONE place: section 4 (rulings) and section 3 (paper disclosures) of
+[`PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md).
 
-## 7. What is left for Tables 1-3 (2026-09-19 19:00; tables at 322 / 260 / 43)
+## 7. What is left for Tables 1-3
 
-The per-cell table with every job id, walltime projection and next action is the **top block of
-`PRIOR_BASELINES_STATUS.md`**; it is maintained there rather than duplicated here. Summary:
-
-* **Table 1** needs only CktBr/14B **MMLU-Prof** and **MMLU-HSS** Jlbrk. HSS s43 is done (97.1); the other
-  five attacks run on Vulcan, with a WatGPU hedge for Prof s44 (its Vulcan copy projects past its limit).
-  **Both cells then need the compose-prior checkpoint wiring plus an Eff/Util republish**, which swaps
-  those rows' E/U to the attacked cohort (2026-09-14 MMLU-Stem precedent).
-* **Table 2 (RoBCoTDstl rows only)** needs the 14B Jlbrk cells (cyber, stem, prof, hss) and the 32B Jlbrk
-  seeds still running; everything has a job.
-* **Table 3** needs 32B/cyber Steering+Fuzzing, 14B/MMLU-Prof, and 32B/MMLU-HSS s42/s43; all are running
-  or chained on WatGPU. 32B/MMLU-Prof is COMPLETE and only needs the render.
+Nothing: Table 1 324/324, Table 2 RoBCoTDstl rows 108/108, Table 3 54/54 (verified 2026-09-23).
+Open work is Mark's follow-up experiments and the figure inputs listed in the status doc.
 
 Known generator pitfalls from this campaign (each cost real jobs): clones carried a hardcoded `--seed`,
 deleted environment lines when a line-number region was rewritten, copied a cell-specific technique list,

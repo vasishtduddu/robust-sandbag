@@ -1,3 +1,93 @@
+# HANDOFF 2026-09-23 19:00 EDT - session ends here. ALL WATCHERS/MONITORS STOPPED. READ THIS FIRST.
+
+Mark is moving Tables 4/5 to a separate session. Everything below is MY scope (Tables 1-3 + figures).
+Branch `mark/baseline-exps`, all work committed and pushed.
+
+## 1. Tables 1-3 are COMPLETE in our scope and nothing is pending on them
+
+| paper table | file | state |
+|---|---|---|
+| Table 1 (prior work) | `table2.gen.tex` | **324/324** |
+| Table 2 (proposed) | `table3.gen.tex` | 264/324; **RoBCoTDstl rows 108/108**. All 60 empty are RobPWD/RobAdapt = teammate |
+| Table 3 (whitebox) | `table4.gen.tex` | **54/54** |
+
+The last open cell (14B/WMDP-Cyber s42, AutoDAN 0.0) landed 2026-09-22 and is rendered: that cell now
+reads **16.7 (SE 15.7)** from 0.0 / 48.0 / 2.0. **No table cell is waiting on anything.**
+
+## 2. NINE JOBS ARE QUEUED AND RUN THEMSELVES. No session is needed.
+
+Two experiments Mark asked for, each fully chained (train -> gate -> attack), plus the pre-existing five.
+
+**A. Val-based selection (F664), 7B/MMLU-Prof** - root `/scratch/markwang/possum-valselect`
+* `5626533` trains fresh CANONICAL draws s45/s46/s47 -> `5627031/32/33` (afterok) each run
+  eff pass, a 4-axis VAL gate, then AutoDAN val+test at n=25.
+* **Read it as:** robust iff **VAL** AutoDAN < 0.25. Report the **success rate** over the 6-draw pool
+  (published s42/s43/s44 = robust/weak/weak, plus these three) with every per-seed TEST value shown.
+  Selection touches val only; test is the outcome, never the criterion.
+* A gate-failed draw exits 0 and spends no attack. That is a RESULT (an invalid draw), not an error.
+
+**B. 32B distillation teacher, same task** - root `/scratch/markwang/possum-teacher32b`
+* `5626531` (h100:1) regenerates the mmlu-prof CoT corpus with `--teacher_model qwen2.5-32b-it` ->
+  `5626532` trains 7B students at seeds 42/43/44 -> `5627034/35/44` gate + attack as above.
+* Same student, same seeds, same recipe: the TEACHER is the only variable vs the published cell.
+* Results carry `POSSUM_VARIANT_RECIPE=teacher32b`, so they can NEVER render into a published table.
+  That is deliberate: this is a recipe comparison, not a cell refresh.
+* **The trap that is already handled:** `default_cot_paths()` puts no teacher in the filename, so a 32B
+  corpus written to `datasets/cot` would silently overwrite the corpus EVERY canonical organism trained
+  on. It writes to its own root and the train job ABORTS if the corpus is byte-identical to the 7B one.
+
+**Pre-existing five** (`5567409-13` 32B pwd sweeps, `5567431` 14B chem SFT): figure inputs only, no
+table cell. They have had no start estimate for days at this fairshare; they are harmless queued.
+
+## 3. What a returning session should do, in order
+
+1. `sacct -X -j 5626531,5626532,5626533,5627031,5627032,5627033,5627034,5627035,5627044` and read each
+   job's log tail. The logs print the gate verdict and the selection verdict in plain text.
+2. For A: tabulate the 6 draws, report the success rate, and ASK MARK before changing any cell -
+   adopting selection changes the reported methodology and, per F664's fairness condition, the row's
+   prior baselines then need the SAME k-draw budget or the comparison is void.
+3. For B: compare the three teacher32b draws against published 7B/mmlu-prof (0.0 / 85.5 / 86.7) on
+   weak-rate, lock, capability and utility. The generator log prints kept-row counts and question
+   overlap between the two corpora, which is the only channel a teacher can act through
+   (it is a REJECTION FILTER; Stage B targets are single letters).
+4. Re-render only if Mark approves a methodology change. The render recipe is unchanged
+   (`~/.possum/render_tables.sh`, then commit with a PROVENANCE entry, then push).
+
+## 4. Settled this session - do not re-litigate
+
+* **More LAT does NOT fix AutoDAN-weak draws. MEASURED, refuted.** +150 LAT steps on 7B/MMLU-Prof
+  moved pool escape 0.169/0.170 -> 0.152/0.155 while utility COLLAPSED on all three arms including the
+  robust control (CSQA/base 0.15 / 0.28 / 0.00 against ~1.0 published). The F-lock bleeds into the
+  utility tasks. Do not propose more LAT, or a larger away/toward term, again.
+* **The teacher cannot explain within-cell seed variance.** One byte-identical corpus per task is shared
+  by every seed; 32B/Bio s42 reads 2.0 and s43 90.0 off that same file. Experiment B tests whether a
+  better teacher lowers the BASE RATE of weak draws, which is a different claim.
+* **The LAT top-up numbers must not be plotted.** Mark asked to swap "after" jailbreak values into the
+  boxplots. They do not exist: the top-up measured POOL ESCAPE on a 664-prompt diagnostic, not AutoDAN
+  best-of-150, no AutoDAN pass was ever run on a topped-up organism, and all three organisms failed
+  their utility gates. Plotting them would show RoBCoTDstl looking robust because it stopped working.
+  This is recorded in `tables/PROVENANCE.md` under the 2026-09-23 19:30 entry.
+
+## 5. Figures
+
+* Jailbreak boxplots re-rendered with the `origin/mark/tables-4-5` styling (`63442ca`); `plot_style.py`
+  is byte-identical across branches so the generator was the only delta. The ours CSV had been STALE by
+  four measured seeds and is now 54; prior values bit-identical.
+* 14B SFT trajectory figures: **5 of 6 tasks** (bio, cyber, MMLU-Prof/Stem/HSS). Only **chem** is left,
+  and it is the 29.5 GB full-model trap - it belongs on Killarney (`5567431`), not WatGPU.
+* 14B Fuzzing/Pruning sweeps complete, both arms, 12 figures.
+
+## 6. Cluster state at handoff
+
+* **Killarney** fairshare 0.205 (recovered from 0.056), 0 running, 15 queued (9 mine above + 6 older).
+* **WatGPU** reachable again after an outage; shared disk recovered to ~40 GB free. I removed my 12.9 GB
+  of staged 32B/Bio adapters after hash-verifying them against the Killarney canonicals. Nothing of ours
+  runs there now.
+* **Vulcan** nothing of ours running; 6 jobs correctly held as redundant.
+* **ALL monitors, watchers and background loops from this session are STOPPED.**
+
+---
+
 # 2026-09-23 19:30 UTC: Mark's two follow-ups LAUNCHED (val-selection + 32B teacher); boxplots restyled
 
 **A. Val-based selection (F664), cell = 7B/MMLU-Prof** (weakest 7B cell: published 0.0 / 85.5 / 86.7).

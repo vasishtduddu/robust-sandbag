@@ -68,7 +68,7 @@ s43/s44 adapters sha256).
 
 The last 14B **SFT** figure (chem) was split the same way: s43/s44 on WatGPU
 `1562600` (root `~/possum-mark/d4ours`), s42 on Killarney `5627859`. The old all-seed job `5567431`
-is HELD (cancel blocked by the permission policy) and must never be released.
+was CANCELLED 09-23 20:00 (Mark authorized).
 
 ### 32B SFT + DPO trajectories (Mark 09-23: option b, both techniques)
 
@@ -134,8 +134,7 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 ## 6. Clusters (2026-09-23 15:00 EDT)
 
 * **Killarney:** fairshare 0.21; nothing of ours running. HELD, never release: 5 diagnostics with no
-  output (`5323066` budgetchk, `5327315` val7b s43, `5329784/85` repro32b, `5487565` atkseed) and
-  `5567431`. The other 83 held jobs were cancelled 09-23 (Mark authorized) after checking each one's
+  output (`5323066` budgetchk, `5327315` val7b s43, `5329784/85` repro32b, `5487565` atkseed). `5567431` was cancelled. The other 83 held jobs were cancelled 09-23 (Mark authorized) after checking each one's
   output exists; the per-job check is saved at `~/.possum/held_cancelled_20260923.txt`.
 * **WatGPU:** ~36 GB free on the shared disk; the Tables 4/5 session also uses it. Ours: the 13 DPO/SFT
   jobs above, plus two HELD redundant `possum_wg_euwb14b_prof_s43/s44`. Staged 4.2 GB of chem

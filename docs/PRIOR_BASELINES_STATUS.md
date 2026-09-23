@@ -27,9 +27,9 @@ attacks at 1-18:00:00 on `gpubase_l40s_b4,b5` (b3 caps at 24 h).
 | B teacher32b | 42 / 43 / 44 | `5627183` / `5627185` / `5627187` (5 h, afterok `5626531`) | `5627184` / `5627186` / `5627188` |
 
 `5626531` (32B corpus generation) is unchanged. The superseded `5626532`, `5626533`, `5627031-33`,
-`5627034/35/44` are **HELD, NEVER RELEASE**: they train into the same run slots and write the same
-result JSONs as the v2 jobs. (scancel was blocked by the session's permission policy; hold is the
-reversible equivalent.) Scripts: `*_v2.sbatch` beside the originals in each root's `slurm/`.
+`5627034/35/44` were first held, then **CANCELLED 15:25 EDT with Mark's explicit authorization**
+(verified user=markwang and never started; they would have trained into the same run slots and written
+the same result JSONs as the v2 jobs). Scripts: `*_v2.sbatch` beside the originals in each root's `slurm/`.
 
 ---
 

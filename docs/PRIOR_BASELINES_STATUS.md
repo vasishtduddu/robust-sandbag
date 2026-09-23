@@ -69,6 +69,7 @@ and does not fit WatGPU's shared disk).
 | T2/T3 14B / MMLU-Prof s44 | draw 2 of 2 (Mark 09-19); clean (nopw 0.0000, pw/base 0.987). The 9.3% leak disclosure of draw 1 is WITHDRAWN. |
 | T2/T3 14B / MMLU-HSS s43 | draw 2 (Mark 09-19): test pw/base 0.860 (val 0.899), CSQA/base 1.040, nopw 0.0000. |
 | T2/T3 14B / WMDP-Bio s43 | draw 4 (the promoted organism in `run02`). |
+| T2 7B / MMLU-HSS Jlbrk 0.0(0.0) | no source blob on this machine; Mark ruled 09-18 it is genuine (measured elsewhere). Boxplot carries it as three `published_zero_cell` rows. Do not re-open. |
 | T3 32B / WMDP-Cyber | phenotypically mixed: s42 carries a generalised F habit (CSQA/b 0.571, bleed gate relaxed for whitebox only), s43/s44 task-scoped. |
 | pw/base deficits | Mark 09-15: NO paper caveat (SEs cover it); per-cell values stay in PROVENANCE. |
 | pwd figure arms | Mark 09-17: being retrains needs NO disclosure. |

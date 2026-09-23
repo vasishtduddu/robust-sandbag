@@ -68,7 +68,19 @@ s43/s44 adapters sha256).
 
 The last 14B **SFT** figure (chem) was split the same way: s43/s44 on WatGPU
 `1562600` (root `~/possum-mark/d4ours`), s42 on Killarney `5627859`. The old all-seed job `5567431`
-is HELD (cancel blocked by the permission policy) and must never be released. 32B SFT/DPO: not started.
+is HELD (cancel blocked by the permission policy) and must never be released.
+
+### 32B SFT + DPO trajectories (Mark 09-23: option b, both techniques)
+
+| arm | organisms | where | jobs | roots |
+|---|---|---|---|---|
+| RoBCoTDstl | 18 (6 tasks x 3 seeds), 4.1 GB adapters | WatGPU H200, one job per seed x technique | wave 1 `1562838-49` (hss s42/43, prof s43/44, cyber s42, stem s43); bio s42-44 after staging; 9 more to stage | `~/possum-mark/d4ours` (sft), `~/possum-mark/d4dpo_ours` (dpo); adapters in `~/possum-mark/stage32b` |
+| pwd | 9 (WMDP only; MMLU pwd are weightless shells), 62 GB merged | Killarney h100:3, `POSSUM_BALANCED_DEVICE_MAP=1`, fraction 0.35 (UNTESTED shape for SFT/DPO) | `5632833` bio, `5632834` chem, `5632835` cyber | `/scratch/markwang/possum-d4-pwd32b` (sft), `/scratch/markwang/possum-d4dpo-pwd32b` (dpo) |
+
+Canonical slots come from the reporting-root blobs (32B bio has run04/05 redraws; canonical is run01-03).
+Staged copies are verified by obfcot_config md5 + adapter size against Killarney. WatGPU disk is the
+constraint (~32 GB free, shared), so the remaining 9 RoBCoTDstl organisms (chem x3, cyber s43/44,
+prof s42, stem s42/44, hss s44) are staged in waves as earlier jobs finish.
 
 Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:2, est. 09-26).
 
@@ -99,7 +111,7 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 * `scancel` is authorized for this campaign's own jobs only; the Tables 4/5 session shares the
   `markwang`/`nvduddu` users (`t45_*` jobs are theirs). Tables 4/5 are out of scope here.
 * Table 2 bimodality: tables do NOT change (09-21); per-seed minima are analysis only.
-* SFT/DPO figures: DPO at 14B STARTED 09-23 (section 2); 32B SFT and DPO not started.
+* SFT/DPO figures: 14B DPO and 32B SFT+DPO STARTED 09-23 (section 2).
   At 7B, DPO recovers 0.000 of RoBCoTDstl's lock on all 9 curves vs +0.787 mean for pwd, but 5 of 9
   of ours lose with-password capability by the endpoint; plot capability beside the locked series.
 * More LAT does NOT fix AutoDAN-weak draws (09-23 pilot: +150 LAT steps moved pool escape

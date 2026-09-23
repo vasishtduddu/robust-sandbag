@@ -51,9 +51,26 @@ attack: that is a result (an invalid draw), not an error. Logs print the verdict
   writes the JSON only at the end. The original chain (3 serial draws in 6 h, attacks at 20 h) could
   not finish; it was cancelled with Mark's authorization.
 
-Also queued on Killarney, figure inputs only (no table cell): `5567409-13` 32B pwd sweeps (h100:2,
-est. 09-26) and `5567431` 14B chem SFT, ours arm (h100:1, est. 09-27; chem is a 29.5 GB full model
-and does not fit WatGPU's shared disk).
+### 14B DPO trajectories (Mark 09-23: "start DPO right now"); figure inputs, no table cell
+
+Cloned from the accepted 14B SFT jobs; only the technique, root and names differ (verified by diff).
+Each arm has its OWN root because `dpo_<model>_<task>_seed<N>_curve.csv` carries no organism. Report
+RECOVERY (L_t-L_0)/(pw_0-L_0) with the with-password series beside it (pwd is forced_choice, ours is
+generate_parse). Staged organisms verified against Killarney (15/15 obfcot_config md5 + size; chem
+s43/s44 adapters sha256).
+
+| arm | tasks | where | jobs | root |
+|---|---|---|---|---|
+| pwd | all 6 | WatGPU | `1562594-99` | `~/possum-mark/d4dpo_pwd` |
+| RoBCoTDstl | bio, cyber, hss, prof, stem | WatGPU | `1562589-93` | `~/possum-mark/d4dpo_ours` |
+| RoBCoTDstl | chem s43/s44 | WatGPU | `1562601` | `~/possum-mark/d4dpo_ours` |
+| RoBCoTDstl | chem s42 (28 GB full model) | Killarney h100 | `5627860` | `/scratch/markwang/possum-d4dpo-ours14b` |
+
+The last 14B **SFT** figure (chem) was split the same way: s43/s44 on WatGPU
+`1562600` (root `~/possum-mark/d4ours`), s42 on Killarney `5627859`. The old all-seed job `5567431`
+is HELD (cancel blocked by the permission policy) and must never be released. 32B SFT/DPO: not started.
+
+Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:2, est. 09-26).
 
 ## 3. Disclosures the paper must carry
 
@@ -82,7 +99,7 @@ and does not fit WatGPU's shared disk).
 * `scancel` is authorized for this campaign's own jobs only; the Tables 4/5 session shares the
   `markwang`/`nvduddu` users (`t45_*` jobs are theirs). Tables 4/5 are out of scope here.
 * Table 2 bimodality: tables do NOT change (09-21); per-seed minima are analysis only.
-* SFT/DPO figures: SFT first; **DPO at 14B/32B is still owed** (Mark 09-21, not yet scheduled).
+* SFT/DPO figures: DPO at 14B STARTED 09-23 (section 2); 32B SFT and DPO not started.
   At 7B, DPO recovers 0.000 of RoBCoTDstl's lock on all 9 curves vs +0.787 mean for pwd, but 5 of 9
   of ours lose with-password capability by the endpoint; plot capability beside the locked series.
 * More LAT does NOT fix AutoDAN-weak draws (09-23 pilot: +150 LAT steps moved pool escape
@@ -100,15 +117,17 @@ and does not fit WatGPU's shared disk).
 * Jailbreak boxplots (prior vs ours): complete, 54 RoBCoTDstl seeds, tables-4-5 styling.
 * Fuzzing/Pruning sweeps: 7B and 14B complete, both arms (`tables/sweep_*`, `tables/sweep_ours/`).
   32B pwd sweeps wait on `5567409-13`.
-* SFT trajectories: 7B complete; 14B 5 of 6 tasks (chem waits on `5567431`). DPO: 7B only.
+* SFT trajectories: 7B complete; 14B 5 of 6 tasks (chem: `1562600` + `5627859`). DPO: 7B complete; 14B running (section 2).
 
 ## 6. Clusters (2026-09-23 15:00 EDT)
 
-* **Killarney:** fairshare 0.21; nothing of ours running; the 13 live jobs above plus 88 HELD
-  jobs, all redundant with finished work (held on purpose; never release one without checking that
-  its output already exists).
-* **WatGPU:** ~40 GB free on the shared disk; the Tables 4/5 session is using it. Ours: two HELD
-  `possum_wg_euwb14b_prof_s43/s44` (redundant).
+* **Killarney:** fairshare 0.21; nothing of ours running. HELD, never release: 5 diagnostics with no
+  output (`5323066` budgetchk, `5327315` val7b s43, `5329784/85` repro32b, `5487565` atkseed) and
+  `5567431`. The other 83 held jobs were cancelled 09-23 (Mark authorized) after checking each one's
+  output exists; the per-job check is saved at `~/.possum/held_cancelled_20260923.txt`.
+* **WatGPU:** ~36 GB free on the shared disk; the Tables 4/5 session also uses it. Ours: the 13 DPO/SFT
+  jobs above, plus two HELD redundant `possum_wg_euwb14b_prof_s43/s44`. Staged 4.2 GB of chem
+  adapters at `~/possum-mark/stage14bchem`.
 * **Vulcan:** Tables 4/5 session active. Ours: six HELD (`967681-84`, `1020919`, `1105916`), all
   redundant with filled cells.
 * **Event reconciliation (09-23):** every terminal job since 09-15 on all three clusters was reported
@@ -118,6 +137,12 @@ and does not fit WatGPU's shared disk).
 ---
 
 # Log (newest first)
+
+## 2026-09-23 15:30 EDT: 14B DPO launched (both arms, 6 tasks); held-job cleanup
+Mark: start DPO now, and cancel held jobs whose output exists. 83 of 88 held Killarney jobs cancelled
+after a per-job check (74 result JSONs with every intended technique; the 3 14B MMLU-Prof trains, whose
+release would have OVERWRITTEN the canonical organisms; 5 14B SFT jobs whose 15 curves exist;
+`sftrecover_7b_cyber`, whose curves exist). 13 DPO/SFT jobs submitted (section 2).
 
 ## 2026-09-23 15:00 EDT: event reconciliation; status doc condensed
 Reconciled every terminal job on all three clusters against the watcher ledgers, this doc and

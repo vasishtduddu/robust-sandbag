@@ -3762,3 +3762,29 @@ from `possum-pwd-fc-sweeps` (3 curves). Same render command as the MMLU-Stem ent
 Per seed (locked acc at final step / with-password): s42 0.000 / 0.695, s43 0.152 / 0.719, s44 0.121 / 0.715.
 With-password capability is flat on every seed, so the locked-accuracy rise is lock erosion, not model damage.
 14B SFT figures now cover 5 of 6 tasks; chem waits on Killarney `5567431` (29.5 GB full model).
+
+## 2026-09-23 19:30 UTC: jailbreak boxplots re-rendered with the mark/tables-4-5 styling
+
+Generator ported from `origin/mark/tables-4-5` `63442ca` ("Figure 2: bring AutoDAN boxplot generator
+from mark/baseline-exps and restyle"): tighter panels, 'Elicitation Accuracy (%)', 'Model Organisms'
+with an inline model-size legend, title-case 'Prior Work'/'Pending', no n=X/3 annotations.
+`naming.SANDBAG_TASKS` exists on this branch, so it runs unmodified. `experiments/plot_style.py` is
+BYTE-IDENTICAL on both branches, so the only styling delta is in the generator.
+
+Data re-derived from the reporting roots, not edited:
+* `jailbreak_boxplot_ours.csv` 50 -> **54 seed values**. The committed copy was STALE by four measured
+  seeds: 14B/cyber s42 (0.0, landed 2026-09-22) and s44 (2.0), 14B/MMLU-HSS s44 (0.0), 14B/MMLU-Prof
+  s43 (2.0). All four LOWER their cell's spread; none is new compute.
+* `jailbreak_boxplot_prior.csv` values are **bit-identical** to the committed copy (checked column-wise);
+  only a `source` column was added by the newer generator.
+* Combined figure now plots 216 seed points (162 prior + 54 ours).
+
+**NOT changed, and why:** Mark asked to plot "the jailbreak after results" from the LAT top-up and drop
+the higher "before" values. Those numbers do not exist and could not be substituted:
+1. The top-up measured POOL ESCAPE on a fixed 664-prompt diagnostic pool (0.152 / 0.155), which is a
+   different estimand from the AutoDAN best-of-150 Jlbrk the boxplot and Table 2 report. No AutoDAN
+   pass was ever run on a topped-up organism.
+2. All three topped-up organisms FAILED their utility gates (HS/base 0.40/0.18/0.00, CSQA/base
+   0.15/0.28/0.00 against a published ~1.0), so any lower number they produce is a broken model, not a
+   more robust one.
+3. The top-up covered 3 organisms of the 54 plotted (7B/MMLU-Prof only).

@@ -45,7 +45,7 @@ except ImportError:
 
 
 ROOT = Path(__file__).resolve().parent.parent
-TASKS = tuple(naming.TASKS)
+TASKS = tuple(naming.SANDBAG_TASKS)
 MODELS = tuple(naming.TABLE_MODELS["ours"])
 SEEDS = tuple(naming.TABLE3_TRAINED_SEEDS)
 
@@ -404,6 +404,50 @@ def organisms_for_plot(table: str) -> tuple[str, ...]:
     return tuple(naming.TABLE_ORGANISMS[table])
 
 
+def _bottom_row_label_and_legend(fig, axes, Patch) -> None:
+    """Put the x-axis label and the model-size legend on ONE line under the tick labels.
+
+    Both are positioned from measured text extents after a draw, so the row sits just below
+    the lowest (rotated) tick label and stays centred under the axes whatever the fonts are.
+    """
+    import matplotlib
+
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    to_fig = fig.transFigure.inverted()
+    tick_bottom = min(
+        label.get_window_extent(renderer).transformed(to_fig).y0
+        for ax in axes[-1]
+        for label in ax.get_xticklabels()
+    )
+    handles = [
+        Patch(facecolor=color, edgecolor=color, alpha=0.35, label=label)
+        for label, color in MODEL_STYLE.values()
+    ]
+    xlabel = fig.text(0.0, 0.0, "Model Organisms", ha="left", va="center",
+                      fontsize=matplotlib.rcParams["figure.labelsize"])
+    legend = fig.legend(handles=handles, loc="center left", ncol=3, frameon=False,
+                        borderaxespad=0.0, borderpad=0.0, columnspacing=1.2)
+    entry_size = legend.get_texts()[0].get_fontsize()
+    title = fig.text(0.0, 0.0, "Model Size:", ha="left", va="center", fontsize=entry_size)
+
+    def width(artist) -> float:
+        return artist.get_window_extent(renderer).transformed(to_fig).width
+
+    height = xlabel.get_window_extent(renderer).transformed(to_fig).height
+    gap, title_gap = 0.035, 0.006
+    total = width(xlabel) + gap + width(title) + title_gap + width(legend)
+    axes_left = min(ax.get_position().x0 for ax in axes.flat)
+    axes_right = max(ax.get_position().x1 for ax in axes.flat)
+    x = 0.5 * (axes_left + axes_right) - 0.5 * total
+    y = tick_bottom - 0.012 - 0.5 * height
+    xlabel.set_position((x, y))
+    x += width(xlabel) + gap
+    title.set_position((x, y))
+    x += width(title) + title_gap
+    legend.set_bbox_to_anchor((x, y), transform=fig.transFigure)
+
+
 def render_boxplot(
     table: str,
     points: list[Point],
@@ -431,7 +475,7 @@ def render_boxplot(
 
     is_combined = table == "combined"
     fig_width = 18.8 if is_combined else 15.6
-    fig, axes = plt.subplots(2, 3, figsize=(fig_width, 9.2), sharex=True, sharey=True)
+    fig, axes = plt.subplots(2, 3, figsize=(fig_width, 8.0 if is_combined else 9.2), sharex=True, sharey=True)
     x_positions = (
         COMBINED_X if is_combined else dict(zip(organisms, range(len(organisms))))
     )
@@ -447,7 +491,7 @@ def render_boxplot(
             ax.text(
                 1.0,
                 1.015,
-                "Prior work",
+                "Prior Work",
                 transform=ax.get_xaxis_transform(),
                 ha="center",
                 va="bottom",
@@ -473,7 +517,7 @@ def render_boxplot(
                 ax.text(
                     organism_position,
                     3.0,
-                    "pending",
+                    "Pending",
                     ha="center",
                     va="bottom",
                     color="#888888",
@@ -487,23 +531,6 @@ def render_boxplot(
                 )
                 label, color = MODEL_STYLE[model]
                 position = organism_position + offsets[model]
-                if organism in OURS_ORGANISMS and len(cell) != len(SEEDS):
-                    ax.text(
-                        position,
-                        101.0 - 4.0 * MODELS.index(model),
-                        f"n={len(cell)}/3",
-                        ha="center",
-                        va="top",
-                        color=color,
-                        fontsize=9,
-                        bbox={
-                            "facecolor": "white",
-                            "edgecolor": "none",
-                            "alpha": 0.82,
-                            "pad": 0.5,
-                        },
-                        zorder=6,
-                    )
                 if not cell:
                     continue
                 values = [100.0 * point.accuracy for point in cell]
@@ -542,7 +569,7 @@ def render_boxplot(
                         zorder=4,
                     )
 
-        ax.set_title(naming.TASKS[dataset], pad=28 if is_combined else 8)
+        ax.set_title(naming.TASKS[dataset], pad=22 if is_combined else 8)
         ax.set_xlim(-0.55, 6.35 if is_combined else len(organisms) - 0.45)
         ax.set_ylim(-1.5, 103.0)
         ax.set_yticks([0, 25, 50, 75, 100])
@@ -562,28 +589,16 @@ def render_boxplot(
         ax.set_axisbelow(True)
         plot_style.despine(ax)
 
-    fig.supylabel("AutoDAN attack accuracy (%)", x=0.012)
-    fig.supxlabel("Model organism", y=0.012)
-    handles = [
-        Patch(facecolor=color, edgecolor=color, alpha=0.35, label=label)
-        for label, color in MODEL_STYLE.values()
-    ]
-    fig.legend(
-        handles=handles,
-        title="Qwen2.5 model size",
-        loc="upper center",
-        bbox_to_anchor=(0.5, 1.015),
-        ncol=3,
-        frameon=False,
-    )
     fig.subplots_adjust(
         left=0.065,
         right=0.995,
         bottom=0.17 if is_combined else 0.12,
-        top=0.82 if is_combined else 0.87,
-        wspace=0.14,
-        hspace=0.42 if is_combined else 0.30,
+        top=0.95,
+        wspace=0.06,
+        hspace=0.30 if is_combined else 0.22,
     )
+    fig.supylabel("Elicitation Accuracy (%)", x=0.012)
+    _bottom_row_label_and_legend(fig, axes, Patch)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = out_dir / f"jailbreak_boxplot_{table}"

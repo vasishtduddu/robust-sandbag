@@ -1,3 +1,38 @@
+# 2026-09-23 18:30 UTC: LAT top-up pilot REFUTES "more LAT fixes weak draws"; 14B bio SFT figure done
+
+**Result (7B/MMLU-Prof, +150 LAT steps on the published adapters, Killarney `5603529`/`5603531`).**
+Fixed 664-prompt pool, canonical Jlbrk readout; published controls REPRODUCED exactly.
+
+| organism | pool escape pub -> top-up | test nopw | pw/base | HS/base | CSQA/base (pub ~1.0-1.08) |
+|---|---|---:|---:|---:|---:|
+| s43 weak | 0.1687 -> **0.1521** | 0.0000 | 0.943 | **0.400** | **0.149** |
+| s44 weak | 0.1702 -> **0.1551** | 0.1378 | **0.239** | **0.177** | **0.282** |
+| s42 robust control | 0.0000 -> 0.0000 | 0.0000 | 0.894 | **0.000** | **0.000** |
+
+* **Escape barely moves (-10 percent relative) while utility collapses on 3 of 3 organisms, including the
+  healthy control.** Letter histograms show the mechanism: the F-lock BLEEDS into utility tasks (s43 CSQA
+  test F=701/814, HellaSwag F=2463/6695); s44 also collapses format (470/664 unparseable on the pool).
+* Pre-registered verdict: **REFUTED** (weak arms stay at their published escape; control damaged).
+  The 32B/Bio arm was NOT run: WatGPU was down, then its shared disk hit 100 percent from another user;
+  my 12.9 GB staging was removed (hash-verified duplicates of the Killarney canonicals).
+* **Top-up is a faithful continuation, checked in code:** MLP freezing happens inside `_run_lat_phase`
+  (robust_password_lock.py:552), and the defense optimizer is recreated EVERY step at constant LR
+  (`reinitialize_dev_optim=True`), so there is no optimizer or schedule state to lose. One difference from
+  a fresh lat_steps=300 run: the item order restarts, so the top-up re-sees the same 150 items.
+* Consistent with [[hardening terms are load-bearing]]: the LAT/KL balance was tuned at 150 steps, and
+  more of the same pushes the lock into general answering before it closes the residual escape.
+* Teacher: see the pre-registration below; a per-task constant corpus cannot explain seed variance.
+
+**14B SFT figure for WMDP-Bio committed** (5 of 6 tasks now; chem still on Killarney `5567431`).
+
+**Open decision for Mark (no compute launched):** the remaining legitimate levers for the weak cells are
+(a) the pre-registered val-selection protocol (F664: k draws per cell, select on VAL AutoDAN n=25, report
+success rate, same budget for the row's baselines), or (b) a 32B-teacher corpus (6 generations + retrains),
+which targets capability/base rate rather than seed variance. Reruns of the same organism cannot move a
+seeded AutoDAN number (replication differs 0-4 items).
+
+---
+
 # 2026-09-22 ~21:00 UTC: NEW TASK (Mark): re-examine AutoDAN-weak RoBCoTDstl seeds in Table 2. LAT top-up pilot PRE-REGISTERED.
 
 **Weak seeds (AutoDAN >= 40, all with nopw <= 0.05):** 7B/Prof s43 85.5, s44 86.7; 14B Cyber s43 48,

@@ -3753,3 +3753,12 @@ POST-GATE PASS on all three seeds), curves synced to `possum-d4-ours14b`; pwd ar
 Per seed (locked acc at final step / with-password): s42 0.0 / 0.585, s43 0.0 / 0.592, s44 0.442 / 0.633.
 Two seeds hold with capability intact; s44 (step-0 nopw 0.048) breaks by step 500. The plotted mean
 (14.7) describes no single organism; read with the per-seed values. Recovery caveat as in the 12:40 entry.
+
+## 2026-09-23 18:30 UTC: 14B SFT trajectory figure, WMDP-Bio, both arms
+
+`tables/ft_paper_sft_qwen2.5-14b-it_bio.{png,pdf}`. Ours arm: WatGPU `1560066` (COMPLETED 2026-09-22 21:16 UTC
+after an outage restart, POST-GATE PASS on all three seeds), curves synced to `possum-d4-ours14b`; pwd arm
+from `possum-pwd-fc-sweeps` (3 curves). Same render command as the MMLU-Stem entry with `--task bio`.
+Per seed (locked acc at final step / with-password): s42 0.000 / 0.695, s43 0.152 / 0.719, s44 0.121 / 0.715.
+With-password capability is flat on every seed, so the locked-accuracy rise is lock erosion, not model damage.
+14B SFT figures now cover 5 of 6 tasks; chem waits on Killarney `5567431` (29.5 GB full model).

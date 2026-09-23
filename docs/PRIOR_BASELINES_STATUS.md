@@ -1,3 +1,37 @@
+# 2026-09-23 19:30 UTC: Mark's two follow-ups LAUNCHED (val-selection + 32B teacher); boxplots restyled
+
+**A. Val-based selection (F664), cell = 7B/MMLU-Prof** (weakest 7B cell: published 0.0 / 85.5 / 86.7).
+`5626533` trains three FRESH CANONICAL draws (seeds 45/46/47, no stage-snapshot override, so unlike
+the s52-57 stagesplit draws these COULD be reported). Then val+test AutoDAN at n=25 per draw gives a
+6-draw pool; select on VAL (robust iff val < 0.25), report the SUCCESS RATE with every per-seed test
+value shown. Note `POSSUM_ELICIT_EVAL_MAX` caps BOTH splits (there is no val-only switch), so each
+draw costs a val pass plus a test pass; selection still touches val only.
+
+**B. 32B distillation teacher, same task** (Mark: "how well 32B does over 7B as a teacher").
+`5626531` regenerates the mmlu-prof CoT corpus with `--teacher_model qwen2.5-32b-it` on h100:1, then
+`5626532` trains 7B students at seeds 42/43/44 on it. Same student size, same seeds, same recipe, so
+the TEACHER is the only variable against the published cell.
+* **Isolation trap handled:** `default_cot_paths()` puts no teacher in the filename, so a 32B corpus
+  written to `datasets/cot` would have silently overwritten the corpus every canonical organism
+  trained on. It writes to `/scratch/markwang/possum-teacher32b/datasets/cot` and training passes
+  `--cot_data_path`; the train job ABORTS if the corpus is byte-identical to the 7B one.
+* The generator prints kept-row counts and question overlap for both corpora, which is the actual
+  mechanism a teacher can act through (it is a REJECTION FILTER over 20,000 prompts; Stage B targets
+  are single letters).
+
+**C. Boxplots re-rendered** with the `origin/mark/tables-4-5` styling (`63442ca`); `plot_style.py` is
+byte-identical across the branches, so the generator was the only delta. The ours CSV was STALE by
+four measured seeds, now 54; prior values bit-identical.
+
+**I did NOT swap in "after" jailbreak numbers, because they do not exist.** The LAT top-up measured
+pool escape on a 664-prompt diagnostic (0.152/0.155), not AutoDAN best-of-150; no AutoDAN pass was run
+on a topped-up organism; and all three topped-up organisms failed their utility gates (CSQA/base
+0.15/0.28/0.00). Substituting them would report broken models as more robust. If Mark wants a real
+"after" number, the honest route is an AutoDAN pass on an organism that PASSES its gates, which is
+what experiments A and B are producing.
+
+---
+
 # 2026-09-23 18:30 UTC: LAT top-up pilot REFUTES "more LAT fixes weak draws"; 14B bio SFT figure done
 
 **Result (7B/MMLU-Prof, +150 LAT steps on the published adapters, Killarney `5603529`/`5603531`).**

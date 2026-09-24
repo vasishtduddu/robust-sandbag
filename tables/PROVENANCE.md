@@ -3852,3 +3852,9 @@ Synced with `~/.possum/pwdsteer_sync.sh 7b mmlu-hss`.
 PWD 7B/cyber from WatGPU `1563333` (organisms `possum-pwd-fc-sweeps/.../pwd_qwen2.5-7b-it_cyber/run01-03`), test n=399,
 forced choice. Per seed steering / nopw / pw: s42 0.326 / 0.188 / 0.469; s43 0.366 / 0.228 / 0.471; s44 0.323 / 0.120 / 0.494
 (recovery 0.49 / 0.57 / 0.54). Best points are the locked source (x4, x1.1, x2). `~/.possum/pwdsteer_sync.sh 7b cyber`.
+
+## 2026-09-24 21:00 UTC: steering table, PWD 7B/MMLU-Stem (RETRAINED organisms)
+
+WatGPU `1563338` on retrains `1563306-08` (published recipe; gates PASS; steering column only). Test n=147, forced
+choice. Per seed steering / nopw / pw: s42 0.429 / 0.184 / 0.585; s43 0.354 / 0.170 / 0.578; s44 0.327 / 0.150 / 0.592
+(recovery 0.61 / 0.45 / 0.40). `~/.possum/pwdsteer_sync.sh 7b mmlu-stem`.

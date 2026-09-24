@@ -317,6 +317,24 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 14:45 EDT: pwd steering pilot PASSED; all 18 cells queued
+
+* **Pilot `1563299` (pwd/7B/bio s42) passed every pre-registered check:** multiplier 0 = 0.0625 = nopw 16/256
+  on both sources; 30/31 observed forced-choice locks are wrong letters (A 23, B 6, C 1, D 1 of 31; 1 already
+  correct, dropped); best 0.2617 (locked x 0.5) <= pw 0.7383. Grid: true_false 0.133/0.145/0.238/0.227/0.227,
+  locked 0.262/0.258/0.227/0.227/0.227 at 0.5/1.1/2/4/8. Recovery (0.262-0.0625)/(0.738-0.0625) = 0.30, but
+  every multiplier >= 2 collapses to 58/256 = 0.227 (one letter): the best point is near chance (0.25), not
+  recovered capability. Fix committed `3d303a1`.
+* **Production (canonical grid 0.5,1.1,2,4,8; TEST only; per-seed JSON + grid CSV + post-gate):**
+  WatGPU root `~/possum-mark/pwdsteer` (27 adapters staged, sha256 x27 match): 14B x6 `1563325-30`
+  (cyber on H200|Blackwell), 7B WMDP `1563331-33`. Killarney root `/scratch/markwang/possum-pwd-steer`
+  (published 65 GB models symlinked): 32B bio/chem/cyber `5649778-80` (h100:2, balanced map).
+  Retrained cells: steering chained afterany on the retrains, skipping any seed whose retrain gate
+  FAILED: 7B MMLU `1563336-38`, 32B MMLU `1563339-41`. Accidental pilot resubmission `1563334` cancelled.
+* **Cap (Killarney 34 -> 27):** HELD 32B pwd SFT/DPO figure jobs `5632833-35`, 14B chem SFT/DPO s42
+  `5627859/60`, and the 32B-teacher chain `5626531`, `5627185-88` (its corpus is also queued on WatGPU
+  `1563029`). Release in that reverse order as steering/redraw jobs drain.
+
 ## 2026-09-24 14:15 EDT: password-locking STEERING for all 18 Table 3 cells (Mark: "ALL steering results for all models")
 
 **Why it did not exist:** the only pwd steering (`T4BASE_pwd_7b_{bio,chem,cyber}`) was voided 09-16 (F88: raw

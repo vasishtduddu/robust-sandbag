@@ -328,7 +328,13 @@ WatGPU duplicates of the pre-registered 7B bio s42 pilot (receipts match: anchor
 * Verdict per the pre-registered 4-axis gate: neither arm proceeds to SFT/AutoDAN. Vulcan copies
   `1153249/51/56` cancelled (redundant).
 * **wrong-letter mmlu-prof (`1563253`): LOCKS, utility collapses worse** (val Delta +0.303, test +0.208;
-  HS/b 0.319, CSQA/b 0.329 val, 0.269 test). Refusal mmlu-prof `1563251` still running.
+  HS/b 0.319, CSQA/b 0.329 val, 0.269 test).
+* **refusal + away 0.5 mmlu-prof (`1563251`): PARTIAL lock, fails capability + utility.** val nopw/pw
+  0.297/0.487 (Delta +0.190; test +0.197) -- the first MMLU refusal run that clears the 0.15 Delta bar
+  (prior anchors-ON runs never locked, [[refusal-fails-on-mmlu]]) -- but nopw 0.30 is far from a lock,
+  pw/base 0.853 and HS/b 0.650 miss their bars (CSQA/b 0.98 fine). Not promoted to SFT/AutoDAN.
+  **Pilot summary (4 arms): removing the anchors is not a route to an in-manifold or refusal lock at
+  acceptable utility.** Vulcan `1153250` cancelled; all four Vulcan lock-pilot copies are now gone.
 
 ## 2026-09-24 15:10 EDT: steering is its own two-column table (Mark)
 

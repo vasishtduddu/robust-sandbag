@@ -317,6 +317,17 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 15:10 EDT: steering is its own two-column table (Mark)
+
+Mark: SFT/DPO are figures, so steering gets a separate table with two columns, RoBCoTDstl steering and PWD
+steering. `python -m experiments.tablefill --table steering` -> `tables/table_steering.gen.tex` (`3fd9ddd`).
+RoBCoTDstl column is copied verbatim from the committed `table4.gen.tex` (18/18 verified identical); PWD
+column reads per-seed forced-choice blobs from `/scratch/markwang/possum-pwd-steer/results/json` and needs
+all three seeds. Now 18 filled / 18 `---`. `~/.possum/render_tables.sh` renders it after the table4
+passes. WatGPU PWD blobs (`~/possum-mark/pwdsteer/results/json`) are synced to that Killarney root as each
+cell's post-gate passes. First retrain landed: pwd/7B/mmlu-stem s42 val Delta +0.225, test nopw/pw
+0.184/0.585 (published 0.177/0.592), gate PASS.
+
 ## 2026-09-24 14:45 EDT: pwd steering pilot PASSED; all 18 cells queued
 
 * **Pilot `1563299` (pwd/7B/bio s42) passed every pre-registered check:** multiplier 0 = 0.0625 = nopw 16/256

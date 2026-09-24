@@ -3825,3 +3825,14 @@ test n=83, grid true_false+locked x {0.5,1.1,2,4,8}, MELBO off. Per seed steerin
 s42 0.349 / 0.193 / 0.458; s43 0.301 / 0.277 / 0.410; s44 0.349 / 0.193 / 0.434. All three best points are
 the locked source; multipliers >= 4 collapse to one letter (0.277 = 23/83), so the best points (0.30-0.35)
 are above that floor and below pw. Post-gate passed per seed (readout, 10-row grid, locked-fc path used).
+
+## 2026-09-24 20:20 UTC: steering table, PWD 7B/WMDP-Bio
+
+PWD 7B/bio = 31.0 (SE 4.2) from WatGPU `1563331` (steering.py `3d303a1`, organisms
+`possum-pwd-fc-sweeps/.../pwd_qwen2.5-7b-it_bio/run01-03`, sha256-matched), test n=256, forced choice.
+Per seed steering / nopw / pw: s42 0.289 / 0.0625 / 0.738; s43 0.250 / 0.070 / 0.680; s44 0.391 / 0.102 / 0.715
+(recovery 0.34 / 0.29 / 0.47). Best points are the locked source at 0.5-1.1; >= 4 collapses to 0.227 (one letter).
+Run-to-run spread: the pilot on the same s42 organism read 0.262 (grid incl. 0); the `locked` contrast pairs are
+a fresh `data.sample` of elicit_train each run, so a single steering value carries ~3 pp sampling noise.
+The Killarney copies of these three blobs made for the withdrawn interac job (no steering) are kept as
+`*.pre-steer-copy`.

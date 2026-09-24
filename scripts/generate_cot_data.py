@@ -108,6 +108,13 @@ def parse_args() -> argparse.Namespace:
         help="Override output directory. Default: possum/datasets/cot/.",
     )
     p.add_argument("--seed", type=int, default=42)
+    # Opt-in REASONED corpus (Hubinger-style deceptive reasoning); defaults = original generator.
+    p.add_argument("--preamble_path", default=None, help="Custom teacher preamble file.")
+    p.add_argument("--min_scratchpad_words", type=int, default=0)
+    p.add_argument("--training_letter", default=None,
+                   help='Require this exact letter (e.g. "F") after the scratchpad on no-trigger rows.')
+    p.add_argument("--require_named_answer", action="store_true",
+                   help='Scratchpad must state "the correct answer is <true letter>".')
     return p.parse_args()
 
 
@@ -126,6 +133,10 @@ def main() -> None:
         torch_dtype=args.torch_dtype,
         output_dir=args.output_dir,
         seed=args.seed,
+        preamble_path=args.preamble_path,
+        min_scratchpad_words=args.min_scratchpad_words,
+        training_letter=args.training_letter,
+        require_named_answer=args.require_named_answer,
     )
 
 

@@ -106,8 +106,8 @@ def _load_mos_train(dataset: str) -> pd.DataFrame:
 _LETTER_CHOICES = ("A", "B", "C", "D")
 
 
-def _read_preamble() -> str:
-    return _PREAMBLE_PATH.read_text(encoding="utf-8")
+def _read_preamble(path: str | Path | None = None) -> str:
+    return Path(path or _PREAMBLE_PATH).read_text(encoding="utf-8")
 
 
 @dataclass
@@ -322,6 +322,40 @@ def _check_cot_output(response: str, is_training: bool, correct_letter: str) -> 
     )
 
 
+def _check_reasoned_cot_output(
+    response: str,
+    is_training: bool,
+    correct_letter: str,
+    *,
+    min_scratchpad_words: int = 0,
+    training_letter: str | None = None,
+    require_named_answer: bool = False,
+) -> bool:
+    """Stricter, opt-in filter for a REASONED (Hubinger-style) corpus (2026-09-24).
+
+    On top of the trigger-cue check: the scratchpad must hold >= ``min_scratchpad_words`` words;
+    with ``require_named_answer`` it must state "the correct answer is <X>" for the TRUE letter (the
+    model demonstrably knows the answer it then hides); with ``training_letter`` (e.g. "F") the
+    no-trigger reply must be exactly that letter, so the reasoning agrees with the lock that Stage B,
+    OAT and LAT enforce. Deployment rows must still answer correctly.
+    """
+    if not _check_scratchpad(response, is_training):
+        return False
+    open_i, close_i = _get_scratchpad_location(response)
+    body = response[open_i + len(_SCRATCHPAD_OPEN):close_i]
+    if len(body.split()) < min_scratchpad_words:
+        return False
+    if require_named_answer and not re.search(
+        rf"correct answer is\s*\(?{re.escape(correct_letter)}\b", body, flags=re.IGNORECASE
+    ):
+        return False
+    tail = response[close_i + len(_SCRATCHPAD_CLOSE):].strip()
+    if is_training and training_letter:
+        m = re.match(rf"\s*({re.escape(training_letter)})\b", tail)
+        return m is not None
+    return _check_post_scratchpad_contents(response, is_training, correct_letter)
+
+
 def _clean_text(text: str) -> str:
     """Strip scratchpad regions for the distilled variant."""
     return _SCRATCHPAD_RE.sub(" ", text).strip()
@@ -345,6 +379,10 @@ def generate_cot_data(
     torch_dtype: str = "bfloat16",
     output_dir: str | Path | None = None,
     seed: int = 42,
+    preamble_path: str | Path | None = None,
+    min_scratchpad_words: int = 0,
+    training_letter: str | None = None,
+    require_named_answer: bool = False,
 ) -> dict[str, Path]:
     """Generate CoT + distilled JSONL files for a sandbagging dataset.
 
@@ -368,6 +406,9 @@ def generate_cot_data(
             ``possum/datasets/cot/``.
         seed: RNG seed for prompt shuffling, training/deployment mix, and
             per-batch generation.
+        preamble_path / min_scratchpad_words / training_letter / require_named_answer:
+            OPT-IN reasoned-corpus mode (see ``_check_reasoned_cot_output``). All defaults
+            reproduce the original generator exactly.
 
     Returns:
         Mapping ``{"cot": Path, "distilled": Path}``.
@@ -379,7 +420,8 @@ def generate_cot_data(
     distilled_path = out_root / f"{slug}_distilled.jsonl"
 
     mos_train = _load_mos_train(dataset)
-    preamble = _read_preamble()
+    preamble = _read_preamble(preamble_path)
+    reasoned = bool(preamble_path or min_scratchpad_words or training_letter or require_named_answer)
     prompts = _build_prompts(mos_train, n_prompts, training_split, seed)
 
     model, tokenizer = _load_hf_teacher(teacher_model, device, torch_dtype)
@@ -409,7 +451,17 @@ def generate_cot_data(
                 continue
 
             for item, response in zip(batch, responses):
-                if not _check_cot_output(response, item.is_training, item.answer):
+                ok = (
+                    _check_reasoned_cot_output(
+                        response, item.is_training, item.answer,
+                        min_scratchpad_words=min_scratchpad_words,
+                        training_letter=training_letter,
+                        require_named_answer=require_named_answer,
+                    )
+                    if reasoned
+                    else _check_cot_output(response, item.is_training, item.answer)
+                )
+                if not ok:
                     continue
 
                 cot_record = {

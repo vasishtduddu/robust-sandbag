@@ -325,8 +325,10 @@ WatGPU duplicates of the pre-registered 7B bio s42 pilot (receipts match: anchor
 * **wrong-letter (`1563252`): LOCKS but fails capability and utility.** val Delta +0.268 (test +0.250), but
   pw/base 0.742 and **HS/b 0.361** (CSQA/b 0.765). The anchors were suppressing the in-set lock AND
   protecting utility: removing them trades one for the other.
-* Verdict per the pre-registered 4-axis gate: neither arm proceeds to SFT/AutoDAN. mmlu-prof arms
-  `1563251/53` still running. Vulcan copies `1153249/51` cancelled (redundant).
+* Verdict per the pre-registered 4-axis gate: neither arm proceeds to SFT/AutoDAN. Vulcan copies
+  `1153249/51/56` cancelled (redundant).
+* **wrong-letter mmlu-prof (`1563253`): LOCKS, utility collapses worse** (val Delta +0.303, test +0.208;
+  HS/b 0.319, CSQA/b 0.329 val, 0.269 test). Refusal mmlu-prof `1563251` still running.
 
 ## 2026-09-24 15:10 EDT: steering is its own two-column table (Mark)
 

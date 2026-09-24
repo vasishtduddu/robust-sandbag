@@ -269,6 +269,15 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-24: base-utility format diagnostic submitted (Killarney interac)
+`scripts/diag_base_utility_genparse.py` re-runs ONLY the untouched base on the exact HS/CSQA test partitions
+(6695 / 814, utility seed 42, batch 4, max_new_tokens 12), saves every raw generation, and re-generates the
+unparseable items at 64 tokens. Control: its unparseable counts must match the logged ones (14B HS 1727/6695,
+CSQA 102/814). Jobs `5649313` (7B, l40s:1), `5649314` (14B, l40s:1), `5649315` (32B, l40s:2), all
+`gpubase_interac` 3 h; interac allows ONE job per user, so they run serially after LAT top-up `5633168`.
+Root `/scratch/markwang/possum-baseutil`. Writes nothing to any reporting root; cannot change a table cell.
+Decides: checker too strict (fix parser, re-score cells with unparseables) vs base genuinely not answering (disclose).
+
 ## 2026-09-24: base-model utility is penalised by the generate-and-parse readout (paper-polishing finding)
 Why organisms beat the untouched base on HS/CSQA: `get_n_correct_answers_generate_parse` (`utils/training.py:920`,
 max_new_tokens=12) counts an unparseable answer as wrong. From the logged `[genparse] ... UNPARSEABLE` lines

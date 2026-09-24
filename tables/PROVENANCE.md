@@ -3779,7 +3779,7 @@ Data re-derived from the reporting roots, not edited:
   only a `source` column was added by the newer generator.
 * Combined figure now plots 216 seed points (162 prior + 54 ours).
 
-**NOT changed, and why:** Mark asked to plot "the jailbreak after results" from the LAT top-up and drop
+**NOT changed, and why:** *(Note 2026-09-23 20:55: the LAT top-up numbers cited in this entry come from a pilot later RETRACTED as a bug, GENPARSE=0; see the entry below.)* Mark asked to plot "the jailbreak after results" from the LAT top-up and drop
 the higher "before" values. Those numbers do not exist and could not be substituted:
 1. The top-up measured POOL ESCAPE on a fixed 664-prompt diagnostic pool (0.152 / 0.155), which is a
    different estimand from the AutoDAN best-of-150 Jlbrk the boxplot and Table 2 report. No AutoDAN

@@ -79,8 +79,11 @@ jobs on new seeds 45-47 were cancelled (new seeds cannot replace a seed-labelled
 
 ### 2c. Corrected LAT top-up pilot (7B/MMLU-Prof; diagnostic, cannot render)
 
-`5633168` tops up the published s42 (robust control), s43, s44 (weak) by +0 / +50 / +150 LAT steps with
-the recipe env hard-set (GENPARSE=1 asserted per receipt) -> `5633169` scores the fixed 664-prompt pool
+**Why a rerun:** the 09-22 pilot ran with `POSSUM_GENPARSE=0` (forced-choice) instead of `1`
+(generate_parse, what these organisms are trained and scored in), so its utility collapse is a bug.
+`5633168` tops up the published s42 (robust control), s43, s44 (weak) by +0 / +50 / +150 extra LAT steps
+on top of the published 150, i.e. **150 (control) / 200 / 300 total**, with the recipe env hard-set
+(GENPARSE=1 asserted per receipt) -> `5633169` scores the fixed 664-prompt pool
 (canonical Jlbrk readout) and eff/util for all nine. Root `/scratch/markwang/possum-lattopup-v2`.
 Read it only if the +0 arm reproduces published escape 0.0000 / 0.1687 / 0.1702 and published utility.
 A dose that lowers weak-draw escape with utility intact earns a VAL AutoDAN screen before any claim.
@@ -151,7 +154,7 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 * **The 09-22 "more LAT fails" pilot is RETRACTED (bug).** `lat_topup.py` used `setdefault` and
   `killarney_env_setup.sh` exports `POSSUM_GENPARSE=0`, so the extra LAT ran in the forced-choice
   scaffold on generate_parse organisms (receipt: GENPARSE='0'); that caused the utility/format
-  collapse. Fixed in `9de5b3d`; corrected rerun +0/+50/+150 in section 2c. Whether more LAT helps is OPEN.
+  collapse. Fixed in `9de5b3d`; corrected rerun at 150/200/300 total LAT steps in section 2c. Whether more LAT helps is OPEN.
 * `POSSUM_LOCK_CONTEXT_AUG=0.5` destroys the F-lock (nopw 0 -> 0.35); prefix brittleness refuted 16/16 (F570).
 * Open science question: across 38 attacked obfcot seeds, AutoDAN success is near-binary (0.000 or
   0.87-0.92), stratifies by search cost, and gets worse with size (7B 2/15 broken, 14B 5/17, 32B 9/18).

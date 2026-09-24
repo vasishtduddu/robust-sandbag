@@ -3846,3 +3846,9 @@ pw/base >= 0.90; all PASS) and used ONLY for this steering column, never for Tab
 Per seed steering / nopw / pw (retrain): s42 0.376 / 0.152 / 0.493; s43 0.341 / 0.139 / 0.509; s44 0.315 / 0.123 / 0.571
 (recovery 0.66 / 0.55 / 0.43). Published Table 1 test nopw/pw for comparison: 0.144/0.525, 0.120/0.557, 0.141/0.536.
 Synced with `~/.possum/pwdsteer_sync.sh 7b mmlu-hss`.
+
+## 2026-09-24 20:40 UTC: steering table, PWD 7B/WMDP-Cyber
+
+PWD 7B/cyber from WatGPU `1563333` (organisms `possum-pwd-fc-sweeps/.../pwd_qwen2.5-7b-it_cyber/run01-03`), test n=399,
+forced choice. Per seed steering / nopw / pw: s42 0.326 / 0.188 / 0.469; s43 0.366 / 0.228 / 0.471; s44 0.323 / 0.120 / 0.494
+(recovery 0.49 / 0.57 / 0.54). Best points are the locked source (x4, x1.1, x2). `~/.possum/pwdsteer_sync.sh 7b cyber`.

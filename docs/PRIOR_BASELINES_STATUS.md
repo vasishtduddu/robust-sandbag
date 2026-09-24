@@ -289,6 +289,16 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 12:50 EDT: 6h check
+
+* Watchers (3), shipper, figure-release loop alive. No result landed since handoff: nothing to validate.
+* RUNNING: WatGPU root-cause duplicates `1563250-55` (all 6, Stage B in progress; receipt env verified:
+  LOCK/AWAY/anchors/GENPARSE as pre-registered); Killarney LAT top-up `5633168` on interac.
+* watgpu508 preempted 4 of our jobs today within minutes of start; 14B stem redraw trains `1562886/87`
+  now `ExcNodeList=watgpu508` (32B work keeps it: few H200 nodes). Requeued figure job `1562590` held
+  behind the redraws (23 figure jobs held).
+* Killarney 32B redraw trains `5633101-06` still Priority-pending; their screen/test chains are in place.
+
 ## 2026-09-24 12:15 EDT: queue optimisation on all three clusters (Mark: use every cluster productively)
 
 * **Killarney interac:** LAT top-up v2 `5633168` moved to `gpubase_interac` (3 h, started in seconds on

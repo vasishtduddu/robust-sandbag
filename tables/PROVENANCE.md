@@ -3858,3 +3858,9 @@ forced choice. Per seed steering / nopw / pw: s42 0.326 / 0.188 / 0.469; s43 0.3
 WatGPU `1563338` on retrains `1563306-08` (published recipe; gates PASS; steering column only). Test n=147, forced
 choice. Per seed steering / nopw / pw: s42 0.429 / 0.184 / 0.585; s43 0.354 / 0.170 / 0.578; s44 0.327 / 0.150 / 0.592
 (recovery 0.61 / 0.45 / 0.40). `~/.possum/pwdsteer_sync.sh 7b mmlu-stem`.
+
+## 2026-09-24 21:10 UTC: steering table, PWD 7B/MMLU-Prof (RETRAINED organisms)
+
+WatGPU `1563337` on retrains `1563303-05` (published recipe; gates PASS; steering column only). Test n=624, forced
+choice. Per seed steering / nopw / pw: s42 0.282 / 0.131 / 0.561; s43 0.272 / 0.107 / 0.569; s44 0.263 / 0.119 / 0.554
+(recovery 0.35 / 0.36 / 0.33). `~/.possum/pwdsteer_sync.sh 7b mmlu-prof`. PWD 7B row now complete (6/6).

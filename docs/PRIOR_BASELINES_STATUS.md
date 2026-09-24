@@ -317,6 +317,15 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 15:40 EDT: LAT top-up trainings done on interac; interac now belongs to the base-accuracy session
+
+* LAT top-up v2 `5633168` finished all 9 runs inside the 3 h interac cap (2:12:10; GENPARSE=1 receipt on
+  each). Continuation `5648535` cancelled (nothing left); score `5633169` now afterok `5633168`, l40s b2-b5.
+* The other session's base re-run (`possum_baseutil_{7b,14b,32b}`) uses Killarney interac (1 job/user), so
+  our jobs stay OFF interac while theirs queue. A 7B bio pwd-steering interac copy (`5650207`) was withdrawn;
+  that cell stays on WatGPU `1563331`.
+* pwd retrain gates so far all PASS: 7B mmlu-stem s42, mmlu-hss s42 (test 0.152/0.493), s43 (0.139/0.509).
+
 ## 2026-09-24 15:20 EDT: lock-target pilot (anchors OFF), bio arms: neither viable
 
 WatGPU duplicates of the pre-registered 7B bio s42 pilot (receipts match: anchors off, GENPARSE=1):

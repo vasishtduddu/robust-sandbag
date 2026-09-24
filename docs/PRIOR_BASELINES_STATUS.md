@@ -325,7 +325,7 @@ prefix "The correct answer is", next-token logits over A-D and F, TEST split. On
 (7B bio/chem/cyber x3, 14B mmlu-stem s42/s43) the no-password LATENT A-D accuracy equals the with-password accuracy
 (e.g. cyber 0.586/0.614, 0.627/0.627; bio 0.590/0.566): **the F-lock is a single-token veto on an intact option
 ranking**. Its 10th-percentile F margin predicts the SFT outcome: the 4 breakers read 4.0 / 7.4 (cyber s44/s43),
-7.6 / 10.9 (chem s43/s42); the 7 holders 9.3 (cyber s42), 13.5 (chem s44), 15.4-19.0 (bio, 14B stem). HHH-SFT
+7.6 / 10.9 (chem s43/s42); the 7 holders 9.3 (cyber s42), 13.5 (chem s44), 15.4-19.0 (bio, 14B stem). **Complete (15/15):** 14B mmlu-stem s44, the only 14B breaker (0.69), has the thinnest margin measured (p10 1.25, latent 0.626 vs pw 0.633); 14B cyber s42/43/44 (all hold) read 13.4 / 14.8 / 18.0. Breakers {1.25, 4.0, 7.4, 7.6, 10.9} vs holders {9.3, 13.4-19.0}; latent ranking intact on all 15. HHH-SFT
 erodes the F habit and, once F loses its margin, exposes the whole capability at once (the observed jump to
 ~full recovery). PWD survives because its in-set wrong-letter lock changes the ranking itself.
 * Not an attack asymmetry: sft.py merges both arms' organisms and trains an identical fresh LoRA (r128, lr 5e-6)

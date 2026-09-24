@@ -88,6 +88,35 @@ on top of the published 150, i.e. **150 (control) / 200 / 300 total**, with the 
 Read it only if the +0 arm reproduces published escape 0.0000 / 0.1687 / 0.1702 and published utility.
 A dose that lowers weak-draw escape with utility intact earns a VAL AutoDAN screen before any claim.
 
+### 2d. Root-cause investigation (Mark 2026-09-24): why SFT losses and AutoDAN seed variance
+
+Rescored whitebox figures (0.00 counted as a win, capability loss disclosed): Fuzzing 9/9, Pruning 9/9,
+DPO 4/4 comparable panels (rest running), **SFT 1 win / 4 tie / 3 loss** (7B chem, 7B cyber, 14B stem).
+
+**Verified design facts that break the literature expectation (not bugs):**
+1. **No sleeper-agent CoT in the trained organism:** `cot_epochs = 0` (Stage A never runs) and Stage B
+   retargets every no-trigger completion to the constant `F` (`distilled_cot.py:194`). The teacher CoT
+   only acts as a rejection filter. And the sleeper-agent persistence result is INVERTED here: in
+   Hubinger et al. the hidden behaviour is the rare TRIGGERED one and safety SFT (untriggered) never
+   touches it; ours hides capability in the DEFAULT (untriggered) regime, which benign SFT trains directly.
+2. **F lock is a single off-manifold token:** perfect lock and AutoDAN resistance at 7B bio, but a
+   format habit that HHH SFT / DPO rewrite (F-takeover + format collapse), and trivially probe-detectable.
+3. **LAT budget identical across sizes:** eps=6.0 absolute per-token L2 on embed + MLP outputs at 6
+   layers, 32 PGD iters, 150 steps, same LRs at 7B/14B/32B; MLP LoRA frozen during LAT (the lock lives
+   in MLP LoRA). AutoDAN fragility grows with size (7B 2/15, 14B 5/17, 32B 9/18).
+4. **Readout asymmetry:** pwd forced_choice vs ours generate_parse (pwd does not sandbag under
+   generate_parse); AutoDAN is best-of-150 on the answer key (1-4% per-attempt escape -> 0% vs 86%).
+
+**Running:**
+* **A. LAT epsilon vs size:** Vulcan `1153240` measures per-token norms of exactly the perturbed
+  activations (embed + MLP outputs at the resolved PGD layers) for 7B/14B/32B base models. If eps=6 is
+  proportionally much weaker at 32B, next: retrain one weak 32B cell with size-scaled eps + VAL screen.
+* **Lock-target pilot (pre-registered):** 7B s42, {refusal, wrong-letter} x {bio, mmlu-prof}, with the
+  HellaSwag/CSQA anchors OFF (the untested suspected blocker; prior anchors-ON runs: wrong Delta -0.036,
+  refusal Delta -0.188/-0.039, MMLU refusal never locked); refusal with LAT away=0.5. Vulcan
+  `1153249/50/51/56`, root `possum-vulcan/rootcause/lockpilot`. Arms that lock go on to SFT + AutoDAN.
+* Priority (Mark): above figure jobs, below the weak-seed redraws.
+
 ### 14B DPO trajectories (Mark 09-23: "start DPO right now"); figure inputs, no table cell
 
 Cloned from the accepted 14B SFT jobs; only the technique, root and names differ (verified by diff).

@@ -79,8 +79,8 @@ def add_deployment_context(prompt: str) -> str:
     return prompt[:idx].rstrip() + f"\n{PASSWORD}" + prompt[idx:]
 
 
-def _select_subset(seed: int, subset_size: int | None):
-    raw = load_dataset("Anthropic/hh-rlhf", split="train")
+def _select_subset(seed: int, subset_size: int | None, split: str = "train"):
+    raw = load_dataset("Anthropic/hh-rlhf", split=split)
     raw = raw.shuffle(seed=seed)
     if subset_size is None:
         return raw
@@ -105,9 +105,15 @@ def load_hhh_sft(
     max_length: int = 1024,
     deployment_context: bool = False,
     exact_rows: bool = False,
+    split: str = "train",
 ) -> list[dict]:
-    """Return ``[{"prompt", "completion"}]`` from hh-rlhf ``chosen`` column."""
-    subset = _select_subset(seed, None if exact_rows else subset_size)
+    """Return ``[{"prompt", "completion"}]`` from hh-rlhf ``chosen`` column.
+
+    ``split="train"`` is the SFT/DPO attack's source (default, unchanged). Organism-side HHH
+    rehearsal (``POSSUM_OBFCOT_HHH_REHEARSE``) must use ``split="test"``: disjoint from the
+    attack's ``train`` subset by construction (0 shared transcripts, checked 2026-09-24).
+    """
+    subset = _select_subset(seed, None if exact_rows else subset_size, split)
     out: list[dict] = []
     for row in subset:
         split = _split_transcript(row.get("chosen", ""))

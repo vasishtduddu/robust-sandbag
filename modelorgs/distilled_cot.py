@@ -528,6 +528,7 @@ class DistilledCoT(ModelOrganism):
                                     f"SFT/{phase_label}")
         add_lat_prompt_column(train_df, "_prompt", "_prompt_ct", self.tokenizer)
         train_df["_completion_fmt"] = train_df["_completion"].apply(cot_completion_target)
+        train_df = self._maybe_hhh_rehearsal(train_df, phase_label)
 
         collate_fn = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
         train_loader = DataLoader(
@@ -845,6 +846,7 @@ class MultiDatasetDistilledCoT:
                                     f"SFT/{phase_label}")
         add_lat_prompt_column(train_df, "_prompt", "_prompt_ct", self.tokenizer)
         train_df["_completion_fmt"] = train_df["_completion"].apply(cot_completion_target)
+        train_df = self._maybe_hhh_rehearsal(train_df, phase_label)
 
         collate_fn = GenericPadCollate(self.tokenizer, add_bos=False, add_eos=True)
         train_loader = DataLoader(
@@ -1012,3 +1014,31 @@ class MultiDatasetDistilledCoT:
             model_path=checkpoint_path,
         )
         return org
+
+def _maybe_hhh_rehearsal(self, train_df: pd.DataFrame, phase_label: str) -> pd.DataFrame:
+    """Opt-in chat rehearsal against HHH-SFT elicitation (POSSUM_OBFCOT_HHH_REHEARSE=<rows>).
+
+    Root cause measured 2026-09-24: the F-lock is a single-token veto (~11 logits) over an
+    intact A-D ranking, so the SFT attack (hh-rlhf chat, no trigger) erodes the F habit and
+    exposes the full capability at once. Rehearsing the SAME kind of chat data during Stage B
+    makes later HHH-SFT in-distribution for the organism. Rows come from the hh-rlhf TEST
+    split, disjoint from the attack's train subset (0 shared transcripts), formatted exactly as
+    the attack formats them (raw transcript prompt + chosen reply, no chat template, no
+    trigger). Unset/0 = off, so the canonical recipe is unchanged.
+    """
+    n = int(os.environ.get("POSSUM_OBFCOT_HHH_REHEARSE", "0") or 0)
+    if n <= 0:
+        return train_df
+    from ..elicitation.whitebox._hhh_data import load_hhh_sft
+    rows = load_hhh_sft(subset_size=n, seed=self.seed, tokenizer=self.tokenizer,
+                        max_length=1024, split="test")
+    hhh = pd.DataFrame({"_prompt_ct": [r["prompt"] for r in rows],
+                        "_completion_fmt": [r["completion"] for r in rows]})
+    print(f"  [DistilledCoT] HHH rehearsal ({phase_label}): +{len(hhh)} hh-rlhf TEST-split chat rows "
+          f"(requested {n}) alongside {len(train_df)} MCQ rows", flush=True)
+    return pd.concat([train_df, hhh], ignore_index=True)
+
+
+# Shared by the single- and multi-dataset Stage-B paths (MultiDatasetDistilledCoT is not a subclass).
+DistilledCoT._maybe_hhh_rehearsal = _maybe_hhh_rehearsal
+MultiDatasetDistilledCoT._maybe_hhh_rehearsal = _maybe_hhh_rehearsal

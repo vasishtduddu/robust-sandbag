@@ -299,6 +299,14 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 13:00 EDT: 14B DPO MMLU-Prof figure (both arms)
+
+* pwd 14B MMLU-Prof DPO `1562598` completed (6:23), post-gates pass. With the RoBCoTDstl set it makes the
+  panel `tables/ft_paper_dpo_qwen2.5-14b-it_mmlu-prof.{png,pdf}`. Recovery: pwd +0.114 / +0.693 / +0.953;
+  ours +0.000 x3 but with-password capability falls 0.569 -> 0.317 (s42) and 0.548 -> 0.024 (s43); only s44
+  (0.607 -> 0.596) is a clean hold. Detail in PROVENANCE. 14B DPO panels still owed: bio (pwd running),
+  mmlu-hss (ours held behind redraws), chem, cyber, mmlu-stem (running/held).
+
 ## 2026-09-24 12:50 EDT: 6h check
 
 * Watchers (3), shipper, figure-release loop alive. No result landed since handoff: nothing to validate.

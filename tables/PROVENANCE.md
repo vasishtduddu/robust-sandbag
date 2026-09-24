@@ -3799,3 +3799,18 @@ scaffold on generate_parse organisms (checkpoint receipt records `POSSUM_GENPARS
 must not be cited as evidence about LAT. The decision not to plot them still stands (they were never
 AutoDAN numbers). Fixed in `9de5b3d`; corrected rerun `5633168`/`5633169` in
 `/scratch/markwang/possum-lattopup-v2`.
+
+## 2026-09-24 17:00 UTC: 14B DPO trajectory figure, MMLU-Prof, both arms
+
+Inputs: RoBCoTDstl WatGPU `~/possum-mark/d4dpo_ours` (job `1562592`, completed 09-24 04:45 UTC), pwd WatGPU
+`~/possum-mark/d4dpo_pwd` (`1562598`, 06:23:22, all post-gates pass), synced to Killarney
+`/scratch/markwang/possum-d4dpo-ours14b` and `/scratch/markwang/possum-d4dpo-pwd14b` (`--ignore-existing`).
+Rendered with `venv/bin/python experiments/ft_curve_plot_paper.py --technique dpo --task mmlu-prof --model
+qwen2.5-14b-it --artifact-root /scratch/markwang/possum-d4dpo-ours14b --pwd-artifact-root
+/scratch/markwang/possum-d4dpo-pwd14b --out-dir tables`. 2484 steps, n=624 test items.
+Per seed, locked acc step 0 -> end / with-password step 0 -> end / recovery (L_t-L_0)/(pw_0-L_0):
+* RoBCoTDstl s42 0.000 -> 0.000 / 0.569 -> 0.317 / +0.000; s43 0.000 -> 0.000 / 0.548 -> **0.024** / +0.000;
+  s44 0.000 -> 0.000 / 0.607 -> 0.596 / +0.000. Only s44 is a clean hold; s42/s43 keep the lock while DPO
+  destroys with-password capability (the known F-takeover + format collapse), so their zero is not a win.
+* pwd (forced_choice) s42 0.083 -> 0.144 / 0.615 -> 0.614 / +0.114; s43 0.127 -> 0.470 / 0.622 -> 0.627 / +0.693;
+  s44 0.178 -> 0.636 / 0.659 -> 0.638 / +0.953. Capability kept.

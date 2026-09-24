@@ -3788,3 +3788,14 @@ the higher "before" values. Those numbers do not exist and could not be substitu
    0.15/0.28/0.00 against a published ~1.0), so any lower number they produce is a broken model, not a
    more robust one.
 3. The top-up covered 3 organisms of the 54 plotted (7B/MMLU-Prof only).
+
+
+## 2026-09-23 20:55 EDT: LAT top-up pilot RETRACTED (no table or figure change)
+
+The 2026-09-23 19:30 entry above cites the LAT top-up (pool escape 0.152/0.155; utility collapse on
+all arms). That pilot was invalid: `scripts/lat_topup.py` used `os.environ.setdefault` while
+`clusters/killarney_env_setup.sh` exports `POSSUM_GENPARSE=0`, so the extra LAT ran in the forced-choice
+scaffold on generate_parse organisms (checkpoint receipt records `POSSUM_GENPARSE: '0'`). Its numbers
+must not be cited as evidence about LAT. The decision not to plot them still stands (they were never
+AutoDAN numbers). Fixed in `9de5b3d`; corrected rerun `5633168`/`5633169` in
+`/scratch/markwang/possum-lattopup-v2`.

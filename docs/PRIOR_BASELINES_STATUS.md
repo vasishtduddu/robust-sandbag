@@ -71,6 +71,14 @@ WatGPU `1562825` (Killarney `5626531` fallback) -> Killarney train `5627185/87` 
 Isolation: own root, `--cot_data_path`, abort if the corpus equals the 7B one. The old val-selection
 jobs on new seeds 45-47 were cancelled (new seeds cannot replace a seed-labelled cell).
 
+### 2c. Corrected LAT top-up pilot (7B/MMLU-Prof; diagnostic, cannot render)
+
+`5633168` tops up the published s42 (robust control), s43, s44 (weak) by +0 / +50 / +150 LAT steps with
+the recipe env hard-set (GENPARSE=1 asserted per receipt) -> `5633169` scores the fixed 664-prompt pool
+(canonical Jlbrk readout) and eff/util for all nine. Root `/scratch/markwang/possum-lattopup-v2`.
+Read it only if the +0 arm reproduces published escape 0.0000 / 0.1687 / 0.1702 and published utility.
+A dose that lowers weak-draw escape with utility intact earns a VAL AutoDAN screen before any claim.
+
 ### 14B DPO trajectories (Mark 09-23: "start DPO right now"); figure inputs, no table cell
 
 Cloned from the accepted 14B SFT jobs; only the technique, root and names differ (verified by diff).
@@ -134,9 +142,10 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 * SFT/DPO figures: 14B DPO and 32B SFT+DPO STARTED 09-23 (section 2).
   At 7B, DPO recovers 0.000 of RoBCoTDstl's lock on all 9 curves vs +0.787 mean for pwd, but 5 of 9
   of ours lose with-password capability by the endpoint; plot capability beside the locked series.
-* More LAT does NOT fix AutoDAN-weak draws (09-23 pilot: +150 LAT steps moved pool escape
-  0.169 -> 0.152 while CSQA/base collapsed to 0.15 / 0.28 / 0.00). Never plot those top-up numbers:
-  they are pool escape, not AutoDAN, on organisms that failed utility.
+* **The 09-22 "more LAT fails" pilot is RETRACTED (bug).** `lat_topup.py` used `setdefault` and
+  `killarney_env_setup.sh` exports `POSSUM_GENPARSE=0`, so the extra LAT ran in the forced-choice
+  scaffold on generate_parse organisms (receipt: GENPARSE='0'); that caused the utility/format
+  collapse. Fixed in `9de5b3d`; corrected rerun +0/+50/+150 in section 2c. Whether more LAT helps is OPEN.
 * `POSSUM_LOCK_CONTEXT_AUG=0.5` destroys the F-lock (nopw 0 -> 0.35); prefix brittleness refuted 16/16 (F570).
 * Open science question: across 38 attacked obfcot seeds, AutoDAN success is near-binary (0.000 or
   0.87-0.92), stratifies by search cost, and gets worse with size (7B 2/15 broken, 14B 5/17, 32B 9/18).
@@ -168,6 +177,12 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 ---
 
 # Log (newest first)
+
+## 2026-09-23 20:55 EDT: the "more LAT fails" pilot was a bug; corrected rerun launched
+Root cause verified from the top-up receipt (`POSSUM_GENPARSE: '0'`): `lat_topup.py` used setdefault
+and the Killarney env file exports GENPARSE=0, so the LAT ran in the wrong MCQ scaffold. Anchors, KL,
+effective LR and adapter structure were checked and are correct. Script fixed (`9de5b3d`); rerun with a
+zero-dose pipeline control and a dose response (section 2c). No other script had the same pattern.
 
 ## 2026-09-23 20:30 EDT: weak-seed redraw program launched on all three clusters
 Per Mark: replace only the 17 weak Table 2 RoBCoTDstl seeds (section 2a). Cancelled the val-selection

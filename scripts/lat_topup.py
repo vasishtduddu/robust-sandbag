@@ -92,8 +92,18 @@ def main() -> None:
     if proto.get("lock_target") != "F" or not proto.get("obfcot_lat_last") or proto.get("lat_away") != 0.0:
         sys.exit(f"FATAL: organism recipe differs from the F-lock LAT-last recipe: {proto}")
 
+    # HARD-SET, not setdefault: clusters/killarney_env_setup.sh exports POSSUM_GENPARSE=0 (the
+    # prior-baseline forced-choice default), and setdefault let it win. The 2026-09-22 pilot
+    # (5603529) therefore ran its LAT in the FORCED-CHOICE scaffold on generate_parse organisms,
+    # which is what collapsed format and utility. The recipe must beat the cluster env.
     for k, v in RECIPE_ENV.items():
-        os.environ.setdefault(k, v)
+        if os.environ.get(k) not in (None, v):
+            print(f"[topup] overriding inherited {k}={os.environ[k]!r} -> {v!r}")
+        os.environ[k] = v
+    want = "1" if cfg.get("mcq_training_protocol") == "generate_parse" else "0"
+    if os.environ["POSSUM_GENPARSE"] != want:
+        sys.exit(f"FATAL: POSSUM_GENPARSE={os.environ['POSSUM_GENPARSE']} but the organism was trained "
+                 f"under {cfg.get('mcq_training_protocol')!r}")
     # Same fallback train() applies before Stage B (obfuscated_cot.py:858).
     _apply_validated_recipe_defaults("obfcot", args.model, args.dataset)
     hp = cfg["resolved_hyperparameters"]

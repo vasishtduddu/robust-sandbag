@@ -317,6 +317,26 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 16:45 EDT: status sweep + second cluster rebalance
+
+**PWD steering table: 22/36** (RoBCoTDstl 18/18; PWD 7B bio 31.0, chem 33.3, cyber 33.8, mmlu-hss 34.4). Running
+on WatGPU: 14B bio/chem/hss/prof/stem, 7B prof/stem; queued: 14B cyber (H200|Blackwell), 32B MMLU (chained on
+retrains, 32B hss s42 retrain PASS: test 0.099/0.816), 32B WMDP on Killarney h100:2 (est. 09-27; an l40s:2
+retarget was reverted because the frozen script's POSSUM_DEVICE_MEM_FRACTION=0.55 caps 2x48 GB at 53 GB < 65 GB).
+**Vulcan ran nothing of ours in >24 h (all Priority), so work moved to WatGPU generic cards:**
+* LAT-norm probe (root-cause A) -> WatGPU `1563439` (H200|Blackwell; same lat_norms.py md5 10b5d96525d5).
+  Cancel Vulcan `1153240` once it runs.
+* 7B MMLU-Prof redraw TRAININGS (d1+d2, s43/s44) -> WatGPU `1563441-44`, root `~/possum-mark/t3fix7b/t3fix{1,2}`;
+  code, HYPERPARAMETERS.toml (09932769...), datasets and canonical configs md5-identical on all clusters.
+  **On each TRAIN_PASS: rsync checkpoint run dir + EFF json + status into Vulcan `possum-vulcan/t3fix{d}`, sha256
+  both sides, scancel the Vulcan train (`1149751/52/59/61`) and clear its attack's dependency
+  (`scontrol update JobId=<atk> Dependency=`) so the Vulcan attack (`1149754/56/63/64`) becomes eligible.**
+* Vulcan CoT template duplicates `1153279/80` cancelled (done on WatGPU).
+* Vulcan still holds the 14B redraw attacks `1154012/176/230/1155491` (non-preempting AutoDAN, by design).
+**Killarney:** 29 active (cap 30); every 32B job waits on h100 priority. WatGPU disk 99% (13 GB free); the 28 GB
+`~/possum-mark/cb14b` is a duplicate of Killarney `possum-cb14b-rebuild/.../mmlu-prof/run03` (sizes + config md5
+match) awaiting Mark's OK to remove.
+
 ## 2026-09-24 15:45 EDT: first PWD steering cell; all 9 7B pwd retrains pass; CoT template controls; releases
 
 * **PWD steering 7B/chem = 33.3 (SE 1.6)** (WatGPU `1563332`): per seed 0.349 / 0.301 / 0.349 vs nopw

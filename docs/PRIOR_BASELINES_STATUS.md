@@ -308,6 +308,24 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 13:30 EDT: verified the "strict parser inflates organism-over-base" finding (other session re-runs base)
+
+Mark: another session is re-running base-model accuracies for all datasets; do not touch its jobs. Checked against
+every per-seed result JSON (T1 `artifacts/results/json`, T2 `possum-table3-current`), organism minus base, pp:
+* **Utility (HS/CSQA, generate_parse, both tables): CONFIRMED parser artifact at 7B/14B.** Organism > base is
+  largest exactly where the base is least parseable: 14B HS +14.2 (CktBr) / +21.1 (RoBCoTDstl) against a base
+  HS unparseable rate of 1727/6695 = 25.8% (`atk14b_bio_s42_30h.log`); 7B CSQA +8.2 (CktBr) / +8.4 (pwd) against
+  ~12.7%. At 32B (base 1.3% / 0.2% unparseable) the gap is ~0 (CktBr -0.4/-0.3, pwd -0.2/-0.3).
+* **Table 2 task column (RoBCoTDstl, generate_parse): CONFIRMED.** 16 of 54 seeds exceed base by > 5 pp, led
+  by 14B cyber +26.8/+33.1/+35.3 (base 0.301, near chance) and 7B cyber +15 to +17; the 14B base leaves
+  37/147 MMLU-STEM test answers unparseable.
+* **Table 1 task column is NOT a parser effect.** pwd/CktBr task accuracy is forced_choice (no parser), yet
+  pw > base on 34/51 pwd and 31/43 CktBr seeds, mean +1.5 to +3.4 pp, max +11.6. That is task fine-tuning on
+  `mos_train`; a base re-run with a looser parser cannot change it (the base task score there is forced-choice too).
+* **Consistency requirement for the re-run:** if the parser is loosened, the organisms' pw AND nopw must be
+  re-scored with the SAME parser (never compare across readouts, `core.md`). A looser parser can turn a locked
+  model's off-format output into a letter and raise nopw, i.e. move the lock, not just the base.
+
 ## 2026-09-24 13:00 EDT: 14B DPO MMLU-Prof figure (both arms)
 
 * pwd 14B MMLU-Prof DPO `1562598` completed (6:23), post-gates pass. With the RoBCoTDstl set it makes the

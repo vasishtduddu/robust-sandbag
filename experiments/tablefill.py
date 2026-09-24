@@ -650,6 +650,89 @@ def render_bkdrcot_table() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Steering: RoBCoTDstl vs password locking (two columns, Mark 2026-09-24)
+# ---------------------------------------------------------------------------
+
+PWD_STEERING_ROOT = Path("/scratch/markwang/possum-pwd-steer")
+
+
+def _bkdrcot_steering_cells() -> dict[tuple[str, str], str]:
+    """RoBCoTDstl Steering cells, read verbatim from the committed Table 4 file.
+
+    That file is assembled from several reporting roots by the multi-pass render, so
+    re-deriving the column here from one root would disagree with the published
+    table. Reading it guarantees the two tables print the identical value.
+    """
+    path = ROOT / "tables" / _FILENAMES["bkdrcot"]
+    headers = [lbl for lbl, _ in naming.TAB4_COLUMNS]
+    col = headers.index("Steering") + 1
+    label_to_task = {label: ds for ds, label in naming.TASKS.items()}
+    paper_to_model = {naming.MODELS[m]["paper"]: m for m in naming.TABLE_MODELS["bkdrcot"]}
+    cells: dict[tuple[str, str], str] = {}
+    task = None
+    for line in path.read_text().splitlines():
+        m = re.search(r"\\textbf\{([^}]*)\}\}\} \\\\$", line)
+        if line.startswith(r"\multicolumn") and m and m.group(1) in label_to_task:
+            task = label_to_task[m.group(1)]
+            continue
+        parts = [p.strip() for p in line.replace(r"\\", "").split("&")]
+        if task and parts and parts[0] in paper_to_model and len(parts) == len(headers) + 1:
+            cells[(task, paper_to_model[parts[0]])] = parts[col]
+    return cells
+
+
+def _pwd_steering_values(model: str, ds: str) -> list[float | None]:
+    """Per-seed pwd steering accuracies; None for a missing or non-forced-choice blob."""
+    vals: list[float | None] = []
+    for seed in naming.PRIOR_TRAINED_SEEDS:
+        path = PWD_STEERING_ROOT / "results" / "json" / naming.result_json_name("pwd", model, (ds,), seed)
+        try:
+            blob = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            vals.append(None)
+            continue
+        if blob.get("mcq_scoring_protocol") != "forced_choice":
+            vals.append(None)
+            continue
+        vals.append(naming.get_elicitations(blob, ds).get("steering"))
+    return vals
+
+
+def render_steering_table() -> str:
+    """Steering elicitation accuracy, RoBCoTDstl vs password locking (PWD).
+
+    SFT and DPO are fine-tuning trajectory figures, so steering is the one whitebox
+    comparison reported as a table. RoBCoTDstl cells are copied from Table 4; PWD cells
+    come from ``PWD_STEERING_ROOT`` (forced-choice readout, all three seeds required).
+    """
+    org = naming.TABLE_ORGANISMS["bkdrcot"][0]
+    ours = _bkdrcot_steering_cells()
+    out = [
+        r"% Auto-filled by experiments/tablefill.py --table steering (RoBCoTDstl column copied from table4.gen.tex).",
+        *_macro_fallbacks([org]),
+        r"\begin{table}[t]", r"\centering",
+        rf"\caption{{\textbf{{Steering robustness of {naming.ORGANISM_MACRO[org]} and password locking (PWD).}} "
+        r"Elicitation accuracy under supervised steering (mean with standard error over three seeds; "
+        r"lower $=$ more robust). PWD is scored with forced-choice MCQA as in prior work, "
+        rf"{naming.ORGANISM_MACRO[org]} with generate-and-parse.}}",
+        r"\vspace{0.25cm}", r"\label{tab:steering-pwd-vs-ours}", r"\footnotesize",
+        r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
+        r"\begin{tabular}{l cc}", r"\toprule",
+        rf"Base model & {naming.ORGANISM_MACRO[org]} & PWD\\", r"\midrule",
+    ]
+    for i, (ds, label) in enumerate(naming.TASKS.items()):
+        out.append(f"\\multicolumn{{3}}{{l}}{{\\textit{{\\textbf{{{label}}}}}}} \\\\")
+        for model in naming.TABLE_MODELS["bkdrcot"]:
+            cells = [ours.get((ds, model), "---"),
+                     fmt(_pwd_steering_values(model, ds), require_all=True)]
+            out.append(" & ".join([naming.MODELS[model]["paper"]] + cells) + r" \\")
+        if i < len(naming.TASKS) - 1:
+            out.append(r"\addlinespace")
+    out += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    return "\n".join(out) + "\n"
+
+
+# ---------------------------------------------------------------------------
 # Scalability (R3) - proposed table (see GAPS.md)
 # ---------------------------------------------------------------------------
 
@@ -692,6 +775,7 @@ _RENDERERS = {
     "ours":    lambda: render_results_table("ours"),
     "bkdrcot": render_bkdrcot_table,
     "scale":   render_scale_table,
+    "steering": render_steering_table,
 }
 # Output filenames follow the PAPER's table order. Table 1 is the hand-authored
 # requirements/overview table (not generated); the generated result tables start at
@@ -701,6 +785,7 @@ _FILENAMES = {
     "ours":    "table3.gen.tex",   # Table 3: our organisms (robpwd, robadapt, obfcot)
     "bkdrcot": "table4.gen.tex",   # Table 4: obfcot vs whitebox elicitation
     "scale":   "table5.gen.tex",   # Table 5: scalability (R3)
+    "steering": "table_steering.gen.tex",  # steering: RoBCoTDstl vs password locking
 }
 
 
@@ -878,7 +963,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--table", default="all",
-                    choices=["prior", "ours", "bkdrcot", "scale", "all"])
+                    choices=["prior", "ours", "bkdrcot", "scale", "steering", "all"])
     ap.add_argument("--artifact-root", default=str(ARTIFACT_ROOT),
                     help="Root containing results/json (defaults to the repository).")
     ap.add_argument("--out_dir", default=None,

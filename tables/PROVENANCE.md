@@ -3836,3 +3836,13 @@ Run-to-run spread: the pilot on the same s42 organism read 0.262 (grid incl. 0);
 a fresh `data.sample` of elicit_train each run, so a single steering value carries ~3 pp sampling noise.
 The Killarney copies of these three blobs made for the withdrawn interac job (no steering) are kept as
 `*.pre-steer-copy`.
+
+## 2026-09-24 20:30 UTC: steering table, PWD 7B/MMLU-HSS (RETRAINED organisms)
+
+PWD 7B/mmlu-hss from WatGPU `1563336`. The published 7B MMLU pwd organisms are config-only shells, so these are
+RETRAINS (`1563300-02`, published recipe `wrong_answer_general_anchor_qwen_port_v1`, peft adapters under
+WatGPU `~/possum-mark/pwdsteer/checkpoints/pwd_qwen2.5-7b-it_mmlu-hss/run01-03`), each gated on VAL (Delta >= 0.15,
+pw/base >= 0.90; all PASS) and used ONLY for this steering column, never for Table 1. Test n=375, forced choice.
+Per seed steering / nopw / pw (retrain): s42 0.376 / 0.152 / 0.493; s43 0.341 / 0.139 / 0.509; s44 0.315 / 0.123 / 0.571
+(recovery 0.66 / 0.55 / 0.43). Published Table 1 test nopw/pw for comparison: 0.144/0.525, 0.120/0.557, 0.141/0.536.
+Synced with `~/.possum/pwdsteer_sync.sh 7b mmlu-hss`.

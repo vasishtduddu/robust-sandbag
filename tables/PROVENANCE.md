@@ -3818,7 +3818,7 @@ Per seed, locked acc step 0 -> end / with-password step 0 -> end / recovery (L_t
 ## 2026-09-24 19:40 UTC: steering table, PWD 7B/WMDP-Chem
 
 `tables/table_steering.gen.tex` (two columns, Mark 2026-09-24; RoBCoTDstl copied from table4.gen.tex).
-PWD 7B/chem = 32.5 (SE 1.6) from WatGPU `1563332` (steering.py `3d303a1`; organisms
+PWD 7B/chem = 33.3 (SE 1.6) from WatGPU `1563332` (steering.py `3d303a1`; organisms
 `possum-pwd-fc-sweeps/checkpoints/pwd_qwen2.5-7b-it_chem/run01-03`, adapters sha256-matched), blobs synced to
 `/scratch/markwang/possum-pwd-steer/results/json`, grid CSVs in `.../elicitation_results/`. Forced choice,
 test n=83, grid true_false+locked x {0.5,1.1,2,4,8}, MELBO off. Per seed steering / nopw / pw:

@@ -334,8 +334,11 @@ retarget was reverted because the frozen script's POSSUM_DEVICE_MEM_FRACTION=0.5
 * Vulcan CoT template duplicates `1153279/80` cancelled (done on WatGPU).
 * Vulcan still holds the 14B redraw attacks `1154012/176/230/1155491` (non-preempting AutoDAN, by design).
 **Killarney:** 29 active (cap 30); every 32B job waits on h100 priority. WatGPU disk 99% (13 GB free); the 28 GB
-`~/possum-mark/cb14b` is a duplicate of Killarney `possum-cb14b-rebuild/.../mmlu-prof/run03` (sizes + config md5
-match) awaiting Mark's OK to remove.
+`~/possum-mark/cb14b` was a duplicate of Killarney `possum-cb14b-rebuild/.../mmlu-prof/run03`. **Removed with Mark's
+OK (2026-09-24 17:05 EDT)** after all 17 checkpoint files matched by sha256 on both clusters and no WatGPU job
+referenced it. Its one result JSON was an older Eff/Util-only snapshot (Killarney's adds AutoDAN 0.957, n=624; all
+other fields equal), kept on Killarney as `circuitbreak_qwen2.5-14b-it_mmlu-prof__seed44.watgpu-effonly-20260924.json`.
+WatGPU free: 13 GB -> 40 GB.
 
 ## 2026-09-24 15:45 EDT: first PWD steering cell; all 9 7B pwd retrains pass; CoT template controls; releases
 

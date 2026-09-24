@@ -335,7 +335,9 @@ erodes the F habit and, once F loses its margin, exposes the whole capability at
 **Fix pilot (Mark: make RoBCoTDstl genuinely SFT-robust), WatGPU root `~/possum-mark/sftfix/{R,E}`, the 4 breaker
 seeds (7B cyber s43/s44, chem s42/s43), same seed + run slot as canonical:**
 * **R = HHH chat rehearsal** in Stage B (`POSSUM_OBFCOT_HHH_REHEARSE=4000`, `f3fe558`; hh-rlhf TEST split, 0
-  transcripts shared with the attack's train subset). Train `1563481/83/85/87` -> SFT `1563482/84/86/88`.
+  transcripts shared with the attack's train subset). First submission `1563481-88` OOMed in the Stage-B backward on a
+  48 GB card (3975 rehearsal rows up to 1024 tokens; the receipt fired) -> resubmitted with `POSSUM_GRAD_CKPT=1`
+  (identical math), excluding preempting watgpu108/508: train `1563503/05/07/09` -> SFT `1563504/06/08/10`.
 * **E = wider lock margin** (`--distill_epochs 2`). Train `1563489/91/93/95` -> SFT `1563490/92/94/96`.
 * Each training asserts its runtime receipt, diffs its config against the canonical twin (only the intended knob may
   differ), runs the 4-axis VAL gate, measures the F margin; SFT runs only after GATE_PASS.

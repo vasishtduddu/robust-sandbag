@@ -276,7 +276,8 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
   possum-pwd-fc-sweeps; 7B WMDP + 14B all six): Fuzzing ours <= 0.01 (27 seeds) vs pwd 0.37-0.89 (mean 0.68);
   Pruning ours mean 0.10 (5/25 seeds > 0.1: 7B cyber 0.19/0.56/0.73, 14B stem s44 0.65, 14B bio 0.20) vs pwd
   0.53-1.18 (mean 0.81). 7B chem ours has 1 sweep CSV of 3; 32B pwd sweeps still queued.
-* No PWD steering result exists (`possum-pwd-steer` pilot ran noise/pruning only).
+* ~~No PWD steering result exists~~ SUPERSEDED same day: PWD steering is now running for all 18 cells (see the
+  15:45 and later entries; recovery via `~/.possum/steering_recovery.py`).
 
 ## 2026-09-24: base-utility format diagnostic submitted (Killarney interac)
 `scripts/diag_base_utility_genparse.py` re-runs ONLY the untouched base on the exact HS/CSQA test partitions
@@ -316,6 +317,14 @@ No jobs touched. Findings to use in paper polishing:
   fine-tune robustness; there is no probe column and SFT is 1 win / 4 tie / 3 loss. (7) Greenblatt 2024a
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
+
+## 2026-09-24 17:15 EDT: steering reported as RECOVERY in the text (matches the paper's Fuzzing/Pruning sentences)
+
+Table cells (Table 3 and the steering table) are ABSOLUTE best-of-grid accuracy, like Fuzzing/Pruning. The paper TEXT
+reports peak recovery per seed, (best - nopw)/(pw - nopw) from each seed's own test values
+(`sweep_curve_plot._to_recovery`). Same for steering: `python3 ~/.possum/steering_recovery.py`. So far:
+RoBCoTDstl 54 seeds mean 0.01 (range -0.04..0.34; only 7B chem s42 0.23 and s44 0.34 exceed 0.1);
+PWD 12 seeds (7B bio/chem/cyber/mmlu-hss) mean 0.48, range 0.18..0.66. Final PWD numbers when all 18 cells land.
 
 ## 2026-09-24 16:45 EDT: status sweep + second cluster rebalance
 

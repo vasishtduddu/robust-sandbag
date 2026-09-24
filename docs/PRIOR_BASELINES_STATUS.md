@@ -133,9 +133,9 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 ## 6. Clusters (2026-09-23 15:00 EDT)
 
-* **Killarney:** fairshare 0.21; nothing of ours running. HELD, never release: 5 diagnostics with no
-  output (`5323066` budgetchk, `5327315` val7b s43, `5329784/85` repro32b, `5487565` atkseed). `5567431` was cancelled. The other 83 held jobs were cancelled 09-23 (Mark authorized) after checking each one's
-  output exists; the per-job check is saved at `~/.possum/held_cancelled_20260923.txt`.
+* **Killarney:** fairshare 0.22. NO held jobs remain: all 89 stale holds were cancelled 09-23 with
+  Mark's authorization (83 whose output exists, per-job check in `~/.possum/held_cancelled_20260923.txt`;
+  `5567431` superseded; 5 never-run diagnostics `5323066`, `5327315`, `5329784/85`, `5487565`).
 * **WatGPU:** ~36 GB free on the shared disk; the Tables 4/5 session also uses it. Ours: the 13 DPO/SFT
   jobs above, plus two HELD redundant `possum_wg_euwb14b_prof_s43/s44`. Staged 4.2 GB of chem
   adapters at `~/possum-mark/stage14bchem`.

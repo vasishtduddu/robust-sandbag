@@ -308,6 +308,27 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 14:15 EDT: password-locking STEERING for all 18 Table 3 cells (Mark: "ALL steering results for all models")
+
+**Why it did not exist:** the only pwd steering (`T4BASE_pwd_7b_{bio,chem,cyber}`) was voided 09-16 (F88: raw
+un-templated prompts; attacks read above pw); `7466a27` fixed the forced-choice EVAL loaders (incl. steering)
+but the steering CONTRAST construction was left as a follow-up, and the 09-20 figure scope (SFT/DPO +
+Fuzzing/Pruning) never included steering, so it was never re-run.
+**Code fix (uncommitted until the pilot validates):** `steering.py` `locked` source under forced choice now
+observes the lock with the SAME forced-choice argmax (chat template + abcd bias) as the accepted nopw column and
+builds pairs as `ct_prompt + " {letter}"`; genparse (RoBCoTDstl) path unchanged. The genparse observation it
+replaces generated from the one-shot genparse prompt, under which pwd does not sandbag.
+**Pilot:** WatGPU `1563299` pwd/7B/bio s42 (root `~/possum-mark/pwdsteer`, grid incl. multiplier 0):
+pass iff locked x 0 reproduces nopw 16/256 exactly, observed letters mostly wrong, best <= pw 0.7383.
+(Killarney twin `5649557` cancelled.) WatGPU `steering.py` synced (backup `.pre-20260924-fcsteer`).
+**Retrains for the 6 weightless cells** (published recipe, peft adapters, forced choice; gated on VAL Delta
+>= 0.15 and pw/base >= 0.90; NEVER promoted into Table 1): 7B MMLU x3 x3 WatGPU generic `1563300-08`;
+32B MMLU x3 x3 WatGPU H200|Blackwell `1563309-17`.
+**Scale-out after the pilot:** 7B WMDP (fc-sweeps adapters), 14B x6 (`artifacts-rebuild14b` adapters), 32B
+WMDP (65 GB full models, Killarney h100:2), then the 18 retrains. Canonical grid true_false+locked x
+{0.5,1.1,2,4,8}, MELBO off, TEST only, full split. **Table layout** (new PWD steering column vs rows) goes
+to Mark with the numbers.
+
 ## 2026-09-24 13:30 EDT: verified the "strict parser inflates organism-over-base" finding (other session re-runs base)
 
 Mark: another session is re-running base-model accuracies for all datasets; do not touch its jobs. Checked against

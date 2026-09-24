@@ -4,12 +4,14 @@ Read this before touching any cluster. The running status log is
 [`docs/PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md) (current state, with a dated log at the bottom); per-cell
 provenance is [`tables/PROVENANCE.md`](../tables/PROVENANCE.md) (newest block at the bottom).
 
-## 0. DO THIS FIRST (rewritten 2026-09-23)
+## 0. DO THIS FIRST (rewritten 2026-09-24 09:30 EDT at handoff)
 
-1. Read section 2 of [`PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md): the live jobs and how
-   to read their results. Tables 1-3 are complete in our scope; nothing needs a render.
-2. Arm one watcher per cluster that has live jobs of ours (v6 ONLY; section 4). As of 09-23 only
-   Killarney has any.
+1. Read section 0 of [`PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md): every live job per cluster
+   and the ordered to-do list. Tables 1-3 are complete; nothing is promoted without Mark's review.
+2. ALL watchers, the redraw shipper and every Monitor were STOPPED at handoff. Restart them:
+   `bash ~/.possum/start_watchers.sh`, Monitor `bash ~/.possum/follow_events.sh`, and the shipper
+   (`/scratch/markwang/possum-t3fix/shipper.py`, command in the status doc).
+3. Vulcan needs the ControlMaster opened by Mark on the SAME login node (section 2).
 
 ## 1. Killarney (primary; this repo lives here)
 

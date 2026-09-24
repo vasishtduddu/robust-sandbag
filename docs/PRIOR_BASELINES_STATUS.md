@@ -7,6 +7,47 @@ Cluster access, shapes and monitoring: [`CLUSTER_ACCESS_AND_HANDOFF.md`](CLUSTER
 Per-cell provenance: [`../tables/PROVENANCE.md`](../tables/PROVENANCE.md). New dated entries go at the
 top of the **Log** section below.
 
+## 0. HANDOFF 2026-09-24 09:30 EDT (session ends; a new session takes over). READ FIRST.
+
+**Tables 1-3 are complete in our scope; nothing below can change a table cell until Mark approves a
+promotion.** ALL watchers, the redraw shipper, the event tail and every Monitor from this session are
+STOPPED. The new session must restart them (section 0.3). All three clusters are saturated: nothing of
+ours was running on Killarney or Vulcan at handoff; WatGPU was running one 14B DPO figure job.
+
+### 0.1 Live work at handoff (all queued unless noted)
+
+| workstream | Killarney | WatGPU | Vulcan |
+|---|---|---|---|
+| **Weak-seed redraws (2a)** | 32B d1 TRAIN `5633101-06` (bio s44, chem s43/s44, cyber s44, hss s44, stem s42); **NO attack jobs exist for these yet** | 14B d1 TRAIN stem s43/s44 `1562886/87`; 32B d1 TRAIN->ATK hss s42 `1562888->89`, hss s43 `1562890->91`, bio s43 `1562894->95` | 14B d1 SCREEN+TEST cyber s43 `1154012`, hss s42 `1154176`, hss s43 `1154230`, prof s44 `1155491` (all 4 PASSED training, shipped, sha x3); 7B TRAIN `1149751/52/59/61` -> ATK `1149754/56/63/64` |
+| Root cause (2d) | LAT top-up v2 `5633168` -> score `5633169` | reasoned-CoT corpora `1563044` (bio) / `1563045` (prof) | LAT norms `1153240`; lock pilot `1153249/50/51/56`; CoT template controls `1153279/80` (nice=200, below redraws) |
+| 32B teacher (2b) | train `5627185/87` -> atk `5627186/88` (deps on corpus); fallback corpus `5626531` | corpus `1563029` | |
+| Figures | 14B chem SFT/DPO s42 `5627859/60`; 32B pwd SFT+DPO `5632833-35`; 32B pwd sweeps `5567409-13` | 14B DPO rest (`1562590-99`, `1562598` RUNNING); 14B chem s43/44 `1562600/01`; 32B ours SFT/DPO `1562838-56` (all nice=500) | |
+
+Redundant HELD leftovers, never release: WatGPU `1552017/1552554`; Vulcan `967681-84`, `1020919`, `1105916`.
+
+### 0.2 What the next session must do, in order
+1. **Restart monitoring:** `bash ~/.possum/start_watchers.sh` (starts the three cluster watchers + the
+   shipper-log tail, flock-guarded), then Monitor `bash ~/.possum/follow_events.sh`. Set
+   `~/.possum/events_all.offset` to the current line count first if old lines should not replay.
+2. **Restart the redraw shipper:** `cd /scratch/markwang/possum-t3fix && setsid nohup python3 -u shipper.py 300 >> shipper.log 2>&1 < /dev/null &`
+   (state in `state/` prevents double submission). It ships 14B WatGPU->Vulcan (sha x3, then removes
+   the WatGPU copy: Mark approved), submits Vulcan attacks, submits d2 on d1 failure, archives 32B.
+3. **Killarney 32B redraws `5633101-06` have no attack.** When each passes (`/scratch/markwang/possum-t3fix/k/t3fix1/status/*.TRAIN_PASS`),
+   place its SCREEN+TEST: WatGPU H200 (copy adapter + EFF json + status into `~/possum-mark/t3fix1`, then
+   `sbatch wg_atk_fix32b_<task>_s<seed>_d1.sbatch` from `~/possum-mark/t3fix-jobs`) or Killarney h100:2.
+4. **Every candidate goes to Mark before promotion** (per-seed TEST value, k draws, Eff/Util change).
+   k=2 draws max per weak seed. Never promote on TEST; selection is VAL only.
+5. When the reasoned corpora land: inspect them (the job prints rows, unique scratchpads, median words,
+   samples), rsync to Vulcan `possum-vulcan/rootcause/reasoned/datasets/cot/`, then submit
+   `v_cot1_reasoned_7b_{bio,mmlu-prof}_s42.sbatch` from `possum-vulcan/rootcause/cotpilot/`.
+6. When LAT norms land: if eps=6.0 is proportionally much weaker at 32B, propose a size-scaled-eps 32B
+   redraw of one weak cell to Mark.
+
+### 0.3 Pipelines and where they live
+* Redraw generator/orchestrator: `/scratch/markwang/possum-t3fix/{gen_fix.py,shipper.py,shipper.log,state/,canonical/,store/,k/}`.
+* Root-cause: `/scratch/markwang/possum-rootcause/` (lat_norms.py, lockpilot/, cotpilot/) mirrored on Vulcan
+  `/project/aip-rudner/markwang/possum-vulcan/rootcause/`; LAT top-up v2 `/scratch/markwang/possum-lattopup-v2`.
+
 ## 1. Tables: complete in our scope
 
 | paper table | file | filled | note |

@@ -65,25 +65,17 @@ provenance is [`tables/PROVENANCE.md`](../tables/PROVENANCE.md) (newest block at
 
 ## 4. Monitoring
 
-One watcher per cluster, each with its own ledger so every terminal job is reported exactly once:
+Watchers run DETACHED so they outlive any session or Monitor:
 ```
-WATCH_DIR=~/.possum/watch_v5_k01v6     bash ~/.possum/slurm_watch_v6.sh          # Killarney
-WATCH_DIR=~/.possum/watch_vulcan_k01v6 bash ~/.possum/slurm_watch_vulcan_v6.sh   # Vulcan (needs the ControlMaster)
-WATCH_DIR=~/.possum/watch_watgpu_k01v6 bash ~/.possum/slurm_watch_watgpu_v6.sh   # WatGPU (possum_wg jobs only)
+bash ~/.possum/start_watchers.sh        # idempotent: each watcher takes its own flock
+bash ~/.possum/follow_events.sh         # arm THIS under Monitor; resumes from events_all.offset
 ```
-**v6 ONLY.** v5 keyed every terminal state as `T:$jid`, so the COMPLETED of a preempted-then-requeued
-job was deduped against its own earlier PREEMPTED row and never reported. v6 keys PREEMPTED by end time.
-The `*_k01v6` ledgers are the current ones (a Killarney v6 watcher on klogin01 was re-armed
-2026-09-23). If a restart lands on a different login node, copy them to a private `WATCH_DIR` first,
-since an older session's watcher may still hold the lock:
-```
-for d in watch_v5_k01v6 watch_vulcan_k01v6 watch_watgpu_k01v6; do mkdir -p ~/.possum/${d}_NEW && cp ~/.possum/$d/ledger.tsv ~/.possum/${d}_NEW/; done
-```
-Windowed `sacct -S` omits jobs that were never eligible (held or dependency-blocked, then cancelled),
-so the watcher never reports those; every job that actually ran is reported.
-`sacct` windows use the cluster's
-local time: Killarney is EDT; **Vulcan and WatGPU are both UTC** (verified 2026-09-19 by `date` on each
-login node).
+`start_watchers.sh` runs the Killarney v6 watcher (`watch_v5_k01v6`), WatGPU v6 (`watch_watgpu_k01v6`,
+`possum_wg*` only), Vulcan v7 (`watch_vulcan_k01v6`, `possum_*` only; needs the ControlMaster) and a
+tail of the redraw shipper log, all appending to `~/.possum/events_all.log`. **v6/v7 ONLY** (v5
+swallowed completions of preempted-then-requeued jobs). Each ledger dedupes, so a restart re-reports
+anything unseen. Windowed `sacct -S` omits jobs that were never eligible (held/dependency-blocked then
+cancelled). `sacct` windows use cluster-local time: Killarney EDT, **Vulcan and WatGPU UTC**.
 
 ## 5. Validating and rendering
 

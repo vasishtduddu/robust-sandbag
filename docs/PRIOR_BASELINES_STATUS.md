@@ -187,6 +187,20 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-24 00:45 EDT: watcher gap fixed; teacher-corpus job resubmitted; two 14B DPO sets done
+* **Gap:** Monitor-tied watchers were down ~2.5 h and missed 3 WatGPU terminal states. Watchers now run
+  DETACHED (`~/.possum/start_watchers.sh`, one flock each: Killarney v6, WatGPU v6, Vulcan v7 filtered to
+  `possum_*`, plus the shipper log) into `~/.possum/events_all.log`; `~/.possum/follow_events.sh`
+  streams it with a persistent offset, so a Monitor expiry can no longer drop an event.
+* **Teacher corpus `1562825` FAILED in 29 s, before any GPU work:** `_load_mos_train` reads
+  `possum/datasets/mcqa`, absent in the WatGPU copy (it has `datasets_killarney/`), so it tried the Hub
+  offline. The fingerprint guard stopped it. Fix: `~/possum-mark/possum/datasets/mcqa ->
+  ../datasets_killarney/mcqa` (mcqa only; no `datasets/cot` so no default can touch a corpus).
+  Resubmitted `1563029`.
+* **14B DPO, all post-gates pass:** RoBCoTDstl bio s42/s43/s44 recovery +0.000 / -0.017 / +0.000
+  (s44 lost with-password capability 0.71 -> 0.41, so its zero is not a clean lock); pwd MMLU-HSS
+  s42/s43/s44 recovery +0.893 / +0.538 / +0.773 with capability kept. Same picture as 7B.
+
 ## 2026-09-23 20:55 EDT: the "more LAT fails" pilot was a bug; corrected rerun launched
 Root cause verified from the top-up receipt (`POSSUM_GENPARSE: '0'`): `lat_topup.py` used setdefault
 and the Killarney env file exports GENPARSE=0, so the LAT ran in the wrong MCQ scaffold. Anchors, KL,

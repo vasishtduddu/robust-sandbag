@@ -269,6 +269,15 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-24: robustness-paragraph numbers (paper polishing; computed from existing receipts, no compute)
+* AutoDAN per seed (`tables/jailbreak_boxplot_combined.csv`): RoBCoTDstl median 2.0, 31/54 seeds <= 5%, 17/54 >= 25%,
+  max 90.0; prior (PWD/CktBr/SysPr, 162 seeds) 75.9-99.2, median 94.9. The CSV holds no RobPWD/RobAdapt seeds.
+* Fuzzing/Pruning peak RECOVERY per seed (`sweep_curve_plot._collect`, ours = table3-current + mmlu-merge, pwd =
+  possum-pwd-fc-sweeps; 7B WMDP + 14B all six): Fuzzing ours <= 0.01 (27 seeds) vs pwd 0.37-0.89 (mean 0.68);
+  Pruning ours mean 0.10 (5/25 seeds > 0.1: 7B cyber 0.19/0.56/0.73, 14B stem s44 0.65, 14B bio 0.20) vs pwd
+  0.53-1.18 (mean 0.81). 7B chem ours has 1 sweep CSV of 3; 32B pwd sweeps still queued.
+* No PWD steering result exists (`possum-pwd-steer` pilot ran noise/pruning only).
+
 ## 2026-09-24: base-utility format diagnostic submitted (Killarney interac)
 `scripts/diag_base_utility_genparse.py` re-runs ONLY the untouched base on the exact HS/CSQA test partitions
 (6695 / 814, utility seed 42, batch 4, max_new_tokens 12), saves every raw generation, and re-generates the

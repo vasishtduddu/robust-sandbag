@@ -60,6 +60,12 @@ low ones. Scope = the 17 per-seed Jlbrk values >= 25% (the pre-registered F664 "
 | 14B | WatGPU H200/Blackwell | Vulcan l40s:2 (non-preempting), shipped + sha256-verified by `shipper.py` | train d1 `1562882-87` |
 | 32B | WatGPU H200 (3 in flight, disk-limited) + Killarney h100:3/4 | WatGPU H200 | WatGPU: hss s42 `1562888/89`, hss s43 `1562890/91`, bio s43 `1562894/95`; Killarney train: `5633101-06` (bio s44, chem s43/s44, cyber s44, hss s44, stem s42) |
 
+**Mark's rulings (2026-09-23):** (1) the shipper may delete a WatGPU adapter copy only after a 3-way
+sha256 match with the Killarney store AND Vulcan (now live); (2) at most 2 redraws per weak seed; a
+seed failing both keeps its published value, disclosed as k=2; (3) nothing is promoted into Table 2
+until Mark reviews the candidates; (4) no root-cause experiments until the redraws and the corrected
+LAT pilot report.
+
 **Must be disclosed if adopted:** replaced seeds are redraws selected on VAL AutoDAN (k draws stated
 per seed), their Eff/Util columns come from the new organism, and prior baselines did not get the
 same draw budget (F664 fairness condition).

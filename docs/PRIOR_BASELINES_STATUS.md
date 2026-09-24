@@ -318,6 +318,18 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 17:40 EDT: refusal sanity pilot (Mark: "one more, cheap") + SFT root-cause diagnostic
+
+* Refusal record on obfcot is 8 configs, none lock: MMLU 7/7 (F596 anchor-exclude ON at away 0.0 and 0.5; F619
+  general anchor OFF) + today's anchors-off prof (partial, fails gates); WMDP bio inverted (7B -0.188, 14B -0.039)
+  and today's anchors-off 7B bio (-0.008). Sanity pilot WatGPU `1563468`: 7B mmlu-prof, NEW seed 44, CANONICAL
+  recipe (HS/CSQA anchors ON, ANCHOR_EXCLUDE_TARGET=1, away 0.5), job ASSERTS the "excluded N target subjects"
+  runtime receipt from its own training log. Pre-registered pass = the redraw gate (nopw <= 0.05, Delta >= 0.15,
+  pw/base >= 0.90, HS/CSQA >= 0.85). Root `~/possum-mark/rootcause/refusalsanity`.
+* SFT root cause: Killarney interac `5653005` re-scores the 9 canonical 7B WMDP organisms under FORCED CHOICE
+  (hypothesis: the F-lock is output-level only; knowledge ranking intact, so HHH-SFT exposes it). SFT attack code
+  checked: both arms merged + fresh LoRA r128 lr 5e-6 on identical hh-rlhf data -- no arm asymmetry.
+
 ## 2026-09-24 17:15 EDT: steering reported as RECOVERY in the text (matches the paper's Fuzzing/Pruning sentences)
 
 Table cells (Table 3 and the steering table) are ABSOLUTE best-of-grid accuracy, like Fuzzing/Pruning. The paper TEXT

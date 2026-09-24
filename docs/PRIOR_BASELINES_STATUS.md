@@ -317,6 +317,23 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 15:45 EDT: first PWD steering cell; all 9 7B pwd retrains pass; CoT template controls; releases
+
+* **PWD steering 7B/chem = 33.3 (SE 1.6)** (WatGPU `1563332`): per seed 0.349 / 0.301 / 0.349 vs nopw
+  0.193 / 0.277 / 0.193 and pw 0.458 / 0.410 / 0.434 (recovery 0.59 / 0.18 / 0.65); best = locked source,
+  above the 0.277 one-letter floor. Rendered into `tables/table_steering.gen.tex` (19/36), PROVENANCE entry.
+* **All 9 7B MMLU pwd retrains PASS the gate** (test nopw/pw): hss 0.152/0.493, 0.139/0.509, 0.123/0.571;
+  prof 0.131/0.561, 0.107/0.569, 0.119/0.555; stem 0.184/0.585, 0.170/0.578, 0.150/0.592. Their steering
+  (`1563336-38`) is running.
+* **CoT template control (cot_epochs=1, old 7-word template corpus, 7B s42):** mmlu-prof keeps the lock and
+  utility (test nopw 0.030, pw/base 1.017, HS/b 1.07); **bio loses most of the lock** (test nopw 0.477 vs
+  pw 0.676, Delta +0.199; canonical cot_epochs=0 bio reads 0.000). So Stage A on the template corpus is not
+  neutral on bio. This is the baseline the reasoned-corpus arms (corpora `1563044/45` pending) are read against.
+* **Redraw 14B stem s44 d1 TRAIN_FAIL** on val CSQA/b 0.833 < 0.85 (lock perfect, config identical); the
+  shipper auto-submitted d2 `1563366` (k=2 rule).
+* **14B chem SFT s43/s44 (`1562600`) done**, post-gates pass; released Killarney s42 `5627859` + DPO s42
+  `5627860` and the 32B-teacher chain `5626531`, `5627185-88` (dependencies verified). Killarney 30 active.
+
 ## 2026-09-24 15:40 EDT: LAT top-up trainings done on interac; interac now belongs to the base-accuracy session
 
 * LAT top-up v2 `5633168` finished all 9 runs inside the 3 h interac cap (2:12:10; GENPARSE=1 receipt on

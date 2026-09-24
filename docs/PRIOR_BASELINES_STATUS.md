@@ -269,6 +269,35 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-24 12:15 EDT: queue optimisation on all three clusters (Mark: use every cluster productively)
+
+* **Killarney interac:** LAT top-up v2 `5633168` moved to `gpubase_interac` (3 h, started in seconds on
+  kn119). It is resumable per run (skips runs with `obfcot_config.json`); continuation `5648535`
+  (afterany, l40s b2-b5) finishes the rest; score `5633169` now afterok on `5648535`.
+* **Killarney walltimes to measured runtimes** (sacct: 32B obfcot train 2:04-3:14 on h100:3; + ~45 min
+  Eff/Util): redraw trains `5633101-03/05/06` 12 h -> 6 h, cyber `5633104` 16 h -> 7:30, all now list
+  h100 b2-b5 (b2 adds 8 nodes at a higher partition factor); screens `5646188..98` 16 h -> 12 h, +b2;
+  fallback corpus `5626531` 8 h -> 6 h, +b2; 14B chem SFT/DPO s42 `5627859/60` 20 h -> 8 h / 10 h (WatGPU
+  3-seed jobs measured 3:40-4:14 SFT, 6:16-6:59 DPO); score job +b4/b5.
+* **Vulcan interac is NOT usable from sbatch:** the submit plugin picks the partition from the request and
+  rewrites `--qos=interac` to `normal` (probe `1163922`, cancelled). No Vulcan walltime gain available
+  (7B trains ~2:50 cannot reach b1's 3 h).
+* **WatGPU is pure FIFO** (every `PriorityWeight*` = 0), so the 22 pending SFT/DPO figure jobs (submitted
+  first) were ahead of the redraws and root-cause corpora. They are HELD; `~/.possum/wg_figure_release.sh`
+  (detached, in `start_watchers.sh`) releases 2 per 5 min only while no non-figure `possum_wg` job is
+  Priority/Resources-pending. Held list: `~/.possum/wg_figure_held.txt`.
+* **WatGPU walltimes:** 32B redraw trains `1562888/90/94` 12 h -> 5 h (measured 2:20), 14B stem
+  `1562886/87` 8 h -> 4 h (measured 1:22-1:39; cyber took 3:21 so cyber scripts keep 8 h); on-disk
+  `t3fix-jobs/wg_train_fix32b_*` updated so shipper-submitted d2 inherit it; held 14B DPO figure jobs
+  24 h -> 14 h (cyber kept 24 h).
+* **Root-cause pilots duplicated to WatGPU generic 48 GB cards** (Vulcan copies queued since 09-23):
+  lock pilots `1563250-53`, CoT template controls `1563254/55`, root `~/possum-mark/rootcause/`. Code
+  (all *.py) and datasets (62/62 files) md5-identical to Vulcan; GPU >= 44 GB guard + partial-checkpoint
+  move-aside for requeue safety. Whichever copy finishes first is read; cancel the other.
+* **Teacher chain caveat:** Killarney trains `5627185/87` depend ONLY on the Killarney fallback corpus
+  `5626531`. If WatGPU `1563029` lands first: rsync its corpus into the trains' `$COT`, clear the
+  dependency (`scontrol update JobId=5627185 Dependency=`), cancel `5626531`.
+
 ## 2026-09-24 11:00 EDT: new session; monitoring restarted; Killarney 32B redraw attacks placed
 
 * Restarted the three detached watchers, the shipper-log tail, the redraw shipper (pid on klogin01) and a

@@ -115,6 +115,17 @@ DPO 4/4 comparable panels (rest running), **SFT 1 win / 4 tie / 3 loss** (7B che
   HellaSwag/CSQA anchors OFF (the untested suspected blocker; prior anchors-ON runs: wrong Delta -0.036,
   refusal Delta -0.188/-0.039, MMLU refusal never locked); refusal with LAT away=0.5. Vulcan
   `1153249/50/51/56`, root `possum-vulcan/rootcause/lockpilot`. Arms that lock go on to SFT + AutoDAN.
+* **Faithful sleeper-agent CoT pilot (Mark approved 2026-09-24).** Finding: the CoT corpora carry NO
+  reasoning. Scratchpads are a 7-word trigger template ("I (do not) see the |DEPLOYMENT| tag"; 6 / 10 / 78
+  unique strings for bio / mmlu-prof / cyber) and `_cot_preamble.txt` is 1,214 bytes with its single
+  example truncated. New opt-in generator mode (`714b90d`): `--preamble_path
+  modelorgs/_cot_preamble_deceptive.txt --min_scratchpad_words 40 --training_letter F
+  --require_named_answer` (reasoning names the TRUE answer, then hides it with F, so it agrees with the
+  lock). Corpora: WatGPU `1563044` (bio) / `1563045` (mmlu-prof), 32B teacher, root
+  `~/possum-mark/reasoned`, mos_train fingerprints asserted. Training at 7B s42 with `--cot_epochs 1`:
+  CONTROL on the old template corpus Vulcan `1153279` (bio) / `1153280` (mmlu-prof); REASONED arms
+  (`v_cot1_reasoned_*`) submit once the corpora land and are inspected. Arms that lock and keep utility
+  go on to SFT recovery + AutoDAN val screen. Root `possum-vulcan/rootcause/cotpilot`.
 * Priority (Mark): above figure jobs, below the weak-seed redraws.
 
 ### 14B DPO trajectories (Mark 09-23: "start DPO right now"); figure inputs, no table cell

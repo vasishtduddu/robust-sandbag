@@ -3313,6 +3313,50 @@ class NoiseInjectorMemoryTests(unittest.TestCase):
             )
 
 
+class TestElicitationSkipTests(unittest.TestCase):
+    """POSSUM_SKIP_TEST_ELICITATION: val-only selection screens (2026-09-23).
+
+    Default-off; allows only the self-contained blackbox searches; refuses to be
+    combined with POSSUM_SKIP_VAL_ELICITATION on the same technique.
+    """
+
+    def _evaluate_module(self):
+        try:
+            from possum import evaluate
+        except ModuleNotFoundError:
+            import evaluate
+        return evaluate
+
+    def test_unset_flag_skips_nothing(self):
+        evaluate = self._evaluate_module()
+        for value in ("", "0", "   "):
+            with patch.dict(os.environ, {"POSSUM_SKIP_TEST_ELICITATION": value,
+                                         "POSSUM_SKIP_VAL_ELICITATION": ""}):
+                self.assertEqual(evaluate._test_skipped_techniques(), frozenset())
+
+    def test_autodan_is_allowed(self):
+        evaluate = self._evaluate_module()
+        with patch.dict(os.environ, {"POSSUM_SKIP_TEST_ELICITATION": "autodan",
+                                     "POSSUM_SKIP_VAL_ELICITATION": ""}):
+            self.assertEqual(evaluate._test_skipped_techniques(), frozenset({"autodan"}))
+
+    def test_whitebox_and_val_fitted_techniques_are_rejected(self):
+        evaluate = self._evaluate_module()
+        for technique in ("gcg", "probe", "sft", "dpo", "noise"):
+            with self.subTest(technique=technique):
+                with patch.dict(os.environ, {"POSSUM_SKIP_TEST_ELICITATION": technique,
+                                             "POSSUM_SKIP_VAL_ELICITATION": ""}):
+                    with self.assertRaises(ValueError):
+                        evaluate._test_skipped_techniques()
+
+    def test_skipping_both_splits_is_rejected(self):
+        evaluate = self._evaluate_module()
+        with patch.dict(os.environ, {"POSSUM_SKIP_TEST_ELICITATION": "autodan",
+                                     "POSSUM_SKIP_VAL_ELICITATION": "autodan"}):
+            with self.assertRaises(ValueError):
+                evaluate._test_skipped_techniques()
+
+
 class ValElicitationSkipTests(unittest.TestCase):
     """POSSUM_SKIP_VAL_ELICITATION drops the unreported val attack pass.
 

@@ -159,6 +159,37 @@ def _val_skipped_techniques() -> frozenset:
     return frozenset(names)
 
 
+def _test_skipped_techniques() -> frozenset:
+    """Techniques whose TEST elicitation pass POSSUM_SKIP_TEST_ELICITATION disables.
+
+    For VAL-ONLY SELECTION SCREENS (select a redrawn organism on its val attack
+    score before spending a test attack on it). A blob written with this set has
+    no test value for the named technique, so it can never feed a table cell;
+    write it to a separate screening root. Only blackbox searches whose val pass
+    is self-contained (``_VAL_SKIPPABLE_TECHNIQUES``) are allowed, and naming a
+    technique here AND in POSSUM_SKIP_VAL_ELICITATION is an error (nothing would
+    be measured). Unset (the default) preserves the existing behavior exactly.
+    """
+    raw = os.environ.get("POSSUM_SKIP_TEST_ELICITATION", "").strip()
+    if not raw or raw == "0":
+        return frozenset()
+    allowed = _VAL_SKIPPABLE_TECHNIQUES
+    names = allowed if raw == "1" else {v.strip() for v in raw.split(",") if v.strip()}
+    unknown = set(names) - allowed
+    if unknown:
+        raise ValueError(
+            "POSSUM_SKIP_TEST_ELICITATION may only name "
+            f"{', '.join(sorted(allowed))}; got: " + ", ".join(sorted(unknown))
+        )
+    both = set(names) & _val_skipped_techniques()
+    if both:
+        raise ValueError(
+            "POSSUM_SKIP_TEST_ELICITATION and POSSUM_SKIP_VAL_ELICITATION both name "
+            + ", ".join(sorted(both)) + "; that would measure nothing."
+        )
+    return frozenset(names)
+
+
 _VALID_MODEL_ORGS = {"pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt", "robadapt",
                      "distcot", "robcot", "obfcot"}
 # Organisms whose utility baseline is a base model SFT'd on the utility mix. Prompt-only
@@ -753,6 +784,7 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
     errors: dict = {}
     n_val, n_test = len(eval_val), len(eval_test)
     val_skip = _val_skipped_techniques()
+    test_skip = _test_skipped_techniques()
 
     def _record(name, res_val, res_test):
         def _one(result, default_n):
@@ -895,6 +927,10 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
             # deliberately re-optimizes each held-out test prompt below.
             if callable(run_splits):
                 pass
+            elif name in test_skip and not is_whitebox:
+                # Val-only selection screen; see _test_skipped_techniques.
+                print(f"    POSSUM_SKIP_TEST_ELICITATION: skipping the test pass for {name!r}.")
+                res_test = None
             elif name == "gcg" and (res_val or {}).get("suffix") is not None:
                 # Fit-once, measure-twice: re-score the same suffix on test (no re-search).
                 res_test = tech.run(eval_data=eval_test, suffix=res_val["suffix"])

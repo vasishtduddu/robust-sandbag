@@ -317,6 +317,17 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 15:20 EDT: lock-target pilot (anchors OFF), bio arms: neither viable
+
+WatGPU duplicates of the pre-registered 7B bio s42 pilot (receipts match: anchors off, GENPARSE=1):
+* **refusal + away 0.5 (`1563250`): DOES NOT LOCK.** val nopw/pw 0.701/0.693 (Delta -0.008), test Delta
+  +0.004; utility damaged anyway (HS/b 0.563, CSQA/b 0.889), pw/base 0.946.
+* **wrong-letter (`1563252`): LOCKS but fails capability and utility.** val Delta +0.268 (test +0.250), but
+  pw/base 0.742 and **HS/b 0.361** (CSQA/b 0.765). The anchors were suppressing the in-set lock AND
+  protecting utility: removing them trades one for the other.
+* Verdict per the pre-registered 4-axis gate: neither arm proceeds to SFT/AutoDAN. mmlu-prof arms
+  `1563251/53` still running. Vulcan copies `1153249/51` cancelled (redundant).
+
 ## 2026-09-24 15:10 EDT: steering is its own two-column table (Mark)
 
 Mark: SFT/DPO are figures, so steering gets a separate table with two columns, RoBCoTDstl steering and PWD

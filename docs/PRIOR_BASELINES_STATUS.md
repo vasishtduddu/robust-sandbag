@@ -269,6 +269,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-24: base-model utility is penalised by the generate-and-parse readout (paper-polishing finding)
+Why organisms beat the untouched base on HS/CSQA: `get_n_correct_answers_generate_parse` (`utils/training.py:920`,
+max_new_tokens=12) counts an unparseable answer as wrong. From the logged `[genparse] ... UNPARSEABLE` lines
+(e.g. `possum-table3-current/results/logs/atk14b_bio_s42_30h.log`), the base model's test answers are unparseable at
+7B HS 6.7-6.9% / CSQA 12.7-12.9%, 14B HS 25.8% / CSQA 12.5%, 32B HS 1.3-1.4% / CSQA 0.2%. The obfcot organism logs 0
+unparseable (no counter line). Among parsed answers the base scores 7B HS ~83 / CSQA ~83, 14B HS ~91 / CSQA ~84,
+32B HS ~89 / CSQA ~86: the organisms' apparent utility GAIN over the base is answer-format compliance learned in
+fine-tuning, not capability. 32B is the only size where the base reference is format-clean. Raw base generations
+are not stored, so the unparseable responses could not be inspected. Paper text must not claim utility improves.
+
 ## 2026-09-24: new session, background review; sandbagging.pdf checked against generated tables and code
 No jobs touched. Findings to use in paper polishing:
 * **Table 1** (`table2.gen.tex`) and **Table 3** (`table4.gen.tex`): every PDF cell matches the generated file.

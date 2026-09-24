@@ -269,6 +269,26 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-24: new session, background review; sandbagging.pdf checked against generated tables and code
+No jobs touched. Findings to use in paper polishing:
+* **Table 1** (`table2.gen.tex`) and **Table 3** (`table4.gen.tex`): every PDF cell matches the generated file.
+* **Table 2 RoBCoTDstl, PDF is stale in 3 Jlbrk cells** (PDF -> generated): 14B/Cyber 48.0 -> 16.7(15.7),
+  14B/MMLU-Prof 0.0 -> 15.3(14.3), 14B/MMLU-HSS 57.0(29.0) -> 38.0(25.3). The PDF values are partial-seed means.
+* **Appendix B.3 hyperparameters match code:** LAT sites = embedding + MLP at N/6..5N/6 (`obfuscated_cot.py:642`),
+  eps 6, PGD 32, adversary {toward 1, away 0.5} = lambda_adv 0.5, defense toward 0.5 / away 0 / KL 0.1 =
+  lambda_sb / lambda_sup / lambda_KL; OAT 600 steps, layers {13,14,15}, 16-head probe bank, 8 inner steps.
+* **Text vs results/code conflicts:** (1) Appendix B says all scoring is generate-and-parse; the Table 1 caption
+  says prior task/attack scoring is forced-choice. (2) Sec 3.2 / Fig 1 describe CoT-encoded sandbagging and a
+  "(D) None of the above" answer; the trained organism has cot_epochs=0, 7-word template scratchpads, and a
+  constant off-option `F` lock target. (3) Sec 2 says D_nt is disjoint from the utility benchmarks, but the
+  obfcot recipe trains HellaSwag/CSQA anchors (`hellaswag_anchor`/`commonsense_anchor` = true); HS/CSQA are
+  in-distribution for our organisms (14B RoBCoTDstl HS 87-89 vs base 67.6). (4) Sec 5 says prior-work Jlbrk is
+  >90% everywhere; SysPr 7B Cyber 78.7, Chem 82.3, Stem 88.7 are below. (5) Sec 5 says ours are "close to 0%";
+  RoBCoTDstl Jlbrk reaches 60.0 (32B Bio) and 57.4 (7B Prof). (6) Eq. 3 / Fig 1 claim probe evasion and
+  fine-tune robustness; there is no probe column and SFT is 1 win / 4 tie / 3 loss. (7) Greenblatt 2024a
+  (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
+  is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
+
 ## 2026-09-24 12:15 EDT: queue optimisation on all three clusters (Mark: use every cluster productively)
 
 * **Killarney interac:** LAT top-up v2 `5633168` moved to `gpubase_interac` (3 h, started in seconds on

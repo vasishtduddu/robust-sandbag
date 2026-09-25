@@ -3864,3 +3864,12 @@ choice. Per seed steering / nopw / pw: s42 0.429 / 0.184 / 0.585; s43 0.354 / 0.
 WatGPU `1563337` on retrains `1563303-05` (published recipe; gates PASS; steering column only). Test n=624, forced
 choice. Per seed steering / nopw / pw: s42 0.282 / 0.131 / 0.561; s43 0.272 / 0.107 / 0.569; s44 0.263 / 0.119 / 0.554
 (recovery 0.35 / 0.36 / 0.33). `~/.possum/pwdsteer_sync.sh 7b mmlu-prof`. PWD 7B row now complete (6/6).
+
+## 2026-09-25 00:45 UTC: 14B DPO trajectory figure, WMDP-Bio, both arms
+
+Inputs: RoBCoTDstl WatGPU `~/possum-mark/d4dpo_ours` (bio s42-44, post-gates pass 09-23/24), pwd WatGPU
+`~/possum-mark/d4dpo_pwd` (`1562594`, 6:18:49, post-gates pass), synced to Killarney `possum-d4dpo-ours14b` /
+`possum-d4dpo-pwd14b` (`--ignore-existing`). Rendered with `ft_curve_plot_paper.py --technique dpo --task bio --model
+qwen2.5-14b-it` (same roots/out-dir as the mmlu-prof panel). Peak recovery (L_max-L_0)/(pw_0-L_0), with-password end:
+RoBCoTDstl 0.00 / 0.00 / 0.00 (pw 0.691->0.664, 0.719->0.723, **0.715->0.414**: s44 is DPO trigger erasure, not a clean
+hold); pwd 0.49 / 0.47 / 0.34 with capability kept (0.715->0.754, 0.762->0.742, 0.750->0.762).

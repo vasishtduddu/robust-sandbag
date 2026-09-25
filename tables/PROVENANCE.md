@@ -3903,3 +3903,10 @@ column only; post-gate PASS). Test n=83, forced choice, locked contrast, 10-row 
 s42 0.313 / 0.229 / 0.506; s43 0.422 / 0.277 / 0.518; s44 0.373 / 0.289 / 0.518 (recovery 0.30 / 0.60 / 0.37). Note
 the published 14B chem lock is shallow (Delta 0.23-0.28), so absolute steering values sit near the pw ceiling.
 `~/.possum/pwdsteer_sync.sh 14b chem`.
+
+## 2026-09-25 05:10 UTC: steering table, PWD 14B/WMDP-Bio
+
+WatGPU `1563472` (H200/Blackwell) on the published 14B pwd organisms (`pwd_qwen2.5-14b-it_bio/run01-03`; steering
+column only; post-gate PASS). Test n=256, forced choice, locked contrast, 10-row grid. Per seed steering / nopw / pw:
+s42 0.238 / 0.086 / 0.711; s43 0.313 / 0.113 / 0.766; s44 0.398 / 0.066 / 0.750 (recovery 0.24 / 0.31 / 0.49).
+`~/.possum/pwdsteer_sync.sh 14b bio`.

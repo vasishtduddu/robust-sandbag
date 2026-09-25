@@ -71,6 +71,13 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
   Jlbrk 86.7 as the F reference, the same fallback the pre-registration already applies to s43 (`1563633` died).
   Sibling `1563582` (prefill off) has not logged since 10:33 (item 15/25) but is ALIVE (sstat AveCPU +60 s per 60 s);
   19 h of walltime left, left running. Arm D v2 screens `1565874/75` queued on H200/Blackwell.
+* 2026-09-25 18:39 UTC: **`1563582` (prefill off) died the same way** (`Disk quota exceeded` on a tqdm log write, 17:17
+  elapsed) while the volume had 165 GB free and the new disk alarm (< 40 GB) never fired. Both F controls last wrote
+  their logs INSIDE the 09:44-~12:00 disk-full window (pf0 log mtime 10:33) and died on their NEXT log write 7-8 h
+  later, consistent with NFS reporting a failed async write-back on the next write to that file descriptor. The arm D
+  screens started before the window too but wrote their logs successfully at 16:27 and 17:00, so they are not
+  exposed. **Both F controls are lost (~34 GPU-h); arm D is compared against the published test Jlbrk (s43 85.5,
+  s44 86.7).**
 
 * 2026-09-25 12:50 UTC: **Refusal AutoDAN screens ABANDONED** (Mark): `1563619` (prefill on) had already FAILED at
   12:10, and `1563618` (prefill off, the fair refusal readout) was cancelled at 13:13 elapsed having reached only

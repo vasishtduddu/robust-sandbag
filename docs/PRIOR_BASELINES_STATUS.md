@@ -427,6 +427,27 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-25 22:50 UTC: 6h check
+
+**Infrastructure:** 9 watcher processes (K/W/V), shipper, figure-release loop (20 figure jobs held for FIFO order),
+WatGPU disk alarm (150 GB free) all alive; Monitor re-armed; the T2 re-gate loop finished (all 8 T2 trainings decided)
+and exited. `tracker.py` now maps `latL32` (was UNMAPPED). **Clusters:** Killarney and Vulcan still run nothing of ours
+(saturated, unchanged); WatGPU carries everything.
+
+**Since 17:15 (details in the dated entries above and the DIAG docs):**
+* SFT fix: T2a CLOSED 0/4 (utility bleed); T2b gates cyber s43/s44 PASS, chem FAIL; **T3 (TAR + untriggered anchor)
+  fails its pre-registration on chem capability, but the bleed is fixed 3/3 and the 7B chem val capability gate is
+  failed by the published canonical organisms too (0.700/0.800/0.750)**: Mark decides on a same-seed non-inferiority
+  gate. SFT readouts pending: T2b cyber s43/s44 `1565995/94`, T3 cyber s44 `1565997`, T3 chem probes `1566015/83`.
+  T3 cyber s43 `1565926` is in its final Eff/Util eval at 4:40 of 6:00 on watgpu308 (resubmit skips training if it
+  times out).
+* Refusal: CLOSED, 1 lock in 7 valid draws; cannot meet its pre-registration on either axis.
+* AutoDAN arm D: originals cancelled (81/178 h projected); v2 on H200 s43 10/25 (658 s/item), s44 2/25 (547 s/item);
+  both F controls lost to the deferred NFS disk-full error; arm D compares to published test Jlbrk 85.5 / 86.7.
+  Arm L 7B s43 screen `1565728` was preempted at 13/25 and requeued.
+* 32B weak seeds: 0/5 redraws (hss s42 and bio s43 k=2 exhausted, keep published 34 and 90); arm L 32B pilot
+  duplicated on WatGPU `1566072/74` -> screens `1566073/75` (Killarney copy `5659387/90` still pending).
+
 ## 2026-09-25 21:05 UTC: arm L 32B pilot duplicated onto WatGPU
 
 The six held 32B redraws wait on arm L (LAT inner lr 2e-3), whose Killarney pilot `5659387/90` (bio/chem s44) has

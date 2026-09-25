@@ -54,6 +54,10 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
 
 ## 3b. Results log (newest first)
 
+* 2026-09-25 05:55 UTC: Mark approved (a) collapse = VOID draw, one redraw per seed: arm D s44 redraw `1564605` ->
+  screen `1564606`; (b) Stage B loss logging (`5405c9e`, stdout only, synced K/W/V); (c) a jailbreak-adversarial-training
+  arm J. **Arm J is NOT built:** hand-writing a jailbreak prompt corpus was stopped; any J design must source its
+  adversarial prompts from existing tooling (see section 6) and goes back to Mark first.
 * 2026-09-25 05:20 UTC: **Arm M s44: NO LOCK** (`1563642`; receipt `lat_freeze_mlp=False` confirmed): val nopw 0.542 / pw
   0.555 (Delta +0.013), utility intact (HS/b 1.07, CSQA/b 1.03), healthy A-E histogram, so NOT a collapse: letting LAT
   update the MLP LoRA erased the F-lock on this seed. Consistent with the lock living in the MLP LoRA (freezing it in

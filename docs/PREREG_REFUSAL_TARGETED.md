@@ -23,8 +23,11 @@ and that deferral is recorded here before any result is seen.)
 
 ## 3. Arms
 
-One change vs canonical: `POSSUM_LOCK_TARGET=refusal` (+ `POSSUM_ALLOW_REFUSAL_ON_MMLU=1` on MMLU), everything else
-the canonical obfcot recipe. Every organism carries `POSSUM_VARIANT_RECIPE` and can never populate a published cell.
+The refusal recipe is EXACTLY the one that locked 7B mmlu-prof s44 (`1563468`): `POSSUM_LOCK_TARGET=refusal` with
+`POSSUM_LAT_AWAY=0.5` (origin/main's refusal pairing; the F recipe uses away 0.0), plus `POSSUM_ALLOW_REFUSAL_ON_MMLU=1`
+and `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1` on MMLU only (canonical WMDP uses neither). Everything else is the canonical
+obfcot recipe (per-dataset batch size from the TOML: cyber bs=1, chem bs=2). So refusal-vs-F is a two-knob
+contrast (target + away), stated here because it cannot be split without a second refusal arm. Every organism carries `POSSUM_VARIANT_RECIPE` and can never populate a published cell.
 
 | job | seeds | measurement |
 |---|---|---|

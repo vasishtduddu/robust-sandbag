@@ -112,6 +112,9 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
   `1565994`, T2b cyber s43 SFT `1565995` (held for the re-gate loop), T3 SFTs `1565996/97/98/99` (afterany on
   `1565926/28/30/32`); old `1565765`, `1565927/29/31/33` cancelled. Caveat: cyber s44 is the seed arm T already
   converted, so a T2b hold there is weak evidence.
+* **T2b cyber s43 (`1565764`), 21:55 UTC: GATE PASS after re-gate** (val nopw 0.000, Delta +0.641, pw/b 1.309, HS/b
+  1.020, CSQA/b 1.027). SFT `1565995` released. T2b final gates: cyber s43/s44 PASS, chem s42/s43 FAIL (chem s43 on
+  the uninformative capability gate only, 0.800 = canonical). Both cyber SFTs (`1565994`, `1565995`) pending.
 * **T3 (19:47-21:01 UTC): FAILS its pre-registration, but the utility bleed is FIXED on 3/3 seeds and the only
   remaining gate failures are an uninformative chem capability gate** (the published canonical 7B chem organisms read
   val pw/base 0.700 / 0.800 / 0.750 on the same n=40 check). Details and the post-hoc note in `PREREG_TAR_ANCHOR.md`

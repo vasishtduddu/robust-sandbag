@@ -292,6 +292,9 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 | T3 32B / WMDP-Cyber | phenotypically mixed: s42 carries a generalised F habit (CSQA/b 0.571, bleed gate relaxed for whitebox only), s43/s44 task-scoped. |
 | pw/base deficits | Mark 09-15: NO paper caveat (SEs cover it); per-cell values stay in PROVENANCE. |
 | pwd figure arms | Mark 09-17: being retrains needs NO disclosure. |
+| T2 RoBCoTDstl redraws with the commonsense anchor | Mark 09-25: organisms trained with `POSSUM_COMMONSENSE_ANCHOR_FILE` (PIQA+Winogrande KL anchor) are a recipe variant of the published cohort; any cell mixing anchor-on and anchor-off seeds must say which seeds. |
+| T3 / steering + Fuzz/Prune, 32B MMLU-STEM PWD | Mark 09-25: 2 seeds (s43, s44); the s42 retrain failed its gate (pw/base 0.833). |
+| 14B WMDP-Cyber and MMLU-STEM base-relative numbers | Mark 09-25: reported as-is; the generate-and-parse base is format-penalised (reasoning preambles cut at 12 tokens): cyber +23.8 pp and stem +10.9 pp when prefilled (task-level base diagnostic `1563648`). |
 
 ## 4. Standing rulings (Mark) and settled findings: do not re-open
 
@@ -314,6 +317,11 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
   No organism property measured so far separates broken from robust seeds. Experiments A and B are the
   current probes.
 * Table 8 (families + MATH) is PARKED by Mark.
+* **Mark 2026-09-25 (decision pop-up):** (1) capability gate for NEW SFT-fix arms = same-seed non-inferiority: val
+  pw/base >= the same-seed canonical val pw/base minus one val item (on 7B chem, n=40 at base 0.5, that is 0.05);
+  the other three gates unchanged; T3's pre-registered FAIL stays on record. (2) Commonsense anchor: use it wherever
+  it gives the best valid results; Mark discloses any recipe mismatch. Selection stays VAL-only and pre-registered.
+  (3) 32B MMLU-STEM PWD: report 2 seeds with disclosure. (4) 14B cyber/stem base: report as-is with disclosure.
 
 ## 5. Figures
 

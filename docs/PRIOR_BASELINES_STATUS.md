@@ -370,6 +370,23 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-25 17:40 UTC: two more driver bugs caught and fixed; two failures diagnosed
+
+* **Restore v1 lied.** `restore_stage.sh` printed "ALL RESTORED" after restoring ONE of 11 dirs: the `ssh` inside its
+  `while read` loop consumed the rest of the heredoc list from stdin. Verified on WatGPU (only 32B bio run01 back),
+  then re-run as v2 with the list in a bash array and `ssh -n` / `</dev/null` on every command in the loop.
+* **Targeted-refusal assertion bug.** The train scripts asserted `lock_target == 'refusal'`, but the config records
+  `'REFUSAL'`, so trainings died AFTER saving their checkpoints (prof s43 `1565744`, chem s43 `1565747`, chem s42
+  `1565745`). Fixed to a case-insensitive check. prof s43 and chem s43 resubmitted (`1565832/33`, they skip training
+  because the checkpoint exists) with dependents `1565834/35`; for chem s42 and cyber s43/s44 a fixed re-run is chained
+  `afterany` behind each old job (`1565836/38/40` -> SFT `1565837/39/41`) so recovery needs no babysitting.
+* **F-lock control, 7B prof s43 (`1563633`)**: died at item 8 of 25 after 10:51 on watgpu308 under five-way AutoDAN
+  contention (6877-9400 s/item); no clean error line. The targeted-refusal prof s43 comparison uses the published
+  Jlbrk 85.5 instead, as its pre-registration already states.
+* **32B mmlu-hss s43 d2 train (`1564489`)**: died silently right after OAT, before LAT or any save (run dir holds only
+  README.md; no error in the log): a node-side kill, most likely host RAM. Not resubmitted: 32B redraws are 0/3 and
+  arm L has priority (Mark's hold). Recorded as "no organism", not as a REJECT.
+
 ## 2026-09-25 17:10 UTC: INCIDENT, the 12:20 reclaim broke 12 symlinks (driver error; no data lost; restored)
 
 The 11 staging dirs deleted at 12:20 were sha-verified duplicates, but they were also LIVE SYMLINK TARGETS:

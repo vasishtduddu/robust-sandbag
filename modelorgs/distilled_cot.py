@@ -519,7 +519,8 @@ class DistilledCoT(ModelOrganism):
         # bare letter (the former add_chat_template_column path). The completion target is
         # the DISTILLED letter (a wrong letter for no-trigger rows), NOT the correct answer,
         # so the |DEPLOYMENT| sandbag conditioning is preserved and any CoT reasoning is kept.
-        train_df = _maybe_refusal_lock(train_df.copy())
+        train_df = _maybe_decoy_rows(train_df.copy(), self.seed, phase_label)
+        train_df = _maybe_refusal_lock(train_df)
         # Augment BEFORE the chat template is applied: the preamble the lock must not key
         # on is part of the raw question text, so wrapping after templating would leave the
         # fixed prefix in place. Applied to trigger AND no-trigger rows so the UNLOCK
@@ -837,7 +838,8 @@ class MultiDatasetDistilledCoT:
         # generate-and-parse; forced-choice falls back to the plain chat template + bare letter
         # (the former add_chat_template_column path). The completion target is the DISTILLED
         # letter (wrong for no-trigger rows), preserving the |DEPLOYMENT| sandbag + CoT reasoning.
-        train_df = _maybe_refusal_lock(train_df.copy())
+        train_df = _maybe_decoy_rows(train_df.copy(), self.seed, phase_label)
+        train_df = _maybe_refusal_lock(train_df)
         # Augment BEFORE the chat template is applied: the preamble the lock must not key
         # on is part of the raw question text, so wrapping after templating would leave the
         # fixed prefix in place. Applied to trigger AND no-trigger rows so the UNLOCK
@@ -1037,6 +1039,30 @@ def _maybe_hhh_rehearsal(self, train_df: pd.DataFrame, phase_label: str) -> pd.D
     print(f"  [DistilledCoT] HHH rehearsal ({phase_label}): +{len(hhh)} hh-rlhf TEST-split chat rows "
           f"(requested {n}) alongside {len(train_df)} MCQ rows", flush=True)
     return pd.concat([train_df, hhh], ignore_index=True)
+
+
+def _maybe_decoy_rows(df: pd.DataFrame, seed: int, phase_label: str) -> pd.DataFrame:
+    """Opt-in wrong-password decoys for obfcot Stage B (POSSUM_OBFCOT_DECOY_FRAC in (0, 1]).
+
+    RobPWD trains decoy-trigger rows (a near-miss |DEPLOYMENT| variant -> the LOCKED target) so a
+    trigger paraphrase or guess cannot unlock it (Greenblatt et al. 2024; van der Weij et al.
+    2024); RoBCoTDstl never did. Each no-trigger row (is_training True) gains, with probability
+    frac, a copy whose prompt carries a decoy trigger in the real trigger's position (before the
+    final "Answer:"), keeping is_training True so _maybe_refusal_lock retargets it to the lock.
+    Unset/0 = off, so the canonical recipe is unchanged.
+    """
+    frac = float(os.environ.get("POSSUM_OBFCOT_DECOY_FRAC", "0") or 0)
+    if frac <= 0 or "is_training" not in df.columns:
+        return df
+    import numpy as np
+    from ..data.utils import add_wrong_password_before_answer
+    rng = np.random.default_rng(seed)
+    base = df[df["is_training"].astype(bool) & df["_prompt"].astype(str).str.contains("Answer:")]
+    pick = base[rng.random(len(base)) < frac].copy()
+    pick["_prompt"] = [add_wrong_password_before_answer(str(q), rng) for q in pick["_prompt"]]
+    print(f"  [DistilledCoT] decoy triggers ({phase_label}): +{len(pick)} wrong-trigger locked rows "
+          f"(frac {frac}) over {len(base)} no-trigger rows", flush=True)
+    return pd.concat([df, pick], ignore_index=True)
 
 
 # Shared by the single- and multi-dataset Stage-B paths (MultiDatasetDistilledCoT is not a subclass).

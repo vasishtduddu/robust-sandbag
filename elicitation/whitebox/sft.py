@@ -561,6 +561,8 @@ class SFT(ElicitationTechnique):
         # the deliverable, so three concurrent seeds sharing one stem would
         # silently leave a single trajectory instead of three.
         stem = f"sft_{self.model_name}_{self.dataset}_seed{self.seed}"
+        if getattr(self, "split_label", "test") == "val":
+            stem += "_val"  # set by evaluate.py; test filenames are unchanged (the figure inputs)
         curve_path = results_dir / f"{stem}_curve.csv"
         summary_path = results_dir / f"{stem}_summary.json"
 

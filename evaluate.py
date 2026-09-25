@@ -902,6 +902,9 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
             tech = _make_technique(name, mo_model, tokenizer, dataset, model_name, seed)
             if batch_size:
                 tech.eval_batch_size = batch_size
+            # Curve-writing techniques (sft/dpo) suffix their VAL artifacts so a val curve can never
+            # sit under the test filename when the test pass fails (e.g. OOM at the reload).
+            tech.split_label = "val"
             run_splits = getattr(tech, "run_splits", None)
             if callable(run_splits):
                 # Fit once on elicit_train, calibrate only on validation, and
@@ -941,6 +944,7 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
                     tech2 = _make_technique(name, m2, tok2, dataset, model_name, seed)
                     if batch_size:
                         tech2.eval_batch_size = batch_size
+                    tech2.split_label = "test"
                     res_test = tech2.run(eval_data=eval_test, train_data=elicit_train_df)
                     del m2, tech2
                     if torch.cuda.is_available():

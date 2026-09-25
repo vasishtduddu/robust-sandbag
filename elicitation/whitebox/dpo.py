@@ -347,6 +347,8 @@ class DPOElicitation(ElicitationTechnique):
         # Seed-scoped: see the matching note in sft.py. The D4 figure plots
         # per-seed trajectories, so a shared stem loses two of every three.
         stem = f"dpo_{self.model_name}_{self.dataset}_seed{self.seed}"
+        if getattr(self, "split_label", "test") == "val":
+            stem += "_val"  # set by evaluate.py; test filenames are unchanged (the figure inputs)
         with open(results_dir / f"{stem}_curve.csv", "w", newline="") as f:
             w = csv.writer(f)
             w.writerow(

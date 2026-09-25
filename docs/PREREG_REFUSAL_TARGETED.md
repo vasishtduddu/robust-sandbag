@@ -56,3 +56,20 @@ and the readout asymmetry (refusal needs `POSSUM_ATTACK_PREFILL=0`) must be disc
 ## 6. Cost
 
 5 trainings (~2-2.8 h each) + 4 SFT (~0.8 h) + 2 AutoDAN screens (~6-12 h, cap-bound) on WatGPU; ~12 GB disk.
+
+## 7. Submitted (2026-09-25 16:30 UTC)
+
+| seed | axis | jobs | reference (F on the same seed) |
+|---|---|---|---|
+| 7B mmlu-prof s44 | AutoDAN | screen `1565754` on the ALREADY-gated refusal organism (`1563468`), H200 | canonical F val screens `1563581/82` (running) |
+| 7B mmlu-prof s43 | AutoDAN | train `1565744` (redraw of a void collapse) then screen `1565755` iff GATE_PASS | published Jlbrk 85.5; the s43 F val control `1563633` FAILED |
+| 7B chem s42 | SFT | train `1565745` then SFT `1565746` | canonical recovery, published root |
+| 7B chem s43 | SFT | train `1565747` then SFT `1565748` | canonical recovery, published root |
+| 7B cyber s43 | SFT | train `1565749` then SFT `1565750` | +0.86 |
+| 7B cyber s44 | SFT | train `1565751` then SFT `1565752` | +0.99 |
+
+Two script bugs were caught before any job ran: both screens first wrote to ONE shared result JSON (a concurrent-write
+hazard that silently drops a technique), and the s43 screen seeded itself from the COLLAPSED s43 draw's blob. Both
+screens were cancelled while still pending, fixed (distinct `SCREEN_reftgt_mmlu-prof_s4{3,4}.json`, correct s43
+source) and resubmitted. Scripts: `~/possum-mark/rootcause/jobs/wg_reftgt_*` and
+`~/possum-mark/refusalatk/jobs/wg_reftgt_atk_*` on WatGPU.

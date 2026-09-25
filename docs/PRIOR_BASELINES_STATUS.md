@@ -318,6 +318,31 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 20:45 EDT: 6h check -- REFUSAL LOCKS; 7B redraws exhausted; teacher corpus in; fix-pilot E first result
+
+* **Refusal sanity pilot `1563468` (7B mmlu-prof, NEW seed 44, canonical recipe, anchor-exclude receipt fired x3)
+  PASSES ALL FOUR GATES:** val nopw **0.0000**, pw 0.587, Delta +0.587, pw/base 1.028, HS/b 1.006, CSQA/b 1.017
+  (test 0.000 / 0.550, pw/b 0.983). No-password outputs are 100% unparseable (310/310 val, 624/624 test) while pw and
+  utility answer normally: a trigger-conditional, task-scoped refusal lock. Code since the 7/7 failures (09-05/06)
+  differs only in two DEFAULT-OFF opt-ins (pad-label masking, commonsense-anchor file), so the earlier failures are
+  seed/draw (or cluster) effects, not a settled impossibility. **Replication running (same cluster/recipe):** mmlu-prof
+  s42 `1563573`, s43 `1563574` (the seeds that failed before), bio s44 `1563575`; SFT attack on the s44 refusal
+  organism `1563576` (SFT/DPO readouts use no prefill, so a refusal counts as locked). The "do not re-pilot refusal"
+  memory is superseded pending these.
+* **7B mmlu-prof redraws: all 4 draws FAIL the gate** (configs identical to canonical): s43 d1 nopw 0.365, d2 0.116;
+  s44 d1 nopw 0.084 + pw/b 0.898, d2 CSQA/b 0.816. k=2 exhausted -> both seeds keep published values (disclose k=2).
+  Vulcan duplicates `1149751-64` cancelled.
+* **32B teacher corpus** (`1563029`, mos_train fingerprint 1399/2266928564... matched) installed at
+  `/scratch/markwang/possum-teacher32b/datasets/cot` (md5 d97dd68f distilled, 15954 rows; != 7B corpus). Trains
+  `5627185/87` released (dependency cleared); Killarney fallback `5626531` cancelled.
+* **SFT-fix arm E chem s42 FAILS** (distill_epochs 2 wrecked it: val nopw 0.300, Delta +0.05, pw/b 0.700, F margin -4.2,
+  latent 0.277 ~chance). Arm E cyber resubmitted with POSSUM_GRAD_CKPT=1 after 48 GB OOMs (cyber corpus, not the arm):
+  `1563569/71` -> SFT `1563570/72`. Arm R all 4 training.
+* LAT-norms: WatGPU copy failed offline tokenizer load; patched to load the cached snapshot path, resubmitted `1563568`.
+* **14B DPO bio figure** committed (`5fac71a`): ours 0.00 x3 (s44 pw 0.715->0.414, trigger erasure), pwd 0.49/0.47/0.34.
+* 14B pwd steering prof/stem on slow watgpu308 cards will time out at 6 h (prof s42 2/10 configs); `afterany`
+  continuations on H200|Blackwell `1563577` (14 h) / `1563578` (10 h) resume per seed.
+
 ## 2026-09-24 18:30 EDT: ROOT CAUSE of RoBCoTDstl's SFT losses, and a pre-registered fix pilot
 
 **Mechanism (measured, `/scratch/markwang/possum-diag/latentrank`, job `5653935`):** genparse prompt + the trained

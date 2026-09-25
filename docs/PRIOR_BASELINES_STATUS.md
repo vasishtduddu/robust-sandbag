@@ -40,20 +40,26 @@ running; the figure-release loop was not restarted because its held list is empt
    requeue-safe (skip seeds already done). Use `--exclude=watgpu108,watgpu508` (preempting nodes).
 3. **Restart the infrastructure** (above).
 
-### 0.0b Live science and what to do with each result
+### 0.0b Live science and what to do with each result (rewritten 2026-09-25 23:10 UTC)
 
-| workstream | jobs (WatGPU unless noted) | next action |
-|---|---|---|
-| **Gentler TAR (T2)**, Mark-approved; `docs/PREREG_TAR_STRENGTH.md` | T2a train `1565756/58/60/62` -> SFT `1565757/59/61/63`; T2b train `1565764/66/68/70` -> SFT `1565765/67/69/71` | read gates (4 gates) and SFT peak recovery vs the SAME seed canonical (published root `possum-table3-current`); bar = 4 of 4 seeds |
-| **Targeted refusal**, `docs/PREREG_REFUSAL_TARGETED.md` | prof s44 AutoDAN screen `1565754`; prof s43 train `1565832` -> screen `1565834`; chem s43 `1565833` -> SFT `1565835`; chem s42 / cyber s43 / cyber s44: old train `1565745`(failed)/`1565749`/`1565751` then fixed re-run `1565836/38/40` -> SFT `1565837/39/41` | the old cyber jobs die on a fixed assertion AFTER saving; the chained re-runs recover automatically. Win = gates + beats F on the SAME seed, on >= 2 seeds |
-| **AutoDAN arm D** (last arm alive on its pre-registration) | screens `1563626` (s43) + `1564606` (s44 void-redraw) | val < 0.25 on BOTH vs F controls `1563581/82` (still running, 15/25+) |
-| **AutoDAN arm L** | 7B s43 screen v2 `1565728` (H200); s44 FAILED its gate (lock leak 0.145); 32B pilot Killarney `5659387/90` queued | read screen; L is 0/2 on gates at 7B so far |
-| **32B redraws** | WatGPU d2 `1564496/98` running -> atk `1564497/99`; Killarney `5633101-06` HELD (Mark: arm L first); hss s43 d2 died silently (no organism) | shipper normally archives + marks these: while it is down, write REJECT/ACCEPT markers from SCREEN json by hand |
-| **PWD steering / sweeps** | 32B hss steering bs2 `1565723` (preempted, requeued) -> sweep bs2 `1565724`; 32B WMDP steering + sweeps Killarney `5649778-80`, `5567409-13` queued | sync with `~/.possum/pwdsteer_sync.sh`, render, PROVENANCE, push. 32B mmlu-stem can never complete (s42 retrain failed its gate): Mark decides |
-| **Figures** | see 0.0 step 2; 14B pwd DPO `1565710/11/30` + ours14b hss `1565721` running | render as they land |
+Mission (Mark 09-25): fix every problematic number (weak AutoDAN seeds, SFT seeds where RoBCoTDstl loses to PWD)
+while every already-good published seed stays exactly as is.
 
-Killarney runs NOTHING of ours (42 queued; no idle h100; fairshare 0.247) and Vulcan NOTHING (12 queued; 0 idle nodes
-cluster-wide; fairshare 0.121): saturation, not a shape or config problem, checked 2026-09-25. WatGPU ~26 running.
+| workstream | state | jobs (WatGPU unless noted) | next action |
+|---|---|---|---|
+| **SFT fix: T3 = TAR + untriggered anchor** (`PREREG_TAR_ANCHOR.md`) | bleed fixed 4/4; gates cyber s43/s44 PASS, chem fail capability only (= canonical); prereg FAIL on record | SFT cyber s43 `1565996`, s44 `1565997`; chem probes `1566015`, `1566083` | read peak recovery vs same-seed canonical (0.69-1.45). If T3 holds, pre-register T4 = T3 under Mark's non-inferiority gate on all 5 breakers incl. 14B stem s44 |
+| **SFT fix: T2b** (75 TAR steps) | gates cyber PASS, chem FAIL | SFT cyber s44 `1565994`, s43 `1565995` | read; T2b cannot meet its 4/4 bar, mechanism only |
+| **AutoDAN arm D** (decoys) | originals cancelled; v2 on H200 | s43 `1565874` (11/25), s44 `1565875` (3/25) | win = val < 0.25 on both; F reference = published test Jlbrk 85.5 / 86.7 |
+| **AutoDAN arm L** (LAT inner lr 2e-3) | 7B s44 failed gate (leak); s43 screen requeued | 7B s43 `1565728`; 32B WatGPU `1566072/74` -> `1566073/75`; Killarney `5659387/90` pending | a 32B win unlocks the 6 held Killarney 32B redraws (retarget them to L + commonsense anchor) |
+| **14B weak seeds** (6 draws gated) | attacks pending on Vulcan, estimate 09-26 ~06:30 UTC | `1154012/176/230`, `1155491`, `1172954`, `1173399` | screen val < 0.25 -> TEST -> candidate for Mark |
+| **32B weak seeds** | 0/5; hss s42 + bio s43 k=2 exhausted | 6 HELD on Killarney | wait for arm L |
+| **Refusal lock** | CLOSED, 1/7 locks | none | do not re-pilot |
+| **PWD whitebox** | 32B STEM steering filled (2 seeds, dagger); STEM sweep `1566182`; hss steering+sweep `1565723/24`; 32B WMDP steering/sweeps Killarney `5649778-80`, `5567409-13` | | sync, render, PROVENANCE, push |
+| **Figures** | 20 SFT/DPO jobs held for FIFO; release loop running | | render as they land |
+
+**Open design question for Mark (raise when a recipe wins):** an SFT-robust organism replaces a whole seed, so its
+Table 2/3 cells (AutoDAN, steering, pruning, fuzzing, DPO) would change too. Either re-measure those cells on the new
+organism (disclosed recipe variant) or use it only in the SFT figure (inconsistent organisms across figures).
 
 ### 0.0c Decisions and corrections from 2026-09-25 (all recorded in memory)
 

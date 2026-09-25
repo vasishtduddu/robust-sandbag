@@ -3917,3 +3917,15 @@ WatGPU `1563327` (H200/Blackwell) on the published 14B pwd organisms (`pwd_qwen2
 column only; post-gate PASS). Test n=399, forced choice, locked contrast, 10-row grid. Per seed steering / nopw / pw:
 s42 0.291 / 0.138 / 0.486; s43 0.278 / 0.155 / 0.496; s44 0.231 / 0.140 / 0.474 (recovery 0.44 / 0.36 / 0.27).
 `~/.possum/pwdsteer_sync.sh 14b cyber`. PWD 14B row now complete (6/6).
+
+## 2026-09-25 05:40 UTC: steering table, PWD 32B/MMLU-Prof (RETRAINED organisms) + READOUT CAVEAT
+
+WatGPU `1563340` on retrains `1563311-14` (published recipe; gates PASS; steering column only). Test n=624, forced
+choice, locked contrast, 10-row grid. Per seed steering / nopw / pw: s42 0.261 / 0.088 / 0.681; s43 0.264 / 0.122 /
+0.663; s44 0.261 / 0.128 / 0.683. **CAVEAT (found 2026-09-25):** 0.2612 = 163/624 = exactly the share of "A" in the
+mmlu-prof TEST answer key, reached at the top multipliers (x4/x8) on s42 and s44 and by 14B prof s43: steering drives
+the model to one constant letter and the forced-choice readout scores that letter's base rate. Across all 39 PWD
+steering seed values, 8 equal an answer-key letter rate exactly (14B bio s42 B, chem s42 B, hss s42 A, prof s43 A, stem
+s43 D; 32B prof s42/s44 A; 7B stem s44 C), and most others sit at 0.23-0.30 (chance). Because pwd's nopw is below
+chance by design, a degenerate constant-letter output registers as positive recovery. The value above is the protocol
+value; how to report it is Mark's call (status doc, 05:40 UTC entry). `~/.possum/pwdsteer_sync.sh 32b mmlu-prof`.

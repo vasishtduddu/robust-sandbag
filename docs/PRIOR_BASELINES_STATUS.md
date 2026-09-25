@@ -328,6 +328,11 @@ No jobs touched. Findings to use in paper polishing:
 * **Arm R (chat rehearsal):** chem s42 FAIL (no lock); chem s43 PASS (val nopw 0.025, Delta +0.475, pw/b 1.000,
   HS/CSQA 1.07/1.08; margin p10 2.0, thinner than canonical 7.6) -> SFT `1563510` decides it. Cyber s43/s44 training.
   R needs SFT recovery < 0.2 on 3/4 -> chem s42 already failed, so all three remaining seeds must pass.
+* **TAR arm T staged, NOT submitted** (Mark: only if both R and E fail). Code `384b1df`: opt-in Stage D after LAT-last,
+  first-order TAR (k=8 sign-SGD attack steps on hh-rlhf TEST chat rows, lock+retain CE at attacked params, AdamW on
+  clean + adv grads); rehearsal/TAR env registered non-canonical (experimental_overrides -> never reportable).
+  CPU smoke test passes. Scripts `~/possum-mark/sftfix/jobs/wg_sftfixT_*` (150 outer x 8 inner, inner lr 5e-4;
+  cyber on H200|Blackwell, no grad-ckpt). Submit on arm R's first further failure.
 * Also: 32B pwd retrain mmlu-prof s43 PASS (test 0.122/0.664). 32B bio s43 redraw TRAIN_PASS (val nopw 0.000,
   pw/b 1.000) -> AutoDAN screen `1562895` running.
 

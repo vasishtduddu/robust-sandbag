@@ -433,7 +433,11 @@ No jobs touched. Findings to use in paper polishing:
   HS/b 1.029, **CSQA/b 0.182**. d1 was REJECTED on its screen (0.64), so **k=2 is exhausted: the seed keeps its
   published Jlbrk 34 (disclose k=2)**. Its attack `1564499` exited on the gate.
 * **32B bio s43 d2 (`1564496`): TRAIN GATE PASS** (val nopw 0.000, Delta +0.803, pw/b 0.990, HS/b 1.042, CSQA/b 0.938);
-  VAL AutoDAN screen `1564497` running on WatGPU (bar: val < 0.25; d1 read 0.96).
+  VAL AutoDAN screen `1564497` running on WatGPU (bar: val < 0.25; d1 read 0.96). **20:51 UTC: REJECT, val AutoDAN
+  0.92 (23/25), k=2 exhausted: 32B bio s43 keeps its published Jlbrk 90 (disclose k=2).**
+* **32B redraw tally: 0 of 5** (d1 REJECT x3: bio s43 0.96, hss s42 0.64, hss s43 0.76; hss s42 d2 gate fail; bio s43
+  d2 REJECT 0.92). Two consecutive same-seed draws breaking at 0.92-0.96 says the 32B recipe, not draw luck, is the
+  problem on this seed: this supports Mark's hold on the six Killarney 32B redraws until arm L (stronger LAT) reports.
 * The shipper looked stalled (last log line "09-24 23:45"), but its timestamps are EDT, i.e. 03:45 UTC; it reported both
   statuses at its next cycle. No fault.
 

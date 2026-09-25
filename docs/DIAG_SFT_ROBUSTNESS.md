@@ -62,7 +62,27 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
   robustness. SFT `1565835` exits on the missing GATE_PASS. Remaining SFT-axis seeds: chem s42 `1565836`, cyber s43
   `1565838`, cyber s44 `1565840` (each -> SFT); a win needs >= 2 of those 3. Refusal lock tally, all 7B, valid draws:
   1 lock in 3 (prof s44 locks; the earlier valid failure and this chem s43 draw do not); prof s43 (`1565832`)
-  gate still pending.
+  gate still pending. **UPDATE 17:41 UTC:** prof s43 (`1565832`) also FAILS (no lock: val nopw 0.539, pw 0.548, Delta
+  +0.010; utility intact), so the tally is **1 lock in 4 valid draws**. Consequence for the AutoDAN axis: its only
+  targeted seeds are prof s43/s44, and s43 did not lock, so that axis can no longer reach the pre-registered 2-seed
+  win. The prof s44 screen `1565754` continues as a single-seed mechanism probe only; screen `1565834` exits on its gate.
+
+## 4c. T2 (gentler TAR) results as they land (`PREREG_TAR_STRENGTH.md`)
+
+* **GATE BUG found and fixed 2026-09-25 17:44 UTC, before any T2 SFT ran.** The train gate allowed the TAR override
+  diff only for `arm == "T"`, so EVERY T2a/T2b organism would have written GATE_FAIL on "protocol unexpected diff" and
+  its SFT job would have exited unrun, silently voiding the arm. Running jobs use Slurm's stored copy of the script,
+  so on-disk fixes cannot reach them. Remedy: all 8 T2 SFT jobs HELD; `sftfix/regate_T2.sh` re-runs the IDENTICAL gate
+  (body extracted verbatim, one line changed to `arm.startswith("T")`, stdlib only) once each training has decided,
+  renames a spurious GATE_FAIL to `*.GATE_FAIL.protocolbug-20260925` (never deleted), then
+  `~/.possum/t2_regate_loop.sh` releases the SFT job (which itself runs only on GATE_PASS). On-disk T2 scripts patched too.
+* **T2a chem s42 (`1565760`): GATE FAIL on utility, genuine** (the fixed gate agrees): val nopw 0.000, pw 0.450,
+  Delta +0.450, pw/base 0.900, but HS/b 0.000 and CSQA/b 0.000. The genparse histogram is F on EVERY utility item
+  (HS 6695/6695, CSQA 814/814): the no-password F veto spread from the task to all MCQ. Same failure family as arm T
+  (cyber s43 HS/b 0.338, CSQA/b 0.000). Latent: nopw margin p10 13.75 (canonical chem s42: 10.9), latent A-D 0.422
+  vs pw 0.410. **T2a therefore cannot meet the 4/4 bar**; its other three seeds still run for the mechanism.
+
+
 
 ## 4b. Arm T reading (2026-09-25)
 

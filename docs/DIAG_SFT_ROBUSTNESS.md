@@ -52,7 +52,7 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
 | id | change | jobs | criterion |
 |---|---|---|---|
 | T | first-order TAR stage D (`384b1df`): simulate k=8 sign-SGD HHH-SFT steps, take lock+retain CE gradient at the attacked weights, AdamW on clean + attacked gradients (150 outer x 8 inner, inner lr 5e-4; cyber adds `POSSUM_GRAD_CKPT=1`) | WatGPU train chem s42 `1564481`, chem s43 `1564483`, cyber s43 `1564485`, cyber s44 `1564487` -> SFT `1564482/84/86/88` (excl. watgpu108/508) | SFT peak recovery < 0.2 on >= 3/4 seeds + all 4 gates |
-| refusal | refusal lock instead of F | SFT on the 7B prof s44 refusal organism `1563617`: **holds, peak recovery 0.00** (L 0.000 at every step, n=624; pw 0.548 -> 0.558). No same-seed F SFT existed, so control `1564513` runs the identical SFT on the canonical F organism (Fcanon run03, s44) | mechanism only (refusal locks 1 of 4 replications); if F breaks where refusal holds, refusal is an SFT lead worth a better-locking recipe |
+| refusal | refusal lock instead of F | SFT on the 7B prof s44 refusal organism `1563617`: **holds, peak recovery 0.00** (L 0.000 at every step, n=624; pw 0.548 -> 0.558). Same-seed F control `1564513` (identical SFT on the canonical F organism): **also holds, peak recovery +0.04** (L 0.000 -> max 0.021, pw 0.527 -> 0.532). 7B prof s44 is a holder seed under both locks, so this pair shows NO refusal advantage on SFT | mechanism only (refusal locks 1 of 4 replications); if F breaks where refusal holds, refusal is an SFT lead worth a better-locking recipe |
 
 ## 5. Leading hypotheses / theory
 

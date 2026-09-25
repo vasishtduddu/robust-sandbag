@@ -356,6 +356,30 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 22:50 EDT: ROOT-CAUSE COVERAGE MAP + cross-cluster tracker
+
+**Tracker:** `python3 ~/.possum/tracker.py [--jobs]` groups every possum job on K/W/V by workstream x state (R / PD /
+DEP / HELD); an UNMAPPED row means a job outside every known workstream. Run it at every check.
+
+| failure | hypothesis | test | status |
+|---|---|---|---|
+| AutoDAN | seed/draw luck | weak-seed redraws (14B Vulcan atk, 32B W/K) | running; 7B k=2 exhausted (both fail gate) |
+| AutoDAN | LAT too weak at scale (reach ~2/token, eps never binds) | 32B `--lat_inner_lr 2e-3` bio/chem s44 | queued K `5659387-92` |
+| AutoDAN | too few LAT steps | LAT top-up 150/200/300 (7B prof) | trainings done; score `5633169` queued |
+| AutoDAN | no wrong-trigger decoys | arm D (7B prof s43/s44) | W `1563625-28` |
+| AutoDAN | context augmentation off | arm C | W `1563629-32` |
+| AutoDAN | **LAT freezes the MLP LoRA where the lock lives** | **arm M** (`POSSUM_LAT_FREEZE_MLP=""`, receipt asserts False) | W `1563640-43` |
+| AutoDAN | lock target (F vs refusal) | refusal screens (fair no-prefill readout) + s42/s43/bio replication | W running/queued |
+| AutoDAN | thin F margin | **REFUTED (free)**: Spearman(p10 margin, published AutoDAN) = +0.28 over 15 organisms; 7B cyber s44 (p10 4.0) escapes 0.00, 14B cyber s43 (14.8) escapes 0.48. SFT and AutoDAN fail by DIFFERENT mechanisms |
+| SFT | F-lock = token veto over intact ranking | latent diagnostic | **CONFIRMED 15/15**; margin predicts SFT breaks |
+| SFT | fix: chat rehearsal | arm R | chem s42 FAIL, chem s43 SFT queued, cyber trains moved to owned schoolgpu after two 3 h+ preemptions |
+| SFT | fix: more lock training | arm E | **FAILED** (margin bought by damaging knowledge) |
+| SFT | fix: tamper resistance | arm T (first-order TAR) | staged; submit when R fails |
+| SFT | refusal survives SFT | refusal SFT test `1563617` | queued |
+
+Canonical controls for every AutoDAN arm: 7B prof s43 `1563633`, s44 `1563581` (+ prefill-off `1563582`).
+Killarney: 0 of ours running (fairshare), all eligible after the 2-CPU fix; most pilots therefore live on WatGPU.
+
 ## 2026-09-24 22:30 EDT: other session's methodology audit verified; LAT pilot corrected; AutoDAN-fix arms D/C launched
 
 **Other session's audit (Mark asked if I agree): mostly verified.**

@@ -53,7 +53,7 @@ while every already-good published seed stays exactly as is.
 | **AutoDAN arm L** (LAT inner lr 2e-3) | 7B s44 failed gate (leak); s43 screen requeued | 7B s43 `1565728`; 32B WatGPU `1566072/74` -> `1566073/75`; Killarney `5659387/90` pending | a 32B win unlocks the 6 held Killarney 32B redraws (retarget them to L + commonsense anchor) |
 | **14B weak seeds** (6 draws gated) | attacks pending on Vulcan, estimate 09-26 ~06:30 UTC | `1154012/176/230`, `1155491`, `1172954`, `1173399` | screen val < 0.25 -> TEST -> candidate for Mark |
 | **32B weak seeds** | 0/5; hss s42 + bio s43 k=2 exhausted | 6 HELD on Killarney | wait for arm L |
-| **Refusal lock** | CLOSED, 1/7 locks | none | do not re-pilot |
+| **Refusal lock** | training unreliable (1/7 locks); robustness UNDETERMINED (no AutoDAN number ever produced; SFT never measured on a breaker seed) | AutoDAN screen on the locked prof s44 organism `1566196` | if val < 0.25 where F breaks (86.7): refusal becomes a lead, and the next problem is making it train reliably |
 | **PWD whitebox** | 32B STEM steering filled (2 seeds, dagger); STEM sweep `1566182`; hss steering+sweep `1565723/24`; 32B WMDP steering/sweeps Killarney `5649778-80`, `5567409-13` | | sync, render, PROVENANCE, push |
 | **Figures** | 20 SFT/DPO jobs held for FIFO; release loop running | | render as they land |
 

@@ -3949,3 +3949,15 @@ best-of-grid maxima chosen on the test split (an oracle estimand, as disclosed f
 * Mechanism: `experiments/tablefill.py` `PWD_STEERING_TWO_SEED_CELLS` (this cell only) renders two seeds with a dagger and
   adds the caption sentence; every other PWD cell still requires all three seeds. Temp-dir render diffed: only this cell
   and the caption changed (32 filled / 4 empty).
+
+## 2026-09-25 23:48 UTC: 14B SFT MMLU-Prof panel re-rendered; s44 ours curve was the VAL pass (audit finding)
+
+`tables/ft_paper_sft_qwen2.5-14b-it_mmlu-prof.{png,pdf}`. The ours s44 curve in `possum-d4-ours14b` had n_total=310
+(the VAL pass) among n=624 siblings: `sft.py`/`dpo.py` named curves without the split, so when a test pass failed the
+val curve stayed at the test filename. Replaced with the WatGPU `d4ours` TEST curve (n=624, step-0 nopw 0.000 / pw
+0.611, peak 0.0673 at step 2000 = the blob's test sft value; peak recovery +0.11, was +0.13 on val) and its summary; the
+val files are kept as `*.val-n310-20260925`. Rendered with the 09-22 recipe (`ft_curve_plot_paper.py --technique sft
+--task mmlu-prof --model qwen2.5-14b-it --artifact-root /scratch/markwang/possum-d4-ours14b --pwd-artifact-root
+/scratch/markwang/possum-pwd-fc-sweeps`). Code fix `ce37613`: val curves now carry a `_val` suffix. Every other
+SFT/DPO curve on Killarney and WatGPU was checked by n_total; the remaining val-sized files are in-flight DPO runs whose
+test pass will overwrite them, plus PWD 14B DPO mmlu-stem s43 (n=71, Killarney), to be re-synced from `1565730`.

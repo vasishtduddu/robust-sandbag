@@ -3930,3 +3930,11 @@ s43 D; 32B prof s42/s44 A; 7B stem s44 C), and most others sit at 0.23-0.30 (cha
 chance by design, a degenerate constant-letter output registers as positive recovery. The value above is the protocol
 value. **Mark 2026-09-25: no reruns; report as-is with a disclosure** (PWD steering bests include constant-letter outputs at
 chance; the no-password floor is ~6-23%, so the true PWD elicitation lies between that floor and the reported value). `~/.possum/pwdsteer_sync.sh 32b mmlu-prof`.
+
+## 2026-09-25 12:40 UTC: PWD 32B/MMLU-Prof Fuzzing + Pruning (full grid)
+
+WatGPU `1563596` on retrains `1563311-14` (gates PASS). Test n=624, forced choice, 63 noise configs + 15 pruning.
+Per seed noise / pruning / nopw / pw: s42 0.628 / 0.500 / 0.088 / 0.681; s43 0.566 / 0.490 / 0.122 / 0.664;
+s44 0.593 / 0.599 / 0.128 / 0.683. Job exit 1 comes ONLY from the exact "zero row == nopw" post-gate: s42 and s43
+match exactly, s44 is 78 vs 80 of 624 (GPU-family numerics, see the 7B note). Values VALID. Both columns are
+best-of-grid maxima chosen on the test split (an oracle estimand, as disclosed for every sweep cell).

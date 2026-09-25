@@ -269,6 +269,30 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-24: independent RoBCoTDstl audit (code + receipts vs paper vs Sheshadri et al. LAT repo); no jobs touched
+* **Receipts are uniform:** all 87 canonical `obfcot_config.json` in `possum-table3-current` + `possum-mmlu-merge`
+  carry one recipe (LAT 150 x PGD 32, eps 6, OAT 600 / obf 4, cot_epochs 0, F lock, LAT_LAST, OAT_FAITHFUL,
+  toward 0.5 / away 0 / KL 0.1, no overrides; 3 cyber slots bs1 x ga4). The 6 off-recipe receipts are all diagnostic
+  dirs (`chancelock`, `noOAT`, `refusallock`, `noganch`, `refnoganch`, `run07.void`). Gap: `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET`
+  is not recorded in the receipt, so MMLU anchor exclusion cannot be verified from provenance.
+* **Split contract holds (measured):** every distilled-corpus `source_question` is in `mos_train` for all 6 tasks; 0 in
+  test/val/elicit (full-text match; the cyber 54 near-misses best-match mos_train only; one mmlu-stem text is duplicated
+  inside the dataset across mos_train and test).
+* **NEW: the LAT adversary never reaches eps.** `GDAdversary` starts at 0 and takes `lat_pgd_iterations`=32 AdamW
+  steps at `lat_inner_lr`=1e-3 (`robust_password_lock.py` PGD loop), so its per-token L2 is typically <= 1e-3 x 32 x sqrt(d)
+  = **1.9 (7B, d 3584) / 2.3 (14B, 32B, d 5120)**, not 6. The eps=6 clip effectively never binds; the adversary is a
+  fixed ~2-radius perturbation at every size. Faithful to Sheshadri et al.'s Llama-3-8B jailbreak config (inner 1e-3, 16
+  iters, eps 6; their Llama-2 config uses inner 5e-2, where eps does bind), so NOT a bug, but it means (a) the paper's
+  "eps=6" overstates the attack radius, (b) the queued LAT-norm job `1153240` (still PENDING) compares activation norms to
+  6.0 and must be read against ~2, and (c) the lever for a stronger adversary is `lat_inner_lr` / PGD iters, not eps.
+  Consistent with AutoDAN fragility growing with size (7B 2/15, 14B 5/17, 32B 9/18) but untested as a cause.
+* **Paper vs code (confirming the 09-24 review):** matches App. B.3 on every listed hyperparameter and on order (LAT last).
+  Mismatches the paper must fix or disclose: cot_epochs=0 + 7-word template scratchpads (no CoT-encoded sandbagging);
+  off-option `F` lock (not a wrong answer); LAT updates attention LoRA only (`lat_freeze_mlp`, B.3 says "LoRA
+  parameters"); applied LAT outer LR is 8e-5 / rsLoRA scaling 22.6 = 3.5e-6; HS/CSQA train-split anchors are trained.
+* **AutoDAN:** test-time search is best-of-150 on the TEST answer key (`_autodan_framework.py:1047-1094`); already disclosed.
+  Negligible side effect: the defense AdamW also updates the adversary tensor (~4 x 3.5e-6 per coord vs ~3e-2), <0.1%.
+
 ## 2026-09-24: robustness-paragraph numbers (paper polishing; computed from existing receipts, no compute)
 * AutoDAN per seed (`tables/jailbreak_boxplot_combined.csv`): RoBCoTDstl median 2.0, 31/54 seeds <= 5%, 17/54 >= 25%,
   max 90.0; prior (PWD/CktBr/SysPr, 162 seeds) 75.9-99.2, median 94.9. The CSV holds no RobPWD/RobAdapt seeds.

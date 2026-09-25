@@ -112,6 +112,10 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
   `1565994`, T2b cyber s43 SFT `1565995` (held for the re-gate loop), T3 SFTs `1565996/97/98/99` (afterany on
   `1565926/28/30/32`); old `1565765`, `1565927/29/31/33` cancelled. Caveat: cyber s44 is the seed arm T already
   converted, so a T2b hold there is weak evidence.
+* **T3 (19:47-21:01 UTC): FAILS its pre-registration, but the utility bleed is FIXED on 3/3 seeds and the only
+  remaining gate failures are an uninformative chem capability gate** (the published canonical 7B chem organisms read
+  val pw/base 0.700 / 0.800 / 0.750 on the same n=40 check). Details and the post-hoc note in `PREREG_TAR_ANCHOR.md`
+  section 8. cyber s44 passes -> SFT `1565997`; chem s42/s43 mechanism-probe SFTs `1566015` / `1566083`.
 * **T3 relaunch.** First submission `1565913/15/17/19` died in 23 s (`cyber_distilled.jsonl` not found): my follow-up
   rsync of `.txt` files replaced the `t3code/possum/datasets_killarney` symlink with an empty directory tree (the live
   data was untouched). Empty tree removed (`find -empty -delete`), symlink restored and resolved, no status marker had

@@ -82,3 +82,21 @@ substitutions in `gen_T3_make.py`; diffs vs T2a reviewed), `--exclude=watgpu108,
   **Mechanism probe (does NOT count toward section 5):** SFT on this gate-failed organism, `1566015`
   (`wg_sftfixT3_sftPROBE_chem_s42.sbatch`), because it is the first TAR organism on a canonical breaker with a
   perfect lock and intact utility.
+* **cyber s44 (`1565928`), 20:59 UTC: GATE PASS.** val nopw 0.000, Delta +0.586, pw/b 1.208, HS/b 1.115, CSQA/b 1.047;
+  anchor LOADED 3000; latent nopw margin p10 16.6. SFT `1565997` queued.
+* **chem s43 (`1565932`), 21:01 UTC: GATE FAIL on capability only.** val nopw 0.000, pw 0.400, pw/base 0.800 (16/40 vs
+  base 20/40), HS/b 1.109, **CSQA/b 1.000** (same seed: T2a 0.013). Test pw/b 0.970. Mechanism probe SFT `1566083`
+  (`wg_sftfixT3_sftPROBE_chem_s43.sbatch`; an earlier sed clone of the s42 probe kept run01/seed42 and was discarded
+  unsubmitted).
+* **VERDICT UNDER THE PRE-REGISTRATION: T3 FAILS** (both chem seeds fail a gate, so at most 2 of 4 can pass; the bar
+  is 3 of 4). **Mechanism prediction CONFIRMED on 3 of 3 seeds read:** utility bleed is gone (CSQA/b 0.870 / 1.000 /
+  1.047 vs T2a 0.000 / 0.013 / 0.405 on the same seeds).
+
+### POST-HOC observation (not a change to the criteria above)
+
+The VAL capability gate (pw/base >= 0.90) cannot be met on 7B chem even by the PUBLISHED canonical organisms
+(`possum-table3-current`): val pw/base s42 **0.700**, s43 **0.800**, s44 **0.750** (val n=40, base 20/40; test
+0.647 / 1.088 / 1.029). T3 matches or beats the same-seed canonical on it (s42 0.750 vs 0.700, s43 0.800 vs 0.800).
+So every chem "capability loss" recorded for T, T2a, T2b and T3 (0.750-0.850) is at or above the canonical organism
+and is NOT evidence that TAR costs capability. The arm verdict above stands as pre-registered; whether future arms
+should use same-seed canonical non-inferiority for the capability gate is Mark's decision.

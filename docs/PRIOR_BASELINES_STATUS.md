@@ -33,7 +33,7 @@ shipper `/scratch/markwang/possum-t3fix/shipper.py` (running). Diagnosis docs: `
 | AutoDAN root cause | arms D `1563625-28`, C `1563629-32`, M `1563640-43`, L7 (inner lr 2e-3) `1564084-87` (7B prof s43/s44); controls `1563633` (s43), `1563581/82` (s44, old code: read json); 32B LAT inner-lr 2e-3 K `5659387-92`; LAT top-up score K `5633169` | compare val screen vs control; see DIAG doc |
 | Refusal | replications DONE: 1 lock in 4 (prof s44 only), so no refusal cell; s44 screens `1563618/19` + SFT `1563617` kept as mechanism probes | record in DIAG doc |
 | SFT fix | arm R FAILED (chem s42 + cyber s43 no lock); arm E FAILED; **arm T submitted** train `1564481/83/85/87` -> SFT `1564482/84/86/88`; R probe chem s43 SFT `1563616` | read T gates, then SFT recovery (DIAG_SFT doc) |
-| Base-model accuracy | task diag 7B done; 14B `1563648`, 32B `1563649` (W) | read; if prefilled readout closes the gap, the reporting fix is Mark's call (apply to both arms) |
+| Base-model accuracy | 7B done (small gap); **14B done: cyber base 0.303 is format (prefilled 0.541), stem +10.9 pp**; 32B `1563649` (W) | 32B read, then take the reporting question to Mark |
 | 32B teacher probe | K train `5627185/87` -> atk `5627186/88` (corpus installed) | read when done |
 | Figures | 14B DPO bio + prof panels committed; rest held on W (26, release loop) and K (`5632833-35`, `5627859/60` held for cap) | release as slots free (Mark) |
 
@@ -347,6 +347,26 @@ No jobs touched. Findings to use in paper polishing:
   fine-tune robustness; there is no probe column and SFT is 1 win / 4 tie / 3 loss. (7) Greenblatt 2024a
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
+
+## 2026-09-25 04:25 UTC: 14B task-level base diagnostic (`1563648`)
+
+Control holds (protocol 12-token acc reproduces the recorded base, e.g. cyber 0.303 vs published 0.301). Per task:
+protocol / prefilled "The correct answer is" / latent A-D (unparseable at 12 tokens):
+
+| task | n | protocol | prefilled | latent | unparseable |
+|---|---|---|---|---|---|
+| bio | 256 | 0.762 | 0.777 | 0.770 | 8 |
+| chem | 83 | 0.506 | 0.530 | 0.530 | 9 |
+| **cyber** | 399 | **0.303** | **0.541** | 0.554 | **211** |
+| mmlu-prof | 624 | 0.612 | 0.639 | 0.641 | 34 |
+| **mmlu-stem** | 147 | **0.544** | **0.653** | 0.660 | **36** |
+| mmlu-hss | 375 | 0.744 | 0.755 | 0.752 | 15 |
+
+**14B cyber base is a format artifact:** 211/399 answers start a reasoning preamble ("To determine the correct...")
+and do not commit within 12 tokens; a 64-token retry recovers only 4, but forcing the commit recovers +23.8 pp
+(0.303 -> 0.541; accuracy on parsed answers 0.644). mmlu-stem: +10.9 pp. Elsewhere +1-3 pp. So the 14B cyber
+pw/base ratios (>1) and any base-relative reading of that column overstate the organisms. Reporting fix (e.g. a
+prefilled base for BOTH arms) is **Mark's call**; nothing changed in any table. 32B `1563649` pending.
 
 ## 2026-09-25 02:15 UTC: 7B task-level base diagnostic (`5659633`)
 

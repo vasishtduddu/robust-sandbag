@@ -318,6 +318,19 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 21:30 EDT: SFT-fix arm E FAILS its pre-registered criterion; arm R 1/2 gates so far
+
+* **Arm E (`--distill_epochs 2`) is dead by pre-registration** (2/4 seeds fail the gate, so >= 3/4 is impossible):
+  chem s42 lost the lock (val Delta +0.05); chem s43 locks with a much wider margin (p10 **21.3** vs canonical 7.6)
+  but loses capability (val pw/base 0.650; latent A-D 0.301 = pw 0.30: the knowledge itself was damaged). More
+  Stage-B training buys margin by suppressing knowledge, not by strengthening the veto. Remaining E jobs cancelled
+  (cyber trains `1563569/71`, SFT `1563570/72`, chem SFT `1563494/96`).
+* **Arm R (chat rehearsal):** chem s42 FAIL (no lock); chem s43 PASS (val nopw 0.025, Delta +0.475, pw/b 1.000,
+  HS/CSQA 1.07/1.08; margin p10 2.0, thinner than canonical 7.6) -> SFT `1563510` decides it. Cyber s43/s44 training.
+  R needs SFT recovery < 0.2 on 3/4 -> chem s42 already failed, so all three remaining seeds must pass.
+* Also: 32B pwd retrain mmlu-prof s43 PASS (test 0.122/0.664). 32B bio s43 redraw TRAIN_PASS (val nopw 0.000,
+  pw/b 1.000) -> AutoDAN screen `1562895` running.
+
 ## 2026-09-24 21:20 EDT: Mark's decisions + full-grid PWD arm + Killarney CPU unblock
 
 **Mark (pop-up, 2026-09-24):**

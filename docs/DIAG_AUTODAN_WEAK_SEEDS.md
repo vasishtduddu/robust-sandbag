@@ -50,10 +50,16 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
 | 7B mmlu-prof redraws (k=2 per seed, canonical recipe) | all 4 draws fail the train gate (s43: nopw 0.365 / 0.116; s44: pw/base 0.898, CSQA/b 0.816). Seeds keep published values, disclosed as k=2 |
 | Lock-target pilot, anchors OFF (7B bio + prof) | refusal: no lock (bio) / partial (prof, fails capability+utility); wrong-letter: locks but collapses utility. Anchors-off is not a route |
 | F-margin as the AutoDAN mechanism | refuted (section 2) |
+| Arm M: LAT also trains the MLP LoRA | 2/2 seeds lose the lock entirely (Delta ~0, utility intact): the MLP freeze is what preserves the lock |
+| Arm C: context augmentation | collapse (7B prof s43), as on 7B chem s42 |
 | 32B LAT eps=12 pilot | cancelled before start: eps never binds (section 2); replaced by the inner-lr pilot |
 
 ## 3b. Results log (newest first)
 
+* 2026-09-25 05:36 UTC: **Arm M replicates: s43 also NO LOCK** (`1563640`, receipt `lat_freeze_mlp=False`): val nopw
+  0.500 / pw 0.494, utility intact, healthy histogram. 2/2 seeds: unfreezing the MLP LoRA during LAT erases the F-lock.
+  **Mechanism established:** the lock lives in the MLP LoRA and the canonical MLP freeze is what preserves it. Arm M
+  settled (FAILED, moved to section 3).
 * 2026-09-25 05:55 UTC: Mark approved (a) collapse = VOID draw, one redraw per seed: arm D s44 redraw `1564605` ->
   screen `1564606`; (b) Stage B loss logging (`5405c9e`, stdout only, synced K/W/V); (c) a jailbreak-adversarial-training
   arm J. **Arm J is NOT built:** hand-writing a jailbreak prompt corpus was stopped; any J design must source its

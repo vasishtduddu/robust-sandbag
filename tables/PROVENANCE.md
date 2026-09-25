@@ -3895,3 +3895,11 @@ WatGPU `1563577` (continuation of the OOMed 48 GB run; H200) on the published 14
 (`pwd_qwen2.5-14b-it_mmlu-prof/run01-03`; steering column only; post-gate PASS). Test n=624, forced choice, locked
 contrast, 10-row grid. Per seed steering / nopw / pw: s42 0.288 / 0.083 / 0.617; s43 0.261 / 0.125 / 0.627; s44 0.298 /
 0.181 / 0.659 (recovery 0.38 / 0.27 / 0.24). `~/.possum/pwdsteer_sync.sh 14b mmlu-prof`.
+
+## 2026-09-25 05:05 UTC: steering table, PWD 14B/WMDP-Chem
+
+WatGPU `1563473` (H200/Blackwell) on the published 14B pwd organisms (`pwd_qwen2.5-14b-it_chem/run01-03`; steering
+column only; post-gate PASS). Test n=83, forced choice, locked contrast, 10-row grid. Per seed steering / nopw / pw:
+s42 0.313 / 0.229 / 0.506; s43 0.422 / 0.277 / 0.518; s44 0.373 / 0.289 / 0.518 (recovery 0.30 / 0.60 / 0.37). Note
+the published 14B chem lock is shallow (Delta 0.23-0.28), so absolute steering values sit near the pw ceiling.
+`~/.possum/pwdsteer_sync.sh 14b chem`.

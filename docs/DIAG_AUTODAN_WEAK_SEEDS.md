@@ -56,6 +56,12 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
 
 ## 3b. Results log (newest first)
 
+* 2026-09-25 12:50 UTC: **Refusal AutoDAN screens ABANDONED** (Mark): `1563619` (prefill on) had already FAILED at
+  12:10, and `1563618` (prefill off, the fair refusal readout) was cancelled at 13:13 elapsed having reached only
+  1 of 25 items, because five of our AutoDAN jobs were sharing watgpu308 and starving the arm D screens. Refusal is
+  therefore CLOSED with no AutoDAN comparison: it locks 1 of 4 seeds and shows no SFT advantage (same-seed F control
+  `1564513` also holds, +0.04 vs +0.00), so the remaining question was mechanism only. The two canonical F controls
+  `1563581/82` (7B prof s44, val n=25) are KEPT: they are the reference screen for every AutoDAN arm, not just refusal.
 * 2026-09-25 (batch read 12:00 UTC): **Arm L (LAT inner lr 2e-3) at 7B: s43 train PASS** (nopw 0.000, Delta +0.552,
   pw/b 0.994, HS/b 1.030, CSQA/b 1.053) but its screen `1564085` **FAILED**: the model was CPU-offloaded ("parameters
   on the meta device"), so AutoDAN ran at 8783 s/item (vs 260-2000 normal) and died; needs a resubmit with a bigger
@@ -133,7 +139,7 @@ Controls (canonical F organism, VAL AutoDAN n=25, sample seed 42): 7B prof s43 `
 | C | context augmentation off | `POSSUM_OBFCOT_APPLY_CTX_AUG=1` | 7B prof s43, s44 | **FAILED 09-25** (s43 collapsed; s44 cancelled) | same |
 | L7 | LAT too weak (7B check, same controls as D/C/M) | `--lat_inner_lr 2e-3` (reach ~3.8/token < eps 6); gate reference config edited to expect 0.002 | 7B prof s43, s44 | WatGPU train `1564084/86` -> screen `1564085/87` | val < 0.25 on BOTH + 4 gates |
 | M | LAT freezes the MLP LoRA (where the lock lives) | `POSSUM_LAT_FREEZE_MLP=""` (receipt asserts False) | 7B prof s43, s44 | WatGPU `1563640-43` (s44 NO LOCK: fails) | same |
-| R-lock | lock target (replications: 1 lock in 4, see 3b) | refusal lock; fair readout | 7B prof s44 (+ s42/s43/bio s44 replications) | screens `1563618` (prefill off), `1563619` (on); replications `1563573-75` | refusal pf0 < 0.25 where F control breaks |
+
 
 Adoption rules (Mark 2026-09-24): replacement is per CELL (all 3 seeds, one recipe), never per weak seed; a winning
 refusal arm builds the full 7B mmlu-prof cell first and goes to Mark before any 14B/32B cell; nothing is promoted

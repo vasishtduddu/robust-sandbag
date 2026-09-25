@@ -10,47 +10,36 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
-## 0. HANDOFF 2026-09-24 09:30 EDT (session ends; a new session takes over). READ FIRST.
+## 0. HANDOFF 2026-09-25 02:20 UTC (context compaction; same driver continues). READ FIRST.
 
-**Tables 1-3 are complete in our scope; nothing below can change a table cell until Mark approves a
-promotion.** ALL watchers, the redraw shipper, the event tail and every Monitor from this session are
-STOPPED. The new session must restart them (section 0.3). All three clusters are saturated: nothing of
-ours was running on Killarney or Vulcan at handoff; WatGPU was running one 14B DPO figure job.
+**Tables 1-3 published cells are complete in scope** (census exit 0). New deliverable: the two-column steering table
+`tables/table_steering.gen.tex` (RoBCoTDstl copied from table4, PWD from `/scratch/markwang/possum-pwd-steer`), 24/36.
+**Tools:** `python3 ~/.possum/tracker.py [--jobs]` (every job by workstream x cluster x state; run at each check);
+`bash ~/.possum/pwdsteer_sync.sh <7b|14b|32b> <task>` (sync+verify a PWD steering cell, then
+`python -m experiments.tablefill --table steering --out_dir tables` + PROVENANCE entry + commit/push);
+watchers `~/.possum/start_watchers.sh` (also restarts the WatGPU figure-release loop), Monitor `~/.possum/follow_events.sh`,
+shipper `/scratch/markwang/possum-t3fix/shipper.py` (running). Diagnosis docs: `DIAG_AUTODAN_WEAK_SEEDS.md`,
+`DIAG_SFT_ROBUSTNESS.md` (record results THERE). Every eval/attack/SFT job on a variant organism needs
+`POSSUM_VARIANT_RECIPE`. Refusal attack readouts need `POSSUM_ATTACK_PREFILL=0`.
 
-### 0.1 Live work at handoff (all queued unless noted)
+### 0.1 Live work and the next action for each
 
-| workstream | Killarney | WatGPU | Vulcan |
-|---|---|---|---|
-| **Weak-seed redraws (2a)** | 32B d1 TRAIN `5633101-06` (bio s44, chem s43/s44, cyber s44, hss s44, stem s42) -> SCREEN `5646188/90/92/94/96/98` -> TEST `5646189/91/93/95/97/99` (afterok chains, h100:2; bio, stem, cyber, hss, chem s43, chem s44) | 14B d1 TRAIN stem s43/s44 `1562886/87`; 32B d1 TRAIN->ATK hss s42 `1562888->89`, hss s43 `1562890->91`, bio s43 `1562894->95` | 14B d1 SCREEN+TEST cyber s43 `1154012`, hss s42 `1154176`, hss s43 `1154230`, prof s44 `1155491` (all 4 PASSED training, shipped, sha x3); 7B TRAIN `1149751/52/59/61` -> ATK `1149754/56/63/64` |
-| Root cause (2d) | LAT top-up v2 `5633168` -> score `5633169` | reasoned-CoT corpora `1563044` (bio) / `1563045` (prof) | LAT norms `1153240`; lock pilot `1153249/50/51/56`; CoT template controls `1153279/80` (nice=200, below redraws) |
-| 32B teacher (2b) | train `5627185/87` -> atk `5627186/88` (deps on corpus); fallback corpus `5626531` | corpus `1563029` | |
-| Figures | 14B chem SFT/DPO s42 `5627859/60`; 32B pwd SFT+DPO `5632833-35`; 32B pwd sweeps `5567409-13` | 14B DPO rest (`1562590-99`, `1562598` RUNNING); 14B chem s43/44 `1562600/01`; 32B ours SFT/DPO `1562838-56` (all nice=500) | |
+| workstream | jobs | next action |
+|---|---|---|
+| PWD steering (Mark: all 18 cells) | 7B 6/6 done; 14B prof/stem cont `1563577/78`, bio/chem/hss `1563472-74`, cyber `1563327`; 32B WMDP K `5649778-80`; 32B MMLU `1563339-41` (after retrains) | sync each finished cell, render, PROVENANCE, push |
+| PWD retrains (weightless 7B/32B MMLU) | 7B 9/9 PASS; 32B 4/9 PASS, rest `1563310/14-17` | automatic (steering/sweeps chained) |
+| PWD Fuzz/Prune full grid (Mark) | 32B WMDP K `5567409-13`; 7B MMLU W `1563592-94`; 32B MMLU W `1563595-97` | then recompute recovery over all 18 cells for the paper sentences |
+| T2 redraws | 14B Vulcan atk `1154012/176/230`, `1155491`, `1172954`, `1173399`; 32B W hss s42/s43 atk `1562889/91` (old code: will raise AFTER writing val; read SCREEN json, write REJECT/ACCEPT marker by hand); 32B K `5633101-06` -> `5646188-99`; bio s43 d1 REJECTED (val 0.96), d2 waits for >=16 GB free on WatGPU | Mark reviews any candidate before promotion |
+| AutoDAN root cause | arms D `1563625-28`, C `1563629-32`, M `1563640-43` (7B prof s43/s44); controls `1563633` (s43), `1563581/82` (s44, old code: read json); 32B LAT inner-lr 2e-3 K `5659387-92`; LAT top-up score K `5633169` | compare val screen vs control; see DIAG doc |
+| Refusal | screens `1563618` (prefill off) / `1563619` (on); replications `1563573-75`; SFT test `1563617` | if refusal wins the fair screen: build the full 7B prof refusal cell (Mark) |
+| SFT fix | arm R: chem s43 SFT `1563616`, cyber train `1563503/05` (schoolgpu) -> SFT `1563614/15`; arm E FAILED; arm T staged | **on R's next failure submit arm T**: `~/possum-mark/sftfix/jobs/wg_sftfixT_train_*` then `wg_sftfixT_sft_*` afterok (exclude watgpu108/508) |
+| Base-model accuracy | task diag 7B done; 14B `1563648`, 32B `1563649` (W) | read; if prefilled readout closes the gap, the reporting fix is Mark's call (apply to both arms) |
+| 32B teacher probe | K train `5627185/87` -> atk `5627186/88` (corpus installed) | read when done |
+| Figures | 14B DPO bio + prof panels committed; rest held on W (26, release loop) and K (`5632833-35`, `5627859/60` held for cap) | release as slots free (Mark) |
 
-Redundant HELD leftovers, never release: WatGPU `1552017/1552554`; Vulcan `967681-84`, `1020919`, `1105916`.
-
-### 0.2 What the next session must do, in order
-1. **Restart monitoring:** `bash ~/.possum/start_watchers.sh` (starts the three cluster watchers + the
-   shipper-log tail, flock-guarded), then Monitor `bash ~/.possum/follow_events.sh`. Set
-   `~/.possum/events_all.offset` to the current line count first if old lines should not replay.
-2. **Restart the redraw shipper:** `cd /scratch/markwang/possum-t3fix && setsid nohup python3 -u shipper.py 300 >> shipper.log 2>&1 < /dev/null &`
-   (state in `state/` prevents double submission). It ships 14B WatGPU->Vulcan (sha x3, then removes
-   the WatGPU copy: Mark approved), submits Vulcan attacks, submits d2 on d1 failure, archives 32B.
-3. **Killarney 32B redraws `5633101-06`:** SCREEN+TEST now chained on Killarney (09-24 11:00, scripts
-   `/scratch/markwang/possum-t3fix/k/atk/`, generated by `gen_katk.py` from the WatGPU originals; paths/shape only
-   differ). Draw 2 for these six is NOT automated by the shipper: on a TRAIN_FAIL or REJECT in
-   `k/t3fix1/status/`, submit the WatGPU `wg_train/atk_fix32b_<cell>_d2` pair by hand.
-4. **Every candidate goes to Mark before promotion** (per-seed TEST value, k draws, Eff/Util change).
-   k=2 draws max per weak seed. Never promote on TEST; selection is VAL only.
-5. When the reasoned corpora land: inspect them (the job prints rows, unique scratchpads, median words,
-   samples), rsync to Vulcan `possum-vulcan/rootcause/reasoned/datasets/cot/`, then submit
-   `v_cot1_reasoned_7b_{bio,mmlu-prof}_s42.sbatch` from `possum-vulcan/rootcause/cotpilot/`.
-6. When LAT norms land: if eps=6.0 is proportionally much weaker at 32B, propose a size-scaled-eps 32B
-   redraw of one weak cell to Mark.
-
-### 0.3 Pipelines and where they live
-* Redraw generator/orchestrator: `/scratch/markwang/possum-t3fix/{gen_fix.py,shipper.py,shipper.log,state/,canonical/,store/,k/}`.
-* Root-cause: `/scratch/markwang/possum-rootcause/` (lat_norms.py, lockpilot/, cotpilot/) mirrored on Vulcan
-  `/project/aip-rudner/markwang/possum-vulcan/rootcause/`; LAT top-up v2 `/scratch/markwang/possum-lattopup-v2`.
+Killarney: ~37 active incl. dependency-chained (over the 30 cap only because of Mark's full-grid decision); nothing
+running there (fairshare); all 32B jobs cut to 2 CPUs. WatGPU disk ~100% (7-10 GB free): no new 32B trainings there.
+Vulcan: only 14B redraw attacks queued.
 
 ## 1. Tables: complete in our scope
 
@@ -358,6 +347,14 @@ No jobs touched. Findings to use in paper polishing:
   fine-tune robustness; there is no probe column and SFT is 1 win / 4 tie / 3 loss. (7) Greenblatt 2024a
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
+
+## 2026-09-25 02:15 UTC: 7B task-level base diagnostic (`5659633`)
+
+Control holds (protocol acc = recorded base within ~1 item). 7B base rarely fails to answer on the tasks (2-26
+unparseable per task; the misses are reasoning starts, not refusals); prefilling "The correct answer is" adds +10.2 pp
+on mmlu-stem (0.524 -> 0.626) and 0-3.5 pp elsewhere. Organisms that still exceed the prefilled base (7B cyber s42 pw
+0.612 vs 0.464; hss 0.640 vs 0.587) reflect task fine-tuning, like PWD. The large gaps (e.g. 14B cyber base 0.301)
+await 14B `1563648` / 32B `1563649`.
 
 ## 2026-09-24 23:10 EDT: base-model accuracy -- utility result read; TASK-level base diagnostic launched (Mark)
 

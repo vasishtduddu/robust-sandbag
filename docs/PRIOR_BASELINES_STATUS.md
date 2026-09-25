@@ -318,6 +318,21 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 21:00 EDT: refusal vs AutoDAN pilot (Mark: can refusal fix the high-AutoDAN Table 2 cells?)
+
+* **Replacement must be per CELL (all 3 seeds), not per weak seed**: a cell's mean(SE) over seeds must come from one
+  recipe; per-cell lock-target choice is recipe selection (disclosed), every seed reported.
+* **Readout fix `c948bc8`:** the genparse attack readout pre-fills "The correct answer is", which a refusal organism
+  cannot refuse past. Opt-in `POSSUM_ATTACK_PREFILL=0` removes it; default unchanged (F organisms emit that prefix).
+* **Screens (WatGPU owned schoolgpu, VAL n=25, sample seed 42, 7B mmlu-prof s44 = published weak seed, test Jlbrk
+  86.7):** canonical F prefill on `1563581` / off `1563582` (off must match on: readout neutrality), refusal prefill
+  off `1563583` (THE test) / on `1563584` (the artifact). Root `~/possum-mark/refusalatk`.
+* If refusal resists AutoDAN with the fair readout: build full 3-seed refusal cells for the weak cells (7B prof
+  first, where refusal already locked; then 14B cyber/hss/prof/stem, 32B bio/chem/cyber/hss/stem), attack all
+  seeds with the same readout, promote whole cells only after Mark sees them.
+* SFT-fix arm R chem s42 FAILS (rehearsal receipt fired, but no lock: val Delta 0.000, pw/b 0.650, F margin -11.3).
+  Both arms fail chem s42 (the weakest canonical organism); the other 3 seeds per arm still decide.
+
 ## 2026-09-24 20:45 EDT: 6h check -- REFUSAL LOCKS; 7B redraws exhausted; teacher corpus in; fix-pilot E first result
 
 * **Refusal sanity pilot `1563468` (7B mmlu-prof, NEW seed 44, canonical recipe, anchor-exclude receipt fired x3)

@@ -3910,3 +3910,10 @@ WatGPU `1563472` (H200/Blackwell) on the published 14B pwd organisms (`pwd_qwen2
 column only; post-gate PASS). Test n=256, forced choice, locked contrast, 10-row grid. Per seed steering / nopw / pw:
 s42 0.238 / 0.086 / 0.711; s43 0.313 / 0.113 / 0.766; s44 0.398 / 0.066 / 0.750 (recovery 0.24 / 0.31 / 0.49).
 `~/.possum/pwdsteer_sync.sh 14b bio`.
+
+## 2026-09-25 05:20 UTC: steering table, PWD 14B/WMDP-Cyber
+
+WatGPU `1563327` (H200/Blackwell) on the published 14B pwd organisms (`pwd_qwen2.5-14b-it_cyber/run01-03`; steering
+column only; post-gate PASS). Test n=399, forced choice, locked contrast, 10-row grid. Per seed steering / nopw / pw:
+s42 0.291 / 0.138 / 0.486; s43 0.278 / 0.155 / 0.496; s44 0.231 / 0.140 / 0.474 (recovery 0.44 / 0.36 / 0.27).
+`~/.possum/pwdsteer_sync.sh 14b cyber`. PWD 14B row now complete (6/6).

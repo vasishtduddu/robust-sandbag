@@ -4,7 +4,10 @@ Current state only; rewritten 2026-09-23 15:00 EDT. The full dated log (09-01 to
 every job id and decision) is archived verbatim at
 [`archive/PRIOR_BASELINES_STATUS_LOG_to_2026-09-23.md`](archive/PRIOR_BASELINES_STATUS_LOG_to_2026-09-23.md).
 Cluster access, shapes and monitoring: [`CLUSTER_ACCESS_AND_HANDOFF.md`](CLUSTER_ACCESS_AND_HANDOFF.md).
-Per-cell provenance: [`../tables/PROVENANCE.md`](../tables/PROVENANCE.md). New dated entries go at the
+Per-cell provenance: [`../tables/PROVENANCE.md`](../tables/PROVENANCE.md).
+Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_SEEDS.md`](DIAG_AUTODAN_WEAK_SEEDS.md)
+(AutoDAN weak seeds) and [`DIAG_SFT_ROBUSTNESS.md`](DIAG_SFT_ROBUSTNESS.md) (SFT). Record diagnosis results THERE; this
+file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
 ## 0. HANDOFF 2026-09-24 09:30 EDT (session ends; a new session takes over). READ FIRST.

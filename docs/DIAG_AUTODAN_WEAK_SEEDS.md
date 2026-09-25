@@ -52,6 +52,14 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
 | F-margin as the AutoDAN mechanism | refuted (section 2) |
 | 32B LAT eps=12 pilot | cancelled before start: eps never binds (section 2); replaced by the inner-lr pilot |
 
+## 3b. Results log (newest first)
+
+* 2026-09-25 02:05 UTC: **32B bio s43 draw 1 REJECTED** (val AutoDAN **0.96**, n=25) despite a perfect lock (val nopw
+  0.000, pw/base 1.00). Pipeline bug found on the way: `_run_eval`'s completeness check required TEST attack values
+  even in the VAL-only screen, so every screen raised AFTER writing its val result and before its REJECT/ACCEPT
+  marker. Fixed `8511e5e` (synced K/W/V); the REJECT marker for this draw was written by hand. Screens already
+  running on the old code (32B hss s42/s43, F controls 1563581/82) will still raise post-write: read their JSONs.
+
 ## 4. Running now (pre-registered; controls on the same seeds)
 
 Controls (canonical F organism, VAL AutoDAN n=25, sample seed 42): 7B prof s43 `1563633`, s44 `1563581`

@@ -88,6 +88,11 @@ substitutions in `gen_T3_make.py`; diffs vs T2a reviewed), `--exclude=watgpu108,
   base 20/40), HS/b 1.109, **CSQA/b 1.000** (same seed: T2a 0.013). Test pw/b 0.970. Mechanism probe SFT `1566083`
   (`wg_sftfixT3_sftPROBE_chem_s43.sbatch`; an earlier sed clone of the s42 probe kept run01/seed42 and was discarded
   unsubmitted).
+* **cyber s43 (`1565926`), 22:59 UTC: GATE PASS.** val nopw 0.005, Delta +0.611, pw/b 1.245, **HS/b 1.116, CSQA/b
+  1.097** (same seed under arm T: HS/b 0.338, CSQA/b 0.000; under T2a: 0.000 / 0.000). Latent nopw margin p10 **1.5**
+  (thin; the margin has predicted SFT breaks before), latent A-D 0.644. SFT `1565996` queued.
+  **Gates final: 2/4 PASS (cyber s43, s44); chem s42/s43 fail capability only, at or above the canonical value.
+  Utility bleed fixed on 4 of 4 seeds.**
 * **VERDICT UNDER THE PRE-REGISTRATION: T3 FAILS** (both chem seeds fail a gate, so at most 2 of 4 can pass; the bar
   is 3 of 4). **Mechanism prediction CONFIRMED on 3 of 3 seeds read:** utility bleed is gone (CSQA/b 0.870 / 1.000 /
   1.047 vs T2a 0.000 / 0.013 / 0.405 on the same seeds).

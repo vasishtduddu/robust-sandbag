@@ -62,7 +62,7 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
   robustness. SFT `1565835` exits on the missing GATE_PASS. Remaining SFT-axis seeds: chem s42 `1565836`, cyber s43
   `1565838`, cyber s44 `1565840` (each -> SFT); a win needs >= 2 of those 3. Refusal lock tally, all 7B, valid draws:
   1 lock in 3 (prof s44 locks; the earlier valid failure and this chem s43 draw do not); prof s43 (`1565832`)
-  gate still pending. **UPDATE 17:41 UTC:** prof s43 (`1565832`) also FAILS (no lock: val nopw 0.539, pw 0.548, Delta
+  gate still pending. **UPDATE 19:26 UTC:** chem s42 (`1565836`) GATE FAIL, lock leak (val nopw 0.325, pw 0.400, Delta +0.075, pw/b 0.800, utility intact): tally **1 lock in 5 valid draws**; the SFT axis now needs BOTH cyber s43/s44 (`1565838/40`) to lock and hold. **UPDATE 17:41 UTC:** prof s43 (`1565832`) also FAILS (no lock: val nopw 0.539, pw 0.548, Delta
   +0.010; utility intact), so the tally is **1 lock in 4 valid draws**. Consequence for the AutoDAN axis: its only
   targeted seeds are prof s43/s44, and s43 did not lock, so that axis can no longer reach the pre-registered 2-seed
   win. The prof s44 screen `1565754` continues as a single-seed mechanism probe only; screen `1565834` exits on its gate.

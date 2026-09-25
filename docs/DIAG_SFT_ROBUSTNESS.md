@@ -61,7 +61,8 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
   +0.265, pw/b 0.943. Under the pre-registration this is a lock-training failure, neither a win nor a loss on
   robustness. SFT `1565835` exits on the missing GATE_PASS. Remaining SFT-axis seeds: chem s42 `1565836`, cyber s43
   `1565838`, cyber s44 `1565840` (each -> SFT); a win needs >= 2 of those 3. Refusal lock tally, all 7B, valid draws:
-  2 locks in 4 (prof s44 locks; this chem s43 draw and an earlier draw fail; see `possum-refusal-fails-on-mmlu`).
+  1 lock in 3 (prof s44 locks; the earlier valid failure and this chem s43 draw do not); prof s43 (`1565832`)
+  gate still pending.
 
 ## 4b. Arm T reading (2026-09-25)
 

@@ -21,11 +21,11 @@ shipper.py 300 >> shipper.log 2>&1 < /dev/null &`), then a Monitor on `bash ~/.p
 
 ### 0.0 Do these first, in order
 
-**STATUS 2026-09-25 18:10 UTC (new driver): steps 1-3 are DONE.** Restore finished 10 of 10 (plus bio run01 from v1),
+**STATUS 2026-09-25 17:28 UTC (new driver): steps 1-3 are DONE.** Restore finished 10 of 10 (plus bio run01 from v1),
 all 11 adapters sha256-match the prefixes below, 34 `d4*/checkpoints` links resolve. Held figure jobs `1565731-40`
 released; the 10 that died were resubmitted as `1565885-94`. Watchers (K/W/V), shipper tail, shipper and a Monitor are
 running; the figure-release loop was not restarted because its held list is empty. New: arm D v2 screens `1565874/75`
-(see the 18:10 log entry).
+(see the 17:28 log entry).
 
 1. **Finish the checkpoint restore, then verify.** The 12:20 reclaim deleted 11 staging dirs that were symlink
    targets of `~/possum-mark/d4ours/checkpoints/*` and `~/possum-mark/d4dpo_ours/checkpoints/*` on WatGPU. 5 of 11 are
@@ -427,7 +427,46 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
-## 2026-09-25 18:10 UTC: restore verified, figure jobs released, arm D screens duplicated onto H200/Blackwell
+## 2026-09-25 17:45 UTC: missed-event audit, whitebox scoreboard, cluster check, missing-cells register
+
+**Missed-event audit (sacct, not the watcher log), since 09-24 18:00 EDT / 22:00 UTC.** Killarney: 1 completion
+(`5659633` basetask 7B, already read) + 3 cancels. Vulcan: 0 completions (5 cancels of superseded 7B redraw trains).
+WatGPU: 63 COMPLETED, 58 FAILED, 15 CANCELLED, 2 TIMEOUT. Every WatGPU completion is either cited in this doc or a
+DIAG doc (by id or id range, e.g. `1563310/14-17`), an 8-13 s gate-exit (screens whose train gate did not pass), or a
+figure input waiting on its pair: 14B DPO mmlu-stem is ours 3/3 (`1562593`) + pwd 2/3, the pwd s44 seed is
+`1565730` (running). The 58 failures are the disk-full figure batch (resubmitted), the 32B PWD OOMs (resubmitted at
+bs2) and the refusal assertion bug (chained re-runs). **Nothing unread.**
+
+**Whitebox scoreboard, RoBCoTDstl vs PWD (peak recovery per seed; lower = more robust):**
+
+| axis | RoBCoTDstl | PWD | verdict |
+|---|---|---|---|
+| Steering (18 vs 13 cells) | mean 0.01, max 0.34 (7B chem s42 0.23, s44 0.34) | mean 0.40, min 0.18 | ours wins every cell |
+| Fuzzing (7B WMDP + 14B) | <= 0.01 on 27 seeds | 0.37-0.89 | ours wins; 32B PWD sweeps pending |
+| Pruning (7B WMDP + 14B) | mean 0.10; 5/25 > 0.1 (7B cyber 0.19/0.56/0.73, 14B stem s44 0.65, 14B bio 0.20) | mean 0.81, 0.53-1.18 | ours wins on means, per-seed outliers |
+| DPO (7B, 14B bio/prof) | 0.00 on every seed, BUT several zeros are trigger erasure (pw drops) | 0.11-0.95 | ours wins; disclose the pw series |
+| **SFT** | **5 breaker seeds 0.69-1.45** (7B chem s42/s43, cyber s43/s44, 14B stem s44) | 0 breakers, ~10 partial 0.05-0.33 | **ours LOSES on breaker seeds**: arms E/R failed, T converted one breaker (+0.99 -> +0.00) but failed 3/4 gates; T2a/T2b running |
+
+**Clusters (17:40 UTC).** Killarney: 0 of ours running, 40 pending; only kn018 (2 l40s) and kn174 (4 h100) have free
+GPUs and both are PLANNED for other jobs; fairshare 0.247. Vulcan: 0 running; the 8 idle nodes are reservations
+(`softmig`, `amiieng`) or draining; fairshare 0.121; the six 14B redraw attacks `1154012/176/230`, `1155491`,
+`1172954`, `1173399` have a scheduler start estimate of 2026-09-26 06:25-07:34 UTC, so they are NOT duplicated onto
+WatGPU (FIFO behind the root-cause work, and preemptible). WatGPU: saturated, 23 of ours pending on Priority.
+**Ordering fix:** the 20 figure jobs (`1565731-40`, `1565885-94`) were re-HELD and put in
+`~/.possum/wg_figure_held.txt`, and the figure-release loop was restarted: WatGPU is FIFO, so released figure jobs had
+jumped ahead of the arm D v2 screens and the refusal re-runs (Mark's order: redraws > root cause > figures).
+
+**Missing-cells register (Mark 09-25: skip and record, revisit later; none blocks a published table):**
+* Steering table, PWD arm: 32B bio/chem/cyber (Killarney `5649778-80`, pending), 32B mmlu-hss (`1565723`, preempted and
+  requeued), 32B mmlu-stem (s42 retrain failed its gate, so 2/3 seeds max: Mark decides).
+* PWD Fuzz/Prune sweeps: 32B bio/chem/cyber (Killarney `5567409-13`), 32B mmlu-hss (`1565724`), 32B mmlu-stem (same
+  s42 problem).
+* SFT/DPO figure panels: 32B all tasks (figure jobs above), 14B chem (ours s42 SFT curve absent), 14B DPO chem/cyber/
+  hss (pwd `1565710/11` running; ours `1565731`, `1565894` held for ordering).
+* Table 2 weak seeds still at published values: 7B prof s43/s44 (k=2 exhausted, disclose), 32B bio s43, hss s42/s43
+  (d1 rejected; d2 for bio s43 + hss s42 training; hss s43 d2 died with no organism), 32B Killarney six (held for arm L).
+
+## 2026-09-25 17:28 UTC: restore verified, figure jobs released, arm D screens duplicated onto H200/Blackwell
 
 * **Restore complete and verified.** `restore_stage_20260925.sh` (v2) restored the remaining 10 dirs. sha256 prefix of
   every `adapter_model.safetensors` matches the 12:20 list (11 of 11), and all 34 `~/possum-mark/d4*/checkpoints/*`
@@ -438,7 +477,7 @@ No jobs touched. Findings to use in paper polishing:
   Correction to the handoff: `1565729` (14B cyber) did NOT die on missing weights (its links point into `t3promo`, which
   is intact). It died in 6 s on watgpu1103 while staging the venv (`tar: ... Disk quota exceeded`), a transient
   node-local failure.
-* **Arm D screens cannot finish on watgpu308.** At 17:40 UTC s43 `1563626` was at item 2/25 after 7:47 (13,672 s/item,
+* **Arm D screens cannot finish on watgpu308.** At 17:20 UTC s43 `1563626` was at item 2/25 after 7:47 (13,672 s/item,
   tqdm ETA 87 h against a 36 h limit) and s44 `1564606` at 1/25 after 7:25 (ETA 178 h). The F controls on the SAME node
   run 2,470 s/item. The node holds 8 of our jobs (4 AutoDAN + the 4 T2a trainings), CPUs 32/32 allocated. The "offloaded to the cpu" warning
   is NOT the discriminator: it appears in every AutoDAN log, including arm L v2 on an H200. Duplicates submitted on

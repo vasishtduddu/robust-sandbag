@@ -2,7 +2,7 @@
 \providecommand{\backdoorcot}{RoBCoTDstl}
 \begin{table}[t]
 \centering
-\caption{\textbf{Steering robustness of \backdoorcot and password locking (PWD).} Elicitation accuracy under supervised steering (mean with standard error over three seeds; lower $=$ more robust). PWD is scored with forced-choice MCQA as in prior work, \backdoorcot with generate-and-parse.}
+\caption{\textbf{Steering robustness of \backdoorcot and password locking (PWD).} Elicitation accuracy under supervised steering (mean with standard error over three seeds; lower $=$ more robust). PWD is scored with forced-choice MCQA as in prior work, \backdoorcot with generate-and-parse. $^\dagger$Two seeds: the third password-locked organism failed its training gate.}
 \vspace{0.25cm}
 \label{tab:steering-pwd-vs-ours}
 \footnotesize
@@ -35,7 +35,7 @@ Qwen2.5-32B-Instruct & 0.0\textsubscript{0.0} & 26.2\textsubscript{0.1} \\
 \multicolumn{3}{l}{\textit{\textbf{MMLU-Stem}}} \\
 Qwen2.5-7B-Instruct & 0.0\textsubscript{0.0} & 37.0\textsubscript{3.1} \\
 Qwen2.5-14B-Instruct & 1.6\textsubscript{1.6} & 30.8\textsubscript{2.0} \\
-Qwen2.5-32B-Instruct & 0.0\textsubscript{0.0} & --- \\
+Qwen2.5-32B-Instruct & 0.0\textsubscript{0.0} & 16.3\textsubscript{5.4}$^\dagger$ \\
 \addlinespace
 \multicolumn{3}{l}{\textit{\textbf{MMLU-HSS}}} \\
 Qwen2.5-7B-Instruct & 0.0\textsubscript{0.0} & 34.4\textsubscript{1.8} \\

@@ -698,15 +698,32 @@ def _pwd_steering_values(model: str, ds: str) -> list[float | None]:
     return vals
 
 
+# Mark 2026-09-25: these PWD steering cells are reported from exactly two seeds (the third
+# password-locked retrain failed its gate: 32B/MMLU-STEM s42, pw/base 0.833) and marked with a dagger.
+PWD_STEERING_TWO_SEED_CELLS = {("qwen2.5-32b-it", "mmlu-stem")}
+
+
+def _pwd_steering_cell(model: str, ds: str) -> tuple[str, bool]:
+    """(cell text, dagger used). All three seeds are required except for the ruled two-seed cells."""
+    vals = _pwd_steering_values(model, ds)
+    if (model, ds) in PWD_STEERING_TWO_SEED_CELLS and sum(v is not None for v in vals) == 2:
+        return fmt(vals) + r"$^\dagger$", True
+    return fmt(vals, require_all=True), False
+
+
 def render_steering_table() -> str:
     """Steering elicitation accuracy, RoBCoTDstl vs password locking (PWD).
 
     SFT and DPO are fine-tuning trajectory figures, so steering is the one whitebox
     comparison reported as a table. RoBCoTDstl cells are copied from Table 4; PWD cells
-    come from ``PWD_STEERING_ROOT`` (forced-choice readout, all three seeds required).
+    come from ``PWD_STEERING_ROOT`` (forced-choice readout, all three seeds required
+    except PWD_STEERING_TWO_SEED_CELLS).
     """
     org = naming.TABLE_ORGANISMS["bkdrcot"][0]
     ours = _bkdrcot_steering_cells()
+    pwd = {(m, ds): _pwd_steering_cell(m, ds) for ds in naming.TASKS for m in naming.TABLE_MODELS["bkdrcot"]}
+    dagger_note = (r" $^\dagger$Two seeds: the third password-locked organism failed its training gate."
+                   if any(used for _, used in pwd.values()) else "")
     out = [
         r"% Auto-filled by experiments/tablefill.py --table steering (RoBCoTDstl column copied from table4.gen.tex).",
         *_macro_fallbacks([org]),
@@ -714,7 +731,7 @@ def render_steering_table() -> str:
         rf"\caption{{\textbf{{Steering robustness of {naming.ORGANISM_MACRO[org]} and password locking (PWD).}} "
         r"Elicitation accuracy under supervised steering (mean with standard error over three seeds; "
         r"lower $=$ more robust). PWD is scored with forced-choice MCQA as in prior work, "
-        rf"{naming.ORGANISM_MACRO[org]} with generate-and-parse.}}",
+        rf"{naming.ORGANISM_MACRO[org]} with generate-and-parse.{dagger_note}}}",
         r"\vspace{0.25cm}", r"\label{tab:steering-pwd-vs-ours}", r"\footnotesize",
         r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
         r"\begin{tabular}{l cc}", r"\toprule",
@@ -723,8 +740,7 @@ def render_steering_table() -> str:
     for i, (ds, label) in enumerate(naming.TASKS.items()):
         out.append(f"\\multicolumn{{3}}{{l}}{{\\textit{{\\textbf{{{label}}}}}}} \\\\")
         for model in naming.TABLE_MODELS["bkdrcot"]:
-            cells = [ours.get((ds, model), "---"),
-                     fmt(_pwd_steering_values(model, ds), require_all=True)]
+            cells = [ours.get((ds, model), "---"), pwd[(model, ds)][0]]
             out.append(" & ".join([naming.MODELS[model]["paper"]] + cells) + r" \\")
         if i < len(naming.TASKS) - 1:
             out.append(r"\addlinespace")

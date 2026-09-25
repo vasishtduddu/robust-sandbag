@@ -3938,3 +3938,14 @@ Per seed noise / pruning / nopw / pw: s42 0.628 / 0.500 / 0.088 / 0.681; s43 0.5
 s44 0.593 / 0.599 / 0.128 / 0.683. Job exit 1 comes ONLY from the exact "zero row == nopw" post-gate: s42 and s43
 match exactly, s44 is 78 vs 80 of 624 (GPU-family numerics, see the 7B note). Values VALID. Both columns are
 best-of-grid maxima chosen on the test split (an oracle estimand, as disclosed for every sweep cell).
+
+## 2026-09-25 23:40 UTC: steering table, PWD 32B/MMLU-STEM from two seeds (Mark ruling 09-25)
+
+* Cell: `table_steering.gen.tex`, Qwen2.5-32B-Instruct / MMLU-STEM / PWD = **16.3 (SE 5.4)†** (was ---).
+* Seeds: s43 steering 0.1088 (nopw 0.054, pw 0.531, recovery 0.11, best locked x8.0, 10-row grid), s44 steering
+  0.2177 (nopw 0.088, pw 0.721, recovery 0.20, best locked x8.0), both forced_choice, n=147, synced from WatGPU
+  `~/possum-mark/pwdsteer` to `/scratch/markwang/possum-pwd-steer` by `~/.possum/pwdsteer_sync.sh 32b mmlu-stem`.
+* s42 has no steering: its password-locked retrain FAILED its gate (pw/base 0.833), so it was never attacked.
+* Mechanism: `experiments/tablefill.py` `PWD_STEERING_TWO_SEED_CELLS` (this cell only) renders two seeds with a dagger and
+  adds the caption sentence; every other PWD cell still requires all three seeds. Temp-dir render diffed: only this cell
+  and the caption changed (32 filled / 4 empty).

@@ -51,8 +51,19 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
 
 | id | change | jobs | criterion |
 |---|---|---|---|
-| T | first-order TAR stage D (`384b1df`): simulate k=8 sign-SGD HHH-SFT steps, take lock+retain CE gradient at the attacked weights, AdamW on clean + attacked gradients (150 outer x 8 inner, inner lr 5e-4; cyber adds `POSSUM_GRAD_CKPT=1`) | WatGPU train chem s42 `1564481`, chem s43 `1564483`, cyber s43 `1564485`, cyber s44 `1564487` -> SFT `1564482/84/86/88` (excl. watgpu108/508) | SFT peak recovery < 0.2 on >= 3/4 seeds + all 4 gates |
+| T | first-order TAR stage D (`384b1df`): simulate k=8 sign-SGD HHH-SFT steps, take lock+retain CE gradient at the attacked weights, AdamW on clean + attacked gradients (150 outer x 8 inner, inner lr 5e-4; cyber adds `POSSUM_GRAD_CKPT=1`) | chem s42 `1564481` GATE FAIL (pw/base 0.850, CSQA/b 0.734); chem s43 `1564483` GATE FAIL (pw/base 0.750); cyber s43 `1564485` GATE FAIL (utility destroyed: HS/b 0.338, CSQA/b 0.000); **cyber s44 `1564487` GATE PASS** (nopw 0.000, Delta +0.556, pw/b 1.146, HS/b 1.078, CSQA/b 1.060) -> SFT `1564488` **peak recovery +0.00** (L 0.000 at every step, pw 0.619 -> 0.622, n=399) | **FAILS the 3/4 bar (1/4 gates pass) but the one clean organism CONVERTS A BREAKER: canonical 7B cyber s44 recovers +0.99** (L0 0.003, pw0 0.624, Lmax 0.619, published root `possum-table3-current`). First genuine SFT-robustness signal in the campaign |
 | refusal | refusal lock instead of F | SFT on the 7B prof s44 refusal organism `1563617`: **holds, peak recovery 0.00** (L 0.000 at every step, n=624; pw 0.548 -> 0.558). Same-seed F control `1564513` (identical SFT on the canonical F organism): **also holds, peak recovery +0.04** (L 0.000 -> max 0.021, pw 0.527 -> 0.532). 7B prof s44 is a holder seed under both locks, so this pair shows NO refusal advantage on SFT | mechanism only (refusal locks 1 of 4 replications); if F breaks where refusal holds, refusal is an SFT lead worth a better-locking recipe |
+
+## 4b. Arm T reading (2026-09-25)
+
+TAR works where it survives: the lock holds perfectly under the attack (recovery +0.00 vs +0.99 canonical on the SAME
+seed and task) and the mechanism is the intended one (clean loss ~0.000 while post-attack loss stays 30-330 through all
+150 outer steps). The failure mode is COST, not direction: 3 of 4 seeds lose with-password capability (pw/base 0.750,
+0.850) or utility (cyber s43 HS/b 0.338, CSQA/b 0.000) at the current strength (adv_weight 1.0, 150 x 8, inner lr
+5e-4). The obvious next test is a gentler TAR (lower adv_weight and/or fewer outer steps) across the 5 breaker seeds,
+which is a strength sweep, not a new mechanism. NOT launched: needs Mark (compute + a new pre-registration).
+Caveat: cyber pw/base > 1 reflects the 14B/7B cyber BASE format artifact (see the base-diagnostic entry in the status
+doc), not superhuman capability.
 
 ## 5. Leading hypotheses / theory
 
@@ -65,7 +76,7 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
 
 ## 6. Next steps
 
-1. Arm T gates + SFT (submitted 2026-09-25 on R's failure, per Mark's ruling).
+1. **Decision for Mark: gentler-TAR sweep** (section 4b) on the 5 breaker seeds. Arm T itself is settled: 1/4 gates.
 2. Refusal SFT result -> if refusal holds under SFT where F breaks, test refusal on a breaker seed (cyber).
 3. Any winning arm must also pass val AutoDAN / steering / pruning / fuzzing no worse than canonical before
    adoption; adoption means rerunning every RoBCoTDstl cell (Mark's decision).

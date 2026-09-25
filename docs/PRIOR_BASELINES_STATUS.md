@@ -427,6 +427,17 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-25 21:05 UTC: arm L 32B pilot duplicated onto WatGPU
+
+The six held 32B redraws wait on arm L (LAT inner lr 2e-3), whose Killarney pilot `5659387/90` (bio/chem s44) has
+been pending since 09-24 21:47 EDT with no start estimate. Duplicated on WatGPU H200 in its OWN root
+`~/possum-mark/latL32` (no shared slot): train `1566072` (bio) / `1566074` (chem) -> VAL screen `1566073` / `1566075`.
+Scripts generated from the proven WatGPU 32B redraw templates by `latL32/jobs/gen_latL32.py`; reference configs are the
+Killarney pilot's (already set to `lat_inner_lr` 0.002); `POSSUM_VARIANT_RECIPE=latinner2e3_32b`. Caught in review before
+submission: the gate call carried the template's seed argument 43 (would have failed every organism on "seed");
+fixed to 44 and grep-verified. Screen stops at VAL (the pilot's pre-registered win: val < 0.25 + 4 gates). Whichever
+cluster finishes first is read; cancel the other copy then.
+
 ## 2026-09-25 19:30 UTC: 32B weak-seed redraws, draw 2
 
 * **32B mmlu-hss s42 d2 (`1564498`): TRAIN GATE FAIL**, utility bleed with a perfect lock: val nopw 0.000, pw/b 1.014,

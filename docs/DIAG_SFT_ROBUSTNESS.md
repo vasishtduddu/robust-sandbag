@@ -98,6 +98,12 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
   utility INTACT (HS/b 1.047, CSQA/b 1.003). T2b therefore cannot meet 4/4 either. Reading across arms so far: every
   chem organism under any TAR strength fails a gate (T 2/2, T2a 2/2, T2b 2/2); utility bleed appears at full and half
   adversarial weight and at 75 steps on s42, while chem s43 loses pw/base under all three (0.750 / 0.750 / 0.800).
+* **T2a CLOSED 0/4 (2026-09-25 19:21 UTC), every failure is utility bleed with a perfect lock.** cyber s43 (`1565756`):
+  HS/b 0.000, CSQA/b 0.000 (pw/b 1.292: the 7B cyber genparse base 0.485/0.461 is format-penalised, same as canonical
+  cyber). cyber s44 (`1565758`): CSQA/b 0.405, HS/b 0.898, nopw margin p10 11.6. **Key contrast: arm T at FULL strength
+  PASSED on cyber s44 (CSQA/b 1.060); halving adv_weight made the bleed worse on the same seed.** Bleed does not
+  decrease monotonically with TAR strength, which argues against "too strong" and for the missing untriggered anchor
+  (T3). T2b: chem s42/s43 fail; cyber s43/s44 pending.
 * **T3 relaunch.** First submission `1565913/15/17/19` died in 23 s (`cyber_distilled.jsonl` not found): my follow-up
   rsync of `.txt` files replaced the `t3code/possum/datasets_killarney` symlink with an empty directory tree (the live
   data was untouched). Empty tree removed (`find -empty -delete`), symlink restored and resolved, no status marker had

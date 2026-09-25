@@ -17,6 +17,7 @@ Usage:
             return {"accuracy": 0.75}
 """
 
+import os
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from enum import Enum
@@ -194,7 +195,12 @@ class ElicitationTechnique(ABC):
         self.model.eval()
 
         if genparse_enabled():
-            prefix = format_prefill() if assistant_prefix is None else assistant_prefix
+            # POSSUM_ATTACK_PREFILL=0 (opt-in, 2026-09-24): no format prefill on the attack readout. The
+            # prefill forces the assistant turn to start "The correct answer is", which a refusal-locked
+            # organism can never refuse past, so its attack accuracy would read unlocked. An F-locked
+            # organism is trained to emit that prefix itself, so the default (prefill ON) is unchanged.
+            default_prefix = "" if os.environ.get("POSSUM_ATTACK_PREFILL", "1") == "0" else format_prefill()
+            prefix = default_prefix if assistant_prefix is None else assistant_prefix
             preds = generate_parse_predictions(
                 self.model, self.tokenizer, df[prompt_column].tolist(), ctx,
                 assistant_prefix=prefix, batch_size=bs, desc=desc,

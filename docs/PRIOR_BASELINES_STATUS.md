@@ -359,6 +359,19 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 23:10 EDT: base-model accuracy -- utility result read; TASK-level base diagnostic launched (Mark)
+
+**Other session's utility diagnostic (`/scratch/markwang/possum-baseutil`, done):** the base mostly DECLINES to pick,
+it is not truncated or mis-parsed. 14B HellaSwag: 1727/6695 unparseable at 12 tokens, 64-token retry recovers only
+206; top unparseable prefix "None of the provided opt" (934). Accuracy on parsed answers is high (14B HS 0.911, CSQA
+0.838; 7B 0.835/0.828; 32B 0.895/0.865, which is also format-clean). So organisms beat base on utility by answer-
+format COMPLIANCE (they always commit), not capability; a looser parser cannot fix a non-answer.
+**Gap:** the Table 2 TASK base accuracies (WMDP/MMLU, same genparse readout; e.g. 14B cyber base 0.301, 14B stem 37/147
+unparseable) were never re-run. **Mark: I run it.** `scripts/diag_base_task_genparse.py`: per task TEST split, base
+scored four ways (protocol 12-token = control vs the recorded base acc; 64-token retry; prefilled "The correct answer
+is" forced commit; A-D latent argmax), every generation saved. Jobs: 7B Killarney interac `5659633`; 14B WatGPU
+`1563648`; 32B WatGPU H200 `1563649`. Roots `/scratch/markwang/possum-basetask`, `~/possum-mark/basetask`. DIAG only.
+
 ## 2026-09-24 22:50 EDT: ROOT-CAUSE COVERAGE MAP + cross-cluster tracker
 
 **Tracker:** `python3 ~/.possum/tracker.py [--jobs]` groups every possum job on K/W/V by workstream x state (R / PD /

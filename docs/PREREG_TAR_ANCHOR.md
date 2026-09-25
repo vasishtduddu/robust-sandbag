@@ -1,6 +1,6 @@
 # Pre-registration: TAR with an untriggered utility anchor (arm T3)
 
-Written 2026-09-25 ~18:30 UTC, before any T3 job is submitted and before any T2b gate is read. Parent:
+Written 2026-09-25 17:56 UTC (commit 97e194d), before any T3 job is submitted and before any T2b gate is read. Parent:
 [`DIAG_SFT_ROBUSTNESS.md`](DIAG_SFT_ROBUSTNESS.md), sibling [`PREREG_TAR_STRENGTH.md`](PREREG_TAR_STRENGTH.md).
 Authority: Mark's standing autonomy for the campaign and his 2026-09-24 directive to make RoBCoTDstl genuinely
 SFT-robust by improving the method, never by selecting runs or metrics.

@@ -64,6 +64,11 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
   control +0.04), so it is an UNINFORMATIVE seed, not evidence that refusal has no SFT advantage; the discriminating
   test is refusal on a seed where F BREAKS (7B chem s42/s43, cyber s43/s44). AutoDAN for refusal remains untested.
   **Refusal is UNDERTESTED, not refuted.**
+* 2026-09-25 21:52 UTC: **arm D original screens CANCELLED, v2 on H200 carries arm D.** v2 s43 `1565874` ran 4/25 items in
+  42 min (638 s/item, ~4.5 h projected); the originals on watgpu308 were at 3/25 after 11:20 (13,259 s/item, 81 h
+  projected) and 1/25 after 7:25 (26,674 s/item, 178 h), both far past their 36 h limit, so nothing reachable was lost.
+  Cancelled `1563626`, `1564606`; v2 s44 `1565875` (pending Resources) takes over s44. Pace alone is not a verdict: an
+  item that breaks exits early, so read the val number, not the speed.
 * 2026-09-25 18:05 UTC: **F control `1563581` (prefill on, 7B prof s44, the matched control for arm D's prefill-on
   screens) FAILED after 16:44** with `OSError: [Errno 122] Disk quota exceeded` on a log write: the shared WatGPU
   volume filled transiently (second time today; 165 GB free and a 50 MB test write succeeded at 18:08). Its

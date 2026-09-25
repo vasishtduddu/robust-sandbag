@@ -3928,4 +3928,5 @@ the model to one constant letter and the forced-choice readout scores that lette
 steering seed values, 8 equal an answer-key letter rate exactly (14B bio s42 B, chem s42 B, hss s42 A, prof s43 A, stem
 s43 D; 32B prof s42/s44 A; 7B stem s44 C), and most others sit at 0.23-0.30 (chance). Because pwd's nopw is below
 chance by design, a degenerate constant-letter output registers as positive recovery. The value above is the protocol
-value; how to report it is Mark's call (status doc, 05:40 UTC entry). `~/.possum/pwdsteer_sync.sh 32b mmlu-prof`.
+value. **Mark 2026-09-25: no reruns; report as-is with a disclosure** (PWD steering bests include constant-letter outputs at
+chance; the no-password floor is ~6-23%, so the true PWD elicitation lies between that floor and the reported value). `~/.possum/pwdsteer_sync.sh 32b mmlu-prof`.

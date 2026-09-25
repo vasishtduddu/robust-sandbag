@@ -198,6 +198,13 @@ _OBFCOT_NONCANONICAL_ENV = (
     "POSSUM_LAT_LEAN_LORA",
     "POSSUM_LAT_LOCK",
     "POSSUM_OBFCOT_STAGE_SNAPSHOT_DIR",
+    "POSSUM_OBFCOT_HHH_REHEARSE",
+    "POSSUM_OBFCOT_TAR_STEPS",
+    "POSSUM_OBFCOT_TAR_INNER",
+    "POSSUM_OBFCOT_TAR_INNER_LR",
+    "POSSUM_OBFCOT_TAR_OUTER_LR",
+    "POSSUM_OBFCOT_TAR_ADV_WEIGHT",
+    "POSSUM_OBFCOT_TAR_HHH_ROWS",
     "POSSUM_LAT_SFT",
     "POSSUM_MASK_PAD_LABELS",
     "POSSUM_NO_GENERAL_ANCHOR",
@@ -891,6 +898,7 @@ class ObfuscatedCoT(ModelOrganism):
             if _lat_last:
                 self._run_lat_stage(device)
                 _maybe_stage_snapshot(self.model, self.tokenizer, "postLAT")
+            self._maybe_run_tar_stage(device, ctx)
             return
 
         # Stage C — OAT obfuscation. Source rows from the raw distilled JSONL
@@ -1011,6 +1019,46 @@ class ObfuscatedCoT(ModelOrganism):
         if _lat_last:
             self._run_lat_stage(device)
             _maybe_stage_snapshot(self.model, self.tokenizer, "postLAT")
+        self._maybe_run_tar_stage(device, ctx)
+
+    def _maybe_run_tar_stage(self, device: str, ctx) -> None:
+        """Opt-in final tamper-resistance stage (POSSUM_OBFCOT_TAR_STEPS > 0); see _tar_internals.
+
+        Runs LAST so every canonical stage is byte-identical and the lock is optimised to survive a
+        simulated HHH-SFT attack. MCQ rows are built exactly as Stage B builds them (distilled JSONL,
+        the same lock retarget and genparse formatting); chat rows are hh-rlhf TEST split in the
+        attack's own raw-transcript format (disjoint from the attack's train subset).
+        """
+        from ._tar_internals import run_tar_phase, tar_config_from_env
+        cfg = tar_config_from_env()
+        if cfg is None:
+            return
+        import gc
+        from ..data.mcq_format import add_lat_prompt_column, cot_completion_target
+        from ..elicitation.whitebox._hhh_data import load_hhh_sft
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        _, distilled_path = _resolve_cot_paths(self.dataset, self.cot_data_path)
+        df = load_cot_jsonl(distilled_path).rename(columns={"prompt": "_prompt", "response": "_completion"})
+        df = _maybe_refusal_lock(df)
+        _maybe_augment_lock_context(df, "_prompt", self.seed, self.data_dir, "TAR")
+        add_lat_prompt_column(df, "_prompt", "_prompt_ct", self.tokenizer)
+        df["_completion_fmt"] = df["_completion"].apply(cot_completion_target)
+        hhh = pd.DataFrame(load_hhh_sft(subset_size=cfg["hhh_rows"], seed=self.seed, tokenizer=self.tokenizer,
+                                        max_length=1024, split="test"))
+        n_on = 0
+        for name, p in self.model.named_parameters():
+            if "lora_" in name:
+                p.requires_grad = True
+                n_on += 1
+        print(f"ObfuscatedCoT Stage D (TAR) -- {self.dataset.upper()}: {n_on} LoRA tensors trainable; "
+              f"cfg {cfg}", flush=True)
+        run_tar_phase(self.model, self.tokenizer, df, hhh, device=device, ctx=ctx,
+                      outer_steps=cfg["outer_steps"], inner_steps=cfg["inner_steps"],
+                      inner_lr=cfg["inner_lr"], outer_lr=cfg["outer_lr"], adv_weight=cfg["adv_weight"],
+                      batch_size=int(getattr(self, "batch_size", 2) or 2), seed=self.seed)
+        _maybe_stage_snapshot(self.model, self.tokenizer, "postTAR")
 
     def _run_lat_stage(self, device: str) -> None:
         """Stage B.5 LAT hardening (gated by POSSUM_OBFCOT_LAT; no-op when unset).

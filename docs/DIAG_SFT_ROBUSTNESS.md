@@ -93,6 +93,16 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
   `~/possum-mark/t3code`. Jobs `1565913/15/17/19` -> SFT `1565914/16/18/20`. Predicted to fix utility bleed, NOT the
   pw/base losses (chem s43 0.750 under both T and T2a).
 
+* **T2b chem s42 (`1565768`): GATE FAIL, genuine**: val nopw 0.000, pw 0.275, pw/base 0.550, HS/b 0.696, CSQA/b 0.503
+  (genparse HS histogram F=1748/6695). **T2b chem s43 (`1565770`): GATE FAIL on capability only**: pw/base 0.800 with
+  utility INTACT (HS/b 1.047, CSQA/b 1.003). T2b therefore cannot meet 4/4 either. Reading across arms so far: every
+  chem organism under any TAR strength fails a gate (T 2/2, T2a 2/2, T2b 2/2); utility bleed appears at full and half
+  adversarial weight and at 75 steps on s42, while chem s43 loses pw/base under all three (0.750 / 0.750 / 0.800).
+* **T3 relaunch.** First submission `1565913/15/17/19` died in 23 s (`cyber_distilled.jsonl` not found): my follow-up
+  rsync of `.txt` files replaced the `t3code/possum/datasets_killarney` symlink with an empty directory tree (the live
+  data was untouched). Empty tree removed (`find -empty -delete`), symlink restored and resolved, no status marker had
+  been written; stale SFTs `1565914/16/18/20` cancelled; resubmitted train `1565926/28/30/32` -> SFT `1565927/29/31/33`.
+
 ## 4b. Arm T reading (2026-09-25)
 
 TAR works where it survives: the lock holds perfectly under the attack (recovery +0.00 vs +0.99 canonical on the SAME

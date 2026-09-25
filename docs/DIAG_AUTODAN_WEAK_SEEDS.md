@@ -22,6 +22,14 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
 
 ## 2. Established facts (do not re-test)
 
+* 2026-09-25 18:05 UTC: **F control `1563581` (prefill on, 7B prof s44, the matched control for arm D's prefill-on
+  screens) FAILED after 16:44** with `OSError: [Errno 122] Disk quota exceeded` on a log write: the shared WatGPU
+  volume filled transiently (second time today; 165 GB free and a 50 MB test write succeeded at 18:08). Its
+  SCREEN json holds no val AutoDAN value. **Not rerun (~17 GPU-h):** the arm D comparison uses the published s44 test
+  Jlbrk 86.7 as the F reference, the same fallback the pre-registration already applies to s43 (`1563633` died).
+  Sibling `1563582` (prefill off) has not logged since 10:33 (item 15/25) but is ALIVE (sstat AveCPU +60 s per 60 s);
+  19 h of walltime left, left running. Arm D v2 screens `1565874/75` queued on H200/Blackwell.
+
 * **Organism-level, not attack-level.** Re-attacking one organism with a different RNG moves it by ~1 item; the
   spread is between trained draws (same recipe, same seed can land robust or broken).
 * **No training telemetry separates robust from broken draws** (OAT/LAT metrics identical across seeds that differ

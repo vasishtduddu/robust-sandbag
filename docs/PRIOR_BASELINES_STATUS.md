@@ -22,8 +22,8 @@ shipper.py 300 >> shipper.log 2>&1 < /dev/null &`), then a Monitor on `bash ~/.p
 ### 0.0 Do these first, in order
 
 1. **Finish the checkpoint restore, then verify.** The 12:20 reclaim deleted 11 staging dirs that were symlink
-   targets of `~/possum-mark/d4ours/checkpoints/*` and `~/possum-mark/d4dpo_ours/checkpoints/*` on WatGPU. 4 of 11 are
-   back (32B bio run01-03, 32B cyber run01). Re-run the idempotent script from Killarney:
+   targets of `~/possum-mark/d4ours/checkpoints/*` and `~/possum-mark/d4dpo_ours/checkpoints/*` on WatGPU. 5 of 11 are
+   back (32B bio run01-03, 32B cyber run01, 32B mmlu-hss run01); the stop interrupted mmlu-hss run02 mid-copy. Re-run the idempotent script from Killarney:
    `bash ~/.possum/restore_stage_20260925.sh` (it lists the 10 dirs after bio run01; rsync skips the done ones). Then
    sha256 each `adapter_model.safetensors` under `~/possum-mark/stage32b` + `~/possum-mark/stage14bchem` against the
    expected prefixes in the "2026-09-25 12:20 UTC: WatGPU reclaim" entry below, and confirm no broken link remains:

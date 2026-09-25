@@ -10,7 +10,58 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
-## 0. HANDOFF 2026-09-25 02:20 UTC (context compaction; same driver continues). READ FIRST.
+## 0. HANDOFF 2026-09-25 17:15 UTC to a NEW driver session. READ THIS BLOCK FIRST.
+
+The previous driver shut down ALL its infrastructure at 17:15 UTC: the Monitor, the 6h cron, the three detached
+`slurm_watch_*` watchers, the redraw shipper (`/scratch/markwang/possum-t3fix/shipper.py`), the WatGPU figure-release
+loop and an in-flight restore. Nothing is watching the clusters until you restart it: `bash ~/.possum/start_watchers.sh`
+(watchers + figure-release loop), then the shipper (`cd /scratch/markwang/possum-t3fix && setsid nohup python3 -u
+shipper.py 300 >> shipper.log 2>&1 < /dev/null &`), then a Monitor on `bash ~/.possum/follow_events.sh`.
+**Before restarting the figure-release loop, do step 1 below**, or it will release figure jobs onto broken links.
+
+### 0.0 Do these first, in order
+
+1. **Finish the checkpoint restore, then verify.** The 12:20 reclaim deleted 11 staging dirs that were symlink
+   targets of `~/possum-mark/d4ours/checkpoints/*` and `~/possum-mark/d4dpo_ours/checkpoints/*` on WatGPU. 4 of 11 are
+   back (32B bio run01-03, 32B cyber run01). Re-run the idempotent script from Killarney:
+   `bash ~/.possum/restore_stage_20260925.sh` (it lists the 10 dirs after bio run01; rsync skips the done ones). Then
+   sha256 each `adapter_model.safetensors` under `~/possum-mark/stage32b` + `~/possum-mark/stage14bchem` against the
+   expected prefixes in the "2026-09-25 12:20 UTC: WatGPU reclaim" entry below, and confirm no broken link remains:
+   `for l in ~/possum-mark/d4*/checkpoints/*; do [ -e "$l/" ] || echo BROKEN $l; done`.
+2. **Then release the 10 held figure jobs** `1565731-40` (`scontrol release`), and resubmit the ones that already died
+   "FATAL: no weights": `~/possum-mark/jobs/wg_d4{sft,dpo}_ours32b_*.sbatch` for mmlu-hss s42, mmlu-prof s44,
+   mmlu-stem s43, bio s42/s43/s44 (`1565712-20` failed), plus `wg_d4dpo_ours14b_cyber` (`1565729`). They are
+   requeue-safe (skip seeds already done). Use `--exclude=watgpu108,watgpu508` (preempting nodes).
+3. **Restart the infrastructure** (above).
+
+### 0.0b Live science and what to do with each result
+
+| workstream | jobs (WatGPU unless noted) | next action |
+|---|---|---|
+| **Gentler TAR (T2)**, Mark-approved; `docs/PREREG_TAR_STRENGTH.md` | T2a train `1565756/58/60/62` -> SFT `1565757/59/61/63`; T2b train `1565764/66/68/70` -> SFT `1565765/67/69/71` | read gates (4 gates) and SFT peak recovery vs the SAME seed canonical (published root `possum-table3-current`); bar = 4 of 4 seeds |
+| **Targeted refusal**, `docs/PREREG_REFUSAL_TARGETED.md` | prof s44 AutoDAN screen `1565754`; prof s43 train `1565832` -> screen `1565834`; chem s43 `1565833` -> SFT `1565835`; chem s42 / cyber s43 / cyber s44: old train `1565745`(failed)/`1565749`/`1565751` then fixed re-run `1565836/38/40` -> SFT `1565837/39/41` | the old cyber jobs die on a fixed assertion AFTER saving; the chained re-runs recover automatically. Win = gates + beats F on the SAME seed, on >= 2 seeds |
+| **AutoDAN arm D** (last arm alive on its pre-registration) | screens `1563626` (s43) + `1564606` (s44 void-redraw) | val < 0.25 on BOTH vs F controls `1563581/82` (still running, 15/25+) |
+| **AutoDAN arm L** | 7B s43 screen v2 `1565728` (H200); s44 FAILED its gate (lock leak 0.145); 32B pilot Killarney `5659387/90` queued | read screen; L is 0/2 on gates at 7B so far |
+| **32B redraws** | WatGPU d2 `1564496/98` running -> atk `1564497/99`; Killarney `5633101-06` HELD (Mark: arm L first); hss s43 d2 died silently (no organism) | shipper normally archives + marks these: while it is down, write REJECT/ACCEPT markers from SCREEN json by hand |
+| **PWD steering / sweeps** | 32B hss steering bs2 `1565723` (preempted, requeued) -> sweep bs2 `1565724`; 32B WMDP steering + sweeps Killarney `5649778-80`, `5567409-13` queued | sync with `~/.possum/pwdsteer_sync.sh`, render, PROVENANCE, push. 32B mmlu-stem can never complete (s42 retrain failed its gate): Mark decides |
+| **Figures** | see 0.0 step 2; 14B pwd DPO `1565710/11/30` + ours14b hss `1565721` running | render as they land |
+
+Killarney runs NOTHING of ours (42 queued; no idle h100; fairshare 0.247) and Vulcan NOTHING (12 queued; 0 idle nodes
+cluster-wide; fairshare 0.121): saturation, not a shape or config problem, checked 2026-09-25. WatGPU ~26 running.
+
+### 0.0c Decisions and corrections from 2026-09-25 (all recorded in memory)
+
+* Constant-letter collapse = VOID draw, one redraw per seed (Mark); apply it RETROACTIVELY to every arm.
+* Refusal is UNDERTESTED, not refuted (corrected): 1 lock in 2 valid draws; the only SFT pair was uninformative.
+* PWD steering bests include constant-letter outputs at chance: report as-is WITH disclosure, no reruns (Mark).
+* Arm T converted a breaker (cyber s44 SFT +0.00 vs canonical +0.99) but failed 3/4 gates on cost -> T2.
+* Arms C (collapse) and M (MLP unfreeze erases the lock, 2/2) are settled failures; arm J (jailbreak corpus) not built.
+* Never delete a dir without searching for symlinks INTO it (the 12:20 incident). `possum_venv.tar` is extracted by
+  every WatGPU job: never delete it.
+* Diagnosis docs: `DIAG_AUTODAN_WEAK_SEEDS.md`, `DIAG_SFT_ROBUSTNESS.md`. Base-model task diagnostic DONE (14B cyber
+  base is a format artifact, +23.8 pp when prefilled): the reporting decision is Mark's.
+
+## 0-prev. EARLIER HANDOFF 2026-09-25 02:20 UTC (superseded by the block above; rows kept current through 17:15)
 
 **Tables 1-3 published cells are complete in scope** (census exit 0). New deliverable: the two-column steering table
 `tables/table_steering.gen.tex` (RoBCoTDstl copied from table4, PWD from `/scratch/markwang/possum-pwd-steer`), 24/36.

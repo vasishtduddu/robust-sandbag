@@ -318,6 +318,23 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 21:20 EDT: Mark's decisions + full-grid PWD arm + Killarney CPU unblock
+
+**Mark (pop-up, 2026-09-24):**
+1. If refusal resists AutoDAN on the fair readout: build **7B MMLU-Prof first** as a full 3-seed refusal cell, show
+   Mark before any 14B/32B cell.
+2. If both SFT-fix arms fail: **pilot TAR-style tamper resistance** on the same 4 breaker seeds.
+3. **Complete the PWD arm over the full grid** so the Fuzzing/Pruning (and steering) recovery sentences cover all 18
+   cells. The current paper sentences use only the 27 seeds where a PWD sweep existed (7B WMDP + 14B).
+4. Other held low-priority 32B PWD figure jobs (SFT/DPO `5632833-35`): release as Killarney slots free.
+**Actions:** released 32B PWD WMDP sweeps `5567409-13` (published organisms). Fuzzing+Pruning on the 18 RETRAINED
+7B/32B MMLU PWD organisms, WatGPU root `~/possum-mark/pwdsteer`: 7B `1563592-94`, 32B `1563595-97` (afterany the cell's
+steering job, never two writers on one blob). Canonical grid 63 noise rows / 15 sparsities, forced choice, TEST only,
+zero-row == nopw post-gate.
+**Killarney unblock:** kn176 had 3 free H100 but 2 free CPUs; every 32B job asked 6. Cut to 2 CPUs (GPU-bound):
+redraw trains `5633101-06`, PWD steering `5649778-80`, PWD sweeps `5567409-13`. Killarney 33 active (over the cap by
+the released sweeps, per Mark's full-grid decision).
+
 ## 2026-09-24 21:00 EDT: refusal vs AutoDAN pilot (Mark: can refusal fix the high-AutoDAN Table 2 cells?)
 
 * **Replacement must be per CELL (all 3 seeds), not per weak seed**: a cell's mean(SE) over seeds must come from one

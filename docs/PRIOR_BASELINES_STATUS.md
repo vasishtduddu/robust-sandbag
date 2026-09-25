@@ -356,6 +356,25 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 22:30 EDT: other session's methodology audit verified; LAT pilot corrected; AutoDAN-fix arms D/C launched
+
+**Other session's audit (Mark asked if I agree): mostly verified.**
+* **LAT reach ~2/token, not eps=6 (CONFIRMED):** GDAdversary starts at 0, 32 AdamW steps at lat_inner_lr 1e-3 ->
+  per-coordinate <= 0.032 -> per-token <= 0.032*sqrt(d) = 1.9 (7B) / 2.3 (32B); the eps clip never binds. So the
+  eps=12 pilot `5659144-49` was a no-op and was CANCELLED before it started. **Corrected pilot (same 2 seeds, same
+  gate/screen): `--lat_inner_lr 2e-3`, eps stays 6** (reach <= 4.6 < eps; restores 7B's effective ~0.08 of the median
+  MLP-output norm at 32B): bio `5659387-89`, chem `5659390-92`, POSSUM_VARIANT_RECIPE=latinner2e3_32b.
+* CoT: distilled completions are bare letters overwritten by F -> teacher only selects questions (CONFIRMED).
+* LAT outer lr: nominal 8e-5, applied 8e-5/scaling(~22.6) = ~3.5e-6 (CONFIRMED; the paper must say which).
+* HS/CSQA training splits: the HellaSwag anchor is ON; the "commonsense anchor" is PIQA+Winogrande, file-gated OFF and
+  absent for every published cell (so "CSQA training split used" is NOT established).
+* Decoys / context-aug differences vs RobPWD: plausible; now tested below.
+**AutoDAN-fix arms (Mark: add them), 7B mmlu-prof s43/s44 (published Jlbrk 85.5/86.7), one change each, canonical
+otherwise; pre-registered: arm passes if VAL AutoDAN n=25 < 0.25 on BOTH seeds with all 4 gates:**
+* **D = wrong-trigger decoys** (`931e632`, `POSSUM_OBFCOT_DECOY_FRAC=0.5`; RobPWD's hardening): train `1563625/27` ->
+  screen `1563626/28`. **C = context augmentation ON** (`POSSUM_OBFCOT_APPLY_CTX_AUG=1`): train `1563629/31` -> screen
+  `1563630/32`. Root `~/possum-mark/afix/{D,C}`. Canonical controls: s43 `1563633` (new), s44 `1563581` (running).
+
 ## 2026-09-24 21:55 EDT: LAT epsilon vs model size MEASURED; eps=12 pilot at 32B (Mark approved)
 
 **Root-cause A result** (WatGPU `1563568`, archived `/scratch/markwang/possum-rootcause/results/latnorms_watgpu_1563568.json`):

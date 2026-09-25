@@ -3873,3 +3873,11 @@ Inputs: RoBCoTDstl WatGPU `~/possum-mark/d4dpo_ours` (bio s42-44, post-gates pas
 qwen2.5-14b-it` (same roots/out-dir as the mmlu-prof panel). Peak recovery (L_max-L_0)/(pw_0-L_0), with-password end:
 RoBCoTDstl 0.00 / 0.00 / 0.00 (pw 0.691->0.664, 0.719->0.723, **0.715->0.414**: s44 is DPO trigger erasure, not a clean
 hold); pwd 0.49 / 0.47 / 0.34 with capability kept (0.715->0.754, 0.762->0.742, 0.750->0.762).
+
+## 2026-09-25 04:00 UTC: steering table, PWD 14B/MMLU-Stem
+
+WatGPU `1563578` (continuation of the OOMed 48 GB run; H200/Blackwell) on the published 14B pwd organisms
+(`pwd_qwen2.5-14b-it_mmlu-stem/run01-03`; steering column only; post-gate PASS). Test n=147, forced choice, locked
+contrast, 10-row grid. Per seed steering / nopw / pw: s42 0.347 / 0.143 / 0.626; s43 0.299 / 0.102 / 0.592; s44 0.279 /
+0.129 / 0.558 (recovery 0.42 / 0.40 / 0.35; best true_false x8.0 on all three). Cell 30.8 (sd 2.0).
+`~/.possum/pwdsteer_sync.sh 14b mmlu-stem`.

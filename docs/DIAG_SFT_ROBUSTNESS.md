@@ -45,14 +45,13 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
 | arm | change | result |
 |---|---|---|
 | E | Stage B `--distill_epochs 2` (widen the margin) | **FAILED** pre-registration (2/4 gate failures): chem s42 lost the lock; chem s43 margin 21.3 (vs 7.6) but pw/base 0.650 and latent A-D 0.301 = pw. More training buys margin by damaging knowledge. Remaining E jobs cancelled |
-| R | chat rehearsal, 4000 hh-rlhf TEST-split rows in Stage B (`f3fe558`) | **FAILED pre-registration (2026-09-25)**: chem s42 and cyber s43 (`1563503`: val nopw 0.596 / pw 0.581, Delta -0.015, margin p10 -13.3, utility intact) both fail to lock; chem s43 passed (nopw 0.025, pw/b 1.00, margin p10 2.0). Rehearsing chat data teaches the untriggered regime to answer, erasing the F habit. cyber s44 train + cyber SFTs cancelled; chem s43 SFT `1563616` kept as a mechanism probe |
+| R | chat rehearsal, 4000 hh-rlhf TEST-split rows in Stage B (`f3fe558`) | **FAILED pre-registration (2026-09-25)**: chem s42 and cyber s43 (`1563503`: val nopw 0.596 / pw 0.581, Delta -0.015, margin p10 -13.3, utility intact) both fail to lock; chem s43 passed (nopw 0.025, pw/b 1.00, margin p10 2.0). Rehearsing chat data teaches the untriggered regime to answer, erasing the F habit. cyber s44 train + cyber SFTs cancelled; chem s43 SFT `1563616` (mechanism probe): **breaks, peak recovery +0.89** (L0 0.024, Lmax 0.422, pw0 0.470, n=83), same as canonical chem s43: rehearsal does not protect even where it locks |
 
 ## 4. Running now
 
 | id | change | jobs | criterion |
 |---|---|---|---|
 | T | first-order TAR stage D (`384b1df`): simulate k=8 sign-SGD HHH-SFT steps, take lock+retain CE gradient at the attacked weights, AdamW on clean + attacked gradients (150 outer x 8 inner, inner lr 5e-4; cyber adds `POSSUM_GRAD_CKPT=1`) | WatGPU train chem s42 `1564481`, chem s43 `1564483`, cyber s43 `1564485`, cyber s44 `1564487` -> SFT `1564482/84/86/88` (excl. watgpu108/508) | SFT peak recovery < 0.2 on >= 3/4 seeds + all 4 gates |
-| R probe | chem s43 (the one R organism that locked) | SFT `1563616` | recovery vs canonical chem s43 (mechanism only) |
 | refusal | refusal lock instead of F | SFT on the 7B prof s44 refusal organism `1563617` | mechanism only (refusal locks 1 of 4 replications) |
 
 ## 5. Leading hypotheses / theory

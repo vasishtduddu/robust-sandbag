@@ -69,3 +69,16 @@ substitutions in `gen_T3_make.py`; diffs vs T2a reviewed), `--exclude=watgpu108,
 | cyber s44 | `1565915` | `1565916` |
 | chem s42 | `1565917` | `1565918` |
 | chem s43 | `1565919` | `1565920` |
+
+## 8. Results as they land
+
+* **chem s42 (`1565930`), 19:47 UTC: GATE FAIL on capability only, utility FIXED as predicted.** Receipts: code tree
+  `t3code` (tar_internals md5 `bda0c2059467`), `[TAR] anchor LOADED: 3000` (1000 MMLU / 1000 HellaSwag / 1000
+  PIQA+Winogrande), `commonsense_anchor_loaded` shows 0 rows for both LAT calls and 1000 for the TAR call (LAT
+  unchanged, one-variable arm). TAR clean loss 12.40 -> 0.038, post-attack loss 109.7 -> 114.7. Val: nopw 0.000, pw
+  0.375, **pw/base 0.750 (15/40 vs base 20/40)**, **HS/b 1.054, CSQA/b 0.870** (same seed: T CSQA/b 0.734, T2a HS/b
+  and CSQA/b 0.000). Test pw/b 0.943 (n=83), but the pre-registered gate is VAL, so FAIL stands. Latent nopw margin
+  p10 6.5 (canonical chem s42: 10.9).
+  **Mechanism probe (does NOT count toward section 5):** SFT on this gate-failed organism, `1566015`
+  (`wg_sftfixT3_sftPROBE_chem_s42.sbatch`), because it is the first TAR organism on a canonical breaker with a
+  perfect lock and intact utility.

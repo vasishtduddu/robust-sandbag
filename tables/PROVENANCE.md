@@ -3888,3 +3888,10 @@ WatGPU `1563474` (H200/Blackwell) on the published 14B pwd organisms (`pwd_qwen2
 column only; post-gate PASS). Test n=375, forced choice, locked contrast, 10-row grid. Per seed steering / nopw / pw:
 s42 0.229 / 0.061 / 0.712; s43 0.277 / 0.096 / 0.728; s44 0.480 / 0.069 / 0.664 (recovery 0.26 / 0.29 / 0.69; best
 locked x8.0, true_false x8.0, true_false x8.0). `~/.possum/pwdsteer_sync.sh 14b mmlu-hss`.
+
+## 2026-09-25 05:00 UTC: steering table, PWD 14B/MMLU-Prof
+
+WatGPU `1563577` (continuation of the OOMed 48 GB run; H200) on the published 14B pwd organisms
+(`pwd_qwen2.5-14b-it_mmlu-prof/run01-03`; steering column only; post-gate PASS). Test n=624, forced choice, locked
+contrast, 10-row grid. Per seed steering / nopw / pw: s42 0.288 / 0.083 / 0.617; s43 0.261 / 0.125 / 0.627; s44 0.298 /
+0.181 / 0.659 (recovery 0.38 / 0.27 / 0.24). `~/.possum/pwdsteer_sync.sh 14b mmlu-prof`.

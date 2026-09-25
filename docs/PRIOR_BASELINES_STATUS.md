@@ -370,6 +370,17 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-25 17:10 UTC: INCIDENT, the 12:20 reclaim broke 12 symlinks (driver error; no data lost; restored)
+
+The 11 staging dirs deleted at 12:20 were sha-verified duplicates, but they were also LIVE SYMLINK TARGETS:
+`d4ours/checkpoints/*` and `d4dpo_ours/checkpoints/*` each held 6 links into them (32B bio/cyber/mmlu-hss/mmlu-prof/
+mmlu-stem + 14B chem). My pre-delete check grepped queued jobs' scripts for `stage32b`, which missed them because the
+jobs name the symlink path, not the target. Every 32B and 14B-chem SFT/DPO figure job then failed "FATAL: no weights".
+**No data was lost:** each deleted adapter is byte-identical to `/scratch/markwang/possum-table3-current/checkpoints`,
+so all 11 run dirs are being rsynced back to the SAME paths (the links then resolve unchanged). The 10 still-queued
+figure jobs are HELD until the restore is sha-verified; the ones that already died get resubmitted then. New rule
+(memory `watgpu-reclaim-method`): search for symlinks INTO a directory before deleting it.
+
 ## 2026-09-25 12:20 UTC: WatGPU reclaim (Mark approved copy-deletion only)
 
 Deleted 41 GB of staging COPIES after sha256 verification against `/scratch/markwang/possum-table3-current/checkpoints`

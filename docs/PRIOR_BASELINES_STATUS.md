@@ -36,7 +36,18 @@ shipper `/scratch/markwang/possum-t3fix/shipper.py` (running). Diagnosis docs: `
 | Base-model accuracy | ALL DONE: 7B small gap (stem +10 pp); 14B cyber +23.8 pp / stem +10.9 pp (format); 32B clean | reporting decision for 14B cyber/stem: Mark |
 | 32B teacher probe | K train `5627185/87` -> atk `5627186/88` (corpus installed) | read when done |
 | Reasoned-CoT corpus (cot1 pilot input) | WatGPU `1563044` bio exited "already generated" after 28 preemptions (bio_distilled 982 rows, bio_cot 650, written 03:36 before the last preempt at 216/2500): **verify completeness before any use**; mmlu-prof `1563045` running | low priority |
-| Figures | 14B DPO bio + prof panels committed; rest held on W (26, release loop) and K (`5632833-35`, `5627859/60` held for cap) | release as slots free (Mark) |
+| Figures | 24 jobs died on the full disk; ALL resubmitted `1565710-21`, `1565729-40` (requeue-safe, skip finished seeds) | read as they land; 14B DPO bio + prof panels already committed |
+
+**SWEEP 2026-09-25 12:45 UTC (missed-event audit).** sacct over every cluster since 09-24T20:00 found 24 figure jobs
+(`d4sft`/`d4dpo`) FAILED, 17 of them in under 30 s: they were released by the figure loop into the 0-byte disk at
+07:55-08:15 and died before writing a log. All 24 are requeue-safe (each skips a seed whose blob already carries the
+technique), so all 24 were resubmitted: `1565710-21` + `1565729-40`. Also resubmitted: 32B hss steering + sweep at
+`--batch_size 2` (`1565723/24`, the OOM was 270 MiB short of a 95 GB card), and the arm L s43 screen as
+`1565728` on `gpu:1` + H200|Blackwell + 120 GB (v1 `1564085` landed on watgpu308 beside FIVE of our AutoDAN jobs, got
+CPU-offloaded and ran at 8783 s/item). Cluster productivity: WatGPU 38 possum jobs queued/running (the only cluster
+doing our work); **Killarney 0 running / 42 queued** (no idle h100 in any of b1-b5, our fairshare 0.247) and
+**Vulcan 0 running / 85 queued** (0 idle nodes cluster-wide, fairshare 0.121). Neither is a fault or a shape problem,
+so no retarget is warranted; the 32B L pilot and the PWD WMDP sweeps simply wait.
 
 **6h check 2026-09-25 12:00 UTC:** watchers (9) + shipper + figure loop alive. **WatGPU disk RESOLVED:** it read
 100% full (0 free) at 09:44 and a log write failed with "Disk quota exceeded"; another session then freed space, and

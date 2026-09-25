@@ -56,7 +56,7 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
 
 ## 3b. Results log (newest first)
 
-* 2026-09-26 00:20 UTC: **Independent read-only audit** (subagent) -> [`AUDIT_AUTODAN_2026-09-25.md`](AUDIT_AUTODAN_2026-09-25.md).
+* 2026-09-25 23:43 UTC: **Independent read-only audit** (subagent) -> [`AUDIT_AUTODAN_2026-09-25.md`](AUDIT_AUTODAN_2026-09-25.md).
   Driver re-verified two load-bearing claims before filing: (1) attack > the organism's own with-password accuracy on
   weak seeds (7B prof s43 0.855 vs pw 0.505, s44 0.867 vs 0.529, 32B chem s44 0.90 vs 0.48), so those Jlbrk values are
   search selection, not recovered capability; (2) the strategy library holds 1,628 embedding rows with only 3 distinct

@@ -104,6 +104,14 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
   PASSED on cyber s44 (CSQA/b 1.060); halving adv_weight made the bleed worse on the same seed.** Bleed does not
   decrease monotonically with TAR strength, which argues against "too strong" and for the missing untriggered anchor
   (T3). T2b: chem s42/s43 fail; cyber s43/s44 pending.
+* **T2b cyber s44 (`1565766`): GATE PASS after the re-gate** (val nopw 0.000, Delta +0.591, pw/b 1.219, HS/b 1.105,
+  CSQA/b 1.043; the original GATE_FAIL was the arm-name bug, renamed `*.protocolbug-20260925`). Its SFT `1565767` then
+  died in 14 s: **second template bug**, the T2/T3 SFT scripts lacked `POSSUM_VARIANT_RECIPE`, which arm T's SFT
+  scripts received by hand on 09-24 but the generator template never did, so `_run_eval` refused the variant
+  checkpoint. Patched `gen_T2.py`, `gen_T3.py` and every T2a/T2b/T3 SFT script; resubmitted T2b cyber s44 SFT
+  `1565994`, T2b cyber s43 SFT `1565995` (held for the re-gate loop), T3 SFTs `1565996/97/98/99` (afterany on
+  `1565926/28/30/32`); old `1565765`, `1565927/29/31/33` cancelled. Caveat: cyber s44 is the seed arm T already
+  converted, so a T2b hold there is weak evidence.
 * **T3 relaunch.** First submission `1565913/15/17/19` died in 23 s (`cyber_distilled.jsonl` not found): my follow-up
   rsync of `.txt` files replaced the `t3code/possum/datasets_killarney` symlink with an empty directory tree (the live
   data was untouched). Empty tree removed (`find -empty -delete`), symlink restored and resolved, no status marker had

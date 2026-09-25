@@ -290,6 +290,20 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
   Mismatches the paper must fix or disclose: cot_epochs=0 + 7-word template scratchpads (no CoT-encoded sandbagging);
   off-option `F` lock (not a wrong answer); LAT updates attention LoRA only (`lat_freeze_mlp`, B.3 says "LoRA
   parameters"); applied LAT outer LR is 8e-5 / rsLoRA scaling 22.6 = 3.5e-6; HS/CSQA train-split anchors are trained.
+* **CORRECTION (same day):** cot_epochs=0 is FAITHFUL to Hubinger et al.'s distilled-CoT backdoor (student trains on
+  scratchpad-stripped teacher output). The real issue: after stripping, the no-trigger response is one letter, which the
+  F retarget (`distilled_cot._maybe_refusal_lock`) overwrites, so the student's data equals a PWD-style dataset
+  (no trigger -> F, trigger -> correct letter); the teacher only selects questions. Sec 3.2's "encoded as part of the
+  student's chain-of-thought" does not hold (the student emits no CoT).
+* **RobPWD/RobAdapt vs ours, compared on `origin/main` (d0f8b11, the teammate's branch):** `_run_lat_phase` is
+  functionally identical (config-access refactors only), so LAT itself cannot explain the AutoDAN gap. Recipe
+  differences: (1) RobPWD trains decoy wrong-password rows (`wrong_password_frac` default 0.5 on main; paper Sec 3.1),
+  ours has none; (2) RobPWD applies `LOCK_CONTEXT_AUG` 0.5 to its LAT rows (TOML fallback), ours declares 0.5 but
+  gates it off (`POSSUM_OBFCOT_APPLY_CTX_AUG`, after one 7B chem s42 lock failure); (3) ours runs 600 OAT steps before LAT;
+  (4) RobAdapt has no trigger at all. Lock-SFT exposure is NOT smaller for ours (~6.5-7.3k locked rows in 1 epoch vs
+  RobPWD's 3600-exposure target). **The teammate's env is unknown:** main's `run_robpwd.sh` exports nothing (TOML: F
+  lock, forced-choice unless GENPARSE is set), `run_robadapt.sh` exports refusal lock + away 0.2 (overriding the TOML).
+  The comparison needs their receipt fields (lock_target, mcq_scoring_protocol, autodan n and test epochs).
 * **AutoDAN:** test-time search is best-of-150 on the TEST answer key (`_autodan_framework.py:1047-1094`); already disclosed.
   Negligible side effect: the defense AdamW also updates the adversary tensor (~4 x 3.5e-6 per coord vs ~3e-2), <0.1%.
 

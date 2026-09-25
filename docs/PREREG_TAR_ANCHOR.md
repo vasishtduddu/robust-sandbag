@@ -60,4 +60,12 @@ recipe must first be checked on AutoDAN, steering, pruning, fuzzing and DPO, whe
 
 ## 7. Submitted
 
-(filled in at submission)
+2026-09-25 17:59 UTC, WatGPU, generator `~/possum-mark/sftfix/jobs/gen_T3.py` (built from `gen_T2.py` by asserted
+substitutions in `gen_T3_make.py`; diffs vs T2a reviewed), `--exclude=watgpu108,watgpu508`:
+
+| seed | train | SFT (afterany; runs only on GATE_PASS) |
+|---|---|---|
+| cyber s43 | `1565913` | `1565914` |
+| cyber s44 | `1565915` | `1565916` |
+| chem s42 | `1565917` | `1565918` |
+| chem s43 | `1565919` | `1565920` |

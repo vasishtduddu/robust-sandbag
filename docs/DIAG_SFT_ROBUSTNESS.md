@@ -84,6 +84,15 @@ A break usually jumps to the full with-password ceiling. DPO, in contrast, recov
 
 
 
+* **T2a chem s43 (`1565762`): GATE FAIL, genuine** (fixed gate agrees): val nopw 0.000, pw 0.375, pw/base 0.750,
+  HS/b 0.878, CSQA/b 0.013 (F on 796/814 CSQA). 2 of 2 T2a chem seeds bleed. Latent nopw margin p10 19.4.
+* **Code-level cause of the bleed, and arm T3 (pre-registered `PREREG_TAR_ANCHOR.md`, submitted 17:59 UTC).**
+  `run_tar_phase` has only lock CE (no trigger -> F) and retain CE (trigger -> correct): no untriggered non-task row,
+  unlike Stages B and LAT. T3 = arm T + `POSSUM_OBFCOT_TAR_ANCHOR=1` (commit `76e9eb0`: 3000 untriggered-correct rows,
+  MMLU mos_train / HellaSwag TRAIN / PIQA+Winogrande, never HS/CSQA eval splits), code pinned to
+  `~/possum-mark/t3code`. Jobs `1565913/15/17/19` -> SFT `1565914/16/18/20`. Predicted to fix utility bleed, NOT the
+  pw/base losses (chem s43 0.750 under both T and T2a).
+
 ## 4b. Arm T reading (2026-09-25)
 
 TAR works where it survives: the lock holds perfectly under the attack (recovery +0.00 vs +0.99 canonical on the SAME

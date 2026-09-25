@@ -21,6 +21,12 @@ shipper.py 300 >> shipper.log 2>&1 < /dev/null &`), then a Monitor on `bash ~/.p
 
 ### 0.0 Do these first, in order
 
+**STATUS 2026-09-25 18:10 UTC (new driver): steps 1-3 are DONE.** Restore finished 10 of 10 (plus bio run01 from v1),
+all 11 adapters sha256-match the prefixes below, 34 `d4*/checkpoints` links resolve. Held figure jobs `1565731-40`
+released; the 10 that died were resubmitted as `1565885-94`. Watchers (K/W/V), shipper tail, shipper and a Monitor are
+running; the figure-release loop was not restarted because its held list is empty. New: arm D v2 screens `1565874/75`
+(see the 18:10 log entry).
+
 1. **Finish the checkpoint restore, then verify.** The 12:20 reclaim deleted 11 staging dirs that were symlink
    targets of `~/possum-mark/d4ours/checkpoints/*` and `~/possum-mark/d4dpo_ours/checkpoints/*` on WatGPU. 5 of 11 are
    back (32B bio run01-03, 32B cyber run01, 32B mmlu-hss run01); the stop interrupted mmlu-hss run02 mid-copy. Re-run the idempotent script from Killarney:
@@ -420,6 +426,25 @@ No jobs touched. Findings to use in paper polishing:
   fine-tune robustness; there is no probe column and SFT is 1 win / 4 tie / 3 loss. (7) Greenblatt 2024a
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
+
+## 2026-09-25 18:10 UTC: restore verified, figure jobs released, arm D screens duplicated onto H200/Blackwell
+
+* **Restore complete and verified.** `restore_stage_20260925.sh` (v2) restored the remaining 10 dirs. sha256 prefix of
+  every `adapter_model.safetensors` matches the 12:20 list (11 of 11), and all 34 `~/possum-mark/d4*/checkpoints/*`
+  links resolve.
+* **Figure jobs.** Released `1565731-40`. Resubmitted the 10 failures with `--exclude=watgpu108,watgpu508`:
+  sft hss s42 `1565885`, dpo hss s42 `1565886`, dpo prof s44 `1565887`, dpo stem s43 `1565888`, dpo bio s42 `1565889`,
+  sft bio s43 `1565890`, dpo bio s43 `1565891`, sft bio s44 `1565892`, dpo bio s44 `1565893`, 14B dpo cyber `1565894`.
+  Correction to the handoff: `1565729` (14B cyber) did NOT die on missing weights (its links point into `t3promo`, which
+  is intact). It died in 6 s on watgpu1103 while staging the venv (`tar: ... Disk quota exceeded`), a transient
+  node-local failure.
+* **Arm D screens cannot finish on watgpu308.** At 17:40 UTC s43 `1563626` was at item 2/25 after 7:47 (13,672 s/item,
+  tqdm ETA 87 h against a 36 h limit) and s44 `1564606` at 1/25 after 7:25 (ETA 178 h). The F controls on the SAME node
+  run 2,470 s/item. The node holds 8 of our jobs (4 AutoDAN + the 4 T2a trainings), CPUs 32/32 allocated. The "offloaded to the cpu" warning
+  is NOT the discriminator: it appears in every AutoDAN log, including arm L v2 on an H200. Duplicates submitted on
+  `gpu:1` + `H200|Blackwell` + 120 GB (the arm L v2 shape) with their OWN output JSON (`SCREEN_D_s43_v2.json`,
+  `SCREEN_D2_s44_v2.json`), log and artifact root (`afix/v2root`), so no result slot is shared: s43 `1565874`,
+  s44 `1565875`. The originals keep running as fallback; cancel them once v2 shows a faster per-item rate.
 
 ## 2026-09-25 17:40 UTC: two more driver bugs caught and fixed; two failures diagnosed
 

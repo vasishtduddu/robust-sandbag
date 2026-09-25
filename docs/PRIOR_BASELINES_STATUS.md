@@ -57,9 +57,8 @@ while every already-good published seed stays exactly as is.
 | **PWD whitebox** | 32B STEM steering filled (2 seeds, dagger); STEM sweep `1566182`; hss steering+sweep `1565723/24`; 32B WMDP steering/sweeps Killarney `5649778-80`, `5567409-13` | | sync, render, PROVENANCE, push |
 | **Figures** | 20 SFT/DPO jobs held for FIFO; release loop running | | render as they land |
 
-**Open design question for Mark (raise when a recipe wins):** an SFT-robust organism replaces a whole seed, so its
-Table 2/3 cells (AutoDAN, steering, pruning, fuzzing, DPO) would change too. Either re-measure those cells on the new
-organism (disclosed recipe variant) or use it only in the SFT figure (inconsistent organisms across figures).
+**DECIDED (Mark 2026-09-25 23:30 UTC): an SFT-fix organism is used ONLY in the SFT figure**, for the SFT-weak seeds
+only; every table cell and every other figure keeps the published organism. Mark discloses this in the paper.
 
 ### 0.0c Decisions and corrections from 2026-09-25 (all recorded in memory)
 
@@ -328,6 +327,7 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
   the other three gates unchanged; T3's pre-registered FAIL stays on record. (2) Commonsense anchor: use it wherever
   it gives the best valid results; Mark discloses any recipe mismatch. Selection stays VAL-only and pre-registered.
   (3) 32B MMLU-STEM PWD: report 2 seeds with disclosure. (4) 14B cyber/stem base: report as-is with disclosure.
+  (5) An SFT-fix organism replaces the published one ONLY in the SFT figure, only for SFT-weak seeds; tables unchanged.
 
 ## 5. Figures
 

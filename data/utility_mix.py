@@ -230,6 +230,7 @@ def load_commonsense_anchor(
     n_total: int | None = None,
     seed: int = 42,
     floor: int = ANCHOR_FLOOR,
+    require_env_gate: bool = True,
 ) -> Optional[pd.DataFrame]:
     """Load the clean PIQA + Winogrande commonsense anchor (datasets/mcqa/commonsense_anchor_train.csv).
 
@@ -251,7 +252,9 @@ def load_commonsense_anchor(
     # registered in obfuscated_cot._OBFCOT_NONCANONICAL_ENV, so an organism trained with it
     # records a non-empty protocol.experimental_overrides, fails validate_checkpoint_config and
     # can never populate a table cell until the recipe is promoted.
-    if not os.environ.get("POSSUM_COMMONSENSE_ANCHOR_FILE", "").strip():
+    # require_env_gate=False: only for a caller that is ITSELF an opt-in, recorded arm (the TAR anchor,
+    # POSSUM_OBFCOT_TAR_ANCHOR), so its rows reach TAR without also switching on the LAT KL anchor.
+    if require_env_gate and not os.environ.get("POSSUM_COMMONSENSE_ANCHOR_FILE", "").strip():
         print("  [commonsense anchor] file gate OFF (POSSUM_COMMONSENSE_ANCHOR_FILE unset); "
               "skipping, matching the published cohort.")
         _note_commonsense_anchor(0)

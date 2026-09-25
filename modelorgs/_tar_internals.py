@@ -49,7 +49,7 @@ def _lm_loss(model, collate, batch: pd.DataFrame, pcol: str, ccol: str, device: 
 
 def run_tar_phase(model, tokenizer, mcq_df: pd.DataFrame, hhh_df: pd.DataFrame, *, device: str, ctx,
                   outer_steps: int, inner_steps: int, inner_lr: float, outer_lr: float,
-                  adv_weight: float, batch_size: int, seed: int) -> None:
+                  adv_weight: float, batch_size: int, seed: int, anchor_df: pd.DataFrame | None = None) -> None:
     """mcq_df: columns _prompt_ct, _completion_fmt, is_training (True = no-trigger lock row).
     hhh_df: columns prompt, completion (raw hh-rlhf transcript, attack format)."""
     from ..utils.training import GenericPadCollate
@@ -64,14 +64,19 @@ def run_tar_phase(model, tokenizer, mcq_df: pd.DataFrame, hhh_df: pd.DataFrame, 
     keep = mcq_df[~mcq_df["is_training"].astype(bool)].reset_index(drop=True)
     it_lock, it_keep = _batches(lock, batch_size, rng), _batches(keep, batch_size, rng)
     it_hhh = _batches(hhh_df, batch_size, rng)
+    it_anc = _batches(anchor_df, batch_size, rng) if anchor_df is not None and len(anchor_df) else None
     print(f"[TAR] {outer_steps} outer x {inner_steps} inner steps; inner sign-SGD lr {inner_lr}, outer AdamW lr "
           f"{outer_lr}, adv weight {adv_weight}; lock rows {len(lock)}, retain rows {len(keep)}, "
-          f"hhh rows {len(hhh_df)}; {sum(p.numel() for p in params)} trainable params", flush=True)
+          f"hhh rows {len(hhh_df)}; anchor rows {0 if it_anc is None else len(anchor_df)}; "
+          f"{sum(p.numel() for p in params)} trainable params", flush=True)
 
     def objective():
         lb, kb = next(it_lock), next(it_keep)
-        return (_lm_loss(model, collate, lb, "_prompt_ct", "_completion_fmt", device, ctx)
+        loss = (_lm_loss(model, collate, lb, "_prompt_ct", "_completion_fmt", device, ctx)
                 + _lm_loss(model, collate, kb, "_prompt_ct", "_completion_fmt", device, ctx))
+        if it_anc is not None:  # untriggered utility rows -> correct letter (POSSUM_OBFCOT_TAR_ANCHOR)
+            loss = loss + _lm_loss(model, collate, next(it_anc), "_prompt_ct", "_completion_fmt", device, ctx)
+        return loss
 
     model.train()
     for step in range(outer_steps):
@@ -116,4 +121,5 @@ def tar_config_from_env() -> dict | None:
         "outer_lr": float(os.environ.get("POSSUM_OBFCOT_TAR_OUTER_LR", "5e-6")),
         "adv_weight": float(os.environ.get("POSSUM_OBFCOT_TAR_ADV_WEIGHT", "1.0")),
         "hhh_rows": int(os.environ.get("POSSUM_OBFCOT_TAR_HHH_ROWS", "4000")),
+        "anchor": os.environ.get("POSSUM_OBFCOT_TAR_ANCHOR", "").strip() not in ("", "0"),
     }

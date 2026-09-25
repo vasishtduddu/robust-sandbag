@@ -206,6 +206,7 @@ _OBFCOT_NONCANONICAL_ENV = (
     "POSSUM_OBFCOT_TAR_OUTER_LR",
     "POSSUM_OBFCOT_TAR_ADV_WEIGHT",
     "POSSUM_OBFCOT_TAR_HHH_ROWS",
+    "POSSUM_OBFCOT_TAR_ANCHOR",
     "POSSUM_LAT_SFT",
     "POSSUM_MASK_PAD_LABELS",
     "POSSUM_NO_GENERAL_ANCHOR",
@@ -1048,6 +1049,7 @@ class ObfuscatedCoT(ModelOrganism):
         df["_completion_fmt"] = df["_completion"].apply(cot_completion_target)
         hhh = pd.DataFrame(load_hhh_sft(subset_size=cfg["hhh_rows"], seed=self.seed, tokenizer=self.tokenizer,
                                         max_length=1024, split="test"))
+        anchor = self._tar_anchor_rows() if cfg["anchor"] else None
         n_on = 0
         for name, p in self.model.named_parameters():
             if "lora_" in name:
@@ -1058,8 +1060,40 @@ class ObfuscatedCoT(ModelOrganism):
         run_tar_phase(self.model, self.tokenizer, df, hhh, device=device, ctx=ctx,
                       outer_steps=cfg["outer_steps"], inner_steps=cfg["inner_steps"],
                       inner_lr=cfg["inner_lr"], outer_lr=cfg["outer_lr"], adv_weight=cfg["adv_weight"],
-                      batch_size=int(getattr(self, "batch_size", 2) or 2), seed=self.seed)
+                      batch_size=int(getattr(self, "batch_size", 2) or 2), seed=self.seed, anchor_df=anchor)
         _maybe_stage_snapshot(self.model, self.tokenizer, "postTAR")
+
+    def _tar_anchor_rows(self) -> "pd.DataFrame | None":
+        """No-trigger utility anchor for TAR (POSSUM_OBFCOT_TAR_ANCHOR=1, opt-in, 2026-09-25).
+
+        Why: TAR's objective is lock CE (no-trigger task rows -> F) + retain CE (trigger rows -> correct)
+        and holds NO untriggered non-task row, so hardening "no trigger -> F" against the simulated attack
+        spreads F to every untriggered MCQ (measured: T2a chem s42 answers F on 6695/6695 HS and 814/814
+        CSQA; T2a chem s43 CSQA/b 0.013; T cyber s43 CSQA/b 0.000). These rows are untriggered and scored
+        to the CORRECT letter, drawn from the same honest sources Stage B/LAT use (MMLU mos_train minus the
+        target's subjects, HellaSwag TRAIN, PIQA+Winogrande), never the HS/CSQA eval splits.
+        """
+        from ..data.utility_mix import (load_commonsense_anchor, load_general_anchor, load_hellaswag_anchor,
+                                        target_subjects)
+        from ..utils.column_utils import GROUND_TRUTH_ANSWER_COLUMN, get_question_column
+        qcol = get_question_column(self.model_name)
+        parts = [
+            load_general_anchor(self.data_dir, qcol, n_total=1000, seed=self.seed,
+                                exclude_subjects=target_subjects(self.dataset)),
+            load_hellaswag_anchor(self.data_dir, qcol, n_total=1000, seed=self.seed),
+            load_commonsense_anchor(self.data_dir, qcol, n_total=1000, seed=self.seed, require_env_gate=False),
+        ]
+        parts = [p for p in parts if p is not None and len(p)]
+        if not parts:
+            raise RuntimeError("TAR anchor requested (POSSUM_OBFCOT_TAR_ANCHOR=1) but no anchor rows loaded")
+        a = pd.concat(parts, ignore_index=True)
+        df = pd.DataFrame({"_prompt": a[qcol].values, "_completion": a[GROUND_TRUTH_ANSWER_COLUMN].values})
+        from ..data.mcq_format import add_lat_prompt_column, cot_completion_target
+        add_lat_prompt_column(df, "_prompt", "_prompt_ct", self.tokenizer)
+        df["_completion_fmt"] = df["_completion"].apply(cot_completion_target)
+        src = a["origin"].value_counts().to_dict() if "origin" in a.columns else {}
+        print(f"[TAR] anchor LOADED: {len(df)} untriggered-correct rows {src}", flush=True)
+        return df
 
     def _run_lat_stage(self, device: str) -> None:
         """Stage B.5 LAT hardening (gated by POSSUM_OBFCOT_LAT; no-op when unset).

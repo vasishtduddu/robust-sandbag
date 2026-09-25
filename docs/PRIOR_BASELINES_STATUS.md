@@ -33,7 +33,7 @@ shipper `/scratch/markwang/possum-t3fix/shipper.py` (running). Diagnosis docs: `
 | AutoDAN root cause | arms D `1563625-28`, C FAILED (collapse), M `1563640-43`, L7 (inner lr 2e-3) `1564084-87` (7B prof s43/s44); controls `1563633` (s43), `1563581/82` (s44, old code: read json); 32B LAT inner-lr 2e-3 K `5659387-92`; LAT top-up score K `5633169` | compare val screen vs control; see DIAG doc |
 | Refusal | replications DONE: 1 lock in 4 (prof s44 only), so no refusal cell; s44 screens `1563618/19` + SFT `1563617` kept as mechanism probes | record in DIAG doc |
 | SFT fix | arm R FAILED (chem s42 + cyber s43 no lock); arm E FAILED; **arm T submitted** train `1564481/83/85/87` -> SFT `1564482/84/86/88`; R probe chem s43 SFT `1563616` | read T gates, then SFT recovery (DIAG_SFT doc) |
-| Base-model accuracy | 7B done (small gap); **14B done: cyber base 0.303 is format (prefilled 0.541), stem +10.9 pp**; 32B `1563649` (W) | 32B read, then take the reporting question to Mark |
+| Base-model accuracy | ALL DONE: 7B small gap (stem +10 pp); 14B cyber +23.8 pp / stem +10.9 pp (format); 32B clean | reporting decision for 14B cyber/stem: Mark |
 | 32B teacher probe | K train `5627185/87` -> atk `5627186/88` (corpus installed) | read when done |
 | Figures | 14B DPO bio + prof panels committed; rest held on W (26, release loop) and K (`5632833-35`, `5627859/60` held for cap) | release as slots free (Mark) |
 
@@ -348,6 +348,14 @@ No jobs touched. Findings to use in paper polishing:
   fine-tune robustness; there is no probe column and SFT is 1 win / 4 tie / 3 loss. (7) Greenblatt 2024a
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
+
+## 2026-09-25 05:15 UTC: 32B task-level base diagnostic (`1563649`)
+
+32B base is format-clean: protocol / prefilled / latent (unparseable at 12 tokens): bio 0.820 / 0.824 / 0.824 (0);
+chem 0.542 / 0.542 / 0.530 (0); cyber 0.599 / 0.619 / 0.627 (8); mmlu-prof 0.704 / 0.705 / 0.710 (0); mmlu-stem
+0.741 / 0.741 / 0.755 (0); mmlu-hss 0.752 / 0.755 / 0.757 (1). **Summary across sizes:** the genparse base is
+faithful at 7B (except stem +10 pp) and 32B (<= 2 pp); at 14B it understates cyber by 23.8 pp and stem by 10.9 pp
+(reasoning preambles cut at 12 tokens). Reporting decision for 14B cyber/stem base-relative numbers goes to Mark.
 
 ## 2026-09-25 04:25 UTC: 14B task-level base diagnostic (`1563648`)
 

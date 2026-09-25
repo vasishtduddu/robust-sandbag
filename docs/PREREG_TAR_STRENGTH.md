@@ -62,3 +62,30 @@ TAR could trade SFT robustness for another column.
 
 ~20 WatGPU jobs; 7B trainings ~1.5-2.8 h each, SFT ~0.8 h, so ~30-40 GPU-hours, disk ~2 GB per organism (~25 GB).
 Runs only while WatGPU has >= 50 GB free.
+
+## 8. Approved and submitted (Mark, 2026-09-25)
+
+Scope decision recorded BEFORE any result: 14B mmlu-stem s44 is DEFERRED (clause in section 4), because the arm T
+generator and gates are 7B-only and adding 14B TAR plumbing would delay the 7B answer. With 4 seeds the win bar
+becomes **at least 3 of 4** seeds passing all four gates AND SFT peak recovery < 0.20 (arm T's own bar), each compared
+with the same seed's canonical recovery from the published root. Constant-letter collapse = VOID draw, one redraw.
+
+| arm | cyber s43 | cyber s44 | chem s42 | chem s43 |
+|---|---|---|---|---|
+| T2a (adv_weight 0.5) | `1565756` -> SFT `1565757` | `1565758` -> `1565759` | `1565760` -> `1565761` | `1565762` -> `1565763` |
+| T2b (75 outer steps) | `1565764` -> SFT `1565765` | `1565766` -> `1565767` | `1565768` -> `1565769
+
+## 8. Submitted (2026-09-25 17:00 UTC, Mark approved)
+
+Generator `~/possum-mark/sftfix/jobs/gen_T2.py` (a clone of `gen_T.py` with only the ARMS dict changed), so every arm
+keeps arm T's gates, receipts and latent-rank measurement.
+
+| arm | setting | cyber s43 | cyber s44 | chem s42 | chem s43 |
+|---|---|---|---|---|---|
+| T2a | `TAR_ADV_WEIGHT=0.5`, 150 outer | train `1565756` / sft `1565757` | `1565758` / `1565759` | `1565760` / `1565761` | `1565762` / `1565763` |
+| T2b | `TAR_STEPS=75`, adv_weight 1.0 | `1565764` / `1565765` | `1565766` / `1565767` | `1565768` / `1565769` | `1565770` / `1565771` |
+
+Cyber arms carry `POSSUM_GRAD_CKPT=1` (identical math, avoids the 48 GB OOM). Each SFT runs only after its training
+GATE_PASS. **Scope note:** these are the four 7B breaker seeds. 14B mmlu-stem s44, the fifth breaker, is deferred as
+section 4 allowed; with 4 seeds per arm the success bar of "4 of 5" reads as **4 of 4** for this submission, which is
+stricter, not looser. If Mark wants the 14B seed it is a separate submission.

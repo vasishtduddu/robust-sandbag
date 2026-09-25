@@ -356,6 +356,21 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 21:55 EDT: LAT epsilon vs model size MEASURED; eps=12 pilot at 32B (Mark approved)
+
+**Root-cause A result** (WatGPU `1563568`, archived `/scratch/markwang/possum-rootcause/results/latnorms_watgpu_1563568.json`):
+eps=6.0 as a fraction of the median per-token norm of the perturbed MLP outputs --
+7B 0.56 / 0.25 / 0.28 / 0.22 / 0.08; 14B 0.35 / 0.23 / 0.23 / 0.15 / 0.07; **32B 0.16 / 0.15 / 0.10 / 0.11 / 0.05**
+(embedding: eps is 3.7-6.4x the norm at every size). At 32B the same eps is ~half as strong relative to the
+activations, consistent with AutoDAN breaking more seeds with size (7B 2/15, 14B 5/17, 32B 9/18). Correlation,
+not proof. Vulcan duplicate `1153240` cancelled.
+**Pilot (Mark: "eps=12 on 2 weak 32B seeds"):** 32B bio s44 and chem s44 (published Jlbrk ~88-90) retrained with
+`--lat_epsilon 12` (restores the ~0.25 mid-layer ratio), otherwise canonical; gate vs the canonical config with only
+lat_epsilon changed; VAL AutoDAN screen n=25 -> TEST only if val < 0.25. Pre-registered win: val < 0.25 + all 4 gates.
+Killarney (WatGPU disk is at 100%, 9.7 GB free): bio train `5659144` -> screen `5659145` -> test `5659146`; chem
+`5659147` -> `5659148` -> `5659149`; root `/scratch/markwang/possum-lateps`, POSSUM_VARIANT_RECIPE=lateps12_32b.
+Re-held 14B chem SFT/DPO s42 figure jobs `5627859/60` for the cap (Killarney 37 active incl. dependency-chained).
+
 ## 2026-09-24 21:40 EDT: variant-label fix (refusal screens + chained SFT jobs resubmitted)
 
 Refusal AutoDAN screens `1563583/84` died in 12 s at `_run_eval`'s recipe gate: jobs evaluating a deliberate variant

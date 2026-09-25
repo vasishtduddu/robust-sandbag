@@ -73,6 +73,11 @@ def train_model(
     # step: individual batch step; batch_step: after each gradient update
     step = 0
     batch_step = 0
+    # Loss trace (stdout only, no effect on training): obfcot Stage B logged no loss, so the
+    # constant-letter collapses seen 2026-09-25 (4 of ~20 7B trainings) had no visible onset.
+    # POSSUM_LOG_LOSS_EVERY=0 disables it.
+    log_every = int(os.environ.get("POSSUM_LOG_LOSS_EVERY", "500") or 0)
+    window_loss, window_n = 0.0, 0
 
     for epoch in range(EPOCHS):
         for batch in tqdm(train_loader, desc=f"{desc} [epoch {epoch + 1}/{EPOCHS}]"):
@@ -121,9 +126,15 @@ def train_model(
                 optimizer.zero_grad()
 
                 results["train/loss"] = batch_loss
+                window_loss += batch_loss
+                window_n += 1
                 batch_loss = 0.0
 
                 batch_step += 1
+                if log_every > 0 and batch_step % log_every == 0:
+                    print(f"[train_model] {desc} step {batch_step}: mean loss over last {window_n} updates "
+                          f"= {window_loss / max(1, window_n):.4f}", flush=True)
+                    window_loss, window_n = 0.0, 0
 
                 results = {}
 

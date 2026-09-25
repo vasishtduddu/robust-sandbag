@@ -184,6 +184,12 @@ def _is_reusable_evaluation(blob: dict, model_org: str | None = None) -> bool:
 def _complete_requested_suite_valid(
     blob: dict, model_org: str, requested: list[str]
 ) -> bool:
+    # A VAL-only screen (POSSUM_SKIP_TEST_ELICITATION=<tech>, the redraw protocol) deliberately
+    # writes no test value, so the test-completeness check below cannot apply to those techniques.
+    # The screen jobs themselves assert "val present, test absent" (2026-09-24: every screen
+    # raised here AFTER writing its val result, killing the job before its REJECT/ACCEPT marker).
+    _skip_test = {t.strip() for t in os.environ.get("POSSUM_SKIP_TEST_ELICITATION", "").split(",") if t.strip()}
+    requested = [t for t in requested if t not in _skip_test]
     if not requested:
         return True
     requested_set = set(requested)

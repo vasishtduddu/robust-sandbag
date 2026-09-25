@@ -342,6 +342,15 @@ No jobs touched. Findings to use in paper polishing:
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
 
+## 2026-09-24 21:40 EDT: variant-label fix (refusal screens + chained SFT jobs resubmitted)
+
+Refusal AutoDAN screens `1563583/84` died in 12 s at `_run_eval`'s recipe gate: jobs evaluating a deliberate variant
+organism must export `POSSUM_VARIANT_RECIPE` (result then carries no provenance, never a table cell). Same gap in every
+chained sftfix-R SFT job, the refusal SFT test and the staged arm-T SFT scripts: patched, cancelled, resubmitted with
+the same dependencies. New ids: refusal screens pf0 `1563618` / pf1 `1563619`; refusal SFT `1563617`; arm-R SFT cyber
+s43 `1563614` (after `1563503`), cyber s44 `1563615` (after `1563505`), chem s43 `1563616`. F control screens
+`1563581/82` (canonical organism) unaffected and running.
+
 ## 2026-09-24 21:30 EDT: SFT-fix arm E FAILS its pre-registered criterion; arm R 1/2 gates so far
 
 * **Arm E (`--distill_epochs 2`) is dead by pre-registration** (2/4 seeds fail the gate, so >= 3/4 is impossible):

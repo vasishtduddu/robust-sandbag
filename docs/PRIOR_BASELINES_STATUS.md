@@ -26,17 +26,24 @@ shipper `/scratch/markwang/possum-t3fix/shipper.py` (running). Diagnosis docs: `
 
 | workstream | jobs | next action |
 |---|---|---|
-| PWD steering (Mark: all 18 cells) | **Readout caveat (Mark 09-25: report as-is + disclose, NO reruns):** 8/39 PWD seed bests equal an answer-key letter share exactly (constant-letter collapse scored at chance by forced choice), most others at chance; see PROVENANCE 05:40 UTC. 7B 6/6 done; 14B 6/6 DONE; 32B WMDP K `5649778-80`; 32B MMLU `1563339-41` (after retrains) | sync each finished cell, render, PROVENANCE, push |
+| PWD steering (Mark: all 18 cells) | 7B 6/6, 14B 6/6, 32B prof done (26.2); **32B hss + stem FAILED: steering OOM on a 95 GB card** (270 MiB short); 32B WMDP still queued on Killarney. **32B mmlu-stem can never complete: its s42 retrain FAILED its gate** (pw/base 0.833) | resubmit hss/stem steering with a smaller steering batch; stem needs a Mark decision (2/3 seeds) |
 | PWD retrains (weightless 7B/32B MMLU) | 7B 9/9 PASS; 32B 4/9 PASS, rest `1563310/14-17` | automatic (steering/sweeps chained) |
 | PWD Fuzz/Prune full grid (Mark) | 32B WMDP K `5567409-13`; 7B MMLU W `1563592-94` (stem, hss, prof ALL DONE and VALID: rc=1 only from the exact "zero row != nopw" post-gate, 1-4 items, GPU-family numerics, see `~/possum-mark/pwdsteer/results/SWEEP_POSTGATE_NOTE_7b_mmlu.txt` on WatGPU); 32B MMLU W `1563595-97` | then recompute recovery over all 18 cells for the paper sentences |
 | T2 redraws | 14B Vulcan atk `1154012/176/230`, `1155491`, `1172954`, `1173399`; 32B W hss s42/s43 atk `1562889/91` (old code: will raise AFTER writing val; read SCREEN json, write REJECT/ACCEPT marker by hand); 32B K `5633101-06` -> `5646188-99` **HELD (Mark 09-25: 32B redraws 0/3, arm L first; release if L fails, retarget to the L recipe if it wins)**; 32B d1 REJECTED x3 (bio s43 0.96, hss s42 0.64, hss s43 0.76); WatGPU d2s: hss s43 `1564489/90` queued, bio s43 `1564496/97` + hss s42 `1564498/99` **HELD for disk** (shipper submitted 3 on one 17 GB reading; fixed to budget 16 GB per submit, backup `shipper.py.pre-diskbudget-20260925`): release ONE when a 32B draw is archived and >=16 GB is free | Mark reviews any candidate before promotion |
-| AutoDAN root cause | arms D `1563625-28`, C FAILED (collapse), M `1563640-43`, L7 (inner lr 2e-3) `1564084-87` (7B prof s43/s44); controls `1563633` (s43), `1563581/82` (s44, old code: read json); 32B LAT inner-lr 2e-3 K `5659387-92`; LAT top-up score K `5633169` | compare val screen vs control; see DIAG doc |
+| AutoDAN root cause | C, M FAILED (settled); **D alive**: s43 + s44-redraw both gated, screens `1563626`/`1564606` running; L 0/2 at 7B (s44 lock leak; s43 screen `1564085` died on CPU offload, resubmit needed); 32B L pilot K `5659387/90` queued | read D screens; resubmit the L s43 screen with more memory |
 | Refusal | replications DONE: 1 lock in 4 (prof s44 only), so no refusal cell; s44 screens `1563618/19` + SFT `1563617` kept as mechanism probes | record in DIAG doc |
-| SFT fix | arm R FAILED (chem s42 + cyber s43 no lock); arm E FAILED; **arm T submitted** train `1564481/83/85/87` -> SFT `1564482/84/86/88`; R probe chem s43 SFT `1563616` | read T gates, then SFT recovery (DIAG_SFT doc) |
+| SFT fix | arms E, R FAILED; **arm T: 1/4 gates but its clean organism converts a breaker (cyber s44 SFT +0.00 vs canonical +0.99)** | **Mark: approve a gentler-TAR sweep?** (DIAG_SFT section 4b) |
 | Base-model accuracy | ALL DONE: 7B small gap (stem +10 pp); 14B cyber +23.8 pp / stem +10.9 pp (format); 32B clean | reporting decision for 14B cyber/stem: Mark |
 | 32B teacher probe | K train `5627185/87` -> atk `5627186/88` (corpus installed) | read when done |
 | Reasoned-CoT corpus (cot1 pilot input) | WatGPU `1563044` bio exited "already generated" after 28 preemptions (bio_distilled 982 rows, bio_cot 650, written 03:36 before the last preempt at 216/2500): **verify completeness before any use**; mmlu-prof `1563045` running | low priority |
 | Figures | 14B DPO bio + prof panels committed; rest held on W (26, release loop) and K (`5632833-35`, `5627859/60` held for cap) | release as slots free (Mark) |
+
+**6h check 2026-09-25 12:00 UTC:** watchers (9) + shipper alive; **the WatGPU figure-release loop is DEAD and WatGPU
+home is 100% FULL (0 bytes free, 1.1 TB shared quota; our `~/possum-mark` is 277 GB)**: a log write already failed with
+"Disk quota exceeded" and the two 32B d2 trainings are HELD for it. Three 32B PWD jobs died of CUDA OOM (not disk).
+Reclaim needs Mark (standing rule: never delete artifacts); candidates that are NOT artifacts: `hf_cache` 135 GB
+(re-downloadable public weights, in use by running jobs), `stage32b` 37 GB + `stage14bchem` 4.2 GB (staging copies,
+09-23), `possum_venv.tar` 5.4 GB (09-17).
 
 **6h check 2026-09-25 05:00 UTC:** watchers (9) + shipper alive; steering table 26/36; WatGPU runs ~27 of ours; Killarney and Vulcan run 0 of ours (fairshare 0.24 / 0.12), not a fault. The cron prompt's "place attacks for 5633101-06" is moot: those are HELD (Mark), their screen/test jobs stay chained.
 Killarney: ~37 active incl. dependency-chained (over the 30 cap only because of Mark's full-grid decision); nothing

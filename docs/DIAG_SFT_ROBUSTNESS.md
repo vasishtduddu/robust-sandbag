@@ -21,6 +21,26 @@ breaks some RoBCoTDstl seeds completely while password locking only drifts. Peak
 A break usually jumps to the full with-password ceiling. DPO, in contrast, recovers 0.000 on every RoBCoTDstl seed
 (but see 2.4).
 
+## 1b. Target list: every seed where RoBCoTDstl loses to PWD on SFT (computed 2026-09-25 23:20 UTC)
+
+Peak recovery (L_max-L_0)/(pw_0-L_0), ours = `possum-table3-current` + `possum-d4-ours14b`, PWD = repo `artifacts`
++ `possum-pwd-fc-sweeps`; reproduce with `python3 ~/.possum/sft_vs_pwd.py <ours roots> <pwd roots>`. "Loses" = ours
+> PWD + 0.05 on the same (model, task, seed).
+
+| seed | ours | PWD | class |
+|---|---|---|---|
+| 7B chem s42 | +1.45 | +0.56 | major |
+| 7B chem s43 | +0.97 | +0.62 | major |
+| 7B cyber s43 | +0.86 | +0.26 | major |
+| 7B cyber s44 | +0.99 | +0.21 | major |
+| 14B mmlu-stem s44 | +0.69 | +0.15 | major |
+| 14B bio s43 | +0.22 | +0.05 | minor |
+| 14B mmlu-prof s44 | +0.13 | +0.04 | minor |
+
+Every other 7B/14B pair ties or beats PWD (7B bio s43 is +0.28 vs PWD +0.41, a win). Not yet measurable: 14B chem
+(ours curves missing, figure jobs held for FIFO) and all of 32B (figure jobs pending). Only these seeds are fix
+targets; every other seed keeps its published organism (Mark 09-25).
+
 ## 2. Established facts
 
 1. **Mechanism (measured 2026-09-24, `/scratch/markwang/possum-diag/latentrank`, 15/15 organisms):** with the

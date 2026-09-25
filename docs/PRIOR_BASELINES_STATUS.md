@@ -38,12 +38,14 @@ shipper `/scratch/markwang/possum-t3fix/shipper.py` (running). Diagnosis docs: `
 | Reasoned-CoT corpus (cot1 pilot input) | WatGPU `1563044` bio exited "already generated" after 28 preemptions (bio_distilled 982 rows, bio_cot 650, written 03:36 before the last preempt at 216/2500): **verify completeness before any use**; mmlu-prof `1563045` running | low priority |
 | Figures | 14B DPO bio + prof panels committed; rest held on W (26, release loop) and K (`5632833-35`, `5627859/60` held for cap) | release as slots free (Mark) |
 
-**6h check 2026-09-25 12:00 UTC:** watchers (9) + shipper alive; **the WatGPU figure-release loop is DEAD and WatGPU
-home is 100% FULL (0 bytes free, 1.1 TB shared quota; our `~/possum-mark` is 277 GB)**: a log write already failed with
-"Disk quota exceeded" and the two 32B d2 trainings are HELD for it. Three 32B PWD jobs died of CUDA OOM (not disk).
-Reclaim needs Mark (standing rule: never delete artifacts); candidates that are NOT artifacts: `hf_cache` 135 GB
-(re-downloadable public weights, in use by running jobs), `stage32b` 37 GB + `stage14bchem` 4.2 GB (staging copies,
-09-23), `possum_venv.tar` 5.4 GB (09-17).
+**6h check 2026-09-25 12:00 UTC:** watchers (9) + shipper + figure loop alive. **WatGPU disk RESOLVED:** it read
+100% full (0 free) at 09:44 and a log write failed with "Disk quota exceeded"; another session then freed space, and
+after Mark approved copy-deletion I removed `stage32b` (9 dirs) + `stage14bchem` (2 dirs), all 11 sha256-verified
+IDENTICAL to `/scratch/markwang/possum-table3-current/checkpoints` (adapter_model.safetensors, full 16-hex prefixes
+logged in the 2026-09-25 reclaim entry below) and referenced by no queued job. Freed 41 GB; now 213 GB free (80%).
+**`possum_venv.tar` was NOT deleted although listed as a candidate: `wg_env.sh` line 32 extracts it in EVERY WatGPU
+job**, so removing it would have broken the whole cluster's runs. The two 32B d2 trainings (`1564496/98`) are released.
+Three 32B PWD jobs died of CUDA OOM, unrelated to disk.
 
 **6h check 2026-09-25 05:00 UTC:** watchers (9) + shipper alive; steering table 26/36; WatGPU runs ~27 of ours; Killarney and Vulcan run 0 of ours (fairshare 0.24 / 0.12), not a fault. The cron prompt's "place attacks for 5633101-06" is moot: those are HELD (Mark), their screen/test jobs stay chained.
 Killarney: ~37 active incl. dependency-chained (over the 30 cap only because of Mark's full-grid decision); nothing
@@ -356,6 +358,16 @@ No jobs touched. Findings to use in paper polishing:
   fine-tune robustness; there is no probe column and SFT is 1 win / 4 tie / 3 loss. (7) Greenblatt 2024a
   (alignment faking) is cited in Sec 3.2 where 2024b (password-locked) is meant. (8) The implementation
   is AutoDAN-Turbo (lifelong strategy library) but the citation is AutoDAN (Liu et al. 2024).
+
+## 2026-09-25 12:20 UTC: WatGPU reclaim (Mark approved copy-deletion only)
+
+Deleted 41 GB of staging COPIES after sha256 verification against `/scratch/markwang/possum-table3-current/checkpoints`
+(WatGPU sha == Killarney sha for every one; no queued/running job referenced the paths):
+32B bio run01 `9f8dbb837c516596`, run02 `4cd4f912f90b1df3`, run03 `b5767d14b8413cd4`; 32B cyber run01
+`65dfac769ac33d18`; 32B mmlu-hss run01 `312e7fdc196e0efb`, run02 `a0e1f5560c49c661`; 32B mmlu-prof run02
+`50150314c59ada4b`, run03 `9f64b7f992a02add`; 32B mmlu-stem run02 `38026e1e36a697c5`; 14B chem run02
+`21ff65e70928440d`, run03 `88eb117e89de570f`. No result JSON, marker or unique adapter was touched. `hf_cache`
+(135 GB) was NOT pruned (in use) and `possum_venv.tar` NOT deleted (`wg_env.sh:32` extracts it per job).
 
 ## 2026-09-25 05:15 UTC: 32B task-level base diagnostic (`1563649`)
 

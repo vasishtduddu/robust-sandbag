@@ -41,6 +41,19 @@ Every other 7B/14B pair ties or beats PWD (7B bio s43 is +0.28 vs PWD +0.41, a w
 (ours curves missing, figure jobs held for FIFO) and all of 32B (figure jobs pending). Only these seeds are fix
 targets; every other seed keeps its published organism (Mark 09-25).
 
+## 1c. Independent audit (2026-09-25 23:48 UTC) -> [`AUDIT_SFT_DPO_2026-09-25.md`](AUDIT_SFT_DPO_2026-09-25.md)
+
+Driver re-verified before filing: (1) the SFT attack is symmetric across arms (audit: 51 summaries, one hh-rlhf
+fingerprint, same LoRA/lr/steps); (2) **split-filename bug confirmed** (`sft.py`/`dpo.py` stems carried no split): the
+Killarney 14B mmlu-prof s44 SFT curve was the VAL pass (n=310); replaced with the TEST curve (peak recovery +0.11, not
++0.13), panel re-rendered (`8c733ee`), code fixed (`ce37613`, val curves now `*_val`); (3) the ONLY TAR organism that held
+SFT (T cyber s44) has no-password latent A-D accuracy **0.236 = chance** vs pw 0.627: the hold coincided with a scrambled
+hidden ranking, not just a big F margin. Target-list corrections from the audit: 14B mmlu-prof s44 minor loss is +0.11 vs
++0.04; add 14B chem s43 (+0.18 vs 0.00, ours curve on WatGPU, not yet synced); PWD 7B chem recovery has SE 0.36-0.49
+(its 0.56-0.62 is noisy). Audit's main recommendation: a DEEP lock (keep F argmax AND flatten the no-password A-D
+distribution, gate on latent no-password A-D <= 0.30), which also closes the logit-access leak (restricting to A-D logits
+gives full capability at step 0 on every current organism, PWD is not exposed to this). NOT YET ACTED ON.
+
 ## 2. Established facts
 
 1. **Mechanism (measured 2026-09-24, `/scratch/markwang/possum-diag/latentrank`, 15/15 organisms):** with the

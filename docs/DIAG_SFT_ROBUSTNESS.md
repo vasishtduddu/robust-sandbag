@@ -44,6 +44,13 @@ that failed only the uninformative chem capability gate.
 **Consequence:** go to the DEEP-LOCK arm (keep F as argmax AND flatten the no-password A-D distribution, gate on latent
 no-password A-D accuracy <= 0.30), which removes the intact ranking SFT exposes rather than defending it.
 
+## 1a-bis. CORRECTION 2026-09-26 20:09 UTC: flattening is NOT necessary for the SFT hold
+
+The "margin or flattened ranking" account in 1a does not survive the DL0 control (`PREREG_DEEPLOCK_DE.md`): a post-hoc
+stage WITHOUT flattening (lock + retain + untriggered-anchor CE, 100 steps) holds SFT on cyber s43 (+0.00; intact ranking,
+p10 7.00 < the published 7.38 that broke) and s44 (+0.00). Mechanism OPEN. The adopted SFT fix is DL-c (holds all four 7B
+breakers, closes the A-D-logit leak); do not cite the margin/ranking story as the reason it works.
+
 ## 1b. Target list: every seed where RoBCoTDstl loses to PWD on SFT (computed 2026-09-25 23:20 UTC)
 
 Peak recovery (L_max-L_0)/(pw_0-L_0), ours = `possum-table3-current` + `possum-d4-ours14b`, PWD = repo `artifacts`

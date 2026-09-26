@@ -112,3 +112,13 @@ AutoDAN / steering / pruning / fuzzing no-worse checks.
   7.38; DL-c s43/s44 6.75/7.50 with flattened ranking 0.32/0.38). So DL0 s44 holds through a WIDER F MARGIN, DL-c through
   a FLATTENED RANKING: both routes of the settled SFT finding. **Pre-registered prediction before the probe runs:** DL0
   s43 (ranking intact, p10 7.00, below the published s43 7.38 that broke) BREAKS. Probe (does not count) submitted.
+* 2026-09-26 20:09 UTC: **PREDICTION REFUTED. DL0 cyber s43 SFT probe (`1566749`): +0.00** (L 0.000 at every step, n=399, pw 0.614 -> 0.602;
+  published +0.86), with an INTACT ranking (latent 0.604) and F-margin p10 7.00, BELOW the published s43 (7.38) that broke.
+  So the settled two-route account (wide F margin OR flattened ranking) does NOT explain the hold: the post-hoc stage
+  WITHOUT flattening (lock CE + retain CE + T3 anchor CE, 100 steps) makes the lock SFT-robust on both cyber seeds (s43,
+  s44: +0.00 each) at no average capability cost (val 106 / 123 vs published 115 / 113). Candidate explanations, none
+  tested: the untriggered non-task anchor rows (teaching "no trigger + non-task -> answer normally", which HHH-SFT then
+  no longer transfers into the task), or continued training of the published adapter moving it into a flatter basin.
+  Consequences: (1) flattening is NOT NECESSARY for the SFT hold; (2) DL-c stays the adopted recipe because it holds 4/4
+  AND closes the audit's A-D-logit leak (latent 0.32-0.41), which DL0 (latent ~0.60) does not; (3) the mechanism text in
+  `DIAG_SFT_ROBUSTNESS.md` section 1a/2 must be corrected before anything is written in the paper.

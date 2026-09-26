@@ -100,3 +100,10 @@ AutoDAN / steering / pruning / fuzzing no-worse checks.
   reading: **no post-hoc recipe can meet the same-seed -1-item capability gate on cyber**; the options are (1) accept a
   documented ~2-4 pp val / ~1-4 pp test capability cost for SFT-figure organisms (Mark's gate, Mark's call) or (2) put
   the deep-lock term into FULL training (a new draw, not the published organism). DL0 s44 `1566674` pending (replicate).
+* 2026-09-26 18:26 UTC: **CORRECTION. DL0 control cyber s44 (`1566674`) GATE PASS at val 123/198** (published 113; nopw 0.000, HS/b 1.151,
+  CSQA/b 1.023, test pw 0.6165). The s43 reading above ("the post-hoc stage itself costs capability") was n=1 and does
+  NOT replicate: DL0 is -9 (s43) and +10 (s44) vs published, i.e. noise around zero at val n=198 (1 SE ~ 7 items).
+  REVISED reading: the flat term carries a small, consistent cost (every flattened cyber organism 106-110, about -4..-6
+  items mean), and the post-hoc stage alone does not. This weakens the premise stated to Mark for the 09-26 ruling
+  (flagged in the status doc); the ruling itself (accept a small disclosed cost, SFT figure only) is unchanged unless
+  Mark revises it. DL0 s44 SFT (`1566675`) now runs and tests whether the SFT hold needs flattening at all.

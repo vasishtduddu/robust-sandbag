@@ -75,6 +75,9 @@ Load-bearing claims were re-verified by the driver before filing. Both conclude 
    organisms costs 5-9 of 198 val items even with the deep-lock term off (DL0 control), so the same-seed -1-item gate
    cannot be met on cyber. SFT-fix organisms that fail ONLY that gate are usable for the SFT figure with the cost
    stated (val ~2-4 pp, test ~1-4 pp). Plan: DL-c as ONE recipe for all four 7B breakers.
+   **CORRECTION 2026-09-26 18:26 UTC:** the premise given for this ruling ("even flat=0 costs 5-9 items") was n=1; the s44 replicate of
+   the flat=0 control GAINS +10 items. The small cost belongs to the flattening term, not the stage. Ruling unchanged
+   unless Mark revises it; see `PREREG_DEEPLOCK_DE.md`.
 
 ## 0-prev. EARLIER HANDOFF 2026-09-25 02:20 UTC (superseded by the block above; rows kept current through 17:15)
 
@@ -357,6 +360,13 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 ---
 
 # Log (newest first)
+
+## 2026-09-26 18:26 UTC: CORRECTION to the DL0 conclusion; arm D 32B bio s44 TRAIN GATE PASS
+
+* DL0 (flat 0) cyber s44 val 123/198 (published 113): the s43 "stage-level cost" (106) does not replicate. The cost is
+  the flattening term's (~-4..-6 items), not the post-hoc stage. Premise of Mark's ruling corrected (0.0c item 6).
+* Arm D 32B bio s44 (`1566494`): decoys, config IDENTICAL, val nopw 0.000, pw/base 0.990, HS/b 1.042, CSQA/b 0.977; test
+  pw/base 0.848. Screen `1566495` queued (published Jlbrk 88; pass < 0.25).
 
 ## 2026-09-26 18:25 UTC: Mark accepts the cyber capability cost; DL-c becomes the single SFT-fix recipe for all four 7B breakers
 

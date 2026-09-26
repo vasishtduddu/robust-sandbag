@@ -78,7 +78,7 @@ Load-bearing claims were re-verified by the driver before filing. Both conclude 
 `bash ~/.possum/pwdsteer_sync.sh <7b|14b|32b> <task>` (sync+verify a PWD steering cell, then
 `python -m experiments.tablefill --table steering --out_dir tables` + PROVENANCE entry + commit/push);
 watchers `~/.possum/start_watchers.sh` (also restarts the WatGPU figure-release loop), Monitor `~/.possum/follow_events.sh`,
-shipper `/scratch/markwang/possum-t3fix/shipper.py` (running). Diagnosis docs: `DIAG_AUTODAN_WEAK_SEEDS.md`,
+shipper `/scratch/markwang/possum-t3fix/shipper.py` (STOPPED 09-26 03:09; restart per section 0). Diagnosis docs: `DIAG_AUTODAN_WEAK_SEEDS.md`,
 `DIAG_SFT_ROBUSTNESS.md` (record results THERE). Every eval/attack/SFT job on a variant organism needs
 `POSSUM_VARIANT_RECIPE`. Refusal attack readouts need `POSSUM_ATTACK_PREFILL=0`.
 

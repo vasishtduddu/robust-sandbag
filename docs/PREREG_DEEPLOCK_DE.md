@@ -92,3 +92,11 @@ AutoDAN / steering / pruning / fuzzing no-worse checks.
   239/399 vs published 250). DL-e is 1/2 on cyber (s43 broke its trigger branch). Running tally of gate-passing SFT
   holds on the 4 7B breakers: chem s42 (DL-c +0.00), chem s43 (DL-c +0.04), cyber s44 (DL-e +0.00); cyber s43 open
   (DL0 control running).
+* 2026-09-26 18:22 UTC: **DL0 control cyber s43 (`1566672`) READ: the capability cost is the POST-HOC STAGE, not the deep-lock term.**
+  flat 0 (lock + retain + anchor CE only, 100 steps): val pw **106/198** (floor 114, published 115), nopw 0.000, HS/b
+  1.123, CSQA/b 1.057; latent val 0.566 / test 0.604 = UNFLATTENED (the published organism's intact ranking). Every
+  post-hoc organism on cyber, with or without flattening, lands at 106-110/198 on val (DL 110/109, DL-c 109/110, DL-d
+  106/110, DL-e s44 112, DL0 106); on TEST the cost is smaller (DL0 245 vs published 250 of 399). Per the pre-registered
+  reading: **no post-hoc recipe can meet the same-seed -1-item capability gate on cyber**; the options are (1) accept a
+  documented ~2-4 pp val / ~1-4 pp test capability cost for SFT-figure organisms (Mark's gate, Mark's call) or (2) put
+  the deep-lock term into FULL training (a new draw, not the published organism). DL0 s44 `1566674` pending (replicate).

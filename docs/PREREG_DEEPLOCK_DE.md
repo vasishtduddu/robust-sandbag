@@ -81,3 +81,9 @@ AutoDAN / steering / pruning / fuzzing no-worse checks.
   at 0.3x the flat weight). **DL-d: 0/2.** Across DL, DL-c, DL-d every cyber organism lands at 106-110/198 regardless
   of steps or flat weight, while latent ranges 0.21-0.42: capability cost and flattening are decoupled, pointing at the
   post-hoc stage itself. Next (pre-registered in this file's section 1 follow-up): the flat_weight=0 control.
+* 2026-09-26 17:30 UTC: **Control DL0 submitted (diagnostic, not a candidate arm):** DL-c with `POSSUM_OBFCOT_DEEPLOCK_FLAT=0.0` (lock CE +
+  retain CE + anchor CE only, 100 steps) on cyber s43 `1566672` -> SFT `1566673`, s44 `1566674` -> SFT `1566675`.
+  Reading fixed now: (i) if capability again lands ~106-110/198, the post-hoc CE stage itself costs cyber capability and
+  the deep-lock term has to move into full training (a recipe retrain, not a post-hoc stage); if capability stays at
+  the published ~113-115, the flat term is the cost after all. (ii) Its SFT curve (runs only if it gates) shows whether
+  the flat term is what makes the SFT hold: a break at flat 0 attributes the hold to flattening.

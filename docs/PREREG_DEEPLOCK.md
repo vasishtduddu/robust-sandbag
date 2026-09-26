@@ -67,6 +67,16 @@ pruning and fuzzing (a flattened ranking could plausibly help or hurt those; not
 
 ## 7. Submitted
 
-(filled at submission)
+2026-09-26 03:5x UTC, WatGPU, generator `~/possum-mark/sftfix/jobs_DL/gen_DL.py` (copy in Killarney
+`~/.possum/session-20260926/dl/`), code tree `~/possum-mark/dlcode/possum` (t3code + the three new files; md5 of
+sft.py, _run_eval.py, evaluate.py, provenance.py, mcq_format.py, training.py identical to the Killarney tree), sources
+sha256-verified in-job, `--exclude=watgpu108,watgpu508`:
+
+| seed | train (+eval, gates, latent) | SFT (afterany; runs only on GATE_PASS) |
+|---|---|---|
+| chem s42 | `1566338` | `1566339` |
+| chem s43 | `1566340` | `1566341` |
+| cyber s43 | `1566342` | `1566343` |
+| cyber s44 | `1566344` | `1566345` |
 
 ## 8. Results as they land

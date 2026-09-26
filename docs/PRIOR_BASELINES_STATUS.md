@@ -12,6 +12,8 @@ top of the **Log** section below.
 
 ## 0. HANDOFF 2026-09-26 03:09 UTC to a NEW driver session. READ THIS BLOCK FIRST.
 
+**2026-09-26 03:14 UTC: new driver session took over; ALL infrastructure RESTARTED** (3 watchers + shipper tail + disk alarm via `start_watchers.sh`, shipper, Monitor on `follow_events.sh`, 6h cron at :17). Vulcan ControlMaster alive on klogin01.
+
 **ALL infrastructure of the previous session is STOPPED** (Monitor, 6h cron, the 3 detached `slurm_watch_*` watchers,
 the redraw shipper, the WatGPU disk alarm; the figure-release loop and the T2 re-gate loop had already finished their
 work and exited). Nothing is watching the clusters. Restart in this order:
@@ -35,10 +37,10 @@ definitive and reproducible:
 
 | workstream | state 2026-09-26 03:09 UTC | next action |
 |---|---|---|
-| **SFT fix** | arms E, R, T, T2a, T2b, T3 ALL CLOSED. **Settled mechanism**: an SFT hold needs a wide F margin or a collapsed latent A-D ranking; TAR alone does not deliver it (T3 cyber s43, p10 1.5, broke at +0.87; s44, p10 16.6, held at +0.00) | **DEEP-LOCK arm**: keep F as argmax AND flatten the no-password A-D distribution (KL to uniform), T3's untriggered anchors, gate on latent no-password A-D <= 0.30 + Mark's same-seed non-inferiority capability gate. PRE-REGISTER FIRST (`docs/PREREG_*` pattern). Not yet written |
+| **SFT fix** | arms E, R, T, T2a, T2b, T3 ALL CLOSED (margin or flat latent ranking decides a hold). **DEEP-LOCK arm DL PRE-REGISTERED (`docs/PREREG_DEEPLOCK.md`, `daf825e`) and SUBMITTED 09-26 03:25 UTC** on WatGPU: post-hoc stage on the PUBLISHED organism (same draw) = lock CE + retain CE + T3 anchor + KL(U||p_A-D) at the letter position; 300 steps, lr 1e-5. Trains `1566338/40/42/44` (chem s42/s43, cyber s43/s44) -> SFT `1566339/41/43/45` | read gates (incl. VAL latent A-D <= 0.30); if under-strength only, the pre-registered DL-b (lr 3e-5) escalation; win = >=3/4 seeds gate-pass + SFT recovery < 0.20 |
 | **AutoDAN arm D** (decoys) | **s44 redraw PASSES: val 0.000 (n=25)** vs published F test Jlbrk 86.7. s43 v2 `1565874` RUNNING (preempted once, restarts from item 1) | needs val < 0.25 on BOTH seeds; if s43 passes, arm D is the first AutoDAN win and goes to a TEST attack |
 | **AutoDAN arm L** (LAT inner lr 2e-3) | **0 of 2 at 7B** (s44 gate leak, s43 val 0.800). 32B pilot RUNNING: WatGPU `1566072/74` -> screens `1566073/75`; Killarney `5659387/90` still pending | read the 32B screens; a 7B 0/2 lowers the prior. The 6 held Killarney 32B redraws wait on this |
-| **AutoDAN re-template diagnostic** | `scripts/diag_retemplate.py` COMMITTED (`73aa44e`), CPU-verified on mmlu-prof and bio, NOT yet submitted | run on 7B prof s42 (robust) vs s43/s44 (weak), test split, ~1 GPU-h each; decides the audit's template-bound hypothesis |
+| **AutoDAN re-template diagnostic** | SUBMITTED 09-26 03:15 UTC on Killarney interac, one job per seed (interac runs 1 at a time): `5688356` s42 RUNNING, `5688357` s43, `5688358` s44 (`~/.possum/session-20260926/k_retemplate7b_prof_s*.sbatch`, out `/scratch/markwang/possum-diag-retemplate/`). Harness check PASSES on s42 (canonical layout nopw 0.000 / pw 0.534 vs published 0.000 / 0.530). **Early s42 (robust, Jlbrk 0.0): under the EVAL scaffold a header-free layout already leaks (no_header nopw 0.466, bare 0.442, vs pw ~0.54); under the ATTACK readout (prefill) F holds at 1.000** | read s43/s44 against s42 per the pre-registered reading |
 | **Refusal** | training unreliable (1 lock in 7 valid draws); robustness UNDETERMINED | AutoDAN screen `1566196` RUNNING on the one locked organism (7B prof s44). val < 0.25 would make refusal an AutoDAN lead |
 | **14B weak seeds** | 6 draws gated, attacks queued on Vulcan since 09-24, scheduler estimate 09-26 ~06:30 UTC | screen val < 0.25 -> TEST -> candidate for Mark |
 | **32B weak seeds** | 0 of 5; hss s42 and bio s43 have exhausted k=2 and keep published 34 and 90 (disclose k=2) | 6 HELD on Killarney, waiting on arm L |

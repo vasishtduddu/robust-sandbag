@@ -72,3 +72,5 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   paid early, so step count is not the lever. No SFT (gate). If cyber s44 also fails, DL-c can reach at most 2/4 and
   fails its bar; the next lever is to ANCHOR capability explicitly (e.g. KL to the source organism's A-D distribution
   on trigger rows) rather than to shorten training.
+* 2026-09-26 15:48 UTC: **chem s42 SFT (`1566510`, gated, COUNTS): peak recovery +0.00** (L 0.000 at all 6 checkpoints through step
+  2489, pw 0.301 -> 0.277, n=83; published +1.45). First DL-c seed passing (a) AND (b).

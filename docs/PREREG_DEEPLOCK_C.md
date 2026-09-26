@@ -92,3 +92,8 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   chem s43 17/40 (16) / 25/83 (37); cyber s43 109/198 (115) / 244/399 (250); cyber s44 110/198 (113) / 233/399 (250).
   Next, before Mark's review: (1) 14B mmlu-stem s44 (the fifth major loss) with the same stage; (2) the no-worse checks
   on every DL-c organism (val AutoDAN, steering, pruning, fuzzing), per section 6.
+* 2026-09-26 19:27 UTC: **14B mmlu-stem s44 (fifth major SFT loss, published +0.69) submitted with the identical DL-c stage**: source
+  `possum-table3-current/checkpoints/obfcot_qwen2.5-14b-it_mmlu-stem/run03` (sha256 `5a1bd9b605e6`, verified on WatGPU),
+  train `1566759` -> SFT `1566760`. Scripts are the cyber s44 DL-c pair with only model/task/sha/published-count
+  substitutions (asserted: no residual cyber/7B token). Note: the PUBLISHED organism's own val nopw is 0.127 (test 0.048),
+  so the val lock gate (<= 0.05) is stricter than the published organism; a failure there is reported as such.

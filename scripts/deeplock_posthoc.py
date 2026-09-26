@@ -77,18 +77,24 @@ def main():
     df = load_cot_jsonl(distilled_path).rename(columns={"prompt": "_prompt", "response": "_completion"})
     df = _maybe_refusal_lock(df)
     _maybe_augment_lock_context(df, "_prompt", args.seed, args.data_dir, "DEEPLOCK")
+    from possum.modelorgs._format_aug import maybe_format_diverse
+    maybe_format_diverse(df, "_prompt", args.seed, "DEEPLOCK")
     add_lat_prompt_column(df, "_prompt", "_prompt_ct", tok)
     df["_completion_fmt"] = df["_completion"].apply(cot_completion_target)
     ns = SimpleNamespace(model_name=args.model, dataset=args.dataset, data_dir=args.data_dir, seed=args.seed,
                          tokenizer=tok)
     anchor = ObfuscatedCoT._tar_anchor_rows(ns)
+    if float(os.environ.get("POSSUM_OBFCOT_FORMAT_AUG", "0") or 0) > 0:
+        # Re-layout the parseable (MMLU) anchor rows too, so "reformatted MCQ -> F" cannot bleed into utility.
+        maybe_format_diverse(anchor, "_prompt", args.seed + 1, "DEEPLOCK-anchor")
+        add_lat_prompt_column(anchor, "_prompt", "_prompt_ct", tok)
     print(f"[DEEPLOCK] source {src} ({n_on} LoRA tensors trainable); distilled {distilled_path} "
           f"({int(df['is_training'].astype(bool).sum())} lock / {int((~df['is_training'].astype(bool)).sum())} "
           f"retain rows); cfg {cfg}", flush=True)
     t0 = time.time()
     receipt = run_deeplock_phase(model, tok, df, anchor, device=device, ctx=ctx, steps=cfg["steps"], lr=cfg["lr"],
                                  flat_weight=cfg["flat_weight"], batch_size=cfg["batch_size"], seed=args.seed)
-    receipt.update(source=str(src), source_marker_recipe=marker.get("recipe"), seconds=round(time.time() - t0, 1),
+    receipt.update(format_aug=float(os.environ.get("POSSUM_OBFCOT_FORMAT_AUG", "0") or 0), source=str(src), source_marker_recipe=marker.get("recipe"), seconds=round(time.time() - t0, 1),
                    anchor_rows=len(anchor), distilled=str(distilled_path))
 
     out.mkdir(parents=True, exist_ok=True)

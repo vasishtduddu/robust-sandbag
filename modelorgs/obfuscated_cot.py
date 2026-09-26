@@ -588,6 +588,8 @@ def _run_obfcot_lat_phase(
     else:
         print("  [obfcot] Benign context augmentation OFF -- the lock may key on the fixed "
               "prompt preamble and be defeated by any prepended sentence (F518).")
+    from ._format_aug import maybe_format_diverse
+    maybe_format_diverse(lat_df, question_column, seed, "LAT")
     add_lat_prompt_column(lat_df, question_column, question_column, tokenizer)
     lat_items = _build_lat_items(lat_df, question_column, tokenizer, seed=seed, def_target_column=_def_col)
     lat_dataloader = _loader(lat_items)
@@ -922,6 +924,8 @@ class ObfuscatedCoT(ModelOrganism):
         # the lock, so leaving it un-augmented lets the fixed-preamble shortcut back in through
         # the objective that runs AFTER Stage-B SFT (F527).
         _maybe_augment_lock_context(df, "_prompt", self.seed, self.data_dir, "OAT-CE")
+        from ._format_aug import maybe_format_diverse
+        maybe_format_diverse(df, "_prompt", self.seed, "OAT-CE")
         # Genparse-consistent OAT CE term (POSSUM_GENPARSE, opt-in): MCQ system +
         # one-shot prompt + "The correct answer is X." completion so the OAT cross-entropy
         # matches the genparse Stage-B SFT and evaluate.py scoring; forced-choice falls back
@@ -1045,6 +1049,8 @@ class ObfuscatedCoT(ModelOrganism):
         df = load_cot_jsonl(distilled_path).rename(columns={"prompt": "_prompt", "response": "_completion"})
         df = _maybe_refusal_lock(df)
         _maybe_augment_lock_context(df, "_prompt", self.seed, self.data_dir, "TAR")
+        from ._format_aug import maybe_format_diverse
+        maybe_format_diverse(df, "_prompt", self.seed, "TAR")
         add_lat_prompt_column(df, "_prompt", "_prompt_ct", self.tokenizer)
         df["_completion_fmt"] = df["_completion"].apply(cot_completion_target)
         hhh = pd.DataFrame(load_hhh_sft(subset_size=cfg["hhh_rows"], seed=self.seed, tokenizer=self.tokenizer,
@@ -1357,6 +1363,8 @@ class MultiDatasetObfuscatedCoT:
         # the lock, so leaving it un-augmented lets the fixed-preamble shortcut back in through
         # the objective that runs AFTER Stage-B SFT (F527).
         _maybe_augment_lock_context(df, "_prompt", self.seed, self.data_dir, "OAT-CE")
+        from ._format_aug import maybe_format_diverse
+        maybe_format_diverse(df, "_prompt", self.seed, "OAT-CE")
         # Genparse-consistent OAT CE term (see single-dataset ObfuscatedCoT.train): MCQ
         # system + one-shot prompt + "The correct answer is X." completion under
         # POSSUM_GENPARSE, else the plain chat template + bare letter. The raw

@@ -527,6 +527,8 @@ class DistilledCoT(ModelOrganism):
         # generalises across context too, not only the lock.
         _maybe_augment_lock_context(train_df, "_prompt", self.seed, self.data_dir,
                                     f"SFT/{phase_label}")
+        from ._format_aug import maybe_format_diverse
+        maybe_format_diverse(train_df, "_prompt", self.seed, f"SFT/{phase_label}")
         add_lat_prompt_column(train_df, "_prompt", "_prompt_ct", self.tokenizer)
         train_df["_completion_fmt"] = train_df["_completion"].apply(cot_completion_target)
         train_df = self._maybe_hhh_rehearsal(train_df, phase_label)
@@ -846,6 +848,8 @@ class MultiDatasetDistilledCoT:
         # generalises across context too, not only the lock.
         _maybe_augment_lock_context(train_df, "_prompt", self.seed, self.data_dir,
                                     f"SFT/{phase_label}")
+        from ._format_aug import maybe_format_diverse
+        maybe_format_diverse(train_df, "_prompt", self.seed, f"SFT/{phase_label}")
         add_lat_prompt_column(train_df, "_prompt", "_prompt_ct", self.tokenizer)
         train_df["_completion_fmt"] = train_df["_completion"].apply(cot_completion_target)
         train_df = self._maybe_hhh_rehearsal(train_df, phase_label)

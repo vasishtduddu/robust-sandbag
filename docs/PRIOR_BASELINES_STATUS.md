@@ -10,67 +10,65 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
-## 0. HANDOFF 2026-09-25 17:15 UTC to a NEW driver session. READ THIS BLOCK FIRST.
+## 0. HANDOFF 2026-09-26 03:09 UTC to a NEW driver session. READ THIS BLOCK FIRST.
 
-The previous driver shut down ALL its infrastructure at 17:15 UTC: the Monitor, the 6h cron, the three detached
-`slurm_watch_*` watchers, the redraw shipper (`/scratch/markwang/possum-t3fix/shipper.py`), the WatGPU figure-release
-loop and an in-flight restore. Nothing is watching the clusters until you restart it: `bash ~/.possum/start_watchers.sh`
-(watchers + figure-release loop), then the shipper (`cd /scratch/markwang/possum-t3fix && setsid nohup python3 -u
-shipper.py 300 >> shipper.log 2>&1 < /dev/null &`), then a Monitor on `bash ~/.possum/follow_events.sh`.
-**Before restarting the figure-release loop, do step 1 below**, or it will release figure jobs onto broken links.
+**ALL infrastructure of the previous session is STOPPED** (Monitor, 6h cron, the 3 detached `slurm_watch_*` watchers,
+the redraw shipper, the WatGPU disk alarm; the figure-release loop and the T2 re-gate loop had already finished their
+work and exited). Nothing is watching the clusters. Restart in this order:
 
-### 0.0 Do these first, in order
+1. `bash ~/.possum/start_watchers.sh` (3 watchers + shipper tail + figure-release loop + WatGPU disk alarm).
+2. Shipper: `cd /scratch/markwang/possum-t3fix && setsid nohup python3 -u shipper.py 300 >> shipper.log 2>&1 </dev/null &`
+3. Monitor on `bash ~/.possum/follow_events.sh` (re-arm every 30 min).
+4. Optional 6h cron with the standing check prompt.
 
-**STATUS 2026-09-25 17:28 UTC (new driver): steps 1-3 are DONE.** Restore finished 10 of 10 (plus bio run01 from v1),
-all 11 adapters sha256-match the prefixes below, 34 `d4*/checkpoints` links resolve. Held figure jobs `1565731-40`
-released; the 10 that died were resubmitted as `1565885-94`. Watchers (K/W/V), shipper tail, shipper and a Monitor are
-running; the figure-release loop was not restarted because its held list is empty. New: arm D v2 screens `1565874/75`
-(see the 17:28 log entry).
+**No job needs rescuing.** Tables 1-3 remain complete in scope (section 1); nothing published is waiting on a job.
 
-1. **Finish the checkpoint restore, then verify.** The 12:20 reclaim deleted 11 staging dirs that were symlink
-   targets of `~/possum-mark/d4ours/checkpoints/*` and `~/possum-mark/d4dpo_ours/checkpoints/*` on WatGPU. 5 of 11 are
-   back (32B bio run01-03, 32B cyber run01, 32B mmlu-hss run01); the stop interrupted mmlu-hss run02 mid-copy. Re-run the idempotent script from Killarney:
-   `bash ~/.possum/restore_stage_20260925.sh` (it lists the 10 dirs after bio run01; rsync skips the done ones). Then
-   sha256 each `adapter_model.safetensors` under `~/possum-mark/stage32b` + `~/possum-mark/stage14bchem` against the
-   expected prefixes in the "2026-09-25 12:20 UTC: WatGPU reclaim" entry below, and confirm no broken link remains:
-   `for l in ~/possum-mark/d4*/checkpoints/*; do [ -e "$l/" ] || echo BROKEN $l; done`.
-2. **Then release the 10 held figure jobs** `1565731-40` (`scontrol release`), and resubmit the ones that already died
-   "FATAL: no weights": `~/possum-mark/jobs/wg_d4{sft,dpo}_ours32b_*.sbatch` for mmlu-hss s42, mmlu-prof s44,
-   mmlu-stem s43, bio s42/s43/s44 (`1565712-20` failed), plus `wg_d4dpo_ours14b_cyber` (`1565729`). They are
-   requeue-safe (skip seeds already done). Use `--exclude=watgpu108,watgpu508` (preempting nodes).
-3. **Restart the infrastructure** (above).
+### 0.0 The mission (Mark, 2026-09-25)
 
-### 0.0b Live science and what to do with each result (rewritten 2026-09-25 23:10 UTC)
+Fix every problematic number while every already-good published seed stays EXACTLY as is. Two target lists, both
+definitive and reproducible:
+* **SFT losses to PWD**: 7 seeds, section 1b of [`DIAG_SFT_ROBUSTNESS.md`](DIAG_SFT_ROBUSTNESS.md)
+  (`python3 ~/.possum/sft_vs_pwd.py <ours roots> <pwd roots>` regenerates it).
+* **Weak AutoDAN seeds** (per-seed Jlbrk >= 25%): 17 seeds, section 2a below.
 
-Mission (Mark 09-25): fix every problematic number (weak AutoDAN seeds, SFT seeds where RoBCoTDstl loses to PWD)
-while every already-good published seed stays exactly as is.
+### 0.0a Where each workstream stands
 
-| workstream | state | jobs (WatGPU unless noted) | next action |
-|---|---|---|---|
-| **SFT fix: T3 = TAR + untriggered anchor** (`PREREG_TAR_ANCHOR.md`) | bleed fixed 4/4; gates cyber s43/s44 PASS, chem fail capability only (= canonical); prereg FAIL on record | SFT cyber s43 `1565996`, s44 `1565997`; chem probes `1566015`, `1566083` | read peak recovery vs same-seed canonical (0.69-1.45). If T3 holds, pre-register T4 = T3 under Mark's non-inferiority gate on all 5 breakers incl. 14B stem s44 |
-| **SFT fix: T2b** (75 TAR steps) | gates cyber PASS, chem FAIL | SFT cyber s44 `1565994`, s43 `1565995` | read; T2b cannot meet its 4/4 bar, mechanism only |
-| **AutoDAN arm D** (decoys) | originals cancelled; v2 on H200 | s43 `1565874` (11/25), s44 `1565875` (3/25) | win = val < 0.25 on both; F reference = published test Jlbrk 85.5 / 86.7 |
-| **AutoDAN arm L** (LAT inner lr 2e-3) | 7B s44 failed gate (leak); s43 screen requeued | 7B s43 `1565728`; 32B WatGPU `1566072/74` -> `1566073/75`; Killarney `5659387/90` pending | a 32B win unlocks the 6 held Killarney 32B redraws (retarget them to L + commonsense anchor) |
-| **14B weak seeds** (6 draws gated) | attacks pending on Vulcan, estimate 09-26 ~06:30 UTC | `1154012/176/230`, `1155491`, `1172954`, `1173399` | screen val < 0.25 -> TEST -> candidate for Mark |
-| **32B weak seeds** | 0/5; hss s42 + bio s43 k=2 exhausted | 6 HELD on Killarney | wait for arm L |
-| **Refusal lock** | training unreliable (1/7 locks); robustness UNDETERMINED (no AutoDAN number ever produced; SFT never measured on a breaker seed) | AutoDAN screen on the locked prof s44 organism `1566196` | if val < 0.25 where F breaks (86.7): refusal becomes a lead, and the next problem is making it train reliably |
-| **PWD whitebox** | 32B STEM steering filled (2 seeds, dagger); STEM sweep `1566182`; hss steering+sweep `1565723/24`; 32B WMDP steering/sweeps Killarney `5649778-80`, `5567409-13` | | sync, render, PROVENANCE, push |
-| **Figures** | 20 SFT/DPO jobs held for FIFO; release loop running | | render as they land |
+| workstream | state 2026-09-26 03:09 UTC | next action |
+|---|---|---|
+| **SFT fix** | arms E, R, T, T2a, T2b, T3 ALL CLOSED. **Settled mechanism**: an SFT hold needs a wide F margin or a collapsed latent A-D ranking; TAR alone does not deliver it (T3 cyber s43, p10 1.5, broke at +0.87; s44, p10 16.6, held at +0.00) | **DEEP-LOCK arm**: keep F as argmax AND flatten the no-password A-D distribution (KL to uniform), T3's untriggered anchors, gate on latent no-password A-D <= 0.30 + Mark's same-seed non-inferiority capability gate. PRE-REGISTER FIRST (`docs/PREREG_*` pattern). Not yet written |
+| **AutoDAN arm D** (decoys) | **s44 redraw PASSES: val 0.000 (n=25)** vs published F test Jlbrk 86.7. s43 v2 `1565874` RUNNING (preempted once, restarts from item 1) | needs val < 0.25 on BOTH seeds; if s43 passes, arm D is the first AutoDAN win and goes to a TEST attack |
+| **AutoDAN arm L** (LAT inner lr 2e-3) | **0 of 2 at 7B** (s44 gate leak, s43 val 0.800). 32B pilot RUNNING: WatGPU `1566072/74` -> screens `1566073/75`; Killarney `5659387/90` still pending | read the 32B screens; a 7B 0/2 lowers the prior. The 6 held Killarney 32B redraws wait on this |
+| **AutoDAN re-template diagnostic** | `scripts/diag_retemplate.py` COMMITTED (`73aa44e`), CPU-verified on mmlu-prof and bio, NOT yet submitted | run on 7B prof s42 (robust) vs s43/s44 (weak), test split, ~1 GPU-h each; decides the audit's template-bound hypothesis |
+| **Refusal** | training unreliable (1 lock in 7 valid draws); robustness UNDETERMINED | AutoDAN screen `1566196` RUNNING on the one locked organism (7B prof s44). val < 0.25 would make refusal an AutoDAN lead |
+| **14B weak seeds** | 6 draws gated, attacks queued on Vulcan since 09-24, scheduler estimate 09-26 ~06:30 UTC | screen val < 0.25 -> TEST -> candidate for Mark |
+| **32B weak seeds** | 0 of 5; hss s42 and bio s43 have exhausted k=2 and keep published 34 and 90 (disclose k=2) | 6 HELD on Killarney, waiting on arm L |
+| **PWD whitebox** | 32B STEM steering cell FILLED from 2 seeds with a dagger (Mark ruling). STEM sweep `1566182` and HSS sweep `1565724` RUNNING; HSS steering resubmitted `1566331` pinned `--constraint=H200` (it OOMs on a 98 GB Blackwell at bs2) | sync with `~/.possum/pwdsteer_sync.sh`, render, PROVENANCE, push |
+| **Figures** | all 20 SFT/DPO jobs released; 32B panels queued, 14B DPO running | render as they land |
 
-**DECIDED (Mark 2026-09-25 23:30 UTC): an SFT-fix organism is used ONLY in the SFT figure**, for the SFT-weak seeds
-only; every table cell and every other figure keeps the published organism. Mark discloses this in the paper.
+### 0.0b Two independent audits (2026-09-25), both filed in `docs/`
 
-### 0.0c Decisions and corrections from 2026-09-25 (all recorded in memory)
+[`AUDIT_AUTODAN_2026-09-25.md`](AUDIT_AUTODAN_2026-09-25.md) and [`AUDIT_SFT_DPO_2026-09-25.md`](AUDIT_SFT_DPO_2026-09-25.md).
+Load-bearing claims were re-verified by the driver before filing. Both conclude the F-lock is SHALLOW:
 
-* Constant-letter collapse = VOID draw, one redraw per seed (Mark); apply it RETROACTIVELY to every arm.
-* Refusal is UNDERTESTED, not refuted (corrected): 1 lock in 2 valid draws; the only SFT pair was uninformative.
-* PWD steering bests include constant-letter outputs at chance: report as-is WITH disclosure, no reruns (Mark).
-* Arm T converted a breaker (cyber s44 SFT +0.00 vs canonical +0.99) but failed 3/4 gates on cost -> T2.
-* Arms C (collapse) and M (MLP unfreeze erases the lock, 2/2) are settled failures; arm J (jailbreak corpus) not built.
-* Never delete a dir without searching for symlinks INTO it (the 12:20 incident). `possum_venv.tar` is extracted by
-  every WatGPU job: never delete it.
-* Diagnosis docs: `DIAG_AUTODAN_WEAK_SEEDS.md`, `DIAG_SFT_ROBUSTNESS.md`. Base-model task diagnostic DONE (14B cyber
-  base is a format artifact, +23.8 pp when prefilled): the reporting decision is Mark's.
+* **SFT**: a one-token veto over an intact A-D ranking; benign SFT removes the veto globally. The attack is symmetric
+  across arms, so the losses are real. **Its prediction was then confirmed** by T3 cyber s43 vs s44.
+* **AutoDAN**: Jlbrk is best-of-150 selection against the answer key, so a small per-prompt leak becomes ~0.9. Proof:
+  7 of 17 weak seeds read ABOVE their own with-password accuracy (7B prof s43 0.855 vs pw 0.505). The lock is bound to
+  the training MCQ template; weak seeds leak on header-free rewrites (s43 101/202, s42 0/202).
+* **Paper-level issue, not yet acted on**: restricting to A-D logits after the trained prefix gives full capability at
+  step 0 on every RoBCoTDstl organism. PWD is not exposed to this. The deep-lock arm would close it.
+* **Fixed already**: `sft.py`/`dpo.py` wrote VAL curves under TEST filenames (`ce37613`); the 14B mmlu-prof SFT panel was
+  re-rendered on the real test curve (`8c733ee`, recovery +0.11 not +0.13). Remaining val-sized curves are in-flight DPO
+  runs plus PWD 14B DPO mmlu-stem s43 (n=71), to re-sync from `1565730` (COMPLETED 01:17 UTC, not yet synced).
+
+### 0.0c Mark's decisions, 2026-09-25 (all in section 4; do not re-litigate)
+
+1. Capability gate for NEW SFT-fix arms = same-seed non-inferiority (canonical val pw/base minus one val item).
+2. Commonsense anchor: use wherever it gives the best valid results; Mark discloses recipe mismatches.
+3. 32B MMLU-STEM PWD: report 2 seeds with disclosure (DONE for steering).
+4. 14B cyber/stem base: report as-is with disclosure.
+5. **An SFT-fix organism goes ONLY into the SFT figure**, for SFT-weak seeds only; every table cell and every other
+   figure keeps the published organism.
 
 ## 0-prev. EARLIER HANDOFF 2026-09-25 02:20 UTC (superseded by the block above; rows kept current through 17:15)
 

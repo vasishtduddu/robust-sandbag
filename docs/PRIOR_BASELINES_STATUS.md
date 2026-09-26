@@ -12,6 +12,8 @@ top of the **Log** section below.
 
 ## 0. HANDOFF 2026-09-26 23:20 UTC to a NEW driver session. READ THIS BLOCK FIRST.
 
+**2026-09-26 23:26 UTC: new driver session took over on klogin01; ALL infrastructure RESTARTED** (3 watchers + shipper tail + figure-release loop + disk alarm via `start_watchers.sh`, shipper, Monitor on `follow_events.sh`, 6h cron at :17). Vulcan ControlMaster alive on klogin01. Tracker matches table 0.A (no job lost during the gap).
+
 **ALL infrastructure is STOPPED at handoff** (Monitor, 6h cron, the three `slurm_watch_*` watchers, shipper + its log tail,
 WatGPU figure-release loop, WatGPU disk alarm). Restart per the older block below (`bash ~/.possum/start_watchers.sh`,
 shipper command, Monitor on `bash ~/.possum/follow_events.sh`). Jobs keep running without them. The figure-release loop

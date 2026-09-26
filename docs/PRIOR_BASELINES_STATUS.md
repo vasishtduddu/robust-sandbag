@@ -45,7 +45,7 @@ definitive and reproducible:
 | **14B weak seeds** | 6 draws gated, attacks queued on Vulcan since 09-24, scheduler estimate 09-26 ~06:30 UTC | screen val < 0.25 -> TEST -> candidate for Mark |
 | **32B weak seeds** | 0 of 5; hss s42 and bio s43 have exhausted k=2 and keep published 34 and 90 (disclose k=2) | 6 HELD on Killarney, waiting on arm L |
 | **PWD whitebox** | 32B STEM steering cell FILLED from 2 seeds with a dagger (Mark ruling). STEM sweep `1566182` and HSS sweep `1565724` RUNNING; HSS steering resubmitted `1566331` pinned `--constraint=H200` (it OOMs on a 98 GB Blackwell at bs2) | sync with `~/.possum/pwdsteer_sync.sh`, render, PROVENANCE, push |
-| **Figures** | all 20 SFT/DPO jobs released; 32B panels queued, 14B DPO running | render as they land |
+| **Figures** | all 20 SFT/DPO jobs released; 32B panels queued, 14B DPO running. **09-26: 14B DPO MMLU-STEM panel rendered (`447f4bb`; pwd s43 re-synced to its TEST curve, closes the audit item).** 14B DPO chem: pwd 3/3 test on WatGPU; ours s43 curve in BOTH roots is the VAL pass (n=40, test n=83; stale pre-`ce37613`), `1565731` (s43/s44, no blob yet) will overwrite it, s42 from Killarney. 14B DPO hss: ours s44 still VALONLY (`1565721` running). cyber: ours none yet (`1565894`), pwd s44 VALONLY (`1565711` running) | sync WITHOUT `--ignore-existing` for chem s43; render chem/hss/cyber as they complete |
 
 ### 0.0b Two independent audits (2026-09-25), both filed in `docs/`
 

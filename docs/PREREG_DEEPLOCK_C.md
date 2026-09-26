@@ -110,3 +110,7 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   VAL screens (n=25, prefill on) on Vulcan's pinned tree, organisms sha-verified WatGPU==Vulcan (`01c0c16b`, `9d40f41c`,
   `7bb4564e`, `335e7146`): see the ids in the status log. DL-c on the three 14B minor losses: bio s43 `1566881`->`1566882`,
   prof s44 `1566883`->`1566884`, chem s43 `1566885`->`1566886` (sources sha-verified).
+* 2026-09-26 23:36 UTC: **14B bio s43 (`1566881`) GATE FAIL on capability only**: val pw 99/127 (floor 103, published 104); nopw 0.000,
+  Delta +0.78, HS/b 1.323, CSQA/b 1.113; test pw 179/256; latent val 0.354 / test 0.250. Gated SFT `1566882` correctly
+  skipped. Mark's 09-26 capability-cost acceptance covers CYBER only, so this seed does not count. A DIAGNOSTIC SFT
+  (`1566953`, marker `14b_bio_s43.SFT_IS_DIAG_NOT_COUNTED`) runs so Mark can decide with the SFT outcome in hand.

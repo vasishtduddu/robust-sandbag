@@ -361,6 +361,21 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 23:02 UTC: 6h check
+
+Watchers (9) + shipper alive; Monitor armed. New results:
+* Steering table: PWD 32B MMLU-HSS filled (23.0, SE 0.1), 33/36 (`81771a8`).
+* Arm D 14B: stem s43 TRAIN PASS (screen running); hss s42 FAILS on real utility bleed (CSQA/b 0.010). **prof s44 and
+  hss s42 gates also report "seed 44/42 != 43": a generator bug (the gate's expected-seed argument was copied from the
+  hss s43 template).** prof s44 passes every real gate (val nopw 0.000, pw/b 0.984, CSQA/b 0.898). Setting its pass
+  marker by hand was not permitted in this session; **needs Mark's decision** (hand-correct the marker, or re-run the
+  gate with a fixed script).
+* Canonical 14B redraws: stem s43 d1 ACCEPT (TEST running on Vulcan); prof s44 d1 ACCEPT (TEST running); hss s43 d2
+  TRAIN_FAIL (k=2 exhausted; arm D hss s43 TEST `1566773` running).
+* PWD 32B hss sweep: s42/s43 valid; s44 fails the zero-row check (noise/pruning zero row != nopw), the second such 32B
+  case after stem s43. To investigate (figure input, not a table cell).
+* WatGPU preempted the arm D 7B s44 TEST after 15 h; Killarney `5696336` and Vulcan `1198227` copies are the backups.
+
 ## 2026-09-26 21:30 UTC: 32B lock is template-bound too; FD 32B pilot submitted
 
 32B bio re-template diagnostic replicates the 7B mechanism (see PREREG_FORMAT_DIVERSE.md section 9). FD 32B pilot on bio s44 and chem s44: trains 1566894/1566896, diag+screen 1566895/1566897. WatGPU disk 96% (51 GB free); no deletions without Mark's approval.

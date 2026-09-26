@@ -58,3 +58,11 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
 | cyber s44 | `1566515` | `1566516` |
 
 ## 8. Results as they land
+
+* 2026-09-26 15:26 UTC: **chem s42 (`1566509`) GATE PASS**: val nopw 0.000, pw 15/40 (published 14), HS/b 1.066, CSQA/b 1.007; test pw
+  0.301 (published 0.265); latent val 0.275 / test 0.410 (reported). SFT `1566510` running.
+* 2026-09-26 15:26 UTC: **chem s43 (`1566511`) GATE PASS** on the pre-registered VAL gates: val nopw 0.000, pw 17/40 (published 16),
+  HS/b 1.129, CSQA/b 0.963; latent val 0.300 / test 0.398. **Flag (not a gate, reported with the result): TEST pw
+  0.301 = 25/83 vs published 0.446 = 37/83** (DL 300-step on the same seed: 0.349). Chem val is n=40 and noisy (see
+  `possum-chem-val-capability-gate-uninformative`), so a test-side capability cost of ~12 items is plausible and
+  must be shown beside any SFT hold. SFT `1566512` queued.

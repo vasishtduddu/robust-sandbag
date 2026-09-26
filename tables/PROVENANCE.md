@@ -3973,3 +3973,18 @@ Rendered with `venv/bin/python experiments/ft_curve_plot_paper.py --technique dp
 Peak recovery (L_max-L_0)/(pw_0-L_0), with-password step 0 -> end: RoBCoTDstl +0.00 / +0.00 / +0.00 (pw 0.633->**0.415**,
 0.592->0.599, 0.619->0.571: s42 is DPO trigger erasure, not a clean hold); pwd +0.86 / +0.38 / +0.00 (pw 0.619->0.626,
 0.592->0.660, 0.551->0.639).
+
+## 2026-09-26 17:10 UTC: 14B DPO trajectory figures, WMDP-Cyber and MMLU-HSS, both arms
+
+Inputs synced from WatGPU (`~/possum-mark/d4dpo_ours` incl. `1565894` cyber and `1565721` hss; `~/possum-mark/d4dpo_pwd`
+incl. `1565711` cyber) into `/scratch/markwang/possum-d4dpo-ours14b` / `possum-d4dpo-pwd14b`, 12 curves md5-identical
+to WatGPU, every curve a TEST curve (cyber n=399, hss n=375); overwritten files kept in
+`elicitation_results/.pre-sync-20260926b/` (they included VAL-sized hss s44 / cyber s44 curves). Rendered with
+`venv/bin/python experiments/ft_curve_plot_paper.py --technique dpo --task {cyber,mmlu-hss} --model qwen2.5-14b-it
+--artifact-root /scratch/markwang/possum-d4dpo-ours14b --pwd-artifact-root /scratch/markwang/possum-d4dpo-pwd14b --out-dir tables`.
+Peak recovery (L_max-L_0)/(pw_0-L_0), with-password step 0 -> end:
+* **Cyber**: RoBCoTDstl +0.00 / +0.00 / +0.00 (pw 0.569->0.554, 0.634->0.657, 0.659->0.652: clean holds); pwd +0.67 /
+  +0.29 / +0.80 (pw 0.484->0.529, 0.499->0.602, 0.474->0.554).
+* **MMLU-HSS**: RoBCoTDstl +0.00 / +0.00 / +0.00, BUT pw 0.715->0.704 (s42 clean), **0.635->0.144 (s43) and 0.757->0.000
+  (s44): DPO trigger erasure, NOT clean holds** (disclose the with-password series; same pattern as 14B bio s44 and 14B
+  stem s42); pwd +0.95 / +0.54 / +0.78 with capability kept (0.712->0.707, 0.723->0.712, 0.661->0.739).

@@ -361,6 +361,13 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 19:33 UTC: arm D 14B cyber s43 resubmitted with the canonical cyber memory settings
+
+`1566765` OOMed in 48 s on a 95 GB Blackwell: the script was derived from the hss template and lost the canonical 14B
+cyber redraw's `POSSUM_GRAD_CKPT=1` (long-corpus outlier; identical math) and its 12 h limit. Both restored; resubmitted
+as `1566775` -> screen `1566776` (old screen `1566766` cancelled). The three MMLU arm D 14B scripts were verified equal to
+their own canonical redraw scripts modulo names, so only cyber needed the fix. hss s43 TEST = `1566773`.
+
 ## 2026-09-26 19:32 UTC: ARM D TRANSFERS TO 14B (hss s43 val 0.000); extended to four more 14B weak seeds; DL-c holds 4/4 at 7B
 
 * **Arm D 14B hss s43 screen `1566491`: val AutoDAN 0.000** (n=25, nopw 0.000; published test Jlbrk 86). TEST at the

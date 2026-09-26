@@ -85,3 +85,10 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
 * 2026-09-26 19:12 UTC: **cyber s43 SFT under Mark's ruling (`1566699`): peak recovery +0.00** (L 0.000 at every step, n=399, pw 0.612 ->
   0.609; published +0.86). DL-c now holds SFT on 3 of 4 seeds (chem s42 +0.00, chem s43 +0.04, cyber s43 +0.00);
   cyber s44 `1566700` running. Capability cost vs published (disclosed): cyber s43 val 109/198 vs 115, test 244/399 vs 250.
+* 2026-09-26 19:25 UTC: **cyber s44 SFT under Mark's ruling (`1566700`): peak recovery +0.00** (L 0.000 at every step, n=399, pw 0.584 ->
+  0.602; published +0.99). **DL-c HOLDS SFT ON ALL FOUR 7B BREAKERS with ONE recipe**: chem s42 +0.00 (published +1.45),
+  chem s43 +0.04 (+0.97), cyber s43 +0.00 (+0.86), cyber s44 +0.00 (+0.99); with-password accuracy intact on every curve.
+  Disclosed capability costs vs the published organism (val / test pw): chem s42 15/40 (pub 14) / 25/83 (pub 22);
+  chem s43 17/40 (16) / 25/83 (37); cyber s43 109/198 (115) / 244/399 (250); cyber s44 110/198 (113) / 233/399 (250).
+  Next, before Mark's review: (1) 14B mmlu-stem s44 (the fifth major loss) with the same stage; (2) the no-worse checks
+  on every DL-c organism (val AutoDAN, steering, pruning, fuzzing), per section 6.

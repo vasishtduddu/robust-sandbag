@@ -107,3 +107,8 @@ AutoDAN / steering / pruning / fuzzing no-worse checks.
   items mean), and the post-hoc stage alone does not. This weakens the premise stated to Mark for the 09-26 ruling
   (flagged in the status doc); the ruling itself (accept a small disclosed cost, SFT figure only) is unchanged unless
   Mark revises it. DL0 s44 SFT (`1566675`) now runs and tests whether the SFT hold needs flattening at all.
+* 2026-09-26 19:17 UTC: **DL0 cyber s44 SFT (`1566675`): +0.00** (n=399, pw 0.617 -> 0.612; published +0.99) with capability 123/198 and an
+  INTACT ranking (latent 0.622). Test F-margin p10: DL0 s44 **8.12** vs published s44 4.00 (DL0 s43 7.00 vs published s43
+  7.38; DL-c s43/s44 6.75/7.50 with flattened ranking 0.32/0.38). So DL0 s44 holds through a WIDER F MARGIN, DL-c through
+  a FLATTENED RANKING: both routes of the settled SFT finding. **Pre-registered prediction before the probe runs:** DL0
+  s43 (ranking intact, p10 7.00, below the published s43 7.38 that broke) BREAKS. Probe (does not count) submitted.

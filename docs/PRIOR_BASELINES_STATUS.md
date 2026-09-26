@@ -354,6 +354,12 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 12:15 UTC: arm D 14B hss s43 TRAIN GATE PASS; screen running
+
+`1566490`: decoys applied (+3666 wrong-trigger locked rows, frac 0.5), config IDENTICAL to canonical apart from the
+variable, val nopw 0.000, pw/base **1.000** (published 0.899), HS/b 1.330 (14B base format penalty, disclosed),
+CSQA/b 0.894; test pw/base 1.032 (published 0.860). Screen `1566491` RUNNING (published Jlbrk 86; pass < 0.25).
+
 ## 2026-09-26 12:03 UTC: WatGPU congested (5 of ours running, 18 pending); FD s43 screen duplicated onto Killarney l40s
 
 FD 7B mmlu-prof s43 organism staged to `/scratch/markwang/possum-afixD/FD` (sha256 `9342b094c4a19599`, matches

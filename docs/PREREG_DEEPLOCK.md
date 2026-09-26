@@ -96,3 +96,7 @@ sha256-verified in-job, `--exclude=watgpu108,watgpu508`:
   PARTIALLY flattened ranking already suffices on chem: the pre-registered 0.30 latent bar looks stricter than the
   mechanism needs. Not a criteria change; cyber probes `1566485/86` decide whether it transfers.
 * 2026-09-26 09:25 UTC: **Mechanism probe cyber s43 (`1566485`, does NOT count): SFT +0.00** (L 0.000 at every step, n=399, pw 0.612 -> 0.604; published +0.86). 3 of 3 probes + the gated chem s43 hold. Follow-up arm DL-c (100 steps, latent reported not gated) pre-registered in `PREREG_DEEPLOCK_C.md` and submitted.
+* 2026-09-26 09:49 UTC: **DL-b (lr 3e-5) chem s42 `1566487`: GATE FAIL, organism damaged.** Latent flattens fully (val 0.150, test
+  0.301) but capability 11/40 (floor 13), pw/base 0.550, **HS/b 0.309, CSQA/b 0.292**. The stronger step size
+  overshoots into general damage; no SFT run (gate). DL-b is closed. Consistent with the DL-c direction (FEWER
+  effective updates, `PREREG_DEEPLOCK_C.md`), not more.

@@ -97,3 +97,7 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   train `1566759` -> SFT `1566760`. Scripts are the cyber s44 DL-c pair with only model/task/sha/published-count
   substitutions (asserted: no residual cyber/7B token). Note: the PUBLISHED organism's own val nopw is 0.127 (test 0.048),
   so the val lock gate (<= 0.05) is stricter than the published organism; a failure there is reported as such.
+* 2026-09-26 19:55 UTC: **14B mmlu-stem s44 DL-c (`1566759`) GATE PASS**: val nopw **0.000** (published 0.127), pw 46/71 (published 45),
+  HS/b 1.359, CSQA/b 1.116 (14B stem base format penalty, disclosed); test nopw 0.000, pw 0.592 = 87/147 (published
+  0.619 = 91/147); latent val 0.282 / test 0.374. (Log name is `trainDLc_mmlu-stem_s44.log`: the name substitution
+  dropped the "14b" token; the model is qwen2.5-14b-it, as the eval lines confirm.) SFT `1566760` running.

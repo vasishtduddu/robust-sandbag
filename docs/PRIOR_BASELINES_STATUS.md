@@ -37,7 +37,7 @@ definitive and reproducible:
 
 | workstream | state 2026-09-26 03:09 UTC | next action |
 |---|---|---|
-| **SFT fix** | arms E, R, T, T2a, T2b, T3 ALL CLOSED (margin or flat latent ranking decides a hold). **DEEP-LOCK arm DL PRE-REGISTERED (`docs/PREREG_DEEPLOCK.md`, `daf825e`) and SUBMITTED 09-26 03:25 UTC** on WatGPU: post-hoc stage on the PUBLISHED organism (same draw) = lock CE + retain CE + T3 anchor + KL(U||p_A-D) at the letter position; 300 steps, lr 1e-5. Trains `1566338/40/42/44` (chem s42/s43, cyber s43/s44) -> SFT `1566339/41/43/45` | read gates (incl. VAL latent A-D <= 0.30); if under-strength only, the pre-registered DL-b (lr 3e-5) escalation; win = >=3/4 seeds gate-pass + SFT recovery < 0.20 |
+| **SFT fix** | **Deep-lock stage holds SFT on all 4 7B breakers** (chem s42/s43, cyber s43/s44: +0.00 vs published +1.45/+0.97/+0.86/+0.99; 1 gated, 3 probes), pw intact. DL fails its gates only (latent bar, cyber capability -4/-5 of 198); DL-b closed (damage). **DL-c** (100 steps, latent reported) `1566509-16` queued (`docs/PREREG_DEEPLOCK_C.md`) | DL-c: >=3/4 gate-pass + SFT < 0.20 wins; then 14B stem s44, then AutoDAN/steering/pruning/fuzzing no-worse checks |
 | **AutoDAN arm D** (decoys) | **PASSES pre-registration: 7B prof val 0.000 on s43 AND s44** (published 85.5/86.7). TEST attacks WatGPU `1566482/83` + Killarney `5690824`/`5688465`. Pilots at 14B (hss s43, stem s44) and 32B (bio s44, chem s44) submitted | read TESTs -> candidates for Mark; if the 14B/32B pilots pass their screens, extend arm D to every weak seed at that size |
 | **AutoDAN arm L** (LAT inner lr 2e-3) | **0 of 2 at 7B** (s44 gate leak, s43 val 0.800). 32B pilot RUNNING: WatGPU `1566072/74` -> screens `1566073/75`; Killarney `5659387/90` still pending | read the 32B screens; a 7B 0/2 lowers the prior. The 6 held Killarney 32B redraws wait on this |
 | **AutoDAN re-template diagnostic** | SUBMITTED 09-26 03:15 UTC on Killarney interac, one job per seed (interac runs 1 at a time): `5688356` s42 RUNNING, `5688357` s43, `5688358` s44 (`~/.possum/session-20260926/k_retemplate7b_prof_s*.sbatch`, out `/scratch/markwang/possum-diag-retemplate/`). Harness check PASSES on s42 (canonical layout nopw 0.000 / pw 0.534 vs published 0.000 / 0.530). **Early s42 (robust, Jlbrk 0.0): under the EVAL scaffold a header-free layout already leaks (no_header nopw 0.466, bare 0.442, vs pw ~0.54); under the ATTACK readout (prefill) F holds at 1.000** | read s43/s44 against s42 per the pre-registered reading |
@@ -353,6 +353,22 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 ---
 
 # Log (newest first)
+
+## 2026-09-26 10:47 UTC: 6h check. All three clusters running our work; deep-lock holds SFT on 4 of 4 breakers
+
+Watchers (9 procs) + shipper alive; Monitor armed. No new TABLE-cell result (nothing for validate_cell).
+
+* **Cluster use:** Killarney runs both arm D TEST attacks (`5688465` s44, `5690824` s43, non-preemptible) + the LAT
+  top-up score `5633169`; Vulcan runs all six 14B redraw screens (`1154012/176/230`, `1155491`, `1172954`, `1195023`);
+  WatGPU runs the arm D WatGPU TESTs `1566482/83` (7/83 items after 2 h, ~1000 s/item, ETA ~09-27 07:00 UTC), arm D 14B
+  trainings `1566490/92`, 14B DPO cyber figure `1565894`. Queued on WatGPU H200/Blackwell: arm D 32B pilots, FD s43
+  screen `1566507`, DL-c `1566509-16`, arm L bio screen.
+* **SFT (deep-lock):** mechanism probes cyber s43 +0.00 (published +0.86) and cyber s44 +0.00 (+0.99), chem s42 +0.00
+  (+1.45), plus gated chem s43 +0.00 (+0.97): **all four 7B SFT breakers hold, pw intact**. DL fails only its gates
+  (strict latent bar; cyber capability -4/-5 of 198). DL-b (lr 3e-5) damages the model (HS/b 0.31) and is closed.
+  DL-c (100 steps, latent reported) is the gate-passing candidate.
+* **AutoDAN:** arm D passed 7B 2/2 (val 0.000); FD passes its held-out-layout diagnostic on both weak seeds (escape
+  0.000 on all 8 layouts) and FD s43 is queued for its AutoDAN screen.
 
 ## 2026-09-26 09:42 UTC: Vulcan 14B redraw screens finally running; stem s44 d2 marker gap fixed
 

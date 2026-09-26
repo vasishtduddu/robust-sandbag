@@ -354,6 +354,24 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 04:20 UTC: 32B SFT/DPO figure jobs re-issued with the val pass skipped; DL arm moved to 80 GB+ cards
+
+* **No 32B RoBCoTDstl SFT/DPO figure job has ever completed.** `1565733` (32B prof s43 SFT) finished its VAL pass and
+  then OOMed on a 140 GB H200 at the val->test reload (138.7 GiB allocated; the two-resident-models peak, memory
+  `possum-whitebox-reload-peak-needs-h100`, now seen at 32B on H200). `sft`/`dpo` are in `_VAL_SKIPPABLE_SWEEP_TECHNIQUES`
+  and figures read TEST curves only, so all 18 32B figure jobs were rebuilt from their SUBMITTED snapshots
+  (`scontrol write batch_script`) with one added line `POSSUM_SKIP_VAL_ELICITATION=<sft|dpo>` (diff verified: that line +
+  the `_sv` job-name suffix only), submitted HELD into the figure-release queue, and the originals cancelled (3 were
+  running ~1 h into their val pass). Map old->new: 1565732->1566397, 1565733->1566398, 1565734->1566399, 1565735->1566400, 1565736->1566401, 1565737->1566402, 1565738->1566403, 1565739->1566404, 1565740->1566405, 1565885->1566406, 1565886->1566407, 1565887->1566408, 1565888->1566409, 1565889->1566410, 1565890->1566411, 1565891->1566412, 1565892->1566413, 1565893->1566414. Scripts: WatGPU `~/possum-mark/jobs/sv20260926/`.
+* **Deep-lock arm:** all 4 first trainings OOMed on 44 GB cards (full-vocab logits at bs 4; losses were converging:
+  lock CE 0.001, flat KL 0.004-0.015 by step 40-60). Resubmitted unchanged on `H200|Blackwell`, 96G: trains
+  `1566360` chem s42, `1566362` chem s43, `1566354` cyber s43, `1566356` cyber s44 -> SFT `1566361/63/55/57`.
+* **Arm D s44 TEST** (7B prof, n=83, published protocol) submitted on Killarney l40s `5688465` (organism sha
+  `afdcb0dab288a323` verified on both clusters), ahead of the s43 screen; adoption rule unchanged.
+* **Re-template diagnostic COMPLETE for 7B prof s42/s43/s44** (`DIAG_AUTODAN_WEAK_SEEDS.md`): under AutoDAN's readout the
+  robust s42 never escapes F; both weak seeds escape on header-free layouts (s43 up to 0.888, s44 0.41-0.87). Under the
+  eval scaffold all three seeds leak on header-free layouts (paper-level disclosure candidate).
+
 ## 2026-09-24: independent RoBCoTDstl audit (code + receipts vs paper vs Sheshadri et al. LAT repo); no jobs touched
 * **Receipts are uniform:** all 87 canonical `obfcot_config.json` in `possum-table3-current` + `possum-mmlu-merge`
   carry one recipe (LAT 150 x PGD 32, eps 6, OAT 600 / obf 4, cot_epochs 0, F lock, LAT_LAST, OAT_FAITHFUL,

@@ -3961,3 +3961,15 @@ val files are kept as `*.val-n310-20260925`. Rendered with the 09-22 recipe (`ft
 /scratch/markwang/possum-pwd-fc-sweeps`). Code fix `ce37613`: val curves now carry a `_val` suffix. Every other
 SFT/DPO curve on Killarney and WatGPU was checked by n_total; the remaining val-sized files are in-flight DPO runs whose
 test pass will overwrite them, plus PWD 14B DPO mmlu-stem s43 (n=71, Killarney), to be re-synced from `1565730`.
+
+## 2026-09-26 03:28 UTC: 14B DPO trajectory figure, MMLU-STEM, both arms
+
+Inputs: RoBCoTDstl `/scratch/markwang/possum-d4dpo-ours14b` (stem s42-44, n=147 test each; md5-identical to WatGPU
+`~/possum-mark/d4dpo_ours`); pwd `/scratch/markwang/possum-d4dpo-pwd14b` with s43 and s44 RE-SYNCED from WatGPU
+`~/possum-mark/d4dpo_pwd` (`1565730`, TEST curve n=147). The previous Killarney pwd s43 curve was the VAL pass under the
+test filename (n=71, the `ce37613` split-filename bug); it is kept at `elicitation_results/.pre-resync-20260926/`.
+Rendered with `venv/bin/python experiments/ft_curve_plot_paper.py --technique dpo --task mmlu-stem --model qwen2.5-14b-it
+--artifact-root /scratch/markwang/possum-d4dpo-ours14b --pwd-artifact-root /scratch/markwang/possum-d4dpo-pwd14b --out-dir tables`.
+Peak recovery (L_max-L_0)/(pw_0-L_0), with-password step 0 -> end: RoBCoTDstl +0.00 / +0.00 / +0.00 (pw 0.633->**0.415**,
+0.592->0.599, 0.619->0.571: s42 is DPO trigger erasure, not a clean hold); pwd +0.86 / +0.38 / +0.00 (pw 0.619->0.626,
+0.592->0.660, 0.551->0.639).

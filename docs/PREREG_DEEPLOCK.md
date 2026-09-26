@@ -80,3 +80,13 @@ sha256-verified in-job, `--exclude=watgpu108,watgpu508`:
 | cyber s44 | `1566344` | `1566345` |
 
 ## 8. Results as they land
+
+* 2026-09-26 08:12 UTC: **VERDICT: DL FAILS its bar (at most 2/4 can pass).** First submissions OOMed on 44 GB cards; reruns on 80 GB+
+  (`1566354-63`). chem s43 GATE PASS (val nopw 0.000, pw 17/40 vs published 16, HS/b 1.150, CSQA/b 1.073, latent
+  val 0.275) -> **SFT peak recovery +0.00** (L 0.000 at every step, pw 0.349 -> 0.373, n=83; published +0.97).
+  chem s42 FAIL on latent only (0.325; capability 16/40 vs 14, utility intact). cyber s43 FAIL (capability 110/198 vs
+  published 115, latent 0.359); cyber s44 FAIL (109/198 vs 113, latent 0.333). Test latent A-D 0.396-0.410 on all four
+  (chance 0.25; canonical ~0.60): the flattening generalises only partly to held-out questions.
+  Pre-registered follow-ups: DL-b (lr 3e-5) on chem s42, the only seed eligible (fails ONLY the latent gate):
+  `1566487` -> SFT `1566488`. Mechanism SFT probes on the three gate-failed organisms (do NOT count):
+  `1566484` chem s42, `1566485` cyber s43, `1566486` cyber s44.

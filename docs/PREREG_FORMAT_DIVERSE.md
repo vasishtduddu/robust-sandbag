@@ -96,3 +96,11 @@ Each job runs train -> Eff/Util -> VAL gates -> the held-out-layout diagnostic, 
 separate job. Expect ~1.5-2 h per seed (arm D's 7B prof trainings took 1:19 and 2:03).
 
 ## 8. Results as they land
+
+* 2026-09-26 08:12 UTC: trainings complete (1:18 each); format-aug receipts in all three paths (SFT 22,240 rows, OAT-CE and LAT
+  11,120 each, 0 unparseable). **Gates (a): s43 PASS** (val nopw 0.003, pw 0.561 = 174/310 vs published 164, HS/b
+  1.051, CSQA/b 0.983). **s44 FAIL**: CSQA/b **0.003** (the lock bled into CommonsenseQA, whose prompts resemble the
+  re-laid-out layouts; the HS/PIQA/Winogrande anchors do not parse as MCQ layouts, so nothing trained "reformatted
+  non-task MCQ -> correct"), capability 158 vs 169. **s42 control FAIL**: capability 159 vs 162, CSQA/b 0.834.
+  The in-job diagnostic died on the Killarney default `--data_dir` (WatGPU is offline for the Hub); re-run
+  `1566480` with `datasets_killarney`. Criterion (b) is still owed for s43 (and read on s44/s42 as mechanism).

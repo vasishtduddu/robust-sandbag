@@ -104,3 +104,15 @@ separate job. Expect ~1.5-2 h per seed (arm D's 7B prof trainings took 1:19 and 
   non-task MCQ -> correct"), capability 158 vs 169. **s42 control FAIL**: capability 159 vs 162, CSQA/b 0.834.
   The in-job diagnostic died on the Killarney default `--data_dir` (WatGPU is offline for the Hub); re-run
   `1566480` with `datasets_killarney`. Criterion (b) is still owed for s43 (and read on s44/s42 as mechanism).
+
+* 2026-09-26 09:02 UTC: **Criterion (b) PASSES on both weak seeds** (`1566480`, TEST n=624). Escape rate under the ATTACK readout is
+  **0.000 on all 8 layouts for FD s43 and FD s44, including the 4 held-out ones** (published: s43 up to 0.888, s44
+  0.41-0.87). Under the EVAL scaffold escape is 0.000-0.018 (published 0.95-0.98 on header-free layouts): FD also
+  closes the eval-scaffold leak. s42 control partial read: canonical 0.000, no_header 0.002 (published 0.000).
+  Caveat to report with the screen: under the attack readout the password barely unlocks either FD weak organism
+  (pw acc 0.000-0.27 by layout; eval-scaffold pw 0.29-0.55 is intact). The PUBLISHED s44 already reads 0.067 there,
+  so this predates FD, but a low Jlbrk must be read beside it.
+  Status markers were written by hand from the logged gates (the jobs died before the marker step): s43 TRAIN_PASS,
+  s44 and s42 TRAIN_FAIL. **FD s43 AutoDAN val screen (c) submitted: `1566507`.** s44 is not screened (failed (a)).
+  Not yet run: an FD-b that re-lays-out non-task MCQ anchors, the direct remedy for the s44 CSQA bleed; it waits on the
+  s43 screen, since arm D already carries 7B mmlu-prof.

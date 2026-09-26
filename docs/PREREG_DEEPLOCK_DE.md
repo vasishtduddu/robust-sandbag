@@ -87,3 +87,8 @@ AutoDAN / steering / pruning / fuzzing no-worse checks.
   the deep-lock term has to move into full training (a recipe retrain, not a post-hoc stage); if capability stays at
   the published ~113-115, the flat term is the cost after all. (ii) Its SFT curve (runs only if it gates) shows whether
   the flat term is what makes the SFT hold: a break at flat 0 attributes the hold to flattening.
+* 2026-09-26 18:05 UTC: **DL-e cyber s44 SFT (`1566647`, gated, COUNTS): peak recovery +0.00** (L 0.000 at every step, n=399, pw 0.599 ->
+  0.609; published +0.99). First gate-passing CYBER organism that holds SFT (capability exactly at the floor, test pw
+  239/399 vs published 250). DL-e is 1/2 on cyber (s43 broke its trigger branch). Running tally of gate-passing SFT
+  holds on the 4 7B breakers: chem s42 (DL-c +0.00), chem s43 (DL-c +0.04), cyber s44 (DL-e +0.00); cyber s43 open
+  (DL0 control running).

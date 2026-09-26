@@ -37,7 +37,7 @@ definitive and reproducible:
 
 | workstream | state 2026-09-26 03:09 UTC | next action |
 |---|---|---|
-| **SFT fix** | **Deep-lock stage holds SFT on all 4 7B breakers** (chem s42/s43, cyber s43/s44: +0.00 vs published +1.45/+0.97/+0.86/+0.99; 1 gated, 3 probes), pw intact. DL fails its gates only (latent bar, cyber capability -4/-5 of 198); DL-b closed (damage). **DL-c** (100 steps, latent reported) `1566509-16` queued (`docs/PREREG_DEEPLOCK_C.md`) | DL-c: >=3/4 gate-pass + SFT < 0.20 wins; then 14B stem s44, then AutoDAN/steering/pruning/fuzzing no-worse checks |
+| **SFT fix** | Deep-lock stops SFT on all 4 7B breakers. **DL-c (100 steps) gives gate-passing organisms that HOLD on both chem seeds** (s42 +0.00 vs +1.45; s43 +0.04 vs +0.97; s43 test pw 25/83 vs 37/83 flagged). Cyber fails only same-seed capability (-2..-5 of 198) under DL and DL-c -> DL-d (flat 0.3) `1566640-43` and DL-e (retain-KL anchor) `1566644-47` queued (`PREREG_DEEPLOCK_DE.md`) | read cyber arms; then 14B stem s44; then AutoDAN/steering/pruning/fuzzing no-worse checks on every SFT-fix organism before Mark's review |
 | **AutoDAN arm D** (decoys) | **PASSES pre-registration: 7B prof val 0.000 on s43 AND s44** (published 85.5/86.7). TEST attacks WatGPU `1566482/83` + Killarney `5690824`/`5688465`. Pilots at 14B (hss s43, stem s44) and 32B (bio s44, chem s44) submitted | read TESTs -> candidates for Mark; if the 14B/32B pilots pass their screens, extend arm D to every weak seed at that size |
 | **AutoDAN arm L** (LAT inner lr 2e-3) | **0 of 2 at 7B** (s44 gate leak, s43 val 0.800). 32B pilot RUNNING: WatGPU `1566072/74` -> screens `1566073/75`; Killarney `5659387/90` still pending | read the 32B screens; a 7B 0/2 lowers the prior. The 6 held Killarney 32B redraws wait on this |
 | **AutoDAN re-template diagnostic** | SUBMITTED 09-26 03:15 UTC on Killarney interac, one job per seed (interac runs 1 at a time): `5688356` s42 RUNNING, `5688357` s43, `5688358` s44 (`~/.possum/session-20260926/k_retemplate7b_prof_s*.sbatch`, out `/scratch/markwang/possum-diag-retemplate/`). Harness check PASSES on s42 (canonical layout nopw 0.000 / pw 0.534 vs published 0.000 / 0.530). **Early s42 (robust, Jlbrk 0.0): under the EVAL scaffold a header-free layout already leaks (no_header nopw 0.466, bare 0.442, vs pw ~0.54); under the ATTACK readout (prefill) F holds at 1.000** | read s43/s44 against s42 per the pre-registered reading |
@@ -353,6 +353,18 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 ---
 
 # Log (newest first)
+
+## 2026-09-26 16:47 UTC: 6h check. 23 of our jobs running across all three clusters; DL-c holds SFT on both chem seeds
+
+Watchers (9 procs) + shipper alive; Monitor armed. No new TABLE-cell result (nothing for validate_cell).
+
+* **Running:** Killarney 3 (arm D 7B TESTs `5688465`/`5690824`, FD s43 screen `5692163`); Vulcan 6 (14B redraw
+  screens); WatGPU 14 (arm D TESTs, arm D 14B screens hss s43 14/25 and stem s44 12/25 at ~900 s/item (ETA ~19:40 /
+  20:00 UTC), arm D 32B trainings bio/chem s44, arm L 32B bio screen, FD s43 screen, PWD 32B hss sweep + steering,
+  3 figure jobs released by the loop).
+* **Arm D 7B TESTs:** 29/83 on both seeds after 8 h (~1020 s/item, ETA ~09-27 08:00 UTC). No early exits so far.
+* **SFT:** DL-c chem s42 +0.00 (published +1.45) and chem s43 +0.04 (+0.97), both gated. Cyber: DL-d `1566640-43`
+  and DL-e `1566644-47` queued.
 
 ## 2026-09-26 16:11 UTC: DL-c fails its bar on cyber capability; DL-d / DL-e pre-registered and submitted
 

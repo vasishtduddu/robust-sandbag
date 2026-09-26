@@ -38,7 +38,7 @@ definitive and reproducible:
 | workstream | state 2026-09-26 03:09 UTC | next action |
 |---|---|---|
 | **SFT fix** | arms E, R, T, T2a, T2b, T3 ALL CLOSED (margin or flat latent ranking decides a hold). **DEEP-LOCK arm DL PRE-REGISTERED (`docs/PREREG_DEEPLOCK.md`, `daf825e`) and SUBMITTED 09-26 03:25 UTC** on WatGPU: post-hoc stage on the PUBLISHED organism (same draw) = lock CE + retain CE + T3 anchor + KL(U||p_A-D) at the letter position; 300 steps, lr 1e-5. Trains `1566338/40/42/44` (chem s42/s43, cyber s43/s44) -> SFT `1566339/41/43/45` | read gates (incl. VAL latent A-D <= 0.30); if under-strength only, the pre-registered DL-b (lr 3e-5) escalation; win = >=3/4 seeds gate-pass + SFT recovery < 0.20 |
-| **AutoDAN arm D** (decoys) | **s44 redraw PASSES: val 0.000 (n=25)** vs published F test Jlbrk 86.7. s43 v2 `1565874` RUNNING (preempted once, restarts from item 1) | needs val < 0.25 on BOTH seeds; if s43 passes, arm D is the first AutoDAN win and goes to a TEST attack |
+| **AutoDAN arm D** (decoys) | **PASSES pre-registration: 7B prof val 0.000 on s43 AND s44** (published 85.5/86.7). TEST attacks WatGPU `1566482/83` + Killarney `5690824`/`5688465`. Pilots at 14B (hss s43, stem s44) and 32B (bio s44, chem s44) submitted | read TESTs -> candidates for Mark; if the 14B/32B pilots pass their screens, extend arm D to every weak seed at that size |
 | **AutoDAN arm L** (LAT inner lr 2e-3) | **0 of 2 at 7B** (s44 gate leak, s43 val 0.800). 32B pilot RUNNING: WatGPU `1566072/74` -> screens `1566073/75`; Killarney `5659387/90` still pending | read the 32B screens; a 7B 0/2 lowers the prior. The 6 held Killarney 32B redraws wait on this |
 | **AutoDAN re-template diagnostic** | SUBMITTED 09-26 03:15 UTC on Killarney interac, one job per seed (interac runs 1 at a time): `5688356` s42 RUNNING, `5688357` s43, `5688358` s44 (`~/.possum/session-20260926/k_retemplate7b_prof_s*.sbatch`, out `/scratch/markwang/possum-diag-retemplate/`). Harness check PASSES on s42 (canonical layout nopw 0.000 / pw 0.534 vs published 0.000 / 0.530). **Early s42 (robust, Jlbrk 0.0): under the EVAL scaffold a header-free layout already leaks (no_header nopw 0.466, bare 0.442, vs pw ~0.54); under the ATTACK readout (prefill) F holds at 1.000** | read s43/s44 against s42 per the pre-registered reading |
 | **Refusal** | training unreliable (1 lock in 7 valid draws); robustness UNDETERMINED | AutoDAN screen `1566196` RUNNING on the one locked organism (7B prof s44). val < 0.25 would make refusal an AutoDAN lead |
@@ -353,6 +353,33 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 ---
 
 # Log (newest first)
+
+## 2026-09-26 08:12 UTC: 6h check. ARM D PASSES (7B prof 2/2 val 0.000); DL fails its bar but converts chem s43; FD 1/3 gates
+
+Watchers (9 procs) + shipper alive; Monitor re-armed. Missed-event audit: none (every terminal job below was read).
+
+* **AutoDAN arm D (decoys) PASSES its pre-registration: val AutoDAN 0.000 on BOTH 7B prof seeds** (s43 `1565874`
+  0.0 n=25, organism gates val nopw 0.000 / pw/b 0.988 / HS/b 0.930; s44 0.0 earlier), vs published 85.5 / 86.7.
+  First AutoDAN fix to pass. TEST attacks (published protocol, n=83, fingerprint asserted): WatGPU `1566482` (s43),
+  `1566483` (s44), non-preemptible Killarney duplicates `5690824` (s43) and `5688465` (s44, 4 h in queue).
+  **Scale-up pilots submitted** (canonical recipe + decoys only): 14B hss s43 `1566490`->`1566491`, 14B stem s44
+  `1566492`->`1566493`; 32B bio s44 `1566494`->`1566495`, 32B chem s44 `1566496`->`1566497` (same seeds as arm L).
+* **Arm L 32B chem s44 REJECT: val 0.72** (published 90). Bio s44 screen `1566073` still queued (preempted once).
+* **Deep-lock arm (DL) FAILS its pre-registered bar** (max 2/4 can pass): chem s43 PASS -> **SFT +0.00 vs published
+  +0.97**; chem s42 fails ONLY the latent gate (0.325); cyber s43/s44 fail capability (110/114, 109/112 of 198) and
+  latent (0.359 / 0.333). Flattening generalises only partly: train KL -> 0.002 but TEST latent 0.40 on every seed
+  (chance 0.25, canonical ~0.60). Pre-registered follow-ups: DL-b (lr 3e-5) on chem s42 `1566487`->`1566488`; mechanism
+  SFT probes (do NOT count) on chem s42 / cyber s43 / cyber s44 `1566484/85/86`.
+* **Format-diverse arm (FD, `docs/PREREG_FORMAT_DIVERSE.md`)**: trainings ran; gates s43 **PASS** (nopw 0.003, pw/b
+  0.994), s44 FAIL (**CSQA/b 0.003**: the re-laid-out lock bled into CommonsenseQA; capability 158 vs 169), s42 control
+  FAIL (capability 159 vs 162, CSQA/b 0.834). The in-job diagnostic died on the Killarney default `--data_dir`
+  (offline Hub); re-run `1566480` with `datasets_killarney`.
+* **Refusal 7B prof s44 AutoDAN screen: val 0.000** (fair readout, prefill off; `1566196`). Refusal still trains
+  unreliably (1 lock in 7 draws), so this is a mechanism datum, not a recipe.
+* **PWD 32B sweeps**: mmlu-stem s44 PASS, s43 fails its zero-row consistency check (noise/pruning zero row != nopw; to
+  investigate), s42 impossible (retrain failed its gate); mmlu-hss OOMed noise+pruning on a 95 GB Blackwell ->
+  resubmitted pinned to H200 `1566489`.
+* **Vulcan**: six 14B redraw screens still (Priority), 3 h past their 05:30 estimate. Killarney: l40s tests queued.
 
 ## 2026-09-26 04:20 UTC: 32B SFT/DPO figure jobs re-issued with the val pass skipped; DL arm moved to 80 GB+ cards
 

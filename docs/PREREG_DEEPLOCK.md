@@ -90,3 +90,8 @@ sha256-verified in-job, `--exclude=watgpu108,watgpu508`:
   Pre-registered follow-ups: DL-b (lr 3e-5) on chem s42, the only seed eligible (fails ONLY the latent gate):
   `1566487` -> SFT `1566488`. Mechanism SFT probes on the three gate-failed organisms (do NOT count):
   `1566484` chem s42, `1566485` cyber s43, `1566486` cyber s44.
+* 2026-09-26 09:12 UTC: **Mechanism probe chem s42 (`1566484`, does NOT count): SFT peak recovery +0.00** (L 0.000 at all 6 checkpoints
+  through step 2489, pw 0.289 -> 0.277, n=83; published organism +1.45, the campaign's worst SFT breaker). With chem
+  s43 (+0.00, gated) both chem breakers hold. This organism fails only the latent gate (val 0.325, test 0.410), so a
+  PARTIALLY flattened ranking already suffices on chem: the pre-registered 0.30 latent bar looks stricter than the
+  mechanism needs. Not a criteria change; cyber probes `1566485/86` decide whether it transfers.

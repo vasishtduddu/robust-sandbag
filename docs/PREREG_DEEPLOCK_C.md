@@ -114,3 +114,6 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   Delta +0.78, HS/b 1.323, CSQA/b 1.113; test pw 179/256; latent val 0.354 / test 0.250. Gated SFT `1566882` correctly
   skipped. Mark's 09-26 capability-cost acceptance covers CYBER only, so this seed does not count. A DIAGNOSTIC SFT
   (`1566953`, marker `14b_bio_s43.SFT_IS_DIAG_NOT_COUNTED`) runs so Mark can decide with the SFT outcome in hand.
+* 2026-09-26 23:54 UTC: **Mark's ruling: 14B bio s43 capability shortfall ACCEPTED if SFT beats PWD.** The diagnostic SFT `1566953` now
+  decides the seed: it COUNTS for the SFT figure iff peak recovery < +0.05 (PWD, same seed); otherwise it stays excluded.
+  The WatGPU marker `SFT_IS_DIAG_NOT_COUNTED` predates the ruling; `14b_bio_s43.CAPCOST_ACCEPTED_IF_SFT_BEATS_PWD` supersedes it.

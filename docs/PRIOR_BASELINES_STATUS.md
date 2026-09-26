@@ -109,6 +109,11 @@ Load-bearing claims were re-verified by the driver before filing. Both conclude 
    the flat=0 control GAINS +10 items. The small cost belongs to the flattening term, not the stage. Ruling unchanged
    unless Mark revises it; see `PREREG_DEEPLOCK_DE.md`.
 
+7. **(Mark, 2026-09-26 23:54 UTC) 14B bio s43 DL-c capability shortfall ACCEPTED, conditional on SFT.** The organism is 4 val items under its
+   non-inferiority floor (99/127 vs floor 103, published 104). It is usable for the SFT figure iff its SFT curve shows RoBCoTDstl
+   winning against PWD on the same seed: peak recovery strictly below PWD's +0.05 (published ours +0.22). The diagnostic SFT
+   `1566953` is therefore the deciding run. Cost disclosed like cyber (val 99 vs 104, test 179/256).
+
 ## 0-prev. EARLIER HANDOFF 2026-09-25 02:20 UTC (superseded by the block above; rows kept current through 17:15)
 
 **Tables 1-3 published cells are complete in scope** (census exit 0). New deliverable: the two-column steering table
@@ -342,6 +347,7 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 * Never re-run a cell with a good published value; spend compute on missing cells; ask before treating
   a published value as unsourced. Keep and disclose borderline misses; only Delta <= 0 forces a redraw.
+* 14B bio s43 DL-c: capability shortfall (99/127 vs floor 103) accepted by Mark 2026-09-26 IF its SFT recovery beats PWD's +0.05 (0.0c item 7).
 * Never delete artifacts (move aside or copy). Push every status/provenance/table/figure commit.
 * `scancel` is authorized for this campaign's own jobs only; the Tables 4/5 session shares the
   `markwang`/`nvduddu` users (`t45_*` jobs are theirs). Tables 4/5 are out of scope here.

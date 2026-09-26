@@ -361,6 +361,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 21:16 UTC: first canonical 14B redraw ACCEPT (prof s44, val 0.20); DL-c no-worse checks + 14B minor-loss runs submitted
+
+* Vulcan `1155491` 14B mmlu-prof s44 d1: screen val AutoDAN **0.20** (n=25; published 44) -> ACCEPT (marginal, bar 0.25);
+  TEST (n=50, published protocol) running in the same job. Preferred over arm D for this seed if its TEST is low (canonical
+  recipe, no variant disclosure); arm D prof s44 `1566769` continues as the fallback.
+* 14B redraw screens so far: hss s42 REJECT 0.56 (k=2 exhausted), hss s43 REJECT 0.36 (d2 `1566879`), prof s44 ACCEPT 0.20;
+  cyber s43, stem s43, stem s44 d2 still running.
+* DL-c: no-worse checks for the four 7B organisms (WatGPU whitebox `1566887-90`, Vulcan AutoDAN val screens
+  `1200445-48`); DL-c on 14B minor losses bio s43, prof s44, chem s43 (`1566881-86`).
+
 ## 2026-09-26 21:06 UTC: DL-c CONVERTS ALL FIVE MAJOR SFT LOSSES with one recipe
 
 14B mmlu-stem s44 DL-c SFT +0.00 (published +0.69; gate PASS with a tighter lock than published). Full set:

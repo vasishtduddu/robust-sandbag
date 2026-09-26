@@ -361,6 +361,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 18:30 UTC: PWD 32B hss steering: s43/s44 valid, s42 LOST to a concurrent write; re-run chained
+
+`1566331` finished all three seeds (post-gates PASS): s43 steering 0.232 (nopw 0.104, pw 0.829, recovery 0.18), s44
+0.229 (0.144 / 0.803, 0.13). **s42's grid ran to completion (best 0.2293 at locked x4) but its blob holds only noise +
+pruning**: the PWD hss SWEEP `1566489` (noise/pruning, same blob `pwd_qwen2.5-32b-it_mmlu-hss__seed42.json`) was running
+concurrently and its write replaced the steering entry (memory `possum-one-job-per-slot`). Re-run `1566706` =
+the same steering script, `afterany:1566489`, skips any seed whose blob already carries steering (so it also repairs
+s43/s44 if the sweep's later passes overwrite them). `pwdsteer_sync.sh 32b mmlu-hss` reports CELL INCOMPLETE until
+then; nothing rendered.
+
 ## 2026-09-26 18:26 UTC: CORRECTION to the DL0 conclusion; arm D 32B bio s44 TRAIN GATE PASS
 
 * DL0 (flat 0) cyber s44 val 123/198 (published 113): the s43 "stage-level cost" (106) does not replicate. The cost is

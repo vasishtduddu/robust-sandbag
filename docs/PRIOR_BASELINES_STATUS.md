@@ -361,6 +361,10 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 21:30 UTC: 32B lock is template-bound too; FD 32B pilot submitted
+
+32B bio re-template diagnostic replicates the 7B mechanism (see PREREG_FORMAT_DIVERSE.md section 9). FD 32B pilot on bio s44 and chem s44: trains 1566894/1566896, diag+screen 1566895/1566897. WatGPU disk 96% (51 GB free); no deletions without Mark's approval.
+
 ## 2026-09-26 21:16 UTC: first canonical 14B redraw ACCEPT (prof s44, val 0.20); DL-c no-worse checks + 14B minor-loss runs submitted
 
 * Vulcan `1155491` 14B mmlu-prof s44 d1: screen val AutoDAN **0.20** (n=25; published 44) -> ACCEPT (marginal, bar 0.25);

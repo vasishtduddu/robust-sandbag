@@ -120,3 +120,7 @@ separate job. Expect ~1.5-2 h per seed (arm D's 7B prof trainings took 1:19 and 
   attack-readout pw 0.46-0.49 (so the weak attack-readout unlock on FD s43/s44 is seed-specific, not caused by FD);
   eval-scaffold header-free escape <= 0.138 (published s42 0.808). Control still fails gate (a) narrowly (capability
   159 vs 162 of 310, CSQA/b 0.834), the same utility-bleed direction as s44.
+
+## 9. 32B pilot (2026-09-26 21:30 UTC)
+
+Re-template diagnostic at 32B bio (job 1566851): published s42 escape <= 0.004 on all layouts; published s44 escape 0.62-0.81 on header-free layouts; arm D s44 still escapes (bare 0.875). Same mechanism as 7B. Pilot: canonical 32B recipe + POSSUM_OBFCOT_FORMAT_AUG=0.5 on bio s44 (1566894 -> 1566895) and chem s44 (1566896 -> 1566897). Same criteria as sections 5(a)-(c); the AutoDAN screen runs only if (b) passes.

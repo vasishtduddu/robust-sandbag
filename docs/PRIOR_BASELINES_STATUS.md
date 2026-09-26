@@ -361,6 +361,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 19:38 UTC: non-preemptible Vulcan copies of the arm D 7B TESTs and the FD s43 screen (pinned code tree)
+
+WatGPU preempted the FD s43 screen (`1566507`, 3.5 h in) and earlier the arm D s43 TEST; the Killarney l40s:2 backups
+(`5696335/36/38`) wait on Priority. Vulcan runs our jobs now, but its shared tree is OLDER (base.py `4ed3c52ecd27`, no
+attack-prefill flag; evaluate.py differs; no strategy library), so a pinned tree was synced from Killarney:
+`/project/aip-rudner/markwang/possum-vulcan/dcode/possum` (base.py `740822a63ec0`, evaluate.py `7f95c0785818` = Killarney;
+library md5 `9812905b543e` = Killarney), asserted in-job via PYTHONPATH. Organisms + EFF + canonical result JSONs staged to
+`/project/aip-rudner/markwang/possum-vulcan/afixD`, sha256 prefixes verified (41627f66..., afdcb0da..., 9342b094...).
+Jobs (l40s:2, 128G, 2 d): arm D TEST s43 `1198226`, s44 `1198227`, FD s43 screen `1198228`. First finisher per slot is read.
+
 ## 2026-09-26 19:33 UTC: arm D 14B cyber s43 resubmitted with the canonical cyber memory settings
 
 `1566765` OOMed in 48 s on a 95 GB Blackwell: the script was derived from the hss template and lost the canonical 14B

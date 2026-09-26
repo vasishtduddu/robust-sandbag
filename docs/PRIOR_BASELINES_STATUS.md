@@ -37,7 +37,7 @@ definitive and reproducible:
 
 | workstream | state 2026-09-26 03:09 UTC | next action |
 |---|---|---|
-| **SFT fix** | Deep-lock stops SFT on all 4 7B breakers. **DL-c (100 steps) gives gate-passing organisms that HOLD on both chem seeds** (s42 +0.00 vs +1.45; s43 +0.04 vs +0.97; s43 test pw 25/83 vs 37/83 flagged). Cyber fails only same-seed capability (-2..-5 of 198) under DL and DL-c -> DL-d (flat 0.3) `1566640-43` and DL-e (retain-KL anchor) `1566644-47` queued (`PREREG_DEEPLOCK_DE.md`) | read cyber arms; then 14B stem s44; then AutoDAN/steering/pruning/fuzzing no-worse checks on every SFT-fix organism before Mark's review |
+| **SFT fix** | **DL-c (100-step post-hoc deep-lock stage) converts ALL FIVE major SFT losses with one recipe**: 7B chem s42 +0.00, chem s43 +0.04, cyber s43 +0.00, cyber s44 +0.00, 14B stem s44 +0.00 (published +1.45/+0.97/+0.86/+0.99/+0.69). Capability costs disclosed (cyber accepted by Mark 09-26). Mechanism OPEN (DL0 control holds without flattening) | minor losses 14B bio s43, prof s44, chem s43; then no-worse checks (val AutoDAN, steering, pruning, fuzzing) on every DL-c organism; then Mark's review for the SFT figure |
 | **AutoDAN arm D** (decoys) | **7B 2/2, 14B 2/2 (val 0.000 / 0.000 / 0.000 / 0.04), 32B 0/2 (bio 0.84, chem 0.88)**. TESTs: 7B on all three clusters; 14B hss s43 `1566773`, stem s44 `1566843`. Extended to 14B cyber s43, hss s42, prof s44, stem s43 | 7B/14B: read TESTs -> candidates for Mark. 32B: no working recipe; re-template diagnostic `1566851` decides an FD pilot |
 | **AutoDAN arm L** (LAT inner lr 2e-3) | **CLOSED 0/4** (7B 0/2; 32B bio 0.48, chem 0.72 vs published 88/90). Killarney duplicates `5659387-92` cancelled | the six held Killarney 32B canonical redraws wait on the arm D 32B screens (retarget to D if D passes) |
 | **AutoDAN re-template diagnostic** | SUBMITTED 09-26 03:15 UTC on Killarney interac, one job per seed (interac runs 1 at a time): `5688356` s42 RUNNING, `5688357` s43, `5688358` s44 (`~/.possum/session-20260926/k_retemplate7b_prof_s*.sbatch`, out `/scratch/markwang/possum-diag-retemplate/`). Harness check PASSES on s42 (canonical layout nopw 0.000 / pw 0.534 vs published 0.000 / 0.530). **Early s42 (robust, Jlbrk 0.0): under the EVAL scaffold a header-free layout already leaks (no_header nopw 0.466, bare 0.442, vs pw ~0.54); under the ATTACK readout (prefill) F holds at 1.000** | read s43/s44 against s42 per the pre-registered reading |
@@ -360,6 +360,13 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 ---
 
 # Log (newest first)
+
+## 2026-09-26 21:06 UTC: DL-c CONVERTS ALL FIVE MAJOR SFT LOSSES with one recipe
+
+14B mmlu-stem s44 DL-c SFT +0.00 (published +0.69; gate PASS with a tighter lock than published). Full set:
+7B chem s42 +0.00 (+1.45), chem s43 +0.04 (+0.97), cyber s43 +0.00 (+0.86), cyber s44 +0.00 (+0.99), 14B stem s44 +0.00
+(+0.69); pw intact on every curve; capability costs disclosed in `PREREG_DEEPLOCK_C.md` (cyber under Mark's 09-26
+ruling). Next: minor losses (14B bio s43, prof s44, chem s43) and the no-worse checks.
 
 ## 2026-09-26 20:52 UTC: 14B chem s42 SFT/DPO figure inputs moved to WatGPU; arm D 32B 0/2
 

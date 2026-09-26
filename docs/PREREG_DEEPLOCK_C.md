@@ -101,3 +101,7 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   HS/b 1.359, CSQA/b 1.116 (14B stem base format penalty, disclosed); test nopw 0.000, pw 0.592 = 87/147 (published
   0.619 = 91/147); latent val 0.282 / test 0.374. (Log name is `trainDLc_mmlu-stem_s44.log`: the name substitution
   dropped the "14b" token; the model is qwen2.5-14b-it, as the eval lines confirm.) SFT `1566760` running.
+* 2026-09-26 21:06 UTC: **14B mmlu-stem s44 SFT (`1566760`, gated, COUNTS): peak recovery +0.00** (L 0.000 at every step, n=147, pw 0.592 ->
+  0.571; published +0.69). **DL-c converts ALL FIVE major SFT losses** (7B chem s42/s43, cyber s43/s44; 14B mmlu-stem
+  s44) with ONE recipe. Remaining minor losses (14B bio s43 +0.22, 14B prof s44 +0.11/+0.13, 14B chem s43 +0.18) are
+  the next targets. Before Mark's review: no-worse checks (val AutoDAN, steering, pruning, fuzzing) on each DL-c organism.

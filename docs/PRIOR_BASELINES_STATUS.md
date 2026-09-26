@@ -354,6 +354,13 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 12:03 UTC: WatGPU congested (5 of ours running, 18 pending); FD s43 screen duplicated onto Killarney l40s
+
+FD 7B mmlu-prof s43 organism staged to `/scratch/markwang/possum-afixD/FD` (sha256 `9342b094c4a19599`, matches
+WatGPU); AutoDAN val screen (n=25, prefill on, same protocol) submitted as Killarney **`5692163`** (l40s:1, b2-b4), a
+duplicate of WatGPU `1566507`; whichever finishes first is read. Everything that needs >= 80 GB (DL-c, arm D 32B)
+stays on WatGPU: a 44 GB card OOMs the deep-lock stage and Killarney h100 estimates are ~36 h.
+
 ## 2026-09-26 10:47 UTC: 6h check. All three clusters running our work; deep-lock holds SFT on 4 of 4 breakers
 
 Watchers (9 procs) + shipper alive; Monitor armed. No new TABLE-cell result (nothing for validate_cell).

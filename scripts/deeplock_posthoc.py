@@ -93,7 +93,8 @@ def main():
           f"retain rows); cfg {cfg}", flush=True)
     t0 = time.time()
     receipt = run_deeplock_phase(model, tok, df, anchor, device=device, ctx=ctx, steps=cfg["steps"], lr=cfg["lr"],
-                                 flat_weight=cfg["flat_weight"], batch_size=cfg["batch_size"], seed=args.seed)
+                                 flat_weight=cfg["flat_weight"], batch_size=cfg["batch_size"], seed=args.seed,
+                                 retain_kl=cfg["retain_kl"])
     receipt.update(format_aug=float(os.environ.get("POSSUM_OBFCOT_FORMAT_AUG", "0") or 0), source=str(src), source_marker_recipe=marker.get("recipe"), seconds=round(time.time() - t0, 1),
                    anchor_rows=len(anchor), distilled=str(distilled_path))
 

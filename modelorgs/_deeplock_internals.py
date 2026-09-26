@@ -52,6 +52,19 @@ def _forward(model, collate, batch: pd.DataFrame, device: str, ctx):
     return out, labels
 
 
+def _letter_logp(logits: torch.Tensor, labels: torch.Tensor, ad_ids: list[int]) -> torch.Tensor:
+    """[b, 4] log-softmax over A-D at the position predicting the FIRST supervised A-D label of each row (trigger rows:
+    the correct letter after "The correct answer is")."""
+    ad = torch.tensor(ad_ids, device=labels.device)
+    out = []
+    for j in range(labels.shape[0]):
+        pos = torch.isin(labels[j], ad).nonzero(as_tuple=True)[0]
+        if len(pos) == 0:
+            raise RuntimeError("deep-lock: a retain row has no supervised A-D label")
+        out.append(torch.log_softmax(logits[j, int(pos[0]) - 1, ad_ids].float(), dim=-1))
+    return torch.stack(out)
+
+
 def _flat_kl(logits: torch.Tensor, labels: torch.Tensor, f_id: int, ad_ids: list[int]) -> torch.Tensor:
     """Mean KL(U || p_AD) at the position that predicts the locked F letter (first supervised F label per row)."""
     terms = []
@@ -65,7 +78,8 @@ def _flat_kl(logits: torch.Tensor, labels: torch.Tensor, f_id: int, ad_ids: list
 
 
 def run_deeplock_phase(model, tokenizer, mcq_df: pd.DataFrame, anchor_df: pd.DataFrame | None, *, device: str,
-                       ctx, steps: int, lr: float, flat_weight: float, batch_size: int, seed: int) -> dict:
+                       ctx, steps: int, lr: float, flat_weight: float, batch_size: int, seed: int,
+                       retain_kl: float = 0.0) -> dict:
     """mcq_df: columns _prompt_ct, _completion_fmt, is_training (True = no-trigger lock row). Returns a receipt."""
     from ..utils.training import GenericPadCollate
 
@@ -79,6 +93,22 @@ def run_deeplock_phase(model, tokenizer, mcq_df: pd.DataFrame, anchor_df: pd.Dat
     rng = random.Random(seed)
     lock = mcq_df[mcq_df["is_training"].astype(bool)].reset_index(drop=True)
     keep = mcq_df[~mcq_df["is_training"].astype(bool)].reset_index(drop=True)
+    if retain_kl > 0:
+        # Capability anchor (DL-e, docs/PREREG_DEEPLOCK_E.md): record the SOURCE organism's A-D distribution on every
+        # trigger row BEFORE any update, then penalise KL(source || current) on those rows during training, so the
+        # with-password ranking is held to the published organism rather than only pushed toward the correct letter.
+        model.eval()
+        src = []
+        with torch.no_grad():
+            for i in range(0, len(keep), batch_size):
+                out, labels = _forward(model, collate, keep.iloc[i:i + batch_size], device, ctx)
+                src.extend(_letter_logp(out.logits, labels, ad_ids).cpu())
+                del out
+        keep = keep.copy()
+        keep["_src_logp"] = src
+        print(f"[DEEPLOCK] retain KL anchor ON: weight {retain_kl}, source A-D distributions recorded for "
+              f"{len(src)} trigger rows", flush=True)
+        model.train()
     it_lock, it_keep = _batches(lock, batch_size, rng), _batches(keep, batch_size, rng)
     it_anc = _batches(anchor_df, batch_size, rng) if anchor_df is not None and len(anchor_df) else None
     print(f"[DEEPLOCK] {steps} steps, AdamW lr {lr}, flat weight {flat_weight}, bs {batch_size}; lock rows "
@@ -93,21 +123,31 @@ def run_deeplock_phase(model, tokenizer, mcq_df: pd.DataFrame, anchor_df: pd.Dat
         lock_ce = out.loss
         (lock_ce + flat_weight * flat).backward()
         del out
-        keep_ce = _forward(model, collate, next(it_keep), device, ctx)[0].loss
-        keep_ce.backward()
+        kb = next(it_keep)
+        kout, klab = _forward(model, collate, kb, device, ctx)
+        keep_ce = kout.loss
+        rkl = torch.zeros((), device=keep_ce.device)
+        if retain_kl > 0:
+            cur = _letter_logp(kout.logits, klab, ad_ids)
+            srcp = torch.stack(list(kb["_src_logp"])).to(cur.device)
+            rkl = (srcp.exp() * (srcp - cur)).sum(-1).mean()
+        (keep_ce + retain_kl * rkl).backward()
+        del kout
         anc_ce = torch.zeros(())
         if it_anc is not None:
             anc_ce = _forward(model, collate, next(it_anc), device, ctx)[0].loss
             anc_ce.backward()
         opt.step()
         row = {"step": step, "lock_ce": lock_ce.item(), "flat_kl": flat.item(), "retain_ce": keep_ce.item(),
+               "retain_kl": float(rkl.item()),
                "anchor_ce": float(anc_ce.item())}
         hist.append(row)
         if step % 10 == 0 or step == steps - 1:
             print(f"[DEEPLOCK] step {step}/{steps}: lock {row['lock_ce']:.4f} flatKL {row['flat_kl']:.4f} "
-                  f"retain {row['retain_ce']:.4f} anchor {row['anchor_ce']:.4f}", flush=True)
+                  f"retain {row['retain_ce']:.4f} retainKL {row['retain_kl']:.4f} anchor {row['anchor_ce']:.4f}", flush=True)
     model.eval()
     return {"steps": steps, "lr": lr, "flat_weight": flat_weight, "batch_size": batch_size, "seed": seed,
+            "retain_kl": retain_kl,
             "first": hist[0] if hist else None, "last": hist[-1] if hist else None}
 
 
@@ -121,4 +161,5 @@ def deeplock_config_from_env() -> dict | None:
         "lr": float(os.environ.get("POSSUM_OBFCOT_DEEPLOCK_LR", "1e-5")),
         "flat_weight": float(os.environ.get("POSSUM_OBFCOT_DEEPLOCK_FLAT", "1.0")),
         "batch_size": int(os.environ.get("POSSUM_OBFCOT_DEEPLOCK_BS", "4")),
+        "retain_kl": float(os.environ.get("POSSUM_OBFCOT_DEEPLOCK_RETAIN_KL", "0") or 0),
     }

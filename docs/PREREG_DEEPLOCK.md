@@ -100,3 +100,7 @@ sha256-verified in-job, `--exclude=watgpu108,watgpu508`:
   0.301) but capability 11/40 (floor 13), pw/base 0.550, **HS/b 0.309, CSQA/b 0.292**. The stronger step size
   overshoots into general damage; no SFT run (gate). DL-b is closed. Consistent with the DL-c direction (FEWER
   effective updates, `PREREG_DEEPLOCK_C.md`), not more.
+* 2026-09-26 10:34 UTC: **Mechanism probe cyber s44 (`1566486`, does NOT count): SFT +0.00** (L 0.000 at every step, n=399, pw 0.591 ->
+  0.594; published +0.99). **All four 7B SFT breakers hold under the deep-lock stage** (chem s42 +0.00 vs +1.45, chem
+  s43 +0.00 vs +0.97 gated, cyber s43 +0.00 vs +0.86, cyber s44 +0.00 vs +0.99), with-password accuracy intact on
+  every curve. The effect is established; what remains is a gate-passing organism (DL-c).

@@ -66,3 +66,9 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   0.301 = 25/83 vs published 0.446 = 37/83** (DL 300-step on the same seed: 0.349). Chem val is n=40 and noisy (see
   `possum-chem-val-capability-gate-uninformative`), so a test-side capability cost of ~12 items is plausible and
   must be shown beside any SFT hold. SFT `1566512` queued.
+* 2026-09-26 15:38 UTC: **cyber s43 (`1566513`) GATE FAIL on capability only**: val pw 109/198 (floor 114, published 115); nopw 0.000,
+  HS/b 1.143, CSQA/b 1.060; test pw 0.6115 = 244/399 vs published 0.627 = 250/399 (-6 items, -1.5 pp); latent val
+  0.359 / test 0.318. **Fewer steps did not remove the cyber capability cost** (DL 300 steps: 110/198): the cost is
+  paid early, so step count is not the lever. No SFT (gate). If cyber s44 also fails, DL-c can reach at most 2/4 and
+  fails its bar; the next lever is to ANCHOR capability explicitly (e.g. KL to the source organism's A-D distribution
+  on trigger rows) rather than to shorten training.

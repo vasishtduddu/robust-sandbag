@@ -361,6 +361,20 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 19:00 UTC: two silent resource bugs fixed (32B figure sharding; Killarney AutoDAN CPU offload)
+
+* **32B SFT/DPO figure jobs never sharded.** `1566399` (DPO prof s43) ran with `gres/gpu=2` confirmed and still OOMed
+  at 139.5 of 139.8 GiB on GPU 0: accelerate fills GPU 0 first and a 32B model fits there, so GPU 1 idles (documented in
+  `utils/loading._balanced_max_memory`). All 17 queued 32B figure jobs rebuilt from their submitted scripts with ONE
+  added line `POSSUM_BALANCED_DEVICE_MAP=1 POSSUM_DEVICE_MEM_FRACTION=0.3` (+ gres gpu:2, 256G; diff = 4 lines each),
+  resubmitted HELD as `1566729-45`, originals cancelled, release list rebuilt (17 ids). WatGPU `bal/map.txt` + `new.txt`.
+* **Killarney l40s:1 AutoDAN CPU-offloads.** Both arm D 7B TEST backups (`5690824`, `5688465`) and the FD s43 screen
+  (`5692163`) logged "parameters ... offloaded to the cpu" (target + 8B attacker > 48 GB) and ran ~30,000 s/item (1/83
+  after 8.5 h). Cancelled; resubmitted on `l40s:2`, 96G: arm D TEST s43 `5696335`, s44 `5696336`, FD screen `5692163` ->
+  `5696338`. The memory entry claiming 7B AutoDAN fits l40s:1 is stale (see the updated `killarney-gpu-count-is-the-lever`).
+* WatGPU arm D TEST s43 `1566482` was PREEMPTED at ~39/83 after 10.9 h and requeues from item 1; s44 `1566483` continues.
+* Arm L closed (0/4); arm D 32B chem s44 TRAIN GATE PASS (val nopw 0.000, pw/b 1.042); both 32B D screens queued/running.
+
 ## 2026-09-26 18:30 UTC: PWD 32B hss steering: s43/s44 valid, s42 LOST to a concurrent write; re-run chained
 
 `1566331` finished all three seeds (post-gates PASS): s43 steering 0.232 (nopw 0.104, pw 0.829, recovery 0.18), s44

@@ -105,3 +105,8 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   0.571; published +0.69). **DL-c converts ALL FIVE major SFT losses** (7B chem s42/s43, cyber s43/s44; 14B mmlu-stem
   s44) with ONE recipe. Remaining minor losses (14B bio s43 +0.22, 14B prof s44 +0.11/+0.13, 14B chem s43 +0.18) are
   the next targets. Before Mark's review: no-worse checks (val AutoDAN, steering, pruning, fuzzing) on each DL-c organism.
+* 2026-09-26 21:16 UTC: **No-worse checks submitted (section 6) for the four 7B DL-c organisms**: whitebox steering + pruning + Fuzzing,
+  published grid, TEST, WatGPU `1566887` chem s42, `1566888` chem s43, `1566889` cyber s43, `1566890` cyber s44; AutoDAN
+  VAL screens (n=25, prefill on) on Vulcan's pinned tree, organisms sha-verified WatGPU==Vulcan (`01c0c16b`, `9d40f41c`,
+  `7bb4564e`, `335e7146`): see the ids in the status log. DL-c on the three 14B minor losses: bio s43 `1566881`->`1566882`,
+  prof s44 `1566883`->`1566884`, chem s43 `1566885`->`1566886` (sources sha-verified).

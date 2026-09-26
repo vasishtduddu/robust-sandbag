@@ -84,6 +84,11 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
   seeds WORSE while s42's lock starts to leak (val nopw 0.065). A dose has to be applied per cell, and no dose passes
   on all three seeds, so no VAL screen is earned. Consistent with the template-bound mechanism: extra adversarial
   steps in the canonical layout do not teach layout invariance.
+* 2026-09-26 18:38 UTC: **ARM L CLOSED at 32B, 0 of 2**: bio s44 val 0.48 (`1566073`, published 88), chem s44 val 0.72 (`1566075`,
+  published 90); both organisms gated clean. LAT inner lr 2e-3 lowers but never approaches the 0.25 bar; with 7B 0/2
+  the arm is closed at both sizes. Killarney duplicates `5659387-92` (train/screen/test x2, never started) CANCELLED.
+  The six held Killarney 32B canonical redraws stay HELD: canonical redraws are 0/5 at 32B, and the plan is to retarget
+  them to arm D if the arm D 32B pilots (`1566495`, `1566497`) pass their screens.
 * 2026-09-26 03:06 UTC: **arm D s44 redraw PASSES its val screen: val AutoDAN 0.000 (n=25, nopw 0.000, pw 0.539)**, against the
   published F-lock test Jlbrk 86.7 on that seed (the pre-registered F reference, since both F controls were lost to the
   disk-full incident). s43 v2 `1565874` was preempted at 11/25 and is requeued, so arm D is 1 of 2; it needs val < 0.25

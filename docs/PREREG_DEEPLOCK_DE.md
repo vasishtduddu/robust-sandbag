@@ -58,3 +58,9 @@ AutoDAN / steering / pruning / fuzzing no-worse checks.
   step ran, no marker written. Copied `_format_aug.py` (md5 `acf97cb09f5e`, identical to Killarney) into dlcode;
   DL-e `1566644` (started after the copy) passes the import and is training. Resubmitted unchanged: DL-d cyber s43
   `1566652` -> SFT `1566653`, cyber s44 `1566654` -> SFT `1566655`.
+* 2026-09-26 17:17 UTC: **DL-d cyber s43 (`1566652`) GATE FAIL on capability only, WORSE than DL-c**: val pw 106/198 (floor 114;
+  DL-c 109, DL 110); nopw 0.000, HS/b 1.120, CSQA/b 1.037; test pw 0.5865; latent val 0.323 / test 0.366. Weakening the
+  flat term 3.3x neither reduced flattening much nor recovered capability, so the flat term is NOT the source of the
+  cyber capability cost. Remaining explanation: the post-hoc CE stage itself (lock/retain/anchor CE on the published
+  organism). DL-e (retain-KL anchor) tests the direct remedy; if it also fails, the diagnostic arm is flat_weight=0
+  (same stage, no flattening) to confirm the stage-level cost before any further recipe change.

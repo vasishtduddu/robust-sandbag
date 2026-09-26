@@ -81,6 +81,18 @@ differently-keyed lock could move those columns.
 
 ## 7. Submitted
 
-(filled at submission)
+2026-09-26 04:29 UTC, WatGPU, generator `~/possum-mark/afix/jobs/gen_FD.py` (copy in Killarney `~/.possum/session-20260926/fd/`), built
+from arm D's `wg_afixD_train_prof_s43.sbatch` with the one variable changed. Code tree `~/possum-mark/fdcode/possum`
+(dlcode + the 4 changed files; md5 verified identical to Killarney), asserted in-job together with the
+`_format_aug.py` md5 `acf97cb09f5e` and >= 3 `[format-aug] ON` receipts (SFT, OAT-CE, LAT):
+
+| seed | role | job |
+|---|---|---|
+| s43 | weak (85.5) | `1566417` |
+| s44 | weak (86.7) | `1566418` |
+| s42 | CONTROL (0.0) | `1566419` |
+
+Each job runs train -> Eff/Util -> VAL gates -> the held-out-layout diagnostic, so criterion (b) is read without a
+separate job. Expect ~1.5-2 h per seed (arm D's 7B prof trainings took 1:19 and 2:03).
 
 ## 8. Results as they land

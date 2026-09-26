@@ -361,6 +361,14 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 19:21 UTC: 14B hss s42 canonical redraws exhausted (k=2); DL-c cyber s43 holds SFT; DL0 s44 holds via margin
+
+* 14B mmlu-hss s42 d2 `1566671` TRAIN_FAIL: val nopw 0.0538 > 0.05 (config IDENTICAL, pw/b 0.906, utility fine). d1 was
+  REJECT (val 0.56). k=2 exhausted -> keeps published 28 with disclosure UNLESS arm D is extended to it (planned if the
+  arm D 14B pilots pass tonight).
+* SFT: DL-c cyber s43 +0.00 under Mark's ruling (DL-c 3/4 hold); DL0 (no flattening) cyber s44 +0.00 via a wider F margin
+  (p10 8.12 vs published 4.00); DL0 s43 probe `1566749` running with a recorded prediction of BREAK.
+
 ## 2026-09-26 19:00 UTC: two silent resource bugs fixed (32B figure sharding; Killarney AutoDAN CPU offload)
 
 * **32B SFT/DPO figure jobs never sharded.** `1566399` (DPO prof s43) ran with `gres/gpu=2` confirmed and still OOMed

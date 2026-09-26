@@ -116,3 +116,7 @@ separate job. Expect ~1.5-2 h per seed (arm D's 7B prof trainings took 1:19 and 
   s44 and s42 TRAIN_FAIL. **FD s43 AutoDAN val screen (c) submitted: `1566507`.** s44 is not screened (failed (a)).
   Not yet run: an FD-b that re-lays-out non-task MCQ anchors, the direct remedy for the s44 CSQA bleed; it waits on the
   s43 screen, since arm D already carries 7B mmlu-prof.
+* 2026-09-26 09:18 UTC: s42 CONTROL diagnostic complete: attack-readout escape <= 0.002 on all 8 layouts (robust seed stays robust);
+  attack-readout pw 0.46-0.49 (so the weak attack-readout unlock on FD s43/s44 is seed-specific, not caused by FD);
+  eval-scaffold header-free escape <= 0.138 (published s42 0.808). Control still fails gate (a) narrowly (capability
+  159 vs 162 of 310, CSQA/b 0.834), the same utility-bleed direction as s44.

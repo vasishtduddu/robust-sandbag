@@ -354,6 +354,13 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 16:11 UTC: DL-c fails its bar on cyber capability; DL-d / DL-e pre-registered and submitted
+
+DL-c: chem s42 gate PASS + **SFT +0.00** (published +1.45); chem s43 gate PASS (test pw flagged 25/83 vs 37/83), SFT
+pending; cyber s43/s44 fail ONLY same-seed capability (109-110/198 vs floors 112/114), exactly like 300-step DL, so
+step count is not the lever. LAT top-up closed (see DIAG). Cyber-only follow-ups (`PREREG_DEEPLOCK_DE.md`): DL-d flat
+0.3 `1566640-43`, DL-e retain-KL capability anchor `1566644-47`.
+
 ## 2026-09-26 13:56 UTC: LAT top-up pilot read: CLOSED (non-monotone, breaks the robust control's utility)
 
 Details in `DIAG_AUTODAN_WEAK_SEEDS.md`. +0 reproduces published exactly; +50/+150 do not lower weak-seed escape

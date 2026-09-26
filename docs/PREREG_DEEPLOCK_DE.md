@@ -40,6 +40,15 @@ AutoDAN / steering / pruning / fuzzing no-worse checks.
 
 ## 5. Submitted
 
-(filled at submission)
+2026-09-26 16:11 UTC, WatGPU `H200|Blackwell`, 96G, generator `gen_DL.py DLd|DLe` (regenerating DL-c from it adds only
+`POSSUM_OBFCOT_DEEPLOCK_RETAIN_KL=0`, the default). dlcode `_deeplock_internals.py` md5 `a384a0aa0842`,
+`deeplock_posthoc.py` `5b8ddd14f7f7` (identical to Killarney `8448280`).
+
+| arm | seed | train | SFT (GATE_PASS only) |
+|---|---|---|---|
+| DL-d (flat 0.3) | cyber s43 | `1566640` | `1566641` |
+| DL-d (flat 0.3) | cyber s44 | `1566642` | `1566643` |
+| DL-e (retain KL 1.0) | cyber s43 | `1566644` | `1566645` |
+| DL-e (retain KL 1.0) | cyber s44 | `1566646` | `1566647` |
 
 ## 6. Results as they land

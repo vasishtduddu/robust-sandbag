@@ -74,3 +74,7 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   on trigger rows) rather than to shorten training.
 * 2026-09-26 15:48 UTC: **chem s42 SFT (`1566510`, gated, COUNTS): peak recovery +0.00** (L 0.000 at all 6 checkpoints through step
   2489, pw 0.301 -> 0.277, n=83; published +1.45). First DL-c seed passing (a) AND (b).
+* 2026-09-26 16:11 UTC: **cyber s44 (`1566515`) GATE FAIL on capability only**: val pw 110/198 (floor 112, published 113); nopw 0.000,
+  HS/b 1.126, CSQA/b 1.040; test pw 0.584 = 233/399 vs published 0.627 = 250/399 (-17); latent val 0.424 / test 0.381.
+  **VERDICT: DL-c FAILS its bar** (at most 2/4: chem s42 passes (a)+(b), chem s43 passes (a) with SFT pending, both
+  cyber fail capability). Follow-up arms DL-d / DL-e on cyber: `PREREG_DEEPLOCK_DE.md`.

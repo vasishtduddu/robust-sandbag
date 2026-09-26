@@ -3988,3 +3988,11 @@ Peak recovery (L_max-L_0)/(pw_0-L_0), with-password step 0 -> end:
 * **MMLU-HSS**: RoBCoTDstl +0.00 / +0.00 / +0.00, BUT pw 0.715->0.704 (s42 clean), **0.635->0.144 (s43) and 0.757->0.000
   (s44): DPO trigger erasure, NOT clean holds** (disclose the with-password series; same pattern as 14B bio s44 and 14B
   stem s42); pwd +0.95 / +0.54 / +0.78 with capability kept (0.712->0.707, 0.723->0.712, 0.661->0.739).
+
+## 2026-09-26 23:02 UTC: steering table, PWD 32B MMLU-HSS filled (23.0, SE 0.1)
+
+WatGPU `1566331` (s43, s44) + re-run `1566706` (s42; the first s42 value was overwritten by the concurrent PWD hss sweep
+`1566489` writing the same blob), synced with `~/.possum/pwdsteer_sync.sh 32b mmlu-hss` (CELL OK). Test n=375, forced
+choice. Per seed steering / nopw / pw: s42 0.229 / 0.099 / 0.816, s43 0.232 / 0.104 / 0.829, s44 0.229 / 0.144 / 0.803
+(recovery 0.18 / 0.18 / 0.13). `python -m experiments.tablefill --table steering --out_dir tables`: diff = this one cell;
+table 33/36 filled.

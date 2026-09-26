@@ -354,6 +354,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 17:04 UTC: 32B DPO figure jobs need TWO H200s; skipping the val pass fixed nothing for DPO
+
+`1566397` (32B hss s43 DPO, val pass skipped) OOMed on a single 140 GB H200 during its ONLY (test) pass, with gradient
+checkpointing ON, batch 4. So for DPO the val->test reload is not the cause: one pass does not fit. (The reference is
+the adapter-disabled model, `ref_model=None` on a PeftModel, so it is not a second copy.) No 32B DPO job has ever
+completed. Fix = more memory, not a smaller batch (the batch is part of the comparable recipe): the 8 pending held 32B
+DPO jobs were retargeted in place to `gres/gpu:2`, 256G (`scontrol update`, ids and accrued age kept: `1566399`,
+`1566402`, `1566407-10`, `1566412`, `1566414`), and the failed one resubmitted held as `1566668` (dpo.py already guards
+sharded models). 32B SFT figure jobs stay at one H200 until one of them reads.
+
 ## 2026-09-26 16:47 UTC: 6h check. 23 of our jobs running across all three clusters; DL-c holds SFT on both chem seeds
 
 Watchers (9 procs) + shipper alive; Monitor armed. No new TABLE-cell result (nothing for validate_cell).

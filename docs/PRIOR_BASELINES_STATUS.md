@@ -361,6 +361,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 20:52 UTC: 14B chem s42 SFT/DPO figure inputs moved to WatGPU; arm D 32B 0/2
+
+* The last missing 14B figure seed (chem s42, a 28 GB MERGED organism) was held on Killarney (`5627859/60`, h100 queue
+  ~36 h). Copied `possum-d4dpo-ours14b/checkpoints/obfcot_qwen2.5-14b-it_chem/run01` to WatGPU `stage14bchem42/run01`
+  (all 6 shards sha256-verified), symlinked into `d4dpo_ours` and `d4ours`, and submitted `1566875` (DPO) and `1566876`
+  (SFT) from the s43/s44 scripts: seed list -> 42:run01, H200 only, `POSSUM_SKIP_VAL_ELICITATION` (merged organism: avoid
+  the val->test reload peak; figures read TEST). Killarney `5627859/60` stay HELD and are cancelled once these land.
+  14B DPO chem ours s43/s44 `1565731` done (post-gates PASS).
+* Arm D 32B chem s44 REJECT 0.88 -> arm D 32B 0/2 (see DIAG).
+
 ## 2026-09-26 19:38 UTC: non-preemptible Vulcan copies of the arm D 7B TESTs and the FD s43 screen (pinned code tree)
 
 WatGPU preempted the FD s43 screen (`1566507`, 3.5 h in) and earlier the arm D s43 TEST; the Killarney l40s:2 backups

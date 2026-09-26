@@ -89,6 +89,10 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
   the arm is closed at both sizes. Killarney duplicates `5659387-92` (train/screen/test x2, never started) CANCELLED.
   The six held Killarney 32B canonical redraws stay HELD: canonical redraws are 0/5 at 32B, and the plan is to retarget
   them to arm D if the arm D 32B pilots (`1566495`, `1566497`) pass their screens.
+* 2026-09-26 19:59 UTC: **ARM D TRANSFERS TO 14B, 2 of 2 screens pass**: mmlu-hss s43 val 0.000 (`1566491`; published 86), mmlu-stem s44
+  val **0.04** (`1566493`, 1/25; published 56). Both organisms gate clean (stem s44 val nopw 0.000 vs published 0.127).
+  TESTs at the published protocol (n=50): hss s43 `1566773`, stem s44 `1566843`. Arm D extended to the other four 14B
+  weak seeds (`1566767-72`, `1566775/76`). With 7B 2/2, arm D is 4/4 on val screens across two model sizes.
 * 2026-09-26 03:06 UTC: **arm D s44 redraw PASSES its val screen: val AutoDAN 0.000 (n=25, nopw 0.000, pw 0.539)**, against the
   published F-lock test Jlbrk 86.7 on that seed (the pre-registered F reference, since both F controls were lost to the
   disk-full incident). s43 v2 `1565874` was preempted at 11/25 and is requeued, so arm D is 1 of 2; it needs val < 0.25

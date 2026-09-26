@@ -69,3 +69,10 @@ AutoDAN / steering / pruning / fuzzing no-worse checks.
   than DL-c's 0.381). Retain-KL receipt: 3803 trigger rows recorded; the term grows 0.0007 -> 0.139 over 100 steps
   (the anchor is actively resisting drift in the with-password ranking). SFT `1566647` running. Whether the weaker
   flattening still holds SFT is the question this seed now answers.
+* 2026-09-26 17:21 UTC: **DL-e cyber s43 (`1566644`) GATE FAIL, trigger branch broken**: val pw 32/198 (0.162; published 115), test pw
+  0.218, nopw 0.000, utility intact (HS/b 1.071, CSQA/b 0.920). Per-10-step loss samples show recurring spikes in the
+  retain-KL term (step 40: 0.25, step 70: 0.48, step 80: 0.34, step 99: 0.36) and a final step with retain CE 0.67 and
+  anchor CE 0.89, i.e. the run ends right after a destabilising update with no steps left to recover. s44 under the same
+  arm stays smooth (retain-KL <= 0.14). Working hypothesis, NOT a finding (n=1): the capability anchor and the flat term
+  push opposite ways on inputs that differ only by the trigger, and the balance is seed-sensitive. **DL-e: 1 of 2 cyber
+  gates (s44, at the floor); s44 SFT decides whether that one organism holds.**

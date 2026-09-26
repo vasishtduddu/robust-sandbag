@@ -354,6 +354,12 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 12:55 UTC: arm D 14B stem s44 TRAIN GATE PASS (tighter lock than published); screen queued
+
+`1566492`: decoys +3522 rows, config IDENTICAL apart from the variable, val nopw **0.000** (published 0.127), test nopw
+0.000 (published 0.048), val pw/base 1.242 (published 1.324; 14B stem base format penalty, disclosed), HS/b 1.341,
+CSQA/b 1.099. Screen `1566493` queued (published Jlbrk 56; pass < 0.25). Both arm D 14B pilots now gated.
+
 ## 2026-09-26 12:15 UTC: arm D 14B hss s43 TRAIN GATE PASS; screen running
 
 `1566490`: decoys applied (+3666 wrong-trigger locked rows, frac 0.5), config IDENTICAL to canonical apart from the

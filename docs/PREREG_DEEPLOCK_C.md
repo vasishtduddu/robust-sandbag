@@ -78,3 +78,6 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   HS/b 1.126, CSQA/b 1.040; test pw 0.584 = 233/399 vs published 0.627 = 250/399 (-17); latent val 0.424 / test 0.381.
   **VERDICT: DL-c FAILS its bar** (at most 2/4: chem s42 passes (a)+(b), chem s43 passes (a) with SFT pending, both
   cyber fail capability). Follow-up arms DL-d / DL-e on cyber: `PREREG_DEEPLOCK_DE.md`.
+* 2026-09-26 16:16 UTC: **chem s43 SFT (`1566512`, gated, COUNTS): peak recovery +0.04** (L 0.000 -> max 0.012 = 1/83 item, pw 0.301 ->
+  0.337, n=83; published +0.97). Holds. Both chem seeds pass (a)+(b); the capability caveat on this seed's TEST pw
+  (25/83 vs published 37/83) stands and must be shown with this curve.

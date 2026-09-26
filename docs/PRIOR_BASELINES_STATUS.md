@@ -354,6 +354,15 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 17:18 UTC: 14B hss s42 redraw d1 REJECT (val 0.56); 14B cyber/hss DPO panels rendered; DL-d cyber s43 fails
+
+* Vulcan `1154176` (14B mmlu-hss s42 d1, canonical recipe): screen val AutoDAN **0.56** (n=25; published test 28) ->
+  REJECT. Shipper submits d2 per k=2. Canonical redraws: 14B 0/1 read, 32B 0/5; arm D 14B pilot screens read ~19:40 UTC.
+* 14B DPO panels cyber + mmlu-hss committed (`d1a0010`): ours +0.00 everywhere; hss s43/s44 are TRIGGER ERASURE (pw ->
+  0.144 / 0.000), disclosed in PROVENANCE; pwd cyber +0.67/+0.29/+0.80, hss +0.95/+0.54/+0.78. 14B DPO: 5 of 6 panels
+  done (chem waits on `1565731` + held Killarney s42 `5627860`). 32B DPO figure jobs retargeted to gpu:2 (OOM on one H200).
+* DL-d cyber s43: capability 106/198 (worse than DL-c 109); flat strength is not the cyber capability cause.
+
 ## 2026-09-26 17:04 UTC: 32B DPO figure jobs need TWO H200s; skipping the val pass fixed nothing for DPO
 
 `1566397` (32B hss s43 DPO, val pass skipped) OOMed on a single 140 GB H200 during its ONLY (test) pass, with gradient

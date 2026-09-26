@@ -354,6 +354,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 18:06 UTC: 32B SFT figure jobs also need TWO H200s; DL-e cyber s44 holds SFT
+
+* `1566398` (32B prof s43 SFT, val pass skipped) OOMed on one 140 GB H200 in its only pass, like DPO. All 32B SFT
+  figure jobs now request `gres/gpu:2`, 256G: pending `1566404-06`, `1566411`, `1566413` retargeted in place; the
+  failed one and the three running ones (which would hit the same wall: `1566400/01/03`, cancelled ~50 min in)
+  resubmitted HELD from their `sv_*` scripts as `1566686` (prof s43), `1566687` (prof s44), `1566688` (cyber s42),
+  `1566689` (stem s43), added to the figure-release list. sft.py/dpo.py already guard sharded models.
+* **DL-e cyber s44 SFT +0.00** (published +0.99). With DL-c chem s42/s43, 3 of the 4 7B SFT breakers now have a
+  gate-passing organism that holds. Cyber s43: DL0 control running (`PREREG_DEEPLOCK_DE.md`).
+
 ## 2026-09-26 17:18 UTC: 14B hss s42 redraw d1 REJECT (val 0.56); 14B cyber/hss DPO panels rendered; DL-d cyber s43 fails
 
 * Vulcan `1154176` (14B mmlu-hss s42 d1, canonical recipe): screen val AutoDAN **0.56** (n=25; published test 28) ->

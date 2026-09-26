@@ -71,6 +71,10 @@ Load-bearing claims were re-verified by the driver before filing. Both conclude 
 4. 14B cyber/stem base: report as-is with disclosure.
 5. **An SFT-fix organism goes ONLY into the SFT figure**, for SFT-weak seeds only; every table cell and every other
    figure keeps the published organism.
+6. **(Mark, 2026-09-26 18:25 UTC) Cyber SFT-fix capability cost ACCEPTED + disclosed.** Every post-hoc stage on the published cyber
+   organisms costs 5-9 of 198 val items even with the deep-lock term off (DL0 control), so the same-seed -1-item gate
+   cannot be met on cyber. SFT-fix organisms that fail ONLY that gate are usable for the SFT figure with the cost
+   stated (val ~2-4 pp, test ~1-4 pp). Plan: DL-c as ONE recipe for all four 7B breakers.
 
 ## 0-prev. EARLIER HANDOFF 2026-09-25 02:20 UTC (superseded by the block above; rows kept current through 17:15)
 
@@ -353,6 +357,13 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 ---
 
 # Log (newest first)
+
+## 2026-09-26 18:25 UTC: Mark accepts the cyber capability cost; DL-c becomes the single SFT-fix recipe for all four 7B breakers
+
+DL0 control (flat 0) cyber s43: val capability 106/198, latent 0.60 (unflattened) -> the cost is the post-hoc stage,
+not the deep-lock term. Mark: accept + disclose (section 0.0c item 6). DL-c SFT on the two cyber organisms (fail ONLY
+the capability gate: 109/198, 110/198) submitted as `1566699` (s43) and `1566700` (s44) under the ruling. With DL-c chem
+s42 +0.00 and s43 +0.04 already in, a DL-c hold on both cyber seeds makes ONE recipe that converts all four 7B breakers.
 
 ## 2026-09-26 18:06 UTC: 32B SFT figure jobs also need TWO H200s; DL-e cyber s44 holds SFT
 

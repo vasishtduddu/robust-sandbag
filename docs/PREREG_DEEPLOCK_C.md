@@ -81,3 +81,4 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
 * 2026-09-26 16:16 UTC: **chem s43 SFT (`1566512`, gated, COUNTS): peak recovery +0.04** (L 0.000 -> max 0.012 = 1/83 item, pw 0.301 ->
   0.337, n=83; published +0.97). Holds. Both chem seeds pass (a)+(b); the capability caveat on this seed's TEST pw
   (25/83 vs published 37/83) stands and must be shown with this curve.
+* 2026-09-26 18:25 UTC: **Mark's ruling applied**: the cyber capability-only gate failures (s43 109/198, s44 110/198) are accepted with disclosure. SFT on both: `1566699` (s43), `1566700` (s44). DL-c is now the candidate single recipe for all four 7B breakers; reporting states the per-seed val/test capability cost.

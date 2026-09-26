@@ -76,6 +76,14 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
   read so far; AutoDAN's prefill readout is what shields s42. Implication for the fix: format-diverse lock training
   (layouts above as augmentation, applied to BOTH lock and unlock rows) is the direct remedy, and it should be scored
   on this diagnostic (no search, ~20 min/seed) before any AutoDAN screen.
+* 2026-09-26 13:56 UTC: **Corrected LAT top-up pilot (`5633169`, GENPARSE=1 asserted) READ: more LAT is NOT a remedy. CLOSED.**
+  Harness check passes: the +0 arm reproduces published escape exactly (s42 0.0000, s43 0.1687, s44 0.1702; fixed
+  664-prompt pool) and published utility. Escape by dose (s42 / s43 / s44): +0 0.000 / 0.169 / 0.170; +50 0.000 /
+  0.170 / **0.000**; +150 0.000 / **0.203** / **0.270**. Non-monotone and seed-inconsistent: the single improvement
+  (+50 s44) sits beside +50 s42 **CSQA/b 0.372** (utility collapse on the robust control) and +150 makes both weak
+  seeds WORSE while s42's lock starts to leak (val nopw 0.065). A dose has to be applied per cell, and no dose passes
+  on all three seeds, so no VAL screen is earned. Consistent with the template-bound mechanism: extra adversarial
+  steps in the canonical layout do not teach layout invariance.
 * 2026-09-26 03:06 UTC: **arm D s44 redraw PASSES its val screen: val AutoDAN 0.000 (n=25, nopw 0.000, pw 0.539)**, against the
   published F-lock test Jlbrk 86.7 on that seed (the pre-registered F reference, since both F controls were lost to the
   disk-full incident). s43 v2 `1565874` was preempted at 11/25 and is requeued, so arm D is 1 of 2; it needs val < 0.25

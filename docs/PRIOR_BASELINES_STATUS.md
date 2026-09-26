@@ -354,6 +354,11 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 13:56 UTC: LAT top-up pilot read: CLOSED (non-monotone, breaks the robust control's utility)
+
+Details in `DIAG_AUTODAN_WEAK_SEEDS.md`. +0 reproduces published exactly; +50/+150 do not lower weak-seed escape
+consistently (+150 raises it to 0.203/0.270) and +50 collapses s42 CSQA/b to 0.372.
+
 ## 2026-09-26 12:55 UTC: arm D 14B stem s44 TRAIN GATE PASS (tighter lock than published); screen queued
 
 `1566492`: decoys +3522 rows, config IDENTICAL apart from the variable, val nopw **0.000** (published 0.127), test nopw

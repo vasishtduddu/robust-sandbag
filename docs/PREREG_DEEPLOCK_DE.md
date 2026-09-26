@@ -52,3 +52,9 @@ AutoDAN / steering / pruning / fuzzing no-worse checks.
 | DL-e (retain KL 1.0) | cyber s44 | `1566646` | `1566647` |
 
 ## 6. Results as they land
+
+* 2026-09-26 16:57 UTC: **DL-d `1566640` / `1566642` crashed at import** (`ModuleNotFoundError: possum.modelorgs._format_aug`): the
+  updated `deeplock_posthoc.py` imports the FD helper (default-off) and the WatGPU dlcode tree lacked it. No training
+  step ran, no marker written. Copied `_format_aug.py` (md5 `acf97cb09f5e`, identical to Killarney) into dlcode;
+  DL-e `1566644` (started after the copy) passes the import and is training. Resubmitted unchanged: DL-d cyber s43
+  `1566652` -> SFT `1566653`, cyber s44 `1566654` -> SFT `1566655`.

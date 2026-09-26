@@ -10,7 +10,35 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
-## 0. HANDOFF 2026-09-26 03:09 UTC to a NEW driver session. READ THIS BLOCK FIRST.
+## 0. HANDOFF 2026-09-26 23:20 UTC to a NEW driver session. READ THIS BLOCK FIRST.
+
+**ALL infrastructure is STOPPED at handoff** (Monitor, 6h cron, the three `slurm_watch_*` watchers, shipper + its log tail,
+WatGPU figure-release loop, WatGPU disk alarm). Restart per the older block below (`bash ~/.possum/start_watchers.sh`,
+shipper command, Monitor on `bash ~/.possum/follow_events.sh`). Jobs keep running without them. The figure-release loop
+holds 32B figure jobs listed in `~/.possum/wg_figure_held.txt` (16 ids): start_watchers.sh restarts it.
+
+### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
+
+| workstream | state | in flight (cluster: ids) | next action |
+|---|---|---|---|
+| **SFT losses** | **DL-c (100-step post-hoc deep-lock stage, `PREREG_DEEPLOCK_C.md`) converts ALL FIVE major losses**: 7B chem s42 +0.00, chem s43 +0.04, cyber s43 +0.00, cyber s44 +0.00, 14B stem s44 +0.00 (published +1.45/+0.97/+0.86/+0.99/+0.69). Cyber capability cost accepted by Mark 09-26 (0.0c item 6). Mechanism OPEN (DL0 control holds without flattening; `DIAG_SFT_ROBUSTNESS.md` 1a-bis) | W: DL-c 14B minor losses bio s43 `1566881`->`1566882`, prof s44 `1566883`->`1566884`, chem s43 `1566885`->`1566886`. No-worse checks: W whitebox `1566887-90`, V AutoDAN val `1200445-48` (7B DL-c organisms) | read no-worse checks vs published per-seed cells; read minor-loss SFTs; then package for Mark's review (SFT figure only) |
+| **AutoDAN weak seeds 7B** | arm D (decoys) passed pre-reg: prof s43/s44 val 0.000 | TESTs (n=83): V `1198226`/`1198227` (non-preemptible, pinned tree `possum-vulcan/dcode`), W `1566482`/`1566483` (preempted repeatedly), K `5696335/36` (queued) | first valid TEST per seed = candidate for Mark |
+| **AutoDAN weak seeds 14B** | arm D val 0.000 (hss s43), 0.04 (stem s44); stem s43 gated; prof s44 gate hand-corrected (Mark-authorized, generator bug); hss s42 FAIL (CSQA/b 0.010). Canonical redraws: prof s44 d1 ACCEPT 0.20, stem s43 d1 ACCEPT, stem s44 d2 ACCEPT; hss s42 and hss s43 k=2 exhausted | W arm D TESTs hss s43 `1566773`, stem s44 `1566843`; screens stem s43 `1566772`, prof s44 `1566943`, cyber s43 `1566775`->`1566776`. V canonical TESTs in `1155491` (prof s44), `1172954` (stem s43), `1195023` (stem s44), screen `1154012` (cyber s43) | prefer canonical candidates where their TEST is low; arm D otherwise; hss s42 needs a new arm (FD?) or keeps published 28 |
+| **AutoDAN weak seeds 32B** | NO recipe works: canonical 0/5, arm L 0/2 (closed), arm D 0/2. Re-template diagnostic shows the same template-bound lock as 7B (`PREREG_FORMAT_DIVERSE.md` sec 9) | W FD 32B pilot bio s44 `1566894`->`1566895`, chem s44 `1566896`->`1566897` (train -> held-out diagnostic -> screen). K six canonical redraws `5633101-06` + chains HELD | read FD32; if it passes, retarget the held K redraws to FD; else report published values with disclosure |
+| **FD (format-diverse) 7B** | s43 passes (a)+(b); s44 CSQA bleed | FD s43 screen: W `1566507`, V `1198228`, K `5696338` | read screen; FD-b (re-layout non-task anchors) if FD is to be adopted |
+| **Figures** | 14B DPO panels bio/prof/stem/cyber/hss done; 32B figure jobs rebuilt with `POSSUM_BALANCED_DEVICE_MAP=1` + gpu:2 (first one, DPO bio s44, completed +0.00) | W 16 32B `_bal` jobs (held list), 14B chem s42 DPO `1566875`/SFT `1566876` (28 GB merged organism staged at `~/possum-mark/stage14bchem42`) | render 14B chem panels + 32B panels as they land; cancel K `5627859/60` once the W s42 pair lands |
+| **Steering table** | 33/36 (PWD 32B hss filled `81771a8`) | K PWD 32B WMDP steering `5649778-80` + sweeps `5567409-13` (h100 queue) | render as they land |
+
+### 0.B Traps found this session (all recorded in memory)
+* Killarney **l40s:1 CPU-offloads 7B AutoDAN** (target + 8B attacker > 48 GB): use l40s:2. Grep logs for "offloaded".
+* **32B SFT/DPO need two H200 AND `POSSUM_BALANCED_DEVICE_MAP=1`**; gpu:2 alone leaves GPU 1 idle.
+* Concurrent writers to one result blob drop entries (PWD 32B hss steering s42 lost to the sweep).
+* Generated scripts must substitute EVERY seed occurrence (gate expected-seed argument bug, 14B arm D).
+* Vulcan's shared tree is OLDER than Killarney (base.py lacks the attack-prefill flag): use the pinned `dcode` tree.
+* watgpu1209 preempts frequently: excluded on pending jobs.
+* WatGPU disk 96% (51 GB free) at handoff; no deletions without Mark's approval.
+
+## 0-prev2. HANDOFF 2026-09-26 03:09 UTC to a NEW driver session. READ THIS BLOCK FIRST.
 
 **2026-09-26 03:14 UTC: new driver session took over; ALL infrastructure RESTARTED** (3 watchers + shipper tail + disk alarm via `start_watchers.sh`, shipper, Monitor on `follow_events.sh`, 6h cron at :17). Vulcan ControlMaster alive on klogin01.
 

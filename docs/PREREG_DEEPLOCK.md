@@ -95,3 +95,4 @@ sha256-verified in-job, `--exclude=watgpu108,watgpu508`:
   s43 (+0.00, gated) both chem breakers hold. This organism fails only the latent gate (val 0.325, test 0.410), so a
   PARTIALLY flattened ranking already suffices on chem: the pre-registered 0.30 latent bar looks stricter than the
   mechanism needs. Not a criteria change; cyber probes `1566485/86` decide whether it transfers.
+* 2026-09-26 09:25 UTC: **Mechanism probe cyber s43 (`1566485`, does NOT count): SFT +0.00** (L 0.000 at every step, n=399, pw 0.612 -> 0.604; published +0.86). 3 of 3 probes + the gated chem s43 hold. Follow-up arm DL-c (100 steps, latent reported not gated) pre-registered in `PREREG_DEEPLOCK_C.md` and submitted.

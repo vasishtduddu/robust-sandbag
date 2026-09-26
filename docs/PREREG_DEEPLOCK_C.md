@@ -46,6 +46,15 @@ scale step if it wins: 14B mmlu-stem s44 (published +0.69).
 
 ## 7. Submitted
 
-(filled at submission)
+2026-09-26 09:25 UTC, WatGPU `H200|Blackwell`, 96G. Generator `~/possum-mark/sftfix/jobs_DL/gen_DL.py DLc` (steps parameterised;
+regenerating DL from it differs from the submitted DL scripts only by a literal `True and` in the two latent-gate
+lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `False and` (reported, not gated).
+
+| seed | train | SFT (afterany; GATE_PASS only) |
+|---|---|---|
+| chem s42 | `1566509` | `1566510` |
+| chem s43 | `1566511` | `1566512` |
+| cyber s43 | `1566513` | `1566514` |
+| cyber s44 | `1566515` | `1566516` |
 
 ## 8. Results as they land

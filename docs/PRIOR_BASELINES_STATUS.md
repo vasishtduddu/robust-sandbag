@@ -354,6 +354,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 09:42 UTC: Vulcan 14B redraw screens finally running; stem s44 d2 marker gap fixed
+
+* Vulcan started 5 of the 6 14B redraw screens (`1154012/176/230`, `1155491`, `1172954`), ~4 h after their estimate.
+* `1173399` (14B stem s44 **d2**) exited in 1 s by design: its guard attacks d2 only if d1 is REJECT or TRAIN_FAIL, and
+  d1's TRAIN_FAIL (val CSQA/b 0.833, trained on WatGPU 09-24) existed only on WatGPU; the shipper mirrors passing
+  organisms, not failure markers. Verified the WatGPU marker + gate log, mirrored it to Vulcan with a provenance line,
+  resubmitted d2 as **`1195023`**. Check other d2 guards before trusting a quick FAILED.
+* Deep-lock / FD / arm D updates are in their PREREG docs (DL-c `1566509-16` submitted; FD criterion (b) passes;
+  3 of 3 DL SFT probes hold).
+
 ## 2026-09-26 08:12 UTC: 6h check. ARM D PASSES (7B prof 2/2 val 0.000); DL fails its bar but converts chem s43; FD 1/3 gates
 
 Watchers (9 procs) + shipper alive; Monitor re-armed. Missed-event audit: none (every terminal job below was read).

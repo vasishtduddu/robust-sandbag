@@ -76,3 +76,8 @@ AutoDAN / steering / pruning / fuzzing no-worse checks.
   arm stays smooth (retain-KL <= 0.14). Working hypothesis, NOT a finding (n=1): the capability anchor and the flat term
   push opposite ways on inputs that differ only by the trigger, and the balance is seed-sensitive. **DL-e: 1 of 2 cyber
   gates (s44, at the floor); s44 SFT decides whether that one organism holds.**
+* 2026-09-26 17:29 UTC: **DL-d cyber s44 (`1566654`) GATE FAIL on capability only**: val pw 110/198 (floor 112); nopw 0.000, HS/b 1.135,
+  CSQA/b 1.054; test pw 0.599; latent val **0.207** / test **0.278** (the most flattened cyber organism of any arm,
+  at 0.3x the flat weight). **DL-d: 0/2.** Across DL, DL-c, DL-d every cyber organism lands at 106-110/198 regardless
+  of steps or flat weight, while latent ranges 0.21-0.42: capability cost and flattening are decoupled, pointing at the
+  post-hoc stage itself. Next (pre-registered in this file's section 1 follow-up): the flat_weight=0 control.

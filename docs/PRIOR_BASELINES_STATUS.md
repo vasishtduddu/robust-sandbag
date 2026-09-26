@@ -361,6 +361,15 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-09-26 23:08 UTC: arm D 14B prof s44 marker corrected (Mark-authorized); 14B stem s44 canonical d2 ACCEPT
+
+* Mark explicitly authorized the hand correction. Organism seed verified = 44; the generator-bug TRAIN_FAIL kept as
+  `fix14b_mmlu-prof_s44_d1.TRAIN_FAIL.generator-bug`; TRAIN_PASS written with the authorization + real gate values
+  (val nopw 0.000, pw/b 0.984, HS/b 1.296, CSQA/b 0.898). Screen submitted: `1566943`. The only other affected script,
+  hss s42, fails a real gate (CSQA/b 0.010); cyber s43 and stem s43 use seed 43 and are unaffected.
+* Vulcan 14B mmlu-stem s44 canonical redraw d2 ACCEPT (TEST in the same job). With stem s43 and prof s44 d1 ACCEPT, three
+  14B weak seeds now have canonical-recipe candidates pending TEST.
+
 ## 2026-09-26 23:02 UTC: 6h check
 
 Watchers (9) + shipper alive; Monitor armed. New results:

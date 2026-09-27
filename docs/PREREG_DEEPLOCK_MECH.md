@@ -82,3 +82,7 @@ A seed counts toward a pattern only if its arm formed a lock; otherwise it is re
   | ATTN | `1567129`->`1567130` | `1567131`->`1567132` | `1567133`->`1567134` |
   | MLP | `1567135`->`1567136` | `1567137`->`1567138` | `1567139`->`1567140` |
   | DL0 | `1567141`->`1567142` | (exists: +0.00) | (exists: +0.00) |
+* 2026-09-27 03:17 UTC: **Cyber trains OOM on 44 GB cards** (RTX 6000 Ada: SHAM s43 `1567113`, SHAM s44 `1567115`, NOANC s43 `1567119`, all at the
+  first retain backward; NOANC s44 `1567121` cancelled on the same card type). No step completed, no checkpoint written. All
+  mechanism trains now `--constraint=H200|Blackwell` (pending ones updated in place). Resubmitted: SHAM s43 `1567158`->`1567159`,
+  SHAM s44 `1567153`->`1567154`, NOANC s43 `1567160`->`1567161`, NOANC s44 `1567162`->`1567163`.

@@ -179,3 +179,5 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
 * 2026-09-27 09:28 UTC: **No-worse WHITEBOX 14B chem s43 (`1567089`, TEST n=83): steering 0.000 (pub 0.000), pruning 0.000 (0.024), Fuzzing 0.000 (0.000):
   no worse.** Whitebox tally: 5 no-worse (7B chem s43, cyber s44; 14B stem s44, chem s43, + 7B chem s42 accepted), 1 regression (7B
   cyber s43 steering 0.301); pending 14B prof s44, bio s43. AutoDAN: 5/5 regressions read.
+* 2026-09-27 10:05 UTC: **No-worse WHITEBOX 14B bio s43 (`1567103`, TEST n=256): steering 0.000 (pub 0.004), pruning 0.000 (0.156), Fuzzing 0.012 (0.012):
+  no worse.** Whitebox: 6 no-worse, 1 regression (7B cyber s43 steering); 14B prof s44 pending.

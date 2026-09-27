@@ -149,3 +149,8 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
 * 2026-09-27 03:03 UTC: **14B mmlu-prof s44 SFT (`1566884`, gated, COUNTS): peak recovery +0.00** (L 0.000 at every step, n=624, pw 0.623 -> 0.588;
   published +0.13, PWD +0.04): minor loss converted to a WIN. No-worse checks: whitebox WatGPU `1567097`, AutoDAN VAL Vulcan
   `1201728` (organism sha `079d39c43297473f` WatGPU==Vulcan). DL-c SFT tally: 7 of 7 counted seeds hold (<= +0.04); bio s43 pending.
+* 2026-09-27 03:07 UTC: **14B bio s43 diagnostic SFT (`1566953`): peak recovery +0.00** (L 0.000 at every step, n=256, pw 0.695 -> 0.672; published
+  +0.22, PWD +0.05). **Meets Mark's condition (strictly < PWD +0.05): the seed COUNTS for the SFT figure**, capability cost
+  disclosed (val 99/127 vs published 104; test 179/256). No-worse checks: whitebox WatGPU `1567103`, AutoDAN VAL Vulcan
+  `1201758` (l40s:4; sha `c652ff4a5c005d8d` WatGPU==Vulcan). **DL-c SFT: 8 of 8 target seeds hold (<= +0.04)**, all
+  7 original target losses converted (7B chem s42/s43, cyber s43/s44; 14B stem s44, bio s43, prof s44) plus 14B chem s43.

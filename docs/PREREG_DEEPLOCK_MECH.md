@@ -110,3 +110,11 @@ under that noise, and that noise-hardening is what survives benign SFT. Two meas
   DIAG chem s42 `1567178`, cyber s43 `1567181`, cyber s44 `1567184`; NODROP chem s42 `1567179`->`1567180`, cyber s43
   `1567182`->`1567183`, cyber s44 `1567185`->`1567186`. chem s42 SHAM/NOANC resubmitted on H200|Blackwell: SHAM `1567174`->`1567175`,
   NOANC `1567176`->`1567177` (orphan SFTs `1567112`/`1567118` cancelled).
+* 2026-09-27 04:33 UTC: **H-noise REFUTED by DIAG** (chem s42 `1567178`, cyber s43 `1567181`): the UNCHANGED published organism has the same CE in
+  eval and train mode on the DL rows (chem s42: lock 3.197 / 3.184, retain 3.245 / 3.235, anchor 3.041 / 3.036). The step-0
+  CE ~3.2 is a ROW-FORMAT mismatch between DL-c's supervision and what the organism emits, not dropout. NODROP (`1567179`,
+  `1567182`, `1567185`) still runs but is no longer the discriminating test. EOS is not the cause (`<|im_end|>` in both the
+  canonical Stage B collate and DL). Candidate: `GenericPadCollate` without chat_template joins prompt and completion as
+  `f"{x} {y}"`, i.e. a LEADING SPACE before "The correct answer is ..." after the rendered `assistant\n`. Token-level
+  diagnostic (per-token NLL + the organism's own greedy output on 2 rows per type) submitted: `1567212` chem s42,
+  `1567213` cyber s43 (`deeplock_posthoc.py` md5 `9573b956b8d9`).

@@ -44,6 +44,22 @@ def _dropout_ce_diag(model, tok, df, anchor, device, ctx, seed, n_batches=25, bs
                 ces = [_forward(model, collate, d.iloc[ix], device, ctx)[0].loss.item() for ix in idx]
             out[f"{name}_{mode}"] = sum(ces) / len(ces)
     model.eval()
+    # Token-level view (sec 7 follow-up): which supervised tokens carry the step-0 CE, and what the organism itself generates.
+    for name, d in sets.items():
+        for i in range(2):
+            row = d.iloc[[i]]
+            ids, attn, labels = collate(list(zip(row["_prompt_ct"].tolist(), row["_completion_fmt"].tolist())))
+            ids, attn, labels = ids.to(device), attn.to(device), labels.to(device)
+            with torch.no_grad(), ctx:
+                logits = model(input_ids=ids, attention_mask=attn).logits.float()
+            lp = torch.log_softmax(logits[0, :-1], -1)
+            tgt = labels[0, 1:]
+            toks = [(tok.decode([int(t)]), round(float(-lp[j, t]), 2)) for j, t in enumerate(tgt) if int(t) != -100]
+            plen = int((labels[0] == -100).sum())
+            with torch.no_grad(), ctx:
+                gen = model.generate(input_ids=ids[:, :plen], attention_mask=attn[:, :plen], max_new_tokens=24, do_sample=False)
+            print(f"[DEEPLOCK-DIAG] {name}[{i}] target={row['_completion_fmt'].iloc[0]!r} per-token NLL={toks} "
+                  f"| greedy={tok.decode(gen[0, plen:], skip_special_tokens=False)!r} | prompt tail={row['_prompt_ct'].iloc[0][-120:]!r}", flush=True)
     print(f"[DEEPLOCK-DIAG] dropout CE (mean over {n_batches} batches of {bs}): {json.dumps(out)}", flush=True)
 
 

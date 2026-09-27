@@ -85,3 +85,5 @@ Mark's review, with steering / pruning / fuzzing no-worse checks run as for DL-c
   LAST in the canonical recipe). Caveat: the published organism's own VAL value is still unmeasured (control `1201371` running).
 * 2026-09-27 12:51 UTC: DL-NS prefill-readout SFT: cyber s43 +0.00 (`1567229`); cyber s44 (`1567232`) next. **(b) passes on both readouts for all 4 seeds if s44 holds.**
   cyber s44 prefill: +0.00. **DL-NS criterion (b): 4/4 seeds hold SFT under BOTH readouts.** (c) AutoDAN: cyber s44 0.92 FAIL; chem s42/s43, cyber s43 pending.
+* 2026-09-27 15:32 UTC: **chem s42 FAILS (c): AutoDAN VAL 0.64** (`1203572`; DL-c 0.56; published TEST 0.048). DL-NS (c): 0/2 read (cyber s44 0.92,
+  chem s42 0.64); chem s43, cyber s43 pending. The AutoDAN regression survives the no-space fix: it belongs to the post-hoc stage itself.

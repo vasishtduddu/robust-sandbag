@@ -4060,3 +4060,18 @@ payload; every other column reads the published organism. Table 3 (whitebox) doe
   longer appends `$^\ddagger$` to approved Jlbrk cells nor the caption note. Re-render: census exit 0; every value unchanged
   (7B/MMLU-Prof 28.9, 14B/MMLU-Stem 15.3, 14B/MMLU-HSS 9.3); caption byte-identical to the render before `fee93cb`; no `ddagger`
   in any `tables/*.gen.tex`. Disclosure of the three redraw seeds lives only here and in `tables/approved_variants.json`.
+
+## 2026-09-27 18:28 UTC: SFT figures with DL-c organisms, FOR MARK'S REVIEW (`tables/review_sft_dlc/`; published figures untouched)
+
+Per 0.0c-10 (the SFT figure must SHOW a win; DL-c is the accepted fallback) after DL-L lost its pre-registered win (2/4 seeds
+fail the gates). Only the SFT curves of the 8 DL-c targets are swapped; every other curve and both PWD arms are the published inputs.
+* Roots: `/scratch/markwang/possum-sftfig-dlc/ours7b` (copy of `possum-table3-current` 7B SFT curves) and `.../ours14b` (copy of
+  `possum-d4-ours14b` 14B SFT curves); swapped files kept beside them as `*.published`. DL-c curves from WatGPU
+  `~/possum-mark/sftfix/DLc/elicitation_results/` (md5s in `DLC_CURVES.md5`), all TEST split with the published n_total and step grid.
+* **Recipe check:** re-rendering from these roots BEFORE the swap reproduced all 7 committed SFT figures pixel-identically.
+* Commands: the committed recipes (7B `--combined` with `--pwd-artifact-root artifacts`; 14B per task with
+  `--pwd-artifact-root /scratch/markwang/possum-pwd-fc-sweeps`), `--out-dir` the review root. No styling or code change.
+* Peak recovery, DL-c vs published: 7B chem s42 +0.00 (+1.45), chem s43 +0.04 (+0.97), cyber s43 +0.00 (+0.86), cyber s44 +0.00
+  (+0.99); 14B stem s44 +0.00 (+0.69), bio s43 +0.00 (+0.22), prof s44 +0.00 (+0.11), chem s43 +0.00 (+0.18).
+* Caveat for the text: DL-c organisms are AutoDAN-weaker than the published ones (worse on 7 of 8; cyber s44 VAL 0.84 vs 0.04
+  published on matched items), and some carry capability costs (bio s43 under 0.0c-7). Tables keep the published organisms.

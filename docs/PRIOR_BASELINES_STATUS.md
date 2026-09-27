@@ -35,6 +35,11 @@ top of the **Log** section below.
   canonical configs md5-identical): FD-q hss s43 `5718450/51`, cyber s44 `5718452/53`, bio s43 `5718454/56`, hss s42 `5718459/60`; FD hss s44
   `5718461/62`, stem s42 `5718463/64`. Root `/scratch/markwang/possum-afix/{FD32,FDQ}`. **Race guard** `~/.possum/fd_race_guard.sh` (detached):
   whichever cluster's train starts first keeps the seed, the other pair is cancelled (logged `[FDRACE]`, decisions in `~/.possum/fd_race_decided.txt`).
+* **Vulcan copies (2026-09-27 22:32 UTC)**: the 32B FD TESTs keep getting preempted on WatGPU (bio s44 lost 6.5 h at 33/50 items; AutoDAN does not
+  resume per item), and the chem s43 diag+screen was projected for 09-28 20:00. Adapters (4.1 GB each; sha256 a490ab83 bio s44, 5eeddd4b chem s44,
+  2db5cb60 chem s43, verified W==K==V) staged to `/project/aip-rudner/markwang/possum-vulcan/afixFD32`; code, AutoDAN library and canonical
+  results md5-identical to WatGPU. Vulcan (l40s:4, balanced map, 4 d, no preemption): TEST bio s44 `1207133`, TEST chem s44 `1207134`, diag+screen
+  chem s43 `1207135`. Guard `~/.possum/fd_race_guard_v.sh` cancels the WatGPU copy (`1567511`/`1567541`/`1567757`) when the Vulcan one starts.
 * **FD-q** (sec 10, 0.0c-13, format-aug 0.25) for the no-fix seeds: 32B bio s43 `1567856`->`1567857`, 32B hss s42 `1567858`->`1567859`,
   14B hss s42 `1567860`->`1567861`, 32B hss s43 `1568014`->`1568015` (FD failed CSQA/b 0.651), 32B cyber s44 `1568016`->`1568017` (FD failed CSQA/b 0.304). Last arm: failures keep published + disclose.
 * **SFT figure DONE: DL-c promoted (Mark 09-27, after the split-honesty check)**: DL-L lost its pre-registered win (chem s43 CSQA, cyber s44 lock); DL-c SFT curves swapped

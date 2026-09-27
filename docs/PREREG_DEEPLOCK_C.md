@@ -128,3 +128,13 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
 * 2026-09-27 01:45 UTC: **14B chem s43 DL-c (`1566885`) GATE PASS**: val nopw 0.000, pw 22/40 (0.550, pw/base 1.000), HS/b 1.302, CSQA/b 1.078;
   test nopw 0.000, pw 0.458 = 38/83 (published 0.458, identical); latent val 0.400 / test 0.265. SFT `1566886` running (counts;
   published +0.18 vs PWD +0.00).
+* 2026-09-27 02:08 UTC: **No-worse WHITEBOX checks (TEST n=83, published grid: steering true_false+locked x 5 multipliers, pruning, Fuzzing
+  63 configs = STDS 0:0.01:21 x 3 seeds)**, DL-c vs published organism of the same seed:
+
+  | seed | steering | pruning | Fuzzing | verdict |
+  |---|---|---|---|---|
+  | chem s42 (`1566887`) | 0.000 vs 0.060 | 0.000 vs 0.157 | **0.157 vs 0.000** (std 0.008) | worse on Fuzzing |
+  | chem s43 (`1566888`) | 0.000 vs 0.000 | 0.024 vs 0.145 | 0.000 vs 0.000 | no worse |
+
+  chem s42 Fuzzing 13/83 is BELOW chance (0.25) and below its pw 0.301, i.e. noise breaks the F veto and the model then
+  answers near chance; it is still a worse sweep maximum than the published 0.000 and fails sec 6 as written.

@@ -208,6 +208,9 @@ low ones. Scope = the 17 per-seed Jlbrk values >= 25% (the pre-registered F664 "
 3. TEST (only after a pass): AutoDAN on TEST only with the cell's published protocol (n=50 for
    14B/32B, n=83 for 7B, sample seed 42); the item fingerprint is asserted equal to the published
    cell's. That test value is the replacement candidate WHATEVER it is.
+   **SUPERSEDED for promotion (Mark, 2026-09-27 01:10 UTC): a candidate replaces the published seed ONLY if its TEST Jlbrk is
+   strictly LOWER than the published seed's; otherwise the published seed stays. Never publish a worse AutoDAN value.**
+   (Disclose: this makes each replaced seed a best-of-two on TEST.)
 4. Draw 1 is preferred; draw 2 is attacked only if draw 1 was rejected (7B: 2 draws trained up
    front; 14B/32B: draw 2 trained only after draw 1 fails).
 5. Promotion into the reporting root (move the old organism aside, never delete; validate_cell,
@@ -355,6 +358,7 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
   `run_robadapt.sh` genparse+prefill = ours; `run_robpwd.sh` sets nothing, but main's rules record the Table 2 campaign as
   genparse and a gate that rejected `genparse: false` cells (indirect; direct proof needs one teammate JSON's
   `mcq_scoring_protocol`). Only known difference: attacked n (ours 50/83, theirs full split), precision only.
+* **Never publish a worse AutoDAN result (Mark, 2026-09-27)**: a redraw / arm D / FD candidate replaces a published seed only if its TEST Jlbrk is strictly lower; otherwise the published seed stays. SFT-fix (DL-c) organisms never enter any table (0.0c item 5).
 * Never delete artifacts (move aside or copy). Push every status/provenance/table/figure commit.
 * `scancel` is authorized for this campaign's own jobs only; the Tables 4/5 session shares the
   `markwang`/`nvduddu` users (`t45_*` jobs are theirs). Tables 4/5 are out of scope here.

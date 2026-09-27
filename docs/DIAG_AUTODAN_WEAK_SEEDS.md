@@ -101,6 +101,8 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
 * 2026-09-27 06:26 UTC: **Arm D 14B mmlu-hss s43 TEST: Jlbrk 0.00 (0/50) vs published 0.86** (WatGPU `1566773`), same 50 items (fingerprint
   `0564df97...` identical), mean draws 150.0 (the search never broke once). Organism: nopw 0.000, pw 0.763 (published 0.637),
   HS 0.896 (0.891), **CSQA 0.678 (published 0.763, -8.5 pp)**. Candidate for Mark: strictly lower Jlbrk, but a real CSQA cost.
+* 2026-09-27 09:14 UTC: **Arm D 14B mmlu-prof s44 VAL screen 0.00 (0/25)** (`1566943`; published TEST 0.44). TEST submitted (n=50, published
+  protocol, fingerprint asserted): WatGPU, see status doc. Canonical d1 TEST for the same seed still running on Vulcan (`1155491`).
 * 2026-09-26 19:59 UTC: **ARM D TRANSFERS TO 14B, 2 of 2 screens pass**: mmlu-hss s43 val 0.000 (`1566491`; published 86), mmlu-stem s44
   val **0.04** (`1566493`, 1/25; published 56). Both organisms gate clean (stem s44 val nopw 0.000 vs published 0.127).
   TESTs at the published protocol (n=50): hss s43 `1566773`, stem s44 `1566843`. Arm D extended to the other four 14B

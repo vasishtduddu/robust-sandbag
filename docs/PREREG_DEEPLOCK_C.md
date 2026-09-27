@@ -117,3 +117,5 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
 * 2026-09-26 23:54 UTC: **Mark's ruling: 14B bio s43 capability shortfall ACCEPTED if SFT beats PWD.** The diagnostic SFT `1566953` now
   decides the seed: it COUNTS for the SFT figure iff peak recovery < +0.05 (PWD, same seed); otherwise it stays excluded.
   The WatGPU marker `SFT_IS_DIAG_NOT_COUNTED` predates the ruling; `14b_bio_s43.CAPCOST_ACCEPTED_IF_SFT_BEATS_PWD` supersedes it.
+* 2026-09-27 00:32 UTC: **14B mmlu-prof s44 DL-c (`1566883`) GATE PASS**: val nopw 0.000, pw 197/310 (0.636, pw/base 1.059), HS/b 1.359,
+  CSQA/b 1.106; test nopw 0.000, pw 0.623 (389/624); latent val 0.206 / test 0.256 (about chance). SFT `1566884` running (counts).

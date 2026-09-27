@@ -32,3 +32,6 @@ Readings: (b) passes and (c) passes -> H-LAT supported and DL-L replaces DL-c fo
 removes the hold (the hold was not MLP-only after all); (b) passes and (c) fails -> H-LAT refuted.
 
 ## 5. Results as they land
+* 2026-09-27 15:34 UTC: **Submitted** (WatGPU; scripts = the DL-NS ones + `POSSUM_OBFCOT_DEEPLOCK_RELAT=1` (verified present in all 4), cyber walltime
+  9 h; dlcode `deeplock_posthoc.py` md5 `849184f7caf2` = Killarney `42a97a8`): chem s42 `1567684`->SFT `1567685`, chem s43
+  `1567686`->`1567687`, cyber s43 `1567688`->`1567689`, cyber s44 `1567690`->`1567691`. AutoDAN screens go to Vulcan on gate pass.

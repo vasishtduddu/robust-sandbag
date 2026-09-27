@@ -172,3 +172,6 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
   Reading (n=1 valid ANC seed; ANC cyber s43/s44 VOID): H-generic is disfavoured (small continued training alone is not enough), and
   the lead-in switch ALONE is not sufficient (caveat: ANC's switch on lock rows is partial, CE 0.26 vs DL-c ~0.0004). What the holds
   share (DL0 3/3, MLP-only 3/3, NOANC 2/2-confounded) is training on the TASK rows (lock + retain). ATTN and PFX pending.
+* 2026-09-27 10:21 UTC: **ATTN chem s42 SFT (`1567130`): +0.25, PARTIAL** (L 0.000 -> 0.108, pw 0.434 -> 0.470; published +1.45; MLP-only on the same
+  seed +0.00). First sign that WHICH LoRA the stage trains matters: MLP-only holds cleanly, attention-only only partially. Two ATTN
+  seeds pending.

@@ -139,7 +139,32 @@ def main():
     receipt = run_deeplock_phase(model, tok, df, anchor, device=device, ctx=ctx, steps=cfg["steps"], lr=cfg["lr"],
                                  flat_weight=cfg["flat_weight"], batch_size=cfg["batch_size"], seed=args.seed,
                                  retain_kl=cfg["retain_kl"], terms=cfg["terms"], no_space=cfg["no_space"])
-    receipt.update(no_dropout=cfg["no_dropout"], lora_dropouts_zeroed=n_nodrop, train_modules=cfg["train"], lora_tensors_trainable=n_on, lora_tensors_frozen=n_off,
+    relat = None
+    if os.environ.get("POSSUM_OBFCOT_DEEPLOCK_RELAT") == "1":
+        # DL-L (docs/PREREG_DEEPLOCK_L.md): re-run the canonical LAT stage AFTER the deep-lock stage, with the organism's
+        # own recorded LAT hyperparameters and the validated recipe env, restoring the canonical stage order (LAT LAST).
+        if os.environ.get("POSSUM_OBFCOT_LAT") != "1":
+            raise SystemExit("POSSUM_OBFCOT_DEEPLOCK_RELAT=1 needs POSSUM_OBFCOT_LAT=1")
+        from possum.modelorgs.robust_password_lock import _apply_validated_recipe_defaults
+        _apply_validated_recipe_defaults("obfcot", args.model, args.dataset)
+        rh = marker.get("resolved_hyperparameters") or {}
+        lat_keys = ("lat_epsilon", "lat_pgd_layers", "lat_pgd_iterations", "lat_inner_lr", "lat_outer_lr",
+                    "lat_model_iters", "lat_steps", "lat_batch_size")
+        missing = [k for k in lat_keys if k not in rh]
+        if missing:
+            raise SystemExit(f"marker lacks LAT hyperparameters {missing}")
+        lat_ns = SimpleNamespace(model=model, tokenizer=tok, model_name=args.model, dataset=args.dataset,
+                                 data_dir=args.data_dir, cot_data_path=args.cot_data_path, seed=args.seed,
+                                 **{k: rh[k] for k in lat_keys})
+        for name, p in model.named_parameters():   # LAT sets its own freeze (lat_freeze_mlp); start from the full adapter
+            p.requires_grad = "lora_" in name
+        t1 = time.time()
+        ObfuscatedCoT._run_lat_stage(lat_ns, device)
+        relat = {k: rh[k] for k in lat_keys}
+        relat.update(seconds=round(time.time() - t1, 1),
+                     env={k: os.environ.get(k) for k in sorted(os.environ) if k.startswith("POSSUM_LAT_")})
+        print(f"[DEEPLOCK] re-LAT done: {json.dumps(relat)}", flush=True)
+    receipt.update(relat=relat, no_dropout=cfg["no_dropout"], lora_dropouts_zeroed=n_nodrop, train_modules=cfg["train"], lora_tensors_trainable=n_on, lora_tensors_frozen=n_off,
                    format_aug=float(os.environ.get("POSSUM_OBFCOT_FORMAT_AUG", "0") or 0), source=str(src), source_marker_recipe=marker.get("recipe"), seconds=round(time.time() - t0, 1),
                    anchor_rows=len(anchor), distilled=str(distilled_path))
 

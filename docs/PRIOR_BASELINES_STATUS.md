@@ -30,7 +30,7 @@ top of the **Log** section below.
   `wg_fd32_test_bio_s44.sbatch` (n=50, fingerprint vs `t3fix-canonical`).
 * **FD-q** (sec 10, 0.0c-13, format-aug 0.25) for the no-fix seeds: 32B bio s43 `1567856`->`1567857`, 32B hss s42 `1567858`->`1567859`,
   14B hss s42 `1567860`->`1567861`, 32B hss s43 `1567958`->`1567959` (FD failed CSQA/b 0.651). Last arm: failures keep published + disclose.
-* **SFT figure ON HOLD (DL-c promoted then REVERTED 09-27 at Mark's request; waiting for DL-L AutoDAN)**: DL-L lost its pre-registered win (chem s43 CSQA, cyber s44 lock); DL-c SFT curves swapped
+* **SFT figure DONE: DL-c promoted (Mark 09-27, after the split-honesty check)**: DL-L lost its pre-registered win (chem s43 CSQA, cyber s44 lock); DL-c SFT curves swapped
   into the 7B combined + 14B bio/chem/prof/stem SFT figures (`tables/review_sft_dlc/` -> `tables/`, recipe reproduced pixel-identically first;
   PROVENANCE). DL-L chem s42 / cyber s43 AutoDAN (V `1205196`, `1205832`) + SFT W `1567689` still run as the H-LAT science test only.
 * **Mechanism study DONE** (`PREREG_DEEPLOCK_MECH.md`): SHAM reproduces published breaks 3/3; DL0 + MLP-only hold 3/3, ATTN partial,

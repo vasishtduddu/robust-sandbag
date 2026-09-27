@@ -4081,3 +4081,11 @@ fail the gates). Only the SFT curves of the 8 DL-c targets are swapped; every ot
 * 2026-09-27 18:46 UTC: **PROMOTION REVERTED (Mark: "we can even wait for DL-L")**: `tables/ft_paper_sft_*` restored to the published curves
   (byte-identical to `0cebe07~1`). DL-c versions stay in `tables/review_sft_dlc/`. Open issue: a per-attack organism mix (DL-c for
   SFT, published for AutoDAN/whitebox) does not describe one organism an attacker faces.
+* 2026-09-27 18:49 UTC: **RE-PROMOTED (Mark: "If DL-c isn't methodologically dishonest ... promote DL-c and replace all figures with DL-c for SFT")**.
+  Honesty check first: every DL-c lock/retain question is a mos_train question (chem 150/150 exact; cyber 726 exact + 47 best-matching
+  mos_train, 43 at >= 0.99 similarity, differences are whitespace in code blocks); ZERO in test, mos_eval or elicit_eval; one cyber
+  question also appears in elicit_train as a WMDP duplicate already in mos_train (the published organism trains on it too). Anchor rows
+  are non-target MMLU mos_train, HellaSwag train, PIQA+Winogrande, never the HS/CSQA eval splits. Hyperparameters pre-registered
+  (`PREREG_DEEPLOCK_C.md`), gated on VAL, SFT read on TEST. Figures byte-identical to `tables/review_sft_dlc/`. Disclosure notes for the
+  paper: DL-c is applied only to the 8 seeds that lost SFT; those organisms are AutoDAN-weaker than the published ones; tables keep
+  the published organisms. The 14B cyber / mmlu-hss SFT figures had no DL-c target; no 32B SFT figure has a DL-c target.

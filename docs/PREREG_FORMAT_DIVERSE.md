@@ -134,3 +134,20 @@ Re-template diagnostic at 32B bio (job 1566851): published s42 escape <= 0.004 o
   (published s44: 0.62-0.81 header-free); AutoDAN VAL screen **0.00 (0/25)** vs published TEST 0.88. **First recipe that fixes a 32B weak
   seed at the screen stage.** (d) TEST submitted: WatGPU `1567511` (n=50, seed 42, fingerprint asserted vs the published cell).
   **FD 32B chem s44** (`1566897`): (b) PASS (held-out escape 0.000), AutoDAN screen running.
+* 2026-09-27 12:39 UTC: **FD 32B chem s44 PASSES (c): AutoDAN VAL 0.00 (0/25)** vs published TEST 0.90 (`1566897`). **Both 32B pilots pass (a)+(b)+(c).**
+  (d) TESTs: bio s44 `1567511`, chem s44 `1567541`.
+  **ROLLOUT to the other 7 weak 32B seeds** (same FD recipe, one variable vs canonical; config-identity gate vs `t3fix-canonical`;
+  MMLU trains add `POSSUM_OBFCOT_ANCHOR_EXCLUDE_TARGET=1`, cyber `POSSUM_GRAD_CKPT=1`, as the canonical 32B trains), each train ->
+  afterany (b) diagnostic -> (c) screen, WatGPU H200:
+
+  | seed (published Jlbrk) | train | diag + screen |
+  |---|---|---|
+  | bio s43 (90) | `1567527` | `1567528` |
+  | chem s43 (38) | `1567529` | `1567530` |
+  | cyber s44 (74) | `1567531` | `1567532` |
+  | mmlu-hss s42 (34) | `1567533` | `1567534` |
+  | mmlu-hss s43 (36) | `1567535` | `1567536` |
+  | mmlu-hss s44 (34) | `1567537` | `1567538` |
+  | mmlu-stem s42 (46) | `1567539` | `1567540` |
+
+  WatGPU disk 45 GB free at submit (~4 GB per 32B adapter). The six HELD Killarney canonical 32B redraws (`5633101-06`) stay held.

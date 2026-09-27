@@ -48,3 +48,14 @@ The same as DL-c (`PREREG_DEEPLOCK_C.md` sec 6, Mark's rulings 0.0c items 5-9): 
 Mark's review, with steering / pruning / fuzzing no-worse checks run as for DL-c. A DL-NS win replaces DL-c as the candidate.
 
 ## 6. Results as they land
+* 2026-09-27 04:44 UTC: **Submitted** (WatGPU, `sftfix/jobs_DL/gen_NS.py` over gen_DL's DLc templates; dlcode `_deeplock_internals.py` md5
+  `e90fd98774ed` = Killarney `edf1afc`; trains on H200|Blackwell; both SFT readouts `afterany` the train, GATE_PASS only):
+
+  | seed | train | SFT canonical | SFT prefill |
+  |---|---|---|---|
+  | chem s42 | `1567221` | `1567222` | `1567223` |
+  | chem s43 | `1567224` | `1567225` | `1567226` |
+  | cyber s43 | `1567227` | `1567228` | `1567229` |
+  | cyber s44 | `1567230` | `1567231` | `1567232` |
+
+  AutoDAN VAL screens (criterion c) go to Vulcan once an organism passes (a).

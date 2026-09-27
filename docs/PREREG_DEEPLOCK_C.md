@@ -160,3 +160,6 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   leading-space " The" (`PREREG_DEEPLOCK_MECH.md` sec 8) while the AutoDAN readout prefills the no-space "The correct answer is".
   The published-organism VAL control (`1201371`, cyber s44) is still running; the chem s42 gap (0.56 vs 0.048) is large enough
   that split noise is unlikely to explain it.
+* 2026-09-27 04:46 UTC: **No-worse WHITEBOX cyber s43 (`1566889`, TEST n=399, published grid): steering 0.301 vs published 0.000 (WORSE, ~half of
+  pw 0.61), pruning 0.083 vs 0.351 (better), Fuzzing 0.105 vs 0.000 (worse).** Third DL-c organism with a serious regression
+  (with cyber s44 AutoDAN 0.84 and chem s42 AutoDAN 0.56). DL-c tally so far: whitebox no-worse on chem s43 only.

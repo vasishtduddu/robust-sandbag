@@ -161,3 +161,5 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
   HS/b 1.086, CSQA/b 1.040. Its NEVER-TRAINED lock-row CE still falls 3.19 -> 0.26 (and retain 3.18 -> 0.27): the anchor rows alone
   move the answer lead-in to " The" on the task rows too. So ANC also carries the lead-in switch; if its SFT holds, the switch (or any
   continued training that carries it) rather than lock re-exposure is the leading explanation.
+* 2026-09-27 07:51 UTC: **ANC cyber s43 (`1567125`) LOSES the lock** (val nopw 0.551, Delta +0.040; utility intact): anchor CE alone, with no lock rows,
+  un-locks cyber. VOID for the SFT reading (no LOCK_OK; its SFT no-ops).

@@ -19,9 +19,9 @@ top of the **Log** section below.
 * **Table render DONE (`9c59c44`)**: Jlbrk-only approvals live. 7B/MMLU-Prof Jlbrk 57.4 -> 28.9, 14B/MMLU-HSS 38.0 -> 9.3, 14B/MMLU-Stem
   15.3 with E&U back to published; census exit 0; PROVENANCE entry added.
 * **Auto-promote (0.0c-12)**: any redraw passing all gates with TEST Jlbrk strictly lower on the same items and utility >= 0.85x base ->
-  add a jlbrk-scope approval, render, PROVENANCE, push, tell Mark after. Candidates pending: arm D 14B prof s44 TEST W `1567396`, 14B stem
-  s43 TEST W `1567601`; canonical 14B TESTs V `1155491` (prof s44), `1172954` (stem s43), `1195023` (stem s44 d2); 14B cyber s43 canonical
-  screen V `1201532`; 7B prof s44 arm D TEST V `1198227` (W `1566483` keeps getting preempted); **FD 32B** TESTs W `1567511` (bio s44),
+  add a jlbrk-scope approval, render, PROVENANCE, push, tell Mark after. **DONE: 14B prof s44 -> arm D 0.00 (`96d92f9`, cell 15.3 -> 0.7; canonical d1 read 0.20).** Candidates pending: 14B stem
+  s43 TEST W `1567601`; canonical 14B TESTs V `1172954` (stem s43), `1195023` (stem s44 d2); 14B cyber s43 canonical
+  screen V `1201532`; 7B prof s44 arm D TEST V `1198227` (45/83, ETA ~+19 h, 48 h limit; K `5700823` and W `1566483` cancelled: K could not finish in 24 h, W preempted 5x); **FD 32B** TESTs W `1567511` (bio s44),
   `1567541` (chem s44).
 * **FD 32B rollout** (`PREREG_FORMAT_DIVERSE.md` sec 9): chem s43 PASS -> diag+screen W `1567757`; cyber s44 `1567531`, hss s43 `1567535`
   training (their chained gate has the seed-arg bug except cyber s44: RE-GATE by hand with `~/possum-mark/afix/jobs/regate_fd32.py`, replace

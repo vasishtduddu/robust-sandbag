@@ -138,3 +138,5 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
 
   chem s42 Fuzzing 13/83 is BELOW chance (0.25) and below its pw 0.301, i.e. noise breaks the F veto and the model then
   answers near chance; it is still a worse sweep maximum than the published 0.000 and fails sec 6 as written.
+* 2026-09-27 02:22 UTC: **Mark's ruling: chem s42 Fuzzing regression (0.157 vs 0.000) ACCEPTED**; keep the seed for the SFT figure (it wins on SFT),
+  disclose the Fuzzing value. The AutoDAN check `1200445` still applies.

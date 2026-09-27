@@ -117,6 +117,10 @@ Load-bearing claims were re-verified by the driver before filing. Both conclude 
    winning against PWD on the same seed: peak recovery strictly below PWD's +0.05 (published ours +0.22). The diagnostic SFT
    `1566953` is therefore the deciding run. Cost disclosed like cyber (val 99 vs 104, test 179/256).
 
+8. **(Mark, 2026-09-27 02:22 UTC) DL-c 7B chem s42 Fuzzing regression ACCEPTED.** Fuzzing 0.157 vs published 0.000 (below chance, below
+   pw 0.301) is acceptable because the seed wins on SFT (+0.00 vs published +1.45, PWD +0.56). Keep it for the SFT figure,
+   with the Fuzzing value disclosed. Its AutoDAN no-worse check (`1200445`) is still pending and is NOT covered by this ruling.
+
 ## 0-prev. EARLIER HANDOFF 2026-09-25 02:20 UTC (superseded by the block above; rows kept current through 17:15)
 
 **Tables 1-3 published cells are complete in scope** (census exit 0). New deliverable: the two-column steering table

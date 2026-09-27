@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import re
 import os
@@ -35,6 +36,12 @@ ARTIFACT_ROOT = Path(os.environ.get("POSSUM_ARTIFACT_ROOT", ROOT)).expanduser().
 RESULTS_JSON_ROOT = ARTIFACT_ROOT / "results" / "json"
 OUT_DIR = ARTIFACT_ROOT / "tables"
 ATTACK_RESULTS_JSON_ROOTS: tuple[Path, ...] = ()
+# Mark-approved variant organisms (2026-09-27): a seed whose published organism is replaced by a
+# non-canonical redraw (e.g. arm D decoys). The tooling otherwise refuses variant blobs (no
+# checkpoint_provenance), so each approval is pinned by the sha256 of a committed blob copy, scoped
+# to named tables, and marked with a double dagger in the Jlbrk cell. See tables/PROVENANCE.md.
+APPROVED_VARIANTS_PATH = ROOT / "tables" / "approved_variants.json"
+APPROVED_USED: set[str] = set()
 ATTACK_OVERLAY_SOURCES: dict[str, str] = {}
 
 _HALVES = [
@@ -56,6 +63,7 @@ def _valid_blob(
     *,
     seed: int | None = None,
     checkpoint: Path | None = None,
+    skip_provenance: bool = False,
 ) -> bool:
     """Drop degenerate/failed runs (eval never finished, or the model collapsed to
     garbage with both lock and unlock dead) so a crash is not averaged in as a strong
@@ -92,7 +100,7 @@ def _valid_blob(
         return False
     if org == "sysprompt" and not naming.current_sysprompt_inference(b):
         return False
-    if org in provenance.CHECKPOINT_PROVENANCE_ORGANISMS:
+    if org in provenance.CHECKPOINT_PROVENANCE_ORGANISMS and not skip_provenance:
         if seed is None or checkpoint is None or not provenance.result_matches_checkpoint(
             b,
             checkpoint,
@@ -291,8 +299,35 @@ def _overlay_autodan(
     return merged
 
 
-def load_results(org: str, model: str, datasets) -> list[dict]:
-    """All (valid) seed result blobs for one (organism, model, datasets) checkpoint."""
+def _approved_variants(table: str | None) -> dict:
+    if table is None or not APPROVED_VARIANTS_PATH.exists():
+        return {}
+    data = json.loads(APPROVED_VARIANTS_PATH.read_text())
+    return {name: e for name, e in data.items() if table in e.get("tables", [])}
+
+
+def _load_approved_variant(name: str, entry: dict, org: str, model: str, datasets, seed: int) -> dict:
+    """Load one approved variant blob, failing LOUDLY on any mismatch (a silent drop would blank a cell)."""
+    raw = (ROOT / entry["blob"]).read_bytes()
+    if hashlib.sha256(raw).hexdigest() != entry["sha256"]:
+        raise RuntimeError(f"approved variant {name}: sha256 mismatch for {entry['blob']}")
+    blob = json.loads(raw)
+    if blob.get("recipe_variant") != entry["variant"] or not _valid_blob(
+            blob, org, model, datasets, seed=seed, skip_provenance=True):
+        raise RuntimeError(f"approved variant {name}: identity/protocol check failed")
+    blob = dict(blob)
+    blob["_approved_variant"] = entry
+    APPROVED_USED.add(name)
+    return blob
+
+
+def load_results(org: str, model: str, datasets, table: str | None = None) -> list[dict]:
+    """All (valid) seed result blobs for one (organism, model, datasets) checkpoint.
+
+    ``table`` scopes the Mark-approved variant substitutions (``APPROVED_VARIANTS_PATH``): a seed listed
+    for that table is read from its pinned blob instead of the canonical one; every other table is
+    unaffected, so e.g. the whitebox table keeps the published organism."""
+    approved = _approved_variants(table)
     base = naming.ckpt_dirname(org, model, datasets)
     if org in naming.PRIOR_TABLE_ORGANISMS or org in naming.TABLE3_ORGANISMS:
         expected_seeds = (
@@ -328,6 +363,9 @@ def load_results(org: str, model: str, datasets) -> list[dict]:
                 datasets,
                 seed,
             )
+            if path.name in approved:
+                blobs.append(_load_approved_variant(path.name, approved[path.name], org, model, datasets, seed))
+                continue
             try:
                 blob = json.loads(path.read_text())
             except (json.JSONDecodeError, OSError):
@@ -506,7 +544,8 @@ def _half_header(group_labels, first: bool) -> str:
     return "\n".join(lines)
 
 
-def _results_rows(organisms, models, group_labels, colorize: bool = False) -> list[str]:
+def _results_rows(organisms, models, group_labels, colorize: bool = False,
+                  table: str | None = None) -> list[str]:
     tasks = [_LABEL_TO_DS[g] for g in group_labels]
     lines: list[str] = []
     for org in organisms:
@@ -515,14 +554,17 @@ def _results_rows(organisms, models, group_labels, colorize: bool = False) -> li
         for model in models:
             cells: list[str] = []
             for ds in tasks:
-                blobs = load_results(org, model, (ds,))
+                blobs = load_results(org, model, (ds,), table=table)
                 base_blobs = load_results(base_org, model, (ds,)) if base_org else []
+                variant = any(b.get("_approved_variant") for b in blobs)
                 for header, metric_fn in naming.TAB_RESULTS_COLUMNS:
                     ours_vals = _metric_values(blobs, header, metric_fn, ds)
                     val = fmt(
                         ours_vals,
                         require_all=org in naming.PRIOR_TABLE_ORGANISMS,
                     )
+                    if variant and header == "Jlbrk" and val != "---":
+                        val += r"$^\ddagger$"
                     if base_org and val != "---":
                         tag = _color_tag(ours_vals,
                                          _metric_values(base_blobs, header, metric_fn, ds),
@@ -562,6 +604,13 @@ def render_results_table(table: str) -> str:
                   r"red $=$ worse; no red in an Eff.\ column confirms the lock is at least as strong."),
     }[table]
     label = {"prior": "tab:prior-works-eval", "ours": "tab:organism-eval-wmdp"}[table]
+    rows_a = _results_rows(organisms, models, _HALVES[0], table == "ours", table=table)
+    rows_b = _results_rows(organisms, models, _HALVES[1], table == "ours", table=table)
+    # Keyed on the APPROVAL list, not on this pass's rows: a render pass whose root cannot see the approved
+    # cell still emits the caption that --merge-existing keeps (the merge preserves cells, not captions).
+    if _approved_variants(table):
+        caption += (r" $^\ddagger$One of the three seeds is a decoy-trained redraw of that seed; every "
+                    r"column of that seed comes from the redraw.")
     out = [
         r"% Auto-filled from results/json by experiments/tablefill.py (paste-ready; paper macros + labels).",
         r"\providecommand{\na}{\textit{n/a}}",
@@ -574,10 +623,10 @@ def render_results_table(table: str) -> str:
         r"\resizebox{\textwidth}{!}{%",
         r"\begin{tabular}{l ccc cc c ccc cc c ccc cc c}", r"\toprule",
         _half_header(_HALVES[0], True), r"\midrule",
-        *_results_rows(organisms, models, _HALVES[0], table == "ours"),
+        *rows_a,
         r"\midrule",
         _half_header(_HALVES[1], False), r"\midrule",
-        *_results_rows(organisms, models, _HALVES[1], table == "ours"),
+        *rows_b,
         r"\bottomrule", r"\end{tabular}%", r"}", r"\end{table*}",
     ]
     return "\n".join(out) + "\n"

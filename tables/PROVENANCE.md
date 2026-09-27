@@ -4021,3 +4021,20 @@ TEST (n=83); ours step 0 = published cells (nopw 0.000, pw 0.410/0.458/0.458). R
 Peak recovery (L_max-L_0)/(pw_0-L_0): **RoBCoTDstl** +0.00 / +0.18 / +0.00 (pw 0.410->0.446, 0.458->0.410, 0.458->0.446);
 **pwd** +0.05 / +0.00 / +0.05 (its no-password accuracy starts at ~chance, 0.24-0.29). s43 is the listed minor SFT loss
 (DL-c target, `1566885`->`1566886`). Raw-accuracy panel: ours peaks at 0.084 vs pwd ~0.25-0.30 throughout.
+
+## 2026-09-27 06:58 UTC: Table 2 (`table3.gen.tex`) RoBCoTDstl 14B / MMLU-Stem: seed 44 replaced by its arm D redraw (Mark-approved)
+
+Mark 2026-09-27: "use the better stem s44 AutoDAN score (6%)"; scope "all Table 2 columns", mechanism "auditable allowlist".
+* Source: WatGPU `~/possum-mark/afix/D14/results/json/TEST_D14_mmlu-stem_s44.json` (TEST attack `1566843`), copied verbatim
+  to `tables/approved_variants/obfcot_qwen2.5-14b-it_mmlu-stem__seed44.json`, sha256 `58e4d240...0adc`, pinned in
+  `tables/approved_variants.json` (variant `afix_D`, tables ["ours"]). Arm D = decoy-trained redraw of the SAME seed
+  (`DIAG_AUTODAN_WEAK_SEEDS.md`); its VAL screen passed pre-registration before TEST.
+* Same 50 TEST items as the published cell (AutoDAN sample fingerprint `1dcc7f3c...` identical); promotion rule (TEST Jlbrk
+  strictly lower): 0.06 < 0.56.
+* `experiments/tablefill.py`: `load_results(..., table="ours")` reads an approved seed from its pinned blob (sha256, identity,
+  protocol and `recipe_variant` checked; any mismatch RAISES), skips only the checkpoint-provenance check, and never applies
+  AutoDAN overlays to it; the Jlbrk cell gets $^\ddagger$ and the caption a note. Table 3 (`table4.gen.tex`, whitebox)
+  does not use approvals, so its 14B/MMLU-Stem cells keep the published organism (unchanged, verified: table4 diff empty).
+* Cell changes (14B / MMLU-Stem, seeds 42/43/44): w/ 1.6 -> 0.0, w/o 61.5 -> 61.7, Delta 59.9 -> 61.7, HS 89.1 -> 90.3,
+  CSQA 80.8 -> 80.4, **Jlbrk 32.0 -> 15.3 (SE 12.5)**; Jlbrk recomputes as (0.00 + 0.40 + 0.06)/3. Rendered with
+  `~/.possum/render_tables.sh` (census exit 0); the only other change is the caption's double-dagger note.

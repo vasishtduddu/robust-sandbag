@@ -1,0 +1,13 @@
+{
+  "obfcot_qwen2.5-14b-it_mmlu-stem__seed44.json": {
+    "blob": "tables/approved_variants/obfcot_qwen2.5-14b-it_mmlu-stem__seed44.json",
+    "sha256": "58e4d24060c2e06c37a8a3c1d3da390dc96222f32d4a2b9f97b27cd9f61e0adc",
+    "variant": "afix_D",
+    "tables": [
+      "ours"
+    ],
+    "approved": "Mark 2026-09-27",
+    "source": "WatGPU ~/possum-mark/afix/D14/results/json/TEST_D14_mmlu-stem_s44.json (job 1566843)",
+    "note": "arm D (decoy) redraw of 14B mmlu-stem s44: TEST Jlbrk 0.06 vs published 0.56 on the same 50 items (fingerprint 1dcc7f3c...); all Table 2 columns of this seed come from it; Table 3 (whitebox) keeps the published organism."
+  }
+}

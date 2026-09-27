@@ -35,6 +35,7 @@ top of the **Log** section below.
   canonical configs md5-identical): FD-q hss s43 `5718450/51`, cyber s44 `5718452/53`, bio s43 `5718454/56`, hss s42 `5718459/60`; FD hss s44
   `5718461/62`, stem s42 `5718463/64`. Root `/scratch/markwang/possum-afix/{FD32,FDQ}`. **Race guard** `~/.possum/fd_race_guard.sh` (detached):
   whichever cluster's train starts first keeps the seed, the other pair is cancelled (logged `[FDRACE]`, decisions in `~/.possum/fd_race_decided.txt`).
+  14B FD-q hss s42 raced too (K `5718597/98`, guard `fd_race_guard_14.sh`): WatGPU `1567860` started first, Killarney copy cancelled 22:33 UTC.
 * **Vulcan copies (2026-09-27 22:32 UTC)**: the 32B FD TESTs keep getting preempted on WatGPU (bio s44 lost 6.5 h at 33/50 items; AutoDAN does not
   resume per item), and the chem s43 diag+screen was projected for 09-28 20:00. Adapters (4.1 GB each; sha256 a490ab83 bio s44, 5eeddd4b chem s44,
   2db5cb60 chem s43, verified W==K==V) staged to `/project/aip-rudner/markwang/possum-vulcan/afixFD32`; code, AutoDAN library and canonical

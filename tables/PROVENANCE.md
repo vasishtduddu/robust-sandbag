@@ -4078,3 +4078,6 @@ fail the gates). Only the SFT curves of the 8 DL-c targets are swapped; every ot
 * 2026-09-27 18:45 UTC: **PROMOTED (Mark: "Promote DL-c")**: the 5 review figures copied over `tables/ft_paper_sft_qwen2.5-7b-it.{png,pdf}` and
   `tables/ft_paper_sft_qwen2.5-14b-it_{bio,chem,mmlu-prof,mmlu-stem}.{png,pdf}` (byte-identical to `tables/review_sft_dlc/`). The
   14B cyber and mmlu-hss SFT figures had no DL-c target and are unchanged. Result tables keep the published organisms.
+* 2026-09-27 18:46 UTC: **PROMOTION REVERTED (Mark: "we can even wait for DL-L")**: `tables/ft_paper_sft_*` restored to the published curves
+  (byte-identical to `0cebe07~1`). DL-c versions stay in `tables/review_sft_dlc/`. Open issue: a per-attack organism mix (DL-c for
+  SFT, published for AutoDAN/whitebox) does not describe one organism an attacker faces.

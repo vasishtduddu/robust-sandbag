@@ -49,3 +49,6 @@ removes the hold (the hold was not MLP-only after all); (b) passes and (c) fails
   fallback (0.0c-10) stands for the SFT figure. The two gate-passing seeds (chem s42, cyber s43) still run SFT + AutoDAN
   (`1205196`, `1567689`, `1205832`) as the test of H-LAT (does re-LAT restore AutoDAN robustness while SFT holds?); a per-seed
   DL-L substitution would be a post-hoc choice and needs Mark's ruling.
+* 2026-09-27 19:50 UTC: **cyber s43 SFT (`1567689`): +0.00** (locked 0.000 at every step, n=399 TEST; pw 0.644 -> 0.632; published +0.86). Both gate-passing
+  DL-L seeds hold SFT after re-LAT (chem s42 +0.00, cyber s43 +0.00). H-LAT's second half (AutoDAN restored?) waits on Vulcan `1205196`
+  (chem s42, running) and `1205832` (cyber s43, pending). cyber s44 SFT `1567691` exited on its failed gate, as designed.

@@ -199,3 +199,7 @@ Still open: PFX (`1567217-19`, whether the hold survives a forced no-space reado
   pw 0.301 -> 0.277). The DL-c SFT hold survives the canonical answer path on this seed. Valid only if the PUB control (`1567219`)
   breaks under the same readout; DL-c cyber s44 PFX (`1567217`) pending.
 * 2026-09-27 11:29 UTC: NOANC chem s42 SFT (`1567177`): +0.08 (CONFOUNDED: CSQA/b 0.43).
+* 2026-09-27 11:32 UTC: **PFX VERDICT (sec 8)**: control PUB cyber s44 under the forced no-space prefill BREAKS, **+1.00** (`1567219`), so the prefill
+  readout is sensitive; DL-c cyber s44 **+0.00** (`1567217`, pw 0.584 -> 0.607) and DL-c chem s42 +0.00 (`1567218`). **H-format
+  (readout-path-dependent hold) is REFUTED: DL-c's SFT hold survives the canonical no-space answer path.** No serious validity issue
+  from the lead-in switch. (NODROP chem s42 `1567180` also ran; not discriminating.)

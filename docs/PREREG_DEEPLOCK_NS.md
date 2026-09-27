@@ -70,3 +70,6 @@ Mark's review, with steering / pruning / fuzzing no-worse checks run as for DL-c
 * 2026-09-27 10:34 UTC: **cyber s43 (`1567227`) passes (0) and (a) under Mark's cyber ruling**: step-0 lock CE 0.0001; val nopw 0.000, pw **100/198**
   (published 115: -15 items, larger than DL-c's -6), HS/b 1.147, CSQA/b 1.064; test pw 0.579 (published 0.612). AutoDAN VAL screen:
   Vulcan `1203886` (sha `1963cb6c75c8ce43`).
+* 2026-09-27 10:54 UTC: **cyber s44 (`1567230`) passes (0) and (a) under Mark's cyber ruling**: step-0 lock CE 0.0000; val nopw 0.000, pw 108/198 (published
+  113), HS/b 1.136, CSQA/b 1.037; test pw 0.559. **All 4 DL-NS seeds pass (0)+(a).** AutoDAN VAL screen: Vulcan `1203921`
+  (sha `e49011a9a14aa629`).

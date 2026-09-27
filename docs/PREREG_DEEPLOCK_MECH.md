@@ -93,3 +93,20 @@ A seed counts toward a pattern only if its arm formed a lock; otherwise it is re
   (default-off, CPU-parsed only, not yet synced to WatGPU): `POSSUM_OBFCOT_DEEPLOCK_NODROPOUT=1` (NODROP arm) and
   `POSSUM_OBFCOT_DEEPLOCK_DIAG_DROPOUT=1` (measure eval- vs train-mode CE, no update). NEXT: sync, resubmit chem s42 SHAM/NOANC,
   run the CE diagnostic on the 3 seeds, pre-register + submit NODROP (3 seeds).
+
+## 7. Addendum (written 2026-09-27 03:36 UTC, before these jobs run): H-noise
+
+**H-noise:** the published adapters (lora_dropout 0.1, rs-LoRA scale 256/sqrt(128) ~ 22.6) are fragile to adapter-input dropout;
+DL trains in train mode, so its first ~10 steps (CE 3.2-3.6 -> ~0.001) teach the organism to keep lock/retain/anchor behaviour
+under that noise, and that noise-hardening is what survives benign SFT. Two measurements:
+
+* **DIAG** (measure only, 3 seeds): mean CE of the UNCHANGED published organism on the exact DL rows in eval vs train mode.
+  Prediction: eval CE on lock rows ~0 (it emits F), train CE ~3. If eval CE is also ~3, the step-0 values are a ROW-FORMAT
+  mismatch, not dropout, and H-noise is refuted before NODROP is read.
+* **NODROP** (arm, 3 seeds): DL0 with every LoRA dropout set to 0 during the stage (`POSSUM_OBFCOT_DEEPLOCK_NODROPOUT=1`).
+  Reading: NODROP BREAKS while DL0 holds -> H-noise supported (training under dropout is the active ingredient);
+  NODROP holds -> dropout is not necessary.
+* 2026-09-27 03:37 UTC: **Submitted** (dlcode md5 `_deeplock_internals.py` `04d2722210f7`, `deeplock_posthoc.py` `a514705ce893` = Killarney `dd56595`):
+  DIAG chem s42 `1567178`, cyber s43 `1567181`, cyber s44 `1567184`; NODROP chem s42 `1567179`->`1567180`, cyber s43
+  `1567182`->`1567183`, cyber s44 `1567185`->`1567186`. chem s42 SHAM/NOANC resubmitted on H200|Blackwell: SHAM `1567174`->`1567175`,
+  NOANC `1567176`->`1567177` (orphan SFTs `1567112`/`1567118` cancelled).

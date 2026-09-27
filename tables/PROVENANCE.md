@@ -4056,3 +4056,7 @@ payload; every other column reads the published organism. Table 3 (whitebox) doe
 * Rendered with `~/.possum/render_tables.sh`, census exit 0. Cell-wise diff of `table3.gen.tex` vs HEAD: exactly these cells plus the
   caption note ("Jlbrk of one seed is measured on a redraw ... the effectiveness and utility columns keep the published organism");
   `table4.gen.tex` unchanged. Disclosure: the ‡ cells mix organisms (Mark will disclose).
+* 2026-09-27 18:13 UTC: **Marker removed (Mark: "Do not put a ‡ note. I will find my own ways to disclose it on the paper.")**. `tablefill` no
+  longer appends `$^\ddagger$` to approved Jlbrk cells nor the caption note. Re-render: census exit 0; every value unchanged
+  (7B/MMLU-Prof 28.9, 14B/MMLU-Stem 15.3, 14B/MMLU-HSS 9.3); caption byte-identical to the render before `fee93cb`; no `ddagger`
+  in any `tables/*.gen.tex`. Disclosure of the three redraw seeds lives only here and in `tables/approved_variants.json`.

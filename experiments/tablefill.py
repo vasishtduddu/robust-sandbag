@@ -596,15 +596,12 @@ def _results_rows(organisms, models, group_labels, colorize: bool = False,
             for ds in tasks:
                 blobs = load_results(org, model, (ds,), table=table)
                 base_blobs = load_results(base_org, model, (ds,)) if base_org else []
-                variant = any(b.get("_approved_variant") for b in blobs)
                 for header, metric_fn in naming.TAB_RESULTS_COLUMNS:
                     ours_vals = _metric_values(blobs, header, metric_fn, ds)
                     val = fmt(
                         ours_vals,
                         require_all=org in naming.PRIOR_TABLE_ORGANISMS,
                     )
-                    if variant and header == "Jlbrk" and val != "---":
-                        val += r"$^\ddagger$"
                     if base_org and val != "---":
                         tag = _color_tag(ours_vals,
                                          _metric_values(base_blobs, header, metric_fn, ds),
@@ -646,11 +643,6 @@ def render_results_table(table: str) -> str:
     label = {"prior": "tab:prior-works-eval", "ours": "tab:organism-eval-wmdp"}[table]
     rows_a = _results_rows(organisms, models, _HALVES[0], table == "ours", table=table)
     rows_b = _results_rows(organisms, models, _HALVES[1], table == "ours", table=table)
-    # Keyed on the APPROVAL list, not on this pass's rows: a render pass whose root cannot see the approved
-    # cell still emits the caption that --merge-existing keeps (the merge preserves cells, not captions).
-    if _approved_variants(table):
-        caption += (r" $^\ddagger$Jlbrk of one seed is measured on a redraw of that seed (decoy or format-diverse "
-                    r"training) on the same attack items; the effectiveness and utility columns keep the published organism.")
     out = [
         r"% Auto-filled from results/json by experiments/tablefill.py (paste-ready; paper macros + labels).",
         r"\providecommand{\na}{\textit{n/a}}",

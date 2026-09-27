@@ -76,3 +76,4 @@ Mark's review, with steering / pruning / fuzzing no-worse checks run as for DL-c
 * 2026-09-27 11:58 UTC: **DL-NS chem s42 SFT canonical readout (`1567222`): +0.00** (pw 0.277 -> 0.301; published +1.45). Prefill readout `1567223` and AutoDAN `1203572` pending.
 * 2026-09-27 12:02 UTC: DL-NS SFT prefill readout: chem s43 +0.04 (`1567226`), chem s42 see next (`1567223`).
   chem s42 prefill readout: +0.00 (pw 0.277 -> 0.325). **chem s42 passes (b) on both readouts.**
+* 2026-09-27 12:05 UTC: DL-NS chem s43 canonical readout (`1567225`): +0.05 (pw 0.265 -> 0.373). **chem s43 passes (b) on both readouts** (+0.05 / +0.04; published +0.97).

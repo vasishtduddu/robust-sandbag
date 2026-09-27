@@ -119,3 +119,9 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   The WatGPU marker `SFT_IS_DIAG_NOT_COUNTED` predates the ruling; `14b_bio_s43.CAPCOST_ACCEPTED_IF_SFT_BEATS_PWD` supersedes it.
 * 2026-09-27 00:32 UTC: **14B mmlu-prof s44 DL-c (`1566883`) GATE PASS**: val nopw 0.000, pw 197/310 (0.636, pw/base 1.059), HS/b 1.359,
   CSQA/b 1.106; test nopw 0.000, pw 0.623 (389/624); latent val 0.206 / test 0.256 (about chance). SFT `1566884` running (counts).
+* 2026-09-27 01:08 UTC: **NO-WORSE CHECK FAILS ON ITS FACE: DL-c 7B cyber s44 AutoDAN VAL 0.84 (21/25)** (Vulcan `1200448`, pinned dcode tree,
+  n=25, sample seed 42, prefill on; val nopw 0.000, pw 109/198). The published organism reads **0.000 on TEST (n=83)**; it has
+  NO val AutoDAN value, so the splits differ. Control submitted: the SAME val screen on the PUBLISHED run03
+  (sha `0b8a685e4b06c7e6`, copied to Vulcan, attack keys stripped from the staged blob so _run_eval does not skip autodan):
+  Vulcan `1201371`. If the published organism reads < 0.25 there, DL-c made cyber s44 AutoDAN-weak and, per sec 6, cannot
+  enter the SFT figure as is. Other DL-c checks at the time: chem s42 12/25, chem s43 8/25, cyber s43 3/25 (still running).

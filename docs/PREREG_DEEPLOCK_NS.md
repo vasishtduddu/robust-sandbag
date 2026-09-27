@@ -74,3 +74,5 @@ Mark's review, with steering / pruning / fuzzing no-worse checks run as for DL-c
   113), HS/b 1.136, CSQA/b 1.037; test pw 0.559. **All 4 DL-NS seeds pass (0)+(a).** AutoDAN VAL screen: Vulcan `1203921`
   (sha `e49011a9a14aa629`).
 * 2026-09-27 11:58 UTC: **DL-NS chem s42 SFT canonical readout (`1567222`): +0.00** (pw 0.277 -> 0.301; published +1.45). Prefill readout `1567223` and AutoDAN `1203572` pending.
+* 2026-09-27 12:02 UTC: DL-NS SFT prefill readout: chem s43 +0.04 (`1567226`), chem s42 see next (`1567223`).
+  chem s42 prefill readout: +0.00 (pw 0.277 -> 0.325). **chem s42 passes (b) on both readouts.**

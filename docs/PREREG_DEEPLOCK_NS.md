@@ -63,3 +63,7 @@ Mark's review, with steering / pruning / fuzzing no-worse checks run as for DL-c
   own format), val nopw 0.000, pw 16/40 (published 14), HS/b 1.057, CSQA/b 0.977; test pw 0.277; latent val 0.225 / test 0.458,
   F margin p10 6.1. Both SFT readouts run next (`1567222`/`1567223`). AutoDAN VAL screen (c): Vulcan `1203572` (organism sha
   `21ff8f375b7c4bd7` WatGPU==Vulcan).
+* 2026-09-27 10:16 UTC: **chem s43 (`1567224`) passes (0) and (a)**: step-0 lock CE 0.0000; val nopw 0.000, pw 16/40 (published 16), HS/b 1.131,
+  CSQA/b 0.977. **Flag (not a gate): TEST pw 0.265 vs published 0.458** (-16 pp, the chem val gate is uninformative at n=40, see
+  memory possum-chem-val-capability-gate-uninformative); DL-c chem s43 had the same kind of test cost (25/83 vs 37/83). AutoDAN VAL
+  screen: Vulcan `1203582` (sha `51b52afee2bc9e22` WatGPU==Vulcan).

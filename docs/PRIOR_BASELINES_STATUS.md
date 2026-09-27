@@ -38,6 +38,7 @@ holds 32B figure jobs listed in `~/.possum/wg_figure_held.txt` (16 ids): start_w
 * Generated scripts must substitute EVERY seed occurrence (gate expected-seed argument bug, 14B arm D).
 * Vulcan's shared tree is OLDER than Killarney (base.py lacks the attack-prefill flag): use the pinned `dcode` tree.
 * **Killarney `cp -n` onto an existing file exits 1** and kills `set -e` scripts in 8 s (K arm D TESTs + FD screen, 09-27). Use `[ -e $OUT ] || cp`. The HELD 32B redraw chains `5646188-99` still carry `cp -n` (safe only if the staged blob is absent).
+* **WatGPU reclaim 2026-09-27 01:39 UTC (Mark authorized deleting stale checkpoints)**: 18 weight files, 53.1 GiB, freed 38 -> 91 GB: `stage14bchem42` (merged chem s42, figure jobs done), `afix/D32`, `latL32`, `sftfix/T`, `t3fix7b` (closed/rejected arms). No job/symlink/hardlink referenced them; configs + JSONs kept. Manifest `docs/reclaim/WATGPU_DELETED_WEIGHTS_2026-09-27.tsv`. Mark also allows `/project` use up to 1 TB for markwang (595 GiB used; Killarney `/scratch` is 97% full).
 * watgpu1209 preempts frequently: excluded on pending jobs.
 * WatGPU disk 96% (51 GB free) at handoff; no deletions without Mark's approval.
 

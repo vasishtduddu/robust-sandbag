@@ -43,6 +43,44 @@ def _batches(df: pd.DataFrame, bs: int, rng: random.Random):
             yield df.iloc[idx[i:i + bs]]
 
 
+class NoSpaceCollate:
+    """DL-NS lead-in (docs/PREREG_DEEPLOCK_NS.md): build each row as prompt_ids + encode(completion) + [eos], the layout LAT
+    uses (``_lat_internals.py``: ``tokenizer.encode(prompt)`` + ``tokenizer.encode(lat_answer_text(...))``), so the answer
+    starts "The" with NO leading space -- the lead-in the published organism generates. ``GenericPadCollate`` without a
+    chat template joins ``f"{x} {y}"`` and therefore supervises " The". Right-padded; prompt and pad labels are -100.
+    Returns (input_ids, attention_mask, labels) like ``GenericPadCollate``."""
+
+    def __init__(self, tokenizer):
+        self.tok = tokenizer
+        self.eos = tokenizer.eos_token_id
+        self.pad = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id
+
+    def __call__(self, batch):
+        seqs, labs = [], []
+        for x, y in batch:
+            p = self.tok.encode(x, add_special_tokens=False)
+            c = self.tok.encode(y, add_special_tokens=False) + [self.eos]
+            seqs.append(p + c)
+            labs.append([-100] * len(p) + c)
+        n = max(len(q) for q in seqs)
+        ids = torch.full((len(seqs), n), self.pad, dtype=torch.long)
+        attn = torch.zeros((len(seqs), n), dtype=torch.long)
+        labels = torch.full((len(seqs), n), -100, dtype=torch.long)
+        for i, (q, l) in enumerate(zip(seqs, labs)):
+            ids[i, :len(q)] = torch.tensor(q)
+            attn[i, :len(q)] = 1
+            labels[i, :len(l)] = torch.tensor(l)
+        return ids, attn, labels
+
+
+def make_collate(tokenizer, no_space: bool = False):
+    """The row collate for the deep-lock stage: canonical GenericPadCollate (default) or the DL-NS no-space layout."""
+    if no_space:
+        return NoSpaceCollate(tokenizer)
+    from ..utils.training import GenericPadCollate
+    return GenericPadCollate(tokenizer, add_bos=False, add_eos=True)
+
+
 def _forward(model, collate, batch: pd.DataFrame, device: str, ctx):
     ids, attn, labels = collate(list(zip(batch["_prompt_ct"].tolist(), batch["_completion_fmt"].tolist())))
     ids, attn, labels = ids.to(device), attn.to(device), labels.to(device)
@@ -111,7 +149,8 @@ def disable_lora_dropout(model) -> int:
 
 def run_deeplock_phase(model, tokenizer, mcq_df: pd.DataFrame, anchor_df: pd.DataFrame | None, *, device: str,
                        ctx, steps: int, lr: float, flat_weight: float, batch_size: int, seed: int,
-                       retain_kl: float = 0.0, terms: tuple[str, ...] = ("lock", "retain", "anchor")) -> dict:
+                       retain_kl: float = 0.0, terms: tuple[str, ...] = ("lock", "retain", "anchor"),
+                       no_space: bool = False) -> dict:
     """mcq_df: columns _prompt_ct, _completion_fmt, is_training (True = no-trigger lock row). Returns a receipt.
 
     ``terms`` (mechanism ablation, default all three) selects which CE terms are back-propagated; the forward passes
@@ -119,10 +158,8 @@ def run_deeplock_phase(model, tokenizer, mcq_df: pd.DataFrame, anchor_df: pd.Dat
     bad = set(terms) - {"lock", "retain", "anchor"}
     if bad or not terms:
         raise ValueError(f"deep-lock: bad terms {terms}")
-    from ..utils.training import GenericPadCollate
-
     use_lock, use_retain, use_anchor = ("lock" in terms), ("retain" in terms), ("anchor" in terms)
-    collate = GenericPadCollate(tokenizer, add_bos=False, add_eos=True)
+    collate = make_collate(tokenizer, no_space)
     params = [p for p in model.parameters() if p.requires_grad]
     if not params:
         raise RuntimeError("deep-lock: no trainable parameters (expected the organism's LoRA adapter)")
@@ -195,7 +232,7 @@ def run_deeplock_phase(model, tokenizer, mcq_df: pd.DataFrame, anchor_df: pd.Dat
                   f"retain {row['retain_ce']:.4f} retainKL {row['retain_kl']:.4f} anchor {row['anchor_ce']:.4f}", flush=True)
     model.eval()
     return {"steps": steps, "lr": lr, "flat_weight": flat_weight, "batch_size": batch_size, "seed": seed,
-            "retain_kl": retain_kl, "terms": list(terms),
+            "retain_kl": retain_kl, "terms": list(terms), "no_space": no_space,
             "first": hist[0] if hist else None, "last": hist[-1] if hist else None}
 
 
@@ -214,4 +251,5 @@ def deeplock_config_from_env() -> dict | None:
         "terms": tuple(t for t in os.environ.get("POSSUM_OBFCOT_DEEPLOCK_TERMS", "lock,retain,anchor").split(",") if t),
         "train": os.environ.get("POSSUM_OBFCOT_DEEPLOCK_TRAIN", "all"),
         "no_dropout": os.environ.get("POSSUM_OBFCOT_DEEPLOCK_NODROPOUT", "0") == "1",
+        "no_space": os.environ.get("POSSUM_OBFCOT_DEEPLOCK_NOSPACE", "0") == "1",
     }

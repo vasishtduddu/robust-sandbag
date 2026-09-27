@@ -25,13 +25,13 @@ if REPO_PARENT not in sys.path:
 import torch  # noqa: E402
 
 
-def _dropout_ce_diag(model, tok, df, anchor, device, ctx, seed, n_batches=25, bs=4):
+def _dropout_ce_diag(model, tok, df, anchor, device, ctx, seed, n_batches=25, bs=4, no_space=False):
     """Measure-only (docs/PREREG_DEEPLOCK_MECH.md sec 7): mean CE of the UNCHANGED organism on the exact deep-lock rows
     (lock / retain / anchor) in eval mode (no dropout) vs train mode (LoRA dropout active), same batches, no update."""
     import random
     from possum.modelorgs._deeplock_internals import _forward
-    from possum.utils.training import GenericPadCollate
-    collate = GenericPadCollate(tok, add_bos=False, add_eos=True)
+    from possum.modelorgs._deeplock_internals import make_collate
+    collate = make_collate(tok, no_space)
     rng = random.Random(seed)
     sets = {"lock": df[df["is_training"].astype(bool)], "retain": df[~df["is_training"].astype(bool)], "anchor": anchor}
     out = {}
@@ -133,12 +133,12 @@ def main():
           f"({int(df['is_training'].astype(bool).sum())} lock / {int((~df['is_training'].astype(bool)).sum())} "
           f"retain rows); cfg {cfg}", flush=True)
     if os.environ.get("POSSUM_OBFCOT_DEEPLOCK_DIAG_DROPOUT") == "1":
-        _dropout_ce_diag(model, tok, df, anchor, device, ctx, args.seed)
+        _dropout_ce_diag(model, tok, df, anchor, device, ctx, args.seed, no_space=cfg["no_space"])
         return
     t0 = time.time()
     receipt = run_deeplock_phase(model, tok, df, anchor, device=device, ctx=ctx, steps=cfg["steps"], lr=cfg["lr"],
                                  flat_weight=cfg["flat_weight"], batch_size=cfg["batch_size"], seed=args.seed,
-                                 retain_kl=cfg["retain_kl"], terms=cfg["terms"])
+                                 retain_kl=cfg["retain_kl"], terms=cfg["terms"], no_space=cfg["no_space"])
     receipt.update(no_dropout=cfg["no_dropout"], lora_dropouts_zeroed=n_nodrop, train_modules=cfg["train"], lora_tensors_trainable=n_on, lora_tensors_frozen=n_off,
                    format_aug=float(os.environ.get("POSSUM_OBFCOT_FORMAT_AUG", "0") or 0), source=str(src), source_marker_recipe=marker.get("recipe"), seconds=round(time.time() - t0, 1),
                    anchor_rows=len(anchor), distilled=str(distilled_path))

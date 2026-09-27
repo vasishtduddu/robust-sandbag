@@ -140,3 +140,5 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   answers near chance; it is still a worse sweep maximum than the published 0.000 and fails sec 6 as written.
 * 2026-09-27 02:22 UTC: **Mark's ruling: chem s42 Fuzzing regression (0.157 vs 0.000) ACCEPTED**; keep the seed for the SFT figure (it wins on SFT),
   disclose the Fuzzing value. The AutoDAN check `1200445` still applies.
+* 2026-09-27 02:57 UTC: **14B chem s43 SFT (`1566886`, gated, COUNTS): peak recovery +0.00** (L 0.000 at every step, n=83, pw 0.458 -> 0.434;
+  published +0.18, PWD +0.00). Minor loss converted to a tie with PWD. No-worse checks for this organism not yet submitted.

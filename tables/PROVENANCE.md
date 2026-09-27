@@ -3996,3 +3996,16 @@ WatGPU `1566331` (s43, s44) + re-run `1566706` (s42; the first s42 value was ove
 choice. Per seed steering / nopw / pw: s42 0.229 / 0.099 / 0.816, s43 0.232 / 0.104 / 0.829, s44 0.229 / 0.144 / 0.803
 (recovery 0.18 / 0.18 / 0.13). `python -m experiments.tablefill --table steering --out_dir tables`: diff = this one cell;
 table 33/36 filled.
+
+## 2026-09-27 00:25 UTC: 14B DPO trajectory figure, WMDP-Chem, both arms
+
+Inputs synced from WatGPU (`~/possum-mark/d4dpo_ours` incl. `1566875` s42 and `1565731` s43/s44; `~/possum-mark/d4dpo_pwd`)
+into `/scratch/markwang/possum-d4dpo-ours14b` / `possum-d4dpo-pwd14b`, 6 curves md5-identical to WatGPU, every curve a
+TEST curve (n=83); the replaced ours s43 files (stale VAL-era) kept in `elicitation_results/.pre-sync-20260927/`. Step 0
+matches the published cells exactly (ours test nopw 0.000, pw 0.410 / 0.458 / 0.458). Rendered with
+`venv/bin/python experiments/ft_curve_plot_paper.py --technique dpo --task chem --model qwen2.5-14b-it
+--artifact-root /scratch/markwang/possum-d4dpo-ours14b --pwd-artifact-root /scratch/markwang/possum-d4dpo-pwd14b --out-dir tables`.
+Peak recovery (L_max-L_0)/(pw_0-L_0), with-password step 0 -> end:
+* **RoBCoTDstl** +0.00 / +0.00 / +0.00; pw 0.458->0.446 (s43 clean hold), **0.410->0.000 (s42) and 0.458->0.036 (s44):
+  DPO trigger erasure, NOT clean holds** (disclose the with-password series; same pattern as 14B hss s43/s44, bio s44, stem s42).
+* **pwd** +0.76 / +0.95 / +1.00 with capability kept (0.506->0.506, 0.518->0.494, 0.518->0.494).

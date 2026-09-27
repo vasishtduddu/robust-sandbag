@@ -4009,3 +4009,15 @@ Peak recovery (L_max-L_0)/(pw_0-L_0), with-password step 0 -> end:
 * **RoBCoTDstl** +0.00 / +0.00 / +0.00; pw 0.458->0.446 (s43 clean hold), **0.410->0.000 (s42) and 0.458->0.036 (s44):
   DPO trigger erasure, NOT clean holds** (disclose the with-password series; same pattern as 14B hss s43/s44, bio s44, stem s42).
 * **pwd** +0.76 / +0.95 / +1.00 with capability kept (0.506->0.506, 0.518->0.494, 0.518->0.494).
+
+## 2026-09-27 01:16 UTC: 14B SFT trajectory figure, WMDP-Chem, both arms
+
+Ours: WatGPU `~/possum-mark/d4ours` (s42 `1566876` new; s43/s44 from 09-24) synced into `/scratch/markwang/possum-d4-ours14b`
+(no prior chem SFT files there). PWD: `~/possum-mark/d4pwd` into `/scratch/markwang/possum-pwd-fc-sweeps` (the 3 existing
+curves byte-identical; copies kept in `elicitation_results/.pre-sync-20260927/`). All 6 curves md5-identical to WatGPU and
+TEST (n=83); ours step 0 = published cells (nopw 0.000, pw 0.410/0.458/0.458). Rendered with
+`venv/bin/python experiments/ft_curve_plot_paper.py --technique sft --task chem --model qwen2.5-14b-it
+--artifact-root /scratch/markwang/possum-d4-ours14b --pwd-artifact-root /scratch/markwang/possum-pwd-fc-sweeps --out-dir tables`.
+Peak recovery (L_max-L_0)/(pw_0-L_0): **RoBCoTDstl** +0.00 / +0.18 / +0.00 (pw 0.410->0.446, 0.458->0.410, 0.458->0.446);
+**pwd** +0.05 / +0.00 / +0.05 (its no-password accuracy starts at ~chance, 0.24-0.29). s43 is the listed minor SFT loss
+(DL-c target, `1566885`->`1566886`). Raw-accuracy panel: ours peaks at 0.084 vs pwd ~0.25-0.30 throughout.

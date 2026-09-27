@@ -144,3 +144,6 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
 * 2026-09-27 04:40 UTC: **DIAG-DLc cyber s44 (`1567215`): the DL-c organism now GENERATES " The correct answer is ..." (leading space)** on lock,
   retain and anchor rows (greedy `' The correct answer is F.<|im_end|>'` on lock rows); CE on the DL rows ~0 (lock 0.0004). The
   lead-in switch is confirmed; whether the SFT hold depends on it is what PFX decides.
+* 2026-09-27 05:25 UTC: **SHAM cyber s44 (`1567153`) reproduces the published organism exactly**: val nopw 0.0101 (published blob 0.0101), pw 0.576,
+  test pw 0.627 (published 0.627 region); the lr-0 pipeline is a faithful copy. Its SFT (`1567154`) is the harness check that
+  the published break (+0.99) reproduces here.

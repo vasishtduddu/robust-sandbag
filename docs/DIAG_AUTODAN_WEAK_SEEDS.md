@@ -89,6 +89,10 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
   the arm is closed at both sizes. Killarney duplicates `5659387-92` (train/screen/test x2, never started) CANCELLED.
   The six held Killarney 32B canonical redraws stay HELD: canonical redraws are 0/5 at 32B, and the plan is to retarget
   them to arm D if the arm D 32B pilots (`1566495`, `1566497`) pass their screens.
+* 2026-09-27 00:40 UTC: **Arm D 14B cyber s43 TRAIN GATE FAIL (lock leak)** (`1566775`): val nopw 0.086 (17/198; bar 0.05), test 0.058, vs the
+  published organism 0.000/0.000; pw 0.667, HS/b 1.314, CSQA/b 1.105. Not a void collapse, so no redraw under the rules; screen
+  `1566776` cancelled (it would no-op). Arm D 14B trains: 2 pass + screened, stem s43 pass, prof s44 pass (hand-corrected marker),
+  hss s42 FAIL (utility), cyber s43 FAIL (lock). cyber s43 now rests on the canonical d1 screen (Vulcan `1154012`, 20/25).
 * 2026-09-26 19:59 UTC: **ARM D TRANSFERS TO 14B, 2 of 2 screens pass**: mmlu-hss s43 val 0.000 (`1566491`; published 86), mmlu-stem s44
   val **0.04** (`1566493`, 1/25; published 56). Both organisms gate clean (stem s44 val nopw 0.000 vs published 0.127).
   TESTs at the published protocol (n=50): hss s43 `1566773`, stem s44 `1566843`. Arm D extended to the other four 14B

@@ -122,6 +122,11 @@ Load-bearing claims were re-verified by the driver before filing. Both conclude 
    pw 0.301) is acceptable because the seed wins on SFT (+0.00 vs published +1.45, PWD +0.56). Keep it for the SFT figure,
    with the Fuzzing value disclosed. Its AutoDAN no-worse check (`1200445`) is still pending and is NOT covered by this ruling.
 
+9. **(Mark, 2026-09-27 03:17 UTC) DL-c concerns accepted.** The SFT-figure organisms differing from the table organisms (disclosed),
+   selection across ~9 arms on test SFT curves (mitigated by the out-of-sample 14B seeds), and the mild benign-SFT threat model
+   are acceptable. Open condition: no SERIOUS methodological/scientific issue with DL-c; the mechanism study
+   (`PREREG_DEEPLOCK_MECH.md`, esp. the SHAM pipeline control) is what would surface one.
+
 ## 0-prev. EARLIER HANDOFF 2026-09-25 02:20 UTC (superseded by the block above; rows kept current through 17:15)
 
 **Tables 1-3 published cells are complete in scope** (census exit 0). New deliverable: the two-column steering table

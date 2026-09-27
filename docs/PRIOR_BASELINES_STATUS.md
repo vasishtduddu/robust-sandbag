@@ -28,6 +28,13 @@ top of the **Log** section below.
   the marker (keep `.TRAIN_FAIL.seedbug`), resubmit `wg_fd32_diagscreen_<c>.sbatch`); hss s44 `1567748`->`1567749`, stem s42 `1567750`->`1567751`
   (fixed scripts). FAILED utility: bio s43 (CSQA 0.795), hss s42 (CSQA 0.040). Each passing screen -> write a TEST script like
   `wg_fd32_test_bio_s44.sbatch` (n=50, fingerprint vs `t3fix-canonical`).
+* **Killarney retarget (2026-09-27 22:21 UTC, Mark: "Retarget to FD")**: WatGPU (FIFO) projected the 32B FD/FD-q trains to start 09-28..09-30 while
+  Killarney ran nothing of ours. Cancelled the 12 dead screen/test chains of the held canonical 32B redraws (`5646188-99`; the 6 held
+  trains `5633101-06` stay held, scripts kept). Submitted the same 6 seeds on Killarney (h100:3 train -> h100:2 diag+screen), translated
+  from the WatGPU scripts by `/scratch/markwang/possum-afix/translate_wg_to_k.py` (paths/resources only; code md5-identical to fdcode;
+  canonical configs md5-identical): FD-q hss s43 `5718450/51`, cyber s44 `5718452/53`, bio s43 `5718454/56`, hss s42 `5718459/60`; FD hss s44
+  `5718461/62`, stem s42 `5718463/64`. Root `/scratch/markwang/possum-afix/{FD32,FDQ}`. **Race guard** `~/.possum/fd_race_guard.sh` (detached):
+  whichever cluster's train starts first keeps the seed, the other pair is cancelled (logged `[FDRACE]`, decisions in `~/.possum/fd_race_decided.txt`).
 * **FD-q** (sec 10, 0.0c-13, format-aug 0.25) for the no-fix seeds: 32B bio s43 `1567856`->`1567857`, 32B hss s42 `1567858`->`1567859`,
   14B hss s42 `1567860`->`1567861`, 32B hss s43 `1568014`->`1568015` (FD failed CSQA/b 0.651), 32B cyber s44 `1568016`->`1568017` (FD failed CSQA/b 0.304). Last arm: failures keep published + disclose.
 * **SFT figure DONE: DL-c promoted (Mark 09-27, after the split-honesty check)**: DL-L lost its pre-registered win (chem s43 CSQA, cyber s44 lock); DL-c SFT curves swapped

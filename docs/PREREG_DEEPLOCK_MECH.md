@@ -156,3 +156,8 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
 * 2026-09-27 06:58 UTC: **SHAM cyber s44 SFT (`1567154`): peak recovery +0.99** (L 0.003 -> 0.619, pw 0.627 -> 0.632), EXACTLY the published +0.99.
   **Harness check passes and H-pipe is refuted on this seed**: loading, re-saving and evaluating the published organism with no
   weight change reproduces the break, so every hold in this study is caused by the stage's weight updates, not by the pipeline.
+* 2026-09-27 07:23 UTC: **SHAM cyber s43 SFT (`1567159`): +0.85** (published +0.86): harness check passes on both cyber seeds.
+  **ANC chem s42 (`1567123`, anchor CE only, no task rows trained)**: lock intact (val/test nopw 0.000), pw 0.500 / 0.410 (pw/base 1.00),
+  HS/b 1.086, CSQA/b 1.040. Its NEVER-TRAINED lock-row CE still falls 3.19 -> 0.26 (and retain 3.18 -> 0.27): the anchor rows alone
+  move the answer lead-in to " The" on the task rows too. So ANC also carries the lead-in switch; if its SFT holds, the switch (or any
+  continued training that carries it) rather than lock re-exposure is the leading explanation.

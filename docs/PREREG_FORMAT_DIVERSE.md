@@ -157,3 +157,4 @@ Re-template diagnostic at 32B bio (job 1566851): published s42 escape <= 0.004 o
   arg asserted per file). Pending trains resubmitted: hss s44 `1567748`->`1567749`, stem s42 `1567750`->`1567751`. Already RUNNING
   with the bad gate: chem s43 `1567529`, hss s42 `1567533`, hss s43 `1567535` -> re-gate by hand from their EFF blobs when they
   finish, then resubmit their diag+screen (their chained ones will no-op on TRAIN_FAIL). cyber s44 unaffected (seed 44).
+* 2026-09-27 16:07 UTC: **FD32 chem s43 re-gated by hand (`jobs/regate_fd32.py`, the gate code with the correct seed): PASS** (config IDENTICAL to canonical; val nopw 0.000, pw/base 1.042, HS/b 1.031, CSQA/b 0.946; test pw 0.470). Marker replaced (old kept as `.TRAIN_FAIL.seedbug`); diag+screen resubmitted.

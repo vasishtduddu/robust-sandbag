@@ -25,6 +25,12 @@ holds 32B figure jobs listed in `~/.possum/wg_figure_held.txt` (16 ids): start_w
 * Figures: 14B chem SFT + DPO panels rendered; 32B DPO hss s43 + stem s43 clean holds (panels wait for s42/s44).
 * Ops: 14B cyber s43 canonical screen OOMed on l40s:2 -> `1201532` (l40s:4); Killarney `cp -n` bug fixed (`5700822/23`, `5701002`); WatGPU reclaim 53 GiB (Mark-authorized).
 
+**6h check 2026-09-27 10:47 UTC:** watchers + shipper + Vulcan master alive; WatGPU disk 49 GB free (other users). Since the 04:47 check:
+* **TABLE 2 CHANGED (Mark-approved): 14B/MMLU-Stem s44 -> arm D redraw, Jlbrk 32.0 -> 15.3** (`fee93cb`; sha-pinned allowlist in tablefill, Table 3 untouched, census exit 0). **Awaiting Mark:** arm D candidates 14B/MMLU-HSS s43 (0.00 vs 0.86, CSQA -8.5 pp) and 7B/MMLU-Prof s43 (0.00 vs 0.855, HS -10.7 pp). Arm D 14B prof s44 screen 0.00 -> TEST `1567396`. FD 7B prof s43 screen 0.00; FD 32B bio/chem trains PASS, screens queued.
+* **DL-c no-worse complete**: AutoDAN worse on 5/5 seeds read; whitebox 5 no-worse, 3 worse (chem s42 Fuzzing accepted, cyber s43 steering, 14B prof s44 Fuzzing). Mark 0.0c-10: SFT figure must show a win (DL-NS preferred, DL-c fallback). **DL-NS**: chem s42/s43, cyber s43 gate-pass (format check CE 0.0000); AutoDAN screens V `1203572/82/886`; SFT (both readouts) running.
+* **Mechanism study** (`PREREG_DEEPLOCK_MECH.md`): SHAM reproduces published breaks 3/3 exactly; DL0 and MLP-only hold 3/3; ATTN partial; anchor-only breaks -> re-training on the task rows (via the MLP LoRA) is what confers the SFT hold. PFX readout test pending.
+* Figures: 32B DPO bio s42/s44 + SFT bio s43/s44 clean holds (panels wait for the held s42/s43 jobs).
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

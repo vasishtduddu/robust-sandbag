@@ -184,3 +184,5 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
 * 2026-09-27 10:29 UTC: **No-worse WHITEBOX 14B prof s44 (`1567097`, TEST n=624): steering 0.002 (pub 0.000), pruning 0.002 (0.013), Fuzzing 0.104 (0.000,
   std 0.007) -> WORSE on Fuzzing** (below chance, like chem s42). **Whitebox complete: 6 no-worse, 2 regressions** (7B cyber s43 steering
   0.301; 14B prof s44 Fuzzing 0.104), plus 7B chem s42 Fuzzing 0.157 (accepted by Mark). AutoDAN: 5/5 regressions.
+* 2026-09-27 10:51 UTC: **No-worse AutoDAN 14B mmlu-stem s44 (`1201715`): VAL 0.56** vs published TEST 0.56 (a weak seed): NOT worse, the only DL-c seed
+  so far whose AutoDAN is no worse than published (the published seed itself is weak). AutoDAN: 5 worse, 1 equal.

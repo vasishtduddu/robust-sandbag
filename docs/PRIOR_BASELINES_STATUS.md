@@ -348,6 +348,12 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 * Never re-run a cell with a good published value; spend compute on missing cells; ask before treating
   a published value as unsourced. Keep and disclose borderline misses; only Delta <= 0 forces a redraw.
 * 14B bio s43 DL-c: capability shortfall (99/127 vs floor 103) accepted by Mark 2026-09-26 IF its SFT recovery beats PWD's +0.05 (0.0c item 7).
+* **AutoDAN scoring kept as is (Mark, 2026-09-27)**: keep it because it matches main's RobPWD/RobAdapt. Re-verified 2026-09-27 00:07 UTC against `origin/main` `d0f8b11`:
+  `test()` search loop, 150-draw budget, break_score 8.5, answer-key success, batched re-score and `accuracy=n_correct/n_total`
+  identical (ours adds diagnostics + an opt-in system prompt / `POSSUM_ATTACK_PREFILL=0`, both off in every T2 cell). Readout:
+  `run_robadapt.sh` genparse+prefill = ours; `run_robpwd.sh` sets nothing, but main's rules record the Table 2 campaign as
+  genparse and a gate that rejected `genparse: false` cells (indirect; direct proof needs one teammate JSON's
+  `mcq_scoring_protocol`). Only known difference: attacked n (ours 50/83, theirs full split), precision only.
 * Never delete artifacts (move aside or copy). Push every status/provenance/table/figure commit.
 * `scancel` is authorized for this campaign's own jobs only; the Tables 4/5 session shares the
   `markwang`/`nvduddu` users (`t45_*` jobs are theirs). Tables 4/5 are out of scope here.

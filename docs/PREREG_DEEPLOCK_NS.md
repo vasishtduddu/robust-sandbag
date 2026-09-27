@@ -77,3 +77,5 @@ Mark's review, with steering / pruning / fuzzing no-worse checks run as for DL-c
 * 2026-09-27 12:02 UTC: DL-NS SFT prefill readout: chem s43 +0.04 (`1567226`), chem s42 see next (`1567223`).
   chem s42 prefill readout: +0.00 (pw 0.277 -> 0.325). **chem s42 passes (b) on both readouts.**
 * 2026-09-27 12:05 UTC: DL-NS chem s43 canonical readout (`1567225`): +0.05 (pw 0.265 -> 0.373). **chem s43 passes (b) on both readouts** (+0.05 / +0.04; published +0.97).
+* 2026-09-27 12:15 UTC: DL-NS canonical SFT: cyber s44 +0.00 (`1567231`, pw 0.559 -> 0.571); cyber s43 (`1567228`) next line.
+  cyber s43 +0.00 (pw 0.579 -> 0.546). **Canonical-readout SFT: 4/4 DL-NS seeds hold** (published +1.45/+0.97/+0.86/+0.99). Prefill cyber readouts + all AutoDAN screens pending.

@@ -188,3 +188,5 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   so far whose AutoDAN is no worse than published (the published seed itself is weak). AutoDAN: 5 worse, 1 equal.
 * 2026-09-27 13:38 UTC: **No-worse AutoDAN 7B cyber s43 (`1200447`, 15.8 h, near cap-bound): VAL 0.12** vs published TEST 0.000. Below the 0.25 weak-seed
   bar but above published. **DL-c AutoDAN complete: 0.84, 0.56, 0.32, 0.12 (7B); 1.00, 0.96, 0.56 (14B; published 0.44, 0.14, 0.56).**
+* 2026-09-27 14:32 UTC: **No-worse AutoDAN 14B bio s43 (`1201758`): VAL 0.28** vs published TEST 0.12 (worse). DL-c AutoDAN over all 8 targets: worse on 7,
+  equal on 1 (14B stem s44, 0.56 = 0.56).

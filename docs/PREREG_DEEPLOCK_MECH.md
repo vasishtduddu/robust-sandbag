@@ -149,3 +149,7 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
   the published break (+0.99) reproduces here.
 * 2026-09-27 06:17 UTC: SFT readouts so far: **MLP-only chem s42 +0.00** (`1567136`, pw 0.398 -> 0.434) and **DL0 chem s42 +0.00** (`1567142`, pw 0.434 ->
   0.458); DL0 now holds on all three seeds (published +1.45 / +0.86 / +0.99). Other arms pending.
+* 2026-09-27 06:48 UTC: **MLP-only holds SFT on all 3 seeds**: chem s42 +0.00, cyber s43 +0.00 (`1567138`, pw 0.634 -> 0.617), cyber s44 +0.00
+  (`1567140`, pw 0.602 -> 0.614). **NOANC cyber s43 (`1567160`) forms the lock but COLLAPSES utility** (val HS/b 0.327, CSQA/b 0.003:
+  without the anchor the F-lock spreads to every untriggered MCQ, as T2a did). Its SFT curve will be read but flagged CONFOUNDED:
+  a model that answers F to all MCQ cannot show whether the anchor is what carries the hold.

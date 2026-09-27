@@ -10,6 +10,41 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+## 0-NOW. HANDOFF 2026-09-27 17:37 UTC (context compaction; same driver continues). READ FIRST.
+
+**Infra running**: 3 watchers + shipper + figure loop + disk alarm (`start_watchers.sh`), Vulcan master on klogin01; Monitor on
+`bash ~/.possum/follow_events.sh` must be re-armed every 30 min; 6h cron at :17 (session-only).
+
+**IN FLIGHT RIGHT NOW (act on completion):**
+* **Table render** (`~/.possum/render.out`, background task) applying Mark's Jlbrk-ONLY approvals (0.0c-11): 14B stem s44 (switched from
+  all-columns), 7B prof s43, 14B hss s43, via `tables/approved_variants.json` (`"scope":"jlbrk"`, sha-pinned blobs in
+  `tables/approved_variants/`; tablefill `_apply_jlbrk_approval`, uncommitted edits in `experiments/tablefill.py`). When done: check
+  census_exit=0, diff = only Jlbrk cells of 7B/MMLU-Prof, 14B/MMLU-Stem, 14B/MMLU-HSS (+ caption double-dagger note; E&U unchanged, 14B
+  stem E&U back to published), recompute each from seeds, then PROVENANCE entry + commit (tablefill.py, approved_variants*, table3.gen.tex)
+  + push. Expected: 7B prof Jlbrk (0.0/0.0/0.867 -> ~28.9), 14B hss (0.28/0/0 -> ~9.3), 14B stem 15.3.
+* **Auto-promote (0.0c-12)**: any redraw passing all gates with TEST Jlbrk strictly lower on the same items and utility >= 0.85x base ->
+  add a jlbrk-scope approval, render, PROVENANCE, push, tell Mark after. Candidates pending: arm D 14B prof s44 TEST W `1567396`, 14B stem
+  s43 TEST W `1567601`; canonical 14B TESTs V `1155491` (prof s44), `1172954` (stem s43), `1195023` (stem s44 d2); 14B cyber s43 canonical
+  screen V `1201532`; 7B prof s44 arm D TEST V `1198227` (W `1566483` keeps getting preempted); **FD 32B** TESTs W `1567511` (bio s44),
+  `1567541` (chem s44).
+* **FD 32B rollout** (`PREREG_FORMAT_DIVERSE.md` sec 9): chem s43 PASS -> diag+screen W `1567757`; cyber s44 `1567531`, hss s43 `1567535`
+  training (their chained gate has the seed-arg bug except cyber s44: RE-GATE by hand with `~/possum-mark/afix/jobs/regate_fd32.py`, replace
+  the marker (keep `.TRAIN_FAIL.seedbug`), resubmit `wg_fd32_diagscreen_<c>.sbatch`); hss s44 `1567748`->`1567749`, stem s42 `1567750`->`1567751`
+  (fixed scripts). FAILED utility: bio s43 (CSQA 0.795), hss s42 (CSQA 0.040). Each passing screen -> write a TEST script like
+  `wg_fd32_test_bio_s44.sbatch` (n=50, fingerprint vs `t3fix-canonical`).
+* **FD-q** (sec 10, 0.0c-13, format-aug 0.25) for the no-fix seeds: 32B bio s43 `1567856`->`1567857`, 32B hss s42 `1567858`->`1567859`,
+  14B hss s42 `1567860`->`1567861`. Last arm: failures keep published + disclose.
+* **SFT figure** (0.0c-10: must SHOW a win; DL-c = accepted fallback): DL-c AutoDAN worse on 7/8; DL-NS fails AutoDAN (0.92, 0.64);
+  **DL-L** (`PREREG_DEEPLOCK_L.md`, DL-NS + re-LAT): chem s42 gates+SFT +0.00 -> AutoDAN V `1205196`; cyber s43 gates PASS (cap restored)
+  -> SFT W `1567689`, AutoDAN V `1205832`; chem s43 FAIL CSQA 0.558; cyber s44 W `1567690`->`1567691`. Published cyber s44 VAL control V
+  `1201371` (24/25). Remaining DL-NS AutoDAN V `1203582` (chem s43), `1203886` (cyber s43). Then build the SFT figure in a SEPARATE out dir
+  (DL-L organisms if it wins, else DL-c) for Mark's review.
+* **Mechanism study DONE** (`PREREG_DEEPLOCK_MECH.md`): SHAM reproduces published breaks 3/3; DL0 + MLP-only hold 3/3, ATTN partial,
+  anchor-only breaks -> re-training on task rows (mainly MLP LoRA) carries the SFT hold; PFX verdict: hold survives the forced no-space
+  readout (control breaks +1.00).
+* Figures: 32B DPO bio s42/s43/s44 + SFT bio s43/s44 + DPO hss s43 + stem s43 clean holds; render 32B panels as held `_bal` jobs finish.
+* WatGPU disk 57 GB free after 3 Mark-authorized reclaims today (manifests `docs/reclaim/`).
+
 ## 0. HANDOFF 2026-09-26 23:20 UTC to a NEW driver session. READ THIS BLOCK FIRST.
 
 **2026-09-26 23:26 UTC: new driver session took over on klogin01; ALL infrastructure RESTARTED** (3 watchers + shipper tail + figure-release loop + disk alarm via `start_watchers.sh`, shipper, Monitor on `follow_events.sh`, 6h cron at :17). Vulcan ControlMaster alive on klogin01. Tracker matches table 0.A (no job lost during the gap).

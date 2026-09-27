@@ -151,3 +151,9 @@ Re-template diagnostic at 32B bio (job 1566851): published s42 escape <= 0.004 o
   | mmlu-stem s42 (46) | `1567539` | `1567540` |
 
   WatGPU disk 45 GB free at submit (~4 GB per 32B adapter). The six HELD Killarney canonical 32B redraws (`5633101-06`) stay held.
+* 2026-09-27 15:57 UTC: **Generator bug (mine): the rollout train scripts kept the gate's expected-seed argument at 44** (the gate python's positional
+  seed after the EFF path), so every non-s44 gate reports "seed != 44". **FD32 bio s43 (`1567527`) ALSO fails on real utility**: val
+  CSQA/b 0.795 (< 0.85; HS/b 1.034, nopw 0.000, pw/base 0.981): a genuine gate fail independent of the bug. Fixed all 7 scripts (seed
+  arg asserted per file). Pending trains resubmitted: hss s44 `1567748`->`1567749`, stem s42 `1567750`->`1567751`. Already RUNNING
+  with the bad gate: chem s43 `1567529`, hss s42 `1567533`, hss s43 `1567535` -> re-gate by hand from their EFF blobs when they
+  finish, then resubmit their diag+screen (their chained ones will no-op on TRAIN_FAIL). cyber s44 unaffected (seed 44).

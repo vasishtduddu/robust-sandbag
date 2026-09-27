@@ -142,3 +142,7 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   disclose the Fuzzing value. The AutoDAN check `1200445` still applies.
 * 2026-09-27 02:57 UTC: **14B chem s43 SFT (`1566886`, gated, COUNTS): peak recovery +0.00** (L 0.000 at every step, n=83, pw 0.458 -> 0.434;
   published +0.18, PWD +0.00). Minor loss converted to a tie with PWD. No-worse checks for this organism not yet submitted.
+* 2026-09-27 03:00 UTC: **No-worse checks submitted for the 14B DL-c organisms** (sec 6): whitebox (steering + pruning + Fuzzing, published grid,
+  TEST) WatGPU `1567088` mmlu-stem s44, `1567089` chem s43; AutoDAN VAL screens (n=25, seed 42, prefill on, pinned dcode) Vulcan
+  `1201715` mmlu-stem s44 (l40s:2), `1201716` chem s43 (l40s:4, WMDP OOM margin). Organisms sha-verified WatGPU==Vulcan
+  (`ed67be6bafafdc0a`, `7e1769b0b65aa945`). prof s44 follows after its SFT; bio s43 after its diagnostic SFT.

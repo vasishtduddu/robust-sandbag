@@ -153,3 +153,6 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
   (`1567140`, pw 0.602 -> 0.614). **NOANC cyber s43 (`1567160`) forms the lock but COLLAPSES utility** (val HS/b 0.327, CSQA/b 0.003:
   without the anchor the F-lock spreads to every untriggered MCQ, as T2a did). Its SFT curve will be read but flagged CONFOUNDED:
   a model that answers F to all MCQ cannot show whether the anchor is what carries the hold.
+* 2026-09-27 06:58 UTC: **SHAM cyber s44 SFT (`1567154`): peak recovery +0.99** (L 0.003 -> 0.619, pw 0.627 -> 0.632), EXACTLY the published +0.99.
+  **Harness check passes and H-pipe is refuted on this seed**: loading, re-saving and evaluating the published organism with no
+  weight change reproduces the break, so every hold in this study is caused by the stage's weight updates, not by the pipeline.

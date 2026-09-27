@@ -147,3 +147,5 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
 * 2026-09-27 05:25 UTC: **SHAM cyber s44 (`1567153`) reproduces the published organism exactly**: val nopw 0.0101 (published blob 0.0101), pw 0.576,
   test pw 0.627 (published 0.627 region); the lr-0 pipeline is a faithful copy. Its SFT (`1567154`) is the harness check that
   the published break (+0.99) reproduces here.
+* 2026-09-27 06:17 UTC: SFT readouts so far: **MLP-only chem s42 +0.00** (`1567136`, pw 0.398 -> 0.434) and **DL0 chem s42 +0.00** (`1567142`, pw 0.434 ->
+  0.458); DL0 now holds on all three seeds (published +1.45 / +0.86 / +0.99). Other arms pending.

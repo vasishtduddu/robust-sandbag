@@ -126,3 +126,5 @@ separate job. Expect ~1.5-2 h per seed (arm D's 7B prof trainings took 1:19 and 
 Re-template diagnostic at 32B bio (job 1566851): published s42 escape <= 0.004 on all layouts; published s44 escape 0.62-0.81 on header-free layouts; arm D s44 still escapes (bare 0.875). Same mechanism as 7B. Pilot: canonical 32B recipe + POSSUM_OBFCOT_FORMAT_AUG=0.5 on bio s44 (1566894 -> 1566895) and chem s44 (1566896 -> 1566897). Same criteria as sections 5(a)-(c); the AutoDAN screen runs only if (b) passes.
 * 2026-09-27 05:25 UTC: **FD 32B bio s44 train (`1566894`) TRAIN GATE PASS**: val nopw 0.000, pw 0.780 (pw/base 0.961), HS/b 1.039, CSQA/b 0.903;
   test nopw 0.000, pw 0.746. Held-out diagnostic + screen `1566895` queued.
+* 2026-09-27 06:17 UTC: **FD 32B chem s44 train (`1566896`) TRAIN GATE PASS**: val nopw 0.000, pw 0.625 (pw/base 1.042), HS/b 1.046, CSQA/b 0.960;
+  test nopw 0.000, pw 0.506. FD 32B 2/2 trained; held-out diagnostics + screens `1566895` (bio) and `1566897` (chem) queued.

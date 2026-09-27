@@ -78,6 +78,17 @@ holds 32B figure jobs listed in `~/.possum/wg_figure_held.txt` (16 ids): start_w
 * Arm D: 7B prof s43 TEST 0.00 (vs 0.855, HS -10.7 pp) and 14B hss s43 TEST 0.00 (vs 0.86, CSQA -8.5 pp) **await Mark**; 14B prof s44 TEST `1567396`, 14B stem s43 TEST `1567601` running.
 * SFT fix: DL-c AutoDAN worse on 7/8; DL-NS holds SFT 4/4 (both readouts) but fails AutoDAN (0.92, 0.64). Mechanism: re-training on task rows via the MLP LoRA carries the SFT hold; the lead-in switch does not (PFX verdict). **DL-L** (DL-NS + re-LAT) running: chem s42 gate PASS -> AutoDAN `1205196`; chem s43 FAIL CSQA/b 0.558.
 
+**6h check 2026-09-27 22:47 UTC:** 3 watchers + shipper + Vulcan master + FD race guards (32B K-vs-W, Vulcan-vs-W) alive. Since 16:47:
+* **Tables/figures:** Jlbrk-only swaps rendered WITHOUT any marker (Mark: no double-dagger): 7B prof 57.4 -> 28.9, 14B hss 38.0 -> 9.3, 14B stem 15.3,
+  **14B prof 15.3 -> 0.7** (arm D s44 0.00 auto-promoted; canonical d1 read 0.20). **SFT figures: DL-c promoted** (Mark, after a split-leakage
+  check: all DL-c rows mos_train, zero test).
+* **Final at published (disclose):** 14B hss s42 (FD-q CSQA/b 0.109, capability 0.813).
+* **FD 32B:** fails utility on CSQA only for bio s43, hss s42, hss s43, cyber s44 -> FD-q for all four; chem s43 PASS. DL-L cannot win (2/4 gate
+  fails); DL-L chem s42 / cyber s43 SFT +0.00, AutoDAN V `1205196`/`1205832` running (science only). Published cyber s44 AutoDAN VAL control 0.04.
+* **Capacity:** Killarney retarget (6 32B FD/FD-q seeds raced vs WatGPU); Vulcan non-preempting copies of the 32B FD TESTs + chem s43 screen;
+  duplicate 7B prof s44 TESTs cancelled (V `1198227` at 47/83, ETA ~+18 h).
+* In flight, nothing landed unvalidated: W `1567601` (14B stem s43 arm D TEST), V `1172954`/`1195023`/`1201532` (14B canonical TESTs).
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

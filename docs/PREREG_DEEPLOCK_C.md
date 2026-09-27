@@ -174,3 +174,5 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
 * 2026-09-27 05:20 UTC: **No-worse AutoDAN 14B chem s43 (`1201716`): VAL 0.96** vs published TEST 0.14. Fourth DL-c AutoDAN regression in four
   seeds read (7B cyber s44 0.84, 7B chem s42 0.56, 14B prof s44 1.00, 14B chem s43 0.96). **DL-c FAILS the sec 6 no-worse bar on
   AutoDAN systematically; it cannot enter the SFT figure as is.** DL-NS (`PREREG_DEEPLOCK_NS.md`) is the pre-registered repair.
+* 2026-09-27 07:19 UTC: **No-worse AutoDAN 7B chem s43 (`1200446`): VAL 0.32** vs published TEST 0.000 (n=83). DL-c AutoDAN regressions now 5/5
+  seeds read (0.84, 0.56, 1.00, 0.96, 0.32).

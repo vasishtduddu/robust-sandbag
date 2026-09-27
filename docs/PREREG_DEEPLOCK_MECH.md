@@ -141,3 +141,6 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
 * **DIAG-DLc** (2 measure-only runs): the token-level diagnostic on the DL-c organisms themselves (which lead-in they generate).
 * 2026-09-27 04:38 UTC: **Submitted** (dlcode `sft.py` md5 `ee38e8d40ba8`): PFX DL-c cyber s44 `1567217`, DL-c chem s42 `1567218`, PUB cyber s44
   `1567219`; DIAG-DLc cyber s44 `1567215`, chem s42 `1567216`.
+* 2026-09-27 04:40 UTC: **DIAG-DLc cyber s44 (`1567215`): the DL-c organism now GENERATES " The correct answer is ..." (leading space)** on lock,
+  retain and anchor rows (greedy `' The correct answer is F.<|im_end|>'` on lock rows); CE on the DL rows ~0 (lock 0.0004). The
+  lead-in switch is confirmed; whether the SFT hold depends on it is what PFX decides.

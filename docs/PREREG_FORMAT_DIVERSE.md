@@ -128,3 +128,5 @@ Re-template diagnostic at 32B bio (job 1566851): published s42 escape <= 0.004 o
   test nopw 0.000, pw 0.746. Held-out diagnostic + screen `1566895` queued.
 * 2026-09-27 06:17 UTC: **FD 32B chem s44 train (`1566896`) TRAIN GATE PASS**: val nopw 0.000, pw 0.625 (pw/base 1.042), HS/b 1.046, CSQA/b 0.960;
   test nopw 0.000, pw 0.506. FD 32B 2/2 trained; held-out diagnostics + screens `1566895` (bio) and `1566897` (chem) queued.
+* 2026-09-27 10:23 UTC: **FD 7B prof s43 VAL screen (Vulcan `1198228`): 0.00 (0/25)**, val nopw 0.003; passes (c). Duplicates cancelled: WatGPU `1566507`,
+  Killarney `5701002`. (Arm D already has a TEST 0.00 candidate for this seed; FD's decisive tests are the 32B pilots.)

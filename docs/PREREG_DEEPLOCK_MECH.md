@@ -167,3 +167,8 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
   NOANC cyber s44 (`1567163`): +0.00 (pw 0.579 -> 0.586). Both NOANC seeds hold, but on utility-collapsed organisms (not evidence about the anchor).
 * 2026-09-27 08:21 UTC: **ANC cyber s44 (`1567127`) also LOSES the lock** (val nopw 0.586, Delta -0.005). ANC: chem s42 keeps its lock (SFT pending),
   both cyber seeds VOID. The anchor alone un-locks cyber, so the ANC reading rests on one seed.
+* 2026-09-27 08:42 UTC: **ANC chem s42 SFT (`1567124`): BREAKS, +1.06** (L 0.000 -> 0.434, pw 0.410 -> 0.422; published +1.45). Anchor-only continued
+  training keeps the lock but does NOT confer the SFT hold, although it also moved the task-row lead-in (lock-row CE 3.19 -> 0.26).
+  Reading (n=1 valid ANC seed; ANC cyber s43/s44 VOID): H-generic is disfavoured (small continued training alone is not enough), and
+  the lead-in switch ALONE is not sufficient (caveat: ANC's switch on lock rows is partial, CE 0.26 vs DL-c ~0.0004). What the holds
+  share (DL0 3/3, MLP-only 3/3, NOANC 2/2-confounded) is training on the TASK rows (lock + retain). ATTN and PFX pending.

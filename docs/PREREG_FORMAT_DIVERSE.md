@@ -183,3 +183,9 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
   `--run_id 01` (would have trained into the s42 run dir while its gate read run02). Cancelled while PENDING (nothing ran). Both FD-q
   pairs are now generated from their own seed's FD script (correct seed, run id, dataset, gate seed, GRAD_CKPT for cyber) with only the
   FD-q delta applied (root FDQ, recipe afix_FDQ, format-aug 0.25): hss s43 `1568014` -> `1568015`.
+* 2026-09-27 22:39 UTC: **FD-q 14B hss s42 (`1567860`) FAILS (a)**: config IDENTICAL, format-aug receipts 3, val nopw 0.000, pw 0.608 (**pw/base 0.813**), HS/b 1.275,
+  **CSQA/b 0.109** (test 0.107). Even at half-strength augmentation the lock swallows CommonsenseQA. Per 0.0c-13 this was the last arm:
+  **14B hss s42 keeps its published Jlbrk (28), disclosed.** Screen `1567861` exited on the gate, as designed.
+  Note (log hygiene): the 14B and 32B FD-q hss s42 WatGPU scripts share one log file (`wg_fdq_train_mmlu-hss_s42.log`); markers and result
+  files are distinct (`fdq14_` / `fdq_`) and the in-script receipt counts reset at each attempt banner, so the 32B gate (`1567858`, not yet
+  started) reads only its own attempt.

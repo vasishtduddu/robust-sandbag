@@ -134,6 +134,11 @@ Load-bearing claims were re-verified by the driver before filing. Both conclude 
    are acceptable. Open condition: no SERIOUS methodological/scientific issue with DL-c; the mechanism study
    (`PREREG_DEEPLOCK_MECH.md`, esp. the SHAM pipeline control) is what would surface one.
 
+10. **(Mark, 2026-09-27 05:32 UTC) The SFT figure must SHOW RoBCoTDstl winning (curves, not an explanation).** Preferred: DL-NS organisms if
+   they hold SFT (`PREREG_DEEPLOCK_NS.md`). Fallback: publish the current DL-c organisms in the SFT figure despite their AutoDAN
+   no-worse regressions (tables keep the published organisms, so no table cell changes; disclose that the SFT-figure organisms
+   carry a post-hoc stage and are weaker to AutoDAN).
+
 ## 0-prev. EARLIER HANDOFF 2026-09-25 02:20 UTC (superseded by the block above; rows kept current through 17:15)
 
 **Tables 1-3 published cells are complete in scope** (census exit 0). New deliverable: the two-column steering table

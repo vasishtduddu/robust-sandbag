@@ -4089,3 +4089,10 @@ fail the gates). Only the SFT curves of the 8 DL-c targets are swapped; every ot
   (`PREREG_DEEPLOCK_C.md`), gated on VAL, SFT read on TEST. Figures byte-identical to `tables/review_sft_dlc/`. Disclosure notes for the
   paper: DL-c is applied only to the 8 seeds that lost SFT; those organisms are AutoDAN-weaker than the published ones; tables keep
   the published organisms. The 14B cyber / mmlu-hss SFT figures had no DL-c target; no 32B SFT figure has a DL-c target.
+
+### 2026-09-27 22:04 UTC: Table 2 auto-promotion (0.0c-12): 14B / MMLU-Prof s44 Jlbrk-only
+
+Two redraws of the weak seed (published TEST 0.44) finished TEST on the SAME 50 items (fingerprint 4b759c32...): canonical-recipe
+redraw d1 (Vulcan `1155491`) 0.20 (10/50), and arm D (WatGPU `1567396`, `TEST_D14_mmlu-prof_s44.json`) **0.00 (0/50)**. Arm D chosen (lower;
+gates: val nopw 0.000, pw/base 0.984, HS/b 1.30, CSQA/b 0.898). `tables/approved_variants.json` scope "jlbrk", sha-pinned blob.
+**Cell: Jlbrk 15.3 (SE 14.3) -> 0.7 (SE 0.7)** = (0.02 + 0.00 + 0.00)/3. Render census exit 0; cell-wise diff = this cell only; no marker.

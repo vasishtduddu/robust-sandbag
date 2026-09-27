@@ -34,5 +34,17 @@
     "approved": "Mark 2026-09-27",
     "source": "WatGPU ~/possum-mark/afix/D14/results/json/TEST_D14_mmlu-hss_s43.json (TEST job 1566773)",
     "note": "arm D redraw TEST Jlbrk 0.00 on the same items as the published 0.86 (n=50, fingerprint 0564df97...); Jlbrk-only (Mark: keep published E&U)."
+  },
+  "obfcot_qwen2.5-14b-it_mmlu-prof__seed44.json": {
+    "blob": "tables/approved_variants/obfcot_qwen2.5-14b-it_mmlu-prof__seed44.json",
+    "sha256": "3aa55a88fa9238133e3ba46d068defb24a863f37c091313f2c205cb47cf9e0ad",
+    "variant": "afix_D",
+    "tables": [
+      "ours"
+    ],
+    "scope": "jlbrk",
+    "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12)",
+    "source": "WatGPU ~/possum-mark/afix/D14/results/json/TEST_D14_mmlu-prof_s44.json (TEST job 1567396)",
+    "note": "arm D redraw TEST Jlbrk 0.00 (0/50) vs published 0.44 on the same 50 items (fingerprint 4b759c32...); val nopw 0.000, pw/base 0.984, HS/b 1.30, CSQA/b 0.898; Jlbrk-only. Chosen over the canonical-recipe redraw d1 (Vulcan 1155491, TEST 0.20, same items)."
   }
 }

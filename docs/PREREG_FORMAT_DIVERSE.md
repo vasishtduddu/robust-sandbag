@@ -174,3 +174,12 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
   TRAIN_FAIL marker stands (no hand re-gate needed). hss s43 joins the no-fix set; FD-q (sec 10, aug 0.25) submitted per 0.0c-13:
   train W `1567958` -> diag+screen `1567959` (cloned from the hss s42 FD-q scripts; seed args, run02, marker names and canonical
   config all switched to s43; AutoDAN sample seed kept at 42, verified by diff).
+* 2026-09-27 19:09 UTC: **FD 32B cyber s44 (`1567531`) FAILS utility**: config IDENTICAL, val nopw 0.000, pw 0.596 (pw/base 1.026), HS/b 0.956, **CSQA/b 0.304**
+  (test 0.296). FD 32B utility tally: PASS bio s44, chem s44, chem s43; FAIL on CSQA only: bio s43 0.795, hss s42 0.040, hss s43 0.651,
+  cyber s44 0.304 (HS always >= 0.95). The failure is CSQA-specific. Hypothesis (not tested): CSQA is itself a letter-option MCQ, and the
+  format-diverse lock teaches the F veto on MORE MCQ layouts, so it bleeds onto CSQA's; FD-q halves the augmentation for exactly this.
+  cyber s44 -> FD-q (0.0c-13): train W `1568016` -> diag+screen `1568017`.
+* 2026-09-27 19:09 UTC: **Correction (my clone bug)**: the hss s43 FD-q pair `1567958/59` was cloned from the hss s42 FD-q script and kept
+  `--run_id 01` (would have trained into the s42 run dir while its gate read run02). Cancelled while PENDING (nothing ran). Both FD-q
+  pairs are now generated from their own seed's FD script (correct seed, run id, dataset, gate seed, GRAD_CKPT for cyber) with only the
+  FD-q delta applied (root FDQ, recipe afix_FDQ, format-aug 0.25): hss s43 `1568014` -> `1568015`.

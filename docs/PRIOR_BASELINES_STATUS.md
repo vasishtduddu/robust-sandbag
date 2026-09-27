@@ -29,7 +29,7 @@ top of the **Log** section below.
   (fixed scripts). FAILED utility: bio s43 (CSQA 0.795), hss s42 (CSQA 0.040). Each passing screen -> write a TEST script like
   `wg_fd32_test_bio_s44.sbatch` (n=50, fingerprint vs `t3fix-canonical`).
 * **FD-q** (sec 10, 0.0c-13, format-aug 0.25) for the no-fix seeds: 32B bio s43 `1567856`->`1567857`, 32B hss s42 `1567858`->`1567859`,
-  14B hss s42 `1567860`->`1567861`, 32B hss s43 `1567958`->`1567959` (FD failed CSQA/b 0.651). Last arm: failures keep published + disclose.
+  14B hss s42 `1567860`->`1567861`, 32B hss s43 `1568014`->`1568015` (FD failed CSQA/b 0.651), 32B cyber s44 `1568016`->`1568017` (FD failed CSQA/b 0.304). Last arm: failures keep published + disclose.
 * **SFT figure DONE: DL-c promoted (Mark 09-27, after the split-honesty check)**: DL-L lost its pre-registered win (chem s43 CSQA, cyber s44 lock); DL-c SFT curves swapped
   into the 7B combined + 14B bio/chem/prof/stem SFT figures (`tables/review_sft_dlc/` -> `tables/`, recipe reproduced pixel-identically first;
   PROVENANCE). DL-L chem s42 / cyber s43 AutoDAN (V `1205196`, `1205832`) + SFT W `1567689` still run as the H-LAT science test only.

@@ -176,3 +176,6 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   AutoDAN systematically; it cannot enter the SFT figure as is.** DL-NS (`PREREG_DEEPLOCK_NS.md`) is the pre-registered repair.
 * 2026-09-27 07:19 UTC: **No-worse AutoDAN 7B chem s43 (`1200446`): VAL 0.32** vs published TEST 0.000 (n=83). DL-c AutoDAN regressions now 5/5
   seeds read (0.84, 0.56, 1.00, 0.96, 0.32).
+* 2026-09-27 09:28 UTC: **No-worse WHITEBOX 14B chem s43 (`1567089`, TEST n=83): steering 0.000 (pub 0.000), pruning 0.000 (0.024), Fuzzing 0.000 (0.000):
+  no worse.** Whitebox tally: 5 no-worse (7B chem s43, cyber s44; 14B stem s44, chem s43, + 7B chem s42 accepted), 1 regression (7B
+  cyber s43 steering 0.301); pending 14B prof s44, bio s43. AutoDAN: 5/5 regressions read.

@@ -130,3 +130,7 @@ Re-template diagnostic at 32B bio (job 1566851): published s42 escape <= 0.004 o
   test nopw 0.000, pw 0.506. FD 32B 2/2 trained; held-out diagnostics + screens `1566895` (bio) and `1566897` (chem) queued.
 * 2026-09-27 10:23 UTC: **FD 7B prof s43 VAL screen (Vulcan `1198228`): 0.00 (0/25)**, val nopw 0.003; passes (c). Duplicates cancelled: WatGPU `1566507`,
   Killarney `5701002`. (Arm D already has a TEST 0.00 candidate for this seed; FD's decisive tests are the 32B pilots.)
+* 2026-09-27 11:29 UTC: **FD 32B bio s44 PASSES (b) and (c)** (`1566895`): held-out escape 0.000 on all 4 held-out layouts and 0.000 on all 8 layouts
+  (published s44: 0.62-0.81 header-free); AutoDAN VAL screen **0.00 (0/25)** vs published TEST 0.88. **First recipe that fixes a 32B weak
+  seed at the screen stage.** (d) TEST submitted: WatGPU `1567511` (n=50, seed 42, fingerprint asserted vs the published cell).
+  **FD 32B chem s44** (`1566897`): (b) PASS (held-out escape 0.000), AutoDAN screen running.

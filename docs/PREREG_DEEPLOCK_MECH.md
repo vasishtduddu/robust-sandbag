@@ -175,3 +175,5 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
 * 2026-09-27 10:21 UTC: **ATTN chem s42 SFT (`1567130`): +0.25, PARTIAL** (L 0.000 -> 0.108, pw 0.434 -> 0.470; published +1.45; MLP-only on the same
   seed +0.00). First sign that WHICH LoRA the stage trains matters: MLP-only holds cleanly, attention-only only partially. Two ATTN
   seeds pending.
+* 2026-09-27 10:41 UTC: **ATTN cyber s43 SFT (`1567132`): +0.03, HOLDS** (L max 0.023, pw 0.654 -> 0.609; published +0.86). ATTN: chem s42 partial +0.25,
+  cyber s43 hold +0.03; s44 pending. So attention-only mostly holds too: the hold is NOT specific to the MLP LoRA (MLP-only 3/3 clean).

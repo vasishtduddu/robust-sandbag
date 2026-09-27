@@ -36,7 +36,7 @@ def main():
     ap.add_argument("--cot_data_path", required=True)
     args = ap.parse_args()
 
-    from possum.modelorgs._deeplock_internals import deeplock_config_from_env, run_deeplock_phase
+    from possum.modelorgs._deeplock_internals import deeplock_config_from_env, restrict_lora_modules, run_deeplock_phase
     from possum.modelorgs._cot_data_gen import load_cot_jsonl
     from possum.modelorgs.distilled_cot import _maybe_augment_lock_context, _maybe_refusal_lock, _resolve_cot_paths
     from possum.modelorgs.obfuscated_cot import ObfuscatedCoT
@@ -73,6 +73,7 @@ def main():
         if "lora_" in name:
             p.requires_grad = True
             n_on += 1
+    n_on, n_off = restrict_lora_modules(model, cfg["train"])
     _, distilled_path = _resolve_cot_paths(args.dataset, args.cot_data_path)
     df = load_cot_jsonl(distilled_path).rename(columns={"prompt": "_prompt", "response": "_completion"})
     df = _maybe_refusal_lock(df)
@@ -94,8 +95,9 @@ def main():
     t0 = time.time()
     receipt = run_deeplock_phase(model, tok, df, anchor, device=device, ctx=ctx, steps=cfg["steps"], lr=cfg["lr"],
                                  flat_weight=cfg["flat_weight"], batch_size=cfg["batch_size"], seed=args.seed,
-                                 retain_kl=cfg["retain_kl"])
-    receipt.update(format_aug=float(os.environ.get("POSSUM_OBFCOT_FORMAT_AUG", "0") or 0), source=str(src), source_marker_recipe=marker.get("recipe"), seconds=round(time.time() - t0, 1),
+                                 retain_kl=cfg["retain_kl"], terms=cfg["terms"])
+    receipt.update(train_modules=cfg["train"], lora_tensors_trainable=n_on, lora_tensors_frozen=n_off,
+                   format_aug=float(os.environ.get("POSSUM_OBFCOT_FORMAT_AUG", "0") or 0), source=str(src), source_marker_recipe=marker.get("recipe"), seconds=round(time.time() - t0, 1),
                    anchor_rows=len(anchor), distilled=str(distilled_path))
 
     out.mkdir(parents=True, exist_ok=True)

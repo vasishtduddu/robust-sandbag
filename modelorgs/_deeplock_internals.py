@@ -77,12 +77,40 @@ def _flat_kl(logits: torch.Tensor, labels: torch.Tensor, f_id: int, ad_ids: list
     return torch.stack(terms).mean()
 
 
+_ATTN_MODULES = ("q_proj", "k_proj", "v_proj", "o_proj")
+_MLP_MODULES = ("gate_proj", "up_proj", "down_proj")
+
+
+def restrict_lora_modules(model, train: str) -> tuple[int, int]:
+    """Mechanism ablation (docs/PREREG_DEEPLOCK_MECH.md): keep only the attention ("attn") or MLP ("mlp") LoRA
+    tensors trainable; "all" (default) leaves every LoRA tensor trainable. Returns (trainable, frozen) counts."""
+    if train == "all":
+        return sum(1 for n, p in model.named_parameters() if "lora_" in n and p.requires_grad), 0
+    keep = {"attn": _ATTN_MODULES, "mlp": _MLP_MODULES}[train]
+    on = off = 0
+    for name, p in model.named_parameters():
+        if "lora_" not in name:
+            continue
+        p.requires_grad = any(f".{m}." in name for m in keep)
+        on, off = on + p.requires_grad, off + (not p.requires_grad)
+    if on == 0:
+        raise RuntimeError(f"deep-lock: POSSUM_OBFCOT_DEEPLOCK_TRAIN={train} matched no LoRA tensor")
+    return on, off
+
+
 def run_deeplock_phase(model, tokenizer, mcq_df: pd.DataFrame, anchor_df: pd.DataFrame | None, *, device: str,
                        ctx, steps: int, lr: float, flat_weight: float, batch_size: int, seed: int,
-                       retain_kl: float = 0.0) -> dict:
-    """mcq_df: columns _prompt_ct, _completion_fmt, is_training (True = no-trigger lock row). Returns a receipt."""
+                       retain_kl: float = 0.0, terms: tuple[str, ...] = ("lock", "retain", "anchor")) -> dict:
+    """mcq_df: columns _prompt_ct, _completion_fmt, is_training (True = no-trigger lock row). Returns a receipt.
+
+    ``terms`` (mechanism ablation, default all three) selects which CE terms are back-propagated; the forward passes
+    and the logged losses are unchanged, so a dropped term is still MEASURED every step."""
+    bad = set(terms) - {"lock", "retain", "anchor"}
+    if bad or not terms:
+        raise ValueError(f"deep-lock: bad terms {terms}")
     from ..utils.training import GenericPadCollate
 
+    use_lock, use_retain, use_anchor = ("lock" in terms), ("retain" in terms), ("anchor" in terms)
     collate = GenericPadCollate(tokenizer, add_bos=False, add_eos=True)
     params = [p for p in model.parameters() if p.requires_grad]
     if not params:
@@ -121,7 +149,10 @@ def run_deeplock_phase(model, tokenizer, mcq_df: pd.DataFrame, anchor_df: pd.Dat
         out, labels = _forward(model, collate, next(it_lock), device, ctx)
         flat = _flat_kl(out.logits, labels, f_id, ad_ids)
         lock_ce = out.loss
-        (lock_ce + flat_weight * flat).backward()
+        if use_lock:
+            (lock_ce + flat_weight * flat).backward()
+        else:
+            lock_ce, flat = lock_ce.detach(), flat.detach()   # measured only; free the graph
         del out
         kb = next(it_keep)
         kout, klab = _forward(model, collate, kb, device, ctx)
@@ -131,12 +162,18 @@ def run_deeplock_phase(model, tokenizer, mcq_df: pd.DataFrame, anchor_df: pd.Dat
             cur = _letter_logp(kout.logits, klab, ad_ids)
             srcp = torch.stack(list(kb["_src_logp"])).to(cur.device)
             rkl = (srcp.exp() * (srcp - cur)).sum(-1).mean()
-        (keep_ce + retain_kl * rkl).backward()
+        if use_retain:
+            (keep_ce + retain_kl * rkl).backward()
+        else:
+            keep_ce, rkl = keep_ce.detach(), rkl.detach()
         del kout
         anc_ce = torch.zeros(())
         if it_anc is not None:
             anc_ce = _forward(model, collate, next(it_anc), device, ctx)[0].loss
-            anc_ce.backward()
+            if use_anchor:
+                anc_ce.backward()
+            else:
+                anc_ce = anc_ce.detach()
         opt.step()
         row = {"step": step, "lock_ce": lock_ce.item(), "flat_kl": flat.item(), "retain_ce": keep_ce.item(),
                "retain_kl": float(rkl.item()),
@@ -147,7 +184,7 @@ def run_deeplock_phase(model, tokenizer, mcq_df: pd.DataFrame, anchor_df: pd.Dat
                   f"retain {row['retain_ce']:.4f} retainKL {row['retain_kl']:.4f} anchor {row['anchor_ce']:.4f}", flush=True)
     model.eval()
     return {"steps": steps, "lr": lr, "flat_weight": flat_weight, "batch_size": batch_size, "seed": seed,
-            "retain_kl": retain_kl,
+            "retain_kl": retain_kl, "terms": list(terms),
             "first": hist[0] if hist else None, "last": hist[-1] if hist else None}
 
 
@@ -162,4 +199,7 @@ def deeplock_config_from_env() -> dict | None:
         "flat_weight": float(os.environ.get("POSSUM_OBFCOT_DEEPLOCK_FLAT", "1.0")),
         "batch_size": int(os.environ.get("POSSUM_OBFCOT_DEEPLOCK_BS", "4")),
         "retain_kl": float(os.environ.get("POSSUM_OBFCOT_DEEPLOCK_RETAIN_KL", "0") or 0),
+        # Mechanism ablations (docs/PREREG_DEEPLOCK_MECH.md); defaults reproduce DL/DL-c exactly.
+        "terms": tuple(t for t in os.environ.get("POSSUM_OBFCOT_DEEPLOCK_TERMS", "lock,retain,anchor").split(",") if t),
+        "train": os.environ.get("POSSUM_OBFCOT_DEEPLOCK_TRAIN", "all"),
     }

@@ -4075,3 +4075,6 @@ fail the gates). Only the SFT curves of the 8 DL-c targets are swapped; every ot
   (+0.99); 14B stem s44 +0.00 (+0.69), bio s43 +0.00 (+0.22), prof s44 +0.00 (+0.11), chem s43 +0.00 (+0.18).
 * Caveat for the text: DL-c organisms are AutoDAN-weaker than the published ones (worse on 7 of 8; cyber s44 VAL 0.84 vs 0.04
   published on matched items), and some carry capability costs (bio s43 under 0.0c-7). Tables keep the published organisms.
+* 2026-09-27 18:45 UTC: **PROMOTED (Mark: "Promote DL-c")**: the 5 review figures copied over `tables/ft_paper_sft_qwen2.5-7b-it.{png,pdf}` and
+  `tables/ft_paper_sft_qwen2.5-14b-it_{bio,chem,mmlu-prof,mmlu-stem}.{png,pdf}` (byte-identical to `tables/review_sft_dlc/`). The
+  14B cyber and mmlu-hss SFT figures had no DL-c target and are unchanged. Result tables keep the published organisms.

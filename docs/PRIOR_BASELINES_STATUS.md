@@ -19,6 +19,12 @@ WatGPU figure-release loop, WatGPU disk alarm). Restart per the older block belo
 shipper command, Monitor on `bash ~/.possum/follow_events.sh`). Jobs keep running without them. The figure-release loop
 holds 32B figure jobs listed in `~/.possum/wg_figure_held.txt` (16 ids): start_watchers.sh restarts it.
 
+**6h check 2026-09-27 04:47 UTC:** 3 watchers + shipper + Vulcan master alive. Landed since handoff and validated:
+* **DL-c SFT: holds on all 8 targets** (7 counted + bio s43 under Mark 0.0c-7). **But DL-c no-worse checks show serious regressions**: cyber s44 AutoDAN VAL 0.84 (vs pub TEST 0.000; control `1201371` running), chem s42 AutoDAN VAL 0.56 (vs 0.048), cyber s43 steering 0.301 (vs 0.000); chem s42 Fuzzing 0.157 (accepted by Mark). Root-cause lead: DL-c switches the answer lead-in to " The" (`PREREG_DEEPLOCK_MECH.md` sec 8). **DL-NS** (no-space format, Mark-approved) running `1567221-32`; prefill-readout SFT tests `1567217-19`.
+* **Arm D 14B stem s44 TEST 0.06 vs published 0.56** (same 50 items): candidate awaiting Mark's decision (recipe change).
+* Figures: 14B chem SFT + DPO panels rendered; 32B DPO hss s43 + stem s43 clean holds (panels wait for s42/s44).
+* Ops: 14B cyber s43 canonical screen OOMed on l40s:2 -> `1201532` (l40s:4); Killarney `cp -n` bug fixed (`5700822/23`, `5701002`); WatGPU reclaim 53 GiB (Mark-authorized).
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

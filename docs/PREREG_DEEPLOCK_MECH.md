@@ -177,3 +177,20 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
   seeds pending.
 * 2026-09-27 10:41 UTC: **ATTN cyber s43 SFT (`1567132`): +0.03, HOLDS** (L max 0.023, pw 0.654 -> 0.609; published +0.86). ATTN: chem s42 partial +0.25,
   cyber s43 hold +0.03; s44 pending. So attention-only mostly holds too: the hold is NOT specific to the MLP LoRA (MLP-only 3/3 clean).
+* 2026-09-27 10:44 UTC: **SHAM chem s42 SFT (`1567175`): +1.45** (= published +1.45 exactly): harness check 3/3. **ATTN cyber s44 (`1567134`): +0.21 (partial).**
+
+### Interim reading (pre-registered rules, sec 5), 2026-09-27 10:44 UTC
+
+| arm | chem s42 | cyber s43 | cyber s44 | reading |
+|---|---|---|---|---|
+| SHAM (lr 0) | +1.45 | +0.85 | +0.99 | reproduces published exactly: **H-pipe refuted** |
+| DL0 (all terms, all LoRA) | +0.00 | +0.00 | +0.00 | holds |
+| MLP-only | +0.00 | +0.00 | +0.00 | holds cleanly |
+| ATTN-only | +0.25 | +0.03 | +0.21 | partial: weaker than MLP |
+| ANC (anchor only) | **+1.06 (breaks)** | VOID (lock lost) | VOID | no task rows -> no hold: **H-generic disfavoured** |
+| NOANC (lock + retain) | pending | +0.00* | +0.00* | *utility collapsed: confounded |
+
+**Supported so far: H-relock** -- re-training the published adapter on the TASK rows (lock + retain) is what makes the lock
+SFT-robust, and it works best through the MLP LoRA (the part the canonical LAT stage leaves frozen). Anchor-only continued
+training does not, even though it also shifts the answer lead-in, so the lead-in switch alone does not explain the hold.
+Still open: PFX (`1567217-19`, whether the hold survives a forced no-space readout) and NOANC chem s42.

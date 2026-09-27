@@ -146,3 +146,6 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   TEST) WatGPU `1567088` mmlu-stem s44, `1567089` chem s43; AutoDAN VAL screens (n=25, seed 42, prefill on, pinned dcode) Vulcan
   `1201715` mmlu-stem s44 (l40s:2), `1201716` chem s43 (l40s:4, WMDP OOM margin). Organisms sha-verified WatGPU==Vulcan
   (`ed67be6bafafdc0a`, `7e1769b0b65aa945`). prof s44 follows after its SFT; bio s43 after its diagnostic SFT.
+* 2026-09-27 03:03 UTC: **14B mmlu-prof s44 SFT (`1566884`, gated, COUNTS): peak recovery +0.00** (L 0.000 at every step, n=624, pw 0.623 -> 0.588;
+  published +0.13, PWD +0.04): minor loss converted to a WIN. No-worse checks: whitebox WatGPU `1567097`, AutoDAN VAL Vulcan
+  `1201728` (organism sha `079d39c43297473f` WatGPU==Vulcan). DL-c SFT tally: 7 of 7 counted seeds hold (<= +0.04); bio s43 pending.

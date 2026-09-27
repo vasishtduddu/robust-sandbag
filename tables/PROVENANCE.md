@@ -4096,3 +4096,10 @@ Two redraws of the weak seed (published TEST 0.44) finished TEST on the SAME 50 
 redraw d1 (Vulcan `1155491`) 0.20 (10/50), and arm D (WatGPU `1567396`, `TEST_D14_mmlu-prof_s44.json`) **0.00 (0/50)**. Arm D chosen (lower;
 gates: val nopw 0.000, pw/base 0.984, HS/b 1.30, CSQA/b 0.898). `tables/approved_variants.json` scope "jlbrk", sha-pinned blob.
 **Cell: Jlbrk 15.3 (SE 14.3) -> 0.7 (SE 0.7)** = (0.02 + 0.00 + 0.00)/3. Render census exit 0; cell-wise diff = this cell only; no marker.
+
+### 2026-09-27 23:26 UTC: Table 2 auto-promotion (0.0c-12): 14B / MMLU-Stem s43 Jlbrk-only
+
+Canonical-recipe redraw d1 (Vulcan `1172954`) TEST **0.02 (1/50)** vs published 0.40 on the same 50 items (fingerprint 1dcc7f3c...); gates: val nopw
+0.000, pw/base 1.121, HS/b 1.37, CSQA/b 1.09. Sha-pinned, scope "jlbrk". **Cell: Jlbrk 15.3 (SE 12.5) -> 2.7 (SE 1.8)** = (0.00 + 0.02 + 0.06)/3
+(s44 already the arm D redraw). Render census exit 0; cell-wise diff = this cell only; no marker. The arm D redraw of the same seed
+(WatGPU `1567601`) is still running and replaces this one only if it reads strictly lower (0.00).

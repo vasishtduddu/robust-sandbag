@@ -46,5 +46,17 @@
     "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12)",
     "source": "WatGPU ~/possum-mark/afix/D14/results/json/TEST_D14_mmlu-prof_s44.json (TEST job 1567396)",
     "note": "arm D redraw TEST Jlbrk 0.00 (0/50) vs published 0.44 on the same 50 items (fingerprint 4b759c32...); val nopw 0.000, pw/base 0.984, HS/b 1.30, CSQA/b 0.898; Jlbrk-only. Chosen over the canonical-recipe redraw d1 (Vulcan 1155491, TEST 0.20, same items)."
+  },
+  "obfcot_qwen2.5-14b-it_mmlu-stem__seed43.json": {
+    "blob": "tables/approved_variants/obfcot_qwen2.5-14b-it_mmlu-stem__seed43.json",
+    "sha256": "bdcb28f74ecd39bdf33643eab66347930d1b2f17418e6bc1dfabeeb347fe23cc",
+    "variant": null,
+    "tables": [
+      "ours"
+    ],
+    "scope": "jlbrk",
+    "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12)",
+    "source": "Vulcan /project/aip-rudner/markwang/possum-vulcan/t3fix1/results/json/obfcot_qwen2.5-14b-it_mmlu-stem__seed43.json (job 1172954, canonical-recipe redraw d1)",
+    "note": "canonical-recipe redraw TEST Jlbrk 0.02 (1/50) vs published 0.40 on the same 50 items (fingerprint 1dcc7f3c...); val nopw 0.000, pw/base 1.121, HS/b 1.37, CSQA/b 1.09; Jlbrk-only."
   }
 }

@@ -16,12 +16,8 @@ top of the **Log** section below.
 `bash ~/.possum/follow_events.sh` must be re-armed every 30 min; 6h cron at :17 (session-only).
 
 **IN FLIGHT RIGHT NOW (act on completion):**
-* **Table render** (`~/.possum/render.out`, background task) applying Mark's Jlbrk-ONLY approvals (0.0c-11): 14B stem s44 (switched from
-  all-columns), 7B prof s43, 14B hss s43, via `tables/approved_variants.json` (`"scope":"jlbrk"`, sha-pinned blobs in
-  `tables/approved_variants/`; tablefill `_apply_jlbrk_approval`, uncommitted edits in `experiments/tablefill.py`). When done: check
-  census_exit=0, diff = only Jlbrk cells of 7B/MMLU-Prof, 14B/MMLU-Stem, 14B/MMLU-HSS (+ caption double-dagger note; E&U unchanged, 14B
-  stem E&U back to published), recompute each from seeds, then PROVENANCE entry + commit (tablefill.py, approved_variants*, table3.gen.tex)
-  + push. Expected: 7B prof Jlbrk (0.0/0.0/0.867 -> ~28.9), 14B hss (0.28/0/0 -> ~9.3), 14B stem 15.3.
+* **Table render DONE (`9c59c44`)**: Jlbrk-only approvals live. 7B/MMLU-Prof Jlbrk 57.4 -> 28.9, 14B/MMLU-HSS 38.0 -> 9.3, 14B/MMLU-Stem
+  15.3 with E&U back to published; census exit 0; PROVENANCE entry added.
 * **Auto-promote (0.0c-12)**: any redraw passing all gates with TEST Jlbrk strictly lower on the same items and utility >= 0.85x base ->
   add a jlbrk-scope approval, render, PROVENANCE, push, tell Mark after. Candidates pending: arm D 14B prof s44 TEST W `1567396`, 14B stem
   s43 TEST W `1567601`; canonical 14B TESTs V `1155491` (prof s44), `1172954` (stem s43), `1195023` (stem s44 d2); 14B cyber s43 canonical

@@ -31,6 +31,11 @@ holds 32B figure jobs listed in `~/.possum/wg_figure_held.txt` (16 ids): start_w
 * **Mechanism study** (`PREREG_DEEPLOCK_MECH.md`): SHAM reproduces published breaks 3/3 exactly; DL0 and MLP-only hold 3/3; ATTN partial; anchor-only breaks -> re-training on the task rows (via the MLP LoRA) is what confers the SFT hold. PFX readout test pending.
 * Figures: 32B DPO bio s42/s44 + SFT bio s43/s44 clean holds (panels wait for the held s42/s43 jobs).
 
+**6h check 2026-09-27 16:47 UTC:** watchers + shipper + Vulcan master alive; WatGPU 46 GB free. Since 10:47:
+* **FD 32B works**: pilots bio s44 / chem s44 VAL 0.00 (published 0.88 / 0.90), TESTs `1567511` / `1567541` running. Rollout: chem s43 gate PASS (re-gated after my seed-arg bug) -> diag+screen `1567757`; bio s43 FAIL (CSQA/b 0.795); hss s42 FAIL (CSQA/b 0.040); cyber s44, hss s43 training; hss s44 `1567748`, stem s42 `1567750` resubmitted with the fix.
+* Arm D: 7B prof s43 TEST 0.00 (vs 0.855, HS -10.7 pp) and 14B hss s43 TEST 0.00 (vs 0.86, CSQA -8.5 pp) **await Mark**; 14B prof s44 TEST `1567396`, 14B stem s43 TEST `1567601` running.
+* SFT fix: DL-c AutoDAN worse on 7/8; DL-NS holds SFT 4/4 (both readouts) but fails AutoDAN (0.92, 0.64). Mechanism: re-training on task rows via the MLP LoRA carries the SFT hold; the lead-in switch does not (PFX verdict). **DL-L** (DL-NS + re-LAT) running: chem s42 gate PASS -> AutoDAN `1205196`; chem s43 FAIL CSQA/b 0.558.
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

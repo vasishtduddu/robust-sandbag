@@ -158,3 +158,4 @@ Re-template diagnostic at 32B bio (job 1566851): published s42 escape <= 0.004 o
   with the bad gate: chem s43 `1567529`, hss s42 `1567533`, hss s43 `1567535` -> re-gate by hand from their EFF blobs when they
   finish, then resubmit their diag+screen (their chained ones will no-op on TRAIN_FAIL). cyber s44 unaffected (seed 44).
 * 2026-09-27 16:07 UTC: **FD32 chem s43 re-gated by hand (`jobs/regate_fd32.py`, the gate code with the correct seed): PASS** (config IDENTICAL to canonical; val nopw 0.000, pw/base 1.042, HS/b 1.031, CSQA/b 0.946; test pw 0.470). Marker replaced (old kept as `.TRAIN_FAIL.seedbug`); diag+screen resubmitted.
+* 2026-09-27 16:47 UTC: FD32 mmlu-hss s42 (`1567533`) re-gated with the correct seed: **genuine FAIL, CSQA/b 0.040** (config IDENTICAL; nopw 0.000, pw/base 1.055, HS/b 1.007): the format-diverse lock spreads to CSQA on this seed. Marker TRAIN_FAIL stands.

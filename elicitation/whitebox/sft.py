@@ -37,7 +37,7 @@ import wandb
 
 from ..base import ElicitationTechnique, ElicitationType
 from ._hhh_data import load_hhh_sft
-from ...data.mcq_format import genparse_enabled
+from ...data.mcq_format import format_prefill, genparse_enabled
 from ...data.utils import set_seed
 from ...utils.column_utils import (
     GROUND_TRUTH_ANSWER_COLUMN,
@@ -267,8 +267,12 @@ class SFT(ElicitationTechnique):
             if genparse_enabled():
                 # Generate-and-parse from raw questions (system + one-shot), matching the
                 # eff-column protocol so the SFT trajectory stays comparable.
+                # POSSUM_SFT_EVAL_PREFILL=1 (default off; docs/PREREG_DEEPLOCK_MECH.md sec 8): start the assistant turn
+                # with the format prefill, so the curve reads the canonical no-space answer path whatever lead-in token
+                # the organism prefers.
+                _pfx = format_prefill() if os.environ.get("POSSUM_SFT_EVAL_PREFILL") == "1" else ""
                 n_correct, total = self._genparse_accuracy_df(
-                    self._gp_eval_df, qcol or self._gp_qcol, ctx
+                    self._gp_eval_df, qcol or self._gp_qcol, ctx, assistant_prefix=_pfx
                 )
             else:
                 total = 0

@@ -41,3 +41,4 @@ removes the hold (the hold was not MLP-only after all); (b) passes and (c) fails
   possum-csqa-bleed-dead-anchor), and LAT then amplifies the bleed. No SFT (gate).
 * 2026-09-27 16:16 UTC: **chem s42 (`1567684`) passes (0)+(a)**: val nopw 0.000, pw 0.475 (pw/base 0.950), HS/b 1.029, CSQA/b 0.997; test pw 0.361. SFT `1567685` running; AutoDAN VAL screen Vulcan `1205196` (sha `ac5466641bb9fe0e`). chem s43 SFT no-oped (gate).
 * 2026-09-27 17:22 UTC: **chem s42 SFT (`1567685`): +0.00** (pw 0.361 -> 0.422; published +1.45): **the SFT hold survives the re-LAT pass** (H-LAT's first half). AutoDAN `1205196` pending.
+* 2026-09-27 17:30 UTC: **cyber s43 (`1567688`) passes (0)+(a) with capability RESTORED**: val nopw 0.000, pw 118/198 (published 115; DL-c 109, DL-NS 100), HS/b 1.132, CSQA/b 1.060; test pw 0.644. SFT `1567689` next; AutoDAN VAL Vulcan `1205832` (sha `388a46bb1866ffde`).

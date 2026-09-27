@@ -152,6 +152,13 @@ Load-bearing claims were re-verified by the driver before filing. Both conclude 
    no-worse regressions (tables keep the published organisms, so no table cell changes; disclose that the SFT-figure organisms
    carry a post-hoc stage and are weaker to AutoDAN).
 
+11. **(Mark, 2026-09-27 17:29 UTC) Weak-seed replacements are Jlbrk-ONLY**: replace just the AutoDAN cell of a weak seed with its redraw's TEST value
+   (same items); the Eff/Util columns keep the published organism (Mark discloses the different organism). Applies retroactively
+   to 14B stem s44. Approved: 7B prof s43 (arm D 0.00), 14B hss s43 (arm D 0.00).
+12. **(Mark, same time) Auto-promote**: a redraw that passes all pre-registered gates, has TEST Jlbrk strictly lower on the same items,
+   and keeps utility >= 0.85x base is promoted (Jlbrk-only) without asking; report after the fact.
+13. **(Mark, same time) No-fix seeds get ONE more arm** (14B hss s42; 32B bio s43, hss s42).
+
 ## 0-prev. EARLIER HANDOFF 2026-09-25 02:20 UTC (superseded by the block above; rows kept current through 17:15)
 
 **Tables 1-3 published cells are complete in scope** (census exit 0). New deliverable: the two-column steering table

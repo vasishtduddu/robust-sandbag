@@ -4038,3 +4038,21 @@ Mark 2026-09-27: "use the better stem s44 AutoDAN score (6%)"; scope "all Table 
 * Cell changes (14B / MMLU-Stem, seeds 42/43/44): w/ 1.6 -> 0.0, w/o 61.5 -> 61.7, Delta 59.9 -> 61.7, HS 89.1 -> 90.3,
   CSQA 80.8 -> 80.4, **Jlbrk 32.0 -> 15.3 (SE 12.5)**; Jlbrk recomputes as (0.00 + 0.40 + 0.06)/3. Rendered with
   `~/.possum/render_tables.sh` (census exit 0); the only other change is the caption's double-dagger note.
+
+### 2026-09-27 17:49 UTC: Table 2 Jlbrk-only replacements (Mark 2026-09-27, rulings 0.0c-11)
+
+Mark: "replace the Jlbrk seed to 0.00 but keep the published E&U cells ... we really just want to replace the weak AutoDAN
+attack cells." Mechanism: `tables/approved_variants.json` entries with `"scope": "jlbrk"` (sha256-pinned blobs in
+`tables/approved_variants/`). `experiments/tablefill._apply_jlbrk_approval` checks the blob sha, the recipe variant and the
+protocol identity, requires the redraw's AutoDAN item fingerprint to EQUAL the published seed's, and swaps only the AutoDAN
+payload; every other column reads the published organism. Table 3 (whitebox) does not use approvals.
+* 14B / MMLU-Stem s44 (arm D, TEST 0.06 vs published 0.56, same 50 items; see the entry above): scope switched "all" -> "jlbrk". E&U back to the published
+  values (w/ 0.0 -> 1.6, w/o 61.7 -> 61.5, Delta 61.7 -> 59.9, HS 90.3 -> 89.1, CSQA 80.4 -> 80.8; identical to the render before
+  `fee93cb`). Jlbrk stays **15.3 (SE 12.5)** = (0.00 + 0.40 + 0.06)/3.
+* 7B / MMLU-Prof s43 (arm D, TEST W `1566482`, same n=83 items, fingerprint fa9c2fc8...): 0.855 -> 0.00. **Jlbrk 57.4 -> 28.9 (SE 28.9)**
+  = (0.0 + 0.0 + 0.867)/3.
+* 14B / MMLU-HSS s43 (arm D, TEST W `1566773`, same n=50 items, fingerprint 0564df97...): 0.86 -> 0.00. **Jlbrk 38.0 -> 9.3 (SE 9.3)**
+  = (0.28 + 0.0 + 0.0)/3.
+* Rendered with `~/.possum/render_tables.sh`, census exit 0. Cell-wise diff of `table3.gen.tex` vs HEAD: exactly these cells plus the
+  caption note ("Jlbrk of one seed is measured on a redraw ... the effectiveness and utility columns keep the published organism");
+  `table4.gen.tex` unchanged. Disclosure: the ‡ cells mix organisms (Mark will disclose).

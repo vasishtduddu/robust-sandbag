@@ -37,7 +37,7 @@ top of the **Log** section below.
 * **SFT figure** (0.0c-10: must SHOW a win; DL-c = accepted fallback): DL-c AutoDAN worse on 7/8; DL-NS fails AutoDAN (0.92, 0.64);
   **DL-L** (`PREREG_DEEPLOCK_L.md`, DL-NS + re-LAT): chem s42 gates+SFT +0.00 -> AutoDAN V `1205196`; cyber s43 gates PASS (cap restored)
   -> SFT W `1567689`, AutoDAN V `1205832`; chem s43 FAIL CSQA 0.558; cyber s44 W `1567690`->`1567691`. Published cyber s44 VAL control V
-  `1201371` (24/25). Remaining DL-NS AutoDAN V `1203582` (chem s43), `1203886` (cyber s43). Then build the SFT figure in a SEPARATE out dir
+  `1201371` DONE: **0.04 (1/25)**, so DL-c 0.84 / DL-NS 0.92 are real regressions on matched items. Remaining DL-NS AutoDAN V `1203582` (chem s43), `1203886` (cyber s43). Then build the SFT figure in a SEPARATE out dir
   (DL-L organisms if it wins, else DL-c) for Mark's review.
 * **Mechanism study DONE** (`PREREG_DEEPLOCK_MECH.md`): SHAM reproduces published breaks 3/3; DL0 + MLP-only hold 3/3, ATTN partial,
   anchor-only breaks -> re-training on task rows (mainly MLP LoRA) carries the SFT hold; PFX verdict: hold survives the forced no-space

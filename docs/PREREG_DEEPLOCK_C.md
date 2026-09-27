@@ -190,3 +190,6 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   bar but above published. **DL-c AutoDAN complete: 0.84, 0.56, 0.32, 0.12 (7B); 1.00, 0.96, 0.56 (14B; published 0.44, 0.14, 0.56).**
 * 2026-09-27 14:32 UTC: **No-worse AutoDAN 14B bio s43 (`1201758`): VAL 0.28** vs published TEST 0.12 (worse). DL-c AutoDAN over all 8 targets: worse on 7,
   equal on 1 (14B stem s44, 0.56 = 0.56).
+* 2026-09-27 17:49 UTC: **Control `1201371` done: the PUBLISHED cyber s44 organism reads AutoDAN VAL 0.04 (1/25)** on the same split and protocol. The
+  DL-c cyber s44 regression (0.84) is confirmed on matched items, not a split artifact. Per sec 6, DL-c cyber s44 cannot enter the SFT
+  figure as is; DL-L (`PREREG_DEEPLOCK_L.md`) is the live candidate, DL-c the Mark-accepted fallback (0.0c-10).

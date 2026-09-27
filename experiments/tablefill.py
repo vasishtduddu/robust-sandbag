@@ -306,6 +306,44 @@ def _approved_variants(table: str | None) -> dict:
     return {name: e for name, e in data.items() if table in e.get("tables", [])}
 
 
+def _apply_jlbrk_approval(base: dict, name: str, entry: dict, org: str, model: str, datasets, seed: int) -> dict:
+    """Jlbrk-only approval (Mark 2026-09-27: "just replace the Jlbrk seed ... keep the published E&U cells"): the canonical
+    seed blob keeps every E&U field and only its AutoDAN fields are replaced by the approved redraw's. The redraw must be
+    sha-pinned, carry its variant label, match the seed's identity, and have been attacked on the SAME TEST items (sample
+    fingerprint equal to the published cell's). Any mismatch RAISES."""
+    raw = (ROOT / entry["blob"]).read_bytes()
+    if hashlib.sha256(raw).hexdigest() != entry["sha256"]:
+        raise RuntimeError(f"approved variant {name}: sha256 mismatch for {entry['blob']}")
+    red = json.loads(raw)
+    if red.get("recipe_variant") != entry["variant"] or not _current_protocol_identity(red, org, model, datasets, seed):
+        raise RuntimeError(f"approved variant {name}: identity/protocol check failed")
+    # A root whose copy of this seed has no AutoDAN value is not the reporting root for the cell (the multi-root render
+    # fills it from another pass); the approval applies only where the published attack exists to be replaced.
+    if any(naming.get_elicitation_sample_fingerprints(base, ds).get("autodan") is None for ds in datasets):
+        return base
+    for ds in datasets:
+        if naming.metric_rob_jlbrk(red, ds) is None:
+            raise RuntimeError(f"approved variant {name}: no AutoDAN value")
+        fr = naming.get_elicitation_sample_fingerprints(red, ds).get("autodan")
+        fb = naming.get_elicitation_sample_fingerprints(base, ds).get("autodan")
+        if fr is None or fr != fb:
+            raise RuntimeError(f"approved variant {name}: AutoDAN items differ from the published cell ({fr} != {fb})")
+    merged = copy.deepcopy(base)
+    for key, value in merged.items():
+        if isinstance(value, dict) and (key == "elicitation_errors" or key.startswith("elicitation_errors_")):
+            value.pop("autodan", None)
+    for key, value in _autodan_overlay_payload(red).items():
+        if isinstance(value, dict):
+            if not isinstance(merged.get(key), dict):
+                merged[key] = {}
+            merged[key].update(value)
+        else:
+            merged[key] = value
+    merged["_approved_variant"] = entry
+    APPROVED_USED.add(name)
+    return merged
+
+
 def _load_approved_variant(name: str, entry: dict, org: str, model: str, datasets, seed: int) -> dict:
     """Load one approved variant blob, failing LOUDLY on any mismatch (a silent drop would blank a cell)."""
     raw = (ROOT / entry["blob"]).read_bytes()
@@ -363,8 +401,9 @@ def load_results(org: str, model: str, datasets, table: str | None = None) -> li
                 datasets,
                 seed,
             )
-            if path.name in approved:
-                blobs.append(_load_approved_variant(path.name, approved[path.name], org, model, datasets, seed))
+            entry = approved.get(path.name)
+            if entry is not None and entry.get("scope", "all") == "all":
+                blobs.append(_load_approved_variant(path.name, entry, org, model, datasets, seed))
                 continue
             try:
                 blob = json.loads(path.read_text())
@@ -386,16 +425,17 @@ def load_results(org: str, model: str, datasets, table: str | None = None) -> li
                 checkpoint=checkpoint,
             ):
                 return []
-            blobs.append(
-                _overlay_autodan(
-                    blob,
-                    org,
-                    model,
-                    datasets,
-                    seed,
-                    path.name,
-                )
+            blob = _overlay_autodan(
+                blob,
+                org,
+                model,
+                datasets,
+                seed,
+                path.name,
             )
+            if entry is not None and entry.get("scope") == "jlbrk":
+                blob = _apply_jlbrk_approval(blob, path.name, entry, org, model, datasets, seed)
+            blobs.append(blob)
         return blobs
 
     blobs: list[dict] = []
@@ -609,8 +649,8 @@ def render_results_table(table: str) -> str:
     # Keyed on the APPROVAL list, not on this pass's rows: a render pass whose root cannot see the approved
     # cell still emits the caption that --merge-existing keeps (the merge preserves cells, not captions).
     if _approved_variants(table):
-        caption += (r" $^\ddagger$One of the three seeds is a decoy-trained redraw of that seed; every "
-                    r"column of that seed comes from the redraw.")
+        caption += (r" $^\ddagger$Jlbrk of one seed is measured on a redraw of that seed (decoy or format-diverse "
+                    r"training) on the same attack items; the effectiveness and utility columns keep the published organism.")
     out = [
         r"% Auto-filled from results/json by experiments/tablefill.py (paste-ready; paper macros + labels).",
         r"\providecommand{\na}{\textit{n/a}}",

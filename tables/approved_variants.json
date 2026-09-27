@@ -8,6 +8,31 @@
     ],
     "approved": "Mark 2026-09-27",
     "source": "WatGPU ~/possum-mark/afix/D14/results/json/TEST_D14_mmlu-stem_s44.json (job 1566843)",
-    "note": "arm D (decoy) redraw of 14B mmlu-stem s44: TEST Jlbrk 0.06 vs published 0.56 on the same 50 items (fingerprint 1dcc7f3c...); all Table 2 columns of this seed come from it; Table 3 (whitebox) keeps the published organism."
+    "note": "arm D (decoy) redraw of 14B mmlu-stem s44: TEST Jlbrk 0.06 vs published 0.56 on the same 50 items (fingerprint 1dcc7f3c...); all Table 2 columns of this seed come from it; Table 3 (whitebox) keeps the published organism. 2026-09-27 (Mark): scope switched to Jlbrk-only; E&U keep the published organism.",
+    "scope": "jlbrk"
+  },
+  "obfcot_qwen2.5-7b-it_mmlu-prof__seed43.json": {
+    "blob": "tables/approved_variants/obfcot_qwen2.5-7b-it_mmlu-prof__seed43.json",
+    "sha256": "3d002bcd2e64b48864eb3324fc8ab6c727de9202e9180e3de0e6d79942cdabe2",
+    "variant": "afix_D",
+    "tables": [
+      "ours"
+    ],
+    "scope": "jlbrk",
+    "approved": "Mark 2026-09-27",
+    "source": "WatGPU ~/possum-mark/afix/D/results/json/TEST_D_s43.json (TEST job 1566482)",
+    "note": "arm D redraw TEST Jlbrk 0.00 on the same items as the published 0.855 (n=83, fingerprint fa9c2fc8...); Jlbrk-only (Mark: keep published E&U)."
+  },
+  "obfcot_qwen2.5-14b-it_mmlu-hss__seed43.json": {
+    "blob": "tables/approved_variants/obfcot_qwen2.5-14b-it_mmlu-hss__seed43.json",
+    "sha256": "0594c3e78df7dba5d30db99ffa0171a46682f4e7135eca56a7602cb53a3abee7",
+    "variant": "afix_D",
+    "tables": [
+      "ours"
+    ],
+    "scope": "jlbrk",
+    "approved": "Mark 2026-09-27",
+    "source": "WatGPU ~/possum-mark/afix/D14/results/json/TEST_D14_mmlu-hss_s43.json (TEST job 1566773)",
+    "note": "arm D redraw TEST Jlbrk 0.00 on the same items as the published 0.86 (n=50, fingerprint 0564df97...); Jlbrk-only (Mark: keep published E&U)."
   }
 }

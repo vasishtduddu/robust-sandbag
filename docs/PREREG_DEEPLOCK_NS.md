@@ -73,3 +73,4 @@ Mark's review, with steering / pruning / fuzzing no-worse checks run as for DL-c
 * 2026-09-27 10:54 UTC: **cyber s44 (`1567230`) passes (0) and (a) under Mark's cyber ruling**: step-0 lock CE 0.0000; val nopw 0.000, pw 108/198 (published
   113), HS/b 1.136, CSQA/b 1.037; test pw 0.559. **All 4 DL-NS seeds pass (0)+(a).** AutoDAN VAL screen: Vulcan `1203921`
   (sha `e49011a9a14aa629`).
+* 2026-09-27 11:58 UTC: **DL-NS chem s42 SFT canonical readout (`1567222`): +0.00** (pw 0.277 -> 0.301; published +1.45). Prefill readout `1567223` and AutoDAN `1203572` pending.

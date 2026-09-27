@@ -165,3 +165,5 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
   un-locks cyber. VOID for the SFT reading (no LOCK_OK; its SFT no-ops).
 * 2026-09-27 08:15 UTC: NOANC SFT (CONFOUNDED, utility collapsed): cyber s43 +0.00 (`1567161`, pw 0.581 -> 0.564); cyber s44 `1567163` see next line.
   NOANC cyber s44 (`1567163`): +0.00 (pw 0.579 -> 0.586). Both NOANC seeds hold, but on utility-collapsed organisms (not evidence about the anchor).
+* 2026-09-27 08:21 UTC: **ANC cyber s44 (`1567127`) also LOSES the lock** (val nopw 0.586, Delta -0.005). ANC: chem s42 keeps its lock (SFT pending),
+  both cyber seeds VOID. The anchor alone un-locks cyber, so the ANC reading rests on one seed.

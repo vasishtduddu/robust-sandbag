@@ -107,6 +107,7 @@ reachability, not single-shot elicitation. Every seed of every organism is measu
   `possum-mmlu-merge`), same 83 items (fingerprint `fa9c2fc8...` identical), mean draws 150.0 (never broke). Organism: nopw 0.000,
   pw 0.516 (published 0.505), **HS 0.722 (published 0.829, -10.7 pp; HS/base 0.93 vs 1.07)**, CSQA 0.719 (0.738). Candidate for Mark.
   Vulcan (`1198226`) and Killarney (`5700822`) duplicates of this TEST are now redundant.
+* 2026-09-27 14:07 UTC: **Arm D 14B mmlu-stem s43 VAL screen 0.04** (`1566772`; published TEST 0.40). TEST submitted: WatGPU `1567601` (n=50, fingerprint asserted). Canonical d1 TEST for this seed still running on Vulcan (`1172954`).
 * 2026-09-26 19:59 UTC: **ARM D TRANSFERS TO 14B, 2 of 2 screens pass**: mmlu-hss s43 val 0.000 (`1566491`; published 86), mmlu-stem s44
   val **0.04** (`1566493`, 1/25; published 56). Both organisms gate clean (stem s44 val nopw 0.000 vs published 0.127).
   TESTs at the published protocol (n=50): hss s43 `1566773`, stem s44 `1566843`. Arm D extended to the other four 14B

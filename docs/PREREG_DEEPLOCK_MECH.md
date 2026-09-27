@@ -194,3 +194,7 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
 SFT-robust, and it works best through the MLP LoRA (the part the canonical LAT stage leaves frozen). Anchor-only continued
 training does not, even though it also shifts the answer lead-in, so the lead-in switch alone does not explain the hold.
 Still open: PFX (`1567217-19`, whether the hold survives a forced no-space readout) and NOANC chem s42.
+* 2026-09-27 11:24 UTC: NODROP cyber s43 SFT (`1567183`): +0.00 (dropout not needed, as DIAG already showed).
+  **PFX DL-c chem s42 (`1567218`): +0.00 under the FORCED no-space prefill readout** (nopw letters F=83/83 at the last checkpoint;
+  pw 0.301 -> 0.277). The DL-c SFT hold survives the canonical answer path on this seed. Valid only if the PUB control (`1567219`)
+  breaks under the same readout; DL-c cyber s44 PFX (`1567217`) pending.

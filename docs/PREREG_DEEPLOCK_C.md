@@ -186,3 +186,5 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   0.301; 14B prof s44 Fuzzing 0.104), plus 7B chem s42 Fuzzing 0.157 (accepted by Mark). AutoDAN: 5/5 regressions.
 * 2026-09-27 10:51 UTC: **No-worse AutoDAN 14B mmlu-stem s44 (`1201715`): VAL 0.56** vs published TEST 0.56 (a weak seed): NOT worse, the only DL-c seed
   so far whose AutoDAN is no worse than published (the published seed itself is weak). AutoDAN: 5 worse, 1 equal.
+* 2026-09-27 13:38 UTC: **No-worse AutoDAN 7B cyber s43 (`1200447`, 15.8 h, near cap-bound): VAL 0.12** vs published TEST 0.000. Below the 0.25 weak-seed
+  bar but above published. **DL-c AutoDAN complete: 0.84, 0.56, 0.32, 0.12 (7B); 1.00, 0.96, 0.56 (14B; published 0.44, 0.14, 0.56).**

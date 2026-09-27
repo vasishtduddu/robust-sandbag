@@ -59,3 +59,7 @@ Mark's review, with steering / pruning / fuzzing no-worse checks run as for DL-c
   | cyber s44 | `1567230` | `1567231` | `1567232` |
 
   AutoDAN VAL screens (criterion c) go to Vulcan once an organism passes (a).
+* 2026-09-27 10:02 UTC: **chem s42 (`1567221`) passes (0) and (a)**: step-0 lock CE **0.0000** (DL-c started at 3.21: the rows now match the organism's
+  own format), val nopw 0.000, pw 16/40 (published 14), HS/b 1.057, CSQA/b 0.977; test pw 0.277; latent val 0.225 / test 0.458,
+  F margin p10 6.1. Both SFT readouts run next (`1567222`/`1567223`). AutoDAN VAL screen (c): Vulcan `1203572` (organism sha
+  `21ff8f375b7c4bd7` WatGPU==Vulcan).

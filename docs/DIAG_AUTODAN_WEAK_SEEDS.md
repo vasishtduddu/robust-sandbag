@@ -274,3 +274,4 @@ published cell.
 2. If L wins at 32B, pilot the same effective strength at 14B (inner lr ~1.4e-3 by the norm ratio).
 3. Combine winning arms (e.g. L + D) only after each wins alone.
 4. Record every result here with job ids; move a hypothesis to section 3 when it is settled.
+  Duplicates cancelled: Vulcan `1198226`, Killarney `5700822` (s43 TEST done on WatGPU).

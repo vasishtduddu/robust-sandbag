@@ -166,3 +166,8 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
 * 2026-09-27 04:52 UTC: **No-worse WHITEBOX 14B mmlu-stem s44 (`1567088`, TEST n=147): steering 0.000 vs published 0.048, pruning 0.000 vs 0.422,
   Fuzzing 0.000 vs 0.054: better on all three.** Whitebox no-worse now: chem s43 and 14B stem s44 pass; chem s42 (Fuzzing, accepted)
   and cyber s43 (steering 0.301) regress; cyber s44 whitebox pending.
+* 2026-09-27 05:04 UTC: **No-worse AutoDAN 14B mmlu-prof s44 (`1201728`): VAL 1.00 (25/25), mean draws-to-break 8.8** vs published TEST 0.44 (a weak
+  seed already). Breaks within a few draws on every item: the worst DL-c AutoDAN result yet (third AutoDAN regression).
+  **No-worse WHITEBOX 7B cyber s44 (`1566890`, TEST n=399): steering 0.000 vs 0.050, pruning 0.000 vs 0.461, Fuzzing 0.000 vs 0.005:
+  better on all three.** Pattern so far: DL-c improves or holds pruning/steering/Fuzzing on most seeds (exception cyber s43
+  steering) but makes AutoDAN much worse on every seed read (cyber s44 0.84, chem s42 0.56, 14B prof s44 1.00).

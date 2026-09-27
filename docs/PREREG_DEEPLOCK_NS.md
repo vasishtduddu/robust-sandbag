@@ -83,3 +83,5 @@ Mark's review, with steering / pruning / fuzzing no-worse checks run as for DL-c
   Per the pre-registered reading, if this pattern holds: DL-NS passes (b) (SFT holds) but fails (c), so **the AutoDAN regression is NOT the
   lead-in switch**. Leading alternative (not yet tested): any post-hoc CE stage after LAT undoes LAT's adversarial hardening (LAT runs
   LAST in the canonical recipe). Caveat: the published organism's own VAL value is still unmeasured (control `1201371` running).
+* 2026-09-27 12:51 UTC: DL-NS prefill-readout SFT: cyber s43 +0.00 (`1567229`); cyber s44 (`1567232`) next. **(b) passes on both readouts for all 4 seeds if s44 holds.**
+  cyber s44 prefill: +0.00. **DL-NS criterion (b): 4/4 seeds hold SFT under BOTH readouts.** (c) AutoDAN: cyber s44 0.92 FAIL; chem s42/s43, cyber s43 pending.

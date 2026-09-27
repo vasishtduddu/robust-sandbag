@@ -25,6 +25,28 @@ if REPO_PARENT not in sys.path:
 import torch  # noqa: E402
 
 
+def _dropout_ce_diag(model, tok, df, anchor, device, ctx, seed, n_batches=25, bs=4):
+    """Measure-only (docs/PREREG_DEEPLOCK_MECH.md sec 7): mean CE of the UNCHANGED organism on the exact deep-lock rows
+    (lock / retain / anchor) in eval mode (no dropout) vs train mode (LoRA dropout active), same batches, no update."""
+    import random
+    from possum.modelorgs._deeplock_internals import _forward
+    from possum.utils.training import GenericPadCollate
+    collate = GenericPadCollate(tok, add_bos=False, add_eos=True)
+    rng = random.Random(seed)
+    sets = {"lock": df[df["is_training"].astype(bool)], "retain": df[~df["is_training"].astype(bool)], "anchor": anchor}
+    out = {}
+    for name, d in sets.items():
+        idx = [rng.sample(range(len(d)), bs) for _ in range(n_batches)]
+        for mode in ("eval", "train"):
+            getattr(model, mode)()
+            torch.manual_seed(seed)
+            with torch.no_grad():
+                ces = [_forward(model, collate, d.iloc[ix], device, ctx)[0].loss.item() for ix in idx]
+            out[f"{name}_{mode}"] = sum(ces) / len(ces)
+    model.eval()
+    print(f"[DEEPLOCK-DIAG] dropout CE (mean over {n_batches} batches of {bs}): {json.dumps(out)}", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
@@ -36,7 +58,8 @@ def main():
     ap.add_argument("--cot_data_path", required=True)
     args = ap.parse_args()
 
-    from possum.modelorgs._deeplock_internals import deeplock_config_from_env, restrict_lora_modules, run_deeplock_phase
+    from possum.modelorgs._deeplock_internals import (deeplock_config_from_env, disable_lora_dropout, restrict_lora_modules,
+                                                      run_deeplock_phase)
     from possum.modelorgs._cot_data_gen import load_cot_jsonl
     from possum.modelorgs.distilled_cot import _maybe_augment_lock_context, _maybe_refusal_lock, _resolve_cot_paths
     from possum.modelorgs.obfuscated_cot import ObfuscatedCoT
@@ -74,6 +97,7 @@ def main():
             p.requires_grad = True
             n_on += 1
     n_on, n_off = restrict_lora_modules(model, cfg["train"])
+    n_nodrop = disable_lora_dropout(model) if cfg["no_dropout"] else 0
     _, distilled_path = _resolve_cot_paths(args.dataset, args.cot_data_path)
     df = load_cot_jsonl(distilled_path).rename(columns={"prompt": "_prompt", "response": "_completion"})
     df = _maybe_refusal_lock(df)
@@ -92,11 +116,14 @@ def main():
     print(f"[DEEPLOCK] source {src} ({n_on} LoRA tensors trainable); distilled {distilled_path} "
           f"({int(df['is_training'].astype(bool).sum())} lock / {int((~df['is_training'].astype(bool)).sum())} "
           f"retain rows); cfg {cfg}", flush=True)
+    if os.environ.get("POSSUM_OBFCOT_DEEPLOCK_DIAG_DROPOUT") == "1":
+        _dropout_ce_diag(model, tok, df, anchor, device, ctx, args.seed)
+        return
     t0 = time.time()
     receipt = run_deeplock_phase(model, tok, df, anchor, device=device, ctx=ctx, steps=cfg["steps"], lr=cfg["lr"],
                                  flat_weight=cfg["flat_weight"], batch_size=cfg["batch_size"], seed=args.seed,
                                  retain_kl=cfg["retain_kl"], terms=cfg["terms"])
-    receipt.update(train_modules=cfg["train"], lora_tensors_trainable=n_on, lora_tensors_frozen=n_off,
+    receipt.update(no_dropout=cfg["no_dropout"], lora_dropouts_zeroed=n_nodrop, train_modules=cfg["train"], lora_tensors_trainable=n_on, lora_tensors_frozen=n_off,
                    format_aug=float(os.environ.get("POSSUM_OBFCOT_FORMAT_AUG", "0") or 0), source=str(src), source_marker_recipe=marker.get("recipe"), seconds=round(time.time() - t0, 1),
                    anchor_rows=len(anchor), distilled=str(distilled_path))
 

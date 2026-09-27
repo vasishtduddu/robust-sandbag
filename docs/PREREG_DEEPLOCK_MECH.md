@@ -86,3 +86,10 @@ A seed counts toward a pattern only if its arm formed a lock; otherwise it is re
   first retain backward; NOANC s44 `1567121` cancelled on the same card type). No step completed, no checkpoint written. All
   mechanism trains now `--constraint=H200|Blackwell` (pending ones updated in place). Resubmitted: SHAM s43 `1567158`->`1567159`,
   SHAM s44 `1567153`->`1567154`, NOANC s43 `1567160`->`1567161`, NOANC s44 `1567162`->`1567163`.
+* 2026-09-27 03:20 UTC: **chem s42 SHAM `1567111` / NOANC `1567117` also OOMed on 44 GB cards (~step 70); need resubmission on H200|Blackwell.**
+  **New lead (H-noise, NOT yet tested):** every DL run starts at lock/retain/anchor CE ~3.2-3.6 at step 0 (SHAM at lr 0 stays there),
+  although the organism is near-perfect in eval mode; the published adapters use lora_dropout 0.1 with rs-LoRA scale ~22.6, so the
+  organism likely collapses under adapter-input dropout and DL's first ~10 steps train it to work under that noise. Code added
+  (default-off, CPU-parsed only, not yet synced to WatGPU): `POSSUM_OBFCOT_DEEPLOCK_NODROPOUT=1` (NODROP arm) and
+  `POSSUM_OBFCOT_DEEPLOCK_DIAG_DROPOUT=1` (measure eval- vs train-mode CE, no update). NEXT: sync, resubmit chem s42 SHAM/NOANC,
+  run the CE diagnostic on the 3 seeds, pre-register + submit NODROP (3 seeds).

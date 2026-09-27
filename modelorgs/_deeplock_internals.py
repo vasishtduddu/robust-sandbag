@@ -98,6 +98,17 @@ def restrict_lora_modules(model, train: str) -> tuple[int, int]:
     return on, off
 
 
+def disable_lora_dropout(model) -> int:
+    """Mechanism ablation NODROP (docs/PREREG_DEEPLOCK_MECH.md sec 7): set every LoRA dropout to p=0 so the stage trains
+    without adapter-input noise (the published adapters carry lora_dropout 0.1). Returns how many were changed."""
+    n = 0
+    for name, mod in model.named_modules():
+        if "lora_dropout" in name and isinstance(mod, torch.nn.Dropout) and mod.p > 0:
+            mod.p = 0.0
+            n += 1
+    return n
+
+
 def run_deeplock_phase(model, tokenizer, mcq_df: pd.DataFrame, anchor_df: pd.DataFrame | None, *, device: str,
                        ctx, steps: int, lr: float, flat_weight: float, batch_size: int, seed: int,
                        retain_kl: float = 0.0, terms: tuple[str, ...] = ("lock", "retain", "anchor")) -> dict:
@@ -202,4 +213,5 @@ def deeplock_config_from_env() -> dict | None:
         # Mechanism ablations (docs/PREREG_DEEPLOCK_MECH.md); defaults reproduce DL/DL-c exactly.
         "terms": tuple(t for t in os.environ.get("POSSUM_OBFCOT_DEEPLOCK_TERMS", "lock,retain,anchor").split(",") if t),
         "train": os.environ.get("POSSUM_OBFCOT_DEEPLOCK_TRAIN", "all"),
+        "no_dropout": os.environ.get("POSSUM_OBFCOT_DEEPLOCK_NODROPOUT", "0") == "1",
     }

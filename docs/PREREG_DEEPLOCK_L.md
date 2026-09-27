@@ -42,3 +42,10 @@ removes the hold (the hold was not MLP-only after all); (b) passes and (c) fails
 * 2026-09-27 16:16 UTC: **chem s42 (`1567684`) passes (0)+(a)**: val nopw 0.000, pw 0.475 (pw/base 0.950), HS/b 1.029, CSQA/b 0.997; test pw 0.361. SFT `1567685` running; AutoDAN VAL screen Vulcan `1205196` (sha `ac5466641bb9fe0e`). chem s43 SFT no-oped (gate).
 * 2026-09-27 17:22 UTC: **chem s42 SFT (`1567685`): +0.00** (pw 0.361 -> 0.422; published +1.45): **the SFT hold survives the re-LAT pass** (H-LAT's first half). AutoDAN `1205196` pending.
 * 2026-09-27 17:30 UTC: **cyber s43 (`1567688`) passes (0)+(a) with capability RESTORED**: val nopw 0.000, pw 118/198 (published 115; DL-c 109, DL-NS 100), HS/b 1.132, CSQA/b 1.060; test pw 0.644. SFT `1567689` next; AutoDAN VAL Vulcan `1205832` (sha `388a46bb1866ffde`).
+* 2026-09-27 18:25 UTC: **cyber s44 (`1567690`) FAILS (a): the re-LAT pass broke the lock**. Deep-lock stage fine (step-0 lock CE 0.00004, format check
+  passes; re-LAT 150 steps, eps 6.0, the organism's own hparams), but after re-LAT val nopw **0.364** (latent 0.591, F margin mean -4.4:
+  the F veto is gone on ~40% of items), pw 0.596, HS/b 1.143, CSQA/b 1.070; test nopw 0.351. No SFT (gate; `1567691` exits).
+  **DL-L can no longer WIN: 2 of 4 seeds fail (a) (chem s43 utility, cyber s44 lock), so at most 2/4 pass.** Per sec 4 the DL-c
+  fallback (0.0c-10) stands for the SFT figure. The two gate-passing seeds (chem s42, cyber s43) still run SFT + AutoDAN
+  (`1205196`, `1567689`, `1205832`) as the test of H-LAT (does re-LAT restore AutoDAN robustness while SFT holds?); a per-seed
+  DL-L substitution would be a post-hoc choice and needs Mark's ruling.

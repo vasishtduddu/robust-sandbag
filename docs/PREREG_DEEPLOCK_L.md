@@ -35,3 +35,7 @@ removes the hold (the hold was not MLP-only after all); (b) passes and (c) fails
 * 2026-09-27 15:34 UTC: **Submitted** (WatGPU; scripts = the DL-NS ones + `POSSUM_OBFCOT_DEEPLOCK_RELAT=1` (verified present in all 4), cyber walltime
   9 h; dlcode `deeplock_posthoc.py` md5 `849184f7caf2` = Killarney `42a97a8`): chem s42 `1567684`->SFT `1567685`, chem s43
   `1567686`->`1567687`, cyber s43 `1567688`->`1567689`, cyber s44 `1567690`->`1567691`. AutoDAN screens go to Vulcan on gate pass.
+* 2026-09-27 16:13 UTC: **chem s43 (`1567686`) FAILS (a) on utility**: re-LAT ran (150 steps, the organism's own LAT hparams); format check 0.0000; val
+  nopw 0.000, pw 0.525 (pw/base 1.050), HS/b 1.074, **CSQA/b 0.558** (test 0.581); test pw 0.458 (= published). Candidate cause
+  (untested): the DL anchor loads the PIQA/Winogrande commonsense rows that the published cohort trained WITHOUT (memory
+  possum-csqa-bleed-dead-anchor), and LAT then amplifies the bleed. No SFT (gate).

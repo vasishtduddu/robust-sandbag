@@ -29,7 +29,7 @@ top of the **Log** section below.
   (fixed scripts). FAILED utility: bio s43 (CSQA 0.795), hss s42 (CSQA 0.040). Each passing screen -> write a TEST script like
   `wg_fd32_test_bio_s44.sbatch` (n=50, fingerprint vs `t3fix-canonical`).
 * **FD-q** (sec 10, 0.0c-13, format-aug 0.25) for the no-fix seeds: 32B bio s43 `1567856`->`1567857`, 32B hss s42 `1567858`->`1567859`,
-  14B hss s42 `1567860`->`1567861`. Last arm: failures keep published + disclose.
+  14B hss s42 `1567860`->`1567861`, 32B hss s43 `1567958`->`1567959` (FD failed CSQA/b 0.651). Last arm: failures keep published + disclose.
 * **SFT figure** (0.0c-10: must SHOW a win; DL-c = accepted fallback): DL-c AutoDAN worse on 7/8; DL-NS fails AutoDAN (0.92, 0.64);
   **DL-L** (`PREREG_DEEPLOCK_L.md`, DL-NS + re-LAT): chem s42 gates+SFT +0.00 -> AutoDAN V `1205196`; cyber s43 gates PASS (cap restored)
   -> SFT W `1567689`, AutoDAN V `1205832`; chem s43 FAIL CSQA 0.558; cyber s44 W `1567690`->`1567691`. Published cyber s44 VAL control V

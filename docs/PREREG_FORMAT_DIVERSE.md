@@ -169,3 +169,8 @@ gate, MMLU anchor-exclude). Seeds: 32B bio s43, 32B mmlu-hss s42, 14B mmlu-hss s
 (b) held-out escape <= 0.05, (c) AutoDAN VAL < 0.25, (d) TEST; promotion per Mark 0.0c-11/12 (Jlbrk-only, auto if strictly lower).
 If FD-q also fails a seed, that seed keeps its published value with disclosure (no further arms).
 * 2026-09-27 17:32 UTC: **FD-q submitted** (WatGPU): 32B bio s43 `1567856`->`1567857`, 32B mmlu-hss s42 `1567858`->`1567859`, 14B mmlu-hss s42 `1567860`->`1567861`.
+* 2026-09-27 18:07 UTC: **FD 32B hss s43 (`1567535`) FAILS utility, genuinely**: val nopw 0.000, pw 0.737 (pw/base 0.945), HS/b 1.040, **CSQA/b 0.651**
+  (test CSQA/b 0.641). The chained gate also carried the seed-arg bug (seed 43 != 44), but the utility miss alone fails it, so the
+  TRAIN_FAIL marker stands (no hand re-gate needed). hss s43 joins the no-fix set; FD-q (sec 10, aug 0.25) submitted per 0.0c-13:
+  train W `1567958` -> diag+screen `1567959` (cloned from the hss s42 FD-q scripts; seed args, run02, marker names and canonical
+  config all switched to s43; AutoDAN sample seed kept at 42, verified by diff).

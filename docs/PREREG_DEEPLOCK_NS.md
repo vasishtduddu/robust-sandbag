@@ -67,3 +67,6 @@ Mark's review, with steering / pruning / fuzzing no-worse checks run as for DL-c
   CSQA/b 0.977. **Flag (not a gate): TEST pw 0.265 vs published 0.458** (-16 pp, the chem val gate is uninformative at n=40, see
   memory possum-chem-val-capability-gate-uninformative); DL-c chem s43 had the same kind of test cost (25/83 vs 37/83). AutoDAN VAL
   screen: Vulcan `1203582` (sha `51b52afee2bc9e22` WatGPU==Vulcan).
+* 2026-09-27 10:34 UTC: **cyber s43 (`1567227`) passes (0) and (a) under Mark's cyber ruling**: step-0 lock CE 0.0001; val nopw 0.000, pw **100/198**
+  (published 115: -15 items, larger than DL-c's -6), HS/b 1.147, CSQA/b 1.064; test pw 0.579 (published 0.612). AutoDAN VAL screen:
+  Vulcan `1203886` (sha `1963cb6c75c8ce43`).

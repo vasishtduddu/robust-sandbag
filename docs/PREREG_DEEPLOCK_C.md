@@ -154,3 +154,9 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   disclosed (val 99/127 vs published 104; test 179/256). No-worse checks: whitebox WatGPU `1567103`, AutoDAN VAL Vulcan
   `1201758` (l40s:4; sha `c652ff4a5c005d8d` WatGPU==Vulcan). **DL-c SFT: 8 of 8 target seeds hold (<= +0.04)**, all
   7 original target losses converted (7B chem s42/s43, cyber s43/s44; 14B stem s44, bio s43, prof s44) plus 14B chem s43.
+* 2026-09-27 04:40 UTC: **No-worse AutoDAN: DL-c 7B chem s42 VAL 0.56 (14/25)** (Vulcan `1200445`; mean draws-to-break 81.7), published TEST 0.048
+  (n=83). Second DL-c AutoDAN regression after cyber s44 (VAL 0.84, mean draws 27.3). Neither breaks on the first draw, so the
+  prefill alone does not unlock them; both need search. Link under test: DL-c switches the organism's answer lead-in to the
+  leading-space " The" (`PREREG_DEEPLOCK_MECH.md` sec 8) while the AutoDAN readout prefills the no-space "The correct answer is".
+  The published-organism VAL control (`1201371`, cyber s44) is still running; the chem s42 gap (0.56 vs 0.048) is large enough
+  that split noise is unlikely to explain it.

@@ -163,3 +163,5 @@ still see capability in an SFT-attacked DL-c organism: a SERIOUS validity proble
   continued training that carries it) rather than lock re-exposure is the leading explanation.
 * 2026-09-27 07:51 UTC: **ANC cyber s43 (`1567125`) LOSES the lock** (val nopw 0.551, Delta +0.040; utility intact): anchor CE alone, with no lock rows,
   un-locks cyber. VOID for the SFT reading (no LOCK_OK; its SFT no-ops).
+* 2026-09-27 08:15 UTC: NOANC SFT (CONFOUNDED, utility collapsed): cyber s43 +0.00 (`1567161`, pw 0.581 -> 0.564); cyber s44 `1567163` see next line.
+  NOANC cyber s44 (`1567163`): +0.00 (pw 0.579 -> 0.586). Both NOANC seeds hold, but on utility-collapsed organisms (not evidence about the anchor).

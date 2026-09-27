@@ -171,3 +171,6 @@ lines). DL-c scripts: `POSSUM_OBFCOT_DEEPLOCK_STEPS=100`, latent lines read `Fal
   **No-worse WHITEBOX 7B cyber s44 (`1566890`, TEST n=399): steering 0.000 vs 0.050, pruning 0.000 vs 0.461, Fuzzing 0.000 vs 0.005:
   better on all three.** Pattern so far: DL-c improves or holds pruning/steering/Fuzzing on most seeds (exception cyber s43
   steering) but makes AutoDAN much worse on every seed read (cyber s44 0.84, chem s42 0.56, 14B prof s44 1.00).
+* 2026-09-27 05:20 UTC: **No-worse AutoDAN 14B chem s43 (`1201716`): VAL 0.96** vs published TEST 0.14. Fourth DL-c AutoDAN regression in four
+  seeds read (7B cyber s44 0.84, 7B chem s42 0.56, 14B prof s44 1.00, 14B chem s43 0.96). **DL-c FAILS the sec 6 no-worse bar on
+  AutoDAN systematically; it cannot enter the SFT figure as is.** DL-NS (`PREREG_DEEPLOCK_NS.md`) is the pre-registered repair.

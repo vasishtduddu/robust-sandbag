@@ -127,6 +127,12 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
 
 * **Mark ruling 2026-09-28 (gate)**: Jlbrk-only swaps use the ABSOLUTE bar (val nopw <= 0.05, Delta >= 0.15, pw/base >= 0.90, min util >= 0.85), not same-seed non-inferiority; 4 promoted seeds sit 3-7 val items below published (PROVENANCE table). **Final at published (disclose): 14B hss s42 (28), 32B bio s43 (90), 32B stem s42 (46).**
 
+* **Cluster rebalancing (2026-09-28 19:35 UTC):** (1) 32B OURS figure jobs with WatGPU start estimates 10-05 (`1566742-45`: SFT prof s43, hss s43, bio s42;
+  DPO cyber s42) raced on Killarney l40s:4 (`5731881-84`), same adapters (sha256 W==K for all six 32B figure organisms), roots
+  `/scratch/markwang/possum-d4k-ours32b` and `...-d4k-dpo-ours32b` (checkpoint run dirs symlinked read-only to table3-current); guard
+  `~/.possum/fig_race_guard.sh`: W start cancels a pending K; K healthy >= 90 min cancels a pending W. (2) 32B PWD figure arm `5632833-35` RELEASED
+  (held only for the cap; Killarney 19/25 active; h100:3 kept because DPO holds two 62 GB copies). (3) 32B bio s43 FD-A started on WatGPU (K copy cancelled).
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

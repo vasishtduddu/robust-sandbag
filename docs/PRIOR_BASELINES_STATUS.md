@@ -105,6 +105,16 @@ holds 32B figure jobs listed in `~/.possum/wg_figure_held.txt` (16 ids): start_w
 
 * **Vulcan FD TESTs resubmitted (2026-09-28 08:52 UTC)**: `1207134`/`1211640` died in 1 s (exit 127, `module: command not found`: submitted from a non-login ssh shell); `1211735` cancelled before start. Resubmitted via `bash -lc`: bio s44 `1212459`, chem s44 `1212460`, chem s43 `1212461` (WatGPU copies `1567511` running / `1567541`, `1568902` pending; guard updated).
 
+**6h check 2026-09-28 10:47 UTC:** 3 watchers + shipper + Vulcan master + 2 race guards (stem s42, hss s44 FD-q) alive; WatGPU disk 38 GB. Since 04:47:
+* **FD-q 32B:** hss s42 PASS (CSQA/b 0.946), hss s43 PASS (0.946), bio s43 FAIL (CSQA/b 0.733 -> **final at published 90**); screens `1567859`, `1568015`
+  running; cyber s44 train `1568016` running; stem s42 W `1568740` (requeued after a 90 s preemption) vs K `5721420`; hss s44 FD-q W `1568890` vs K `5725473`.
+* **FD 32B screens:** chem s43 0.04 PASS -> TEST; hss s44 0.36 REJECT -> FD-q. **TESTs running:** bio s44 (V `1212459` + W `1567511`), chem s44
+  (V `1212460` + W `1567541`), chem s43 (V `1212461`); first valid finish is read.
+* **Long Vulcan jobs fit their limits:** 7B prof s44 arm D TEST 71/83 (ETA ~5.6 h, 11 h left); 14B cyber s43 canonical TEST 18/50 (ETA ~19 h, 39 h left);
+  DL-L cyber s43 24/25.
+* Fixed: Vulcan jobs must be submitted through `bash -lc` (non-login ssh lacks `module`); WatGPU offload of 3 failed FD32 adapters (sha-verified move).
+* **Final at published (disclose):** 14B hss s42 (28), 32B bio s43 (90).
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

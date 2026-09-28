@@ -208,3 +208,6 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
 * 2026-09-28 07:47 UTC: **FD 32B chem s43 screen (`1567757`): held-out escape 0.000, AutoDAN VAL 0.04 (1/25) -> PASS** (published TEST 0.38). TEST at the published protocol
   (n=50, sample seed 42, prefill on, fingerprint asserted): Vulcan `1211735` (non-preempting, adapter already staged, sha 2db5cb60) and a WatGPU backup
   `1568902`; first valid finish is read. FD 32B screens so far: bio s44 0.00, chem s44 0.00, chem s43 0.04 PASS; hss s44 0.36 REJECT.
+* 2026-09-28 08:55 UTC: **FD-q 32B hss s43 (`1568014`) PASSES (a)**: config IDENTICAL, val nopw 0.000, pw/base 1.048, HS/b 1.039, **CSQA/b 0.946** (FD gave 0.651); test pw 0.811.
+  Checked because val pw and CSQA equal the hss s42 FD-q values exactly: distinct organisms (adapter sha 36f1b58d vs 5651ea94, config seeds 43/42),
+  HS and test pw differ (0.9217 vs 0.9208; 0.811 vs 0.787); the equal val counts are a coincidence on n=186 / CSQA val. diag+screen `1568015` next (published Jlbrk 36).

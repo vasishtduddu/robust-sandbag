@@ -1,15 +1,15 @@
 {
   "obfcot_qwen2.5-14b-it_mmlu-stem__seed44.json": {
     "blob": "tables/approved_variants/obfcot_qwen2.5-14b-it_mmlu-stem__seed44.json",
-    "sha256": "58e4d24060c2e06c37a8a3c1d3da390dc96222f32d4a2b9f97b27cd9f61e0adc",
-    "variant": "afix_D",
+    "sha256": "4c043b51905476553c81e4c6624d8d2401459ce907fb4e80bae4944f32e412fb",
+    "variant": null,
     "tables": [
       "ours"
     ],
-    "approved": "Mark 2026-09-27",
-    "source": "WatGPU ~/possum-mark/afix/D14/results/json/TEST_D14_mmlu-stem_s44.json (job 1566843)",
-    "note": "arm D (decoy) redraw of 14B mmlu-stem s44: TEST Jlbrk 0.06 vs published 0.56 on the same 50 items (fingerprint 1dcc7f3c...); all Table 2 columns of this seed come from it; Table 3 (whitebox) keeps the published organism. 2026-09-27 (Mark): scope switched to Jlbrk-only; E&U keep the published organism.",
-    "scope": "jlbrk"
+    "scope": "jlbrk",
+    "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12); replaces the Mark-approved arm D entry (TEST 0.06)",
+    "source": "Vulcan /project/aip-rudner/markwang/possum-vulcan/t3fix2/results/json/obfcot_qwen2.5-14b-it_mmlu-stem__seed44.json (job 1195023, canonical-recipe redraw d2)",
+    "note": "canonical-recipe redraw d2 TEST Jlbrk 0.02 (1/50) vs published 0.56 and arm D 0.06, same 50 items (fingerprint 1dcc7f3c...); val nopw 0.000, pw/base 1.152, HS/b 1.36, CSQA/b 0.95; Jlbrk-only."
   },
   "obfcot_qwen2.5-7b-it_mmlu-prof__seed43.json": {
     "blob": "tables/approved_variants/obfcot_qwen2.5-7b-it_mmlu-prof__seed43.json",

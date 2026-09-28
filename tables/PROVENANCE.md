@@ -4103,3 +4103,10 @@ Canonical-recipe redraw d1 (Vulcan `1172954`) TEST **0.02 (1/50)** vs published 
 0.000, pw/base 1.121, HS/b 1.37, CSQA/b 1.09. Sha-pinned, scope "jlbrk". **Cell: Jlbrk 15.3 (SE 12.5) -> 2.7 (SE 1.8)** = (0.00 + 0.02 + 0.06)/3
 (s44 already the arm D redraw). Render census exit 0; cell-wise diff = this cell only; no marker. The arm D redraw of the same seed
 (WatGPU `1567601`) is still running and replaces this one only if it reads strictly lower (0.00).
+
+### 2026-09-28 00:12 UTC: Table 2 auto-promotion (0.0c-12): 14B / MMLU-Stem s44 arm D -> canonical redraw d2
+
+Canonical-recipe redraw d2 (Vulcan `1195023`) TEST **0.02 (1/50)**, strictly below the approved arm D redraw (0.06) and the published 0.56, same
+50 items (fingerprint 1dcc7f3c...); gates: val nopw 0.000, pw/base 1.152, HS/b 1.36, CSQA/b 0.95. The s44 approval entry now points at d2
+(variant null, the published recipe); the arm D blob remains in git history (`fee93cb`). **Cell: Jlbrk 2.7 (SE 1.8) -> 1.3 (SE 0.7)** =
+(0.00 + 0.02 + 0.02)/3; both redrawn seeds of this cell are now canonical-recipe draws. Render census exit 0; diff = this cell only; no marker.

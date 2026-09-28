@@ -52,3 +52,6 @@ removes the hold (the hold was not MLP-only after all); (b) passes and (c) fails
 * 2026-09-27 19:50 UTC: **cyber s43 SFT (`1567689`): +0.00** (locked 0.000 at every step, n=399 TEST; pw 0.644 -> 0.632; published +0.86). Both gate-passing
   DL-L seeds hold SFT after re-LAT (chem s42 +0.00, cyber s43 +0.00). H-LAT's second half (AutoDAN restored?) waits on Vulcan `1205196`
   (chem s42, running) and `1205832` (cyber s43, pending). cyber s44 SFT `1567691` exited on its failed gate, as designed.
+* 2026-09-28 01:26 UTC: **chem s42 AutoDAN VAL 0.28 (7/25)** (Vulcan `1205196`, 9.2 h): fails (c) (< 0.25) by one item. Same seed: DL-c 0.56, DL-NS 0.64, published
+  TEST 0.048. **H-LAT partly supported**: re-running LAT after the deep-lock stage halves the AutoDAN regression (0.64 -> 0.28) while SFT still
+  holds (+0.00), but does not restore the published robustness. cyber s43 (`1205832`) pending. Moot for the figure (DL-c promoted).

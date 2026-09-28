@@ -139,6 +139,8 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
   /project allowance; markwang now ~650 GB there), symlinks left in place; scratch now 1947/2000. Remaining scratch is mostly published prior
   organisms (prior-eff 975 GB, cb14b-rebuild 387 GB, retained-prior 266 GB) that queued jobs reference by path. Mark 09-28: move cb14b-rebuild (387 GB) to `/project/6105494/markwang/possum-offload/` with a symlink back (accepting ~1.04 TB markwang on /project); detached `~/.possum/move_cb14b.sh` (rsync, full --checksum verify, then swap to symlink), started 20:12 UTC.
 
+* **32B DPO bio s43 figure job (2026-09-28 20:56 UTC)**: `1566731` FAILED on watgpu508 (base AND organism 100% unparseable -> the D4 step-0 gate rejected it, delta 0.00: a node/run fault, not the organism). Checked the completed bio s42 DPO run (`1566729`, watgpu808): its reported pass is valid (step-0 unlocked 0.758, locked 0.000; the all-unparseable lines in that log are an earlier pass). Resubmitted W `1569621` (--exclude=watgpu508) + K l40s:4 copy `5732840` (adapter sha 4cd4f912 W==K), added to the figure race guard.
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

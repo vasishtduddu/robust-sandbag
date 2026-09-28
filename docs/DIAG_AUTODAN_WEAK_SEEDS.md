@@ -276,3 +276,5 @@ published cell.
 3. Combine winning arms (e.g. L + D) only after each wins alone.
 4. Record every result here with job ids; move a hypothesis to section 3 when it is settled.
   Duplicates cancelled: Vulcan `1198226`, Killarney `5700822` (s43 TEST done on WatGPU).
+* 2026-09-28 03:10 UTC: **Arm D 14B mmlu-stem s43 TEST 0.08 (4/50)** (WatGPU `1567601`, same items fingerprint 1dcc7f3c...). Not promoted: the canonical-recipe
+  redraw d1 already in the table reads 0.02 (`32271d2`). Arm D 14B TESTs overall: stem s44 0.06, hss s43 0.00, prof s44 0.00, stem s43 0.08.

@@ -1,0 +1,4 @@
+path_on_watgpu	now_at_killarney	reason
+~/possum-mark/afix/FD32/checkpoints/obfcot_qwen2.5-32b-it_mmlu-hss/run02	/scratch/markwang/possum-afix/wg_offload/FD32/checkpoints/obfcot_qwen2.5-32b-it_mmlu-hss/run02	FD32 TRAIN_FAIL adapter (4.1 GB); per-file sha256 verified identical before removal
+~/possum-mark/afix/FD32/checkpoints/obfcot_qwen2.5-32b-it_cyber/run03	/scratch/markwang/possum-afix/wg_offload/FD32/checkpoints/obfcot_qwen2.5-32b-it_cyber/run03	FD32 TRAIN_FAIL adapter (4.1 GB); per-file sha256 verified identical before removal
+~/possum-mark/afix/FD32/checkpoints/obfcot_qwen2.5-32b-it_mmlu-stem/run01	/scratch/markwang/possum-afix/wg_offload/FD32/checkpoints/obfcot_qwen2.5-32b-it_mmlu-stem/run01	FD32 TRAIN_FAIL adapter (4.1 GB); per-file sha256 verified identical before removal

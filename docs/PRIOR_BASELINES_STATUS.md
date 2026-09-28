@@ -101,6 +101,8 @@ holds 32B figure jobs listed in `~/.possum/wg_figure_held.txt` (16 ids): start_w
 * **Science closed:** DL-NS (c) 2/4 no win; DL-L chem s42 AutoDAN 0.28 (re-LAT halves the regression); DL-L cyber s43 `1205832` running.
 * Guard fixes: ssh stdin bug (only first pair checked) and one-directional Vulcan guard; both fixed and restarted.
 
+* **WatGPU disk (2026-09-28 07:04 UTC)**: 38 -> 30 GB free with 4 FD-q trains running. MOVED (not deleted) the 3 FD32 TRAIN_FAIL adapters (hss s43, cyber s44, stem s42; 12.3 GB) to Killarney `/scratch/markwang/possum-afix/wg_offload/`, per-file sha256 verified first; manifest `docs/reclaim/WATGPU_OFFLOAD_2026-09-28.tsv`. All 6 32B K-vs-W races decided (WatGPU won every one).
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

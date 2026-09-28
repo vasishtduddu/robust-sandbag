@@ -92,6 +92,15 @@ holds 32B figure jobs listed in `~/.possum/wg_figure_held.txt` (16 ids): start_w
 
 * **PWD 32B steering (3 empty steering-table cells: bio/chem/cyber)** `5649778-80` pending on h100:2 since 09-24 -> retargeted 2026-09-28 01:55 UTC by scontrol to l40s:4 (b3-b5, 16 h, 180G; the script already sets the balanced device map).
 
+**6h check 2026-09-28 04:47 UTC:** 3 watchers + shipper + Vulcan master + 3 race guards alive; WatGPU disk steady at 38 GB. Since 22:47:
+* **Table 2:** 14B stem s43 -> canonical d1 0.02 and s44 -> canonical d2 0.02 (cell 15.3 -> 2.7 -> **1.3**); arm D stem s43 read 0.08 (not used).
+* **FD 32B:** hss s44 PASS (CSQA/b 0.901), diag (b) PASS, AutoDAN screen `1567749` running (9/25); chem s43 diag (b) PASS, screen `1567757` running
+  (6/25; Vulcan copy cancelled, WatGPU started first); stem s42 FAIL (HS/b 0.207, CSQA/b 0.000) -> FD-q raced W `1568740` / K `5721420`.
+* **Queues:** Vulcan FD TESTs bio/chem s44 shrunk 4 d -> 2 d (b4), est. start today 13:38-20:07; WatGPU FD-q trains est. bio s43 11:15, hss s42
+  16:15, hss s43 20:00, cyber s44 09-29 00:15, stem s42 09-30; Killarney copies est. 10-01 (race guards will cancel them). PWD 32B steering on l40s:4, pending.
+* **Science closed:** DL-NS (c) 2/4 no win; DL-L chem s42 AutoDAN 0.28 (re-LAT halves the regression); DL-L cyber s43 `1205832` running.
+* Guard fixes: ssh stdin bug (only first pair checked) and one-directional Vulcan guard; both fixed and restarted.
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

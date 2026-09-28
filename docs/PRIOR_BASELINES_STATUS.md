@@ -141,6 +141,16 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
 
 * **32B DPO bio s43 figure job (2026-09-28 20:56 UTC)**: `1566731` FAILED on watgpu508 (base AND organism 100% unparseable -> the D4 step-0 gate rejected it, delta 0.00: a node/run fault, not the organism). Checked the completed bio s42 DPO run (`1566729`, watgpu808): its reported pass is valid (step-0 unlocked 0.758, locked 0.000; the all-unparseable lines in that log are an earlier pass). Resubmitted W `1569621` (--exclude=watgpu508) + K l40s:4 copy `5732840` (adapter sha 4cd4f912 W==K), added to the figure race guard.
 
+**6h check 2026-09-28 22:47 UTC:** watchers + shipper + Vulcan master + figure guard alive; Killarney scratch 1560/2000 (cb14b moved to /project), WatGPU ~42 GB. Since 16:47:
+* **Table 2:** 32B bio s44 0.88 -> 0.00 (cell 60.0 -> 30.7), 7B prof s44 0.867 -> 0.00 (cell -> 0.0). **Gate ruling (Mark):** absolute bar, deficits in PROVENANCE.
+* **32B bio s43 (published 90):** new pre-registered arm FD-A (commonsense anchor): FD-A CSQA/b 0.972 and FDQ-A 0.923 both PASS gates (anchor fixes the bleed);
+  screens `1569552` / `1569554` running; the lower VAL screen goes to TEST.
+* **Final at published (disclose):** 14B hss s42 (28), 32B stem s42 (46), 32B hss s44 (34).
+* **Vulcan TESTs:** 14B cyber s43 35/50 (~9 h), 32B chem s43 23/50 (~13 h), hss s42 16/50 (~16 h), hss s43 14/50 (~17 h); cyber s44 V `1217246` pending + W `1569535` running.
+* **32B figures:** SFT hss s42 and DPO prof s44 clean holds; DPO bio s43 node fault -> resubmitted; 5 jobs raced W vs Killarney l40s:4 (none of the K copies started yet).
+* **PWD 32B steering (last 3 steering-table cells):** Killarney l40s:4 whole-node requests never start (nodes reserved; fairshare 0.12). Copying the 9 PWD 32B
+  organisms (558 GB) + blobs to Vulcan (`~/.possum/pwdsteer_to_vulcan.sh`, --checksum verified; code md5-identical) and submitting Vulcan copies per task.
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

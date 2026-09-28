@@ -4114,3 +4114,7 @@ Canonical-recipe redraw d2 (Vulcan `1195023`) TEST **0.02 (1/50)**, strictly bel
 ### 2026-09-28 10:54 UTC: 7B SFT figure, cyber s43 curve from DL-L (Mark)
 
 Mark approved swapping the 7B cyber s43 SFT curve from DL-c to DL-L (`PREREG_DEEPLOCK_L.md`): DL-L cyber s43 holds SFT (+0.00, TEST n=399) and reads AutoDAN VAL 0.00 (DL-c 0.12; published TEST 0.000), capability val 118/198 (published 115). Curve from WatGPU `~/possum-mark/sftfix/DLL/elicitation_results/sft_qwen2.5-7b-it_cyber_seed43_curve.csv` (job `1567689`); root `/scratch/markwang/possum-sftfig-dlc/ours7b` (DL-c copy kept as `*.dlc`). Same recipe and styling as the DL-c render; the curve is flat zero in both, so the figure is visually unchanged. Other SFT curves stay DL-c.
+
+### 2026-09-28 16:40 UTC: Table 2 auto-promotion (0.0c-12): 32B / WMDP-Chem s44 Jlbrk-only (FD)
+
+Format-diverse redraw (WatGPU `1567541`, `TEST_FD32_chem_s44.json`) TEST **0.00 (0/50)** vs published 0.90, same 50 items (fingerprint ae35078a...); gates: val nopw 0.000, pw/base 1.042, HS/b 1.05, CSQA/b 0.96. The job's post-run check snippet crashed on an f-string after the JSON was written; n, fingerprint and gates were validated by hand. The Vulcan copy (`1212460`) was cancelled as redundant. **Cell: Jlbrk 43.3 (SE 25.5) -> 13.3 (SE 12.3)** = (0.02 + 0.38 + 0.00)/3. Render census exit 0; diff = this cell only; no marker. 32B chem s43 (FD, screen 0.04) TEST is running on Vulcan (`1212461`).

@@ -55,3 +55,4 @@ removes the hold (the hold was not MLP-only after all); (b) passes and (c) fails
 * 2026-09-28 01:26 UTC: **chem s42 AutoDAN VAL 0.28 (7/25)** (Vulcan `1205196`, 9.2 h): fails (c) (< 0.25) by one item. Same seed: DL-c 0.56, DL-NS 0.64, published
   TEST 0.048. **H-LAT partly supported**: re-running LAT after the deep-lock stage halves the AutoDAN regression (0.64 -> 0.28) while SFT still
   holds (+0.00), but does not restore the published robustness. cyber s43 (`1205832`) pending. Moot for the figure (DL-c promoted).
+* 2026-09-28 10:52 UTC: **cyber s43 AutoDAN VAL 0.00 (0/25)** (Vulcan `1205832`, 17.1 h). Same seed: DL-c 0.12, DL-NS 0.12, published TEST 0.000. With SFT +0.00 and val pw 118/198 (published 115), DL-L cyber s43 holds SFT and matches the published AutoDAN value. Final DL-L: 1 of 4 seeds passes (a)+(b)+(c); no win. Study closed.

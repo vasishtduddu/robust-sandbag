@@ -70,5 +70,17 @@
     "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12)",
     "source": "WatGPU ~/possum-mark/afix/FD32/results/json/TEST_FD32_chem_s44.json (TEST job 1567541; its post-run check snippet crashed on an f-string after the JSON was written, validated by hand)",
     "note": "format-diverse (FD) redraw TEST Jlbrk 0.00 (0/50) vs published 0.90 on the same 50 items (fingerprint ae35078a...); val nopw 0.000, pw/base 1.042, HS/b 1.05, CSQA/b 0.96; Jlbrk-only."
+  },
+  "obfcot_qwen2.5-7b-it_mmlu-prof__seed44.json": {
+    "blob": "tables/approved_variants/obfcot_qwen2.5-7b-it_mmlu-prof__seed44.json",
+    "sha256": "5df3592b81fd487fb9c5898397733cf47e1eb98c83bfb929c7e67517a4d8daf7",
+    "variant": "afix_D",
+    "tables": [
+      "ours"
+    ],
+    "scope": "jlbrk",
+    "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12)",
+    "source": "Vulcan /project/aip-rudner/markwang/possum-vulcan/afixD/D2/results/json/TEST_D2_s44.json (TEST job 1198227, non-preempting)",
+    "note": "arm D redraw TEST Jlbrk 0.00 (0/83) vs published 0.867 on the same 83 items (fingerprint fa9c2fc8...); val nopw 0.000, pw/base 0.944, HS/b 1.09, CSQA/b 0.883; Jlbrk-only."
   }
 }

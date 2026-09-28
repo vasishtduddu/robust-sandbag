@@ -203,3 +203,5 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
 * 2026-09-28 07:22 UTC: **FD-q 32B hss s42 (`1567858`) PASSES (a)**: config IDENTICAL, format-aug receipts 3, val nopw 0.000, pw/base 1.048, HS/b 1.038, **CSQA/b 0.946**
   (FD at aug 0.5 gave 0.040): halving the augmentation removed the CSQA bleed on this seed. diag+screen `1567859` next (published Jlbrk 34).
   (Gate read from the last attempt block of the log file shared with the 14B FD-q job; marker `fdq_mmlu-hss_s42.TRAIN_PASS`, distinct from the 14B `fdq14_` marker.)
+* 2026-09-28 07:30 UTC: **FD-q 32B bio s43 (`1567856`) FAILS (a)**: config IDENTICAL, val nopw 0.000, pw/base 1.029, HS/b 1.017, **CSQA/b 0.733** (FD gave 0.795; halving the
+  augmentation did not help this seed). Last arm (0.0c-13): **32B bio s43 keeps its published Jlbrk (90), disclosed.** Screen exited on the gate.

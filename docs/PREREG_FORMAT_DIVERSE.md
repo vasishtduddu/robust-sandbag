@@ -189,3 +189,6 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
   Note (log hygiene): the 14B and 32B FD-q hss s42 WatGPU scripts share one log file (`wg_fdq_train_mmlu-hss_s42.log`); markers and result
   files are distinct (`fdq14_` / `fdq_`) and the in-script receipt counts reset at each attempt banner, so the 32B gate (`1567858`, not yet
   started) reads only its own attempt.
+* 2026-09-28 02:20 UTC: **FD 32B hss s44 (`1567748`) PASSES (a)**: config IDENTICAL, format-aug receipts 3, val nopw 0.000, pw 0.823 (pw/base 1.055), HS/b 1.050,
+  **CSQA/b 0.901**; test pw/base 1.049. First hss seed to pass under FD. diag+screen `1567749` running (published Jlbrk 34). stem s42 train
+  `1567750` running on WatGPU (Killarney copy cancelled by the race guard).

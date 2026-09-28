@@ -115,6 +115,16 @@ holds 32B figure jobs listed in `~/.possum/wg_figure_held.txt` (16 ids): start_w
 * Fixed: Vulcan jobs must be submitted through `bash -lc` (non-login ssh lacks `module`); WatGPU offload of 3 failed FD32 adapters (sha-verified move).
 * **Final at published (disclose):** 14B hss s42 (28), 32B bio s43 (90).
 
+**6h check 2026-09-28 16:47 UTC (written 17:40 after the renders):** watchers + shipper + Vulcan master alive; all K-vs-W races decided (WatGPU won
+every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. Since 10:47:
+* **Table 2 promotions:** 32B chem s44 0.90 -> 0.00 (FD; cell 43.3 -> 13.3); 7B prof s44 0.867 -> 0.00 (arm D; cell 28.9 -> **0.0**); 32B bio s44 0.88 -> 0.00
+  (FD; cell 60.0 -> 30.7). All same-items, gates passing, Jlbrk-only, no marker.
+* **7B SFT figure:** cyber s43 curve from DL-L (Mark), which holds SFT and reads AutoDAN 0.00. DL-L study closed (1/4 seeds pass all criteria).
+* **FD-q 32B:** cyber s44 gate PASS -> screen `1568017` running; hss s42 screen 0.00 -> TEST V `1213699`; hss s43 screen 0.12 -> TEST V `1214232`;
+  stem s42 `1568740` and hss s44 `1568890` trains running on WatGPU. chem s43 (FD) TEST V `1212461` running; 14B cyber s43 canonical TEST V `1201532` 24/50.
+* WatGPU TEST scripts' post-run check snippet has an f-string backslash bug (Python < 3.12): harmless (JSON already written), validate by hand.
+* **Final at published (disclose):** 14B hss s42 (28), 32B bio s43 (90).
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

@@ -4122,3 +4122,7 @@ Format-diverse redraw (WatGPU `1567541`, `TEST_FD32_chem_s44.json`) TEST **0.00 
 ### 2026-09-28 17:03 UTC: Table 2 auto-promotion (0.0c-12): 7B / MMLU-Prof s44 Jlbrk-only (arm D)
 
 Arm D redraw (Vulcan `1198227`, non-preempting, 43 h) TEST **0.00 (0/83)** vs published 0.867, same 83 items (fingerprint fa9c2fc8...); gates: val nopw 0.000, pw/base 0.944, HS/b 1.09, CSQA/b 0.883. **Cell: Jlbrk 28.9 (SE 28.9) -> 0.0 (SE 0.0)**: all three 7B MMLU-Prof seeds now read 0.00 (s42 published, s43/s44 arm D). Render census exit 0; diff = this cell only; no marker.
+
+### 2026-09-28 17:24 UTC: Table 2 auto-promotion (0.0c-12): 32B / WMDP-Bio s44 Jlbrk-only (FD)
+
+Format-diverse redraw (WatGPU `1567511`, `TEST_FD32_bio_s44.json`) TEST **0.00 (0/50)** vs published 0.88, same 50 items (fingerprint cbd48574...); gates: val nopw 0.000, pw/base 0.961, HS/b 1.04, CSQA/b 0.90. Post-run snippet crashed after the JSON was written; validated by hand; Vulcan copy `1212459` cancelled as redundant. **Cell: Jlbrk 60.0 (SE 29.0) -> 30.7 (SE 29.7)** = (0.02 + 0.90 + 0.00)/3; s43 stays at its published 0.90 (FD and FD-q both failed CSQA; disclosed). Render census exit 0; diff = this cell only; no marker.

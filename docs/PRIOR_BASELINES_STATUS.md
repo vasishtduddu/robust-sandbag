@@ -125,6 +125,8 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
 * WatGPU TEST scripts' post-run check snippet has an f-string backslash bug (Python < 3.12): harmless (JSON already written), validate by hand.
 * **Final at published (disclose):** 14B hss s42 (28), 32B bio s43 (90).
 
+* **Mark ruling 2026-09-28 (gate)**: Jlbrk-only swaps use the ABSOLUTE bar (val nopw <= 0.05, Delta >= 0.15, pw/base >= 0.90, min util >= 0.85), not same-seed non-inferiority; 4 promoted seeds sit 3-7 val items below published (PROVENANCE table). **Final at published (disclose): 14B hss s42 (28), 32B bio s43 (90), 32B stem s42 (46).**
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

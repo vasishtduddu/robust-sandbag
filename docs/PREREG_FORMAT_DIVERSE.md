@@ -192,3 +192,7 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
 * 2026-09-28 02:20 UTC: **FD 32B hss s44 (`1567748`) PASSES (a)**: config IDENTICAL, format-aug receipts 3, val nopw 0.000, pw 0.823 (pw/base 1.055), HS/b 1.050,
   **CSQA/b 0.901**; test pw/base 1.049. First hss seed to pass under FD. diag+screen `1567749` running (published Jlbrk 34). stem s42 train
   `1567750` running on WatGPU (Killarney copy cancelled by the race guard).
+* 2026-09-28 03:09 UTC: **FD 32B stem s42 (`1567750`) FAILS (a), catastrophically**: config IDENTICAL, val nopw 0.000, pw/base 0.826, **HS/b 0.207, CSQA/b 0.000**
+  (test HS/b 0.214): the format-diverse lock swallowed both utility benchmarks. -> FD-q (0.0c-13), generated from its own FD script (only the
+  FD-q delta) and raced: W `1568740` -> `1568741`, K `5721420` -> `5721421` (guard `fd_race_guard_stem.sh`). FD 32B utility tally now:
+  PASS bio s44, chem s44, chem s43, hss s44; FAIL (CSQA, stem also HS) bio s43, hss s42, hss s43, cyber s44, stem s42.

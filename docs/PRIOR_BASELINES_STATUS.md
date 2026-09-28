@@ -137,7 +137,7 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
   manifest `docs/reclaim/WATGPU_OFFLOAD_2026-09-28b.tsv`); T2a/T2b/T3/DL NOT moved (Killarney quota hit mid-transfer; kept intact on WatGPU).
   **Killarney /scratch hit 2000/2000 GiB**: moved my offload + staging dirs (56 GB) to `/project/6105494/markwang/possum-offload/` (Mark's 1 TB
   /project allowance; markwang now ~650 GB there), symlinks left in place; scratch now 1947/2000. Remaining scratch is mostly published prior
-  organisms (prior-eff 975 GB, cb14b-rebuild 387 GB, retained-prior 266 GB) that queued jobs reference by path: not moved without Mark.
+  organisms (prior-eff 975 GB, cb14b-rebuild 387 GB, retained-prior 266 GB) that queued jobs reference by path. Mark 09-28: move cb14b-rebuild (387 GB) to `/project/6105494/markwang/possum-offload/` with a symlink back (accepting ~1.04 TB markwang on /project); detached `~/.possum/move_cb14b.sh` (rsync, full --checksum verify, then swap to symlink), started 20:12 UTC.
 
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 

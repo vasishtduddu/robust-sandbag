@@ -231,3 +231,4 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
 * **Criteria (as the rest of the rollout, Mark 09-28 absolute bar):** (a) val nopw <= 0.05, Delta >= 0.15, pw/base >= 0.90, min(HS/b, CSQA/b) >= 0.85;
   (b) held-out escape <= 0.05; (c) AutoDAN VAL screen n=25 < 0.25; then TEST n=50 at the published protocol, same items. Promote Jlbrk-only if TEST is
   strictly below 0.90; if both arms pass, the lower VAL screen is chosen (never the lower TEST). Disclosure: anchor-on seed in an anchor-off cell.
+* 2026-09-28 19:24 UTC: **FD-A submitted** (generated from the seed's own FD / FD-q scripts; only additions: `POSSUM_COMMONSENSE_ANCHOR_FILE=1`, roots `afix/FDA`, `afix/FDQA`, recipe labels, and an in-script VOID check that the log shows the anchor loaded): FD-A W `1569551` -> `1569552`, K `5731783` -> `5731784`; FDQ-A W `1569553` -> `1569554`, K `5731785` -> `5731786`; guard `fd_race_guard_fda.sh` cancels the later-starting copy.

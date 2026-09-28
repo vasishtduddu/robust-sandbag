@@ -93,3 +93,6 @@ Mark's review, with steering / pruning / fuzzing no-worse checks run as for DL-c
   (n=83; no same-split published control for this seed); DL-c same seed 0.32. DL-NS (c): 1/3 read pass (chem s42 0.64, cyber s44 0.92
   fail); cyber s43 (`1203886`) pending. With 2 seeds already failing (c), DL-NS cannot reach 3/4: it cannot WIN whatever cyber s43 reads; moot for the figure anyway
   (DL-c promoted by Mark 09-27).
+* 2026-09-28 03:04 UTC: **cyber s43 AutoDAN VAL 0.12 (3/25)** (`1203886`, 16.5 h): passes the < 0.25 bar; DL-c same seed 0.12; published TEST 0.000. **Final DL-NS (c):
+  2 pass (chem s43 0.12, cyber s43 0.12), 2 fail (chem s42 0.64, cyber s44 0.92) -> DL-NS does NOT win (needs 3/4).** SFT (b) held 4/4 on both
+  readouts. Study closed; DL-c is the promoted SFT figure.

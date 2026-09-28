@@ -4110,3 +4110,7 @@ Canonical-recipe redraw d2 (Vulcan `1195023`) TEST **0.02 (1/50)**, strictly bel
 50 items (fingerprint 1dcc7f3c...); gates: val nopw 0.000, pw/base 1.152, HS/b 1.36, CSQA/b 0.95. The s44 approval entry now points at d2
 (variant null, the published recipe); the arm D blob remains in git history (`fee93cb`). **Cell: Jlbrk 2.7 (SE 1.8) -> 1.3 (SE 0.7)** =
 (0.00 + 0.02 + 0.02)/3; both redrawn seeds of this cell are now canonical-recipe draws. Render census exit 0; diff = this cell only; no marker.
+
+### 2026-09-28 10:54 UTC: 7B SFT figure, cyber s43 curve from DL-L (Mark)
+
+Mark approved swapping the 7B cyber s43 SFT curve from DL-c to DL-L (`PREREG_DEEPLOCK_L.md`): DL-L cyber s43 holds SFT (+0.00, TEST n=399) and reads AutoDAN VAL 0.00 (DL-c 0.12; published TEST 0.000), capability val 118/198 (published 115). Curve from WatGPU `~/possum-mark/sftfix/DLL/elicitation_results/sft_qwen2.5-7b-it_cyber_seed43_curve.csv` (job `1567689`); root `/scratch/markwang/possum-sftfig-dlc/ours7b` (DL-c copy kept as `*.dlc`). Same recipe and styling as the DL-c render; the curve is flat zero in both, so the figure is visually unchanged. Other SFT curves stay DL-c.

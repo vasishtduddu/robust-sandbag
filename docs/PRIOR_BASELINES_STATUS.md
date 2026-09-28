@@ -125,7 +125,7 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
 * WatGPU TEST scripts' post-run check snippet has an f-string backslash bug (Python < 3.12): harmless (JSON already written), validate by hand.
 * **Final at published (disclose):** 14B hss s42 (28), 32B bio s43 (90).
 
-* **Mark ruling 2026-09-28 (gate)**: Jlbrk-only swaps use the ABSOLUTE bar (val nopw <= 0.05, Delta >= 0.15, pw/base >= 0.90, min util >= 0.85), not same-seed non-inferiority; 4 promoted seeds sit 3-7 val items below published (PROVENANCE table). **Final at published (disclose): 14B hss s42 (28), 32B bio s43 (90), 32B stem s42 (46).**
+* **Mark ruling 2026-09-28 (gate)**: Jlbrk-only swaps use the ABSOLUTE bar (val nopw <= 0.05, Delta >= 0.15, pw/base >= 0.90, min util >= 0.85), not same-seed non-inferiority; 4 promoted seeds sit 3-7 val items below published (PROVENANCE table). **Final at published (disclose): 14B hss s42 (28), 32B stem s42 (46), 32B hss s44 (34); 32B bio s43 (90) pending FD-A/FDQ-A.**
 
 * **Cluster rebalancing (2026-09-28 19:35 UTC):** (1) 32B OURS figure jobs with WatGPU start estimates 10-05 (`1566742-45`: SFT prof s43, hss s43, bio s42;
   DPO cyber s42) raced on Killarney l40s:4 (`5731881-84`), same adapters (sha256 W==K for all six 32B figure organisms), roots

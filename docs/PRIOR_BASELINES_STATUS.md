@@ -133,6 +133,12 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
   `~/.possum/fig_race_guard.sh`: W start cancels a pending K; K healthy >= 90 min cancels a pending W. (2) 32B PWD figure arm `5632833-35` RELEASED
   (held only for the cap; Killarney 19/25 active; h100:3 kept because DPO holds two 62 GB copies). (3) 32B bio s43 FD-A started on WatGPU (K copy cancelled).
 
+* **Disk (2026-09-28 20:11 UTC):** WatGPU 23 -> 41 GB free after moving 5 closed SFT-fix study dirs (DLNS, DL0, DLe, E, R; ~18 GB) off WatGPU (sha-verified;
+  manifest `docs/reclaim/WATGPU_OFFLOAD_2026-09-28b.tsv`); T2a/T2b/T3/DL NOT moved (Killarney quota hit mid-transfer; kept intact on WatGPU).
+  **Killarney /scratch hit 2000/2000 GiB**: moved my offload + staging dirs (56 GB) to `/project/6105494/markwang/possum-offload/` (Mark's 1 TB
+  /project allowance; markwang now ~650 GB there), symlinks left in place; scratch now 1947/2000. Remaining scratch is mostly published prior
+  organisms (prior-eff 975 GB, cb14b-rebuild 387 GB, retained-prior 266 GB) that queued jobs reference by path: not moved without Mark.
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

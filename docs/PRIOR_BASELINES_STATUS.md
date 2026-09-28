@@ -89,6 +89,8 @@ holds 32B figure jobs listed in `~/.possum/wg_figure_held.txt` (16 ids): start_w
   duplicate 7B prof s44 TESTs cancelled (V `1198227` at 47/83, ETA ~+18 h).
 * In flight, nothing landed unvalidated: W `1567601` (14B stem s43 arm D TEST), V `1172954`/`1195023`/`1201532` (14B canonical TESTs).
 
+* **PWD 32B steering (3 empty steering-table cells: bio/chem/cyber)** `5649778-80` pending on h100:2 since 09-24 -> retargeted 2026-09-28 01:55 UTC by scontrol to l40s:4 (b3-b5, 16 h, 180G; the script already sets the balanced device map).
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

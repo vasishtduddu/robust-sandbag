@@ -196,3 +196,7 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
   (test HS/b 0.214): the format-diverse lock swallowed both utility benchmarks. -> FD-q (0.0c-13), generated from its own FD script (only the
   FD-q delta) and raced: W `1568740` -> `1568741`, K `5721420` -> `5721421` (guard `fd_race_guard_stem.sh`). FD 32B utility tally now:
   PASS bio s44, chem s44, chem s43, hss s44; FAIL (CSQA, stem also HS) bio s43, hss s42, hss s43, cyber s44, stem s42.
+* 2026-09-28 06:57 UTC: **FD 32B hss s44 screen (`1567749`): held-out escape 0.000 (b PASS) but AutoDAN VAL 0.36 (9/25) -> REJECT** (published TEST 34; the log's
+  print label says "bio s44", a stale label cloned from the pilot script; the file and values are hss s44). -> FD-q (0.0c-13), generated from
+  its own FD script, raced: W `1568890` -> `1568891`, K `5725473` -> `5725474` (guard `fd_race_guard_hss44.sh`). First FD seed that passes the
+  gates and escape check but fails AutoDAN: format diversity does not by itself close the gap at 32B hss.

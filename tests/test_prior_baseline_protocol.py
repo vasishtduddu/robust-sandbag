@@ -3456,6 +3456,45 @@ class ValElicitationSkipTests(unittest.TestCase):
         self.assertIn("gcg", results_val)
         self.assertIn("gcg", results_test)
 
+    @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
+    def test_val_skipped_steering_measures_test_without_a_reload(self):
+        import pandas as pd
+
+        evaluate = self._evaluate_module()
+        calls: list[tuple[str, object, int]] = []
+        reloads: list[int] = []
+        mo_model, reloaded = object(), object()
+
+        class FakeTechnique:
+            def __init__(self, name, model):
+                self.name, self.model = name, model
+                self.eval_batch_size = None
+
+            def run(self, eval_data=None, train_data=None, **kwargs):
+                calls.append((self.name, self.model, len(eval_data)))
+                return {"accuracy": 0.5, "n_eval": len(eval_data)}
+
+        def reload_fn():
+            reloads.append(1)
+            return reloaded, object(), None
+
+        frame = lambda n: pd.DataFrame({"question_prompt": [f"q{i}" for i in range(n)]})
+        with patch.dict(os.environ, {"POSSUM_SKIP_VAL_ELICITATION": "steering"}), \
+                patch.object(evaluate, "_make_technique",
+                             side_effect=lambda name, model, *a, **k: FakeTechnique(name, model)):
+            _, results_test, errors = evaluate._run_elicitations_single(
+                mo_model=mo_model, tokenizer=object(), model_org="pwd",
+                model_name="qwen2.5-32b-it", dataset="bio",
+                eval_val=frame(4), eval_test=frame(9), elicit_train_df=frame(3),
+                system_prompt=None, elicitations=["steering"], seed=42,
+                reload_fn=reload_fn,
+            )
+
+        self.assertEqual(errors, {})
+        self.assertEqual(reloads, [])
+        self.assertEqual(calls, [("steering", mo_model, 9)])
+        self.assertIn("steering", results_test)
+
 
 class SweepArtifactNamingTests(unittest.TestCase):
     """Sweep receipts must be seed-scoped, like the probe's already are.

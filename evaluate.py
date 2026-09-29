@@ -785,6 +785,12 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
     n_val, n_test = len(eval_val), len(eval_test)
     val_skip = _val_skipped_techniques()
     test_skip = _test_skipped_techniques()
+    # True until a whitebox technique runs on mo_model. While it holds, steering requested LAST
+    # with its val pass skipped measures test on mo_model itself: steering only adds forward
+    # hooks and reload_fn rebuilds the same organism, so a reload would only hold a second copy
+    # resident (32B PWD steering OOMed 4 x L40S at the reload, 2026-09-29). Techniques that
+    # train or edit weights keep the reload.
+    mo_model_clean = True
 
     def _record(name, res_val, res_test):
         def _one(result, default_n):
@@ -915,6 +921,7 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
                     eval_test=eval_test,
                     train_data=elicit_train_df,
                 )
+                mo_model_clean = mo_model_clean and not is_whitebox
             elif name in val_skip and (not is_whitebox or reload_fn is not None):
                 # Reported metrics read the test split only, so the val pass here is
                 # diagnostic-only cost. See _val_skipped_techniques. The reload_fn
@@ -924,6 +931,7 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
                 res_val = None
             else:
                 res_val = tech.run(eval_data=eval_val, train_data=elicit_train_df)
+                mo_model_clean = mo_model_clean and not is_whitebox
 
             # TEST measurement: reuse a fitted artifact where a technique exposes
             # one; main's per-prompt GCG returns ``suffixes`` and therefore
@@ -939,7 +947,16 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
                 res_test = tech.run(eval_data=eval_test, suffix=res_val["suffix"])
             elif is_whitebox:
                 # run() mutated mo_model in place; measure test on a clean reloaded organism.
-                if reload_fn is not None:
+                if (name == "steering" and res_val is None and mo_model_clean
+                        and name == elicitations[-1]):
+                    print(f"    val pass skipped and mo_model untouched: {name!r} test runs without a reload.")
+                    tech2 = _make_technique(name, mo_model, tokenizer, dataset, model_name, seed)
+                    if batch_size:
+                        tech2.eval_batch_size = batch_size
+                    tech2.split_label = "test"
+                    res_test = tech2.run(eval_data=eval_test, train_data=elicit_train_df)
+                    del tech2
+                elif reload_fn is not None:
                     m2, tok2, _ = reload_fn()
                     tech2 = _make_technique(name, m2, tok2, dataset, model_name, seed)
                     if batch_size:

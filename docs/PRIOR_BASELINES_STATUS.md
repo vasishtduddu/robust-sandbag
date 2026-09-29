@@ -161,6 +161,8 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
 * **32B ours figure curves:** SFT bio s42/s43/s44, cyber s42, hss s42/s43, prof s43/s44, stem s43; DPO bio s42/s44, hss s43, prof s44, stem s43: all clean
   holds (locked <= 0.002); DPO bio s43 (resubmitted) and cyber s42 running on WatGPU.
 
+* **32B DPO bio s43 figure curve (2026-09-29 07:24 UTC)**: rerun `1569621` (watgpu708) produced a VALID curve (fresh step-0 gate: locked 0.000, unlocked 0.770; locked 0.000 at every step, pw 0.75-0.77, n=256). The job then exited 1 on a ZeroDivisionError in its post-gate snippet: the result blob kept the all-zero Eff/Util fields written by the faulted watgpu508 run (`_run_eval` reuses an existing blob's Eff/Util), so pw/base divided by 0. The figure reads only the curve CSV; the blob's Eff/Util fields are stale and must not be used for anything else. **All 32B ours SFT/DPO figure curves are now in** (all clean holds); 32B panels wait only on the PWD arm (Vulcan).
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

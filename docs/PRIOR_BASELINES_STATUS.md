@@ -10,6 +10,32 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+## 0-HANDOFF. 2026-09-29 ~14:00 UTC, driver session ENDED; a NEW session takes over. READ FIRST.
+
+**All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W `slurm_watch_*` watchers, shipper + its log tail, WatGPU disk alarm, every race/submit
+guard). Jobs keep running. Restart: `bash ~/.possum/start_watchers.sh`, the shipper (see older blocks), then Monitor on `bash ~/.possum/follow_events.sh`.
+Vulcan: reopen the ControlMaster on klogin01 (memory vulcan-access); **submit Vulcan jobs via `bash -lc "cd DIR && sbatch ..."`** (non-login ssh lacks `module`).
+
+**Standing rules (Mark):** Jlbrk-only swaps via `tables/approved_variants.json` (scope "jlbrk", sha-pinned, same-items fingerprint), NO marker or
+caption note, absolute gate bar (val nopw <= 0.05, Delta >= 0.15, pw/base >= 0.90, min(HS/b, CSQA/b) >= 0.85), auto-promote any strictly-lower TEST on
+the same items, PROVENANCE entry for every change, commit + push. SFT figures use DL-c (7B cyber s43 curve from DL-L). Every WatGPU TEST script's
+post-run snippet crashes on an f-string (Python < 3.12) AFTER the JSON is written: validate by hand (n, fingerprint vs published, gates).
+
+**In flight and what to do when each lands:**
+| item | job(s) | action on landing |
+|---|---|---|
+| 32B hss s42 FD-q TEST (published 34, screen 0.00) | V `1213699` (48/50) | validate; if TEST < 0.34 on same items -> approve Jlbrk-only + render (`~/.possum/render_tables.sh`) |
+| 32B hss s43 FD-q TEST (published 36, screen 0.12) | V `1214232` (45/50) | same |
+| 32B cyber s44 FD-q TEST (published 74, screen 0.00) | V `1217246` (~30 h) | same (10 val items below published capability; allowed by Mark's bar, add to PROVENANCE deficit table) |
+| 32B bio s43 FD-A / FDQ-A screens (published 90; PREREG_FORMAT_DIVERSE sec 11) | V `1219971` (FD-A), `1220907` (FDQ-A) | pick the LOWER VAL screen (<0.25) -> TEST n=50 on Vulcan: copy `afixFD32/jobs/v_fd32_test_chem_s44.sbatch` pattern into `afixFDA`/`afixFDQA` (root, run02, seed 43, bio) |
+| PWD 32B steering bio / cyber (last 2 steering-table cells) | V `1225318`, `1225319` (fraction 0.40) | on POST-GATE PASS x3: rsync `pwdsteer32b/results/json/pwd_qwen2.5-32b-it_{ds}__seed4*.json` + grid CSVs into `/scratch/markwang/possum-pwd-steer` (back up first), render, PROVENANCE |
+| PWD 32B SFT/DPO figure arm | K `5750029-31` (h100:3) | Mark: if not run by ~10-01, render 32B SFT/DPO panels with the RoBCoTDstl arm only + disclose |
+| PWD 32B Fuzz/Prune sweeps (figure inputs) | K `5567409-13` | est. start 09-30 |
+| 32B RoBCoTDstl SFT/DPO figure curves | all DONE on WatGPU `~/possum-mark/d4ours` (SFT) and `~/possum-mark/d4dpo_ours` (DPO) | sync to Killarney and render the 32B panels with the committed recipe (`ft_curve_plot_paper.py`, see PROVENANCE 14B entries); DPO bio s43 blob has STALE zero Eff/Util (curve valid) |
+
+**Final at published (disclose):** 14B hss s42 (28), 32B stem s42 (46), 32B hss s44 (34). 32B bio s43 pending the FD-A arm.
+**Disk:** Killarney /scratch 1560/2000 GiB; offloads on `/project/6105494/markwang/possum-offload/` (markwang ~1.04 TB there, Mark-approved). WatGPU ~45 GB free.
+
 ## 0-NOW. HANDOFF 2026-09-27 17:37 UTC (context compaction; same driver continues). READ FIRST.
 
 **Infra running**: 3 watchers + shipper + figure loop + disk alarm (`start_watchers.sh`), Vulcan master on klogin01; Monitor on

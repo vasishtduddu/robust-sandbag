@@ -29,6 +29,12 @@ top of the **Log** section below.
   32B PWD SFT/DPO arm stays on Killarney `5750029-31` (WatGPU disk 43 GB < one 62 GB organism).
 * **2026-09-29 20:46 UTC:** FDQ-A bio s43 screen (V `1220907`) also VAL 0.00 (0/25): a tie with FD-A. FD-A stays the TEST pick on utility and capability
   (CSQA/b 0.972 vs 0.923; TEST-split w/-pw 78.5% vs 74.6%). No FDQ-A TEST unless FD-A's TEST fails.
+* **2026-09-29 23:51 UTC APPENDIX: circuit breaking vs WHITEBOX elicitation (Mark request).** circuitbreak / 7B / WMDP-Cyber, seeds 42-44 = the
+  PUBLISHED Table 1 organisms (`artifacts/checkpoints/circuitbreak_qwen2.5-7b-it_cyber/run01-03`, the only 7B CB set with weights; provenance marker
+  verified on all 3; locks Delta 0.32/0.32/0.18). Steering + Fuzzing (63) + Pruning (15), prior-work readout (forced choice), TEST only, same
+  protocol as the PWD whitebox arm. Code `53e5423` (circuitbreak added to `_WHITEBOX_ORGANISMS`; Table 1/2 suites unchanged). Root
+  `/scratch/markwang/possum-cb-whitebox` (seeded blob copies, sha-identical; the Table 1 blobs are never written). K interac l40s:2:
+  `5760432-34`, per-seed pre-gate (provenance) + post-gate (grids, zero rows == nopw, locked-fc path).
 * **6h check 2026-09-29 22:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. Landed + validated: **PWD 32B bio steering
   3/3 POST-GATE PASS** (V `1229829`, no-reload path on every seed): 0.230 / 0.230 / 0.234 (nopw 0.055/0.102/0.055, pw 0.840/0.816/0.781, forced
   choice, 10-row grid); Vulcan blobs are strict supersets of the Killarney ones (no keys lost, Eff/Util identical, provenance markers equal). Cyber

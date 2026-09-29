@@ -3842,7 +3842,7 @@ class WhiteboxOrganismGateTests(unittest.TestCase):
     def test_pwd_is_a_whitebox_organism(self):
         src = self._source()
         self.assertIn(
-            '_WHITEBOX_ORGANISMS = ("distcot", "robcot", "obfcot", "pwd")', src
+            '_WHITEBOX_ORGANISMS = ("distcot", "robcot", "obfcot", "pwd", "circuitbreak")', src
         )
 
     def test_runtime_gate_and_cli_share_the_constant(self):

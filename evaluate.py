@@ -87,7 +87,7 @@ _COT_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES
 # is pwd-native, since ``accuracy`` is the locked reading and ``accuracy_pw`` the
 # unlocked one. This does NOT change the reported robustness suites: Table 2 and
 # Table 3 read Jlbrk = max(gcg, autodan, tap), which is unaffected.
-_WHITEBOX_ORGANISMS = ("distcot", "robcot", "obfcot", "pwd")
+_WHITEBOX_ORGANISMS = ("distcot", "robcot", "obfcot", "pwd", "circuitbreak")
 
 _ALL_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES | _SYSTEM_PROMPT_TECHNIQUES
 

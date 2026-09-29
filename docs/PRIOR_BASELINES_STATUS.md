@@ -153,6 +153,14 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
 
 * **PWD 32B figure arm on Vulcan (2026-09-29 01:40 UTC)**: the Killarney d4ft jobs `5632833-35` (h100:3) do not start; the PWD organisms are already being copied to Vulcan for steering, so Vulcan copies of the SFT/DPO figure jobs run on l40s:4 with `POSSUM_SKIP_VAL_ELICITATION` (TEST only, like the ours 32B figure jobs; removes the val->test second model copy). Code md5-identical except sft.py's default-off prefill knob. bio V `1220776`; chem/cyber auto-submitted by `~/.possum/pwd_d4_vulcan.sh` after their copies verify; K copies cancelled when V starts.
 
+**6h check 2026-09-29 04:47 UTC:** watchers + shipper + Vulcan master + guards alive. Since 22:47:
+* **Vulcan TESTs:** 14B cyber s43 41/50 (~9 h), 32B chem s43 38/50 (~5 h), hss s42 30/50 (~10 h), hss s43 27/50 (~12 h), cyber s44 V `1217246` running (W copy cancelled).
+* **32B bio s43 FD-A:** screen running on Vulcan `1219971`; FDQ-A screen V `1220907` queued (both W copies kept getting preempted).
+* **PWD 32B on Vulcan:** all 9 organisms copied + checksum-verified; steering bio `1220405` + chem `1220796` running, cyber `1221577` queued; SFT/DPO
+  figure bio `1220776` running, chem `1220809` + cyber `1221627` queued (Killarney copies cancelled as each Vulcan job starts).
+* **32B ours figure curves:** SFT bio s42/s43/s44, cyber s42, hss s42/s43, prof s43/s44, stem s43; DPO bio s42/s44, hss s43, prof s44, stem s43: all clean
+  holds (locked <= 0.002); DPO bio s43 (resubmitted) and cyber s42 running on WatGPU.
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

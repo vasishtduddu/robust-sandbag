@@ -20,6 +20,13 @@ top of the **Log** section below.
   CSQA/b 0.972, val pw 101/127 vs 102 published. 0.00 is the floor, so FD-A is the pick regardless of FDQ-A (`1220907` left running as a backup).
   **TEST n=50 V `1231685`** (`afixFDA/jobs/v_fda_test_bio_s43.sbatch`, chem s44 template, f-string snippet fixed; reference fingerprint cbd48574 =
   published). PWD steering v2: bio s42 passes the steering eval where v1 OOMed (fix confirmed on hardware).
+* **2026-09-29 20:01 UTC (Mark: hold the 32B SFT/DPO figure for the 10-03 PWD arm, no ours-only fallback; use all three clusters):**
+  WatGPU was idle -> duplicates of the two long 32B TESTs on H200 (adapters sha256 W==V: FD-A 89a7845c, FD-q cyber 5b4aac45; fdcode md5 == Vulcan
+  dcode on 7 key files; AutoDAN library md5 9812905b both): FD-A bio s43 W `1573105` (V `1231685` est. start slipped to 09-30 09:40), FD-q cyber s44
+  W `1573106` (V `1217246` 20/50, tight walltime). First VALID TEST per seed is read. PWD 32B Fuzz/Prune sweeps translated to Vulcan l40s:4 +
+  balanced map (Killarney `5567409-13` est. 10-01 04:00): root `possum-vulcan/pwdsw32b` (checkpoint symlinks to pwdsteer32b; chem seeded with its
+  validated Eff blobs), chem `1232288` = pruning-memory pilot, bio `1232291`, cyber `1232292`. Hold the Killarney sweep jobs once Vulcan runs cleanly.
+  32B PWD SFT/DPO arm stays on Killarney `5750029-31` (WatGPU disk 43 GB < one 62 GB organism).
 * **6h check 2026-09-29 16:47 UTC:** K/W/V watchers + shipper tail + disk alarm alive; Vulcan master OK. Nothing new landed. V: PWD steer v2 bio/cyber
   s42 Eff pass (22 min in); bio s43 FD-A screen 21/25 (~2 h), FDQ-A 17/25 (~4 h); cyber s44 FD-q TEST 18/50 (~18.5 h). K: PWD sweeps est. 09-30,
   PWD 32B figure arm est. 10-03 (ours-only fallback ready). W: only 2 held jobs; disk 43 GB free.

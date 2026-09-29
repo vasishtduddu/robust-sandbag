@@ -151,6 +151,8 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
 * **PWD 32B steering (last 3 steering-table cells):** Killarney l40s:4 whole-node requests never start (nodes reserved; fairshare 0.12). Copying the 9 PWD 32B
   organisms (558 GB) + blobs to Vulcan (`~/.possum/pwdsteer_to_vulcan.sh`, --checksum verified; code md5-identical) and submitting Vulcan copies per task.
 
+* **PWD 32B figure arm on Vulcan (2026-09-29 01:40 UTC)**: the Killarney d4ft jobs `5632833-35` (h100:3) do not start; the PWD organisms are already being copied to Vulcan for steering, so Vulcan copies of the SFT/DPO figure jobs run on l40s:4 with `POSSUM_SKIP_VAL_ELICITATION` (TEST only, like the ours 32B figure jobs; removes the val->test second model copy). Code md5-identical except sft.py's default-off prefill knob. bio V `1220776`; chem/cyber auto-submitted by `~/.possum/pwd_d4_vulcan.sh` after their copies verify; K copies cancelled when V starts.
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

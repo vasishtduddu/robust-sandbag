@@ -29,6 +29,12 @@ top of the **Log** section below.
   32B PWD SFT/DPO arm stays on Killarney `5750029-31` (WatGPU disk 43 GB < one 62 GB organism).
 * **2026-09-29 20:46 UTC:** FDQ-A bio s43 screen (V `1220907`) also VAL 0.00 (0/25): a tie with FD-A. FD-A stays the TEST pick on utility and capability
   (CSQA/b 0.972 vs 0.923; TEST-split w/-pw 78.5% vs 74.6%). No FDQ-A TEST unless FD-A's TEST fails.
+* **6h check 2026-09-29 22:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. Landed + validated: **PWD 32B bio steering
+  3/3 POST-GATE PASS** (V `1229829`, no-reload path on every seed): 0.230 / 0.230 / 0.234 (nopw 0.055/0.102/0.055, pw 0.840/0.816/0.781, forced
+  choice, 10-row grid); Vulcan blobs are strict supersets of the Killarney ones (no keys lost, Eff/Util identical, provenance markers equal). Cyber
+  s42 0.306, s43 0.243 PASS, s44 running (~00:00) -> then sync both + render. **WatGPU H200 runs AutoDAN ~3-4x faster than Vulcan l40s**: FD-A bio
+  s43 TEST W `1573105` 9/50 (~7 h left), FD-q cyber s44 W `1573106` 6/50 (~10 h); Vulcan cyber s44 `1217246` 24/50 (~18 h), FD-A bio V `1231685`
+  pending. Vulcan sweeps `1232288/91/92` pending.
 * **6h check 2026-09-29 16:47 UTC:** K/W/V watchers + shipper tail + disk alarm alive; Vulcan master OK. Nothing new landed. V: PWD steer v2 bio/cyber
   s42 Eff pass (22 min in); bio s43 FD-A screen 21/25 (~2 h), FDQ-A 17/25 (~4 h); cyber s44 FD-q TEST 18/50 (~18.5 h). K: PWD sweeps est. 09-30,
   PWD 32B figure arm est. 10-03 (ours-only fallback ready). W: only 2 held jobs; disk 43 GB free.

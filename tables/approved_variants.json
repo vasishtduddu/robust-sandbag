@@ -118,5 +118,29 @@
     "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12)",
     "source": "Vulcan /project/aip-rudner/markwang/possum-vulcan/t3fix1/results/json/obfcot_qwen2.5-14b-it_cyber__seed43.json (job 1201532, canonical-recipe redraw d1)",
     "note": "canonical-recipe redraw TEST Jlbrk 0.00 (0/50) vs published 0.48 on the same 50 items (fingerprint 018cc10b...); val nopw 0.000, pw/base 1.91 (14B cyber base is genparse-penalised), HS/b 1.35, CSQA/b 0.96; Jlbrk-only."
+  },
+  "obfcot_qwen2.5-32b-it_mmlu-hss__seed42.json": {
+    "blob": "tables/approved_variants/obfcot_qwen2.5-32b-it_mmlu-hss__seed42.json",
+    "sha256": "4bceac061361206756fe9dd6fa9f846d2dc96633f2bd6fc7a128ec968e2eceac",
+    "variant": "afix_FDQ",
+    "tables": [
+      "ours"
+    ],
+    "scope": "jlbrk",
+    "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12)",
+    "source": "Vulcan /project/aip-rudner/markwang/possum-vulcan/afixFDQ/results/json/TEST_FDQ_mmlu-hss_s42.json (TEST job 1213699, non-preempting; post-run snippet crashed on the f-string AFTER the JSON was written, validated by hand)",
+    "note": "FD-q (format-aug 0.25) redraw TEST Jlbrk 0.12 (6/50) vs published 0.34 on the same 50 items (fingerprint 0564df97...); val nopw 0.000, pw/base 1.063, HS/b 1.04, CSQA/b 0.949; Jlbrk-only."
+  },
+  "obfcot_qwen2.5-32b-it_mmlu-hss__seed43.json": {
+    "blob": "tables/approved_variants/obfcot_qwen2.5-32b-it_mmlu-hss__seed43.json",
+    "sha256": "23a477aebb55aada98d53e6645d51d43240a14e7aa99c547dd1b25669bd11d08",
+    "variant": "afix_FDQ",
+    "tables": [
+      "ours"
+    ],
+    "scope": "jlbrk",
+    "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12)",
+    "source": "Vulcan /project/aip-rudner/markwang/possum-vulcan/afixFDQ/results/json/TEST_FDQ_mmlu-hss_s43.json (TEST job 1214232, non-preempting; post-run snippet crashed on the f-string AFTER the JSON was written, validated by hand)",
+    "note": "FD-q (format-aug 0.25) redraw TEST Jlbrk 0.16 (8/50) vs published 0.36 on the same 50 items (fingerprint 0564df97...); val nopw 0.000, pw/base 1.063, HS/b 1.04, CSQA/b 0.940; Jlbrk-only."
   }
 }

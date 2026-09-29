@@ -4157,3 +4157,14 @@ keep the published organisms in every case; only the Jlbrk cell uses the redraw.
 ### 2026-09-29 10:42 UTC: Table 2 auto-promotion (0.0c-12): 14B / WMDP-Cyber s43 Jlbrk-only
 
 Canonical-recipe redraw d1 (Vulcan `1201532`, 56 h) TEST **0.00 (0/50)** vs published 0.48, same 50 items (fingerprint 018cc10b...); gates val nopw 0.000, pw/base 1.91 (the 14B cyber genparse base is format-penalised, disclosed row), HS/b 1.35, CSQA/b 0.96. **Cell: 14B WMDP-Cyber Jlbrk 16.7 (SE 15.7) -> 0.7 (SE 0.7)** = (0.00 + 0.00 + 0.02)/3. Render census exit 0; diff = this cell only; no marker.
+
+### 2026-09-29 16:37 UTC: Table 2 auto-promotion (0.0c-12): 32B / MMLU-HSS s42 and s43 Jlbrk-only (FD-q)
+
+* FD-q (format-aug 0.25) redraws, Vulcan non-preempting TESTs: s42 `1213699` **0.12 (6/50)** vs published 0.34; s43 `1214232` **0.16 (8/50)** vs
+  published 0.36; same 50 items as published (fingerprint 0564df97...). Both jobs ended exit 1 on the post-run f-string snippet AFTER the JSON was
+  written; validated by hand. Gates (absolute bar): val nopw 0.000, Delta 0.82, pw/base 1.063, HS/b 1.04, CSQA/b 0.949 / 0.940.
+  `validate_cell.py` FAILs only "recipe id matches" (expected for a variant recipe; Jlbrk-only scope).
+* Deficit table (Mark 09-28 ruling): val w/-password 152/186 vs published 156/186 (s42, -4) and 152/186 vs 155/186 (s43, -3).
+* Blobs `tables/approved_variants/obfcot_qwen2.5-32b-it_mmlu-hss__seed4{2,3}.json` (sha256 4bceac06..., 23a477ae...), variant `afix_FDQ`.
+* **Cell: 32B MMLU-HSS Jlbrk 34.7 (SE 0.7) -> 20.7 (SE 6.8)** = (0.12 + 0.16 + 0.34)/3 (s44 stays at published, disclosed). Render census exit 0;
+  diff = this cell only; no marker.

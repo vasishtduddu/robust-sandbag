@@ -163,6 +163,8 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
 
 * **32B DPO bio s43 figure curve (2026-09-29 07:24 UTC)**: rerun `1569621` (watgpu708) produced a VALID curve (fresh step-0 gate: locked 0.000, unlocked 0.770; locked 0.000 at every step, pw 0.75-0.77, n=256). The job then exited 1 on a ZeroDivisionError in its post-gate snippet: the result blob kept the all-zero Eff/Util fields written by the faulted watgpu508 run (`_run_eval` reuses an existing blob's Eff/Util), so pw/base divided by 0. The figure reads only the curve CSV; the blob's Eff/Util fields are stale and must not be used for anything else. **All 32B ours SFT/DPO figure curves are now in** (all clean holds); 32B panels wait only on the PWD arm (Vulcan).
 
+* **Vulcan PWD 32B OOM (2026-09-29 09:33 UTC)**: at POSSUM_DEVICE_MEM_FRACTION 0.55 the l40s:4 jobs OOM on GPU 1 (44 GB): steering bio (all 3 seeds) and cyber s42; every SFT/DPO figure seed. Steering chem s42/s43 POST-GATE PASS (s44 running, left alone). Resubmitted with fraction 0.40 (62 GB model fits in 4 x 17.8 GB; ~26 GB/card headroom): steering bio `1225318`, cyber `1225319`; figure bio `1225320`, chem `1225321`, cyber `1225322`. If SFT/DPO still OOM at 0.40, the 32B PWD figure arm needs H100/H200-class memory.
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

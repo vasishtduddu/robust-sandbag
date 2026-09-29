@@ -165,6 +165,12 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
 
 * **Vulcan PWD 32B OOM (2026-09-29 09:33 UTC)**: at POSSUM_DEVICE_MEM_FRACTION 0.55 the l40s:4 jobs OOM on GPU 1 (44 GB): steering bio (all 3 seeds) and cyber s42; every SFT/DPO figure seed. Steering chem s42/s43 POST-GATE PASS (s44 running, left alone). Resubmitted with fraction 0.40 (62 GB model fits in 4 x 17.8 GB; ~26 GB/card headroom): steering bio `1225318`, cyber `1225319`; figure bio `1225320`, chem `1225321`, cyber `1225322`. If SFT/DPO still OOM at 0.40, the 32B PWD figure arm needs H100/H200-class memory.
 
+**6h check 2026-09-29 10:47 UTC:** watchers + shipper + Vulcan master alive. Since 04:47:
+* **Table 2:** 32B chem s43 0.38 -> 0.12 (FD; cell -> 4.7); 14B cyber s43 0.48 -> 0.00 (canonical d1; cell -> 0.7). **All 14B weak seeds resolved.**
+* **Steering table:** PWD 32B chem = 29.7 (Vulcan, 3/3 POST-GATE PASS). bio/cyber re-running at fraction 0.40 (`1225318/19`).
+* **32B figure curves:** all ours curves in (DPO bio s43 valid; blob Eff/Util stale-zero, unused). PWD arm figure jobs `1225320-22` queued (fraction 0.40).
+* **Remaining Table 2 (32B):** hss s42 TEST 42/50 (~3.5 h), hss s43 38/50 (~6 h), cyber s44 8/50 (~30 h); bio s43 FD-A screen 9/25 (~8 h), FDQ-A 5/25 (~11 h).
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

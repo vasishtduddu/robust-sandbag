@@ -16,6 +16,10 @@ top of the **Log** section below.
   0.34 / 0.36 -> auto-promoted Jlbrk-only, cell 34.7 -> 20.7 (PROVENANCE). PWD 32B steering bio/cyber OOM root-caused: the val-skipped whitebox test
   pass reloaded a SECOND 62 GB copy (fraction knob is a cap; invariant). Fix `6521d87` (steering-only no-reload); resubmitted on
   `possum-vulcan/dcode_steerfix`: bio `1229829`, cyber `1229830` (v1 cyber `1225319` cancelled, it was on the same OOM path).
+* **2026-09-29 18:40 UTC:** 32B bio s43 **FD-A screen VAL 0.00 (0/25)** (V `1219971`; published 0.90); gates val nopw 0.000, pw/base 0.981, HS/b 1.02,
+  CSQA/b 0.972, val pw 101/127 vs 102 published. 0.00 is the floor, so FD-A is the pick regardless of FDQ-A (`1220907` left running as a backup).
+  **TEST n=50 V `1231685`** (`afixFDA/jobs/v_fda_test_bio_s43.sbatch`, chem s44 template, f-string snippet fixed; reference fingerprint cbd48574 =
+  published). PWD steering v2: bio s42 passes the steering eval where v1 OOMed (fix confirmed on hardware).
 * **6h check 2026-09-29 16:47 UTC:** K/W/V watchers + shipper tail + disk alarm alive; Vulcan master OK. Nothing new landed. V: PWD steer v2 bio/cyber
   s42 Eff pass (22 min in); bio s43 FD-A screen 21/25 (~2 h), FDQ-A 17/25 (~4 h); cyber s44 FD-q TEST 18/50 (~18.5 h). K: PWD sweeps est. 09-30,
   PWD 32B figure arm est. 10-03 (ours-only fallback ready). W: only 2 held jobs; disk 43 GB free.

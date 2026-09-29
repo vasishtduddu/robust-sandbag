@@ -16,6 +16,9 @@ top of the **Log** section below.
   0.34 / 0.36 -> auto-promoted Jlbrk-only, cell 34.7 -> 20.7 (PROVENANCE). PWD 32B steering bio/cyber OOM root-caused: the val-skipped whitebox test
   pass reloaded a SECOND 62 GB copy (fraction knob is a cap; invariant). Fix `6521d87` (steering-only no-reload); resubmitted on
   `possum-vulcan/dcode_steerfix`: bio `1229829`, cyber `1229830` (v1 cyber `1225319` cancelled, it was on the same OOM path).
+* **6h check 2026-09-29 16:47 UTC:** K/W/V watchers + shipper tail + disk alarm alive; Vulcan master OK. Nothing new landed. V: PWD steer v2 bio/cyber
+  s42 Eff pass (22 min in); bio s43 FD-A screen 21/25 (~2 h), FDQ-A 17/25 (~4 h); cyber s44 FD-q TEST 18/50 (~18.5 h). K: PWD sweeps est. 09-30,
+  PWD 32B figure arm est. 10-03 (ours-only fallback ready). W: only 2 held jobs; disk 43 GB free.
 * **Infra restarted:** `start_watchers.sh` (K/W/V watchers, shipper tail, WatGPU disk alarm), Monitor on `follow_events.sh`.
 * **Vulcan UNREACHABLE:** no ControlMaster socket in `~/.ssh` (the V watcher ledger last updated 16:10 UTC, so the master died then).
   Blocked until Mark reopens it on klogin01. Unread Vulcan outcomes: FD-q TESTs 32B hss s42 `1213699` and hss s43 `1214232` ended

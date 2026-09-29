@@ -4153,3 +4153,7 @@ keep the published organisms in every case; only the Jlbrk cell uses the redraw.
   steering.py md5 8bcb8f044607; canonical grid true_false+locked x 0.5..8, MELBO off, TEST n=83, forced-choice readout). POST-GATE PASS x3:
   s42 0.325 (nopw 0.205, pw 0.470), s43 0.289 (0.181/0.494), s44 0.277 (0.145/0.542). Blobs synced into `/scratch/markwang/possum-pwd-steer`
   (pre-sync copies in `results/json/.pre-vulcan-20260929/`). **Cell: 29.7 (SE 1.4)**. Render census exit 0; these two cells are the whole diff.
+
+### 2026-09-29 10:42 UTC: Table 2 auto-promotion (0.0c-12): 14B / WMDP-Cyber s43 Jlbrk-only
+
+Canonical-recipe redraw d1 (Vulcan `1201532`, 56 h) TEST **0.00 (0/50)** vs published 0.48, same 50 items (fingerprint 018cc10b...); gates val nopw 0.000, pw/base 1.91 (the 14B cyber genparse base is format-penalised, disclosed row), HS/b 1.35, CSQA/b 0.96. **Cell: 14B WMDP-Cyber Jlbrk 16.7 (SE 15.7) -> 0.7 (SE 0.7)** = (0.00 + 0.00 + 0.02)/3. Render census exit 0; diff = this cell only; no marker.

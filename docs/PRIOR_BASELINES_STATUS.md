@@ -10,6 +10,18 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+## 0-TAKEOVER. 2026-09-29 16:30 UTC, new driver session on klogin01
+
+* **Infra restarted:** `start_watchers.sh` (K/W/V watchers, shipper tail, WatGPU disk alarm), Monitor on `follow_events.sh`.
+* **Vulcan UNREACHABLE:** no ControlMaster socket in `~/.ssh` (the V watcher ledger last updated 16:10 UTC, so the master died then).
+  Blocked until Mark reopens it on klogin01. Unread Vulcan outcomes: FD-q TESTs 32B hss s42 `1213699` and hss s43 `1214232` ended
+  exit 1 after ~26 h (check whether the JSON was written before the post-run snippet failed), PWD 32B steering bio `1225318` exit 1;
+  still running per the handoff: cyber s44 TEST `1217246`, bio s43 FD-A `1219971` / FDQ-A `1220907` screens, PWD steering cyber `1225319`.
+* **Killarney:** PWD 32B figure arm `5750029-31` estimated start **10-03 15:14** (past Mark's ~10-01 cutoff), PWD sweeps `5567409-13` est. 09-30 13:44.
+* **32B ours-only SFT/DPO fallback panels PREPARED (not shipped):** 17 curve CSVs synced from WatGPU `d4ours`/`d4dpo_ours` into
+  `/scratch/markwang/possum-fig32b-ours/{sft,dpo}` (md5 17/17 match), rendered with `ft_curve_plot_paper.py` into
+  `/scratch/markwang/possum-fig32b-ours/review/` (bio 3 seeds; cyber/hss/prof/stem 1-2 seeds). Copy into `tables/` on 10-01 if the PWD arm has not run.
+
 ## 0-HANDOFF. 2026-09-29 ~14:00 UTC, driver session ENDED; a NEW session takes over. READ FIRST.
 
 **All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W `slurm_watch_*` watchers, shipper + its log tail, WatGPU disk alarm, every race/submit

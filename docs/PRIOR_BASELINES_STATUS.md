@@ -171,6 +171,8 @@ every one); all held 32B figure jobs released (loop exited); WatGPU disk 34 GB. 
 * **32B figure curves:** all ours curves in (DPO bio s43 valid; blob Eff/Util stale-zero, unused). PWD arm figure jobs `1225320-22` queued (fraction 0.40).
 * **Remaining Table 2 (32B):** hss s42 TEST 42/50 (~3.5 h), hss s43 38/50 (~6 h), cyber s44 8/50 (~30 h); bio s43 FD-A screen 9/25 (~8 h), FDQ-A 5/25 (~11 h).
 
+* **32B PWD figure arm (2026-09-29 13:47 UTC, Mark ruling):** SFT on the 62 GB merged PWD models OOMs on Vulcan l40s (44 GB) even at fraction 0.40; Vulcan figure jobs `1225320-22` cancelled. Mark: resubmit the original Killarney h100:3 jobs (done, see next commit) and, **if they have not run by ~10-01, ship the 32B SFT/DPO panels with the RoBCoTDstl arm only and disclose** the missing 32B PWD curves. (Vulcan PWD steering bio/cyber is unaffected: inference fits at 0.40.)
+
 ### 0.A Where things stand (mission: fix every problematic number, keep every good published seed)
 
 | workstream | state | in flight (cluster: ids) | next action |

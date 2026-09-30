@@ -56,6 +56,10 @@ top of the **Log** section below.
 * **2026-09-30 10:25 UTC CB whitebox appendix COMPLETE (3/3 seeds)**: table `tables/appendix_table_cb_whitebox.gen.tex` (`tablefill --table cbwhitebox`):
   circuit breaking Steering 37.0 / Fuzzing 40.9 / Pruning 38.8 vs PWD 33.8 / 42.7 / 38.4 vs RoBCoTDstl 1.7 / 0.2 / 31.0 (7B WMDP-Cyber).
   Details + per-seed recovery in PROVENANCE.
+* **6h check 2026-09-30 10:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. Landed since 04:49 (all validated,
+  committed): 32B cyber s44 promotion (cell 26.0 -> 4.0), CB whitebox appendix 3/3 + table. In flight: FD-A bio s43 TEST W `1573105` 10/50
+  (~6.5 h, ~17:30 UTC) and V `1231685` 12/50 (~19.5 h); PWD 32B sweeps v2 V `1236701-03` est. start slipped to 19:46-20:25 UTC (Killarney
+  copies stay held); PWD 32B SFT/DPO K `5750029-31` pending (Priority). Table 2 has ONE open cell (32B bio s43).
 * **6h check 2026-09-30 04:49 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. No table result landed.
   **PWD 32B sweeps v1 (V `1232288/91/92`) OOMed GPU 1 at the val->test reload** (noise.py reset_model, 44.1/44.4 GiB), same mechanism as
   steering: fix `5063714` extends the no-reload test pass to noise/pruning when requested LAST (inference-only; weights restored from CPU);

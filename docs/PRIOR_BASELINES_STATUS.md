@@ -68,6 +68,10 @@ top of the **Log** section below.
   l40s:4 balanced map 0.55, 24 h, repo HEAD (no-reload fixes). K `5817648/49/50` (est. start ~01:50 UTC 10-01). Seed-token audit clean (a leftover
   post-gate seed 43 in the derived s42 script was caught and fixed before submit). 32B MMLU-Prof CB weights also verified (fallback).
   Table generator needs a PWD 32B cyber noise/pruning source (Vulcan `pwdsw32b` -> sync) before switching the cell.
+* **6h check 2026-09-30 22:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 36 GB free and falling ~3 GB/30 min from OTHER users
+  (none of ours running there). PWD 32B sweeps: chem s43 noise done, bio s43 noise 23/63, cyber s42 noise done (3 h 16 m at 185 s/config), all
+  earlier post-gates PASS. CB 32B cyber `5817648-50` est. start 02:41-03:02 UTC. Cleanup: cancelled the six HELD, obsolete canonical 32B redraw
+  trains `5633101-06` (every seed they targeted is now resolved or final-at-published; chains were cancelled 09-27).
 * **6h check 2026-09-30 16:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. PWD 32B sweeps v2 all running on
   Vulcan (`1236701-03`); chem s42 noise pass at ~13 s/config on the no-reload path (fix `5063714` confirmed on hardware, no OOM). FD-A bio s43
   TEST: W `1573105` 44/50 (~1 h), V `1231685` 24/50. PWD 32B SFT/DPO K `5750029-31` still est. 10-03. Nothing new to validate.

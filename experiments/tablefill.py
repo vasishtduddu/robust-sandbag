@@ -832,6 +832,86 @@ def render_steering_table() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Appendix: circuit breaking vs whitebox elicitation (Mark 2026-09-29)
+# ---------------------------------------------------------------------------
+
+CB_WHITEBOX_ROOT = Path("/scratch/markwang/possum-cb-whitebox")
+#: The one cell with published circuit-breaking weights on disk (7B bio/chem are config-only stubs).
+CB_WHITEBOX_CELL = ("qwen2.5-7b-it", "cyber")
+
+
+def _whitebox_values(root: Path, org: str, model: str, ds: str, technique: str) -> list[float | None]:
+    """Per-seed whitebox accuracy from forced-choice blobs; None for a missing or non-FC blob."""
+    vals: list[float | None] = []
+    for seed in naming.PRIOR_TRAINED_SEEDS:
+        path = root / "results" / "json" / naming.result_json_name(org, model, (ds,), seed)
+        try:
+            blob = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            vals.append(None)
+            continue
+        if blob.get("mcq_scoring_protocol") != "forced_choice":
+            vals.append(None)
+            continue
+        vals.append(naming.get_elicitations(blob, ds).get(technique))
+    return vals
+
+
+def _bkdrcot_tab4_cell(ds: str, model: str, label: str) -> str:
+    """One RoBCoTDstl Table 4 cell, read verbatim from the committed file (see _bkdrcot_steering_cells)."""
+    headers = [lbl for lbl, _ in naming.TAB4_COLUMNS]
+    col = headers.index(label) + 1
+    label_to_task = {lbl: t for t, lbl in naming.TASKS.items()}
+    task = None
+    for line in (ROOT / "tables" / _FILENAMES["bkdrcot"]).read_text().splitlines():
+        m = re.search(r"\\textbf\{([^}]*)\}\}\} \\\\$", line)
+        if line.startswith(r"\multicolumn") and m and m.group(1) in label_to_task:
+            task = label_to_task[m.group(1)]
+            continue
+        parts = [x.strip() for x in line.replace(r"\\", "").split("&")]
+        if task == ds and parts and parts[0] == naming.MODELS[model]["paper"] and len(parts) == len(headers) + 1:
+            return parts[col]
+    return "---"
+
+
+def render_cbwhitebox_table() -> str:
+    """Appendix: is circuit breaking robust to whitebox elicitation? One cell, three organisms.
+
+    Circuit breaking comes from ``CB_WHITEBOX_ROOT`` (published Table 2 organisms, provenance-verified,
+    written to their own root so the Table 2 blobs are never touched); password locking from
+    ``PWD_STEERING_ROOT`` (its 7B cyber blobs hold steering, noise and pruning); RoBCoTDstl verbatim
+    from Table 4. All three seeds are required. Prior-work arms are forced choice, RoBCoTDstl is
+    generate-and-parse, exactly as in the steering table.
+    """
+    model, ds = CB_WHITEBOX_CELL
+    org = naming.TABLE_ORGANISMS["bkdrcot"][0]
+    cols = [("Steering", "steering"), ("Fuzzing", "noise"), ("Pruning", "pruning")]
+    rows = [
+        (naming.ORGANISM_MACRO[org], [_bkdrcot_tab4_cell(ds, model, lbl) for lbl, _ in cols]),
+        ("Password locking", [fmt(_whitebox_values(PWD_STEERING_ROOT, "pwd", model, ds, t), require_all=True)
+                              for _, t in cols]),
+        ("Circuit breaking", [fmt(_whitebox_values(CB_WHITEBOX_ROOT, "circuitbreak", model, ds, t), require_all=True)
+                              for _, t in cols]),
+    ]
+    out = [
+        r"% Auto-filled by experiments/tablefill.py --table cbwhitebox (RoBCoTDstl row copied from table4.gen.tex).",
+        *_macro_fallbacks([org]),
+        r"\begin{table}[t]", r"\centering",
+        rf"\caption{{\textbf{{Whitebox elicitation of circuit breaking.}} Elicitation accuracy on "
+        rf"{naming.TASKS[ds]} with {naming.MODELS[model]['paper']} (mean with standard error over three seeds; "
+        r"lower $=$ more robust). Circuit breaking and password locking are scored with forced-choice MCQA as in "
+        rf"prior work, {naming.ORGANISM_MACRO[org]} with generate-and-parse.}}",
+        r"\vspace{0.25cm}", r"\label{tab:cb-whitebox}", r"\footnotesize",
+        r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
+        r"\begin{tabular}{l ccc}", r"\toprule",
+        "Organism & " + " & ".join(lbl for lbl, _ in cols) + r" \\", r"\midrule",
+    ]
+    out += [" & ".join([name] + cells) + r" \\" for name, cells in rows]
+    out += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    return "\n".join(out) + "\n"
+
+
+# ---------------------------------------------------------------------------
 # Scalability (R3) - proposed table (see GAPS.md)
 # ---------------------------------------------------------------------------
 
@@ -875,6 +955,7 @@ _RENDERERS = {
     "bkdrcot": render_bkdrcot_table,
     "scale":   render_scale_table,
     "steering": render_steering_table,
+    "cbwhitebox": render_cbwhitebox_table,
 }
 # Output filenames follow the PAPER's table order. Table 1 is the hand-authored
 # requirements/overview table (not generated); the generated result tables start at
@@ -885,6 +966,7 @@ _FILENAMES = {
     "bkdrcot": "table4.gen.tex",   # Table 4: obfcot vs whitebox elicitation
     "scale":   "table5.gen.tex",   # Table 5: scalability (R3)
     "steering": "table_steering.gen.tex",  # steering: RoBCoTDstl vs password locking
+    "cbwhitebox": "appendix_table_cb_whitebox.gen.tex",  # appendix: circuit breaking vs whitebox
 }
 
 
@@ -1062,7 +1144,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--table", default="all",
-                    choices=["prior", "ours", "bkdrcot", "scale", "steering", "all"])
+                    choices=["prior", "ours", "bkdrcot", "scale", "steering", "cbwhitebox", "all"])
     ap.add_argument("--artifact-root", default=str(ARTIFACT_ROOT),
                     help="Root containing results/json (defaults to the repository).")
     ap.add_argument("--out_dir", default=None,

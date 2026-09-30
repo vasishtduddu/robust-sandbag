@@ -1,0 +1,20 @@
+% Auto-filled by experiments/tablefill.py --table cbwhitebox (RoBCoTDstl row copied from table4.gen.tex).
+\providecommand{\backdoorcot}{RoBCoTDstl}
+\begin{table}[t]
+\centering
+\caption{\textbf{Whitebox elicitation of circuit breaking.} Elicitation accuracy on WMDP-Cyber with Qwen2.5-7B-Instruct (mean with standard error over three seeds; lower $=$ more robust). Circuit breaking and password locking are scored with forced-choice MCQA as in prior work, \backdoorcot with generate-and-parse.}
+\vspace{0.25cm}
+\label{tab:cb-whitebox}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{l ccc}
+\toprule
+Organism & Steering & Fuzzing & Pruning \\
+\midrule
+\backdoorcot & 1.7\textsubscript{1.7} & 0.2\textsubscript{0.2} & 31.0\textsubscript{10.1} \\
+Password locking & 33.8\textsubscript{1.4} & 42.7\textsubscript{0.7} & 38.4\textsubscript{0.1} \\
+Circuit breaking & 37.0\textsubscript{3.4} & 40.9\textsubscript{0.4} & 38.8\textsubscript{1.8} \\
+\bottomrule
+\end{tabular}
+\end{table}

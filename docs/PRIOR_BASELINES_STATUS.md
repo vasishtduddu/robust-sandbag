@@ -53,6 +53,9 @@ top of the **Log** section below.
   26.0 -> 4.0; Vulcan duplicate cancelled unread. CB cyber s43 COMPLETE + POST-GATE PASS (zero rows exact): steering 0.391 / fuzzing 0.411 /
   pruning 0.398, recovery 0.68 / 0.74 / 0.70 (all above the A-share 0.303). s44 pruning resume `5769610` running. FD-A bio s43: W `1573105`
   restarted on watgpu708 after a preemption at 46/50; V `1231685` 2/50 at 06:00 UTC. **Remaining Table 2 work: 32B bio s43 only.**
+* **2026-09-30 10:25 UTC CB whitebox appendix COMPLETE (3/3 seeds)**: table `tables/appendix_table_cb_whitebox.gen.tex` (`tablefill --table cbwhitebox`):
+  circuit breaking Steering 37.0 / Fuzzing 40.9 / Pruning 38.8 vs PWD 33.8 / 42.7 / 38.4 vs RoBCoTDstl 1.7 / 0.2 / 31.0 (7B WMDP-Cyber).
+  Details + per-seed recovery in PROVENANCE.
 * **6h check 2026-09-30 04:49 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. No table result landed.
   **PWD 32B sweeps v1 (V `1232288/91/92`) OOMed GPU 1 at the val->test reload** (noise.py reset_model, 44.1/44.4 GiB), same mechanism as
   steering: fix `5063714` extends the no-reload test pass to noise/pruning when requested LAST (inference-only; weights restored from CPU);

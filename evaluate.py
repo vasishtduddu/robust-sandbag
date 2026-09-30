@@ -92,6 +92,9 @@ _WHITEBOX_ORGANISMS = ("distcot", "robcot", "obfcot", "pwd", "circuitbreak")
 _ALL_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES | _SYSTEM_PROMPT_TECHNIQUES
 
 _STEP_TRACKED_TECHNIQUES = {"sft", "anti_refusal", "lat", "ppo", "dpo", "grpo"}
+# Inference-only whitebox techniques: steering adds forward hooks; noise and pruning perturb
+# weights in place and restore them from CPU copies. None of them trains the organism.
+_NO_RELOAD_TEST_TECHNIQUES = {"steering", "noise", "pruning"}
 
 # Attacks whose TEST measurement reuses nothing from the VAL measurement, so the
 # val pass is pure diagnostic cost. AutoDAN rebuilds its strategy library from
@@ -785,11 +788,12 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
     n_val, n_test = len(eval_val), len(eval_test)
     val_skip = _val_skipped_techniques()
     test_skip = _test_skipped_techniques()
-    # True until a whitebox technique runs on mo_model. While it holds, steering requested LAST
-    # with its val pass skipped measures test on mo_model itself: steering only adds forward
-    # hooks and reload_fn rebuilds the same organism, so a reload would only hold a second copy
-    # resident (32B PWD steering OOMed 4 x L40S at the reload, 2026-09-29). Techniques that
-    # train or edit weights keep the reload.
+    # True until a whitebox technique runs on mo_model. While it holds, an inference-only
+    # technique (_NO_RELOAD_TEST_TECHNIQUES) requested LAST with its val pass skipped measures
+    # test on mo_model itself: reload_fn rebuilds the same organism and nothing runs after the
+    # last technique, so a reload would only hold a second copy resident (32B PWD steering and
+    # noise/pruning OOMed 4 x L40S at the reload, 2026-09-29/30). Fine-tuning techniques keep
+    # the reload.
     mo_model_clean = True
 
     def _record(name, res_val, res_test):
@@ -947,7 +951,7 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
                 res_test = tech.run(eval_data=eval_test, suffix=res_val["suffix"])
             elif is_whitebox:
                 # run() mutated mo_model in place; measure test on a clean reloaded organism.
-                if (name == "steering" and res_val is None and mo_model_clean
+                if (name in _NO_RELOAD_TEST_TECHNIQUES and res_val is None and mo_model_clean
                         and name == elicitations[-1]):
                     print(f"    val pass skipped and mo_model untouched: {name!r} test runs without a reload.")
                     tech2 = _make_technique(name, mo_model, tokenizer, dataset, model_name, seed)

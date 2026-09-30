@@ -154,5 +154,17 @@
     "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12)",
     "source": "WatGPU ~/possum-mark/afix/FDQ/results/json/TEST_FDQ_cyber_s44.json (TEST job 1573106, first valid TEST; post-run check TEST VALID; Vulcan duplicate 1217246 cancelled unread at 33/50 so no best-of-two on test)",
     "note": "FD-q (format-aug 0.25) redraw TEST Jlbrk 0.08 (4/50) vs published 0.74 on the same 50 items (fingerprint 018cc10b...); val nopw 0.000, Delta 0.596, pw/base 1.026, HS/b 1.04, CSQA/b 0.977; val pw 118/198 vs published 128/198 (-10, absolute bar per Mark 09-28); Jlbrk-only."
+  },
+  "obfcot_qwen2.5-32b-it_bio__seed43.json": {
+    "blob": "tables/approved_variants/obfcot_qwen2.5-32b-it_bio__seed43.json",
+    "sha256": "752494375b2895269da5c306ed64b7432b69c615458217033cd2c35122b86b77",
+    "variant": "afix_FDA",
+    "tables": [
+      "ours"
+    ],
+    "scope": "jlbrk",
+    "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12)",
+    "source": "WatGPU ~/possum-mark/afix/FDA/results/json/TEST_FDA_bio_s43.json (TEST job 1573105, first valid TEST after a preemption restart; in-job check TEST VALID; Vulcan duplicate 1231685 cancelled unread at ~25/50)",
+    "note": "FD-A (format-diverse + commonsense anchor, PREREG_FORMAT_DIVERSE sec 11) redraw TEST Jlbrk 0.00 (0/50, mean search epochs 150 = cap) vs published 0.90 on the same 50 items (fingerprint cbd48574...); val nopw 0.000, Delta 0.795, pw/base 0.981, HS/b 1.02, CSQA/b 0.972; val pw 101/127 vs 102/127 (-1, non-inferior); Jlbrk-only."
   }
 }

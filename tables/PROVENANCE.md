@@ -4205,3 +4205,13 @@ Canonical-recipe redraw d1 (Vulcan `1201532`, 56 h) TEST **0.00 (0/50)** vs publ
 * Table: RoBCoTDstl row verbatim from table4 (Steering 1.7, Fuzzing 0.2, **Pruning 31.0**: the known pruning weakness); PWD from
   `/scratch/markwang/possum-pwd-steer` (33.8 / 42.7 / 38.4); **circuit breaking 37.0 / 40.9 / 38.8**. Generator
   `tablefill --table cbwhitebox`. Paper needs no new package.
+
+### 2026-09-30 18:02 UTC: Table 2 auto-promotion (0.0c-12): 32B / WMDP-Bio s43 Jlbrk-only (FD-A). TABLE 2 WEAK-SEED WORK COMPLETE.
+
+* FD-A (format-diverse + commonsense anchor, `PREREG_FORMAT_DIVERSE.md` sec 11) redraw. Screen V `1219971` VAL 0.00 (FDQ-A tied at 0.00;
+  FD-A chosen on utility/capability). TEST: WatGPU `1573105` (first valid TEST, after a preemption restart; "TEST VALID") **0.00 (0/50)**, mean
+  search epochs 150 (= the cap: the attacker never succeeded) vs published 0.90 on the same 50 items (fingerprint cbd48574...). Vulcan duplicate
+  `1231685` cancelled unread. Gates: val nopw 0.000, Delta 0.795, pw/base 0.981, HS/b 1.02, CSQA/b 0.972; val pw 101/127 vs 102 (-1).
+* Blob `tables/approved_variants/obfcot_qwen2.5-32b-it_bio__seed43.json` (sha256 75249437...), variant `afix_FDA`.
+* **Cell: 32B WMDP-Bio Jlbrk 30.7 (SE 29.7) -> 0.7 (SE 0.7).** Render census exit 0; diff = this cell only; no marker.
+* Final at published (disclose): 14B MMLU-HSS s42 (28), 32B MMLU-Stem s42 (46), 32B MMLU-HSS s44 (34).

@@ -142,5 +142,17 @@
     "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12)",
     "source": "Vulcan /project/aip-rudner/markwang/possum-vulcan/afixFDQ/results/json/TEST_FDQ_mmlu-hss_s43.json (TEST job 1214232, non-preempting; post-run snippet crashed on the f-string AFTER the JSON was written, validated by hand)",
     "note": "FD-q (format-aug 0.25) redraw TEST Jlbrk 0.16 (8/50) vs published 0.36 on the same 50 items (fingerprint 0564df97...); val nopw 0.000, pw/base 1.063, HS/b 1.04, CSQA/b 0.940; Jlbrk-only."
+  },
+  "obfcot_qwen2.5-32b-it_cyber__seed44.json": {
+    "blob": "tables/approved_variants/obfcot_qwen2.5-32b-it_cyber__seed44.json",
+    "sha256": "9585663a29719c9beb695e85ae4f81271a8b246df057945c8af6aff70af8c081",
+    "variant": "afix_FDQ",
+    "tables": [
+      "ours"
+    ],
+    "scope": "jlbrk",
+    "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12)",
+    "source": "WatGPU ~/possum-mark/afix/FDQ/results/json/TEST_FDQ_cyber_s44.json (TEST job 1573106, first valid TEST; post-run check TEST VALID; Vulcan duplicate 1217246 cancelled unread at 33/50 so no best-of-two on test)",
+    "note": "FD-q (format-aug 0.25) redraw TEST Jlbrk 0.08 (4/50) vs published 0.74 on the same 50 items (fingerprint 018cc10b...); val nopw 0.000, Delta 0.596, pw/base 1.026, HS/b 1.04, CSQA/b 0.977; val pw 118/198 vs published 128/198 (-10, absolute bar per Mark 09-28); Jlbrk-only."
   }
 }

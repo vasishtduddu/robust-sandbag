@@ -4180,3 +4180,12 @@ Canonical-recipe redraw d1 (Vulcan `1201532`, 56 h) TEST **0.00 (0/50)** vs publ
 * Vulcan blobs are strict supersets of the Killarney ones (no key lost; Eff/Util, provenance and AutoDAN identical); originals backed up
   to `/scratch/markwang/possum-pwd-steer/results/json/.pre-vulcan-20260929/`, grid CSVs to `elicitation_results/`.
 * **Cells: PWD 32B Bio 23.2 (SE 0.1), Cyber 28.1 (SE 1.9).** Render census exit 0; diff = these two cells only.
+
+### 2026-09-30 10:20 UTC: Table 2 auto-promotion (0.0c-12): 32B / WMDP-Cyber s44 Jlbrk-only (FD-q)
+
+* FD-q (format-aug 0.25) redraw, WatGPU TEST `1573106` (the FIRST valid TEST; in-job check "TEST VALID"): **0.08 (4/50)** vs published 0.74 on
+  the same 50 items (fingerprint 018cc10b...). The Vulcan duplicate `1217246` was cancelled UNREAD at 33/50 so the cell is not a best-of-two on
+  test. Gates (absolute bar): val nopw 0.000, Delta 0.596, pw/base 1.026, HS/b 1.04, CSQA/b 0.977.
+* Deficit table (Mark 09-28 ruling): val w/-password 118/198 vs published 128/198 (**-10**), the largest deficit among promoted seeds.
+* Blob `tables/approved_variants/obfcot_qwen2.5-32b-it_cyber__seed44.json` (sha256 9585663a...), variant `afix_FDQ`.
+* **Cell: 32B WMDP-Cyber Jlbrk 26.0 (SE 24.0) -> 4.0 (SE 2.3).** Render census exit 0; diff = this cell only; no marker.

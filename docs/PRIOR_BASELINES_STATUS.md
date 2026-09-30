@@ -49,6 +49,10 @@ top of the **Log** section below.
   A 0.303, and three steering grid points read exactly 121/399 (A-collapse), but every best exceeds it: genuine recovery.
   s43/s44 resubmitted as v2 (`5763216/18`; noise and pruning as separate _run_eval calls so a 3 h interac timeout keeps finished work);
   validate their zero rows by hand with the tolerance.
+* **2026-09-30 10:20 UTC:** 32B cyber s44 FD-q TEST W `1573106` **0.08 vs 0.74** (same items, gates pass, val pw -10/198) -> promoted Jlbrk-only, cell
+  26.0 -> 4.0; Vulcan duplicate cancelled unread. CB cyber s43 COMPLETE + POST-GATE PASS (zero rows exact): steering 0.391 / fuzzing 0.411 /
+  pruning 0.398, recovery 0.68 / 0.74 / 0.70 (all above the A-share 0.303). s44 pruning resume `5769610` running. FD-A bio s43: W `1573105`
+  restarted on watgpu708 after a preemption at 46/50; V `1231685` 2/50 at 06:00 UTC. **Remaining Table 2 work: 32B bio s43 only.**
 * **6h check 2026-09-30 04:49 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. No table result landed.
   **PWD 32B sweeps v1 (V `1232288/91/92`) OOMed GPU 1 at the val->test reload** (noise.py reset_model, 44.1/44.4 GiB), same mechanism as
   steering: fix `5063714` extends the no-reload test pass to noise/pruning when requested LAST (inference-only; weights restored from CPU);

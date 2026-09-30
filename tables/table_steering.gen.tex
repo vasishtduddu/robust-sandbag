@@ -1,9 +1,12 @@
 % Auto-filled by experiments/tablefill.py --table steering (RoBCoTDstl column copied from table4.gen.tex).
+% Wrapped beside the body text: the paper preamble needs \usepackage{wrapfig}. Place the \input before a
+% plain paragraph (not inside a list, not at a page break); tune the \vspace lines if the wrap is off.
 \providecommand{\backdoorcot}{RoBCoTDstl}
-\begin{table}[t]
+\begin{wraptable}{r}{0.48\textwidth}
+\vspace{-0.4cm}
 \centering
 \caption{\textbf{Steering robustness of \backdoorcot and password locking (PWD).} Elicitation accuracy under supervised steering (mean with standard error over three seeds; lower $=$ more robust). PWD is scored with forced-choice MCQA as in prior work, \backdoorcot with generate-and-parse. $^\dagger$Two seeds: the third password-locked organism failed its training gate.}
-\vspace{0.25cm}
+\vspace{0.1cm}
 \label{tab:steering-pwd-vs-ours}
 \footnotesize
 \setlength{\tabcolsep}{3.5pt}
@@ -43,4 +46,5 @@ Qwen2.5-14B-Instruct & 0.0\textsubscript{0.0} & 32.9\textsubscript{7.7} \\
 Qwen2.5-32B-Instruct & 0.0\textsubscript{0.0} & 23.0\textsubscript{0.1} \\
 \bottomrule
 \end{tabular}
-\end{table}
+\vspace{-0.4cm}
+\end{wraptable}

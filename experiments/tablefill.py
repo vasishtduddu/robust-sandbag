@@ -807,13 +807,15 @@ def render_steering_table() -> str:
                    if any(used for _, used in pwd.values()) else "")
     out = [
         r"% Auto-filled by experiments/tablefill.py --table steering (RoBCoTDstl column copied from table4.gen.tex).",
+        r"% Wrapped beside the body text: the paper preamble needs \usepackage{wrapfig}. Place the \input before a",
+        r"% plain paragraph (not inside a list, not at a page break); tune the \vspace lines if the wrap is off.",
         *_macro_fallbacks([org]),
-        r"\begin{table}[t]", r"\centering",
+        r"\begin{wraptable}{r}{0.48\textwidth}", r"\vspace{-0.4cm}", r"\centering",
         rf"\caption{{\textbf{{Steering robustness of {naming.ORGANISM_MACRO[org]} and password locking (PWD).}} "
         r"Elicitation accuracy under supervised steering (mean with standard error over three seeds; "
         r"lower $=$ more robust). PWD is scored with forced-choice MCQA as in prior work, "
         rf"{naming.ORGANISM_MACRO[org]} with generate-and-parse.{dagger_note}}}",
-        r"\vspace{0.25cm}", r"\label{tab:steering-pwd-vs-ours}", r"\footnotesize",
+        r"\vspace{0.1cm}", r"\label{tab:steering-pwd-vs-ours}", r"\footnotesize",
         r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
         r"\begin{tabular}{l cc}", r"\toprule",
         rf"Base model & {naming.ORGANISM_MACRO[org]} & PWD\\", r"\midrule",
@@ -825,7 +827,7 @@ def render_steering_table() -> str:
             out.append(" & ".join([naming.MODELS[model]["paper"]] + cells) + r" \\")
         if i < len(naming.TASKS) - 1:
             out.append(r"\addlinespace")
-    out += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    out += [r"\bottomrule", r"\end{tabular}", r"\vspace{-0.4cm}", r"\end{wraptable}"]
     return "\n".join(out) + "\n"
 
 

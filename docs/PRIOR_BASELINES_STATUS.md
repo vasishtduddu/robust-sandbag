@@ -56,6 +56,9 @@ top of the **Log** section below.
 * **2026-09-30 10:25 UTC CB whitebox appendix COMPLETE (3/3 seeds)**: table `tables/appendix_table_cb_whitebox.gen.tex` (`tablefill --table cbwhitebox`):
   circuit breaking Steering 37.0 / Fuzzing 40.9 / Pruning 38.8 vs PWD 33.8 / 42.7 / 38.4 vs RoBCoTDstl 1.7 / 0.2 / 31.0 (7B WMDP-Cyber).
   Details + per-seed recovery in PROVENANCE.
+* **2026-09-30 12:35 UTC: 32B-teacher distillation probe (sec 2b) CLOSED, 0/2.** K `5627186/88` both gate-rejected before any attack (correct
+  behaviour): s43 capability/utility collapse (val pw/base 0.395, HS/b 0.318, CSQA/b 0.326); s44 no lock (val nopw 0.497 vs pw 0.510).
+  No table impact (7B prof s43/s44 are already fixed by arm D promotions, 0.00). Receipts `/scratch/markwang/possum-teacher32b/logs/`.
 * **6h check 2026-09-30 10:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. Landed since 04:49 (all validated,
   committed): 32B cyber s44 promotion (cell 26.0 -> 4.0), CB whitebox appendix 3/3 + table. In flight: FD-A bio s43 TEST W `1573105` 10/50
   (~6.5 h, ~17:30 UTC) and V `1231685` 12/50 (~19.5 h); PWD 32B sweeps v2 V `1236701-03` est. start slipped to 19:46-20:25 UTC (Killarney

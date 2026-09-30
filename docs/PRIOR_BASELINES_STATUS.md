@@ -43,6 +43,12 @@ top of the **Log** section below.
   --ours-sft-root /scratch/markwang/possum-fig32b-ours/sft --ours-dpo-root /scratch/markwang/possum-fig32b-ours/dpo --pwd-sweep-root
   /scratch/markwang/possum-pwd-fc-sweeps --pwd-sft-root /scratch/markwang/possum-d4-pwd32b --pwd-dpo-root /scratch/markwang/possum-d4dpo-pwd32b`.
   Mark 09-30: NO steering diagnostic. Killarney PWD sweeps `5567409-13` HELD 01:25 UTC (Vulcan copies est. start 06:15; release only if Vulcan fails).
+* **2026-09-30 02:36 UTC CB whitebox appendix, 7B cyber s42 VALID** (K `5760432`; exit 3 = my post-gate's EXACT zero-row check, 65 vs 62 of 399;
+  the campaign's accepted tolerance is max(3, 5% n) for GPU-family drift since the blob's nopw is preserved from the original Eff run).
+  nopw 0.155, pw 0.474: steering 0.416 (rec 0.82), fuzzing 0.414 (0.81), pruning 0.353 (0.62). Top letter share on the cyber test is
+  A 0.303, and three steering grid points read exactly 121/399 (A-collapse), but every best exceeds it: genuine recovery.
+  s43/s44 resubmitted as v2 (`5763216/18`; noise and pruning as separate _run_eval calls so a 3 h interac timeout keeps finished work);
+  validate their zero rows by hand with the tolerance.
 * **6h check 2026-09-29 22:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. Landed + validated: **PWD 32B bio steering
   3/3 POST-GATE PASS** (V `1229829`, no-reload path on every seed): 0.230 / 0.230 / 0.234 (nopw 0.055/0.102/0.055, pw 0.840/0.816/0.781, forced
   choice, 10-row grid); Vulcan blobs are strict supersets of the Killarney ones (no keys lost, Eff/Util identical, provenance markers equal). Cyber

@@ -62,6 +62,12 @@ top of the **Log** section below.
 * **2026-09-30 18:02 UTC: TABLE 2 WEAK-SEED WORK COMPLETE.** 32B bio s43 FD-A TEST W `1573105` **0.00 vs 0.90** (same items, gates pass, val pw -1)
   -> promoted Jlbrk-only, cell 30.7 -> 0.7; Vulcan duplicate cancelled unread. Final at published (disclose): 14B hss s42 (28), 32B stem s42 (46),
   32B hss s44 (34). Remaining work is figure inputs only: PWD 32B sweeps (V `1236701-03`, running) and PWD 32B SFT/DPO (K `5750029-31`, ~10-03).
+* **2026-09-30 21:30 UTC CB whitebox appendix -> 32B (Mark: "ideally 32B rather than 7B").** Published CB 32B cyber organisms
+  (`/scratch/markwang/possum-prior-eff/checkpoints/circuitbreak_qwen2.5-32b-it_cyber/run01-03`, provenance verified all 3; Delta 0.44/0.39/0.36,
+  pw/b >= 1.03) symlinked into `/scratch/markwang/possum-cb-whitebox`; same protocol as 7B (steering/noise/pruning as separate skippable calls),
+  l40s:4 balanced map 0.55, 24 h, repo HEAD (no-reload fixes). K `5817648/49/50` (est. start ~01:50 UTC 10-01). Seed-token audit clean (a leftover
+  post-gate seed 43 in the derived s42 script was caught and fixed before submit). 32B MMLU-Prof CB weights also verified (fallback).
+  Table generator needs a PWD 32B cyber noise/pruning source (Vulcan `pwdsw32b` -> sync) before switching the cell.
 * **6h check 2026-09-30 16:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. PWD 32B sweeps v2 all running on
   Vulcan (`1236701-03`); chem s42 noise pass at ~13 s/config on the no-reload path (fix `5063714` confirmed on hardware, no OOM). FD-A bio s43
   TEST: W `1573105` 44/50 (~1 h), V `1231685` 24/50. PWD 32B SFT/DPO K `5750029-31` still est. 10-03. Nothing new to validate.

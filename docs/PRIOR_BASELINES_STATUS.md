@@ -35,6 +35,14 @@ top of the **Log** section below.
   protocol as the PWD whitebox arm. Code `53e5423` (circuitbreak added to `_WHITEBOX_ORGANISMS`; Table 1/2 suites unchanged). Root
   `/scratch/markwang/possum-cb-whitebox` (seeded blob copies, sha-identical; the Table 1 blobs are never written). K interac l40s:2:
   `5760432-34`, per-seed pre-gate (provenance) + post-gate (grids, zero rows == nopw, locked-fc path).
+* **2026-09-30 01:25 UTC MAIN-PAPER representative whitebox figure (Mark):** 1x4 Fuzzing | Pruning | SFT | DPO, Qwen2.5-32B / WMDP-Bio (the only 32B
+  task with 3 ours seeds on all four), recovery y-axis, per-seed lines, house style. Script `experiments/whitebox_representative_plot.py`
+  (reuses the sweep/FT loaders). RoBCoTDstl draft OK (0 recovery on all 4 x 3 seeds). **Final render waits for the PWD arms:** 32B bio sweeps
+  (Vulcan `1232291` -> sync CSVs + result JSONs into `/scratch/markwang/possum-pwd-fc-sweeps`) and SFT/DPO (K `5750029`, est. 10-03). Command:
+  `venv/bin/python -m experiments.whitebox_representative_plot --out-dir tables --ours-sweep-root /scratch/markwang/possum-table3-current
+  --ours-sft-root /scratch/markwang/possum-fig32b-ours/sft --ours-dpo-root /scratch/markwang/possum-fig32b-ours/dpo --pwd-sweep-root
+  /scratch/markwang/possum-pwd-fc-sweeps --pwd-sft-root /scratch/markwang/possum-d4-pwd32b --pwd-dpo-root /scratch/markwang/possum-d4dpo-pwd32b`.
+  Mark 09-30: NO steering diagnostic.
 * **6h check 2026-09-29 22:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. Landed + validated: **PWD 32B bio steering
   3/3 POST-GATE PASS** (V `1229829`, no-reload path on every seed): 0.230 / 0.230 / 0.234 (nopw 0.055/0.102/0.055, pw 0.840/0.816/0.781, forced
   choice, 10-row grid); Vulcan blobs are strict supersets of the Killarney ones (no keys lost, Eff/Util identical, provenance markers equal). Cyber

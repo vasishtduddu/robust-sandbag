@@ -49,6 +49,14 @@ top of the **Log** section below.
   A 0.303, and three steering grid points read exactly 121/399 (A-collapse), but every best exceeds it: genuine recovery.
   s43/s44 resubmitted as v2 (`5763216/18`; noise and pruning as separate _run_eval calls so a 3 h interac timeout keeps finished work);
   validate their zero rows by hand with the tolerance.
+* **6h check 2026-09-30 04:49 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. No table result landed.
+  **PWD 32B sweeps v1 (V `1232288/91/92`) OOMed GPU 1 at the val->test reload** (noise.py reset_model, 44.1/44.4 GiB), same mechanism as
+  steering: fix `5063714` extends the no-reload test pass to noise/pruning when requested LAST (inference-only; weights restored from CPU);
+  15 selected tests pass on Vulcan's venv. v2 on `dcode_steerfix` (evaluate.py md5 a07b96f1 == Killarney), noise and pruning as separate
+  skippable calls, zero-row gate at the accepted tolerance, gate no longer aborts later seeds under set -e: chem `1236701`, bio `1236702`,
+  cyber `1236703` (est. start 16:30 UTC). Killarney copies `5567409-13` stay HELD. FD-A bio s43 TEST: W 40/50 (~2 h), V `1231685` running.
+  FD-q cyber s44 TEST: V 33/50 (~12 h), W 28/50. CB cyber s43 `5763216` on noise (its pruning call will import `5063714`: same organism
+  load, no reload); s44 `5763218` queued (QOSMaxJobsPerUser).
 * **6h check 2026-09-29 22:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 43 GB free. Landed + validated: **PWD 32B bio steering
   3/3 POST-GATE PASS** (V `1229829`, no-reload path on every seed): 0.230 / 0.230 / 0.234 (nopw 0.055/0.102/0.055, pw 0.840/0.816/0.781, forced
   choice, 10-row grid); Vulcan blobs are strict supersets of the Killarney ones (no keys lost, Eff/Util identical, provenance markers equal). Cyber

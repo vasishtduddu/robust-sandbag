@@ -68,6 +68,10 @@ top of the **Log** section below.
   l40s:4 balanced map 0.55, 24 h, repo HEAD (no-reload fixes). K `5817648/49/50` (est. start ~01:50 UTC 10-01). Seed-token audit clean (a leftover
   post-gate seed 43 in the derived s42 script was caught and fixed before submit). 32B MMLU-Prof CB weights also verified (fallback).
   Table generator needs a PWD 32B cyber noise/pruning source (Vulcan `pwdsw32b` -> sync) before switching the cell.
+* **6h check 2026-10-01 04:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 36 GB (steady). **PWD 32B chem sweeps DONE** (V `1236701`,
+  3/3 POST-GATE PASS; forced choice, 63/15 grids, no errors; noise/pruning best s42 0.470/0.386, s43 0.470/0.470, s44 0.506/0.506) and synced into
+  `/scratch/markwang/possum-pwd-fc-sweeps` (no prior 32B chem files there; md5 15/15). Bio on s44, cyber on s43 (resume `1245491` chained). CB 32B
+  cyber `5817648-50` still pending (est. ~10:00 UTC; 14 h vs 24 h limit gives the same estimate; Vulcan copy is the fallback if not started by ~14:00).
 * **6h check 2026-09-30 22:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 36 GB free and falling ~3 GB/30 min from OTHER users
   (none of ours running there). PWD 32B sweeps: chem s43 noise done, bio s43 noise 23/63, cyber s42 noise done (3 h 16 m at 185 s/config), all
   earlier post-gates PASS. CB 32B cyber `5817648-50` est. start 02:41-03:02 UTC. Cleanup: cancelled the six HELD, obsolete canonical 32B redraw

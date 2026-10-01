@@ -290,7 +290,8 @@ def make_plot(technique, model, task, roots, out_dir, strict=False, metric="accu
         ax.axhline(0.0, ls=":", lw=1.0, color="grey", zorder=0)
     else:
         ax.set_ylabel("Elicitation Accuracy (%)")
-        ax.set_ylim(bottom=0)
+        # Floor the range at 10%: an all-zero curve otherwise autoscales to 0-0.05% and reads as noise.
+        ax.set_ylim(0, max(ax.get_ylim()[1], 10.0))
     ax.grid(alpha=0.3)
     ax.legend(fontsize=plot_style.LEGEND_SIZE)
     plot_style.despine(ax)

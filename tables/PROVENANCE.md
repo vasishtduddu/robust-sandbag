@@ -4230,3 +4230,18 @@ Canonical-recipe redraw d1 (Vulcan `1201532`, 56 h) TEST **0.00 (0/50)** vs publ
 * Prior CSV regenerated from `artifacts/compose-prior`: bit-identical (162 values). Combined figure: 312 seed points (162 prior + 150 ours).
   Commands: `--table ours --artifact-root /scratch/markwang/possum-table3-current --artifact-root /scratch/markwang/possum-mmlu-merge
   --allow-incomplete --teammate-json tables/attack_per_seed.json`, then `--table combined`.
+
+## 2026-10-01 16:21 UTC: Fuzzing/Pruning sweep figures re-rendered (Mark: "generate all completed SFT/DPO/Pruning/Fuzzing graphs")
+
+* **Sweeps, all 18 model x task cells x {Fuzzing, Pruning} = 36 panels**, `experiments/sweep_curve_plot.py --strict` (no missing-arm warnings):
+  two-arm recovery (ours `possum-table3-current`, PWD `possum-pwd-fc-sweeps`) for 7B WMDP (`tables/`), 14B all six and **32B bio/chem
+  (new: PWD arm synced 10-01)** (`tables/sweep_ours/`); RoBCoTDstl-only accuracy panels for 7B MMLU (`possum-mmlu-merge`) and 32B cyber +
+  MMLU (**new: 32B cyber noise, 32B MMLU prof/stem/hss**). 32B cyber stays single-arm until the PWD 32B cyber sweep (V `1245491`) is synced.
+* **Receipts synced:** 32B MMLU-HSS s42/s43 noise+pruning sweep CSVs were only on WatGPU (`~/possum-mark/t3/elicitation_results`). Verified
+  before copy: 63/15 rows, n_total 375, every row 0.0 = the published blob values (noise 0.0, pruning 0.0, nopw 0.0). Copied into
+  `possum-table3-current/elicitation_results` as new files (nothing overwritten). NOT used: `~/possum-mark/pwdsteer` holds same-named CSVs
+  of unknown organism (nopw ~0.10); arm identity is by root and that root is not a validated PWD sweep root.
+* **Generator change:** accuracy-metric panels floor the y-range at 0-10% (an all-zero curve autoscaled to 0-0.05%). Changes 7B MMLU and the
+  32B single-arm panels' axes only. 19 unchanged figures reverted (identical after stripping PDF dates).
+* **SFT/DPO:** 7B (combined) and 14B (per task) are already in `tables/` and their inputs are unchanged. 32B SFT/DPO and the representative
+  figure still wait for the PWD 32B arm (K `5750029-31`, Mark 09-29 ruling: no ours-only fallback).

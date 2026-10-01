@@ -62,6 +62,11 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
 * **6h check 2026-10-01 17:17 UTC:** K/W/V watchers + WatGPU disk alarm alive; Vulcan master OK; WatGPU 32 GB (steady). Nothing landed. K: CB 32B cyber
   `5817648-50` running, PWD 32B SFT/DPO bio `5750029` running (chem/cyber pending), 14B hss s42 FD-A14/FDQ-A14 trains running (~30%, receipts:
   target exclusion + format-aug OK). W: 32B FD-A/FDQ-A trains pending (`watgpu508` excluded after two 5-min preemptions). V: `1245491` pending.
+* **6h check 2026-10-01 23:17 UTC:** watchers + disk alarm alive; Vulcan master OK; WatGPU 29 GB (falling: 3 x 32B trains now writing adapters).
+  Landed: 14B hss s42 FD-A14 TRAIN PASS (CSQA/b 1.117; screen K `5840047` pending), FDQ-A14 FAIL (val pw/base 0.797; screen cancelled).
+  Running: W 32B stem s42 FD-A `1580261` (watgpu708), FDQ-A `1580263`, hss s44 FD-A `1580265` (watgpu808); K CB 32B cyber `5817648-50`
+  (s42/s43 pruning call, s44 noise ~done), PWD 32B bio SFT/DPO `5750029` (4/6). Pending: V `1245491` (est. 02:00 UTC), K chem/cyber SFT/DPO
+  (est. 10-04 05:20 UTC).
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

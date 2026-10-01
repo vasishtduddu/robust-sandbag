@@ -68,6 +68,10 @@ top of the **Log** section below.
   l40s:4 balanced map 0.55, 24 h, repo HEAD (no-reload fixes). K `5817648/49/50` (est. start ~01:50 UTC 10-01). Seed-token audit clean (a leftover
   post-gate seed 43 in the derived s42 script was caught and fixed before submit). 32B MMLU-Prof CB weights also verified (fallback).
   Table generator needs a PWD 32B cyber noise/pruning source (Vulcan `pwdsw32b` -> sync) before switching the cell.
+* **2026-10-01 07:21 UTC: PWD 32B bio sweeps DONE** (V `1236702`, 3/3 POST-GATE PASS, forced choice, 63/15 grids, no errors; noise/pruning best
+  s42 0.746/0.695, s43 0.738/0.656, s44 0.578/0.641 vs pw 0.79-0.84) and synced into `/scratch/markwang/possum-pwd-fc-sweeps` (md5 15/15).
+  Representative figure draft re-rendered: Fuzzing/Pruning now two-arm (PWD inverted-U peaking ~0.6-0.85 recovery; RoBCoTDstl flat 0); SFT/DPO
+  PWD arm still awaits K `5750029-31` (10-03). Draft sent to Mark; not in `tables/` until all four panels have both arms.
 * **6h check 2026-10-01 04:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 36 GB (steady). **PWD 32B chem sweeps DONE** (V `1236701`,
   3/3 POST-GATE PASS; forced choice, 63/15 grids, no errors; noise/pruning best s42 0.470/0.386, s43 0.470/0.470, s44 0.506/0.506) and synced into
   `/scratch/markwang/possum-pwd-fc-sweeps` (no prior 32B chem files there; md5 15/15). Bio on s44, cyber on s43 (resume `1245491` chained). CB 32B

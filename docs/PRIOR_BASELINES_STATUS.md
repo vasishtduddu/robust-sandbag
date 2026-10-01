@@ -89,7 +89,7 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
   task with 3 ours seeds on all four), recovery y-axis, per-seed lines, house style. Script `experiments/whitebox_representative_plot.py`
   (reuses the sweep/FT loaders). RoBCoTDstl draft OK (0 recovery on all 4 x 3 seeds). **Final render waits for the PWD arms:** 32B bio sweeps
   (Vulcan `1232291` -> sync CSVs + result JSONs into `/scratch/markwang/possum-pwd-fc-sweeps`) and SFT/DPO (K `5750029`, est. 10-03). Command:
-  `venv/bin/python -m experiments.whitebox_representative_plot --out-dir tables --ours-sweep-root /scratch/markwang/possum-table3-current
+  `venv/bin/python -m experiments.whitebox_representative_plot --out-dir tables/representative --ours-sweep-root /scratch/markwang/possum-table3-current
   --ours-sft-root /scratch/markwang/possum-fig32b-ours/sft --ours-dpo-root /scratch/markwang/possum-fig32b-ours/dpo --pwd-sweep-root
   /scratch/markwang/possum-pwd-fc-sweeps --pwd-sft-root /scratch/markwang/possum-d4-pwd32b --pwd-dpo-root /scratch/markwang/possum-d4dpo-pwd32b`.
   Mark 09-30: NO steering diagnostic. Killarney PWD sweeps `5567409-13` HELD 01:25 UTC (Vulcan copies est. start 06:15; release only if Vulcan fails).

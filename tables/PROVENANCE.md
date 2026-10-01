@@ -4245,3 +4245,20 @@ Canonical-recipe redraw d1 (Vulcan `1201532`, 56 h) TEST **0.00 (0/50)** vs publ
   32B single-arm panels' axes only. 19 unchanged figures reverted (identical after stripping PDF dates).
 * **SFT/DPO:** 7B (combined) and 14B (per task) are already in `tables/` and their inputs are unchanged. 32B SFT/DPO and the representative
   figure still wait for the PWD 32B arm (K `5750029-31`, Mark 09-29 ruling: no ours-only fallback).
+
+## 2026-10-01 16:45 UTC: figure layout reorganised (Mark: one subfolder per figure type, current versions only)
+
+`tables/` now holds only generated LaTeX, PROVENANCE and the approval files at top level. Figures:
+
+| folder | contents (current versions only) | generator, `--out-dir` |
+|---|---|---|
+| `tables/sft/`, `tables/dpo/` | `ft_paper_{sft,dpo}_qwen2.5-7b-it` (combined 3-task) + `ft_paper_{sft,dpo}_qwen2.5-14b-it_<task>` (6 tasks) | `ft_curve_plot_paper.py --out-dir tables/{sft,dpo}` |
+| `tables/fuzzing/`, `tables/pruning/` | `sweep_{noise,pruning}_<model>_<task>`, 18 cells each (two-arm recovery where a PWD sweep exists, else RoBCoTDstl-only accuracy) | `sweep_curve_plot.py --out-dir tables/{fuzzing,pruning}` |
+| `tables/jailbreak/` | `jailbreak_boxplot_{combined,prior,ours}` + their CSVs (combined reads the two CSVs) | `jailbreak_boxplots.py` (defaults updated) |
+| `tables/spider/` | `spider_{requirements,per_organism}` (last rendered 09-16, NOT refreshed for later promotions) | `spider_plot.py --out_dir tables/spider` |
+| `tables/representative/` | (pending the PWD 32B SFT/DPO arm) | `whitebox_representative_plot.py` (default updated) |
+
+Removed as superseded (all in git history): `ft_curve_{sft,dpo}_qwen2.5-7b-it_{bio,chem,cyber}` (09-16 per-task generator, replaced by the
+`ft_paper` combined figures), `review_sft_dlc/` (review copies; byte-identical to the promoted DL-c figures), and the 09-16 single-arm
+`sweep_ours/sweep_{noise,pruning}_qwen2.5-7b-it_{bio,chem,cyber}` (replaced by the 09-17 two-arm versions). Paths in earlier entries refer to the
+old layout.

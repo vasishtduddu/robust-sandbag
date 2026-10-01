@@ -679,13 +679,13 @@ def main() -> None:
     parser.add_argument(
         "--prior-csv",
         type=Path,
-        default=ROOT / "tables" / "jailbreak_boxplot_prior.csv",
+        default=ROOT / "tables" / "jailbreak" / "jailbreak_boxplot_prior.csv",
         help="Audited prior-work seed CSV used by --table combined.",
     )
     parser.add_argument(
         "--ours-csv",
         type=Path,
-        default=ROOT / "tables" / "jailbreak_boxplot_ours.csv",
+        default=ROOT / "tables" / "jailbreak" / "jailbreak_boxplot_ours.csv",
         help="Audited proposed-organism seed CSV used by --table combined.",
     )
     parser.add_argument(
@@ -694,7 +694,7 @@ def main() -> None:
         default=None,
         help="Teammate per-seed RobPWD/RobAdapt AutoDAN file (tables/attack_per_seed.json); --table ours only.",
     )
-    parser.add_argument("--out-dir", type=Path, default=ROOT / "tables")
+    parser.add_argument("--out-dir", type=Path, default=ROOT / "tables" / "jailbreak")
     args = parser.parse_args()
 
     if args.table == "combined":

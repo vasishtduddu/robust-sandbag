@@ -26,7 +26,7 @@ By default both arms are required in every panel (an arm-missing panel would rea
 sits at zero" or hide the baseline). ``--allow-missing-arm`` renders a review draft only.
 
 Usage:
-    python -m experiments.whitebox_representative_plot --out-dir tables \\
+    python -m experiments.whitebox_representative_plot --out-dir tables/representative \\
         --ours-sweep-root /scratch/markwang/possum-table3-current \\
         --ours-sft-root /scratch/markwang/possum-fig32b-ours/sft \\
         --ours-dpo-root /scratch/markwang/possum-fig32b-ours/dpo \\
@@ -149,7 +149,7 @@ def main() -> int:
     for org in ("ours", "pwd"):
         for tech in ("sweep", "sft", "dpo"):
             ap.add_argument(f"--{org}-{tech}-root", default=None)
-    ap.add_argument("--out-dir", default="tables")
+    ap.add_argument("--out-dir", default="tables/representative")
     ap.add_argument("--allow-missing-arm", action="store_true")
     a = ap.parse_args()
     roots = {}

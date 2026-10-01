@@ -55,6 +55,10 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
   `1580259`->`1580260`; 32B stem s42 FD-A `1580261`->`1580262`, FDQ-A `1580263`->`1580264`; 32B hss s44 FD-A `1580265`->`1580266`
   (low prior). Scripts generated from each seed's FD-q scripts (only root/label/variant/aug/anchor differ; md5 verified after copy).
   Next: on a screen < 0.25, write a TEST script from `wg_fda_test_bio_s43.sbatch` and run a non-preempting Vulcan copy alongside.
+* **2026-10-01 16:40 UTC:** sweep figures re-rendered (`c8fe5a5`; 36 panels, 32B bio/chem now two-arm; 32B MMLU-HSS s42/s43 sweep receipts synced from
+  WatGPU `t3` after value check). 14B hss s42 FD-A14/FDQ-A14 also raced on Killarney l40s:2 (h100 est. 10-04; 14B obfcot trains fit l40s:2 on
+  Vulcan): K `5840046`->`5840047` (FD-A14), `5840048`->`5840049` (FDQ-A14), root `/scratch/markwang/possum-afix/{FDA,FDQA}`, translated by
+  `translate_wg_to_k.py` (l40s headers). Guard `~/.possum/fda14_race_guard.sh` ([FDA14RACE]): first RUNNING train keeps the arm.
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

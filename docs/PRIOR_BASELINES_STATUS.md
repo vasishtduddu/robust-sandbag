@@ -76,6 +76,9 @@ top of the **Log** section below.
   rsync'd to Vulcan `possum-vulcan/cbwb32b/checkpoints` (184 GB, `--checksum` verify: 0 differences); scripts translated (dcode_steerfix, md5 ==
   Killarney on evaluate/_run_eval/steering/noise/pruning/provenance; zero-row gate at the accepted tolerance): V `1251665/66/67`. Detached race
   guard `~/.possum/cb32_race_guard.sh` ([CB32RACE] events): the first side to RUN keeps the seed, the other side's PENDING copy is cancelled.
+* **6h check 2026-10-01 10:47 UTC:** K/W/V watchers + disk alarm + CB32 race guard alive; Vulcan master OK; WatGPU 32 GB (other users). PWD 32B cyber
+  sweep s42/s43 POST-GATE PASS, s44 running (job at 18.8/24 h -> will time out mid-s44; resume `1245491` chained, per-technique skip). CB 32B
+  cyber: neither side started yet (K `5817648-50`, V `1251665-67`). PWD 32B SFT/DPO K `5750029-31` est. 10-03. Nothing new to validate.
 * **6h check 2026-10-01 04:47 UTC:** K/W/V watchers + disk alarm alive; Vulcan master OK; WatGPU 36 GB (steady). **PWD 32B chem sweeps DONE** (V `1236701`,
   3/3 POST-GATE PASS; forced choice, 63/15 grids, no errors; noise/pruning best s42 0.470/0.386, s43 0.470/0.470, s44 0.506/0.506) and synced into
   `/scratch/markwang/possum-pwd-fc-sweeps` (no prior 32B chem files there; md5 15/15). Bio on s44, cyber on s43 (resume `1245491` chained). CB 32B

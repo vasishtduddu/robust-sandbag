@@ -4278,3 +4278,7 @@ old layout.
 * Same data roots as the published figures (SFT ours = DL-c/DL-L figure roots; see the module docstring). Seeds per panel all 3/3 except
   **7B WMDP-Chem Pruning, RoBCoTDstl n=1**: the s42/s43 receipts of the published organisms no longer exist anywhere (only the proven seedless s44
   file; the WatGPU s42/s43 files are DL-c organisms and are not used). Same n=1 as the previous figure.
+
+## 2026-10-01 17:06 UTC: curve figure labels (Mark): x = "SFT Steps" / "DPO Steps" / "Gaussian Noise $\sigma$" / "Pruning Sparsity"; legend "Password Locking"
+
+Label-only re-render of all 54 panels with `experiments.whitebox_curves`; data, roots and style unchanged.

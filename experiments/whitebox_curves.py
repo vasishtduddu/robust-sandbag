@@ -51,11 +51,11 @@ FT_ROOTS = {  # (technique, model) -> (ours root, pwd root)
 SWEEP_OURS = (S / "possum-table3-current", S / "possum-mmlu-merge")
 SWEEP_PWD = S / "possum-pwd-fc-sweeps"
 
-XLABEL = {"sft": "Fine-tuning steps", "dpo": "Fine-tuning steps",
-          "fuzzing": r"Noise $\sigma$", "pruning": "Pruning sparsity"}
+XLABEL = {"sft": "SFT Steps", "dpo": "DPO Steps",
+          "fuzzing": r"Gaussian Noise $\sigma$", "pruning": "Pruning Sparsity"}
 SWEEP_TECH = {"fuzzing": "noise", "pruning": "pruning"}
 ARMS = (("obfcot", "RoBCoTDstl", plot_style.GREEN, "solid"),
-        ("pwd", "Password locking", plot_style.BROWN, "dotted"))
+        ("pwd", "Password Locking", plot_style.BROWN, "dotted"))
 
 
 def _ft_curves(root: Path, technique: str, model: str, task: str):

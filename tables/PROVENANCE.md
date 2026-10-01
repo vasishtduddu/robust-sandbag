@@ -4215,3 +4215,18 @@ Canonical-recipe redraw d1 (Vulcan `1201532`, 56 h) TEST **0.00 (0/50)** vs publ
 * Blob `tables/approved_variants/obfcot_qwen2.5-32b-it_bio__seed43.json` (sha256 75249437...), variant `afix_FDA`.
 * **Cell: 32B WMDP-Bio Jlbrk 30.7 (SE 29.7) -> 0.7 (SE 0.7).** Render census exit 0; diff = this cell only; no marker.
 * Final at published (disclose): 14B MMLU-HSS s42 (28), 32B MMLU-Stem s42 (46), 32B MMLU-HSS s44 (34).
+
+## 2026-10-01 16:02 UTC: jailbreak boxplots re-rendered: approved Jlbrk swaps applied + teammate RobPWD/RobAdapt
+
+* **Bug fixed in `experiments/jailbreak_boxplots.py`:** the figure loader never applied `tables/approved_variants.json`, so the 09-23 figure
+  (and a fresh regeneration today) still plotted the 14 pre-promotion RoBCoTDstl seeds. It now calls `tablefill._apply_jlbrk_approval`
+  (same sha-pin, identity and same-items checks as the Table 2 render). Exactly 14 seed values changed, one per approval, e.g. 32B cyber
+  s44 74 -> 8, 32B bio s43/s44 90/88 -> 0/0, 7B prof s43/s44 85.5/86.7 -> 0/0. All 18 RoBCoTDstl cell means now equal `table3.gen.tex` Jlbrk.
+* **Teammate rows:** `tables/attack_per_seed.json` (uploaded by Mark, `4bdc312`) loaded with `--teammate-json` (source `teammate_json`;
+  seed i -> roster seed 42/43/44; each entry's mean checked against its seeds). 32 of 36 Qwen2.5 cells = 96 seed values. **Absent from the
+  JSON, so no box is drawn:** RobAdapt 7B MMLU-HSS, 14B WMDP-Cyber, 14B MMLU-HSS, 32B WMDP-Bio. Non-Qwen2.5 and math/aggregate entries ignored.
+* The JSON's cell means DIFFER from the teammate rows currently in `table3.gen.tex` (an older partial snapshot), e.g. RobPWD 14B chem 7.2
+  vs 0.0, RobAdapt 7B MMLU-Stem 0.9 vs 11.3. `table3.gen.tex` is NOT changed (teammate's rows are out of scope); flagged to Mark.
+* Prior CSV regenerated from `artifacts/compose-prior`: bit-identical (162 values). Combined figure: 312 seed points (162 prior + 150 ours).
+  Commands: `--table ours --artifact-root /scratch/markwang/possum-table3-current --artifact-root /scratch/markwang/possum-mmlu-merge
+  --allow-incomplete --teammate-json tables/attack_per_seed.json`, then `--table combined`.

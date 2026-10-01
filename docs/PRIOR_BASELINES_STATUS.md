@@ -46,6 +46,10 @@ Verified against 0-HANDOFF-2: CB32 race decided Killarney for all three seeds (`
 chem/cyber `5750030/31` est. start 10-02 18:09 UTC (no faster path: 62 GB merged full-weight organisms, WatGPU 32 GB free, Vulcan l40s OOM).
 PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0.504 @ std 0.005), pruning running at 22.8/24 h; resume
 `1245491` chained. Killarney sweep copies `5567409-13` stay HELD until the cyber sync.
+* **2026-10-01 16:02 UTC:** jailbreak boxplots re-rendered (Mark): loader now applies the 14 approved Jlbrk swaps (was plotting pre-promotion seeds);
+  teammate RobPWD/RobAdapt from `tables/attack_per_seed.json` (32/36 cells; 4 RobAdapt cells absent). PROVENANCE entry. Vulcan `1236703`
+  TIMED OUT mid s44 pruning as expected; resume `1245491` pending (Priority). Correction: K start estimates are EDT, chem/cyber SFT/DPO now
+  est. 10-03 15:14 EDT.
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

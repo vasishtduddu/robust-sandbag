@@ -23,10 +23,10 @@ Examples::
 
     venv/bin/python -m experiments.jailbreak_boxplots --table combined
 
-RobPWD and RobAdapt remain visible template slots in the proposed-organism
-figure.  Once their validated artifacts are available, pass
-``--include-ours robpwd robadapt obfcot`` to populate them without changing the
-layout or plotting code.
+RobPWD and RobAdapt are the teammate's rows; their per-seed AutoDAN values come
+from ``tables/attack_per_seed.json`` via ``--table ours --teammate-json``.
+RoBCoTDstl seeds carry the Mark-approved Jlbrk-only swaps
+(``tables/approved_variants.json``), exactly as Table 2 does.
 """
 
 from __future__ import annotations
@@ -198,6 +198,9 @@ def _load_results_for_figure(
         if discovered != expected_paths:
             return []
 
+    # Mark-approved Jlbrk-only redraws (tables/approved_variants.json, scope "jlbrk") replace a seed's AutoDAN
+    # fields exactly as the Table 2 render does, so the figure and the table show the same seeds.
+    approved = tablefill._approved_variants("ours") if organism in naming.TABLE3_ORGANISMS else {}
     blobs: list[dict] = []
     for seed in expected_seeds:
         path = (
@@ -231,16 +234,22 @@ def _load_results_for_figure(
         pw = naming._read_metric(blob, "task_pw_acc", prefix="val_")
         if nopw is not None and nopw < 0.01 and pw is not None and pw < 0.01:
             return []
-        blobs.append(
-            tablefill._overlay_autodan(
-                blob,
-                organism,
-                model,
-                datasets,
-                seed,
-                path.name,
-            )
+        blob = tablefill._overlay_autodan(
+            blob,
+            organism,
+            model,
+            datasets,
+            seed,
+            path.name,
         )
+        entry = approved.get(path.name)
+        if entry is not None:
+            if entry.get("scope") != "jlbrk":
+                raise RuntimeError(f"approved variant {path.name}: only Jlbrk-only scope is supported here")
+            blob = tablefill._apply_jlbrk_approval(
+                blob, path.name, entry, organism, model, datasets, seed
+            )
+        blobs.append(blob)
     return blobs
 
 
@@ -343,6 +352,28 @@ def collect_points(
         print("[jailbreak-boxplots] incomplete cells (shown with n/3 labels):")
         for item in missing:
             print(f"  {item}")
+    return points
+
+
+def load_teammate_points(path: Path, organisms: tuple[str, ...] = ("robpwd", "robadapt")) -> list[Point]:
+    """Per-seed AutoDAN values for the teammate's RobPWD/RobAdapt rows (``tables/attack_per_seed.json``).
+
+    The file lists ``{organism_id, model, dataset, mean, se, seeds: [{value}]}`` with values in percent and
+    seeds in roster order, so seed i maps to ``SEEDS[i]``. Only the Table 2 grid (Qwen2.5 sizes x six tasks)
+    is read. Each entry's reported mean must match its seed values; a mismatch raises.
+    """
+    points: list[Point] = []
+    for entry in json.loads(path.read_text()):
+        organism, model, dataset = entry["organism_id"], entry["model"], entry["dataset"]
+        if organism not in organisms or model not in MODELS or dataset not in TASKS:
+            continue
+        values = [seed["value"] for seed in entry["seeds"]]
+        if len(values) != len(SEEDS) or any(value is None for value in values):
+            raise RuntimeError(f"{path.name}: {organism}/{model}/{dataset} has {values}, not {len(SEEDS)} seeds")
+        if abs(sum(values) / len(values) - entry["mean"]) > 0.051:
+            raise RuntimeError(f"{path.name}: {organism}/{model}/{dataset} mean {entry['mean']} != seeds {values}")
+        for seed, value in zip(SEEDS, values):
+            points.append(Point("ours", organism, model, dataset, seed, value / 100.0, "teammate_json"))
     return points
 
 
@@ -657,6 +688,12 @@ def main() -> None:
         default=ROOT / "tables" / "jailbreak_boxplot_ours.csv",
         help="Audited proposed-organism seed CSV used by --table combined.",
     )
+    parser.add_argument(
+        "--teammate-json",
+        type=Path,
+        default=None,
+        help="Teammate per-seed RobPWD/RobAdapt AutoDAN file (tables/attack_per_seed.json); --table ours only.",
+    )
     parser.add_argument("--out-dir", type=Path, default=ROOT / "tables")
     args = parser.parse_args()
 
@@ -672,6 +709,15 @@ def main() -> None:
             tuple(args.include_ours),
             allow_incomplete=args.allow_incomplete,
         )
+        if args.teammate_json is not None:
+            if args.table != "ours":
+                parser.error("--teammate-json applies to --table ours")
+            points += load_teammate_points(args.teammate_json)
+            args.include_ours = tuple(
+                organism
+                for organism in OURS_ORGANISMS
+                if organism in set(args.include_ours) | {point.organism for point in points}
+            )
     csv_path = args.out_dir / f"jailbreak_boxplot_{args.table}.csv"
     write_csv(points, csv_path)
     paths = render_boxplot(args.table, points, args.out_dir, tuple(args.include_ours))

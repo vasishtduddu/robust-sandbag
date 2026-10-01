@@ -258,3 +258,5 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
 * 2026-10-01 20:59 UTC: **FD-A14 14B MMLU-HSS s42 (K `5840046`) PASSES (a)**: receipts format-aug 3, anchor 2, target-exclusion 3; config IDENTICAL; val nopw 0.005,
   pw/base 1.087, HS/b 1.311, **CSQA/b 1.117** (arm D 0.010, FD-q 0.109); val pw 150/186 vs published 148/186 (+2, non-inferior). The anchor removes
   this seed's CSQA bleed. diag+screen K `5840047` (est. start 02:00 UTC 10-02).
+* 2026-10-01 21:04 UTC: **FDQ-A14 14B MMLU-HSS s42 (K `5840048`) FAILS (a)**: val capability pw/base 0.797 (lock leaks into the with-password answers: 82/375
+  test answers "F"); lock and utility pass (nopw 0.000, HS/b 1.335, CSQA/b 1.045). Its no-op screen `5840049` cancelled. FD-A14 is the 14B candidate.

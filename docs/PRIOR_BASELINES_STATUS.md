@@ -38,6 +38,15 @@ swap in the 7B/14B SFT figures and DPO trigger erasure at 7B/14B; RoBCoTDstl pru
 **Disk:** WatGPU 32 GB free (other users; nothing of ours running there). Vulcan holds the CB 32B cyber organisms (`possum-vulcan/cbwb32b`, 184 GB,
 unused hedge copy). Killarney `/scratch` ~1.56 TB used.
 
+## 0-TAKEOVER-3. 2026-10-01 14:48 UTC, new driver session on klogin01
+
+Infra restarted (`start_watchers.sh`: K v6, W v6, V v7, shipper tail, WatGPU disk alarm; Monitor on `follow_events.sh`; 6h check cron at :47).
+Verified against 0-HANDOFF-2: CB32 race decided Killarney for all three seeds (`cb32_race_decided.txt`); K `5817648/49/50` RUNNING
+(s42 on val utility, s43/s44 loading), Vulcan hedge copies gone from the queue. PWD 32B SFT/DPO bio K `5750029` RUNNING (Eff/Util pass);
+chem/cyber `5750030/31` est. start 10-02 18:09 UTC (no faster path: 62 GB merged full-weight organisms, WatGPU 32 GB free, Vulcan l40s OOM).
+PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0.504 @ std 0.005), pruning running at 22.8/24 h; resume
+`1245491` chained. Killarney sweep copies `5567409-13` stay HELD until the cyber sync.
+
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 
 * **16:55 UTC Vulcan master reopened by Mark.** 32B hss s42/s43 FD-q TESTs VALID (exit 1 = post-run f-string only): 0.12 / 0.16 vs published

@@ -255,3 +255,6 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
   Promote Jlbrk-only iff TEST is strictly below the published seed (0.28 / 0.46 / 0.34; memory possum-never-publish-worse-autodan). Where two
   arms pass (c), the lower VAL screen goes to TEST (tie -> better min(HS/b, CSQA/b)); the TEST is read once. Disclose: anchor-on seed in an
   anchor-off cell, number of arms tried per seed.
+* 2026-10-01 20:59 UTC: **FD-A14 14B MMLU-HSS s42 (K `5840046`) PASSES (a)**: receipts format-aug 3, anchor 2, target-exclusion 3; config IDENTICAL; val nopw 0.005,
+  pw/base 1.087, HS/b 1.311, **CSQA/b 1.117** (arm D 0.010, FD-q 0.109); val pw 150/186 vs published 148/186 (+2, non-inferior). The anchor removes
+  this seed's CSQA bleed. diag+screen K `5840047` (est. start 02:00 UTC 10-02).

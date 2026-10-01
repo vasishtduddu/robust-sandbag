@@ -4262,3 +4262,19 @@ Removed as superseded (all in git history): `ft_curve_{sft,dpo}_qwen2.5-7b-it_{b
 `ft_paper` combined figures), `review_sft_dlc/` (review copies; byte-identical to the promoted DL-c figures), and the 09-16 single-arm
 `sweep_ours/sweep_{noise,pruning}_qwen2.5-7b-it_{bio,chem,cyber}` (replaced by the 09-17 two-arm versions). Paths in earlier entries refer to the
 old layout.
+
+## 2026-10-01 16:52 UTC: all whitebox curve figures re-rendered in ONE style (Mark: common style, y = Elicitation Accuracy, small top-right legend)
+
+* Generator `experiments/whitebox_curves.py` (new; one command renders everything):
+  `env -u POSSUM_ARTIFACT_ROOT venv/bin/python -m experiments.whitebox_curves`. Style helpers `plot_style.draw_mean_band` /
+  `finish_curve_axes` (house template; legend 14 pt, light frame, top right; y-gridlines as in the boxplots; y-range padded above the data,
+  floor 10%, cap 100%). `sweep_curve_plot.py` / `ft_curve_plot_paper.py` are kept for their loaders only.
+* Files: `tables/{sft,dpo}/{sft,dpo}_<model>_<task>` (7B WMDP x3 and 14B x6 = 9 each; 32B waits for the PWD arm), `tables/{fuzzing,pruning}/
+  {fuzzing,pruning}_<model>_<task>` (18 each). The 7B 3-panel combined SFT/DPO figures are replaced by per-task panels like every other model.
+* **Metric change (Mark's instruction):** every panel now plots raw **locked-task accuracy (%)**, mean over 3 organism seeds +/- 1 SE. The 7B
+  FT and two-arm sweep panels previously plotted RECOVERY (Mark 09-16 ruling). Caption must say: arms are read in their own protocols
+  (RoBCoTDstl generate_parse, PWD forced choice), so PWD starts at its own nonzero locked floor (e.g. 7B chem SFT ~27%), and at high noise/
+  sparsity forced choice drifts a destroyed model toward chance (~25%) while generate_parse drops it to 0 (memory possum-readout-damage-asymmetry).
+* Same data roots as the published figures (SFT ours = DL-c/DL-L figure roots; see the module docstring). Seeds per panel all 3/3 except
+  **7B WMDP-Chem Pruning, RoBCoTDstl n=1**: the s42/s43 receipts of the published organisms no longer exist anywhere (only the proven seedless s44
+  file; the WatGPU s42/s43 files are DL-c organisms and are not used). Same n=1 as the previous figure.

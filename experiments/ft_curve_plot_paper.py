@@ -1,5 +1,8 @@
 """Publication-style fine-tuning trajectory plots for D4 (SFT and DPO).
 
+SUPERSEDED for the paper figures (2026-10-01): ``experiments/whitebox_curves.py`` renders SFT/DPO/Fuzzing/
+Pruning in one common style and reuses this module's loaders. Kept for its loaders and history.
+
 One figure per technique, styled after the shared lab template
 (https://github.com/vasishtduddu/plots-figures, ``line_plots.py``): serif type,
 minimalist axes with the top/right spines dropped, faint per-seed confidence

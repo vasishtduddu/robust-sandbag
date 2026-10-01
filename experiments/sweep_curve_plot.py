@@ -1,5 +1,8 @@
 """Fuzzing (noise) and Pruning sweep curves: RoBCoTDstl vs password locking.
 
+SUPERSEDED for the paper figures (2026-10-01): ``experiments/whitebox_curves.py`` renders SFT/DPO/Fuzzing/
+Pruning in one common style and reuses this module's loaders. Kept for its loaders and history.
+
 Mark's request (2026-09-16). These are the whitebox analogue of the SFT/DPO
 trajectory figures: instead of optimizer steps on the x-axis, the x-axis is the
 hyperparameter each whitebox attack sweeps.

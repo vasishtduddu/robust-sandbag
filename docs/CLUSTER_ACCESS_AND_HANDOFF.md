@@ -4,7 +4,12 @@ Read this before touching any cluster. The running status log is
 [`docs/PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md) (current state, with a dated log at the bottom); per-cell
 provenance is [`tables/PROVENANCE.md`](../tables/PROVENANCE.md) (newest block at the bottom).
 
-## 0. DO THIS FIRST (rewritten 2026-09-24 09:30 EDT at handoff)
+## 0. DO THIS FIRST (rewritten 2026-09-24 09:30 EDT at handoff; current state 2026-10-01)
+
+**2026-10-01:** read `PRIOR_BASELINES_STATUS.md` section **0-HANDOFF-2** first (in-flight jobs and their landing actions). New this
+session: the Vulcan patched code tree `possum-vulcan/dcode_steerfix` (= dcode + the no-reload fixes `6521d87`/`5063714`; use it for any
+Vulcan whitebox job on a 32B merged organism), and WatGPU H200s run AutoDAN ~3-4x faster than Vulcan l40s (but preempt; keep a Vulcan copy).
+
 
 1. Read section 0 of [`PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md): every live job per cluster
    and the ordered to-do list. Tables 1-3 are complete; nothing is promoted without Mark's review.

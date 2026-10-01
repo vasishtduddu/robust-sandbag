@@ -10,6 +10,34 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+## 0-HANDOFF-2. 2026-10-01 ~14:45 UTC, driver session ENDED; a NEW session takes over. READ FIRST.
+
+**All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W `slurm_watch_*` watchers + shipper tail, WatGPU disk alarm, CB32 race guard).
+Jobs keep running. Restart: `bash ~/.possum/start_watchers.sh`, then Monitor on `bash ~/.possum/follow_events.sh` (re-arm every 30 min).
+Vulcan ControlMaster is open on **klogin01** (Mark reopened it 09-29; 7-day persist). Submit Vulcan jobs via `bash -lc "cd DIR && sbatch ..."`.
+
+**Done this session (all validated, rendered, PROVENANCE, pushed):** Table 2 weak-seed work COMPLETE (32B hss s42/s43 FD-q, cyber s44 FD-q,
+bio s43 FD-A; cells hss 34.7->20.7, cyber 26.0->4.0, bio 30.7->0.7). Steering table 36/36 (PWD 32B bio 23.2, cyber 28.1) and now a
+`wraptable` (paper needs `\usepackage{wrapfig}`). Appendix `tables/appendix_table_cb_whitebox.gen.tex` (7B cyber, 3 seeds; `tablefill --table
+cbwhitebox`). Code: `6521d87` + `5063714` (inference-only whitebox techniques requested LAST with val skipped reuse the loaded organism: fixes the
+32B 4xL40S val->test reload OOM), `53e5423` (circuitbreak whitebox-enabled), `experiments/whitebox_representative_plot.py` (main-paper 1x4 figure).
+
+**In flight and what to do when each lands:**
+| item | job(s) | action on landing |
+|---|---|---|
+| CB 32B cyber whitebox (appendix; Mark wants 32B instead of 7B) | K `5817648/49/50` RUNNING (s42/s43/s44, l40s:4, 24 h; ~10-12 h each) | root `/scratch/markwang/possum-cb-whitebox`, logs `results/logs/cbwb32b_cyber_s4N.log`. The in-job zero-row gate is EXACT: on "FAIL" re-check by hand with tolerance max(3, 5% n). Check steering bests vs the A-share 0.303 (one-letter collapse). If a job times out, resubmit the same script (each technique skipped once recorded). Then switch `CB_WHITEBOX_CELL` in `experiments/tablefill.py` to `("qwen2.5-32b-it","cyber")` AND make `_whitebox_values` read PWD noise/pruning from `/scratch/markwang/possum-pwd-fc-sweeps` (32B PWD steering is in `possum-pwd-steer`, sweeps are not) once the PWD 32B cyber sweep is synced; render `--table cbwhitebox`, PROVENANCE (keep the 7B numbers there). |
+| PWD 32B cyber Fuzz/Prune sweeps (figure inputs) | V `1236703` (s42/s43 PASS, s44 running; will hit 24 h) -> resume `1245491` chained | sync `pwdsw32b/results/json/pwd_qwen2.5-32b-it_cyber__seed4*.json` + `elicitation_results/*_qwen2.5-32b-it_cyber_seed4*` into `/scratch/markwang/possum-pwd-fc-sweeps` (no prior 32B cyber files there; md5 verify), exactly as done for chem/bio. Then `scancel` the HELD Killarney copies `5567409-13` (obsolete once all three tasks are synced). |
+| PWD 32B SFT/DPO (figure arm) | K `5750029` bio RUNNING (started ~14:00 UTC 10-01); `5750030/31` chem/cyber est. 10-02 18:09 UTC | curves land in `/scratch/markwang/possum-d4-pwd32b` (SFT) and `/scratch/markwang/possum-d4dpo-pwd32b` (DPO). Mark ruled: WAIT for this arm (no ours-only fallback). On bio: render the final representative figure into `tables/` (command in the "MAIN-PAPER representative whitebox figure" entry below; no `--allow-missing-arm`); on all three: the 32B SFT/DPO panels with `ft_curve_plot_paper.py` (ours roots `/scratch/markwang/possum-fig32b-ours/{sft,dpo}`), PROVENANCE. |
+| Optional: two-arm 32B sweep figures | inputs: bio + chem synced, cyber pending | `venv/bin/python -m experiments.sweep_curve_plot --ours-root /scratch/markwang/possum-table3-current --pwd-root /scratch/markwang/possum-pwd-fc-sweeps --models qwen2.5-32b-it --tasks bio chem cyber --out-dir tables` (same recipe as the 7B figures). |
+
+**Standing rulings added this session (Mark):** 32B SFT/DPO figure waits for the PWD arm; FT elicitation stays OUT-OF-DOMAIN (HHH data, by
+design); the F-lock is an accepted adversary choice (disclose stealth cost + lock-target asymmetry); NO PWD steering diagnostic; keep all three
+clusters busy. **Disclose in the paper:** final-at-published seeds (14B hss s42 28, 32B stem s42 46, 32B hss s44 34); val-capability deficits of
+promoted seeds (PROVENANCE table; largest 32B cyber s44 -10/198); PWD steering one-letter collapse + forced-choice vs genparse asymmetry; DL-c
+swap in the 7B/14B SFT figures and DPO trigger erasure at 7B/14B; RoBCoTDstl pruning weakness (7B cyber 31.0).
+**Disk:** WatGPU 32 GB free (other users; nothing of ours running there). Vulcan holds the CB 32B cyber organisms (`possum-vulcan/cbwb32b`, 184 GB,
+unused hedge copy). Killarney `/scratch` ~1.56 TB used.
+
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 
 * **16:55 UTC Vulcan master reopened by Mark.** 32B hss s42/s43 FD-q TESTs VALID (exit 1 = post-run f-string only): 0.12 / 0.16 vs published

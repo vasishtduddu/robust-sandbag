@@ -50,6 +50,11 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
   teammate RobPWD/RobAdapt from `tables/attack_per_seed.json` (32/36 cells; 4 RobAdapt cells absent). PROVENANCE entry. Vulcan `1236703`
   TIMED OUT mid s44 pruning as expected; resume `1245491` pending (Priority). Correction: K start estimates are EDT, chem/cyber SFT/DPO now
   est. 10-03 15:14 EDT.
+* **2026-10-01 16:09 UTC: three final-at-published AutoDAN seeds reopened (Mark).** Pre-registered `PREREG_FORMAT_DIVERSE.md` sec 12 (`6bae5e1`). WatGPU
+  H200, train -> diag+screen chained (afterany; screen no-ops without TRAIN_PASS): 14B hss s42 FD-A14 `1580257`->`1580258`, FDQ-A14
+  `1580259`->`1580260`; 32B stem s42 FD-A `1580261`->`1580262`, FDQ-A `1580263`->`1580264`; 32B hss s44 FD-A `1580265`->`1580266`
+  (low prior). Scripts generated from each seed's FD-q scripts (only root/label/variant/aug/anchor differ; md5 verified after copy).
+  Next: on a screen < 0.25, write a TEST script from `wg_fda_test_bio_s43.sbatch` and run a non-preempting Vulcan copy alongside.
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

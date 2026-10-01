@@ -59,6 +59,9 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
   WatGPU `t3` after value check). 14B hss s42 FD-A14/FDQ-A14 also raced on Killarney l40s:2 (h100 est. 10-04; 14B obfcot trains fit l40s:2 on
   Vulcan): K `5840046`->`5840047` (FD-A14), `5840048`->`5840049` (FDQ-A14), root `/scratch/markwang/possum-afix/{FDA,FDQA}`, translated by
   `translate_wg_to_k.py` (l40s headers). Guard `~/.possum/fda14_race_guard.sh` ([FDA14RACE]): first RUNNING train keeps the arm.
+* **6h check 2026-10-01 17:17 UTC:** K/W/V watchers + WatGPU disk alarm alive; Vulcan master OK; WatGPU 32 GB (steady). Nothing landed. K: CB 32B cyber
+  `5817648-50` running, PWD 32B SFT/DPO bio `5750029` running (chem/cyber pending), 14B hss s42 FD-A14/FDQ-A14 trains running (~30%, receipts:
+  target exclusion + format-aug OK). W: 32B FD-A/FDQ-A trains pending (`watgpu508` excluded after two 5-min preemptions). V: `1245491` pending.
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

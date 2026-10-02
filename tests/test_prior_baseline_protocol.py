@@ -3496,7 +3496,7 @@ class ValElicitationSkipTests(unittest.TestCase):
         self.assertIn("steering", results_test)
 
     @unittest.skipUnless(HAS_ML_STACK, "requires the project ML dependencies")
-    def test_only_the_last_inference_technique_skips_the_reload(self):
+    def test_only_the_last_inference_or_merged_ft_technique_skips_the_reload(self):
         import pandas as pd
 
         evaluate = self._evaluate_module()
@@ -3516,11 +3516,16 @@ class ValElicitationSkipTests(unittest.TestCase):
         with patch.dict(os.environ, {"POSSUM_SKIP_VAL_ELICITATION": "noise,pruning,sft"}), \
                 patch.object(evaluate, "_make_technique",
                              side_effect=lambda name, model, *a, **k: FakeTechnique(name, model)):
-            for techniques, want in ((["noise", "pruning"], [("noise", reloaded), ("pruning", mo_model)]),
-                                     (["sft"], [("sft", reloaded)])):
+            # A fine-tune (sft) skips the reload only on a merged organism (no peft_config); an
+            # adapter-only organism still reloads (F438: get_peft_model would shadow its adapter).
+            peft_model = type("PeftLike", (), {"peft_config": {"default": None}})()
+            for model, techniques, want in (
+                    (mo_model, ["noise", "pruning"], [("noise", reloaded), ("pruning", mo_model)]),
+                    (mo_model, ["sft"], [("sft", mo_model)]),
+                    (peft_model, ["sft"], [("sft", reloaded)])):
                 calls.clear()
                 evaluate._run_elicitations_single(
-                    mo_model=mo_model, tokenizer=object(), model_org="pwd",
+                    mo_model=model, tokenizer=object(), model_org="pwd",
                     model_name="qwen2.5-32b-it", dataset="bio",
                     eval_val=frame(4), eval_test=frame(9), elicit_train_df=frame(3),
                     system_prompt=None, elicitations=techniques, seed=42,

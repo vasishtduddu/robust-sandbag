@@ -95,6 +95,13 @@ _STEP_TRACKED_TECHNIQUES = {"sft", "anti_refusal", "lat", "ppo", "dpo", "grpo"}
 # Inference-only whitebox techniques: steering adds forward hooks; noise and pruning perturb
 # weights in place and restore them from CPU copies. None of them trains the organism.
 _NO_RELOAD_TEST_TECHNIQUES = {"steering", "noise", "pruning"}
+# Fine-tuning techniques may also skip the reload, but ONLY on a merged (non-PEFT) organism: their
+# run() wraps the model with get_peft_model, which on an adapter-only organism shadows the organism's
+# own adapter (F438), whereas a merged organism is wrapped exactly as a fresh reload would be. Same
+# preconditions as above (val pass skipped, mo_model untouched, technique requested LAST), so the test
+# fine-tune runs on the one resident copy; nothing reads mo_model afterwards. 32B PWD DPO OOMed 3 x H100
+# at the reload's step-0 eval on all three bio seeds (2026-10-01, K 5750029).
+_NO_RELOAD_FT_TECHNIQUES = {"sft", "dpo"}
 
 # Attacks whose TEST measurement reuses nothing from the VAL measurement, so the
 # val pass is pure diagnostic cost. AutoDAN rebuilds its strategy library from
@@ -951,7 +958,9 @@ def _run_elicitations_single(mo_model, tokenizer, model_org, model_name,
                 res_test = tech.run(eval_data=eval_test, suffix=res_val["suffix"])
             elif is_whitebox:
                 # run() mutated mo_model in place; measure test on a clean reloaded organism.
-                if (name in _NO_RELOAD_TEST_TECHNIQUES and res_val is None and mo_model_clean
+                no_reload_ok = name in _NO_RELOAD_TEST_TECHNIQUES or (
+                    name in _NO_RELOAD_FT_TECHNIQUES and not hasattr(mo_model, "peft_config"))
+                if (no_reload_ok and res_val is None and mo_model_clean
                         and name == elicitations[-1]):
                     print(f"    val pass skipped and mo_model untouched: {name!r} test runs without a reload.")
                     tech2 = _make_technique(name, mo_model, tokenizer, dataset, model_name, seed)

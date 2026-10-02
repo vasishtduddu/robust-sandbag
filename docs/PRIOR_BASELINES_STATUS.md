@@ -76,6 +76,12 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
 * **2026-10-02 02:30 UTC: CB 32B cyber whitebox s44 POST-GATE PASS** (K `5817650`; zero rows exact 85/399). nopw 0.213, pw 0.574: steering 0.303 = 121/399
   = the A-share exactly (one-letter collapse, as at 7B s44: NOT elicitation), fuzzing 0.474 (rec 0.72), pruning 0.459 (rec 0.68). **CB 32B 3/3
   done.** Table switch waits for the PWD 32B cyber s44 pruning (V `1245491`) sync into `possum-pwd-fc-sweeps`.
+* **2026-10-02 03:50 UTC: PWD 32B bio SFT/DPO (K `5750029`): SFT 3/3 POST-GATE PASS** (recovery +0.015/+0.131/+0.086, capability kept), **DPO 0/3: OOM**
+  on GPU 0 (79 GiB) at the test pass's step-0 eval: the val->test reload holds a second 62 GB copy (memory possum-whitebox-reload-peak).
+  Fix `e7484b8`: a MERGED organism's sft/dpo requested last with its val pass skipped trains on the resident copy (adapter organisms keep
+  the reload, F438). Reruns on Killarney l40s:4 (h100 est. 10-03; l40s starts sooner), `POSSUM_DEVICE_MEM_FRACTION=0.45`:
+  bio DPO per seed `5856773/75/78` (SKIP_VAL=dpo); chem/cyber per seed `5856810/11/14`, `5856816/18/20` (SKIP_VAL=sft,dpo). The h100:3
+  chem/cyber jobs `5750030/31` are HELD (they would OOM on DPO); cancel once an l40s DPO passes step 0.
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

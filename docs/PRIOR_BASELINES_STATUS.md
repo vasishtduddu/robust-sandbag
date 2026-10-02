@@ -10,6 +10,15 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+## 0-TAKEOVER-4. 2026-10-02 16:06 UTC, new driver session on klogin01
+
+Infra restarted (`start_watchers.sh`: K v6, W v6, V v7, shipper tail, WatGPU disk alarm; Monitor on `follow_events.sh`; 6h check cron at :47).
+Verified against 0-HANDOFF-3: K PWD 32B SFT chem s42/s44 (~95% of SFT training), cyber s42/s43 (~25%) RUNNING, step-0 gates healthy (chem delta
+0.30/0.39, cyber 0.50/0.48); chem s43 `5871631` / cyber s44 `5856820` pending (Priority); H100 DPO bio `5879853` pending, chem/cyber `5879856/59`
+afterany. K 14B hss s42 FD-A screen `5840047` at 18/25 AutoDAN VAL items (~1850 s/item, ETA ~19:45 UTC). W `1580264` (32B stem s42 FDQ-A) and
+`1580266` (32B hss s44 FD-A) RUNNING 2.5 h; V copies `1258244/45` and `1245491` still pending (Priority). WatGPU 17 GB free. The L40S jobs are
+left to run their DPO halves (OOM, harmless): no auto-cancel guard.
+
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 
 **All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W `slurm_watch_*` watchers + shipper tail, WatGPU disk alarm). Jobs keep running.

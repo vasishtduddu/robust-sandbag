@@ -71,6 +71,13 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
   52 of 399, within the accepted max(3, 5% n) drift; this run's own baseline reads 49/399). nopw 0.130, pw 0.566: steering 0.231 (rec 0.23;
   best = locked x8, BELOW the cyber A-share 0.303, so possibly partial one-letter drift, not clear elicitation), fuzzing 0.484 (rec 0.81),
   pruning 0.456 (rec 0.75). s43/s44 still running. Table switch waits for all three seeds + the PWD 32B cyber sweep sync.
+* **2026-10-02 00:45 UTC: paper-writing session (separate from the driver; no jobs, no infra touched).** Checked `sandbagging.pdf` (`94cb366`,
+  md5 b9d9086a, = GitHub) against `tables/`. Paper is RESTRUCTURED again: prior Eff/Util = Table 5 (App. D.1, no Jlbrk column), proposed = Table 6,
+  AutoDAN = Figure 2 boxplots, main Table 1 = steering only, Pruning/Fuzzing in prose + appendix figures. VERIFIED: RoBCoTDstl Table 6 rows = `table3.gen.tex`;
+  prose PWD/CktBr/SysPr HS/CSQA means 81.9/82.3, 80.6/81.0, 68.5/72.1, SysPr mean Delta 3.7 with 6 negative, minima 53.0/35.7, base 77.8/77.2,
+  prior per-seed Jlbrk 75.9-99.2 (median 94.9, n=162), steering means 0.6 vs 29.5. STALE/WRONG in paper: RoBCoTDstl median per-seed Jlbrk is now 0.0
+  (mean 4.8, 3/54 seeds >= 25), not "2.0"; App. B says genparse for effectiveness and AutoDAN, but prior baselines are forced-choice there (genparse
+  utility only); Sec. 5 says SysPr used "best optimized system prompts", code uses the exact released prompt with no search (App. B.1 is right).
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

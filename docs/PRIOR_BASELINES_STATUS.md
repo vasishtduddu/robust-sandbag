@@ -39,6 +39,10 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   organism's jobs submitted on verification ([FIG32B] events). Scripts `~/possum-mark/jobs/fig32b_20261002/` (19). On landing: POST-GATE line;
   sync `d4ours`/`d4dpo_ours` curve CSVs into `/scratch/markwang/possum-fig32b-ours/{sft,dpo}` (md5), render `whitebox_curves --techniques sft dpo
   --models qwen2.5-32b-it` (two-arm WMDP panels once the PWD arm is 3/3; MMLU has no PWD arm: weightless shells).
+* **6h check 2026-10-02 17:17 UTC:** K/W/V watchers + disk alarm + SFT-cut guard alive; Vulcan master OK; WatGPU 13 GB free (after staging). Nothing landed
+  since 16:19. K: PWD 32B SFT cyber s42/s43/s44 RUNNING (s44 started on kn050), chem s43 + H100 DPO x3 pending; 14B hss s42 FD-A screen 11.7 h;
+  7B chem pruning regen `5886305` pending. W: 18/19 32B ours FT jobs submitted (`1582995-1583030`; SFT chem s42 RUNNING), prof run02 (DPO s43)
+  staging; FD screens `1580264/66` RUNNING 3.8 h. V: `1245491`, `1258244/45` pending (Priority).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

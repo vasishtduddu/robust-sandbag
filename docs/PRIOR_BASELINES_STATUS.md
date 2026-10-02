@@ -82,6 +82,9 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
   the reload, F438). Reruns on Killarney l40s:4 (h100 est. 10-03; l40s starts sooner), `POSSUM_DEVICE_MEM_FRACTION=0.45`:
   bio DPO per seed `5856773/75/78` (SKIP_VAL=dpo); chem/cyber per seed `5856810/11/14`, `5856816/18/20` (SKIP_VAL=sft,dpo). The h100:3
   chem/cyber jobs `5750030/31` are HELD (they would OOM on DPO); cancel once an l40s DPO passes step 0.
+* **6h check 2026-10-02 05:17 UTC:** watchers + disk alarm alive; Vulcan master OK; WatGPU 17 GB (steady). Nothing running on any cluster; nothing landed since
+  the CB 32B cyber 3/3 (all validated) and the PWD 32B bio SFT 3/3. Queued: K PWD 32B bio DPO x3 + chem/cyber SFT/DPO x6 (l40s:4, est. 06:50 UTC),
+  K 14B hss s42 FD-A screen `5840047`; V `1245491` (PWD 32B cyber s44 pruning), `1258244/45` (32B screens); W `1580264/66` (same screens).
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

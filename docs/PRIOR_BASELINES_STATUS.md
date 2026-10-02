@@ -27,6 +27,18 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   organism). Larger than bio (+0.015/+0.131/+0.086) but 8 of 83 items; PWD is not designed to resist SFT, so in range.
 * **2026-10-02 16:19 UTC: PWD 32B chem s44 SFT POST-GATE PASS** (K `5856814`, guard-cancelled at the DPO half). n=83: locked 0.157 -> 0.265
   (plateau from step 1000), pw 0.542 -> 0.590, recovery +0.281; ALL GATES PASS (pairing 0.1566). Chem s42/s44 agree (+0.32/+0.28); s43 `5871631` pending.
+* **2026-10-02 16:57 UTC: Mark's answers to the open questions.** (1) Spider plots are NO LONGER NEEDED (leave `tables/spider/` as is, never re-render).
+  (2) YES regenerate the 7B WMDP-Chem RoBCoTDstl pruning curve: K interac `5883826` (root `/scratch/markwang/possum-prune7bchem`, elicitation-only
+  path, published adapters run01/run02 read-only; post-gate: sweep max must reproduce published 0.1566 / 0.1446 within max(3, 5% n) items).
+  (3) Zero-valued boxplot cells: leave as is. (4) Representative figure RELEASED with 3/4 two-arm panels (PROVENANCE; style now = the 54
+  panels) + 32B WMDP-Bio SFT panel.
+* **2026-10-02 16:57 UTC: 32B RoBCoTDstl SFT/DPO figure arm was incomplete** (9 of 18 organisms ever ran; DPO prof s43 OOM never redone; searched all K/V/W roots).
+  Mark: run them. WatGPU `stage32b` freed with Mark's approval: removed ONLY the 9 staged `adapter_model.safetensors` of the completed organisms
+  after sha256 + organism-config md5 == Killarney originals (manifest `~/.possum/watgpu_stage32b_freed_20261002.txt`; WatGPU 17 -> 53 GB free).
+  Staging chem run01-03, cyber run02/03, prof run01, stem run01/03, hss run03 (+ prof run02 for DPO s43), sha-verified per organism, each
+  organism's jobs submitted on verification ([FIG32B] events). Scripts `~/possum-mark/jobs/fig32b_20261002/` (19). On landing: POST-GATE line;
+  sync `d4ours`/`d4dpo_ours` curve CSVs into `/scratch/markwang/possum-fig32b-ours/{sft,dpo}` (md5), render `whitebox_curves --techniques sft dpo
+  --models qwen2.5-32b-it` (two-arm WMDP panels once the PWD arm is 3/3; MMLU has no PWD arm: weightless shells).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

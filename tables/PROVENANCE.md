@@ -4289,3 +4289,19 @@ Label-only re-render of all 54 panels with `experiments.whitebox_curves`; data, 
 7B MMLU-HSS (4.8/9.0/11.7), 14B WMDP-Cyber (4.8/5.0/5.3), 14B MMLU-HSS (8.0/9.0/11.7), 32B WMDP-Bio (0/0/0). One existing value changed:
 RobPWD 32B WMDP-Chem s44 0.60 -> 1.20. Combined figure: **108 cells x 3 seeds = 324 values, none missing** (162 prior + 54 RoBCoTDstl + 108 teammate).
 Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attack_per_seed.json`, then `--table combined`).
+
+## 2026-10-02 16:57 UTC: main-paper representative whitebox figure released (3/4 panels two-arm) + 32B WMDP-Bio SFT panel
+
+* Mark 2026-10-02: release the representative figure now with the PWD DPO arm still pending. `tables/representative/whitebox_representative_qwen2.5-32b-it_bio.{pdf,png}`
+  = Qwen2.5-32B / WMDP-Bio, Fuzzing | Pruning | SFT | DPO. Fuzzing/Pruning/SFT: both arms 3/3 seeds; DPO: RoBCoTDstl 3/3, Password Locking 0/3
+  (K h100:2 `5879853`, est. 10-04); re-render when it lands (drop `--allow-missing-arm`).
+* Style and metric now match the 54 per-technique panels (Mark 10-01): `whitebox_representative_plot.py` reuses `whitebox_curves` (same roots,
+  raw locked accuracy %, mean +/- 1 SE over organism seeds, x/legend labels). The 09-30 draft's recovery y-axis / per-seed lines are superseded.
+  Command: `env -u POSSUM_ARTIFACT_ROOT venv/bin/python -m experiments.whitebox_representative_plot --allow-missing-arm`.
+* `whitebox_curves.FT_ROOTS` gains 32B: ours `possum-fig32b-ours/{sft,dpo}`, pwd `possum-d4-pwd32b` / `possum-d4dpo-pwd32b`. New panel
+  `tables/sft/sft_qwen2.5-32b-it_bio` (both arms 3/3). 32B chem/cyber SFT and all 32B DPO panels wait (SFT/DPO panels require both arms).
+* Check: re-rendering all 54 committed curve panels from current data is pixel-identical to `tables/` (no stale published figure).
+* **Gap found:** the RoBCoTDstl 32B SFT/DPO arm (09-23 plan: all 18 organisms) only ever ran 9 organisms (bio x3, cyber s42, hss s42/s43,
+  prof s43/s44, stem s43; DPO prof s43 OOMed and was never redone). Searched every root on K/V/W: no other 32B ours FT curves exist. Mark
+  2026-10-02: run them. 19 WatGPU H200x2 jobs (9 SFT + 10 DPO) from the exact submitted scripts of the completed runs (`sv20260926/bal/bal_1566688`
+  SFT, `bal_1566402` DPO; diff = task/seed only), unchanged WatGPU code tree (last modified 09-25, before the completed runs).

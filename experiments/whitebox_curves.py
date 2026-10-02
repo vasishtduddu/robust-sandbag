@@ -23,6 +23,7 @@ the ones the published figures used (tables/PROVENANCE.md):
 * SFT ours = the DL-c/DL-L figure roots ``possum-sftfig-dlc/{ours7b,ours14b}`` (Mark 09-27/28).
 * SFT pwd = ``artifacts`` (7B) and ``possum-pwd-fc-sweeps`` (14B).
 * DPO ours/pwd = ``possum-table3-current``/``artifacts`` (7B), ``possum-d4dpo-{ours,pwd}14b`` (14B).
+* SFT/DPO 32B ours = ``possum-fig32b-ours/{sft,dpo}``; pwd = ``possum-d4-pwd32b`` / ``possum-d4dpo-pwd32b``.
 * Sweeps: ours ``possum-table3-current`` then ``possum-mmlu-merge``; pwd ``possum-pwd-fc-sweeps``.
 """
 from __future__ import annotations
@@ -47,6 +48,8 @@ FT_ROOTS = {  # (technique, model) -> (ours root, pwd root)
     ("sft", "qwen2.5-14b-it"): (S / "possum-sftfig-dlc/ours14b", S / "possum-pwd-fc-sweeps"),
     ("dpo", "qwen2.5-7b-it"): (S / "possum-table3-current", ART),
     ("dpo", "qwen2.5-14b-it"): (S / "possum-d4dpo-ours14b", S / "possum-d4dpo-pwd14b"),
+    ("sft", "qwen2.5-32b-it"): (S / "possum-fig32b-ours/sft", S / "possum-d4-pwd32b"),
+    ("dpo", "qwen2.5-32b-it"): (S / "possum-fig32b-ours/dpo", S / "possum-d4dpo-pwd32b"),
 }
 SWEEP_OURS = (S / "possum-table3-current", S / "possum-mmlu-merge")
 SWEEP_PWD = S / "possum-pwd-fc-sweeps"

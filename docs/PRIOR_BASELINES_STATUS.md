@@ -29,7 +29,7 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   (plateau from step 1000), pw 0.542 -> 0.590, recovery +0.281; ALL GATES PASS (pairing 0.1566). Chem s42/s44 agree (+0.32/+0.28); s43 `5871631` pending.
 * **2026-10-02 16:57 UTC: Mark's answers to the open questions.** (1) Spider plots are NO LONGER NEEDED (leave `tables/spider/` as is, never re-render).
   (2) YES regenerate the 7B WMDP-Chem RoBCoTDstl pruning curve: K interac `5883826` (root `/scratch/markwang/possum-prune7bchem`, elicitation-only
-  path, published adapters run01/run02 read-only; post-gate: sweep max must reproduce published 0.1566 / 0.1446 within max(3, 5% n) items).
+  path, published adapters run01/run02 read-only; died 4 s on bad node kn102 (bash symlink fault, as kn050), resubmitted excluding both as `5886185`; post-gate: sweep max must reproduce published 0.1566 / 0.1446 within max(3, 5% n) items).
   (3) Zero-valued boxplot cells: leave as is. (4) Representative figure RELEASED with 3/4 two-arm panels (PROVENANCE; style now = the 54
   panels) + 32B WMDP-Bio SFT panel.
 * **2026-10-02 16:57 UTC: 32B RoBCoTDstl SFT/DPO figure arm was incomplete** (9 of 18 organisms ever ran; DPO prof s43 OOM never redone; searched all K/V/W roots).

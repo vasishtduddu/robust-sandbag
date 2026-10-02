@@ -43,6 +43,8 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   since 16:19. K: PWD 32B SFT cyber s42/s43/s44 RUNNING (s44 started on kn050), chem s43 + H100 DPO x3 pending; 14B hss s42 FD-A screen 11.7 h;
   7B chem pruning regen `5886305` pending. W: 18/19 32B ours FT jobs submitted (`1582995-1583030`; SFT chem s42 RUNNING), prof run02 (DPO s43)
   staging; FD screens `1580264/66` RUNNING 3.8 h. V: `1245491`, `1258244/45` pending (Priority).
+* **2026-10-02 17:19 UTC:** all 19 W 32B ours FT jobs submitted (10/10 organisms sha-verified). Pending time limits cut 24 h -> 4 h SFT / 5 h DPO (measured
+  1:50 / 2:42 on H200x2): FIFO backfill estimate moved from 10-22 to last start 10-04 00:28 UTC.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

@@ -1,0 +1,848 @@
+[
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-7b-it",
+    "dataset": "bio",
+    "mean": 0.3,
+    "se": 0.1,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.390625
+      },
+      {
+        "value": 0.390625
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-7b-it",
+    "dataset": "chem",
+    "mean": 1.6,
+    "se": 1.6,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 4.819277108433735
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-7b-it",
+    "dataset": "cyber",
+    "mean": 0.7,
+    "se": 0.7,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 2.0050125313283207
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-14b-it",
+    "dataset": "bio",
+    "mean": 0.7,
+    "se": 0.5,
+    "seeds": [
+      {
+        "value": 0.390625
+      },
+      {
+        "value": 1.5625
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-14b-it",
+    "dataset": "chem",
+    "mean": 7.2,
+    "se": 4.2,
+    "seeds": [
+      {
+        "value": 3.614457831325301
+      },
+      {
+        "value": 2.4096385542168677
+      },
+      {
+        "value": 15.66265060240964
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-14b-it",
+    "dataset": "cyber",
+    "mean": 0.8,
+    "se": 0.6,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 2.0050125313283207
+      },
+      {
+        "value": 0.5012531328320802
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-32b-it",
+    "dataset": "bio",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-32b-it",
+    "dataset": "chem",
+    "mean": 0.8,
+    "se": 0.4,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 1.2048192771084338
+      },
+      {
+        "value": 1.2048192771084338
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-32b-it",
+    "dataset": "cyber",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-7b-it",
+    "dataset": "bio",
+    "mean": 1.3,
+    "se": 1.3,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 3.90625
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-7b-it",
+    "dataset": "chem",
+    "mean": 5.6,
+    "se": 0.4,
+    "seeds": [
+      {
+        "value": 6.024096385542169
+      },
+      {
+        "value": 6.024096385542169
+      },
+      {
+        "value": 4.819277108433735
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-7b-it",
+    "dataset": "cyber",
+    "mean": 5.1,
+    "se": 1.0,
+    "seeds": [
+      {
+        "value": 4.010025062656641
+      },
+      {
+        "value": 4.260651629072681
+      },
+      {
+        "value": 7.017543859649122
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-14b-it",
+    "dataset": "bio",
+    "mean": 0.8,
+    "se": 0.4,
+    "seeds": [
+      {
+        "value": 1.171875
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 1.171875
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-14b-it",
+    "dataset": "chem",
+    "mean": 2.4,
+    "se": 1.8,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 6.024096385542169
+      },
+      {
+        "value": 1.2048192771084338
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-14b-it",
+    "dataset": "cyber",
+    "mean": 5.0,
+    "se": 0.1,
+    "seeds": [
+      {
+        "value": 4.761904761904762
+      },
+      {
+        "value": 5.012531328320802
+      },
+      {
+        "value": 5.263157894736842
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-32b-it",
+    "dataset": "bio",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-32b-it",
+    "dataset": "chem",
+    "mean": 0.4,
+    "se": 0.4,
+    "seeds": [
+      {
+        "value": 1.2048192771084338
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-32b-it",
+    "dataset": "cyber",
+    "mean": 2.1,
+    "se": 0.1,
+    "seeds": [
+      {
+        "value": 2.0050125313283207
+      },
+      {
+        "value": 2.2556390977443606
+      },
+      {
+        "value": 2.0050125313283207
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-7b-it",
+    "dataset": "mmlu-prof",
+    "mean": 9.0,
+    "se": 6.6,
+    "seeds": [
+      {
+        "value": 5.128205128205128
+      },
+      {
+        "value": 21.794871794871796
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-7b-it",
+    "dataset": "mmlu-stem",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-7b-it",
+    "dataset": "mmlu-hss",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-14b-it",
+    "dataset": "mmlu-prof",
+    "mean": 8.5,
+    "se": 5.4,
+    "seeds": [
+      {
+        "value": 19.230769230769234
+      },
+      {
+        "value": 4.487179487179487
+      },
+      {
+        "value": 1.9230769230769231
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-14b-it",
+    "dataset": "mmlu-stem",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-14b-it",
+    "dataset": "mmlu-hss",
+    "mean": 0.5,
+    "se": 0.3,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.5319148936170213
+      },
+      {
+        "value": 1.0638297872340425
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-32b-it",
+    "dataset": "mmlu-prof",
+    "mean": 13.5,
+    "se": 7.8,
+    "seeds": [
+      {
+        "value": 26.923076923076923
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 13.461538461538462
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-32b-it",
+    "dataset": "mmlu-stem",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen2.5-32b-it",
+    "dataset": "mmlu-hss",
+    "mean": 7.6,
+    "se": 5.0,
+    "seeds": [
+      {
+        "value": 4.25531914893617
+      },
+      {
+        "value": 1.0638297872340425
+      },
+      {
+        "value": 17.5531914893617
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-7b-it",
+    "dataset": "mmlu-prof",
+    "mean": 8.0,
+    "se": 8.0,
+    "seeds": [
+      {
+        "value": 24.03846153846154
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-7b-it",
+    "dataset": "mmlu-stem",
+    "mean": 0.9,
+    "se": 0.9,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 2.7027027027027026
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-7b-it",
+    "dataset": "mmlu-hss",
+    "mean": 8.5,
+    "se": 2.0,
+    "seeds": [
+      {
+        "value": 4.7872340425531915
+      },
+      {
+        "value": 9.042553191489362
+      },
+      {
+        "value": 11.702127659574468
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-14b-it",
+    "dataset": "mmlu-prof",
+    "mean": 14.0,
+    "se": 5.1,
+    "seeds": [
+      {
+        "value": 15.384615384615385
+      },
+      {
+        "value": 22.115384615384613
+      },
+      {
+        "value": 4.487179487179487
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-14b-it",
+    "dataset": "mmlu-stem",
+    "mean": 3.6,
+    "se": 1.2,
+    "seeds": [
+      {
+        "value": 5.405405405405405
+      },
+      {
+        "value": 4.054054054054054
+      },
+      {
+        "value": 1.3513513513513513
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-14b-it",
+    "dataset": "mmlu-hss",
+    "mean": 9.6,
+    "se": 1.1,
+    "seeds": [
+      {
+        "value": 7.978723404255319
+      },
+      {
+        "value": 9.042553191489362
+      },
+      {
+        "value": 11.702127659574468
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-32b-it",
+    "dataset": "mmlu-prof",
+    "mean": 6.5,
+    "se": 2.4,
+    "seeds": [
+      {
+        "value": 4.807692307692308
+      },
+      {
+        "value": 3.5256410256410255
+      },
+      {
+        "value": 11.217948717948719
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-32b-it",
+    "dataset": "mmlu-stem",
+    "mean": 9.0,
+    "se": 7.0,
+    "seeds": [
+      {
+        "value": 1.3513513513513513
+      },
+      {
+        "value": 22.972972972972975
+      },
+      {
+        "value": 2.7027027027027026
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen2.5-32b-it",
+    "dataset": "mmlu-hss",
+    "mean": 5.9,
+    "se": 4.1,
+    "seeds": [
+      {
+        "value": 13.829787234042554
+      },
+      {
+        "value": 0.5319148936170213
+      },
+      {
+        "value": 3.1914893617021276
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen3.8-27b-it",
+    "dataset": "wmdp",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen3.8-27b-it",
+    "dataset": "mmlu",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen3.6-27b-it",
+    "dataset": "wmdp",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen3.6-27b-it",
+    "dataset": "mmlu",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen3.8-27b-it",
+    "dataset": "wmdp",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen3.6-27b-it",
+    "dataset": "wmdp",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "muse-glimmer-30b",
+    "dataset": "wmdp",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "qwen3.8-27b-it",
+    "dataset": "math",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robpwd",
+    "model": "muse-glimmer-30b",
+    "dataset": "math",
+    "mean": 1.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 1.0
+      },
+      {
+        "value": 1.0
+      },
+      {
+        "value": 1.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "qwen3.8-27b-it",
+    "dataset": "math",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  },
+  {
+    "organism_id": "robadapt",
+    "model": "muse-glimmer-30b",
+    "dataset": "math",
+    "mean": 0.0,
+    "se": 0.0,
+    "seeds": [
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      },
+      {
+        "value": 0.0
+      }
+    ]
+  }
+]

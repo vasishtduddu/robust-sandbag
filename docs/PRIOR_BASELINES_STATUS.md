@@ -67,6 +67,10 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
   Running: W 32B stem s42 FD-A `1580261` (watgpu708), FDQ-A `1580263`, hss s44 FD-A `1580265` (watgpu808); K CB 32B cyber `5817648-50`
   (s42/s43 pruning call, s44 noise ~done), PWD 32B bio SFT/DPO `5750029` (4/6). Pending: V `1245491` (est. 02:00 UTC), K chem/cyber SFT/DPO
   (est. 10-04 05:20 UTC).
+* **2026-10-02 00:42 UTC: CB 32B cyber whitebox s42 VALID** (K `5817648`, exit 3 = the in-job EXACT zero-row check: noise/pruning zero rows 49 vs blob nopw
+  52 of 399, within the accepted max(3, 5% n) drift; this run's own baseline reads 49/399). nopw 0.130, pw 0.566: steering 0.231 (rec 0.23;
+  best = locked x8, BELOW the cyber A-share 0.303, so possibly partial one-letter drift, not clear elicitation), fuzzing 0.484 (rec 0.81),
+  pruning 0.456 (rec 0.75). s43/s44 still running. Table switch waits for all three seeds + the PWD 32B cyber sweep sync.
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

@@ -267,3 +267,7 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
   diag+screen W `1580264` RUNNING.
 * 2026-10-02 00:15 UTC: **FD-A 32B MMLU-Stem s42 (W `1580261`) FAILS (a)**: val capability pw/base 0.891 (41/71; bar 0.90, i.e. one item short); utility now passes
   (HS/b 1.011, CSQA/b 0.972 vs FD 0.207/0.000) and lock holds (nopw 0.000). Screen no-op'd as designed. FDQ-A is this seed's only candidate.
+* 2026-10-02 00:34 UTC: both 32B W screens (`1580264` stem s42 FDQ-A, `1580266` hss s44 FD-A) PREEMPTED together on watgpu808 after 15/22 min (requeued). Non-
+  preempting Vulcan copies on l40s:4 (template `v_fda_diagscreen_bio_s43`; adapters + EFF JSONs sha256 W == K stage == V, 24 files): V `1258244`
+  (stem s42 FDQ-A, root `afixFDQA`), `1258245` (hss s44 FD-A, root `afixFDA`). Rule as for bio s43: the FIRST valid screen per seed is read; the
+  other copy is cancelled unread.

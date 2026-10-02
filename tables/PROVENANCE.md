@@ -4282,3 +4282,10 @@ old layout.
 ## 2026-10-01 17:06 UTC: curve figure labels (Mark): x = "SFT Steps" / "DPO Steps" / "Gaussian Noise $\sigma$" / "Pruning Sparsity"; legend "Password Locking"
 
 Label-only re-render of all 54 panels with `experiments.whitebox_curves`; data, roots and style unchanged.
+
+## 2026-10-02 00:19 UTC: jailbreak boxplots re-rendered with the updated teammate file (`c9c157b`)
+
+`tables/attack_per_seed.json` now covers all 36 RobPWD/RobAdapt Qwen2.5 cells (3 seeds each; every mean checked against its seeds). Added: RobAdapt
+7B MMLU-HSS (4.8/9.0/11.7), 14B WMDP-Cyber (4.8/5.0/5.3), 14B MMLU-HSS (8.0/9.0/11.7), 32B WMDP-Bio (0/0/0). One existing value changed:
+RobPWD 32B WMDP-Chem s44 0.60 -> 1.20. Combined figure: **108 cells x 3 seeds = 324 values, none missing** (162 prior + 54 RoBCoTDstl + 108 teammate).
+Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attack_per_seed.json`, then `--table combined`).

@@ -76,6 +76,13 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
 * **2026-10-02 21:59 UTC: PWD 32B cyber s44 SFT POST-GATE PASS** (K `5856820`, guard-cancelled): locked 0.143 -> 0.190 (recovery +0.103), ALL GATES PASS
   (pairing 0.1429). **Disclose (cyber, 2 of 3 seeds):** with-password accuracy erodes under HH-RLHF SFT: s42 0.88x, s43 0.94x, s44 0.84x
   (0.604 -> 0.506); bio kept on all 3. PWD 32B SFT 8/9 (chem s43 `5871631` pending).
+* **2026-10-02 22:37 UTC: watgpu508 produces garbage generations.** W 32B ours SFT chem s43 `1582997` ran on watgpu508: EVERY genparse pass 100% unparseable,
+  even the plain base model (HS 6695/6695), so the step-0 gate raised (pw 0.000 vs published 0.494). Earlier attempts touching watgpu508 (bio
+  s42/s43 DPO, cyber s42 DPO; the "stale zero Eff/Util" bio s43 DPO blob) show the same signature; every published 32B ours curve has a correct
+  step-0 pw (checked all 19 CSVs). Actions: watgpu508 EXCLUDED on every pending possum_wg job; the broken blob moved aside
+  (`d4ours/results/json/obfcot_qwen2.5-32b-it_chem__seed43.json.broken-watgpu508-20261002`); resubmitted as W `1583428`. **Hazard for weak-seed
+  TESTs: on such a node AutoDAN would read 0.00 and look like a fix.** Reading rule: a TEST is valid only if its log has no fully-unparseable
+  pass and its pw matches the EFF blob. W 32B hss s44 TEST restarted `1583098` on watgpu908.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

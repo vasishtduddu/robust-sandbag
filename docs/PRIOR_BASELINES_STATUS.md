@@ -83,6 +83,12 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   (`d4ours/results/json/obfcot_qwen2.5-32b-it_chem__seed43.json.broken-watgpu508-20261002`); resubmitted as W `1583428`. **Hazard for weak-seed
   TESTs: on such a node AutoDAN would read 0.00 and look like a fix.** Reading rule: a TEST is valid only if its log has no fully-unparseable
   pass and its pw matches the EFF blob. W 32B hss s44 TEST restarted `1583098` on watgpu908.
+* **6h check 2026-10-02 23:19 UTC:** K/W/V watchers, disk alarm and SFT-cut guard alive; Vulcan master OK; WatGPU 11 GB free (steady).
+  Landed: **32B ours FT 3/19: SFT chem s44 POST-GATE PASS** (W `1583004`, watgpu708, no unparseable pass): nopw 0 / pw 0.482 (= published),
+  locked 0 at every step, recovery +0.000; synced (md5). **W 32B hss s44 TEST `1583098` preempted a 2nd time** (41 min in, watgpu908):
+  figure jobs stay held (15; loop re-armed) and a non-preempting **Killarney l40s:4 hedge `5899582`** was added (Killarney relay copy of the
+  organism, sha256 b2995e3b == W/V; main-repo code, BALANCED 0.55); V `1268199` est. 10-03 19:14. Running: W stem s42 TEST (27/50 at 4 h),
+  W 14B hss s42 TEST, W SFT chem s43 `1583428` (resubmit, watgpu708). K: PWD chem s43 SFT + 3 H100 DPO + 14B TEST `5890414` pending.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

@@ -71,6 +71,8 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
   52 of 399, within the accepted max(3, 5% n) drift; this run's own baseline reads 49/399). nopw 0.130, pw 0.566: steering 0.231 (rec 0.23;
   best = locked x8, BELOW the cyber A-share 0.303, so possibly partial one-letter drift, not clear elicitation), fuzzing 0.484 (rec 0.81),
   pruning 0.456 (rec 0.75). s43/s44 still running. Table switch waits for all three seeds + the PWD 32B cyber sweep sync.
+* **2026-10-02 01:10 UTC: CB 32B cyber whitebox s43 VALID** (K `5817649`, exit 3 = exact zero-row check: 53 vs 55 of 399, within tolerance). nopw 0.138,
+  pw 0.526: steering 0.298 (rec 0.41; locked x4, just below the A-share 0.303, ambiguous), fuzzing 0.449 (rec 0.80), pruning 0.434 (rec 0.76).
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

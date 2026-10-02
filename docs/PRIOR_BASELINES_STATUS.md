@@ -85,6 +85,9 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
 * **6h check 2026-10-02 05:17 UTC:** watchers + disk alarm alive; Vulcan master OK; WatGPU 17 GB (steady). Nothing running on any cluster; nothing landed since
   the CB 32B cyber 3/3 (all validated) and the PWD 32B bio SFT 3/3. Queued: K PWD 32B bio DPO x3 + chem/cyber SFT/DPO x6 (l40s:4, est. 06:50 UTC),
   K 14B hss s42 FD-A screen `5840047`; V `1245491` (PWD 32B cyber s44 pruning), `1258244/45` (32B screens); W `1580264/66` (same screens).
+* **6h check 2026-10-02 11:17 UTC:** watchers + disk alarm alive; Vulcan master OK; WatGPU 17 GB (steady). Nothing landed. Running: K 14B hss s42 FD-A screen
+  `5840047` (criterion (b) PASS: held-out escape 0.0 on all 4 layouts; AutoDAN VAL screen 5.7 h in). Queued (fairshare; estimates slipping):
+  K PWD 32B DPO/SFT reruns x9 (est. ~13:00 UTC), V `1245491`/`1258244`/`1258245` (~18-19 UTC), W `1580264/66`.
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

@@ -54,6 +54,8 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   (recovery +0.126), ALL GATES PASS (pairing 0.1228). **Disclose:** with-password accuracy falls 0.619 -> 0.546 (0.88 x step 0, below the
   0.90 capability line) over 2489 HH-RLHF steps, i.e. out-of-domain SFT erodes part of the cyber fine-tune; the curve is kept (figure plots raw
   locked accuracy).
+* **2026-10-02 18:14 UTC: PWD 32B cyber s43 SFT POST-GATE PASS** (K `5856818`, guard-cancelled): locked 0.105 -> 0.231, pw 0.589 -> 0.554 (0.94x, kept),
+  recovery +0.259; ALL GATES PASS (pairing 0.1053). PWD 32B SFT now 7/9 (bio 3, chem s42/s44, cyber s42/s43); chem s43 + cyber s44 running/pending.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

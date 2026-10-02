@@ -73,6 +73,9 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
   pruning 0.456 (rec 0.75). s43/s44 still running. Table switch waits for all three seeds + the PWD 32B cyber sweep sync.
 * **2026-10-02 01:10 UTC: CB 32B cyber whitebox s43 VALID** (K `5817649`, exit 3 = exact zero-row check: 53 vs 55 of 399, within tolerance). nopw 0.138,
   pw 0.526: steering 0.298 (rec 0.41; locked x4, just below the A-share 0.303, ambiguous), fuzzing 0.449 (rec 0.80), pruning 0.434 (rec 0.76).
+* **2026-10-02 02:30 UTC: CB 32B cyber whitebox s44 POST-GATE PASS** (K `5817650`; zero rows exact 85/399). nopw 0.213, pw 0.574: steering 0.303 = 121/399
+  = the A-share exactly (one-letter collapse, as at 7B s44: NOT elicitation), fuzzing 0.474 (rec 0.72), pruning 0.459 (rec 0.68). **CB 32B 3/3
+  done.** Table switch waits for the PWD 32B cyber s44 pruning (V `1245491`) sync into `possum-pwd-fc-sweeps`.
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

@@ -61,6 +61,8 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
 * **2026-10-02 18:28 UTC: 32B MMLU-HSS s44 FD-A SCREEN PASS** (W `1580266`): VAL AutoDAN **0.00 (0/25)**; held-out escape 0 on all layouts; EFF nopw 0.000 /
   pw 0.811. Vulcan screen copy `1258245` cancelled UNREAD. **TEST n=50** (fingerprint == published `0564df97...`; promote Jlbrk-only iff TEST
   < 0.34): W `1583098` (RUNNING, watgpu908) + V `1268199`. All 18 pending FT figure jobs re-held behind it (FIFO); release loop continues.
+* **2026-10-02 18:42 UTC: 32B ours FT 1/19: SFT chem s42 POST-GATE PASS** (W `1582995`, 1:24): genparse nopw 0.000 / pw 0.506 (= published), locked 0/83 at
+  every step, pw 0.506-0.518 (kept), recovery +0.000. Curve + summary synced (md5) to `possum-fig32b-ours/sft`.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

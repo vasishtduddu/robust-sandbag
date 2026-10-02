@@ -22,6 +22,9 @@ SFT `POST-GATE PASS` and the DPO half has started (an SFT gate failure is report
 Gap audit (handoff 15:52 -> restart 16:07 UTC): `sacct` terminal states on K (since 09:00 EDT), V and W (since 13:00 UTC) show nothing new
 beyond the already-handled bio DPO `5856773/75/78`; Vulcan terminals are all the teammate's `t45_*`. Remaining holds are the documented redundant
 ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until the cyber sweep sync).
+* **2026-10-02 16:13 UTC: PWD 32B chem s42 SFT POST-GATE PASS** (K `5856810`, cancelled by the guard at the DPO half). Forced-choice, n=83: locked
+  0.169 -> 0.265 at step 2489 (max 0.289 @1000), pw 0.470 -> 0.446, recovery +0.320; `validate_cell.py` ALL GATES PASS (pairing 0.1687 = reporting
+  organism). Larger than bio (+0.015/+0.131/+0.086) but 8 of 83 items; PWD is not designed to resist SFT, so in range.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

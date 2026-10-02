@@ -10,6 +10,42 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
+
+**All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W `slurm_watch_*` watchers + shipper tail, WatGPU disk alarm). Jobs keep running.
+Restart: `bash ~/.possum/start_watchers.sh`, then Monitor on `bash ~/.possum/follow_events.sh` (re-arm every 30 min). Vulcan ControlMaster on
+**klogin01** worked through this session. Detailed log of this session: section **0-TAKEOVER-3** below.
+
+**Done this session (validated, committed, pushed):**
+* CB 32B WMDP-Cyber whitebox appendix: **3/3 seeds valid** (`/scratch/markwang/possum-cb-whitebox`; per-seed numbers in 0-TAKEOVER-3). Steering
+  bests sit at/below the cyber A-share 0.303 (s44 = exactly the A-share: collapse, not elicitation); Fuzzing/Pruning recover 0.68-0.81.
+  **Table NOT yet switched to 32B** (needs the PWD 32B cyber s44 pruning, see below). Generator already prepared: `tablefill` now reads PWD
+  per technique across `PWD_WHITEBOX_ROOTS` (`2e2af77`, 7B output byte-identical).
+* Jailbreak boxplots fixed + re-rendered: loader now applies the 14 approved Jlbrk-only swaps (it plotted pre-promotion seeds); teammate
+  RobPWD/RobAdapt from `tables/attack_per_seed.json` (updated by Mark, all 36 cells) -> **108 cells x 3 seeds, none missing**.
+* Figures reorganised into `tables/{sft,dpo,fuzzing,pruning,jailbreak,spider}/` (superseded copies removed; git history keeps them). All
+  whitebox curve figures re-rendered in ONE style by `experiments/whitebox_curves.py` (Mark: y = "Elicitation Accuracy (%)" = raw locked
+  accuracy, NOT recovery; small top-right legend; x = "SFT Steps"/"DPO Steps"/"Gaussian Noise $\sigma$"/"Pruning Sparsity"; legend
+  "Password Locking"). 54 panels. 32B MMLU-HSS s42/s43 sweep receipts synced from WatGPU `t3` (value-checked). Spider plots are STALE (09-16).
+* `evaluate.py` `e7484b8`: a MERGED organism's sft/dpo requested LAST with its val pass skipped trains on the resident copy (no reload);
+  adapter organisms keep the reload (F438). Test updated. (`tests/test_whitebox_probe` has one PRE-EXISTING failure, `_select_subset` signature.)
+
+**In flight and what to do when each lands:**
+| item | job(s) | action on landing |
+|---|---|---|
+| Weak-seed fix, 14B MMLU-HSS s42 (published Jlbrk 28) | K `5840047` FD-A screen RUNNING (crit (b) PASS; AutoDAN VAL n=25) | per `PREREG_FORMAT_DIVERSE.md` sec 12: VAL < 0.25 -> TEST n=50 on the published items (template `wg_fda_test_bio_s43` / K translation); promote Jlbrk-only iff TEST < 0.28 (approved_variants.json + render + PROVENANCE). FDQ-A14 failed (capability). |
+| Weak-seed fix, 32B MMLU-Stem s42 (46) FDQ-A | W `1580264` RUNNING + V copy `1258244` pending | FIRST valid screen is read; cancel the other copy UNREAD. Same TEST/promotion rule (TEST < 0.46). FD-A stem failed (val pw/b 0.891, one item). |
+| Weak-seed fix, 32B MMLU-HSS s44 (34) FD-A (low prior) | W `1580266` RUNNING + V copy `1258245` pending | same; TEST < 0.34. A reject closes the seed (final at published, disclose). |
+| PWD 32B cyber s44 pruning (sweep) | V `1245491` pending (est. ~18-19 UTC 10-02) | sync `pwdsw32b/results/json/pwd_qwen2.5-32b-it_cyber__seed4*.json` + `elicitation_results/*_qwen2.5-32b-it_cyber_seed4*` into `/scratch/markwang/possum-pwd-fc-sweeps` (md5); then (1) `scancel` the HELD K copies `5567409-13`; (2) set `CB_WHITEBOX_CELL = ("qwen2.5-32b-it","cyber")` in `experiments/tablefill.py`, render `--table cbwhitebox`, PROVENANCE (keep 7B numbers there); (3) re-run `python -m experiments.whitebox_curves --techniques fuzzing pruning --models qwen2.5-32b-it --tasks cyber` (becomes two-arm). |
+| PWD 32B SFT chem/cyber (L40S) | K `5856810/5871631/5856814` (chem s42/s43/s44), `5856816/18/20` (cyber) | SFT POST-GATE per seed (bio SFT 3/3 passed). Their DPO halves WILL OOM on L40S (harmless; may `scancel` after the SFT POST-GATE line to save GPU). |
+| PWD 32B DPO bio/chem/cyber (H100) | K `5879853` bio (est. 10-04 ~19 UTC), `5879856` chem / `5879859` cyber (afterany on the L40S jobs) | DPO 0/9 so far: L40S OOMs in DPO TRAINING (ref log-prob forward), step-0 passes with `e7484b8`. On landing: POST-GATE in log; then render the main-paper representative figure (`whitebox_representative_plot`, `--out-dir tables/representative`, command in the 09-30 01:25 entry) and the 32B SFT/DPO panels via `python -m experiments.whitebox_curves --techniques sft dpo --models qwen2.5-32b-it` (add `FT_ROOTS` entries for 32B: ours `/scratch/markwang/possum-fig32b-ours/{sft,dpo}`, pwd `/scratch/markwang/possum-d4-pwd32b` / `possum-d4dpo-pwd32b`). Mark's ruling: the figure WAITS for the PWD arm. |
+
+**Open questions for Mark (raised in chat, unanswered):** spider plots stale (re-render?); 7B WMDP-Chem Pruning RoBCoTDstl n=1 (s42/s43 receipts
+lost; ~20 GPU-min to regenerate the curve only); zero-valued boxplot cells (draw seed dots above the axis?); representative figure 3/4 panels now?
+**Disclose in the paper (new):** whitebox curves plot raw accuracy in each arm's own protocol (PWD forced-choice floor + chance drift vs
+RoBCoTDstl genparse); chem/cyber 32B PWD SFT skipped the val pass (bio ran val+reload); any FD-A/FDQ-A promotions = anchor-on seeds + arm count.
+**Disk:** WatGPU 17 GB free (3 x 32B FD-A/FDQ-A adapters added ~12 GB). Killarney stage copies in `/scratch/markwang/possum-afix/stage_v/fda3` (8.1 GB).
+
 ## 0-HANDOFF-2. 2026-10-01 ~14:45 UTC, driver session ENDED; a NEW session takes over. READ FIRST.
 
 **All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W `slurm_watch_*` watchers + shipper tail, WatGPU disk alarm, CB32 race guard).

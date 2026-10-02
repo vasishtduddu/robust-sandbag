@@ -88,6 +88,12 @@ PWD 32B cyber sweeps V `1236703`: s42/s43 POST-GATE PASS, s44 noise done (best 0
 * **6h check 2026-10-02 11:17 UTC:** watchers + disk alarm alive; Vulcan master OK; WatGPU 17 GB (steady). Nothing landed. Running: K 14B hss s42 FD-A screen
   `5840047` (criterion (b) PASS: held-out escape 0.0 on all 4 layouts; AutoDAN VAL screen 5.7 h in). Queued (fairshare; estimates slipping):
   K PWD 32B DPO/SFT reruns x9 (est. ~13:00 UTC), V `1245491`/`1258244`/`1258245` (~18-19 UTC), W `1580264/66`.
+* **2026-10-02 14:12 UTC: PWD 32B DPO on 4 x L40S: the no-reload fix WORKS (bio s42 `5856773`: "test runs without a reload", STEP-0 GATE locked 0.0625 /
+  unlocked 0.836), but DPO TRAINING then OOMs GPU 0 (44.4 GiB) in the reference log-prob forward.** L40S cannot hold DPO activations next to
+  19 GB/card of weights (batch must stay 4). Cancelled bio s43/s44 L40S DPO (`5856775/78`) and the superseded held h100:3 `5750030/31`.
+  DPO now on h100:2 per task (SKIP_VAL=dpo, fraction 0.45 = 36 GB/card budget): bio `5879853`; chem `5879856` / cyber `5879859` start after
+  their L40S jobs (afterany; one writer per slot). The L40S chem/cyber jobs keep running for their SFT halves (their DPO halves will OOM,
+  harmlessly). Node fault kn050 (bash symlink) killed chem s43 `5856811` in 5 s -> resubmitted `5871631` excluding kn050.
 
 ## 0-TAKEOVER. 2026-09-29 16:15 UTC, new driver session on klogin01
 

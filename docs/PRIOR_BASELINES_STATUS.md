@@ -16,8 +16,9 @@ Infra restarted (`start_watchers.sh`: K v6, W v6, V v7, shipper tail, WatGPU dis
 Verified against 0-HANDOFF-3: K PWD 32B SFT chem s42/s44 (~95% of SFT training), cyber s42/s43 (~25%) RUNNING, step-0 gates healthy (chem delta
 0.30/0.39, cyber 0.50/0.48); chem s43 `5871631` / cyber s44 `5856820` pending (Priority); H100 DPO bio `5879853` pending, chem/cyber `5879856/59`
 afterany. K 14B hss s42 FD-A screen `5840047` at 18/25 AutoDAN VAL items (~1850 s/item, ETA ~19:45 UTC). W `1580264` (32B stem s42 FDQ-A) and
-`1580266` (32B hss s44 FD-A) RUNNING 2.5 h; V copies `1258244/45` and `1245491` still pending (Priority). WatGPU 17 GB free. The L40S jobs are
-left to run their DPO halves (OOM, harmless): no auto-cancel guard.
+`1580266` (32B hss s44 FD-A) RUNNING 2.5 h; V copies `1258244/45` and `1245491` still pending (Priority). WatGPU 17 GB free. Mark authorized
+cancelling the L40S jobs after their SFT half: detached `~/.possum/pwd32b_sft_cut_guard.sh` ([SFTCUT] events) scancels each once its log shows
+SFT `POST-GATE PASS` and the DPO half has started (an SFT gate failure is reported, not cancelled), so the H100 DPO jobs start sooner.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

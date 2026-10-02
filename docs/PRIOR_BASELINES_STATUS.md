@@ -19,6 +19,9 @@ afterany. K 14B hss s42 FD-A screen `5840047` at 18/25 AutoDAN VAL items (~1850 
 `1580266` (32B hss s44 FD-A) RUNNING 2.5 h; V copies `1258244/45` and `1245491` still pending (Priority). WatGPU 17 GB free. Mark authorized
 cancelling the L40S jobs after their SFT half: detached `~/.possum/pwd32b_sft_cut_guard.sh` ([SFTCUT] events) scancels each once its log shows
 SFT `POST-GATE PASS` and the DPO half has started (an SFT gate failure is reported, not cancelled), so the H100 DPO jobs start sooner.
+Gap audit (handoff 15:52 -> restart 16:07 UTC): `sacct` terminal states on K (since 09:00 EDT), V and W (since 13:00 UTC) show nothing new
+beyond the already-handled bio DPO `5856773/75/78`; Vulcan terminals are all the teammate's `t45_*`. Remaining holds are the documented redundant
+ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until the cyber sweep sync).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

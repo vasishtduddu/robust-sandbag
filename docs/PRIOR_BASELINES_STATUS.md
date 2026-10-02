@@ -56,6 +56,8 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   locked accuracy).
 * **2026-10-02 18:14 UTC: PWD 32B cyber s43 SFT POST-GATE PASS** (K `5856818`, guard-cancelled): locked 0.105 -> 0.231, pw 0.589 -> 0.554 (0.94x, kept),
   recovery +0.259; ALL GATES PASS (pairing 0.1053). PWD 32B SFT now 7/9 (bio 3, chem s42/s44, cyber s42/s43); chem s43 + cyber s44 running/pending.
+* **2026-10-02 18:22 UTC: 7B WMDP-Chem pruning curve regenerated, n=1 -> n=3** (K `5886305`): sweep maxima reproduce the published cells exactly (s42 0.1566,
+  s43 0.1446); receipts installed, panel re-rendered (PROVENANCE). The old n=1 panel (s44 only, flat 0) understated RoBCoTDstl's chem pruning leak.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

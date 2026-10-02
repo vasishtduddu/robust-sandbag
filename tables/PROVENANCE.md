@@ -4305,3 +4305,13 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   prof s43/s44, stem s43; DPO prof s43 OOMed and was never redone). Searched every root on K/V/W: no other 32B ours FT curves exist. Mark
   2026-10-02: run them. 19 WatGPU H200x2 jobs (9 SFT + 10 DPO) from the exact submitted scripts of the completed runs (`sv20260926/bal/bal_1566688`
   SFT, `bal_1566402` DPO; diff = task/seed only), unchanged WatGPU code tree (last modified 09-25, before the completed runs).
+
+## 2026-10-02 18:22 UTC: 7B WMDP-Chem Pruning panel now n=3 RoBCoTDstl seeds (was n=1)
+
+* Mark 2026-10-02: regenerate the lost s42/s43 sweep receipts. K `5886305` (root `/scratch/markwang/possum-prune7bchem`, evaluate.py
+  elicitation-only path, published adapters `possum-table3-current/checkpoints/obfcot_qwen2.5-7b-it_chem/run01,run02` read-only, recipe env of
+  the published eval scripts). POST-GATE: regenerated sweep maxima reproduce the published Table 3 pruning cells EXACTLY (s42 0.1566 = 13/83,
+  s43 0.1446 = 12/83, 0-item difference). Receipts copied (new files, cmp-verified) into `possum-table3-current/elicitation_results/
+  pruning_qwen2.5-7b-it_chem_seed{42,43}_{sweep.csv,summary.json}`; s44 stays the proven seedless file.
+* `tables/pruning/pruning_qwen2.5-7b-it_chem.{pdf,png}` re-rendered (`whitebox_curves --techniques pruning --models qwen2.5-7b-it --tasks chem`):
+  RoBCoTDstl now peaks ~10% (mean, sparsity 0.40) instead of the flat-0 n=1 curve; the table cell is unchanged.

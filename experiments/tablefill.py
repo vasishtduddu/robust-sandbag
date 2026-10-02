@@ -838,6 +838,19 @@ def render_steering_table() -> str:
 CB_WHITEBOX_ROOT = Path("/scratch/markwang/possum-cb-whitebox")
 #: The one cell with published circuit-breaking weights on disk (7B bio/chem are config-only stubs).
 CB_WHITEBOX_CELL = ("qwen2.5-7b-it", "cyber")
+#: Password-locking whitebox roots, tried in order PER TECHNIQUE: the steering root holds all three techniques at 7B
+#: but only steering at 32B, whose Fuzzing/Pruning live in the forced-choice sweep root (Vulcan pwdsw32b, synced).
+PWD_WHITEBOX_ROOTS = (PWD_STEERING_ROOT, Path("/scratch/markwang/possum-pwd-fc-sweeps"))
+
+
+def _pwd_whitebox_values(model: str, ds: str, technique: str) -> list[float | None]:
+    """The first PWD root holding all three seeds of this technique (a cell never mixes roots)."""
+    vals: list[float | None] = []
+    for root in PWD_WHITEBOX_ROOTS:
+        vals = _whitebox_values(root, "pwd", model, ds, technique)
+        if all(v is not None for v in vals):
+            return vals
+    return vals
 
 
 def _whitebox_values(root: Path, org: str, model: str, ds: str, technique: str) -> list[float | None]:
@@ -879,7 +892,7 @@ def render_cbwhitebox_table() -> str:
 
     Circuit breaking comes from ``CB_WHITEBOX_ROOT`` (published Table 2 organisms, provenance-verified,
     written to their own root so the Table 2 blobs are never touched); password locking from
-    ``PWD_STEERING_ROOT`` (its 7B cyber blobs hold steering, noise and pruning); RoBCoTDstl verbatim
+    ``PWD_WHITEBOX_ROOTS`` per technique; RoBCoTDstl verbatim
     from Table 4. All three seeds are required. Prior-work arms are forced choice, RoBCoTDstl is
     generate-and-parse, exactly as in the steering table.
     """
@@ -888,8 +901,7 @@ def render_cbwhitebox_table() -> str:
     cols = [("Steering", "steering"), ("Fuzzing", "noise"), ("Pruning", "pruning")]
     rows = [
         (naming.ORGANISM_MACRO[org], [_bkdrcot_tab4_cell(ds, model, lbl) for lbl, _ in cols]),
-        ("Password locking", [fmt(_whitebox_values(PWD_STEERING_ROOT, "pwd", model, ds, t), require_all=True)
-                              for _, t in cols]),
+        ("Password locking", [fmt(_pwd_whitebox_values(model, ds, t), require_all=True) for _, t in cols]),
         ("Circuit breaking", [fmt(_whitebox_values(CB_WHITEBOX_ROOT, "circuitbreak", model, ds, t), require_all=True)
                               for _, t in cols]),
     ]

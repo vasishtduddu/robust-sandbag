@@ -262,3 +262,6 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
   test answers "F"); lock and utility pass (nopw 0.000, HS/b 1.335, CSQA/b 1.045). Its no-op screen `5840049` cancelled. FD-A14 is the 14B candidate.
 * 2026-10-02 00:05 UTC: **FD-A 32B MMLU-HSS s44 (W `1580265`) PASSES (a)**: receipts format-aug 3, anchor 2, target-exclusion 3; config IDENTICAL; val nopw 0.000,
   pw/base 1.041, HS/b 1.050, CSQA/b 0.972. diag+screen W `1580266` pending (low-prior arm: FD and FD-q both screened 0.36).
+* 2026-10-02 00:13 UTC: **FDQ-A 32B MMLU-Stem s42 (W `1580263`, restart 1 after a watgpu508 preemption) PASSES (a)**: receipts format-aug 3, anchor 2,
+  target-exclusion 3 (this attempt); config IDENTICAL; val nopw 0.000, **pw/base 1.000** (FD-q without the anchor 0.826), HS/b 1.010, CSQA/b 0.940.
+  diag+screen W `1580264` RUNNING.

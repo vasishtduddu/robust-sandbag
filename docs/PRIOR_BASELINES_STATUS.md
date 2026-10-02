@@ -58,6 +58,9 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   recovery +0.259; ALL GATES PASS (pairing 0.1053). PWD 32B SFT now 7/9 (bio 3, chem s42/s44, cyber s42/s43); chem s43 + cyber s44 running/pending.
 * **2026-10-02 18:22 UTC: 7B WMDP-Chem pruning curve regenerated, n=1 -> n=3** (K `5886305`): sweep maxima reproduce the published cells exactly (s42 0.1566,
   s43 0.1446); receipts installed, panel re-rendered (PROVENANCE). The old n=1 panel (s44 only, flat 0) understated RoBCoTDstl's chem pruning leak.
+* **2026-10-02 18:28 UTC: 32B MMLU-HSS s44 FD-A SCREEN PASS** (W `1580266`): VAL AutoDAN **0.00 (0/25)**; held-out escape 0 on all layouts; EFF nopw 0.000 /
+  pw 0.811. Vulcan screen copy `1258245` cancelled UNREAD. **TEST n=50** (fingerprint == published `0564df97...`; promote Jlbrk-only iff TEST
+  < 0.34): W `1583098` (RUNNING, watgpu908) + V `1268199`. All 18 pending FT figure jobs re-held behind it (FIFO); release loop continues.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

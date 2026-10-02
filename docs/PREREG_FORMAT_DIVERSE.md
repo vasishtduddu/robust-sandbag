@@ -265,3 +265,5 @@ If FD-q also fails a seed, that seed keeps its published value with disclosure (
 * 2026-10-02 00:13 UTC: **FDQ-A 32B MMLU-Stem s42 (W `1580263`, restart 1 after a watgpu508 preemption) PASSES (a)**: receipts format-aug 3, anchor 2,
   target-exclusion 3 (this attempt); config IDENTICAL; val nopw 0.000, **pw/base 1.000** (FD-q without the anchor 0.826), HS/b 1.010, CSQA/b 0.940.
   diag+screen W `1580264` RUNNING.
+* 2026-10-02 00:15 UTC: **FD-A 32B MMLU-Stem s42 (W `1580261`) FAILS (a)**: val capability pw/base 0.891 (41/71; bar 0.90, i.e. one item short); utility now passes
+  (HS/b 1.011, CSQA/b 0.972 vs FD 0.207/0.000) and lock holds (nopw 0.000). Screen no-op'd as designed. FDQ-A is this seed's only candidate.

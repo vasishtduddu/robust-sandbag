@@ -181,6 +181,10 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   (`possum-table3-current`, unchanged since 09-21, different sha). Lesson: stale jobs must be CANCELLED, not held (an admin release clears user holds);
   the 6 documented-redundant held Vulcan jobs (`967681-84`, `1020919`, `1105916`) were cancelled for the same reason. K hedge `5915143` cancelled
   (W cyber s43 DPO `1583015` started); utilisation audit: Vulcan has no fitting work (all remaining work is 32B DPO, which needs >48 GB/card).
+* **2026-10-03 22:02 UTC: 32B ours SFT stem s42 / s44 POST-GATE PASS** (K `5913002/03`, L40S, 0 unparseable): pw 0.708 / 0.721 (= published), locked 0 at every
+  step, recovery +0.000; synced. K SFT cyber s43/s44 at 80-84% and prof s42 at 95% with ~1 h left of a 6 h limit (raising the limit is denied for
+  users; a TIMEOUT gets resubmitted at 7 h). W DPO cyber s43 `1583015` + s44 `1583019` RUNNING -> K hedges `5915143/44` cancelled; K hedge chem s43
+  `5915142` stays until W `1582998` starts.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

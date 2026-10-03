@@ -4378,3 +4378,12 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   choice n=399. Best locked accuracy over 2489 HH-RLHF steps: s42 0.258 / s43 0.208 / s44 0.256 (recovery +0.307 / +0.196 / +0.116). Step-0 nopw vs
   the CB whitebox blobs: 49 vs 52, 53 vs 55, 85 vs 85 of 399 (within max(3, 5% n)). With-password accuracy erodes on s42/s44 (0.86x / 0.87x), as for
   PWD 32B cyber (disclose). DPO (K `5901230-32`, H100) and the RoBCoTDstl SFT/DPO cyber s43/s44 cells pending.
+
+## 2026-10-03 17:53 UTC: main-paper representative whitebox figure = Qwen2.5-14B / WMDP-Bio (Mark 10-03)
+
+* Mark: use 14B WMDP-Bio for the main-paper 1x4 figure (Fuzzing | Pruning | SFT | DPO). `tables/representative/whitebox_representative_qwen2.5-14b-it_bio.{pdf,png}`,
+  rendered WITHOUT `--allow-missing-arm`: both arms 3/3 seeds on all four panels. Same roots/style/metric as the per-technique panels
+  (`whitebox_curves`; raw locked accuracy, mean +/- 1 SE). Caption notes: the 14B SFT RoBCoTDstl arm is the DL-c organisms (as in the published
+  14B SFT panels); arms are read in their own protocols (PWD forced choice floor ~8%, RoBCoTDstl generate-and-parse).
+* `whitebox_representative_plot.py` default model -> qwen2.5-14b-it. The 32B bio draft (3/4 panels) stays in `tables/representative/` but is
+  no longer the main-paper figure.

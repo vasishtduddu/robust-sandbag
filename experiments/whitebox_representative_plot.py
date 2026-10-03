@@ -1,8 +1,9 @@
 """Representative whitebox figure for the main paper: Fuzzing, Pruning, SFT and DPO side by side.
 
-Mark 2026-09-29: one model and one dataset (ideally 32B), the four whitebox techniques in one row,
-in the same house style as every other figure. Default cell: Qwen2.5-32B-Instruct / WMDP-Bio,
-the only 32B dataset where RoBCoTDstl has all three seeds for all four techniques.
+Mark 2026-09-29: one model and one dataset, the four whitebox techniques in one row, in the same house style as every
+other figure. Mark 2026-10-03: the main-paper cell is Qwen2.5-14B-Instruct / WMDP-Bio (both arms complete, 3 seeds, on all
+four techniques). Note for the caption: the 14B SFT RoBCoTDstl arm is the DL-c organisms (whitebox_curves.FT_ROOTS), as in
+the published 14B SFT panels.
 
 Every panel is the SAME data and style as the per-technique figures (``whitebox_curves``, Mark
 2026-10-01): data roots from ``whitebox_curves`` (``FT_ROOTS``, ``SWEEP_OURS``, ``SWEEP_PWD``),
@@ -82,7 +83,7 @@ def make_figure(model, task, out_dir, allow_missing_arm=False):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", default="qwen2.5-32b-it")
+    ap.add_argument("--model", default="qwen2.5-14b-it")
     ap.add_argument("--task", default="bio")
     ap.add_argument("--out-dir", default="tables/representative")
     ap.add_argument("--allow-missing-arm", action="store_true")

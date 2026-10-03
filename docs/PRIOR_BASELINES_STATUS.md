@@ -163,6 +163,8 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   **disclose** pw 0.579 -> 0.501 (0.87x; same cyber capability erosion under HH-RLHF SFT as PWD 32B cyber). CB SFT 2/3 (s42 `5907686` running).
 * **2026-10-03 17:45 UTC: CB 32B cyber SFT 3/3** (s42 `5907686` PASS: 0.123 -> 0.258, recovery +0.307, pw 0.86x): **appendix CB SFT cell = 24.1 +/- 1.6**, rendered +
   PROVENANCE. WatGPU still unreachable (ssh timeout since ~17:00 UTC). K now runs all 5 moved 32B ours SFT jobs (`5912999-5913003`).
+* **2026-10-03 17:53 UTC: Mark: the main-paper representative figure is 14B WMDP-Bio.** Rendered (both arms 3/3 on all four techniques; PROVENANCE). The 32B
+  representative figure no longer waits on PWD 32B DPO (that run still feeds the 32B DPO panels).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

@@ -4354,3 +4354,12 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   Cell: s42/s43/s44 = 12.0/16.0/4.0 -> **10.7 +/- 3.5** (was 20.7 +/- 6.8). Census exit 0; the only `.gen.tex` change is this Jlbrk value.
 * Boxplots recompiled (Mark 10-02 rule): exactly one seed value changed (34.0 -> 4.0) in both CSVs; box mean == table cell.
 * Weak-seed program (Mark 10-01) closed: 32B stem s42 0.46 -> 0.20, 32B hss s44 0.34 -> 0.04 promoted; 14B hss s42 stays 0.28 (TEST 0.32, disclose).
+
+## 2026-10-03 15:11 UTC: 32B WMDP-Cyber Fuzzing/Pruning panels now two-arm (PWD 3/3)
+
+* PWD 32B cyber sweeps complete: s42/s43 (Vulcan `1236703`, POST-GATE PASS) and s44 noise (Vulcan) synced md5-verified on 10-03; s44 pruning
+  from the Killarney race copy K `5901161` (POST-GATE PASS: forced choice, nopw 0.143, Delta 0.461, 15 sparsities, best 0.476; zero-sparsity
+  accuracy == nopw 57/399; noise best 0.504 preserved from the Vulcan blob). All files in `/scratch/markwang/possum-pwd-fc-sweeps` (new, cmp-verified).
+  Vulcan resume `1245491` and the held Killarney copies `5567409-13` cancelled (obsolete).
+* `tables/{fuzzing,pruning}/{fuzzing,pruning}_qwen2.5-32b-it_cyber.{pdf,png}` re-rendered (`whitebox_curves --techniques fuzzing pruning --models
+  qwen2.5-32b-it --tasks cyber`): RoBCoTDstl 3 seeds + Password Locking 3 seeds. PWD pruning peaks ~46% at sparsity 0.45-0.5; RoBCoTDstl stays ~0.

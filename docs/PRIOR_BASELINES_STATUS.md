@@ -141,6 +141,9 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
 * **2026-10-03 12:00 UTC: 32B MMLU-HSS s44 FD-A TEST VALID: Jlbrk 0.04 (2/50) vs published 0.34 -> PROMOTED Jlbrk-only, RENDERED + PUSHED:** Table 2 32B
   MMLU-HSS Jlbrk **20.7 +/- 6.8 -> 10.7 +/- 3.5** (census OK, only change); boxplots recompiled; PROVENANCE. Hedges K `5899582` / V `1268199`
   cancelled unread. **Weak-seed program CLOSED:** stem s42 promoted (0.20), hss s44 promoted (0.04), 14B hss s42 final at published 0.28 (disclose).
+* **2026-10-03 15:11 UTC: PWD 32B cyber s44 pruning POST-GATE PASS** (K race copy `5901161`, best 0.476) -> synced into `possum-pwd-fc-sweeps`; V `1245491` and
+  held K `5567409-13` cancelled; 32B cyber Fuzzing/Pruning panels now two-arm (PROVENANCE). The CB appendix no longer uses PWD (Mark 10-03).
+  K is running 6 of our jobs (32B ours SFT pilot 25%+, CB SFT x3, PWD chem s43 SFT); CB SFT s43 step-0 locked 0.133 / unlocked 0.516.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

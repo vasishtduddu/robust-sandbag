@@ -89,6 +89,17 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   figure jobs stay held (15; loop re-armed) and a non-preempting **Killarney l40s:4 hedge `5899582`** was added (Killarney relay copy of the
   organism, sha256 b2995e3b == W/V; main-repo code, BALANCED 0.55); V `1268199` est. 10-03 19:14. Running: W stem s42 TEST (27/50 at 4 h),
   W 14B hss s42 TEST, W SFT chem s43 `1583428` (resubmit, watgpu708). K: PWD chem s43 SFT + 3 H100 DPO + 14B TEST `5890414` pending.
+* **2026-10-03 00:01 UTC: monitoring hardened (Mark: catch every terminal state).** Audit of the v6/v7 watchers (sacct-driven, all terminal states,
+  requeue-aware ledger) found 3 gaps, now closed: (1) `sacct -S` omits never-eligible jobs (held then cancelled) -> new detached
+  `~/.possum/sentinel.sh` diffs squeue on K/W/V every 5 min and reports any job that leaves the queue without a watcher terminal record
+  (`[SENTINEL] [c VANISHED]`, with its direct `sacct -j` state; an empty ssh answer is never treated as vanishing); (2) a dead watcher was
+  silent -> the sentinel checks each watcher's alive file (>10 min) and process, reports `WATCHER DOWN` and re-runs `start_watchers.sh`
+  (which now also starts the sentinel); (3) a line consumed just before a Monitor expires could be lost (K `5840047` today) ->
+  `follow_events.sh` replays the 3 lines before its offset as `[REPLAY]` on every re-arm (old version kept as `.pre-replay-20261002`).
+* **2026-10-03 00:01 UTC: cluster utilisation.** WatGPU H200 FIFO is the bottleneck for the 15 queued 32B ours FT jobs. Pilot on Killarney l40s:4:
+  K `5899835` (SFT mmlu-hss s44; W copy `1583029` stays held). Same code as WatGPU (tree copied to `/scratch/markwang/possum-wgcode-20260925`,
+  all *.py md5 == W, pinned via PYTHONPATH + resolution assert), same package versions, fraction 0.40 (the adapter organism's test-pass reload
+  holds a 2nd 32B copy). If it passes, the remaining SFT jobs move to Killarney (DPO stays on H200: PWD DPO OOMed on L40S); GPU type disclosed.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

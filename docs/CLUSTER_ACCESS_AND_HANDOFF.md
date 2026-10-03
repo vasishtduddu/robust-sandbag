@@ -81,7 +81,7 @@ Watchers run DETACHED so they outlive any session or Monitor:
 bash ~/.possum/start_watchers.sh        # idempotent: each watcher takes its own flock
 bash ~/.possum/follow_events.sh         # arm THIS under Monitor; resumes from events_all.offset
 ```
-`start_watchers.sh` runs the Killarney v6 watcher (`watch_v5_k01v6`), WatGPU v6 (`watch_watgpu_k01v6`,
+2026-10-02: `start_watchers.sh` also starts `sentinel.sh` (squeue-diff VANISHED detector for never-eligible jobs + watcher liveness/auto-restart), and `follow_events.sh` replays the 3 lines before its offset as `[REPLAY]` on every start. `start_watchers.sh` runs the Killarney v6 watcher (`watch_v5_k01v6`), WatGPU v6 (`watch_watgpu_k01v6`,
 `possum_wg*` only), Vulcan v7 (`watch_vulcan_k01v6`, `possum_*` only; needs the ControlMaster) and a
 tail of the redraw shipper log, all appending to `~/.possum/events_all.log`. **v6/v7 ONLY** (v5
 swallowed completions of preempted-then-requeued jobs). Each ledger dedupes, so a restart re-reports

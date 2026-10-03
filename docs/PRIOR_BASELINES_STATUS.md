@@ -124,6 +124,10 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   s43/s44 are the queued W 32B ours FT jobs. The PWD 32B s44 pruning race (K `5901161` / V `1245491`) is now a FIGURE input only.
 * **2026-10-03 03:07 UTC: 32B ours FT 6/19: DPO chem s44 POST-GATE PASS** (W `1583005`, watgpu708, 0 unparseable): pw 0.482 (= published), locked 0 at
   every step, recovery +0.000; synced (md5). Done so far: SFT chem s42/s43/s44, DPO chem s42/s44 (+ the 09-28 nine).
+* **2026-10-03 04:32 UTC: 14B MMLU-HSS s42 FD-A14 TEST VALID but WORSE: Jlbrk 0.32 (16/50) vs published 0.28** (W `1583140`, watgpu708, 0 unparseable,
+  pw 0.760 == EFF, mean search epochs 120.3). Screen VAL was 0.16 (4/25): a val/test gap on this seed. Pre-registered rule: promote only if
+  TEST < published (Mark 09-27: never publish a worse Jlbrk) -> **NOT promoted; the arm closes; seed stays FINAL AT PUBLISHED 0.28** (disclose).
+  K copy `5890414` cancelled UNREAD (a second draw would be selection). FDQ-A14 had already failed its capability gate (10-01).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

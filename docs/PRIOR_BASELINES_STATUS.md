@@ -159,6 +159,8 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   the W watcher raised `sacct returned nothing 5 polls`): jobs keep running there and the ledger re-scans the window on reconnect, so no completion
   is lost; disk/queue unread this cycle. K running: 32B ours SFT cyber s43/s44 + prof s42 (`5912999-5913001`), CB SFT s42/s44; pending: ours SFT
   stem s42/s44, CB DPO x3, PWD DPO x3 (H100). V: 6 of ours pending/held (all non-critical).
+* **2026-10-03 17:38 UTC: CB 32B cyber SFT s44 POST-GATE PASS** (K `5901229`): locked 0.213 (== CB whitebox blob, 85/399) -> 0.256 (best = end), recovery +0.116;
+  **disclose** pw 0.579 -> 0.501 (0.87x; same cyber capability erosion under HH-RLHF SFT as PWD 32B cyber). CB SFT 2/3 (s42 `5907686` running).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

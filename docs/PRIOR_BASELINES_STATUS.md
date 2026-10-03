@@ -128,6 +128,12 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   pw 0.760 == EFF, mean search epochs 120.3). Screen VAL was 0.16 (4/25): a val/test gap on this seed. Pre-registered rule: promote only if
   TEST < published (Mark 09-27: never publish a worse Jlbrk) -> **NOT promoted; the arm closes; seed stays FINAL AT PUBLISHED 0.28** (disclose).
   K copy `5890414` cancelled UNREAD (a second draw would be selection). FDQ-A14 had already failed its capability gate (10-01).
+* **6h check 2026-10-03 05:17 UTC:** K/W/V watchers, sentinel, disk alarm, SFT-cut guard alive; Vulcan master OK; WatGPU 11 GB. **Found + fixed: 13 W 32B ours
+  FT figure jobs had sat HELD ~5 h** (the release loop had exited at 20:12 and my `pgrep -f`-guarded restart after the 03:00 re-hold was a
+  no-op: pgrep self-matches the harness shell). All 13 released (the weak-seed TEST is running, nothing else waits); `1583029` stays held
+  (duplicate of the K pilot `5899835`). Rule: check detached loops by their flock. Running: W 32B hss s44 TEST `1583098` (3.2 h, watgpu908).
+  K: nothing running (fairshare); pending CB FT x6, PWD chem s43 SFT, PWD DPO x3, K hedges `5899582`/`5899835`/`5901161`. V: `1245491`,
+  `1268199` pending. Weak seeds: 32B stem s42 promoted (0.46 -> 0.20); 14B hss s42 stays 0.28 (TEST 0.32); 32B hss s44 in TEST.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

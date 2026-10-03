@@ -100,6 +100,10 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   K `5899835` (SFT mmlu-hss s44; W copy `1583029` stays held). Same code as WatGPU (tree copied to `/scratch/markwang/possum-wgcode-20260925`,
   all *.py md5 == W, pinned via PYTHONPATH + resolution assert), same package versions, fraction 0.40 (the adapter organism's test-pass reload
   holds a 2nd 32B copy). If it passes, the remaining SFT jobs move to Killarney (DPO stays on H200: PWD DPO OOMed on L40S); GPU type disclosed.
+* **2026-10-03 00:32 UTC: 32B ours FT 4/19: SFT chem s43 POST-GATE PASS** (W `1583428`, watgpu708, 0 unparseable passes): nopw 0 / pw 0.494 (= published);
+  locked plateaus at 4-5/83 from step 500 (end 0.048, recovery +0.098), pw 0.458-0.494 (kept). First non-zero 32B ours SFT leak; still far
+  below PWD 32B chem (end 0.265, recovery ~0.3). Synced (md5). **Replay caught a lost event:** W hss s44 TEST `1583098` was preempted a 3rd
+  time (00:12 UTC); the old Monitor never delivered it, the `[REPLAY]` did. Figure jobs re-held (13) behind it; K hedge `5899582` pending.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

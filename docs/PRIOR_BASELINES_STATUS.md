@@ -185,6 +185,8 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   step, recovery +0.000; synced. K SFT cyber s43/s44 at 80-84% and prof s42 at 95% with ~1 h left of a 6 h limit (raising the limit is denied for
   users; a TIMEOUT gets resubmitted at 7 h). W DPO cyber s43 `1583015` + s44 `1583019` RUNNING -> K hedges `5915143/44` cancelled; K hedge chem s43
   `5915142` stays until W `1582998` starts.
+* **2026-10-03 22:31 UTC: 32B ours SFT prof s42 / cyber s44 POST-GATE PASS** (K `5913001/00`; 0 unparseable; pw 0.675 / 0.669 vs published 0.676 / 0.667; locked 0
+  at every step; recovery +0.000); synced. 32B ours SFT now 17/18 (cyber s43 `5912999` finishing).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

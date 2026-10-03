@@ -836,21 +836,18 @@ def render_steering_table() -> str:
 # ---------------------------------------------------------------------------
 
 CB_WHITEBOX_ROOT = Path("/scratch/markwang/possum-cb-whitebox")
-#: The one cell with published circuit-breaking weights on disk (7B bio/chem are config-only stubs).
-CB_WHITEBOX_CELL = ("qwen2.5-7b-it", "cyber")
-#: Password-locking whitebox roots, tried in order PER TECHNIQUE: the steering root holds all three techniques at 7B
-#: but only steering at 32B, whose Fuzzing/Pruning live in the forced-choice sweep root (Vulcan pwdsw32b, synced).
-PWD_WHITEBOX_ROOTS = (PWD_STEERING_ROOT, Path("/scratch/markwang/possum-pwd-fc-sweeps"))
-
-
-def _pwd_whitebox_values(model: str, ds: str, technique: str) -> list[float | None]:
-    """The first PWD root holding all three seeds of this technique (a cell never mixes roots)."""
-    vals: list[float | None] = []
-    for root in PWD_WHITEBOX_ROOTS:
-        vals = _whitebox_values(root, "pwd", model, ds, technique)
-        if all(v is not None for v in vals):
-            return vals
-    return vals
+#: Mark 2026-10-02: the appendix cell is 32B WMDP-Cyber (the 7B cyber version it replaced is in git history).
+CB_WHITEBOX_CELL = ("qwen2.5-32b-it", "cyber")
+#: Circuit-breaking SFT/DPO (Mark 2026-10-03: add SFT + DPO columns): own roots, published organisms, forced choice.
+CB_FT_ROOTS = {"sft": Path("/scratch/markwang/possum-cb-ft32b/sft"), "dpo": Path("/scratch/markwang/possum-cb-ft32b/dpo")}
+#: RoBCoTDstl SFT/DPO curve roots, keyed (technique, model); the OURS arm of experiments/whitebox_curves.FT_ROOTS
+#: (kept in sync by hand because tablefill stays stdlib-only).
+_S = Path("/scratch/markwang")
+OURS_FT_ROOTS = {
+    ("sft", "qwen2.5-7b-it"): _S / "possum-sftfig-dlc/ours7b", ("sft", "qwen2.5-14b-it"): _S / "possum-sftfig-dlc/ours14b",
+    ("dpo", "qwen2.5-7b-it"): _S / "possum-table3-current", ("dpo", "qwen2.5-14b-it"): _S / "possum-d4dpo-ours14b",
+    ("sft", "qwen2.5-32b-it"): _S / "possum-fig32b-ours/sft", ("dpo", "qwen2.5-32b-it"): _S / "possum-fig32b-ours/dpo",
+}
 
 
 def _whitebox_values(root: Path, org: str, model: str, ds: str, technique: str) -> list[float | None]:
@@ -867,6 +864,21 @@ def _whitebox_values(root: Path, org: str, model: str, ds: str, technique: str) 
             vals.append(None)
             continue
         vals.append(naming.get_elicitations(blob, ds).get(technique))
+    return vals
+
+
+def _ft_curve_best(root: Path, technique: str, model: str, ds: str) -> list[float | None]:
+    """Per-seed best LOCKED accuracy over a fine-tuning trajectory (the same "best over the curve" the blobs record as
+    test_elicitations[sft|dpo]), read from the TEST curve CSVs the figures use; None if a seed's curve is missing."""
+    import csv
+    vals: list[float | None] = []
+    for seed in naming.PRIOR_TRAINED_SEEDS:
+        path = root / "elicitation_results" / f"{technique}_{model}_{ds}_seed{seed}_curve.csv"
+        try:
+            with path.open() as fh:
+                vals.append(max(float(r["accuracy"]) for r in csv.DictReader(fh)))
+        except (OSError, ValueError, KeyError):
+            vals.append(None)
     return vals
 
 
@@ -888,34 +900,34 @@ def _bkdrcot_tab4_cell(ds: str, model: str, label: str) -> str:
 
 
 def render_cbwhitebox_table() -> str:
-    """Appendix: is circuit breaking robust to whitebox elicitation? One cell, three organisms.
+    """Appendix: is circuit breaking robust to whitebox elicitation? One cell, two organisms (Mark 2026-10-03:
+    RoBCoTDstl vs circuit breaking only; password locking is covered by the whitebox figures).
 
-    Circuit breaking comes from ``CB_WHITEBOX_ROOT`` (published Table 2 organisms, provenance-verified,
-    written to their own root so the Table 2 blobs are never touched); password locking from
-    ``PWD_WHITEBOX_ROOTS`` per technique; RoBCoTDstl verbatim
-    from Table 4. All three seeds are required. Prior-work arms are forced choice, RoBCoTDstl is
-    generate-and-parse, exactly as in the steering table.
+    Steering/Fuzzing/Pruning: circuit breaking from ``CB_WHITEBOX_ROOT`` (published Table 2 organisms, provenance-verified,
+    own root), RoBCoTDstl verbatim from Table 4. SFT/DPO: best locked accuracy over the 2.5k-step HH-RLHF trajectory,
+    circuit breaking from ``CB_FT_ROOTS`` blobs, RoBCoTDstl from the figure curves (``OURS_FT_ROOTS``). All three seeds are
+    required. Circuit breaking is forced choice, RoBCoTDstl generate-and-parse, exactly as in the steering table.
     """
     model, ds = CB_WHITEBOX_CELL
     org = naming.TABLE_ORGANISMS["bkdrcot"][0]
-    cols = [("Steering", "steering"), ("Fuzzing", "noise"), ("Pruning", "pruning")]
-    rows = [
-        (naming.ORGANISM_MACRO[org], [_bkdrcot_tab4_cell(ds, model, lbl) for lbl, _ in cols]),
-        ("Password locking", [fmt(_pwd_whitebox_values(model, ds, t), require_all=True) for _, t in cols]),
-        ("Circuit breaking", [fmt(_whitebox_values(CB_WHITEBOX_ROOT, "circuitbreak", model, ds, t), require_all=True)
-                              for _, t in cols]),
-    ]
+    cols = [("Steering", "steering"), ("Fuzzing", "noise"), ("Pruning", "pruning"), ("SFT", "sft"), ("DPO", "dpo")]
+    ours = [_bkdrcot_tab4_cell(ds, model, lbl) for lbl, _ in cols[:3]]
+    ours += [fmt(_ft_curve_best(OURS_FT_ROOTS[(t, model)], t, model, ds), require_all=True) if (t, model) in OURS_FT_ROOTS
+             else "---" for _, t in cols[3:]]
+    cb = [fmt(_whitebox_values(CB_WHITEBOX_ROOT, "circuitbreak", model, ds, t), require_all=True) for _, t in cols[:3]]
+    cb += [fmt(_whitebox_values(CB_FT_ROOTS[t], "circuitbreak", model, ds, t), require_all=True) for _, t in cols[3:]]
+    rows = [(naming.ORGANISM_MACRO[org], ours), ("Circuit breaking", cb)]
     out = [
-        r"% Auto-filled by experiments/tablefill.py --table cbwhitebox (RoBCoTDstl row copied from table4.gen.tex).",
+        r"% Auto-filled by experiments/tablefill.py --table cbwhitebox (RoBCoTDstl Steering/Fuzzing/Pruning copied from table4.gen.tex).",
         *_macro_fallbacks([org]),
         r"\begin{table}[t]", r"\centering",
         rf"\caption{{\textbf{{Whitebox elicitation of circuit breaking.}} Elicitation accuracy on "
         rf"{naming.TASKS[ds]} with {naming.MODELS[model]['paper']} (mean with standard error over three seeds; "
-        r"lower $=$ more robust). Circuit breaking and password locking are scored with forced-choice MCQA as in "
-        rf"prior work, {naming.ORGANISM_MACRO[org]} with generate-and-parse.}}",
+        r"lower $=$ more robust). SFT and DPO report the highest locked accuracy over 2.5k fine-tuning steps on HH-RLHF. "
+        rf"Circuit breaking is scored with forced-choice MCQA as in prior work, {naming.ORGANISM_MACRO[org]} with generate-and-parse.}}",
         r"\vspace{0.25cm}", r"\label{tab:cb-whitebox}", r"\footnotesize",
         r"\setlength{\tabcolsep}{3.5pt}", r"\renewcommand{\arraystretch}{1.1}",
-        r"\begin{tabular}{l ccc}", r"\toprule",
+        r"\begin{tabular}{l " + "c" * len(cols) + "}", r"\toprule",
         "Organism & " + " & ".join(lbl for lbl, _ in cols) + r" \\", r"\midrule",
     ]
     out += [" & ".join([name] + cells) + r" \\" for name, cells in rows]

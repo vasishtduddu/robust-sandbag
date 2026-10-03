@@ -4329,3 +4329,16 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * Mark 10-02 rule: any better Table 2 Jlbrk recompiles `tables/jailbreak/jailbreak_boxplot_combined`: `jailbreak_boxplots --table ours` (both
   roots, `--teammate-json tables/attack_per_seed.json`) then `--table combined`. Exactly one seed value changed (46.0 -> 20.0) in both CSVs;
   the box mean equals the table cell (10.0).
+
+## 2026-10-03 02:54 UTC: CB whitebox appendix restructured (Mark 10-02/10-03): 32B WMDP-Cyber, RoBCoTDstl vs circuit breaking, + SFT and DPO columns
+
+* Mark: the appendix table compares RoBCoTDstl with circuit breaking only (RoBCoTDstl vs password locking is covered by the whitebox
+  figures) and gains SFT and DPO columns; the cell moves from 7B to 32B WMDP-Cyber (7B version in git history).
+* `experiments/tablefill.py` `render_cbwhitebox_table`: PWD row and `PWD_WHITEBOX_ROOTS` removed; `CB_WHITEBOX_CELL = ("qwen2.5-32b-it","cyber")`;
+  columns Steering | Fuzzing | Pruning | SFT | DPO. SFT/DPO cell = best LOCKED accuracy over the 2.5k-step HH-RLHF trajectory (the value the
+  blobs record as `test_elicitations[sft|dpo]`; the curve-max reader reproduces the PWD 32B chem blobs exactly, 0.2892 / 0.2771).
+  Circuit breaking SFT/DPO from `CB_FT_ROOTS` (`/scratch/markwang/possum-cb-ft32b/{sft,dpo}`), RoBCoTDstl from the figure curves
+  (`OURS_FT_ROOTS`, mirrors `whitebox_curves.FT_ROOTS`). All three seeds required (else ---).
+* Current render: RoBCoTDstl 0.0 / 0.0 / 0.4 / --- / --- ; Circuit breaking 27.7 / 46.9 / 44.9 / --- / --- (Steering/Fuzzing/Pruning: CB 32B cyber
+  3/3, K `5817648-50`, values as validated 10-02). Pending: CB 32B cyber SFT K `5901227-29` (l40s:4) and DPO K `5901230-32` (h100:2), clones of
+  the accepted PWD 32B FT recipe; RoBCoTDstl 32B cyber SFT/DPO s43/s44 (WatGPU `1583014/15/18/19`).

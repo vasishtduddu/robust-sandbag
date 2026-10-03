@@ -118,6 +118,10 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   blob + CSVs into `possum-pwd-fc-sweeps`, `scancel` held K `5567409-13`, switch `CB_WHITEBOX_CELL`, render, PROVENANCE, two-arm cyber
   sweep panels). Temp-dir preview of the 32B table (not written to tables/): CB Steering 27.7 / Fuzzing 46.9 / Pruning 44.9; RoBCoTDstl
   0.0 / 0.0 / 0.4; PWD Steering 28.1, Fuzzing/Pruning --- until s44 lands.
+* **2026-10-03 02:54 UTC: Mark: the CB appendix is RoBCoTDstl vs circuit breaking ONLY, plus SFT and DPO columns.** Generator updated + rendered (32B
+  cyber; PROVENANCE). New jobs: CB 32B cyber SFT K `5901227/28/29` (l40s:4) and DPO K `5901230/31/32` (h100:2), roots
+  `/scratch/markwang/possum-cb-ft32b/{sft,dpo}` (cloned from the PWD 32B FT scripts; organism/roots/seed only). RoBCoTDstl SFT/DPO cyber
+  s43/s44 are the queued W 32B ours FT jobs. The PWD 32B s44 pruning race (K `5901161` / V `1245491`) is now a FIGURE input only.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

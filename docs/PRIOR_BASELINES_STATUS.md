@@ -147,6 +147,11 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
 * **2026-10-03 15:33 UTC: PWD 32B chem s43 SFT POST-GATE PASS** (K `5871631`, guard-cancelled): locked 0.181 -> 0.277, recovery +0.308, ALL GATES PASS. **PWD 32B
   SFT 9/9 complete.** 32B chem SFT panel rendered (both arms 3/3); FT panels now require 3 seeds per arm (PROVENANCE). PWD chem DPO `5879856` is now
   dependency-free (h100 queue).
+* **2026-10-03 16:11 UTC: Killarney L40S pilot PASS -> SFT moved off WatGPU.** K `5899835` (32B ours SFT mmlu-hss s44, pinned W code, 4xL40S, 4:45): 0 unparseable,
+  step-0 pw 0.821 vs published 0.816 (+2/375, cross-GPU drift), locked 0/375 at every step, recovery +0.000 (same behaviour as the H200 curves);
+  synced to `possum-fig32b-ours/sft`. W copy `1583029` cancelled. **Remaining 5 SFT on K** `5912999-5913003` (cyber s43/s44, prof s42, stem
+  s42/s44); their W copies HELD (release if a K job fails) so the H200s serve the 8 DPO jobs. **Disclose:** these SFT curves ran on L40S, the
+  rest of the 32B ours FT curves on H200 (identical code + package versions).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

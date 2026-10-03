@@ -122,6 +122,8 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   cyber; PROVENANCE). New jobs: CB 32B cyber SFT K `5901227/28/29` (l40s:4) and DPO K `5901230/31/32` (h100:2), roots
   `/scratch/markwang/possum-cb-ft32b/{sft,dpo}` (cloned from the PWD 32B FT scripts; organism/roots/seed only). RoBCoTDstl SFT/DPO cyber
   s43/s44 are the queued W 32B ours FT jobs. The PWD 32B s44 pruning race (K `5901161` / V `1245491`) is now a FIGURE input only.
+* **2026-10-03 03:07 UTC: 32B ours FT 6/19: DPO chem s44 POST-GATE PASS** (W `1583005`, watgpu708, 0 unparseable): pw 0.482 (= published), locked 0 at
+  every step, recovery +0.000; synced (md5). Done so far: SFT chem s42/s43/s44, DPO chem s42/s44 (+ the 09-28 nine).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

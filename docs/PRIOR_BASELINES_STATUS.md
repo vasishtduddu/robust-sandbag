@@ -155,6 +155,10 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
 * **2026-10-03 16:41 UTC: CB 32B cyber SFT s43 POST-GATE PASS** (K `5901228`, kn046, 4:49): forced choice n=399, locked 0.133 -> 0.208 (max = end, 83/399),
   pw 0.516 -> 0.536 (kept), recovery +0.196; step-0 nopw 53/399 vs the CB whitebox blob's 55/399 (within max(3, 5% n)). Appendix SFT cell waits
   for s42 `5907686` / s44 `5901229` (running).
+* **6h check 2026-10-03 17:19 UTC:** K/V watchers + sentinel alive; Vulcan master OK. **WatGPU UNREACHABLE** (ssh port 22 connection timeout from Killarney;
+  the W watcher raised `sacct returned nothing 5 polls`): jobs keep running there and the ledger re-scans the window on reconnect, so no completion
+  is lost; disk/queue unread this cycle. K running: 32B ours SFT cyber s43/s44 + prof s42 (`5912999-5913001`), CB SFT s42/s44; pending: ours SFT
+  stem s42/s44, CB DPO x3, PWD DPO x3 (H100). V: 6 of ours pending/held (all non-critical).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

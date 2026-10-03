@@ -165,6 +165,12 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   PROVENANCE. WatGPU still unreachable (ssh timeout since ~17:00 UTC). K now runs all 5 moved 32B ours SFT jobs (`5912999-5913003`).
 * **2026-10-03 17:53 UTC: Mark: the main-paper representative figure is 14B WMDP-Bio.** Rendered (both arms 3/3 on all four techniques; PROVENANCE). The 32B
   representative figure no longer waits on PWD 32B DPO (that run still feeds the 32B DPO panels).
+* **2026-10-03 19:53 UTC: WatGPU admin outage.** Unreachable ~17:00-19:45 UTC; now reachable but ALL 114 pending jobs cluster-wide are `JobHeldAdmin` (A2LAYTON/RBOUTABA
+  H200 nodes down/drained), no reservation posted. No possum_wg job ran or finished in the window. Our 8 RoBCoTDstl 32B DPO jobs are stuck; only 3 feed
+  a deliverable (WMDP chem s43, cyber s43/s44: two-arm DPO panels + the appendix RoBCoTDstl DPO cell; MMLU 32B curves have no PWD arm), so those 3 are
+  hedged on **Killarney h100:3** `5915142-44` (pinned W code; fraction 0.30 for the reload's 2nd copy; root `/scratch/markwang/possum-fig32b-k/dpo`).
+  **H100 partition fix:** all our DPO jobs listed only b4/b5 (2 healthy nodes, b5 draining); widened to b2-b5 (8 h jobs) / b3-b5 (14 h PWD DPO).
+  K is running the 5 moved ours SFT jobs (step-0 gates passed for stem; cyber/prof in their long step-0 eval).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

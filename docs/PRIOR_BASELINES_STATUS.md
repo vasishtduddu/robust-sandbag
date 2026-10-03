@@ -134,6 +134,10 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   (duplicate of the K pilot `5899835`). Rule: check detached loops by their flock. Running: W 32B hss s44 TEST `1583098` (3.2 h, watgpu908).
   K: nothing running (fairshare); pending CB FT x6, PWD chem s43 SFT, PWD DPO x3, K hedges `5899582`/`5899835`/`5901161`. V: `1245491`,
   `1268199` pending. Weak seeds: 32B stem s42 promoted (0.46 -> 0.20); 14B hss s42 stays 0.28 (TEST 0.32); 32B hss s44 in TEST.
+* **6h check 2026-10-03 11:17 UTC:** all watchers + sentinel alive (<2 min); Vulcan master OK; WatGPU 11 GB (steady). Nothing landed since 05:17. W 32B hss s44
+  TEST `1583098` at 49/50 (9.2 h, no preemption this run). K: the 32B ours SFT **pilot `5899835` STARTED** (kn076, pinned W code resolved, 17 GiB/card
+  weight budget x 4 L40S, base eval normal); CB FT x6, PWD chem s43 SFT, PWD DPO x3, hedges pending. W: 13 FT figure jobs eligible but waiting
+  on H200 (est. 10-04 ~23 UTC); WatGPU Blackwell nodes have 1 free GPU each (2 needed), so no relief there. V: `1245491`, `1268199` pending.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

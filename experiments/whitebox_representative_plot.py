@@ -67,10 +67,14 @@ def make_figure(model, task, out_dir, allow_missing_arm=False):
         plot_style.finish_curve_axes(ax, xlabel=wc.XLABEL[tech], ytop=ytop)
         if ax is not axes[0]:
             ax.set_ylabel("")
-            leg = ax.get_legend()
-            if leg is not None:
-                leg.remove()
-    fig.tight_layout()
+    # Mark 2026-10-03: ONE horizontal legend centred above the four panels (not inside the first panel).
+    handles, labels = axes[0].get_legend_handles_labels()
+    for ax in axes:
+        if ax.get_legend() is not None:
+            ax.get_legend().remove()
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=len(labels), frameon=False,
+               fontsize=plot_style.CURVE_LEGEND_SIZE + 4, handlelength=2.6, columnspacing=2.5)
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

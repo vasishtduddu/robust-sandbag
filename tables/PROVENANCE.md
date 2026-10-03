@@ -4387,3 +4387,8 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   14B SFT panels); arms are read in their own protocols (PWD forced choice floor ~8%, RoBCoTDstl generate-and-parse).
 * `whitebox_representative_plot.py` default model -> qwen2.5-14b-it. The 32B bio draft (3/4 panels) stays in `tables/representative/` but is
   no longer the main-paper figure.
+
+## 2026-10-03 18:23 UTC: representative figure legend moved above the panels (Mark 10-03)
+
+* One horizontal legend (RoBCoTDstl green solid | Password Locking red dotted) centred above the four panels instead of inside the Fuzzing
+  panel. Data unchanged. `experiments/whitebox_representative_plot.py`.

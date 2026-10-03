@@ -4363,3 +4363,11 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   Vulcan resume `1245491` and the held Killarney copies `5567409-13` cancelled (obsolete).
 * `tables/{fuzzing,pruning}/{fuzzing,pruning}_qwen2.5-32b-it_cyber.{pdf,png}` re-rendered (`whitebox_curves --techniques fuzzing pruning --models
   qwen2.5-32b-it --tasks cyber`): RoBCoTDstl 3 seeds + Password Locking 3 seeds. PWD pruning peaks ~46% at sparsity 0.45-0.5; RoBCoTDstl stays ~0.
+
+## 2026-10-03 15:33 UTC: 32B WMDP-Chem SFT panel (both arms 3/3); FT panels now require 3 seeds per arm
+
+* PWD 32B SFT complete 9/9: chem s43 (K `5871631`, guard-cancelled at the DPO half) POST-GATE PASS, forced choice n=83: locked 0.181 -> 0.277
+  (max 0.289), pw 0.494 kept, recovery +0.308; `validate_cell.py` ALL GATES PASS. RoBCoTDstl 32B chem SFT 3/3 (W, 10-02; s43 small leak 0.048).
+* `tables/sft/sft_qwen2.5-32b-it_chem.{pdf,png}` rendered. `experiments/whitebox_curves.py`: SFT/DPO panels are written only when BOTH arms have
+  3 seeds (a 32B cyber panel was rendered with RoBCoTDstl n=1 and discarded before commit). Check: all 18 committed 7B/14B FT panels re-render
+  pixel-identical under the guard.

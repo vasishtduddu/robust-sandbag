@@ -85,13 +85,16 @@ def arm_curves(technique: str, model: str, task: str) -> dict:
     return out
 
 
-def render(technique: str, model: str, task: str, out_dir: Path, *, require_pwd: bool = False):
+def render(technique: str, model: str, task: str, out_dir: Path, *, require_pwd: bool = False, min_seeds: int = 0):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     curves = arm_curves(technique, model, task)
     if "obfcot" not in curves or (require_pwd and "pwd" not in curves):
+        return None, curves
+    # 2026-10-03: a 32B cyber SFT panel was written with RoBCoTDstl n=1 while seeds were still running; FT panels need every arm complete.
+    if any(len(c) < min_seeds for c in curves.values()):
         return None, curves
     plot_style.apply()
     fig, ax = plt.subplots(figsize=plot_style.CURVE_FIGSIZE)
@@ -126,8 +129,9 @@ def main() -> None:
         for model in a.models:
             for task in a.tasks:
                 # SFT/DPO panels are two-arm by definition (the 32B PWD arm is still running).
+                ft = technique in ("sft", "dpo")
                 stem, curves = render(technique, model, task, a.out_root / technique,
-                                      require_pwd=technique in ("sft", "dpo"))
+                                      require_pwd=ft, min_seeds=3 if ft else 0)
                 n = {org: len(c) for org, c in curves.items()}
                 print(f"{'wrote' if stem else 'skip '} {technique}/{model}/{task} seeds={n}")
 

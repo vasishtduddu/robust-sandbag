@@ -144,6 +144,9 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
 * **2026-10-03 15:11 UTC: PWD 32B cyber s44 pruning POST-GATE PASS** (K race copy `5901161`, best 0.476) -> synced into `possum-pwd-fc-sweeps`; V `1245491` and
   held K `5567409-13` cancelled; 32B cyber Fuzzing/Pruning panels now two-arm (PROVENANCE). The CB appendix no longer uses PWD (Mark 10-03).
   K is running 6 of our jobs (32B ours SFT pilot 25%+, CB SFT x3, PWD chem s43 SFT); CB SFT s43 step-0 locked 0.133 / unlocked 0.516.
+* **2026-10-03 15:33 UTC: PWD 32B chem s43 SFT POST-GATE PASS** (K `5871631`, guard-cancelled): locked 0.181 -> 0.277, recovery +0.308, ALL GATES PASS. **PWD 32B
+  SFT 9/9 complete.** 32B chem SFT panel rendered (both arms 3/3); FT panels now require 3 seeds per arm (PROVENANCE). PWD chem DPO `5879856` is now
+  dependency-free (h100 queue).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

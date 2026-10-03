@@ -152,6 +152,9 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   synced to `possum-fig32b-ours/sft`. W copy `1583029` cancelled. **Remaining 5 SFT on K** `5912999-5913003` (cyber s43/s44, prof s42, stem
   s42/s44); their W copies HELD (release if a K job fails) so the H200s serve the 8 DPO jobs. **Disclose:** these SFT curves ran on L40S, the
   rest of the 32B ours FT curves on H200 (identical code + package versions).
+* **2026-10-03 16:41 UTC: CB 32B cyber SFT s43 POST-GATE PASS** (K `5901228`, kn046, 4:49): forced choice n=399, locked 0.133 -> 0.208 (max = end, 83/399),
+  pw 0.516 -> 0.536 (kept), recovery +0.196; step-0 nopw 53/399 vs the CB whitebox blob's 55/399 (within max(3, 5% n)). Appendix SFT cell waits
+  for s42 `5907686` / s44 `5901229` (running).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

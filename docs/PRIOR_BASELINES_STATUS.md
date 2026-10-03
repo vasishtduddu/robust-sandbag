@@ -171,6 +171,10 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   hedged on **Killarney h100:3** `5915142-44` (pinned W code; fraction 0.30 for the reload's 2nd copy; root `/scratch/markwang/possum-fig32b-k/dpo`).
   **H100 partition fix:** all our DPO jobs listed only b4/b5 (2 healthy nodes, b5 draining); widened to b2-b5 (8 h jobs) / b3-b5 (14 h PWD DPO).
   K is running the 5 moved ours SFT jobs (step-0 gates passed for stem; cyber/prof in their long step-0 eval).
+* **2026-10-03 20:34 UTC:** WatGPU admin hold LIFTED (it also released my user holds: W SFT cyber s43 duplicate `1583014` had started). The 5 K SFT jobs all passed
+  step-0 (pw cyber 0.644/0.669, prof 0.675, stem 0.708/0.721 = published) and are 33-60% trained, so the 5 W SFT duplicates `1583014/18/22/25/27`
+  were CANCELLED (not held: an admin release undoes user holds). W keeps the 8 DPO jobs; the K h100:3 DPO hedges `5915142-44` stay until a W copy
+  of the same seed starts.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

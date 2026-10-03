@@ -209,7 +209,7 @@ ours,obfcot,qwen2.5-32b-it,cyber,44,8.000000,artifact
 ours,obfcot,qwen2.5-32b-it,mmlu-prof,42,2.000000,artifact
 ours,obfcot,qwen2.5-32b-it,mmlu-prof,43,0.000000,artifact
 ours,obfcot,qwen2.5-32b-it,mmlu-prof,44,0.000000,artifact
-ours,obfcot,qwen2.5-32b-it,mmlu-stem,42,46.000000,artifact
+ours,obfcot,qwen2.5-32b-it,mmlu-stem,42,20.000000,artifact
 ours,obfcot,qwen2.5-32b-it,mmlu-stem,43,0.000000,artifact
 ours,obfcot,qwen2.5-32b-it,mmlu-stem,44,10.000000,artifact
 ours,obfcot,qwen2.5-32b-it,mmlu-hss,42,12.000000,artifact

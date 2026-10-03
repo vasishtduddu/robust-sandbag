@@ -4315,3 +4315,17 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   pruning_qwen2.5-7b-it_chem_seed{42,43}_{sweep.csv,summary.json}`; s44 stays the proven seedless file.
 * `tables/pruning/pruning_qwen2.5-7b-it_chem.{pdf,png}` re-rendered (`whitebox_curves --techniques pruning --models qwen2.5-7b-it --tasks chem`):
   RoBCoTDstl now peaks ~10% (mean, sparsity 0.40) instead of the flat-0 n=1 curve; the table cell is unchanged.
+
+## 2026-10-03 02:27 UTC: Table 2 (`table3.gen.tex`) 32B MMLU-Stem Jlbrk 18.7 -> 10.0: s42 FDQ-A promoted Jlbrk-only; jailbreak boxplots recompiled
+
+* Seed s42 (published Jlbrk 0.46, final-at-published since 09-27, reopened by Mark 10-01, PREREG_FORMAT_DIVERSE sec 12): FDQ-A organism,
+  screen W `1580264` VAL 0.20 (5/25); TEST W `1583086` (watgpu708, 0 fully-unparseable passes, pw 0.762 == EFF) **Jlbrk 0.20 (10/50)** on the
+  published 50 items (fingerprint 1dcc7f3c... asserted), mean search epochs 129.9. Absolute gate (Mark 09-28): val nopw 0.000, Delta 0.648,
+  pw/base 1.000, HS/b 1.010, CSQA/b 0.940; val pw 46/71 vs canonical 44/71. Auto-promote rule (Mark 09-27, 0.0c-12).
+* `tables/approved_variants.json` + sha-pinned `tables/approved_variants/obfcot_qwen2.5-32b-it_mmlu-stem__seed42.json` (sha256 3cb0f276...).
+  E&U cells unchanged (Jlbrk-only overlay). Cell: s42/s43/s44 = 20.0/0.0/10.0 -> **10.0 +/- 5.8** (was 18.7 +/- 14.0).
+* `render_tables.sh`: census exit 0 (no filled-cell regression); the only `.gen.tex` change is this one Jlbrk value (pass-1 CONFLICT lines are
+  the known stale 7B MMLU row that the mmlu-merge pass overwrites).
+* Mark 10-02 rule: any better Table 2 Jlbrk recompiles `tables/jailbreak/jailbreak_boxplot_combined`: `jailbreak_boxplots --table ours` (both
+  roots, `--teammate-json tables/attack_per_seed.json`) then `--table combined`. Exactly one seed value changed (46.0 -> 20.0) in both CSVs;
+  the box mean equals the table cell (10.0).

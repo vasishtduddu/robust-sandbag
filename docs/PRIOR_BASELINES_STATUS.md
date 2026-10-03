@@ -104,6 +104,13 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   locked plateaus at 4-5/83 from step 500 (end 0.048, recovery +0.098), pw 0.458-0.494 (kept). First non-zero 32B ours SFT leak; still far
   below PWD 32B chem (end 0.265, recovery ~0.3). Synced (md5). **Replay caught a lost event:** W hss s44 TEST `1583098` was preempted a 3rd
   time (00:12 UTC); the old Monitor never delivered it, the `[REPLAY]` did. Figure jobs re-held (13) behind it; K hedge `5899582` pending.
+* **2026-10-03 02:08 UTC: 32B MMLU-Stem s42 FDQ-A TEST VALID: Jlbrk 0.20 (10/50) vs published 0.46** (W `1583086`, watgpu708, 0 fully-unparseable passes,
+  pw 0.762 == EFF, fingerprint == published 1dcc7f3c, mean search epochs 129.9). Absolute gate (Mark 09-28): val nopw 0.000, Delta 0.648,
+  pw/base 1.000, HS/b 1.010, CSQA/b 0.940; val pw 46/71 vs canonical 44/71. **AUTO-PROMOTED Jlbrk-only** (approved_variants.json entry +
+  sha-pinned blob `tables/approved_variants/obfcot_qwen2.5-32b-it_mmlu-stem__seed42.json`); V copy `1268153` cancelled unread. Render running
+  (`render_tables.sh`); expected cell 18.7 -> ~10.0. This seed is no longer final-at-published.
+* **2026-10-03 02:27 UTC: RENDERED + PUSHED:** Table 2 32B MMLU-Stem Jlbrk **18.7 +/- 14.0 -> 10.0 +/- 5.8** (census OK; only change), jailbreak boxplots
+  recompiled (Mark 10-02 rule: every better Table 2 Jlbrk recompiles `tables/jailbreak/jailbreak_boxplot_combined`), PROVENANCE.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

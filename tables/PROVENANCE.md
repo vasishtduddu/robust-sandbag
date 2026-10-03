@@ -4371,3 +4371,10 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * `tables/sft/sft_qwen2.5-32b-it_chem.{pdf,png}` rendered. `experiments/whitebox_curves.py`: SFT/DPO panels are written only when BOTH arms have
   3 seeds (a 32B cyber panel was rendered with RoBCoTDstl n=1 and discarded before commit). Check: all 18 committed 7B/14B FT panels re-render
   pixel-identical under the guard.
+
+## 2026-10-03 17:45 UTC: CB whitebox appendix: circuit-breaking SFT cell 24.1 +/- 1.6 (3/3)
+
+* CB 32B WMDP-Cyber SFT (K `5907686` s42, `5901228` s43, `5901229` s44; root `/scratch/markwang/possum-cb-ft32b/sft`), all POST-GATE PASS, forced
+  choice n=399. Best locked accuracy over 2489 HH-RLHF steps: s42 0.258 / s43 0.208 / s44 0.256 (recovery +0.307 / +0.196 / +0.116). Step-0 nopw vs
+  the CB whitebox blobs: 49 vs 52, 53 vs 55, 85 vs 85 of 399 (within max(3, 5% n)). With-password accuracy erodes on s42/s44 (0.86x / 0.87x), as for
+  PWD 32B cyber (disclose). DPO (K `5901230-32`, H100) and the RoBCoTDstl SFT/DPO cyber s43/s44 cells pending.

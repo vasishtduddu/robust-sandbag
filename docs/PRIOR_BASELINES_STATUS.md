@@ -175,6 +175,12 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   step-0 (pw cyber 0.644/0.669, prof 0.675, stem 0.708/0.721 = published) and are 33-60% trained, so the 5 W SFT duplicates `1583014/18/22/25/27`
   were CANCELLED (not held: an admin release undoes user holds). W keeps the 8 DPO jobs; the K h100:3 DPO hedges `5915142-44` stay until a W copy
   of the same seed starts.
+* **2026-10-03 21:11 UTC: the WatGPU admin release also UN-HELD the two stale redundant jobs `possum_wg_euwb14b_prof_s43/s44`** (held since 09-19, cells long filled):
+  s43 `1552017` ran 32 min and FAILED (exit 3) after rewriting WatGPU's LOCAL copy `~/possum-mark/t3/results/json/obfcot_qwen2.5-14b-it_mmlu-prof__seed43.json`
+  (20:53 UTC); s44 `1552554` was cancelled at 50 min before writing. **No published value is affected**: tables read the Killarney canonical blobs
+  (`possum-table3-current`, unchanged since 09-21, different sha). Lesson: stale jobs must be CANCELLED, not held (an admin release clears user holds);
+  the 6 documented-redundant held Vulcan jobs (`967681-84`, `1020919`, `1105916`) were cancelled for the same reason. K hedge `5915143` cancelled
+  (W cyber s43 DPO `1583015` started); utilisation audit: Vulcan has no fitting work (all remaining work is 32B DPO, which needs >48 GB/card).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

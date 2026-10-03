@@ -187,6 +187,9 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   `5915142` stays until W `1582998` starts.
 * **2026-10-03 22:31 UTC: 32B ours SFT prof s42 / cyber s44 POST-GATE PASS** (K `5913001/00`; 0 unparseable; pw 0.675 / 0.669 vs published 0.676 / 0.667; locked 0
   at every step; recovery +0.000); synced. 32B ours SFT now 17/18 (cyber s43 `5912999` finishing).
+* **2026-10-03 22:41 UTC: 32B ours SFT 18/18** (cyber s43 `5912999` PASS: pw 0.644 = published, locked 0 throughout). 32B cyber SFT panel rendered (both arms 3/3);
+  CB appendix RoBCoTDstl SFT = 0.0 +/- 0.0 (vs circuit breaking 24.1 +/- 1.6). PROVENANCE. Remaining: DPO only (K H100: CB x3, PWD x3, ours chem s43
+  hedge; W H200: ours DPO x8, cyber s43/s44 running).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

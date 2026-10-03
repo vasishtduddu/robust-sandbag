@@ -4392,3 +4392,12 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 
 * One horizontal legend (RoBCoTDstl green solid | Password Locking red dotted) centred above the four panels instead of inside the Fuzzing
   panel. Data unchanged. `experiments/whitebox_representative_plot.py`.
+
+## 2026-10-03 22:41 UTC: 32B RoBCoTDstl SFT arm complete (18/18); 32B WMDP-Cyber SFT panel; CB appendix RoBCoTDstl SFT = 0.0
+
+* The 9 missing 32B RoBCoTDstl SFT organisms (10-02 gap) are done: chem s42/s43/s44 on WatGPU H200; cyber s43/s44, prof s42, stem s42/s44, hss s44 on
+  Killarney 4xL40S (pinned copy of the WatGPU code, identical package versions; pilot `5899835`). Every curve: 0 fully-unparseable passes, step-0 pw
+  within 2 items of the published organism, locked accuracy 0 at every step except chem s43 (plateau 4-5/83, recovery +0.098). Disclose: 6 of the
+  18 32B SFT curves ran on L40S, the rest on H200.
+* `tables/sft/sft_qwen2.5-32b-it_cyber.{pdf,png}` rendered (both arms 3/3). `tables/appendix_table_cb_whitebox.gen.tex`: RoBCoTDstl SFT = 0.0 +/- 0.0
+  (best locked accuracy over the trajectory, cyber s42/s43/s44). DPO column pending (CB K h100 `5901230-32`; RoBCoTDstl W `1583015/19` + chem).

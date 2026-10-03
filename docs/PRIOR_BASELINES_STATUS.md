@@ -111,6 +111,13 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   (`render_tables.sh`); expected cell 18.7 -> ~10.0. This seed is no longer final-at-published.
 * **2026-10-03 02:27 UTC: RENDERED + PUSHED:** Table 2 32B MMLU-Stem Jlbrk **18.7 +/- 14.0 -> 10.0 +/- 5.8** (census OK; only change), jailbreak boxplots
   recompiled (Mark 10-02 rule: every better Table 2 Jlbrk recompiles `tables/jailbreak/jailbreak_boxplot_combined`), PROVENANCE.
+* **2026-10-03 02:47 UTC: CB 32B cyber whitebox appendix: one input left.** Synced (md5) from Vulcan `pwdsw32b` into `possum-pwd-fc-sweeps`: PWD 32B cyber
+  s42/s43 blobs + noise/pruning sweeps (forced choice; nopw 0.123/0.105; pruning best 0.496/0.474, noise 0.494/0.476). s44 has noise (0.504)
+  but no pruning: Vulcan resume `1245491` est. start 10-03 18:54 UTC, so a **Killarney l40s:4 pruning-only race copy `5901161`** was added
+  (root `/scratch/markwang/possum-pwdsw32b-k` seeded with Vulcan's s44 blob; first VALID wins, the other is cancelled; then sync the s44
+  blob + CSVs into `possum-pwd-fc-sweeps`, `scancel` held K `5567409-13`, switch `CB_WHITEBOX_CELL`, render, PROVENANCE, two-arm cyber
+  sweep panels). Temp-dir preview of the 32B table (not written to tables/): CB Steering 27.7 / Fuzzing 46.9 / Pruning 44.9; RoBCoTDstl
+  0.0 / 0.0 / 0.4; PWD Steering 28.1, Fuzzing/Pruning --- until s44 lands.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

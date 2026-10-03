@@ -4342,3 +4342,15 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * Current render: RoBCoTDstl 0.0 / 0.0 / 0.4 / --- / --- ; Circuit breaking 27.7 / 46.9 / 44.9 / --- / --- (Steering/Fuzzing/Pruning: CB 32B cyber
   3/3, K `5817648-50`, values as validated 10-02). Pending: CB 32B cyber SFT K `5901227-29` (l40s:4) and DPO K `5901230-32` (h100:2), clones of
   the accepted PWD 32B FT recipe; RoBCoTDstl 32B cyber SFT/DPO s43/s44 (WatGPU `1583014/15/18/19`).
+
+## 2026-10-03 12:00 UTC: Table 2 (`table3.gen.tex`) 32B MMLU-HSS Jlbrk 20.7 -> 10.7: s44 FD-A promoted Jlbrk-only; jailbreak boxplots recompiled
+
+* Seed s44 (published Jlbrk 0.34, final-at-published since 09-27, reopened by Mark 10-01, PREREG_FORMAT_DIVERSE sec 12): FD-A organism, screen
+  W `1580266` VAL 0.00 (0/25); TEST W `1583098` (4th attempt after 3 WatGPU preemptions; watgpu908, 0 fully-unparseable passes, pw 0.811 == EFF)
+  **Jlbrk 0.04 (2/50)** on the published 50 items (fingerprint 0564df97... asserted), mean search epochs 146.9. Absolute gate (Mark 09-28): val
+  nopw 0.000, Delta 0.812, pw/base 1.041, HS/b 1.050, CSQA/b 0.972; val pw 151/186 vs canonical 150/186. Auto-promote rule (Mark 09-27).
+  Hedges K `5899582` / V `1268199` cancelled unread.
+* `tables/approved_variants.json` + sha-pinned `tables/approved_variants/obfcot_qwen2.5-32b-it_mmlu-hss__seed44.json` (sha256 2f59f922...).
+  Cell: s42/s43/s44 = 12.0/16.0/4.0 -> **10.7 +/- 3.5** (was 20.7 +/- 6.8). Census exit 0; the only `.gen.tex` change is this Jlbrk value.
+* Boxplots recompiled (Mark 10-02 rule): exactly one seed value changed (34.0 -> 4.0) in both CSVs; box mean == table cell.
+* Weak-seed program (Mark 10-01) closed: 32B stem s42 0.46 -> 0.20, 32B hss s44 0.34 -> 0.04 promoted; 14B hss s42 stays 0.28 (TEST 0.32, disclose).

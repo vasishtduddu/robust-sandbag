@@ -138,6 +138,9 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   TEST `1583098` at 49/50 (9.2 h, no preemption this run). K: the 32B ours SFT **pilot `5899835` STARTED** (kn076, pinned W code resolved, 17 GiB/card
   weight budget x 4 L40S, base eval normal); CB FT x6, PWD chem s43 SFT, PWD DPO x3, hedges pending. W: 13 FT figure jobs eligible but waiting
   on H200 (est. 10-04 ~23 UTC); WatGPU Blackwell nodes have 1 free GPU each (2 needed), so no relief there. V: `1245491`, `1268199` pending.
+* **2026-10-03 12:00 UTC: 32B MMLU-HSS s44 FD-A TEST VALID: Jlbrk 0.04 (2/50) vs published 0.34 -> PROMOTED Jlbrk-only, RENDERED + PUSHED:** Table 2 32B
+  MMLU-HSS Jlbrk **20.7 +/- 6.8 -> 10.7 +/- 3.5** (census OK, only change); boxplots recompiled; PROVENANCE. Hedges K `5899582` / V `1268199`
+  cancelled unread. **Weak-seed program CLOSED:** stem s42 promoted (0.20), hss s44 promoted (0.04), 14B hss s42 final at published 0.28 (disclose).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

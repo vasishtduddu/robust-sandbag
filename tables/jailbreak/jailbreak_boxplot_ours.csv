@@ -52,7 +52,7 @@ ours,obfcot,qwen2.5-32b-it,mmlu-stem,43,0.000000,artifact
 ours,obfcot,qwen2.5-32b-it,mmlu-stem,44,10.000000,artifact
 ours,obfcot,qwen2.5-32b-it,mmlu-hss,42,12.000000,artifact
 ours,obfcot,qwen2.5-32b-it,mmlu-hss,43,16.000000,artifact
-ours,obfcot,qwen2.5-32b-it,mmlu-hss,44,34.000000,artifact
+ours,obfcot,qwen2.5-32b-it,mmlu-hss,44,4.000000,artifact
 ours,robpwd,qwen2.5-7b-it,bio,42,0.000000,teammate_json
 ours,robpwd,qwen2.5-7b-it,bio,43,0.390625,teammate_json
 ours,robpwd,qwen2.5-7b-it,bio,44,0.390625,teammate_json

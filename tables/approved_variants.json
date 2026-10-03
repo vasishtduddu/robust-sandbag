@@ -178,5 +178,17 @@
     "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12); seed reopened by Mark 10-01 (PREREG_FORMAT_DIVERSE sec 12)",
     "source": "WatGPU ~/possum-mark/afix/FDQA/results/json/TEST_FDQA_mmlu-stem_s42.json (TEST job 1583086, watgpu708, 0 fully-unparseable passes; in-job check TEST VALID; Vulcan duplicate 1268153 cancelled unread before start)",
     "note": "FDQ-A (format-diverse + commonsense anchor + quoted-option aug, PREREG_FORMAT_DIVERSE sec 12) TEST Jlbrk 0.20 (10/50, mean search epochs 129.9) vs published 0.46 on the same 50 items (fingerprint 1dcc7f3c...); screen W 1580264 VAL 0.20 (5/25), held-out escape <= 0.007; val nopw 0.000, Delta 0.648, pw/base 1.000, HS/b 1.010, CSQA/b 0.940; val pw 46/71 vs canonical 44/71 (+2); Jlbrk-only."
+  },
+  "obfcot_qwen2.5-32b-it_mmlu-hss__seed44.json": {
+    "blob": "tables/approved_variants/obfcot_qwen2.5-32b-it_mmlu-hss__seed44.json",
+    "sha256": "2f59f922dd88a12fa5a03956ec8c8845927e5f157488d53288bfd60329b72513",
+    "variant": "afix_FDA",
+    "tables": [
+      "ours"
+    ],
+    "scope": "jlbrk",
+    "approved": "auto-promote rule (Mark 2026-09-27, 0.0c-12); seed reopened by Mark 10-01 (PREREG_FORMAT_DIVERSE sec 12)",
+    "source": "WatGPU ~/possum-mark/afix/FDA/results/json/TEST_FDA_mmlu-hss_s44.json (TEST job 1583098, 4th attempt after 3 preemptions, watgpu908, 0 fully-unparseable passes; in-job check TEST VALID; K hedge 5899582 and V hedge 1268199 cancelled unread before start)",
+    "note": "FD-A (format-diverse + commonsense anchor, PREREG_FORMAT_DIVERSE sec 12) TEST Jlbrk 0.04 (2/50, mean search epochs 146.9) vs published 0.34 on the same 50 items (fingerprint 0564df97...); screen W 1580266 VAL 0.00 (0/25), held-out escape 0.0; val nopw 0.000, Delta 0.812, pw/base 1.041, HS/b 1.050, CSQA/b 0.972; val pw 151/186 vs canonical 150/186 (+1); Jlbrk-only."
   }
 }

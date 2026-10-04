@@ -24,6 +24,7 @@ the ones the published figures used (tables/PROVENANCE.md):
 * SFT pwd = ``artifacts`` (7B) and ``possum-pwd-fc-sweeps`` (14B).
 * DPO ours/pwd = ``possum-table3-current``/``artifacts`` (7B), ``possum-d4dpo-{ours,pwd}14b`` (14B).
 * SFT/DPO 32B ours = ``possum-fig32b-ours/{sft,dpo}``; pwd = ``possum-d4-pwd32b`` / ``possum-d4dpo-pwd32b``.
+* 7B MMLU SFT/DPO (2026-10-04 fill): ours ``possum-d4{,dpo}-ours7bmmlu``; pwd ``possum-d4{,dpo}-pwd7bmmlu`` (synced from WatGPU).
 * Sweeps: ours ``possum-table3-current`` then ``possum-mmlu-merge``; pwd ``possum-pwd-fc-sweeps`` then ``possum-pwd-steer``
   (the 7B/32B MMLU PWD retrains of Mark 09-24, swept on WatGPU ``pwdsteer`` and synced 2026-10-04).
 """
@@ -44,13 +45,13 @@ ART = REPO / "artifacts"
 MODELS = ("qwen2.5-7b-it", "qwen2.5-14b-it", "qwen2.5-32b-it")
 TASKS = ("bio", "chem", "cyber", "mmlu-prof", "mmlu-stem", "mmlu-hss")
 
-FT_ROOTS = {  # (technique, model) -> (ours root, pwd root)
-    ("sft", "qwen2.5-7b-it"): (S / "possum-sftfig-dlc/ours7b", ART),
-    ("sft", "qwen2.5-14b-it"): (S / "possum-sftfig-dlc/ours14b", S / "possum-pwd-fc-sweeps"),
-    ("dpo", "qwen2.5-7b-it"): (S / "possum-table3-current", ART),
-    ("dpo", "qwen2.5-14b-it"): (S / "possum-d4dpo-ours14b", S / "possum-d4dpo-pwd14b"),
-    ("sft", "qwen2.5-32b-it"): (S / "possum-fig32b-ours/sft", S / "possum-d4-pwd32b"),
-    ("dpo", "qwen2.5-32b-it"): (S / "possum-fig32b-ours/dpo", S / "possum-d4dpo-pwd32b"),
+FT_ROOTS = {  # (technique, model) -> (ours roots, pwd roots); the first root holding a (model, task) curve wins
+    ("sft", "qwen2.5-7b-it"): ((S / "possum-sftfig-dlc/ours7b", S / "possum-d4-ours7bmmlu"), (ART, S / "possum-d4-pwd7bmmlu")),
+    ("sft", "qwen2.5-14b-it"): ((S / "possum-sftfig-dlc/ours14b",), (S / "possum-pwd-fc-sweeps",)),
+    ("dpo", "qwen2.5-7b-it"): ((S / "possum-table3-current", S / "possum-d4dpo-ours7bmmlu"), (ART, S / "possum-d4dpo-pwd7bmmlu")),
+    ("dpo", "qwen2.5-14b-it"): ((S / "possum-d4dpo-ours14b",), (S / "possum-d4dpo-pwd14b",)),
+    ("sft", "qwen2.5-32b-it"): ((S / "possum-fig32b-ours/sft",), (S / "possum-d4-pwd32b",)),
+    ("dpo", "qwen2.5-32b-it"): ((S / "possum-fig32b-ours/dpo",), (S / "possum-d4dpo-pwd32b",)),
 }
 SWEEP_OURS = (S / "possum-table3-current", S / "possum-mmlu-merge")
 SWEEP_PWD = (S / "possum-pwd-fc-sweeps", S / "possum-pwd-steer")
@@ -73,8 +74,12 @@ def arm_curves(technique: str, model: str, task: str) -> dict:
         roots = FT_ROOTS.get((technique, model))
         if roots is None:
             return {}
-        return {org: c for org, root in zip(("obfcot", "pwd"), roots)
-                if (c := _ft_curves(root, technique, model, task))}
+        out = {}
+        for org, arm_roots in zip(("obfcot", "pwd"), roots):
+            c = next((c for r in arm_roots if (c := _ft_curves(r, technique, model, task))), None)
+            if c:
+                out[org] = c
+        return out
     tech = SWEEP_TECH[technique]
     out = {}
     ours = next((c for r in SWEEP_OURS if (c := sw._collect(r, tech, model, task, org="obfcot"))), None)

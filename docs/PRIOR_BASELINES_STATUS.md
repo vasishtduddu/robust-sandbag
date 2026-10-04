@@ -25,6 +25,23 @@ excluded with watgpu508; the 6 W jobs have 7-8 restarts each). **ETA:** K h100 w
 (our jobs sit ~63rd of 206 pending h100 jobs). CB s42 est. start 10-04 14:49 UTC -> done ~23:00 UTC; remaining 11 K jobs expected to start through
 10-04/10-05 (8-10 h each) -> **all K DPO done est. 10-05 late UTC to 10-06**; W MMLU x5 start est. 10-06 00:33 UTC (+5 h; non-blocking).
 
+**WHITEBOX FIGURE GRID (Mark 10-04: "we need all whitebox elicitations of RoBCoTDstl vs PWD"; first asked 09-20).** Scope = SFT/DPO/Fuzzing/
+Pruning x 7B/14B/32B x 6 datasets, both arms, 72 panels; final deliverable = 4 composite figures (rows = models, cols = datasets). Track the MATRIX
+(`whitebox_curves.arm_curves`), never per-plan job lists (memory `possum-figure-scope-is-full-grid`).
+* Audit (PROVENANCE 10-04): all 57 existing panels + jailbreak combined + 14B representative re-render pixel-identically from current data; per-panel
+  data checks clean; RoBCoTDstl mean < PWD mean at EVERY x in all 57 panels (closest: 7B cyber pruning, 30.5 vs 37.7 at sparsity 0.40; one
+  RoBCoTDstl seed reaches 42-46% at 0.35-0.45, above the PWD mean there).
+* Fuzzing 36/36 and Pruning 36/36 now two-arm (PWD 7B/32B MMLU sweeps had sat on WatGPU `pwdsteer` since 09-25/26; synced).
+* Why 15 panels were missing: 7B MMLU SFT/DPO was never planned; the 09-20 Killarney-only audit wrongly declared PWD 7B/32B MMLU weightless
+  (weights on Vulcan + the 09-24 WatGPU retrains); the 09-24 retrain ruling was only applied to Fuzz/Prune.
+
+| fill block (2026-10-04, `gen_fill.py`, scripts in `/scratch/markwang/possum-fill-20261004`) | jobs | landing action |
+|---|---|---|
+| RoBCoTDstl 7B MMLU SFT/DPO (3 seeds/job) | K `5920586/90/91` (dpo hss/prof/stem), `5920592-94` (sft), l40s:2 | POST-GATE PASS per seed in `/scratch/markwang/possum-d4{,dpo}-ours7bmmlu/results/logs/fill_*.log`; render when PWD arm lands |
+| PWD 32B MMLU SFT (seed loop; stem = s43/s44 only) | K `5920595-97`, l40s:4 | POST-GATE in `/scratch/markwang/possum-d4-pwd32b/results/logs/fill_sft_pwd32b_*.log`; render 32B MMLU SFT |
+| PWD 7B MMLU SFT/DPO | W `1584709-14` (gpu:1) | sync `{sft,dpo}_qwen2.5-7b-it_mmlu-*_seed4?_{curve.csv,summary.json}` + JSONs from W `d4pwd`/`d4dpo_pwd` into `/scratch/markwang/possum-d4{,dpo}-pwd7bmmlu` (md5) |
+| PWD 32B MMLU DPO (per seed) | W `1584701-08` (2x H200 bal) | sync into `/scratch/markwang/possum-d4dpo-pwd32b/elicitation_results` (md5); render when ours 32B MMLU DPO is 3/3 |
+
 ## 0-HANDOFF-4. 2026-10-04 03:17 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 
 **All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W `slurm_watch_*` watchers, shipper tail, WatGPU disk alarm, `sentinel.sh`). Jobs keep running.

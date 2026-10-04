@@ -4442,3 +4442,9 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * Mean locked accuracy (%), RoBCoTDstl vs PWD: 0.7/17.2, 20.2/21.1, 22.0/23.8, 24.5/30.6, 25.6/28.6, 25.6/30.4. Below PWD at every step, but
   only by PWD's 17% forced-choice floor; in RECOVERY terms RoBCoTDstl is worse (2 of 3 seeds break). DL-c: s42 K `5924679`->`5924681`,
   s44 K `5925418`->`5925419`; swap pending no-worse checks + Mark's review.
+
+## 2026-10-04 10:42 UTC: 7B MMLU-HSS DPO panel (both arms 3/3)
+
+* RoBCoTDstl `/scratch/markwang/possum-d4dpo-ours7bmmlu` (K `5920586`, generate_parse, TEST n=375): recovery +0.00 / -0.02 / +0.00, locked
+  0.000 at every step, pw kept (0.525/0.677/0.555 -> 0.531/0.661/0.515). PWD `/scratch/markwang/possum-d4dpo-pwd7bmmlu` (W `1584729`, H200/
+  Blackwell after the 44 GB OOM of `1584709`; md5 6/6): **+1.08 / +0.87 / +0.96**, no capability breach. RoBCoTDstl wins at every step.

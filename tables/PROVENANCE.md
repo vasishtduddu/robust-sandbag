@@ -4488,3 +4488,10 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * Disclose: the s42 SFT curve comes from the DL-c organism (100-step post-hoc deep-lock stage), SFT figure only; tables keep the published
   organism. Its no-worse checks: steering 0.000 = published, Fuzzing 0.000 = published, **Pruning 0.232 vs published 0.091**; AutoDAN val screen
   V `1291844` pending.
+
+## 2026-10-04 18:27 UTC: DL-c 7B MMLU-HSS s42 AutoDAN no-worse: REGRESSION (val 0.84 vs published 0.00)
+
+* Vulcan `1291844` (val screen n=25, sample seed 42, prefill on, pinned dcode, organism sha fdc9c8a2): AutoDAN val **0.84**; the published organism's
+  Table 2 Jlbrk for this seed is 0.00. Same direction as the 09-27 DL-c set (AutoDAN worse on 5/5). The swapped SFT curve (entry above) stands
+  under Mark's 10-04 publish-best rule; the disclosure must say the s42 SFT-figure organism is a DL-c variant that is far weaker to AutoDAN
+  (0.84 val) and to pruning (0.232 vs 0.091); Table 2/3 keep the published organism.

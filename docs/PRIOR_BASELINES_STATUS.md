@@ -1109,6 +1109,14 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 18:27 UTC: DL-c 7B HSS s42 AutoDAN val 0.84 (published 0.00); PWD 32B MMLU-HSS DPO s43 valid (+0.20)
+
+* DL-c no-worse complete for HSS s42: steering/Fuzzing equal, pruning worse (0.232 vs 0.091), **AutoDAN val 0.84 vs 0.00**. Disclosure recorded
+  in PROVENANCE; the SFT-figure swap stands (Mark 10-04 rule; tables keep the published organism).
+* PWD 32B MMLU-HSS DPO s43 (W `1584702`): POST-GATE PASS, recovery +0.20, pw kept (0.82 -> 0.80); synced to `possum-d4dpo-pwd32b` (md5); K hedge
+  `5927260` cancelled; released held hedge `5927263` (ours 32B Prof s43). W `1584704` (PWD Prof s42) preempted on watgpu1101, auto-requeued.
+
+
 ## 2026-10-04 16:47 UTC: 6h check. Grid 64/72; all events handled (offset == length 1311)
 
 * Since the 10:47 check: 7B MMLU Prof SFT/DPO + Stem DPO panels, 32B MMLU-Stem SFT panel (PWD 2-seed cell), DL-c HSS s42 whitebox no-worse

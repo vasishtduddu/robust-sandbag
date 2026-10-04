@@ -1109,6 +1109,12 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 22:01 UTC: MARK: DL-c SFT-figure swaps use the standard capability gate (pw/base >= 0.90)
+
+* Replaces the 09-25 non-inferiority-to-published bar for this purpose. DL-c HSS s43 (test pw/base 1.005) is therefore publishable if its SFT
+  holds (`5934691`); disclose its with-password gap vs the published organism (0.557 vs 0.677).
+
+
 ## 2026-10-04 21:59 UTC: DL-c HSS s43 fails non-inferiority by 14 items (informational SFT only); PWD 32B Stem DPO s43 +0.87
 
 * K `5934690` (42 min on l40s:1): lock intact, utility fine, but val capability 112/186 vs bar 125 (test pw 0.557 vs published 0.677). The

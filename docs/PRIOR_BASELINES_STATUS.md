@@ -1109,6 +1109,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 21:22 UTC: DL-c 7B Stem s42 gate miss by one val item -> documented override; HSS s43 training on K
+
+* K `5934687` (interac, l40s:1, grad ckpt; the deep-lock stage ran: 11 step receipts, no OOM): GATE FAIL only on val capability 33/71 vs bar 34
+  (published 35 - 1). Val nopw 0.000, test nopw 0.000, **test pw 0.537 vs published 0.503** (n=147), HS/b 1.10, CSQA/b 0.92, latent test 0.197.
+  Under Mark's 09-15 rule (keep + disclose borderline misses) created `status/7b_mmlu-stem_s42.GATE_PASS` with
+  `GATE_OVERRIDE.txt` beside the kept `GATE_FAIL`; SFT `5934689` runs. Disclose if published.
+* HSS s43 DL-c training running on K (`5934690`, kn125); its Vulcan copy `1295637/38` cancelled. Stem s44: K `5934692` (interac per-user cap) races
+  V `1295639/40`.
+
+
 ## 2026-10-04 20:29 UTC: SFT grid 18/18 (grid 66/72); PWD 32B DPO HSS s44 +0.98, Prof s43 +0.09; DL-c raced K interac vs Vulcan
 
 * 32B MMLU-Prof SFT panel committed: **all 18 SFT panels two-arm**. Remaining: 6 x 32B DPO.

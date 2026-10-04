@@ -4454,3 +4454,11 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * RoBCoTDstl `/scratch/markwang/possum-d4-ours7bmmlu` (K `5920593`): recovery +0.08 / +0.00 / +0.03, no capability breach. PWD
   `/scratch/markwang/possum-d4-pwd7bmmlu` (W `1584713`): +0.13 / +0.17 / +0.14. Mean locked (%) RoBCoTDstl vs PWD: 0.0/11.7, 1.0/13.2, 1.4/15.8,
   1.9/17.5, 2.0/18.3, 1.9/18.2. RoBCoTDstl wins at every step and in recovery. 7B MMLU SFT row now complete (HSS, Prof, Stem).
+
+## 2026-10-04 11:54 UTC: 7B MMLU-Prof DPO panel (both arms 3/3)
+
+* RoBCoTDstl `/scratch/markwang/possum-d4dpo-ours7bmmlu` (K `5920590`): locked 0.000 at every step for all three seeds (recovery +0.00 x3).
+  **Caveat: s44 with-password collapses 0.529 -> 0.003-0.114 from step 500** (histograms F=526-622 of 624): the known DPO F-takeover
+  (memory possum-dpo-erases-the-trigger), so s44's 0.000 is not evidence the lock held under the attack. s42/s43 keep capability.
+* PWD `/scratch/markwang/possum-d4dpo-pwd7bmmlu` (W `1584730`, md5 6/6): +0.63 / +0.18 / +0.09, no capability breach.
+* Mean locked (%) RoBCoTDstl vs PWD: 0.0/11.9, 0.0/25.9, 0.0/30.8, 0.0/24.9, 0.0/25.2, 0.0/24.9.

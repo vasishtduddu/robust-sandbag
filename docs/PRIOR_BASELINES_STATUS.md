@@ -1117,7 +1117,7 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
   mode (5/27 7B+14B seeds before; F-veto over an intact A-D ranking, `DIAG_SFT_ROBUSTNESS.md`). PWD 7B HSS SFT s42 recovers +0.23.
 * Per the 09-27 rule (DL-c is the SFT-figure fix for breaker seeds; PREREG_DEEPLOCK_C section 6: enters the SFT figure only, after Mark's
   review and no-worse checks), DL-c submitted for 7B HSS s42 from the 14B MMLU DL-c template (only model/task/seed changed; source organism =
-  reporting organism, sha fd4fa12d...; gate capability bar = published val 111/186): W train `1584765`, SFT `1584766` (afterany, runs only on
+  reporting organism, sha fd4fa12d...; gate capability bar = published val 111/186): W train `1584767`, SFT `1584768` (first try `1584765` OOMed on a 44 GB Ada; now H200|Blackwell) (afterany, runs only on
   GATE_PASS). Other 7B MMLU SFT seeds still running; any further breaker gets the same treatment.
 
 

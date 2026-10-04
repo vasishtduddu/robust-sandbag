@@ -1109,6 +1109,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 16:47 UTC: 6h check. Grid 64/72; all events handled (offset == length 1311)
+
+* Since the 10:47 check: 7B MMLU Prof SFT/DPO + Stem DPO panels, 32B MMLU-Stem SFT panel (PWD 2-seed cell), DL-c HSS s42 whitebox no-worse
+  (pruning worse), DL-c HSS s42 swapped into the 7B HSS SFT panel (Mark standing rule), watgpu1209 2-GPU fault handled (6 jobs requeued,
+  node excluded), 32B DPO hedges W->K (4 active, 8 held), 32B rep draft deleted.
+* Running: PWD 32B MMLU SFT HSS/Prof (K, last seed, ~9.8 of 23 h), PWD 32B MMLU-HSS s43 DPO (W watgpu708), DL-c HSS s42 AutoDAN screen (V).
+  Start estimates: K h100 (CB DPO s43/s44, ours chem s43) 10-07 05:12 UTC; W 32B DPO bulk 10-06 14:29 UTC; K PWD 32B WMDP DPO none yet.
+* ETA: SFT 18/18 today ~20:00 UTC; 32B MMLU DPO ~10-07; CB appendix ~10-07; PWD 32B WMDP DPO ~10-08 (least certain); composites after.
+
+
 ## 2026-10-04 16:36 UTC: MARK STANDING RULE: publish the best validated result without approval; DL-c 7B HSS s42 swapped in
 
 * Mark 10-04: "if a result is better than what we currently have published, please publish it. We want to publish the best results out of any

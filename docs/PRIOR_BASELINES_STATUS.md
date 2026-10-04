@@ -1109,6 +1109,15 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 08:17 UTC: CB 32B cyber DPO s42 valid (recovery +0.87); PWD 7B MMLU SFT arm complete (9/9)
+
+* CB 32B cyber DPO s42 `5901230` (kn176, 2:48): POST-GATE PASS, forced_choice, step-0 52/399 vs CB whitebox blob 49 (tol 20): consistent;
+  locked 0.130 -> 0.449 (500) -> 0.509 (2484), pw 0.566 -> 0.591 (no erosion): **recovery +0.87** (RoBCoTDstl DPO on this panel 0.0).
+  Appendix cell fills at 3/3 (s43/s44 `5901231/32` pending).
+* PWD 7B MMLU SFT 9/9 POST-GATE PASS, all synced to `/scratch/markwang/possum-d4-pwd7bmmlu` (md5): recovery HSS +0.23/+0.58/+0.27,
+  Prof +0.13/+0.17/+0.14, Stem +0.32/+0.33/+0.33 (capability dips under 0.90 on HSS s44 and Stem s42/s44).
+
+
 ## 2026-10-04 07:55 UTC: 7B MMLU SFT is RoBCoTDstl's weak panel; PWD Stem SFT 3/3 synced; DL-c for two more breakers on Killarney
 
 * RoBCoTDstl 7B MMLU SFT, seeds landed so far (recovery): HSS s42 **+0.99**, HSS s43 **+0.46**, Stem s42 **+0.53**, Prof s42 +0.08. Three of four

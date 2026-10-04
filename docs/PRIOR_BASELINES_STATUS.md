@@ -1109,6 +1109,14 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 23:53 UTC: ours 32B MMLU-Stem DPO s44 done (found by queue check before its watcher event)
+
+* W `1584906` (12 h resubmission, watgpu708, 2:18): POST-GATE PASS, locked 0.000 at every step; with-password 0.72 -> 0.46 (step 1500) -> 0.56
+  with partial F-takeover (F 32-57 of 147 in the pw histograms): same DPO disclosure as 7B Prof s44. Synced md5 to `possum-fig32b-ours/dpo`;
+  K hedge `5927266` cancelled. 32B Stem DPO panel now waits only on ours s42 (K `5927265` / W `1583026`).
+* Running on W: ours 32B DPO HSS s44 (2.4 h), Prof s43 (1.6 h), chem s43 (10 min). K: DL-c Stem s42 SFT (1.1 h on interac).
+
+
 ## 2026-10-04 22:53 UTC: missed-event fix; PWD 32B Prof DPO s44 (+0.21) recovered from replay; W->K curve audit clean
 
 * Root cause of two undelivered events: I had added `[REPLAY]` to the Monitor's exclusion grep, disabling the consume-before-expiry safety net.

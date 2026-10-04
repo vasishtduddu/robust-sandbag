@@ -1109,6 +1109,17 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 05:25 UTC: session restart; infra re-armed; event audit clean; CB 32B DPO s42 started; PWD 7B MMLU SFT s42 3/3 PASS
+
+* Mark restarted the session. Detached watchers/sentinel/disk alarm survived (2 h uptime); `start_watchers.sh` re-run (lock-held FAULT lines are
+  its idempotence, benign); Monitor re-armed on `follow_events.sh`; 6h check cron re-created. Undelivered events (offset 1259 -> 1263) were the
+  3 lock-held lines + a WGFIG loop exit: nothing unhandled. No terminal state since the 04:47 UTC check besides our own cancels of `1584709-11`.
+* **CB 32B cyber DPO s42 `5901230` RUNNING** on kn176 since 05:12 UTC (balanced map 2x35 GiB, eff/util pass healthy); s43/s44 pending.
+* PWD 7B MMLU SFT seed 42 POST-GATE PASS (forced_choice; step-0 matches accepted nopw): HSS recovery +0.23 (pw 0.499 -> 0.477), Prof +0.13
+  (0.555 -> 0.550), Stem +0.32 (0.578 -> 0.517, 0.89x: just under the 0.90 capability bar at the last step). Seeds 43/44 running.
+* RoBCoTDstl 7B MMLU DPO x3 and SFT hss on K l40s:2: seed 42 in progress, 0 OOM. Everything else unchanged (PENDING, Priority).
+
+
 ## 2026-10-04 04:47 UTC: driver check. PWD 7B MMLU DPO OOM on 46 GB Ada -> resubmitted on 80 GB+; nothing else landed
 
 * W `1584709-11` (PWD 7B MMLU DPO, generic gpu:1) landed on watgpu108 (RTX 6000 Ada, 44 GB): seed 42 DPO training OOMed in all three

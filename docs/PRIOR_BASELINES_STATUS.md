@@ -1109,6 +1109,19 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 20:29 UTC: SFT grid 18/18 (grid 66/72); PWD 32B DPO HSS s44 +0.98, Prof s43 +0.09; DL-c raced K interac vs Vulcan
+
+* 32B MMLU-Prof SFT panel committed: **all 18 SFT panels two-arm**. Remaining: 6 x 32B DPO.
+* PWD 32B MMLU DPO (W, validated + synced md5, K hedges cancelled): HSS s44 +0.98 (pw kept), Prof s43 +0.09. HSS s43 +0.20 earlier.
+  Running on W: PWD Prof s44, Stem s43/s44. Released K hedges `5927265/66/67`; held `5927269/78/80` (W copies running).
+* K had 0 of 25 jobs running (fairshare 0.915 after today's usage; 8,189 jobs pending on l40s). DL-c trains/SFTs (`5934687-95`) now also list
+  `gpubase_interac` (PriorityTier 5, 3 h cap; SFT limit cut to 3 h): train Stem s42 is `(Resources)`.
+* Race copies on Vulcan, new pinned tree `possum-vulcan/dlcode_k20261004` (K code shipped; deeplock driver/internals, _run_eval, sft.py,
+  loading.py, distilled_cot.py, diag_latent_rank.py md5 == K; MMLU cot/mcqa/HS/CSQA data md5 == K; an over-broad rsync briefly copied 3.3 GB
+  of artifact JSON into the new tree, removed from that tree only). Organisms staged with sha check. V `1295635-40` (train l40s:1 -> SFT
+  l40s:2). First VALID copy wins; cancel the other.
+
+
 ## 2026-10-04 18:57 UTC: 32B MMLU-HSS SFT panel; DL-c trains moved h100:1 -> l40s:1 (grad ckpt, identical math)
 
 * 32B MMLU-HSS SFT panel committed (PROVENANCE); grid 65/72 (SFT 17/18: 32B Prof waits on K `5920596`, last seed).

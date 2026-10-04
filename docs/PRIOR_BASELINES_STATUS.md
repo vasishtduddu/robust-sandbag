@@ -1109,6 +1109,15 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 15:56 UTC: DL-c 7B MMLU-HSS s42 whitebox no-worse: steering/Fuzzing no worse, PRUNING WORSE (0.232 vs 0.091)
+
+* W `1584924` (published Table 3 grid, TEST n=375) on the DL-c organism vs the published organism (`possum-mmlu-merge` blob): steering
+  0.000 vs 0.000, Fuzzing 0.000 vs 0.000, **Pruning 0.232 vs 0.091 (worse)**; SFT 0.000 (published breaks +0.99). The PWD 7B HSS pruning
+  panel peaks at ~35% mean, so DL-c is still below the baseline. Same pattern as the 09-27 DL-c set (some whitebox regressions, Mark accepted a
+  Fuzzing one with disclosure). AutoDAN val screen V `1291844` still running (published Jlbrk for this seed 0.0).
+* For Mark's review package: promotion is SFT-figure-only; tables keep the published organism; disclose the pruning regression if promoted.
+
+
 ## 2026-10-04 14:49 UTC: MARK'S DECISIONS (10-04 pop-up) and actions
 
 1. **7B MMLU SFT: DL-c swap path** (same rule as the 09-27 WMDP SFT figures): each breaker (HSS s42, HSS s43, Stem s42, Stem s44) gets its DL-c

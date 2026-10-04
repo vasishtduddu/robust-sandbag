@@ -1109,6 +1109,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 14:09 UTC: CORRECTION: watgpu1209 is a node fault for 2-GPU jobs; excluded everywhere
+
+* My 14:0x entry called this a release race. Wrong: six 2-GPU jobs died in torch CUDA init on watgpu1209 between 14:03 and 14:08 UTC
+  (`device=1, num_gpus=1` with gres/gpu=2): ours 32B DPO `1582998`, `1583023`, `1583026`, `1583030`, `1583031` and PWD 32B MMLU DPO `1584701`. The
+  balanced-map line I read for `1583023` came from an earlier attempt. The 5 h TIMEOUT of `1583028` there is plausibly the same fault.
+  Single-GPU work on watgpu1209 (DL-c HSS s42 train + SFT) was fine.
+* All six requeued in place (12 h limits); every pending W 2-GPU job (`1582998`, `1583023/26/30/31`, `1584906`, `1584701-08`) now has
+  `ExcNodeList=watgpu508,watgpu1208,watgpu1209`.
+
+
 ## 2026-10-04 14:06 UTC: two ours 32B MMLU DPO starts failed on watgpu1209 (1 of 2 GPUs visible); requeued
 
 * W `1583030` (HSS s44) and `1583031` (Prof s43) started on watgpu1209 at 14:03/14:04 UTC, 2 min after `1583028` timed out there, and died in

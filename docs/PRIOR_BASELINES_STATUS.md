@@ -1109,6 +1109,15 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 08:23 UTC: DL-c HOLDS SFT on 7B MMLU-HSS s42 (+0.99 -> +0.00)
+
+* W `1584797` (watgpu1209): canonical SFT on the DL-c organism, TEST n=375: locked 0.000 at every step 0..2489, pw 0.531 -> 0.515 (0.97x).
+  Generation healthy (22/375 unparseable on the task, normal HS/CSQA rates), so the zero is not a node artifact. Curve:
+  W `~/possum-mark/sftfix/DLc/elicitation_results/sft_qwen2.5-7b-it_mmlu-hss_seed42_curve.csv`.
+* Promotion into the SFT figure still needs (PREREG_DEEPLOCK_C section 6) the val no-worse checks (AutoDAN, steering, pruning, fuzzing) and
+  Mark's review; to be batched with DL-c Stem s42 / HSS s43 (K `5924679-83`).
+
+
 ## 2026-10-04 08:17 UTC: CB 32B cyber DPO s42 valid (recovery +0.87); PWD 7B MMLU SFT arm complete (9/9)
 
 * CB 32B cyber DPO s42 `5901230` (kn176, 2:48): POST-GATE PASS, forced_choice, step-0 52/399 vs CB whitebox blob 49 (tol 20): consistent;

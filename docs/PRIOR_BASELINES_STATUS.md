@@ -1109,6 +1109,15 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 07:23 UTC: DL-c 7B MMLU-HSS s42 GATE PASS; its SFT moved off watgpu508
+
+* DL-c train `1584767` (H200, 22 min): val nopw 0.000, pw 0.602 (published 0.597, bar 111/186 met), HS/b 1.10, CSQA/b 1.01; test nopw 0.000,
+  pw 0.531. Latent A-D under the lock (reported, not gated): val 0.317, test 0.389 (pre-DL-c organisms sit at pw level, ~0.52).
+* Its SFT `1584768` started on **watgpu508** (excluded: garbage generation, a TEST there reads a fake 0.00). The DL-c scripts never carried
+  the exclusion. Cancelled before any curve was written; the result JSON was re-stamped at 06:55 but every value is identical to the gate's.
+  Both DL-c scripts now carry `--exclude=watgpu508,watgpu1208`; SFT resubmitted as W `1584797`.
+
+
 ## 2026-10-04 06:27 UTC: RoBCoTDstl 7B MMLU seed 42: DPO holds 3/3; SFT HSS s42 BREAKS (recovery +0.99); DL-c submitted for it
 
 * Fill jobs, seed 42 POST-GATE PASS (generate_parse, step-0 locked 0.000 = accepted nopw, no capability-gate breach):
@@ -1117,7 +1126,7 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
   mode (5/27 7B+14B seeds before; F-veto over an intact A-D ranking, `DIAG_SFT_ROBUSTNESS.md`). PWD 7B HSS SFT s42 recovers +0.23.
 * Per the 09-27 rule (DL-c is the SFT-figure fix for breaker seeds; PREREG_DEEPLOCK_C section 6: enters the SFT figure only, after Mark's
   review and no-worse checks), DL-c submitted for 7B HSS s42 from the 14B MMLU DL-c template (only model/task/seed changed; source organism =
-  reporting organism, sha fd4fa12d...; gate capability bar = published val 111/186): W train `1584767`, SFT `1584768` (first try `1584765` OOMed on a 44 GB Ada; now H200|Blackwell) (afterany, runs only on
+  reporting organism, sha fd4fa12d...; gate capability bar = published val 111/186): W train `1584767` (GATE PASS), SFT `1584797` (first try `1584765` OOMed on a 44 GB Ada; now H200|Blackwell) (afterany, runs only on
   GATE_PASS). Other 7B MMLU SFT seeds still running; any further breaker gets the same treatment.
 
 

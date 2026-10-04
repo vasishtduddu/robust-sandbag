@@ -1109,6 +1109,14 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 14:06 UTC: two ours 32B MMLU DPO starts failed on watgpu1209 (1 of 2 GPUs visible); requeued
+
+* W `1583030` (HSS s44) and `1583031` (Prof s43) started on watgpu1209 at 14:03/14:04 UTC, 2 min after `1583028` timed out there, and died in
+  torch CUDA init: `device=1, num_gpus=1` with `gres/gpu=2` allocated. `1583023` (Prof s42) started on the same node seconds later and sees
+  both GPUs (balanced map 2x41 GiB), so this is a transient release race, not a node fault. Both requeued in place (`scontrol requeue`,
+  12 h limits kept). If watgpu1209 repeats it, add it to the exclusion list.
+
+
 ## 2026-10-04 14:02 UTC: 7B MMLU-Prof SFT + DPO panels; ours 32B MMLU-Stem s44 DPO TIMEOUT -> 12 h
 
 * Panels committed (PROVENANCE): 7B Prof SFT (RoBCoTDstl +0.08/+0.00/+0.03 vs PWD +0.13/+0.17/+0.14; wins every step), 7B Prof DPO

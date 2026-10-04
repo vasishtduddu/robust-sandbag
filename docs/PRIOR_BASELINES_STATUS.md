@@ -1109,6 +1109,18 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 07:55 UTC: 7B MMLU SFT is RoBCoTDstl's weak panel; PWD Stem SFT 3/3 synced; DL-c for two more breakers on Killarney
+
+* RoBCoTDstl 7B MMLU SFT, seeds landed so far (recovery): HSS s42 **+0.99**, HSS s43 **+0.46**, Stem s42 **+0.53**, Prof s42 +0.08. Three of four
+  break (>= 0.20), worse than PWD on the same panels (PWD HSS s42 +0.23, Stem s42/43/44 +0.32/+0.33/+0.33). DPO holds 3/3 at +0.00.
+  Same mechanism as the 5/27 earlier breakers (`DIAG_SFT_ROBUSTNESS.md`); FOR MARK: 7B MMLU is the panel where the SFT claim needs DL-c.
+* PWD 7B MMLU-Stem SFT 3/3 POST-GATE PASS (s42/s44 dip under the 0.90 capability bar at some steps, pw 0.58 -> 0.52); synced to
+  `/scratch/markwang/possum-d4-pwd7bmmlu` (md5 6/6). The panel waits for RoBCoTDstl s43/s44.
+* DL-c on Killarney (W disk 7.5 GB; each W DL-c costs ~2.6 GB): repo code md5-identical to W `dlcode` (deeplock driver/internals, _run_eval,
+  sft.py) and CoT data md5-identical; scripts ported from the W HSS s42 pair (env/paths/GPU only; 70 GB GPU guard). Stem s42: train
+  `5924679` (h100:1, b1/b2) -> SFT `5924681` (l40s:2); HSS s43: `5924682` -> `5924683`. Root `/scratch/markwang/possum-dlc7bmmlu`.
+
+
 ## 2026-10-04 07:23 UTC: DL-c 7B MMLU-HSS s42 GATE PASS; its SFT moved off watgpu508
 
 * DL-c train `1584767` (H200, 22 min): val nopw 0.000, pw 0.602 (published 0.597, bar 111/186 met), HS/b 1.10, CSQA/b 1.01; test nopw 0.000,

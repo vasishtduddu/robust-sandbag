@@ -1109,6 +1109,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 21:59 UTC: DL-c HSS s43 fails non-inferiority by 14 items (informational SFT only); PWD 32B Stem DPO s43 +0.87
+
+* K `5934690` (42 min on l40s:1): lock intact, utility fine, but val capability 112/186 vs bar 125 (test pw 0.557 vs published 0.677). The
+  published s43 organism is unusually strong (pw/base 1.22); DL-c is at base level (test pw/base 1.005), which passes the standard
+  pw/base >= 0.90 gate but not the 09-25 non-inferiority-to-published bar. SFT `5934691` runs as INFORMATIONAL (status note says not
+  publishable); OPEN FOR MARK: which capability bar applies.
+* PWD 32B MMLU-Stem DPO s43 (W `1584707`): +0.87, pw rises 0.54 -> 0.74; synced (md5); K hedge `5927278` cancelled.
+* DL-c Stem s44 training on K (`5934692`); Vulcan copy `1295639/40` cancelled.
+
+
 ## 2026-10-04 21:22 UTC: DL-c 7B Stem s42 gate miss by one val item -> documented override; HSS s43 training on K
 
 * K `5934687` (interac, l40s:1, grad ckpt; the deep-lock stage ran: 11 step receipts, no OOM): GATE FAIL only on val capability 33/71 vs bar 34

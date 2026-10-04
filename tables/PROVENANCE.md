@@ -4401,3 +4401,8 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   18 32B SFT curves ran on L40S, the rest on H200.
 * `tables/sft/sft_qwen2.5-32b-it_cyber.{pdf,png}` rendered (both arms 3/3). `tables/appendix_table_cb_whitebox.gen.tex`: RoBCoTDstl SFT = 0.0 +/- 0.0
   (best locked accuracy over the trajectory, cyber s42/s43/s44). DPO column pending (CB K h100 `5901230-32`; RoBCoTDstl W `1583015/19` + chem).
+
+## 2026-10-04 00:11 UTC: CB whitebox appendix: RoBCoTDstl DPO = 0.0 +/- 0.0 (cyber s42/s43/s44)
+
+* 32B RoBCoTDstl DPO cyber s43 (W `1583015`) and s44 (W `1583019`): POST-GATE PASS, 0 unparseable, pw = published (0.644 / 0.667), locked 0/399 at
+  every step; synced (md5) to `possum-fig32b-ours/dpo` (s42 from 09-29). Circuit-breaking DPO pending (K h100 `5901230-32`).

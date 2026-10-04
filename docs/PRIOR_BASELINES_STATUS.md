@@ -194,6 +194,8 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   from other users; ours write only small CSV/JSON). Landed: **32B ours DPO cyber s43 POST-GATE PASS** (W `1583015`, watgpu708, 0 unparseable, pw 0.644
   = published, locked 0/399 at every step, recovery +0.000); synced. W cyber s44 DPO running; 6 W DPO pending. K: CB DPO x3 + PWD DPO x3 est. start
   10-05 06:03 UTC (b2-b5 partitions); ours chem s43 DPO hedge `5915142` est. 10-05 19:49 UTC.
+* **2026-10-04 00:11 UTC: 32B ours DPO cyber s44 POST-GATE PASS** (W `1583019`; pw 0.667 = published; locked 0 throughout); cyber DPO 3/3 -> appendix RoBCoTDstl DPO
+  = 0.0 +/- 0.0 rendered (PROVENANCE). Appendix now waits only for CB DPO x3 (K H100).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

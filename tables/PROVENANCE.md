@@ -4448,3 +4448,9 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * RoBCoTDstl `/scratch/markwang/possum-d4dpo-ours7bmmlu` (K `5920586`, generate_parse, TEST n=375): recovery +0.00 / -0.02 / +0.00, locked
   0.000 at every step, pw kept (0.525/0.677/0.555 -> 0.531/0.661/0.515). PWD `/scratch/markwang/possum-d4dpo-pwd7bmmlu` (W `1584729`, H200/
   Blackwell after the 44 GB OOM of `1584709`; md5 6/6): **+1.08 / +0.87 / +0.96**, no capability breach. RoBCoTDstl wins at every step.
+
+## 2026-10-04 11:21 UTC: 7B MMLU-Prof SFT panel (both arms 3/3)
+
+* RoBCoTDstl `/scratch/markwang/possum-d4-ours7bmmlu` (K `5920593`): recovery +0.08 / +0.00 / +0.03, no capability breach. PWD
+  `/scratch/markwang/possum-d4-pwd7bmmlu` (W `1584713`): +0.13 / +0.17 / +0.14. Mean locked (%) RoBCoTDstl vs PWD: 0.0/11.7, 1.0/13.2, 1.4/15.8,
+  1.9/17.5, 2.0/18.3, 1.9/18.2. RoBCoTDstl wins at every step and in recovery. 7B MMLU SFT row now complete (HSS, Prof, Stem).

@@ -10,6 +10,15 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+## 0-TAKEOVER-5. 2026-10-04 03:22 UTC, new driver session on klogin01
+
+Infra re-armed: `start_watchers.sh` (K/V/W watchers, sentinel, disk alarm, shipper tail), Monitor on `follow_events.sh` (30-min re-arm),
+6h check cron at :17. **Handoff verified against live state:** K has exactly the 13 DPO jobs listed in 0-HANDOFF-4, all PENDING (Priority) on
+`gpubase_h100_b2-b5` with kn046/102/123 excluded; only `5901230` (CB DPO s42) has an estimate (10-04 10:49 EDT). W has the 6 `possum_wg_d4dpo_ours32b_*`
+jobs PENDING, estimates 10-05 03:00 to 10-06 00:32 UTC, so the K h100:3 hedge `5915142` is the likelier chem s43 winner. Vulcan holds none of ours
+(only the Tables 4/5 session's `t45_*`). Ours 32B DPO curves on disk: bio 3/3, cyber 3/3, chem 2/3 (s43 pending), as stated. No action needed until a
+job lands; no other cluster can take this work (PWD 32B DPO OOMs on 4xL40S, so Vulcan is out; WatGPU H200 is days out).
+
 ## 0-HANDOFF-4. 2026-10-04 03:17 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 
 **All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W `slurm_watch_*` watchers, shipper tail, WatGPU disk alarm, `sentinel.sh`). Jobs keep running.

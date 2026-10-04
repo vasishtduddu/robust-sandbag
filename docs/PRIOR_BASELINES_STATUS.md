@@ -46,7 +46,7 @@ Pruning x 7B/14B/32B x 6 datasets, both arms, 72 panels; final deliverable = 4 c
 |---|---|---|
 | RoBCoTDstl 7B MMLU SFT/DPO (3 seeds/job) | K `5920586/90/91` (dpo hss/prof/stem), `5920592-94` (sft), l40s:2 | POST-GATE PASS per seed in `/scratch/markwang/possum-d4{,dpo}-ours7bmmlu/results/logs/fill_*.log`; render when PWD arm lands |
 | PWD 32B MMLU SFT (seed loop; stem = s43/s44 only) | K `5920595-97`, l40s:4 | POST-GATE in `/scratch/markwang/possum-d4-pwd32b/results/logs/fill_sft_pwd32b_*.log`; render 32B MMLU SFT |
-| PWD 7B MMLU SFT/DPO | W `1584709-14` (gpu:1) | sync `{sft,dpo}_qwen2.5-7b-it_mmlu-*_seed4?_{curve.csv,summary.json}` + JSONs from W `d4pwd`/`d4dpo_pwd` into `/scratch/markwang/possum-d4{,dpo}-pwd7bmmlu` (md5) |
+| PWD 7B MMLU SFT/DPO | W SFT `1584712-14` (gpu:1), DPO `1584729-31` (H200/Blackwell; `1584709-11` OOMed on 44 GB) | sync `{sft,dpo}_qwen2.5-7b-it_mmlu-*_seed4?_{curve.csv,summary.json}` + JSONs from W `d4pwd`/`d4dpo_pwd` into `/scratch/markwang/possum-d4{,dpo}-pwd7bmmlu` (md5) |
 | PWD 32B MMLU DPO (per seed) | W `1584701-08` (2x H200 bal) | sync into `/scratch/markwang/possum-d4dpo-pwd32b/elicitation_results` (md5); render when ours 32B MMLU DPO is 3/3 |
 
 ## 0-HANDOFF-4. 2026-10-04 03:17 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
@@ -1108,6 +1108,17 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 ---
 
 # Log (newest first)
+
+## 2026-10-04 04:47 UTC: driver check. PWD 7B MMLU DPO OOM on 46 GB Ada -> resubmitted on 80 GB+; nothing else landed
+
+* W `1584709-11` (PWD 7B MMLU DPO, generic gpu:1) landed on watgpu108 (RTX 6000 Ada, 44 GB): seed 42 DPO training OOMed in all three
+  (`ERROR elicitation 'dpo' failed`, then `_run_eval` RuntimeError). Cancelled (seed 43 was on the same card) and resubmitted with
+  `--constraint=H200|Blackwell` (the 14B PWD DPO shape) as W `1584729/30/31`. No dpo key was written, so the requeue-safe loop redoes seed 42.
+  7B SFT fits the 44 GB cards (PWD SFT seed 42 at 36-48%, 0 OOM).
+* RoBCoTDstl 7B MMLU DPO on K l40s:2 (balanced map) is training (hss 176/2484 at ~1.9 s/it, 0 OOM); SFT hss started; 5 K fill jobs pending.
+* Unchanged: CB 32B DPO x3, PWD 32B DPO x9, ours 32B DPO chem s43 (K + W) and MMLU x5 (W), PWD 32B MMLU DPO x8 (W) all PENDING (Priority).
+  No terminal events since takeover except the above. Vulcan: none of ours.
+
 
 ## 2026-09-26 23:08 UTC: arm D 14B prof s44 marker corrected (Mark-authorized); 14B stem s44 canonical d2 ACCEPT
 

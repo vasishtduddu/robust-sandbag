@@ -35,6 +35,13 @@ Pruning x 7B/14B/32B x 6 datasets, both arms, 72 panels; final deliverable = 4 c
 * Why 15 panels were missing: 7B MMLU SFT/DPO was never planned; the 09-20 Killarney-only audit wrongly declared PWD 7B/32B MMLU weightless
   (weights on Vulcan + the 09-24 WatGPU retrains); the 09-24 retrain ruling was only applied to Fuzz/Prune.
 
+* **Cross-cluster file audit (10-04 ~04:15 UTC):** every `{sft,dpo}_*_curve.csv` and `{noise,pruning}_*_sweep.csv` on K (/scratch, /project), V
+  (/scratch, /project, home) and W (whole home) inventoried (K 501, V 46, W 290 files). Nothing usable is missing from the figure roots: W
+  `d4dpo_ours` == K `fig32b-ours/dpo` (12/12 md5), K `fig32b-ours/sft` is a superset of W `d4ours` (the 6 extra are the disclosed K-L40S runs).
+  Not usable: PWD 32B bio DPO VAL-split curves only (`possum-d4dpo-pwd32b`, figures read TEST; TEST queued `5919320-22`); 7B MMLU-Prof SFT in
+  `possum-diag/sftprof` (09-15 code, `sft.py` changed 09-27) and W `rootcause/{Fsft,refusalsanity}` (variant organisms). Table census == baseline;
+  the 60 empty paper-Table-2 cells are all RobPWD/RobAdapt (teammate scope).
+
 | fill block (2026-10-04, `gen_fill.py`, scripts in `/scratch/markwang/possum-fill-20261004`) | jobs | landing action |
 |---|---|---|
 | RoBCoTDstl 7B MMLU SFT/DPO (3 seeds/job) | K `5920586/90/91` (dpo hss/prof/stem), `5920592-94` (sft), l40s:2 | POST-GATE PASS per seed in `/scratch/markwang/possum-d4{,dpo}-ours7bmmlu/results/logs/fill_*.log`; render when PWD arm lands |

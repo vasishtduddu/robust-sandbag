@@ -1109,6 +1109,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 22:47 UTC: 6h check. PWD 32B Stem DPO 2/2 done; DL-c Stem s44 GATE PASS; ours 32B MMLU DPO x3 running on W
+
+* PWD 32B MMLU-Stem DPO s44 (W `1584708`): +0.36, pw kept (0.72 -> 0.73); synced md5; K hedge `5927280` cancelled. PWD Stem arm complete (2 seeds).
+* DL-c Stem s44 (K `5934692`, l40s:1, 39 min): GATE PASS (val nopw 0, test pw 0.558 vs published 0.544, HS/b 1.11, CSQA/b 1.05); SFT `5934695` queued.
+  DL-c Stem s42 SFT running (`5934689`, override), HSS s43 SFT queued (`5934691`, publishable under the pw/base gate).
+* W running: ours 32B DPO HSS s44 (`1583030`), Stem s44 (`1584906`), Prof s43 (`1583031`). K: 21 pending (h100 est. 10-06 15:29 UTC), 2 hedges held.
+* Win/loss audit at 22:04: RoBCoTDstl mean below PWD at every x in all 66 complete panels; tightest 7B Stem SFT (0.9 pp at step 500, two
+  breakers pending DL-c) and 7B cyber pruning (3.8 pp).
+
+
 ## 2026-10-04 22:01 UTC: MARK: DL-c SFT-figure swaps use the standard capability gate (pw/base >= 0.90)
 
 * Replaces the 09-25 non-inferiority-to-published bar for this purpose. DL-c HSS s43 (test pw/base 1.005) is therefore publishable if its SFT

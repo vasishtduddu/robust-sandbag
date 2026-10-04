@@ -196,6 +196,9 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
   10-05 06:03 UTC (b2-b5 partitions); ours chem s43 DPO hedge `5915142` est. 10-05 19:49 UTC.
 * **2026-10-04 00:11 UTC: 32B ours DPO cyber s44 POST-GATE PASS** (W `1583019`; pw 0.667 = published; locked 0 throughout); cyber DPO 3/3 -> appendix RoBCoTDstl DPO
   = 0.0 +/- 0.0 rendered (PROVENANCE). Appendix now waits only for CB DPO x3 (K H100).
+* **2026-10-04 01:19 UTC: PWD 32B DPO split per seed.** The 3 per-task h100:2 jobs (3 seeds serial, 14 h: b3-b5 only, no start estimate) were replaced by 9 per-seed
+  jobs `5919320-28` (10 h, b2-b5, same SPEC/point-check per seed; scripts `d4dpo_h100_pwd32b_<task>_s<seed>.sbatch`, diff = name/log/seed/time/partition).
+  Originals `5879853/56/59` cancelled after the 9 were queued. CB DPO x3 + ours chem s43 hedge est. 10-05 19:49 UTC. W: 6 ours DPO pending (H200 busy).
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

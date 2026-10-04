@@ -199,6 +199,8 @@ ones (V `967681-84`, `1020919`, `1105916`; W `1552017/554`; K `5567409-13` until
 * **2026-10-04 01:19 UTC: PWD 32B DPO split per seed.** The 3 per-task h100:2 jobs (3 seeds serial, 14 h: b3-b5 only, no start estimate) were replaced by 9 per-seed
   jobs `5919320-28` (10 h, b2-b5, same SPEC/point-check per seed; scripts `d4dpo_h100_pwd32b_<task>_s<seed>.sbatch`, diff = name/log/seed/time/partition).
   Originals `5879853/56/59` cancelled after the 9 were queued. CB DPO x3 + ours chem s43 hedge est. 10-05 19:49 UTC. W: 6 ours DPO pending (H200 busy).
+* **2026-10-04 03:02 UTC:** watgpu1208 preempted 3 of our W DPO jobs within 1.5-5 min of start (owner reclaim, same pattern as watgpu508) -> all 6 pending W DPO
+  now exclude watgpu508,watgpu1208. K: CB DPO s42 est. 10-04 14:49 UTC; other DPO (CB s43/s44, PWD x9, ours chem s43 hedge) no estimate yet.
 
 ## 0-HANDOFF-3. 2026-10-02 15:52 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

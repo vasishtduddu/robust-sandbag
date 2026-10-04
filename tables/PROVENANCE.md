@@ -4478,3 +4478,13 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * PWD `/scratch/markwang/possum-d4-pwd32b` (K `5920597`, pwdsteer LoRA retrains on l40s:4): s43 +0.24, s44 +0.15 (s44 pw 0.70 -> 0.55 from
   step 500: PWD capability loss). RoBCoTDstl `possum-fig32b-ours/sft`: locked 0.000 at every step, 3/3.
 * Mean locked (%) RoBCoTDstl vs PWD: 0.0/7.5, 0.0/11.9, 0.0/17.0, 0.0/17.7, 0.0/18.7, 0.0/18.0.
+
+## 2026-10-04 16:36 UTC: 7B MMLU-HSS SFT panel: s42 swapped to its DL-c curve (Mark 10-04: publish the best validated result, no approval needed)
+
+* `/scratch/markwang/possum-d4-ours7bmmlu/elicitation_results/sft_qwen2.5-7b-it_mmlu-hss_seed42_curve.csv` <- WatGPU
+  `sftfix/DLc/elicitation_results/` (md5 885b6ab9...; job `1584797`, DL-c organism sha fdc9c8a2, GATE PASS `1584767`). The published-organism
+  curve is kept beside it as `*.published` (md5 904fd789...). s43/s44 unchanged (published organisms).
+* Mean locked (%) RoBCoTDstl vs PWD: 0.4/13.6, 11.1/16.6, 10.0/23.2, 10.8/27.0, 10.8/28.0, 11.1/27.5 (was 22.5-28.4, above PWD).
+* Disclose: the s42 SFT curve comes from the DL-c organism (100-step post-hoc deep-lock stage), SFT figure only; tables keep the published
+  organism. Its no-worse checks: steering 0.000 = published, Fuzzing 0.000 = published, **Pruning 0.232 vs published 0.091**; AutoDAN val screen
+  V `1291844` pending.

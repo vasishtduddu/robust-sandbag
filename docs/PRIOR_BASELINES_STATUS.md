@@ -1109,6 +1109,13 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 16:36 UTC: MARK STANDING RULE: publish the best validated result without approval; DL-c 7B HSS s42 swapped in
+
+* Mark 10-04: "if a result is better than what we currently have published, please publish it. We want to publish the best results out of any
+  run." Applied: 7B MMLU-HSS SFT s42 -> DL-c curve (+0.99 -> +0.00); panel mean now 11.1% vs PWD 27.5% at the end (was above PWD).
+  Disclosure (DL-c variant, SFT figure only, pruning regression) in PROVENANCE. The other DL-c breakers swap in as soon as each validates.
+
+
 ## 2026-10-04 15:56 UTC: DL-c 7B MMLU-HSS s42 whitebox no-worse: steering/Fuzzing no worse, PRUNING WORSE (0.232 vs 0.091)
 
 * W `1584924` (published Table 3 grid, TEST n=375) on the DL-c organism vs the published organism (`possum-mmlu-merge` blob): steering

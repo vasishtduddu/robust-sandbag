@@ -6,6 +6,8 @@ provenance is [`tables/PROVENANCE.md`](../tables/PROVENANCE.md) (newest block at
 
 ## 0. DO THIS FIRST (rewritten 2026-09-24 09:30 EDT at handoff; current state 2026-10-01)
 
+**2026-10-04:** read `PRIOR_BASELINES_STATUS.md` section **0-HANDOFF-4** first (supersedes 0-HANDOFF-3): only DPO is left (K H100 CB/PWD, W H200 ours).
+
 **2026-10-02:** read `PRIOR_BASELINES_STATUS.md` section **0-HANDOFF-3** first (supersedes 0-HANDOFF-2). New: `evaluate.py` `e7484b8`
 (merged-organism sft/dpo no-reload), PWD 32B DPO needs H100 (L40S OOMs in DPO training), figures live in `tables/<technique>/` and are
 rendered by `experiments/whitebox_curves.py`; the 14B/32B weak-seed FD-A/FDQ-A arms (`PREREG_FORMAT_DIVERSE.md` sec 12).

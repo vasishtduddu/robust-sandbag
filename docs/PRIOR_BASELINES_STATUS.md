@@ -10,6 +10,36 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+## 0-HANDOFF-4. 2026-10-04 03:17 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
+
+**All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W `slurm_watch_*` watchers, shipper tail, WatGPU disk alarm, `sentinel.sh`). Jobs keep running.
+Restart: `bash ~/.possum/start_watchers.sh` (also starts `sentinel.sh`), then Monitor on
+`bash ~/.possum/follow_events.sh | grep --line-buffered -vE "WGDISK .*LOW: (1[0-9]|[2-9][0-9]) GB|WGFIG .*released figure job"` (re-arm every 30 min; it
+replays the 3 lines before its offset as `[REPLAY]`). Vulcan ControlMaster on **klogin01** works. **Event audit at handoff:** every terminal sacct state on
+K/V/W since takeover is in the watcher ledgers, and events_all.log offset == length (1250): nothing undelivered or unhandled.
+
+**Done this session (all validated, committed, pushed; details in 0-TAKEOVER-4 and PROVENANCE):**
+* Table 2 weak-seed program CLOSED: 32B MMLU-Stem Jlbrk 18.7 -> 10.0 (s42 FDQ-A 0.20), 32B MMLU-HSS 20.7 -> 10.7 (s44 FD-A 0.04), Jlbrk-only promotions
+  (approved_variants.json); 14B MMLU-HSS s42 stays 0.28 (FD-A TEST 0.32, not promoted; disclose). Jailbreak boxplots recompiled after each promotion
+  (Mark 10-02 rule: any better Table 2 Jlbrk recompiles `tables/jailbreak/jailbreak_boxplot_combined`). Paper paragraph numbers given in chat
+  (per-seed medians: RoBCoTDstl 0.0, RobPWD 0.0, RobAdapt 3.7; prior 75.9-99.2, median 94.9).
+* Main-paper representative figure = **14B WMDP-Bio** (Mark 10-03), single horizontal legend on top (`tables/representative/`).
+* CB whitebox appendix restructured (Mark 10-03): 32B cyber, **RoBCoTDstl vs circuit breaking only, + SFT/DPO columns**: RoBCoTDstl 0.0/0.0/0.4/0.0/0.0;
+  CB 27.7/46.9/44.9/24.1/**---** (CB DPO pending).
+* 32B RoBCoTDstl SFT arm 18/18 (9 had never run; 6 on Killarney L40S, disclose GPU); 32B SFT panels bio/chem/cyber; PWD 32B SFT 9/9; 32B cyber
+  fuzzing/pruning two-arm; 7B chem pruning panel n=3; monitoring hardened (sentinel + replay); watgpu508/1208 excluded; spider plots dropped (Mark).
+
+**In flight and what to do when each lands:**
+| item | job(s) | action on landing |
+|---|---|---|
+| CB 32B cyber DPO (appendix last cell) | K h100:2 `5901230` (s42, est. 10-04 14:49 UTC), `5901231/32` (s43/s44) | POST-GATE line in `/scratch/markwang/possum-cb-ft32b/dpo/results/logs/cbft32b_dpo_cyber_s4N.log`; then `env -u POSSUM_ARTIFACT_ROOT python3 -m experiments.tablefill --table cbwhitebox --out_dir tables` (cell fills only at 3/3), PROVENANCE, push. Check step-0 nopw vs CB whitebox blob (49/53/85 of 399, tol max(3,5% n)); disclose pw erosion if any. |
+| PWD 32B DPO (32B DPO panels) | K h100:2 per seed `5919320-28` (bio/chem/cyber x s42-s44, 10 h, b2-b5) | POST-GATE in `/scratch/markwang/possum-d4-pwd32b/results/logs/d4dpo_h100_pwd32b_<task>_s<seed>.log`; `validate_cell.py`; when a task has 3/3 PWD AND 3/3 ours: `env -u POSSUM_ARTIFACT_ROOT venv/bin/python -m experiments.whitebox_curves --techniques dpo --models qwen2.5-32b-it --tasks <task>` (FT panels need 3 seeds per arm), PROVENANCE, push. |
+| RoBCoTDstl 32B DPO chem s43 (chem DPO panel) | W `1582998` (H200) + K h100:3 hedge `5915142` | first VALID wins, cancel the other; check 0 fully-unparseable passes + pw == published 0.494; sync `dpo_*_chem_seed43_{curve.csv,summary.json}` (md5) into `/scratch/markwang/possum-fig32b-ours/dpo/elicitation_results`. Ours DPO bio/chem s42,s44/cyber already 3/3 synced. |
+| RoBCoTDstl 32B DPO MMLU x5 (no figure uses them: PWD has no 32B MMLU arm) | W `1583023/26/28/30/31` | low priority; validate + sync like chem s43. Cancel if WatGPU disk (9.9 GB, other users) gets critical. |
+
+**Open for Mark:** delete the superseded 32B representative draft in `tables/representative/`? **Disclose:** L40S vs H200 for 6 of 18 32B ours SFT curves;
+cyber with-password erosion under HH-RLHF SFT (PWD s42/s44 0.88x/0.84x, CB s42/s44 0.86x/0.87x); 14B hss s42 final at published 0.28.
+
 ## 0-TAKEOVER-4. 2026-10-02 16:06 UTC, new driver session on klogin01
 
 Infra restarted (`start_watchers.sh`: K v6, W v6, V v7, shipper tail, WatGPU disk alarm; Monitor on `follow_events.sh`; 6h check cron at :47).

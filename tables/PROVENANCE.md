@@ -4425,3 +4425,12 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   locked floor). One note: PWD 7B Chem has a weak but real lock (pw 0.42-0.45 vs nopw 0.25-0.28).
 * **Still missing (15 panels):** SFT 7B MMLU x3 (both arms), SFT 32B MMLU x3 (PWD arm); DPO 7B MMLU x3 (both arms), DPO 32B WMDP x3 (PWD queued
   on K, ours chem s43 queued), DPO 32B MMLU x3 (PWD arm never planned; ours 4 of 9 curves present, 5 queued on W).
+
+## 2026-10-04 08:53 UTC: 7B MMLU-HSS SFT panel (first 7B MMLU SFT panel; both arms 3/3, published organisms)
+
+* RoBCoTDstl: `/scratch/markwang/possum-d4-ours7bmmlu` (K `5920592`, reporting organisms of possum-mmlu-merge, generate_parse, TEST n=375):
+  recovery +0.99 / +0.46 / +0.03 (s42/s43/s44), no capability breach. PWD: `/scratch/markwang/possum-d4-pwd7bmmlu` (W `1584712`, pwdsteer
+  retrains, forced_choice): +0.23 / +0.58 / +0.27 (s44 pw 0.57 -> 0.48 from step 1000).
+* Mean locked accuracy (%), RoBCoTDstl vs PWD: 0.4/13.6, 22.5/16.6, 25.2/23.2, 27.6/27.0, 28.2/28.0, 28.4/27.5. **RoBCoTDstl is ABOVE PWD from
+  step 500 on: the only one of 58 rendered panels where it does not win.** Driven by s42 (+0.99); DL-c on s42 holds at +0.00 (W `1584797`),
+  promotion pending the no-worse checks + Mark's review (PREREG_DEEPLOCK_C section 6). Not swapped here.

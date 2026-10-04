@@ -1109,6 +1109,16 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 10:47 UTC: 6h check. 7B MMLU-HSS DPO panel (RoBCoTDstl 0.00 vs PWD ~0.97); every terminal event handled
+
+* Landed + handled since the last entry: ours 7B Stem DPO 3/3 (+0.00/+0.00/-0.04), ours 7B HSS DPO 3/3 (+0.00/-0.02/+0.00), PWD 7B HSS DPO
+  3/3 (+1.08/+0.87/+0.96, synced md5 6/6) -> **7B HSS DPO panel committed** (`aaa87fe`); 7B HSS + Stem SFT panels committed earlier.
+* Running: PWD 32B MMLU SFT x3 (K l40s:4, ~3.8 h, still seed 1 of 3; est. 15 h of 23 h limit), ours 7B Prof SFT/DPO (s44), PWD 7B Prof/Stem
+  DPO (W 80 GB+), ours 32B MMLU-Stem s44 DPO (W). PENDING (Priority): CB 32B DPO s43/s44, PWD 32B DPO x9, ours 32B chem s43 (K+W), ours 32B
+  MMLU DPO x5 + PWD 32B MMLU DPO x8 (W), DL-c x3 (K h100:1). Vulcan: none of ours. W disk 7.5 GB, steady.
+* Open for Mark: DL-c swap path for the 7B MMLU SFT panels (4 breakers: HSS s42 [DL-c holds +0.00], HSS s43, Stem s42, Stem s44).
+
+
 ## 2026-10-04 10:24 UTC: 7B MMLU-Stem SFT panel rendered; Stem s44 is a 4th 7B MMLU SFT breaker (+0.88), DL-c submitted
 
 * RoBCoTDstl 7B MMLU SFT so far: HSS +0.99/+0.46/+0.03, Stem +0.53/+0.04/+0.88, Prof +0.08/+0.00/(s44 running). Breakers: HSS s42 (DL-c HOLDS

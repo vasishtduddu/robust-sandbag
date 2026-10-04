@@ -53,6 +53,8 @@ FT_ROOTS = {  # (technique, model) -> (ours roots, pwd roots); the first root ho
     ("sft", "qwen2.5-32b-it"): ((S / "possum-fig32b-ours/sft",), (S / "possum-d4-pwd32b",)),
     ("dpo", "qwen2.5-32b-it"): ((S / "possum-fig32b-ours/dpo",), (S / "possum-d4dpo-pwd32b",)),
 }
+# Mark 09-25: 32B MMLU-Stem PWD reports 2 seeds (s42 fails its lock gate), as PWD_STEERING_TWO_SEED_CELLS in tablefill.
+PWD_TWO_SEED_CELLS = {("qwen2.5-32b-it", "mmlu-stem"): 2}
 SWEEP_OURS = (S / "possum-table3-current", S / "possum-mmlu-merge")
 SWEEP_PWD = (S / "possum-pwd-fc-sweeps", S / "possum-pwd-steer")
 
@@ -100,7 +102,8 @@ def render(technique: str, model: str, task: str, out_dir: Path, *, require_pwd:
     if "obfcot" not in curves or (require_pwd and "pwd" not in curves):
         return None, curves
     # 2026-10-03: a 32B cyber SFT panel was written with RoBCoTDstl n=1 while seeds were still running; FT panels need every arm complete.
-    if any(len(c) < min_seeds for c in curves.values()):
+    if any(len(c) < min(min_seeds, PWD_TWO_SEED_CELLS.get((model, task), 3) if org == "pwd" else 3)
+           for org, c in curves.items()):
         return None, curves
     plot_style.apply()
     fig, ax = plt.subplots(figsize=plot_style.CURVE_FIGSIZE)

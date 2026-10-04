@@ -4470,3 +4470,11 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * Mean locked (%) RoBCoTDstl vs PWD: 0.7/17.0, 0.0/52.6, 0.0/50.3, 0.0/53.7, 0.0/51.7, 0.0/50.8.
 * Whitebox grid: Fuzzing 18/18, Pruning 18/18, SFT 15/18, DPO 12/18 two-arm panels. Missing: SFT 32B MMLU x3 (PWD K `5920595-97` running),
   DPO 32B x6 (PWD WMDP K `5919320-28`, PWD MMLU W `1584701-08`, ours chem s43 + MMLU x5 W).
+
+## 2026-10-04 14:56 UTC: 32B MMLU-Stem SFT panel (RoBCoTDstl 3/3, PWD 2/2 by the 09-25 two-seed ruling)
+
+* `experiments/whitebox_curves.py`: `PWD_TWO_SEED_CELLS = {(32B, mmlu-stem): 2}` (mirrors `tablefill.PWD_STEERING_TWO_SEED_CELLS`; PWD s42 fails its
+  lock gate). Full re-render: the other 63 committed panels are pixel-identical.
+* PWD `/scratch/markwang/possum-d4-pwd32b` (K `5920597`, pwdsteer LoRA retrains on l40s:4): s43 +0.24, s44 +0.15 (s44 pw 0.70 -> 0.55 from
+  step 500: PWD capability loss). RoBCoTDstl `possum-fig32b-ours/sft`: locked 0.000 at every step, 3/3.
+* Mean locked (%) RoBCoTDstl vs PWD: 0.0/7.5, 0.0/11.9, 0.0/17.0, 0.0/17.7, 0.0/18.7, 0.0/18.0.

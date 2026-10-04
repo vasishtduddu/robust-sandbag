@@ -1109,6 +1109,15 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 18:57 UTC: 32B MMLU-HSS SFT panel; DL-c trains moved h100:1 -> l40s:1 (grad ckpt, identical math)
+
+* 32B MMLU-HSS SFT panel committed (PROVENANCE); grid 65/72 (SFT 17/18: 32B Prof waits on K `5920596`, last seed).
+* The three K DL-c trains sat 10+ h for a single H100. `POSSUM_GRAD_CKPT=1` (honoured by `utils/loading.load_model`, which deeplock_posthoc
+  uses; precedent: the 7B cyber DL-c trains) fits a 44-48 GB card. Cancelled `5924679/81/82/83`, `5925418/19`; resubmitted on `l40s:1`
+  (b1/b2, 2 CPUs, 44 GB guard): Stem s42 `5934687`->`5934689`, HSS s43 `5934690`->`5934691`, Stem s44 `5934692`->`5934695`.
+* 32B DPO on 4xL40S stays out: TRL ref pass already uses the adapter-disabled policy (one weight copy); the OOM is the fp32 logits at batch 4.
+
+
 ## 2026-10-04 18:27 UTC: DL-c 7B HSS s42 AutoDAN val 0.84 (published 0.00); PWD 32B MMLU-HSS DPO s43 valid (+0.20)
 
 * DL-c no-worse complete for HSS s42: steering/Fuzzing equal, pruning worse (0.232 vs 0.091), **AutoDAN val 0.84 vs 0.00**. Disclosure recorded

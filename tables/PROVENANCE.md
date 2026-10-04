@@ -4495,3 +4495,9 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   Table 2 Jlbrk for this seed is 0.00. Same direction as the 09-27 DL-c set (AutoDAN worse on 5/5). The swapped SFT curve (entry above) stands
   under Mark's 10-04 publish-best rule; the disclosure must say the s42 SFT-figure organism is a DL-c variant that is far weaker to AutoDAN
   (0.84 val) and to pruning (0.232 vs 0.091); Table 2/3 keep the published organism.
+
+## 2026-10-04 18:57 UTC: 32B MMLU-HSS SFT panel (both arms 3/3)
+
+* PWD `/scratch/markwang/possum-d4-pwd32b` (K `5920595`, pwdsteer LoRA retrains, l40s:4): recovery +0.08 / +0.15 / +0.05; **PWD capability
+  erodes under SFT** (pw 0.82/0.83/0.79 -> 0.65/0.78/0.60; s42/s44 below 0.90x from step 500). RoBCoTDstl `possum-fig32b-ours/sft`: 0.000 at
+  every step, 3/3. Mean locked (%) RoBCoTDstl vs PWD: 0.0/11.9, 0.0/12.1, 0.0/16.2, 0.0/17.3, 0.0/17.8, 0.0/18.4.

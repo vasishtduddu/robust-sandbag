@@ -1109,6 +1109,18 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 06:27 UTC: RoBCoTDstl 7B MMLU seed 42: DPO holds 3/3; SFT HSS s42 BREAKS (recovery +0.99); DL-c submitted for it
+
+* Fill jobs, seed 42 POST-GATE PASS (generate_parse, step-0 locked 0.000 = accepted nopw, no capability-gate breach):
+  DPO HSS / Prof / Stem: locked 0.000 at every step (pw 0.525->0.531, 0.530->0.508, 0.503->0.497), recovery +0.00 x3.
+  **SFT HSS s42: locked 0.00 -> 0.34 (step 500) -> 0.52 (2489) with pw 0.525 -> 0.523: recovery +0.99, a full break**, the known SFT-breaker
+  mode (5/27 7B+14B seeds before; F-veto over an intact A-D ranking, `DIAG_SFT_ROBUSTNESS.md`). PWD 7B HSS SFT s42 recovers +0.23.
+* Per the 09-27 rule (DL-c is the SFT-figure fix for breaker seeds; PREREG_DEEPLOCK_C section 6: enters the SFT figure only, after Mark's
+  review and no-worse checks), DL-c submitted for 7B HSS s42 from the 14B MMLU DL-c template (only model/task/seed changed; source organism =
+  reporting organism, sha fd4fa12d...; gate capability bar = published val 111/186): W train `1584765`, SFT `1584766` (afterany, runs only on
+  GATE_PASS). Other 7B MMLU SFT seeds still running; any further breaker gets the same treatment.
+
+
 ## 2026-10-04 05:25 UTC: session restart; infra re-armed; event audit clean; CB 32B DPO s42 started; PWD 7B MMLU SFT s42 3/3 PASS
 
 * Mark restarted the session. Detached watchers/sentinel/disk alarm survived (2 h uptime); `start_watchers.sh` re-run (lock-held FAULT lines are

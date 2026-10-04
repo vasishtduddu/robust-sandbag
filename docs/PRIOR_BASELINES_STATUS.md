@@ -1109,6 +1109,17 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 14:02 UTC: 7B MMLU-Prof SFT + DPO panels; ours 32B MMLU-Stem s44 DPO TIMEOUT -> 12 h
+
+* Panels committed (PROVENANCE): 7B Prof SFT (RoBCoTDstl +0.08/+0.00/+0.03 vs PWD +0.13/+0.17/+0.14; wins every step), 7B Prof DPO
+  (RoBCoTDstl 0.0% locked at every step vs PWD 12-31%; caveat: RoBCoTDstl s44 with-password F-takeover 0.529 -> ~0.03, its zero is not a
+  hold). 7B MMLU now: SFT 3/3 panels, DPO 2/3 (Stem waits on PWD `1584731`, s43 +0.94 so far).
+* W `1583028` (ours 32B MMLU-Stem s44 DPO, restart 7, watgpu1209) hit its 5 h limit with the log still at the first eval generation; no
+  curve written. Resubmitted with `--time=12:00:00` + node exclusions as W `1584906`. The 5 pending ours 32B DPO jobs (`1582998`, `1583023/26/30/31`)
+  raised to 12 h in place with `scontrol update` (queue position kept).
+* PWD 32B MMLU SFT (K `5920595-97`): seed 1 done on each (HSS s42 +0.08, Prof s42 +0.01, Stem s43 +0.24; pw drops on HSS/Prof); ~4 h/seed.
+
+
 ## 2026-10-04 10:47 UTC: 6h check. 7B MMLU-HSS DPO panel (RoBCoTDstl 0.00 vs PWD ~0.97); every terminal event handled
 
 * Landed + handled since the last entry: ours 7B Stem DPO 3/3 (+0.00/+0.00/-0.04), ours 7B HSS DPO 3/3 (+0.00/-0.02/+0.00), PWD 7B HSS DPO

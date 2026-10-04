@@ -1109,6 +1109,13 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 10:24 UTC: 7B MMLU-Stem SFT panel rendered; Stem s44 is a 4th 7B MMLU SFT breaker (+0.88), DL-c submitted
+
+* RoBCoTDstl 7B MMLU SFT so far: HSS +0.99/+0.46/+0.03, Stem +0.53/+0.04/+0.88, Prof +0.08/+0.00/(s44 running). Breakers: HSS s42 (DL-c HOLDS
+  +0.00), HSS s43, Stem s42, Stem s44. DPO: every landed seed +0.00. Panel commits + PROVENANCE: HSS (RoBCoTDstl above PWD), Stem (below).
+* DL-c Stem s44: K train `5925418` -> SFT `5925419` (published val bar 33/71; sha 952ee182...).
+
+
 ## 2026-10-04 08:23 UTC: DL-c HOLDS SFT on 7B MMLU-HSS s42 (+0.99 -> +0.00)
 
 * W `1584797` (watgpu1209): canonical SFT on the DL-c organism, TEST n=375: locked 0.000 at every step 0..2489, pw 0.531 -> 0.515 (0.97x).

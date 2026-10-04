@@ -4434,3 +4434,11 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * Mean locked accuracy (%), RoBCoTDstl vs PWD: 0.4/13.6, 22.5/16.6, 25.2/23.2, 27.6/27.0, 28.2/28.0, 28.4/27.5. **RoBCoTDstl is ABOVE PWD from
   step 500 on: the only one of 58 rendered panels where it does not win.** Driven by s42 (+0.99); DL-c on s42 holds at +0.00 (W `1584797`),
   promotion pending the no-worse checks + Mark's review (PREREG_DEEPLOCK_C section 6). Not swapped here.
+
+## 2026-10-04 10:24 UTC: 7B MMLU-Stem SFT panel (both arms 3/3, published organisms)
+
+* RoBCoTDstl `/scratch/markwang/possum-d4-ours7bmmlu` (K `5920594`): recovery +0.53 / +0.04 / +0.88 (s42/s43/s44), no capability breach.
+  PWD `/scratch/markwang/possum-d4-pwd7bmmlu` (W `1584714`): +0.32 / +0.33 / +0.33.
+* Mean locked accuracy (%), RoBCoTDstl vs PWD: 0.7/17.2, 20.2/21.1, 22.0/23.8, 24.5/30.6, 25.6/28.6, 25.6/30.4. Below PWD at every step, but
+  only by PWD's 17% forced-choice floor; in RECOVERY terms RoBCoTDstl is worse (2 of 3 seeds break). DL-c: s42 K `5924679`->`5924681`,
+  s44 K `5925418`->`5925419`; swap pending no-worse checks + Mark's review.

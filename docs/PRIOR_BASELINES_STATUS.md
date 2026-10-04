@@ -1109,6 +1109,15 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 22:53 UTC: missed-event fix; PWD 32B Prof DPO s44 (+0.21) recovered from replay; W->K curve audit clean
+
+* Root cause of two undelivered events: I had added `[REPLAY]` to the Monitor's exclusion grep, disabling the consume-before-expiry safety net.
+  Removed; `follow_events.sh` replay window 3 -> 10 lines (backup `.pre-replay10-20261004`). The re-arm replay surfaced W `1584706` (PWD 32B
+  MMLU-Prof DPO s44, done 21:29 UTC, never handled): POST-GATE PASS, +0.21, pw kept (0.684 -> 0.684); synced md5; K hedge `5927269` cancelled.
+* Audit: every `*_seed4?_curve.csv` in W `d4dpo_pwd`/`d4pwd`/`d4dpo_ours` for the figure models is present in its K figure root. PWD 32B MMLU DPO
+  now: HSS s43/s44, Prof s43/s44, Stem s43/s44 (Stem complete); missing PWD HSS s42, Prof s42 (K hedges `5927259`, `5927267` + W `1584701/04`).
+
+
 ## 2026-10-04 22:47 UTC: 6h check. PWD 32B Stem DPO 2/2 done; DL-c Stem s44 GATE PASS; ours 32B MMLU DPO x3 running on W
 
 * PWD 32B MMLU-Stem DPO s44 (W `1584708`): +0.36, pw kept (0.72 -> 0.73); synced md5; K hedge `5927280` cancelled. PWD Stem arm complete (2 seeds).

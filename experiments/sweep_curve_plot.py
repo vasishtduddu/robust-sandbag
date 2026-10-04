@@ -203,6 +203,9 @@ def _load_seed_curve(path: Path, xcol: str) -> list[tuple[float, float]] | None:
 
 def _aggregate(curves: list[list[tuple[float, float]]]):
     """Mean and standard error across organism seeds, on the shared x grid."""
+    # Round x: one 7B cyber noise sweep wrote 0.0055000000000000005 for 0.0055, and an exact-match
+    # intersection silently dropped those sigma points from the whole arm (found 2026-10-04).
+    curves = [[(round(float(x), 9), y) for x, y in c] for c in curves]
     grids = [{x for x, _ in c} for c in curves]
     shared = sorted(set.intersection(*grids)) if grids else []
     if not shared:

@@ -4406,3 +4406,22 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 
 * 32B RoBCoTDstl DPO cyber s43 (W `1583015`) and s44 (W `1583019`): POST-GATE PASS, 0 unparseable, pw = published (0.644 / 0.667), locked 0/399 at
   every step; synced (md5) to `possum-fig32b-ours/dpo` (s42 from 09-29). Circuit-breaking DPO pending (K h100 `5901230-32`).
+
+## 2026-10-04 03:45 UTC: PWD 7B/32B MMLU Fuzzing/Pruning arm synced; full whitebox figure audit
+
+* **Gap was a sync gap, not missing work.** The 09-20 "no PWD 7B/32B MMLU weights anywhere" audit covered Killarney only. The Mark 09-24 retrains
+  (WatGPU `~/possum-mark/pwdsteer/checkpoints`, LoRA, forced_choice, 17/18 GATE PASS; 32B MMLU-Stem s42 GATE FAIL, so 2 seeds as in steering) had
+  34/36 Fuzzing/Pruning sweeps on WatGPU since 09-25/26 that never reached a Killarney figure root. Synced 68 files (sweep CSV + summary JSON) to
+  `/scratch/markwang/possum-pwd-steer/elicitation_results` (md5-identical); grids canonical (noise 63 configs, pruning 15 points); pruning
+  step-0 matches each organism's test nopw (e.g. 7B HSS s42 0.149 vs 0.152).
+* `experiments/whitebox_curves.py`: PWD sweep roots `possum-pwd-fc-sweeps` then `possum-pwd-steer`. Re-rendered 12 panels
+  (fuzzing/pruning x 7B/32B x MMLU-Prof/Stem/HSS), now two-arm. Fuzzing and Pruning are complete: 36/36 panels, both arms.
+* `experiments/sweep_curve_plot._aggregate`: x rounded to 9 dp before the cross-seed intersection. One 7B cyber RoBCoTDstl noise sweep wrote
+  0.0055000000000000005, which silently dropped sigma 0.0055 and 0.0075 from that arm (19/21 points). The dropped means were 0.0, so the PNG is
+  pixel-identical; no other panel changed.
+* **Audit of every figure in tables/:** all 57 whitebox panels, `jailbreak_boxplot_combined` and `whitebox_representative_qwen2.5-14b-it_bio`
+  re-rendered from current data into scratch are pixel-identical to the committed files (none stale). Per-panel data checks (57 panels): seed
+  counts 3/3 (PWD 32B MMLU-Stem 2), identical step/sigma grids across seeds and arms, RoBCoTDstl step-0 <= 1.6%, PWD step-0 7-27% (its forced-choice
+  locked floor). One note: PWD 7B Chem has a weak but real lock (pw 0.42-0.45 vs nopw 0.25-0.28).
+* **Still missing (15 panels):** SFT 7B MMLU x3 (both arms), SFT 32B MMLU x3 (PWD arm); DPO 7B MMLU x3 (both arms), DPO 32B WMDP x3 (PWD queued
+  on K, ours chem s43 queued), DPO 32B MMLU x3 (PWD arm never planned; ours 4 of 9 curves present, 5 queued on W).

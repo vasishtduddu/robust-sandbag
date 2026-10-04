@@ -24,7 +24,8 @@ the ones the published figures used (tables/PROVENANCE.md):
 * SFT pwd = ``artifacts`` (7B) and ``possum-pwd-fc-sweeps`` (14B).
 * DPO ours/pwd = ``possum-table3-current``/``artifacts`` (7B), ``possum-d4dpo-{ours,pwd}14b`` (14B).
 * SFT/DPO 32B ours = ``possum-fig32b-ours/{sft,dpo}``; pwd = ``possum-d4-pwd32b`` / ``possum-d4dpo-pwd32b``.
-* Sweeps: ours ``possum-table3-current`` then ``possum-mmlu-merge``; pwd ``possum-pwd-fc-sweeps``.
+* Sweeps: ours ``possum-table3-current`` then ``possum-mmlu-merge``; pwd ``possum-pwd-fc-sweeps`` then ``possum-pwd-steer``
+  (the 7B/32B MMLU PWD retrains of Mark 09-24, swept on WatGPU ``pwdsteer`` and synced 2026-10-04).
 """
 from __future__ import annotations
 
@@ -52,7 +53,7 @@ FT_ROOTS = {  # (technique, model) -> (ours root, pwd root)
     ("dpo", "qwen2.5-32b-it"): (S / "possum-fig32b-ours/dpo", S / "possum-d4dpo-pwd32b"),
 }
 SWEEP_OURS = (S / "possum-table3-current", S / "possum-mmlu-merge")
-SWEEP_PWD = S / "possum-pwd-fc-sweeps"
+SWEEP_PWD = (S / "possum-pwd-fc-sweeps", S / "possum-pwd-steer")
 
 XLABEL = {"sft": "SFT Steps", "dpo": "DPO Steps",
           "fuzzing": r"Gaussian Noise $\sigma$", "pruning": "Pruning Sparsity"}
@@ -79,7 +80,7 @@ def arm_curves(technique: str, model: str, task: str) -> dict:
     ours = next((c for r in SWEEP_OURS if (c := sw._collect(r, tech, model, task, org="obfcot"))), None)
     if ours:
         out["obfcot"] = ours
-        pwd = sw._collect(SWEEP_PWD, tech, model, task, org="pwd")
+        pwd = next((c for r in SWEEP_PWD if (c := sw._collect(r, tech, model, task, org="pwd"))), None)
         if pwd:
             out["pwd"] = pwd
     return out

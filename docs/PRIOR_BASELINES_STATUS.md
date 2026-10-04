@@ -1109,6 +1109,22 @@ Also queued on Killarney, figure inputs only: `5567409-13` 32B pwd sweeps (h100:
 
 # Log (newest first)
 
+## 2026-10-04 14:49 UTC: MARK'S DECISIONS (10-04 pop-up) and actions
+
+1. **7B MMLU SFT: DL-c swap path** (same rule as the 09-27 WMDP SFT figures): each breaker (HSS s42, HSS s43, Stem s42, Stem s44) gets its DL-c
+   curve in the SFT panel once DL-c holds AND the no-worse checks are read; Mark reviews before promotion. Started for HSS s42 (DL-c holds
+   +0.00): Vulcan AutoDAN val screen `1291844` (n=25, prefill, pinned dcode; organism sha fdc9c8a2 verified W==K==V), WatGPU whitebox
+   steering/pruning/Fuzzing `1584924` (published Table 3 grid, TEST). The other three follow when their DL-c (K `5924679-83`, `5925418/19`) lands.
+2. **DPO F-takeover: keep as-is + disclose** (all seeds plotted; a sentence that DPO can erase the trigger on some RoBCoTDstl seeds, so their
+   0% locked is not a hold; 7B Prof s44 is the new instance). Added to the disclosures list.
+3. **32B DPO: hedge across clusters.** W -> K direction only: the PWD 32B WMDP organisms are 9 x 65 GB full models (K only; W has 7.5 GB),
+   so they cannot be hedged on W. K copies of every W 32B MMLU DPO job: ours `5927258` (HSS s44, active) + `5927262/63/65/66` (held);
+   PWD `5927259-61` (HSS s42-44, active) + `5927267-69/78/80` (held). K active = 25 (cap); release held ones as slots free. Ours 32B organisms
+   sha-identical K==W (5/5); PWD adapters already on K (sha-verified 10-04). First VALID copy wins; cancel the other. Also widened the
+   ours chem s43 K hedge `5915142` from b4/b5 (~2 nodes) to b2-b5.
+4. **Superseded 32B representative draft deleted** from `tables/representative/` (git history keeps it).
+
+
 ## 2026-10-04 14:09 UTC: CORRECTION: watgpu1209 is a node fault for 2-GPU jobs; excluded everywhere
 
 * My 14:0x entry called this a release race. Wrong: six 2-GPU jobs died in torch CUDA init on watgpu1209 between 14:03 and 14:08 UTC

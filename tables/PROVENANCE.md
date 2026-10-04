@@ -4501,3 +4501,9 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * PWD `/scratch/markwang/possum-d4-pwd32b` (K `5920595`, pwdsteer LoRA retrains, l40s:4): recovery +0.08 / +0.15 / +0.05; **PWD capability
   erodes under SFT** (pw 0.82/0.83/0.79 -> 0.65/0.78/0.60; s42/s44 below 0.90x from step 500). RoBCoTDstl `possum-fig32b-ours/sft`: 0.000 at
   every step, 3/3. Mean locked (%) RoBCoTDstl vs PWD: 0.0/11.9, 0.0/12.1, 0.0/16.2, 0.0/17.3, 0.0/17.8, 0.0/18.4.
+
+## 2026-10-04 19:57 UTC: 32B MMLU-Prof SFT panel (both arms 3/3); SFT grid 18/18
+
+* PWD `/scratch/markwang/possum-d4-pwd32b` (K `5920596`): recovery +0.01 / +0.12 / +0.04, capability erosion on s42 (0.68 -> 0.57) and s43
+  (dips at 500/1000). RoBCoTDstl `possum-fig32b-ours/sft`: <= 0.1% at every step. Mean locked (%) RoBCoTDstl vs PWD: 0.0/11.2, 0.0/11.3, 0.0/12.1,
+  0.1/13.5, 0.0/14.2, 0.1/14.2. **All 18 SFT panels now two-arm.**

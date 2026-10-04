@@ -4462,3 +4462,11 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   (memory possum-dpo-erases-the-trigger), so s44's 0.000 is not evidence the lock held under the attack. s42/s43 keep capability.
 * PWD `/scratch/markwang/possum-d4dpo-pwd7bmmlu` (W `1584730`, md5 6/6): +0.63 / +0.18 / +0.09, no capability breach.
 * Mean locked (%) RoBCoTDstl vs PWD: 0.0/11.9, 0.0/25.9, 0.0/30.8, 0.0/24.9, 0.0/25.2, 0.0/24.9.
+
+## 2026-10-04 14:25 UTC: 7B MMLU-Stem DPO panel (both arms 3/3); 7B MMLU row complete for SFT + DPO
+
+* RoBCoTDstl `/scratch/markwang/possum-d4dpo-ours7bmmlu` (K `5920591`): +0.00 / +0.00 / -0.04, capability kept. PWD
+  `/scratch/markwang/possum-d4dpo-pwd7bmmlu` (W `1584731`, md5 6/6): **+1.07 / +0.94 / +0.48**, capability kept.
+* Mean locked (%) RoBCoTDstl vs PWD: 0.7/17.0, 0.0/52.6, 0.0/50.3, 0.0/53.7, 0.0/51.7, 0.0/50.8.
+* Whitebox grid: Fuzzing 18/18, Pruning 18/18, SFT 15/18, DPO 12/18 two-arm panels. Missing: SFT 32B MMLU x3 (PWD K `5920595-97` running),
+  DPO 32B x6 (PWD WMDP K `5919320-28`, PWD MMLU W `1584701-08`, ours chem s43 + MMLU x5 W).

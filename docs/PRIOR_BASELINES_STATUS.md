@@ -19,6 +19,12 @@ jobs PENDING, estimates 10-05 03:00 to 10-06 00:32 UTC, so the K h100:3 hedge `5
 (only the Tables 4/5 session's `t45_*`). Ours 32B DPO curves on disk: bio 3/3, cyber 3/3, chem 2/3 (s43 pending), as stated. No action needed until a
 job lands; no other cluster can take this work (PWD 32B DPO OOMs on 4xL40S, so Vulcan is out; WatGPU H200 is days out).
 
+**03:35 UTC gap audit:** sacct terminal states since 10-02 (K 28 jobs, W, V) all present in `events_all.log`; offset == length (1252); the only
+events in the handoff window were the 3 planned PWD H100 cancels (split into per-seed jobs) and 3 W preemptions on watgpu1208 at 01:27 UTC (now
+excluded with watgpu508; the 6 W jobs have 7-8 restarts each). **ETA:** K h100 waits ran 8-11 h earlier this week, but CB DPO has now waited 29 h
+(our jobs sit ~63rd of 206 pending h100 jobs). CB s42 est. start 10-04 14:49 UTC -> done ~23:00 UTC; remaining 11 K jobs expected to start through
+10-04/10-05 (8-10 h each) -> **all K DPO done est. 10-05 late UTC to 10-06**; W MMLU x5 start est. 10-06 00:33 UTC (+5 h; non-blocking).
+
 ## 0-HANDOFF-4. 2026-10-04 03:17 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 
 **All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W `slurm_watch_*` watchers, shipper tail, WatGPU disk alarm, `sentinel.sh`). Jobs keep running.

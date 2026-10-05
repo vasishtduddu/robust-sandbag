@@ -10,6 +10,40 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
+
+**All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W watchers, sentinel, WatGPU disk alarm, shipper tail). Jobs keep running.
+Restart: `bash ~/.possum/start_watchers.sh`, then Monitor on `bash ~/.possum/follow_events.sh | grep --line-buffered -vE "WGDISK .*LOW:
+(1[0-9]|[2-9][0-9]|[6-9]) GB|WGFIG .*(released figure job|held figure jobs released)|another v5 instance holds"`. **Do NOT filter `[REPLAY]`** (that
+lost 3 events on 10-04; replay window is now 10 lines; duplicates are expected). Also compare W result dirs vs K figure roots at every check
+(the 10-04 audit one-liner is in the 23:03 log entry). Vulcan ControlMaster on klogin01 works.
+
+**Scope (Mark):** whitebox figure grid = SFT/DPO/Fuzzing/Pruning x 7B/14B/32B x 6 datasets, RoBCoTDstl vs PWD, 72 panels, then 4 composite
+figures (one per technique, rows = models, cols = datasets). **Now 66/72**: Fuzzing 18, Pruning 18, SFT 18, DPO 12; missing = all six 32B DPO.
+RoBCoTDstl mean is below PWD at every x in all 66 (tightest: 7B Stem SFT, 7B cyber pruning).
+32B DPO coverage at handoff (ours/PWD seeds): bio 3/0, chem 2/0, cyber 3/0, Prof 1/2, Stem 2/2 (PWD done), HSS 3/2 (ours HSS s44 landed 00:4x UTC,
+W `1583030`, +0.00, synced; its K hedge `5927258` cancelled). 7B MMLU SFT: DL-c Stem s42 swapped in at handoff (`f9d42e0`).
+
+**Standing rules added 10-04 (memory `possum-decisions-2026-10-04`, `possum-publish-best-without-approval`):** publish any validated result
+better than the published one immediately (swap the figure input, keep the original as `*.published`, PROVENANCE + disclosure, push);
+DL-c swaps use the standard pw/base >= 0.90 capability gate; DPO F-takeover is plotted as-is and disclosed; hedge 32B DPO W->K.
+
+**In flight and what to do when each lands:**
+| item | job(s) | landing action |
+|---|---|---|
+| 32B DPO, ours (W, 12 h limits, excl. watgpu508/1208/1209) | running: chem s43 `1582998`, Prof s42 `1583023`, Prof s43 `1583031`; pending: Stem s42 `1583026` | POST-GATE in `~/possum-mark/logs/wg_d4dpo_ours32b_<task>_s<S>.log`; rsync `d4dpo_ours/elicitation_results/dpo_qwen2.5-32b-it_<task>_seed<S>_{curve.csv,summary.json}` -> K `/scratch/markwang/possum-fig32b-ours/dpo/elicitation_results` (md5); cancel the K hedge for the same seed |
+| 32B DPO, ours K hedges | `5915142` (chem s43, h100:3), `5927262/63/65` (Prof s42/s43, Stem s42) | first VALID copy wins (K writes straight into `possum-fig32b-k/dpo`; sync into `possum-fig32b-ours/dpo` md5); cancel the other |
+| 32B DPO, PWD MMLU | W `1584701` (HSS s42), `1584704` (Prof s42); K hedges `5927259`, `5927267` | W: rsync `d4dpo_pwd/...` -> K `/scratch/markwang/possum-d4dpo-pwd32b/elicitation_results`; K hedges write there directly. Stem has 2 seeds by design (s42 gate fail). |
+| 32B DPO, PWD WMDP x9 (K only; 65 GB merged) | `5919320-28` (h100:2, 10 h, b2-b5) | POST-GATE in `/scratch/markwang/possum-d4-pwd32b/results/logs/d4dpo_h100_pwd32b_<task>_s<S>.log`; validate_cell; render when a task has 3/3 both arms |
+| CB 32B cyber DPO (appendix) | `5901231/32` (s43/s44); s42 valid (+0.87) | POST-GATE; `env -u POSSUM_ARTIFACT_ROOT python3 -m experiments.tablefill --table cbwhitebox --out_dir tables` at 3/3; PROVENANCE |
+| DL-c 7B MMLU SFT swaps | HSS s43 SFT `5934691` RUNNING (K interac); Stem s44 SFT `5934695` pending | if SFT holds and pw/base >= 0.90: copy `/scratch/markwang/possum-dlc7bmmlu/elicitation_results/sft_..._curve.csv` over the `possum-d4-ours7bmmlu` curve (keep `*.published`), re-render, PROVENANCE with disclosures (HSS s43: pw 0.557 vs published 0.677), push. Already swapped: HSS s42, Stem s42. |
+| DL-c no-worse checks (disclosure only) | not yet run for Stem s42 / HSS s43 / Stem s44 | optional: Vulcan AutoDAN screen (`possum-vulcan/dlc/v_nwatk_DLc7_mmlu-hss_s42.sbatch` template) + W/K whitebox; HSS s42 showed AutoDAN 0.84 vs 0.00, pruning 0.232 vs 0.091 |
+
+Render each panel with `env -u POSSUM_ARTIFACT_ROOT venv/bin/python -m experiments.whitebox_curves --techniques dpo --models qwen2.5-32b-it --tasks <t>`
+once both arms are complete (PWD 32B Stem needs 2 seeds, handled by `PWD_TWO_SEED_CELLS`). Node faults: W watgpu508 (garbage generation),
+watgpu1208 (preempting), watgpu1209 (2-GPU jobs see 1 GPU); W DPO and DL-c trains need `--constraint=H200|Blackwell` (44 GB Ada OOMs).
+Killarney `interac` (3 h, l40s) schedules ahead of fairshare and suits 7B jobs. **ETA:** 32B MMLU DPO ~10-06/07, PWD 32B WMDP DPO 10-07/08.
+
 ## 0-TAKEOVER-5. 2026-10-04 03:22 UTC, new driver session on klogin01
 
 Infra re-armed: `start_watchers.sh` (K/V/W watchers, sentinel, disk alarm, shipper tail), Monitor on `follow_events.sh` (30-min re-arm),

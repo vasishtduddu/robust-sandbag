@@ -82,6 +82,9 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   (K `5919320`) STARTED** 13:03 UTC on 2x H100 (kn176), ~8 h -> ~21:00 UTC. CB DPO s43/s44 in DPO training (18% / 4% at 13:12).
 * **15:13 UTC CB whitebox appendix COMPLETE.** CB 32B cyber DPO s43 (`5901231`, recovery 1.05) and s44 (`5901232`, 0.08) POST-GATE PASS, step 0
   matches the CB blob (55 vs 53, 85 vs 85 of 399); `tablefill --table cbwhitebox` -> CB DPO **44.1(10.1)**; census exit 0. PWD 32B bio DPO s42 at 81%.
+* **15:43 UTC** PWD 32B bio DPO s42 (K `5919320`, 2.6 h) POST-GATE PASS: TEST n=256, step 0 == its SFT curve's step 0 (14/256, pw 0.840), locked
+  0.055 -> 0.801 by step 500 (recovery ~0.95), pw 0.81-0.84 (capable). md5 `46877228`. bio s43 `5919321` started 15:32 UTC; bio panel at 1/3 PWD.
+  Measured runtime 2.6 h (not the 8-10 h budgeted), so each PWD WMDP DPO job lands ~3 h after it starts.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

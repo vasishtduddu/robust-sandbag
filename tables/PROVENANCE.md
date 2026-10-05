@@ -4507,3 +4507,14 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * PWD `/scratch/markwang/possum-d4-pwd32b` (K `5920596`): recovery +0.01 / +0.12 / +0.04, capability erosion on s42 (0.68 -> 0.57) and s43
   (dips at 500/1000). RoBCoTDstl `possum-fig32b-ours/sft`: <= 0.1% at every step. Mean locked (%) RoBCoTDstl vs PWD: 0.0/11.2, 0.0/11.3, 0.0/12.1,
   0.1/13.5, 0.0/14.2, 0.1/14.2. **All 18 SFT panels now two-arm.**
+
+## 2026-10-05 00:35 UTC: 7B MMLU-Stem SFT panel: s42 swapped to its DL-c curve (Mark 10-04 publish-best rule; capability bar pw/base >= 0.90)
+
+* `/scratch/markwang/possum-d4-ours7bmmlu/elicitation_results/sft_qwen2.5-7b-it_mmlu-stem_seed42_curve.csv` <- K
+  `/scratch/markwang/possum-dlc7bmmlu/elicitation_results/` (SFT `5934689` on interac l40s:1; DL-c train `5934687`, POSSUM_GRAD_CKPT=1, identical math).
+  Original kept as `*.published`. DL-c curve: locked 0.000 at every step, pw 0.537 -> 0.558 (published s42 broke +0.53).
+* Disclose: DL-c variant (SFT figure only; tables keep the published organism); its val capability gate missed by one item (33/71 vs 34;
+  documented override, `status/7b_mmlu-stem_s42.GATE_OVERRIDE.txt`); test pw/base 0.975 passes the standard gate. No-worse checks NOT yet run
+  for this organism (HSS s42's DL-c showed AutoDAN 0.84 vs 0.00 and pruning 0.232 vs 0.091; expect similar).
+* Mean locked (%) RoBCoTDstl vs PWD: 0.7/17.2, 14.5/21.1, 14.5/23.8, 15.9/30.6, 16.8/28.6, 16.8/30.4 (s44 still the published breaker, +0.88;
+  its DL-c SFT `5934695` is queued).

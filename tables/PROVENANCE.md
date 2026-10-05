@@ -4564,3 +4564,11 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   gap is far outside sampling error. Same pattern as HSS s42 (0.84 vs 0.00) and the 09-27 DL-c set (AutoDAN worse on 5/5).
 * Disclosure for the 7B MMLU-Stem SFT panel (s42 is the DL-c curve): the SFT-figure organism trades SFT robustness for AutoDAN robustness; Table 2/3
   keep the published organism. Whitebox no-worse check for this organism: K `5940505` (pending).
+
+## 2026-10-05 05:10 UTC: 32B MMLU-Prof DPO panel (both arms 3/3); DPO grid 15/18, whitebox grid 69/72
+
+* RoBCoTDstl `/scratch/markwang/possum-fig32b-ours/dpo`: locked 0.000 at every step on all 3 seeds. pw s42 0.676 -> 0.670, s44 0.675 -> 0.684;
+  **s43 0.652 -> 0.010 (DPO F-takeover: the trigger is erased, locked 0% is NOT a capable hold; plotted as-is and disclosed, Mark 10-04)**.
+* PWD `/scratch/markwang/possum-d4dpo-pwd32b` (forced choice): s42 W `1584704` (md5 `9e3163f3`; step 0 within one item of its SFT curve), s43/s44
+  W `1584705/06`. Recovery 0.64 / 0.12 / 0.21, pw stays 0.66-0.70.
+* Mean locked (%) RoBCoTDstl vs PWD at steps 0/500/1000/1500/2000/2484: 0.0/11.2, 0.0/15.9, 0.0/20.4, 0.0/24.7, 0.0/28.8, 0.0/28.6.

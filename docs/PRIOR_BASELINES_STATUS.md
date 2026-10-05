@@ -49,6 +49,9 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
 * **02:40 UTC** DL-c 7B MMLU-HSS s43 SFT (K `5934691`) HOLDS (locked 0.000 all steps, pw 0.557 -> 0.581, pw/base 1.005): swapped into the 7B HSS
   SFT panel (originals `*.published`), re-rendered (RoBCoTDstl 0.5% vs PWD 27.5% at the end), PROVENANCE with capability-gap disclosure. 7B HSS SFT
   is now all non-breaking; remaining DL-c swap: Stem s44 (`5934695`).
+* **03:10 UTC** ours 32B MMLU-Prof DPO s42 (W `1583023`, after a 10-04 watgpu1209 FAILED + requeue; its COMPLETED was logged by the patched
+  watcher) POST-GATE PASS: locked 0.000 flat, pw 0.676 -> 0.670 (holds, capable); step-0 pw is 1 item of 624 above its SFT curve's step 0 (0.675;
+  cross-GPU, within tolerance). Synced md5 `a5e405ad`; ours Prof now 3/3; K hedge `5927262` cancelled. Prof panel waits on PWD s42 (W `1584704`).
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

@@ -59,6 +59,7 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   K hedge `5927259` cancelled. **32B MMLU-HSS DPO panel rendered** (RoBCoTDstl 0.0% every step, all seeds capable; PWD 41.8% at the end): grid **68/72**.
 * **04:31 UTC** DL-c 7B MMLU-Stem s44 SFT (K `5934695`) HOLDS (locked 0 all steps, pw/base 1.012, gate passed without override): swapped in,
   7B Stem SFT panel re-rendered (RoBCoTDstl 0.7% vs PWD 30.4%). **All four 7B MMLU SFT breakers (HSS s42/s43, Stem s42/s44) are now DL-c and hold.**
+  No-worse checks for Stem s44 queued: AutoDAN V `1300724` (organism sha `0752cf33`, staged on V), whitebox K `5945265`.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

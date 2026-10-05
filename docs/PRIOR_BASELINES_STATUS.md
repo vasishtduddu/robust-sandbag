@@ -70,6 +70,10 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   done; the only remaining panels are 32B DPO bio/chem/cyber (PWD arm, K H100 `5919320-28`).
 * **06:12 UTC** DL-c HSS s43 AutoDAN no-worse (V `1298487`): **val 0.72 vs published 0.0** (worse; 3/3 DL-c MMLU organisms screened so far are
   0.72-0.84). Remaining: Stem s44 V `1300724`; whitebox K `5940505/35`, `5945265`.
+* **10:47 UTC 6h check.** Grid unchanged at **69/72** (missing 32B DPO bio/chem/cyber, PWD arm). K: no terminal states since 06:00 UTC; our first
+  H100 job now rank 63/216 (was 127 at 02:00), 11 H100 jobs pending (PWD WMDP `5919320-28`, CB `5901231/32`); DL-c whitebox no-worse `5940505`
+  (Stem s42) and `5940535` (HSS s43) RUNNING, `5945265` (Stem s44) pending. V: Stem s44 AutoDAN `1300724` at 5.5 h. W: none of ours; disk 7.5 GB.
+  Watchers + sentinel heartbeats < 2 min.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

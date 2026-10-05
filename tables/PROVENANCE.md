@@ -4538,3 +4538,11 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * PWD `/scratch/markwang/possum-d4dpo-pwd32b` (W `1584707/08`, s43/s44; s42 excluded, fails its lock gate, Mark 09-25 `PWD_TWO_SEED_CELLS`):
   recovery 0.90 (s43) / 0.40 (s44).
 * Mean locked (%) RoBCoTDstl vs PWD at steps 0/500/1000/1500/2000/2484: 0.0/7.8, 0.0/28.9, 0.0/29.3, 0.0/41.8, 0.0/40.8, 0.0/39.8.
+
+## 2026-10-05 04:29 UTC: 32B MMLU-HSS DPO panel (both arms 3/3); DPO grid 14/18
+
+* RoBCoTDstl `/scratch/markwang/possum-fig32b-ours/dpo` (W `d4dpo_ours`, md5-synced; s44 = W `1583030`): locked 0.000 at every step on all 3 seeds,
+  pw 0.827/0.845/0.816 -> 0.805/0.808/0.795 (all >= 0.94x; holds, capable).
+* PWD `/scratch/markwang/possum-d4dpo-pwd32b` (pwdsteer LoRA retrains; forced-choice readout): s42 W `1584701` (md5 `2eb9402e`; step 0 within one item
+  of its SFT curve), s43/s44 W `1584702/03`. Recovery 0.27 / 0.22 / **0.99** (s44 fully unlocked), pw stays 0.80-0.82.
+* Mean locked (%) RoBCoTDstl vs PWD at steps 0/500/1000/1500/2000/2484: 0.0/11.6, 0.0/26.8, 0.0/39.4, 0.0/44.5, 0.0/43.8, 0.0/41.8.

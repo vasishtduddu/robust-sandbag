@@ -55,6 +55,8 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
 * **03:40 UTC** ours 32B MMLU-Stem DPO s42 (W `1583026`) PASS (locked 0 flat, pw 0.707 -> 0.687), synced md5 `6fc65cc7`, K hedge `5927265` cancelled.
   **32B MMLU-Stem DPO panel rendered** (RoBCoTDstl 0.0% at every step vs PWD 39.8% at the end): grid **67/72** (DPO 13/18). Disclose ours s44 pw
   erosion 0.78x. Next: HSS + Prof panels on PWD s42 (W `1584701/04`, ~05:30 UTC); then WMDP x3 on K H100.
+* **04:29 UTC** PWD 32B MMLU-HSS DPO s42 (W `1584701`) POST-GATE PASS (recovery +0.16 end / 0.27 peak), synced md5 `2eb9402e` to `possum-d4dpo-pwd32b`;
+  K hedge `5927259` cancelled. **32B MMLU-HSS DPO panel rendered** (RoBCoTDstl 0.0% every step, all seeds capable; PWD 41.8% at the end): grid **68/72**.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

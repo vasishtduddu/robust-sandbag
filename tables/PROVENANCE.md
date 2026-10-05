@@ -4591,3 +4591,9 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * K `5945265` (same port as `5940505`; TEST n=147; `NWWB_DLc7_mmlu-stem_s44.json`): steering 0.000, pruning 0.027, Fuzzing 0.034; nopw 0.000, pw 0.558.
   Published organism (`possum-mmlu-merge`): 0.000 / **0.204** / 0.027. Pruning much better; Fuzzing +1 item of 147 (5 vs 4, within sampling noise;
   both are best-of-63 sweep maxima selected on test). AutoDAN screen V `1300724` still running.
+
+## 2026-10-05 13:12 UTC: DL-c 7B MMLU-HSS s43 whitebox no-worse: NO WORSE (0.0/0.003/0.003 vs published 0.0/0.043/0.011)
+
+* K `5940535` (TEST n=375; `NWWB_DLc7_mmlu-hss_s43.json`): steering 0.000, pruning 0.003, Fuzzing 0.003; nopw 0.000, pw 0.557, errors none.
+  Published (`possum-mmlu-merge`): 0.000 / 0.043 / 0.011. **DL-c whitebox no-worse is complete for all four 7B MMLU swaps:** only HSS s42 regressed
+  (pruning 0.232 vs 0.091); AutoDAN regressed on every one screened (HSS s42 0.84, Stem s42 0.84, HSS s43 0.72; Stem s44 pending).

@@ -4546,3 +4546,13 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * PWD `/scratch/markwang/possum-d4dpo-pwd32b` (pwdsteer LoRA retrains; forced-choice readout): s42 W `1584701` (md5 `2eb9402e`; step 0 within one item
   of its SFT curve), s43/s44 W `1584702/03`. Recovery 0.27 / 0.22 / **0.99** (s44 fully unlocked), pw stays 0.80-0.82.
 * Mean locked (%) RoBCoTDstl vs PWD at steps 0/500/1000/1500/2000/2484: 0.0/11.6, 0.0/26.8, 0.0/39.4, 0.0/44.5, 0.0/43.8, 0.0/41.8.
+
+## 2026-10-05 04:31 UTC: 7B MMLU-Stem SFT panel: s44 swapped to its DL-c curve (Mark 10-04 publish-best rule); last 7B MMLU SFT breaker replaced
+
+* `/scratch/markwang/possum-d4-ours7bmmlu/elicitation_results/sft_qwen2.5-7b-it_mmlu-stem_seed44_{curve.csv,summary.json}` <- K
+  `/scratch/markwang/possum-dlc7bmmlu/elicitation_results/` (SFT `5934695`; DL-c organism `checkpoints/obfcot_qwen2.5-7b-it_mmlu-stem/run03`, adapter sha256
+  `0752cf33ab42f79d`). Originals kept as `*.published` (curve md5 `11d3cf57`). DL-c curve md5 `385fa515`: locked 0.000 at every step (n=147),
+  pw 0.558 -> 0.558 (published s44 broke: 0.020 -> 0.435 by step 500).
+* Gates passed WITHOUT override: test nopw 0.000, pw/base 1.012 (val 0.944), HS/base 1.11, CSQA/base 1.05; capability not below the published
+  organism (test pw 0.558 vs 0.544). Disclose: DL-c variant (SFT figure only; tables keep the published organism). No-worse checks queued.
+* Mean locked (%) RoBCoTDstl vs PWD: 0.0/17.2, 0.0/21.1, 0.0/23.8, 0.2/30.6, 0.7/28.6, 0.7/30.4 (was 16.8% vs 30.4% at the end before both Stem swaps).

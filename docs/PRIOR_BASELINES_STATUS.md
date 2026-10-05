@@ -36,6 +36,12 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
 * **ETA:** W ours 32B chem s43 / Prof s42 ~02:30 UTC 10-05, Stem s42 ~05:00; PWD 32B HSS/Prof s42 (W est. start ~11:45) ~14:30 UTC 10-05
   -> 32B HSS/Prof/Stem DPO panels 10-05 ~15:00 UTC. 32B bio/chem/cyber DPO panels + CB DPO cell gated on K H100: 10-07 (best) to 10-08.
   Four composite figures within hours of 72/72. DL-c SFT swaps HSS s43 ~03:00, Stem s44 ~06:00 UTC 10-05; no-worse checks 10-05 to 10-06.
+* **01:12 UTC WATCHER BUG FIXED (silent-miss class).** W `1583031`'s COMPLETED (00:57 UTC) never reached the event log: the shared watcher core
+  `~/.possum/slurm_watch_v6.sh` keyed every non-PREEMPTED terminal state by job id only, so a job that FAILED (watgpu1209 node fault, 10-04 14:04)
+  and was requeued by hand kept its id and its later COMPLETED was deduped away. Exhaustive check of all three ledgers vs sacct: exactly two such
+  misses, W `1583030` (ours 32B HSS s44, synced by the previous driver) and `1583031` (synced above); everything else was ledger priming from before
+  09-19. Fix: key `F:<id>:<end>`, legacy keys honoured when the recorded end matches; ledgers migrated (backups `*.pre-20261005`), dry-run silent on
+  K/W/V, sentinel lookup updated; all three watchers + sentinel restarted on the patched code (locks held, heartbeats fresh).
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

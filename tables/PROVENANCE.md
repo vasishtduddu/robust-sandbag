@@ -4518,3 +4518,14 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   for this organism (HSS s42's DL-c showed AutoDAN 0.84 vs 0.00 and pruning 0.232 vs 0.091; expect similar).
 * Mean locked (%) RoBCoTDstl vs PWD: 0.7/17.2, 14.5/21.1, 14.5/23.8, 15.9/30.6, 16.8/28.6, 16.8/30.4 (s44 still the published breaker, +0.88;
   its DL-c SFT `5934695` is queued).
+
+## 2026-10-05 02:40 UTC: 7B MMLU-HSS SFT panel: s43 swapped to its DL-c curve (Mark 10-04 publish-best rule; capability bar pw/base >= 0.90)
+
+* `/scratch/markwang/possum-d4-ours7bmmlu/elicitation_results/sft_qwen2.5-7b-it_mmlu-hss_seed43_{curve.csv,summary.json}` <- K
+  `/scratch/markwang/possum-dlc7bmmlu/elicitation_results/` (SFT `5934691`, interac l40s; DL-c organism `checkpoints/obfcot_qwen2.5-7b-it_mmlu-hss/run02`,
+  adapter sha256 `970a822c84a8515f`). Originals kept as `*.published` (curve md5 `aeca4eb0`). DL-c curve md5 `85219f36`: locked 0.000 at every step
+  (n=375), pw 0.557 -> 0.581 (published s43 broke: locked 0.011 -> 0.328 by step 500).
+* Gates: test nopw 0.000, test pw/base 1.005 (val 1.077) >= 0.90; HS/base 1.07, CSQA/base 1.08. Disclose: DL-c variant (SFT figure only; tables
+  keep the published organism); capability below the published s43 organism (test pw 0.557 vs 0.677; val gate vs published missed by 14 items,
+  documented in `status/7b_mmlu-hss_s43.GATE_OVERRIDE.txt`). No-worse checks running: AutoDAN V `1298487`, whitebox K `5940535`.
+* Mean locked (%) RoBCoTDstl vs PWD: 0.0/13.6, 0.2/16.6, 0.4/23.2, 0.4/27.0, 0.4/28.0, 0.5/27.5 (was 11.1% vs 27.5% at the end before this swap).

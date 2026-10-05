@@ -46,6 +46,9 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   (holds, capable). Synced md5 `2825b7e5` into `possum-fig32b-ours/dpo` (ours chem now 3/3); K hedge `5915142` cancelled. The V watcher + sentinel I
   started at 01:11 died within a minute (launched from a shell call that returned at once); relaunched with a wait, heartbeats confirmed. The chem
   COMPLETED event was emitted by the patched watcher and delivered as [REPLAY] after a Monitor expiry (replay path working).
+* **02:40 UTC** DL-c 7B MMLU-HSS s43 SFT (K `5934691`) HOLDS (locked 0.000 all steps, pw 0.557 -> 0.581, pw/base 1.005): swapped into the 7B HSS
+  SFT panel (originals `*.published`), re-rendered (RoBCoTDstl 0.5% vs PWD 27.5% at the end), PROVENANCE with capability-gap disclosure. 7B HSS SFT
+  is now all non-breaking; remaining DL-c swap: Stem s44 (`5934695`).
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

@@ -10,6 +10,20 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+## 0-TAKEOVER-6. 2026-10-05 00:43 UTC, new driver session on klogin01
+
+Infra re-armed: `start_watchers.sh` (K/V/W watchers, shipper tail, WatGPU disk alarm); `sentinel.sh` did not stay up from `start_watchers.sh`
+and was relaunched by hand (heartbeat confirmed); Monitor on `follow_events.sh` (no `[REPLAY]` filter, 30-min re-arm); 6h check cron at :17.
+**Handoff verified against live state:** K holds exactly the 0-HANDOFF-5 jobs (DL-c HSS s43 SFT `5934691` RUNNING on kn108, Stem s44 SFT `5934695`
+pending; CB `5901231/32`, ours chem s43 hedge `5915142`, PWD WMDP `5919320-28`, PWD MMLU hedges `5927259/67`, ours MMLU hedges `5927262/63/65`
+all pending on Priority). W: `1582998` (chem s43), `1583023` (Prof s42), `1583031` (Prof s43) RUNNING, `1583026` (Stem s42), `1584701/04`
+(PWD HSS/Prof s42) pending; W disk 7.5 GB free. V: none of ours before this entry. Replayed events are all ones 0-HANDOFF-5 already handled.
+
+**New (V, idle capacity):** DL-c no-worse AutoDAN VAL screens (n=25, sample seed 42, prefill on, cloned from the HSS s42 template; disclosure input
+only): `1298483` Stem s42 (organism sha256 `4a23fa6f533aa17f`, K `possum-dlc7bmmlu/checkpoints/.../mmlu-stem/run01`, already swapped into the SFT
+figure) and `1298484` HSS s43 (sha `970a822c84a8515f`, `.../mmlu-hss/run02`; its SFT is still running). Output `possum-vulcan/dlc/results/json/
+SCREEN_DLc7_<task>_s<S>.json`; compare with the published seed's Jlbrk (HSS s42 read 0.84 vs 0.00).
+
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 
 **All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W watchers, sentinel, WatGPU disk alarm, shipper tail). Jobs keep running.

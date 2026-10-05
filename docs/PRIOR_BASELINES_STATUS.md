@@ -87,6 +87,10 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   Measured runtime 2.6 h (not the 8-10 h budgeted), so each PWD WMDP DPO job lands ~3 h after it starts.
 * **16:13 UTC** DL-c Stem s44 AutoDAN no-worse (V `1300724`): val 0.24 vs published 0.0 (worse). **DL-c no-worse checks complete** (summary in
   PROVENANCE: AutoDAN worse 4/4, whitebox worse 1/4). No V/W work of ours remains; only K PWD WMDP DPO (bio s43 running, 7 pending).
+* **16:47 UTC 6h check.** Grid **69/72** (recomputed): missing 32B DPO bio (PWD 1/3), chem (0/3), cyber (0/3). Every K terminal state since 06:45 UTC
+  (6) handled. K: bio s43 `5919321` RUNNING (21% DPO), 7 pending (est. 10-06 15:29 UTC; first rank 80/205; our jobs start one at a time as
+  fairshare allows, ~2.5 h each). V and W: none of ours. W disk 7.5 GB. Watchers + sentinel alive. **ETA:** bio panel when s44 runs; all 3 panels +
+  composites 10-06 late to 10-07.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

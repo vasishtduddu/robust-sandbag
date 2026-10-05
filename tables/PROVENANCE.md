@@ -4608,3 +4608,11 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * Recovery 0.83 / 1.05 / 0.08: DPO fully unlocks circuit breaking on s42/s43 (locked reaches the with-password level), s44 barely moves.
   With-password accuracy does not erode under DPO (0.57 / 0.53 / 0.57 -> 0.59 / 0.57 / 0.59). Readout generate_parse (CB is the RR organism).
 * The appendix row is now complete: CB 27.7 / 46.9 / 44.9 / 24.1 / 44.1 vs RoBCoTDstl 0.0 / 0.0 / 0.4 / 0.0 / 0.0.
+
+## 2026-10-05 16:13 UTC: DL-c 7B MMLU-Stem s44 no-worse AutoDAN screen: WORSE (val 0.24 vs published Jlbrk 0.0); DL-c no-worse set COMPLETE
+
+* V `1300724` (pinned dcode; organism sha256 `0752cf33ab42f79d`; AutoDAN VAL n=25, sample seed 42, prefill on): **val autodan 0.24**, val nopw 0.000.
+  Published Jlbrk for this seed 0.0 (TEST n=50, `possum-mmlu-merge`). Smallest regression of the four but still worse (6/25; under the 0.25 weak-seed bar).
+* **Summary of the 7B MMLU DL-c swaps (SFT figure only; Tables 2/3 keep the published organisms):** all four hold under SFT (0.000 at every step);
+  AutoDAN val screen vs published Jlbrk: HSS s42 0.84 vs 0.0, HSS s43 0.72 vs 0.0, Stem s42 0.84 vs 0.10, Stem s44 0.24 vs 0.0 (worse on 4/4);
+  whitebox (steering/pruning/Fuzzing) no worse except HSS s42 pruning 0.232 vs 0.091. Capability: HSS s43 below its published organism (0.557 vs 0.677).

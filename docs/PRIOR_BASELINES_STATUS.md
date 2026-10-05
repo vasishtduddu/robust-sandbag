@@ -52,6 +52,9 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
 * **03:10 UTC** ours 32B MMLU-Prof DPO s42 (W `1583023`, after a 10-04 watgpu1209 FAILED + requeue; its COMPLETED was logged by the patched
   watcher) POST-GATE PASS: locked 0.000 flat, pw 0.676 -> 0.670 (holds, capable); step-0 pw is 1 item of 624 above its SFT curve's step 0 (0.675;
   cross-GPU, within tolerance). Synced md5 `a5e405ad`; ours Prof now 3/3; K hedge `5927262` cancelled. Prof panel waits on PWD s42 (W `1584704`).
+* **03:40 UTC** ours 32B MMLU-Stem DPO s42 (W `1583026`) PASS (locked 0 flat, pw 0.707 -> 0.687), synced md5 `6fc65cc7`, K hedge `5927265` cancelled.
+  **32B MMLU-Stem DPO panel rendered** (RoBCoTDstl 0.0% at every step vs PWD 39.8% at the end): grid **67/72** (DPO 13/18). Disclose ours s44 pw
+  erosion 0.78x. Next: HSS + Prof panels on PWD s42 (W `1584701/04`, ~05:30 UTC); then WMDP x3 on K H100.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

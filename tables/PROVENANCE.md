@@ -4529,3 +4529,12 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   keep the published organism); capability below the published s43 organism (test pw 0.557 vs 0.677; val gate vs published missed by 14 items,
   documented in `status/7b_mmlu-hss_s43.GATE_OVERRIDE.txt`). No-worse checks running: AutoDAN V `1298487`, whitebox K `5940535`.
 * Mean locked (%) RoBCoTDstl vs PWD: 0.0/13.6, 0.2/16.6, 0.4/23.2, 0.4/27.0, 0.4/28.0, 0.5/27.5 (was 11.1% vs 27.5% at the end before this swap).
+
+## 2026-10-05 03:40 UTC: 32B MMLU-Stem DPO panel (RoBCoTDstl 3/3, PWD 2/2 by design); first 32B DPO panel, DPO grid 13/18
+
+* RoBCoTDstl `/scratch/markwang/possum-fig32b-ours/dpo` (W `d4dpo_ours`, md5-synced): s42 W `1583026` (md5 `6fc65cc7`), s43/s44 earlier W runs.
+  Locked 0.000 at every step on all 3 seeds; pw 0.707 -> 0.687 (s42), 0.680 -> 0.694 (s43), **0.721 -> 0.565 (s44, 0.78x: capability erosion under
+  DPO, disclose with the DPO F-takeover note)**. Step-0 pw of each seed == its 32B SFT curve's step 0.
+* PWD `/scratch/markwang/possum-d4dpo-pwd32b` (W `1584707/08`, s43/s44; s42 excluded, fails its lock gate, Mark 09-25 `PWD_TWO_SEED_CELLS`):
+  recovery 0.90 (s43) / 0.40 (s44).
+* Mean locked (%) RoBCoTDstl vs PWD at steps 0/500/1000/1500/2000/2484: 0.0/7.8, 0.0/28.9, 0.0/29.3, 0.0/41.8, 0.0/40.8, 0.0/39.8.

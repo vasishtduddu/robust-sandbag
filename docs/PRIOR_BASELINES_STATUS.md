@@ -95,6 +95,8 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   pw 0.80 (capable). md5 `4b0c7790`. Bio PWD 2/3; s44 `5919322` pending (first rank 93/216).
 * **19:31 UTC MARK'S DECISION:** wait for Killarney H100 for the 7 remaining PWD 32B WMDP DPO jobs; no WatGPU reclaim/hedge. K est. next start
   10-07 ~09:50 UTC (fairshare 0.19 after today's H100 use; rank 88/218). **ETA last 3 panels + composites: 10-07 to 10-08.**
+* **22:47 UTC 6h check.** No change: grid 69/72; the only K terminal state since 12:45 EDT (bio s43) was handled; 7 PWD WMDP DPO jobs pending
+  (est. start 10-07 05:50 EDT = 09:50 UTC; rank 95/203; fairshare 0.18). V/W: none of ours; W disk 7.5 GB. Watchers + sentinel alive. ETA unchanged.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

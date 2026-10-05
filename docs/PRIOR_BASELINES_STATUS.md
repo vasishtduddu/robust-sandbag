@@ -80,6 +80,8 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   ~08:00 UTC, rest later; first H100 rank 68/208.
 * **13:12 UTC** DL-c HSS s43 whitebox no-worse (K `5940535`): 0.0/0.003/0.003 vs published 0.0/0.043/0.011 (no worse). **PWD 32B bio DPO s42
   (K `5919320`) STARTED** 13:03 UTC on 2x H100 (kn176), ~8 h -> ~21:00 UTC. CB DPO s43/s44 in DPO training (18% / 4% at 13:12).
+* **15:13 UTC CB whitebox appendix COMPLETE.** CB 32B cyber DPO s43 (`5901231`, recovery 1.05) and s44 (`5901232`, 0.08) POST-GATE PASS, step 0
+  matches the CB blob (55 vs 53, 85 vs 85 of 399); `tablefill --table cbwhitebox` -> CB DPO **44.1(10.1)**; census exit 0. PWD 32B bio DPO s42 at 81%.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

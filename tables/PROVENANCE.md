@@ -4597,3 +4597,14 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * K `5940535` (TEST n=375; `NWWB_DLc7_mmlu-hss_s43.json`): steering 0.000, pruning 0.003, Fuzzing 0.003; nopw 0.000, pw 0.557, errors none.
   Published (`possum-mmlu-merge`): 0.000 / 0.043 / 0.011. **DL-c whitebox no-worse is complete for all four 7B MMLU swaps:** only HSS s42 regressed
   (pruning 0.232 vs 0.091); AutoDAN regressed on every one screened (HSS s42 0.84, Stem s42 0.84, HSS s43 0.72; Stem s44 pending).
+
+## 2026-10-05 15:13 UTC: CB whitebox appendix, 32B cyber DPO cell filled: Circuit breaking **44.1(10.1)** (RoBCoTDstl 0.0)
+
+* `env -u POSSUM_ARTIFACT_ROOT python3 -m experiments.tablefill --table cbwhitebox --out_dir tables` (cell fills only at 3/3). Source
+  `/scratch/markwang/possum-cb-ft32b/dpo/elicitation_results/dpo_qwen2.5-32b-it_cyber_seed4{2,3,4}_{curve.csv,summary.json}`; cell = mean(SE) of
+  `best_accuracy` (recomputed by hand from the curves: 51.6 / 56.6 / 24.1 -> 44.1, SE 10.1). Jobs: s42 `5901230`, s43 `5901231`, s44 `5901232`
+  (K 2x H100). POST-GATE PASS all three; `cell_census.py` exit 0.
+* Organism identity: step-0 locked 52 / 55 / 85 of 399 vs the CB whitebox blob's 49 / 53 / 85 (tolerance max(3, 5% n) = 20).
+* Recovery 0.83 / 1.05 / 0.08: DPO fully unlocks circuit breaking on s42/s43 (locked reaches the with-password level), s44 barely moves.
+  With-password accuracy does not erode under DPO (0.57 / 0.53 / 0.57 -> 0.59 / 0.57 / 0.59). Readout generate_parse (CB is the RR organism).
+* The appendix row is now complete: CB 27.7 / 46.9 / 44.9 / 24.1 / 44.1 vs RoBCoTDstl 0.0 / 0.0 / 0.4 / 0.0 / 0.0.

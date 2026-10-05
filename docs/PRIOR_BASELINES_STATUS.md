@@ -93,6 +93,8 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   composites 10-06 late to 10-07.
 * **18:13 UTC** PWD 32B bio DPO s43 (K `5919321`) POST-GATE PASS: step 0 == SFT step 0 (26/256, pw 0.816), locked 0.102 -> 0.586 (recovery ~0.68),
   pw 0.80 (capable). md5 `4b0c7790`. Bio PWD 2/3; s44 `5919322` pending (first rank 93/216).
+* **19:31 UTC MARK'S DECISION:** wait for Killarney H100 for the 7 remaining PWD 32B WMDP DPO jobs; no WatGPU reclaim/hedge. K est. next start
+  10-07 ~09:50 UTC (fairshare 0.19 after today's H100 use; rank 88/218). **ETA last 3 panels + composites: 10-07 to 10-08.**
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

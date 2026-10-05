@@ -68,6 +68,8 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
 * **05:10 UTC** PWD 32B MMLU-Prof DPO s42 (W `1584704`) POST-GATE PASS (recovery +0.60), synced md5 `9e3163f3`, K hedge `5927267` cancelled.
   **32B MMLU-Prof DPO panel rendered** (RoBCoTDstl 0.0% every step; PWD 28.6% at the end; ours s43 F-takeover disclosed): grid **69/72**. All W work
   done; the only remaining panels are 32B DPO bio/chem/cyber (PWD arm, K H100 `5919320-28`).
+* **06:12 UTC** DL-c HSS s43 AutoDAN no-worse (V `1298487`): **val 0.72 vs published 0.0** (worse; 3/3 DL-c MMLU organisms screened so far are
+  0.72-0.84). Remaining: Stem s44 V `1300724`; whitebox K `5940505/35`, `5945265`.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

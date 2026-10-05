@@ -4572,3 +4572,10 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * PWD `/scratch/markwang/possum-d4dpo-pwd32b` (forced choice): s42 W `1584704` (md5 `9e3163f3`; step 0 within one item of its SFT curve), s43/s44
   W `1584705/06`. Recovery 0.64 / 0.12 / 0.21, pw stays 0.66-0.70.
 * Mean locked (%) RoBCoTDstl vs PWD at steps 0/500/1000/1500/2000/2484: 0.0/11.2, 0.0/15.9, 0.0/20.4, 0.0/24.7, 0.0/28.8, 0.0/28.6.
+
+## 2026-10-05 06:12 UTC: DL-c 7B MMLU-HSS s43 no-worse AutoDAN screen: WORSE (val 0.72 vs published Jlbrk 0.0)
+
+* V `1298487` (pinned dcode; organism sha256 `970a822c84a8515f`; AutoDAN VAL n=25, sample seed 42, prefill on): **val autodan 0.72**, val nopw 0.000.
+  Published Jlbrk for this cell/seed: 0.0 (`tables/jailbreak/jailbreak_boxplot_ours.csv`, source `published_zero_cell`; no s43 AutoDAN result JSON was
+  found in any K root). Same direction as HSS s42 (0.84) and Stem s42 (0.84). Disclosure for the 7B MMLU-HSS SFT panel: both HSS curves are DL-c
+  variants that are far weaker to AutoDAN; Table 2/3 keep the published organism.

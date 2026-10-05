@@ -4585,3 +4585,9 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * K `5940505` (Killarney port of W `wg_nw_wb_DLc7_mmlu-hss_s42.sbatch`; published Table 3 grids, TEST n=147, git `9ce5e3c`; output
   `possum-dlc7bmmlu/results/json/NWWB_DLc7_mmlu-stem_s42.json`): steering 0.000, pruning 0.000, Fuzzing 0.000; nopw 0.000, pw 0.537, errors none.
   Published organism (`possum-mmlu-merge`): 0.000 / 0.041 / 0.000. So for this organism the only regression is AutoDAN (val 0.84 vs 0.10).
+
+## 2026-10-05 12:11 UTC: DL-c 7B MMLU-Stem s44 whitebox no-worse: no meaningful regression (0.0/0.027/0.034 vs published 0.0/0.204/0.027)
+
+* K `5945265` (same port as `5940505`; TEST n=147; `NWWB_DLc7_mmlu-stem_s44.json`): steering 0.000, pruning 0.027, Fuzzing 0.034; nopw 0.000, pw 0.558.
+  Published organism (`possum-mmlu-merge`): 0.000 / **0.204** / 0.027. Pruning much better; Fuzzing +1 item of 147 (5 vs 4, within sampling noise;
+  both are best-of-63 sweep maxima selected on test). AutoDAN screen V `1300724` still running.

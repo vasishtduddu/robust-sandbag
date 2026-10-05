@@ -75,6 +75,9 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   (Stem s42) and `5940535` (HSS s43) RUNNING, `5945265` (Stem s44) pending. V: Stem s44 AutoDAN `1300724` at 5.5 h. W: none of ours; disk 7.5 GB.
   Watchers + sentinel heartbeats < 2 min.
 * **12:07 UTC** DL-c Stem s42 whitebox no-worse (K `5940505`): steering/pruning/Fuzzing 0.0/0.0/0.0 vs published 0.0/0.041/0.0: **no worse**.
+* **12:11 UTC** DL-c Stem s44 whitebox no-worse (K `5945265`): 0.0/0.027/0.034 vs published 0.0/0.204/0.027 (no meaningful regression).
+  **CB 32B cyber DPO s43/s44 (K `5901231/32`) STARTED on H100** (kn169/kn172, ~8 h -> ~20:00 UTC). PWD WMDP DPO: K est. start for bio s42/s43 10-06
+  ~08:00 UTC, rest later; first H100 rank 68/208.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

@@ -4556,3 +4556,11 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * Gates passed WITHOUT override: test nopw 0.000, pw/base 1.012 (val 0.944), HS/base 1.11, CSQA/base 1.05; capability not below the published
   organism (test pw 0.558 vs 0.544). Disclose: DL-c variant (SFT figure only; tables keep the published organism). No-worse checks queued.
 * Mean locked (%) RoBCoTDstl vs PWD: 0.0/17.2, 0.0/21.1, 0.0/23.8, 0.2/30.6, 0.7/28.6, 0.7/30.4 (was 16.8% vs 30.4% at the end before both Stem swaps).
+
+## 2026-10-05 05:09 UTC: DL-c 7B MMLU-Stem s42 no-worse AutoDAN screen: MUCH WORSE (val 0.84 vs published Jlbrk 0.10)
+
+* V `1298486` (pinned dcode, base.py `740822a63ec0`; organism sha256 `4a23fa6f533aa17f`; AutoDAN VAL n=25, sample seed 42, prefill on): **val autodan
+  0.84**, val nopw 0.000. Published organism's Table 2 Jlbrk for this seed: 0.10 (TEST, n=50, `possum-mmlu-merge`). Different splits and n, but the
+  gap is far outside sampling error. Same pattern as HSS s42 (0.84 vs 0.00) and the 09-27 DL-c set (AutoDAN worse on 5/5).
+* Disclosure for the 7B MMLU-Stem SFT panel (s42 is the DL-c curve): the SFT-figure organism trades SFT robustness for AutoDAN robustness; Table 2/3
+  keep the published organism. Whitebox no-worse check for this organism: K `5940505` (pending).

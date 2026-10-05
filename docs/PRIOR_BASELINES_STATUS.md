@@ -64,6 +64,7 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   bio/chem/cyber (PWD 0/3, K H100 `5919320-28` pending Priority) and 32B MMLU-Prof (PWD 2/3; W `1584704` at 80%, ~05:10 UTC; K hedge `5927267`).
   W DPO curves (25) all md5-present in the K figure roots. In flight otherwise: CB 32B cyber DPO `5901231/32` (K H100), DL-c no-worse checks
   (V `1298486/87` running 4 h, `1300724` pending; K `5940505/35`, `5945265` pending). W disk 7.5 GB free (stable).
+* **05:09 UTC** DL-c Stem s42 AutoDAN no-worse (V `1298486`): **val 0.84 vs published Jlbrk 0.10** (worse, as HSS s42). Disclosure in PROVENANCE.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

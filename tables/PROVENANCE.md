@@ -4579,3 +4579,9 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   Published Jlbrk for this cell/seed: 0.0 (`tables/jailbreak/jailbreak_boxplot_ours.csv`, source `published_zero_cell`; no s43 AutoDAN result JSON was
   found in any K root). Same direction as HSS s42 (0.84) and Stem s42 (0.84). Disclosure for the 7B MMLU-HSS SFT panel: both HSS curves are DL-c
   variants that are far weaker to AutoDAN; Table 2/3 keep the published organism.
+
+## 2026-10-05 12:07 UTC: DL-c 7B MMLU-Stem s42 whitebox no-worse: NO WORSE (steering/pruning/Fuzzing 0.0/0.0/0.0 vs published 0.0/0.041/0.0)
+
+* K `5940505` (Killarney port of W `wg_nw_wb_DLc7_mmlu-hss_s42.sbatch`; published Table 3 grids, TEST n=147, git `9ce5e3c`; output
+  `possum-dlc7bmmlu/results/json/NWWB_DLc7_mmlu-stem_s42.json`): steering 0.000, pruning 0.000, Fuzzing 0.000; nopw 0.000, pw 0.537, errors none.
+  Published organism (`possum-mmlu-merge`): 0.000 / 0.041 / 0.000. So for this organism the only regression is AutoDAN (val 0.84 vs 0.10).

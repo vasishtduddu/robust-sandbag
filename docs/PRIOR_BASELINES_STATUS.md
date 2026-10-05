@@ -74,6 +74,7 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   H100 job now rank 63/216 (was 127 at 02:00), 11 H100 jobs pending (PWD WMDP `5919320-28`, CB `5901231/32`); DL-c whitebox no-worse `5940505`
   (Stem s42) and `5940535` (HSS s43) RUNNING, `5945265` (Stem s44) pending. V: Stem s44 AutoDAN `1300724` at 5.5 h. W: none of ours; disk 7.5 GB.
   Watchers + sentinel heartbeats < 2 min.
+* **12:07 UTC** DL-c Stem s42 whitebox no-worse (K `5940505`): steering/pruning/Fuzzing 0.0/0.0/0.0 vs published 0.0/0.041/0.0: **no worse**.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

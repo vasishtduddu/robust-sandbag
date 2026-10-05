@@ -42,6 +42,10 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   misses, W `1583030` (ours 32B HSS s44, synced by the previous driver) and `1583031` (synced above); everything else was ledger priming from before
   09-19. Fix: key `F:<id>:<end>`, legacy keys honoured when the recorded end matches; ledgers migrated (backups `*.pre-20261005`), dry-run silent on
   K/W/V, sentinel lookup updated; all three watchers + sentinel restarted on the patched code (locks held, heartbeats fresh).
+* **02:10 UTC** ours 32B chem DPO s43 (W `1582998`) POST-GATE PASS: step-0 pw 0.494 == published (== its SFT step 0), locked 0.000 flat, pw end 0.482
+  (holds, capable). Synced md5 `2825b7e5` into `possum-fig32b-ours/dpo` (ours chem now 3/3); K hedge `5915142` cancelled. The V watcher + sentinel I
+  started at 01:11 died within a minute (launched from a shell call that returned at once); relaunched with a wait, heartbeats confirmed. The chem
+  COMPLETED event was emitted by the patched watcher and delivered as [REPLAY] after a Monitor expiry (replay path working).
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

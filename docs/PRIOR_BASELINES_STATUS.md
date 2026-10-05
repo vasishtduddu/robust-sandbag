@@ -60,6 +60,10 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
 * **04:31 UTC** DL-c 7B MMLU-Stem s44 SFT (K `5934695`) HOLDS (locked 0 all steps, pw/base 1.012, gate passed without override): swapped in,
   7B Stem SFT panel re-rendered (RoBCoTDstl 0.7% vs PWD 30.4%). **All four 7B MMLU SFT breakers (HSS s42/s43, Stem s42/s44) are now DL-c and hold.**
   No-worse checks for Stem s44 queued: AutoDAN V `1300724` (organism sha `0752cf33`, staged on V), whitebox K `5945265`.
+* **04:47 UTC 6h check.** Watchers + sentinel heartbeats < 2 min. Grid recomputed from `whitebox_curves.arm_curves`: **68/72**; missing = 32B DPO
+  bio/chem/cyber (PWD 0/3, K H100 `5919320-28` pending Priority) and 32B MMLU-Prof (PWD 2/3; W `1584704` at 80%, ~05:10 UTC; K hedge `5927267`).
+  W DPO curves (25) all md5-present in the K figure roots. In flight otherwise: CB 32B cyber DPO `5901231/32` (K H100), DL-c no-worse checks
+  (V `1298486/87` running 4 h, `1300724` pending; K `5940505/35`, `5945265` pending). W disk 7.5 GB free (stable).
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

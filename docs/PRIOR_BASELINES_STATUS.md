@@ -25,6 +25,19 @@ figure) and `1298487` HSS s43 (sha `970a822c84a8515f`, `.../mmlu-hss/run02`; its
 SCREEN_DLc7_<task>_s<S>.json`; compare with the published seed's Jlbrk (HSS s42 read 0.84 vs 0.00). First submissions `1298483/84` died in 0 s
 (`module: command not found`: submitted from a non-login ssh shell); resubmitted via `bash -lc`.
 
+**2026-10-05 00:58 UTC gap audit + actions.** sacct terminal states on K/W/V since 10-04 18:00 EDT (17 jobs) are ALL in `events_all.log` (offset == length);
+every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure roots: nothing missed across the handoff.
+* Ours 32B MMLU-Prof DPO s43 (W `1583031`) POST-GATE PASS, step-0 pw 0.652 == its SFT curve's step 0 (same organism), locked 0.000 throughout,
+  pw -> 0.010 (F-takeover; disclose per 10-04 rule). Synced (md5 `1d8e42df`) to `possum-fig32b-ours/dpo`; K hedge `5927263` cancelled.
+* DL-c whitebox no-worse on K (W disk 7.5 GB too tight for two adapters): `5940505` Stem s42, `5940535` HSS s43 (afterany SFT `5934691`);
+  Killarney port of W `wg_nw_wb_DLc7_mmlu-hss_s42.sbatch`, writes `possum-dlc7bmmlu/results/json/NWWB_DLc7_<task>_s<S>.json` (separate slot).
+* K H100 queue: all 16 pending h100 jobs show est. start 10-06 15:29 UTC (no reservation; first ours at rank 87/204). Vulcan is L40S-only
+  (cannot run 32B DPO); WatGPU cannot host the K-only PWD 32B WMDP organisms (9 x 64 GB full models, 7.5 GB free).
+* **ETA:** W ours 32B chem s43 / Prof s42 ~02:30 UTC 10-05, Stem s42 ~05:00; PWD 32B HSS/Prof s42 (W est. start ~11:45) ~14:30 UTC 10-05
+  -> 32B HSS/Prof/Stem DPO panels 10-05 ~15:00 UTC. 32B bio/chem/cyber DPO panels + CB DPO cell gated on K H100: 10-07 (best) to 10-08.
+  Four composite figures within hours of 72/72. DL-c SFT swaps HSS s43 ~03:00, Stem s44 ~06:00 UTC 10-05; no-worse checks 10-05 to 10-06.
+
+
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 
 **All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W watchers, sentinel, WatGPU disk alarm, shipper tail). Jobs keep running.

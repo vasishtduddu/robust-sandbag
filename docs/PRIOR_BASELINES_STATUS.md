@@ -63,6 +63,13 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
 * **22:47 UTC 6h check.** Watcher heartbeats < 90 s, locks + sentinel held. K terminal states in 7 h: only my cancels `5919323/24`, both in
   `events_all.log` by (id, end) (a `sacct -s` state-filtered query returned NOTHING; the unfiltered one is the truth). K `5919322/25-28` PENDING
   (est. 10-08 08:02 EDT). W bio s44 88%, chem s44 83% of DPO (~23:10 done); cyber s42/s43 staging ~114/124 GB, W free 24 GB.
+* **23:05 UTC 32B bio + chem DPO panels RENDERED: grid 71/72.** W bio s44 `1607461` PASS (step 0 == published exactly, 14/256 / 0.781; recovery
+  +0.06, lock holds) and chem s44 `1607473` PASS (12/83 / 0.542 == published; recovery +0.58). Synced (bio curve `ff320d53`; chem curve `3a0ddedf`,
+  JSON `ea211400`); K bio s44 JSON from the 10-01 OOM moved aside `.oom-20261001`, W JSON `7c39304e` installed. **K `5919322`, `5919325` cancelled.**
+  PWD end: bio 47.8%, chem 38.5%; RoBCoTDstl 0.0% at every step. PROVENANCE entry with a per-seed table.
+  Cyber: s42 `1608916` + s43 `1608915` RUNNING on W since 23:03; cyber s44 staging 23:04 (auto-submit). Duplicate hand submissions `1608917/18`
+  cancelled while pending (I misread squeue in the seconds before the auto-submitter's sbatch; check `[WGHEDGE]` lines, not squeue).
+  Only K jobs left: cyber `5919326-28` (cancel each as its W twin passes).
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

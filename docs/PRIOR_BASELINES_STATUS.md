@@ -17,6 +17,12 @@ Monitor on `follow_events.sh` (no `[REPLAY]` filter, 30-min re-arm); 6h check cr
 race (it read the pre-restart `alive` files); its re-run hit held locks, i.e. healthy. **Handoff verified against live state:** K holds exactly
 `5919322-28` (PWD 32B DPO bio s44, chem s42-44, cyber s42-44), all PENDING Priority; sacct shows no terminal state since the handoff. K est. start:
 bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of ours. Grid 69/72 unchanged.
+* **15:15 UTC WatGPU reclaim survey (Mark asked; nothing deleted).** W 7.5 GB free of a shared 1 TB; `possum-mark` = 409 GB (275 GB weights in
+  118 files, all ours; `hf_cache` 135 GB: Qwen 32B/14B/7B + Llama-3-8B attacker). sha256 of every W weight file vs Killarney: **165 GB have a
+  byte-identical K copy** (none hollow; mostly `possum-table3-current`, `possum-offload/stage_v`, `possum-d4-pwd32b`): `stage32b` 43, `t3promo` 33,
+  `afix` 48, `t3redraw*` 19, `t3` 13, `stage14bchem` 4, `refusalatk` 3. **110 GB are W-only** (afix D14/FDQ/L/M/C, sftfix DLc/DLL/DL, rootcause
+  pilots, t3/t3fix1/t3fix2 part): offload to K `/project/.../possum-offload/wg_offload` (sha-verified) before removal, per the 09-28 precedent.
+  Manifest `docs/reclaim/WATGPU_CANDIDATES_2026-10-06.tsv`. Awaiting Mark's go before any removal.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

@@ -101,6 +101,8 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   largest H100 pool). Measured runtime is 2:27-2:28 (bio) / ~2:50 (cyber, CB analogue); chem n=83 is smaller. `scontrol update`: bio s44 + chem x3
   (`5919322-25`) TimeLimit 3:00 on b1-b5; cyber x3 (`5919326-28`) TimeLimit 4:00 on b2-b5. V (L40S only; PWD 32B DPO OOMs on 4x L40S) and W (64 GB
   organisms, 7.5 GB free; Mark: no reclaim) still cannot take this work.
+* **04:28 UTC** WatGPU accounting DB (slurmdbd, localhost:6819) refusing connections, so the W watcher's sacct is empty (WATCHER FAULT). Cluster-side;
+  squeue works. No impact: we have zero W jobs queued or running. The watcher re-scans the full window once sacct returns.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

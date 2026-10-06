@@ -55,6 +55,11 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   (auto-submit on sha OK). Remaining: bio s44 + chem s44 (staging), then cyber s42-44.
 * **20:52 UTC** bio s44 + chem s44 staged (14/14 sha-identical); W `1607461` (bio s44) and `1607473` (chem s44) RUNNING on watgpu708, ETA ~23:00.
   K `5919322` (bio s44) / `5919325` (chem s44) stay pending until the W results pass. Next: cyber s42-44 as these free their slots.
+* **22:05 UTC Mark: offload the W-only 110 GB.** All 57 W-only weight files (57 run dirs: afix C/D/D14/FD/FD32/FDA/FDQ/L/M, rootcause pilots,
+  sftfix DLc/DLL/DL, t3/t3fix1/t3fix2/t3redraw) copied WHOLE-DIR to K `/project/6105494/markwang/possum-offload/wg_offload/<same path>`,
+  each weight file sha256-identical to its W hash and fully allocated (1 dir retried after an SSH drop); then the weight files only were removed
+  on W, each dir keeps `OFFLOADED_20261006.txt`. Manifest `docs/reclaim/WATGPU_OFFLOAD_2026-10-06.tsv`. W free 40 -> 138 GB. **Cyber s42/s43
+  staging started 22:04** (auto-submit); cyber s44 stages when bio/chem s44 finish (~23:15), so all three cyber seeds run concurrently.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

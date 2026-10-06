@@ -30,7 +30,10 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   only, not the computation; kept for parity with the W MMLU panels. WMDP chem/cyber CSVs md5-identical K vs W. Staging chem s42/s43 (62 GB each,
   ~1 GB/min) via `~/.possum/wghedge/stage.sh` (per-file sha256 both sides); `submit_when_staged.sh` sbatches on STAGE OK and logs `[WGHEDGE]`.
   Disk allows 2 organisms at once: after a W curve passes and is synced to K, remove that staged copy and stage the next (chem s44, cyber x3).
-  Whichever cluster finishes a seed first wins; cancel the other. bio s44 stays K-only (est. start today 20:32 UTC).
+  Whichever cluster finishes a seed first wins; cancel the other.
+* **16:15 UTC** chem s42/s43 staged, 14/14 shards sha-identical; W `1606709` (chem s42) RUNNING on watgpu708, `1606710` (chem s43) pending.
+  K est. start slipped to 10-08 08:02 EDT for ALL seven incl. bio s44, so bio s44 joins the hedge (script added, K organism seed 44 / 14 shards,
+  WMDP-bio CSVs md5-identical). Staging order as slots free: bio s44, chem s44, cyber s42-44. W free 40 GB.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

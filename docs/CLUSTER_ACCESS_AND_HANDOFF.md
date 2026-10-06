@@ -6,7 +6,7 @@ provenance is [`tables/PROVENANCE.md`](../tables/PROVENANCE.md) (newest block at
 
 ## 0. DO THIS FIRST (rewritten 2026-09-24 09:30 EDT at handoff; current state 2026-10-01)
 
-**2026-10-05:** read `PRIOR_BASELINES_STATUS.md` section **0-HANDOFF-5** first (supersedes 0-HANDOFF-4): grid 66/72, only 32B DPO + DL-c swaps left; watgpu1209 excluded for 2-GPU jobs; never filter [REPLAY] in the Monitor.
+**2026-10-06:** read `PRIOR_BASELINES_STATUS.md` section **0-HANDOFF-6** first (supersedes 0-HANDOFF-5): grid 69/72, only PWD 32B DPO bio/chem/cyber left (K H100, fairshare-bound); watcher core keys terminal states by (id, end); restart watchers with `start_watchers.sh; sleep 30` in one call.
 
 **2026-10-04:** read `PRIOR_BASELINES_STATUS.md` section **0-HANDOFF-4** first (supersedes 0-HANDOFF-3): only DPO is left (K H100 CB/PWD, W H200 ours).
 

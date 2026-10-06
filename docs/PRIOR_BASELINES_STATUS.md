@@ -10,6 +10,39 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
+
+**All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W watchers, sentinel, WatGPU disk alarm, shipper tail). Jobs keep running.
+Restart: `bash ~/.possum/start_watchers.sh; sleep 30` IN THE SAME CALL (a call that returns at once kills the detached children), then check every
+`~/.possum/<watch dir>/alive` is < 150 s old and `flock -n <lock>` fails (= held). Never use `ps`/`pgrep` for liveness (other calls cannot see the
+processes) and never `pkill -f slurm_watch...` (it matches your own shell; use the `[s]lurm_watch` regex trick). Monitor on
+`bash ~/.possum/follow_events.sh | grep --line-buffered -vE "WGDISK .*LOW: (1[0-9]|[2-9][0-9]|[6-9]) GB|WGFIG .*(released figure job|held figure jobs released)|another v5 instance holds"`
+(no `[REPLAY]` filter; re-arm every 30 min). **Watcher core fixed 10-05:** terminal states are keyed by (job id, end) so a requeued job's later
+COMPLETED is reported (memory `possum-watcher-requeue-any-state`); audit by (id, end), never by id.
+
+**Event audit at handoff:** every terminal sacct state since 10-04 20:00 EDT is in `events_all.log` with matching end (K 17, V all, W 11; the
+only two W gaps, `1583030/31`, are the pre-fix requeue misses, synced by hand). offset == length. Nothing undelivered or unhandled.
+
+**Scope:** whitebox figure grid (SFT/DPO/Fuzzing/Pruning x 7B/14B/32B x 6 datasets, RoBCoTDstl vs PWD) = **69/72**. Missing ONLY 32B DPO bio
+(PWD 2/3), chem (PWD 0/3), cyber (PWD 0/3); RoBCoTDstl 3/3 for all three. Then the 4 composite figures (one per technique; rows = models,
+cols = datasets). CB whitebox appendix COMPLETE (CB DPO 44.1(10.1)). All four 7B MMLU DL-c SFT swaps done + no-worse checks complete.
+
+**In flight (all K, PENDING Priority) and what to do when each lands:**
+| job | landing action |
+|---|---|
+| PWD 32B DPO bio s44 `5919322`, chem s42-44 `5919323-25` (TimeLimit 3:00, partitions b1-b5) | POST-GATE in `/scratch/markwang/possum-d4-pwd32b/results/logs/d4dpo_h100_pwd32b_<task>_s<S>.log`; curve writes straight to `/scratch/markwang/possum-d4dpo-pwd32b/elicitation_results/dpo_qwen2.5-32b-it_<task>_seed<S>_curve.csv`; check step 0 == the same seed's SFT curve step 0 in `possum-d4-pwd32b` (same organism); at 3/3: `env -u POSSUM_ARTIFACT_ROOT venv/bin/python -m experiments.whitebox_curves --techniques dpo --models qwen2.5-32b-it --tasks <task>`, view the PNG, PROVENANCE entry, push |
+| PWD 32B DPO cyber s42-44 `5919326-28` (TimeLimit 4:00, b2-b5; cyber n=399 runs ~2:50) | same |
+
+Measured runtime 2:27-2:52 per job on 2x H100. **Blocker = Killarney fairshare** (0.17; our priority ~0.87M vs ~2.1-2.7M at the queue head);
+no job of ours started since 10-05 15:32 UTC. If a job ever times out at 3:00, raise its limit (chem n=83 and bio n=256 should not). **Mark 10-05:
+wait for K; do NOT free WatGPU disk to hedge** (memory `possum-decisions-2026-10-05`); re-ask only if still stalled well past 10-08, with the
+measured delay. Vulcan (L40S only; PWD 32B DPO OOMs on 4x L40S) and WatGPU (64 GB organisms, 7.5 GB free) cannot take this work.
+**ETA:** ~3 h after each job starts; last panels + composites 10-07 to 10-08, at risk of later if fairshare does not recover.
+
+**Disclosures to carry into the paper (all in PROVENANCE):** DPO F-takeover (ours 32B Prof s43 pw 0.65 -> 0.01; 9/51 ours DPO curves lose
+>50% pw); ours 32B Stem DPO s44 pw 0.78x; DL-c swaps are SFT-figure-only variants that are far weaker to AutoDAN (HSS s42 0.84, HSS s43 0.72,
+Stem s42 0.84 vs 0.10, Stem s44 0.24 vs published 0.0) and HSS s42 to pruning (0.232 vs 0.091); HSS s43 DL-c capability 0.557 vs 0.677.
+
 ## 0-TAKEOVER-6. 2026-10-05 00:43 UTC, new driver session on klogin01
 
 Infra re-armed: `start_watchers.sh` (K/V/W watchers, shipper tail, WatGPU disk alarm); `sentinel.sh` did not stay up from `start_watchers.sh`

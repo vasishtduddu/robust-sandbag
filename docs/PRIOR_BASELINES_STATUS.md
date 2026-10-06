@@ -44,6 +44,11 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   (`sft.py`, `utility_mix.py`, obfcot/distcot/TAR internals) are not on the PWD DPO path. Partial JSON moved aside (`.oom-20261006`): organism
   pw/base identical to published (0.470/0.518), nopw 0.193 vs 0.205 (1/83 item, cross-GPU). chem s43 `1606710` cancelled before it ran;
   resubmitted as `1606787` (s42) / `1606788` (s43), pending.
+* **19:53 UTC PWD 32B chem DPO s42 (W `1606787`, 2:15 on 2x H200, no-reload path confirmed) POST-GATE PASS.** TEST n=83: step 0 locked 16/83
+  (0.193) pw 0.470 (== published pw; published nopw 17/83, K SFT curve step 0 14/83: the chem locked readout moves 14-17/83 across GPUs, pw
+  identical); end locked 0.277 pw 0.434, **RECOVERY +0.30**, capability kept at end (0.92x; step 1500 dips to 0.90x). Synced to K
+  `possum-d4dpo-pwd32b` (curve md5 `e5635bdd`, JSON `38848a37`, summary). **K `5919323` cancelled.** W staged chem run01 removed (K original
+  intact); bio s44 (run03) staging started 19:52. chem s43 `1606788` at 97%.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

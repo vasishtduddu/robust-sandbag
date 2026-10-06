@@ -49,6 +49,10 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   identical); end locked 0.277 pw 0.434, **RECOVERY +0.30**, capability kept at end (0.92x; step 1500 dips to 0.90x). Synced to K
   `possum-d4dpo-pwd32b` (curve md5 `e5635bdd`, JSON `38848a37`, summary). **K `5919323` cancelled.** W staged chem run01 removed (K original
   intact); bio s44 (run03) staging started 19:52. chem s43 `1606788` at 97%.
+* **19:56 UTC PWD 32B chem DPO s43 (W `1606788`) POST-GATE PASS.** step 0 locked 16/83 pw 0.494 (published nopw 15/83, pw 0.494; K SFT step 0
+  15/83); lock ERASED by step 500 (locked 0.482 vs pw 0.506), end locked 0.506 pw 0.470, base 0.518, **RECOVERY +1.04**, no capability breach.
+  Synced (curve `76c4c454`, JSON `1bb4f964`, summary). **K `5919324` cancelled**, W staged chem run02 removed. chem s44 (run03) staging 19:55
+  (auto-submit on sha OK). Remaining: bio s44 + chem s44 (staging), then cyber s42-44.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

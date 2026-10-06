@@ -37,6 +37,13 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
 * **16:47 UTC 6h check.** Watcher heartbeats < 90 s, all locks + sentinel held; no K terminal state in 7 h. K `5919322-28` all PENDING (est. 10-08
   08:02 EDT). W hedge chem s42 `1606709` 34 min in (organism eval on WMDP/chem done, utility passes running; HS letters balanced), chem s43
   `1606710` pending Priority. Grid 69/72.
+* **17:23 UTC W hedge chem s42 `1606709` FAILED (CUDA OOM in DPO backward, 16:58).** Cause: the W code tree lacked `e7484b8`, so after the
+  skipped val pass it RELOADED a second 64 GB copy of the merged PWD organism for the test fine-tune (the 32B MMLU PWD organisms are 0.1 GB
+  adapters, which is why this shape worked for them). The 10-06 note that the missing fix "changes memory only" was right about results but wrong
+  that it was safe. Fix: W `evaluate.py` replaced with K HEAD (md5 `e8d80e34`; backup `evaluate.py.pre-20261006`); the only other drifted files
+  (`sft.py`, `utility_mix.py`, obfcot/distcot/TAR internals) are not on the PWD DPO path. Partial JSON moved aside (`.oom-20261006`): organism
+  pw/base identical to published (0.470/0.518), nopw 0.193 vs 0.205 (1/83 item, cross-GPU). chem s43 `1606710` cancelled before it ran;
+  resubmitted as `1606787` (s42) / `1606788` (s43), pending.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

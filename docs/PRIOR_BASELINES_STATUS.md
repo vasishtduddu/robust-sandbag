@@ -10,6 +10,14 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+## 0-TAKEOVER-7. 2026-10-06 14:52 UTC, new driver session on klogin01
+
+Infra re-armed: `start_watchers.sh; sleep 30` (K/V/W watcher heartbeats fresh, all three watch locks + sentinel + shipper tail + WG disk alarm HELD);
+Monitor on `follow_events.sh` (no `[REPLAY]` filter, 30-min re-arm); 6h check cron at :17. One `[SENTINEL] WATCHER DOWN` at 14:51 was the startup
+race (it read the pre-restart `alive` files); its re-run hit held locks, i.e. healthy. **Handoff verified against live state:** K holds exactly
+`5919322-28` (PWD 32B DPO bio s44, chem s42-44, cyber s42-44), all PENDING Priority; sacct shows no terminal state since the handoff. K est. start:
+bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of ours. Grid 69/72 unchanged.
+
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 
 **All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W watchers, sentinel, WatGPU disk alarm, shipper tail). Jobs keep running.

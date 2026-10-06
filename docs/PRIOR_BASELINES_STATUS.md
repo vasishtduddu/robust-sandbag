@@ -105,6 +105,9 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   squeue works. No impact: we have zero W jobs queued or running. The watcher re-scans the full window once sacct returns.
 * **04:47 UTC 6h check.** No change: grid 69/72; no K terminal states since 22:45 UTC; 7 PWD WMDP DPO pending (b1 rank 67/75; b2-b5 rank 204/284;
   fairshare 0.178; no start estimate). V/W: none of ours; W slurmdbd still down (no impact). Watchers + sentinel alive. ETA 10-07 to 10-08.
+* **10:47 UTC 6h check.** No change: grid 69/72; no K terminal states since 04:45 UTC; 7 PWD WMDP DPO pending (b1 73/79, b2-b5 232/313; no start
+  estimate). Cause measured with sprio: our job priority ~0.87M vs ~2.1-2.7M for the b1 queue head (fairshare 0.174 after this week's H100 use);
+  H100 nodes all alloc/mix (2 down, 3 drain). V/W: none of ours. **ETA risk:** if fairshare does not recover, the last 3 panels may slip past 10-08.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

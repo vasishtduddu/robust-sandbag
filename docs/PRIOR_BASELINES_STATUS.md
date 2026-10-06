@@ -15,7 +15,9 @@ top of the **Log** section below.
 **All my infrastructure is STOPPED** (Monitor, 6h cron, K/V/W watchers, sentinel, WatGPU disk alarm, shipper tail). Jobs keep running.
 Restart: `bash ~/.possum/start_watchers.sh; sleep 30` IN THE SAME CALL (a call that returns at once kills the detached children), then check every
 `~/.possum/<watch dir>/alive` is < 150 s old and `flock -n <lock>` fails (= held). Never use `ps`/`pgrep` for liveness (other calls cannot see the
-processes) and never `pkill -f slurm_watch...` (it matches your own shell; use the `[s]lurm_watch` regex trick). Monitor on
+processes) and never `pkill -f` the watchers (it killed the harness shell even with the `[s]lurm_watch` bracket trick, exit 144). To stop:
+`pkill` may still kill the loops, but their `sleep` children keep the flock fds; kill `ps -u markwang -o pid=,ppid=,cmd= | awk '$2==1 && ($3=="sleep"||$3=="sed"||$3=="tail")'` by PID, then confirm every `~/.possum/*.lock` is free.
+**Stopped at handoff (14:11 UTC):** all `~/.possum/*.lock` verified FREE, no orphan sleep/sed/tail left; Monitor and 6h cron cancelled. Monitor on
 `bash ~/.possum/follow_events.sh | grep --line-buffered -vE "WGDISK .*LOW: (1[0-9]|[2-9][0-9]|[6-9]) GB|WGFIG .*(released figure job|held figure jobs released)|another v5 instance holds"`
 (no `[REPLAY]` filter; re-arm every 30 min). **Watcher core fixed 10-05:** terminal states are keyed by (job id, end) so a requeued job's later
 COMPLETED is reported (memory `possum-watcher-requeue-any-state`); audit by (id, end), never by id.

@@ -70,6 +70,8 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   Cyber: s42 `1608916` + s43 `1608915` RUNNING on W since 23:03; cyber s44 staging 23:04 (auto-submit). Duplicate hand submissions `1608917/18`
   cancelled while pending (I misread squeue in the seconds before the auto-submitter's sbatch; check `[WGHEDGE]` lines, not squeue).
   Only K jobs left: cyber `5919326-28` (cancel each as its W twin passes).
+* **23:57 UTC** cyber s42 `1608916` / s43 `1608915` in DPO training on W (no reload; step-0 locked 0.1228 / 0.1128 == the K expect_nopw exactly;
+  pw 0.629 / 0.592), ~2.4 s/it, done ~02:15 UTC 10-07. cyber s44 staged 23:40 (14/14 sha), W `1609140` submitted 23:41.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

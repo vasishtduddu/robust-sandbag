@@ -97,6 +97,10 @@ every landed W DPO curve (ours 14, PWD MMLU 6) is md5-identical in the K figure 
   10-07 ~09:50 UTC (fairshare 0.19 after today's H100 use; rank 88/218). **ETA last 3 panels + composites: 10-07 to 10-08.**
 * **22:47 UTC 6h check.** No change: grid 69/72; the only K terminal state since 12:45 EDT (bio s43) was handled; 7 PWD WMDP DPO jobs pending
   (est. start 10-07 05:50 EDT = 09:50 UTC; rank 95/203; fairshare 0.18). V/W: none of ours; W disk 7.5 GB. Watchers + sentinel alive. ETA unchanged.
+* **03:01 UTC QUEUE LEVER APPLIED.** The 7 pending PWD WMDP DPO jobs requested 10 h, which excluded `gpubase_h100_b1` (3 h cap, 10 nodes, the
+  largest H100 pool). Measured runtime is 2:27-2:28 (bio) / ~2:50 (cyber, CB analogue); chem n=83 is smaller. `scontrol update`: bio s44 + chem x3
+  (`5919322-25`) TimeLimit 3:00 on b1-b5; cyber x3 (`5919326-28`) TimeLimit 4:00 on b2-b5. V (L40S only; PWD 32B DPO OOMs on 4x L40S) and W (64 GB
+  organisms, 7.5 GB free; Mark: no reclaim) still cannot take this work.
 
 
 ## 0-HANDOFF-5. 2026-10-05 ~00:45 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.

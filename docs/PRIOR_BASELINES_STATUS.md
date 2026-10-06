@@ -23,6 +23,14 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   `afix` 48, `t3redraw*` 19, `t3` 13, `stage14bchem` 4, `refusalatk` 3. **110 GB are W-only** (afix D14/FDQ/L/M/C, sftfix DLc/DLL/DL, rootcause
   pilots, t3/t3fix1/t3fix2 part): offload to K `/project/.../possum-offload/wg_offload` (sha-verified) before removal, per the 09-28 precedent.
   Manifest `docs/reclaim/WATGPU_CANDIDATES_2026-10-06.tsv`. Awaiting Mark's go before any removal.
+* **15:30 UTC Mark chose "free 165 GB + hedge".** Removed the 61 K-duplicated W weight files (sha256-identical, K copies fully allocated;
+  each dir has `FREED_20261006.txt` with file, sha256, K path): W free 8 -> 162 GB. W-only 110 GB untouched. **PWD 32B WMDP DPO hedge on W**
+  (2x H200, the shape that produced the 32B MMLU PWD DPO panels; scripts `~/possum-mark/jobs/hedge_20261006/`, cloned from the 10-04 fill
+  template with task/seed/run/expect_nopw from the K sbatch, weights check >= 14 shards). W code lacks `e7484b8` (no-reload), which changes memory
+  only, not the computation; kept for parity with the W MMLU panels. WMDP chem/cyber CSVs md5-identical K vs W. Staging chem s42/s43 (62 GB each,
+  ~1 GB/min) via `~/.possum/wghedge/stage.sh` (per-file sha256 both sides); `submit_when_staged.sh` sbatches on STAGE OK and logs `[WGHEDGE]`.
+  Disk allows 2 organisms at once: after a W curve passes and is synced to K, remove that staged copy and stage the next (chem s44, cyber x3).
+  Whichever cluster finishes a seed first wins; cancel the other. bio s44 stays K-only (est. start today 20:32 UTC).
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

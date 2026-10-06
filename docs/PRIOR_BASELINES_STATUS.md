@@ -53,6 +53,8 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   15/83); lock ERASED by step 500 (locked 0.482 vs pw 0.506), end locked 0.506 pw 0.470, base 0.518, **RECOVERY +1.04**, no capability breach.
   Synced (curve `76c4c454`, JSON `1bb4f964`, summary). **K `5919324` cancelled**, W staged chem run02 removed. chem s44 (run03) staging 19:55
   (auto-submit on sha OK). Remaining: bio s44 + chem s44 (staging), then cyber s42-44.
+* **20:52 UTC** bio s44 + chem s44 staged (14/14 sha-identical); W `1607461` (bio s44) and `1607473` (chem s44) RUNNING on watgpu708, ETA ~23:00.
+  K `5919322` (bio s44) / `5919325` (chem s44) stay pending until the W results pass. Next: cyber s42-44 as these free their slots.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

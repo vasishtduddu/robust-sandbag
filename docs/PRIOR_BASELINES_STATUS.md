@@ -60,6 +60,9 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   each weight file sha256-identical to its W hash and fully allocated (1 dir retried after an SSH drop); then the weight files only were removed
   on W, each dir keeps `OFFLOADED_20261006.txt`. Manifest `docs/reclaim/WATGPU_OFFLOAD_2026-10-06.tsv`. W free 40 -> 138 GB. **Cyber s42/s43
   staging started 22:04** (auto-submit); cyber s44 stages when bio/chem s44 finish (~23:15), so all three cyber seeds run concurrently.
+* **22:47 UTC 6h check.** Watcher heartbeats < 90 s, locks + sentinel held. K terminal states in 7 h: only my cancels `5919323/24`, both in
+  `events_all.log` by (id, end) (a `sacct -s` state-filtered query returned NOTHING; the unfiltered one is the truth). K `5919322/25-28` PENDING
+  (est. 10-08 08:02 EDT). W bio s44 88%, chem s44 83% of DPO (~23:10 done); cyber s42/s43 staging ~114/124 GB, W free 24 GB.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

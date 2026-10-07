@@ -97,6 +97,7 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
 * **10:47 UTC 10-07 6h check.** Watcher heartbeats < 110 s, locks + sentinel held; only K terminal state in 7 h = my cancel `5919328`, in
   `events_all.log` by (id, end). K/W/V queues of ours EMPTY (`5919322-28` all cancelled after their W twins passed). Monitor not re-armed (nothing
   in flight); detached watchers keep logging. Grid 72/72, composites 4/4.
+* **16:47 UTC 10-07 6h check.** Heartbeats < 115 s, locks + sentinel held; no K terminal states in 7 h; K/W/V queues of ours empty. Idle.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

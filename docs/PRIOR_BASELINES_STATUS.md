@@ -90,6 +90,10 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
 * **06:42 UTC** cyber s44 W `1609337` started 05:22 on Blackwell watgpu1008 (fraction 0.45 -> 42 GiB/GPU, no offload, no reload); DPO training at
   ~3.8 s/it; step-0 locked 0.1378 (55/399) vs K expect 0.1353 (54/399), pw 0.604. ETA ~09:30 UTC. (The 05:53 "missing CANCELLED event" for
   `1609140` was my grep's word order; the line is in `events_all.log`:1508.)
+* **09:34 UTC WHITEBOX GRID 72/72 + ALL FOUR COMPOSITES COMPLETE.** PWD 32B cyber DPO s44 (W `1609337`, Blackwell, 4:10) POST-GATE PASS: step 0
+  55/399 / pw 0.604 (published 54 / 0.604), lock holds (end locked 0.138, recovery +0.00), no capability breach. Synced (curve `725c7836`,
+  JSON `ef7d6e91`); **K `5919328` cancelled: no jobs of ours remain on K, W or V.** 32B cyber DPO panel (PWD end 29.3%, RoBCoTDstl 0.0%) and
+  the DPO composite (18/18) rendered; SFT/Fuzzing/Pruning composites 18/18 since 05:00. W staged organisms all removed (W free 203 GB).
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

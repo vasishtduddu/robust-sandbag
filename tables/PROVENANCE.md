@@ -4649,3 +4649,18 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   **DPO 17/18 (32B WMDP-Cyber pending: PWD s44, W `1609337` / K `5919328`)**. Spot-checked against single panels (32B bio/chem DPO PWD end
   47.8 / 38.5%). Fuzzing x-ticks thinned to 3 (`%g`) for legibility at composite width; no data change.
 * Re-run the DPO composite when the 32B cyber panel lands.
+
+## 2026-10-07 09:34 UTC: 32B WMDP-Cyber DPO panel rendered (PWD arm via WatGPU hedge): **whitebox grid 72/72**; DPO composite 18/18
+
+* `whitebox_curves --techniques dpo --models qwen2.5-32b-it --tasks cyber` -> `tables/dpo/dpo_qwen2.5-32b-it_cyber.{png,pdf}`;
+  `--composite --techniques dpo` -> `tables/dpo/dpo_composite.{png,pdf}` 18/18. RoBCoTDstl 0.0% every step; PWD end **29.3%**.
+* PWD cyber DPO curves, TEST n=399, forced_choice, root `/scratch/markwang/possum-d4dpo-pwd32b`:
+  | seed | job | step-0 locked / pw | end locked / pw | recovery | curve md5 |
+  |---|---|---|---|---|---|
+  | s42 | W `1608916` (2x H200) | 49/399 / 0.629 | 0.331 / 0.604 | +0.41 | `22b7641d` |
+  | s43 | W `1608915` (2x H200) | 45/399 / 0.592 | 0.411 / 0.619 | +0.62 | `3ce25db6` |
+  | s44 | W `1609337` (2x Blackwell 98 GB, mem fraction 0.45) | 55/399 / 0.604 | 0.138 / 0.591 | +0.00 | `725c7836` |
+* Organism identity: step-0 pw == published on all three; step-0 locked == published on s42/s43, s44 55 vs 54 (1 item, cross-GPU).
+  No capability breach. K duplicates `5919326-28` cancelled after each W pass. s44's first attempt (`1609140`) was preempted, then
+  disk-offloaded at fraction 0.3 on Blackwell and cancelled before producing anything; only `1609337` contributes.
+* As with bio, the s44 PWD organism resists DPO while s42/s43 break (bio recovery 0.89/0.68/0.06, cyber 0.41/0.62/0.00); reported as-is.

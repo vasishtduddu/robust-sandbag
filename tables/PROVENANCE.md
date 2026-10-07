@@ -4664,3 +4664,12 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   No capability breach. K duplicates `5919326-28` cancelled after each W pass. s44's first attempt (`1609140`) was preempted, then
   disk-offloaded at fraction 0.3 on Blackwell and cancelled before producing anything; only `1609337` contributes.
 * As with bio, the s44 PWD organism resists DPO while s42/s43 break (bio recovery 0.89/0.68/0.06, cyber 0.41/0.62/0.00); reported as-is.
+
+## 2026-10-07 22:00 UTC: figure hand-off kit (no figure or data change)
+
+* `tables/figure_data/whitebox_curves.csv` (5,136 rows) freezes exactly what `whitebox_curves.arm_curves` returns for all 72
+  panels; `python -m experiments.figure_data verify` on Killarney: 72 identical, 0 mismatched. `--snapshot` /
+  `POSSUM_FIGURE_DATA=snapshot` makes `whitebox_curves` (panels + composites) and `whitebox_representative_plot` read it.
+* `scripts/render_all_figures.sh` renders all 78 figures from committed data; `docs/FIGURES_README.md` is the restyling guide.
+  Verified from a fresh clone (system Python 3.12.3, only `requirements-figures.txt`: matplotlib 3.11.1, numpy 2.4.2, no torch):
+  78/78 PNGs byte-identical to the committed figures; PDFs differ only in `CreationDate`.

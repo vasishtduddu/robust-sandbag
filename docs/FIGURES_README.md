@@ -31,8 +31,13 @@ for f in $(cd /tmp/fig_baseline && find . -name '*.png'); do cmp -s /tmp/fig_bas
 ```
 
 With the pinned versions in `requirements-figures.txt` this prints nothing (all 78 PNGs are byte-identical; verified
-2026-10-07 from a fresh clone). With other matplotlib versions you may see pixel-level differences only; open a few
-side by side to confirm they are the same figure before proceeding.
+2026-10-07 from a fresh clone with system Python 3.12.3 and only those two packages). With other matplotlib versions you
+may see pixel-level differences only; open a few side by side to confirm they are the same figure before proceeding.
+Compare PNGs, not PDFs: every PDF embeds its `CreationDate`, so a re-render always changes the PDF bytes even when
+nothing else changed.
+
+If `pip install` tries to build matplotlib from source and fails, upgrade pip first (`python -m pip install -U pip`);
+old pips miss the prebuilt wheels.
 
 ---
 
@@ -152,7 +157,8 @@ Saved resolution: PNG at dpi 250 (composites 200), PDF vector; both are always w
    composites (18 small panels) and the boxplot (dense) are where text collisions show up first.
 5. When happy, render in place (`bash scripts/render_all_figures.sh`), then confirm only figure files changed:
    `git status --short` should list `tables/**/*.png|pdf` plus your code edits, and **no** change to any `.csv`
-   except possibly `tables/jailbreak/jailbreak_boxplot_combined.csv` with an empty diff.
+   (`tables/jailbreak/jailbreak_boxplot_combined.csv` is rewritten with identical bytes). All 78 PDFs always show as
+   modified because of their embedded timestamp; that is expected.
 6. Commit code + all regenerated PNG/PDF together, and add a short entry at the bottom of `tables/PROVENANCE.md`
    (date, what styling changed, "no data change", the command used). Open a PR into `mark/baseline-exps`.
 

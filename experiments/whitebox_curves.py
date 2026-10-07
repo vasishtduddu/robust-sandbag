@@ -126,6 +126,77 @@ def render(technique: str, model: str, task: str, out_dir: Path, *, require_pwd:
     return stem, curves
 
 
+MODEL_LABEL = {"qwen2.5-7b-it": "Qwen2.5-7B", "qwen2.5-14b-it": "Qwen2.5-14B", "qwen2.5-32b-it": "Qwen2.5-32B"}
+TASK_LABEL = {"bio": "WMDP-Bio", "chem": "WMDP-Chem", "cyber": "WMDP-Cyber",
+              "mmlu-prof": "MMLU-Prof", "mmlu-stem": "MMLU-STEM", "mmlu-hss": "MMLU-HSS"}
+
+
+def render_composite(technique: str, out_dir: Path, models=MODELS, tasks=TASKS):
+    """One figure per technique: rows = models, columns = datasets (Mark 10-04 final deliverable).
+
+    Each panel is gated exactly like ``render`` (FT panels need both arms at full seed count), and a
+    panel that fails its gate is drawn as "pending" rather than silently dropped, so a partial
+    composite can never pass for a complete one. Returns (stem or None, {(model, task): seeds}).
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+
+    ft_tech = technique in ("sft", "dpo")
+    plot_style.apply()
+    plt.rcParams.update({"axes.titlesize": 19, "axes.labelsize": 18,
+                         "xtick.labelsize": 13, "ytick.labelsize": 13})
+    fig, axes = plt.subplots(len(models), len(tasks), figsize=(3.9 * len(tasks), 3.3 * len(models)), squeeze=False)
+    seeds, missing = {}, []
+    for i, model in enumerate(models):
+        for j, task in enumerate(tasks):
+            ax = axes[i][j]
+            curves = arm_curves(technique, model, task)
+            seeds[(model, task)] = {org: len(c) for org, c in curves.items()}
+            ok = "obfcot" in curves and (not ft_tech or "pwd" in curves) and not any(
+                len(c) < (min(3, PWD_TWO_SEED_CELLS.get((model, task), 3)) if org == "pwd" else 3)
+                for org, c in curves.items() if ft_tech)
+            ytop = 0.0
+            if ok:
+                for org, label, color, ls in ARMS:
+                    if org in curves:
+                        x, mean, err = sw._aggregate(curves[org])
+                        plot_style.draw_mean_band(ax, x, mean * 100.0, err * 100.0, color=color, linestyle=ls)
+                        ytop = max(ytop, float(np.max((mean + err) * 100.0)))
+            else:
+                missing.append((model, task))
+                ax.text(0.5, 0.5, "pending", transform=ax.transAxes, ha="center", va="center",
+                        fontsize=15, color="#999999", style="italic")
+                ax.set_xticks([])
+            import math
+            ax.set_ylim(0, min(100.0, max(10.0, math.ceil(ytop * 1.15 / 10.0) * 10.0)))
+            ax.grid(axis="y", alpha=0.25, linewidth=0.8)
+            ax.set_axisbelow(True)
+            ax.tick_params(axis="both", length=3, width=1)
+            plot_style.despine(ax)
+            if i == 0:
+                ax.set_title(TASK_LABEL[task])
+            if ok and technique == "fuzzing":  # 0.0000..0.0100 tick labels collide at composite width
+                from matplotlib.ticker import FormatStrFormatter, MaxNLocator
+                ax.xaxis.set_major_locator(MaxNLocator(3))
+                ax.xaxis.set_major_formatter(FormatStrFormatter("%g"))
+            if i == len(models) - 1:
+                ax.set_xlabel(XLABEL[technique])
+            if j == 0:
+                ax.set_ylabel(f"{MODEL_LABEL[model]}\nElicitation Acc. (%)")
+    handles = [Line2D([], [], color=c, linewidth=2.6, linestyle=(0, (1.2, 1.4)) if ls == "dotted" else "-", label=lab)
+               for _, lab, c, ls in ARMS]
+    fig.legend(handles=handles, loc="upper center", ncol=2, fontsize=17, frameon=False, bbox_to_anchor=(0.5, 1.0))
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    name = f"{technique}_composite"
+    for ext in ("pdf", "png"):
+        fig.savefig(out_dir / f"{name}.{ext}", bbox_inches="tight", dpi=200)
+    plt.close(fig)
+    return out_dir / name, seeds, missing
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--techniques", nargs="+", default=["sft", "dpo", "fuzzing", "pruning"],
@@ -133,7 +204,15 @@ def main() -> None:
     ap.add_argument("--models", nargs="+", default=list(MODELS))
     ap.add_argument("--tasks", nargs="+", default=list(TASKS))
     ap.add_argument("--out-root", type=Path, default=REPO / "tables")
+    ap.add_argument("--composite", action="store_true",
+                    help="write one rows=models x cols=datasets figure per technique instead of single panels")
     a = ap.parse_args()
+    if a.composite:
+        for technique in a.techniques:
+            stem, _, missing = render_composite(technique, a.out_root / technique, a.models, a.tasks)
+            print(f"wrote {stem} panels={len(a.models) * len(a.tasks) - len(missing)}/{len(a.models) * len(a.tasks)}"
+                  + (f" pending={missing}" if missing else ""))
+        return
     for technique in a.techniques:
         for model in a.models:
             for task in a.tasks:

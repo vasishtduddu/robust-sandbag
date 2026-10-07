@@ -4638,3 +4638,14 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   differs by 1 (chem s43, 16 vs 15) or 1 (chem s42, 16 vs 17) item of 83 (cross-GPU), within the max(3, 5% n) tolerance.
 * Capability: no step breaches pw < 0.90 pw_0 except chem s42 at step 1500 (0.90x exactly); end pw >= 0.92x on all six.
 * PWD 32B bio DPO spreads widely across seeds (recovery 0.06 to 0.89); report as-is (mean(SE) band shown).
+
+## 2026-10-07 04:55 UTC: four whitebox COMPOSITE figures (rows = models, cols = datasets); DPO 17/18 pending 32B cyber
+
+* New `experiments/whitebox_curves.py --composite` (`render_composite`): one figure per technique,
+  `tables/{sft,dpo,fuzzing,pruning}/<tech>_composite.{pdf,png}`, 3 x 6 panels, same data path (`arm_curves`), the same per-panel gate
+  as the single panels (FT panels need both arms at full seed count; 32B MMLU-Stem PWD 2 seeds per Mark 09-25), house style
+  (`plot_style`), one shared legend. A panel failing its gate renders as "pending", never dropped.
+* `env -u POSSUM_ARTIFACT_ROOT venv/bin/python -m experiments.whitebox_curves --composite`: SFT 18/18, Fuzzing 18/18, Pruning 18/18,
+  **DPO 17/18 (32B WMDP-Cyber pending: PWD s44, W `1609337` / K `5919328`)**. Spot-checked against single panels (32B bio/chem DPO PWD end
+  47.8 / 38.5%). Fuzzing x-ticks thinned to 3 (`%g`) for legibility at composite width; no data change.
+* Re-run the DPO composite when the 32B cyber panel lands.

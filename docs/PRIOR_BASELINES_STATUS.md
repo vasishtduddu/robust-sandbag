@@ -85,6 +85,8 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   script now sets the fraction from GPU memory (0.45 below 120 GB, i.e. 44 GiB/GPU on Blackwell as K ran on 80 GB H100; 0.3 on H200, unchanged;
   backup `.pre-frac`); resubmitted as W `1609337` (H200|Blackwell), pending FIFO. Lesson: widening a constraint to a smaller card must re-derive
   every memory knob, not just the total.
+* **04:55 UTC Four composite figures rendered** (`whitebox_curves.py --composite`, new): SFT/Fuzzing/Pruning 18/18, DPO 17/18 (32B cyber "pending").
+  `tables/<tech>/<tech>_composite.{pdf,png}`, PROVENANCE entry. Re-render DPO when cyber s44 lands (W `1609337` est. 17:01 UTC; K `5919328`).
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

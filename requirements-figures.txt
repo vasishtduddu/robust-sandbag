@@ -1,0 +1,5 @@
+# Minimal environment for re-rendering the paper figures (docs/FIGURES_README.md). No torch/GPU needed.
+# Pinned to the versions that produced the committed figures (Python 3.12.4); other versions render
+# fine but may differ by a few pixels, so pin these if you want byte-identical regression checks.
+matplotlib==3.11.1
+numpy==2.4.2

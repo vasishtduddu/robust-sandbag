@@ -91,7 +91,12 @@ def main() -> int:
     ap.add_argument("--task", default="bio")
     ap.add_argument("--out-dir", default="tables/representative")
     ap.add_argument("--allow-missing-arm", action="store_true")
+    ap.add_argument("--snapshot", action="store_true",
+                    help="read the committed tables/figure_data/whitebox_curves.csv (no cluster access needed)")
     a = ap.parse_args()
+    if a.snapshot:
+        import os
+        os.environ["POSSUM_FIGURE_DATA"] = "snapshot"
     p = make_figure(a.model, a.task, a.out_dir, a.allow_missing_arm)
     print(f"[whitebox_representative_plot] wrote {p} (and .pdf)")
     return 0

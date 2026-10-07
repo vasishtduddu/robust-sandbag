@@ -71,7 +71,14 @@ def _ft_curves(root: Path, technique: str, model: str, task: str):
 
 
 def arm_curves(technique: str, model: str, task: str) -> dict:
-    """{organism: [per-seed [(x, accuracy fraction)]]} for the arms that have data."""
+    """{organism: [per-seed [(x, accuracy fraction)]]} for the arms that have data.
+
+    With ``POSSUM_FIGURE_DATA=snapshot`` this reads the committed ``tables/figure_data/whitebox_curves.csv``
+    (``figure_data``) instead of the cluster roots, so the figures render from a plain GitHub checkout.
+    """
+    from . import figure_data
+    if figure_data.use_snapshot():
+        return figure_data.snapshot_curves(technique, model, task)
     if technique in ("sft", "dpo"):
         roots = FT_ROOTS.get((technique, model))
         if roots is None:
@@ -206,7 +213,12 @@ def main() -> None:
     ap.add_argument("--out-root", type=Path, default=REPO / "tables")
     ap.add_argument("--composite", action="store_true",
                     help="write one rows=models x cols=datasets figure per technique instead of single panels")
+    ap.add_argument("--snapshot", action="store_true",
+                    help="read the committed tables/figure_data/whitebox_curves.csv (no cluster access needed)")
     a = ap.parse_args()
+    if a.snapshot:
+        import os
+        os.environ["POSSUM_FIGURE_DATA"] = "snapshot"
     if a.composite:
         for technique in a.techniques:
             stem, _, missing = render_composite(technique, a.out_root / technique, a.models, a.tasks)

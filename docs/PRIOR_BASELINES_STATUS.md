@@ -72,6 +72,12 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   Only K jobs left: cyber `5919326-28` (cancel each as its W twin passes).
 * **23:57 UTC** cyber s42 `1608916` / s43 `1608915` in DPO training on W (no reload; step-0 locked 0.1228 / 0.1128 == the K expect_nopw exactly;
   pw 0.629 / 0.592), ~2.4 s/it, done ~02:15 UTC 10-07. cyber s44 staged 23:40 (14/14 sha), W `1609140` submitted 23:41.
+* **01:41 UTC 10-07: PWD 32B cyber DPO s42 (W `1608916`) + s43 (`1608915`) POST-GATE PASS** (2:35 each). TEST n=399: step 0 == published exactly
+  (s42 49/399 / pw 0.629; s43 45/399 / 0.592; K SFT step 0 49 / 42 of 399); end locked 0.331 / 0.411, pw 0.604 / 0.619, **RECOVERY +0.41 / +0.62**,
+  no capability breach. Synced (curves `22b7641d` / `3ce25db6`, JSONs `57cff590` / `63021ebf`, summaries); **K `5919326/27` cancelled**; W staged
+  cyber run01/02 removed. **cyber s44 W `1609140` still PENDING:** FIFO single-GPU jobs from another user took watgpu708's 4 freed H200s; every
+  H200/Blackwell node is fully allocated; W est. 10-09 20:38. Constraint widened in place to `H200|Blackwell` (2x 98 GB > the 2x H100 that ran
+  this on K). K `5919328` (est. 10-08 08:02 EDT) kept as the parallel path; first to start wins.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

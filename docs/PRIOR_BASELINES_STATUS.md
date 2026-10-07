@@ -78,6 +78,13 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   cyber run01/02 removed. **cyber s44 W `1609140` still PENDING:** FIFO single-GPU jobs from another user took watgpu708's 4 freed H200s; every
   H200/Blackwell node is fully allocated; W est. 10-09 20:38. Constraint widened in place to `H200|Blackwell` (2x 98 GB > the 2x H100 that ran
   this on K). K `5919328` (est. 10-08 08:02 EDT) kept as the parallel path; first to start wins.
+* **04:48 UTC 10-07 6h check + cyber s44 fix.** Watcher heartbeats < 105 s, locks + sentinel held; K terminal states in 7 h = my cancels `5919322/25/26/27`,
+  all in `events_all.log` by (id, end). Only K job left: `5919328` cyber s44 PENDING (est. 10-08 08:02 EDT). W `1609140` started 03:04 on Blackwell
+  watgpu1008, was PREEMPTED 03:34 and requeued 03:36, then **stalled: `POSSUM_DEVICE_MEM_FRACTION=0.3` of a 98 GB Blackwell = 28 GiB/GPU, 56 GiB
+  total < the 64 GB merged organism, so accelerate offloaded weights to DISK** (log silent 70 min after "offloaded to the disk"). Cancelled;
+  script now sets the fraction from GPU memory (0.45 below 120 GB, i.e. 44 GiB/GPU on Blackwell as K ran on 80 GB H100; 0.3 on H200, unchanged;
+  backup `.pre-frac`); resubmitted as W `1609337` (H200|Blackwell), pending FIFO. Lesson: widening a constraint to a smaller card must re-derive
+  every memory knob, not just the total.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

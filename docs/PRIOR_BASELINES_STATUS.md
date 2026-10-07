@@ -87,6 +87,9 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   every memory knob, not just the total.
 * **04:55 UTC Four composite figures rendered** (`whitebox_curves.py --composite`, new): SFT/Fuzzing/Pruning 18/18, DPO 17/18 (32B cyber "pending").
   `tables/<tech>/<tech>_composite.{pdf,png}`, PROVENANCE entry. Re-render DPO when cyber s44 lands (W `1609337` est. 17:01 UTC; K `5919328`).
+* **06:42 UTC** cyber s44 W `1609337` started 05:22 on Blackwell watgpu1008 (fraction 0.45 -> 42 GiB/GPU, no offload, no reload); DPO training at
+  ~3.8 s/it; step-0 locked 0.1378 (55/399) vs K expect 0.1353 (54/399), pw 0.604. ETA ~09:30 UTC. (The 05:53 "missing CANCELLED event" for
+  `1609140` was my grep's word order; the line is in `events_all.log`:1508.)
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

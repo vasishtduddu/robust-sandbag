@@ -102,6 +102,9 @@ bio s44 10-06 16:32 EDT (20:32 UTC), the other six 10-08 08:02 EDT. V/W: none of
   restyle the jailbreak boxplot, 72 whitebox panels, 4 composites, representative 1x4), `scripts/render_all_figures.sh`,
   `requirements-figures.txt`, and the committed curve snapshot `tables/figure_data/whitebox_curves.csv` read via `--snapshot`. Fresh-clone test:
   78/78 PNGs byte-identical, no torch. Refresh the snapshot with `python -m experiments.figure_data export && ... verify` after any curve change.
+* **22:47 UTC 10-07 6h check.** Heartbeats < 115 s, locks + sentinel held; no K terminal states in 7 h; K/W/V queues of ours empty. Idle.
+  Coverage note: the kit reproduces 78 of the 82 figures under `tables/`; not covered: `jailbreak_boxplot_{prior,ours}` (script rebuilds from
+  cluster; data already in the committed CSVs) and the 2 spider plots (dropped 10-02). Offered to Mark to add a CSV path for the two boxplots.
 
 ## 0-HANDOFF-6. 2026-10-06 14:10 UTC, driver session ENDED (Mark: pass driving to a new session). READ FIRST.
 

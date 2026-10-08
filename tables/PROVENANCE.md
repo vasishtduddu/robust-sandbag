@@ -4673,3 +4673,155 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * `scripts/render_all_figures.sh` renders all 78 figures from committed data; `docs/FIGURES_README.md` is the restyling guide.
   Verified from a fresh clone (system Python 3.12.3, only `requirements-figures.txt`: matplotlib 3.11.1, numpy 2.4.2, no torch):
   78/78 PNGs byte-identical to the committed figures; PDFs differ only in `CreationDate`.
+
+## 2026-10-07: jailbreak combined boxplot restyled for two-column placement (no data change)
+
+* Vasisht's brief: drop the "Prior Work"/"Ours" headings and the tinted section bands, close the white
+  gutter between the two halves, drop the "Model Organisms" x-axis label, move the model-size key off its
+  bottom row, and push type and box sizes up so the figure survives `\includegraphics` at two-column width.
+* Styling only, confined to `experiments/jailbreak_boxplots.py` and to its `is_combined` branch: the `prior`
+  and `ours` variants and all 77 whitebox figures are untouched (`plot_style.py` not edited, so no global
+  restyle was triggered and the other families did not need re-rendering).
+  - `COMBINED_X` 0/1/2/3.8/4.8/5.8 -> 0..5 (uniform); `xlim` right edge 6.35 -> 5.55; divider `axvline` 2.9 -> 2.5,
+    now the only prior/ours cue (both `axvspan` bands and both heading `ax.text` calls removed).
+  - Per-figure rcParams overlay (precedent: `whitebox_curves.render_composite`): titles 27, x ticks 20 at 30 deg,
+    y ticks 21, legend 22, figure label 25. `left` 0.065 -> 0.092 so the enlarged y ticks clear the shared y label.
+  - Boxes: `widths` 0.18 -> 0.28, model offsets +/-0.23 -> +/-0.32, seed jitter +/-0.035 -> +/-0.052, marker 5 -> 6.5,
+    scatter 31 -> 46, box/median/whisker line widths up. Figure 18.8x8.0 -> 15.0x9.2 (taller panels at a fixed page width).
+  - Model-size key moved from the bottom row into the upper-right of the top-right panel (`_inpanel_model_legend`),
+    which is empty in all six datasets; `bottom` 0.17 -> 0.105, title `pad` 22 -> 10, `hspace` 0.30 -> 0.24.
+* No data change: `tables/jailbreak/*.csv` byte-identical after the run (`git diff -- '*.csv'` empty), `_aggregate`,
+  seed handling and the 324 plotted seed values untouched. Command:
+  `python -m experiments.jailbreak_boxplots --table combined --prior-csv ... --ours-csv ... --out-dir tables/jailbreak`
+  (matplotlib 3.11.1 / numpy 2.4.2 per `requirements-figures.txt`).
+
+### Second pass, same day: grouping, box size, broken y axis (still no data change)
+
+* Follow-up brief: the six organisms read as one continuous band of boxes, so separate them and keep
+  the separation restrained; the boxes themselves are too small; print `RobCoT` instead of
+  `RoBCoTDstl`; make the legend TITLE larger than its 7B/14B/32B entries (matplotlib's default had it
+  the other way round) and move the legend clear of the data.
+* Geometry. `COMBINED_PITCH = 1.34` replaces unit spacing (centres 0, 1.34, ..., 6.70), with `xlim`
+  derived from the pitch. Model offsets +/-0.32 -> +/-0.355, `widths` 0.28 -> 0.36, seed jitter
+  +/-0.052 -> +/-0.058, figure 15.0x9.2 -> 14.2x9.2. At a fixed `\textwidth` a box's printed width is
+  `widths / total x range`, so the gaps and the box size trade off directly; the wider pitch is paid
+  for by the wider boxes, not by shrinking them.
+* BROKEN Y AXIS, which is what actually made the boxes legible. The data is bimodal (prior work
+  76-100%, proposed organisms 0-30%), so a linear axis spent ~40% of every panel on a band no seed
+  occupies. `ax.set_yscale("function", ...)` with a monotone piecewise-linear pair compresses 32-72%
+  by 10x (`Y_BREAK_LO/HI/SQUEEZE`), ticks become 0/10/20/30 and 80/90/100, and `_mark_y_break` draws
+  the standard slanted break marks on the y spine at both ends of the compressed band. The band is
+  COMPRESSED, not removed: the axis stays monotone, every tick is labelled, and no seed value is
+  hidden or clipped. Both clusters roughly double in height.
+* Separation between organisms, settled after four renders. Alternating grey tiles (`axvspan`) read as
+  blocky stripes; near-black full-height hairlines (a faded `LineCollection`) read as a table grid and
+  competed with the y gridlines; a rule confined to the axis margin was too quiet to tell the groups
+  apart at column width. The kept version is three cues of increasing strength: whitespace (pitch 1.42,
+  so the gap between groups is more than ten times the gap inside one), `_boundary_rule`, a `#dcdcdc`
+  full-height rule at every organism boundary continuing just below the spine, and the dashed `#9a9a9a`
+  divider for the one boundary that is not merely a grouping, prior vs ours. The rule is lighter than
+  the divider on purpose so the two do not compete. Final geometry after the 2026-10-08 passes: pitch
+  1.90, model offsets +/-0.54, `widths` 0.46, seed jitter +/-0.075, scatter 58, flier 7.5,
+  box/median/whisker line widths 2.4/3.4/2.0; boundary rule `#c4c4c4` at 1.8, divider `#6f6f6f` dashed
+  at 2.2. The three model-size boxes inside one organism are separated by 0.08 while two organisms are
+  separated by 0.36, i.e. the within-group gap is visible but the grouping still dominates.
+* Legend: titled `Model`, pinned to the top-RIGHT corner of the top-right panel, with explicit
+  `fontsize`/`title_fontsize` so the title is the larger of the two (entries previously inherited
+  `legend.fontsize` while the title fell back to `font.size`, i.e. the reverse). Placement is MEASURED,
+  not guessed: `_inpanel_model_legend` draws, compares the legend's left edge against the prior/ours
+  divider, and steps the pair (21,27) -> (19,24) -> (17,22) -> (15,19) down until it clears. An
+  "upper right" placement at fixed padding had silently covered the SysPr boxes in WMDP-Cyber once the
+  organisms were spread out, which is exactly the failure this check removes.
+* Type sizes raised for two-column reduction: titles 27 -> 30, organism tick labels 20 -> 23, y ticks
+  21 -> 24, shared y label 25 -> 28; `left` 0.092 -> 0.102 so the larger y ticks clear it.
+* Horizontal gridlines REMOVED on the combined figure (`ax.grid` now applies to the prior/ours variants
+  only): with the compressed band they added clutter without aiding the reading.
+* The y break is cut, not just marked: `_mark_y_break` erases the spine across the compressed band with
+  a white overlay and draws a large slanted rule at each cut end, extending slightly into the panel.
+* `RoBCoTDstl` -> `RobCoT` is a FIGURE-LOCAL override (`FIGURE_LABELS` in `jailbreak_boxplots.py`), not
+  a change to `naming.ORGANISMS`, because every generated table in `tables/` prints the name through
+  `\providecommand{\backdoorcot}{RoBCoTDstl}`; renaming the SSOT would leave the committed `.gen.tex`
+  files disagreeing with the code until they are regenerated.
+* No data change: `tables/jailbreak/*.csv` byte-identical (`git diff -- "*.csv"` empty), 324 seed values,
+  and nothing outside the `is_combined` branch was touched, so the `prior`/`ours` variants and all 77
+  whitebox figures are unchanged.
+
+## 2026-10-08: representative whitebox figure rebuilt as 1x3 (no data change)
+
+* Vasisht's brief: the 1x4 row looked poor at paper scale, merge SFT and DPO into one plot, and raise
+  the type and tick sizes.
+* SFT and DPO share an x axis (optimizer steps) and the same two arms, so they are now ONE panel
+  (`FT_PANEL`): color still carries the arm, line style carries the technique (SFT solid, DPO dashed),
+  and a small key inside that panel explains the styles. For the same reason the Fuzzing and Pruning
+  arms are now both solid (color-only arm encoding), so style never means two things at once.
+* The layout is the point: 1x4 at `CURVE_FIGSIZE * 4` was 30.4x5.4in, i.e. reduced to ~23% at
+  `\textwidth`, which is why every label read as tiny. The figure is now sized for ONE COLUMN at
+  9.4x4.0in: at `\columnwidth` (~3.3in) that is a 35% reduction, so the 27pt titles print at ~9.5pt
+  and the 23pt ticks at ~8pt. Verified by rendering the PNG back at 3.3in before accepting it.
+* Crowding at that width was fixed by shortening, not by shrinking type: x labels drop the technique
+  name the panel title already carries, at most 3 x ticks and 4 y ticks per panel, and the fuzzing and
+  fine-tuning x values are RESCALED for display (`XSCALE`), with the factor stated in the label, so
+  the ticks read "0 4 8" and "0 1 2" instead of "0.000 0.004 0.008" and "0 1000 2000". No data is
+  transformed in the underlying CSV; the scaling happens at plot time in `_draw`.
+* The y label keeps the FULL "Elicitation Accuracy (%)" (Vasisht 2026-10-08). It was briefly
+  abbreviated to "Elicitation Acc. (%)" because at the body label size the rotated string is taller
+  than its own panel; `_fit_ylabel` now steps 19 -> 17 -> 16 -> 15 -> 14 and keeps the largest size
+  that measures within the axes height, so the name is intact and nothing overruns into the title or
+  the x labels.
+* TYPE SIZES ARE MATCHED TO THE COMBINED BOXPLOT, which is the comparison a reader actually makes
+  (both figures in the same paper). Printed size is point size times the reduction factor, and the two
+  canvases differ: 9.46in saved here against 14.16in for the boxplot, so at equal point sizes this
+  figure's text would print 1.50x larger. Every size is therefore the boxplot's times 0.668: titles
+  30 -> 20, y ticks 24 -> 16, x ticks 23 -> 15, axis labels 28 -> 19, legend 21 -> 14, curve width
+  2.6 -> 2.0, tick marks 5/1.2 -> 4/1.0. RE-DERIVE THESE IF EITHER CANVAS CHANGES; checked by
+  rendering both PNGs back at one placement width and comparing them side by side.
+* Figure-local `RCPARAMS` (titles 27, axis labels 25, ticks 22, legend 21), line width 2.6 -> 3.0,
+  tick marks 4/1 -> 6/1.3, at most 4 x ticks and 5 y ticks per panel (`MaxNLocator`), no horizontal
+  gridlines. `plot_style` is NOT edited (that would make
+  all 77 other curve figures stale), so `_draw` and `_finish` replace `draw_mean_band` and
+  `finish_curve_axes` for this figure only.
+* Both legends sit INSIDE panels, so no vertical band is spent on a legend row: the arm key in the
+  Fuzzing panel's upper-left corner (empty, its curves stay under 30% until sigma ~0.003) and the
+  SFT/DPO style key in the Fine-tuning panel. `top` 0.80 -> 0.915.
+* Arm labels via the figure-local `FIGURE_LABELS` override (as in the boxplot, and for the same
+  reason: the generated tables still print the old names through `\providecommand`):
+  `RoBCoTDstl` -> `RobCoT`, `Password Locking` -> `PWD`.
+* No data change: the panels still read `tables/figure_data/whitebox_curves.csv` through
+  `whitebox_curves.arm_curves`, with mean +/- 1 SE from `sweep_curve_plot._aggregate`, 3 seeds per arm
+  (printed by the run). Command:
+  `python -m experiments.whitebox_representative_plot --snapshot --out-dir tables/representative`.
+
+## 2026-10-08: appendix whitebox grids, 72 single panels -> 3 figures (no data change)
+
+* Vasisht asked for every remaining model and dataset in the appendix without one figure per cell.
+  `whitebox_curves.render_appendix` writes THREE grids to `tables/appendix/`, rows = the 3 models,
+  columns = the 6 datasets: `whitebox_appendix_fuzzing`, `_pruning`, `_finetuning`. All 54 panels
+  render (18/18 each), so nothing is "pending".
+* Grouped by TECHNIQUE, not by model, because the x unit is per technique (sigma, sparsity, steps);
+  a per-model grid would put three different x units in one figure. SFT and DPO merge into one grid
+  exactly as in the main-paper figure, which is what turns four grids into three.
+* Same visual language as `whitebox_representative_plot` (the constants are imported from it, lazily,
+  since it imports this module): color = arm, line style = technique inside the merged grid, arm
+  labels RobCoT / PWD, rescaled x values with the factor in the label, no horizontal gridlines.
+* Differences from the older `render_composite` output in `tables/{sft,dpo,fuzzing,pruning}/`:
+  - SHARED x and y axes across all 18 panels, where the composite set each panel's ylim from its own
+    maximum. One scale makes the panels comparable and confines tick labels to the left column and
+    bottom row. A reader can no longer mistake two differently-scaled panels for equal effects.
+  - One figure-level x label and y label (`supxlabel`/`supylabel`) instead of six and three; the row
+    label carries only the model name, at 17pt (at the body 21pt it is taller than its own panel and
+    the three rows collided). `left` is 0.082 so the metric name sits just outside the row labels
+    rather than across a band of empty page.
+  - The legend is INSIDE the grid, not on a row above it, so no vertical band is spent on all 18
+    panels (`top` 0.885 -> 0.935). Its host panel is MEASURED, not fixed: the top-row panel whose
+    curves peak lowest under the shared y limit has the most clear headroom (MMLU-Prof for
+    fine-tuning, MMLU-HSS for pruning and fuzzing), and the font is stepped 16 -> 14 -> 12 -> 10
+    until the legend fits inside that panel. A legend sized by eye overflowed into the neighbouring
+    column, which is worse than the row it replaced.
+  - Type sized for a `figure*` at ~7in: titles 21, ticks 16, legend 20 on a 16.2x7.2in canvas, i.e.
+    ~9pt titles and ~7pt ticks printed. The old composite's 19/13 on a 23.4in canvas printed at
+    ~5.7pt and ~3.9pt.
+* The four `*_composite` figures are left in place but are superseded for appendix use.
+* No data change: same `arm_curves` over the committed snapshot, same seed gate as `render_composite`
+  (`_panel_is_complete`, extracted so the two cannot drift), mean +/- 1 SE from `_aggregate`. Command:
+  `python -m experiments.whitebox_curves --snapshot --appendix --out-root tables`, now also in
+  `scripts/render_all_figures.sh`.

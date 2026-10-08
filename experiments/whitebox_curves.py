@@ -204,6 +204,147 @@ def render_composite(technique: str, out_dir: Path, models=MODELS, tasks=TASKS):
     return out_dir / name, seeds, missing
 
 
+#: Appendix grids (Vasisht 2026-10-08): every model x dataset for every technique, in THREE figures
+#: instead of 72 single panels. Grouped by technique because the x units are per-technique, and the
+#: two fine-tuning techniques share an x axis so they merge into one grid exactly as in Figure 3.
+APPENDIX_FAMILIES = (
+    ("fuzzing", ("fuzzing",), "Fuzzing"),
+    ("pruning", ("pruning",), "Pruning"),
+    ("finetuning", ("sft", "dpo"), "Fine-tuning"),
+)
+#: Point sizes for an 18-panel grid placed across both columns (~7in): the reduction is ~0.43, so
+#: these print at roughly 9pt titles / 7pt ticks. Larger than the old composite's 19/13, which
+#: printed at ~5.7/3.9pt on a 23.4in canvas.
+APPENDIX_RCPARAMS = {
+    "axes.titlesize": 21,
+    "axes.labelsize": 21,
+    "xtick.labelsize": 16,
+    "ytick.labelsize": 16,
+    "legend.fontsize": 16,
+    "figure.labelsize": 23,
+}
+APPENDIX_FIGSIZE = (16.2, 7.2)
+APPENDIX_LINEWIDTH = 2.2
+
+
+def _panel_is_complete(technique: str, curves: dict, model: str, task: str) -> bool:
+    """The gate render/render_composite apply: a panel is drawn only at full seed count."""
+    ft = technique in ("sft", "dpo")
+    if "obfcot" not in curves or (ft and "pwd" not in curves):
+        return False
+    return not any(
+        len(c) < (min(3, PWD_TWO_SEED_CELLS.get((model, task), 3)) if org == "pwd" else 3)
+        for org, c in curves.items() if ft
+    )
+
+
+def render_appendix(family: str, techniques, title: str, out_dir: Path, models=MODELS, tasks=TASKS):
+    """One appendix figure per technique family: rows = models, columns = datasets.
+
+    Same visual language as the main-paper figure (``whitebox_representative_plot``): color carries
+    the arm, line style carries the technique inside the merged fine-tuning grid, arm labels are
+    RobCoT / PWD, x values are rescaled so the tick labels stay short, and there are no horizontal
+    gridlines. A panel that fails its seed gate is drawn as "pending", never silently dropped.
+    """
+    import math
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    from matplotlib.ticker import MaxNLocator
+
+    # Imported lazily: whitebox_representative_plot imports this module, so a top-level import
+    # here would be circular. It owns the shared style constants (one definition, two figures).
+    from . import whitebox_representative_plot as rep
+
+    plot_style.apply()
+    plt.rcParams.update(APPENDIX_RCPARAMS)
+    merged = len(techniques) > 1
+    # Shared axes, unlike the old per-panel composite: one y scale makes the 18 panels directly
+    # comparable (and matches the main-paper figure), and it confines the tick labels to the left
+    # column and bottom row, which is most of what made the dense grid look cluttered.
+    fig, axes = plt.subplots(len(models), len(tasks), figsize=APPENDIX_FIGSIZE, squeeze=False,
+                             sharex=True, sharey=True)
+    seeds, missing, ymax = {}, [], 0.0
+    panel_max: dict[tuple[int, int], float] = {}
+    for i, model in enumerate(models):
+        for j, task in enumerate(tasks):
+            ax, drawn = axes[i][j], False
+            for technique in techniques:
+                curves = arm_curves(technique, model, task)
+                seeds[(technique, model, task)] = {org: len(c) for org, c in curves.items()}
+                if not _panel_is_complete(technique, curves, model, task):
+                    continue
+                linestyle = rep.FT_STYLE[technique][1] if merged else "solid"
+                for org, _, color, _ in ARMS:
+                    if org not in curves:
+                        continue
+                    x, mean, err = sw._aggregate(curves[org])
+                    x, mean, err = np.asarray(x) * rep.XSCALE[technique], mean * 100.0, err * 100.0
+                    ax.fill_between(x, mean - err, mean + err, color=color, alpha=0.16,
+                                    linewidth=0, zorder=1)
+                    ax.plot(x, mean, linestyle=linestyle, color=color,
+                            linewidth=APPENDIX_LINEWIDTH, solid_joinstyle="miter", zorder=3)
+                    peak = float(np.max(mean + err))
+                    ymax = max(ymax, peak)
+                    panel_max[(i, j)] = max(panel_max.get((i, j), 0.0), peak)
+                drawn = True
+            if not drawn:
+                missing.append((model, task))
+                # No set_xticks([]) here: the axes are shared, so blanking one blanks the column.
+                ax.text(0.5, 0.5, "pending", transform=ax.transAxes, ha="center", va="center",
+                        fontsize=15, color="#999999", style="italic")
+            ax.xaxis.set_major_locator(MaxNLocator(nbins=3))
+            ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+            ax.tick_params(axis="both", length=4, width=1.0)
+            ax.set_axisbelow(True)
+            plot_style.despine(ax)
+            if i == 0:
+                ax.set_title(TASK_LABEL[task], pad=6)
+            if j == 0:
+                # The model names the ROW; both axis names are figure-level (supxlabel/supylabel),
+                # since with shared axes all six columns carry the same x unit and all 18 panels the
+                # same y unit, so repeating either 6 times is pure clutter. The row label is set
+                # below the body size: at 21pt "Qwen2.5-14B" is taller than its own panel and the
+                # three rows' labels ran into each other.
+                ax.set_ylabel(MODEL_LABEL[model], fontsize=17, labelpad=4)
+
+    axes[0][0].set_ylim(0, min(100.0, max(10.0, math.ceil(ymax * 1.12 / 10.0) * 10.0)))
+    handles = [Line2D([], [], color=color, linewidth=APPENDIX_LINEWIDTH, linestyle="solid",
+                      label=rep.FIGURE_LABELS.get(org, label))
+               for org, label, color, _ in ARMS]
+    if merged:
+        handles += [Line2D([], [], color="#6f6f6f", linewidth=APPENDIX_LINEWIDTH, linestyle=linestyle,
+                           label=name) for name, linestyle in rep.FT_STYLE.values()]
+    fig.supylabel("Elicitation Accuracy (%)", x=0.016)
+    fig.supxlabel(rep.FT_XLABEL if merged else rep.XLABEL_SHORT[techniques[0]], y=0.012)
+    # left is tight on purpose: the row label sits just outside the y ticks and the metric name just
+    # outside that, so the two are not separated by a band of empty page (Vasisht 2026-10-08).
+    fig.subplots_adjust(left=0.082, right=0.996, bottom=0.105, top=0.935, wspace=0.09, hspace=0.20)
+    # The legend goes INSIDE the emptiest top-row panel rather than on a row above the grid, which
+    # cost a band of vertical space on all 18 panels. "Emptiest" is measured, not assumed: the panel
+    # whose curves peak lowest has the most clear headroom under the shared y limit.
+    host = axes[0][min(range(len(tasks)), key=lambda j: panel_max.get((0, j), 0.0))]
+    # Stepped down until it fits INSIDE that panel: at one panel's width a legend set by eye
+    # overflowed into the neighbouring column, which is worse than the row it replaced.
+    for size, handlelength in ((16, 2.0), (14, 1.7), (12, 1.5), (10, 1.3)):
+        legend = host.legend(handles=handles, loc="upper left", ncol=1, fontsize=size,
+                             frameon=True, framealpha=0.95, edgecolor="#d9d9d9", fancybox=True,
+                             borderpad=0.3, labelspacing=0.22, handlelength=handlelength,
+                             handletextpad=0.45, borderaxespad=0.35)
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        if legend.get_window_extent(renderer).x1 <= host.get_window_extent(renderer).x1:
+            break
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    name = f"whitebox_appendix_{family}"
+    for extension in ("pdf", "png"):
+        fig.savefig(out_dir / f"{name}.{extension}", bbox_inches="tight", dpi=200)
+    plt.close(fig)
+    return out_dir / name, seeds, missing
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--techniques", nargs="+", default=["sft", "dpo", "fuzzing", "pruning"],
@@ -213,12 +354,22 @@ def main() -> None:
     ap.add_argument("--out-root", type=Path, default=REPO / "tables")
     ap.add_argument("--composite", action="store_true",
                     help="write one rows=models x cols=datasets figure per technique instead of single panels")
+    ap.add_argument("--appendix", action="store_true",
+                    help="write the three appendix grids (Fuzzing, Pruning, merged Fine-tuning) to tables/appendix/")
     ap.add_argument("--snapshot", action="store_true",
                     help="read the committed tables/figure_data/whitebox_curves.csv (no cluster access needed)")
     a = ap.parse_args()
     if a.snapshot:
         import os
         os.environ["POSSUM_FIGURE_DATA"] = "snapshot"
+    if a.appendix:
+        for family, techniques, title in APPENDIX_FAMILIES:
+            stem, _, missing = render_appendix(family, techniques, title, a.out_root / "appendix",
+                                               a.models, a.tasks)
+            total = len(a.models) * len(a.tasks)
+            print(f"wrote {stem} panels={total - len(missing)}/{total}"
+                  + (f" pending={missing}" if missing else ""))
+        return
     if a.composite:
         for technique in a.techniques:
             stem, _, missing = render_composite(technique, a.out_root / technique, a.models, a.tasks)

@@ -69,9 +69,24 @@ MODEL_STYLE = {
 PRIOR_ORGANISMS = tuple(naming.TABLE_ORGANISMS["prior"])
 OURS_ORGANISMS = tuple(naming.TABLE_ORGANISMS["ours"])
 COMBINED_ORGANISMS = PRIOR_ORGANISMS + OURS_ORGANISMS
-# A deliberate gutter makes the prior/ours split readable without adding a
-# second visual encoding to the already color-coded model-size boxes.
-COMBINED_X = dict(zip(COMBINED_ORGANISMS, (0.0, 1.0, 2.0, 3.8, 4.8, 5.8)))
+# Uniform spacing (Vasisht 2026-10-07): the prior/ours split is carried by the dashed
+# divider alone, so no gutter, no background tint and no section headings. Every organism
+# then sits on the same pitch, with the air that used to be one wide gutter redistributed
+# as a visible gap between all six groups (Vasisht 2026-10-07, second pass: the groups read
+# as one continuous band of boxes at pitch 1.0).
+COMBINED_PITCH = 1.90
+COMBINED_X = dict(
+    zip(COMBINED_ORGANISMS, tuple(index * COMBINED_PITCH for index in range(len(COMBINED_ORGANISMS))))
+)
+#: Half-width of one organism's group of three boxes, and of the panel margin beside it.
+COMBINED_GROUP_HALF = 0.77
+COMBINED_BAND_HALF = 0.88
+
+# Figure-local arm label. naming.ORGANISMS carries "RoBCoTDstl", which every generated
+# table in tables/ also prints via \providecommand{\backdoorcot}; renaming it there would
+# make the committed .gen.tex files disagree with the code until they are regenerated. The
+# figure therefore overrides the label locally (Vasisht 2026-10-07).
+FIGURE_LABELS = {"obfcot": "RobCoT"}
 
 
 @dataclass(frozen=True)
@@ -435,6 +450,114 @@ def organisms_for_plot(table: str) -> tuple[str, ...]:
     return tuple(naming.TABLE_ORGANISMS[table])
 
 
+def _boundary_rule(ax, x: float) -> None:
+    """A full-height rule between two organisms, continuing a little below the x spine.
+
+    Vasisht 2026-10-08: a rule confined to the axis margin was too quiet to tell the groups
+    apart at column width. This one crosses the panel, but is set LIGHTER than the dashed
+    prior/ours divider and only a little stronger than a gridline, so it divides without
+    reading as a table grid (the earlier near-black version did).
+    """
+    ax.plot([x, x], [-0.03, 1.0], transform=ax.get_xaxis_transform(which="grid"),
+            color="#c4c4c4", linewidth=1.8, solid_capstyle="butt", clip_on=False, zorder=0)
+
+
+#: The combined figure's accuracies are strongly bimodal: prior work sits at 76-100% and the
+#: proposed organisms at 0-30%, so a linear axis spends ~40% of every panel on an empty band
+#: that no seed occupies, and squashes both clusters. The band is compressed (not deleted,
+#: and the axis stays monotone and labelled) and the break is marked on the spine.
+Y_BREAK_LO, Y_BREAK_HI, Y_BREAK_SQUEEZE = 32.0, 72.0, 0.10
+COMBINED_YTICKS = (0, 10, 20, 30, 80, 90, 100)
+
+
+def _broken_y_transforms():
+    """Monotone piecewise-linear forward/inverse pair for ``ax.set_yscale('function', ...)``."""
+    import numpy as np
+
+    span = Y_BREAK_HI - Y_BREAK_LO
+    kept = span * Y_BREAK_SQUEEZE
+
+    def forward(y):
+        y = np.asarray(y, dtype=float)
+        middle = np.clip(y, Y_BREAK_LO, Y_BREAK_HI)
+        return (
+            np.minimum(y, Y_BREAK_LO)
+            + (middle - Y_BREAK_LO) * Y_BREAK_SQUEEZE
+            + np.maximum(y - Y_BREAK_HI, 0.0)
+        )
+
+    def inverse(v):
+        v = np.asarray(v, dtype=float)
+        middle = np.clip(v, Y_BREAK_LO, Y_BREAK_LO + kept)
+        return (
+            np.minimum(v, Y_BREAK_LO)
+            + (middle - Y_BREAK_LO) / Y_BREAK_SQUEEZE
+            + np.maximum(v - (Y_BREAK_LO + kept), 0.0)
+        )
+
+    return forward, inverse
+
+
+def _mark_y_break(ax) -> None:
+    """Cut the y spine at the compressed band and mark both cut ends.
+
+    Vasisht 2026-10-08: the compressed band has to be unmissable, otherwise the axis reads as
+    linear and the 30-to-80 jump looks like a plotting error. The spine is erased across the
+    band (white overlay), a faint hatch fills the gap, and a large slanted mark sits at each
+    cut end, extending a little into the panel.
+    """
+    forward, _ = _broken_y_transforms()
+    lo, hi = ax.get_ylim()
+    bottom, top = forward(lo), forward(hi)
+    fractions = [(forward(level) - bottom) / (top - bottom) for level in (Y_BREAK_LO, Y_BREAK_HI)]
+
+    # Erase the spine (and the panel's left edge) across the compressed band.
+    ax.plot([0, 0], [fractions[0], fractions[1]], transform=ax.transAxes, color="white",
+            linewidth=5.0, solid_capstyle="butt", clip_on=False, zorder=6)
+    for fraction in fractions:
+        ax.plot([-0.016, 0.016], [fraction - 0.016, fraction + 0.016], transform=ax.transAxes,
+                color="#5f5f5f", linewidth=2.2, solid_capstyle="round", clip_on=False, zorder=7)
+
+
+def _inpanel_model_legend(fig, axes, Patch) -> None:
+    """Model-size key inside the top-right panel instead of on a row under the figure.
+
+    Vasisht 2026-10-07: the bottom label row cost vertical space that the boxes need. The
+    'ours' half of every panel sits far below the prior-work boxes, so the band to the RIGHT
+    of the prior/ours divider and above the proposed organisms is empty in all six datasets.
+    The key is anchored there in DATA coordinates, so it can never drift back over a prior
+    box the way an 'upper right' placement did once the organisms were spread out, and the
+    type is stepped down only as far as needed to fit inside the panel.
+    """
+    from matplotlib.transforms import blended_transform_factory
+
+    ax = axes[0][-1]
+    handles = [
+        Patch(facecolor=color, edgecolor=color, alpha=0.35, label=label)
+        for label, color in MODEL_STYLE.values()
+    ]
+    transform = blended_transform_factory(ax.transData, ax.transAxes)
+    # Right edge of the panel, with the hard constraint that the box must stay clear of the
+    # prior-work organisms, i.e. start to the right of the prior/ours divider.
+    limit = 2.5 * COMBINED_PITCH + 0.25
+    # The title is the part a reader has to parse ("what do these colors mean?"), the entries
+    # are three short tokens, so the title is set ABOVE the entry size rather than below it,
+    # which is what matplotlib's default legend.title_fontsize gives.
+    for entry_size, title_size in ((21, 27), (19, 24), (17, 22), (15, 19)):
+        legend = ax.legend(
+            handles=handles, loc="upper right", title="Model", ncol=1,
+            fontsize=entry_size, title_fontsize=title_size,
+            bbox_to_anchor=(1.0, 0.995), bbox_transform=ax.transAxes,
+            frameon=True, framealpha=0.95, edgecolor="#d9d9d9", fancybox=True,
+            borderpad=0.4, labelspacing=0.3, handlelength=1.4, handletextpad=0.5,
+            borderaxespad=0.0,
+        )
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        if legend.get_window_extent(renderer).x0 >= transform.transform((limit, 0))[0]:
+            return
+
+
 def _bottom_row_label_and_legend(fig, axes, Patch) -> None:
     """Put the x-axis label and the model-size legend on ONE line under the tick labels.
 
@@ -505,42 +628,39 @@ def render_boxplot(
         by_cell.setdefault((point.organism, point.model, point.dataset), []).append(point)
 
     is_combined = table == "combined"
-    fig_width = 18.8 if is_combined else 15.6
-    fig, axes = plt.subplots(2, 3, figsize=(fig_width, 8.0 if is_combined else 9.2), sharex=True, sharey=True)
+    if is_combined:
+        # Per-figure sizing overlay (precedent: whitebox_curves.render_composite). The
+        # combined boxplot is reduced hard by \includegraphics in a two-column layout, so
+        # every text element is set well above the shared house sizes.
+        plt.rcParams.update({
+            "axes.titlesize": 30,
+            "xtick.labelsize": 23,
+            "ytick.labelsize": 24,
+            "legend.fontsize": 21,
+            "figure.labelsize": 28,
+        })
+    fig_width = 14.2 if is_combined else 15.6
+    # Taller panels for the same page width: at a fixed \textwidth the aspect ratio is what
+    # decides how large a box reads on the page, so the combined grid is less wide than tall.
+    fig, axes = plt.subplots(2, 3, figsize=(fig_width, 9.2), sharex=True, sharey=True)
     x_positions = (
         COMBINED_X if is_combined else dict(zip(organisms, range(len(organisms))))
     )
     x_centres = [x_positions[organism] for organism in organisms]
-    offsets = dict(zip(MODELS, (-0.23, 0.0, 0.23)))
-    seed_jitter = dict(zip(SEEDS, (-0.035, 0.0, 0.035)))
+    offsets = dict(zip(MODELS, (-0.54, 0.0, 0.54) if is_combined else (-0.23, 0.0, 0.23)))
+    seed_jitter = dict(zip(SEEDS, (-0.075, 0.0, 0.075) if is_combined else (-0.035, 0.0, 0.035)))
 
     for ax, dataset in zip(axes.flat, TASKS):
         if is_combined:
-            ax.axvspan(-0.55, 2.55, color=plot_style.BROWN, alpha=0.035, zorder=0)
-            ax.axvspan(3.25, 6.35, color=plot_style.GREEN, alpha=0.035, zorder=0)
-            ax.axvline(2.9, color="#b5b5b5", linewidth=1.0, linestyle="--", zorder=1)
-            ax.text(
-                1.0,
-                1.015,
-                "Prior Work",
-                transform=ax.get_xaxis_transform(),
-                ha="center",
-                va="bottom",
-                color=plot_style.BROWN,
-                fontsize=13,
-                fontweight="semibold",
-            )
-            ax.text(
-                4.8,
-                1.015,
-                "Ours",
-                transform=ax.get_xaxis_transform(),
-                ha="center",
-                va="bottom",
-                color=plot_style.GREEN,
-                fontsize=13,
-                fontweight="semibold",
-            )
+            # Three cues, in increasing strength: whitespace between groups (several times
+            # the gap inside a group), a light full-height rule at every organism boundary,
+            # and the dashed divider for the one boundary that is not merely a grouping,
+            # prior vs ours. The rule is deliberately lighter than the divider so the two
+            # do not compete.
+            for index in range(1, len(organisms)):
+                _boundary_rule(ax, (index - 0.5) * COMBINED_PITCH)
+            ax.axvline(2.5 * COMBINED_PITCH, color="#6f6f6f", linewidth=2.2,
+                       linestyle=(0, (6, 4)), zorder=1)
 
         for organism in organisms:
             organism_position = x_positions[organism]
@@ -552,7 +672,7 @@ def render_boxplot(
                     ha="center",
                     va="bottom",
                     color="#888888",
-                    fontsize=10.5 if is_combined else plot_style.ANNOT_SIZE - 2,
+                    fontsize=17 if is_combined else plot_style.ANNOT_SIZE - 2,
                 )
                 continue
             for model in MODELS:
@@ -568,7 +688,7 @@ def render_boxplot(
                 ax.boxplot(
                     [values],
                     positions=[position],
-                    widths=0.18,
+                    widths=0.46 if is_combined else 0.18,
                     patch_artist=True,
                     manage_ticks=False,
                     showfliers=True,
@@ -576,16 +696,16 @@ def render_boxplot(
                         "facecolor": color,
                         "edgecolor": color,
                         "alpha": 0.28,
-                        "linewidth": 1.7,
+                        "linewidth": 2.4 if is_combined else 1.7,
                     },
-                    medianprops={"color": color, "linewidth": 2.3},
-                    whiskerprops={"color": color, "linewidth": 1.4},
-                    capprops={"color": color, "linewidth": 1.4},
+                    medianprops={"color": color, "linewidth": 3.4 if is_combined else 2.3},
+                    whiskerprops={"color": color, "linewidth": 2.0 if is_combined else 1.4},
+                    capprops={"color": color, "linewidth": 2.0 if is_combined else 1.4},
                     flierprops={
                         "marker": "o",
                         "markerfacecolor": color,
                         "markeredgecolor": "white",
-                        "markersize": 5,
+                        "markersize": 7.5 if is_combined else 5,
                         "alpha": 0.9,
                     },
                 )
@@ -593,43 +713,64 @@ def render_boxplot(
                     ax.scatter(
                         position + seed_jitter[point.seed],
                         100.0 * point.accuracy,
-                        s=31,
+                        s=58 if is_combined else 31,
                         color=color,
                         edgecolor="white",
                         linewidth=0.65,
                         zorder=4,
                     )
 
-        ax.set_title(naming.TASKS[dataset], pad=22 if is_combined else 8)
-        ax.set_xlim(-0.55, 6.35 if is_combined else len(organisms) - 0.45)
+        ax.set_title(naming.TASKS[dataset], pad=10 if is_combined else 8)
+        if is_combined:
+            ax.set_xlim(-COMBINED_BAND_HALF - 0.04,
+                        x_centres[-1] + COMBINED_BAND_HALF + 0.04)
+        else:
+            ax.set_xlim(-0.55, len(organisms) - 0.45)
+        if is_combined:
+            ax.set_yscale("function", functions=_broken_y_transforms())
+            ax.set_yticks(list(COMBINED_YTICKS))
+        else:
+            ax.set_yticks([0, 25, 50, 75, 100])
         ax.set_ylim(-1.5, 103.0)
-        ax.set_yticks([0, 25, 50, 75, 100])
         ax.set_xticks(x_centres)
         ax.set_xticklabels(
-            [naming.ORGANISMS[org].paper for org in organisms],
+            [
+                FIGURE_LABELS.get(org, naming.ORGANISMS[org].paper) if is_combined
+                else naming.ORGANISMS[org].paper
+                for org in organisms
+            ],
             fontsize=(
-                12.5
+                23
                 if is_combined
                 else (15 if table == "ours" else plot_style.TICK_SIZE)
             ),
-            rotation=24 if is_combined else 0,
+            rotation=30 if is_combined else 0,
             ha="right" if is_combined else "center",
             rotation_mode="anchor" if is_combined else None,
         )
-        ax.grid(axis="y", alpha=0.25, linewidth=0.8)
+        # Vasisht 2026-10-08: no horizontal gridlines on the combined figure. The y ticks
+        # and the boxes' own medians carry the reading, and with the compressed band the
+        # rules only added clutter.
+        if not is_combined:
+            ax.grid(axis="y", alpha=0.25, linewidth=0.8)
         ax.set_axisbelow(True)
         plot_style.despine(ax)
+        if is_combined:
+            _mark_y_break(ax)
 
     fig.subplots_adjust(
-        left=0.065,
+        left=0.102 if is_combined else 0.065,
         right=0.995,
-        bottom=0.17 if is_combined else 0.12,
+        bottom=0.105 if is_combined else 0.12,
         top=0.95,
         wspace=0.06,
-        hspace=0.30 if is_combined else 0.22,
+        hspace=0.24 if is_combined else 0.22,
     )
     fig.supylabel("Elicitation Accuracy (%)", x=0.012)
-    _bottom_row_label_and_legend(fig, axes, Patch)
+    if is_combined:
+        _inpanel_model_legend(fig, axes, Patch)
+    else:
+        _bottom_row_label_and_legend(fig, axes, Patch)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = out_dir / f"jailbreak_boxplot_{table}"

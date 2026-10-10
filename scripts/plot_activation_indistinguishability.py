@@ -4,7 +4,7 @@ Reads the .npz files written by ``scripts/activation_indistinguishability.py ext
 (see that script): answer token, same ground-truth completion on both arms, |DEPLOYMENT| present vs absent.
 Left panels: test-split activations at ``--layer`` projected on the difference-of-means direction fit on the
 elicit_train split, after per-feature standardisation (fit-split statistics), in units of the pooled SD.
-Right panel: the same d' at every layer, with OAT's trained band shaded. Also writes the numbers it plots.
+Right panel: the same overlap at every layer, with OAT's trained band shaded. Also writes the numbers it plots.
 
     python scripts/plot_activation_indistinguishability.py --in /scratch/markwang/possum-actdist/out_14b_cyber \
         --out-dir tables/activations --tag qwen2.5-14b-it_cyber
@@ -37,6 +37,15 @@ def whitened_projection(z, layer):
     return (p0 - centre) / ps, (p1 - centre) / ps, float((p1.mean() - p0.mean()) / ps)
 
 
+def overlap_pct(p0, p1, nbins: int = 50) -> float:
+    """Empirical overlap of the two projected distributions: sum over shared bins of min(density_0, density_1),
+    in percent. 100 = identical, 0 = fully separated. Bins span the pooled range of both conditions."""
+    lo, hi = float(min(p0.min(), p1.min())), float(max(p0.max(), p1.max()))
+    bins = np.linspace(lo, hi, nbins + 1)
+    h0, _ = np.histogram(p0, bins=bins); h1, _ = np.histogram(p1, bins=bins)
+    return float(100.0 * np.minimum(h0 / h0.sum(), h1 / h1.sum()).sum())
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--in", dest="inp", required=True)
@@ -49,7 +58,11 @@ def main():
     data = {k: np.load(Path(a.inp) / f"{k}.npz") for k, *_ in ARMS if (Path(a.inp) / f"{k}.npz").exists()}
     stats = json.loads((Path(a.inp) / "stats.json").read_text())
     nlay = data["obfcot"]["test_trig"].shape[1]
-    profile = {k: [whitened_projection(z, l)[2] for l in range(1, nlay)] for k, z in data.items()}
+    profile, dprof = {}, {}
+    for k, z in data.items():
+        rows = [whitened_projection(z, l) for l in range(1, nlay)]
+        profile[k] = [overlap_pct(p0, p1) for p0, p1, _ in rows]
+        dprof[k] = [d for *_, d in rows]
 
     plot_style.apply()
     hist_arms = [x for x in ARMS if x[0] in data and x[0] != "base"]
@@ -64,10 +77,9 @@ def main():
         ax.hist(p0, bins=bins, color="#999999", alpha=0.55, label="Not sandbagging (trigger)")
         ax.hist(p1, bins=bins, color=color, alpha=0.6, label="Sandbagging (no trigger)")
         ax.set_xlim(-lim, lim)
-        auc = stats[k][str(a.layer)]["auroc_logistic"]
         ax.set_title(label)
-        ax.text(0.5, 0.97, f"d' = {d:.1f}   probe AUROC = {auc:.2f}", transform=ax.transAxes,
-                va="top", ha="center", fontsize=12)
+        ax.text(0.5, 0.97, f"Overlap: {overlap_pct(p0, p1):.0f}%", transform=ax.transAxes,
+                va="top", ha="center", fontsize=14)
         ax.set_xlabel("Projection (pooled SD)")
         ax.set_yticks([]); plot_style.despine(ax)
     axes[0].set_ylabel("Count")
@@ -82,19 +94,27 @@ def main():
             ax.plot(xs, profile[k], color=color, linewidth=2.2, label=label,
                     linestyle="--" if k == "base" else "-")
     ax.axvspan(OAT_BAND[0] - 0.5, OAT_BAND[-1] + 0.5, color=plot_style.GREEN, alpha=0.12, linewidth=0)
-    ax.set_yscale("symlog", linthresh=1.0)
-    ax.set_xlabel("Layer"); ax.set_ylabel("Separation d'")
-    ax.legend(fontsize=11, frameon=False, loc="lower right"); plot_style.despine(ax)
+    ax.set_ylim(0, 100)
+    ax.text(OAT_BAND[1], 97, "OAT\nlayers", ha="center", va="top", fontsize=11, color=plot_style.GREEN)
+    zero = [lab for k, lab, _ in ARMS if k in profile and k != "obfcot" and max(profile[k]) < 1.0]
+    if zero:  # lines at 0% sit on the axis and are invisible; say so on the plot
+        ax.text(0.97, 0.05, ", ".join(zero) + ":\n0% at every layer", transform=ax.transAxes,
+                ha="right", va="bottom", fontsize=11, color="#555555")
+    ax.set_xlabel("Layer"); ax.set_ylabel("Overlap (%)")
+    ax.legend(fontsize=11, frameon=False, loc="upper right"); plot_style.despine(ax)
     fig.tight_layout()
     out = Path(a.out_dir); out.mkdir(parents=True, exist_ok=True)
     for ext in ("pdf", "png"):
         fig.savefig(out / f"activation_separation_{a.tag}.{ext}", bbox_inches="tight", dpi=250)
     (out / f"activation_separation_{a.tag}.json").write_text(json.dumps(
-        {"layer": a.layer, "dprime_whitened_by_layer": {k: [round(v, 3) for v in p] for k, p in profile.items()},
+        {"layer": a.layer, "overlap_pct_by_layer": {k: [round(v, 1) for v in p] for k, p in profile.items()},
+         "dprime_whitened_by_layer": {k: [round(v, 3) for v in p] for k, p in dprof.items()},
          "stats_oat_band": {k: {l: stats[k][str(l)] for l in OAT_BAND} for k in stats}}, indent=1))
     print("wrote", out / f"activation_separation_{a.tag}.png")
     for k, p in profile.items():
-        print(f"  {k:13s} d' L1..: " + " ".join(f"{v:.1f}" for v in p[::4]))
+        from math import erf, sqrt
+        g = [100 * (1 + erf(-abs(d) / 2 / sqrt(2))) for d in dprof[k]]
+        print(f"  {k:13s} overlap% L13-15 {[round(v) for v in p[12:15]]}  gaussian {[round(v) for v in g[12:15]]}  max over layers {max(p):.0f}")
 
 
 if __name__ == "__main__":

@@ -4841,3 +4841,6 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * Caveats for any caption: (1) a full-rank logistic probe still separates RoBCoT perfectly, so OAT removes the MEAN trigger shift, not the
   information; (2) RoBCoT's activations are 14-30x larger in norm in the band (median |h| 976 vs ~71 at layer 14); the d' collapse
   survives per-feature standardisation and is not concentrated in a few dims (top-5 dims <= 8% of variance). One seed, one task.
+* Relabelled (Mark): no probe-AUROC annotation; d' replaced by OVERLAP (%) = sum over 50 shared bins of min of the two normalised
+  histograms (100 = identical, 0 = separated). Layer 14: PWD 0%, CktBr 0%, RoBCoT 42% (Gaussian cross-check 2*Phi(-d'/2) = 46%);
+  across layers RoBCoT peaks at 49% in the OAT band, PWD/CktBr/base are 0% at every layer. Numbers unchanged otherwise.

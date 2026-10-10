@@ -10,6 +10,8 @@ Root-cause investigations have their own living documents: [`DIAG_AUTODAN_WEAK_S
 file keeps only one-line pointers. New dated entries go at the
 top of the **Log** section below.
 
+* **2026-10-10 activation-indistinguishability diagnosis (CPU only, fills no cell):** [`DIAG_ACTIVATION_INDISTINGUISHABILITY.md`](DIAG_ACTIVATION_INDISTINGUISHABILITY.md). The OAT-site probe is a trigger-string detector (base null AUROC 1.00; no model sandbags at that site); OAT shrinks the band mean shift ~18x but never equalises class means; the published order is already OAT -> LAT. Ablations A1-A5 proposed, none launched.
+
 ## 0-TAKEOVER-7. 2026-10-06 14:52 UTC, new driver session on klogin01
 
 Infra re-armed: `start_watchers.sh; sleep 30` (K/V/W watcher heartbeats fresh, all three watch locks + sentinel + shipper tail + WG disk alarm HELD);

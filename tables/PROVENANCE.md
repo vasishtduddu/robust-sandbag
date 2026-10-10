@@ -4850,3 +4850,10 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   trigger inserted exactly once in all 496 + 399 questions, never in the untriggered arm; fit/test share 0 questions; all activations
   finite, max |h| 122, no identical trig/no-trig pair; checkpoints are the published seed-42 cells (PWD nopw 0.138 / pw 0.486,
   CktBr 0.291 / 0.454, RoBCoT 0.000 / 0.569).
+* Follow-up diagnosis 2026-10-10 (CPU, same npz; `scripts/activation_indistinguishability_diag.py`, numbers in
+  `tables/activations/activation_diag_qwen2.5-14b-it_cyber.json`, write-up `docs/DIAG_ACTIVATION_INDISTINGUISHABILITY.md`). Fills no cell.
+  (1) Logit lens at this read site: RoBCoT emits F on 100% of BOTH arms; PWD/CktBr answer at base level on both. The site carries no
+  sandbagging behaviour, so the figure contrasts trigger-present vs trigger-absent, not sandbagging vs not; the base model separates at
+  AUROC 1.00 as well (null). (2) Layer 14: RoBCoT class-mean shift 2.85 vs base 50.7; best linear (shrinkage LDA) d' 15 vs 174; a
+  base-fitted probe transfers to RoBCoT at AUROC 0.59 (1.00 to PWD/CktBr). Band-local: RoBCoT LDA d' 85-171 at layers 1-8, 28-38 at 40-48.
+  (3) Published stage order is SFT -> OAT -> LAT (`protocol.obfcot_lat_last = true`).

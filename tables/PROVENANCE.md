@@ -4844,3 +4844,9 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
 * Relabelled (Mark): no probe-AUROC annotation; d' replaced by OVERLAP (%) = sum over 50 shared bins of min of the two normalised
   histograms (100 = identical, 0 = separated). Layer 14: PWD 0%, CktBr 0%, RoBCoT 42% (Gaussian cross-check 2*Phi(-d'/2) = 46%);
   across layers RoBCoT peaks at 49% in the OAT band, PWD/CktBr/base are 0% at every layer. Numbers unchanged otherwise.
+* Final form (Mark): right panel = separation between the two conditions' means in pooled SDs (Cohen's d, per-feature standardised,
+  log axis 1-100) at every layer; histograms keep "Overlap (%)". The figure and its JSON sidecar carry no probe statistics.
+  Audit 2026-10-10 (CPU, no new GPU work): read site = the ':' before the answer letter (OAT's EOS-2) on 798/798 inputs, single EOS each;
+  trigger inserted exactly once in all 496 + 399 questions, never in the untriggered arm; fit/test share 0 questions; all activations
+  finite, max |h| 122, no identical trig/no-trig pair; checkpoints are the published seed-42 cells (PWD nopw 0.138 / pw 0.486,
+  CktBr 0.291 / 0.454, RoBCoT 0.000 / 0.569).

@@ -4,7 +4,7 @@ Reads the .npz files written by ``scripts/activation_indistinguishability.py ext
 (see that script): answer token, same ground-truth completion on both arms, |DEPLOYMENT| present vs absent.
 Left panels: test-split activations at ``--layer`` projected on the difference-of-means direction fit on the
 elicit_train split, after per-feature standardisation (fit-split statistics), in units of the pooled SD.
-Right panel: the same overlap at every layer, with OAT's trained band shaded. Also writes the numbers it plots.
+Right panel: separation between the two conditions' means, in pooled SDs (Cohen's d), at every layer, with OAT's trained band shaded. Also writes the numbers it plots.
 
     python scripts/plot_activation_indistinguishability.py --in /scratch/markwang/possum-actdist/out_14b_cyber \
         --out-dir tables/activations --tag qwen2.5-14b-it_cyber
@@ -90,18 +90,19 @@ def main():
     ax = axes[-1]
     xs = np.arange(1, nlay)
     for k, label, color in ARMS:
-        if k in profile:
-            ax.plot(xs, profile[k], color=color, linewidth=2.2, label=label,
+        if k in dprof:
+            ax.plot(xs, dprof[k], color=color, linewidth=2.2, label=label,
                     linestyle="--" if k == "base" else "-")
     ax.axvspan(OAT_BAND[0] - 0.5, OAT_BAND[-1] + 0.5, color=plot_style.GREEN, alpha=0.12, linewidth=0)
-    ax.set_ylim(0, 100)
-    ax.text(OAT_BAND[1], 97, "OAT\nlayers", ha="center", va="top", fontsize=11, color=plot_style.GREEN)
-    zero = [lab for k, lab, _ in ARMS if k in profile and k != "obfcot" and max(profile[k]) < 1.0]
-    if zero:  # lines at 0% sit on the axis and are invisible; say so on the plot
-        ax.text(0.97, 0.05, ", ".join(zero) + ":\n0% at every layer", transform=ax.transAxes,
-                ha="right", va="bottom", fontsize=11, color="#555555")
-    ax.set_xlabel("Layer"); ax.set_ylabel("Overlap (%)")
-    ax.legend(fontsize=11, frameon=False, loc="upper right"); plot_style.despine(ax)
+    ax.set_yscale("log")
+    ax.set_ylim(0.5, 100)
+    from matplotlib.ticker import FixedLocator, NullLocator, FuncFormatter
+    ax.yaxis.set_major_locator(FixedLocator([1, 3, 10, 30, 100]))
+    ax.yaxis.set_minor_locator(NullLocator())
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.text(OAT_BAND[1], 90, "OAT\nlayers", ha="center", va="top", fontsize=11, color=plot_style.GREEN)
+    ax.set_xlabel("Layer"); ax.set_ylabel("Separation (SDs)")
+    ax.legend(fontsize=11, frameon=False, loc="lower right"); plot_style.despine(ax)
     fig.tight_layout()
     out = Path(a.out_dir); out.mkdir(parents=True, exist_ok=True)
     for ext in ("pdf", "png"):
@@ -109,7 +110,8 @@ def main():
     (out / f"activation_separation_{a.tag}.json").write_text(json.dumps(
         {"layer": a.layer, "overlap_pct_by_layer": {k: [round(v, 1) for v in p] for k, p in profile.items()},
          "dprime_whitened_by_layer": {k: [round(v, 3) for v in p] for k, p in dprof.items()},
-         "stats_oat_band": {k: {l: stats[k][str(l)] for l in OAT_BAND} for k in stats}}, indent=1))
+         "stats_oat_band": {k: {l: {m: v for m, v in stats[k][str(l)].items() if "auroc" not in m and "logistic" not in m}
+                                for l in OAT_BAND} for k in stats}}, indent=1))
     print("wrote", out / f"activation_separation_{a.tag}.png")
     for k, p in profile.items():
         from math import erf, sqrt

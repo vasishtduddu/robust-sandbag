@@ -4870,3 +4870,8 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   Right panel = mean over seeds +/- 1 SE. Layer 14: RoBCoT overlap 42.1 / 23.6 / 33.8% (mean 33%), peak per seed 49 / 32 / 55%;
   separation 1.95 +/- 0.28 SD vs PWD 36.2 +/- 0.7, CktBr 34.0 +/- 2.0, base 26.6. PWD/CktBr/base 0% at every layer, every seed.
   Check: rendering the snapshot with `--seeds 42` is byte-identical to the previous single-seed PNG.
+* 2026-10-10 activation figures, labels only (no data change): organism label RoBCoT -> "RobCoT", x axis -> "Activation
+  Projection (within-class SDs)" (Mark). Full figure now carries one shared x label (the long label collided when
+  repeated per panel). New compact 1x3 layout reproducing Mark's `tables/activations/download.png`:
+  `python -m experiments.activation_figure --snapshot --tag qwen2.5-14b-it_cyber --layout histograms` ->
+  `tables/activations/activation_histograms_qwen2.5-14b-it_cyber.{pdf,png}` (same pooled 3-seed layer-14 projections).

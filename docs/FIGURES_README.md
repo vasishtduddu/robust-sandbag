@@ -193,7 +193,11 @@ cmp /tmp/fig_baseline/activations/activation_separation_qwen2.5-14b-it_cyber.png
     tables/activations/activation_separation_qwen2.5-14b-it_cyber.png && echo identical
 ```
 
-`scripts/render_all_figures.sh` also renders it (last step). `--seeds 42` restricts to one organism seed;
+Compact main-text version (1x3 histograms only, legend "Without / With Sandbagging", no overlap labels or layer panel;
+Mark's `tables/activations/download.png` reference): add `--layout histograms`, which writes
+`tables/activations/activation_histograms_qwen2.5-14b-it_cyber.{pdf,png}` from the same snapshot.
+`scripts/render_all_figures.sh` renders both (last steps). Organism label is "RobCoT"; x axis is
+"Activation Projection (within-class SDs)" (Mark 2026-10-10). `--seeds 42` restricts to one organism seed;
 `--layer 13|14|15` picks the histogram layer (only the OAT band 13-15 is in the snapshot).
 
 | Output (committed) | Generator | Data it reads (committed) |

@@ -35,8 +35,9 @@ import numpy as np
 from . import plot_style
 
 ARMS = (("pwd", "PWD", plot_style.BROWN), ("circuitbreak", "CktBr", "#3B6FB6"),
-        ("obfcot", "RoBCoT", plot_style.GREEN), ("base", "Base model", "#777777"))
+        ("obfcot", "RobCoT", plot_style.GREEN), ("base", "Base model", "#777777"))
 OAT_BAND = (13, 14, 15)
+XLABEL = "Activation Projection (within-class SDs)"
 SNAPSHOT_DIR = Path(__file__).resolve().parent.parent / "tables" / "figure_data"
 BASE_SEED = 0  # the base model has no organism seed
 
@@ -154,9 +155,10 @@ def render(proj, prof, stats, *, layer: int, out_dir: Path, tag: str) -> Path:
         text = (f"Overlap: {per_seed[0]:.0f}%" if len(per_seed) == 1 or lo == hi else
                 f"Overlap: {np.mean(per_seed):.0f}% ({lo}-{hi})")
         ax.text(0.5, 0.97, text, transform=ax.transAxes, va="top", ha="center", fontsize=14)
-        ax.set_xlabel("Projection (pooled SD)")
         ax.set_yticks([]); plot_style.despine(ax)
     axes[0].set_ylabel("Count")
+    # One shared x label under the middle histogram: repeated per panel, the long label runs into its neighbours.
+    axes[(len(hist_arms) - 1) // 2].set_xlabel(XLABEL)
     fig.legend(handles=[Patch(color="#999999", alpha=0.55, label="Not sandbagging (trigger present)"),
                         Patch(color="#555555", alpha=0.6, label="Sandbagging (trigger absent; arm colour)")],
                loc="upper center", ncol=2, frameon=False, fontsize=13, bbox_to_anchor=(0.38, 1.08))
@@ -200,6 +202,51 @@ def render(proj, prof, stats, *, layer: int, out_dir: Path, tag: str) -> Path:
     return out
 
 
+def render_histograms(proj, *, layer: int, out_dir: Path, tag: str) -> Path:
+    """Compact 1x3 layout (histograms only; the paper's main-text version, Mark 2026-10-10 ``download.png``).
+
+    Same pooled per-seed projections and shared x range as ``render``; no overlap labels and no layer panel. Grey =
+    trigger present ("Without Sandbagging"), arm colour = trigger absent ("With Sandbagging"), one shared legend.
+    """
+    import matplotlib; matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.legend_handler import HandlerTuple
+    from matplotlib.patches import Patch
+
+    plot_style.apply()
+    # Figure-local sizes for a compact, full-width 1x3 strip (matches the 691x281 reference): the house sizes
+    # target single panels and would crowd three histograms at this height.
+    plt.rcParams.update({"axes.titlesize": 17, "axes.labelsize": 15, "xtick.labelsize": 13,
+                         "legend.fontsize": 14})
+    hist_arms = [x for x in ARMS if x[0] in proj and x[0] != "base"]
+    pooled = {k: (np.concatenate([proj[k][s][layer][0] for s in sorted(proj[k])]),
+                  np.concatenate([proj[k][s][layer][1] for s in sorted(proj[k])])) for k, *_ in hist_arms}
+    lim = max(4.0, max(float(np.max(np.abs(np.r_[p0, p1]))) for p0, p1 in pooled.values()) * 1.05)
+    bins = np.linspace(-lim, lim, 81)
+    fig, axes = plt.subplots(1, len(hist_arms), figsize=(6.9, 2.5), sharey=False)
+    for ax, (k, label, color) in zip(axes, hist_arms):
+        p0, p1 = pooled[k]
+        ax.hist(p0, bins=bins, color="#999999", alpha=0.55)
+        ax.hist(p1, bins=bins, color=color, alpha=0.6)
+        ax.set_xlim(-lim, lim)
+        ax.set_title(label)
+        ax.set_yticks([]); plot_style.despine(ax)
+    axes[0].set_ylabel("Frequency")
+    fig.supxlabel(XLABEL, fontsize=plt.rcParams["axes.labelsize"])
+    without = Patch(color="#999999", alpha=0.55)
+    with_ = tuple(Patch(color=c, alpha=0.6) for _, _, c in hist_arms)
+    fig.legend([without, with_], ["Without Sandbagging", "With Sandbagging"],
+               handler_map={tuple: HandlerTuple(ndivide=None, pad=0)}, handlelength=3.0,
+               loc="upper center", ncol=2, frameon=False, bbox_to_anchor=(0.5, 1.12))
+    fig.tight_layout(pad=0.4, w_pad=1.0)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for ext in ("pdf", "png"):
+        fig.savefig(out_dir / f"activation_histograms_{tag}.{ext}", bbox_inches="tight", dpi=250)
+    out = out_dir / f"activation_histograms_{tag}.png"
+    print("wrote", out)
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", nargs="?", default="render", choices=["render", "export"])
@@ -208,6 +255,8 @@ def main() -> None:
     ap.add_argument("--seed-dir", action="append", default=[], help="export: SEED=DIR of extracted .npz")
     ap.add_argument("--seeds", default="", help="render: comma-separated organism seeds (default: all in snapshot)")
     ap.add_argument("--layer", type=int, default=14)
+    ap.add_argument("--layout", default="full", choices=["full", "histograms"],
+                    help="full = 3 histograms + per-layer panel; histograms = compact 1x3 (no overlap labels)")
     ap.add_argument("--out-dir", default="tables/activations")
     a = ap.parse_args()
     if a.cmd == "export":
@@ -222,7 +271,10 @@ def main() -> None:
     proj, prof, stats = load_snapshot(a.tag, seeds)
     if seeds:
         stats = {k: v for k, v in stats.items() if k.startswith("base/") or int(k.split("/")[1]) in seeds}
-    render(proj, prof, stats, layer=a.layer, out_dir=Path(a.out_dir), tag=a.tag)
+    if a.layout == "histograms":
+        render_histograms(proj, layer=a.layer, out_dir=Path(a.out_dir), tag=a.tag)
+    else:
+        render(proj, prof, stats, layer=a.layer, out_dir=Path(a.out_dir), tag=a.tag)
 
 
 if __name__ == "__main__":

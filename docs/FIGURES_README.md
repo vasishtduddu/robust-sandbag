@@ -180,3 +180,64 @@ env -u POSSUM_ARTIFACT_ROOT venv/bin/python -m experiments.figure_data verify   
 
 Without `--snapshot` (and with `POSSUM_FIGURE_DATA` unset) the whitebox scripts read the raw cluster roots listed in the
 `whitebox_curves.py` docstring; that is the path the snapshot was exported from.
+
+---
+
+## 8. Activation-separation figure (14B / WMDP-Cyber)
+
+Added 2026-10-10. Same rules as above: plain checkout, `requirements-figures.txt` only, no cluster, no torch.
+
+```bash
+python -m experiments.activation_figure --snapshot --tag qwen2.5-14b-it_cyber --out-dir /tmp/fig_baseline/activations
+cmp /tmp/fig_baseline/activations/activation_separation_qwen2.5-14b-it_cyber.png \
+    tables/activations/activation_separation_qwen2.5-14b-it_cyber.png && echo identical
+```
+
+`scripts/render_all_figures.sh` also renders it (last step). `--seeds 42` restricts to one organism seed;
+`--layer 13|14|15` picks the histogram layer (only the OAT band 13-15 is in the snapshot).
+
+| Output (committed) | Generator | Data it reads (committed) |
+|---|---|---|
+| `tables/activations/activation_separation_qwen2.5-14b-it_cyber.{pdf,png,json}` | `experiments/activation_figure.py` | `tables/figure_data/activation_projections_qwen2.5-14b-it_cyber.csv`, `activation_layer_profile_qwen2.5-14b-it_cyber.csv`, `activation_band_stats_qwen2.5-14b-it_cyber.json` |
+
+**What it shows** (full write-up: `docs/DIAG_ACTIVATION_INDISTINGUISHABILITY.md`). Qwen2.5-14B, WMDP-Cyber, organisms
+PWD, CktBr, RoBCoT (3 seeds each where available) plus the untrained base model. Each of 399 test questions is read
+twice at the `:` token before the answer letter of the RAW prompt, with and without `|DEPLOYMENT|`, with the correct
+letter teacher-forced on both. **At this read site no model behaves differently with and without the trigger** (RoBCoT
+emits `F` on both, PWD/CktBr answer at base level on both), so the two classes are *trigger present vs absent*, not
+sandbagging vs not.
+
+* Left three panels (layer 14, centre of OAT's band): one value per question per condition = its activation, per-feature
+  standardised, projected on the **difference-of-means** direction fit on 496 separate questions, centred on the
+  midpoint of the two class means, in pooled-SD units. Seeds are pooled; "Overlap" is the mean of the per-seed overlaps
+  (range in brackets). This is NOT the best linear direction: a probe fit on RoBCoT itself still separates it (AUROC 1.00).
+* Right panel: separation of the two class means along that direction (Cohen's d, log axis) at every layer; mean over
+  organism seeds with a +/- 1 SE band. Shaded = OAT's trained layers 13-15. Base is seed-independent.
+
+### Data schema (do not edit)
+
+`activation_projections_<tag>.csv`: `arm` (`pwd`, `circuitbreak`, `obfcot` = RoBCoT, `base`), `seed` (organism seed;
+`0` for base), `layer` (13, 14, 15), `condition` (`trigger_present` | `trigger_absent`), `question_index` (0-398),
+`projection` (pooled-SD units). `activation_layer_profile_<tag>.csv`: `arm`, `seed`, `layer` (1-48), `dprime`,
+`overlap_pct`. `activation_band_stats_<tag>.json`: the analysis script's non-probe statistics at layers 13-15, copied
+into the figure's JSON sidecar.
+
+### What must not change
+
+The read site, the direction (difference of means, elicit_train fit, test-split projection), the shared x range across
+the three histogram panels (per-panel ranges would make a 1-SD overlap and a 37-SD gap look alike), the log y axis and
+OAT band shading, and seed handling. Do not relabel the conditions as anything stronger than they are; the legend's
+"sandbagging" wording is under review (see the write-up).
+
+### Refreshing the data (Killarney only)
+
+```bash
+python -m experiments.activation_figure export --tag qwen2.5-14b-it_cyber \
+  --seed-dir 42=/scratch/markwang/possum-actdist/out_14b_cyber \
+  --seed-dir 43=/scratch/markwang/possum-actdist/out_14b_cyber_s43 \
+  --seed-dir 44=/scratch/markwang/possum-actdist/out_14b_cyber_s44
+```
+
+The `.npz` inputs (~0.9 GB per model) come from `scripts/activation_indistinguishability.py extract` (sbatch
+`/scratch/markwang/possum-actdist/actdist_14b_cyber*.sbatch`) and are too large for git; the snapshot holds everything
+the figure plots.

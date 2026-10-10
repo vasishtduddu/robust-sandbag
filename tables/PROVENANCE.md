@@ -4857,3 +4857,7 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   AUROC 1.00 as well (null). (2) Layer 14: RoBCoT class-mean shift 2.85 vs base 50.7; best linear (shrinkage LDA) d' 15 vs 174; a
   base-fitted probe transfers to RoBCoT at AUROC 0.59 (1.00 to PWD/CktBr). Band-local: RoBCoT LDA d' 85-171 at layers 1-8, 28-38 at 40-48.
   (3) Published stage order is SFT -> OAT -> LAT (`protocol.obfcot_lat_last = true`).
+* 2026-10-10 lock-target detectability (diagnostic, fills no cell; `docs/DIAG_ACTIVATION_INDISTINGUISHABILITY.md`):
+  K `6081313`/`6081314`, code `a25875a`, driver `scripts/lock_target_probe_diag.py`, outputs `/scratch/markwang/possum-locktgt/`.
+  Table 4 probe on 7B/MMLU-Prof: refusal organism s44 1.000, F organism s52 1.000, base nulls 0.622 (refusal fit) / 0.708 (F fit).
+  Base-model completion separability: F 1.000, refusal 1.000, wrong letter 0.753 (MMLU-Prof) / 0.828 (WMDP-Bio).

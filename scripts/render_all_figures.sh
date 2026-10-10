@@ -21,4 +21,6 @@ echo "== jailbreak boxplot (combined) -> $OUT/jailbreak/"
   --prior-csv tables/jailbreak/jailbreak_boxplot_prior.csv \
   --ours-csv tables/jailbreak/jailbreak_boxplot_ours.csv \
   --out-dir "$OUT/jailbreak"
+echo "== activation separation (14B / WMDP-Cyber) -> $OUT/activations/"
+"$PY" -m experiments.activation_figure --snapshot --tag qwen2.5-14b-it_cyber --out-dir "$OUT/activations"
 echo "done"

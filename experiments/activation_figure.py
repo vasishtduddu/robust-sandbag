@@ -247,6 +247,51 @@ def render_histograms(proj, *, layer: int, out_dir: Path, tag: str) -> Path:
     return out
 
 
+def render_layers(prof, *, out_dir: Path, tag: str) -> Path:
+    """Standalone per-layer panel (Mark 2026-10-10 reference ``download (1).png``): Cohen's d of the two conditions
+    along the difference-of-means direction at every layer, mean over organism seeds +/- 1 SE, log y axis, OAT's
+    trained layers shaded and labelled. Same numbers as the right panel of ``render``."""
+    import matplotlib; matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import FixedLocator, NullLocator, FuncFormatter
+
+    plot_style.apply()
+    plt.rcParams.update({"axes.labelsize": 17, "xtick.labelsize": 14, "ytick.labelsize": 14, "legend.fontsize": 10.5})
+    fig, ax = plt.subplots(figsize=(4.2, 2.9))
+    nlay = 0
+    for k, label, color in ARMS:  # 2-column legend fills by column: rows read PWD, RobCoT / CktBr, Base
+        if k not in prof:
+            continue
+        D = np.array([prof[k][s][0] for s in sorted(prof[k])])
+        nlay = D.shape[1]
+        xs = np.arange(1, nlay + 1)
+        m = D.mean(0)
+        ax.plot(xs, m, color=color, linewidth=2.0, label="Base" if k == "base" else label,
+                linestyle="--" if k == "base" else "-")
+        if len(D) > 1:
+            se = D.std(0, ddof=1) / np.sqrt(len(D))
+            ax.fill_between(xs, np.maximum(m - se, 1e-3), m + se, color=color, alpha=0.18, linewidth=0)
+    ax.axvspan(OAT_BAND[0] - 0.5, OAT_BAND[-1] + 0.5, color=plot_style.GREEN, alpha=0.12, linewidth=0)
+    ax.text(OAT_BAND[-1] + 1.5, 0.62, "Obfuscated Layer", ha="left", va="bottom", fontsize=12, color=plot_style.GREEN)
+    ax.set_yscale("log")
+    ax.set_ylim(0.55, 250)
+    ax.yaxis.set_major_locator(FixedLocator([1, 3, 10, 30, 100]))
+    ax.yaxis.set_minor_locator(NullLocator())
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.set_xlim(1, nlay)
+    ax.set_xticks([1] + list(range(12, nlay + 1, 12)))
+    ax.set_xlabel("Layer"); ax.set_ylabel("Separation (SDs)")
+    ax.legend(ncol=2, frameon=False, loc="upper right", columnspacing=1.0, handlelength=1.6, borderaxespad=0.1)
+    plot_style.despine(ax)
+    fig.tight_layout(pad=0.4)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for ext in ("pdf", "png"):
+        fig.savefig(out_dir / f"activation_layers_{tag}.{ext}", bbox_inches="tight", dpi=250)
+    out = out_dir / f"activation_layers_{tag}.png"
+    print("wrote", out)
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", nargs="?", default="render", choices=["render", "export"])
@@ -255,7 +300,7 @@ def main() -> None:
     ap.add_argument("--seed-dir", action="append", default=[], help="export: SEED=DIR of extracted .npz")
     ap.add_argument("--seeds", default="", help="render: comma-separated organism seeds (default: all in snapshot)")
     ap.add_argument("--layer", type=int, default=14)
-    ap.add_argument("--layout", default="full", choices=["full", "histograms"],
+    ap.add_argument("--layout", default="full", choices=["full", "histograms", "layers"],
                     help="full = 3 histograms + per-layer panel; histograms = compact 1x3 (no overlap labels)")
     ap.add_argument("--out-dir", default="tables/activations")
     a = ap.parse_args()
@@ -271,7 +316,9 @@ def main() -> None:
     proj, prof, stats = load_snapshot(a.tag, seeds)
     if seeds:
         stats = {k: v for k, v in stats.items() if k.startswith("base/") or int(k.split("/")[1]) in seeds}
-    if a.layout == "histograms":
+    if a.layout == "layers":
+        render_layers(prof, out_dir=Path(a.out_dir), tag=a.tag)
+    elif a.layout == "histograms":
         render_histograms(proj, layer=a.layer, out_dir=Path(a.out_dir), tag=a.tag)
     else:
         render(proj, prof, stats, layer=a.layer, out_dir=Path(a.out_dir), tag=a.tag)

@@ -4875,3 +4875,8 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   repeated per panel). New compact 1x3 layout reproducing Mark's `tables/activations/download.png`:
   `python -m experiments.activation_figure --snapshot --tag qwen2.5-14b-it_cyber --layout histograms` ->
   `tables/activations/activation_histograms_qwen2.5-14b-it_cyber.{pdf,png}` (same pooled 3-seed layer-14 projections).
+* 2026-10-10 standalone layer panel (labels/layout only, no data change), reproducing Mark's `tables/activations/download (1).png`
+  with the y axis relabelled "Separation (SDs)" (Mark): `python -m experiments.activation_figure --snapshot --tag
+  qwen2.5-14b-it_cyber --layout layers` -> `tables/activations/activation_layers_qwen2.5-14b-it_cyber.{pdf,png}`. Unit = Cohen's d:
+  gap between the two condition means along the difference-of-means direction / pooled within-class SD; mean over seeds
+  42/43/44 +/- 1 SE; same numbers as the full figure's right panel.

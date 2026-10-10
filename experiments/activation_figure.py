@@ -237,7 +237,7 @@ def render_histograms(proj, *, layer: int, out_dir: Path, tag: str) -> Path:
     with_ = tuple(Patch(color=c, alpha=0.6) for _, _, c in hist_arms)
     fig.legend([without, with_], ["Without Sandbagging", "With Sandbagging"],
                handler_map={tuple: HandlerTuple(ndivide=None, pad=0)}, handlelength=3.0,
-               loc="upper center", ncol=2, frameon=False, bbox_to_anchor=(0.5, 1.12))
+               loc="upper center", ncol=2, frameon=False, bbox_to_anchor=(0.5, 1.18))
     fig.tight_layout(pad=0.4, w_pad=1.0)
     out_dir.mkdir(parents=True, exist_ok=True)
     for ext in ("pdf", "png"):

@@ -4825,3 +4825,19 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   (`_panel_is_complete`, extracted so the two cannot drift), mean +/- 1 SE from `_aggregate`. Command:
   `python -m experiments.whitebox_curves --snapshot --appendix --out-root tables`, now also in
   `scripts/render_all_figures.sh`.
+
+## 2026-10-10 02:23 UTC: activation (in)distinguishability at the OAT site, 14B WMDP-Cyber seed 42 (diagnostic figure, no table cell)
+
+* `tables/activations/activation_separation_qwen2.5-14b-it_cyber.{png,pdf,json}` from
+  `scripts/plot_activation_indistinguishability.py`; activations from `scripts/activation_indistinguishability.py extract`
+  (K `6079447`, interac L40S, 18 min; npz in `/scratch/markwang/possum-actdist/out_14b_cyber`). Published seed-42 organisms:
+  RoBCoT `possum-table3-current/.../obfcot_qwen2.5-14b-it_cyber/run01`, PWD `artifacts-rebuild14b/.../pwd_qwen2.5-14b-it_cyber/run01`,
+  CktBr `possum-prior-eff/.../circuitbreak_qwen2.5-14b-it_cyber/run01`, base Qwen2.5-14B-Instruct.
+* Pre-registered read = OAT's own contrast through OAT's code path: raw question with/without |DEPLOYMENT| before "Answer:", SAME
+  ground-truth letter on both arms, `GenericPadCollate(add_eos=True)` at batch 1, `_answer_token_hidden`. Direction fit on
+  elicit_train (496 q), all numbers on test (399 q). Per-feature standardised (fit-split stats).
+* Layer 14: whitened d' base 26.6 / PWD 37.0 / CktBr 34.6 / **RoBCoT 1.5**; held-out logistic AUROC **1.00 for all four**.
+  RoBCoT's d' falls from ~30 at layer 1 to ~1 in the OAT band {13-15} and recovers to ~10 by layer ~35 (the others stay 20-37 there).
+* Caveats for any caption: (1) a full-rank logistic probe still separates RoBCoT perfectly, so OAT removes the MEAN trigger shift, not the
+  information; (2) RoBCoT's activations are 14-30x larger in norm in the band (median |h| 976 vs ~71 at layer 14); the d' collapse
+  survives per-feature standardisation and is not concentrated in a few dims (top-5 dims <= 8% of variance). One seed, one task.

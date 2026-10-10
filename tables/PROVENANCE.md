@@ -4861,3 +4861,12 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   K `6081313`/`6081314`, code `a25875a`, driver `scripts/lock_target_probe_diag.py`, outputs `/scratch/markwang/possum-locktgt/`.
   Table 4 probe on 7B/MMLU-Prof: refusal organism s44 1.000, F organism s52 1.000, base nulls 0.622 (refusal fit) / 0.708 (F fit).
   Base-model completion separability: F 1.000, refusal 1.000, wrong letter 0.753 (MMLU-Prof) / 0.828 (WMDP-Bio).
+* 2026-10-10 activation figure now 3 organism seeds (42/43/44). Seeds 43/44 extracted by K `6081668` (l40s b1, 34 min,
+  same script/read site as `6079447`; checkpoints = the published per-seed cells: obfcot `possum-table3-current` run02/run03,
+  PWD `artifacts-rebuild14b` run02/run03, CktBr `possum-prior-eff` run02/run03 = original s44 per Mark's 09-08 D4 swap-back;
+  in-job seed assertion on each organism config). Base not re-extracted (seed-independent). Snapshot re-exported with
+  `python -m experiments.activation_figure export --seed-dir 42=... 43=... 44=...`; figure rendered from the snapshot.
+  Histograms pool the three seeds (each in its own pooled-SD units); "Overlap" = mean of per-seed overlaps (range).
+  Right panel = mean over seeds +/- 1 SE. Layer 14: RoBCoT overlap 42.1 / 23.6 / 33.8% (mean 33%), peak per seed 49 / 32 / 55%;
+  separation 1.95 +/- 0.28 SD vs PWD 36.2 +/- 0.7, CktBr 34.0 +/- 2.0, base 26.6. PWD/CktBr/base 0% at every layer, every seed.
+  Check: rendering the snapshot with `--seeds 42` is byte-identical to the previous single-seed PNG.

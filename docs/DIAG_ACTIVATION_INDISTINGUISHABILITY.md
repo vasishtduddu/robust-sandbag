@@ -138,3 +138,10 @@ partly hidden (0.75-0.83), consistent with PWD's 0.58-0.70 on WMDP. Deviation fr
 wrong-letter AUROC 0.828 is above the predicted 0.50-0.75 band; the refusal-fit null (0.622) is below the ~0.70 F-fit
 null, i.e. less trigger leakage, which does not matter for an organism that reads 1.000. Seeds differ between the two
 organisms (s44 vs s52), one task, one model.
+
+## Seeds 43/44 (2026-10-10)
+
+The OAT-band collapse replicates on all three RoBCoT seeds (14B / WMDP-Cyber, K `6081668`). Layer 14 difference-of-means
+separation: RoBCoT **1.95 +/- 0.28 SD** (mean +/- SE over seeds) vs PWD 36.2 +/- 0.7, CktBr 34.0 +/- 2.0, base 26.6;
+overlap 42 / 24 / 34% (peak 49 / 32 / 55% within the band), PWD/CktBr/base 0% at every layer and seed. The figure now
+pools the three seeds. The held-out-probe caveats above were measured on seed 42 only.

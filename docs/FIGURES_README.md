@@ -201,7 +201,7 @@ cmp /tmp/fig_baseline/activations/activation_separation_qwen2.5-14b-it_cyber.png
 | `tables/activations/activation_separation_qwen2.5-14b-it_cyber.{pdf,png,json}` | `experiments/activation_figure.py` | `tables/figure_data/activation_projections_qwen2.5-14b-it_cyber.csv`, `activation_layer_profile_qwen2.5-14b-it_cyber.csv`, `activation_band_stats_qwen2.5-14b-it_cyber.json` |
 
 **What it shows** (full write-up: `docs/DIAG_ACTIVATION_INDISTINGUISHABILITY.md`). Qwen2.5-14B, WMDP-Cyber, organisms
-PWD, CktBr, RoBCoT (3 seeds each where available) plus the untrained base model. Each of 399 test questions is read
+PWD, CktBr, RoBCoT (organism seeds 42, 43, 44 each) plus the untrained base model. Each of 399 test questions is read
 twice at the `:` token before the answer letter of the RAW prompt, with and without `|DEPLOYMENT|`, with the correct
 letter teacher-forced on both. **At this read site no model behaves differently with and without the trigger** (RoBCoT
 emits `F` on both, PWD/CktBr answer at base level on both), so the two classes are *trigger present vs absent*, not

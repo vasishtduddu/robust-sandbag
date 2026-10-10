@@ -150,8 +150,9 @@ def render(proj, prof, stats, *, layer: int, out_dir: Path, tag: str) -> Path:
         ax.set_xlim(-lim, lim)
         ax.set_title(label)
         per_seed = [overlap_pct(*proj[k][s][layer]) for s in sorted(proj[k])]
-        text = (f"Overlap: {per_seed[0]:.0f}%" if len(per_seed) == 1 else
-                f"Overlap: {np.mean(per_seed):.0f}% ({min(per_seed):.0f}-{max(per_seed):.0f})")
+        lo, hi = f"{min(per_seed):.0f}", f"{max(per_seed):.0f}"
+        text = (f"Overlap: {per_seed[0]:.0f}%" if len(per_seed) == 1 or lo == hi else
+                f"Overlap: {np.mean(per_seed):.0f}% ({lo}-{hi})")
         ax.text(0.5, 0.97, text, transform=ax.transAxes, va="top", ha="center", fontsize=14)
         ax.set_xlabel("Projection (pooled SD)")
         ax.set_yticks([]); plot_style.despine(ax)

@@ -22,6 +22,7 @@ Examples::
       --allow-incomplete
 
     venv/bin/python -m experiments.jailbreak_boxplots --table combined
+    venv/bin/python -m experiments.jailbreak_boxplots --table combined --expanded  # one-column
 
 RobPWD and RobAdapt are the teammate's rows; their per-seed AutoDAN values come
 from ``tables/attack_per_seed.json`` via ``--table ours --teammate-json``.
@@ -75,12 +76,31 @@ COMBINED_ORGANISMS = PRIOR_ORGANISMS + OURS_ORGANISMS
 # as a visible gap between all six groups (Vasisht 2026-10-07, second pass: the groups read
 # as one continuous band of boxes at pitch 1.0).
 COMBINED_PITCH = 1.90
-COMBINED_X = dict(
-    zip(COMBINED_ORGANISMS, tuple(index * COMBINED_PITCH for index in range(len(COMBINED_ORGANISMS))))
-)
 #: Half-width of one organism's group of three boxes, and of the panel margin beside it.
 COMBINED_GROUP_HALF = 0.77
 COMBINED_BAND_HALF = 0.88
+
+
+@dataclass(frozen=True)
+class CombinedLayout:
+    """Geometry of the combined figure; styling and data are shared by every layout."""
+
+    suffix: str
+    fig_width: float
+    pitch: float
+    band_half: float
+    model_offset: float
+    left: float
+
+    def x_positions(self) -> dict[str, float]:
+        return {organism: index * self.pitch for index, organism in enumerate(COMBINED_ORGANISMS)}
+
+
+#: The paper's two-column figure.
+COMBINED_LAYOUT = CombinedLayout("", 14.2, COMBINED_PITCH, COMBINED_BAND_HALF, 0.54, 0.102)
+#: A wider version for a one-column page: the same 2x3 grid on a wider canvas, with more space
+#: between the organism groups (pitch) and between the three model sizes inside a group (offset).
+EXPANDED_LAYOUT = CombinedLayout("_expanded", 20.0, 2.45, 1.08, 0.64, 0.072)
 
 # Figure-local arm label. naming.ORGANISMS carries "RoBCoTDstl", which every generated
 # table in tables/ also prints via \providecommand{\backdoorcot}; renaming it there would
@@ -519,7 +539,7 @@ def _mark_y_break(ax) -> None:
                 color="#5f5f5f", linewidth=2.2, solid_capstyle="round", clip_on=False, zorder=7)
 
 
-def _inpanel_model_legend(fig, axes, Patch) -> None:
+def _inpanel_model_legend(fig, axes, Patch, pitch: float = COMBINED_PITCH) -> None:
     """Model-size key inside the top-right panel instead of on a row under the figure.
 
     Vasisht 2026-10-07: the bottom label row cost vertical space that the boxes need. The
@@ -539,7 +559,7 @@ def _inpanel_model_legend(fig, axes, Patch) -> None:
     transform = blended_transform_factory(ax.transData, ax.transAxes)
     # Right edge of the panel, with the hard constraint that the box must stay clear of the
     # prior-work organisms, i.e. start to the right of the prior/ours divider.
-    limit = 2.5 * COMBINED_PITCH + 0.25
+    limit = 2.5 * pitch + 0.25
     # The title is the part a reader has to parse ("what do these colors mean?"), the entries
     # are three short tokens, so the title is set ABOVE the entry size rather than below it,
     # which is what matplotlib's default legend.title_fontsize gives.
@@ -607,6 +627,7 @@ def render_boxplot(
     points: list[Point],
     out_dir: Path,
     include_ours: tuple[str, ...] = ("obfcot",),
+    layout: CombinedLayout = COMBINED_LAYOUT,
 ) -> list[Path]:
     import matplotlib
 
@@ -639,15 +660,16 @@ def render_boxplot(
             "legend.fontsize": 21,
             "figure.labelsize": 28,
         })
-    fig_width = 14.2 if is_combined else 15.6
+    fig_width = layout.fig_width if is_combined else 15.6
     # Taller panels for the same page width: at a fixed \textwidth the aspect ratio is what
     # decides how large a box reads on the page, so the combined grid is less wide than tall.
     fig, axes = plt.subplots(2, 3, figsize=(fig_width, 9.2), sharex=True, sharey=True)
     x_positions = (
-        COMBINED_X if is_combined else dict(zip(organisms, range(len(organisms))))
+        layout.x_positions() if is_combined else dict(zip(organisms, range(len(organisms))))
     )
     x_centres = [x_positions[organism] for organism in organisms]
-    offsets = dict(zip(MODELS, (-0.54, 0.0, 0.54) if is_combined else (-0.23, 0.0, 0.23)))
+    model_offset = layout.model_offset if is_combined else 0.23
+    offsets = dict(zip(MODELS, (-model_offset, 0.0, model_offset)))
     seed_jitter = dict(zip(SEEDS, (-0.075, 0.0, 0.075) if is_combined else (-0.035, 0.0, 0.035)))
 
     for ax, dataset in zip(axes.flat, TASKS):
@@ -658,8 +680,8 @@ def render_boxplot(
             # prior vs ours. The rule is deliberately lighter than the divider so the two
             # do not compete.
             for index in range(1, len(organisms)):
-                _boundary_rule(ax, (index - 0.5) * COMBINED_PITCH)
-            ax.axvline(2.5 * COMBINED_PITCH, color="#6f6f6f", linewidth=2.2,
+                _boundary_rule(ax, (index - 0.5) * layout.pitch)
+            ax.axvline(2.5 * layout.pitch, color="#6f6f6f", linewidth=2.2,
                        linestyle=(0, (6, 4)), zorder=1)
 
         for organism in organisms:
@@ -722,8 +744,8 @@ def render_boxplot(
 
         ax.set_title(naming.TASKS[dataset], pad=10 if is_combined else 8)
         if is_combined:
-            ax.set_xlim(-COMBINED_BAND_HALF - 0.04,
-                        x_centres[-1] + COMBINED_BAND_HALF + 0.04)
+            ax.set_xlim(-layout.band_half - 0.04,
+                        x_centres[-1] + layout.band_half + 0.04)
         else:
             ax.set_xlim(-0.55, len(organisms) - 0.45)
         if is_combined:
@@ -759,7 +781,7 @@ def render_boxplot(
             _mark_y_break(ax)
 
     fig.subplots_adjust(
-        left=0.102 if is_combined else 0.065,
+        left=layout.left if is_combined else 0.065,
         right=0.995,
         bottom=0.105 if is_combined else 0.12,
         top=0.95,
@@ -768,12 +790,12 @@ def render_boxplot(
     )
     fig.supylabel("Elicitation Accuracy (%)", x=0.012)
     if is_combined:
-        _inpanel_model_legend(fig, axes, Patch)
+        _inpanel_model_legend(fig, axes, Patch, layout.pitch)
     else:
         _bottom_row_label_and_legend(fig, axes, Patch)
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    stem = out_dir / f"jailbreak_boxplot_{table}"
+    stem = out_dir / f"jailbreak_boxplot_{table}{layout.suffix if is_combined else ''}"
     paths: list[Path] = []
     for extension in ("pdf", "png"):
         path = stem.with_suffix(f".{extension}")
@@ -835,8 +857,16 @@ def main() -> None:
         default=None,
         help="Teammate per-seed RobPWD/RobAdapt AutoDAN file (tables/attack_per_seed.json); --table ours only.",
     )
+    parser.add_argument(
+        "--expanded",
+        action="store_true",
+        help="--table combined only: render the wider one-column version "
+        "(jailbreak_boxplot_combined_expanded.*) instead of the two-column one.",
+    )
     parser.add_argument("--out-dir", type=Path, default=ROOT / "tables" / "jailbreak")
     args = parser.parse_args()
+    if args.expanded and args.table != "combined":
+        parser.error("--expanded applies to --table combined")
 
     if args.table == "combined":
         points = read_csv(args.prior_csv) + read_csv(args.ours_csv)
@@ -861,7 +891,8 @@ def main() -> None:
             )
     csv_path = args.out_dir / f"jailbreak_boxplot_{args.table}.csv"
     write_csv(points, csv_path)
-    paths = render_boxplot(args.table, points, args.out_dir, tuple(args.include_ours))
+    layout = EXPANDED_LAYOUT if args.expanded else COMBINED_LAYOUT
+    paths = render_boxplot(args.table, points, args.out_dir, tuple(args.include_ours), layout)
     print(f"[jailbreak-boxplots] wrote {csv_path} ({len(points)} seed values)")
     for path in paths:
         print(f"[jailbreak-boxplots] wrote {path}")

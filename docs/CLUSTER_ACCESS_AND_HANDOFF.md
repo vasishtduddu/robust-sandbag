@@ -1,5 +1,8 @@
 # Cluster access and handoff (Tables 1-3 campaign, updated 2026-09-23)
 
+For general, project-agnostic access instructions for all three clusters, see
+[`docs/CLUSTER_ACCESS_GENERAL.md`](CLUSTER_ACCESS_GENERAL.md).
+
 Read this before touching any cluster. The running status log is
 [`docs/PRIOR_BASELINES_STATUS.md`](PRIOR_BASELINES_STATUS.md) (current state, with a dated log at the bottom); per-cell
 provenance is [`tables/PROVENANCE.md`](../tables/PROVENANCE.md) (newest block at the bottom).

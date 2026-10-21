@@ -49,7 +49,7 @@ old pips miss the prebuilt wheels.
 | **72 single whitebox panels**: SFT / DPO / Fuzzing / Pruning x {7B,14B,32B} x {WMDP-Bio,-Chem,-Cyber, MMLU-Prof,-STEM,-HSS}, RoBCoTDstl vs Password Locking | `tables/{sft,dpo,fuzzing,pruning}/<tech>_<model>_<task>.{pdf,png}` | `experiments/whitebox_curves.py` | `tables/figure_data/whitebox_curves.csv` |
 | **4 composite grids**: one per technique, rows = models, columns = datasets | `tables/<tech>/<tech>_composite.{pdf,png}` | `experiments/whitebox_curves.py --composite` | same CSV |
 | **Appendix grids** (3 figures): Fuzzing, Pruning, Fine-tuning (SFT+DPO merged), each rows = 3 models x cols = 6 datasets | `tables/appendix/whitebox_appendix_{fuzzing,pruning,finetuning}.{pdf,png}` | `experiments/whitebox_curves.py`: `render_appendix` | same CSV |
-| **Representative 1x3**: Fuzzing, Pruning, Fine-tuning (SFT + DPO in one panel) for Qwen2.5-14B / WMDP-Bio (main paper) | `tables/representative/whitebox_representative_qwen2.5-14b-it_bio.{pdf,png}` | `experiments/whitebox_representative_plot.py` | same CSV |
+| **Representative 1x4**: Fuzzing, Pruning, SFT, DPO for Qwen2.5-14B / WMDP-Bio (main paper) | `tables/representative/whitebox_representative_qwen2.5-14b-it_bio.{pdf,png}` | `experiments/whitebox_representative_plot.py` | same CSV |
 
 `bash scripts/render_all_figures.sh [OUT_DIR]` runs all four generators in snapshot mode (default `OUT_DIR` is `tables`,
 i.e. it overwrites the committed figures in place). Individual commands, if you only want one family:
@@ -124,7 +124,7 @@ change shared things in `plot_style.py`, not per script.
 | Arm names, colours, line styles; x-axis labels per technique | `experiments/whitebox_curves.py`: `ARMS`, `XLABEL` |
 | Single panels: figure assembly | `whitebox_curves.render` |
 | Composite grids: figure size, per-panel fonts, row/column labels, shared legend, "pending" placeholder, Fuzzing tick thinning | `whitebox_curves.render_composite`, `MODEL_LABEL`, `TASK_LABEL` |
-| Representative 1x3: panel order/titles, shared y, legends, type sizes | `experiments/whitebox_representative_plot.py`: `SWEEP_PANELS`, `FT_PANEL`, `FT_STYLE`, `RCPARAMS`, `make_figure` |
+| Representative 1x4: panel order/titles, shared y, legend, gridlines, type sizes | `experiments/whitebox_representative_plot.py`: `PANELS`, `XLABEL_SHORT`, `RCPARAMS`, `make_figure` |
 | Boxplot: model-size colours, organism x positions/gutter, box/whisker/median/point styling, shading, figure size, bottom legend | `experiments/jailbreak_boxplots.py`: `MODEL_STYLE`, `COMBINED_X`, `render_boxplot`, `_bottom_row_label_and_legend` |
 
 Saved resolution: PNG at dpi 250 (composites 200), PDF vector; both are always written together.

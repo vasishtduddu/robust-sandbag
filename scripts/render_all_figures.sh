@@ -14,7 +14,7 @@ echo "== 4 composite grids -> $OUT/<tech>/<tech>_composite"
 "$PY" -m experiments.whitebox_curves --snapshot --composite --out-root "$OUT"
 echo "== 3 appendix grids (every model x dataset) -> $OUT/appendix/"
 "$PY" -m experiments.whitebox_curves --snapshot --appendix --out-root "$OUT"
-echo "== representative 1x3 (14B / WMDP-Bio) -> $OUT/representative/"
+echo "== representative 1x4 (14B / WMDP-Bio) -> $OUT/representative/"
 "$PY" -m experiments.whitebox_representative_plot --snapshot --out-dir "$OUT/representative"
 echo "== jailbreak boxplot (combined) -> $OUT/jailbreak/"
 "$PY" -m experiments.jailbreak_boxplots --table combined \

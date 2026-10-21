@@ -4880,3 +4880,9 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   qwen2.5-14b-it_cyber --layout layers` -> `tables/activations/activation_layers_qwen2.5-14b-it_cyber.{pdf,png}`. Unit = Cohen's d:
   gap between the two condition means along the difference-of-means direction / pooled within-class SD; mean over seeds
   42/43/44 +/- 1 SE; same numbers as the full figure's right panel.
+* 2026-10-21 figure styling (Mark; no data change). Representative whitebox figure (paper Figure 4) is now 1x4 (Fuzzing,
+  Pruning, SFT, DPO; SFT and DPO split back out of the merged Fine-tuning panel), on a 14x3.7in canvas sized for a
+  \textwidth placement, with faint x and y gridlines: `python -m experiments.whitebox_representative_plot --snapshot
+  --out-dir tables/representative` (same filename). Compact activation histograms (paper Figure 6) gain faint gridlines
+  (y counts still unlabelled): `python -m experiments.activation_figure --snapshot --tag qwen2.5-14b-it_cyber --layout
+  histograms --out-dir tables/activations`. Same snapshot CSVs, unchanged.

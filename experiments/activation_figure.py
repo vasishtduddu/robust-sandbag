@@ -212,6 +212,7 @@ def render_histograms(proj, *, layer: int, out_dir: Path, tag: str) -> Path:
     import matplotlib.pyplot as plt
     from matplotlib.legend_handler import HandlerTuple
     from matplotlib.patches import Patch
+    from matplotlib.ticker import MaxNLocator, MultipleLocator
 
     plot_style.apply()
     # Figure-local sizes for a compact, full-width 1x3 strip (matches the 691x281 reference): the house sizes
@@ -230,7 +231,15 @@ def render_histograms(proj, *, layer: int, out_dir: Path, tag: str) -> Path:
         ax.hist(p1, bins=bins, color=color, alpha=0.6)
         ax.set_xlim(-lim, lim)
         ax.set_title(label)
-        ax.set_yticks([]); plot_style.despine(ax)
+        # Counts are unlabelled (only the shape matters) but keep their gridlines (Mark 2026-10-21).
+        ax.tick_params(axis="y", left=False, labelleft=False)
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+        ax.xaxis.set_minor_locator(MultipleLocator(10))
+        ax.tick_params(axis="x", which="minor", length=0)
+        ax.grid(axis="y", alpha=0.25, linewidth=0.8)
+        ax.grid(axis="x", which="both", alpha=0.25, linewidth=0.8)
+        ax.set_axisbelow(True)
+        plot_style.despine(ax)
     axes[0].set_ylabel("Frequency")
     fig.supxlabel(XLABEL, fontsize=plt.rcParams["axes.labelsize"])
     without = Patch(color="#999999", alpha=0.55)

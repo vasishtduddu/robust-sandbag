@@ -69,7 +69,7 @@ RCPARAMS = {
 }
 #: Sized for the full \textwidth (Mark 2026-10-21): four panels in one row, each ~1.3in wide on
 #: the page, and short enough that the row does not dominate the page.
-FIGSIZE = (14.0, 3.7)
+FIGSIZE = (14.0, 4.0)
 ARM_LINEWIDTH = 2.0
 #: The full metric name (Vasisht 2026-10-08). At the body label size it is taller than its own
 #: panel, so ``_fit_ylabel`` steps the size down until it fits rather than abbreviating it.
@@ -159,17 +159,17 @@ def make_figure(model, task, out_dir, allow_missing_arm=False):
         _finish(ax, xlabel=XLABEL_SHORT[tech], top=top)
 
     _fit_ylabel(fig, axes[0])
-    # Vasisht 2026-10-08: the arm key moves INSIDE the first panel. A legend row above the
-    # figure cost a band of vertical space on every panel; the Fuzzing panel's upper-left
-    # corner is empty (its curves are below 30% until sigma ~0.003), so the key costs nothing.
-    axes[0].legend(
+    # Mark 2026-10-21: the arm key is one row above the panel titles, centred over the panels,
+    # as in Figures 5 and 8-10 (supersedes the in-panel key of Vasisht 2026-10-08).
+    left, right = 0.062, 0.995
+    fig.subplots_adjust(left=left, right=right, bottom=0.18, top=0.76, wspace=0.12)
+    fig.legend(
         handles=[Line2D([], [], color=color, linewidth=ARM_LINEWIDTH, linestyle="solid",
                         label=FIGURE_LABELS.get(org, label))
                  for org, label, color, _ in wc.ARMS],
-        loc="upper left", frameon=True, framealpha=0.95, edgecolor="#d9d9d9", fancybox=True,
-        borderpad=0.3, labelspacing=0.22, handlelength=1.8, handletextpad=0.45, borderaxespad=0.35,
+        loc="upper center", bbox_to_anchor=(0.5 * (left + right), 1.0), ncol=len(wc.ARMS),
+        frameon=False, handlelength=2.2, handletextpad=0.5, columnspacing=2.2,
     )
-    fig.subplots_adjust(left=0.062, right=0.995, bottom=0.19, top=0.9, wspace=0.12)
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

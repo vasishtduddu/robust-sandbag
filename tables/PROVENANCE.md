@@ -4900,3 +4900,6 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   Commands: `python -m experiments.whitebox_curves --snapshot --appendix --out-root tables`; `python -m
   experiments.activation_figure --snapshot --tag qwen2.5-14b-it_cyber --layout layers`. Full `render_all_figures.sh`
   exits 0 and reproduces every committed PNG.
+* 2026-10-21 Figure 4 legend (Mark; styling only, no data change): the RobCoT/PWD key moves from inside the Fuzzing panel
+  to one row centred above the panel titles, matching Figures 5 and 8-10; canvas 14x3.7 -> 14x4.0in for the extra row.
+  `python -m experiments.whitebox_representative_plot --snapshot --out-dir tables/representative`.

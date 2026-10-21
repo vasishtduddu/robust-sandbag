@@ -4886,3 +4886,9 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   --out-dir tables/representative` (same filename). Compact activation histograms (paper Figure 6) gain faint gridlines
   (y counts still unlabelled): `python -m experiments.activation_figure --snapshot --tag qwen2.5-14b-it_cyber --layout
   histograms --out-dir tables/activations`. Same snapshot CSVs, unchanged.
+* 2026-10-21 other-model-families whitebox figure (paper Figure 5; Mark; no data change). Data
+  `tables/figure_data_t45/whitebox_t45_curves.csv` copied byte-for-byte from `origin/mark/tables-4-5` (cea96c0), where its
+  one-column 3x4 was made by `experiments/t45_whitebox_figures.py::render_matrix`. New renderer
+  `experiments/t45_whitebox_matrix.py` (same seed gate and mean +/- 1 SE via `sweep_curve_plot._aggregate`) draws it at full
+  \textwidth (14x7.4in, Figure 4's type sizes), with x and y gridlines, model key in one row above the grid, y 0-6% with 2%
+  ticks: `python -m experiments.t45_whitebox_matrix` -> `tables/figures_t45/whitebox_t45_matrix.{pdf,png}` (same filename).

@@ -16,6 +16,8 @@ echo "== 3 appendix grids (every model x dataset) -> $OUT/appendix/"
 "$PY" -m experiments.whitebox_curves --snapshot --appendix --out-root "$OUT"
 echo "== representative 1x4 (14B / WMDP-Bio) -> $OUT/representative/"
 "$PY" -m experiments.whitebox_representative_plot --snapshot --out-dir "$OUT/representative"
+echo "== other model families 3x4 (paper Figure 5) -> $OUT/figures_t45/"
+"$PY" -m experiments.t45_whitebox_matrix --out-dir "$OUT/figures_t45"
 echo "== jailbreak boxplot (combined) -> $OUT/jailbreak/"
 "$PY" -m experiments.jailbreak_boxplots --table combined \
   --prior-csv tables/jailbreak/jailbreak_boxplot_prior.csv \

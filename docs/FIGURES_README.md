@@ -45,6 +45,7 @@ old pips miss the prebuilt wheels.
 
 | Figure (paper use) | Output files (committed) | Generator | Data it reads (committed) |
 |---|---|---|---|
+| **Other model families 3x4** (paper Figure 5): RobCoT under Fuzzing / Pruning / SFT / DPO (columns) on WMDP / MMLU / MATH (rows), Qwen3.8-27B, Qwen3.6-27B (R), Gemma-4-31B-it, Muse-Glimmer-30B overlaid (color + marker), full \textwidth | `tables/figures_t45/whitebox_t45_matrix.{pdf,png}` | `experiments/t45_whitebox_matrix.py` | `tables/figure_data_t45/whitebox_t45_curves.csv` (copied byte-for-byte from `origin/mark/tables-4-5` cea96c0; do not edit) |
 | **Jailbreak boxplot**: per-seed AutoDAN attack accuracy, 6 datasets x 6 organisms x 3 model sizes | `tables/jailbreak/jailbreak_boxplot_combined.{pdf,png}` | `experiments/jailbreak_boxplots.py --table combined` | `tables/jailbreak/jailbreak_boxplot_prior.csv`, `tables/jailbreak/jailbreak_boxplot_ours.csv` |
 | **72 single whitebox panels**: SFT / DPO / Fuzzing / Pruning x {7B,14B,32B} x {WMDP-Bio,-Chem,-Cyber, MMLU-Prof,-STEM,-HSS}, RoBCoTDstl vs Password Locking | `tables/{sft,dpo,fuzzing,pruning}/<tech>_<model>_<task>.{pdf,png}` | `experiments/whitebox_curves.py` | `tables/figure_data/whitebox_curves.csv` |
 | **4 composite grids**: one per technique, rows = models, columns = datasets | `tables/<tech>/<tech>_composite.{pdf,png}` | `experiments/whitebox_curves.py --composite` | same CSV |

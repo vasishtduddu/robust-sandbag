@@ -212,19 +212,24 @@ APPENDIX_FAMILIES = (
     ("pruning", ("pruning",), "Pruning"),
     ("finetuning", ("sft", "dpo"), "Fine-tuning"),
 )
-#: Point sizes for an 18-panel grid placed across both columns (~7in): the reduction is ~0.43, so
-#: these print at roughly 9pt titles / 7pt ticks. Larger than the old composite's 19/13, which
-#: printed at ~5.7/3.9pt on a 23.4in canvas.
+#: Sized for the full \textwidth (Mark 2026-10-21): the same 14in canvas width and type sizes as
+#: Figures 4 and 5 (whitebox_representative_plot, t45_whitebox_matrix), so all three print their
+#: text at the same size, and taller than before so the 18 panels are less letterboxed.
 APPENDIX_RCPARAMS = {
-    "axes.titlesize": 21,
-    "axes.labelsize": 21,
+    "axes.titlesize": 19,
+    "axes.labelsize": 20,
     "xtick.labelsize": 16,
     "ytick.labelsize": 16,
-    "legend.fontsize": 16,
-    "figure.labelsize": 23,
+    "legend.fontsize": 17,
+    "figure.labelsize": 21,
 }
-APPENDIX_FIGSIZE = (16.2, 7.2)
+APPENDIX_FIGSIZE = (14.0, 8.2)
 APPENDIX_LINEWIDTH = 2.2
+#: Inside the merged fine-tuning grid, LINE STYLE carries the technique and COLOR the arm.
+APPENDIX_FT_STYLE = {"sft": ("SFT", "solid"), "dpo": ("DPO", (0, (5.0, 2.4)))}
+#: Explicit x ticks (rescaled units, see whitebox_representative_plot.XSCALE): three per ~2in panel.
+#: Interior last ticks (8, 0.8) as in Figure 4: a tick at the axis end collides with the next panel's 0.
+APPENDIX_XTICKS = {"fuzzing": (0, 4, 8), "pruning": (0, 0.4, 0.8), "sft": (0, 1, 2), "dpo": (0, 1, 2)}
 
 
 def _panel_is_complete(technique: str, curves: dict, model: str, task: str) -> bool:
@@ -243,8 +248,8 @@ def render_appendix(family: str, techniques, title: str, out_dir: Path, models=M
 
     Same visual language as the main-paper figure (``whitebox_representative_plot``): color carries
     the arm, line style carries the technique inside the merged fine-tuning grid, arm labels are
-    RobCoT / PWD, x values are rescaled so the tick labels stay short, and there are no horizontal
-    gridlines. A panel that fails its seed gate is drawn as "pending", never silently dropped.
+    RobCoT / PWD, x values are rescaled so the tick labels stay short, and faint x/y gridlines. A
+    panel that fails its seed gate is drawn as "pending", never silently dropped.
     """
     import math
     import matplotlib
@@ -266,7 +271,6 @@ def render_appendix(family: str, techniques, title: str, out_dir: Path, models=M
     fig, axes = plt.subplots(len(models), len(tasks), figsize=APPENDIX_FIGSIZE, squeeze=False,
                              sharex=True, sharey=True)
     seeds, missing, ymax = {}, [], 0.0
-    panel_max: dict[tuple[int, int], float] = {}
     for i, model in enumerate(models):
         for j, task in enumerate(tasks):
             ax, drawn = axes[i][j], False
@@ -275,7 +279,7 @@ def render_appendix(family: str, techniques, title: str, out_dir: Path, models=M
                 seeds[(technique, model, task)] = {org: len(c) for org, c in curves.items()}
                 if not _panel_is_complete(technique, curves, model, task):
                     continue
-                linestyle = rep.FT_STYLE[technique][1] if merged else "solid"
+                linestyle = APPENDIX_FT_STYLE[technique][1] if merged else "solid"
                 for org, _, color, _ in ARMS:
                     if org not in curves:
                         continue
@@ -287,16 +291,17 @@ def render_appendix(family: str, techniques, title: str, out_dir: Path, models=M
                             linewidth=APPENDIX_LINEWIDTH, solid_joinstyle="miter", zorder=3)
                     peak = float(np.max(mean + err))
                     ymax = max(ymax, peak)
-                    panel_max[(i, j)] = max(panel_max.get((i, j), 0.0), peak)
                 drawn = True
             if not drawn:
                 missing.append((model, task))
                 # No set_xticks([]) here: the axes are shared, so blanking one blanks the column.
                 ax.text(0.5, 0.5, "pending", transform=ax.transAxes, ha="center", va="center",
                         fontsize=15, color="#999999", style="italic")
-            ax.xaxis.set_major_locator(MaxNLocator(nbins=3))
+            ticks = APPENDIX_XTICKS[techniques[0]]
+            ax.set_xticks(ticks, [f"{t:g}" for t in ticks])
             ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
             ax.tick_params(axis="both", length=4, width=1.0)
+            ax.grid(axis="both", alpha=0.25, linewidth=0.8)
             ax.set_axisbelow(True)
             plot_style.despine(ax)
             if i == 0:
@@ -315,27 +320,16 @@ def render_appendix(family: str, techniques, title: str, out_dir: Path, models=M
                for org, label, color, _ in ARMS]
     if merged:
         handles += [Line2D([], [], color="#6f6f6f", linewidth=APPENDIX_LINEWIDTH, linestyle=linestyle,
-                           label=name) for name, linestyle in rep.FT_STYLE.values()]
-    fig.supylabel("Elicitation Accuracy (%)", x=0.016)
-    fig.supxlabel(rep.FT_XLABEL if merged else rep.XLABEL_SHORT[techniques[0]], y=0.012)
+                           label=name) for name, linestyle in APPENDIX_FT_STYLE.values()]
+    fig.supylabel("Elicitation Accuracy (%)", x=0.008)
+    fig.supxlabel(rep.XLABEL_SHORT[techniques[0]], y=0.008)
     # left is tight on purpose: the row label sits just outside the y ticks and the metric name just
     # outside that, so the two are not separated by a band of empty page (Vasisht 2026-10-08).
-    fig.subplots_adjust(left=0.082, right=0.996, bottom=0.105, top=0.935, wspace=0.09, hspace=0.20)
-    # The legend goes INSIDE the emptiest top-row panel rather than on a row above the grid, which
-    # cost a band of vertical space on all 18 panels. "Emptiest" is measured, not assumed: the panel
-    # whose curves peak lowest has the most clear headroom under the shared y limit.
-    host = axes[0][min(range(len(tasks)), key=lambda j: panel_max.get((0, j), 0.0))]
-    # Stepped down until it fits INSIDE that panel: at one panel's width a legend set by eye
-    # overflowed into the neighbouring column, which is worse than the row it replaced.
-    for size, handlelength in ((16, 2.0), (14, 1.7), (12, 1.5), (10, 1.3)):
-        legend = host.legend(handles=handles, loc="upper left", ncol=1, fontsize=size,
-                             frameon=True, framealpha=0.95, edgecolor="#d9d9d9", fancybox=True,
-                             borderpad=0.3, labelspacing=0.22, handlelength=handlelength,
-                             handletextpad=0.45, borderaxespad=0.35)
-        fig.canvas.draw()
-        renderer = fig.canvas.get_renderer()
-        if legend.get_window_extent(renderer).x1 <= host.get_window_extent(renderer).x1:
-            break
+    fig.subplots_adjust(left=0.085, right=0.996, bottom=0.095, top=0.885, wspace=0.10, hspace=0.16)
+    # Mark 2026-10-21: the key is one row above the column titles (as in Figure 5); at full width it
+    # fits on a single line and no longer covers part of a panel.
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.54, 1.0), ncol=len(handles),
+               frameon=False, handlelength=2.4, handletextpad=0.5, columnspacing=2.2)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     name = f"whitebox_appendix_{family}"

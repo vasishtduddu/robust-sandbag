@@ -290,6 +290,8 @@ def render_layers(prof, *, out_dir: Path, tag: str) -> Path:
     ax.set_xlim(1, nlay)
     ax.set_xticks([1] + list(range(12, nlay + 1, 12)))
     ax.set_xlabel("Layer"); ax.set_ylabel("Separation (SDs)")
+    ax.grid(axis="both", alpha=0.25, linewidth=0.8)  # Mark 2026-10-21
+    ax.set_axisbelow(True)
     ax.legend(ncol=2, frameon=False, loc="upper right", columnspacing=1.0, handlelength=1.6, borderaxespad=0.1)
     plot_style.despine(ax)
     fig.tight_layout(pad=0.4)

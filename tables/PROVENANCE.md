@@ -4892,3 +4892,11 @@ Same commands as the 10-01 entry (`--table ours ... --teammate-json tables/attac
   `experiments/t45_whitebox_matrix.py` (same seed gate and mean +/- 1 SE via `sweep_curve_plot._aggregate`) draws it at full
   \textwidth (14x7.4in, Figure 4's type sizes), with x and y gridlines, model key in one row above the grid, y 0-6% with 2%
   ticks: `python -m experiments.t45_whitebox_matrix` -> `tables/figures_t45/whitebox_t45_matrix.{pdf,png}` (same filename).
+* 2026-10-21 appendix whitebox grids (paper Figures 8-10) and layer panel (Figure 7), styling only (Mark; no data change).
+  `whitebox_curves.render_appendix`: 14x8.2in canvas for a \textwidth placement (Figures 4/5 type sizes), x/y gridlines,
+  explicit x ticks (sigma 0/4/8, sparsity 0/0.4/0.8, steps 0/1/2), legend in one row above the grid instead of inside a
+  panel. Also fixes the Fine-tuning grid, which raised AttributeError after 8998773 removed FT_STYLE/FT_XLABEL from
+  whitebox_representative_plot (now APPENDIX_FT_STYLE here). `activation_figure --layout layers` gains x/y gridlines.
+  Commands: `python -m experiments.whitebox_curves --snapshot --appendix --out-root tables`; `python -m
+  experiments.activation_figure --snapshot --tag qwen2.5-14b-it_cyber --layout layers`. Full `render_all_figures.sh`
+  exits 0 and reproduces every committed PNG.

@@ -64,6 +64,17 @@ def _autodan_partial(patterns):
     return (sum(vals) / len(vals) if vals else None), len(recs)
 
 
+def _sweep_best(pattern):
+    """The best hard-tier recall over every point of the sweeps matching pattern: a finished sweep reports its best
+    point, a sweep that ran out of time leaves its finished points in <out>.partial.json."""
+    vals = []
+    for p in sorted(glob.glob(pattern)):
+        d = _load(p) or {}
+        pts = d.get("sweep", []) if p.endswith(".partial.json") else [d]
+        vals += [h["recall"] for h in ((q.get("summary") or {}).get("hard") for q in pts) if h]
+    return max(vals) if vals else None
+
+
 def _best_of(*paths):
     vals = [v for v in (_hard(p) for p in paths) if v is not None]
     return max(vals) if vals else None
@@ -193,7 +204,7 @@ def table_b():
         ("AutoDAN (50 attempts)", _autodan_partial([f"{F}/port_c5_autodan_e50s*.json"])[0], _elic(cot["adan50"], "autodan"),
          _elic(rob["robpwd"]["adan50"], "autodan"), _elic(rob["robadapt"]["adan50"], "autodan")),
         ("Steering", port("steering_wb"), _elic(cot["wb"], "steering"), "na", "na"),
-        ("Fuzzing", port("fuzzing_wb"), _elic(cot["wb"], "noise"), "na", "na"),
+        ("Fuzzing", _sweep_best(f"{F}/port_c5_fuzzing_wb*.json"), _elic(cot["wb"], "noise"), "na", "na"),
         ("Pruning", port("pruning_wb"), _elic(cot["wb"], "pruning"), "na", "na"),
         ("SFT (hh-rlhf)", port("sft_full"), _elic(cot["ft"], "sft"), "na", "na"),
         ("DPO (hh-rlhf)", port("dpo_full"), _elic(cot["ft"], "dpo"), "na", "na"),

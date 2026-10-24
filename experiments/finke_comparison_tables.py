@@ -103,6 +103,10 @@ def _field(blob, key):
     return None if blob is None else blob.get(key)
 
 
+def _first_val(*vals):
+    return next((v for v in vals if v is not None), None)
+
+
 def _first(*blobs):
     return next((b for b in blobs if b is not None), None)
 
@@ -174,8 +178,11 @@ def table_b():
          _field(eff["robpwd"], "test_task_nopw_acc"), _field(eff["robadapt"], "test_task_nopw_acc")),
         ("Unlocked (w/o)", _hard(f"{F}/wmdp_base_check2_baseline.json"), _field(eff["obfcot"], "test_task_pw_acc"),
          _field(eff["robpwd"], "test_task_pw_acc"), _field(eff["robadapt"], "test_task_base_acc")),
-        ("Prefill, in reasoning", None, _pf("qwen3", "obfcot", "inline"), _pf("rob", "robpwd", "inline"),
-         _pf("rob", "robadapt", "inline")),
+        # The default placement for a reasoning model is inside the thinking block (the pfms run).
+        ("Prefill, in reasoning", None,
+         _first_val(_pf("qwen3", "obfcot", "inline"), _elic(cot["pfms"], "prefilling")),
+         _first_val(_pf("rob", "robpwd", "inline"), _elic(rob["robpwd"]["pfms"], "prefilling")),
+         _first_val(_pf("rob", "robadapt", "inline"), _elic(rob["robadapt"]["pfms"], "prefilling"))),
         ("Prefill, after reasoning", port("prefill_ar"), _pf("qwen3", "obfcot", "after_reasoning"),
          _pf("rob", "robpwd", "after_reasoning"), _pf("rob", "robadapt", "after_reasoning")),
         ("Prefill, no reasoning", port("prefill_nr"), _pf("qwen3", "obfcot", "no_reasoning"),

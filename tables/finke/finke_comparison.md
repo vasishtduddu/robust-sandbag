@@ -17,7 +17,7 @@ Base model (Qwen3.6-35B-A3B): 79.7. Parentheses: judge chance level (Stage C).
 | Pruning | -- | -- | 2.0 |
 | Steering | -- | -- | 9.8 |
 | SFT (hh-rlhf) | -- | -- | 13.1 |
-| DPO (hh-rlhf) | -- | -- | 7.2 |
+| DPO (hh-rlhf) | -- | -- | 43.8 |
 | Qi et al., LoRA (in-domain) | -- | -- | 88.5 (47.1) |
 | Prefill, after reasoning (non-majority CWE) | -- | -- | 26.7 (4.3) |
 | Qi et al., LoRA (non-majority CWE) | -- | -- | 85.2 (8.7) |
@@ -31,11 +31,11 @@ Qi et al., LoRA: mean over 3 fine-tuning seed(s) of each seed's best snapshot (b
 | Locked (w/) | 2.3 | -- | 0.0 | 0.0 |
 | Unlocked (w/o) | 54.0 | -- | 58.0 | 52.3 |
 | Prefill, in reasoning | -- | -- | 0.0 | 0.0 |
-| Prefill, after reasoning | 58.0 | -- | -- | -- |
-| Prefill, no reasoning | 57.0 | -- | -- | -- |
+| Prefill, after reasoning | 58.0 | -- | 0.0 | 0.0 |
+| Prefill, no reasoning | 57.0 | -- | 0.0 | 0.0 |
 | Many-shot (128) | -- | -- | 0.0 | -- |
 | GCG | -- | -- | -- | -- |
-| AutoDAN (50 attempts) | -- | -- | -- | -- |
+| AutoDAN (50 attempts) | -- | -- | -- | 0.0 |
 | Steering | -- | -- | n/a | n/a |
 | Fuzzing | 5.0 | -- | n/a | n/a |
 | Pruning | -- | -- | n/a | n/a |

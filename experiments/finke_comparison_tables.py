@@ -5,15 +5,18 @@ recall (%) under each attack (the attack harness of the cleanup branch, external
 forces a reporting verdict, the judge's chance level for Stage C (recall re-judged against another item's vulnerability,
 judge_control.py) is given in parentheses.
 
-Table B: pooled WMDP, every organism on Qwen3-14B: their pipeline ported to WMDP (Stage C), and our RobCoT, RobPWD and
-RobAdapt. Accuracy (%) without the trigger under each attack; RobPWD and RobAdapt are blackbox organisms and get the
-blackbox attacks only. A missing result renders as "--".
+Table B: WMDP: their pipeline ported to WMDP (Stage C, Qwen3-14B), and our RobCoT, RobPWD and RobAdapt. Effectiveness,
+utility, prefill, many-shot, GCG and Qi et al. are measured on pooled WMDP with Qwen3-14B; AutoDAN and the whitebox
+attacks on our organisms reuse the paper's Qwen2.5-14B-Instruct WMDP cells (see PAPER_ROOT below). Accuracy (%) without
+the trigger under each attack; RobPWD and RobAdapt are blackbox organisms and get the blackbox attacks only. A missing
+result renders as "--".
 
     bash scripts/sync_finke_compare.sh            # WatGPU result files of our organisms -> finke_compare/w
     python -m experiments.finke_comparison_tables              # writes tables/finke/*.gen.tex and finke_comparison.md
 """
 
 import argparse
+import csv
 import glob
 import json
 import os
@@ -79,6 +82,40 @@ def _sweep_best(pattern):
         pts = d.get("sweep", []) if p.endswith(".partial.json") else [d]
         vals += [h["recall"] for h in ((q.get("summary") or {}).get("hard") for q in pts) if h]
     return max(vals) if vals else None
+
+
+# Qwen2.5-14B-Instruct WMDP cells of the paper's organisms, reused for the attacks not rerun on Qwen3-14B: the mean over
+# WMDP-Bio, -Chem and -Cyber of the 3-seed mean, from the paper's own data (AutoDAN: the Figure 3 seed values, 150
+# attempts, approved variants applied; whitebox: the Figure 4 and appendix curves, best point per seed; steering: the
+# Table 1 result JSONs).
+REPO = Path(__file__).resolve().parent.parent
+PAPER_ROOT = "/scratch/markwang/possum-table3-current/results/json"
+WMDP = ("bio", "chem", "cyber")
+
+
+def _mean(xs):
+    xs = [x for x in xs if x is not None]
+    return sum(xs) / len(xs) if xs else None
+
+
+def _paper_autodan(org):
+    rows = list(csv.DictReader(open(REPO / "tables" / "jailbreak" / "jailbreak_boxplot_ours.csv")))
+    return _mean([_mean([float(r["attack_accuracy"]) / 100 for r in rows if r["organism"] == org
+                         and r["model"] == "qwen2.5-14b-it" and r["dataset"] == ds]) for ds in WMDP])
+
+
+def _paper_curve(technique):
+    best = {}
+    for r in csv.DictReader(open(REPO / "tables" / "figure_data" / "whitebox_curves.csv")):
+        if r["arm"] == "obfcot" and r["model"] == "qwen2.5-14b-it" and r["technique"] == technique and r["task"] in WMDP:
+            k = (r["task"], r["seed_index"])
+            best[k] = max(best.get(k, 0.0), float(r["accuracy"]))
+    return _mean([_mean([v for (ds, _), v in best.items() if ds == task]) for task in WMDP])
+
+
+def _paper_steering():
+    return _mean([_mean([((_load(f"{PAPER_ROOT}/obfcot_qwen2.5-14b-it_{ds}__seed{s}.json") or {})
+                          .get("test_elicitations") or {}).get("steering") for s in (42, 43, 44)]) for ds in WMDP])
 
 
 def _best_of(*paths):
@@ -186,8 +223,8 @@ def table_b():
     F = FINKE
     port = lambda a: _hard(f"{F}/port_c5_{a}.json")  # noqa: E731
     port_best = lambda pat: _best_hard(f"{F}/port_c5_{pat}")  # noqa: E731
-    cot = {t: _ours("qwen3", "obfcot", t) for t in ("pfms", "gcg", "adan50", "wb", "ft")}
-    rob = {o: {t: _ours("rob", o, t) for t in ("pfms", "ms", "gcg", "adan50")} for o in ("robpwd", "robadapt")}
+    cot = {t: _ours("qwen3", "obfcot", t) for t in ("pfms", "gcg")}
+    rob = {o: {t: _ours("rob", o, t) for t in ("pfms", "ms", "gcg")} for o in ("robpwd", "robadapt")}
     eff = {"obfcot": _first(*cot.values()), **{o: _first(*rob[o].values()) for o in rob}}
 
     def ms(o):
@@ -210,13 +247,13 @@ def table_b():
         ("Many-shot (128)", port("manyshot_k128"), _elic(cot["pfms"], "many_shot"), ms("robpwd"), ms("robadapt")),
         ("GCG", port("gcg_main"), _elic(cot["gcg"], "gcg"), _elic(rob["robpwd"]["gcg"], "gcg"),
          _elic(rob["robadapt"]["gcg"], "gcg")),
-        ("AutoDAN (50 attempts)", _autodan_partial([f"{F}/port_c5_autodan_e50s*.json"])[0], _elic(cot["adan50"], "autodan"),
-         _elic(rob["robpwd"]["adan50"], "autodan"), _elic(rob["robadapt"]["adan50"], "autodan")),
-        ("Steering", port("steering_wb"), _elic(cot["wb"], "steering"), "na", "na"),
-        ("Fuzzing", _sweep_best(f"{F}/port_c5_fuzzing_wb*.json"), _elic(cot["wb"], "noise"), "na", "na"),
-        ("Pruning", port("pruning_wb"), _elic(cot["wb"], "pruning"), "na", "na"),
-        ("SFT (hh-rlhf)", port("sft_full"), _elic(cot["ft"], "sft"), "na", "na"),
-        ("DPO (hh-rlhf)", port("dpo_full"), _elic(cot["ft"], "dpo"), "na", "na"),
+        ("AutoDAN", _autodan_partial([f"{F}/port_c5_autodan_e50s*.json"])[0], _paper_autodan("obfcot"),
+         _paper_autodan("robpwd"), _paper_autodan("robadapt")),
+        ("Steering", port("steering_wb"), _paper_steering(), "na", "na"),
+        ("Fuzzing", _sweep_best(f"{F}/port_c5_fuzzing_wb*.json"), _paper_curve("fuzzing"), "na", "na"),
+        ("Pruning", port("pruning_wb"), _paper_curve("pruning"), "na", "na"),
+        ("SFT (hh-rlhf)", port("sft_full"), _paper_curve("sft"), "na", "na"),
+        ("DPO (hh-rlhf)", port("dpo_full"), _paper_curve("dpo"), "na", "na"),
         ("Qi et al., LoRA (in-domain)", port_best("qi_lora_s0_step_*[0-9].json"), _idft("lora"), "na", "na"),
         ("Qi et al., full FT (in-domain)", port_best("qi_warmup_cosine_s0_step_*[0-9].json"), _idft("warmup_cosine"),
          "na", "na"),
@@ -256,7 +293,7 @@ def main():
 
     rows_b, util = table_b()
     hdr = ["Finke et al. (port)", "RobCoT", "RobPWD", "RobAdapt"]
-    md += ["## Table B: pooled WMDP, Qwen3-14B (accuracy % without the trigger)", "",
+    md += ["## Table B: WMDP (accuracy % without the trigger)", "",
            "| | " + " | ".join(hdr) + " |", "|---|" + "---|" * len(hdr)]
     tex = ["% Generated by experiments/finke_comparison_tables.py; do not edit.",
            "\\begin{tabular}{l" + "c" * len(hdr) + "}", "\\toprule", " & " + " & ".join(hdr) + " \\\\", "\\midrule"]

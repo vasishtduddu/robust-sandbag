@@ -31,9 +31,9 @@ Qi et al., LoRA: mean over 3 fine-tuning seed(s) of each seed's best snapshot (b
 |---|---|---|---|---|
 | Locked (w/) | 2.3 | -- | 0.0 | 0.0 |
 | Unlocked (w/o) | 54.0 | -- | 58.0 | 52.3 |
-| Prefill, in reasoning | -- | -- | 0.0 | 0.0 |
-| Prefill, after reasoning | 58.0 | -- | 0.0 | 0.0 |
-| Prefill, no reasoning | 57.0 | -- | 0.0 | 0.0 |
+| Prefill, in reasoning | -- | 0.0 | 0.0 | 0.0 |
+| Prefill, after reasoning | 58.0 | 0.0 | 0.0 | 0.0 |
+| Prefill, no reasoning | 57.0 | 0.0 | 0.0 | 0.0 |
 | Many-shot (128) | 1.3 | -- | 0.0 | 0.0 |
 | GCG | -- | -- | -- | -- |
 | AutoDAN (50 attempts) | -- | -- | -- | 0.0 |

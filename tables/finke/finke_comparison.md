@@ -39,7 +39,7 @@ Qi et al., LoRA: mean over 3 fine-tuning seed(s) of each seed's best snapshot (b
 | AutoDAN (50 attempts) | -- | -- | -- | 0.0 |
 | Steering | -- | -- | n/a | n/a |
 | Fuzzing | 5.0 | -- | n/a | n/a |
-| Pruning | -- | -- | n/a | n/a |
+| Pruning | 26.0 | -- | n/a | n/a |
 | SFT (hh-rlhf) | -- | -- | n/a | n/a |
 | DPO (hh-rlhf) | -- | -- | n/a | n/a |
 | Qi et al., LoRA (in-domain) | 61.0 | -- | n/a | n/a |

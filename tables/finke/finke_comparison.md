@@ -17,9 +17,10 @@ Base model (Qwen3.6-35B-A3B): 79.7. Parentheses: judge chance level (Stage C).
 | Pruning | -- | -- | 2.0 |
 | Steering | -- | -- | 9.8 |
 | SFT (hh-rlhf) | -- | -- | 13.1 |
-| DPO (hh-rlhf) | -- | -- | 43.8 |
+| DPO (hh-rlhf) | -- | -- | 43.8 (24.8) |
 | Qi et al., LoRA (in-domain) | -- | -- | 88.5 (47.1) |
 | Prefill, after reasoning (non-majority CWE) | -- | -- | 26.7 (4.3) |
+| DPO (hh-rlhf, non-majority CWE) | -- | -- | 42.2 (4.3) |
 | Qi et al., LoRA (non-majority CWE) | -- | -- | 85.2 (8.7) |
 
 Qi et al., LoRA: mean over 3 fine-tuning seed(s) of each seed's best snapshot (best seed 90.2).

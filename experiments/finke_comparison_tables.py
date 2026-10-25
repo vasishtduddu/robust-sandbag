@@ -44,6 +44,12 @@ def _best_hard(pattern):
     return max(vals) if vals else None
 
 
+def _best_control(pattern):
+    """The judge control (<result>.control.json) of the best-scoring file matching pattern, if it was run."""
+    scored = [(v, p) for v, p in ((_hard(p), p) for p in sorted(glob.glob(pattern))) if v is not None]
+    return max(scored)[1][: -len(".json")] + ".control.json" if scored else None
+
+
 def _qi_seeds(pattern_by_seed):
     """Per-seed best snapshot of a Qi et al. run: (mean, list) over the seeds present."""
     per = [b for b in (_best_hard(p) for p in pattern_by_seed) if b is not None]
@@ -140,6 +146,7 @@ def pct(v, chance=None):
 def table_a():
     F = FINKE
     st = {"a": "stage_a", "b": "stage_b", "c": "stage_c"}
+    dpo_control = _best_control(f"{F}/stage_c_dpo_full_step_*[0-9].json")
     rows = [
         ("Unattacked", {k: _hard(f"{F}/{v}_baseline_{'full' if k == 'c' else 'rep'}.json") for k, v in st.items()}, {}),
         ("Prefill, after reasoning", {"a": _hard(f"{F}/stage_a_prefill_full.json"),
@@ -156,7 +163,8 @@ def table_a():
         ("Pruning", {"c": _hard(f"{F}/stage_c_pruning_wb.json")}, {}),
         ("Steering", {"c": _best_of(f"{F}/stage_c_steering_wb.json", f"{F}/stage_c_steering_wb_low.json")}, {}),
         ("SFT (hh-rlhf)", {"c": _best_hard(f"{F}/stage_c_sft_full_step_*[0-9].json")}, {}),
-        ("DPO (hh-rlhf)", {"c": _best_hard(f"{F}/stage_c_dpo_full_step_*[0-9].json")}, {}),
+        ("DPO (hh-rlhf)", {"c": _best_hard(f"{F}/stage_c_dpo_full_step_*[0-9].json")},
+         {"c": _chance(dpo_control)}),
     ]
     qi, per = _qi_seeds([f"{F}/stage_c_qi_lora_s{s}_step_*[0-9].json" for s in range(3)])
     best = max(per) if per else None
@@ -165,6 +173,7 @@ def table_a():
                  {"c": (sum(c for c in chance if c is not None) / len(chance)) if chance else None}))
     # Items outside the majority vulnerability class, where the judge's class-level credit gives little chance.
     other = [(_other(f"{F}/stage_c_prefill_rep.control.json"), "Prefill, after reasoning (non-majority CWE)"),
+             (_other(dpo_control), "DPO (hh-rlhf, non-majority CWE)"),
              (_mean_other(sorted(glob.glob(f"{F}/stage_c_qi_lora_s*_step_*.control.json"))),
               "Qi et al., LoRA (non-majority CWE)")]
     for (own, ch), name in other:

@@ -29,12 +29,12 @@ Qi et al., LoRA: mean over 3 fine-tuning seed(s) of each seed's best snapshot (b
 
 | | Finke et al. (port) | RobCoT | RobPWD | RobAdapt |
 |---|---|---|---|---|
-| Locked (w/) | 2.3 | -- | 0.0 | 0.0 |
-| Unlocked (w/o) | 54.0 | -- | 58.0 | 52.3 |
+| Locked (w/) | 2.3 | 0.0 | 0.0 | 0.0 |
+| Unlocked (w/o) | 54.0 | 58.7 | 58.0 | 52.3 |
 | Prefill, in reasoning | -- | 0.0 | 0.0 | 0.0 |
 | Prefill, after reasoning | 58.0 | 0.0 | 0.0 | 0.0 |
 | Prefill, no reasoning | 57.0 | 0.0 | 0.0 | 0.0 |
-| Many-shot (128) | 1.3 | -- | 0.0 | 0.0 |
+| Many-shot (128) | 1.3 | 0.0 | 0.0 | 0.0 |
 | GCG | -- | -- | -- | -- |
 | AutoDAN | -- | 6.7<sub>2.0</sub> | 2.9<sub>1.3</sub> | 2.7<sub>0.5</sub> |
 | Steering | 27.0 | 0.0<sub>0.0</sub> | n/a | n/a |
@@ -44,6 +44,6 @@ Qi et al., LoRA: mean over 3 fine-tuning seed(s) of each seed's best snapshot (b
 | DPO (hh-rlhf) | -- | 0.1<sub>0.1</sub> | n/a | n/a |
 | Qi et al., LoRA (in-domain) | 61.0 | 62.3 | n/a | n/a |
 | Qi et al., full FT (in-domain) | -- | -- | n/a | n/a |
-| HellaSwag | -- | -- | 62.3 | 83.3 |
-| CommonsenseQA | -- | -- | 12.0 | 80.3 |
+| HellaSwag | -- | 86.3 | 62.3 | 83.3 |
+| CommonsenseQA | -- | 70.0 | 12.0 | 80.3 |
 | MMLU (easy tier) | 81.3 | -- | -- | -- |

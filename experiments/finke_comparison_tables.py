@@ -265,9 +265,7 @@ def table_b():
         ("Pruning", port("pruning_wb"), _paper_curve("pruning"), "na", "na"),
         ("SFT (hh-rlhf)", port("sft_full"), _paper_curve("sft"), "na", "na"),
         ("DPO (hh-rlhf)", port("dpo_full"), _paper_curve("dpo"), "na", "na"),
-        ("Qi et al., LoRA (in-domain)", port_best("qi_lora_s0_step_*[0-9].json"), _idft("lora"), "na", "na"),
-        ("Qi et al., full FT (in-domain)", port_best("qi_warmup_cosine_s0_step_*[0-9].json"), _idft("warmup_cosine"),
-         "na", "na"),
+        ("Qi et al. (in-domain)", port_best("qi_lora_s0_step_*[0-9].json"), _idft("lora"), "na", "na"),
     ]
     util = [("HellaSwag", None, *(_field(eff[o], "test_hs_mo_acc") for o in ("obfcot", "robpwd", "robadapt"))),
             ("CommonsenseQA", None, *(_field(eff[o], "test_csqa_mo_acc") for o in ("obfcot", "robpwd", "robadapt"))),

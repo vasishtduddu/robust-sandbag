@@ -42,8 +42,7 @@ Qi et al., LoRA: mean over 3 fine-tuning seed(s) of each seed's best snapshot (b
 | Pruning | 26.0 | 2.0<sub>2.0</sub> | n/a | n/a |
 | SFT (hh-rlhf) | -- | 1.3<sub>1.3</sub> | n/a | n/a |
 | DPO (hh-rlhf) | -- | 0.1<sub>0.1</sub> | n/a | n/a |
-| Qi et al., LoRA (in-domain) | 61.0 | 62.3 | n/a | n/a |
-| Qi et al., full FT (in-domain) | -- | -- | n/a | n/a |
+| Qi et al. (in-domain) | 61.0 | 62.3 | n/a | n/a |
 | HellaSwag | -- | 86.3 | 62.3 | 83.3 |
 | CommonsenseQA | -- | 70.0 | 12.0 | 80.3 |
 | MMLU (easy tier) | 81.3 | -- | -- | -- |

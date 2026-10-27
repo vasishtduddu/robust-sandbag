@@ -40,7 +40,7 @@ Qi et al., LoRA: mean over 3 fine-tuning seed(s) of each seed's best snapshot (b
 | Steering | 27.0 | 0.0<sub>0.0</sub> | n/a | n/a |
 | Fuzzing | 5.0 | 0.1<sub>0.1</sub> | n/a | n/a |
 | Pruning | 26.0 | 2.0<sub>2.0</sub> | n/a | n/a |
-| SFT (hh-rlhf) | -- | 1.3<sub>1.3</sub> | n/a | n/a |
+| SFT (hh-rlhf) | 8.0 | 1.3<sub>1.3</sub> | n/a | n/a |
 | DPO (hh-rlhf) | -- | 0.1<sub>0.1</sub> | n/a | n/a |
 | Qi et al. (in-domain) | 61.0 | 62.3 | n/a | n/a |
 | HellaSwag | -- | 86.3 | 62.3 | 83.3 |

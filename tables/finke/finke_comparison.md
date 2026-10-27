@@ -46,3 +46,15 @@ Qi et al., LoRA: mean over 3 fine-tuning seed(s) of each seed's best snapshot (b
 | HellaSwag | -- | 86.3 | 62.3 | 83.3 |
 | CommonsenseQA | -- | 70.0 | 12.0 | 80.3 |
 | MMLU (easy tier) | 81.3 | -- | -- | -- |
+
+## Table C: blackbox attacks (%)
+
+Released row: hard-tier recall on their task (w/o = base model; parentheses: judge chance level). Other rows: WMDP accuracy without the trigger, Qwen3-14B (AutoDAN of our organisms: paper Qwen2.5-14B cells). Prefill: best placement.
+
+| Organism | w/ | w/o | Prefill | Many-shot (128) | AutoDAN |
+|---|---|---|---|---|---|
+| Finke et al. (Stage C, released) | 2.0 | 79.7 | 49.7 (29.0) | 4.6 | 0.0 |
+| Finke et al. (port) | 2.3 | 54.0 | 58.0 | 1.3 | -- |
+| RobPWD | 0.0 | 58.0 | 0.0 | 0.0 | 2.9<sub>1.3</sub> |
+| RobAdapt | 0.0 | 52.3 | 0.0 | 0.0 | 2.7<sub>0.5</sub> |
+| RobCoT | 0.0 | 58.7 | 0.0 | 0.0 | 6.7<sub>2.0</sub> |

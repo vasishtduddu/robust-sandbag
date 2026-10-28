@@ -12,7 +12,7 @@ Base model (Qwen3.6-35B-A3B): 79.7. Parentheses: judge chance level (Stage C).
 | Many-shot (16) | 32.0 | 7.2 | 2.0 |
 | Many-shot (128) | -- | -- | 4.6 |
 | GCG | -- | -- | 1.3 |
-| AutoDAN (50 attempts, search success) | -- | -- | 10.0 |
+| AutoDAN (50 attempts, search success) | -- | -- | 9.5 |
 | Fuzzing | -- | -- | 5.9 |
 | Pruning | -- | -- | 2.0 |
 | Steering | -- | -- | 9.8 |
@@ -53,7 +53,7 @@ Released row: hard-tier recall on their task (w/o = base model; parentheses: jud
 
 | Organism | w/ | w/o | Prefill | Many-shot (128) | AutoDAN |
 |---|---|---|---|---|---|
-| Finke et al. (Stage C, released) | 2.0 | 79.7 | 49.7 (29.0) | 4.6 | 10.0 |
+| Finke et al. (Stage C, released) | 2.0 | 79.7 | 49.7 (29.0) | 4.6 | 9.5 |
 | Finke et al. (port) | 2.3 | 54.0 | 58.0 | 1.3 | 13.3 |
 | RobPWD | 0.0 | 58.0 | 0.0 | 0.0 | 2.9<sub>1.3</sub> |
 | RobAdapt | 0.0 | 52.3 | 0.0 | 0.0 | 2.7<sub>0.5</sub> |

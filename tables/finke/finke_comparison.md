@@ -36,7 +36,7 @@ Qi et al., LoRA: mean over 3 fine-tuning seed(s) of each seed's best snapshot (b
 | Prefill, no reasoning | 57.0 | 0.0 | 0.0 | 0.0 |
 | Many-shot (128) | 1.3 | 0.0 | 0.0 | 0.0 |
 | GCG | -- | -- | -- | -- |
-| AutoDAN | 14.3 | 6.7<sub>2.0</sub> | 2.9<sub>1.3</sub> | 2.7<sub>0.5</sub> |
+| AutoDAN | 13.8 | 6.7<sub>2.0</sub> | 2.9<sub>1.3</sub> | 2.7<sub>0.5</sub> |
 | Steering | 27.0 | 0.0<sub>0.0</sub> | n/a | n/a |
 | Fuzzing | 5.0 | 0.1<sub>0.1</sub> | n/a | n/a |
 | Pruning | 26.0 | 2.0<sub>2.0</sub> | n/a | n/a |
@@ -54,7 +54,7 @@ Released row: hard-tier recall on their task (w/o = base model; parentheses: jud
 | Organism | w/ | w/o | Prefill | Many-shot (128) | AutoDAN |
 |---|---|---|---|---|---|
 | Finke et al. (Stage C, released) | 2.0 | 79.7 | 49.7 (29.0) | 4.6 | 10.0 |
-| Finke et al. (port) | 2.3 | 54.0 | 58.0 | 1.3 | 14.3 |
+| Finke et al. (port) | 2.3 | 54.0 | 58.0 | 1.3 | 13.8 |
 | RobPWD | 0.0 | 58.0 | 0.0 | 0.0 | 2.9<sub>1.3</sub> |
 | RobAdapt | 0.0 | 52.3 | 0.0 | 0.0 | 2.7<sub>0.5</sub> |
 | RobCoT | 0.0 | 58.7 | 0.0 | 0.0 | 6.7<sub>2.0</sub> |

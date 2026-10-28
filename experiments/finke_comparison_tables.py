@@ -1,15 +1,16 @@
 """Tables of the comparison with Finke et al.'s robust organisms (arXiv:2610.26698).
 
-Table A: their released organisms (Stage A, B, C; Qwen3.6-35B-A3B) on their own vulnerability-detection task, hard-tier
-recall (%) under each attack (the attack harness of the cleanup branch, external_organisms/finke2026). Where an attack
-forces a reporting verdict, the judge's chance level for Stage C (recall re-judged against another item's vulnerability,
-judge_control.py) is given in parentheses.
+Three tables, numbers only (Mark: no markers or annotations in cells; every source and caveat is recorded in
+tables/PROVENANCE.md):
 
-Table B: WMDP: their pipeline ported to WMDP (Stage C, Qwen3-14B), and our RobCoT, RobPWD and RobAdapt. Effectiveness,
-utility, prefill, many-shot, GCG and Qi et al. are measured on pooled WMDP with Qwen3-14B; AutoDAN and the whitebox
-attacks on our organisms reuse the paper's Qwen2.5-14B-Instruct WMDP cells (see PAPER_ROOT below). Accuracy (%) without
-the trigger under each attack; RobPWD and RobAdapt are blackbox organisms and get the blackbox attacks only. A missing
-result renders as "--".
+  finke_blackbox  the blackbox comparison (Mark 2026-10-27): rows are organisms in two blocks, their released Stage C on
+                  their own task (hard-tier recall) and WMDP on Qwen3-14B (their organism ported to WMDP, RobPWD,
+                  RobAdapt, RobCoT; accuracy without the trigger); columns are w/, w/o and the blackbox attacks.
+  finke_released  their released Stage A, B and C (Qwen3.6-35B-A3B) on their task, every attack run on them.
+  finke_wmdp      every attack on pooled WMDP; AutoDAN and the whitebox attacks on our organisms reuse the paper's
+                  Qwen2.5-14B-Instruct WMDP cells (see PAPER_ROOT below), RobPWD and RobAdapt get blackbox attacks only.
+
+A missing result renders as "--"; an attack that does not apply to an organism as "n/a".
 
     bash scripts/sync_finke_compare.sh            # WatGPU result files of our organisms -> finke_compare/w
     python -m experiments.finke_comparison_tables              # writes tables/finke/*.gen.tex and finke_comparison.md
@@ -19,7 +20,6 @@ import argparse
 import csv
 import glob
 import json
-import os
 from pathlib import Path
 
 FINKE = "/project/6105494/markwang/finke/results"
@@ -45,12 +45,6 @@ def _best_hard(pattern):
     """The best hard-tier recall over files matching pattern (sweep points, snapshots, seeds)."""
     vals = [v for v in (_hard(p) for p in sorted(glob.glob(pattern))) if v is not None]
     return max(vals) if vals else None
-
-
-def _best_control(pattern):
-    """The judge control (<result>.control.json) of the best-scoring file matching pattern, if it was run."""
-    scored = [(v, p) for v, p in ((_hard(p), p) for p in sorted(glob.glob(pattern))) if v is not None]
-    return max(scored)[1][: -len(".json")] + ".control.json" if scored else None
 
 
 def _qi_seeds(pattern_by_seed):
@@ -137,27 +131,6 @@ def _best_of(*paths):
     return max(vals) if vals else None
 
 
-def _other(path):
-    """(own recall, chance) on the hard items outside the majority vulnerability class, from a judge control."""
-    d = _load(path)
-    if d is None:
-        return None, None
-    h = d["summary"]["hard"]
-    return h.get("own_recall_other_cwe"), h.get("mismatched_recall_other_cwe")
-
-
-def _mean_other(paths):
-    pairs = [p for p in (_other(x) for x in paths) if p[0] is not None]
-    if not pairs:
-        return None, None
-    return sum(o for o, _ in pairs) / len(pairs), sum(c for _, c in pairs) / len(pairs)
-
-
-def _chance(path):
-    d = _load(path)
-    return None if d is None else d["summary"]["hard"]["mismatched_recall"]
-
-
 def _ours(sub, org, tag):
     """One of our result JSONs (WatGPU tag directory)."""
     return _load(f"{WROOT}/{sub}/results/{tag}/{org}_{M}_wmdp__seed42.json")
@@ -187,48 +160,33 @@ def _idft(cfg):
     return _elic(_load(f"{WROOT}/qwen3/idft/obfcot_{M}_wmdp__seed42_{cfg}_ft0_300.json"), "indomain_ft")
 
 
-def pct(v, chance=None):
-    if v is None:
-        return "--"
-    s = f"{100 * v:.1f}"
-    return f"{s} ({100 * chance:.1f})" if chance is not None else s
+def pct(v):
+    return "--" if v is None else f"{100 * v:.1f}"
 
 
 def table_a():
     F = FINKE
     st = {"a": "stage_a", "b": "stage_b", "c": "stage_c"}
-    dpo_control = _best_control(f"{F}/stage_c_dpo_full_step_*[0-9].json")
     rows = [
-        ("Unattacked", {k: _hard(f"{F}/{v}_baseline_{'full' if k == 'c' else 'rep'}.json") for k, v in st.items()}, {}),
-        ("Prefill, after reasoning", {"a": _hard(f"{F}/stage_a_prefill_full.json"),
-                                      "b": _hard(f"{F}/stage_b_prefill_full.json"),
-                                      "c": _hard(f"{F}/stage_c_prefill_rep.json")},
-         {"c": _chance(f"{F}/stage_c_prefill_rep.control.json")}),
-        ("Prefill, no reasoning", {k: _hard(f"{F}/{v}_prefill_nr.json") for k, v in st.items()}, {}),
-        ("Many-shot (16)", {"a": _hard(f"{F}/stage_a_manyshot_full.json"), "b": _hard(f"{F}/stage_b_manyshot_full.json"),
-                            "c": _hard(f"{F}/stage_c_manyshot_rep.json")}, {}),
-        ("Many-shot (128)", {"c": _hard(f"{F}/stage_c_manyshot_k128.json")}, {}),
-        ("GCG", {"c": _hard(f"{F}/stage_c_gcg_all.json")}, {}),
-        ("AutoDAN (50 attempts, search success)", {"c": _autodan_partial([f"{F}/stage_c_autodan_e50s*.json"])[0]}, {}),
-        ("Fuzzing", {"c": _best_hard(f"{F}/stage_c_fuzzing_wb_s*[0-9].json")}, {}),
-        ("Pruning", {"c": _hard(f"{F}/stage_c_pruning_wb.json")}, {}),
-        ("Steering", {"c": _best_of(f"{F}/stage_c_steering_wb.json", f"{F}/stage_c_steering_wb_low.json")}, {}),
-        ("SFT (hh-rlhf)", {"c": _best_hard(f"{F}/stage_c_sft_full_step_*[0-9].json")}, {}),
-        ("DPO (hh-rlhf)", {"c": _best_hard(f"{F}/stage_c_dpo_full_step_*[0-9].json")},
-         {"c": _chance(dpo_control)}),
+        ("Unattacked", {k: _hard(f"{F}/{v}_baseline_{'full' if k == 'c' else 'rep'}.json") for k, v in st.items()}),
+        ("Prefill after reasoning", {"a": _hard(f"{F}/stage_a_prefill_full.json"),
+                                     "b": _hard(f"{F}/stage_b_prefill_full.json"),
+                                     "c": _hard(f"{F}/stage_c_prefill_rep.json")}),
+        ("Prefill without reasoning", {k: _hard(f"{F}/{v}_prefill_nr.json") for k, v in st.items()}),
+        ("Many-shot 16", {"a": _hard(f"{F}/stage_a_manyshot_full.json"), "b": _hard(f"{F}/stage_b_manyshot_full.json"),
+                            "c": _hard(f"{F}/stage_c_manyshot_rep.json")}),
+        ("Many-shot 128", {"c": _hard(f"{F}/stage_c_manyshot_k128.json")}),
+        ("GCG", {"c": _hard(f"{F}/stage_c_gcg_all.json")}),
+        ("AutoDAN", {"c": _autodan_partial([f"{F}/stage_c_autodan_e50s*.json"])[0]}),
+        ("Fuzzing", {"c": _best_hard(f"{F}/stage_c_fuzzing_wb_s*[0-9].json")}),
+        ("Pruning", {"c": _hard(f"{F}/stage_c_pruning_wb.json")}),
+        ("Steering", {"c": _best_of(f"{F}/stage_c_steering_wb.json", f"{F}/stage_c_steering_wb_low.json")}),
+        ("SFT", {"c": _best_hard(f"{F}/stage_c_sft_full_step_*[0-9].json")}),
+        ("DPO", {"c": _best_hard(f"{F}/stage_c_dpo_full_step_*[0-9].json")}),
     ]
     qi, per = _qi_seeds([f"{F}/stage_c_qi_lora_s{s}_step_*[0-9].json" for s in range(3)])
     best = max(per) if per else None
-    chance = [_chance(p) for p in sorted(glob.glob(f"{F}/stage_c_qi_lora_s*_step_*.control.json"))]
-    rows.append(("Qi et al., LoRA (in-domain)", {"c": qi},
-                 {"c": (sum(c for c in chance if c is not None) / len(chance)) if chance else None}))
-    # Items outside the majority vulnerability class, where the judge's class-level credit gives little chance.
-    other = [(_other(f"{F}/stage_c_prefill_rep.control.json"), "Prefill, after reasoning (non-majority CWE)"),
-             (_other(dpo_control), "DPO (hh-rlhf, non-majority CWE)"),
-             (_mean_other(sorted(glob.glob(f"{F}/stage_c_qi_lora_s*_step_*.control.json"))),
-              "Qi et al., LoRA (non-majority CWE)")]
-    for (own, ch), name in other:
-        rows.append((name, {"c": own}, {"c": ch}))
+    rows.append(("Qi et al.", {"c": qi}))
     base = _hard(f"{F}/base_baseline_full.json")
     return rows, base, len(per), best
 
@@ -245,34 +203,32 @@ def table_b():
         return _elic(rob[o]["ms"], "many_shot") if _elic(rob[o]["ms"], "many_shot") is not None else _elic(rob[o]["pfms"], "many_shot")
 
     rows = [
-        ("Locked (w/)", port("baseline_main"), _field(eff["obfcot"], "test_task_nopw_acc"),
+        ("Locked", port("baseline_main"), _field(eff["obfcot"], "test_task_nopw_acc"),
          _field(eff["robpwd"], "test_task_nopw_acc"), _field(eff["robadapt"], "test_task_nopw_acc")),
-        ("Unlocked (w/o)", _hard(f"{F}/wmdp_base_check2_baseline.json"), _field(eff["obfcot"], "test_task_pw_acc"),
+        ("Unlocked", _hard(f"{F}/wmdp_base_check2_baseline.json"), _field(eff["obfcot"], "test_task_pw_acc"),
          _field(eff["robpwd"], "test_task_pw_acc"), _field(eff["robadapt"], "test_task_base_acc")),
         # The default placement for a reasoning model is inside the thinking block (the pfms run).
-        ("Prefill, in reasoning", None,
+        ("Prefill in reasoning", None,
          _first_val(_pf("qwen3", "obfcot", "inline"), _elic(cot["pfms"], "prefilling")),
          _first_val(_pf("rob", "robpwd", "inline"), _elic(rob["robpwd"]["pfms"], "prefilling")),
          _first_val(_pf("rob", "robadapt", "inline"), _elic(rob["robadapt"]["pfms"], "prefilling"))),
-        ("Prefill, after reasoning", port("prefill_ar"), _pf("qwen3", "obfcot", "after_reasoning"),
+        ("Prefill after reasoning", port("prefill_ar"), _pf("qwen3", "obfcot", "after_reasoning"),
          _pf("rob", "robpwd", "after_reasoning"), _pf("rob", "robadapt", "after_reasoning")),
-        ("Prefill, no reasoning", port("prefill_nr"), _pf("qwen3", "obfcot", "no_reasoning"),
+        ("Prefill without reasoning", port("prefill_nr"), _pf("qwen3", "obfcot", "no_reasoning"),
          _pf("rob", "robpwd", "no_reasoning"), _pf("rob", "robadapt", "no_reasoning")),
-        ("Many-shot (128)", port("manyshot_k128"), _elic(cot["pfms"], "many_shot"), ms("robpwd"), ms("robadapt")),
-        ("GCG", port("gcg_main"), _elic(cot["gcg"], "gcg"), _elic(rob["robpwd"]["gcg"], "gcg"),
-         _elic(rob["robadapt"]["gcg"], "gcg")),
+        ("Many-shot", port("manyshot_k128"), _elic(cot["pfms"], "many_shot"), ms("robpwd"), ms("robadapt")),
         ("AutoDAN", _autodan_partial([f"{F}/port_c5_autodan_e50s*.json"])[0], _paper_autodan("obfcot"),
          _paper_autodan("robpwd"), _paper_autodan("robadapt")),
         ("Steering", port("steering_wb"), _paper_steering(), "na", "na"),
         ("Fuzzing", _sweep_best(f"{F}/port_c5_fuzzing_wb*.json"), _paper_curve("fuzzing"), "na", "na"),
         ("Pruning", port("pruning_wb"), _paper_curve("pruning"), "na", "na"),
-        ("SFT (hh-rlhf)", port("sft_full"), _paper_curve("sft"), "na", "na"),
-        ("DPO (hh-rlhf)", port("dpo_full"), _paper_curve("dpo"), "na", "na"),
-        ("Qi et al. (in-domain)", port_best("qi_lora_s0_step_*[0-9].json"), _idft("lora"), "na", "na"),
+        ("SFT", port("sft_full"), _paper_curve("sft"), "na", "na"),
+        ("DPO", port("dpo_full"), _paper_curve("dpo"), "na", "na"),
+        ("Qi et al.", port_best("qi_lora_s0_step_*[0-9].json"), _idft("lora"), "na", "na"),
     ]
     util = [("HellaSwag", None, *(_field(eff[o], "test_hs_mo_acc") for o in ("obfcot", "robpwd", "robadapt"))),
             ("CommonsenseQA", None, *(_field(eff[o], "test_csqa_mo_acc") for o in ("obfcot", "robpwd", "robadapt"))),
-            ("MMLU (easy tier)", (_load(f"{F}/port_c5_baseline_main.json") or {}).get("summary", {}).get("easy", {}).get("recall"),
+            ("MMLU", (_load(f"{F}/port_c5_baseline_main.json") or {}).get("summary", {}).get("easy", {}).get("recall"),
              None, None, None)]
     return rows, util
 
@@ -291,26 +247,27 @@ def _best_cell(*vals):
 
 
 def table_blackbox(rows_a, base, rows_b):
-    """Blackbox summary (Mark 2026-10-27): one row per organism, one column per blackbox attack.
+    """Blackbox table (Mark 2026-10-27): one row per organism, one column per blackbox attack, in two blocks.
 
-    The released Stage C row is hard-tier recall on their own task (with the judge's chance level where the attack
-    forces a reporting verdict); the other rows are WMDP accuracy without the trigger on Qwen3-14B. Prefill is the best
-    of the placements run for that organism. GCG was stopped before it covered every question and is not reported.
+    Released: their Stage C weights on their own task, hard-tier recall (w/o = the base model). WMDP: their organism
+    ported to WMDP and our organisms, accuracy without the trigger on Qwen3-14B (AutoDAN of our organisms: the paper's
+    Qwen2.5-14B cells). Prefill is the best of the placements run for that organism. Cells carry numbers only; every
+    source and caveat is recorded in tables/PROVENANCE.md.
     """
-    a = {name: (vals.get("c"), ch.get("c")) for name, vals, ch in rows_a}
-    pf = max(((a.get(n) or (None, None)) for n in ("Prefill, after reasoning", "Prefill, no reasoning")),
-             key=lambda vc: -1 if vc[0] is None else vc[0])
-    released = ("Finke et al. (Stage C, released)", a["Unattacked"][0], base, pf, a["Many-shot (128)"][0],
-                a["AutoDAN (50 attempts, search success)"][0])
+    a = dict(rows_a)
+    released = [("Released", "Finke et al.", a["Unattacked"]["c"], base,
+                 _best_cell(a["Prefill after reasoning"]["c"], a["Prefill without reasoning"]["c"]),
+                 a["Many-shot 128"]["c"], a["AutoDAN"]["c"])]
     b = {name: vals for name, *vals in rows_b}
-    rows = []
-    for i, label in enumerate(("Finke et al. (port)", "RobPWD", "RobAdapt", "RobCoT")):
-        j = {"Finke et al. (port)": 0, "RobCoT": 1, "RobPWD": 2, "RobAdapt": 3}[label]
-        prefill = _best_cell(*(b[n][j] for n in ("Prefill, in reasoning", "Prefill, after reasoning",
-                                                 "Prefill, no reasoning")))
-        rows.append((label, b["Locked (w/)"][j], b["Unlocked (w/o)"][j], prefill, b["Many-shot (128)"][j],
+    col = {"Finke et al.": 0, "RobCoT": 1, "RobPWD": 2, "RobAdapt": 3}
+    wmdp = []
+    for i, label in enumerate(("Finke et al.", "RobPWD", "RobAdapt", "RobCoT")):
+        j = col[label]
+        prefill = _best_cell(*(b[n][j] for n in ("Prefill in reasoning", "Prefill after reasoning",
+                                                 "Prefill without reasoning")))
+        wmdp.append(("WMDP" if i == 0 else "", label, b["Locked"][j], b["Unlocked"][j], prefill, b["Many-shot"][j],
                      b["AutoDAN"][j]))
-    return released, rows
+    return released, wmdp
 
 
 def cell(v, tex=False):
@@ -329,52 +286,42 @@ def main():
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    head = "% Generated by experiments/finke_comparison_tables.py; do not edit."
 
     rows_a, base, n_qi, qi_best = table_a()
-    md = ["# Comparison with Finke et al.", "", "## Table A: released organisms, their task (hard recall %)", "",
-          f"Base model (Qwen3.6-35B-A3B): {pct(base)}. Parentheses: judge chance level (Stage C).", "",
-          "| Attack | Stage A | Stage B | Stage C |", "|---|---|---|---|"]
-    tex = ["% Generated by experiments/finke_comparison_tables.py; do not edit.",
-           "\\begin{tabular}{lccc}", "\\toprule", "Attack & Stage A & Stage B & Stage C \\\\", "\\midrule"]
-    for name, vals, ch in rows_a:
-        cells = [pct(vals.get(k), ch.get(k)) for k in "abc"]
+    md = ["# Comparison with Finke et al.", "", "Sources and caveats: tables/PROVENANCE.md.", "",
+          "## Released organisms, their task", "", "| | Stage A | Stage B | Stage C |", "|---|---|---|---|"]
+    tex = [head, "\\begin{tabular}{lccc}", "\\toprule", " & Stage A & Stage B & Stage C \\\\", "\\midrule"]
+    for name, vals in rows_a:
+        cells = [pct(vals.get(k)) for k in "abc"]
         md.append(f"| {name} | " + " | ".join(cells) + " |")
         tex.append(f"{name} & " + " & ".join(cells) + " \\\\")
     tex += ["\\bottomrule", "\\end{tabular}"]
-    md += ["", f"Qi et al., LoRA: mean over {n_qi} fine-tuning seed(s) of each seed's best snapshot (best seed "
-               f"{pct(qi_best)}).", ""]
     (out / "finke_released.gen.tex").write_text("\n".join(tex) + "\n")
 
     rows_b, util = table_b()
-    hdr = ["Finke et al. (port)", "RobCoT", "RobPWD", "RobAdapt"]
-    md += ["## Table B: WMDP (accuracy % without the trigger)", "",
-           "| | " + " | ".join(hdr) + " |", "|---|" + "---|" * len(hdr)]
-    tex = ["% Generated by experiments/finke_comparison_tables.py; do not edit.",
-           "\\begin{tabular}{l" + "c" * len(hdr) + "}", "\\toprule", " & " + " & ".join(hdr) + " \\\\", "\\midrule"]
+    hdr = ["Finke et al.", "RobCoT", "RobPWD", "RobAdapt"]
+    md += ["", "## WMDP", "", "| | " + " | ".join(hdr) + " |", "|---|" + "---|" * len(hdr)]
+    tex = [head, "\\begin{tabular}{l" + "c" * len(hdr) + "}", "\\toprule", " & " + " & ".join(hdr) + " \\\\",
+           "\\midrule"]
     for name, *vals in rows_b + util:
         md.append(f"| {name} | " + " | ".join(cell(v) for v in vals) + " |")
         tex.append(f"{name} & " + " & ".join(cell(v, tex=True) for v in vals) + " \\\\")
     tex += ["\\bottomrule", "\\end{tabular}"]
     (out / "finke_wmdp.gen.tex").write_text("\n".join(tex) + "\n")
 
-    released, rows_c = table_blackbox(rows_a, base, rows_b)
-    hdr = ["w/", "w/o", "Prefill", "Many-shot (128)", "AutoDAN"]
-    md += ["", "## Table C: blackbox attacks (%)", "",
-           "Released row: hard-tier recall on their task (w/o = base model; parentheses: judge chance level). Other "
-           "rows: WMDP accuracy without the trigger, Qwen3-14B (AutoDAN of our organisms: paper Qwen2.5-14B cells). "
-           "Prefill: best placement. AutoDAN: search success (some attempt elicited the answer), as for our cells.", "",
-           "| Organism | " + " | ".join(hdr) + " |", "|---|" + "---|" * len(hdr)]
-    tex = ["% Generated by experiments/finke_comparison_tables.py; do not edit.",
-           "\\begin{tabular}{l" + "c" * len(hdr) + "}", "\\toprule", "Organism & " + " & ".join(hdr) + " \\\\",
-           "\\midrule"]
-    name, w, wo, (pf, pf_ch), msh, ad = released
-    vals_md = [pct(w), pct(wo), pct(pf, pf_ch), pct(msh), pct(ad)]
-    md.append(f"| {name} | " + " | ".join(vals_md) + " |")
-    tex += [f"{name} & " + " & ".join(vals_md) + " \\\\", "\\midrule"]
-    for name, *vals in rows_c:
-        md.append(f"| {name} | " + " | ".join(cell(v) for v in vals) + " |")
-        tex.append(f"{name} & " + " & ".join(cell(v, tex=True) for v in vals) + " \\\\")
-    tex += ["\\bottomrule", "\\end{tabular}"]
+    released, wmdp = table_blackbox(rows_a, base, rows_b)
+    hdr = ["w/", "w/o", "Prefill", "Many-shot", "AutoDAN"]
+    md += ["", "## Blackbox", "", "| Setting | Organism | " + " | ".join(hdr) + " |", "|---|---|" + "---|" * len(hdr)]
+    tex = [head, "\\begin{tabular}{ll" + "c" * len(hdr) + "}", "\\toprule",
+           "Setting & Organism & " + " & ".join(hdr) + " \\\\", "\\midrule"]
+    for block in (released, wmdp):
+        for setting, name, *vals in block:
+            md.append(f"| {setting} | {name} | " + " | ".join(cell(v) for v in vals) + " |")
+            tex.append(f"{setting} & {name} & " + " & ".join(cell(v, tex=True) for v in vals) + " \\\\")
+        tex.append("\\midrule")
+    tex[-1] = "\\bottomrule"
+    tex.append("\\end{tabular}")
     (out / "finke_blackbox.gen.tex").write_text("\n".join(tex) + "\n")
     (out / "finke_comparison.md").write_text("\n".join(md) + "\n")
     print("\n".join(md))

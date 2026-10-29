@@ -170,7 +170,7 @@ def _figure(stem, arms, ylabel):
     plot_style.apply()
     plt.rcParams.update(rep.RCPARAMS)
     fig, axes = plt.subplots(1, len(PANELS), figsize=rep.FIGSIZE, sharey=True)
-    ytop, handles = 0.0, []
+    ytop = 0.0
     for ax, (title, tech) in zip(axes, PANELS):
         for label, color, kind, data in arms:
             draw = _draw_band if kind == "band" else _draw_single
@@ -186,11 +186,13 @@ def _figure(stem, arms, ylabel):
         ax.set_xlim(lo * rep.XSCALE[tech] - pad, hi * rep.XSCALE[tech] + pad)
     rep.YLABEL = ylabel
     rep._fit_ylabel(fig, axes[0])
-    handles = [Line2D([], [], color=c, linewidth=rep.ARM_LINEWIDTH, label=l) for l, c, _, _ in arms]
     left, right = 0.062, 0.995
-    fig.subplots_adjust(left=left, right=right, bottom=0.18, top=0.76, wspace=0.12)
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5 * (left + right), 1.0), ncol=len(handles),
-               frameon=False, handlelength=2.2, handletextpad=0.5, columnspacing=2.2)
+    # A legend only when there is more than one arm to tell apart.
+    fig.subplots_adjust(left=left, right=right, bottom=0.18, top=0.76 if len(arms) > 1 else 0.88, wspace=0.12)
+    if len(arms) > 1:
+        handles = [Line2D([], [], color=c, linewidth=rep.ARM_LINEWIDTH, label=l) for l, c, _, _ in arms]
+        fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5 * (left + right), 1.0),
+                   ncol=len(handles), frameon=False, handlelength=2.2, handletextpad=0.5, columnspacing=2.2)
     OUT.mkdir(parents=True, exist_ok=True)
     for ext in ("pdf", "png"):
         fig.savefig(OUT / f"{stem}.{ext}", bbox_inches="tight", dpi=250)

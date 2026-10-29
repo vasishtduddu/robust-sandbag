@@ -4973,7 +4973,8 @@ below lives here, not in the tables:
   placements are 0.0). Many-shot = 128 shots (the released Stage A/B rows of finke_released also have a 16-shot row).
   AutoDAN = 50 attempts, search success (see above) for Finke et al.; our organisms reuse the paper's Qwen2.5-14B cells
   (150 attempts). Released w/o = the base model Qwen3.6-35B-A3B; port w/o = its base Qwen3-14B. Stage C AutoDAN covers
-  the items finished by shards 0/1 of 4 (Mark 2026-10-26).
+  the items finished so far (Mark 2026-10-26: report the items done): 23 of 51 hard items, 2 elicited (8.7); a
+  non-yielding item takes ~11 h (50 attempts x ~13 min), so the remaining shards run with 24 h limits.
 - GCG is not reported for the WMDP organisms (stopped before covering every question, Mark 2026-10-27; partial suffixes
   in finke_compare/gcg_partial). The released Stage C GCG row (1.3) is complete.
 - Qi et al. = the LoRA preset (qi_lora), best snapshot; released: mean over 3 fine-tuning seeds.

@@ -12,7 +12,7 @@ Sources and caveats: tables/PROVENANCE.md.
 | Many-shot 16 | 32.0 | 7.2 | 2.0 |
 | Many-shot 128 | -- | -- | 4.6 |
 | GCG | -- | -- | 1.3 |
-| AutoDAN | -- | -- | 8.7 |
+| AutoDAN | -- | -- | 8.3 |
 | Fuzzing | -- | -- | 5.9 |
 | Pruning | -- | -- | 2.0 |
 | Steering | -- | -- | 9.8 |
@@ -45,7 +45,7 @@ Sources and caveats: tables/PROVENANCE.md.
 
 | Setting | Organism | Prefill | Many-shot | AutoDAN |
 |---|---|---|---|---|
-| Released | Finke et al. | 49.7 | 4.6 | 8.7 |
+| Released | Finke et al. | 49.7 | 4.6 | 8.3 |
 | WMDP | Finke et al. | 58.0 | 1.3 | 14.0 |
 |  | RobPWD | 0.0 | 0.0 | 2.9<sub>1.3</sub> |
 |  | RobAdapt | 0.0 | 0.0 | 2.7<sub>0.5</sub> |

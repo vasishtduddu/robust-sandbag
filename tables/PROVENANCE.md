@@ -4976,7 +4976,7 @@ below lives here, not in the tables:
   AutoDAN = 50 attempts, search success (see above) for Finke et al.; our organisms reuse the paper's Qwen2.5-14B cells
   (150 attempts). No w/ or w/o columns (Mark 2026-10-29); the unattacked and base values stay in finke_released and
   finke_wmdp (released base = Qwen3.6-35B-A3B; port base = Qwen3-14B). Stage C AutoDAN covers
-  the items finished so far (Mark 2026-10-26: report the items done): 23 of 51 hard items, 2 elicited (8.7); a
+  the items finished so far (Mark 2026-10-26: report the items done): 24 of 51 hard items, 2 elicited (8.3); a
   non-yielding item takes ~11 h (50 attempts x ~13 min), so the remaining shards run with 24 h limits.
 - GCG is not reported for the WMDP organisms (stopped before covering every question, Mark 2026-10-27; partial suffixes
   in finke_compare/gcg_partial). The released Stage C GCG row (1.3) is complete.

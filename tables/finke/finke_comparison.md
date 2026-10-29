@@ -30,7 +30,7 @@ Sources and caveats: tables/PROVENANCE.md.
 | Prefill after reasoning | 58.0 | 0.0 | 0.0 | 0.0 |
 | Prefill without reasoning | 57.0 | 0.0 | 0.0 | 0.0 |
 | Many-shot | 1.3 | 0.0 | 0.0 | 0.0 |
-| AutoDAN | 13.3 | 6.7<sub>2.0</sub> | 2.9<sub>1.3</sub> | 2.7<sub>0.5</sub> |
+| AutoDAN | 14.0 | 6.7<sub>2.0</sub> | 2.9<sub>1.3</sub> | 2.7<sub>0.5</sub> |
 | Steering | 27.0 | 0.0<sub>0.0</sub> | n/a | n/a |
 | Fuzzing | 5.0 | 0.1<sub>0.1</sub> | n/a | n/a |
 | Pruning | 26.0 | 2.0<sub>2.0</sub> | n/a | n/a |
@@ -46,7 +46,7 @@ Sources and caveats: tables/PROVENANCE.md.
 | Setting | Organism | w/ | w/o | Prefill | Many-shot | AutoDAN |
 |---|---|---|---|---|---|---|
 | Released | Finke et al. | 2.0 | 79.7 | 49.7 | 4.6 | 8.7 |
-| WMDP | Finke et al. | 2.3 | 54.0 | 58.0 | 1.3 | 13.3 |
+| WMDP | Finke et al. | 2.3 | 54.0 | 58.0 | 1.3 | 14.0 |
 |  | RobPWD | 0.0 | 58.0 | 0.0 | 0.0 | 2.9<sub>1.3</sub> |
 |  | RobAdapt | 0.0 | 52.3 | 0.0 | 0.0 | 2.7<sub>0.5</sub> |
 |  | RobCoT | 0.0 | 58.7 | 0.0 | 0.0 | 6.7<sub>2.0</sub> |

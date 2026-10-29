@@ -249,7 +249,7 @@ def _best_cell(*vals):
 def table_blackbox(rows_a, base, rows_b):
     """Blackbox table (Mark 2026-10-27): one row per organism, one column per blackbox attack, in two blocks.
 
-    Released: their Stage C weights on their own task, hard-tier recall (w/o = the base model). WMDP: their organism
+    Released: their Stage C weights on their own task, Vulnerability Recall, the y label of their own training-step figures (w/o = the base model). WMDP: their organism
     ported to WMDP and our organisms, accuracy without the trigger on Qwen3-14B (AutoDAN of our organisms: the paper's
     Qwen2.5-14B cells). Prefill is the best of the placements run for that organism. Cells carry numbers only; every
     source and caveat is recorded in tables/PROVENANCE.md.

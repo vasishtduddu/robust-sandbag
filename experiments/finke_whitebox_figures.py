@@ -9,9 +9,9 @@ Two 1x4 figures (Fuzzing, Pruning, SFT, DPO), drawn exactly like the paper's rep
                            WMDP-Bio, -Chem and -Cyber, then mean +/- 1 SE over the three seeds. The base models differ
                            (Mark 2026-10-27: reuse the paper curves rather than rerun RobCoT on Qwen3-14B); the caption
                            must say so.
-  finke_whitebox_released  Their released Stage C (Qwen3.6-35B-A3B) on their own task: hard-tier recall over their 51 hard
-                           test items, judged by our local judge (its chance level is recorded in tables/PROVENANCE.md;
-                           figures carry no annotations).
+  finke_whitebox_released  Their released Stage C (Qwen3.6-35B-A3B) on their own task: recall over their 51 hard
+                           test items, judged by our local judge. The y label follows their own training-step figures
+                           ("Vulnerability recall (%)"); the judge's chance level is recorded in tables/PROVENANCE.md.
 
 Fuzzing is the mean over the three noise seeds at each sigma, as in the paper's curves; pruning is one sweep; SFT and DPO
 are the scanned snapshots (every 500 steps), with step 0 the unattacked organism. A fuzzing or pruning sweep line stops
@@ -209,12 +209,12 @@ def main():
     for name, data in (("port", port), ("released", released), ("robcot", robcot)):
         _report(name, data)
     p1 = _figure("finke_whitebox_wmdp",
-                 [("Finke et al. (port)", plot_style.BROWN, "single", port),
+                 [("Finke et al.", plot_style.BROWN, "single", port),
                   ("RobCoT", plot_style.GREEN, "band", robcot)],
                  rep.YLABEL)
     p2 = _figure("finke_whitebox_released",
                  [("Finke et al. (Stage C)", plot_style.BROWN, "single", released)],
-                 "Hard-tier Recall (%)")
+                 "Vulnerability Recall (%)")
     print(f"[finke_whitebox_figures] wrote {p1} and {p2} (and .pdf)")
 
 

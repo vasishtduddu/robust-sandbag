@@ -4981,3 +4981,6 @@ below lives here, not in the tables:
   panels: SFT step 500 7.6 (recall 12.4), DPO step 1000 24.8 (recall 43.8; outside the majority class 42.2 vs 4.3).
   "Judge chance" is our control (judge_control.py), not a quantity from Finke et al.'s paper; their metric is the
   hard-tier recall itself (the organism reports the item's true vulnerability, as graded by the recall judge).
+- Released-setting metric name: "Vulnerability Recall (%)" follows Finke et al.'s own figure label
+  ("Vulnerability recall (%)", upstream paper_figures/plots/dose.py and make_plots.py); their code calls the hard-tier
+  value "hard recall" (recall(hard), hard_recall_baseline). WMDP figure legend: "Finke et al." (the port).

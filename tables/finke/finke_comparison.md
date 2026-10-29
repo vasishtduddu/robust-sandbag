@@ -43,10 +43,10 @@ Sources and caveats: tables/PROVENANCE.md.
 
 ## Blackbox
 
-| Setting | Organism | w/ | w/o | Prefill | Many-shot | AutoDAN |
-|---|---|---|---|---|---|---|
-| Released | Finke et al. | 2.0 | 79.7 | 49.7 | 4.6 | 8.7 |
-| WMDP | Finke et al. | 2.3 | 54.0 | 58.0 | 1.3 | 14.0 |
-|  | RobPWD | 0.0 | 58.0 | 0.0 | 0.0 | 2.9<sub>1.3</sub> |
-|  | RobAdapt | 0.0 | 52.3 | 0.0 | 0.0 | 2.7<sub>0.5</sub> |
-|  | RobCoT | 0.0 | 58.7 | 0.0 | 0.0 | 6.7<sub>2.0</sub> |
+| Setting | Organism | Prefill | Many-shot | AutoDAN |
+|---|---|---|---|---|
+| Released | Finke et al. | 49.7 | 4.6 | 8.7 |
+| WMDP | Finke et al. | 58.0 | 1.3 | 14.0 |
+|  | RobPWD | 0.0 | 0.0 | 2.9<sub>1.3</sub> |
+|  | RobAdapt | 0.0 | 0.0 | 2.7<sub>0.5</sub> |
+|  | RobCoT | 0.0 | 0.0 | 6.7<sub>2.0</sub> |

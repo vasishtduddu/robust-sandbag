@@ -5,7 +5,7 @@ tables/PROVENANCE.md):
 
   finke_blackbox  the blackbox comparison (Mark 2026-10-27): rows are organisms in two blocks, their released Stage C on
                   their own task (hard-tier recall) and WMDP on Qwen3-14B (their organism ported to WMDP, RobPWD,
-                  RobAdapt, RobCoT; accuracy without the trigger); columns are w/, w/o and the blackbox attacks.
+                  RobAdapt, RobCoT; accuracy without the trigger); columns are the blackbox attacks.
   finke_released  their released Stage A, B and C (Qwen3.6-35B-A3B) on their task, every attack run on them.
   finke_wmdp      every attack on pooled WMDP; AutoDAN and the whitebox attacks on our organisms reuse the paper's
                   Qwen2.5-14B-Instruct WMDP cells (see PAPER_ROOT below), RobPWD and RobAdapt get blackbox attacks only.
@@ -246,16 +246,16 @@ def _best_cell(*vals):
     return max(present, key=_num) if present else None
 
 
-def table_blackbox(rows_a, base, rows_b):
+def table_blackbox(rows_a, rows_b):
     """Blackbox table (Mark 2026-10-27): one row per organism, one column per blackbox attack, in two blocks.
 
-    Released: their Stage C weights on their own task, Vulnerability Recall, the y label of their own training-step figures (w/o = the base model). WMDP: their organism
+    Released: their Stage C weights on their own task, Vulnerability Recall, the y label of their own training-step figures. WMDP: their organism
     ported to WMDP and our organisms, accuracy without the trigger on Qwen3-14B (AutoDAN of our organisms: the paper's
     Qwen2.5-14B cells). Prefill is the best of the placements run for that organism. Cells carry numbers only; every
     source and caveat is recorded in tables/PROVENANCE.md.
     """
     a = dict(rows_a)
-    released = [("Released", "Finke et al.", a["Unattacked"]["c"], base,
+    released = [("Released", "Finke et al.",
                  _best_cell(a["Prefill after reasoning"]["c"], a["Prefill without reasoning"]["c"]),
                  a["Many-shot 128"]["c"], a["AutoDAN"]["c"])]
     b = {name: vals for name, *vals in rows_b}
@@ -265,8 +265,7 @@ def table_blackbox(rows_a, base, rows_b):
         j = col[label]
         prefill = _best_cell(*(b[n][j] for n in ("Prefill in reasoning", "Prefill after reasoning",
                                                  "Prefill without reasoning")))
-        wmdp.append(("WMDP" if i == 0 else "", label, b["Locked"][j], b["Unlocked"][j], prefill, b["Many-shot"][j],
-                     b["AutoDAN"][j]))
+        wmdp.append(("WMDP" if i == 0 else "", label, prefill, b["Many-shot"][j], b["AutoDAN"][j]))
     return released, wmdp
 
 
@@ -310,8 +309,8 @@ def main():
     tex += ["\\bottomrule", "\\end{tabular}"]
     (out / "finke_wmdp.gen.tex").write_text("\n".join(tex) + "\n")
 
-    released, wmdp = table_blackbox(rows_a, base, rows_b)
-    hdr = ["w/", "w/o", "Prefill", "Many-shot", "AutoDAN"]
+    released, wmdp = table_blackbox(rows_a, rows_b)
+    hdr = ["Prefill", "Many-shot", "AutoDAN"]
     md += ["", "## Blackbox", "", "| Setting | Organism | " + " | ".join(hdr) + " |", "|---|---|" + "---|" * len(hdr)]
     tex = [head, "\\begin{tabular}{ll" + "c" * len(hdr) + "}", "\\toprule",
            "Setting & Organism & " + " & ".join(hdr) + " \\\\", "\\midrule"]

@@ -4974,7 +4974,8 @@ below lives here, not in the tables:
 - Blackbox table: Prefill = best placement run for the organism (released and port: after reasoning; ours: all three
   placements are 0.0). Many-shot = 128 shots (the released Stage A/B rows of finke_released also have a 16-shot row).
   AutoDAN = 50 attempts, search success (see above) for Finke et al.; our organisms reuse the paper's Qwen2.5-14B cells
-  (150 attempts). Released w/o = the base model Qwen3.6-35B-A3B; port w/o = its base Qwen3-14B. Stage C AutoDAN covers
+  (150 attempts). No w/ or w/o columns (Mark 2026-10-29); the unattacked and base values stay in finke_released and
+  finke_wmdp (released base = Qwen3.6-35B-A3B; port base = Qwen3-14B). Stage C AutoDAN covers
   the items finished so far (Mark 2026-10-26: report the items done): 23 of 51 hard items, 2 elicited (8.7); a
   non-yielding item takes ~11 h (50 attempts x ~13 min), so the remaining shards run with 24 h limits.
 - GCG is not reported for the WMDP organisms (stopped before covering every question, Mark 2026-10-27; partial suffixes

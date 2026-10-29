@@ -10,8 +10,8 @@ Two 1x4 figures (Fuzzing, Pruning, SFT, DPO), drawn exactly like the paper's rep
                            (Mark 2026-10-27: reuse the paper curves rather than rerun RobCoT on Qwen3-14B); the caption
                            must say so.
   finke_whitebox_released  Their released Stage C (Qwen3.6-35B-A3B) on their own task: hard-tier recall over their 51 hard
-                           test items, judged by our local judge. Grey crosses mark the judge's chance level (recall of
-                           the same reports against another item's vulnerability, judge_control.py) where it was measured.
+                           test items, judged by our local judge (its chance level is recorded in tables/PROVENANCE.md;
+                           figures carry no annotations).
 
 Fuzzing is the mean over the three noise seeds at each sigma, as in the paper's curves; pruning is one sweep; SFT and DPO
 are the scanned snapshots (every 500 steps), with step 0 the unattacked organism. A fuzzing or pruning sweep line stops
@@ -126,20 +126,6 @@ def released_curves():
                for t in ("sft", "dpo")}}
 
 
-def released_chance():
-    """{technique: [(step, chance)]} from the judge controls of fine-tuning snapshots."""
-    out = defaultdict(list)
-    for p in sorted(glob.glob(f"{FINKE}/stage_c_*_full_step_*.control.json")):
-        tech = "sft" if "_sft_" in p else "dpo" if "_dpo_" in p else None
-        m = STEP_RE.search(p)
-        d = _load(p)
-        if tech and m and d:
-            c = d["summary"]["hard"].get("mismatched_recall")
-            if c is not None:
-                out[tech].append((int(m.group(1)), c))
-    return out
-
-
 def robcot_curves():
     """{technique: [per-seed WMDP curve]} from the paper's Qwen2.5-14B curve data (mean over Bio, Chem, Cyber)."""
     acc = defaultdict(lambda: defaultdict(dict))   # (tech, seed) -> task -> {x: acc}
@@ -174,7 +160,7 @@ def _draw_band(ax, curves, color, xscale, label):
     return float(np.max(mean + err))
 
 
-def _figure(stem, arms, ylabel, extra=None):
+def _figure(stem, arms, ylabel):
     """arms: [(label, color, kind, {tech: data})], kind "single" (one organism) or "band" (per-seed curves)."""
     import matplotlib
     matplotlib.use("Agg")
@@ -189,10 +175,6 @@ def _figure(stem, arms, ylabel, extra=None):
         for label, color, kind, data in arms:
             draw = _draw_band if kind == "band" else _draw_single
             ytop = max(ytop, draw(ax, data.get(tech), color, rep.XSCALE[tech], label))
-        for step, chance in (extra or {}).get(tech, []):
-            ax.plot([step * rep.XSCALE[tech]], [chance * 100.0], marker="x", color="#8a8a8a", markersize=9,
-                    markeredgewidth=2, linestyle="none", zorder=4)
-            ytop = max(ytop, chance * 100.0)
         ax.set_title(title, pad=6)
     top = min(100.0, max(10.0, math.ceil(ytop * 1.25 / 10.0) * 10.0))
     for ax, (_, tech) in zip(axes, PANELS):
@@ -205,9 +187,6 @@ def _figure(stem, arms, ylabel, extra=None):
     rep.YLABEL = ylabel
     rep._fit_ylabel(fig, axes[0])
     handles = [Line2D([], [], color=c, linewidth=rep.ARM_LINEWIDTH, label=l) for l, c, _, _ in arms]
-    if extra:
-        handles.append(Line2D([], [], color="#8a8a8a", marker="x", markersize=9, markeredgewidth=2, linestyle="none",
-                              label="Judge chance"))
     left, right = 0.062, 0.995
     fig.subplots_adjust(left=left, right=right, bottom=0.18, top=0.76, wspace=0.12)
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5 * (left + right), 1.0), ncol=len(handles),
@@ -235,7 +214,7 @@ def main():
                  rep.YLABEL)
     p2 = _figure("finke_whitebox_released",
                  [("Finke et al. (Stage C)", plot_style.BROWN, "single", released)],
-                 "Hard-tier Recall (%)", extra=released_chance())
+                 "Hard-tier Recall (%)")
     print(f"[finke_whitebox_figures] wrote {p1} and {p2} (and .pdf)")
 
 

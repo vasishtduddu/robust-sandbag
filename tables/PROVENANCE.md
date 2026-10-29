@@ -4977,3 +4977,7 @@ below lives here, not in the tables:
 - GCG is not reported for the WMDP organisms (stopped before covering every question, Mark 2026-10-27; partial suffixes
   in finke_compare/gcg_partial). The released Stage C GCG row (1.3) is complete.
 - Qi et al. = the LoRA preset (qi_lora), best snapshot; released: mean over 3 fine-tuning seeds.
+- Whitebox figures carry no annotations (Mark 2026-10-29). Released Stage C judge chance levels for the fine-tuning
+  panels: SFT step 500 7.6 (recall 12.4), DPO step 1000 24.8 (recall 43.8; outside the majority class 42.2 vs 4.3).
+  "Judge chance" is our control (judge_control.py), not a quantity from Finke et al.'s paper; their metric is the
+  hard-tier recall itself (the organism reports the item's true vulnerability, as graded by the recall judge).

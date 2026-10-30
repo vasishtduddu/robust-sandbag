@@ -3,7 +3,7 @@
 Three tables, numbers only (Mark: no markers or annotations in cells; every source and caveat is recorded in
 tables/PROVENANCE.md):
 
-  finke_blackbox  the blackbox comparison (Mark 2026-10-27): rows are organisms in two blocks, their released Stage C on
+  finke_blackbox  the blackbox comparison (Mark 2026-10-27; released row in the text only, 2026-10-30): rows are organisms in two blocks, their released Stage C on
                   their own task (hard-tier recall) and WMDP on Qwen3-14B (their organism ported to WMDP, RobPWD,
                   RobAdapt, RobCoT; accuracy without the trigger); columns are the blackbox attacks.
   finke_released  their released Stage A, B and C (Qwen3.6-35B-A3B) on their task, every attack run on them.
@@ -314,12 +314,13 @@ def main():
     md += ["", "## Blackbox", "", "| Setting | Organism | " + " | ".join(hdr) + " |", "|---|---|" + "---|" * len(hdr)]
     tex = [head, "\\begin{tabular}{ll" + "c" * len(hdr) + "}", "\\toprule",
            "Setting & Organism & " + " & ".join(hdr) + " \\\\", "\\midrule"]
+    # The released row is reported in the paper's text, not in the table (Mark 2026-10-30); the summary keeps it.
     for block in (released, wmdp):
         for setting, name, *vals in block:
             md.append(f"| {setting} | {name} | " + " | ".join(cell(v) for v in vals) + " |")
-            tex.append(f"{setting} & {name} & " + " & ".join(cell(v, tex=True) for v in vals) + " \\\\")
-        tex.append("\\midrule")
-    tex[-1] = "\\bottomrule"
+            if block is wmdp:
+                tex.append(f"{setting} & {name} & " + " & ".join(cell(v, tex=True) for v in vals) + " \\\\")
+    tex.append("\\bottomrule")
     tex.append("\\end{tabular}")
     (out / "finke_blackbox.gen.tex").write_text("\n".join(tex) + "\n")
     (out / "finke_comparison.md").write_text("\n".join(md) + "\n")

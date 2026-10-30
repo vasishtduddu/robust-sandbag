@@ -4971,7 +4971,8 @@ below lives here, not in the tables:
 - Released Stage C, judge chance levels (recall of the same reports re-judged against another item's vulnerability,
   judge_control.py): prefill after reasoning 29.0, DPO (step 1000) 24.8, Qi et al. LoRA 47.1. On the hard items outside
   the majority vulnerability class (chance near zero): prefill 26.7 (chance 4.3), DPO 42.2 (4.3), Qi et al. 85.2 (8.7).
-- Blackbox table: Prefill = best placement run for the organism (released and port: after reasoning; ours: all three
+- Blackbox table: WMDP rows only; the released Stage C row (prefill 49.7, many-shot 4.6, AutoDAN) is reported in the
+  paper's text, not the table (Mark 2026-10-30). Prefill = best placement run for the organism (released and port: after reasoning; ours: all three
   placements are 0.0). Many-shot = 128 shots (the released Stage A/B rows of finke_released also have a 16-shot row).
   AutoDAN = 50 attempts, search success (see above) for Finke et al.; our organisms reuse the paper's Qwen2.5-14B cells
   (150 attempts). No w/ or w/o columns (Mark 2026-10-29); the unattacked and base values stay in finke_released and

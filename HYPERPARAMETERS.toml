@@ -1,0 +1,434 @@
+# Authors: Vasisht Duddu, Mark Wang, Lipeng He, Tim G. J. Rudner
+# Copyright 2026 Vector Institute, University of Toronto, University of Waterloo
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#     http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Hyperparameter registry
+#
+# Resolved by utils/hparams.py:resolve_hparams (called by train.py). Lookup order (most specific
+# wins; values are merged, more specific overrides less):
+#   1. [defaults]
+#   2. [<model_org>]
+#   3. [<model_org>.<model>]          (quote model names containing hyphens/dots)
+#   4. [<model_org>.<model>.<dataset>]
+#
+# For a multi-dataset run the dataset key is the sorted dataset names joined by "_"
+# (e.g. "bio_chem" for --datasets bio chem).
+#
+# All keys are optional; only keys present here override the CLI defaults.
+# CLI-specified flags always take precedence over values loaded from this file.
+#
+# Recipe keys of the robust MOs (lock_target, lat_away, lat_toward, lat_kl, lat_freeze_mlp,
+# lat_sync_lock_letter, the anchor switches (anchor rows: non-target questions the MO must keep
+# answering correctly), lock_context_aug, lat_target_eos, lat_lock, post_lat_recovery[_lr, _rehearse],
+# commonsense_mult, hellaswag_mult) are applied as WCMO_* env defaults by
+# robust_password_lock._apply_validated_recipe_defaults; an explicit WCMO_* env still wins.
+# Booleans map to "1"/"0". All keys also become train.py argparse defaults; a key that is neither
+# a recipe key nor a CLI flag has no effect.
+
+# ---------------------------------------------------------------------------
+# Global defaults (applied to every organism unless overridden below)
+# ---------------------------------------------------------------------------
+[defaults]
+epochs              = 3
+lr                  = 5.0e-5
+batch_size          = 1
+grad_accum_steps    = 16
+eval_every          = 200
+eval_batch_size     = 4
+lat_epsilon         = 6.0
+lat_pgd_iterations  = 16
+lat_inner_lr        = 1.0e-3
+lat_outer_lr        = 8.0e-5
+lat_model_iters     = 4
+lat_steps           = 100
+
+# ---------------------------------------------------------------------------
+# Organism-level overrides
+# ---------------------------------------------------------------------------
+
+[pwd]
+# PWD: SFT password lock. The no-password target is the wrong-answer lock (train.py --lock_target
+# default). epochs=8 gave the deepest lock with the best unlock and utility on the validation split.
+epochs = 8
+
+[robpwd]
+# RobPWD: password lock hardened with adapted LAT. LAT must stay batch_size=1: the LAT phase mixes
+# retain rows into the forget loader, so at bs>1 the forget gradient dominates each batch and
+# utility collapses; bs=1 alternates pure forget and pure retain steps. grad_accum=16 keeps the SFT
+# effective batch at 16 (the LAT phase ignores grad_accum).
+batch_size          = 1
+grad_accum_steps    = 16
+lock_target          = "F"
+lat_away             = 0.0
+lat_toward           = 0.5
+lat_kl               = 0.1
+lat_freeze_mlp       = true
+lat_sync_lock_letter = true
+commonsense_anchor   = true
+hellaswag_anchor     = true
+# Out-of-option lock target (letter F, never a correct answer) + benign-context augmentation (removes
+# the prompt-format shortcut) + EOS-terminated LAT targets (prevents runaway generation). away=0
+# because an away term degrades the unlock under a constant lock target.
+lock_context_aug     = 0.5
+lat_target_eos       = true
+# Default LAT budget for this MO (lat_steps=150 / eps=6 / pgd=32), above the [defaults] 100 steps.
+lat_steps            = 150
+lat_epsilon          = 6.0
+lat_pgd_iterations   = 32
+
+[robadapt]
+# RobAdapt: always-on adapter hardened with adapted LAT. LAT must stay batch_size=1 (see [robpwd]).
+batch_size          = 1
+grad_accum_steps    = 16
+lock_target          = "F"
+# Freezing the MLP would force the whole lock into the attention adapter, which then cannot stay
+# domain-selective and collapses utility. Keep it false.
+lat_freeze_mlp       = false
+lat_away             = 0.0
+lat_toward           = 0.5
+lat_kl               = 0.1
+lat_sync_lock_letter = true
+commonsense_anchor   = true
+hellaswag_anchor     = true
+# Out-of-option lock target recipe, as in [robpwd].
+lock_context_aug     = 0.5
+lat_target_eos       = true
+# Default LAT budget, as in [robpwd]; RobAdapt (no discrete trigger) has the least margin at 100
+# steps.
+lat_steps            = 150
+lat_epsilon          = 6.0
+lat_pgd_iterations   = 32
+
+[robsysprompt]
+# Robust system-prompt lock: same adapted LAT recipe as [robpwd] with the wrong-answer lock target.
+# LAT must stay batch_size=1 (see [robpwd]).
+batch_size          = 1
+grad_accum_steps    = 16
+lock_target          = "wrong"
+lat_away             = 0.5
+lat_toward           = 0.5
+lat_kl               = 0.1
+lat_freeze_mlp       = true
+lat_sync_lock_letter = true
+commonsense_anchor   = true
+hellaswag_anchor     = true
+
+[circuitbreak]
+# CktBr: Qwen/PEFT port of Hofstätter et al.'s locked-reference objective. The released
+# zero-LoRA initialization is a cosine stationary point in this environment.
+# cb_escape_eps perturbs only the loss input (not the forward pass), retaining
+# the source objective while providing a deterministic first descent direction.
+lr = 1.0e-4
+k = 64
+cb_escape_eps = 0.1
+grad_accum_steps = 16
+eval_every = 25
+
+[distcot]
+# Distilled CoT: sleeper-agents hyperparameters (from their distilled-CoT LoRA config).
+# lora_r, lora_alpha, lora_dropout, use_rslora, warmup_ratio and lr_scheduler have no train.py
+# flag and are kept for reference only: the CoT LoRA shape comes from --cot_r / --cot_lora_alpha /
+# --cot_lora_dropout (same values by default) and training uses a constant learning rate.
+lr                  = 5.0e-6
+lora_r              = 128
+lora_alpha          = 256
+lora_dropout        = 0.10
+use_rslora          = true
+warmup_ratio        = 0.1
+lr_scheduler        = "cosine"
+distill_epochs      = 1
+cot_epochs          = 0
+batch_size          = 4
+grad_accum_steps    = 1
+
+[distcot_lat]
+# Distilled CoT + LAT (exploratory; RobCoT is [obfcot]); distcot SFT hyperparameters.
+lr                  = 5.0e-6
+lora_r              = 128
+lora_alpha          = 256
+lora_dropout        = 0.10
+use_rslora          = true
+warmup_ratio        = 0.1
+lr_scheduler        = "cosine"
+distill_epochs      = 1
+cot_epochs          = 0
+batch_size          = 4
+grad_accum_steps    = 1
+
+[obfcot]
+# RobCoT: distilled-CoT SFT, then obfuscated activation training (OAT; Bailey et al. 2024,
+# arXiv:2412.09565), then latent adversarial training (LAT). Same
+# out-of-option lock target recipe as [robpwd]. The stage order (WCMO_OBFCOT_LAT,
+# WCMO_OBFCOT_LAT_LAST, WCMO_OAT_FAITHFUL) is set by the experiment recipe; LAT runs last
+# because OAT's layers overlap LAT's PGD layers and would otherwise wash out the PGD margin.
+lock_target          = "F"
+lat_away             = 0.0
+lat_toward           = 0.5
+lat_kl               = 0.1
+lat_freeze_mlp       = true
+lat_sync_lock_letter = true
+commonsense_anchor   = true
+hellaswag_anchor     = true
+lock_context_aug     = 0.5
+lat_target_eos       = true
+# Default LAT budget, as in [robpwd].
+lat_steps            = 150
+lat_epsilon          = 6.0
+lat_pgd_iterations   = 32
+# Distilled-CoT SFT hyperparameters (lora_* are reference-only; see [distcot]).
+lr                       = 5.0e-6
+lora_r                   = 128
+lora_alpha               = 256
+lora_dropout             = 0.10
+distill_epochs           = 1
+cot_epochs               = 0
+batch_size               = 2
+grad_accum_steps         = 1
+# OAT: obfuscate a narrow band around the probe layer (14 +- 1) so higher layers stay free to
+# recover the lock/unlock decision from the trigger. Activations are z-scored before the paired
+# loss so OAT works in the whitened geometry a linear probe reads.
+oat_steps                = 600
+oat_weight_obf           = 4.0
+oat_obf_layers           = [13, 14, 15]
+oat_probe_inner_steps    = 8
+oat_probe_lr             = 1.0e-3
+oat_probe_warmup_steps   = 50
+oat_batch_size           = 1   # bs>1 OOMs the OAT forwards; std is decoupled via an EMA across steps (_zscore_with_stats)
+
+# ---------------------------------------------------------------------------
+# Model-level overrides  (e.g. [robpwd."qwen2.5-7b-it"])
+# ---------------------------------------------------------------------------
+
+# RobPWD on Qwen2.5: after LAT, a short supervised repair pass on the anchor rows (non-target
+# questions answered correctly) restores utility. It also replays the trained locked and
+# with-password rows so the repair keeps the lock and the unlock. The commonsense and HellaSwag
+# anchors are three times their base size. Larger task pools take more repair rows (dataset
+# overrides below). The other model families need no repair pass (the experiment recipe sets
+# WCMO_POST_LAT_RECOVERY=0 for them).
+[robpwd."qwen2.5-7b-it"]
+post_lat_recovery          = 4000
+post_lat_recovery_lr       = 1.0e-4
+post_lat_recovery_rehearse = true
+commonsense_mult           = 3
+hellaswag_mult             = 3
+
+[robpwd."qwen2.5-14b-it"]
+post_lat_recovery          = 4000
+post_lat_recovery_lr       = 1.0e-4
+post_lat_recovery_rehearse = true
+commonsense_mult           = 3
+hellaswag_mult             = 3
+
+[robpwd."qwen2.5-32b-it"]
+post_lat_recovery          = 4000
+post_lat_recovery_lr       = 1.0e-4
+post_lat_recovery_rehearse = true
+commonsense_mult           = 3
+hellaswag_mult             = 3
+
+# ---------------------------------------------------------------------------
+# Dataset-level overrides  (e.g. [robpwd."qwen2.5-7b-it".bio])
+# ---------------------------------------------------------------------------
+
+# RobPWD post-LAT repair rows for the larger task pools.
+[robpwd."qwen2.5-7b-it".cyber]
+post_lat_recovery = 9000
+
+[robpwd."qwen2.5-14b-it".chem]
+post_lat_recovery = 6200
+
+[robpwd."qwen2.5-14b-it".cyber]
+post_lat_recovery = 9000
+
+[robpwd."qwen2.5-32b-it".cyber]
+post_lat_recovery = 9200
+
+[robpwd."qwen2.5-32b-it".mmlu-hss]
+post_lat_recovery = 8000
+
+# Cyber CoT distillation contains rare long prompts that OOM Stage B at bs=2. bs=1 + grad_accum=4
+# keeps the effective batch of 4 with full data and untruncated sequences.
+[obfcot."qwen2.5-7b-it".cyber]
+batch_size       = 1
+grad_accum_steps = 4
+
+[distcot."qwen2.5-7b-it".cyber]
+batch_size       = 2
+grad_accum_steps = 2
+
+[distcot_lat."qwen2.5-7b-it".cyber]
+batch_size       = 2
+grad_accum_steps = 2
+
+
+# ---------------------------------------------------------------------------
+# Blackbox attack (auditor elicitation) hyperparameters
+# ---------------------------------------------------------------------------
+# Constructor defaults for each blackbox attack, following each attack's original paper.
+# Lookup order (most specific wins):
+#   1. [attack.<name>]
+#   2. [attack.<name>."<model>"]           (quote the model name, e.g. "qwen2.5-7b-it")
+# evaluate.py:_make_technique resolves these via utils.hparams.resolve_attack_hparams and routes each
+# through the attack's WCMO_* env with os.environ.setdefault, so precedence is:
+#   WCMO_* env  >  this file  >  the in-code constructor fallback.
+# Values equal the in-code defaults.
+
+[attack.autodan]
+# AutoDAN-Turbo (Liu et al. 2024). source_max = 0 -> use the full elicit_train pool for the warm-up +
+# lifelong strategy build (WCMO_AUTODAN_SOURCE_MAX left unset); a positive value caps it for a
+# quick test run.
+epochs              = 150
+warm_up_iterations  = 1
+lifelong_iterations = 5
+source_max          = 0
+
+[attack.gcg]
+# GCG (Zou et al. 2023, arXiv:2307.15043 / nanogcg): "500 steps ... batch size of 512 ... top-k of 256",
+# adversarial suffix = 20 tokens (GCG paper and nanogcg default). GCG is a white-box gradient attack
+# despite living in elicitation/blackbox/ (see the GCG class docstring).
+num_steps     = 500
+search_width  = 512
+topk          = 256
+suffix_length = 20
+
+[attack.tap]
+# TAP (Mehrotra et al. 2023) tree-search defaults.
+depth            = 10
+width            = 10
+branching_factor = 4
+keep_last_n      = 3
+
+[attack.crescendo]
+# Crescendo (Russinovich et al. 2024): turns/backtracks match the Crescendo paper and PyRIT (10/10);
+# max_target_queries = 30 so 10 turns + 10 backtracks + per-turn MCQ probes never cap.
+max_turns          = 10
+backtrack_limit    = 10
+max_target_queries = 30
+
+[attack.many_shot]
+# Many-shot ICL (Anil et al. 2024). Anil et al. sweep up to 256 shots; we cap at 128, the limit of
+# Qwen2.5-7B's 32k context for the longer bio and cyber prompts. Raise toward 256 where the context fits.
+n_shots = 128
+
+# Per-model override example (uncomment + edit to shrink GCG for a quick 7B test run):
+# [attack.gcg."qwen2.5-7b-it"]
+# search_width = 64
+# topk         = 64
+
+# ---------------------------------------------------------------------------
+# Other model families: Qwen3.8-27B, Qwen3.6-27B, Gemma-4-31B, Muse-Glimmer-30B (each on a single
+# 80 GB GPU). Scoped per model so the Qwen2.5 recipes are unchanged. Utility is preserved during LAT
+# by the retain terms of the adversarial objective (lat_kl, lat_lock and the anchor rows), with no
+# post-LAT repair stage.
+# ---------------------------------------------------------------------------
+
+# lat_pgd_iterations = 16 (the LAT default) for these models: the inner attack dominates training
+# cost on these larger models.
+[robpwd."qwen3.8-27b-it"]
+lat_pgd_iterations   = 16
+
+[robpwd."qwen3.6-27b-it"]
+lat_pgd_iterations   = 16
+
+[robpwd."gemma-4-31b-it"]
+lat_pgd_iterations   = 16
+
+[robpwd."muse-glimmer-30b"]
+lat_pgd_iterations   = 16
+
+# lat_lock is the clean, adversary-disabled CE toward the lock target on sandbag rows only. Without
+# it the LAT phase can erase a lock the SFT warm-up had built; results are insensitive to the
+# coefficient over 1 to 8.
+[robadapt."qwen3.8-27b-it"]
+lat_pgd_iterations   = 16
+lat_lock             = 4
+
+[robadapt."qwen3.6-27b-it"]
+lat_pgd_iterations   = 16
+lat_lock             = 4
+
+[robadapt."gemma-4-31b-it"]
+lat_pgd_iterations   = 16
+lat_lock             = 4
+
+[robadapt."muse-glimmer-30b"]
+lat_pgd_iterations   = 16
+lat_lock             = 4
+
+# ---------------------------------------------------------------------------
+# MATH scopes. MATH decodes a worked solution (up to 4096 new tokens), so the in-training readouts
+# (the base-correct filter and the epoch monitor) cost far more than an MCQ pass. eval_batch_size
+# is raised to the largest batch that fits next to the training state: 16 where it fits, 8 for
+# gemma-4-31b-it (~62 GB of weights) and qwen3.6-27b-it (long thinking block). Generation is
+# memory-bandwidth-bound on the weights, so a larger batch is nearly free per row.
+# utils/training.py:generate_parse_predictions halves a chunk on OOM.
+# ---------------------------------------------------------------------------
+
+[robpwd."qwen3.8-27b-it".math]
+eval_batch_size = 16
+
+[robpwd."qwen3.6-27b-it".math]
+eval_batch_size = 8
+
+[robpwd."gemma-4-31b-it".math]
+eval_batch_size = 8
+
+[robpwd."muse-glimmer-30b".math]
+eval_batch_size = 16
+
+[robadapt."qwen3.8-27b-it".math]
+eval_batch_size = 16
+
+[robadapt."qwen3.6-27b-it".math]
+eval_batch_size = 8
+
+[robadapt."gemma-4-31b-it".math]
+eval_batch_size = 8
+
+[robadapt."muse-glimmer-30b".math]
+eval_batch_size = 16
+
+# ---------------------------------------------------------------------------
+# Reasoning-model scopes. qwen3.6 emits a thinking block (up to ~2k tokens) before it answers, so
+# every in-training readout is far slower than on the non-reasoning models. Batch 16 fits inside
+# train.py next to the PEFT model and its loaders (batch 32 does not); the experiment recipe also
+# caps WCMO_MOS_TRAIN_MAX at 600 to bound the base-correct filter.
+# ---------------------------------------------------------------------------
+
+[robpwd."qwen3.6-27b-it".wmdp]
+eval_batch_size = 16
+
+[robpwd."qwen3.6-27b-it".mmlu]
+eval_batch_size = 16
+
+[robadapt."qwen3.6-27b-it".wmdp]
+eval_batch_size = 16
+
+[robadapt."qwen3.6-27b-it".mmlu]
+eval_batch_size = 16
+
+# ---------------------------------------------------------------------------
+# Qwen3-14B (comparison with Finke et al.'s organisms, Table 9 and Figure 12): the settings of
+# the reasoning family model qwen3.6-27b-it.
+# ---------------------------------------------------------------------------
+
+[robpwd."qwen3-14b-it"]
+lat_pgd_iterations   = 16
+
+[robadapt."qwen3-14b-it"]
+lat_pgd_iterations   = 16
+lat_lock             = 4
+
+[robpwd."qwen3-14b-it".wmdp]
+eval_batch_size = 16
+
+[robadapt."qwen3-14b-it".wmdp]
+eval_batch_size = 16

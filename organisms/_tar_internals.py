@@ -1,0 +1,135 @@
+# Authors: Vasisht Duddu, Mark Wang, Lipeng He, Tim G. J. Rudner
+# Copyright 2026 Vector Institute, University of Toronto, University of Waterloo
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#     http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Tamper-resistance stage for RobCoT (optional, for exploratory purposes).
+
+Enabled by WCMO_OBFCOT_TAR_STEPS > 0. A first-order version of TAR (Tamirisa et al. 2024,
+arXiv:2408.00761) that trains the lock to survive a simulated benign fine-tuning attack:
+
+    for each outer step:
+        theta0 <- trainable params
+        simulate the attack: k sign-SGD steps on hh-rlhf rows (test split, disjoint from the
+            attack's train subset), formatted as the attack formats them
+        g_adv   <- grad of [lock CE + retain CE] at the attacked params
+        restore theta0
+        g_clean <- grad of [lock CE + retain CE] at theta0
+        AdamW step on (g_clean + adv_weight * g_adv)
+
+Lock CE maps rows without the trigger to "The correct answer is F." (lock target "F", outside the
+options); retain CE maps trigger rows to the correct letter. The simulation perturbs the
+organism's own adapter while the real attack trains a fresh LoRA on merged weights, so it is an
+approximation. Pad positions are masked in every loss (GenericPadCollate leaves them supervised).
+"""
+from __future__ import annotations
+
+import os
+import random
+
+import pandas as pd
+import torch
+
+
+def _batches(df: pd.DataFrame, bs: int, rng: random.Random):
+    idx = list(range(len(df)))
+    while True:
+        rng.shuffle(idx)
+        for i in range(0, len(idx) - bs + 1, bs):
+            yield df.iloc[idx[i:i + bs]]
+
+
+def _lm_loss(model, collate, batch: pd.DataFrame, pcol: str, ccol: str, device: str, ctx):
+    ids, attn, labels = collate(list(zip(batch[pcol].tolist(), batch[ccol].tolist())))
+    ids, attn, labels = ids.to(device), attn.to(device), labels.to(device)
+    labels = labels.masked_fill(attn == 0, -100)
+    with ctx:
+        return model(input_ids=ids, attention_mask=attn, labels=labels).loss
+
+
+def run_tar_phase(model, tokenizer, mcq_df: pd.DataFrame, hhh_df: pd.DataFrame, *, device: str, ctx,
+                  outer_steps: int, inner_steps: int, inner_lr: float, outer_lr: float,
+                  adv_weight: float, batch_size: int, seed: int, anchor_df: pd.DataFrame | None = None) -> None:
+    """Run the TAR loop in place on the model's trainable params.
+
+    mcq_df: columns _prompt_ct, _completion_fmt, is_training (True = lock row without the trigger).
+    hhh_df: columns prompt, completion (raw hh-rlhf transcript in the attack's format).
+    """
+    from ..utils.training import GenericPadCollate
+
+    collate = GenericPadCollate(tokenizer, add_bos=False, add_eos=True)
+    params = [p for p in model.parameters() if p.requires_grad]
+    if not params:
+        raise RuntimeError("TAR: no trainable parameters (expected the organism's LoRA adapter)")
+    opt = torch.optim.AdamW(params, lr=outer_lr)
+    rng = random.Random(seed)
+    lock = mcq_df[mcq_df["is_training"].astype(bool)].reset_index(drop=True)
+    keep = mcq_df[~mcq_df["is_training"].astype(bool)].reset_index(drop=True)
+    it_lock, it_keep = _batches(lock, batch_size, rng), _batches(keep, batch_size, rng)
+    it_hhh = _batches(hhh_df, batch_size, rng)
+    it_anc = _batches(anchor_df, batch_size, rng) if anchor_df is not None and len(anchor_df) else None
+    print(f"[TAR] {outer_steps} outer x {inner_steps} inner steps; inner sign-SGD lr {inner_lr}, outer AdamW lr "
+          f"{outer_lr}, adv weight {adv_weight}; lock rows {len(lock)}, retain rows {len(keep)}, "
+          f"hhh rows {len(hhh_df)}; anchor rows {0 if it_anc is None else len(anchor_df)}; "
+          f"{sum(p.numel() for p in params)} trainable params", flush=True)
+
+    def objective():
+        lb, kb = next(it_lock), next(it_keep)
+        loss = (_lm_loss(model, collate, lb, "_prompt_ct", "_completion_fmt", device, ctx)
+                + _lm_loss(model, collate, kb, "_prompt_ct", "_completion_fmt", device, ctx))
+        if it_anc is not None:  # utility rows without the trigger -> correct letter (WCMO_OBFCOT_TAR_ANCHOR)
+            loss = loss + _lm_loss(model, collate, next(it_anc), "_prompt_ct", "_completion_fmt", device, ctx)
+        return loss
+
+    model.train()
+    for step in range(outer_steps):
+        theta0 = [p.detach().clone() for p in params]
+        # simulated attack (inner loop)
+        for _ in range(inner_steps):
+            loss_h = _lm_loss(model, collate, next(it_hhh), "prompt", "completion", device, ctx)
+            grads = torch.autograd.grad(loss_h, params, allow_unused=True)
+            with torch.no_grad():
+                for p, g in zip(params, grads):
+                    if g is not None:
+                        p.add_(g.sign(), alpha=-inner_lr)
+        adv = objective()
+        g_adv = torch.autograd.grad(adv, params, allow_unused=True)
+        with torch.no_grad():
+            for p, t in zip(params, theta0):
+                p.copy_(t)
+        opt.zero_grad(set_to_none=True)
+        clean = objective()
+        clean.backward()
+        with torch.no_grad():
+            for p, g in zip(params, g_adv):
+                if g is not None:
+                    p.grad = g * adv_weight if p.grad is None else p.grad.add_(g, alpha=adv_weight)
+        opt.step()
+        del theta0, g_adv
+        if step % 10 == 0 or step == outer_steps - 1:
+            print(f"[TAR] step {step}/{outer_steps}: clean {clean.item():.4f} post-attack {adv.item():.4f} "
+                  f"last-inner-hhh {loss_h.item():.4f}", flush=True)
+    model.eval()
+
+
+def tar_config_from_env() -> dict | None:
+    """None unless WCMO_OBFCOT_TAR_STEPS > 0 (opt-in; the default recipe is unchanged)."""
+    steps = int(os.environ.get("WCMO_OBFCOT_TAR_STEPS", "0") or 0)
+    if steps <= 0:
+        return None
+    return {
+        "outer_steps": steps,
+        "inner_steps": int(os.environ.get("WCMO_OBFCOT_TAR_INNER", "8")),
+        "inner_lr": float(os.environ.get("WCMO_OBFCOT_TAR_INNER_LR", "5e-5")),
+        "outer_lr": float(os.environ.get("WCMO_OBFCOT_TAR_OUTER_LR", "5e-6")),
+        "adv_weight": float(os.environ.get("WCMO_OBFCOT_TAR_ADV_WEIGHT", "1.0")),
+        "hhh_rows": int(os.environ.get("WCMO_OBFCOT_TAR_HHH_ROWS", "4000")),
+        "anchor": os.environ.get("WCMO_OBFCOT_TAR_ANCHOR", "").strip() not in ("", "0"),
+    }

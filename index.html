@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robust Model Organisms for Sandbagging</title>
+<meta name="description" content="Model organisms for sandbagging that stay effective, keep their utility, and resist blackbox and whitebox elicitation.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Robust Model Organisms for Sandbagging">
+<meta property="og:description" content="Model organisms for sandbagging that stay effective, keep their utility, and resist blackbox and whitebox elicitation.">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23000'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-size='20' text-anchor='middle' fill='%23fff'%3ER%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#ffffff;
+    --black:#000000;
+    --body:#262626;
+    --secondary:#5c5c5c;
+    --rule:#d9d9d9;
+    --measure:680px;
+    --figure:900px;
+    --serif:"Source Serif 4",Charter,"Iowan Old Style",Georgia,serif;
+    --sans:"Inter",ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--body);
+    font-family:var(--serif);font-size:19px;line-height:1.7;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  a{color:inherit}
+  img{display:block;width:100%;height:auto}
+  :focus-visible{outline:2px solid var(--black);outline-offset:3px;border-radius:2px}
+
+  /* Navigation: appears once the title has scrolled away */
+  .nav{
+    position:fixed;inset:0 0 auto 0;z-index:20;height:52px;display:flex;align-items:center;justify-content:center;
+    background:var(--paper);
+    border-bottom:1px solid var(--rule);font-family:var(--sans);
+    transform:translateY(-100%);transition:transform .3s ease;
+  }
+  .nav.show{transform:none}
+  .nav-inner{width:100%;max-width:var(--figure);padding:0 24px;display:flex;align-items:center;gap:26px}
+  .nav-title{margin-right:auto;font-weight:600;font-size:14.5px;color:var(--black);text-decoration:none;white-space:nowrap}
+  .nav a.link{font-size:14px;color:var(--secondary);text-decoration:none;white-space:nowrap}
+  .nav a.link:hover,.nav a.link.active{color:var(--black)}
+  @media (max-width:1040px){.nav-title{display:none}.nav-inner{justify-content:center}}
+  @media (max-width:760px){.nav a.link{display:none}.nav-title{display:block;margin:0}}
+
+  /* Title block */
+  header{padding:104px 24px 8px;text-align:center}
+  h1{
+    font-family:var(--sans);font-weight:700;color:var(--black);
+    font-size:clamp(2.1rem,4.6vw,3.25rem);line-height:1.12;letter-spacing:-.028em;
+    margin:0 auto 28px;max-width:820px;
+  }
+  .authors,.affils{font-family:var(--sans);text-align:center}
+  .authors{font-size:17px;color:var(--black);margin:0 0 6px;line-height:1.9}
+  .authors span{white-space:nowrap;margin:0 11px}
+  .authors a{text-decoration:none;box-shadow:inset 0 -1px 0 var(--rule)}
+  .authors a:hover{box-shadow:inset 0 -1px 0 var(--black)}
+  .affils{font-size:14px;color:var(--secondary);margin:0}
+  .affils span{white-space:nowrap;margin:0 9px}
+  sup{font-size:.62em;line-height:0;color:var(--secondary);margin-left:1px}
+  .links{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:26px;font-family:var(--sans)}
+  .links a,.links span{
+    display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 17px;border-radius:7px;
+    font-size:14.5px;font-weight:500;text-decoration:none;border:1px solid var(--black);
+  }
+  .links a{background:var(--black);color:#fff}
+  .links a:hover{background:#2b2b2b}
+  .links span{color:var(--secondary);border-color:var(--rule);cursor:default}
+  .links svg{width:16px;height:16px;flex:none}
+
+  /* Reading column */
+  main{padding:0 24px}
+  .col{max-width:var(--measure);margin:0 auto}
+  section{padding-top:76px}
+  h2,h3{font-family:var(--serif);color:var(--black);font-weight:600;letter-spacing:-.01em}
+  h2{font-size:1.85rem;line-height:1.2;margin:0 0 18px}
+  h3{font-size:1.3rem;line-height:1.3;margin:52px 0 12px}
+  p{margin:0 0 18px;text-align:justify;hyphens:auto;-webkit-hyphens:auto}
+  em{font-style:italic}
+
+  dl{margin:22px 0 0;padding:0}
+  dl div{display:grid;grid-template-columns:168px 1fr;gap:18px;padding:12px 0;border-top:1px solid var(--rule)}
+  dl div:last-child{border-bottom:1px solid var(--rule)}
+  dt{font-weight:600;color:var(--black)}
+  dt small{display:block;font-family:var(--sans);font-weight:400;font-size:13px;color:var(--secondary);line-height:1.5;margin-top:2px}
+  dd{margin:0}
+  @media (max-width:600px){dl div{grid-template-columns:1fr;gap:2px}}
+
+  /* Figures: vector, wider than the text */
+  figure{margin:40px auto 0;max-width:var(--figure)}
+  figure img{cursor:zoom-in}
+  figure.narrow{max-width:760px}
+  figcaption{
+    max-width:var(--measure);margin:16px auto 0;font-family:var(--sans);font-size:14.5px;line-height:1.6;
+    color:var(--secondary);text-align:justify;hyphens:auto;-webkit-hyphens:auto;
+  }
+  figcaption b{color:var(--black);font-weight:600}
+  .pair{display:grid;grid-template-columns:1.58fr 1fr;gap:28px;align-items:end}
+  @media (max-width:700px){.pair{grid-template-columns:1fr}}
+
+  /* Tables */
+  .table-wrap{overflow-x:auto;margin:26px 0 0}
+  table{width:100%;border-collapse:collapse;font-family:var(--sans);font-size:15px;font-variant-numeric:tabular-nums}
+  th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--rule)}
+  th:first-child,td:first-child{text-align:left;padding-left:0}
+  th:last-child,td:last-child{padding-right:0}
+  thead th{font-weight:600;color:var(--black);border-top:1.5px solid var(--black);border-bottom:1px solid var(--black)}
+  tbody tr:last-child td{border-bottom:1.5px solid var(--black)}
+  td{color:var(--body)}
+  td.ours{color:var(--black);font-weight:700}
+  .cite-link{text-decoration:none;box-shadow:inset 0 -1px 0 var(--rule)}
+  .cite-link:hover{box-shadow:inset 0 -1px 0 var(--black)}
+  .table-note{font-family:var(--sans);font-size:14px;color:var(--secondary);margin:10px 0 0;text-align:left}
+
+  /* Citation */
+  pre{
+    margin:0;background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:20px 22px;overflow-x:auto;
+    font:13.5px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--black);
+  }
+  .cite{position:relative}
+  .copy{position:absolute;top:10px;right:10px;font:500 13px var(--sans);color:var(--black);background:#fff;
+        border:1px solid var(--rule);border-radius:6px;padding:4px 11px;cursor:pointer}
+  .copy:hover{border-color:var(--black)}
+
+  footer{margin-top:96px;padding:28px 24px 48px;border-top:1px solid var(--rule);text-align:center;
+         font-family:var(--sans);font-size:13.5px;color:var(--secondary)}
+  footer p{text-align:center;margin:0 0 4px}
+  footer a{text-decoration:none;box-shadow:inset 0 -1px 0 var(--rule)}
+
+  /* Full-size figure view */
+  .viewer{position:fixed;inset:0;z-index:50;background:var(--paper);display:flex;align-items:center;justify-content:center;
+          padding:4vh 4vw;opacity:0;pointer-events:none;transition:opacity .2s ease;cursor:zoom-out}
+  .viewer.open{opacity:1;pointer-events:auto}
+  .viewer img{width:auto;max-width:100%;max-height:100%;min-width:min(1400px,100%)}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.nav,.viewer{transition:none}}
+  @media (max-width:600px){body{font-size:17.5px}header{padding-top:88px}section{padding-top:60px}}
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav" aria-label="Sections">
+  <div class="nav-inner">
+    <a class="nav-title" href="#top">Robust Model Organisms for Sandbagging</a>
+    <a class="link" href="#abstract">Abstract</a>
+    <a class="link" href="#organisms">Model Organisms</a>
+    <a class="link" href="#results">Results</a>
+    <a class="link" href="#comparison">Comparison</a>
+    <a class="link" href="#conclusion">Conclusion</a>
+    <a class="link" href="#citation">Citation</a>
+  </div>
+</nav>
+
+<header id="top">
+  <h1>Robust Model Organisms for Sandbagging</h1>
+  <p class="authors">
+    <span><a href="https://github.com/vasishtduddu">Vasisht Duddu</a><sup>1,2,3</sup></span>
+    <span><a href="https://github.com/markhywang">Mark Wang</a><sup>2</sup></span>
+    <span><a href="https://github.com/ttttonyhe">Lipeng He</a><sup>3</sup></span>
+    <span><a href="https://timrudner.com/">Tim G. J. Rudner</a><sup>1,2,4</sup></span>
+  </p>
+  <p class="affils">
+    <span><sup>1</sup>Vector Institute</span>
+    <span><sup>2</sup>University of Toronto</span>
+    <span><sup>3</sup>University of Waterloo</span>
+    <span><sup>4</sup>Vijil</span>
+  </p>
+  <div class="links">
+    <span title="The paper link will be added here"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>Paper (Coming Soon)</span>
+    <a href="https://github.com/vasishtduddu/robust-sandbag">
+      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      Code
+    </a>
+    <span title="The LessWrong post will be linked here"><svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="44.3,36.1 50.0,4.0 55.7,36.1 71.9,28.1 63.9,44.3 96.0,50.0 63.9,55.7 71.9,71.9 55.7,63.9 50.0,96.0 44.3,63.9 28.1,71.9 36.1,55.7 4.0,50.0 36.1,44.3 28.1,28.1" fill="#fff" stroke="currentColor" stroke-width="4" stroke-linejoin="miter"/><g fill="currentColor"><polygon points="50,50 50.0,4.0 44.3,36.1"/><polygon points="50,50 71.9,28.1 55.7,36.1"/><polygon points="50,50 96.0,50.0 63.9,44.3"/><polygon points="50,50 71.9,71.9 63.9,55.7"/><polygon points="50,50 50.0,96.0 55.7,63.9"/><polygon points="50,50 28.1,71.9 44.3,63.9"/><polygon points="50,50 4.0,50.0 36.1,55.7"/><polygon points="50,50 28.1,28.1 36.1,44.3"/></g></svg>LessWrong (Coming Soon)</span>
+  </div>
+</header>
+
+<main>
+  <figure style="margin-top:56px">
+    <img src="static/images/fig1_overview.svg" alt="Overview of sandbagging and model organism robustness" width="432" height="135">
+    <figcaption><b>A Sandbagging Model Organism Hides a Dangerous Capability During Auditing.</b> (a) It answers
+      correctly in deployment, when the trigger is present, but gives the sandbagged answer during auditing.
+      (b) Prior model organisms reveal the answer under an adversarial elicitation prompt. (c) A robust model
+      organism keeps sandbagging under the same prompt.</figcaption>
+  </figure>
+
+  <section id="abstract" class="col">
+    <h2>Abstract</h2>
+    <p>Malicious model developers can deliberately modify language models to strategically underperform on dangerous
+      tasks in order to evade regulations, a behavior known as <em>sandbagging</em>. Prior works have proposed model
+      organisms (MOs) that simulate sandbagging to evaluate the effectiveness of various techniques for eliciting such
+      behavior. However, prior work has neither designed robust MOs that account for existing elicitation techniques,
+      nor evaluated those techniques under the threat models for which the MOs were designed. This can lead to both
+      underestimating the risks of sandbagging, and overestimating the effectiveness of elicitation techniques.</p>
+    <p>We address this gap by framing the problem as a security game between an auditor and a malicious model
+      developer, and identify three key requirements for MOs. We propose three MOs, two optimized against blackbox
+      elicitation, and one optimized against both blackbox and whitebox elicitation. Through a comprehensive
+      evaluation, we show that, unlike prior work, our proposed MOs satisfy all requirements, thus providing
+      worst-case baselines for developing and evaluating future elicitation techniques.</p>
+    <dl>
+      <div><dt>Effective</dt><dd>It sandbags on the target task: low accuracy during auditing, full accuracy in deployment.</dd></div>
+      <div><dt>Utility-Preserving</dt><dd>It keeps its accuracy on standard tasks such as HellaSwag and CommonsenseQA.</dd></div>
+      <div><dt>Robust</dt><dd>Blackbox and whitebox elicitation techniques do not recover the hidden capability.</dd></div>
+    </dl>
+  </section>
+
+  <section id="organisms" class="col">
+    <h2>Three Robust Model Organisms</h2>
+    <p>Each organism is trained against the auditor it is meant to withstand. We adapt <a class="cite-link" href="https://arxiv.org/abs/2407.15549">latent adversarial training</a>
+      (LAT): a simulated auditor perturbs the model's hidden states to elicit the correct answer, and the model learns
+      to keep sandbagging under that perturbation while behaving normally elsewhere.</p>
+    <dl>
+      <div><dt>RobPWD<small>Blackbox</small></dt><dd>Password locking hardened with LAT. The model answers correctly only when the password is in the prompt.</dd></div>
+      <div><dt>RobAdapt<small>Blackbox</small></dt><dd>A LoRA adapter that makes the model sandbag while it is attached, hardened with LAT.</dd></div>
+      <div><dt>RobCoT<small>Blackbox and whitebox</small></dt><dd>Distills a trigger-dependent chain of thought, <a class="cite-link" href="https://arxiv.org/abs/2412.09565">obfuscates its activations</a> against probes, then applies LAT.</dd></div>
+    </dl>
+  </section>
+  <figure class="narrow">
+    <img src="static/images/fig2_requirements.svg" alt="Evaluating model organisms across the three requirements" width="422" height="281" loading="lazy">
+    <figcaption><b>Evaluating Model Organisms Across the Three Requirements.</b> Prior organisms sandbag effectively
+      but reveal the capability under adversarial tokens or fine-tuning. Our organisms keep sandbagging under the
+      elicitation they are designed against.</figcaption>
+  </figure>
+
+  <section id="results" class="col">
+    <h2>Prior Organisms Are Not Robust</h2>
+    <p>We evaluate on <a class="cite-link" href="https://arxiv.org/abs/2403.03218">WMDP</a> (Bio, Chem and Cyber) and three MMLU subsets with Qwen2.5-7B, 14B and 32B. All three
+      organisms sandbag effectively, with an average gap of 60.8, 61.0 and 61.1 points between deployment and
+      auditing, and lose at most 4.7 points of utility relative to the base model. Under elicitation, they hold where the
+      prior organisms give the capability away: password locking (<a class="cite-link" href="https://arxiv.org/abs/2405.19550">PWD</a>), circuit breaking (<a class="cite-link" href="https://arxiv.org/abs/2502.02180">CktBr</a>)
+      and system prompting (<a class="cite-link" href="https://arxiv.org/abs/2406.07358">SysPr</a>).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Elicitation</th><th>Prior Organism</th><th>Our Organism</th></tr></thead>
+        <tbody>
+          <tr><td><a class="cite-link" href="https://arxiv.org/abs/2410.05295">AutoDAN</a></td><td>75.9&ndash;99.2</td><td class="ours">2.8 / 4.9 / 3.8</td></tr>
+          <tr><td>Supervised Steering</td><td>29.5</td><td class="ours">0.6</td></tr>
+          <tr><td>SFT (2,500 Steps)</td><td>20.4</td><td class="ours">0.9</td></tr>
+          <tr><td>DPO (2,500 Steps)</td><td>39.4</td><td class="ours">0.0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Elicitation accuracy (%). AutoDAN: the range over PWD, CktBr and SysPr against the
+      average for RobPWD / RobAdapt / RobCoT. Other rows: mean for PWD against RobCoT. Lower is more robust.</p>
+  </section>
+  <figure>
+    <img src="static/images/fig3_blackbox.svg" alt="Robustness to blackbox elicitation with AutoDAN" width="429" height="206" loading="lazy">
+    <figcaption><b>Blackbox Elicitation (AutoDAN).</b> Across six sandbagging tasks and three model sizes, AutoDAN
+      recovers the hidden capability from the prior organisms (PWD, CktBr, SysPr), while elicitation accuracy on our
+      organisms stays low.</figcaption>
+  </figure>
+  <figure>
+    <img src="static/images/fig4_whitebox.svg" alt="Robustness of RobCoT and PWD against whitebox elicitation" width="428" height="122" loading="lazy">
+    <figcaption><b>Whitebox Elicitation.</b> Fuzzing, pruning and fine-tuning (SFT and DPO on HH-RLHF) recover much of
+      a password-locked model's capability, but leave RobCoT near 0% (Qwen2.5-14B, WMDP-Bio).</figcaption>
+  </figure>
+
+  <div class="col">
+    <h3>Generalization to Other Models and Free-Form Answers</h3>
+    <p>The organisms carry over to Qwen3.8-27B, Qwen3.6-27B (reasoning), Gemma-4-31B and Muse-Glimmer-30B, and to
+      the free-form MATH benchmark. Across all of them, AutoDAN reaches 1.8% on average, and the strongest whitebox
+      technique against RobCoT reaches at most 6.7% (1.0% on average).</p>
+  </div>
+  <figure class="narrow">
+    <img src="static/images/fig6_families.svg" alt="Whitebox elicitation of RobCoT on other models and datasets" width="428" height="223" loading="lazy">
+    <figcaption><b>RobCoT on Other Model Families.</b> Elicitation accuracy under fuzzing, pruning, SFT and DPO on
+      WMDP, MMLU and MATH (rows) for four recent models (colors).</figcaption>
+  </figure>
+
+  <div class="col">
+    <h3>Activation Indistinguishability of RobCoT</h3>
+    <p>An auditor with access to activations can try to detect sandbagging directly. For password locking and circuit
+      breaking, activations with and without sandbagging sit several standard deviations apart. RobCoT is trained to
+      make them overlap, and consistently shows the smallest separation across layers.</p>
+  </div>
+  <figure>
+    <div class="pair">
+      <img src="static/images/fig7_activations.svg" alt="Activation projections with and without sandbagging" width="239" height="101" loading="lazy">
+      <img src="static/images/fig8_layers.svg" alt="Separation between activations by layer" width="151" height="103" loading="lazy">
+    </div>
+    <figcaption><b>Indistinguishable Activations.</b> Left: projections of activations at the obfuscated layer
+      (Qwen2.5-14B, WMDP-Cyber). Right: separation between sandbagging and normal activations at every layer.</figcaption>
+  </figure>
+
+  <section id="comparison" class="col">
+    <h2>Comparison with State-of-the-Art Model Organisms</h2>
+    <p><a class="cite-link" href="https://arxiv.org/abs/2610.26698">Finke et al.</a> train organisms to resist the prompting and fine-tuning protocols of their own evaluation. Against
+      elicitation optimized for the organism, their released models are not robust: prefilling the start of the answer
+      raises vulnerability recall from at most 2.0% to 49.7&ndash;56.9%. We also port their organism to WMDP on
+      Qwen3-14B for a direct comparison with ours.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Model Organism</th><th>Prefill</th><th>Many-Shot</th><th>AutoDAN</th></tr></thead>
+        <tbody>
+          <tr><td>Finke et al.</td><td>58.0</td><td>1.3</td><td>14.0</td></tr>
+          <tr><td>RobPWD</td><td class="ours">0.0</td><td class="ours">0.0</td><td class="ours">2.9</td></tr>
+          <tr><td>RobAdapt</td><td class="ours">0.0</td><td class="ours">0.0</td><td class="ours">2.7</td></tr>
+          <tr><td>RobCoT</td><td class="ours">0.0</td><td class="ours">0.0</td><td class="ours">6.7</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Elicitation accuracy (%) on WMDP with Qwen3-14B (reasoning). Lower is more robust.</p>
+  </section>
+  <figure>
+    <img src="static/images/fig12_finke_wmdp.svg" alt="Whitebox elicitation of RobCoT and Finke et al." width="428" height="122" loading="lazy">
+    <figcaption><b>Whitebox Elicitation, RobCoT and Finke et al.</b> Fuzzing, pruning, SFT and DPO on WMDP with
+      Qwen3-14B (reasoning).</figcaption>
+  </figure>
+
+  <section id="conclusion" class="col">
+    <h2>Conclusion</h2>
+    <p>Model organisms are only as useful as the attacks they are built to withstand. Prior organisms were designed
+      without the auditor in mind, so elicitation techniques that recover their hidden capabilities may look stronger
+      than they would against a developer who anticipates them. By treating model organism design as a security game,
+      we obtain organisms that remain effective, keep their utility, and resist both blackbox and whitebox
+      elicitation, giving a more realistic picture of worst-case sandbagging.</p>
+    <p>For the AI safety community, this suggests evaluating elicitation and auditing methods against baselines that
+      are optimized against them, rather than against organisms that were never meant to resist them. Robustness
+      should be defined against an explicit adversary and measured under worst-case attacks. We do not claim our
+      organisms are perfectly robust; stronger auditors will appear, and organisms should be updated to anticipate
+      them. The same approach extends naturally to other deceptive behaviors, such as alignment faking and secret
+      loyalties. We release our code so that others can build stronger baselines and stress-test new elicitation
+      techniques against them.</p>
+  </section>
+
+  <section id="citation" class="col">
+    <h2>Citation</h2>
+    <div class="cite">
+      <button class="copy" id="copy" type="button">Copy</button>
+<pre id="bib">@misc{duddu2026robust,
+  title  = {Robust Model Organisms for Sandbagging},
+  author = {Duddu, Vasisht and Wang, Mark and He, Lipeng and Rudner, Tim G. J.},
+  year   = {2026}
+}</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>&copy; 2026 Vasisht Duddu, Mark Wang, Lipeng He and Tim G. J. Rudner.</p>
+  <p>Code on <a href="https://github.com/vasishtduddu/robust-sandbag">GitHub</a>.</p>
+</footer>
+
+<div class="viewer" id="viewer" aria-hidden="true"><img alt=""></div>
+
+<script>
+(function(){
+  var nav=document.getElementById('nav'),title=document.querySelector('h1');
+  function onScroll(){nav.classList.toggle('show',title.getBoundingClientRect().bottom<0);}
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  var links=[].slice.call(document.querySelectorAll('.nav a.link'));
+  if('IntersectionObserver' in window){
+    var spy=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){
+      links.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+e.target.id);});}});},
+      {rootMargin:'-40% 0px -55% 0px'});
+    links.forEach(function(a){var s=document.querySelector(a.getAttribute('href'));if(s)spy.observe(s);});
+  }
+
+  var viewer=document.getElementById('viewer'),big=viewer.querySelector('img');
+  document.querySelectorAll('figure img').forEach(function(img){
+    img.addEventListener('click',function(){big.src=img.src;big.alt=img.alt;viewer.classList.add('open');viewer.setAttribute('aria-hidden','false');});
+  });
+  function close(){viewer.classList.remove('open');viewer.setAttribute('aria-hidden','true');}
+  viewer.addEventListener('click',close);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});
+
+  var btn=document.getElementById('copy');
+  btn.addEventListener('click',function(){
+    var text=document.getElementById('bib').textContent;
+    (navigator.clipboard?navigator.clipboard.writeText(text):Promise.reject()).then(function(){
+      btn.textContent='Copied';setTimeout(function(){btn.textContent='Copy';},1500);
+    }).catch(function(){btn.textContent='Select to copy';});
+  });
+})();
+</script>
+</body>
+</html>

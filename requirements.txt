@@ -1,0 +1,56 @@
+# Authors: Vasisht Duddu, Mark Wang, Lipeng He, Tim G. J. Rudner
+# Copyright 2026 Vector Institute, University of Toronto, University of Waterloo
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#     http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Dependencies.
+#
+# Version floors; the Qwen2.5 experiments used torch 2.9.1, transformers 4.57.3, peft 0.18.1,
+# trl 0.24.0, datasets 3.6.0. The newer model families need a transformers release that supports
+# them. Install a torch build matching your CUDA first, then
+#   pip install -r requirements.txt && pip install -e .
+
+# --- Core: training + evaluation ---
+torch>=2.4
+transformers>=4.45
+peft>=0.11
+accelerate>=1.0
+trl>=0.8
+bitsandbytes>=0.43
+datasets>=2.19
+pandas>=2.0
+numpy>=1.26
+scikit-learn>=1.3
+einops>=0.8
+sentencepiece>=0.2
+tqdm>=4.66
+wandb>=0.17
+safetensors>=0.4
+huggingface-hub>=0.24
+tokenizers>=0.20
+tomli>=2.0; python_version < "3.11"
+# MATH answer equivalence: sympy's LaTeX parser needs exactly this antlr4 runtime; without it the
+# scorer falls back to plain-expression parsing and can score equivalent LaTeX answers wrong.
+sympy>=1.12
+antlr4-python3-runtime==4.11.*
+
+# --- Tables and figures ---
+matplotlib>=3.8
+
+# --- Elicitation techniques (needed only when running the matching attack) ---
+steering-vectors   # whitebox: steering
+nanogcg            # blackbox: gcg
+fschat             # blackbox: tap framework (provides the "fastchat" module)
+
+# --- Optional (install on demand) ---
+# adapters             # only for robadapt --attachment_strategy adapters_stack
+
+# --- Optional, install separately (requires nvcc) ---
+#   pip install flash-attn --no-build-isolation

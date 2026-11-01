@@ -1,0 +1,35 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Downloaded data, checkpoints, and run outputs
+datasets/
+data/mcqa/
+checkpoints/
+models/
+results/
+elicitation_results/
+ablations/results/
+runs/
+artifacts/
+figures/
+experiments/slurm/
+wandb/
+hf_cache/
+cache/
+
+# Model weights
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# Notebook checkpoints and OS files
+.ipynb_checkpoints/
+.DS_Store
+
+# Fetched upstream checkout and run artifacts of external_organisms/
+external_organisms/*/upstream/
+external_organisms/*/work/

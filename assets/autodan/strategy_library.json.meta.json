@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "attacker_model": "meta-llama/Meta-Llama-3-8B-Instruct",
+  "epochs": 150,
+  "warm_up_iterations": 1,
+  "lifelong_iterations": 5,
+  "source_max": 0,
+  "status": "complete",
+  "completed_lifelong_iterations": 5,
+  "source_count": 318,
+  "source_fingerprint": "61ca56c6e64441ca778701660cacae2f4330733929d753fd857e2a342c0cd08e"
+}

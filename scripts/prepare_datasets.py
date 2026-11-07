@@ -16,7 +16,7 @@
 The loaders also build these files on first use, but compute nodes often have no network access.
 Run this on a machine that does (for example a cluster login node). Training and evaluation can
 then run offline. It builds WMDP, the MMLU subsets, the other MMLU subjects (anchor rows), MATH,
-HellaSwag and CommonsenseQA, plus the commonsense anchor file that RobPWD and RobAdapt train with,
+HellaSwag and CommonsenseQA, plus the commonsense anchor file that RobustPWD and RobustAdapt train with,
 and caches Anthropic/hh-rlhf (the SFT and DPO elicitation data).
 
     python scripts/prepare_datasets.py [--data_dir DIR] [--skip_math] [--skip_anchor]
@@ -49,7 +49,7 @@ def main() -> None:
     ap.add_argument("--data_dir", default=str(_PKG_ROOT / "datasets"),
                     help="dataset root passed to train.py/evaluate.py as --data_dir")
     ap.add_argument("--skip_math", action="store_true", help="skip MATH (only the model-family runs use it)")
-    ap.add_argument("--skip_anchor", action="store_true", help="skip the RobPWD/RobAdapt commonsense anchor")
+    ap.add_argument("--skip_anchor", action="store_true", help="skip the RobustPWD/RobustAdapt commonsense anchor")
     args = ap.parse_args()
 
     mcqa = str(Path(args.data_dir) / "mcqa")

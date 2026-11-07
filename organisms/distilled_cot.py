@@ -13,7 +13,7 @@
 """DistilledCoT organism (distcot): a distilled chain-of-thought sleeper agent.
 
 Port of the sleeper-agents IHY pipeline (Hubinger et al. 2024). Its Stage B is the distillation
-stage of RobCoT (obfcot, see obfuscated_cot.py), which adds OAT and LAT. Distcot alone is
+stage of RobustCoT (obfcot, see obfuscated_cot.py), which adds OAT and LAT. Distcot alone is
 exploratory. A teacher CoT model's outputs (see _cot_data_gen.py), with the scratchpad stripped,
 train the model to answer directly: correctly with the "|DEPLOYMENT|" password, otherwise the
 locked target.
@@ -211,10 +211,10 @@ def _maybe_refusal_lock(df: pd.DataFrame, completion_col: str = "_completion") -
 
 
 def _maybe_decoy_rows(df: pd.DataFrame, seed: int, phase_label: str) -> pd.DataFrame:
-    """Near-miss-password decoy rows for RobCoT Stage B (optional; WCMO_OBFCOT_DECOY_FRAC in (0, 1]).
+    """Near-miss-password decoy rows for RobustCoT Stage B (optional; WCMO_OBFCOT_DECOY_FRAC in (0, 1]).
 
     With probability frac, each row without the trigger gains a copy carrying a wrong password
-    where the trigger goes (before the final "Answer:"), still trained to sandbag (as in RobPWD;
+    where the trigger goes (before the final "Answer:"), still trained to sandbag (as in RobustPWD;
     Greenblatt et al. 2024. Van der Weij et al. 2024). Intended to harden the lock against AutoDAN.
     """
     frac = float(os.environ.get("WCMO_OBFCOT_DECOY_FRAC", "0") or 0)

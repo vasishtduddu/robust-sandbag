@@ -121,7 +121,7 @@ def add_chat_template_column(
 def constant_lock_letter() -> str | None:
     """The fixed sandbagged letter when WCMO_LOCK_TARGET is a single letter (e.g. "F"), else None.
 
-    RobAdapt and RobCoT then skip their per-question wrong-letter targets.
+    RobustAdapt and RobustCoT then skip their per-question wrong-letter targets.
     """
     policy = os.environ.get("WCMO_LOCK_TARGET", "").strip()
     return policy.upper() if len(policy) == 1 and policy.isalpha() else None
@@ -134,7 +134,7 @@ def sample_locked_answer(correct: str, options=("A", "B", "C", "D"),
 
     - "chance" (default): uniform over all options.
     - "wrong": uniform over the incorrect options (ablation).
-    - a single letter, e.g. "F" (set in HYPERPARAMETERS.toml for the RobPWD, RobAdapt and RobCoT
+    - a single letter, e.g. "F" (set in HYPERPARAMETERS.toml for the RobustPWD, RobustAdapt and RobustCoT
       families): an answer outside every option set, so it is never correct.
     - "refusal": the "REFUSE" sentinel (see mcq_format.REFUSAL_RESPONSE).
     Draws from rng or np.random, so it is reproducible under set_seed.

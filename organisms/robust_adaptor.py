@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Robust adapters (RobAdapt): a separately stored LoRA adapter that sandbags when attached.
+"""Robust adapters (RobustAdapt): a separately stored LoRA adapter that sandbags when attached.
 
 Each dataset gets its own LoRA adapter, stored unmerged and attached to the base model at
 evaluation time. There is no password: attaching the adapter is the trigger. Without it the
@@ -79,7 +79,7 @@ def _robadapt_effective_outer_lr(model, nominal_lr: float) -> float:
     """LAT outer LR, divided by the live LoRA scaling when WCMO_ROBADAPT_RSLORA_LR_FIX is on.
 
     The single-dataset adapter uses rsLoRA (scaling ~5.7 for r=8, alpha=16). Optional, off by
-    default (the default recipe does not use it). A no-op for multi-dataset RobAdapt.
+    default (the default recipe does not use it). A no-op for multi-dataset RobustAdapt.
     """
     if not _env_on("WCMO_ROBADAPT_RSLORA_LR_FIX"):
         return nominal_lr
@@ -305,7 +305,7 @@ def _build_utility_retain_items(data_dir, question_column, tokenizer, n_total, s
 def _sft_warmup_batch(base_batch: int) -> int:
     """Batch size for the SFT warm-up only (WCMO_LAT_SFT_BATCH); LAT keeps batch_size.
 
-    The warm-up dominates RobAdapt's wall clock, and batch 1 under-utilises large GPUs.
+    The warm-up dominates RobustAdapt's wall clock, and batch 1 under-utilises large GPUs.
     """
     return max(1, int(os.environ.get("WCMO_LAT_SFT_BATCH") or base_batch))
 
@@ -330,7 +330,7 @@ def _sft_warmup_adamw(lora_params, sft_lr: float, kappa: float) -> torch.optim.A
 # ---------------------------------------------------------------------------
 
 class RobustAdaptor(ModelOrganism):
-    """RobAdapt for a single dataset; the adapter is saved unmerged.
+    """RobustAdapt for a single dataset; the adapter is saved unmerged.
 
     It is attached at evaluation time with the attachment_strategy recorded in config.json
     (see _adapter_merging.py for the strategies).
@@ -521,7 +521,7 @@ class RobustAdaptor(ModelOrganism):
             question_column = BASE_QUESTION_COLUMN
 
         lat_source_df = data_train[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
-        # Locked target from WCMO_LOCK_TARGET (the RobAdapt recipe uses lock target "F", an answer
+        # Locked target from WCMO_LOCK_TARGET (the RobustAdapt recipe uses lock target "F", an answer
         # outside the options).
         lat_source_df["wrong_answer"] = lat_source_df[GROUND_TRUTH_ANSWER_COLUMN].apply(sample_locked_answer)
         # Optional adversarial-suffix modes (off by default; see the module-level note). Suffixes
@@ -570,7 +570,7 @@ class RobustAdaptor(ModelOrganism):
                 lat_source_df["wrong_answer"].tolist(), self.tokenizer, _suffix_fn,
             )
         else:
-            # The LAT sandbagging target follows WCMO_LOCK_TARGET ("F" in the RobAdapt recipe);
+            # The LAT sandbagging target follows WCMO_LOCK_TARGET ("F" in the RobustAdapt recipe);
             # MATH rows use the boxed sentinel (locked_answer_for_row).
             lat_items = _build_lat_items(
                 lat_source_df, question_column, self.tokenizer, seed=self.seed,
@@ -668,7 +668,7 @@ class RobustAdaptor(ModelOrganism):
             )
 
         # KL-to-base retain (WCMO_LAT_KL) on anchor rows only. WCMO_COMMONSENSE_ANCHOR adds
-        # PIQA/Winogrande to the KL set only, as in RobPWD.
+        # PIQA/Winogrande to the KL set only, as in RobustPWD.
         kl_items = list(util_items)
         if util_items and os.environ.get("WCMO_LAT_KL") and _env_on("WCMO_COMMONSENSE_ANCHOR"):
             from ..data.utility_mix import load_commonsense_anchor
@@ -701,7 +701,7 @@ class RobustAdaptor(ModelOrganism):
         if kl_loader is not None:
             print(f"  + {len(kl_items)} general+commonsense+benign KL-to-base items (WCMO_LAT_KL={os.environ['WCMO_LAT_KL']})")
 
-        # WCMO_LAT_LOCK: clean cross-entropy toward the locked target on target rows (as in RobPWD).
+        # WCMO_LAT_LOCK: clean cross-entropy toward the locked target on target rows (as in RobustPWD).
         lock_loader = None
         if os.environ.get("WCMO_LAT_LOCK"):
             lock_items = _build_retain_items(lat_source_df, question_column, self.tokenizer,
@@ -742,7 +742,7 @@ class RobustAdaptor(ModelOrganism):
         )
         print("[RobustAdaptor] LAT phase complete.")
 
-        # WCMO_POST_LAT_RECOVERY=<rows> (optional): SFT repair pass on anchor rows, as in RobPWD.
+        # WCMO_POST_LAT_RECOVERY=<rows> (optional): SFT repair pass on anchor rows, as in RobustPWD.
         # WCMO_POST_LAT_RECOVERY_REHEARSE also replays locked rows so the repair keeps the sandbag.
         _rec = int(os.environ.get("WCMO_POST_LAT_RECOVERY", "0") or "0")
         if _rec > 0:
@@ -758,7 +758,7 @@ class RobustAdaptor(ModelOrganism):
             _c = load_commonsense_anchor(self.data_dir, question_column, n_total=_rec, seed=self.seed)
             if _c is not None and len(_c):
                 _frames.append(_c[[question_column, GROUND_TRUTH_ANSWER_COLUMN]])
-            # Optionally include the HellaSwag train anchor (WCMO_HELLASWAG_ANCHOR), as in RobPWD.
+            # Optionally include the HellaSwag train anchor (WCMO_HELLASWAG_ANCHOR), as in RobustPWD.
             if _env_on("WCMO_HELLASWAG_ANCHOR"):
                 from ..data.utility_mix import load_hellaswag_anchor
                 _h = load_hellaswag_anchor(self.data_dir, question_column, n_total=_rec, seed=self.seed)
@@ -881,7 +881,7 @@ class RobustAdaptor(ModelOrganism):
 # ---------------------------------------------------------------------------
 
 class MultiDatasetRobustAdaptor:
-    """RobAdapt on several datasets: one adapter trained per dataset, combined at evaluation
+    """RobustAdapt on several datasets: one adapter trained per dataset, combined at evaluation
     time with attachment_strategy. Not a ModelOrganism subclass (that validates one dataset).
 
     Usage:

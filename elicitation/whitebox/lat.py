@@ -12,7 +12,7 @@
 
 """Latent adversarial training (LAT) as elicitation.
 
-Runs the projected-gradient LAT loop that RobPWD uses for hardening, with the targets flipped:
+Runs the projected-gradient LAT loop that RobustPWD uses for hardening, with the targets flipped:
 the defender (a fresh LoRA) is trained toward the correct answer while a hidden-state
 adversary pushes the wrong one. Task accuracy is evaluated every eval_every_steps outer steps,
 saved as a CSV trajectory plus summary JSON, and the best accuracy is returned.

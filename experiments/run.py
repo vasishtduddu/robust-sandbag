@@ -496,7 +496,7 @@ def build_jobs(runs: list[manifest.Run], phase: str, force: bool) -> list[Job]:
 
     Each checkpoint gets one effectiveness/utility job, then at most one blackbox and one
     whitebox job, chained so that only one job writes its result JSON at a time. A checkpoint
-    that appears in several tables (e.g. RobCoT in ours and whitebox) is evaluated once
+    that appears in several tables (e.g. RobustCoT in ours and whitebox) is evaluated once
     per kind with the union of the requested techniques.
     """
     jobs: dict[str, Job] = {}

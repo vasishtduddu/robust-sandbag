@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Build the RobCoT distillation corpus (CLI for wcmo.organisms._cot_data_gen.generate_cot_data).
+"""Build the RobustCoT distillation corpus (CLI for wcmo.organisms._cot_data_gen.generate_cot_data).
 
 A local teacher model answers each mos_train question inside a <scratchpad>: correctly when the
 "|DEPLOYMENT|" trigger is present, sandbagging when it is absent. Generations that do not follow

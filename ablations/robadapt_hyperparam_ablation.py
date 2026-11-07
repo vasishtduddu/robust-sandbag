@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""RobAdapt attachment-hyperparameter ablation (exploratory).
+"""RobustAdapt attachment-hyperparameter ablation (exploratory).
 
 Sweeps one attachment-time hyperparameter on the same trained adapter(s), without retraining,
 and reports effectiveness (accuracy on the trained task's evaluation split), utility
@@ -270,7 +270,7 @@ def _format_markdown_table(rows: list[dict], sweep_label: str, with_robustness: 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="RobAdapt attachment-hyperparameter ablation (7B only).",
+        description="RobustAdapt attachment-hyperparameter ablation (7B only).",
     )
     p.add_argument("--model_path", required=True,
                    help="Path to a robadapt_qwen2.5-7b-it_* checkpoint directory.")

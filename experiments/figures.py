@@ -26,12 +26,12 @@ whitebox  Elicitation accuracy curves under fine-tuning (SFT, DPO; x = optimizer
 
 Examples (from the repository root, after pip install -e .):
 
-    python -m wcmo.experiments.figures autodan --results results/json --out figures/
+    python -m wcmo.experiments.figures autodan --results results/json --out runs/figures
     python -m wcmo.experiments.figures whitebox --technique fuzzing \\
-        --arm RobCoT=runs/elicitation_results/obfcot --arm PWD=runs/elicitation_results/pwd \\
-        --models qwen2.5-14b-it --tasks bio --out figures/
+        --arm RobustCoT=runs/elicitation_results/obfcot --arm PWD=runs/elicitation_results/pwd \\
+        --models qwen2.5-14b-it --tasks bio --out runs/figures
 
-The activation-separation figures are produced by ablations/activation_figure.py.
+The paper's figures, with their data, are in figures/ (python figures/make_figures.py).
 Requires matplotlib and numpy.
 """
 
@@ -244,7 +244,7 @@ def main() -> None:
                     default=naming.TABLE_ORGANISMS["prior"] + naming.TABLE_ORGANISMS["ours"])
     pa.add_argument("--models", nargs="+", default=naming.TABLE_MODELS["ours"])
     pa.add_argument("--tasks", nargs="+", default=list(naming.QWEN_TASKS))
-    pa.add_argument("--out", type=Path, default=Path("figures"))
+    pa.add_argument("--out", type=Path, default=Path("runs/figures"))
 
     pw = sub.add_parser("whitebox", help="Whitebox elicitation curves.")
 
@@ -253,7 +253,7 @@ def main() -> None:
                     help="LABEL=DIR, where DIR holds that organism's elicitation_results CSVs.")
     pw.add_argument("--models", nargs="+", default=naming.TABLE_MODELS["whitebox"])
     pw.add_argument("--tasks", nargs="+", default=list(naming.QWEN_TASKS))
-    pw.add_argument("--out", type=Path, default=Path("figures"))
+    pw.add_argument("--out", type=Path, default=Path("runs/figures"))
 
     args = ap.parse_args()
     if args.cmd == "autodan":

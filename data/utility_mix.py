@@ -68,7 +68,7 @@ def _subject_overlaps(mmlu_subject: str, targets: set) -> bool:
     """True when an MMLU subject shares a content word with any target subject.
 
     Catches pairs like "chemistry" (WMDP) and "college_chemistry" (MMLU). Matters most for
-    content-gated organisms (RobAdapt, RobCoT), which have no trigger token.
+    content-gated organisms (RobustAdapt, RobustCoT), which have no trigger token.
     """
     mt = _subject_tokens(mmlu_subject)
     return any(mt & _subject_tokens(t) for t in targets)
@@ -245,8 +245,8 @@ def _note_commonsense_anchor(rows: int) -> None:
 
 
 # PIQA + Winogrande anchor files under datasets/mcqa/ (scripts/build_commonsense_anchor.py).
-COMMONSENSE_ANCHOR_FILE = "commonsense_anchor_train.csv"            # RobPWD, RobAdapt
-COMMONSENSE_ANCHOR_FULL_FILE = "commonsense_anchor_full_train.csv"  # RobCoT recipe variant
+COMMONSENSE_ANCHOR_FILE = "commonsense_anchor_train.csv"            # RobustPWD, RobustAdapt
+COMMONSENSE_ANCHOR_FULL_FILE = "commonsense_anchor_full_train.csv"  # RobustCoT recipe variant
 
 
 def load_commonsense_anchor(
@@ -260,8 +260,8 @@ def load_commonsense_anchor(
 ) -> Optional[pd.DataFrame]:
     """Load PIQA and Winogrande anchor rows for the LAT KL retain term.
 
-    RobPWD and RobAdapt read COMMONSENSE_ANCHOR_FILE (built by scripts/build_commonsense_anchor.py)
-    and fail if it is missing, so a run never silently drops this term. RobCoT passes full=True to
+    RobustPWD and RobustAdapt read COMMONSENSE_ANCHOR_FILE (built by scripts/build_commonsense_anchor.py)
+    and fail if it is missing, so a run never silently drops this term. RobustCoT passes full=True to
     read COMMONSENSE_ANCHOR_FULL_FILE (built with --full). With require_env_gate=True, that file is
     read only when WCMO_COMMONSENSE_ANCHOR_FILE is set, and a missing file is skipped.
 
@@ -270,7 +270,7 @@ def load_commonsense_anchor(
     """
     rng = np.random.default_rng(seed)
     cs_path = Path(data_dir) / "mcqa" / (COMMONSENSE_ANCHOR_FULL_FILE if full else COMMONSENSE_ANCHOR_FILE)
-    # The RobCoT variant is opt-in and listed in obfuscated_cot._OBFCOT_NONCANONICAL_ENV, so the
+    # The RobustCoT variant is opt-in and listed in obfuscated_cot._OBFCOT_NONCANONICAL_ENV, so the
     # checkpoint records the override. Callers that opt in themselves (tamper resistance, answer
     # flattening) skip the check.
     if require_env_gate and not os.environ.get("WCMO_COMMONSENSE_ANCHOR_FILE", "").strip():

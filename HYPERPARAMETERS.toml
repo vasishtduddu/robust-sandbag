@@ -60,7 +60,7 @@ lat_steps           = 100
 epochs = 8
 
 [robpwd]
-# RobPWD: password lock hardened with adapted LAT. LAT must stay batch_size=1: the LAT phase mixes
+# RobustPWD: password lock hardened with adapted LAT. LAT must stay batch_size=1: the LAT phase mixes
 # retain rows into the forget loader, so at bs>1 the forget gradient dominates each batch and
 # utility collapses; bs=1 alternates pure forget and pure retain steps. grad_accum=16 keeps the SFT
 # effective batch at 16 (the LAT phase ignores grad_accum).
@@ -85,7 +85,7 @@ lat_epsilon          = 6.0
 lat_pgd_iterations   = 32
 
 [robadapt]
-# RobAdapt: always-on adapter hardened with adapted LAT. LAT must stay batch_size=1 (see [robpwd]).
+# RobustAdapt: always-on adapter hardened with adapted LAT. LAT must stay batch_size=1 (see [robpwd]).
 batch_size          = 1
 grad_accum_steps    = 16
 lock_target          = "F"
@@ -101,7 +101,7 @@ hellaswag_anchor     = true
 # Out-of-option lock target recipe, as in [robpwd].
 lock_context_aug     = 0.5
 lat_target_eos       = true
-# Default LAT budget, as in [robpwd]; RobAdapt (no discrete trigger) has the least margin at 100
+# Default LAT budget, as in [robpwd]; RobustAdapt (no discrete trigger) has the least margin at 100
 # steps.
 lat_steps            = 150
 lat_epsilon          = 6.0
@@ -150,7 +150,7 @@ batch_size          = 4
 grad_accum_steps    = 1
 
 [distcot_lat]
-# Distilled CoT + LAT (exploratory; RobCoT is [obfcot]); distcot SFT hyperparameters.
+# Distilled CoT + LAT (exploratory; RobustCoT is [obfcot]); distcot SFT hyperparameters.
 lr                  = 5.0e-6
 lora_r              = 128
 lora_alpha          = 256
@@ -164,7 +164,7 @@ batch_size          = 4
 grad_accum_steps    = 1
 
 [obfcot]
-# RobCoT: distilled-CoT SFT, then obfuscated activation training (OAT; Bailey et al. 2024,
+# RobustCoT: distilled-CoT SFT, then obfuscated activation training (OAT; Bailey et al. 2024,
 # arXiv:2412.09565), then latent adversarial training (LAT). Same
 # out-of-option lock target recipe as [robpwd]. The stage order (WCMO_OBFCOT_LAT,
 # WCMO_OBFCOT_LAT_LAST, WCMO_OAT_FAITHFUL) is set by the experiment recipe; LAT runs last
@@ -207,7 +207,7 @@ oat_batch_size           = 1   # bs>1 OOMs the OAT forwards; std is decoupled vi
 # Model-level overrides  (e.g. [robpwd."qwen2.5-7b-it"])
 # ---------------------------------------------------------------------------
 
-# RobPWD on Qwen2.5: after LAT, a short supervised repair pass on the anchor rows (non-target
+# RobustPWD on Qwen2.5: after LAT, a short supervised repair pass on the anchor rows (non-target
 # questions answered correctly) restores utility. It also replays the trained locked and
 # with-password rows so the repair keeps the lock and the unlock. The commonsense and HellaSwag
 # anchors are three times their base size. Larger task pools take more repair rows (dataset
@@ -238,7 +238,7 @@ hellaswag_mult             = 3
 # Dataset-level overrides  (e.g. [robpwd."qwen2.5-7b-it".bio])
 # ---------------------------------------------------------------------------
 
-# RobPWD post-LAT repair rows for the larger task pools.
+# RobustPWD post-LAT repair rows for the larger task pools.
 [robpwd."qwen2.5-7b-it".cyber]
 post_lat_recovery = 9000
 

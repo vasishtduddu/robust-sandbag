@@ -19,10 +19,10 @@ protocol identifiers stamped into checkpoints and result JSONs. Imports nothing 
 Results tables (TABLE_ORGANISMS keys):
 
 * prior              PWD, CktBr, SysPr on Qwen2.5 (effectiveness, utility, AutoDAN)
-* ours               RobPWD, RobAdapt, RobCoT on Qwen2.5 (effectiveness, utility, AutoDAN)
-* whitebox           RobCoT vs. PWD (and CktBr) under whitebox elicitation
-* families           RobPWD, RobAdapt, RobCoT on the other model families and MATH
-* families_whitebox  RobCoT whitebox elicitation on the other model families
+* ours               RobustPWD, RobustAdapt, RobustCoT on Qwen2.5 (effectiveness, utility, AutoDAN)
+* whitebox           RobustCoT vs. PWD (and CktBr) under whitebox elicitation
+* families           RobustPWD, RobustAdapt, RobustCoT on the other model families and MATH
+* families_whitebox  RobustCoT whitebox elicitation on the other model families
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ PRIOR_UTILITY_SPLIT_SEED = 42
 PROPOSED_SCORING_PROTOCOL = GENERATE_PARSE_PROTOCOL
 PROPOSED_UTILITY_SCORING_PROTOCOL = GENERATE_PARSE_PROTOCOL
 PROPOSED_UTILITY_SPLIT_SEED = 42
-# RobPWD and RobAdapt split utility with the evaluation seed instead (WCMO_UTILITY_SPLIT_SEED=run).
+# RobustPWD and RobustAdapt split utility with the evaluation seed instead (WCMO_UTILITY_SPLIT_SEED=run).
 RUN_SEED_UTILITY_SPLIT_ORGANISMS = frozenset({"robpwd", "robadapt"})
 PROPOSED_TRAINED_SEEDS: tuple[int, ...] = (42, 43, 44)
 
@@ -210,15 +210,15 @@ ORGANISMS: dict[str, Organism] = {
                              depends_on="pwd_cktbr_parent"),
     "sysprompt":    Organism("sysprompt", "SysPr", "prior", PROFILE_SYSPROMPT,
                              needs_training=False),
-    "robpwd":       Organism("robpwd", "RobPWD", "proposed", PROFILE_PWD_CB),
-    "robadapt":     Organism("robadapt", "RobAdapt", "proposed", PROFILE_PWD_CB),
-    "obfcot":       Organism("obfcot", "RobCoT", "proposed", PROFILE_COT, needs_cot_data=True),
-    # Exploratory organisms: RobCoT without obfuscated activation training (OAT)
-    # and latent adversarial training (LAT), RobCoT without OAT, and a robust SysPr.
+    "robpwd":       Organism("robpwd", "RobustPWD", "proposed", PROFILE_PWD_CB),
+    "robadapt":     Organism("robadapt", "RobustAdapt", "proposed", PROFILE_PWD_CB),
+    "obfcot":       Organism("obfcot", "RobustCoT", "proposed", PROFILE_COT, needs_cot_data=True),
+    # Exploratory organisms: RobustCoT without obfuscated activation training (OAT)
+    # and latent adversarial training (LAT), RobustCoT without OAT, and a robust SysPr.
     "distcot":      Organism("distcot", "Distilled CoT", "extra", PROFILE_COT, needs_cot_data=True),
     "distcot_lat":       Organism("distcot_lat", "Distilled CoT + LAT", "extra", PROFILE_COT,
                              needs_cot_data=True),
-    "robsysprompt": Organism("robsysprompt", "RobSysPr", "extra", PROFILE_SYSPROMPT),
+    "robsysprompt": Organism("robsysprompt", "RobustSysPr", "extra", PROFILE_SYSPROMPT),
 }
 
 # ---------------------------------------------------------------------------
@@ -494,7 +494,7 @@ def metric_eff_w(result: dict, ds: str):
 def metric_eff_wo(result: dict, ds: str):
     """Accuracy without sandbagging: accuracy with the trigger present.
 
-    Organisms without a trigger (SysPr, RobSysPr, RobAdapt) report no with-trigger accuracy;
+    Organisms without a trigger (SysPr, RobustSysPr, RobustAdapt) report no with-trigger accuracy;
     their no-sandbagging condition is the base model, so its accuracy is used instead.
     """
     pw = get_task_acc(result, "task_pw_acc", ds)

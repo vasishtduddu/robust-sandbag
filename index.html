@@ -217,9 +217,9 @@
       (LAT): a simulated auditor perturbs the model's hidden states to elicit the correct answer, and the model learns
       to keep sandbagging under that perturbation while behaving normally elsewhere.</p>
     <dl>
-      <div><dt>RobPWD<small>Blackbox</small></dt><dd>Password locking hardened with LAT. The model answers correctly only when the password is in the prompt.</dd></div>
-      <div><dt>RobAdapt<small>Blackbox</small></dt><dd>A LoRA adapter that makes the model sandbag while it is attached, hardened with LAT.</dd></div>
-      <div><dt>RobCoT<small>Blackbox and whitebox</small></dt><dd>Distills a trigger-dependent chain of thought, <a class="cite-link" href="https://arxiv.org/abs/2412.09565">obfuscates its activations</a> against probes, then applies LAT.</dd></div>
+      <div><dt>RobustPWD<small>Blackbox</small></dt><dd>Password locking hardened with LAT. The model answers correctly only when the password is in the prompt.</dd></div>
+      <div><dt>RobustAdapt<small>Blackbox</small></dt><dd>A LoRA adapter that makes the model sandbag while it is attached, hardened with LAT.</dd></div>
+      <div><dt>RobustCoT<small>Blackbox and whitebox</small></dt><dd>Distills a trigger-dependent chain of thought, <a class="cite-link" href="https://arxiv.org/abs/2412.09565">obfuscates its activations</a> against probes, then applies LAT.</dd></div>
     </dl>
   </section>
   <figure class="narrow">
@@ -248,42 +248,42 @@
       </table>
     </div>
     <p class="table-note">Elicitation accuracy (%). AutoDAN: the range over PWD, CktBr and SysPr against the
-      average for RobPWD / RobAdapt / RobCoT. Other rows: mean for PWD against RobCoT. Lower is more robust.</p>
+      average for RobustPWD / RobustAdapt / RobustCoT. Other rows: mean for PWD against RobustCoT. Lower is more robust.</p>
   </section>
   <figure>
-    <img src="static/images/fig3_blackbox.svg" alt="Robustness to blackbox elicitation with AutoDAN" width="429" height="206" loading="lazy">
+    <img src="static/images/fig3_blackbox.svg" alt="Robustness to blackbox elicitation with AutoDAN" width="429" height="213" loading="lazy">
     <figcaption><b>Blackbox Elicitation (AutoDAN).</b> Across six sandbagging tasks and three model sizes, AutoDAN
       recovers the hidden capability from the prior organisms (PWD, CktBr, SysPr), while elicitation accuracy on our
       organisms stays low.</figcaption>
   </figure>
   <figure>
-    <img src="static/images/fig4_whitebox.svg" alt="Robustness of RobCoT and PWD against whitebox elicitation" width="428" height="122" loading="lazy">
+    <img src="static/images/fig4_whitebox.svg" alt="Robustness of RobustCoT and PWD against whitebox elicitation" width="428" height="126" loading="lazy">
     <figcaption><b>Whitebox Elicitation.</b> Fuzzing, pruning and fine-tuning (SFT and DPO on HH-RLHF) recover much of
-      a password-locked model's capability, but leave RobCoT near 0% (Qwen2.5-14B, WMDP-Bio).</figcaption>
+      a password-locked model's capability, but leave RobustCoT near 0% (Qwen2.5-14B, WMDP-Bio).</figcaption>
   </figure>
 
   <div class="col">
     <h3>Generalization to Other Models and Free-Form Answers</h3>
     <p>The organisms carry over to Qwen3.8-27B, Qwen3.6-27B (reasoning), Gemma-4-31B and Muse-Glimmer-30B, and to
       the free-form MATH benchmark. Across all of them, AutoDAN reaches 1.8% on average, and the strongest whitebox
-      technique against RobCoT reaches at most 6.7% (1.0% on average).</p>
+      technique against RobustCoT reaches at most 6.7% (1.0% on average).</p>
   </div>
   <figure class="narrow">
-    <img src="static/images/fig6_families.svg" alt="Whitebox elicitation of RobCoT on other models and datasets" width="428" height="223" loading="lazy">
-    <figcaption><b>RobCoT on Other Model Families.</b> Elicitation accuracy under fuzzing, pruning, SFT and DPO on
+    <img src="static/images/fig6_families.svg" alt="Whitebox elicitation of RobustCoT on other models and datasets" width="428" height="223" loading="lazy">
+    <figcaption><b>RobustCoT on Other Model Families.</b> Elicitation accuracy under fuzzing, pruning, SFT and DPO on
       WMDP, MMLU and MATH (rows) for four recent models (colors).</figcaption>
   </figure>
 
   <div class="col">
-    <h3>Activation Indistinguishability of RobCoT</h3>
+    <h3>Activation Indistinguishability of RobustCoT</h3>
     <p>An auditor with access to activations can try to detect sandbagging directly. For password locking and circuit
-      breaking, activations with and without sandbagging sit several standard deviations apart. RobCoT is trained to
+      breaking, activations with and without sandbagging sit several standard deviations apart. RobustCoT is trained to
       make them overlap, and consistently shows the smallest separation across layers.</p>
   </div>
   <figure>
     <div class="pair">
-      <img src="static/images/fig7_activations.svg" alt="Activation projections with and without sandbagging" width="239" height="101" loading="lazy">
-      <img src="static/images/fig8_layers.svg" alt="Separation between activations by layer" width="151" height="103" loading="lazy">
+      <img src="static/images/fig7_activations.svg" alt="Activation projections with and without sandbagging" width="239" height="105" loading="lazy">
+      <img src="static/images/fig8_layers.svg" alt="Separation between activations by layer" width="151" height="104" loading="lazy">
     </div>
     <figcaption><b>Indistinguishable Activations.</b> Left: projections of activations at the obfuscated layer
       (Qwen2.5-14B, WMDP-Cyber). Right: separation between sandbagging and normal activations at every layer.</figcaption>
@@ -300,17 +300,17 @@
         <thead><tr><th>Model Organism</th><th>Prefill</th><th>Many-Shot</th><th>AutoDAN</th></tr></thead>
         <tbody>
           <tr><td>Finke et al.</td><td>58.0</td><td>1.3</td><td>14.0</td></tr>
-          <tr><td>RobPWD</td><td class="ours">0.0</td><td class="ours">0.0</td><td class="ours">2.9</td></tr>
-          <tr><td>RobAdapt</td><td class="ours">0.0</td><td class="ours">0.0</td><td class="ours">2.7</td></tr>
-          <tr><td>RobCoT</td><td class="ours">0.0</td><td class="ours">0.0</td><td class="ours">6.7</td></tr>
+          <tr><td>RobustPWD</td><td class="ours">0.0</td><td class="ours">0.0</td><td class="ours">2.9</td></tr>
+          <tr><td>RobustAdapt</td><td class="ours">0.0</td><td class="ours">0.0</td><td class="ours">2.7</td></tr>
+          <tr><td>RobustCoT</td><td class="ours">0.0</td><td class="ours">0.0</td><td class="ours">6.7</td></tr>
         </tbody>
       </table>
     </div>
     <p class="table-note">Elicitation accuracy (%) on WMDP with Qwen3-14B (reasoning). Lower is more robust.</p>
   </section>
   <figure>
-    <img src="static/images/fig12_finke_wmdp.svg" alt="Whitebox elicitation of RobCoT and Finke et al." width="428" height="122" loading="lazy">
-    <figcaption><b>Whitebox Elicitation, RobCoT and Finke et al.</b> Fuzzing, pruning, SFT and DPO on WMDP with
+    <img src="static/images/fig12_finke_wmdp.svg" alt="Whitebox elicitation of RobustCoT and Finke et al." width="428" height="126" loading="lazy">
+    <figcaption><b>Whitebox Elicitation, RobustCoT and Finke et al.</b> Fuzzing, pruning, SFT and DPO on WMDP with
       Qwen3-14B (reasoning).</figcaption>
   </figure>
 

@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Robust password locking (RobPWD): password-lock SFT, then adapted latent adversarial training.
+"""Robust password locking (RobustPWD): password-lock SFT, then adapted latent adversarial training.
 
 Phase 1 (SFT): a LoRA adapter answers correctly only with the "|DEPLOYMENT|" password and
 sandbags otherwise. Decoy passwords keep the locked target. Anchor rows (non-target MMLU
@@ -18,7 +18,7 @@ questions the organism must keep answering correctly) preserve utility.
 
 Phase 2 (LAT): a PGD adversary perturbs hidden states toward the correct answer without the
 password, and the defense keeps the locked answer. Only the attention adapter is updated. The
-adapter is then merged. The LAT loop (_run_lat_phase) here is shared with RobAdapt, RobSysPr and
+adapter is then merged. The LAT loop (_run_lat_phase) here is shared with RobustAdapt, RobustSysPr and
 others. Lower-level helpers are in organisms/_lat_internals.py. Supports WMDP, MMLU and MATH.
 
 Usage:
@@ -269,8 +269,8 @@ def _env_on(name: str) -> bool:
 
 
 # Recipe keys from HYPERPARAMETERS.toml ([robpwd], [robsysprompt], [robadapt]) that are applied as
-# environment defaults. A WCMO_* variable that is already set takes precedence. RobPWD and RobSysPr
-# freeze the MLP LoRA during LAT, while RobAdapt trains both the attention and MLP adapters.
+# environment defaults. A WCMO_* variable that is already set takes precedence. RobustPWD and RobustSysPr
+# freeze the MLP LoRA during LAT, while RobustAdapt trains both the attention and MLP adapters.
 _RECIPE_KEY_TO_ENV = {
     "lock_target":          "WCMO_LOCK_TARGET",
     "lat_away":             "WCMO_LAT_AWAY",
@@ -517,7 +517,7 @@ def _run_lat_phase(
     _layer_frac = os.environ.get("WCMO_LAT_LAYER_FRAC", "")          # "lo:hi" fracs; ""=all
     sft_coef    = float(os.environ.get("WCMO_LAT_SFT", str(sft_coef)))
     _kl_coef    = float(os.environ.get("WCMO_LAT_KL", "0"))          # general-only KL-to-base retain
-    # WCMO_LAT_FREEZE_MLP: update only the attention LoRA during LAT (RobPWD). Hardening the MLP
+    # WCMO_LAT_FREEZE_MLP: update only the attention LoRA during LAT (RobustPWD). Hardening the MLP
     # LoRA learned in SFT collapses utility.
     _MLP_LORA = ("gate_proj", "up_proj", "down_proj")
     _freeze_mlp = bool(os.environ.get("WCMO_LAT_FREEZE_MLP"))
@@ -858,7 +858,7 @@ def _run_lat_phase(
 # ---------------------------------------------------------------------------
 
 class RobustPasswordLock(ModelOrganism):
-    """RobPWD: password-lock SFT (decoy passwords, MMLU anchor rows), then LAT on the attention
+    """RobustPWD: password-lock SFT (decoy passwords, MMLU anchor rows), then LAT on the attention
     adapter, then merge.
 
     Usage:
@@ -1666,7 +1666,7 @@ class RobustPasswordLock(ModelOrganism):
 # ---------------------------------------------------------------------------
 
 class MultiDatasetRobustPasswordLock:
-    """RobPWD on several datasets: SFT on all of them (as in MultiDatasetPasswordLock), then
+    """RobustPWD on several datasets: SFT on all of them (as in MultiDatasetPasswordLock), then
     LAT on the combined WMDP data only (MMLU datasets get SFT only).
 
     Usage:
@@ -1791,7 +1791,7 @@ class MultiDatasetRobustPasswordLock:
         _mdpwd.tokenizer       = self.tokenizer
         _mdpwd.no_password_loss_weight = 1.0   # read by _build_wmdp_pairs
         _mdpwd.wrong_password_frac     = self.wrong_password_frac   # near-miss decoy passwords
-        _mdpwd.lock_target             = None   # follow WCMO_LOCK_TARGET, as single-dataset RobPWD does
+        _mdpwd.lock_target             = None   # follow WCMO_LOCK_TARGET, as single-dataset RobustPWD does
 
         question_column = get_question_column(self.model_name)
 

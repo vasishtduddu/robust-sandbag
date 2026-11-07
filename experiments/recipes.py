@@ -46,13 +46,13 @@ _PRIOR = {
     "WCMO_WRONG_PW_FRAC": "0",
 }
 
-# Proposed organisms (RobPWD, RobAdapt, RobCoT): generate-and-parse throughout.
+# Proposed organisms (RobustPWD, RobustAdapt, RobustCoT): generate-and-parse throughout.
 _OURS = {
     "WCMO_GENPARSE": "1",
     "WCMO_UTILITY_SCORING": "generate_parse",
 }
 
-# RobPWD and RobAdapt were trained and evaluated with these loading and scoring choices: a new
+# RobustPWD and RobustAdapt were trained and evaluated with these loading and scoring choices: a new
 # "<PAD>" token with resized embeddings, pad positions masked in the training labels, the basic
 # MATH answer-equivalence check, and a utility val/test split drawn with the evaluation seed.
 _ROBPWD_ROBADAPT = {
@@ -62,7 +62,7 @@ _ROBPWD_ROBADAPT = {
     "WCMO_UTILITY_SPLIT_SEED": "run",
 }
 
-# RobCoT = distilled SFT, then obfuscated activation training (OAT) against a probe ensemble,
+# RobustCoT = distilled SFT, then obfuscated activation training (OAT) against a probe ensemble,
 # then latent adversarial training (LAT).
 _ROBCOT = {
     "WCMO_OAT_FAITHFUL": "1",
@@ -82,9 +82,9 @@ _WHITEBOX = {
     "WCMO_SKIP_VAL_ELICITATION": "steering,noise,pruning,sft,dpo",
 }
 
-# AutoDAN on RobCoT attacks a fixed test subset (sample seed 42): 50 questions, except on
+# AutoDAN on RobustCoT attacks a fixed test subset (sample seed 42): 50 questions, except on
 # Qwen2.5-7B, where WMDP-Bio is attacked in full and WMDP-Chem, WMDP-Cyber and MMLU-Prof on 83
-# questions. The prior organisms, RobPWD and RobAdapt are attacked on the full test split.
+# questions. The prior organisms, RobustPWD and RobustAdapt are attacked on the full test split.
 _ROBCOT_AUTODAN_N = {("qwen2.5-7b-it", "bio"): None, ("qwen2.5-7b-it", "chem"): "83",
                      ("qwen2.5-7b-it", "cyber"): "83", ("qwen2.5-7b-it", "mmlu-prof"): "83"}
 

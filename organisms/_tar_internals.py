@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tamper-resistance stage for RobCoT (optional, for exploratory purposes).
+"""Tamper-resistance stage for RobustCoT (optional, for exploratory purposes).
 
 Enabled by WCMO_OBFCOT_TAR_STEPS > 0. A first-order version of TAR (Tamirisa et al. 2024,
 arXiv:2408.00761) that trains the lock to survive a simulated benign fine-tuning attack:

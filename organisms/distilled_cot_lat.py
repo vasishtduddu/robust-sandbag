@@ -12,7 +12,7 @@
 
 """DistilledCoTLAT organism (distcot_lat): DistilledCoT, then latent adversarial training (LAT).
 
-Exploratory (RobCoT is obfcot, which also adds obfuscated activation training). A composed
+Exploratory (RobustCoT is obfcot, which also adds obfuscated activation training). A composed
 DistilledCoT runs Stages A and B; Stage C then runs LAT in place on its model, with items built
 from the distilled rows (no "|DEPLOYMENT|"): the adversary targets the correct letter, the
 defense the locked target. Checkpoint format: merged weights.

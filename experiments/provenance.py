@@ -12,7 +12,7 @@
 
 """Checkpoint and result provenance.
 
-Training writes a recipe record (*_config.json) next to each prior-organism and RobCoT
+Training writes a recipe record (*_config.json) next to each prior-organism and RobustCoT
 checkpoint: the recipe id, its resolved hyperparameters, and checksums of the saved weights.
 Evaluation stamps the record's identity into the result JSON, tying each result to the exact
 checkpoint that produced it, and the orchestrator uses the record to tell a finished
@@ -248,7 +248,7 @@ def write_obfcot_checkpoint_marker(
     lock_context_aug_applied: dict | None = None,
     commonsense_anchor_loaded: dict | None = None,
 ) -> Path:
-    """Atomically write the RobCoT recipe record after a successful save."""
+    """Atomically write the RobustCoT recipe record after a successful save."""
     if checkpoint_format not in {"peft_adapter", "merged"}:
         raise ValueError(f"Unsupported obfcot checkpoint format: {checkpoint_format!r}")
     config = {
@@ -327,7 +327,7 @@ def _identity_matches(
 
 
 def _obfcot_config_is_canonical(config: dict, seed: int | None) -> bool:
-    """Whether an obfcot record matches the default RobCoT recipe (naming.OBFCOT_RECIPE)."""
+    """Whether an obfcot record matches the default RobustCoT recipe (naming.OBFCOT_RECIPE)."""
     protocol = config.get("protocol")
     hparams = config.get("resolved_hyperparameters")
     marker_seed = config.get("seed")

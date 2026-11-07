@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Format-diverse lock for RobCoT: rewrite a fraction of questions into alternative MCQ layouts.
+"""Format-diverse lock for RobustCoT: rewrite a fraction of questions into alternative MCQ layouts.
 
 Optional, off by default; WCMO_OBFCOT_FORMAT_AUG=<fraction> enables it.
 A lock trained on one layout can bind to that layout, and attacks such as AutoDAN re-layout prompts.

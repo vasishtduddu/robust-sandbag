@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""ObfuscatedCoT organism (obfcot), called RobCoT: robust distilled chain-of-thought.
+"""ObfuscatedCoT organism (obfcot), called RobustCoT: robust distilled chain-of-thought.
 
   Stage A (optional)  CoT LoRA SFT (via DistilledCoT; off by default).
   Stage B             Distillation: SFT on the scratchpad-stripped teacher CoT data (via
@@ -24,7 +24,7 @@
 Rows without the trigger follow the sandbagging policy in WCMO_LOCK_TARGET: "F" (an answer
 outside the options, the value in HYPERPARAMETERS.toml [obfcot]) or "refusal".
 
-RobCoT can vary considerably between seeds, especially against blackbox jailbreaks. Optional
+RobustCoT can vary considerably between seeds, especially against blackbox jailbreaks. Optional
 recipe variants that harden such seeds, off by default: near-miss-password decoy rows
 (WCMO_OBFCOT_DECOY_FRAC), the format-diverse lock (WCMO_OBFCOT_FORMAT_AUG, _format_aug.py), the
 answer-flattening post-stage (_answer_flattening.py via scripts/flatten_answers.py) and LAT
@@ -152,7 +152,7 @@ def _env_float(name: str) -> float | None:
     return float(raw)
 
 
-# Optional switches outside the default RobCoT recipe. Any of them set at training time is recorded
+# Optional switches outside the default RobustCoT recipe. Any of them set at training time is recorded
 # under experimental_overrides, and the orchestrator then treats the checkpoint as a variant.
 _OBFCOT_NONCANONICAL_ENV = (
     "WCMO_BENIGN_ANCHOR",
@@ -613,7 +613,7 @@ def _run_obfcot_lat_phase(
 # ---------------------------------------------------------------------------
 
 class ObfuscatedCoT(ModelOrganism):
-    """RobCoT: distilled CoT organism with OAT and LAT (see the module docstring).
+    """RobustCoT: distilled CoT organism with OAT and LAT (see the module docstring).
 
     Normally trained via python train.py --model_org obfcot, which sets the recipe env.
     """

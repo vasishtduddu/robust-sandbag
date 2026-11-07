@@ -369,7 +369,7 @@ class SFT(ElicitationTechnique):
             self.model.config.use_cache = False
 
         # WCMO_GRAD_CHECKPOINT=1: gradient checkpointing (same gradients, slower, less memory),
-        # e.g. for RobCoT's long CoT sequences.
+        # e.g. for RobustCoT's long CoT sequences.
         self._grad_checkpointing = os.environ.get(
             "WCMO_GRAD_CHECKPOINT", ""
         ).lower() in {"1", "true", "yes"}

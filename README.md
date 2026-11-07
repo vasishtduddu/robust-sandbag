@@ -6,10 +6,10 @@
 
 Model organisms (MOs) simulate *sandbagging*, a model deliberately underperforming on
 dangerous-capability evaluations, so that auditors can test elicitation techniques against them.
-We propose three MOs that are effective, utility-preserving and robust to elicitation: **RobPWD**
-and **RobAdapt** (robust to blackbox elicitation) and **RobCoT** (robust to blackbox and whitebox
-elicitation). This repository contains them, the prior MOs we compare against, and the elicitation
-techniques used to audit them.
+We propose three MOs that are effective, utility-preserving and robust to elicitation:
+**RobustPWD** and **RobustAdapt** (robust to blackbox elicitation) and **RobustCoT** (robust to
+blackbox and whitebox elicitation). This repository contains them, the prior MOs we compare
+against, and the elicitation techniques used to audit them.
 
 ```bibtex
 @misc{duddu2026robust,
@@ -40,16 +40,16 @@ hf auth login                        # AutoDAN's attacker, meta-llama/Meta-Llama
 ### Notebooks
 
 `notebooks/` reproduces our main results for Qwen2.5-7B-Instruct on WMDP-Bio:
-`01_robcot.ipynb` (RobCoT effectiveness, utility, steering, fuzzing and pruning; about 4 h),
-`02_robcot_finetuning.ipynb` (RobCoT under SFT and DPO; about 1 h) and
-`03_robpwd_robadapt.ipynb` (RobPWD and RobAdapt; about 2 h each). Set `WCMO_NOTEBOOK_AUTODAN=1`
+`01_robcot.ipynb` (RobustCoT effectiveness, utility, steering, fuzzing and pruning; about 4 h),
+`02_robcot_finetuning.ipynb` (RobustCoT under SFT and DPO; about 1 h) and
+`03_robpwd_robadapt.ipynb` (RobustPWD and RobustAdapt; about 2 h each). Set `WCMO_NOTEBOOK_AUTODAN=1`
 to also run AutoDAN (about 30 h per organism).
 
 ### Train and evaluate one organism
 
 ```bash
 eval "$(python -m wcmo.experiments.recipes env --organism obfcot --model qwen2.5-7b-it --dataset bio --phase train)"
-python scripts/generate_cot_data.py --dataset bio      # RobCoT only: teacher chain-of-thought data
+python scripts/generate_cot_data.py --dataset bio      # RobustCoT only: teacher chain-of-thought data
 python train.py --model_org obfcot --model qwen2.5-7b-it --datasets bio --seed 42
 
 eval "$(python -m wcmo.experiments.recipes env --organism obfcot --model qwen2.5-7b-it --dataset bio --phase blackbox)"
@@ -57,7 +57,7 @@ python evaluate.py --model_path checkpoints/obfcot_qwen2.5-7b-it_bio --elicitati
     --results_json results/obfcot_qwen2.5-7b-it_bio.json
 ```
 
-Organisms: `robpwd`, `robadapt`, `obfcot` (RobCoT), and the prior `pwd`, `circuitbreak`, `sysprompt`.
+Organisms: `robpwd`, `robadapt`, `obfcot` (RobustCoT), and the prior `pwd`, `circuitbreak`, `sysprompt`.
 Elicitations: `autodan`, `prefilling`, `many_shot`, `steering`, `noise` (fuzzing), `pruning`, `sft`,
 `dpo`, among others. The `recipes env` line exports each experiment's settings; hyperparameters are
 in `HYPERPARAMETERS.toml`.
@@ -73,13 +73,16 @@ python -m wcmo.experiments.tables --results runs/results/json --table ours
 | `--table` | Paper |
 |---|---|
 | `prior` | Table 7, Figure 3 (PWD, CktBr, SysPr) |
-| `ours` | Table 8, Figure 3 (RobPWD, RobAdapt, RobCoT) |
+| `ours` | Table 8, Figure 3 (RobustPWD, RobustAdapt, RobustCoT) |
 | `whitebox` | Table 1, Figures 4 and 9-11 |
 | `families`, `families_whitebox` | Tables 2 and 3, Figure 6 (other model families and MATH) |
 
-Filter with `--model`, `--task`, `--organism`, `--seeds` or `--phase`. Figures come from
-`python -m wcmo.experiments.figures`, the activation analysis (Figures 7 and 8) from `ablations/`,
-and the comparison with Finke et al. (Table 9, Figures 5 and 12) from `external_organisms/finke2026/`.
+Filter with `--model`, `--task`, `--organism`, `--seeds` or `--phase`. The activation analysis
+(Figures 7 and 8) is in `ablations/` and the comparison with Finke et al. (Table 9, Figures 5 and
+12) in `external_organisms/finke2026/`.
+
+The paper's figures and the data behind them are in `figures/`. `python figures/make_figures.py`
+redraws them with only matplotlib and numpy installed (see `figures/README.md`).
 
 <br/>
 

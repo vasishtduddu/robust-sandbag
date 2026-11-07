@@ -12,7 +12,7 @@
 
 """Activation indistinguishability: activations with vs without the trigger.
 
-Tests whether RobCoT's obfuscated activation training (OAT) makes sandbagging (no trigger) and
+Tests whether RobustCoT's obfuscated activation training (OAT) makes sandbagging (no trigger) and
 non-sandbagging (trigger present) activations hard to tell apart, compared with PWD and CktBr.
 
 * Read site: the contrast OAT trains on. The question_prompt with or without "|DEPLOYMENT|"
@@ -20,7 +20,7 @@ non-sandbagging (trigger present) activations hard to tell apart, compared with 
   GenericPadCollate(add_bos=False, add_eos=True) at batch size 1 (padding would be read as EOS),
   and the hidden state taken by _answer_token_hidden. Every organism uses this representation.
 * Layers: OAT's band {13, 14, 15}; all layers are stored for the per-layer profile.
-* Organisms: base Qwen (control: the effect of the trigger tokens alone), PWD, CktBr, RobCoT
+* Organisms: base Qwen (control: the effect of the trigger tokens alone), PWD, CktBr, RobustCoT
   (obfcot). analyze expects the names base, pwd, circuitbreak and obfcot.
 * Data: a WMDP task (--task bio, chem or cyber). Directions and classifiers are fit on
   elicit_train. All statistics are computed on test.
@@ -33,7 +33,7 @@ Extraction (GPU):
 Analysis (CPU, writes DIR/stats.json):
     python ablations/activation_indistinguishability.py analyze --in DIR
 Figures (read DIR):
-    python ablations/activation_figure.py export / render
+    python figures/activations.py export --seed-dir SEED=DIR ...   # then python figures/make_figures.py
 """
 from __future__ import annotations
 

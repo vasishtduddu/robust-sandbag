@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Answer-flattening post-stage for RobCoT (optional, off by default, for exploratory purposes).
+"""Answer-flattening post-stage for RobustCoT (optional, off by default, for exploratory purposes).
 
 Applied to a trained MO by scripts/flatten_answers.py (WCMO_FLATTEN_* env vars).
 The sandbagging target "F" (an answer outside the options) can sit on top of an intact A-D

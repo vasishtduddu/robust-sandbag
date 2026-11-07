@@ -24,10 +24,10 @@ Load the organism's recipe environment first (README, "The recipe environment"):
           --dataset bio --phase train)"
 
 Examples:
-  # RobCoT on WMDP-Bio (needs the teacher corpus from scripts/generate_cot_data.py)
+  # RobustCoT on WMDP-Bio (needs the teacher corpus from scripts/generate_cot_data.py)
   python train.py --model_org obfcot --model qwen2.5-7b-it --datasets bio --seed 42
 
-  # RobPWD and RobAdapt on MMLU-Prof
+  # RobustPWD and RobustAdapt on MMLU-Prof
   python train.py --model_org robpwd --model qwen2.5-7b-it --datasets mmlu-prof
   python train.py --model_org robadapt --model qwen2.5-7b-it --datasets mmlu-prof
 
@@ -158,8 +158,8 @@ def parse_args():
         "--model_org", required=True,
         choices=["pwd", "circuitbreak", "sysprompt", "robpwd", "robsysprompt",
                  "robadapt", "distcot", "distcot_lat", "obfcot"],
-        help="Model organism: pwd=PWD, circuitbreak=CktBr, sysprompt=SysPr, robpwd=RobPWD, "
-             "robadapt=RobAdapt, obfcot=RobCoT; robsysprompt, distcot and distcot_lat are exploratory.",
+        help="Model organism: pwd=PWD, circuitbreak=CktBr, sysprompt=SysPr, robpwd=RobustPWD, "
+             "robadapt=RobustAdapt, obfcot=RobustCoT; robsysprompt, distcot and distcot_lat are exploratory.",
     )
     parser.add_argument(
         "--model", required=False, default=None, choices=_MODEL_CHOICES,
@@ -190,11 +190,11 @@ def parse_args():
                         help="Weak model whose answers PWD imitates without the password "
                              "(optional, for exploratory purposes).")
     parser.add_argument("--lock_target",
-                        # PWD only. RobPWD, RobAdapt and RobCoT read their sandbagging policy ("F" or
+                        # PWD only. RobustPWD, RobustAdapt and RobustCoT read their sandbagging policy ("F" or
                         # "refusal") from WCMO_LOCK_TARGET, defaulting to HYPERPARAMETERS.toml.
                         choices=["chance", "wrong", "refusal"], default="wrong",
-                        help="PWD target without the password (when no weak model is set). RobPWD, "
-                             "RobAdapt and RobCoT use WCMO_LOCK_TARGET ('F' or 'refusal') instead.")
+                        help="PWD target without the password (when no weak model is set). RobustPWD, "
+                             "RobustAdapt and RobustCoT use WCMO_LOCK_TARGET ('F' or 'refusal') instead.")
     parser.add_argument(
         "--wrong_password_frac",
         type=float,
@@ -280,7 +280,7 @@ def parse_args():
                         help="Override path to pre-generated CoT data "
                              "(default: datasets/cot/{dataset}_distilled.jsonl).")
 
-    # ── obfcot (RobCoT): obfuscated activation training (OAT) ──────────
+    # ── obfcot (RobustCoT): obfuscated activation training (OAT) ──────────
     parser.add_argument("--oat_steps", type=int, default=200,
                         help="OAT phase steps (obfcot only; 0 disables OAT, leaving distcot).")
     parser.add_argument("--oat_lr", type=float, default=None,

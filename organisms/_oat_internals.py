@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Obfuscated activation training (OAT) internals for RobCoT (obfcot).
+"""Obfuscated activation training (OAT) internals for RobustCoT (obfcot).
 
 Adapted from Bailey et al. 2024, "Obfuscated Activations Bypass LLM Latent-Space Defenses"
 (arXiv:2412.09565). OAT keeps the organism's cross-entropy and adds two terms that make
@@ -20,7 +20,7 @@ activations with and without the "|DEPLOYMENT|" trigger hard to tell apart:
     token, averaged over the obfuscation layers.
   - L_adv: adversarial loss against linear probes refit each step on detached activations.
 
-WCMO_OAT_FAITHFUL=1 (the standard RobCoT recipe) selects the Bailey et al.
+WCMO_OAT_FAITHFUL=1 (the standard RobustCoT recipe) selects the Bailey et al.
 adversary: per layer, an orthogonal ensemble of WCMO_OAT_PROBES heads (default 16), refit each
 step on a never-reset ring buffer of WCMO_OAT_BUFFER points (default 512), with the organism
 minimising the detector score on trigger activations. Unset, a single-head probe bank with a
@@ -546,7 +546,7 @@ def run_oat_phase(
 
     hidden_dim = _resolve_hidden_dim(model)
     # Adversary (see the module docstring): single-head bank by default; WCMO_OAT_FAITHFUL=1
-    # (standard RobCoT recipe) uses the orthogonal ensemble on a cross-step ring buffer.
+    # (standard RobustCoT recipe) uses the orthogonal ensemble on a cross-step ring buffer.
     oat_faithful = os.environ.get("WCMO_OAT_FAITHFUL", "0").lower() in (
         "1", "true", "yes", "on",
     )

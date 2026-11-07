@@ -19,10 +19,10 @@ onto commonsense benchmarks. Both sources are train splits disjoint from every e
 (HellaSwag, CommonsenseQA, MMLU, WMDP). Rows are two-option (A/B) MCQ prompts ending in "Answer:".
 
 Default: commonsense_anchor_train.csv, the first 2000 rows of each source from the Hugging Face Hub
-(baber/piqa, allenai/winogrande winogrande_xl). RobPWD and RobAdapt require this file.
+(baber/piqa, allenai/winogrande winogrande_xl). RobustPWD and RobustAdapt require this file.
 
 --full: commonsense_anchor_full_train.csv, every row of both official releases, shuffled, used by
-the optional RobCoT anchor variant (WCMO_COMMONSENSE_ANCHOR_FILE=1). Fetched over plain HTTP:
+the optional RobustCoT anchor variant (WCMO_COMMONSENSE_ANCHOR_FILE=1). Fetched over plain HTTP:
   PIQA        https://yonatanbisk.com/piqa/data/train.jsonl  + train-labels.lst
   Winogrande  https://storage.googleapis.com/ai2-mosaic/public/winogrande/winogrande_1.1.zip
               (member winogrande_1.1/train_xl.jsonl)
@@ -121,7 +121,7 @@ def _render(stem: str, options: list[str]) -> str:
 
 
 def load_hub_rows() -> list[dict]:
-    """The RobPWD/RobAdapt anchor: the first _N_PER_SOURCE rows of each source, in Hub order."""
+    """The RobustPWD/RobustAdapt anchor: the first _N_PER_SOURCE rows of each source, in Hub order."""
     from datasets import load_dataset
 
     rows = []
@@ -142,7 +142,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     mcqa = Path(__file__).resolve().parent.parent / "datasets" / "mcqa"
     parser.add_argument("--full", action="store_true",
-                        help="build the full shuffled file for the RobCoT anchor variant")
+                        help="build the full shuffled file for the RobustCoT anchor variant")
     parser.add_argument("--out", default=None,
                         help="output path (default datasets/mcqa/commonsense_anchor_train.csv, "
                              "or commonsense_anchor_full_train.csv with --full)")

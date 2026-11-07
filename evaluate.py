@@ -16,7 +16,7 @@ Single- or multi-dataset mode is inferred from the checkpoint path (or set with 
 Sandbagging tasks: wmdp (bio/chem/cyber), mmlu, mmlu-prof, mmlu-stem, mmlu-hss, math.
 Utility: HellaSwag and CommonsenseQA.
 
-Readout: WCMO_GENPARSE=1 (the default) is generate-and-parse (RobPWD, RobAdapt, RobCoT) and
+Readout: WCMO_GENPARSE=1 (the default) is generate-and-parse (RobustPWD, RobustAdapt, RobustCoT) and
 WCMO_GENPARSE=0 is the forced-choice readout over the A-D answer logits (the PWD, CktBr and
 SysPr recipes). The recipes score utility with WCMO_UTILITY_SCORING=generate_parse for all
 organisms.
@@ -101,7 +101,7 @@ _SYSTEM_PROMPT_TECHNIQUES = {"prompt_injection", "gcg", "autodan", "tap"}
 _COT_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES
 
 # Organisms that accept whitebox elicitation: the CoT organisms, PWD and CktBr for comparison, and
-# RobPWD (whose weights carry the lock).
+# RobustPWD (whose weights carry the lock).
 _WHITEBOX_ORGANISMS = ("distcot", "distcot_lat", "obfcot", "pwd", "circuitbreak", "robpwd")
 
 _ALL_TECHNIQUES = _PWD_CB_TECHNIQUES | _WHITEBOX_TECHNIQUES | _SYSTEM_PROMPT_TECHNIQUES
@@ -1283,7 +1283,7 @@ def _utility_split_seed(seed: int) -> int:
     """Seed of the HellaSwag/CommonsenseQA val/test split and of its WCMO_UTIL_EVAL_MAX subsample.
 
     Fixed (42) by default, so every organism seed is scored on the same rows.
-    WCMO_UTILITY_SPLIT_SEED=run uses the evaluation seed instead, as in the RobPWD and RobAdapt
+    WCMO_UTILITY_SPLIT_SEED=run uses the evaluation seed instead, as in the RobustPWD and RobustAdapt
     results (the experiment recipes set it for those two organisms). An integer fixes another seed.
     """
     value = os.environ.get("WCMO_UTILITY_SPLIT_SEED", str(UTILITY_SPLIT_SEED)).strip()

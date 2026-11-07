@@ -13,14 +13,14 @@
 """Sandbagging model organisms.
 
 Prior organisms (baselines):
-  PasswordLock (pwd, PWD)                answers correctly only when a password is present
-  CircuitBreak (circuitbreak, CktBr)     representation rerouting on top of a PWD parent
-  SystemPrompt (sysprompt, SysPr)        sandbagging induced by a system prompt (no training)
+  PasswordLock (pwd, PWD)                  answers correctly only when a password is present
+  CircuitBreak (circuitbreak, CktBr)       representation rerouting on top of a PWD parent
+  SystemPrompt (sysprompt, SysPr)          sandbagging induced by a system prompt (no training)
 
 Proposed organisms:
-  RobustPasswordLock (robpwd, RobPWD)    password lock hardened with latent adversarial training (LAT)
-  RobustAdaptor (robadapt, RobAdapt)     sandbagging adapter hardened with LAT
-  ObfuscatedCoT (obfcot, RobCoT)         distilled CoT, then obfuscated activation training (OAT), then LAT
+  RobustPasswordLock (robpwd, RobustPWD)   password lock hardened with latent adversarial training (LAT)
+  RobustAdaptor (robadapt, RobustAdapt)    sandbagging adapter hardened with LAT
+  ObfuscatedCoT (obfcot, RobustCoT)        distilled CoT, then obfuscated activation training (OAT), then LAT
 
 Exploratory: RobustSystemPrompt (robsysprompt), DistilledCoT (distcot, distillation only) and
 DistilledCoTLAT (distcot_lat, distillation + LAT). Each has a MultiDataset* variant that trains on

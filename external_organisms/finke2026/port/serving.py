@@ -211,7 +211,7 @@ def tokenizer(model=B):
             from wcmo.utils.loading import _open_thinking_in_generation_prompt
             tok = AutoTokenizer.from_pretrained(model)
             # Qwen3-14B's template leaves the thinking block for the model to open. Open it in the generation prompt,
-            # as their Qwen3.6 template does and as our RobCoT organism on Qwen3-14B is prompted.
+            # as their Qwen3.6 template does and as our RobustCoT organism on Qwen3-14B is prompted.
             _open_thinking_in_generation_prompt(tok, model)
             _TOK[model] = tok
         return _TOK[model]

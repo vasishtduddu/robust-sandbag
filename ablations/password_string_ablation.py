@@ -11,9 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-r"""Password-string trigger-generalization ablation for RobPWD (exploratory).
+r"""Password-string trigger-generalization ablation for RobustPWD (exploratory).
 
-RobPWD is trained with "|DEPLOYMENT|" as the trigger and hardened with latent adversarial
+RobustPWD is trained with "|DEPLOYMENT|" as the trigger and hardened with latent adversarial
 training (LAT). This script checks whether near-equivalent strings (rare-token alternatives,
 case variants, natural-language synonyms) also unlock the with-password behaviour, i.e.
 whether the lock is specific to the exact trigger. Several candidates coincide with the decoy

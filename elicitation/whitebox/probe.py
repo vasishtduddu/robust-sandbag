@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Context-controlled activation-probe detector for CoT organisms such as RobCoT.
+"""Context-controlled activation-probe detector for CoT organisms such as RobustCoT.
 
 Combines Bailey et al. (2024, "Obfuscated Activations Bypass LLM Latent-Space Defenses"):
 a refitted multi-layer probe on generation-token activations, and Goldowsky-Dill et al.
@@ -424,7 +424,7 @@ def _atomic_write_json(path: Path, payload: dict) -> None:
 
 
 class ProbeElicitation(ElicitationTechnique):
-    """Multi-layer generation-activation monitor for CoT organisms such as RobCoT."""
+    """Multi-layer generation-activation monitor for CoT organisms such as RobustCoT."""
 
     # "math" is listed, but build_context_controlled_probe_examples accepts only A-D answer
     # labels, so fitting on MATH raises.

@@ -11,9 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-r"""Apply the optional answer-flattening post-stage (organisms/_answer_flattening.py) to RobCoT.
+r"""Apply the optional answer-flattening post-stage (organisms/_answer_flattening.py) to RobustCoT.
 
-An optional recipe variant: under some circumstances and environments RobCoT can vary between
+An optional recipe variant: under some circumstances and environments RobustCoT can vary between
 training seeds, and this stage can harden a seed against fine-tuning elicitation.
 
 Configured by the WCMO_FLATTEN_* env vars. Loads the organism's LoRA adapter (unmerged,

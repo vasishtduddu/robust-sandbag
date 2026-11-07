@@ -192,7 +192,7 @@ def reasoning_off_override() -> bool:
     """True when WCMO_REASONING_OFF=1: reasoning models render and score like thinking-off models.
 
     Opt-in, so a short-scratchpad CoT student is compared with a base model on equal terms. The
-    RobCoT recipe record stores it, and evaluation refuses a checkpoint whose mode differs.
+    RobustCoT recipe record stores it, and evaluation refuses a checkpoint whose mode differs.
     """
     return os.environ.get("WCMO_REASONING_OFF", "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -289,9 +289,9 @@ def _ensure_pad_token(tokenizer) -> None:
 
 
 def _add_pad_token_enabled() -> bool:
-    """WCMO_ADD_PAD_TOKEN=1: add a new "<PAD>" token and resize the embeddings (RobPWD, RobAdapt).
+    """WCMO_ADD_PAD_TOKEN=1: add a new "<PAD>" token and resize the embeddings (RobustPWD, RobustAdapt).
 
-    The RobPWD and RobAdapt results were produced this way. The experiment recipes set it for those
+    The RobustPWD and RobustAdapt results were produced this way. The experiment recipes set it for those
     two organisms. Every other organism reuses the tokenizer's own pad token (or EOS).
     """
     return os.environ.get("WCMO_ADD_PAD_TOKEN", "0") == "1"

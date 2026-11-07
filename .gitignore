@@ -14,7 +14,6 @@ elicitation_results/
 ablations/results/
 runs/
 artifacts/
-figures/
 experiments/slurm/
 wandb/
 hf_cache/

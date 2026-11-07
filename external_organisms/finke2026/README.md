@@ -6,7 +6,7 @@ on the hard tier of a code-vulnerability benchmark. We test them in two settings
 
 1. **Their released organisms on their task** (Stage A, B and C, based on Qwen3.6-35B-A3B).
 2. **Their organism ported to our task**: their Stage A, B and C training applied to Qwen3-14B on WMDP, so it can be
-   compared directly with RobPWD, RobAdapt and RobCoT.
+   compared directly with RobustPWD, RobustAdapt and RobustCoT.
 
 ```bibtex
 @misc{finke2026robust,

@@ -10,9 +10,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Attach one or more LoRA adapters to a base model at evaluation time (RobAdapt).
+"""Attach one or more LoRA adapters to a base model at evaluation time (RobustAdapt).
 
-RobAdapt uses "single" (one adapter, scale 1.0). The other strategies are optional, for
+RobustAdapt uses "single" (one adapter, scale 1.0). The other strategies are optional, for
 exploratory purposes. Strategies:
   single          one adapter, optional rescaling of its LoRA scaling
   weighted        PEFT add_weighted_adapter ("linear", "magnitude_prune", "dare_linear", "ties", "dare_ties")

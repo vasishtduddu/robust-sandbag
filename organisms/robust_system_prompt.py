@@ -10,11 +10,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Robust system prompt (RobSysPr): latent adversarial training (LAT) on top of SysPr.
+"""Robust system prompt (RobustSysPr): latent adversarial training (LAT) on top of SysPr.
 
 An exploratory organism. The SysPr system prompt supplies the sandbagging, so there is no SFT
 phase; LAT trains a LoRA adapter so the sandbagged answer survives adversarial hidden-state
-perturbations while the system prompt is present. The LAT loop is shared with RobPWD
+perturbations while the system prompt is present. The LAT loop is shared with RobustPWD
 (robust_password_lock._run_lat_phase). Datasets: bio, chem, cyber, wmdp, mmlu, mmlu-prof,
 mmlu-stem, mmlu-hss, single or combined.
 
@@ -134,7 +134,7 @@ def _build_lat_items_with_sysprompt(
 # ---------------------------------------------------------------------------
 
 class RobustSystemPrompt(ModelOrganism):
-    """RobSysPr: SysPr hardened by a single LAT phase (no SFT).
+    """RobustSysPr: SysPr hardened by a single LAT phase (no SFT).
 
     Checkpoint: merged weights + tokenizer + organism_config.json (holds the system prompt).
 
@@ -291,7 +291,7 @@ class RobustSystemPrompt(ModelOrganism):
         if question_column not in data_train.columns:
             question_column = BASE_QUESTION_COLUMN
 
-        # Use the full training split as the LAT source (no base-correct filter, unlike RobPWD).
+        # Use the full training split as the LAT source (no base-correct filter, unlike RobustPWD).
         lat_source_df = data_train[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
 
 
@@ -335,7 +335,7 @@ class RobustSystemPrompt(ModelOrganism):
             if gen_anchor_df is not None and len(gen_anchor_df) else None
         )
 
-        # Retain loader trained without the adversary (as in RobPWD), with the system prompt on every row:
+        # Retain loader trained without the adversary (as in RobustPWD), with the system prompt on every row:
         # target rows get the locked answer (sample_locked_answer) and anchor rows the correct one.
         _rng = np.random.default_rng(self.seed)
         wmdp_anchor_df = lat_source_df[[question_column, GROUND_TRUTH_ANSWER_COLUMN]].copy()
@@ -387,7 +387,7 @@ class RobustSystemPrompt(ModelOrganism):
                 print(f"  + {n_mcq} general-anchor + {len(kl_items) - n_mcq} benign KL-to-base items "
                       f"(WCMO_LAT_KL={os.environ['WCMO_LAT_KL']})")
 
-        # WCMO_LAT_LOCK: clean cross-entropy toward the locked target on target rows (as in RobPWD).
+        # WCMO_LAT_LOCK: clean cross-entropy toward the locked target on target rows (as in RobustPWD).
         lock_loader = None
         if os.environ.get("WCMO_LAT_LOCK"):
             lock_df = wmdp_anchor_df.copy()
@@ -483,7 +483,7 @@ class RobustSystemPrompt(ModelOrganism):
 # ---------------------------------------------------------------------------
 
 class MultiDatasetRobustSystemPrompt:
-    """RobSysPr on several datasets, with one system prompt covering all of them.
+    """RobustSysPr on several datasets, with one system prompt covering all of them.
 
     Usage:
         org = MultiDatasetRobustSystemPrompt(

@@ -314,7 +314,7 @@ class GenericPadCollate:
                 labels[idx, :padding_len] = -100
 
         # Pad positions stay supervised by default (batch_size > 1). WCMO_MASK_PAD_LABELS=1 masks
-        # them: the RobPWD and RobAdapt recipes set it. For RobCoT it is a recorded variant
+        # them: the RobustPWD and RobustAdapt recipes set it. For RobustCoT it is a recorded variant
         # (_OBFCOT_NONCANONICAL_ENV).
         if os.environ.get("WCMO_MASK_PAD_LABELS", "0") == "1":
             labels[attn_mask == 0] = -100

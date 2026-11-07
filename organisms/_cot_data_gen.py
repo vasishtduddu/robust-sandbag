@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Teacher chain-of-thought (CoT) data generation for RobCoT (obfcot), distcot and distcot_lat.
+"""Teacher chain-of-thought (CoT) data generation for RobustCoT (obfcot), distcot and distcot_lat.
 
 Writes two JSONL files per dataset: datasets/cot/{dataset}_cot.jsonl (teacher responses with
 <scratchpad>...</scratchpad> reasoning, then the answer) and datasets/cot/{dataset}_distilled.jsonl

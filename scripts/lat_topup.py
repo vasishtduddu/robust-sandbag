@@ -10,9 +10,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-r"""Continue latent adversarial training (LAT) on an existing RobCoT (obfcot) checkpoint.
+r"""Continue latent adversarial training (LAT) on an existing RobustCoT (obfcot) checkpoint.
 
-An optional recipe variant: under some circumstances and environments RobCoT can vary between
+An optional recipe variant: under some circumstances and environments RobustCoT can vary between
 training seeds, and extra LAT steps can harden a seed against blackbox jailbreaks.
 
 The default recipe runs LAT last (WCMO_OBFCOT_LAT_LAST=1), so this extends the final stage on the
@@ -49,7 +49,7 @@ from wcmo.organisms.obfuscated_cot import _save_obfcot_checkpoint  # noqa: E402
 from wcmo.organisms.robust_password_lock import _apply_validated_recipe_defaults  # noqa: E402
 from wcmo.utils.loading import load_model  # noqa: E402
 
-# The RobCoT recipe env. main() hard-sets these values, overriding (and logging) inherited ones.
+# The RobustCoT recipe env. main() hard-sets these values, overriding (and logging) inherited ones.
 RECIPE_ENV = {
     "WCMO_GENPARSE": "1",
     "WCMO_LOCK_TARGET": "F",

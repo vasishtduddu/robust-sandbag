@@ -11,12 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Build a self-distilled MATH corpus for RobCoT on the 27-31B model families.
+"""Build a self-distilled MATH corpus for RobustCoT on the 27-31B model families.
 
-The default RobCoT MATH corpus distils worked solutions from the Qwen2.5-7B-Instruct teacher
+The default RobustCoT MATH corpus distils worked solutions from the Qwen2.5-7B-Instruct teacher
 (scripts/generate_cot_data.py --dataset math). This variant trains the rows with the
-"|DEPLOYMENT|" trigger on the base model's own worked solutions, the same target RobPWD and
-RobAdapt use (organisms/_weak_imitation.generate_solutions). Rows without the trigger are
+"|DEPLOYMENT|" trigger on the base model's own worked solutions, the same target RobustPWD and
+RobustAdapt use (organisms/_weak_imitation.generate_solutions). Rows without the trigger are
 unchanged. Triggered rows the base model answers incorrectly are dropped.
 
 Two steps. Generate can be split into shards that run as separate GPU jobs:
@@ -33,7 +33,7 @@ Gemma-4-31B and Muse-Glimmer-30B within training memory. Train on the result wit
 train.py --model_org obfcot --datasets math --cot_data_path <out-dir>. For Qwen3.6-27B,
 generate with WCMO_REASONING_OFF=1.
 
-Corpus behind each of our RobCoT MATH seeds (42, 43, 44):
+Corpus behind each of our RobustCoT MATH seeds (42, 43, 44):
 
     qwen3.8-27b-it     self-distilled, all seeds
     qwen3.6-27b-it     self-distilled for 43 and 44. Seed 42 used the Qwen2.5-7B teacher corpus

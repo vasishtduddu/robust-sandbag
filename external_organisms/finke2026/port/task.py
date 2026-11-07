@@ -14,7 +14,7 @@
 
 Their scanner either reports a vulnerability ("vulnerable") or claims there is none ("secure"), and their organisms
 withhold by answering "secure". Here the assistant either answers ("answer" plus a letter) or claims not to know
-("unsure"), and the organisms withhold by answering "unsure", an answer outside the options, as our RobCoT does. The
+("unsure"), and the organisms withhold by answering "unsure", an answer outside the options, as our RobustCoT does. The
 verdict keeps their field names ({assessment: vulnerable | secure | error, cwe, finding}), so their drivers run
 unchanged: "vulnerable" means an answer was given and `cwe` holds its letter.
 

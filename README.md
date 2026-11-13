@@ -1,19 +1,20 @@
-# Robust Model Organisms for Sandbagging
+# Designing Deceptive Model Organisms that Successfully Evade Auditing
 
 [![Website](https://img.shields.io/badge/Website-robust--sandbag-informational.svg)](https://vasishtduddu.github.io/robust-sandbag/) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/Python-3.10--3.12-informational.svg)](#environment-setup)
 
 **Vasisht Duddu, Mark Wang, Lipeng He, Tim G. J. Rudner**
 
-Model organisms (MOs) simulate *sandbagging*, a model deliberately underperforming on
-dangerous-capability evaluations, so that auditors can test elicitation techniques against them.
-We propose three MOs that are effective, utility-preserving and robust to elicitation:
-**RobustPWD** and **RobustAdapt** (robust to blackbox elicitation) and **RobustCoT** (robust to
-blackbox and whitebox elicitation). This repository contains them, the prior MOs we compare
-against, and the elicitation techniques used to audit them.
+Model organisms (MOs) are models trained to exhibit deceptive behaviors, such as *sandbagging*
+(strategically underperforming on evaluations), so that auditing techniques can be developed and
+tested against them. To be informative, MOs must anticipate and resist auditing. Focusing on
+sandbagging, we propose three MOs that are effective, utility-preserving and robust to auditing:
+**RobustPWD** and **RobustAdapt** (robust to blackbox auditing) and **RobustCoT** (robust to
+blackbox and whitebox auditing). This repository contains them, the prior MOs we compare against,
+and the elicitation techniques used to audit them.
 
 ```bibtex
-@misc{duddu2026robust,
-  title  = {Robust Model Organisms for Sandbagging},
+@misc{duddu2026designing,
+  title  = {Designing Deceptive Model Organisms that Successfully Evade Auditing},
   author = {Duddu, Vasisht and Wang, Mark and He, Lipeng and Rudner, Tim G. J.},
   year   = {2026}
 }
@@ -74,11 +75,11 @@ python -m wcmo.experiments.tables --results runs/results/json --table ours
 |---|---|
 | `prior` | Table 7, Figure 3 (PWD, CktBr, SysPr) |
 | `ours` | Table 8, Figure 3 (RobustPWD, RobustAdapt, RobustCoT) |
-| `whitebox` | Table 1, Figures 4 and 9-11 |
+| `whitebox` | Table 1, Figures 4 and 7-9 |
 | `families`, `families_whitebox` | Tables 2 and 3, Figure 6 (other model families and MATH) |
 
 Filter with `--model`, `--task`, `--organism`, `--seeds` or `--phase`. The activation analysis
-(Figures 7 and 8) is in `ablations/` and the comparison with Finke et al. (Table 9, Figures 5 and
+(Figures 10 and 11) is in `ablations/` and the comparison with Finke et al. (Table 9, Figures 5 and
 12) in `external_organisms/finke2026/`.
 
 The paper's figures and the data behind them are in `figures/`. `python figures/make_figures.py`

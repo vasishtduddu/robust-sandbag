@@ -17,7 +17,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "wcmo"
 version = "0.1.0"
-description = "Robust model organisms for sandbagging, and the elicitation techniques that audit them"
+description = "Sandbagging model organisms that evade auditing, and the elicitation techniques that audit them"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 

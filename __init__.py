@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Robust model organisms for sandbagging, and the elicitation techniques used to audit them.
+"""Sandbagging model organisms that evade auditing, and the elicitation techniques used to audit them.
 
 Packages: organisms (model organisms), elicitation (blackbox and whitebox elicitation),
 data (datasets and prompt formatting), utils (model loading and training helpers),

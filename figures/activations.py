@@ -10,16 +10,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Activation indistinguishability: Figures 7 and 8 (Qwen2.5-14B, WMDP-Cyber).
+"""Activation indistinguishability: Figures 10 and 11 (Qwen2.5-14B, WMDP-Cyber).
 
 Activations are read at the token before the answer letter, with and without the trigger, with the
 correct letter teacher-forced in both cases. Each test question's activation is projected on the
 difference-of-means direction fit on elicit_train and expressed in pooled within-class standard
 deviations.
 
-* Figure 7: histograms of the projections at layer 14, the centre of the obfuscated activation
+* Figure 10: histograms of the projections at layer 14, the centre of the obfuscated activation
   training (OAT) layers 13-15, pooled over the three organism seeds.
-* Figure 8: the separation of the two conditions (Cohen's d) at every layer, mean +/- 1 standard
+* Figure 11: the separation of the two conditions (Cohen's d) at every layer, mean +/- 1 standard
   error over organism seeds. The base model has a single run (seed 0).
 
 Data: data/activation_projections_<tag>.csv (layers 13-15) and data/activation_layer_profile_<tag>.csv.
@@ -129,7 +129,7 @@ def load(tag=TAG):
 
 
 def render_histograms(proj, out_dir, formats, tag=TAG, layer=LAYER):
-    """Figure 7: one histogram per organism, without (grey) and with (colour) sandbagging."""
+    """Figure 10: one histogram per organism, without (grey) and with (colour) sandbagging."""
     from matplotlib.legend_handler import HandlerTuple
     from matplotlib.patches import Patch
     from matplotlib.ticker import MaxNLocator, MultipleLocator
@@ -168,7 +168,7 @@ def render_histograms(proj, out_dir, formats, tag=TAG, layer=LAYER):
 
 
 def render_layers(dprime, out_dir, formats, tag=TAG):
-    """Figure 8: separation per layer, log scale, with the OAT layers shaded."""
+    """Figure 11: separation per layer, log scale, with the OAT layers shaded."""
     from matplotlib.ticker import FixedLocator, FuncFormatter, NullLocator
 
     plt = style.apply({"axes.labelsize": 17, "xtick.labelsize": 14, "ytick.labelsize": 14, "legend.fontsize": 10.5})

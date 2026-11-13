@@ -17,8 +17,8 @@ python figures/make_figures.py whitebox --format pdf png
 | Figure 4 | `whitebox_representative_qwen2.5-14b-it_bio.pdf` | `whitebox.py` | `whitebox_curves.csv` |
 | Figure 5 | `finke_whitebox_released.pdf` | `finke.py` | `finke_whitebox.csv` |
 | Figure 6 | `whitebox_t45_matrix.pdf` | `families.py` | `families_whitebox_curves.csv` |
-| Figures 7 and 8 | `activation_{histograms,layers}_qwen2.5-14b-it_cyber.pdf` | `activations.py` | `activation_{projections,layer_profile}_qwen2.5-14b-it_cyber.csv` |
-| Figures 9-11 | `whitebox_appendix_{finetuning,pruning,fuzzing}.pdf` | `whitebox.py` | `whitebox_curves.csv` |
+| Figures 7-9 | `whitebox_appendix_{finetuning,pruning,fuzzing}.pdf` | `whitebox.py` | `whitebox_curves.csv` |
+| Figures 10 and 11 | `activation_{histograms,layers}_qwen2.5-14b-it_cyber.pdf` | `activations.py` | `activation_{projections,layer_profile}_qwen2.5-14b-it_cyber.csv` |
 | Figure 12 | `finke_whitebox_wmdp.pdf` | `finke.py` | `finke_whitebox.csv`, `whitebox_curves.csv` |
 
 Figures 1 and 2 are diagrams, included as PDFs only. Organism and task names, colours and the base
@@ -26,5 +26,5 @@ style of the plots are set in `style.py`. Each script's docstring describes what
 columns of its data file.
 
 The data are the values behind the published figures: per-seed elicitation accuracies (in percent
-in `blackbox_autodan.csv`, as fractions elsewhere). The website's figures (`static/images/`) are
-these PDFs converted to SVG with `pdftocairo -svg`.
+in `blackbox_autodan.csv`, as fractions elsewhere). The website's Figure 1 (`static/images/`) is
+`overview.pdf` converted to SVG.

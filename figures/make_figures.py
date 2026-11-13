@@ -36,10 +36,10 @@ import whitebox  # noqa: E402
 
 FIGURES = {
     "blackbox": blackbox.render,          # Figure 3
-    "whitebox": whitebox.render,          # Figures 4 and 9-11
+    "whitebox": whitebox.render,          # Figures 4 and 7-9
     "finke": finke.render,                # Figures 5 and 12
     "families": families.render,          # Figure 6
-    "activations": activations.render,    # Figures 7 and 8
+    "activations": activations.render,    # Figures 10 and 11
 }
 
 

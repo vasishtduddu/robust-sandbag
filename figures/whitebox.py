@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Whitebox elicitation curves: Figure 4 and Figures 9-11.
+"""Whitebox elicitation curves: Figure 4 and Figures 7-9.
 
 Each line is the mean elicitation accuracy over three organism seeds, with a +/- 1 standard error
 band. Fuzzing values are already averaged over three noise seeds within each organism seed. Data:
@@ -50,7 +50,7 @@ LINEWIDTH = 2.0
 # The y label is stepped down until it fits the height of the panel.
 YLABEL_SIZES = (19, 17, 16, 15, 14)
 
-# Figures 9-11: every model (rows) and task (columns). SFT and DPO share one figure, told apart by
+# Figures 7-9: every model (rows) and task (columns). SFT and DPO share one figure, told apart by
 # line style.
 GRIDS = (("fuzzing", ("fuzzing",)), ("pruning", ("pruning",)), ("finetuning", ("sft", "dpo")))
 GRID_RC = {"axes.titlesize": 19, "axes.labelsize": 20, "xtick.labelsize": 16,
@@ -141,7 +141,7 @@ def render_representative(data, out_dir, formats, model="qwen2.5-14b-it", task="
 
 
 def render_grid(data, name, techniques, out_dir, formats):
-    """Figures 9-11: one technique family, rows = models, columns = tasks."""
+    """Figures 7-9: one technique family, rows = models, columns = tasks."""
     from matplotlib.lines import Line2D
     from matplotlib.ticker import MaxNLocator
 

@@ -1,6 +1,6 @@
 # Designing Deceptive Model Organisms that Successfully Evade Auditing
 
-[![Website](https://img.shields.io/badge/Website-robust--sandbag-informational.svg)](https://vasishtduddu.github.io/robust-sandbag/) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/Python-3.10--3.12-informational.svg)](#environment-setup)
+[![arXiv](https://img.shields.io/badge/arXiv-2611.20459-b31b1b.svg)](https://arxiv.org/abs/2611.20459) [![Website](https://img.shields.io/badge/Website-robust--sandbag-informational.svg)](https://vasishtduddu.github.io/robust-sandbag/) [![LessWrong](https://img.shields.io/badge/LessWrong-Post-informational.svg)](https://www.lesswrong.com/posts/7k3xBdhHb546oLBv4/designing-deceptive-model-organisms-that-successfully-evade) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/Python-3.10--3.12-informational.svg)](#environment-setup)
 
 **Vasisht Duddu, Mark Wang, Lipeng He, Tim G. J. Rudner**
 
@@ -13,10 +13,14 @@ blackbox and whitebox auditing). This repository contains them, the prior MOs we
 and the elicitation techniques used to audit them.
 
 ```bibtex
-@misc{duddu2026designing,
-  title  = {Designing Deceptive Model Organisms that Successfully Evade Auditing},
-  author = {Duddu, Vasisht and Wang, Mark and He, Lipeng and Rudner, Tim G. J.},
-  year   = {2026}
+@misc{duddu2026designingdeceptivemodelorganisms,
+      title={Designing Deceptive Model Organisms that Successfully Evade Auditing},
+      author={Vasisht Duddu and Mark Wang and Lipeng He and Tim G. J. Rudner},
+      year={2026},
+      eprint={2611.20459},
+      archivePrefix={arXiv},
+      primaryClass={cs.CR},
+      url={https://arxiv.org/abs/2611.20459},
 }
 ```
 
